@@ -233,6 +233,7 @@ export const enum Commands {
 	ResetTrackedUsage = 'gitlens.resetTrackedUsage',
 	ResetViewsLayout = 'gitlens.resetViewsLayout',
 	RevealCommitInView = 'gitlens.revealCommitInView',
+	ShareAsCloudPatch = 'gitlens.shareAsCloudPatch',
 	SearchCommits = 'gitlens.showCommitSearch',
 	SearchCommitsInView = 'gitlens.views.searchAndCompare.searchCommits',
 	ShowBranchesView = 'gitlens.showBranchesView',
@@ -609,6 +610,7 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:views:fileHistory:cursorFollowing`
 	| `${typeof extensionPrefix}:views:fileHistory:editorFollowing`
 	| `${typeof extensionPrefix}:views:lineHistory:editorFollowing`
+	| `${typeof extensionPrefix}:views:patchDetails:mode`
 	| `${typeof extensionPrefix}:views:repositories:autoRefresh`
 	| `${typeof extensionPrefix}:vsls`
 	| `${typeof extensionPrefix}:plus`

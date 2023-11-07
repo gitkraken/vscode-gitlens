@@ -41,6 +41,9 @@ export interface Config {
 		readonly locations: ChangesLocations[];
 		/*readonly*/ toggleMode: AnnotationsToggleMode;
 	};
+	readonly cloudPatches: {
+		readonly enabled: boolean;
+	};
 	readonly codeLens: CodeLensConfig;
 	readonly currentLine: {
 		readonly dateFormat: string | null;
@@ -650,13 +653,6 @@ export interface CommitDetailsViewConfig {
 export interface PatchDetailsViewConfig {
 	readonly avatars: boolean;
 	readonly files: ViewsFilesConfig;
-	readonly autolinks: {
-		readonly enabled: boolean;
-		readonly enhanced: boolean;
-	};
-	readonly pullRequests: {
-		readonly enabled: boolean;
-	};
 }
 
 export interface ContributorsViewConfig {

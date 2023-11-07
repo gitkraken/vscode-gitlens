@@ -186,7 +186,7 @@ async function createLocalChange(
 @command()
 export class CreateCloudPatchCommand extends Command {
 	constructor(private readonly container: Container) {
-		super(Commands.CreateCloudPatch);
+		super([Commands.CreateCloudPatch, Commands.ShareAsCloudPatch]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: CreatePatchCommandArgs) {

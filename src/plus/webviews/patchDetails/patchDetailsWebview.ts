@@ -23,6 +23,7 @@ import { showCommitPicker } from '../../../quickpicks/commitPicker';
 import { getRepositoryOrShowPicker } from '../../../quickpicks/repositoryPicker';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
+import { setContext } from '../../../system/context';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
@@ -107,6 +108,7 @@ export class PatchDetailsWebviewProvider
 			create: undefined,
 			preferences: this.getPreferences(),
 		};
+
 		this.setHostTitle();
 		this.host.description = 'PREVIEW ☁️';
 
@@ -147,7 +149,10 @@ export class PatchDetailsWebviewProvider
 	}
 
 	registerCommands(): Disposable[] {
-		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true))];
+		return [
+			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
+			registerCommand(`${this.host.id}.close`, () => this.closeView()),
+		];
 	}
 
 	onMessageReceived(e: IpcMessage) {
@@ -293,10 +298,17 @@ export class PatchDetailsWebviewProvider
 	private get mode(): Mode {
 		return this._context.mode;
 	}
-	private setMode(mode: Mode) {
+	private setMode(mode: Mode, silent?: boolean) {
 		this._context.mode = mode;
-		this.setHostTitle();
-		this.updateState(true);
+		this.setHostTitle(mode);
+		void setContext('gitlens:views:patchDetails:mode', mode);
+		if (!silent) {
+			this.updateState(true);
+		}
+	}
+
+	private setHostTitle(mode: Mode = this._context.mode) {
+		this.host.title = mode === 'create' ? 'Create Cloud Patch' : 'Cloud Patch Details';
 	}
 
 	private applyPatch(params: ApplyPatchParams) {
@@ -310,6 +322,10 @@ export class PatchDetailsWebviewProvider
 		const changeset = draft.changesets?.[0];
 		if (changeset == null) return;
 		console.log(changeset);
+	}
+
+	private closeView() {
+		void setContext('gitlens:views:patchDetails:mode', undefined);
 	}
 
 	private updateCreateCheckedState(params: UpdateCreatePatchRepositoryCheckedStateParams) {
@@ -471,14 +487,13 @@ export class PatchDetailsWebviewProvider
 			);
 		}
 
-		this._context.mode = 'create';
-		this.setHostTitle();
 		this._context.create = {
 			title: create.title,
 			description: create.description,
 			changes: changesetByRepo,
 			showingAllRepos: allRepos,
 		};
+		this.setMode('create', true);
 		void this.notifyDidChangeCreateState();
 	}
 
@@ -515,14 +530,9 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private updateOpenState(draft: LocalDraft | Draft | undefined) {
-		this._context.mode = 'open';
 		this._context.open = draft;
-		this.setHostTitle();
+		this.setMode('open', true);
 		void this.notifyDidChangeDraftState();
-	}
-
-	private setHostTitle(mode: Mode = this._context.mode) {
-		this.host.title = mode === 'create' ? 'Create Patch' : 'Patch Details';
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
@@ -959,7 +969,7 @@ export class PatchDetailsWebviewProvider
 				preserveFocus: true,
 				preview: true,
 				...this.getShowOptions(params),
-				rhsTitle: `${basename(file.path)} (Patch)`,
+				rhsTitle: this.mode === 'open' ? `${basename(file.path)} (Patch)` : undefined,
 			},
 		);
 		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.host.id });

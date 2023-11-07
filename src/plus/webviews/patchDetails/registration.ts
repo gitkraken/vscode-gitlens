@@ -1,5 +1,6 @@
 import type { DraftSelectedEvent } from '../../../eventBus';
 import type { Repository } from '../../../git/models/repository';
+import { setContext } from '../../../system/context';
 import type { Serialized } from '../../../system/serialize';
 import type { WebviewsController } from '../../../webviews/webviewsController';
 import type { Change, State } from './protocol';
@@ -51,6 +52,12 @@ export function registerPatchDetailsWebviewView(controller: WebviewsController) 
 				/* webpackChunkName: "patchDetails" */ './patchDetailsWebview'
 			);
 			return new PatchDetailsWebviewProvider(container, host);
+		},
+		async (...args) => {
+			const arg = args[0];
+			if (arg == null) return;
+
+			await setContext('gitlens:views:patchDetails:mode', 'state' in arg ? arg.state.mode : arg.mode);
 		},
 	);
 }
