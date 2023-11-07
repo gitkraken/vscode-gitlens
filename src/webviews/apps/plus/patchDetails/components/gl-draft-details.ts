@@ -73,6 +73,9 @@ export class GlDraftDetails extends GlTreeBase {
 	@state()
 	selectedPatches: string[] = [];
 
+	@state()
+	validityMessage?: string;
+
 	get canSubmit() {
 		return this.selectedPatches.length > 0;
 		// return this.state.draft?.repoPath != null && this.state.draft?.baseRef != null;
@@ -94,13 +97,16 @@ export class GlDraftDetails extends GlTreeBase {
 			const patches = this.state?.draft?.patches;
 			if (!patches?.length) {
 				this.selectedPatches = [];
-			} else if (patches?.length === 1) {
-				this.selectedPatches = [patches[0].id];
 			} else {
-				this.selectedPatches = this.selectedPatches.filter(id => {
-					return patches.find(p => p.id === id) != null;
-				});
+				this.selectedPatches = patches.map(p => p.id);
 			}
+			// } else if (patches?.length === 1) {
+			// 	this.selectedPatches = [patches[0].id];
+			// } else {
+			// 	this.selectedPatches = this.selectedPatches.filter(id => {
+			// 		return patches.find(p => p.id === id) != null;
+			// 	});
+			// }
 		}
 	}
 
@@ -217,6 +223,16 @@ export class GlDraftDetails extends GlTreeBase {
 				<!-- <span slot="subtitle" data-region="stats">\${this.renderCommitStats()}</span> -->
 				<action-nav slot="actions">${this.renderLayoutAction(layout)}</action-nav>
 
+				${when(
+					this.validityMessage != null,
+					() =>
+						html`<div class="section">
+							<div class="alert alert--error">
+								<code-icon icon="error"></code-icon>
+								<p class="alert__content">${this.validityMessage}</p>
+							</div>
+						</div>`,
+				)}
 				<div class="change-list" data-region="files">
 					${when(
 						this.state?.draft?.patches == null,
@@ -501,13 +517,26 @@ export class GlDraftDetails extends GlTreeBase {
 	override onTreeItemChecked(e: CustomEvent<TreeItemCheckedDetail>) {
 		if (!e.detail.context) return;
 
-		const [repoPath] = e.detail.context;
-		const event = new CustomEvent('repo-checked', {
-			detail: {
-				path: repoPath,
-			},
-		});
-		this.dispatchEvent(event);
+		const [gkRepositoryId] = e.detail.context;
+		const patch = this.state.draft?.patches?.find(p => p.gkRepositoryId === gkRepositoryId);
+		if (!patch) return;
+		const selectedIndex = this.selectedPatches.indexOf(patch?.id);
+		if (e.detail.checked) {
+			if (selectedIndex === -1) {
+				this.selectedPatches.push(patch.id);
+				this.validityMessage = undefined;
+			}
+		} else if (selectedIndex > -1) {
+			this.selectedPatches.splice(selectedIndex, 1);
+		}
+
+		// const [repoPath] = e.detail.context;
+		// const event = new CustomEvent('repo-checked', {
+		// 	detail: {
+		// 		path: repoPath,
+		// 	},
+		// });
+		// this.dispatchEvent(event);
 	}
 
 	override onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
@@ -518,7 +547,12 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	onApplyPatch(e?: MouseEvent | KeyboardEvent, target: 'current' | 'branch' | 'worktree' = 'current') {
-		if (this.canSubmit === false) return;
+		if (this.canSubmit === false) {
+			this.validityMessage = 'Please select changes to apply';
+			return;
+		}
+
+		this.validityMessage = undefined;
 
 		this.fireEvent('gl-patch-apply-patch', {
 			draft: this.state.draft!,
