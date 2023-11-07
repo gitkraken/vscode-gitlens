@@ -160,7 +160,12 @@ export class GlTreeBase<Events extends GlEvents = GlEvents> extends GlElement<Ev
 		};
 	}
 
-	protected repoToTreeModel(name: string, path: string, options?: Partial<TreeItemBase>): TreeModel<string[]> {
+	protected repoToTreeModel(
+		name: string,
+		path: string,
+		options?: Partial<TreeItemBase>,
+		description?: string,
+	): TreeModel<string[]> {
 		return {
 			branch: false,
 			expanded: true,
@@ -170,6 +175,7 @@ export class GlTreeBase<Events extends GlEvents = GlEvents> extends GlElement<Ev
 			checked: true,
 			icon: 'repo',
 			label: name,
+			description: description,
 			context: [path],
 			actions: this.getRepoActions(name, path, options),
 			...options,

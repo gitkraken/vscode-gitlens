@@ -6,7 +6,12 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import type { DraftPatchFileChange } from '../../../../../gk/models/drafts';
-import type { DraftDetails, FileActionParams, State } from '../../../../../plus/webviews/patchDetails/protocol';
+import type {
+	DraftDetails,
+	FileActionParams,
+	PatchDetails,
+	State,
+} from '../../../../../plus/webviews/patchDetails/protocol';
 import { makeHierarchical } from '../../../../../system/array';
 import { flatCount } from '../../../../../system/iterable';
 import type {
@@ -59,6 +64,11 @@ export interface ShowPatchInGraphDetail {
 	// [key: string]: unknown;
 }
 
+export interface PatchCheckedDetail {
+	patch: PatchDetails;
+	checked: boolean;
+}
+
 @customElement('gl-draft-details')
 export class GlDraftDetails extends GlTreeBase {
 	@property({ type: Object })
@@ -99,6 +109,16 @@ export class GlDraftDetails extends GlTreeBase {
 				this.selectedPatches = [];
 			} else {
 				this.selectedPatches = patches.map(p => p.id);
+				for (const patch of patches) {
+					const index = this.selectedPatches.indexOf(patch.id);
+					if (patch.repository.located) {
+						if (index === -1) {
+							this.selectedPatches.push(patch.id);
+						}
+					} else if (index > -1) {
+						this.selectedPatches.splice(index, 1);
+					}
+				}
 			}
 			// } else if (patches?.length === 1) {
 			// 	this.selectedPatches = [patches[0].id];
@@ -244,6 +264,7 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
+	// TODO: make a local state instead of a getter
 	get treeModel(): TreeModel[] {
 		if (this.state?.draft?.patches == null) return [];
 
@@ -262,9 +283,12 @@ export class GlDraftDetails extends GlTreeBase {
 		}
 
 		// checkable only for multi-repo
-		const options = { checkable: patches.length > 1 };
+		const isMultiRepo = patches.length > 1;
 		const models = patches?.map(p =>
-			this.draftPatchToTreeModel(p, isTree, this.state.preferences?.files?.compact, options),
+			this.draftPatchToTreeModel(p, isTree, this.state.preferences?.files?.compact, {
+				checkable: isMultiRepo,
+				checked: this.selectedPatches.includes(p.id),
+			}),
 		);
 		return models;
 	}
@@ -530,13 +554,13 @@ export class GlDraftDetails extends GlTreeBase {
 			this.selectedPatches.splice(selectedIndex, 1);
 		}
 
-		// const [repoPath] = e.detail.context;
-		// const event = new CustomEvent('repo-checked', {
-		// 	detail: {
-		// 		path: repoPath,
-		// 	},
-		// });
-		// this.dispatchEvent(event);
+		const event = new CustomEvent('gl-patch-checked', {
+			detail: {
+				patch: patch,
+				checked: e.detail.checked,
+			},
+		});
+		this.dispatchEvent(event);
 	}
 
 	override onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
@@ -606,7 +630,12 @@ export class GlDraftDetails extends GlTreeBase {
 		compact = true,
 		options?: Partial<TreeItemBase>,
 	): TreeModel {
-		const model = this.repoToTreeModel(patch.repository.name, patch.gkRepositoryId, options);
+		const model = this.repoToTreeModel(
+			patch.repository.name,
+			patch.gkRepositoryId,
+			options,
+			patch.repository.located ? undefined : 'missing',
+		);
 
 		if (!patch.files?.length) return model;
 
@@ -677,7 +706,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 declare global {
 	interface HTMLElementTagNameMap {
-		'gl-patch-details': GlDraftDetails;
+		'gl-draft-details': GlDraftDetails;
 	}
 
 	interface WindowEventMap {
@@ -688,5 +717,6 @@ declare global {
 		'gl-patch-file-compare-previous': CustomEvent<FileActionParams>;
 		'gl-patch-file-compare-working': CustomEvent<FileActionParams>;
 		'gl-patch-file-open': CustomEvent<FileActionParams>;
+		'gl-patch-checked': CustomEvent<PatchCheckedDetail>;
 	}
 }
