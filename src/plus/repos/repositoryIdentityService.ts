@@ -44,20 +44,20 @@ export class RepositoryIdentityService implements Disposable {
 
 	private async locateRepository(
 		id: GkRepositoryId,
-		options?: { openIfNeeded?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean },
 	): Promise<Repository | undefined>;
 	private async locateRepository(
 		identity: RepositoryIdentity,
-		options?: { openIfNeeded?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean },
 	): Promise<Repository | undefined>;
 	private async locateRepository(
 		idOrIdentity: GkRepositoryId | RepositoryIdentity,
-		options?: { openIfNeeded?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean },
 	): Promise<Repository | undefined>;
 	@log()
 	private async locateRepository(
 		idOrIdentity: GkRepositoryId | RepositoryIdentity,
-		options?: { openIfNeeded?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean },
 	): Promise<Repository | undefined> {
 		const identity =
 			typeof idOrIdentity === 'string' ? await this.getRepositoryIdentity(idOrIdentity) : idOrIdentity;
@@ -87,33 +87,36 @@ export class RepositoryIdentityService implements Disposable {
 			if (foundRepo == null && options?.openIfNeeded) {
 				foundRepo = await this.container.git.getOrOpenRepository(Uri.file(matches[0]), { closeOnOpen: true });
 			}
+		} else {
+			const [, remoteDomain, remotePath] =
+				identity.remote?.url != null ? parseGitRemoteUrl(identity.remote.url) : [];
 
-			return foundRepo;
+			// Try to match a repo using the remote URL first, since that saves us some steps.
+			// As a fallback, try to match using the repo id.
+			for (const repo of this.container.git.repositories) {
+				if (remoteDomain != null && remotePath != null) {
+					const matchingRemotes = await repo.getRemotes({
+						filter: r => r.matches(remoteDomain, remotePath),
+					});
+					if (matchingRemotes.length > 0) {
+						foundRepo = repo;
+						break;
+					}
+				}
+
+				if (identity.initialCommitSha != null && identity.initialCommitSha !== missingRepositoryId) {
+					// Repo ID can be any valid SHA in the repo, though standard practice is to use the
+					// first commit SHA.
+					if (await this.container.git.validateReference(repo.uri, identity.initialCommitSha)) {
+						foundRepo = repo;
+						break;
+					}
+				}
+			}
 		}
 
-		const [, remoteDomain, remotePath] = identity.remote?.url != null ? parseGitRemoteUrl(identity.remote.url) : [];
-
-		// Try to match a repo using the remote URL first, since that saves us some steps.
-		// As a fallback, try to match using the repo id.
-		for (const repo of this.container.git.repositories) {
-			if (remoteDomain != null && remotePath != null) {
-				const matchingRemotes = await repo.getRemotes({
-					filter: r => r.matches(remoteDomain, remotePath),
-				});
-				if (matchingRemotes.length > 0) {
-					foundRepo = repo;
-					break;
-				}
-			}
-
-			if (identity.initialCommitSha != null && identity.initialCommitSha !== missingRepositoryId) {
-				// Repo ID can be any valid SHA in the repo, though standard practice is to use the
-				// first commit SHA.
-				if (await this.container.git.validateReference(repo.uri, identity.initialCommitSha)) {
-					foundRepo = repo;
-					break;
-				}
-			}
+		if (foundRepo == null && options?.prompt) {
+			// TODO@eamodio prompt the user here if we pass in
 		}
 
 		return foundRepo;

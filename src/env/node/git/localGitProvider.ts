@@ -1223,7 +1223,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		void window.showInformationMessage(`Patch applied successfully`);
 	}
 
-	@log()
+	@log({ args: { 1: '<contents>', 3: '<message>' } })
 	async createUnreachableCommitForPatch(
 		repoPath: string,
 		contents: string,

@@ -126,7 +126,7 @@ export class DraftService implements Disposable {
 					type: 'cloud',
 					id: patch.id,
 					createdAt: new Date(patch.createdAt),
-					updatedAt: new Date(patch.updatedAt),
+					updatedAt: new Date(patch.updatedAt ?? patch.createdAt),
 					draftId: patch.draftId,
 					changesetId: patch.changesetId,
 					userId: createChangeset.userId,
@@ -168,7 +168,7 @@ export class DraftService implements Disposable {
 				type: draft.type,
 				id: draftId,
 				createdAt: new Date(draft.createdAt),
-				updatedAt: new Date(draft.updatedAt),
+				updatedAt: new Date(draft.updatedAt ?? draft.createdAt),
 				author: author,
 				organizationId: draft.organizationId || undefined,
 				isPublished: draft.isPublished,
@@ -184,7 +184,7 @@ export class DraftService implements Disposable {
 					{
 						id: createChangeset.id,
 						createdAt: new Date(createChangeset.createdAt),
-						updatedAt: new Date(createChangeset.updatedAt),
+						updatedAt: new Date(createChangeset.updatedAt ?? createChangeset.createdAt),
 						draftId: createChangeset.draftId,
 						parentChangesetId: createChangeset.parentChangesetId,
 						userId: createChangeset.userId,
@@ -323,7 +323,7 @@ export class DraftService implements Disposable {
 			type: draft.type,
 			id: draft.id,
 			createdAt: new Date(draft.createdAt),
-			updatedAt: new Date(draft.updatedAt),
+			updatedAt: new Date(draft.updatedAt ?? draft.createdAt),
 			author: author,
 			organizationId: draft.organizationId || undefined,
 			isPublished: draft.isPublished,
@@ -367,7 +367,7 @@ export class DraftService implements Disposable {
 				deepLinkAccess: d.isPublic ? 'public' : 'private',
 
 				createdAt: new Date(d.createdAt),
-				updatedAt: new Date(d.updatedAt),
+				updatedAt: new Date(d.updatedAt ?? d.createdAt),
 
 				latestChangesetId: d.latestChangesetId,
 			}),
@@ -399,7 +399,7 @@ export class DraftService implements Disposable {
 					type: 'cloud',
 					id: p.id,
 					createdAt: new Date(p.createdAt),
-					updatedAt: new Date(p.updatedAt),
+					updatedAt: new Date(p.updatedAt ?? p.createdAt),
 					draftId: p.draftId,
 					changesetId: p.changesetId,
 					userId: c.userId,
@@ -418,7 +418,7 @@ export class DraftService implements Disposable {
 			changesets.push({
 				id: c.id,
 				createdAt: new Date(c.createdAt),
-				updatedAt: new Date(c.updatedAt),
+				updatedAt: new Date(c.updatedAt ?? c.createdAt),
 				draftId: c.draftId,
 				parentChangesetId: c.parentChangesetId,
 				userId: c.userId,
@@ -457,7 +457,7 @@ export class DraftService implements Disposable {
 			type: 'cloud',
 			id: data.id,
 			createdAt: new Date(data.createdAt),
-			updatedAt: new Date(data.updatedAt),
+			updatedAt: new Date(data.updatedAt ?? data.createdAt),
 			draftId: data.draftId,
 			changesetId: data.changesetId,
 			userId: data.userId,
@@ -471,7 +471,9 @@ export class DraftService implements Disposable {
 
 	async getPatchDetails(id: string): Promise<DraftPatchDetails>;
 	async getPatchDetails(patch: DraftPatch): Promise<DraftPatchDetails>;
-	@log()
+	@log<DraftService['getPatchDetails']>({
+		args: { 0: idOrPatch => (typeof idOrPatch === 'string' ? idOrPatch : idOrPatch.id) },
+	})
 	async getPatchDetails(idOrPatch: string | DraftPatch): Promise<DraftPatchDetails> {
 		const patch = typeof idOrPatch === 'string' ? await this.getPatchCore(idOrPatch) : idOrPatch;
 

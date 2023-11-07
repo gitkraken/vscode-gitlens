@@ -327,14 +327,18 @@ export class PatchDetailsWebviewProvider
 
 	private async createDraft({ title, changesets, description }: CreatePatchParams): Promise<void> {
 		const createChanges: CreateDraftChange[] = [];
-		for (const [id, changeset] of Object.entries(changesets)) {
-			if (changeset.checked === false) continue;
+
+		const changes = Object.entries(changesets);
+		const ignoreChecked = changes.length === 1;
+
+		for (const [id, change] of changes) {
+			if (!ignoreChecked && change.checked === false) continue;
 
 			const repoChangeset = this._context.create?.changes?.get(id);
 			if (repoChangeset == null) continue;
 
 			let { revision, repository } = repoChangeset;
-			if (changeset.type === 'wip' && changeset.checked === 'staged') {
+			if (change.type === 'wip' && change.checked === 'staged') {
 				revision = { ...revision, sha: uncommittedStaged };
 			}
 

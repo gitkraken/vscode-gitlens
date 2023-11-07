@@ -1358,6 +1358,7 @@ export class GitProviderService implements Disposable {
 		return provider.clone?.(url, parentPath);
 	}
 
+	@log()
 	async applyPatchCommit(
 		repoPath: string | Uri,
 		patchCommitRef: string,
@@ -1367,7 +1368,7 @@ export class GitProviderService implements Disposable {
 		return provider.applyPatchCommit?.(path, patchCommitRef, options);
 	}
 
-	@log()
+	@log({ args: { 1: '<contents>', 3: '<message>' } })
 	async createUnreachableCommitForPatch(
 		repoPath: string | Uri,
 		contents: string,

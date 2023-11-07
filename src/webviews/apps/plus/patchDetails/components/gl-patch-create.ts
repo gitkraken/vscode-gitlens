@@ -250,7 +250,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 
 		const treeModel: TreeModel[] = [];
 		// for knowing if we need to show repos
-		const isCheckable = true; //this.createChanges.length > 1;
+		const isCheckable = this.createChanges.length > 1;
 		const isTree = this.isTree(this.filesModified ?? 0);
 		const compact = this.isCompact;
 
