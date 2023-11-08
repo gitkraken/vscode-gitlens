@@ -25,17 +25,17 @@ export class RepositoryIdentityService implements Disposable {
 
 	getRepository(
 		id: GkRepositoryId,
-		options?: { openIfNeeded?: boolean; prompt?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined>;
 	getRepository(
 		identity: RepositoryIdentity,
-		options?: { openIfNeeded?: boolean; prompt?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined>;
 
 	@log()
 	getRepository(
 		idOrIdentity: GkRepositoryId | RepositoryIdentity,
-		options?: { openIfNeeded?: boolean; prompt?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined> {
 		return this.locateRepository(idOrIdentity, options);
 	}
@@ -43,7 +43,7 @@ export class RepositoryIdentityService implements Disposable {
 	@log()
 	async getRepositoryOrIdentity(
 		id: GkRepositoryId,
-		options?: { openIfNeeded?: boolean; prompt?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | RepositoryIdentity> {
 		const identity = await this.getRepositoryIdentity(id);
 		return (await this.locateRepository(identity, options)) ?? identity;
@@ -51,20 +51,20 @@ export class RepositoryIdentityService implements Disposable {
 
 	private async locateRepository(
 		id: GkRepositoryId,
-		options?: { openIfNeeded?: boolean; prompt?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined>;
 	private async locateRepository(
 		identity: RepositoryIdentity,
-		options?: { openIfNeeded?: boolean; prompt?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined>;
 	private async locateRepository(
 		idOrIdentity: GkRepositoryId | RepositoryIdentity,
-		options?: { openIfNeeded?: boolean; prompt?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined>;
 	@log()
 	private async locateRepository(
 		idOrIdentity: GkRepositoryId | RepositoryIdentity,
-		options?: { openIfNeeded?: boolean; prompt?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined> {
 		const identity =
 			typeof idOrIdentity === 'string' ? await this.getRepositoryIdentity(idOrIdentity) : idOrIdentity;
@@ -111,7 +111,11 @@ export class RepositoryIdentityService implements Disposable {
 					}
 				}
 
-				if (identity.initialCommitSha != null && identity.initialCommitSha !== missingRepositoryId) {
+				if (
+					!options?.skipRefValidation &&
+					identity.initialCommitSha != null &&
+					identity.initialCommitSha !== missingRepositoryId
+				) {
 					// Repo ID can be any valid SHA in the repo, though standard practice is to use the
 					// first commit SHA.
 					if (await this.container.git.validateReference(repo.uri, identity.initialCommitSha)) {

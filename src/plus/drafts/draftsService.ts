@@ -479,7 +479,10 @@ export class DraftService implements Disposable {
 
 		const [contentsResult, repositoryResult] = await Promise.allSettled([
 			this.getPatchContentsCore(patch.secureLink),
-			this.container.repositoryIdentity.getRepositoryOrIdentity(patch.gkRepositoryId),
+			this.container.repositoryIdentity.getRepositoryOrIdentity(patch.gkRepositoryId, {
+				openIfNeeded: true,
+				skipRefValidation: true,
+			}),
 		]);
 
 		const contents = getSettledValue(contentsResult)!;
