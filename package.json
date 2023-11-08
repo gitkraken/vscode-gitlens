@@ -15599,8 +15599,8 @@
 					},
 					{
 						"id": "gitlens.welcome.workspaces",
-						"title": "Work smarter with GitKraken Workspaces ☁️ and Focus ✨",
-						"description": "GitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)\n\nFocus brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Focus](command:gitlens.showFocusPage)",
+						"title": "Work smarter with Focus ✨ and GitKraken Workspaces ☁️",
+						"description": "Focus brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Focus](command:gitlens.showFocusPage)\n\nGitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)",
 						"media": {
 							"altText": "Illustrations of Focus and Workspaces view",
 							"svg": "walkthroughs/welcome/workspaces-focus.svg"
