@@ -99,6 +99,10 @@ export class FeatureGatePlusState extends LitElement {
 						Your GitKraken trial has ended, please upgrade to continue to use this on privately hosted
 						repos.
 					</p>
+					<p style="text-align: center;">
+						Special: <b>50% off GitKraken's suite of dev tools</b><br />
+						1st & 2nd seats only $4/month each
+					</p>
 					<gl-button appearance="${appearance}" href="command:gitlens.plus.purchase"
 						>Upgrade to Pro</gl-button
 					>
