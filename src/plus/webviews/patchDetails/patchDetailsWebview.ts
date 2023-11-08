@@ -381,15 +381,17 @@ export class PatchDetailsWebviewProvider
 			async function showNotification() {
 				const view = { title: 'View Patch' };
 				const copy = { title: 'Copy Link' };
+				let copied = false;
 				while (true) {
 					const result = await window.showInformationMessage(
-						'Cloud Patch successfully created \u2014 link copied to the clipboard',
+						`Cloud Patch successfully created${copied ? '\u2014 link copied to the clipboard' : ''}`,
 						view,
 						copy,
 					);
 
 					if (result === copy) {
 						void env.clipboard.writeText(draft.deepLinkUrl);
+						copied = true;
 						continue;
 					}
 
