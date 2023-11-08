@@ -555,7 +555,7 @@ export class PatchDetailsWebviewProvider
 		let allRepos = false;
 
 		if (create.changes != null) {
-			changesetByRepo = new Map<string, RepositoryChangeset>();
+			changesetByRepo = this._context.create?.changes ?? new Map<string, RepositoryChangeset>();
 
 			const updated = new Set<string>();
 			for (const change of create.changes) {
@@ -607,7 +607,7 @@ export class PatchDetailsWebviewProvider
 							sha: uncommitted,
 						},
 						this.onRepositoryWipChanged.bind(this),
-						false,
+						true,
 						true, // TODO revisit
 					),
 				]),
