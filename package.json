@@ -15371,7 +15371,7 @@
 					"type": "webview",
 					"id": "gitlens.views.patchDetails",
 					"name": "Patch",
-					"when": "!gitlens:disabled && config.gitlens.cloudPatches.enabled && gitlens:views:patchDetails:mode",
+					"when": "!gitlens:untrusted && config.gitlens.cloudPatches.enabled && gitlens:views:patchDetails:mode",
 					"contextualTitle": "GL",
 					"icon": "$(gitlens-commit-view)",
 					"initialSize": 24
