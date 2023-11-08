@@ -187,6 +187,10 @@ export class AccountContent extends LitElement {
 						Your GitKraken trial has ended, please upgrade to continue to use ✨ features on privately
 						hosted repos.
 					</p>
+					<p>
+						Special: <b>50% off GitKraken's suite of dev tools</b><br />
+						1st & 2nd seats only $4/month each
+					</p>
 					<button-container>
 						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
 					</button-container>
@@ -211,6 +215,10 @@ export class AccountContent extends LitElement {
 							: `You have
 						${this.daysRemaining} remaining in your GitKraken trial.`}
 						Once your trial ends, you'll need a paid plan to continue using ✨ features.
+					</p>
+					<p>
+						Special: <b>50% off GitKraken's suite of dev tools</b><br />
+						1st & 2nd seats only $4/month each
 					</p>
 					<button-container>
 						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
