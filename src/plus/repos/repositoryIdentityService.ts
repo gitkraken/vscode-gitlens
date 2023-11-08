@@ -1,7 +1,8 @@
 import type { Disposable } from 'vscode';
-import { Uri } from 'vscode';
+import { Uri, window } from 'vscode';
 import type { Container } from '../../container';
 import { shortenRevision } from '../../git/models/reference';
+import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders';
@@ -34,7 +35,7 @@ export class RepositoryIdentityService implements Disposable {
 	@log()
 	getRepository(
 		idOrIdentity: GkRepositoryId | RepositoryIdentity,
-		options?: { openIfNeeded?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean },
 	): Promise<Repository | undefined> {
 		return this.locateRepository(idOrIdentity, options);
 	}
@@ -122,7 +123,41 @@ export class RepositoryIdentityService implements Disposable {
 		}
 
 		if (foundRepo == null && options?.prompt) {
-			// TODO@eamodio prompt the user here if we pass in
+			const locate = { title: 'Locate Repository' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const decision = await window.showInformationMessage(
+				`Unable to locate a repository for ${identity.name}`,
+				{ modal: true },
+				locate,
+				cancel,
+			);
+
+			if (decision !== locate) return undefined;
+
+			const repoLocatedUri = (
+				await window.showOpenDialog({
+					title: `Choose a location for ${identity.name}`,
+					canSelectFiles: false,
+					canSelectFolders: true,
+					canSelectMany: false,
+				})
+			)?.[0];
+
+			if (repoLocatedUri == null) return undefined;
+
+			const locatedRepo = await this.container.git.getOrOpenRepository(repoLocatedUri, {
+				closeOnOpen: true,
+				detectNested: false,
+			});
+
+			if (locatedRepo == null) return undefined;
+			if (
+				identity.initialCommitSha == null ||
+				(await this.container.git.validateReference(locatedRepo.uri, identity.initialCommitSha))
+			) {
+				foundRepo = locatedRepo;
+				await this.addFoundRepositoryToMap(foundRepo, identity);
+			}
 		}
 
 		return foundRepo;
@@ -159,5 +194,34 @@ export class RepositoryIdentityService implements Disposable {
 			remote: data.remote,
 			provider: data.provider,
 		};
+	}
+
+	private async addFoundRepositoryToMap(repo: Repository, identity?: RepositoryIdentity) {
+		const repoPath = repo.uri.fsPath;
+
+		const remotes = await repo.getRemotes();
+		for (const remote of remotes) {
+			const remoteUrl = remote.provider?.url({ type: RemoteResourceType.Repo });
+			if (remoteUrl != null) {
+				await this.container.repositoryPathMapping.writeLocalRepoPath({ remoteUrl: remoteUrl }, repoPath);
+			}
+		}
+
+		if (
+			identity?.provider?.id != null &&
+			identity?.provider?.repoDomain != null &&
+			identity?.provider?.repoName != null
+		) {
+			await this.container.repositoryPathMapping.writeLocalRepoPath(
+				{
+					repoInfo: {
+						provider: identity.provider.id,
+						owner: identity.provider.repoDomain,
+						repoName: identity.provider.repoName,
+					},
+				},
+				repoPath,
+			);
+		}
 	}
 }
