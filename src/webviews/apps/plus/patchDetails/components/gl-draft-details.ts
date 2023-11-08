@@ -282,11 +282,9 @@ export class GlDraftDetails extends GlTreeBase {
 			isTree = layout === 'tree';
 		}
 
-		// checkable only for multi-repo
-		const isMultiRepo = patches.length > 1;
 		const models = patches?.map(p =>
 			this.draftPatchToTreeModel(p, isTree, this.state.preferences?.files?.compact, {
-				checkable: isMultiRepo,
+				checkable: true,
 				checked: this.selectedPatches.includes(p.id),
 			}),
 		);
@@ -427,13 +425,6 @@ export class GlDraftDetails extends GlTreeBase {
 											>
 										`,
 									)}
-									<a
-										class="commit-action"
-										href="#"
-										aria-label="Show Patch Actions"
-										title="Show Patch Actions"
-										><code-icon icon="kebab-vertical"></code-icon
-									></a>
 								</div>
 							</div>
 							${when(
