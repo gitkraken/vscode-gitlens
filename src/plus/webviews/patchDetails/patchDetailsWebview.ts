@@ -301,17 +301,39 @@ export class PatchDetailsWebviewProvider
 		this.host.title = mode === 'create' ? 'Create Cloud Patch' : 'Cloud Patch Details';
 	}
 
-	private applyPatch(_params: ApplyPatchParams) {
+	private async applyPatch(params: ApplyPatchParams) {
 		// if (params.details.repoPath == null || params.details.commit == null) return;
 		// void this.container.git.applyPatchCommit(params.details.repoPath, params.details.commit, {
 		// 	branchName: params.targetRef,
 		// });
-		if (this._context.draft == null) return;
-		if (this._context.draft.draftType === 'local') return;
-		const draft = this._context.draft;
-		const changeset = draft.changesets?.[0];
+		if (this._context.draft == null || this._context.draft.draftType === 'local' || !params.selected?.length) {
+			return;
+		}
+
+		const changeset = this._context.draft.changesets?.[0];
 		if (changeset == null) return;
-		console.log(changeset);
+
+		for (const patch of changeset.patches) {
+			if (!params.selected.includes(patch.id)) continue;
+
+			try {
+				console.log(patch);
+				let commit = patch.commit;
+				if (!commit) {
+					commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
+				}
+				if (!commit) {
+					// TODO: say we can't apply this patch
+					continue;
+				}
+
+				void this.container.git.applyPatchCommit(commit.repoPath, commit.ref, {
+					branchName: patch.baseBranchName,
+				});
+			} catch (ex) {
+				void window.showErrorMessage(`Unable apply patch to '${patch.baseRef}': ${ex.message}`);
+			}
+		}
 	}
 
 	private closeView() {
