@@ -13,6 +13,7 @@ export class ShowViewCommand extends Command {
 			Commands.ShowCommitDetailsView,
 			Commands.ShowCommitsView,
 			Commands.ShowContributorsView,
+			Commands.ShowDraftsView,
 			Commands.ShowFileHistoryView,
 			Commands.ShowGraphView,
 			Commands.ShowHomeView,
@@ -44,6 +45,8 @@ export class ShowViewCommand extends Command {
 				return this.container.commitsView.show();
 			case Commands.ShowContributorsView:
 				return this.container.contributorsView.show();
+			case Commands.ShowDraftsView:
+				return this.container.draftsView.show();
 			case Commands.ShowFileHistoryView:
 				return this.container.fileHistoryView.show();
 			case Commands.ShowHomeView:

@@ -5094,6 +5094,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showDraftsView",
+				"title": "Show Cloud Patches View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showFileHistoryView",
 				"title": "Show File History View",
 				"category": "GitLens"
@@ -8595,6 +8600,10 @@
 				},
 				{
 					"command": "gitlens.showContributorsView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showDraftsView",
 					"when": "gitlens:enabled"
 				},
 				{
