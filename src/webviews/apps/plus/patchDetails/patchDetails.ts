@@ -99,7 +99,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			DOM.on<GlPatchDetailsApp, undefined>('gl-patch-details-app', 'gl-patch-share-local-patch', () =>
 				this.onShareLocalPatch(),
 			),
-			DOM.on<GlPatchDetailsApp, undefined>('gl-patch-details-app', 'gl-patch-copy-cloud-link', () =>
+			DOM.on<GlDraftDetails, undefined>('gl-draft-details', 'gl-patch-details-copy-cloud-link', () =>
 				this.onCopyCloudLink(),
 			),
 			DOM.on<GlPatchCreate, CreatePatchCheckRepositoryEventDetail>(
