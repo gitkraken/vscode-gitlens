@@ -15388,7 +15388,7 @@
 				{
 					"id": "gitlens.views.drafts",
 					"name": "Cloud Patches",
-					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.cloudPatches.enabled",
 					"contextualTitle": "GL",
 					"icon": "$(cloud)",
 					"initialSize": 2,
