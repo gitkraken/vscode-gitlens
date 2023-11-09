@@ -13,7 +13,7 @@ import { createReference } from '../../../git/models/reference';
 import { isRepository } from '../../../git/models/repository';
 import type { CreateDraftChange, Draft, DraftPatch, DraftPatchFileChange, LocalDraft } from '../../../gk/models/drafts';
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
-import { showBranchPicker } from '../../../quickpicks/branchPicker';
+import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { setContext } from '../../../system/context';
@@ -348,9 +348,9 @@ export class PatchDetailsWebviewProvider
 
 				if (shouldPickBranch) {
 					const repo = commit.getRepository();
-					const branch = await showBranchPicker(
+					const branch = await showNewOrSelectBranchPicker(
 						`Choose a Branch ${GlyphChars.Dot} ${repo?.name}`,
-						'Choose a branch to apply the Cloud Patch to',
+						// 'Choose a branch to apply the Cloud Patch to',
 						repo,
 					);
 
@@ -360,9 +360,11 @@ export class PatchDetailsWebviewProvider
 						);
 						continue;
 					}
+
+					const isString = typeof branch === 'string';
 					options = {
-						branchName: branch.ref,
-						createBranchIfNeeded: true,
+						branchName: isString ? branch : branch.ref,
+						createBranchIfNeeded: isString,
 					};
 				}
 
