@@ -345,7 +345,20 @@ export class GlDraftDetails extends GlTreeBase {
 				<div class="section section--sticky-actions">
 					<p class="button-container">
 						<span class="button-group button-group--single">
-							<gl-button full @click=${this.onApplyPatch}>Apply Cloud Patch</gl-button>
+							<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
+							<gk-popover placement="top">
+								<gl-button
+									slot="trigger"
+									density="compact"
+									aria-label="Apply Patch Options..."
+									title="Apply Patch Options..."
+									><code-icon icon="chevron-down"></code-icon
+								></gl-button>
+								<gk-menu class="mine-menu" @select=${this.onSelectApplyOption}>
+									<gk-menu-item data-value="branch">Apply to new branch</gk-menu-item>
+									<!-- <gk-menu-item data-value="worktree">Apply to new worktree</gk-menu-item> -->
+								</gk-menu>
+							</gk-popover>
 						</span>
 					</p>
 				</div>
@@ -577,7 +590,10 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	onSelectApplyOption(e: CustomEvent<{ target: MenuItem }>) {
-		if (this.canSubmit === false) return;
+		if (this.canSubmit === false) {
+			this.validityMessage = 'Please select changes to apply';
+			return;
+		}
 
 		const target = e.detail?.target;
 		if (target?.dataset?.value != null) {

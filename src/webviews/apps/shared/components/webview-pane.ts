@@ -140,7 +140,7 @@ export class WebviewPane extends LitElement {
 				<slot name="actions"></slot>
 				<progress-indicator ?active="${this.loading}"></progress-indicator>
 			</header>
-			<div id="content" role="region" class="content scrollable">
+			<div id="content" role="region" part="content" class="content scrollable">
 				<slot></slot>
 			</div>
 		`;
