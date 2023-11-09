@@ -110,7 +110,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 					const confirm = { title: 'Delete' };
 					const cancel = { title: 'Cancel', isCloseAffordance: true };
 					const result = await window.showInformationMessage(
-						`Are you sure you want to delete draft '${node.draft.title}'?`,
+						`Are you sure you want to delete Cloud Patch '${node.draft.title}'?`,
 						{ modal: true },
 						confirm,
 						cancel,
