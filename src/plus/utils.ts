@@ -116,7 +116,7 @@ export async function confirmDraftStorage(container: Container): Promise<boolean
 	const decline: MessageItem = { title: 'No', isCloseAffordance: true };
 	const moreInfo: MessageItem = { title: 'More Info' };
 	const result = await window.showInformationMessage(
-		`Creating a Cloud Patch will store code on GitKraken's servers.\n\nDo you want to continue?`,
+		`Cloud Patches are securely stored by GitKraken.\n\nDo you want to continue?`,
 		{ modal: true },
 		accept,
 		decline,
