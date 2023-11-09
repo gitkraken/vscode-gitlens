@@ -264,7 +264,11 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 	private onApplyPatch(e: ApplyPatchDetail) {
 		console.log('onApplyPatch', e);
 		if (e.selectedPatches == null || e.selectedPatches.length === 0) return;
-		this.sendCommand(ApplyPatchCommandType, { details: e.draft, selected: e.selectedPatches });
+		this.sendCommand(ApplyPatchCommandType, {
+			details: e.draft,
+			target: e.target ?? 'current',
+			selected: e.selectedPatches,
+		});
 	}
 
 	private onChangePatchBase(e: ChangePatchBaseDetail) {

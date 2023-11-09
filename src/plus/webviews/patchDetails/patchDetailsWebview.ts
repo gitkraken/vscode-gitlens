@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
 import type { CoreConfiguration } from '../../../constants';
-import { Commands } from '../../../constants';
+import { Commands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
@@ -13,6 +13,7 @@ import { createReference } from '../../../git/models/reference';
 import { isRepository } from '../../../git/models/repository';
 import type { CreateDraftChange, Draft, DraftPatch, DraftPatchFileChange, LocalDraft } from '../../../gk/models/drafts';
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
+import { showBranchPicker } from '../../../quickpicks/branchPicker';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { setContext } from '../../../system/context';
@@ -321,6 +322,8 @@ export class PatchDetailsWebviewProvider
 		const changeset = this._context.draft.changesets?.[0];
 		if (changeset == null) return;
 
+		// TODO: should be overridable with targetRef
+		const shouldPickBranch = params.target === 'branch';
 		for (const patch of changeset.patches) {
 			if (!params.selected.includes(patch.id)) continue;
 
@@ -335,9 +338,35 @@ export class PatchDetailsWebviewProvider
 					continue;
 				}
 
-				void this.container.git.applyPatchCommit(commit.repoPath, commit.ref, {
-					branchName: patch.baseBranchName,
-				});
+				let options:
+					| {
+							branchName?: string;
+							createBranchIfNeeded?: boolean;
+							createWorktreePath?: string;
+					  }
+					| undefined = undefined;
+
+				if (shouldPickBranch) {
+					const repo = commit.getRepository();
+					const branch = await showBranchPicker(
+						`Choose a Branch ${GlyphChars.Dot} ${repo?.name}`,
+						'Choose a branch to apply the Cloud Patch to',
+						repo,
+					);
+
+					if (branch == null) {
+						void window.showErrorMessage(
+							`Unable apply patch to '${patch.repository!.name}': No branch selected`,
+						);
+						continue;
+					}
+					options = {
+						branchName: branch.ref,
+						createBranchIfNeeded: true,
+					};
+				}
+
+				void this.container.git.applyPatchCommit(commit.repoPath, commit.ref, options);
 			} catch (ex) {
 				void window.showErrorMessage(`Unable apply patch to '${patch.baseRef}': ${ex.message}`);
 			}

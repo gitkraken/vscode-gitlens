@@ -160,5 +160,9 @@ gl-patch-create {
 
 	&__group-fixed {
 		flex: none;
+
+		webview-pane::part(content) {
+			overflow: visible;
+		}
 	}
 }

@@ -168,6 +168,7 @@ export type ShowCommitDetailsViewCommandArgs = string[];
 export interface ApplyPatchParams {
 	details: DraftDetails;
 	targetRef?: string; // a branch name. default to HEAD if not supplied
+	target: 'current' | 'branch' | 'worktree';
 	selected: PatchDetails['id'][];
 }
 export const ApplyPatchCommandType = new IpcCommandType<ApplyPatchParams>('patch/apply');
