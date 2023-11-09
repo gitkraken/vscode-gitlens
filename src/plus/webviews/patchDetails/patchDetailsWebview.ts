@@ -28,7 +28,7 @@ import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { showPatchesView } from '../../drafts/actions';
-import { ensureAccount } from '../../utils';
+import { confirmDraftStorage, ensureAccount } from '../../utils';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	ApplyPatchParams,
@@ -311,7 +311,12 @@ export class PatchDetailsWebviewProvider
 			return;
 		}
 
-		if (!(await ensureAccount('Cloud Patches require a GitKraken account.', this.container))) return;
+		if (
+			!(await ensureAccount('Cloud Patches require a GitKraken account.', this.container)) ||
+			!(await confirmDraftStorage(this.container))
+		) {
+			return;
+		}
 
 		const changeset = this._context.draft.changesets?.[0];
 		if (changeset == null) return;

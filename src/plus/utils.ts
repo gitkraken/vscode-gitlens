@@ -1,4 +1,5 @@
-import { window } from 'vscode';
+import type { MessageItem } from 'vscode';
+import { env, Uri, window } from 'vscode';
 import type { Container } from '../container';
 import { isSubscriptionPaidPlan } from './gk/account/subscription';
 
@@ -106,4 +107,30 @@ export async function ensureAccount(title: string, container: Container): Promis
 	}
 
 	return true;
+}
+
+export async function confirmDraftStorage(container: Container): Promise<boolean> {
+	if (container.storage.get('confirm:draft:storage', false)) return true;
+
+	const accept: MessageItem = { title: 'Yes' };
+	const decline: MessageItem = { title: 'No', isCloseAffordance: true };
+	const moreInfo: MessageItem = { title: 'More Info' };
+	const result = await window.showInformationMessage(
+		`Creating a Cloud Patch will store code on GitKraken's servers.\n\nDo you want to continue?`,
+		{ modal: true },
+		accept,
+		decline,
+		moreInfo,
+	);
+
+	if (result === accept) {
+		void container.storage.store('confirm:draft:storage', true);
+		return true;
+	}
+
+	if (result === moreInfo) {
+		void env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/security'));
+	}
+
+	return false;
 }
