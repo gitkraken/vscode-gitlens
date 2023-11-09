@@ -132,7 +132,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 						<gl-button full @click=${this.onCreateAll}>Create Cloud Patch</gl-button>
 					</span>
 				</p>
-				<!-- <p class="h-deemphasize"><code-icon icon="account"></code-icon> Requires an account <a href="#">sign-in</a></p>
+				<!-- <p class="h-deemphasize"><code-icon icon="account"></code-icon> Requires a GitKraken account <a href="#">sign-in</a></p>
 				<p class="h-deemphasize"><code-icon icon="info"></code-icon> <a href="#">Learn more about cloud patches</a></p> -->
 			</div>
 			`;

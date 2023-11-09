@@ -440,7 +440,7 @@ export class DeepLinkService implements Disposable {
 
 					if (
 						!(await ensureAccount(
-							`A GitKraken account is required to open ${deepLinkTypeToString(targetType)} links.`,
+							`Opening ${deepLinkTypeToString(targetType)} links requires a GitKraken account.`,
 							this.container,
 						))
 					) {

@@ -311,7 +311,7 @@ export class PatchDetailsWebviewProvider
 			return;
 		}
 
-		if (!(await ensureAccount('A GitKraken account is required to apply cloud patches.', this.container))) return;
+		if (!(await ensureAccount('Cloud Patches require a GitKraken account.', this.container))) return;
 
 		const changeset = this._context.draft.changesets?.[0];
 		if (changeset == null) return;
@@ -350,7 +350,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async createDraft({ title, changesets, description }: CreatePatchParams): Promise<void> {
-		if (!(await ensureAccount('A GitKraken account is required to create cloud patches.', this.container))) return;
+		if (!(await ensureAccount('Cloud patches require a GitKraken account.', this.container))) return;
 
 		const createChanges: CreateDraftChange[] = [];
 

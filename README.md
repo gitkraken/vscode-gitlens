@@ -23,7 +23,7 @@ Use `Switch to Pre-Release Version` on the extension banner to live on the edge 
 All features are free to use on all repos, **except** for features,
 
 - marked with a ✨ require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately hosted repos
-- marked with a ☁️ require a GitKraken Account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
+- marked with a ☁️ require a GitKraken account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
 
 See the [FAQ](#is-gitlens-free-to-use 'Jump to FAQ') for more details.
 
@@ -272,7 +272,7 @@ Yes. All features are free to use on all repos, **except** for features,
 - marked with a ✨ require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately hosted repos
 - marked with a ☁️ require a GitKraken Account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
 
-While GitLens offers a remarkable set of free features, a subset of features tailored for professional developers and teams, marked with a ✨, require a trial or paid plan for use on privately hosted repos &mdash; use on local or publicly hosted repos is free for everyone. Additionally some features marked with a ☁️, rely on GitKraken Dev Services which requires an account and access is based on your plan, e.g. Free, Pro, etc.
+While GitLens offers a remarkable set of free features, a subset of features tailored for professional developers and teams, marked with a ✨, require a trial or paid plan for use on privately hosted repos &mdash; use on local or publicly hosted repos is free for everyone. Additionally some features marked with a ☁️, rely on GitKraken Dev Services which requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc.
 
 Preview ✨ features instantly for free for 3 days without an account, or start a free GitKraken trial to get an additional 7 days and gain access to ☁️ features to experience the full power of GitLens.
 
