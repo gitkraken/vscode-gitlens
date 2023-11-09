@@ -28,6 +28,7 @@ import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { showPatchesView } from '../../drafts/actions';
+import { ensureAccount } from '../../utils';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	ApplyPatchParams,
@@ -310,6 +311,8 @@ export class PatchDetailsWebviewProvider
 			return;
 		}
 
+		if (!(await ensureAccount('A GitKraken account is required to apply cloud patches.', this.container))) return;
+
 		const changeset = this._context.draft.changesets?.[0];
 		if (changeset == null) return;
 
@@ -347,6 +350,8 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async createDraft({ title, changesets, description }: CreatePatchParams): Promise<void> {
+		if (!(await ensureAccount('A GitKraken account is required to create cloud patches.', this.container))) return;
+
 		const createChanges: CreateDraftChange[] = [];
 
 		const changes = Object.entries(changesets);
