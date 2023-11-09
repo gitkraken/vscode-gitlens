@@ -12000,11 +12000,6 @@
 				{
 					"command": "gitlens.views.drafts.open",
 					"when": "viewItem =~  /gitlens:draft\\b/ && gitlens:plus",
-					"group": "inline@1"
-				},
-				{
-					"command": "gitlens.views.drafts.open",
-					"when": "viewItem =~  /gitlens:draft\\b/ && gitlens:plus",
 					"group": "1_gitlens_actions@1"
 				},
 				{
