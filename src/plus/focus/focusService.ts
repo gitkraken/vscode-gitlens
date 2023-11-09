@@ -107,7 +107,7 @@ export class FocusService implements Disposable {
 		const scope = getLogScope();
 
 		try {
-			if (!(await ensureAccount('Pinning requires an account', this.container))) {
+			if (!(await ensureAccount('Pinning requires a GitKraken account.', this.container))) {
 				throw new Error('Unable to pin item: account required');
 			}
 
