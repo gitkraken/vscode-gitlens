@@ -837,6 +837,7 @@ export type GlobalStorage = {
 	// Keep the pre-release version separate from the released version
 	preVersion: string;
 	'views:welcome:visible': boolean;
+	'confirm:draft:storage': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 };
