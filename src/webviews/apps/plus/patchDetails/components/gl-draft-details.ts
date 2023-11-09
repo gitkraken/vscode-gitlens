@@ -355,7 +355,7 @@ export class GlDraftDetails extends GlTreeBase {
 									><code-icon icon="chevron-down"></code-icon
 								></gl-button>
 								<gk-menu class="mine-menu" @select=${this.onSelectApplyOption}>
-									<gk-menu-item data-value="branch">Apply to new branch</gk-menu-item>
+									<gk-menu-item data-value="branch">Apply to a Branch</gk-menu-item>
 									<!-- <gk-menu-item data-value="worktree">Apply to new worktree</gk-menu-item> -->
 								</gk-menu>
 							</gk-popover>
