@@ -116,7 +116,7 @@ export class DraftService implements Disposable {
 				await this.connection.fetchRaw(url, {
 					method: method,
 					headers: {
-						'Content-Type': 'plain/text',
+						'Content-Type': 'text/plain',
 						Host: headers?.['Host']?.['0'] ?? '',
 					},
 					body: contents,
