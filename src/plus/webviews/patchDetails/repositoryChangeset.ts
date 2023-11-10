@@ -133,6 +133,7 @@ export class RepositoryWipChangeset implements RepositoryChangeset {
 	}
 
 	resume() {
+		this._files = undefined;
 		if (this._expanded) {
 			this.subscribe();
 		}
