@@ -8229,6 +8229,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.shareAsCloudPatch",
+				"title": "Share as Cloud Patch...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.timeline.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
@@ -10750,6 +10755,10 @@
 				},
 				{
 					"command": "gitlens.graph.scrollMarkerTagOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.shareAsCloudPatch",
 					"when": "false"
 				},
 				{
@@ -13986,7 +13995,7 @@
 					"group": "1_a_gitlens@1"
 				},
 				{
-					"command": "gitlens.shareAsCloudPatch",
+					"command": "gitlens.graph.shareAsCloudPatch",
 					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.cloudPatches.enabled && webviewItem =~ /gitlens:(commit|stash)\\b/",
 					"group": "1_a_gitlens@1"
 				},
