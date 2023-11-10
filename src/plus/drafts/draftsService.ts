@@ -1,5 +1,6 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
+import { uncommitted, uncommittedStaged } from '../../git/models/constants';
 import { isSha, isUncommitted } from '../../git/models/reference';
 import { isRepository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
@@ -212,12 +213,17 @@ export class DraftService implements Disposable {
 	private async getCreateDraftPatchRequestFromChange(
 		change: CreateDraftChange,
 	): Promise<CreateDraftPatchRequestFromChange> {
+		const isWIP = change.revision.sha === uncommitted || change.revision.sha === uncommittedStaged;
 		const [branchNamesResult, diffResult, firstShaResult, remoteResult, userResult] = await Promise.allSettled([
 			isUncommitted(change.revision.sha)
 				? this.container.git.getBranch(change.repository.uri).then(b => (b != null ? [b.name] : undefined))
 				: this.container.git.getCommitBranches(change.repository.uri, change.revision.sha),
 			change.contents == null
-				? this.container.git.getDiff(change.repository.path, change.revision.baseSha, change.revision.sha)
+				? this.container.git.getDiff(
+						change.repository.path,
+						isWIP ? change.revision.sha : change.revision.baseSha,
+						isWIP ? change.revision.baseSha : change.revision.sha,
+				  )
 				: undefined,
 			this.container.git.getFirstCommitSha(change.repository.uri),
 			this.container.git.getBestRemoteWithProvider(change.repository.uri),
