@@ -1,6 +1,5 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
-import { uncommitted, uncommittedStaged } from '../../git/models/constants';
 import { isSha, isUncommitted } from '../../git/models/reference';
 import { isRepository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
@@ -213,9 +212,10 @@ export class DraftService implements Disposable {
 	private async getCreateDraftPatchRequestFromChange(
 		change: CreateDraftChange,
 	): Promise<CreateDraftPatchRequestFromChange> {
-		const isWIP = change.revision.sha === uncommitted || change.revision.sha === uncommittedStaged;
+		const isWIP = isUncommitted(change.revision.sha);
+
 		const [branchNamesResult, diffResult, firstShaResult, remoteResult, userResult] = await Promise.allSettled([
-			isUncommitted(change.revision.sha)
+			isWIP
 				? this.container.git.getBranch(change.repository.uri).then(b => (b != null ? [b.name] : undefined))
 				: this.container.git.getCommitBranches(change.repository.uri, change.revision.sha),
 			change.contents == null
@@ -267,7 +267,11 @@ export class DraftService implements Disposable {
 
 		const user = getSettledValue(userResult);
 
-		const branchNames = getSettledValue(branchNamesResult);
+		// We need to get the branch name from the baseSha if the change is a stash.
+		let branchNames = getSettledValue(branchNamesResult);
+		if (!isWIP && !branchNames?.length) {
+			branchNames = await this.container.git.getCommitBranches(change.repository.uri, change.revision.baseSha);
+		}
 		const branchName = branchNames?.[0] ?? '';
 
 		let baseSha = change.revision.baseSha;
