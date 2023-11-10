@@ -15391,7 +15391,7 @@
 					"name": "Patch",
 					"when": "!gitlens:untrusted && config.gitlens.cloudPatches.enabled && gitlens:views:patchDetails:mode",
 					"contextualTitle": "GL",
-					"icon": "$(gitlens-commit-view)",
+					"icon": "$(gitlens-cloud-patch)",
 					"initialSize": 24
 				},
 				{
