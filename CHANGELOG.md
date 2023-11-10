@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds a preview of [Cloud Patches](https://www.gitkraken.com/solutions/cloud-patches), an all-new ☁️ feature &mdash; engage in early collaboration long before the pull request:
+
+  - Share your work with others by creating a Cloud Patch from Working Changes, Commits, Stashes or Comparisons
+  - View Cloud Patches from URLs shared to you and apply them to your working tree or to a new or existing branch
+  - Manage your Cloud Patches from the new _Cloud Patches_ view in the GitLens side bar
+
 - Adds support to open multiple instances of the _Commit Graph_, _Focus_, and _Visual File History_ in the editor area
   - Adds a _Split Commit Graph_ command to the _Commit Graph_ tab context menu
   - Adds a `gitlens.graph.allowMultiple` setting to specify whether to allow opening multiple instances of the _Commit Graph_ in the editor area
