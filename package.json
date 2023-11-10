@@ -15296,7 +15296,7 @@
 				{
 					"id": "gitlensPatch",
 					"title": "Patch",
-					"icon": "$(cloud)"
+					"icon": "$(gitlens-cloud-patch)"
 				}
 			],
 			"panel": [
@@ -15408,7 +15408,7 @@
 					"name": "Cloud Patches",
 					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.cloudPatches.enabled",
 					"contextualTitle": "GL",
-					"icon": "$(cloud)",
+					"icon": "$(gitlens-cloud-patch)",
 					"initialSize": 2,
 					"visibility": "visible"
 				},
