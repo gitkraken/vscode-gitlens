@@ -207,7 +207,7 @@ The Publish Insiders workflow is no longer available and was replaced with the p
 To add new icons to the GL Icons font follow the steps below:
 
 - Add new SVG icons to the `images/icons` folder
-- Update the `images/icons/mappings.json` file with entries for the new icons (append to the end of the file)
+- Update the `images/icons/template/mapping.json` file with entries for the new icons (append to the end of the file)
 - Optimize and build the icons by running the following from a terminal:
 
   ```
