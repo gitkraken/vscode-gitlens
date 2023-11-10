@@ -217,7 +217,7 @@ export class DraftService implements Disposable {
 				? this.container.git.getBranch(change.repository.uri).then(b => (b != null ? [b.name] : undefined))
 				: this.container.git.getCommitBranches(change.repository.uri, change.revision.sha),
 			change.contents == null
-				? this.container.git.getDiff(change.repository.path, change.revision.sha, change.revision.baseSha)
+				? this.container.git.getDiff(change.repository.path, change.revision.baseSha, change.revision.sha)
 				: undefined,
 			this.container.git.getFirstCommitSha(change.repository.uri),
 			this.container.git.getBestRemoteWithProvider(change.repository.uri),
