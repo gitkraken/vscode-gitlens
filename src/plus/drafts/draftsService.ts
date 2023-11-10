@@ -112,6 +112,9 @@ export class DraftService implements Disposable {
 					throw new Error(`No contents found for ${patch.baseCommitSha}`);
 				}
 
+				const diffFiles = await this.container.git.getDiffFiles(repository.path, contents);
+				const files = diffFiles?.files.map(f => ({ ...f, gkRepositoryId: patch.gitRepositoryId })) ?? [];
+
 				// Upload patch to returned S3 url
 				await this.connection.fetchRaw(url, {
 					method: method,
@@ -137,6 +140,7 @@ export class DraftService implements Disposable {
 					secureLink: undefined!, // patch.secureDownloadData,
 
 					contents: contents,
+					files: files,
 					repository: repository,
 				});
 			}
