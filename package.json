@@ -8522,6 +8522,20 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f127"
 				}
+			},
+			"gitlens-cloud-patch": {
+				"description": "cloud-patch icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f128"
+				}
+			},
+			"gitlens-cloud-patch-share": {
+				"description": "cloud-patch-share icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f129"
+				}
 			}
 		},
 		"menus": {
