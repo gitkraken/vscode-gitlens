@@ -463,14 +463,21 @@ export class PatchDetailsWebviewProvider
 		try {
 			// TODO@eamodio HACK -- only works for the first patch
 			const patch = await this.getDraftPatch(this._context.draft);
-			if (patch == null) return;
+			if (patch == null) {
+				throw new Error('Unable to find patch');
+			}
 
 			const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
-			if (commit == null) return;
+			if (commit == null) {
+				throw new Error('Unable to find commit');
+			}
 
 			const summary = await this.container.ai.explainCommit(commit, {
 				progress: { location: { viewId: this.host.id } },
 			});
+			if (summary == null) {
+				throw new Error('Error retrieving content');
+			}
 			params = { summary: summary };
 		} catch (ex) {
 			debugger;
