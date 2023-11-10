@@ -12,6 +12,8 @@ type File = Files[0];
 type Mode = 'commit' | 'stash' | 'wip';
 
 export class GlDetailsBase extends LitElement {
+	readonly tab: 'wip' | 'commit' = 'commit';
+
 	@property({ type: Array })
 	files?: Files;
 
@@ -30,16 +32,21 @@ export class GlDetailsBase extends LitElement {
 		return html`
 			<list-item tree branch hide-icon>
 				${label}
-				<span slot="actions"
-					><a
-						class="change-list__action ${!hasFiles ? 'is-disabled' : ''}"
-						href="#"
-						title="${shareLabel}"
-						aria-label="${shareLabel}"
-						data-action="create-patch"
-						data-wip-checked="${staged ? 'staged' : 'true'}"
-						><code-icon icon="live-share"></code-icon></a></span
-			></list-item>
+				${when(
+					this.tab === 'wip',
+					() =>
+						html` <span slot="actions"
+							><a
+								class="change-list__action ${!hasFiles ? 'is-disabled' : ''}"
+								href="#"
+								title="${shareLabel}"
+								aria-label="${shareLabel}"
+								data-action="create-patch"
+								data-wip-checked="${staged ? 'staged' : 'true'}"
+								><code-icon icon="gl-cloud-patch-share"></code-icon></a
+						></span>`,
+				)}</list-item
+			>
 		`;
 	}
 

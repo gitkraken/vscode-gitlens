@@ -19,6 +19,8 @@ interface ExplainState {
 
 @customElement('gl-commit-details')
 export class GlCommitDetails extends GlDetailsBase {
+	override readonly tab = 'commit';
+
 	@property({ type: Object })
 	state?: Serialized<State>;
 

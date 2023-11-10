@@ -7,6 +7,8 @@ import { GlDetailsBase } from './gl-details-base';
 
 @customElement('gl-wip-details')
 export class GlWipDetails extends GlDetailsBase {
+	override readonly tab = 'wip';
+
 	@property({ type: Object })
 	wip?: Wip;
 
@@ -46,7 +48,7 @@ export class GlWipDetails extends GlDetailsBase {
 								aria-label="Share as Cloud Patch"
 								title="Share as Cloud Patch"
 							>
-								<code-icon icon="live-share"></code-icon>
+								<code-icon icon="gl-cloud-patch-share"></code-icon>
 								<span class="top-details__sha">Share</span>
 							</a>
 							<a
