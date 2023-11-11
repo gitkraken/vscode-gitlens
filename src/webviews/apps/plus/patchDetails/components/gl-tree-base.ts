@@ -208,7 +208,7 @@ export class GlTreeBase<Events extends GlEvents = GlEvents> extends GlElement<Ev
 			description: flat === true ? filePath : undefined,
 			context: [file],
 			actions: this.getFileActions(file, options),
-			decorators: [{ type: 'text', label: file.status }],
+			decorations: [{ type: 'text', label: file.status }],
 			...options,
 		};
 	}

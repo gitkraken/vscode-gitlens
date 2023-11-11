@@ -11,7 +11,8 @@ export const treeItemStyles = [
 			--tree-connector-size: var(--gitlens-tree-indent, 1.6rem);
 			box-sizing: border-box;
 			padding-left: var(--gitlens-gutter-width);
-			padding-right: var(--gitlens-scrollbar-gutter-width);
+			/* padding-right: var(--gitlens-scrollbar-gutter-width); */
+			padding-right: 0.5rem;
 			padding-top: 0.1rem;
 			padding-bottom: 0.1rem;
 			line-height: 2.2rem;
@@ -212,6 +213,11 @@ export const treeItemStyles = [
 
 		.checkbox__input:checked + .checkbox__check {
 			opacity: 1;
+		}
+
+		slot[name='decorations'] {
+			display: inline-block;
+			margin-left: 0.4rem;
 		}
 	`,
 ];

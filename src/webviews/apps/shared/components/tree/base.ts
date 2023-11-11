@@ -28,26 +28,26 @@ export interface TreeItemAction {
 	arguments?: any[];
 }
 
-export interface TreeItemDecoratorBase {
+export interface TreeItemDecorationBase {
 	type: string;
 	label: string;
 }
 
-export interface TreeItemDecoratorIcon extends TreeItemDecoratorBase {
+export interface TreeItemDecorationIcon extends TreeItemDecorationBase {
 	type: 'icon';
 	icon: string;
 }
 
-export interface TreeItemDecoratorText extends TreeItemDecoratorBase {
+export interface TreeItemDecorationText extends TreeItemDecorationBase {
 	type: 'text';
 }
 
-export interface TreeItemDecoratorStatus extends TreeItemDecoratorBase {
+export interface TreeItemDecorationStatus extends TreeItemDecorationBase {
 	type: 'indicator' | 'badge';
 	status: string;
 }
 
-export type TreeItemDecorator = TreeItemDecoratorText | TreeItemDecoratorIcon | TreeItemDecoratorStatus;
+export type TreeItemDecoration = TreeItemDecorationText | TreeItemDecorationIcon | TreeItemDecorationStatus;
 
 interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	label: string;
@@ -55,7 +55,7 @@ interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	description?: string;
 	context?: Context;
 	actions?: TreeItemAction[];
-	decorators?: TreeItemDecorator[];
+	decorations?: TreeItemDecoration[];
 	contextData?: unknown;
 }
 
