@@ -86,25 +86,25 @@ export class GlTreeGenerator extends GlElement<GlTreeGeneratorEvents> {
 		});
 	}
 
-	private renderDecorators(model: TreeModelFlat) {
-		const decorators = model.decorators;
-		if (decorators == null || decorators.length === 0) return nothing;
+	private renderDecorations(model: TreeModelFlat) {
+		const decorations = model.decorations;
+		if (decorations == null || decorations.length === 0) return nothing;
 
-		return decorators.map(decorator => {
-			if (decorator.type === 'icon') {
+		return decorations.map(decoration => {
+			if (decoration.type === 'icon') {
 				return html`<code-icon
-					slot="decorators"
-					title="${decorator.label}"
-					aria-label="${decorator.label}"
-					.icon=${decorator.icon}
+					slot="decorations"
+					title="${decoration.label}"
+					aria-label="${decoration.label}"
+					.icon=${decoration.icon}
 				></code-icon>`;
 			}
 
-			if (decorator.type === 'text') {
-				return html`<span slot="decorators">${decorator.label}</span>`;
+			if (decoration.type === 'text') {
+				return html`<span slot="decorations">${decoration.label}</span>`;
 			}
 
-			// TODO: implement badge and indicator decorators
+			// TODO: implement badge and indicator decorations
 
 			return undefined;
 		});
@@ -132,7 +132,7 @@ export class GlTreeGenerator extends GlElement<GlTreeGeneratorEvents> {
 				model.description != null,
 				() => html`<span slot="description">${model.description}</span>`,
 			)}
-			${this.renderActions(model)} ${this.renderDecorators(model)}
+			${this.renderActions(model)} ${this.renderDecorations(model)}
 		</gl-tree-item>`;
 	}
 

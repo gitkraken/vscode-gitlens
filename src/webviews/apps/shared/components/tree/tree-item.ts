@@ -164,8 +164,8 @@ export class GlTreeItem extends GlElement<GlTreeItemEvents> {
 		return html`<action-nav class="actions"><slot name="actions"></slot></action-nav>`;
 	}
 
-	private renderDecorators() {
-		return html`<slot name="decorators" class="decorators"></slot>`;
+	private renderDecorations() {
+		return html`<slot name="decorations" class="decorations"></slot>`;
 	}
 
 	override render() {
@@ -184,7 +184,7 @@ export class GlTreeItem extends GlElement<GlTreeItemEvents> {
 					<slot name="description" class="description"></slot>
 				</span>
 			</button>
-			${this.renderActions()}${this.renderDecorators()}
+			${this.renderActions()}${this.renderDecorations()}
 		`;
 	}
 
