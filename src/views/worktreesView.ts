@@ -97,7 +97,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	protected readonly configKey = 'worktrees';
 
 	constructor(container: Container) {
-		super(container, 'worktrees', 'Worktrees', 'workspaceView');
+		super(container, 'worktrees', 'Worktrees', 'worktreesView');
 
 		this.disposables.push(
 			window.registerFileDecorationProvider({
