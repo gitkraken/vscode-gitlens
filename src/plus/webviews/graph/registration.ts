@@ -99,21 +99,11 @@ export function registerGraphWebviewCommands<T>(
 				return executeCommand(Commands.ShowGraphView, ...args);
 			}
 
-			return executeCommand<WebviewPanelShowCommandArgs>(
-				Commands.ShowGraphPage,
-				{ _type: 'WebviewPanelShowOptions' },
-				undefined,
-				...args,
-			);
+			return executeCommand<WebviewPanelShowCommandArgs>(Commands.ShowGraphPage, undefined, ...args);
 		}),
 		registerCommand(`${panels.id}.switchToEditorLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'editor');
-			queueMicrotask(
-				() =>
-					void executeCommand<WebviewPanelShowCommandArgs>(Commands.ShowGraphPage, {
-						_type: 'WebviewPanelShowOptions',
-					}),
-			);
+			queueMicrotask(() => void executeCommand<WebviewPanelShowCommandArgs>(Commands.ShowGraphPage));
 		}),
 		registerCommand(`${panels.id}.switchToPanelLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'panel');

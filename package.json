@@ -5200,85 +5200,85 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#views",
+				"command": "gitlens.showSettingsPage!views",
 				"title": "Open Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#autolinks",
+				"command": "gitlens.showSettingsPage!autolinks",
 				"title": "Configure Autolinks",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#branches-view",
+				"command": "gitlens.showSettingsPage!branches-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#commits-view",
+				"command": "gitlens.showSettingsPage!commits-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#contributors-view",
+				"command": "gitlens.showSettingsPage!contributors-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#file-history-view",
+				"command": "gitlens.showSettingsPage!file-history-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#line-history-view",
+				"command": "gitlens.showSettingsPage!line-history-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#remotes-view",
+				"command": "gitlens.showSettingsPage!remotes-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#repositories-view",
+				"command": "gitlens.showSettingsPage!repositories-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#search-compare-view",
+				"command": "gitlens.showSettingsPage!search-compare-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#stashes-view",
+				"command": "gitlens.showSettingsPage!stashes-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#tags-view",
+				"command": "gitlens.showSettingsPage!tags-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#worktrees-view",
+				"command": "gitlens.showSettingsPage!worktrees-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#commit-graph",
+				"command": "gitlens.showSettingsPage!commit-graph",
 				"title": "Open Commit Graph Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
@@ -8694,55 +8694,55 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.showSettingsPage#views",
+					"command": "gitlens.showSettingsPage!views",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#branches-view",
+					"command": "gitlens.showSettingsPage!branches-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#commits-view",
+					"command": "gitlens.showSettingsPage!commits-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#contributors-view",
+					"command": "gitlens.showSettingsPage!contributors-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#file-history-view",
+					"command": "gitlens.showSettingsPage!file-history-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#line-history-view",
+					"command": "gitlens.showSettingsPage!line-history-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#remotes-view",
+					"command": "gitlens.showSettingsPage!remotes-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#repositories-view",
+					"command": "gitlens.showSettingsPage!repositories-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#search-compare-view",
+					"command": "gitlens.showSettingsPage!search-compare-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#stashes-view",
+					"command": "gitlens.showSettingsPage!stashes-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#tags-view",
+					"command": "gitlens.showSettingsPage!tags-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#worktrees-view",
+					"command": "gitlens.showSettingsPage!worktrees-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#commit-graph",
+					"command": "gitlens.showSettingsPage!commit-graph",
 					"when": "false"
 				},
 				{
@@ -11959,57 +11959,57 @@
 					"group": "navigation@-98"
 				},
 				{
-					"command": "gitlens.showSettingsPage#branches-view",
+					"command": "gitlens.showSettingsPage!branches-view",
 					"when": "view =~ /^gitlens\\.views\\.branches/",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#commits-view",
+					"command": "gitlens.showSettingsPage!commits-view",
 					"when": "view =~ /^gitlens\\.views\\.commits/",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#contributors-view",
+					"command": "gitlens.showSettingsPage!contributors-view",
 					"when": "view =~ /^gitlens\\.views\\.contributors/",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#file-history-view",
+					"command": "gitlens.showSettingsPage!file-history-view",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory/",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#line-history-view",
+					"command": "gitlens.showSettingsPage!line-history-view",
 					"when": "view =~ /^gitlens\\.views\\.lineHistory/",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#remotes-view",
+					"command": "gitlens.showSettingsPage!remotes-view",
 					"when": "view =~ /^gitlens\\.views\\.remotes/",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#repositories-view",
+					"command": "gitlens.showSettingsPage!repositories-view",
 					"when": "view =~ /^gitlens\\.views\\.repositories/",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#search-compare-view",
+					"command": "gitlens.showSettingsPage!search-compare-view",
 					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#stashes-view",
+					"command": "gitlens.showSettingsPage!stashes-view",
 					"when": "view =~ /^gitlens\\.views\\.stashes/",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#tags-view",
+					"command": "gitlens.showSettingsPage!tags-view",
 					"when": "view =~ /^gitlens\\.views\\.tags/",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#worktrees-view",
+					"command": "gitlens.showSettingsPage!worktrees-view",
 					"when": "view =~ /^gitlens\\.views\\.worktrees/",
 					"group": "9_gitlens@1"
 				}
@@ -12692,12 +12692,12 @@
 					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
-					"command": "gitlens.showSettingsPage#autolinks",
+					"command": "gitlens.showSettingsPage!autolinks",
 					"when": "viewItem =~ /gitlens:autolinked:items\\b/",
 					"group": "inline@99"
 				},
 				{
-					"command": "gitlens.showSettingsPage#autolinks",
+					"command": "gitlens.showSettingsPage!autolinks",
 					"when": "viewItem =~ /gitlens:autolinked:items\\b/",
 					"group": "1_gitlens_actions@99"
 				},
@@ -14531,7 +14531,7 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#commit-graph",
+					"command": "gitlens.showSettingsPage!commit-graph",
 					"group": "9_gitlens@1"
 				}
 			],
@@ -15636,7 +15636,7 @@
 					{
 						"id": "gitlens.welcome.hostingServiceIntegrations",
 						"title": "Integrate with Git hosting services",
-						"description": "Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise ✨, GitLab, GitLab self-managed ✨, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.\n\nAll integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.\n\n**Define your own autolinks**\nUse autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.\n\n[Configure Autolinks](command:gitlens.showSettingsPage?%22autolinks%22)",
+						"description": "Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise ✨, GitLab, GitLab self-managed ✨, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.\n\nAll integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.\n\n**Define your own autolinks**\nUse autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.\n\n[Configure Autolinks](command:gitlens.showSettingsPage!autolinks)",
 						"media": {
 							"markdown": "walkthroughs/welcome/integrations.md"
 						}

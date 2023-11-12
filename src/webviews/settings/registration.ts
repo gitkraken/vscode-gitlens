@@ -50,7 +50,7 @@ export function registerSettingsWebviewCommands<T>(panels: WebviewPanelsProxy<Se
 		].map(c => {
 			// The show and jump commands are structured to have a # separating the base command from the anchor
 			let anchor: string | undefined;
-			const match = /.*?#(.*)/.exec(c);
+			const match = /.*?!(.*)/.exec(c);
 			if (match != null) {
 				[, anchor] = match;
 			}
