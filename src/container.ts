@@ -38,7 +38,10 @@ import {
 } from './plus/webviews/graph/registration';
 import { GraphStatusBarController } from './plus/webviews/graph/statusbar';
 import type { PatchDetailsWebviewShowingArgs } from './plus/webviews/patchDetails/registration';
-import { registerPatchDetailsWebviewView } from './plus/webviews/patchDetails/registration';
+import {
+	registerPatchDetailsWebviewPanel,
+	registerPatchDetailsWebviewView,
+} from './plus/webviews/patchDetails/registration';
 import type { TimelineWebviewShowingArgs } from './plus/webviews/timeline/registration';
 import {
 	registerTimelineWebviewCommands,
@@ -260,6 +263,8 @@ export class Container {
 
 		this._disposables.push((this._repositoriesView = new RepositoriesView(this)));
 		this._disposables.push((this._commitDetailsView = registerCommitDetailsWebviewView(this._webviews)));
+		const patchDetailsPanels = registerPatchDetailsWebviewPanel(this._webviews);
+		this._disposables.push(patchDetailsPanels);
 		this._disposables.push((this._patchDetailsView = registerPatchDetailsWebviewView(this._webviews)));
 		this._disposables.push((this._graphDetailsView = registerGraphDetailsWebviewView(this._webviews)));
 		this._disposables.push((this._commitsView = new CommitsView(this)));

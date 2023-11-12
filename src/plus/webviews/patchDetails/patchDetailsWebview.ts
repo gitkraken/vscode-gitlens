@@ -115,6 +115,27 @@ export class PatchDetailsWebviewProvider
 		this._disposable.dispose();
 	}
 
+	canReuseInstance(...args: PatchDetailsWebviewShowingArgs): boolean | undefined {
+		const [arg] = args;
+		if (arg?.mode === 'view' && arg.draft != null) {
+			switch (arg.draft.draftType) {
+				case 'cloud':
+					return (
+						this._context.draft?.draftType === arg.draft.draftType &&
+						this._context.draft.id === arg.draft.id
+					);
+
+				case 'local':
+					return (
+						this._context.draft?.draftType === arg.draft.draftType &&
+						this._context.draft.patch.contents === arg.draft.patch?.contents
+					);
+			}
+		}
+
+		return false;
+	}
+
 	async onShowing(
 		_loading: boolean,
 		options: WebviewShowOptions,
@@ -142,10 +163,12 @@ export class PatchDetailsWebviewProvider
 	}
 
 	registerCommands(): Disposable[] {
-		return [
-			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
-			registerCommand(`${this.host.id}.close`, () => this.closeView()),
-		];
+		return this.host.isView()
+			? [
+					registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
+					registerCommand(`${this.host.id}.close`, () => this.closeView()),
+			  ]
+			: [];
 	}
 
 	onMessageReceived(e: IpcMessage) {
@@ -293,7 +316,10 @@ export class PatchDetailsWebviewProvider
 	private setMode(mode: Mode, silent?: boolean) {
 		this._context.mode = mode;
 		this.setHostTitle(mode);
-		void setContext('gitlens:views:patchDetails:mode', mode);
+		void setContext(
+			'gitlens:views:patchDetails:mode',
+			configuration.get('cloudPatches.experimental.layout') === 'editor' ? undefined : mode,
+		);
 		if (!silent) {
 			this.updateState(true);
 		}
