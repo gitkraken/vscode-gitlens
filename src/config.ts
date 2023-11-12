@@ -43,6 +43,9 @@ export interface Config {
 	};
 	readonly cloudPatches: {
 		readonly enabled: boolean;
+		readonly experimental: {
+			readonly layout: 'editor' | 'view';
+		};
 	};
 	readonly codeLens: CodeLensConfig;
 	readonly currentLine: {

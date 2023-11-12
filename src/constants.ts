@@ -258,6 +258,7 @@ export const enum Commands {
 	ShowLineCommitInView = 'gitlens.showLineCommitInView',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
 	OpenOnlyChangedFiles = 'gitlens.openOnlyChangedFiles',
+	ShowPatchDetailsPage = 'gitlens.showPatchDetailsPage',
 	ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
 	ShowQuickCommit = 'gitlens.showQuickCommitDetails',
 	ShowQuickCommitFile = 'gitlens.showQuickCommitFileDetails',
@@ -470,7 +471,7 @@ export type TreeViewTypes =
 	| 'worktrees';
 export type TreeViewIds = `gitlens.views.${TreeViewTypes}`;
 
-export type WebviewTypes = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
+export type WebviewTypes = 'focus' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome';
 export type WebviewIds = `gitlens.${WebviewTypes}`;
 
 export type WebviewViewTypes =
