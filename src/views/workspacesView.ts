@@ -83,7 +83,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 	private _disposable: Disposable | undefined;
 
 	constructor(container: Container) {
-		super(container, 'workspaces', 'Workspaces', 'workspaceView');
+		super(container, 'workspaces', 'Workspaces', 'workspacesView');
 
 		this.description = `PREVIEW\u00a0\u00a0☁️`;
 		this.disposables.push(container.workspaces.onDidResetWorkspaces(() => void this.refresh(true)));
