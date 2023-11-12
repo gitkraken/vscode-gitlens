@@ -357,13 +357,8 @@ export class WebviewsController implements Disposable {
 			}),
 			registerCommand(
 				command.id,
-				(...args: unknown[]) => {
-					if (hasWebviewPanelShowOptions(args)) {
-						const [{ _type, ...opts }, ...rest] = args;
-						return show({ ...command.options, ...opts }, ...(rest as ShowingArgs));
-					}
-
-					return show({ ...command.options }, ...(args as ShowingArgs));
+				(opts: WebviewPanelShowOptions | undefined, ...args: unknown[]) => {
+					return show({ ...command.options, ...opts }, ...(args as ShowingArgs));
 				},
 				this,
 			),
@@ -415,10 +410,7 @@ interface WebviewPanelsShowOptions extends WebviewPanelShowOptions {
 	preserveInstance?: string | boolean;
 }
 
-export type WebviewPanelShowCommandArgs = [
-	WebviewPanelsShowOptions & { _type: 'WebviewPanelShowOptions' },
-	...args: unknown[],
-];
+export type WebviewPanelShowCommandArgs = [WebviewPanelsShowOptions | undefined, ...args: unknown[]];
 
 export interface WebviewViewShowOptions {
 	column?: never;
@@ -517,9 +509,4 @@ function getBestController<State, SerializedState, ShowingArgs extends unknown[]
 
 export function isSerializedState<State>(o: unknown): o is { state: Partial<State> } {
 	return o != null && typeof o === 'object' && 'state' in o && o.state != null && typeof o.state === 'object';
-}
-
-function hasWebviewPanelShowOptions(args: unknown[]): args is WebviewPanelShowCommandArgs {
-	const [arg] = args;
-	return arg != null && typeof arg === 'object' && '_type' in arg && arg._type === 'WebviewPanelShowOptions';
 }

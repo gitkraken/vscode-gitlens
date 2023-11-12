@@ -395,7 +395,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							() =>
 								void executeCommand<WebviewPanelShowCommandArgs>(
 									Commands.ShowGraphPage,
-									{ _type: 'WebviewPanelShowOptions' },
+									undefined,
 									this.repository,
 								),
 						),
