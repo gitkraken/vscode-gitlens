@@ -151,12 +151,10 @@ export class GlDraftDetails extends GlTreeBase {
 		description = description.trim();
 
 		return html`
-			<div class="section section--message">
-				<div class="message-block">
-					<p class="message-block__text scrollable" data-region="message">
-						<span>${unsafeHTML(description)}</span>
-					</p>
-				</div>
+			<div class="message-block">
+				<p class="message-block__text scrollable" data-region="message">
+					<span>${unsafeHTML(description)}</span>
+				</p>
 			</div>
 		`;
 	}
@@ -335,29 +333,26 @@ export class GlDraftDetails extends GlTreeBase {
 		// 	<div class="patch-base">${getActions()}</div>
 		// </div>
 		return html`
-			<webview-pane expanded>
-				<span slot="title">Apply</span>
-				<div class="section section--sticky-actions">
-					<p class="button-container">
-						<span class="button-group button-group--single">
-							<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
-							<gk-popover placement="top">
-								<gl-button
-									slot="trigger"
-									density="compact"
-									aria-label="Apply Patch Options..."
-									title="Apply Patch Options..."
-									><code-icon icon="chevron-down"></code-icon
-								></gl-button>
-								<gk-menu class="mine-menu" @select=${this.onSelectApplyOption}>
-									<gk-menu-item data-value="branch">Apply to a Branch</gk-menu-item>
-									<!-- <gk-menu-item data-value="worktree">Apply to new worktree</gk-menu-item> -->
-								</gk-menu>
-							</gk-popover>
-						</span>
-					</p>
-				</div>
-			</webview-pane>
+			<div class="section section--action">
+				<p class="button-container">
+					<span class="button-group button-group--single">
+						<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
+						<gk-popover placement="top">
+							<gl-button
+								slot="trigger"
+								density="compact"
+								aria-label="Apply Patch Options..."
+								title="Apply Patch Options..."
+								><code-icon icon="chevron-down"></code-icon
+							></gl-button>
+							<gk-menu class="mine-menu" @select=${this.onSelectApplyOption}>
+								<gk-menu-item data-value="branch">Apply to a Branch</gk-menu-item>
+								<!-- <gk-menu-item data-value="worktree">Apply to new worktree</gk-menu-item> -->
+							</gk-menu>
+						</gk-popover>
+					</span>
+				</p>
+			</div>
 		`;
 	}
 
@@ -409,36 +404,39 @@ export class GlDraftDetails extends GlTreeBase {
 		return html`
 			<div class="pane-groups">
 				<div class="pane-groups__group-fixed">
-					<div class="top-details">
-						<div class="top-details__top-menu">
-							<div class="top-details__actionbar">
-								<div class="top-details__actionbar-group"></div>
-								<div class="top-details__actionbar-group">
-									${when(
-										this.state?.draft?.draftType === 'cloud',
-										() => html`
-											<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
-												<code-icon icon="${this._copiedLink ? 'check' : 'link'}"></code-icon>
-												<span class="top-details__sha">Copy Link</span></a
-											>
-										`,
-										() => html`
-											<a
-												class="commit-action"
-												href="#"
-												aria-label="Share Patch"
-												title="Share Patch"
-												@click=${this.onShareLocalPatch}
-												>Share</a
-											>
-										`,
-									)}
-								</div>
+					<div class="section">
+						<div class="top-details__actionbar">
+							<div class="top-details__actionbar-group"></div>
+							<div class="top-details__actionbar-group">
+								${when(
+									this.state?.draft?.draftType === 'cloud',
+									() => html`
+										<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
+											<code-icon icon="${this._copiedLink ? 'check' : 'link'}"></code-icon>
+											<span class="top-details__sha">Copy Link</span></a
+										>
+									`,
+									() => html`
+										<a
+											class="commit-action"
+											href="#"
+											aria-label="Share Patch"
+											title="Share Patch"
+											@click=${this.onShareLocalPatch}
+											>Share</a
+										>
+									`,
+								)}
 							</div>
-							<h1 class="title">${this.state.draft?.title}</h1>
 						</div>
+						${when(
+							this.state.draft?.title != null,
+							() => html`
+								<h1 class="title">${this.state.draft?.title}</h1>
+								${this.renderPatchMessage()}
+							`,
+						)}
 					</div>
-					${this.renderPatchMessage()}
 				</div>
 				<div class="pane-groups__group">${this.renderChangedFiles()}</div>
 				<div class="pane-groups__group-fixed pane-groups__group--bottom">

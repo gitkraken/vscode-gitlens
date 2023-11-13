@@ -23,9 +23,9 @@ gk-menu-item {
 }
 
 .title {
-	font-size: 1.8rem;
+	font-size: 1.6rem;
 	font-weight: 600;
-	margin: 0;
+	margin: 0.2rem 0 0.8rem;
 }
 
 .message-block__text strong:not(:only-child) {
@@ -76,10 +76,16 @@ gk-menu-item {
 	}
 }
 
-textarea.message-input__control {
-	resize: vertical;
-	min-height: 4rem;
-	max-height: 40rem;
+.section--action {
+	border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+	padding: {
+		top: 1.5rem;
+		bottom: 1.5rem;
+	}
+
+	> :first-child {
+		padding-top: 0;
+	}
 }
 
 .message-input {
@@ -112,6 +118,12 @@ textarea.message-input__control {
 	}
 }
 
+textarea.message-input__control {
+	resize: vertical;
+	min-height: 4rem;
+	max-height: 40rem;
+}
+
 .h {
 	&-spacing {
 		margin-bottom: 1.5rem;
@@ -119,6 +131,9 @@ textarea.message-input__control {
 	&-deemphasize {
 		margin: 0.8rem 0 0.4rem;
 		opacity: 0.8;
+	}
+	&-no-border {
+		--vscode-sideBarSectionHeader-border: transparent;
 	}
 }
 
