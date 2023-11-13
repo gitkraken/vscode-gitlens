@@ -203,7 +203,7 @@ export class GlTreeBase<Events extends GlEvents = GlEvents> extends GlElement<Ev
 			level: 1,
 			checkable: false,
 			checked: false,
-			// icon: 'file', //{ type: 'status', name: file.status },
+			icon: 'file', //{ type: 'status', name: file.status },
 			label: fileName,
 			description: flat === true ? filePath : undefined,
 			context: [file],
