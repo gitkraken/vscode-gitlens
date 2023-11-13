@@ -169,7 +169,7 @@
 						class="nav-list__access"
 						title="Requires a trial or paid plan to use this on privately hosted repos"
 						aria-label="Requires a trial or paid plan to use this on privately hosted repos"
-						>✨</span
+						><span class="nav-list__access--preview">Preview</span> ✨</span
 					></a
 				>
 				<a
@@ -198,6 +198,23 @@
 				>
 				<a
 					class="nav-list__item"
+					href="command:gitlens.showDraftsView"
+					title="Show Cloud Patches view"
+					aria-label="Show Cloud Patches view"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="gl-cloud-patch"></code-icon
+					><span class="nav-list__group"
+						><span class="nav-list__label">Cloud Patches</span
+						><span class="nav-list__desc">New!</span></span
+					><span
+						class="nav-list__access"
+						title="Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc"
+						aria-label="Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc"
+						><span class="nav-list__access--preview">Preview</span> ☁️</span
+					></a
+				>
+				<a
+					class="nav-list__item"
 					href="command:gitlens.showStashesView"
 					title="Show Stashes view"
 					aria-label="Show Stashes view"
@@ -216,22 +233,6 @@
 				>
 				<a
 					class="nav-list__item"
-					href="command:gitlens.showDraftsView"
-					title="Show Cloud Patches view"
-					aria-label="Show Cloud Patches view"
-					data-requires="repo"
-					hidden
-					><code-icon class="nav-list__icon" icon="gl-cloud-patch"></code-icon
-					><span class="nav-list__label">Cloud Patches</span
-					><span
-						class="nav-list__access"
-						title="Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc"
-						aria-label="Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc"
-						>☁️</span
-					></a
-				>
-				<a
-					class="nav-list__item"
 					href="command:gitlens.showWorkspacesView"
 					title="Show GitKraken Workspaces view"
 					aria-label="Show GitKraken Workspaces view"
@@ -242,7 +243,7 @@
 						class="nav-list__access"
 						title="Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc"
 						aria-label="Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc"
-						>☁️</span
+						><span class="nav-list__access--preview">Preview</span> ☁️</span
 					></a
 				>
 				<a
