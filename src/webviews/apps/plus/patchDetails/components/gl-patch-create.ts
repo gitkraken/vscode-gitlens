@@ -108,7 +108,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 
 	renderForm() {
 		return html`
-			<div class="section">
+			<div class="section section--action">
 				${when(
 					this.state?.create?.creationError != null,
 					() =>
@@ -150,19 +150,14 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		return html`
 			<div class="pane-groups">
 				<div class="pane-groups__group">${this.renderChangedFiles()}</div>
-				<div class="pane-groups__group-fixed pane-groups__group--bottom">
-					<webview-pane expanded
-						><span slot="title">Create Patch</span
-						><span slot="subtitle">PREVIEW ☁️</span>${this.renderForm()}</webview-pane
-					>
-				</div>
+				<div class="pane-groups__group-fixed pane-groups__group--bottom">${this.renderForm()}</div>
 			</div>
 		`;
 	}
 
 	private renderChangedFiles() {
 		return html`
-			<webview-pane expanded>
+			<webview-pane class="h-no-border" expanded>
 				<span slot="title">Changes to Include</span>
 				<action-nav slot="actions">${this.renderLayoutAction(this.fileLayout)}</action-nav>
 
