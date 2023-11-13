@@ -1,5 +1,27 @@
 @use '../../shared/styles/details-base';
 
+body {
+	--gk-menu-border-color: var(--vscode-menu-border);
+	--gk-menu-background-color: var(--vscode-menu-background);
+	--gk-menu-item-background-color-hover: var(--vscode-menu-selectionBackground);
+	--gk-menu-item-background-color-active: var(--vscode-menu-background);
+	--gk-focus-border-color: var(--focus-color);
+	--gk-tooltip-padding: 0.4rem 0.8rem;
+	--gk-divider-color: var(--color-background--level-05);
+}
+
+gk-menu {
+	color: var(--vscode-menu-foreground);
+}
+
+gk-menu-item {
+	color: var(--vscode-menu-foreground);
+
+	&:hover {
+		color: var(--vscode-menu-selectionForeground);
+	}
+}
+
 .message-block__text strong:not(:only-child) {
 	display: inline-block;
 	margin-bottom: 0.52rem;
