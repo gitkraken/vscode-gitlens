@@ -118,12 +118,12 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 						</div>`,
 				)}
 				<div class="message-input">
-					<input id="title" type="text" class="message-input__control" placeholder="Title (required)" .value=${
+					<input id="title" type="text" class="message-input__control" placeholder="Title (required)" maxlength="100" .value=${
 						this.create.title ?? ''
 					} @input=${this.onTitleInput}></textarea>
 				</div>
 				<div class="message-input">
-					<textarea id="desc" class="message-input__control" placeholder="Description (optional)" .value=${
+					<textarea id="desc" class="message-input__control" placeholder="Description (optional)" maxlength="10000" .value=${
 						this.create.description ?? ''
 					}  @input=${this.onDescriptionInput}></textarea>
 				</div>
