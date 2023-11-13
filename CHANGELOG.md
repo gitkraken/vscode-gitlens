@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Share your work with others by creating a Cloud Patch from Working Changes, Commits, Stashes or Comparisons
   - View Cloud Patches from URLs shared to you and apply them to your working tree or to a new or existing branch
   - Manage your Cloud Patches from the new _Cloud Patches_ view in the GitLens side bar
+  - Adds a _Share as Cloud Patch..._ command to the command palette and to the _Share_ submenu in applicable GitLens views
+  - Adds a `gitlens.cloudPatches.enabled` setting to specificy whether to enable Cloud Patches (defaults to `true`)
 - Adds support to open multiple instances of the _Commit Graph_, _Focus_, and _Visual File History_ in the editor area
   - Adds a _Split Commit Graph_ command to the _Commit Graph_ tab context menu
   - Adds a `gitlens.graph.allowMultiple` setting to specify whether to allow opening multiple instances of the _Commit Graph_ in the editor area
