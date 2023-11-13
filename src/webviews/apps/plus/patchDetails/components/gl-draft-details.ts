@@ -144,26 +144,18 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	private renderPatchMessage() {
-		if (this.state?.draft?.title == null) {
-			return undefined;
-		}
+		if (this.state?.draft?.title == null) return undefined;
+		let description = this.state.draft.draftType === 'cloud' ? this.state.draft.description : undefined;
+		if (description == null) return undefined;
 
-		const title = this.state.draft.title;
-		const description = this.state.draft.draftType === 'cloud' ? this.state.draft.description : undefined;
+		description = description.trim();
+
 		return html`
 			<div class="section section--message">
 				<div class="message-block">
-					${when(
-						description == null,
-						() =>
-							html`<p class="message-block__text scrollable" data-region="message">
-								<strong>${unsafeHTML(title)}</strong>
-							</p>`,
-						() =>
-							html`<p class="message-block__text scrollable" data-region="message">
-								<strong>${unsafeHTML(title)}</strong><br /><span>${unsafeHTML(description)}</span>
-							</p>`,
-					)}
+					<p class="message-block__text scrollable" data-region="message">
+						<span>${unsafeHTML(description)}</span>
+					</p>
 				</div>
 			</div>
 		`;
@@ -443,24 +435,7 @@ export class GlDraftDetails extends GlTreeBase {
 									)}
 								</div>
 							</div>
-							${when(
-								this.state.draft?.draftType === 'cloud' && this.state.draft?.author.name != null,
-								() => html`
-									<ul class="top-details__authors" aria-label="Authors">
-										<li class="top-details__author" data-region="author">
-											<commit-identity
-												name="${this.state.draft!.author!.name}"
-												email="${ifDefined(this.state.draft!.author!.email)}"
-												date="${this.state.draft!.createdAt!}"
-												dateFormat="${this.state.preferences.dateFormat}"
-												avatarUrl="${this.state.draft!.author!.avatar ?? ''}"
-												?showavatar=${this.state.preferences?.avatars ?? true}
-												.actionLabel=${'created'}
-											></commit-identity>
-										</li>
-									</ul>
-								`,
-							)}
+							<h1 class="title">${this.state.draft?.title}</h1>
 						</div>
 					</div>
 					${this.renderPatchMessage()}

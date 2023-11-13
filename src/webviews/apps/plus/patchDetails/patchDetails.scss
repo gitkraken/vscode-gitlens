@@ -22,6 +22,12 @@ gk-menu-item {
 	}
 }
 
+.title {
+	font-size: 1.8rem;
+	font-weight: 600;
+	margin: 0;
+}
+
 .message-block__text strong:not(:only-child) {
 	display: inline-block;
 	margin-bottom: 0.52rem;
