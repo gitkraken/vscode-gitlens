@@ -6824,7 +6824,7 @@
 			},
 			{
 				"command": "gitlens.views.patchDetails.close",
-				"title": "Close Patch View",
+				"title": "Close Patch",
 				"category": "GitLens",
 				"icon": "$(close)"
 			},
@@ -15319,7 +15319,7 @@
 				},
 				{
 					"id": "gitlensPatch",
-					"title": "Patch",
+					"title": "GitLens Patch",
 					"icon": "$(gitlens-cloud-patch)"
 				}
 			],
@@ -15411,21 +15411,11 @@
 				{
 					"type": "webview",
 					"id": "gitlens.views.home",
-					"-when": "!gitlens:views:patchDetails:mode || !config.gitlens.cloudPatches.enabled",
 					"name": "Home",
 					"contextualTitle": "GL",
 					"icon": "$(gitlens-gitlens)",
 					"initialSize": 6,
 					"visibility": "visible"
-				},
-				{
-					"type": "webview",
-					"id": "gitlens.views.patchDetails",
-					"name": "Patch",
-					"when": "!gitlens:untrusted && config.gitlens.cloudPatches.enabled && gitlens:views:patchDetails:mode",
-					"contextualTitle": "GL",
-					"icon": "$(gitlens-cloud-patch)",
-					"initialSize": 24
 				},
 				{
 					"id": "gitlens.views.drafts",
@@ -15524,6 +15514,17 @@
 					"icon": "$(gitlens-commit-view)",
 					"initialSize": 1,
 					"visibility": "visible"
+				}
+			],
+			"gitlensPatch": [
+				{
+					"type": "webview",
+					"id": "gitlens.views.patchDetails",
+					"name": "Patch",
+					"when": "!gitlens:untrusted && config.gitlens.cloudPatches.enabled && gitlens:views:patchDetails:mode",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-cloud-patch)",
+					"initialSize": 24
 				}
 			],
 			"scm": [
