@@ -49,15 +49,6 @@ interface LocalDraftDetails {
 	description?: string;
 
 	patches?: PatchDetails[];
-
-	// files?: GitFileChangeShape[];
-	// stats?: GitCommitStats;
-
-	// repoPath?: string;
-	// repoName?: string;
-
-	// baseRef?: string;
-	// commit?: string;
 }
 
 interface CloudDraftDetails {
@@ -77,32 +68,9 @@ interface CloudDraftDetails {
 	description?: string;
 
 	patches?: PatchDetails[];
-
-	// commit?: string;
-
-	// files?: GitFileChangeShape[];
-	// stats?: GitCommitStats;
-
-	// repoPath: string;
-	// repoName?: string;
-	// baseRef?: string;
 }
 
 export type DraftDetails = LocalDraftDetails | CloudDraftDetails;
-
-// export interface RangeRef {
-// 	baseSha: string;
-// 	sha: string | undefined;
-// 	branchName: string;
-// 	// shortSha: string;
-// 	// summary: string;
-// 	// message: string;
-// 	// author: GitCommitIdentityShape & { avatar: string | undefined };
-// 	// committer: GitCommitIdentityShape & { avatar: string | undefined };
-// 	// parents: string[];
-// 	// repoPath: string;
-// 	// stashNumber?: string;
-// }
 
 export interface Preferences {
 	avatars: boolean;
@@ -138,30 +106,6 @@ export interface RevisionChange {
 }
 
 export type Change = WipChange | RevisionChange;
-
-// export interface RepoCommitChange {
-// 	type: 'commit';
-
-// 	repoName: string;
-// 	repoUri: string;
-// 	change: Change;
-
-// 	checked: boolean;
-// 	expanded: boolean;
-// }
-
-// export interface RepoWipChange {
-// 	type: 'wip';
-
-// 	repoName: string;
-// 	repoUri: string;
-// 	change: Change | undefined;
-
-// 	checked: boolean | 'staged';
-// 	expanded: boolean;
-// }
-
-// export type RepoChangeSet = RepoCommitChange | RepoWipChange;
 
 export interface State {
 	webviewId: WebviewIds | WebviewViewIds;
