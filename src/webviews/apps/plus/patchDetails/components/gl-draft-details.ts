@@ -86,6 +86,9 @@ export class GlDraftDetails extends GlTreeBase {
 	@state()
 	validityMessage?: string;
 
+	@state()
+	private _copiedLink: boolean = false;
+
 	get canSubmit() {
 		return this.selectedPatches.length > 0;
 		// return this.state.draft?.repoPath != null && this.state.draft?.baseRef != null;
@@ -423,7 +426,7 @@ export class GlDraftDetails extends GlTreeBase {
 										this.state?.draft?.draftType === 'cloud',
 										() => html`
 											<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
-												<code-icon icon="link"></code-icon>
+												<code-icon icon="${this._copiedLink ? 'check' : 'link'}"></code-icon>
 												<span class="top-details__sha">Copy Link</span></a
 											>
 										`,
@@ -625,6 +628,8 @@ export class GlDraftDetails extends GlTreeBase {
 
 	onCopyCloudLink() {
 		this.fireEvent('gl-patch-details-copy-cloud-link', { draft: this.state.draft! });
+		this._copiedLink = true;
+		setTimeout(() => (this._copiedLink = false), 1000);
 	}
 
 	onShareLocalPatch() {
