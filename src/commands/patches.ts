@@ -219,7 +219,7 @@ async function createDraft(
 		create.title = message;
 	} else {
 		create.title = message.substring(0, index);
-		create.description = message.substring(index + 1);
+		create.description = message.substring(index + 1).trim();
 	}
 
 	if (args.from == null) {
