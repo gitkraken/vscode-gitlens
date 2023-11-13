@@ -2707,7 +2707,7 @@
 							"Prefer showing Cloud Patches in the editor area",
 							"Prefer showing Cloud Patches in a view"
 						],
-						"markdownDescription": "Specifies the preferred layout of for _Cloud Patches_",
+						"markdownDescription": "Specifies the preferred layout of for _Cloud Patches_ (experimental)",
 						"scope": "window",
 						"order": 11
 					}
@@ -8623,7 +8623,7 @@
 				},
 				{
 					"command": "gitlens.openPatch",
-					"when": "gitlens:enabled"
+					"when": "false && gitlens:enabled"
 				},
 				{
 					"command": "gitlens.timeline.refresh",
@@ -10881,7 +10881,7 @@
 			"editor/title": [
 				{
 					"command": "gitlens.openPatch",
-					"when": "editorLangId == diff"
+					"when": "false && editorLangId == diff"
 				},
 				{
 					"command": "gitlens.diffWithWorking",
