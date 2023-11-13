@@ -3,7 +3,8 @@ import type { Config } from '../../../config';
 import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import type { GitFileChangeShape } from '../../../git/models/file';
 import type { PatchRevisionRange } from '../../../git/models/patch';
-import type { DraftPatch, DraftPatchFileChange } from '../../../gk/models/drafts';
+import type { Repository } from '../../../git/models/repository';
+import type { Draft, DraftPatch, DraftPatchFileChange, LocalDraft } from '../../../gk/models/drafts';
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import type { DateTimeFormat } from '../../../system/date';
 import type { Serialized } from '../../../system/serialize';
@@ -18,6 +19,23 @@ export type PatchDetails = Serialized<
 		repository: { id: GkRepositoryId; name: string; located: boolean };
 	}
 >;
+
+interface CreateDraftFromChanges {
+	title?: string;
+	description?: string;
+	changes: Change[];
+	repositories?: never;
+}
+
+interface CreateDraftFromRepositories {
+	title?: string;
+	description?: string;
+	changes?: never;
+	repositories: Repository[] | undefined;
+}
+
+export type CreateDraft = CreateDraftFromChanges | CreateDraftFromRepositories;
+export type ViewDraft = LocalDraft | Draft;
 
 interface LocalDraftDetails {
 	draftType: 'local';

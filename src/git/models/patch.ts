@@ -4,13 +4,13 @@ import type { GitDiffFiles } from './diff';
 import type { Repository } from './repository';
 
 /**
- * For a single commit `sha` is the commit SHA and `baseSha` is its parent `<sha>^`
- * For a commit range `sha` is the tip SHA and `baseSha` is the base SHA
- * For a WIP `sha` is the "uncommitted" SHA and `baseSha` is the current HEAD SHA
+ * For a single commit `to` is the commit SHA and `from` is its parent `<sha>^`
+ * For a commit range `to` is the tip SHA and `from` is the base SHA
+ * For a WIP `to` is the "uncommitted" SHA and `from` is the current HEAD SHA
  */
 export interface PatchRevisionRange {
-	baseSha: string;
-	sha: string;
+	from: string;
+	to: string;
 }
 
 export interface GitPatch {

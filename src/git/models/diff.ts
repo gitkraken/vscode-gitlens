@@ -1,8 +1,9 @@
 import type { GitFileChange } from './file';
 
 export interface GitDiff {
-	readonly baseSha: string;
 	readonly contents: string;
+	readonly from: string;
+	readonly to: string;
 }
 
 export interface GitDiffHunkLine {
