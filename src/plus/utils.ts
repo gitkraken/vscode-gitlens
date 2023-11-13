@@ -112,25 +112,35 @@ export async function ensureAccount(title: string, container: Container): Promis
 export async function confirmDraftStorage(container: Container): Promise<boolean> {
 	if (container.storage.get('confirm:draft:storage', false)) return true;
 
-	const accept: MessageItem = { title: 'Yes' };
-	const decline: MessageItem = { title: 'No', isCloseAffordance: true };
-	const moreInfo: MessageItem = { title: 'More Info' };
-	const result = await window.showInformationMessage(
-		`Cloud Patches are securely stored by GitKraken.\n\nDo you want to continue?`,
-		{ modal: true },
-		accept,
-		decline,
-		moreInfo,
-	);
+	while (true) {
+		const accept: MessageItem = { title: 'Continue' };
+		const decline: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+		const moreInfo: MessageItem = { title: 'Learn More' };
+		const security: MessageItem = { title: 'Security' };
+		const result = await window.showInformationMessage(
+			`Cloud Patches are securely stored by GitKraken and can be accessed by anyone with the link and a GitKraken account.`,
+			{ modal: true },
+			accept,
+			moreInfo,
+			security,
+			decline,
+		);
 
-	if (result === accept) {
-		void container.storage.store('confirm:draft:storage', true);
-		return true;
+		if (result === accept) {
+			void container.storage.store('confirm:draft:storage', true);
+			return true;
+		}
+
+		if (result === security) {
+			void env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/security'));
+			continue;
+		}
+
+		if (result === moreInfo) {
+			void env.openExternal(Uri.parse('https://www.gitkraken.com/solutions/cloud-patches'));
+			continue;
+		}
+
+		return false;
 	}
-
-	if (result === moreInfo) {
-		void env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/security'));
-	}
-
-	return false;
 }
