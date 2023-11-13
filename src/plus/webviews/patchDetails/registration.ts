@@ -1,30 +1,11 @@
 import { ViewColumn } from 'vscode';
 import { Commands } from '../../../constants';
-import type { DraftSelectedEvent } from '../../../eventBus';
-import type { Repository } from '../../../git/models/repository';
 import { executeCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { setContext } from '../../../system/context';
 import type { Serialized } from '../../../system/serialize';
 import type { WebviewPanelShowCommandArgs, WebviewsController } from '../../../webviews/webviewsController';
-import type { Change, State } from './protocol';
-
-interface CreateDraftFromChanges {
-	title?: string;
-	description?: string;
-	changes: Change[];
-	repositories?: never;
-}
-
-interface CreateDraftFromRepositories {
-	title?: string;
-	description?: string;
-	changes?: never;
-	repositories: Repository[] | undefined;
-}
-
-export type CreateDraft = CreateDraftFromChanges | CreateDraftFromRepositories;
-export type ViewDraft = DraftSelectedEvent['data']['draft'];
+import type { CreateDraft, State, ViewDraft } from './protocol';
 
 export type ShowCreateDraft = {
 	mode: 'create';

@@ -212,18 +212,20 @@ export class DraftService implements Disposable {
 	private async getCreateDraftPatchRequestFromChange(
 		change: CreateDraftChange,
 	): Promise<CreateDraftPatchRequestFromChange> {
-		const isWIP = isUncommitted(change.revision.sha);
+		const isWIP = isUncommitted(change.revision.to);
 
 		const [branchNamesResult, diffResult, firstShaResult, remoteResult, userResult] = await Promise.allSettled([
 			isWIP
 				? this.container.git.getBranch(change.repository.uri).then(b => (b != null ? [b.name] : undefined))
-				: this.container.git.getCommitBranches(change.repository.uri, change.revision.sha),
+				: this.container.git
+						.getCommitBranches(change.repository.uri, change.revision.to)
+						.then(branches =>
+							branches.length
+								? branches
+								: this.container.git.getCommitBranches(change.repository.uri, change.revision.from),
+						),
 			change.contents == null
-				? this.container.git.getDiff(
-						change.repository.path,
-						isWIP ? change.revision.sha : change.revision.baseSha,
-						isWIP ? change.revision.baseSha : change.revision.sha,
-				  )
+				? this.container.git.getDiff(change.repository.path, change.revision.to, change.revision.from)
 				: undefined,
 			this.container.git.getFirstCommitSha(change.repository.uri),
 			this.container.git.getBestRemoteWithProvider(change.repository.uri),
@@ -263,18 +265,15 @@ export class DraftService implements Disposable {
 
 		const diff = getSettledValue(diffResult);
 		const contents = change.contents ?? diff?.contents;
-		if (contents == null) throw new Error(`Unable to diff ${change.revision.baseSha} and ${change.revision.sha}`);
+		if (contents == null) throw new Error(`Unable to diff ${change.revision.from} and ${change.revision.to}`);
 
 		const user = getSettledValue(userResult);
 
 		// We need to get the branch name from the baseSha if the change is a stash.
-		let branchNames = getSettledValue(branchNamesResult);
-		if (!isWIP && !branchNames?.length) {
-			branchNames = await this.container.git.getCommitBranches(change.repository.uri, change.revision.baseSha);
-		}
+		const branchNames = getSettledValue(branchNamesResult);
 		const branchName = branchNames?.[0] ?? '';
 
-		let baseSha = change.revision.baseSha;
+		let baseSha = change.revision.from;
 		if (!isSha(baseSha)) {
 			const commit = await this.container.git.getCommit(change.repository.uri, baseSha);
 			if (commit != null) {

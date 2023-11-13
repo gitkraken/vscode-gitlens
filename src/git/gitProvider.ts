@@ -285,8 +285,8 @@ export interface GitProvider extends Disposable {
 	getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined>;
 	getDiff?(
 		repoPath: string | Uri,
-		ref1: string,
-		ref2?: string,
+		to: string,
+		from?: string,
 		options?: { context?: number },
 	): Promise<GitDiff | undefined>;
 	getDiffFiles?(repoPath: string | Uri, contents: string): Promise<GitDiffFiles | undefined>;

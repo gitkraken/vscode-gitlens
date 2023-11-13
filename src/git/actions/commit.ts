@@ -22,6 +22,9 @@ import type { GitFile } from '../models/file';
 import type { GitRevisionReference } from '../models/reference';
 import { getReferenceFromRevision, isUncommitted, isUncommittedStaged } from '../models/reference';
 
+type Ref = { repoPath: string; ref: string };
+type RefRange = { repoPath: string; rhs: string; lhs: string };
+
 export async function applyChanges(file: string | GitFile, rev1: GitRevisionReference, rev2?: GitRevisionReference) {
 	let create = false;
 	let ref1 = rev1.ref;
@@ -58,11 +61,11 @@ export async function applyChanges(file: string | GitFile, rev1: GitRevisionRefe
 	}
 }
 
-export async function copyIdToClipboard(ref: { repoPath: string; ref: string } | GitCommit) {
+export async function copyIdToClipboard(ref: Ref | GitCommit) {
 	await env.clipboard.writeText(ref.ref);
 }
 
-export async function copyMessageToClipboard(ref: { repoPath: string; ref: string } | GitCommit): Promise<void> {
+export async function copyMessageToClipboard(ref: Ref | GitCommit): Promise<void> {
 	let commit;
 	if (isCommit(ref)) {
 		commit = ref;
@@ -81,16 +84,16 @@ export async function copyMessageToClipboard(ref: { repoPath: string; ref: strin
 export async function openAllChanges(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
 export async function openAllChanges(
 	files: GitFile[],
-	refs: { repoPath: string; ref1: string; ref2: string },
+	refs: RefRange,
 	options?: TextDocumentShowOptions,
 ): Promise<void>;
 export async function openAllChanges(
 	commitOrFiles: GitCommit | GitFile[],
-	refsOrOptions: { repoPath: string; ref1: string; ref2: string } | TextDocumentShowOptions | undefined,
+	refsOrOptions: RefRange | TextDocumentShowOptions | undefined,
 	options?: TextDocumentShowOptions,
 ) {
 	let files;
-	let refs;
+	let refs: RefRange | undefined;
 	if (isCommit(commitOrFiles)) {
 		if (commitOrFiles.files == null) {
 			await commitOrFiles.ensureFullDetails();
@@ -99,15 +102,15 @@ export async function openAllChanges(
 		files = commitOrFiles.files ?? [];
 		refs = {
 			repoPath: commitOrFiles.repoPath,
+			rhs: commitOrFiles.sha,
 			// Don't need to worry about verifying the previous sha, as the DiffWith command will
-			ref1: commitOrFiles.unresolvedPreviousSha,
-			ref2: commitOrFiles.sha,
+			lhs: commitOrFiles.unresolvedPreviousSha,
 		};
 
 		options = refsOrOptions as TextDocumentShowOptions | undefined;
 	} else {
 		files = commitOrFiles;
-		refs = refsOrOptions as { repoPath: string; ref1: string; ref2: string };
+		refs = refsOrOptions as RefRange;
 	}
 
 	if (files.length > 10) {
@@ -127,14 +130,8 @@ export async function openAllChanges(
 }
 
 export async function openAllChangesWithDiffTool(commit: GitCommit): Promise<void>;
-export async function openAllChangesWithDiffTool(
-	files: GitFile[],
-	ref: { repoPath: string; ref: string },
-): Promise<void>;
-export async function openAllChangesWithDiffTool(
-	commitOrFiles: GitCommit | GitFile[],
-	ref?: { repoPath: string; ref: string },
-) {
+export async function openAllChangesWithDiffTool(files: GitFile[], ref: Ref): Promise<void>;
+export async function openAllChangesWithDiffTool(commitOrFiles: GitCommit | GitFile[], ref?: Ref) {
 	let files;
 	if (isCommit(commitOrFiles)) {
 		if (commitOrFiles.files == null) {
@@ -167,12 +164,12 @@ export async function openAllChangesWithDiffTool(
 export async function openAllChangesWithWorking(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
 export async function openAllChangesWithWorking(
 	files: GitFile[],
-	ref: { repoPath: string; ref: string },
+	ref: Ref,
 	options?: TextDocumentShowOptions,
 ): Promise<void>;
 export async function openAllChangesWithWorking(
 	commitOrFiles: GitCommit | GitFile[],
-	refOrOptions: { repoPath: string; ref: string } | TextDocumentShowOptions | undefined,
+	refOrOptions: Ref | TextDocumentShowOptions | undefined,
 	options?: TextDocumentShowOptions,
 ) {
 	let files;
@@ -191,7 +188,7 @@ export async function openAllChangesWithWorking(
 		options = refOrOptions as TextDocumentShowOptions | undefined;
 	} else {
 		files = commitOrFiles;
-		ref = refOrOptions as { repoPath: string; ref: string };
+		ref = refOrOptions as Ref;
 	}
 
 	if (files.length > 10) {
@@ -217,17 +214,17 @@ export async function openChanges(
 ): Promise<void>;
 export async function openChanges(
 	file: GitFile,
-	refs: { repoPath: string; ref1: string; ref2: string },
+	refs: RefRange,
 	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ): Promise<void>;
 export async function openChanges(
 	file: GitFile,
-	commitOrRefs: GitCommit | { repoPath: string; ref1: string; ref2: string },
+	commitOrRefs: GitCommit | RefRange,
 	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ): Promise<void>;
 export async function openChanges(
 	file: string | GitFile,
-	commitOrRefs: GitCommit | { repoPath: string; ref1: string; ref2: string },
+	commitOrRefs: GitCommit | RefRange,
 	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ) {
 	const isArgCommit = isCommit(commitOrRefs);
@@ -253,38 +250,30 @@ export async function openChanges(
 		return;
 	}
 
-	const refs = isArgCommit
+	const refs: RefRange = isArgCommit
 		? {
 				repoPath: commitOrRefs.repoPath,
+				rhs: commitOrRefs.sha,
 				// Don't need to worry about verifying the previous sha, as the DiffWith command will
-				ref1: commitOrRefs.unresolvedPreviousSha,
-				ref2: commitOrRefs.sha,
+				lhs: commitOrRefs.unresolvedPreviousSha,
 		  }
 		: commitOrRefs;
 
 	const rhsUri = GitUri.fromFile(file, refs.repoPath);
 	const lhsUri =
-		file.status === 'R' || file.status === 'C' ? GitUri.fromFile(file, refs.repoPath, refs.ref1, true) : rhsUri;
+		file.status === 'R' || file.status === 'C' ? GitUri.fromFile(file, refs.repoPath, refs.lhs, true) : rhsUri;
 
 	void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 		repoPath: refs.repoPath,
-		lhs: { uri: lhsUri, sha: refs.ref1, title: options?.lhsTitle },
-		rhs: { uri: rhsUri, sha: refs.ref2, title: options?.rhsTitle },
+		lhs: { uri: lhsUri, sha: refs.lhs, title: options?.lhsTitle },
+		rhs: { uri: rhsUri, sha: refs.rhs, title: options?.rhsTitle },
 		showOptions: options,
 	}));
 }
 
 export function openChangesWithDiffTool(file: string | GitFile, commit: GitCommit, tool?: string): Promise<void>;
-export function openChangesWithDiffTool(
-	file: GitFile,
-	ref: { repoPath: string; ref: string },
-	tool?: string,
-): Promise<void>;
-export async function openChangesWithDiffTool(
-	file: string | GitFile,
-	commitOrRef: GitCommit | { repoPath: string; ref: string },
-	tool?: string,
-) {
+export function openChangesWithDiffTool(file: GitFile, ref: Ref, tool?: string): Promise<void>;
+export async function openChangesWithDiffTool(file: string | GitFile, commitOrRef: GitCommit | Ref, tool?: string) {
 	if (typeof file === 'string') {
 		if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
 
@@ -313,12 +302,12 @@ export async function openChangesWithWorking(
 ): Promise<void>;
 export async function openChangesWithWorking(
 	file: GitFile,
-	ref: { repoPath: string; ref: string },
+	ref: Ref,
 	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ): Promise<void>;
 export async function openChangesWithWorking(
 	file: string | GitFile,
-	commitOrRef: GitCommit | { repoPath: string; ref: string },
+	commitOrRef: GitCommit | Ref,
 	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ) {
 	if (typeof file === 'string') {
@@ -360,15 +349,11 @@ export async function openDirectoryCompare(
 	return Container.instance.git.openDirectoryCompare(repoPath, ref, ref2, tool);
 }
 
-export async function openDirectoryCompareWithPrevious(
-	ref: { repoPath: string; ref: string } | GitCommit,
-): Promise<void> {
+export async function openDirectoryCompareWithPrevious(ref: Ref | GitCommit): Promise<void> {
 	return openDirectoryCompare(ref.repoPath, ref.ref, `${ref.ref}^`);
 }
 
-export async function openDirectoryCompareWithWorking(
-	ref: { repoPath: string; ref: string } | GitCommit,
-): Promise<void> {
+export async function openDirectoryCompareWithWorking(ref: Ref | GitCommit): Promise<void> {
 	return openDirectoryCompare(ref.repoPath, ref.ref, undefined);
 }
 

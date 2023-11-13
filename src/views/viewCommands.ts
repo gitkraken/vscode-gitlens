@@ -1067,8 +1067,8 @@ export class ViewCommands {
 				diff,
 				{
 					repoPath: node.repoPath,
-					ref1: node.ref1,
-					ref2: node.ref2,
+					lhs: node.ref1,
+					rhs: node.ref2,
 				},
 				options,
 			);

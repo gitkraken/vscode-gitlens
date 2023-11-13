@@ -2955,38 +2955,38 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getDiff(
 		repoPath: string,
-		ref1: string,
-		ref2?: string,
+		to: string,
+		from?: string,
 		options?: { context?: number },
 	): Promise<GitDiff | undefined> {
 		const scope = getLogScope();
 		const params = [`-U${options?.context ?? 3}`];
 
-		if (ref1 === uncommitted) {
-			if (ref2 != null) {
-				params.push(ref2);
+		if (to === uncommitted) {
+			if (from != null) {
+				params.push(from);
 			} else {
 				// Get only unstaged changes
-				ref2 = 'HEAD';
+				from = 'HEAD';
 			}
-		} else if (ref1 === uncommittedStaged) {
+		} else if (to === uncommittedStaged) {
 			params.push('--staged');
-			if (ref2 != null) {
-				params.push(ref2);
+			if (from != null) {
+				params.push(from);
 			} else {
 				// Get only staged changes
-				ref2 = 'HEAD';
+				from = 'HEAD';
 			}
-		} else if (ref2 == null) {
-			if (ref1 === '' || ref1.toUpperCase() === 'HEAD') {
-				ref2 = 'HEAD';
-				params.push(ref2);
+		} else if (from == null) {
+			if (to === '' || to.toUpperCase() === 'HEAD') {
+				from = 'HEAD';
+				params.push(from);
 			} else {
-				ref2 = ref1;
-				params.push(`${ref1}^`, ref2);
+				from = `${to}^`;
+				params.push(from, to);
 			}
 		} else {
-			params.push(ref1, ref2);
+			params.push(from, to);
 		}
 
 		let data;
@@ -2998,7 +2998,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return undefined;
 		}
 
-		const diff: GitDiff = { baseSha: ref2, contents: data };
+		const diff: GitDiff = { contents: data, from: from, to: to };
 		return diff;
 	}
 

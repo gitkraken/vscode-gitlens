@@ -2443,7 +2443,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		return executeCommand<CreatePatchCommandArgs>(Commands.CreateCloudPatch, {
-			ref1: ref.ref,
+			to: ref.ref,
 			repoPath: ref.repoPath,
 		});
 	}

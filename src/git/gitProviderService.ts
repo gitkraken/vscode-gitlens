@@ -1834,12 +1834,12 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getDiff(
 		repoPath: string | Uri,
-		ref1: string,
-		ref2?: string,
+		to: string,
+		from?: string,
 		options?: { context?: number },
 	): Promise<GitDiff | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getDiff?.(path, ref1, ref2, options);
+		return provider.getDiff?.(path, to, from, options);
 	}
 
 	@log({ args: { 1: false } })

@@ -504,10 +504,7 @@ export class CommitDetailsWebviewProvider
 				uri: e.changes.repository.uri,
 			},
 			files: e.changes.files,
-			revision: {
-				baseSha: 'HEAD',
-				sha: uncommitted,
-			},
+			revision: { to: uncommitted, from: 'HEAD' },
 			checked: e.checked,
 		};
 

@@ -34,6 +34,7 @@ import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	ApplyPatchParams,
 	Change,
+	CreateDraft,
 	CreatePatchParams,
 	DidExplainParams,
 	DraftPatchCheckedParams,
@@ -67,7 +68,7 @@ import {
 	UpdateCreatePatchRepositoryCheckedStateCommandType,
 	UpdatePreferencesCommandType,
 } from './protocol';
-import type { CreateDraft, PatchDetailsWebviewShowingArgs } from './registration';
+import type { PatchDetailsWebviewShowingArgs } from './registration';
 import type { RepositoryChangeset } from './repositoryChangeset';
 import { RepositoryRefChangeset, RepositoryWipChangeset } from './repositoryChangeset';
 
@@ -289,7 +290,7 @@ export class PatchDetailsWebviewProvider
 						new RepositoryWipChangeset(
 							this.container,
 							repo,
-							{ baseSha: 'HEAD', sha: uncommitted },
+							{ to: uncommitted, from: 'HEAD' },
 							this.onRepositoryWipChanged.bind(this),
 							false,
 							true,
@@ -427,7 +428,7 @@ export class PatchDetailsWebviewProvider
 
 			let { revision, repository } = repoChangeset;
 			if (change.type === 'wip' && change.checked === 'staged') {
-				revision = { ...revision, sha: uncommittedStaged };
+				revision = { ...revision, to: uncommittedStaged };
 			}
 
 			createChanges.push({
@@ -676,10 +677,7 @@ export class PatchDetailsWebviewProvider
 					new RepositoryWipChangeset(
 						this.container,
 						r,
-						{
-							baseSha: 'HEAD',
-							sha: uncommitted,
-						},
+						{ to: uncommitted, from: 'HEAD' },
 						this.onRepositoryWipChanged.bind(this),
 						true,
 						true, // TODO revisit
@@ -934,17 +932,19 @@ export class PatchDetailsWebviewProvider
 		if (change == null) return [undefined];
 
 		if (change.type === 'revision') {
-			const commit = await this.container.git.getCommit(file.repoPath, change.revision.sha ?? uncommitted);
+			const commit = await this.container.git.getCommit(file.repoPath, change.revision.to ?? uncommitted);
 			if (
-				change.revision.sha === change.revision.baseSha ||
-				change.revision.sha === change.revision.baseSha.substring(0, change.revision.baseSha.length - 1)
+				change.revision.to === change.revision.from ||
+				(change.revision.from.length === change.revision.to.length + 1 &&
+					change.revision.from.endsWith('^') &&
+					change.revision.from.startsWith(change.revision.to))
 			) {
 				return [commit];
 			}
 
 			return [commit, change.revision];
 		} else if (change.type === 'wip') {
-			return [await this.container.git.getCommit(file.repoPath, change.revision.sha ?? uncommitted)];
+			return [await this.container.git.getCommit(file.repoPath, change.revision.to ?? uncommitted)];
 		}
 
 		return [undefined];
@@ -1010,7 +1010,7 @@ export class PatchDetailsWebviewProvider
 		void openChanges(
 			file,
 			revision != null
-				? { repoPath: commit.repoPath, ref1: revision.sha ?? uncommitted, ref2: revision.baseSha }
+				? { repoPath: commit.repoPath, rhs: revision.to ?? uncommitted, lhs: revision.from }
 				: commit,
 			{
 				preserveFocus: true,
@@ -1028,15 +1028,11 @@ export class PatchDetailsWebviewProvider
 
 		const [commit, file, revision] = result;
 
-		void openChangesWithWorking(
-			file,
-			revision != null ? { repoPath: commit.repoPath, ref: revision.baseSha } : commit,
-			{
-				preserveFocus: true,
-				preview: true,
-				...params.showOptions,
-				lhsTitle: this.mode === 'view' ? `${basename(file.path)} (Patch)` : undefined,
-			},
-		);
+		void openChangesWithWorking(file, revision != null ? { repoPath: commit.repoPath, ref: revision.to } : commit, {
+			preserveFocus: true,
+			preview: true,
+			...params.showOptions,
+			lhsTitle: this.mode === 'view' ? `${basename(file.path)} (Patch)` : undefined,
+		});
 	}
 }
