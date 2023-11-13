@@ -82,6 +82,11 @@ export class DraftService implements Disposable {
 				} satisfies CreateDraftRequest),
 			});
 
+			if (!createDraftRsp.ok) {
+				const json = (await createDraftRsp.json()) as { error?: { message?: string } } | undefined;
+				throw new Error(json?.error?.message ?? createDraftRsp.statusText);
+			}
+
 			const createDraft = ((await createDraftRsp.json()) as DraftResult).data;
 			const draftId = createDraft.id;
 
