@@ -58,6 +58,25 @@ export function findOrOpenEditors(uris: Uri[]): void {
 	}
 }
 
+export function getEditorCommand() {
+	let editor;
+	switch (env.appName) {
+		case 'Visual Studio Code - Insiders':
+			editor = 'code-insiders --wait --reuse-window';
+			break;
+		case 'Visual Studio Code - Exploration':
+			editor = 'code-exploration --wait --reuse-window';
+			break;
+		case 'VSCodium':
+			editor = 'codium --wait --reuse-window';
+			break;
+		default:
+			editor = 'code --wait --reuse-window';
+			break;
+	}
+	return editor;
+}
+
 export function getEditorIfActive(document: TextDocument): TextEditor | undefined {
 	const editor = window.activeTextEditor;
 	return editor != null && editor.document === document ? editor : undefined;
@@ -180,23 +199,8 @@ export function openWorkspace(
 	});
 }
 
-export function getEditorCommand() {
-	let editor;
-	switch (env.appName) {
-		case 'Visual Studio Code - Insiders':
-			editor = 'code-insiders --wait --reuse-window';
-			break;
-		case 'Visual Studio Code - Exploration':
-			editor = 'code-exploration --wait --reuse-window';
-			break;
-		case 'VSCodium':
-			editor = 'codium --wait --reuse-window';
-			break;
-		default:
-			editor = 'code --wait --reuse-window';
-			break;
-	}
-	return editor;
+export async function revealInFileExplorer(uri: Uri) {
+	void (await executeCoreCommand('revealFileInOS', uri));
 }
 
 export function supportedInVSCodeVersion(feature: 'input-prompt-links') {

@@ -1,9 +1,9 @@
 import type { MessageItem } from 'vscode';
-import { QuickInputButtons, Uri, window, workspace } from 'vscode';
+import { env, QuickInputButtons, Uri, window, workspace } from 'vscode';
 import type { Config } from '../../config';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
-import { convertOpenFlagsToLocation, reveal, revealInFileExplorer } from '../../git/actions/worktree';
+import { convertOpenFlagsToLocation, reveal } from '../../git/actions/worktree';
 import {
 	WorktreeCreateError,
 	WorktreeCreateErrorReason,
@@ -23,7 +23,7 @@ import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { configuration } from '../../system/configuration';
 import { basename, isDescendant } from '../../system/path';
 import { pluralize, truncateLeft } from '../../system/string';
-import { openWorkspace } from '../../system/utils';
+import { openWorkspace, revealInFileExplorer } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -469,12 +469,21 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						continue;
 					}
 				} else if (WorktreeCreateError.is(ex, WorktreeCreateErrorReason.AlreadyExists)) {
-					void window.showErrorMessage(
-						`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(
-							uri,
-						)}' because the folder already exists and is not empty.`,
-						'OK',
-					);
+					const confirm: MessageItem = { title: 'OK' };
+					const openFolder: MessageItem = { title: 'Open Folder' };
+					void window
+						.showErrorMessage(
+							`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(
+								uri,
+							)}' because the folder already exists and is not empty.`,
+							confirm,
+							openFolder,
+						)
+						.then(result => {
+							if (result === openFolder) {
+								void env.openExternal(uri);
+							}
+						});
 				} else {
 					void showGenericErrorMessage(
 						`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(uri)}.`,
@@ -835,7 +844,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			if (worktree == null) break;
 
 			if (state.flags.includes('--reveal-explorer')) {
-				void revealInFileExplorer(worktree);
+				void revealInFileExplorer(worktree.uri);
 			} else {
 				openWorkspace(worktree.uri, { location: convertOpenFlagsToLocation(state.flags) });
 			}
