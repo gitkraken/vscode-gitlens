@@ -36,7 +36,7 @@ import { setContext } from '../system/context';
 import { log } from '../system/decorators/log';
 import { sequentialize } from '../system/function';
 import type { OpenWorkspaceLocation } from '../system/utils';
-import { openWorkspace } from '../system/utils';
+import { openWorkspace, revealInFileExplorer } from '../system/utils';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import {
 	canEditNode,
@@ -781,14 +781,14 @@ export class ViewCommands {
 	private revealRepositoryInExplorer(node: RepositoryNode) {
 		if (!(node instanceof RepositoryNode)) return undefined;
 
-		return RepoActions.revealInFileExplorer(node.repo);
+		return revealInFileExplorer(node.repo.uri);
 	}
 
 	@log()
 	private revealWorktreeInExplorer(node: WorktreeNode) {
 		if (!(node instanceof WorktreeNode)) return undefined;
 
-		return WorktreeActions.revealInFileExplorer(node.worktree);
+		return revealInFileExplorer(node.worktree.uri);
 	}
 
 	@log()

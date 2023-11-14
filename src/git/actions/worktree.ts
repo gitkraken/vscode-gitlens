@@ -2,7 +2,6 @@ import type { Uri } from 'vscode';
 import type { WorktreeGitCommandArgs } from '../../commands/git/worktree';
 import { Container } from '../../container';
 import { ensure } from '../../system/array';
-import { executeCoreCommand } from '../../system/command';
 import type { OpenWorkspaceLocation } from '../../system/utils';
 import { executeGitCommand } from '../actions';
 import type { GitReference } from '../models/reference';
@@ -63,10 +62,6 @@ export async function reveal(
 		void view.show({ preserveFocus: !options?.focus });
 	}
 	return node;
-}
-
-export async function revealInFileExplorer(worktree: GitWorktree) {
-	void (await executeCoreCommand('revealFileInOS', worktree.uri));
 }
 
 type OpenFlagsArray = Extract<NonNullable<Required<WorktreeGitCommandArgs['state']>>, { subcommand: 'open' }>['flags'];
