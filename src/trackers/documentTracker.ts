@@ -394,7 +394,9 @@ export class DocumentTracker<T> implements Disposable {
 		if (this._documentMap.size === 0) return;
 
 		for await (const doc of this._documentMap.values()) {
-			const repoPath = doc.uri.repoPath!.toLocaleLowerCase();
+			const repoPath = doc.uri.repoPath?.toLocaleLowerCase();
+			if (repoPath == null) continue;
+
 			if (changed?.removedRepoPaths?.has(repoPath)) {
 				void this.remove(doc.document, doc);
 			} else if (changed == null || changed?.addedOrChangedRepoPaths?.has(repoPath)) {
