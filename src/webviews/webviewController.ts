@@ -580,7 +580,7 @@ export class WebviewController<
 					debugger;
 					setLogScopeExit(scope, undefined, 'TIMEDOUT');
 					resolve(false);
-				}, 5000);
+				}, 30000);
 			}),
 		]);
 
