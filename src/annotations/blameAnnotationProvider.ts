@@ -107,10 +107,10 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			Array.isArray(lookupTable)
 				? lookupTable
 				: unified
-				? lookupTable.hot.concat(lookupTable.cold)
-				: date.getTime() < coldThresholdTimestamp
-				? lookupTable.cold
-				: lookupTable.hot;
+				  ? lookupTable.hot.concat(lookupTable.cold)
+				  : date.getTime() < coldThresholdTimestamp
+				    ? lookupTable.cold
+				    : lookupTable.hot;
 
 		const computeRelativeAge = (date: Date, lookup: number[]) => {
 			const time = date.getTime();

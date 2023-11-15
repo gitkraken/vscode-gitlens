@@ -202,8 +202,8 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 						this.worktree.main
 							? `_Main${this.worktree.opened ? ', Active_' : '_'}`
 							: this.worktree.opened
-							? '_Active_'
-							: ''
+							  ? '_Active_'
+							  : ''
 				  } `
 				: '';
 
@@ -367,14 +367,14 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			pendingPullRequest != null
 				? new ThemeIcon('loading~spin')
 				: this.worktree.opened
-				? new ThemeIcon('check')
-				: icon;
+				  ? new ThemeIcon('check')
+				  : icon;
 		item.tooltip = tooltip;
 		item.resourceUri = missing
 			? Uri.parse('gitlens-view://worktree/missing')
 			: hasChanges
-			? Uri.parse('gitlens-view://worktree/changes')
-			: undefined;
+			  ? Uri.parse('gitlens-view://worktree/changes')
+			  : undefined;
 		return item;
 	}
 

@@ -188,10 +188,10 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 			pendingPullRequest != null
 				? new ThemeIcon('loading~spin')
 				: this.unpublished
-				? new ThemeIcon('arrow-up', new ThemeColor('gitlens.unpublishedCommitIconColor' satisfies Colors))
-				: this.view.config.avatars
-				? await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
-				: undefined;
+				  ? new ThemeIcon('arrow-up', new ThemeColor('gitlens.unpublishedCommitIconColor' satisfies Colors))
+				  : this.view.config.avatars
+				    ? await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
+				    : undefined;
 		// item.tooltip = this.tooltip;
 
 		return item;

@@ -264,8 +264,8 @@ export class GkPullRequestRow extends LitElement {
 								aria-label="${this.isCurrentBranch
 									? 'Already on this branch'
 									: this.hasWorktree
-									? 'This branch has a worktree'
-									: 'Switch to Branch...'}"
+									  ? 'This branch has a worktree'
+									  : 'Switch to Branch...'}"
 								@click="${this.onSwitchBranchClick}"
 								><code-icon icon="gl-switch"></code-icon
 							></a>
@@ -273,8 +273,8 @@ export class GkPullRequestRow extends LitElement {
 								>${this.isCurrentBranch
 									? 'Already on this branch'
 									: this.hasWorktree
-									? 'This branch has a worktree'
-									: 'Switch to Branch...'}</span
+									  ? 'This branch has a worktree'
+									  : 'Switch to Branch...'}</span
 							>
 						</gk-tooltip>
 					</nav>

@@ -156,8 +156,8 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 					log == null || log.count === 0
 						? TreeItemCollapsibleState.None
 						: this._options.expand || log.count === 1
-						? TreeItemCollapsibleState.Expanded
-						: TreeItemCollapsibleState.Collapsed;
+						  ? TreeItemCollapsibleState.Expanded
+						  : TreeItemCollapsibleState.Collapsed;
 			} catch (ex) {
 				if (ex instanceof PromiseCancelledError) {
 					setTimeout(async () => {

@@ -417,8 +417,8 @@ export class ViewCommands {
 			node instanceof ViewRefNode || node instanceof ViewRefFileNode
 				? node?.ref
 				: node instanceof BranchTrackingStatusNode
-				? node.branch
-				: undefined;
+				  ? node.branch
+				  : undefined;
 		if (from == null) {
 			const branch = await this.container.git.getBranch(
 				node?.repoPath ?? this.container.git.getBestRepository()?.uri,
@@ -467,8 +467,8 @@ export class ViewCommands {
 			node instanceof ViewRefNode || node instanceof ViewRefFileNode
 				? node?.ref
 				: node instanceof BranchTrackingStatusNode
-				? node.branch
-				: undefined;
+				  ? node.branch
+				  : undefined;
 		if (from == null) {
 			const branch = await this.container.git.getBranch(
 				node?.repoPath ?? this.container.git.getBestRepository()?.uri,
