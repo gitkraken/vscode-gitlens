@@ -12,7 +12,7 @@ export class AnthropicProvider implements AIProvider {
 	readonly name = 'Anthropic';
 
 	private get model(): AnthropicModels {
-		return configuration.get('ai.experimental.anthropic.model') || 'claude-v1';
+		return configuration.get('ai.experimental.anthropic.model') || 'claude-instant-1';
 	}
 
 	constructor(private readonly container: Container) {}
@@ -24,7 +24,7 @@ export class AnthropicProvider implements AIProvider {
 		if (apiKey == null) return undefined;
 
 		const model = this.model;
-		const maxCodeCharacters = getMaxCharacters(model);
+		const maxCodeCharacters = getMaxCharacters(model, 1600);
 
 		const code = diff.substring(0, maxCodeCharacters);
 		if (diff.length > maxCodeCharacters) {
@@ -38,15 +38,29 @@ export class AnthropicProvider implements AIProvider {
 			customPrompt += '.';
 		}
 
-		let prompt =
-			"\n\nHuman: You are an AI programming assistant tasked with writing a meaningful commit message by summarizing code changes.\n- Follow the user's instructions carefully & to the letter!\n- Don't repeat yourself or make anything up!\n- Minimize any other prose.";
-		prompt += `\n${customPrompt}\n- Avoid phrases like "this commit", "this change", etc.`;
-		prompt += '\n\nAssistant: OK';
-		if (options?.context) {
-			prompt += `\n\nHuman: Use "${options.context}" to help craft the commit message.\n\nAssistant: OK`;
-		}
-		prompt += `\n\nHuman: Write a meaningful commit message for the following code changes:\n\n${code}`;
-		prompt += '\n\nAssistant:';
+		const prompt = `\n\nHuman: You are an advanced AI programming assistant tasked with summarizing code changes into a concise and meaningful commit message. Compose a commit message that:
+- Strictly synthesizes meaningful information from the provided code diff
+- Utilizes any additional user-provided context to comprehend the rationale behind the code changes
+- Is clear and brief, with an informal yet professional tone, and without superfluous descriptions
+- Avoids unnecessary phrases such as "this commit", "this change", and the like
+- Avoids direct mention of specific code identifiers, names, or file names, unless they are crucial for understanding the purpose of the changes
+- Most importantly emphasizes the 'why' of the change, its benefits, or the problem it addresses rather than only the 'what' that changed
+
+Follow the user's instructions carefully, don't repeat yourself, don't include the code in the output, or make anything up!
+
+Human: Here is the code diff to use to generate the commit message:
+
+${code}
+
+${
+	options?.context
+		? `Human: Here is additional context which should be taken into account when generating the commit message:\n\n${options.context}`
+		: ''
+}
+
+Human: ${customPrompt}
+
+Assistant:`;
 
 		const request: AnthropicCompletionRequest = {
 			model: model,
@@ -80,7 +94,7 @@ export class AnthropicProvider implements AIProvider {
 		if (apiKey == null) return undefined;
 
 		const model = this.model;
-		const maxCodeCharacters = getMaxCharacters(model);
+		const maxCodeCharacters = getMaxCharacters(model, 2400);
 
 		const code = diff.substring(0, maxCodeCharacters);
 		if (diff.length > maxCodeCharacters) {
@@ -89,12 +103,24 @@ export class AnthropicProvider implements AIProvider {
 			);
 		}
 
-		let prompt =
-			"\n\nHuman: You are an AI programming assistant tasked with providing an easy to understand but detailed explanation of a commit by summarizing the code changes while also using the commit message as additional context and framing.\nDon't make anything up!";
-		prompt += `\nUse the following user-provided commit message, which should provide some explanation to why these changes where made, when attempting to generate the rich explanation:\n\n${message}`;
-		prompt += '\n\nAssistant: OK';
-		prompt += `\n\nHuman: Explain the following code changes:\n\n${code}`;
-		prompt += '\n\nAssistant:';
+		const prompt = `\n\nHuman: You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
+			- Concisely synthesizes meaningful information from the provided code diff
+			- Incorporates any additional context provided by the user to understand the rationale behind the code changes
+			- Places the emphasis on the 'why' of the change, clarifying its benefits or addressing the problem that necessitated the change, beyond just detailing the 'what' has changed
+
+			Do not make any assumptions or invent details that are not supported by the code diff or the user-provided context.
+
+Human: Here is additional context provided by the author of the changes, which should provide some explanation to why these changes where made. Please strongly consider this information when generating your explanation:
+
+${message}
+
+Human: Now, kindly explain the following code diff in a way that would be clear to someone reviewing or trying to understand these changes:
+
+${code}
+
+Human: Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase.
+
+Assistant:`;
 
 		const request: AnthropicCompletionRequest = {
 			model: model,
@@ -200,18 +226,22 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 	return apiKey;
 }
 
-function getMaxCharacters(model: AnthropicModels): number {
-	if (model === 'claude-2' || model === 'claude-v1-100k' || model === 'claude-instant-v1-100k') {
-		return 135000;
+function getMaxCharacters(model: AnthropicModels, outputLength: number): number {
+	let tokens;
+	switch (model) {
+		case 'claude-2': // 100,000 tokens
+		case 'claude-instant-1':
+			tokens = 100000;
+			break;
+		default: // 4,096 tokens
+			tokens = 4096;
+			break;
 	}
-	return 12000;
+
+	return tokens * 4 - outputLength / 4;
 }
-export type AnthropicModels =
-	| 'claude-v1'
-	| 'claude-v1-100k'
-	| 'claude-instant-v1'
-	| 'claude-instant-v1-100k'
-	| 'claude-2';
+
+export type AnthropicModels = 'claude-instant-1' | 'claude-2';
 
 interface AnthropicCompletionRequest {
 	model: string;
