@@ -15,8 +15,8 @@ export enum DeepLinkType {
 	Workspace = 'workspace',
 }
 
-export const AccountDeepLinkTypes = [DeepLinkType.Draft, DeepLinkType.Workspace];
-export const PaidDeepLinkTypes = [];
+export const AccountDeepLinkTypes: DeepLinkType[] = [DeepLinkType.Draft, DeepLinkType.Workspace];
+export const PaidDeepLinkTypes: DeepLinkType[] = [];
 
 export function deepLinkTypeToString(type: DeepLinkType): string {
 	switch (type) {
