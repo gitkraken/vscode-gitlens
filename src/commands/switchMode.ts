@@ -21,7 +21,7 @@ export class SwitchModeCommand extends Command {
 		const pick = await showModePicker();
 		if (pick === undefined) return;
 
-		setLogScopeExit(scope, ` \u2014 mode=${pick.key ?? ''}`);
+		setLogScopeExit(scope, ` \u2022 mode=${pick.key ?? ''}`);
 
 		const active = configuration.get('mode.active');
 		if (active === pick.key) return;
