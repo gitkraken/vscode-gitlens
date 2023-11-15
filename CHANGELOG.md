@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds support for OpenAI's GPT-4 Turbo and latest Anthropic models for GitLens' experimental AI features &mdash; closes [#3005](https://github.com/gitkraken/vscode-gitlens/issues/3005)
+
+### Changed
+
+- Refines AI prompts to provide better commit message generation and explanation results
+
 ## [14.5.0] - 2023-11-13
 
 ### Added

@@ -3175,7 +3175,7 @@
 					},
 					"gitlens.experimental.generateCommitMessagePrompt": {
 						"type": "string",
-						"default": "Commit messages must have a short description that is less than 50 chars followed by a newline and a more detailed description.\n- Write concisely using an informal tone and avoid specific names from the code",
+						"default": "Now, please generate a commit message. Ensure that it includes a precise and informative subject line that succinctly summarizes the crux of the changes in under 50 characters. If necessary, follow with an explanatory body providing insight into the nature of the changes, the reasoning behind them, and any significant consequences or considerations arising from them. Conclude with any relevant issue references at the end of the message.",
 						"markdownDescription": "Specifies the prompt to use to tell OpenAI how to structure or format the generated commit message",
 						"scope": "window",
 						"order": 2
@@ -3202,19 +3202,23 @@
 							"gpt-3.5-turbo",
 							"gpt-3.5-turbo-16k",
 							"gpt-3.5-turbo-0613",
+							"gpt-3.5-turbo-1106",
 							"gpt-4",
 							"gpt-4-0613",
 							"gpt-4-32k",
-							"gpt-4-32k-0613"
+							"gpt-4-32k-0613",
+							"gpt-4-1106-preview"
 						],
 						"enumDescriptions": [
-							"GPT 3.5 Turbo",
-							"GPT 3.5 Turbo 16k",
-							"GPT 3.5 Turbo (June 13)",
-							"GPT 4",
-							"GPT 4 (June 13)",
-							"GPT 4 32k",
-							"GPT 4 32k (June 13)"
+							"GPT-3.5 Turbo",
+							"GPT-3.5 Turbo 16k",
+							"GPT-3.5 Turbo (June 13)",
+							"GPT-3.5 Turbo (Nov 6)",
+							"GPT-4",
+							"GPT-4 (June 13)",
+							"GPT-4 32k",
+							"GPT-4 32k (June 13)",
+							"GPT-4 Turbo (Nov 6)"
 						],
 						"markdownDescription": "Specifies the OpenAI model to use for GitLens' experimental AI features",
 						"scope": "window",
@@ -3232,20 +3236,14 @@
 					},
 					"gitlens.ai.experimental.anthropic.model": {
 						"type": "string",
-						"default": "claude-v1",
+						"default": "claude-instant-1",
 						"enum": [
-							"claude-v1",
-							"claude-v1-100k",
-							"claude-instant-v1",
-							"claude-instant-v1-100k",
+							"claude-instant-1",
 							"claude-2"
 						],
 						"enumDescriptions": [
-							"Claude v1",
-							"Claude v1 100k",
-							"Claude Instant v1",
-							"Claude Instant v1 100k",
-							"Claude 2"
+							"Claude Instant",
+							"Claude"
 						],
 						"markdownDescription": "Specifies the Anthropic model to use for GitLens' experimental AI features",
 						"scope": "window",

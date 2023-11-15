@@ -28,7 +28,7 @@ export class OpenAIProvider implements AIProvider {
 		if (apiKey == null) return undefined;
 
 		const model = this.model;
-		const maxCodeCharacters = getMaxCharacters(model);
+		const maxCodeCharacters = getMaxCharacters(model, 1600);
 
 		const code = diff.substring(0, maxCodeCharacters);
 		if (diff.length > maxCodeCharacters) {
@@ -47,26 +47,34 @@ export class OpenAIProvider implements AIProvider {
 			messages: [
 				{
 					role: 'system',
-					content:
-						"You are an AI programming assistant tasked with writing a meaningful commit message by summarizing code changes.\n\n- Follow the user's instructions carefully & to the letter!\n- Don't repeat yourself or make anything up!\n- Minimize any other prose.",
+					content: `You are an advanced AI programming assistant tasked with summarizing code changes into a concise and meaningful commit message. Compose a commit message that:
+- Strictly synthesizes meaningful information from the provided code diff
+- Utilizes any additional user-provided context to comprehend the rationale behind the code changes
+- Is clear and brief, with an informal yet professional tone, and without superfluous descriptions
+- Avoids unnecessary phrases such as "this commit", "this change", and the like
+- Avoids direct mention of specific code identifiers, names, or file names, unless they are crucial for understanding the purpose of the changes
+- Most importantly emphasizes the 'why' of the change, its benefits, or the problem it addresses rather than only the 'what' that changed
+
+Follow the user's instructions carefully, don't repeat yourself, don't include the code in the output, or make anything up!`,
 				},
 				{
 					role: 'user',
-					content: `${customPrompt}\n- Avoid phrases like "this commit", "this change", etc.`,
+					content: `Here is the code diff to use to generate the commit message:\n\n${code}`,
+				},
+				...(options?.context
+					? [
+							{
+								role: 'user' as const,
+								content: `Here is additional context which should be taken into account when generating the commit message:\n\n${options.context}`,
+							},
+					  ]
+					: []),
+				{
+					role: 'user',
+					content: customPrompt,
 				},
 			],
 		};
-
-		if (options?.context) {
-			request.messages.push({
-				role: 'user',
-				content: `Use "${options.context}" to help craft the commit message.`,
-			});
-		}
-		request.messages.push({
-			role: 'user',
-			content: `Write a meaningful commit message for the following code changes:\n\n${code}`,
-		});
 
 		const rsp = await this.fetch(apiKey, request);
 		if (!rsp.ok) {
@@ -89,7 +97,7 @@ export class OpenAIProvider implements AIProvider {
 		if (apiKey == null) return undefined;
 
 		const model = this.model;
-		const maxCodeCharacters = getMaxCharacters(model);
+		const maxCodeCharacters = getMaxCharacters(model, 2400);
 
 		const code = diff.substring(0, maxCodeCharacters);
 		if (diff.length > maxCodeCharacters) {
@@ -103,20 +111,25 @@ export class OpenAIProvider implements AIProvider {
 			messages: [
 				{
 					role: 'system',
+					content: `You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
+- Concisely synthesizes meaningful information from the provided code diff
+- Incorporates any additional context provided by the user to understand the rationale behind the code changes
+- Places the emphasis on the 'why' of the change, clarifying its benefits or addressing the problem that necessitated the change, beyond just detailing the 'what' has changed
+
+Do not make any assumptions or invent details that are not supported by the code diff or the user-provided context.`,
+				},
+				{
+					role: 'user',
+					content: `Here is additional context provided by the author of the changes, which should provide some explanation to why these changes where made. Please strongly consider this information when generating your explanation:\n\n${message}`,
+				},
+				{
+					role: 'user',
+					content: `Now, kindly explain the following code diff in a way that would be clear to someone reviewing or trying to understand these changes:\n\n${code}`,
+				},
+				{
+					role: 'user',
 					content:
-						"You are an AI programming assistant tasked with providing an easy to understand but detailed explanation of a commit by summarizing the code changes while also using the commit message as additional context and framing.\n\n- Don't make anything up!",
-				},
-				{
-					role: 'user',
-					content: `Use the following user-provided commit message, which should provide some explanation to why these changes where made, when attempting to generate the rich explanation:\n\n${message}`,
-				},
-				{
-					role: 'assistant',
-					content: 'OK',
-				},
-				{
-					role: 'user',
-					content: `Explain the following code changes:\n\n${code}`,
+						'Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase.',
 				},
 			],
 		};
@@ -220,26 +233,45 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 	return openaiApiKey;
 }
 
-function getMaxCharacters(model: OpenAIModels): number {
+function getMaxCharacters(model: OpenAIModels, outputLength: number): number {
+	let tokens;
 	switch (model) {
-		case 'gpt-4-32k':
+		case 'gpt-4-1106-preview': // 128,000 tokens (4,096 max output tokens)
+			tokens = 128000;
+			break;
+		case 'gpt-4-32k': // 32,768 tokens
 		case 'gpt-4-32k-0613':
-			return 43000;
-		case 'gpt-3.5-turbo-16k':
-			return 21000;
-		default:
-			return 12000;
+			tokens = 32768;
+			break;
+		case 'gpt-4': // 8,192 tokens
+		case 'gpt-4-0613':
+			tokens = 8192;
+			break;
+		case 'gpt-3.5-turbo-1106': // 16,385 tokens (4,096 max output tokens)
+			tokens = 16385;
+			break;
+		case 'gpt-3.5-turbo-16k': // 16,385 tokens; Will point to gpt-3.5-turbo-1106 starting Dec 11, 2023
+			tokens = 16385;
+			break;
+		case 'gpt-3.5-turbo': // Will point to gpt-3.5-turbo-1106 starting Dec 11, 2023
+		default: // 4,096 tokens
+			tokens = 4096;
+			break;
 	}
+
+	return tokens * 4 - outputLength / 4;
 }
 
 export type OpenAIModels =
+	| 'gpt-3.5-turbo-1106'
 	| 'gpt-3.5-turbo'
 	| 'gpt-3.5-turbo-16k'
 	| 'gpt-3.5-turbo-0613'
 	| 'gpt-4'
 	| 'gpt-4-0613'
 	| 'gpt-4-32k'
-	| 'gpt-4-32k-0613';
+	| 'gpt-4-32k-0613'
+	| 'gpt-4-1106-preview';
 
 interface OpenAIChatCompletionRequest {
 	model: OpenAIModels;
