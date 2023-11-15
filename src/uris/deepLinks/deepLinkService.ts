@@ -26,6 +26,7 @@ import {
 	deepLinkStateTransitionTable,
 	DeepLinkType,
 	deepLinkTypeToString,
+	PaidDeepLinkTypes,
 	parseDeepLinkUri,
 } from './deepLink';
 
@@ -458,7 +459,7 @@ export class DeepLinkService implements Disposable {
 						message = 'No link type provided.';
 						break;
 					}
-					if (!AccountDeepLinkTypes.includes(targetType)) {
+					if (!PaidDeepLinkTypes.includes(targetType)) {
 						action = DeepLinkServiceAction.PlanCheckPassed;
 						break;
 					}
