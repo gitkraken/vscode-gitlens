@@ -105,10 +105,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		return disposables;
 	}
 
-	protected override onMessageReceived(e: MessageEvent) {
-		const msg = e.data as IpcMessage;
-		this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
-
+	protected override onMessageReceived(msg: IpcMessage) {
 		switch (msg.method) {
 			// case DidChangeRichStateNotificationType.method:
 			// 	onIpc(DidChangeRichStateNotificationType, msg, params => {
@@ -152,7 +149,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 				break;
 
 			default:
-				super.onMessageReceived?.(e);
+				super.onMessageReceived?.(msg);
 		}
 	}
 

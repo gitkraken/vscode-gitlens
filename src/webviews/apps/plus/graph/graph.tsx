@@ -51,7 +51,9 @@ import {
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
 import { Color, darken, getCssVariable, lighten, mix, opacity } from '../../../../system/color';
+import { debug } from '../../../../system/decorators/log';
 import { debounce } from '../../../../system/function';
+import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import type { IpcMessage, IpcNotificationType } from '../../../protocol';
 import { onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
@@ -73,7 +75,7 @@ const graphLaneThemeColors = new Map([
 ]);
 
 export class GraphApp extends App<State> {
-	private callback?: UpdateStateCallback;
+	private updateStateCallback?: UpdateStateCallback;
 
 	constructor() {
 		super('GraphApp');
@@ -93,7 +95,7 @@ export class GraphApp extends App<State> {
 				<GraphWrapper
 					nonce={this.state.nonce}
 					state={this.state}
-					subscriber={(callback: UpdateStateCallback) => this.registerEvents(callback)}
+					subscriber={(updateState: UpdateStateCallback) => this.registerUpdateStateCallback(updateState)}
 					onColumnsChange={debounce<GraphApp['onColumnsChanged']>(
 						settings => this.onColumnsChanged(settings),
 						250,
@@ -139,14 +141,13 @@ export class GraphApp extends App<State> {
 	// 	}
 	// }
 
-	protected override onMessageReceived(e: MessageEvent) {
-		const msg = e.data as IpcMessage;
-		this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
+	protected override onMessageReceived(msg: IpcMessage) {
+		const scope = getLogScope();
 
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
 				onIpc(DidChangeNotificationType, msg, (params, type) => {
-					this.setState({ ...this.state, ...params.state }, type);
+					this.setState({ ...this.state, ...params }, type);
 				});
 				break;
 
@@ -215,7 +216,8 @@ export class GraphApp extends App<State> {
 						const newRowsLength = params.rows.length;
 
 						this.log(
-							`onMessageReceived(${msg.id}:${msg.method}): paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${params.paging.startingCursor} (last existing row: ${lastId})`,
+							scope,
+							`paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${params.paging.startingCursor} (last existing row: ${lastId})`,
 						);
 
 						rows = [];
@@ -223,18 +225,14 @@ export class GraphApp extends App<State> {
 						rows.length = previousRowsLength + newRowsLength;
 
 						if (params.paging.startingCursor !== lastId) {
-							this.log(
-								`onMessageReceived(${msg.id}:${msg.method}): searching for ${params.paging.startingCursor} in existing rows`,
-							);
+							this.log(scope, `searching for ${params.paging.startingCursor} in existing rows`);
 
 							let i = 0;
 							let row;
 							for (row of previousRows) {
 								rows[i++] = row;
 								if (row.sha === params.paging.startingCursor) {
-									this.log(
-										`onMessageReceived(${msg.id}:${msg.method}): found ${params.paging.startingCursor} in existing rows`,
-									);
+									this.log(scope, `found ${params.paging.startingCursor} in existing rows`);
 
 									previousRowsLength = i;
 
@@ -256,7 +254,7 @@ export class GraphApp extends App<State> {
 							rows[previousRowsLength + i] = params.rows[i];
 						}
 					} else {
-						this.log(`onMessageReceived(${msg.id}:${msg.method}): setting to ${params.rows.length} rows`);
+						this.log(scope, `setting to ${params.rows.length} rows`);
 
 						if (params.rows.length === 0) {
 							rows = this.state.rows;
@@ -281,6 +279,8 @@ export class GraphApp extends App<State> {
 					}
 					this.state.loading = false;
 					this.setState(this.state, type);
+
+					setLogScopeExit(scope, ` \u2022 rows=${this.state.rows?.length ?? 0}`);
 				});
 				break;
 
@@ -339,7 +339,7 @@ export class GraphApp extends App<State> {
 				break;
 
 			default:
-				super.onMessageReceived?.(e);
+				super.onMessageReceived?.(msg);
 		}
 	}
 
@@ -474,14 +474,14 @@ export class GraphApp extends App<State> {
 		this.setState(this.state, 'didChangeTheme');
 	}
 
+	@debug({ args: false, singleLine: true })
 	protected override setState(state: State, type?: IpcNotificationType<any> | InternalNotificationType) {
-		this.log(`setState()`);
 		const themingChanged = this.ensureTheming(state);
 
 		this.state = state;
 		super.setState({ timestamp: state.timestamp, selectedRepository: state.selectedRepository });
 
-		this.callback?.(this.state, type, themingChanged);
+		this.updateStateCallback?.(this.state, type, themingChanged);
 	}
 
 	private ensureTheming(state: State): boolean {
@@ -691,11 +691,11 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private registerEvents(callback: UpdateStateCallback): () => void {
-		this.callback = callback;
+	private registerUpdateStateCallback(updateState: UpdateStateCallback): () => void {
+		this.updateStateCallback = updateState;
 
 		return () => {
-			this.callback = undefined;
+			this.updateStateCallback = undefined;
 		};
 	}
 }

@@ -38,13 +38,9 @@ export class HomeApp extends App<State> {
 		return disposables;
 	}
 
-	protected override onMessageReceived(e: MessageEvent) {
-		const msg = e.data as IpcMessage;
-
+	protected override onMessageReceived(msg: IpcMessage) {
 		switch (msg.method) {
 			case DidChangeRepositoriesType.method:
-				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
-
 				onIpc(DidChangeRepositoriesType, msg, params => {
 					this.state.repositories = params;
 					this.state.timestamp = Date.now();
@@ -53,7 +49,7 @@ export class HomeApp extends App<State> {
 				});
 				break;
 			default:
-				super.onMessageReceived?.(e);
+				super.onMessageReceived?.(msg);
 				break;
 		}
 	}

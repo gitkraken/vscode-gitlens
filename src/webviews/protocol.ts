@@ -5,6 +5,7 @@ import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/con
 export interface IpcMessage {
 	id: string;
 	method: string;
+	packed?: boolean;
 	params?: unknown;
 	completionId?: string;
 }
@@ -14,6 +15,7 @@ abstract class IpcMessageType<Params = void> {
 	constructor(
 		public readonly method: string,
 		public readonly reset: boolean = false,
+		public readonly pack: boolean = false,
 	) {}
 }
 export type IpcMessageParams<T> = T extends IpcMessageType<infer P> ? P : never;

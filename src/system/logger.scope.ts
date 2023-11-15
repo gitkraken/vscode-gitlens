@@ -18,7 +18,9 @@ export function getLogScope(): LogScope | undefined {
 	return scopes.get(scopeCounter);
 }
 
-export function getNewLogScope(prefix: string): LogScope {
+export function getNewLogScope(prefix: string, scope?: LogScope | undefined): LogScope {
+	if (scope != null) return { scopeId: scope.scopeId, prefix: `${scope.prefix}${prefix}` };
+
 	const scopeId = getNextLogScopeId();
 	return {
 		scopeId: scopeId,
