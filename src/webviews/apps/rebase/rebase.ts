@@ -1,6 +1,7 @@
 /*global document window*/
 import './rebase.scss';
 import Sortable from 'sortablejs';
+import type { IpcMessage } from '../../protocol';
 import { onIpc } from '../../protocol';
 import type { RebaseEntry, RebaseEntryAction, State } from '../../rebase/protocol';
 import {
@@ -318,13 +319,9 @@ class RebaseEditor extends App<State> {
 		});
 	}
 
-	protected override onMessageReceived(e: MessageEvent) {
-		const msg = e.data;
-
+	protected override onMessageReceived(msg: IpcMessage) {
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
-				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
-
 				onIpc(DidChangeNotificationType, msg, params => {
 					this.state = params.state;
 					this.setState(this.state);
@@ -333,7 +330,7 @@ class RebaseEditor extends App<State> {
 				break;
 
 			default:
-				super.onMessageReceived?.(e);
+				super.onMessageReceived?.(msg);
 		}
 	}
 

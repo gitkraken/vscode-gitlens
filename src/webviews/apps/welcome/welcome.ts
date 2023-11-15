@@ -41,13 +41,9 @@ export class WelcomeApp extends App<State> {
 		return disposables;
 	}
 
-	protected override onMessageReceived(e: MessageEvent) {
-		const msg = e.data as IpcMessage;
-
+	protected override onMessageReceived(msg: IpcMessage) {
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
-				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
-
 				onIpc(DidChangeNotificationType, msg, params => {
 					this.state = params.state;
 					this.setState(this.state);
@@ -55,7 +51,7 @@ export class WelcomeApp extends App<State> {
 				});
 				break;
 			default:
-				super.onMessageReceived?.(e);
+				super.onMessageReceived?.(msg);
 				break;
 		}
 	}

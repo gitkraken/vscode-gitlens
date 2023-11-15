@@ -9,8 +9,9 @@ import { setContext } from '../system/context';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
 import { Logger } from '../system/logger';
-import { getLogScope, setLogScopeExit } from '../system/logger.scope';
+import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
 import { isPromise } from '../system/promise';
+import { maybeStopWatch } from '../system/stopwatch';
 import type { WebviewContext } from '../system/webview';
 import type {
 	IpcMessage,
@@ -25,6 +26,7 @@ import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor 
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 const utf8TextDecoder = new TextDecoder('utf8');
+const utf8TextEncoder = new TextEncoder();
 
 let ipcSequence = 0;
 function nextIpcId() {
@@ -385,7 +387,7 @@ export class WebviewController<
 	}
 
 	@debug<WebviewController<State>['onMessageReceivedCore']>({
-		args: { 0: e => (e != null ? `${e.id}: method=${e.method}` : '<undefined>') },
+		args: { 0: e => (e != null ? `${e.id}, method=${e.method}` : '<undefined>') },
 	})
 	private onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
@@ -534,10 +536,23 @@ export class WebviewController<
 		params: IpcMessageParams<T>,
 		completionId?: string,
 	): Promise<boolean> {
+		let packed;
+		if (type.pack && params != null) {
+			const scope = getLogScope();
+
+			const sw = maybeStopWatch(getNewLogScope(` serializing msg=${type.method}`, scope), {
+				log: false,
+				logLevel: 'debug',
+			});
+			packed = utf8TextEncoder.encode(JSON.stringify(params));
+			sw?.stop();
+		}
+
 		const msg: IpcMessage = {
 			id: this.nextIpcId(),
 			method: type.method,
-			params: params,
+			params: packed ?? params,
+			packed: packed != null,
 			completionId: completionId,
 		};
 

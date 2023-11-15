@@ -118,10 +118,7 @@ export class FocusApp extends App<State> {
 		}
 	}
 
-	protected override onMessageReceived(e: MessageEvent) {
-		const msg = e.data as IpcMessage;
-		this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
-
+	protected override onMessageReceived(msg: IpcMessage) {
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
 				onIpc(DidChangeNotificationType, msg, params => {
@@ -130,6 +127,8 @@ export class FocusApp extends App<State> {
 					this.attachState();
 				});
 				break;
+			default:
+				super.onMessageReceived?.(msg);
 		}
 	}
 }

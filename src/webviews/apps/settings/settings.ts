@@ -133,11 +133,7 @@ export class SettingsApp extends App<State> {
 		return disposables;
 	}
 
-	protected override onMessageReceived(e: MessageEvent) {
-		const msg = e.data as IpcMessage;
-
-		this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
-
+	protected override onMessageReceived(msg: IpcMessage) {
 		switch (msg.method) {
 			case DidOpenAnchorNotificationType.method: {
 				onIpc(DidOpenAnchorNotificationType, msg, params => {
@@ -157,7 +153,7 @@ export class SettingsApp extends App<State> {
 				break;
 
 			default:
-				super.onMessageReceived?.(e);
+				super.onMessageReceived?.(msg);
 		}
 	}
 

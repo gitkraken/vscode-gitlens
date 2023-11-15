@@ -1,7 +1,11 @@
 /*global window document*/
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants';
+import { debug } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function';
 import { Logger } from '../../../system/logger';
+import type { LogScope } from '../../../system/logger.scope';
+import { getLogScope, getNewLogScope } from '../../../system/logger.scope';
+import { maybeStopWatch } from '../../../system/stopwatch';
 import type {
 	IpcCommandType,
 	IpcMessage,
@@ -37,6 +41,8 @@ function nextIpcId() {
 
 	return `webview:${ipcSequence}`;
 }
+
+const textDecoder = new TextDecoder();
 
 export abstract class App<
 	State extends { webviewId: CustomEditorIds | WebviewIds | WebviewViewIds; timestamp: number } = {
@@ -77,7 +83,7 @@ export abstract class App<
 			DEBUG ? 'debug' : 'off',
 		);
 
-		this.log(`ctor()`);
+		this.log(`${appName}()`);
 		// this.log(`ctor(${this.state ? JSON.stringify(this.state) : ''})`);
 
 		this._api = acquireVsCodeApi();
@@ -93,14 +99,14 @@ export abstract class App<
 		disposables.push(watchThemeColors());
 
 		requestAnimationFrame(() => {
-			this.log(`ctor(): initializing...`);
+			this.log(`${appName}(): initializing...`);
 
 			try {
 				this.onInitialize?.();
 				this.bind();
 
 				if (this.onMessageReceived != null) {
-					disposables.push(DOM.on(window, 'message', this.onMessageReceived.bind(this)));
+					disposables.push(DOM.on(window, 'message', e => this.onMessageReceivedCore(e)));
 				}
 
 				this.sendCommand(WebviewReadyCommandType, undefined);
@@ -127,8 +133,25 @@ export abstract class App<
 	protected onInitialize?(): void;
 	protected onBind?(): Disposable[];
 	protected onInitialized?(): void;
-	protected onMessageReceived?(e: MessageEvent): void;
+	protected onMessageReceived?(msg: IpcMessage): void;
 	protected onThemeUpdated?(e: ThemeChangeEvent): void;
+
+	@debug<App['onMessageReceivedCore']>({ args: { 0: e => `${e.data.id}, method=${e.data.method}` } })
+	private onMessageReceivedCore(e: MessageEvent) {
+		const scope = getLogScope();
+
+		const msg = e.data as IpcMessage;
+		if (msg.packed && msg.params instanceof Uint8Array) {
+			const sw = maybeStopWatch(getNewLogScope(` deserializing msg=${e.data.method}`, scope), {
+				log: false,
+				logLevel: 'debug',
+			});
+			msg.params = JSON.parse(textDecoder.decode(msg.params));
+			sw?.stop();
+		}
+
+		this.onMessageReceived!(msg);
+	}
 
 	private _focused?: boolean;
 	private _inputFocused?: boolean;
@@ -166,8 +189,14 @@ export abstract class App<
 		);
 	}
 
-	protected log(message: string, ...optionalParams: any[]) {
-		Logger.log(message, ...optionalParams);
+	protected log(message: string, ...optionalParams: any[]): void;
+	protected log(scope: LogScope | undefined, message: string, ...optionalParams: any[]): void;
+	protected log(scopeOrMessage: LogScope | string | undefined, ...optionalParams: any[]): void {
+		if (typeof scopeOrMessage === 'string') {
+			Logger.log(scopeOrMessage, ...optionalParams);
+		} else {
+			Logger.log(scopeOrMessage, optionalParams.shift(), ...optionalParams);
+		}
 	}
 
 	protected getState(): State | undefined {
@@ -179,7 +208,7 @@ export abstract class App<
 		params: IpcMessageParams<TCommand>,
 	): void {
 		const id = nextIpcId();
-		this.log(`sendCommand(${id}): name=${command.method}`);
+		this.log(`${this.appName}.sendCommand(${id}): name=${command.method}`);
 
 		this.postMessage({ id: id, method: command.method, params: params });
 	}
@@ -193,7 +222,7 @@ export abstract class App<
 		completion: TCompletion,
 	): Promise<IpcMessageParams<TCompletion>> {
 		const id = nextIpcId();
-		this.log(`sendCommandWithCompletion(${id}): name=${command.method}`);
+		this.log(`${this.appName}.sendCommandWithCompletion(${id}): name=${command.method}`);
 
 		const promise = new Promise<IpcMessageParams<TCompletion>>((resolve, reject) => {
 			let timeout: ReturnType<typeof setTimeout> | undefined;

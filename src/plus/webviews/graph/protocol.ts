@@ -309,7 +309,7 @@ export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionPara
 export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('graph/didChange', true);
+export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('graph/didChange', true, true);
 
 export interface DidChangeGraphConfigurationParams {
 	config: GraphComponentConfig;
@@ -387,7 +387,11 @@ export interface DidChangeRowsParams {
 	rowsStatsLoading: boolean;
 	selectedRows?: GraphSelectedRows;
 }
-export const DidChangeRowsNotificationType = new IpcNotificationType<DidChangeRowsParams>('graph/rows/didChange');
+export const DidChangeRowsNotificationType = new IpcNotificationType<DidChangeRowsParams>(
+	'graph/rows/didChange',
+	undefined,
+	true,
+);
 
 export interface DidChangeRowsStatsParams {
 	rowsStats: Record<string, GraphRowStats>;
