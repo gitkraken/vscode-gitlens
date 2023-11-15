@@ -1,8 +1,7 @@
 {
 	"editor.codeActionsOnSave": {
-		"source.fixAll.eslint": true
+		"source.fixAll.eslint": "explicit"
 	},
-	"eslint.packageManager": "yarn",
 	"files.associations": {
 		".eslintrc*.json": "jsonc"
 	},
