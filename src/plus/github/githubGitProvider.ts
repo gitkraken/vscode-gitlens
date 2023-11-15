@@ -2924,8 +2924,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					options?.ordering === 'date'
 						? 'committer-date'
 						: options?.ordering === 'author-date'
-						? 'author-date'
-						: undefined,
+						  ? 'author-date'
+						  : undefined,
 			});
 			if (result == null) return undefined;
 
@@ -3116,8 +3116,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						options?.ordering === 'date'
 							? 'committer-date'
 							: options?.ordering === 'author-date'
-							? 'author-date'
-							: undefined,
+							  ? 'author-date'
+							  : undefined,
 				});
 
 				if (result == null || options?.cancellation?.isCancellationRequested) {

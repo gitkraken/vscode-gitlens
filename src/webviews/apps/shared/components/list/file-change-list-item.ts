@@ -169,40 +169,40 @@ export class FileChangeListItem extends LitElement {
 									</a>
 							  `
 						: !this.uncommitted
-						? html`
-								<a
-									class="change-list__action"
-									@click=${this.onCompareWorking}
-									href="#"
-									title="Open Changes with Working File"
-									aria-label="Open Changes with Working File"
-								>
-									<code-icon icon="git-compare"></code-icon>
-								</a>
-								${this.stash
-									? nothing
-									: html`
-											<a
-												class="change-list__action"
-												@click=${this.onOpenFileOnRemote}
-												href="#"
-												title="Open on remote"
-												aria-label="Open on remote"
-											>
-												<code-icon icon="globe"></code-icon>
-											</a>
-											<a
-												class="change-list__action"
-												@click=${this.onMoreActions}
-												href="#"
-												title="Show more actions"
-												aria-label="Show more actions"
-											>
-												<code-icon icon="ellipsis"></code-icon>
-											</a>
-									  `}
-						  `
-						: nothing}
+						  ? html`
+									<a
+										class="change-list__action"
+										@click=${this.onCompareWorking}
+										href="#"
+										title="Open Changes with Working File"
+										aria-label="Open Changes with Working File"
+									>
+										<code-icon icon="git-compare"></code-icon>
+									</a>
+									${this.stash
+										? nothing
+										: html`
+												<a
+													class="change-list__action"
+													@click=${this.onOpenFileOnRemote}
+													href="#"
+													title="Open on remote"
+													aria-label="Open on remote"
+												>
+													<code-icon icon="globe"></code-icon>
+												</a>
+												<a
+													class="change-list__action"
+													@click=${this.onMoreActions}
+													href="#"
+													title="Show more actions"
+													aria-label="Show more actions"
+												>
+													<code-icon icon="ellipsis"></code-icon>
+												</a>
+										  `}
+						    `
+						  : nothing}
 				</span>
 			</list-item>
 		`;

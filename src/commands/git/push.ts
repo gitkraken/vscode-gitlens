@@ -242,8 +242,8 @@ export class PushGitCommand extends QuickCommand<State> {
 										useForceIfIncludes
 											? ' (with lease and if includes)'
 											: useForceWithLease
-											? ' (with lease)'
-											: ''
+											  ? ' (with lease)'
+											  : ''
 									}`,
 									description: `--force${
 										useForceWithLease
@@ -254,8 +254,8 @@ export class PushGitCommand extends QuickCommand<State> {
 										useForceIfIncludes
 											? ' (with lease and if includes)'
 											: useForceWithLease
-											? ' (with lease)'
-											: ''
+											  ? ' (with lease)'
+											  : ''
 									} ${branch?.state.ahead ? ` ${pluralize('commit', branch.state.ahead)}` : ''}${
 										branch.getRemoteName() ? ` to ${branch.getRemoteName()}` : ''
 									}${
@@ -406,8 +406,8 @@ export class PushGitCommand extends QuickCommand<State> {
 									useForceIfIncludes
 										? ' (with lease and if includes)'
 										: useForceWithLease
-										? ' (with lease)'
-										: ''
+										  ? ' (with lease)'
+										  : ''
 								}`,
 								description: `--force${
 									useForceWithLease
@@ -418,8 +418,8 @@ export class PushGitCommand extends QuickCommand<State> {
 									useForceIfIncludes
 										? ' (with lease and if includes)'
 										: useForceWithLease
-										? ' (with lease)'
-										: ''
+										  ? ' (with lease)'
+										  : ''
 								} ${pushDetails}${
 									status != null && status.state.behind > 0
 										? `, overwriting ${pluralize('commit', status.state.behind)}${

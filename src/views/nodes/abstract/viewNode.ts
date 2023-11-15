@@ -370,40 +370,40 @@ type TreeViewNodesByType = {
 	[T in TreeViewNodeTypes]: T extends 'branch'
 		? BranchNode
 		: T extends 'commit'
-		? CommitNode
-		: T extends 'commit-file'
-		? CommitFileNode
-		: T extends 'compare-branch'
-		? CompareBranchNode
-		: T extends 'compare-results'
-		? CompareResultsNode
-		: T extends 'conflict-file'
-		? MergeConflictFileNode
-		: T extends 'file-commit'
-		? FileRevisionAsCommitNode
-		: T extends 'folder'
-		? FolderNode
-		: T extends 'line-history-tracker'
-		? LineHistoryTrackerNode
-		: T extends 'repository'
-		? RepositoryNode
-		: T extends 'repo-folder'
-		? RepositoryFolderNode
-		: T extends 'results-commits'
-		? ResultsCommitsNode
-		: T extends 'results-file'
-		? ResultsFileNode
-		: T extends 'stash'
-		? StashNode
-		: T extends 'stash-file'
-		? StashFileNode
-		: T extends 'status-file'
-		? StatusFileNode
-		: T extends 'tag'
-		? TagNode
-		: T extends 'uncommitted-file'
-		? UncommittedFileNode
-		: ViewNode<T>;
+		  ? CommitNode
+		  : T extends 'commit-file'
+		    ? CommitFileNode
+		    : T extends 'compare-branch'
+		      ? CompareBranchNode
+		      : T extends 'compare-results'
+		        ? CompareResultsNode
+		        : T extends 'conflict-file'
+		          ? MergeConflictFileNode
+		          : T extends 'file-commit'
+		            ? FileRevisionAsCommitNode
+		            : T extends 'folder'
+		              ? FolderNode
+		              : T extends 'line-history-tracker'
+		                ? LineHistoryTrackerNode
+		                : T extends 'repository'
+		                  ? RepositoryNode
+		                  : T extends 'repo-folder'
+		                    ? RepositoryFolderNode
+		                    : T extends 'results-commits'
+		                      ? ResultsCommitsNode
+		                      : T extends 'results-file'
+		                        ? ResultsFileNode
+		                        : T extends 'stash'
+		                          ? StashNode
+		                          : T extends 'stash-file'
+		                            ? StashFileNode
+		                            : T extends 'status-file'
+		                              ? StatusFileNode
+		                              : T extends 'tag'
+		                                ? TagNode
+		                                : T extends 'uncommitted-file'
+		                                  ? UncommittedFileNode
+		                                  : ViewNode<T>;
 };
 
 export function isViewNode(node: unknown): node is ViewNode;

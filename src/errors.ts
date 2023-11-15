@@ -192,8 +192,8 @@ export class ProviderNotFoundError extends Error {
 				pathOrUri == null
 					? String(pathOrUri)
 					: typeof pathOrUri === 'string'
-					? pathOrUri
-					: pathOrUri.toString(true)
+					  ? pathOrUri
+					  : pathOrUri.toString(true)
 			}'`,
 		);
 

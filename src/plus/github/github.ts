@@ -298,14 +298,14 @@ export class GitHubApi implements Disposable {
 					!author.avatarUrl || isGitHubDotCom(options)
 						? author.avatarUrl ?? undefined
 						: author.email && options?.baseUrl != null
-						? await this.createEnterpriseAvatarUrl(
-								provider,
-								token,
-								options.baseUrl,
-								author.email,
-								options.avatarSize,
-						  )
-						: undefined,
+						  ? await this.createEnterpriseAvatarUrl(
+									provider,
+									token,
+									options.baseUrl,
+									author.email,
+									options.avatarSize,
+						    )
+						  : undefined,
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
@@ -385,14 +385,14 @@ export class GitHubApi implements Disposable {
 					!author.avatarUrl || isGitHubDotCom(options)
 						? author.avatarUrl ?? undefined
 						: author.email && options?.baseUrl != null
-						? await this.createEnterpriseAvatarUrl(
-								provider,
-								token,
-								options.baseUrl,
-								author.email,
-								options.avatarSize,
-						  )
-						: undefined,
+						  ? await this.createEnterpriseAvatarUrl(
+									provider,
+									token,
+									options.baseUrl,
+									author.email,
+									options.avatarSize,
+						    )
+						  : undefined,
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;

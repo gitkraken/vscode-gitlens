@@ -129,12 +129,12 @@ export class FileHistoryNode
 									},
 							  )
 							: c.file != null
-							? new FileRevisionAsCommitNode(this.view, this, c.file, c, {
-									branch: this.branch,
-									getBranchAndTagTips: getBranchAndTagTips,
-									unpublished: unpublishedCommits?.has(c.ref),
-							  })
-							: undefined,
+							  ? new FileRevisionAsCommitNode(this.view, this, c.file, c, {
+										branch: this.branch,
+										getBranchAndTagTips: getBranchAndTagTips,
+										unpublished: unpublishedCommits?.has(c.ref),
+							    })
+							  : undefined,
 					),
 					this,
 				),

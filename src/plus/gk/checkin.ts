@@ -90,8 +90,8 @@ export function getSubscriptionFromCheckIn(data: GKCheckInResponse): Partial<Sub
 			data.user.firstGitLensCheckIn != null
 				? new Date(data.user.firstGitLensCheckIn)
 				: data.user.createdDate != null
-				? new Date(data.user.createdDate)
-				: undefined,
+				  ? new Date(data.user.createdDate)
+				  : undefined,
 		);
 	}
 

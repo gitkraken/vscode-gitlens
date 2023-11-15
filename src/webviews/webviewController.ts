@@ -40,8 +40,8 @@ function nextIpcId() {
 type GetParentType<T extends WebviewPanelDescriptor | WebviewViewDescriptor> = T extends WebviewPanelDescriptor
 	? WebviewPanel
 	: T extends WebviewViewDescriptor
-	? WebviewView
-	: never;
+	  ? WebviewView
+	  : never;
 
 export type WebviewShowingArgs<T extends unknown[], SerializedState> = T | [{ state: Partial<SerializedState> }] | [];
 

@@ -156,8 +156,8 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 					files == null || files.length === 0
 						? TreeItemCollapsibleState.None
 						: this._options.expand
-						? TreeItemCollapsibleState.Expanded
-						: TreeItemCollapsibleState.Collapsed;
+						  ? TreeItemCollapsibleState.Expanded
+						  : TreeItemCollapsibleState.Collapsed;
 			}
 		} catch (ex) {
 			if (ex instanceof PromiseCancelledError) {

@@ -139,8 +139,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		return this.commit.file?.hasConflicts
 			? `${ContextValues.File}+conflicted`
 			: this.commit.isUncommittedStaged
-			? `${ContextValues.File}+staged`
-			: `${ContextValues.File}+unstaged`;
+			  ? `${ContextValues.File}+staged`
+			  : `${ContextValues.File}+unstaged`;
 	}
 
 	override getCommand(): Command | undefined {

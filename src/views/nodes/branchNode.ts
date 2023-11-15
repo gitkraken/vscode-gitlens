@@ -500,11 +500,15 @@ export class BranchNode
 			pendingPullRequest != null
 				? new ThemeIcon('loading~spin')
 				: this.options.showAsCommits
-				? new ThemeIcon('git-commit', color)
-				: {
-						dark: this.view.container.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
-						light: this.view.container.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`),
-				  };
+				  ? new ThemeIcon('git-commit', color)
+				  : {
+							dark: this.view.container.context.asAbsolutePath(
+								`images/dark/icon-branch${iconSuffix}.svg`,
+							),
+							light: this.view.container.context.asAbsolutePath(
+								`images/light/icon-branch${iconSuffix}.svg`,
+							),
+				    };
 		item.tooltip = tooltip;
 		item.resourceUri = Uri.parse(
 			`gitlens-view://branch/status/${await this.branch.getStatus()}${

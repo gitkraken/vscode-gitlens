@@ -339,8 +339,8 @@ export class TimelineChart implements Disposable {
 							this.compact
 								? ''
 								: typeof x === 'number'
-								? x
-								: formatDate(x, this._shortDateFormat ?? 'short'),
+								  ? x
+								  : formatDate(x, this._shortDateFormat ?? 'short'),
 						multiline: false,
 						show: false,
 						outer: !this.compact,

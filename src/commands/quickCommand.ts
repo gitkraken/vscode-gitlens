@@ -88,10 +88,10 @@ export type StepGenerator =
 export type StepItemType<T> = T extends CustomStep<infer U>
 	? U
 	: T extends QuickPickStep<infer U>
-	? U[]
-	: T extends QuickInputStep
-	? string
-	: never;
+	  ? U[]
+	  : T extends QuickInputStep
+	    ? string
+	    : never;
 export type StepNavigationKeys = Exclude<Keys, 'left' | 'alt+left' | 'ctrl+left'>;
 export const StepResultBreak = Symbol('BreakStep');
 export type StepResult<T> = typeof StepResultBreak | T;
@@ -112,10 +112,10 @@ export type AsyncStepResultGenerator<T> = AsyncGenerator<
 export type StepSelection<T> = T extends CustomStep<infer U>
 	? U | Directive
 	: T extends QuickPickStep<infer U>
-	? U[] | Directive
-	: T extends QuickInputStep
-	? string | Directive
-	: never;
+	  ? U[] | Directive
+	  : T extends QuickInputStep
+	    ? string | Directive
+	    : never;
 export type PartialStepState<T = unknown> = Partial<T> & { counter: number; confirm?: boolean; startingStep?: number };
 export type StepState<T = Record<string, unknown>> = T & { counter: number; confirm?: boolean; startingStep?: number };
 

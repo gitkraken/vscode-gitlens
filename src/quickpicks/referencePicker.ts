@@ -173,10 +173,10 @@ async function getItems(
 		include && ReferencesQuickPickIncludes.BranchesAndTags
 			? ['branches', 'tags']
 			: include && ReferencesQuickPickIncludes.Branches
-			? ['branches']
-			: include && ReferencesQuickPickIncludes.Tags
-			? ['tags']
-			: [],
+			  ? ['branches']
+			  : include && ReferencesQuickPickIncludes.Tags
+			    ? ['tags']
+			    : [],
 		{
 			buttons: [RevealInSideBarQuickInputButton],
 			filter: filter,
