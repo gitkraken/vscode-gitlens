@@ -8,7 +8,7 @@ import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
-} from '../../plus/integrationAuthentication';
+} from '../../plus/integrations/authentication/integrationAuthentication';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
 import { log } from '../../system/decorators/log';

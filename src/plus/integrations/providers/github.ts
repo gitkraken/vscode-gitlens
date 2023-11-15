@@ -1,12 +1,12 @@
 import type { AuthenticationSession } from 'vscode';
-import type { Container } from '../../container';
-import type { Account } from '../../git/models/author';
-import type { DefaultBranch } from '../../git/models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
-import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../git/models/pullRequest';
-import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
-import { log } from '../../system/decorators/log';
-import type { IntegrationAuthenticationProviderDescriptor } from '../integrationAuthentication';
+import type { Container } from '../../../container';
+import type { Account } from '../../../git/models/author';
+import type { DefaultBranch } from '../../../git/models/defaultBranch';
+import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
+import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../../git/models/pullRequest';
+import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
+import { log } from '../../../system/decorators/log';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
 import type { SupportedProviderIds } from './providerIntegration';
 import { ensurePaidPlan, ProviderIntegration } from './providerIntegration';
 
@@ -97,7 +97,7 @@ export class GitHubIntegration extends ProviderIntegration<GitHubRepositoryDescr
 	): Promise<PullRequest | undefined> {
 		const { include, ...opts } = options ?? {};
 
-		const toGitHubPullRequestState = (await import(/* webpackChunkName: "github" */ '../github/models'))
+		const toGitHubPullRequestState = (await import(/* webpackChunkName: "github" */ '../../github/models'))
 			.toGitHubPullRequestState;
 		return (await this.container.github)?.getPullRequestForBranch(
 			this,

@@ -8,8 +8,8 @@ import type { GitRemote } from './git/models/remote';
 import type { RepositoryMetadata } from './git/models/repositoryMetadata';
 import type { RemoteProvider } from './git/remotes/remoteProvider';
 import type { RichRemoteProvider } from './git/remotes/richRemoteProvider';
-import type { RepositoryDescriptor } from './plus/providers/providerIntegration';
-import { ProviderIntegration } from './plus/providers/providerIntegration';
+import type { RepositoryDescriptor } from './plus/integrations/providers/providerIntegration';
+import { ProviderIntegration } from './plus/integrations/providers/providerIntegration';
 import { isPromise } from './system/promise';
 
 type Caches = {

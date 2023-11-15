@@ -1,4 +1,4 @@
-import type { Container } from '../../container';
+import type { Container } from '../../../container';
 import { GitHubEnterpriseIntegration, GitHubIntegration } from './github';
 import type { ProviderIntegration, ProviderKey, SupportedProviderIds } from './providerIntegration';
 

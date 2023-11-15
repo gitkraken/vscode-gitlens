@@ -8,7 +8,7 @@ import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProviderReference } from '../git/models/remoteProvider';
 import type { RichRemoteProvider } from '../git/remotes/richRemoteProvider';
-import type { RepositoryDescriptor } from '../plus/providers/providerIntegration';
+import type { RepositoryDescriptor } from '../plus/integrations/providers/providerIntegration';
 import type { MaybePausedResult } from '../system/cancellation';
 import { configuration } from '../system/configuration';
 import { fromNow } from '../system/date';

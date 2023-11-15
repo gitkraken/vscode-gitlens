@@ -8,26 +8,26 @@ import type {
 import { authentication, CancellationError, EventEmitter, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
-import type { Container } from '../../container';
-import { AuthenticationError, ProviderRequestClientError } from '../../errors';
-import type { Account } from '../../git/models/author';
-import type { DefaultBranch } from '../../git/models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
-import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../git/models/pullRequest';
-import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
-import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
-import { configuration } from '../../system/configuration';
-import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
-import { Logger } from '../../system/logger';
-import type { LogScope } from '../../system/logger.scope';
-import { getLogScope } from '../../system/logger.scope';
-import { isPromise } from '../../system/promise';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../gk/account/subscription';
+import type { Container } from '../../../container';
+import { AuthenticationError, ProviderRequestClientError } from '../../../errors';
+import type { Account } from '../../../git/models/author';
+import type { DefaultBranch } from '../../../git/models/defaultBranch';
+import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
+import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../../git/models/pullRequest';
+import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
+import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../../messages';
+import { configuration } from '../../../system/configuration';
+import { gate } from '../../../system/decorators/gate';
+import { debug, log } from '../../../system/decorators/log';
+import { Logger } from '../../../system/logger';
+import type { LogScope } from '../../../system/logger.scope';
+import { getLogScope } from '../../../system/logger.scope';
+import { isPromise } from '../../../system/promise';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../gk/account/subscription';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationSessionDescriptor,
-} from '../integrationAuthentication';
+} from '../authentication/integrationAuthentication';
 
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 

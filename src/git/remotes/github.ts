@@ -8,9 +8,9 @@ import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
-} from '../../plus/integrationAuthentication';
-import type { GitHubRepositoryDescriptor } from '../../plus/providers/github';
-import type { ProviderIntegration, RepositoryDescriptor } from '../../plus/providers/providerIntegration';
+} from '../../plus/integrations/authentication/integrationAuthentication';
+import type { GitHubRepositoryDescriptor } from '../../plus/integrations/providers/github';
+import type { ProviderIntegration, RepositoryDescriptor } from '../../plus/integrations/providers/providerIntegration';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
 import { log } from '../../system/decorators/log';
