@@ -1,5 +1,6 @@
 /*global document window*/
 import './rebase.scss';
+import { Avatar, AvatarGroup, defineGkElement } from '@gitkraken/shared-web-components';
 import Sortable from 'sortablejs';
 import type { IpcMessage } from '../../protocol';
 import { onIpc } from '../../protocol';
@@ -17,10 +18,7 @@ import {
 	UpdateSelectionCommandType,
 } from '../../rebase/protocol';
 import { App } from '../shared/appBase';
-import type { AvatarItem } from '../shared/components/avatars/avatar-item';
 import { DOM } from '../shared/dom';
-import '../shared/components/avatars/avatar-item';
-import '../shared/components/avatars/avatar-stack';
 
 const rebaseActions = ['pick', 'reword', 'edit', 'squash', 'fixup', 'drop'];
 const rebaseActionsMap = new Map<string, RebaseEntryAction>([
@@ -53,6 +51,7 @@ class RebaseEditor extends App<State> {
 	}
 
 	protected override onBind() {
+		defineGkElement(Avatar, AvatarGroup);
 		const disposables = super.onBind?.() ?? [];
 
 		const $container = document.getElementById('entries')!;
@@ -505,14 +504,14 @@ class RebaseEditor extends App<State> {
 				const author = state.authors[commit.author];
 				const committer = state.authors[commit.committer];
 				if (author?.avatarUrl != null || committer?.avatarUrl != null) {
-					const $avatarStack = document.createElement('avatar-stack');
+					const $avatarStack = document.createElement('gk-avatar-group');
 					$avatarStack.classList.add('entry-avatar');
 
 					const hasAuthor = author?.avatarUrl.length;
 					const hasCommitter = author !== committer && author.author !== 'You' && committer?.avatarUrl.length;
 					if (hasAuthor) {
-						const $avatar = document.createElement('avatar-item') as AvatarItem;
-						$avatar.media = author.avatarUrl;
+						const $avatar = document.createElement('gk-avatar');
+						$avatar.src = author.avatarUrl;
 						$avatar.ariaLabel = $avatar.title = hasCommitter
 							? `Authored by: ${author.author}`
 							: author.author;
@@ -520,8 +519,8 @@ class RebaseEditor extends App<State> {
 					}
 
 					if (hasCommitter) {
-						const $avatar = document.createElement('avatar-item') as AvatarItem;
-						$avatar.media = committer.avatarUrl;
+						const $avatar = document.createElement('gk-avatar');
+						$avatar.src = committer.avatarUrl;
 						$avatar.ariaLabel = $avatar.title = hasAuthor
 							? `Committed by: ${committer.author}`
 							: committer.author;
