@@ -285,7 +285,8 @@ export abstract class Command implements Disposable {
 		command: Commands | `${Commands.ActionPrefix}${ActionContext['type']}`,
 		args: T,
 	): string {
-		return `command:${command}?${encodeURIComponent(JSON.stringify(args))}`;
+		// Since we are using the command in a markdown link, we need to escape ()'s so they don't get interpreted as markdown
+		return `command:${command}?${encodeURIComponent(JSON.stringify(args)).replace(/([()])/g, '\\$1')}`;
 	}
 
 	protected readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: false };
