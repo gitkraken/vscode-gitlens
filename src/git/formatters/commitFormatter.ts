@@ -438,7 +438,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (arePlusFeaturesEnabled()) {
 			commands += ` &nbsp;[$(gitlens-graph)](${Command.getMarkdownCommandArgsCore<ShowInCommitGraphCommandArgs>(
 				Commands.ShowInCommitGraph,
-				{ ref: getReferenceFromRevision(this._item) },
+				// Avoid including the message here, it just bloats the command url
+				{ ref: getReferenceFromRevision(this._item, { excludeMessage: true }) },
 			)} "Open in Commit Graph")`;
 		}
 

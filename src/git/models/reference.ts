@@ -233,20 +233,20 @@ export function getReferenceFromBranch(branch: GitBranchReference) {
 	});
 }
 
-export function getReferenceFromRevision(revision: GitRevisionReference) {
+export function getReferenceFromRevision(revision: GitRevisionReference, options?: { excludeMessage?: boolean }) {
 	if (revision.refType === 'stash') {
 		return createReference(revision.ref, revision.repoPath, {
 			refType: revision.refType,
 			name: revision.name,
 			number: revision.number,
-			message: revision.message,
+			message: options?.excludeMessage ? undefined : revision.message,
 		});
 	}
 
 	return createReference(revision.ref, revision.repoPath, {
 		refType: revision.refType,
 		name: revision.name,
-		message: revision.message,
+		message: options?.excludeMessage ? undefined : revision.message,
 	});
 }
 
