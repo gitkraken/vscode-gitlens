@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#3018](https://github.com/gitkraken/vscode-gitlens/issues/3018) - Line blame overlay is broken when commit message contains a `)`
+- Fixes [#2625](https://github.com/gitkraken/vscode-gitlens/issues/2625) - full issue ref has escape characters that break hover links
 
 ## [14.5.0] - 2023-11-13
 
