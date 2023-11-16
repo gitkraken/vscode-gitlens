@@ -14,7 +14,7 @@ import { fromNow } from '../../system/date';
 import { log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
-import { equalsIgnoreCase, escapeMarkdown } from '../../system/string';
+import { equalsIgnoreCase, escapeMarkdown, unescapeMarkdown } from '../../system/string';
 import { supportedInVSCodeVersion } from '../../system/utils';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
@@ -97,7 +97,9 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 						return outputFormat === 'plaintext'
 							? text
 							: text.replace(autolinkFullIssuesRegex, (linkText: string, repo: string, num: string) => {
-									const url = encodeUrl(`${this.protocol}://${this.domain}/${repo}/issues/${num}`);
+									const url = encodeUrl(
+										`${this.protocol}://${this.domain}/${unescapeMarkdown(repo)}/issues/${num}`,
+									);
 									const title = ` "Open Issue or Pull Request #${num} from ${repo} on ${this.name}"`;
 
 									const token = `\x00${tokenMapping.size}\x00`;
