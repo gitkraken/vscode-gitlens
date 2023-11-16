@@ -5,7 +5,6 @@ import { isLinux } from '../../../env/node/platform';
 import { normalizeRepoUri } from '../../../repositories';
 import type { UriEntry } from '../../../system/trie';
 import { PathEntryTrie, UriEntryTrie, UriTrie } from '../../../system/trie';
-// eslint-disable-next-line import/extensions
 import paths from './paths.json';
 
 describe('PathEntryTrie Test Suite', () => {
