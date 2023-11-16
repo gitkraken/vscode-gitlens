@@ -8,7 +8,7 @@
 		"isolatedModules": true,
 		"lib": ["es2022", "esnext.disposable"],
 		"module": "esnext",
-		"moduleResolution": "node",
+		"moduleResolution": "Bundler",
 		"noFallthroughCasesInSwitch": true,
 		"noImplicitOverride": true,
 		"noImplicitReturns": true,
