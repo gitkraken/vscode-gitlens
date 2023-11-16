@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Improves the performance of the _Commit Graph_ when loading a large number of commits
 - Refines AI prompts to provide better commit message generation and explanation results
 
 ### Fixed
