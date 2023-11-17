@@ -7,8 +7,8 @@ import type { CancellationToken, Disposable, Event } from 'vscode';
 import { EventEmitter, Uri, window } from 'vscode';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
-import type { CoreConfiguration } from '../../constants';
-import type { Container } from '../../container';
+import type { CoreConfiguration } from '../../../../constants';
+import type { Container } from '../../../../container';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -16,31 +16,31 @@ import {
 	ProviderRequestClientError,
 	ProviderRequestNotFoundError,
 	ProviderRequestRateLimitError,
-} from '../../errors';
-import type { PagedResult, RepositoryVisibility } from '../../git/gitProvider';
-import type { Account } from '../../git/models/author';
-import type { DefaultBranch } from '../../git/models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
-import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
-import { isSha } from '../../git/models/reference';
-import type { Provider } from '../../git/models/remoteProvider';
-import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
-import type { GitUser } from '../../git/models/user';
-import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
+} from '../../../../errors';
+import type { PagedResult, RepositoryVisibility } from '../../../../git/gitProvider';
+import type { Account } from '../../../../git/models/author';
+import type { DefaultBranch } from '../../../../git/models/defaultBranch';
+import type { IssueOrPullRequest, SearchedIssue } from '../../../../git/models/issue';
+import type { PullRequest, SearchedPullRequest } from '../../../../git/models/pullRequest';
+import { isSha } from '../../../../git/models/reference';
+import type { Provider } from '../../../../git/models/remoteProvider';
+import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
+import type { GitUser } from '../../../../git/models/user';
+import { getGitHubNoReplyAddressParts } from '../../../../git/remotes/github';
 import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
-} from '../../messages';
-import { uniqueBy } from '../../system/array';
-import { configuration } from '../../system/configuration';
-import { debug } from '../../system/decorators/log';
-import { Logger } from '../../system/logger';
-import type { LogScope } from '../../system/logger.scope';
-import { getLogScope } from '../../system/logger.scope';
-import { maybeStopWatch } from '../../system/stopwatch';
-import { base64 } from '../../system/string';
-import type { Version } from '../../system/version';
-import { fromString, satisfies } from '../../system/version';
+} from '../../../../messages';
+import { uniqueBy } from '../../../../system/array';
+import { configuration } from '../../../../system/configuration';
+import { debug } from '../../../../system/decorators/log';
+import { Logger } from '../../../../system/logger';
+import type { LogScope } from '../../../../system/logger.scope';
+import { getLogScope } from '../../../../system/logger.scope';
+import { maybeStopWatch } from '../../../../system/stopwatch';
+import { base64 } from '../../../../system/string';
+import type { Version } from '../../../../system/version';
+import { fromString, satisfies } from '../../../../system/version';
 import type {
 	GitHubBlame,
 	GitHubBlameRange,

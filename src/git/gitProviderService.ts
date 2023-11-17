@@ -35,15 +35,7 @@ import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import type { Deferred } from '../system/promise';
-import {
-	asSettled,
-	cancellable,
-	defer,
-	getDeferredPromiseIfPending,
-	getSettledValue,
-	isPromise,
-	PromiseCancelledError,
-} from '../system/promise';
+import { asSettled, defer, getDeferredPromiseIfPending, getSettledValue } from '../system/promise';
 import { sortCompare } from '../system/string';
 import { VisitedPathsTrie } from '../system/trie';
 import type {
@@ -69,15 +61,14 @@ import type { GitContributor } from './models/contributor';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitGraph } from './models/graph';
-import type { SearchedIssue } from './models/issue';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
-import type { SearchedPullRequest } from './models/pullRequest';
 import type { GitRebaseStatus } from './models/rebase';
 import type { GitBranchReference, GitReference } from './models/reference';
 import { createRevisionRange, isSha, isUncommitted, isUncommittedParent } from './models/reference';
 import type { GitReflog } from './models/reflog';
-import { getVisibilityCacheKey, GitRemote } from './models/remote';
+import type { GitRemote } from './models/remote';
+import { getVisibilityCacheKey } from './models/remote';
 import type { RepositoryChangeEvent } from './models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from './models/repository';
 import type { GitStash } from './models/stash';
@@ -88,7 +79,6 @@ import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import { parseGitRemoteUrl } from './parsers/remoteParser';
 import type { RemoteProvider } from './remotes/remoteProvider';
-import type { RichRemoteProvider } from './remotes/richRemoteProvider';
 import type { GitSearch, SearchQuery } from './search';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
@@ -217,10 +207,7 @@ export class GitProviderService implements Disposable {
 
 	readonly supportedSchemes = new Set<string>();
 
-	private readonly _bestRemotesCache = new Map<
-		RepoComparisonKey,
-		Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]>
-	>();
+	private readonly _bestRemotesCache = new Map<RepoComparisonKey, Promise<GitRemote<RemoteProvider>[]>>();
 	private readonly _disposable: Disposable;
 	private _initializing: Deferred<number> | undefined;
 	private readonly _pendingRepositories = new Map<RepoComparisonKey, Promise<Repository | undefined>>();
@@ -2048,78 +2035,6 @@ export class GitProviderService implements Disposable {
 		return provider.getPreviousComparisonUrisForLine(path, uri, editorLine, ref, skip);
 	}
 
-	@debug<GitProviderService['getMyPullRequests']>({ args: { 0: remoteOrProvider => remoteOrProvider.name } })
-	async getMyPullRequests(
-		remoteOrProvider: GitRemote | RichRemoteProvider,
-		options?: { timeout?: number },
-	): Promise<SearchedPullRequest[] | undefined> {
-		let provider;
-		if (GitRemote.is(remoteOrProvider)) {
-			({ provider } = remoteOrProvider);
-			if (!provider?.hasRichIntegration()) return undefined;
-		} else {
-			provider = remoteOrProvider;
-		}
-
-		let timeout;
-		if (options != null) {
-			({ timeout, ...options } = options);
-		}
-
-		let promiseOrPRs = provider.searchMyPullRequests();
-		if (promiseOrPRs == null || !isPromise(promiseOrPRs)) {
-			return promiseOrPRs;
-		}
-
-		if (timeout != null && timeout > 0) {
-			promiseOrPRs = cancellable(promiseOrPRs, timeout);
-		}
-
-		try {
-			return await promiseOrPRs;
-		} catch (ex) {
-			if (ex instanceof PromiseCancelledError) throw ex;
-
-			return undefined;
-		}
-	}
-
-	@debug<GitProviderService['getMyIssues']>({ args: { 0: remoteOrProvider => remoteOrProvider.name } })
-	async getMyIssues(
-		remoteOrProvider: GitRemote | RichRemoteProvider,
-		options?: { timeout?: number },
-	): Promise<SearchedIssue[] | undefined> {
-		let provider;
-		if (GitRemote.is(remoteOrProvider)) {
-			({ provider } = remoteOrProvider);
-			if (!provider?.hasRichIntegration()) return undefined;
-		} else {
-			provider = remoteOrProvider;
-		}
-
-		let timeout;
-		if (options != null) {
-			({ timeout, ...options } = options);
-		}
-
-		let promiseOrPRs = provider.searchMyIssues();
-		if (promiseOrPRs == null || !isPromise(promiseOrPRs)) {
-			return promiseOrPRs;
-		}
-
-		if (timeout != null && timeout > 0) {
-			promiseOrPRs = cancellable(promiseOrPRs, timeout);
-		}
-
-		try {
-			return await promiseOrPRs;
-		} catch (ex) {
-			if (ex instanceof PromiseCancelledError) throw ex;
-
-			return undefined;
-		}
-	}
-
 	@log()
 	async getIncomingActivity(
 		repoPath: string | Uri,
@@ -2192,15 +2107,18 @@ export class GitProviderService implements Disposable {
 
 					// Only check remotes that have extra weighting and less than the default
 					if (weight > 0 && weight < 1000 && !originalFound) {
-						const p = remote.provider;
+						const integration = remote.getIntegration();
 						if (
-							p.hasRichIntegration() &&
-							(p.maybeConnected ||
-								(p.maybeConnected === undefined && p.shouldConnect && (await p.isConnected())))
+							integration != null &&
+							(integration.maybeConnected ||
+								(integration.maybeConnected === undefined && (await integration.isConnected())))
 						) {
 							if (cancellation?.isCancellationRequested) throw new CancellationError();
 
-							const repo = await p.getRepositoryMetadata(cancellation);
+							const repo = await integration.getRepositoryMetadata(
+								remote.provider.repoDesc,
+								cancellation,
+							);
 
 							if (cancellation?.isCancellationRequested) throw new CancellationError();
 
@@ -2228,19 +2146,22 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getBestRemoteWithRichProvider(
+	async getBestRemoteWithIntegration(
 		repoPath: string | Uri,
 		options?: { includeDisconnected?: boolean },
 		cancellation?: CancellationToken,
-	): Promise<GitRemote<RichRemoteProvider> | undefined> {
+	): Promise<GitRemote<RemoteProvider> | undefined> {
 		const remotes = await this.getBestRemotesWithProviders(repoPath, cancellation);
 
 		const includeDisconnected = options?.includeDisconnected ?? false;
 		for (const r of remotes) {
-			if (r.hasRichIntegration()) {
-				if (includeDisconnected || r.provider.maybeConnected === true) return r;
-				if (r.provider.maybeConnected === undefined && r.default) {
-					if (await r.provider.isConnected()) return r;
+			if (r.hasIntegration()) {
+				const provider = this.container.integrations.getByRemote(r);
+				if (provider != null) {
+					if (includeDisconnected || provider.maybeConnected === true) return r;
+					if (provider.maybeConnected === undefined && r.default) {
+						if (await provider.isConnected()) return r;
+					}
 				}
 			}
 		}
@@ -2271,13 +2192,13 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getRemotesWithRichProviders(
+	async getRemotesWithIntegrations(
 		repoPath: string | Uri,
 		options?: { sort?: boolean },
 		cancellation?: CancellationToken,
-	): Promise<GitRemote<RichRemoteProvider>[]> {
+	): Promise<GitRemote<RemoteProvider>[]> {
 		const remotes = await this.getRemotes(repoPath, options, cancellation);
-		return remotes.filter((r: GitRemote): r is GitRemote<RichRemoteProvider> => r.hasRichIntegration());
+		return remotes.filter((r: GitRemote): r is GitRemote<RemoteProvider> => r.hasIntegration());
 	}
 
 	getBestRepository(): Repository | undefined;

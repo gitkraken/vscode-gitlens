@@ -1,61 +1,32 @@
-import type { AuthenticationSession, Range } from 'vscode';
+import type { Range } from 'vscode';
 import { Uri } from 'vscode';
 import type { Autolink, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { GlyphChars } from '../../constants';
-import type { Container } from '../../container';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { GitHubRepositoryDescriptor } from '../../plus/integrations/providers/github';
-import { ProviderId } from '../../plus/integrations/providers/models';
-import type { ProviderIntegration, RepositoryDescriptor } from '../../plus/integrations/providers/providerIntegration';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
-import { log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { equalsIgnoreCase, escapeMarkdown, unescapeMarkdown } from '../../system/string';
-import type { Account } from '../models/author';
-import type { DefaultBranch } from '../models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
 import { getIssueOrPullRequestMarkdownIcon } from '../models/issue';
-import type { PullRequest, PullRequestState, SearchedPullRequest } from '../models/pullRequest';
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
-import type { RepositoryMetadata } from '../models/repositoryMetadata';
 import type { RemoteProviderId } from './remoteProvider';
-import { RichRemoteProvider } from './richRemoteProvider';
+import { RemoteProvider } from './remoteProvider';
 
 const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
-// const authProvider = Object.freeze({ id: 'github', scopes: ['repo', 'read:user', 'user:email'] });
-// const enterpriseAuthProvider = Object.freeze({ id: 'github-enterprise', scopes: ['repo', 'read:user', 'user:email'] });
-
 function isGitHubDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'github.com');
 }
 
-export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor> {
-	private readonly _provider: ProviderIntegration;
-
-	@memoize()
-	protected get authProvider() {
-		return this._provider.authProvider;
-		// return isGitHubDotCom(this.domain) ? authProvider : enterpriseAuthProvider;
-	}
-
-	constructor(
-		container: Container,
-		domain: string,
-		path: string,
-		protocol?: string,
-		name?: string,
-		custom: boolean = false,
-	) {
-		super(container, domain, path, protocol, name, custom);
-
-		this._provider = container.providers.get(custom ? ProviderId.GitHubEnterprise : ProviderId.GitHub, domain);
+export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
+	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+		super(domain, path, protocol, name, custom);
 	}
 
 	get apiBaseUrl() {
@@ -170,7 +141,11 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 
 								description: `${this.name} Issue or Pull Request ${ownerAndRepo}#${num}`,
 
-								descriptor: { owner: owner, name: repo } satisfies GitHubRepositoryDescriptor,
+								descriptor: {
+									key: this.remoteKey,
+									owner: owner,
+									name: repo,
+								} satisfies GitHubRepositoryDescriptor,
 							});
 						} while (true);
 					},
@@ -203,45 +178,10 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 		return this.formatName('GitHub');
 	}
 
-	@log()
-	override async connect(): Promise<boolean> {
-		return this._provider.connect();
-		// if (!isGitHubDotCom(this.domain)) {
-		// 	if (!(await ensurePaidPlan('GitHub Enterprise instance', this.container))) {
-		// 		return false;
-		// 	}
-		// }
-
-		// return super.connect();
-	}
-
-	override disconnect(
-		options?: { silent?: boolean | undefined; currentSessionOnly?: boolean | undefined } | undefined,
-	): Promise<void> {
-		return this._provider.disconnect(options);
-	}
-
-	override get maybeConnected(): boolean | undefined {
-		return this._provider.maybeConnected;
-	}
-
-	override async reauthenticate(): Promise<void> {
-		return this._provider.reauthenticate();
-	}
-
-	override resetRequestExceptionCount(): void {
-		this._provider.resetRequestExceptionCount();
-	}
-
-	override trackRequestException(): void {
-		this._provider.trackRequestException();
-	}
-
-	protected override ensureSession(
-		createIfNeeded: boolean,
-		forceNewSession?: boolean,
-	): Promise<AuthenticationSession | undefined> {
-		return this._provider.ensureSession(createIfNeeded, forceNewSession);
+	@memoize()
+	override get repoDesc(): GitHubRepositoryDescriptor {
+		const [owner, repo] = this.splitPath();
+		return { key: this.remoteKey, owner: owner, name: repo };
 	}
 
 	async getLocalInfoFromRemoteUri(
@@ -352,169 +292,6 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 		if (sha) return `${this.encodeUrl(`${this.baseUrl}/blob/${sha}/${fileName}`)}${line}`;
 		if (branch) return `${this.encodeUrl(`${this.baseUrl}/blob/${branch}/${fileName}`)}${line}`;
 		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
-	}
-
-	private get repositoryDescriptor(): RepositoryDescriptor {
-		const [owner, repo] = this.splitPath();
-		return { owner: owner, name: repo };
-	}
-
-	override async getAccountForCommit(
-		ref: string,
-		options?: {
-			avatarSize?: number;
-		},
-	): Promise<Account | undefined> {
-		return this._provider.getAccountForCommit(this.repositoryDescriptor, ref, options);
-	}
-
-	protected override async getProviderAccountForCommit(
-		{ accessToken }: AuthenticationSession,
-		ref: string,
-		options?: {
-			avatarSize?: number;
-		},
-	): Promise<Account | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.github)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
-			...options,
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	override async getAccountForEmail(
-		email: string,
-		options?: {
-			avatarSize?: number;
-		},
-	): Promise<Account | undefined> {
-		return this._provider.getAccountForEmail(this.repositoryDescriptor, email, options);
-	}
-
-	protected override async getProviderAccountForEmail(
-		{ accessToken }: AuthenticationSession,
-		email: string,
-		options?: {
-			avatarSize?: number;
-		},
-	): Promise<Account | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.github)?.getAccountForEmail(this, accessToken, owner, repo, email, {
-			...options,
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	override async getDefaultBranch(): Promise<DefaultBranch | undefined> {
-		return this._provider.getDefaultBranch(this.repositoryDescriptor);
-	}
-
-	protected override async getProviderDefaultBranch({
-		accessToken,
-	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.github)?.getDefaultBranch(this, accessToken, owner, repo, {
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	override async getIssueOrPullRequest(
-		id: string,
-		repo: GitHubRepositoryDescriptor | undefined,
-	): Promise<IssueOrPullRequest | undefined> {
-		return this._provider.getIssueOrPullRequest(repo ?? this.repositoryDescriptor, id);
-	}
-
-	protected override async getProviderIssueOrPullRequest(
-		{ accessToken }: AuthenticationSession,
-		id: string,
-		descriptor: GitHubRepositoryDescriptor | undefined,
-	): Promise<IssueOrPullRequest | undefined> {
-		let owner;
-		let repo;
-		if (descriptor != null) {
-			({ owner, name: repo } = descriptor);
-		} else {
-			[owner, repo] = this.splitPath();
-		}
-		return (await this.container.github)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	override async getPullRequestForBranch(
-		branch: string,
-		options?: {
-			avatarSize?: number;
-			include?: PullRequestState[];
-		},
-	): Promise<PullRequest | undefined> {
-		return this._provider.getPullRequestForBranch(this.repositoryDescriptor, branch, options);
-	}
-
-	protected override async getProviderPullRequestForBranch(
-		{ accessToken }: AuthenticationSession,
-		branch: string,
-		options?: {
-			avatarSize?: number;
-			include?: PullRequestState[];
-		},
-	): Promise<PullRequest | undefined> {
-		const [owner, repo] = this.splitPath();
-		const { include, ...opts } = options ?? {};
-
-		const toGitHubPullRequestState = (await import(/* webpackChunkName: "github" */ '../../plus/github/models'))
-			.toGitHubPullRequestState;
-		return (await this.container.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
-			...opts,
-			include: include?.map(s => toGitHubPullRequestState(s)),
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	override async getPullRequestForCommit(ref: string): Promise<PullRequest | undefined> {
-		return this._provider.getPullRequestForCommit(this.repositoryDescriptor, ref);
-	}
-
-	protected override async getProviderPullRequestForCommit(
-		{ accessToken }: AuthenticationSession,
-		ref: string,
-	): Promise<PullRequest | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.github)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	override async getRepositoryMetadata(): Promise<RepositoryMetadata | undefined> {
-		return this._provider.getRepositoryMetadata(this.repositoryDescriptor);
-	}
-
-	protected override async getProviderRepositoryMetadata({
-		accessToken,
-	}: AuthenticationSession): Promise<RepositoryMetadata | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.github)?.getRepositoryMetadata(this, accessToken, owner, repo, {
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected override async searchProviderMyPullRequests({
-		accessToken,
-	}: AuthenticationSession): Promise<SearchedPullRequest[] | undefined> {
-		return (await this.container.github)?.searchMyPullRequests(this, accessToken, {
-			repos: [this.path],
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected override async searchProviderMyIssues({
-		accessToken,
-	}: AuthenticationSession): Promise<SearchedIssue[] | undefined> {
-		return (await this.container.github)?.searchMyIssues(this, accessToken, {
-			repos: [this.path],
-			baseUrl: this.apiBaseUrl,
-		});
 	}
 }
 

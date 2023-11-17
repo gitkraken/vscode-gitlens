@@ -9,7 +9,7 @@ export interface State extends WebviewState {
 	access: FeatureAccess;
 	pullRequests?: PullRequestResult[];
 	issues?: IssueResult[];
-	repos?: RepoWithRichProvider[];
+	repos?: RepoWithIntegration[];
 }
 
 export interface SearchResultBase {
@@ -35,7 +35,7 @@ export interface PullRequestResult extends SearchResultBase {
 	hasLocalBranch: boolean;
 }
 
-export interface RepoWithRichProvider {
+export interface RepoWithIntegration {
 	repo: string;
 	isGitHub: boolean;
 	isConnected: boolean;

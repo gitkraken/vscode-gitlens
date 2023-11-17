@@ -7,8 +7,7 @@ import type { IssueOrPullRequest } from '../git/models/issue';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/models/issue';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProviderReference } from '../git/models/remoteProvider';
-import type { RichRemoteProvider } from '../git/remotes/richRemoteProvider';
-import type { RepositoryDescriptor } from '../plus/integrations/providers/providerIntegration';
+import type { RepositoryDescriptor } from '../plus/integrations/providerIntegration';
 import type { MaybePausedResult } from '../system/cancellation';
 import { configuration } from '../system/configuration';
 import { fromNow } from '../system/date';
@@ -224,10 +223,9 @@ export class Autolinks implements Disposable {
 		}
 		if (messageOrAutolinks.size === 0) return undefined;
 
-		let provider: RichRemoteProvider | undefined;
-		if (remote?.hasRichIntegration()) {
-			({ provider } = remote);
-			const connected = remote.provider.maybeConnected ?? (await remote.provider.isConnected());
+		let provider = remote?.getIntegration();
+		if (provider != null) {
+			const connected = provider.maybeConnected ?? (await provider.isConnected());
 			if (!connected) {
 				provider = undefined;
 			}
@@ -240,10 +238,11 @@ export class Autolinks implements Disposable {
 					[
 						id,
 						[
+							remote?.provider != null &&
 							provider != null &&
 							link.provider?.id === provider.id &&
 							link.provider?.domain === provider.domain
-								? provider.getIssueOrPullRequest(id, link.descriptor)
+								? provider.getIssueOrPullRequest(link.descriptor ?? remote.provider.repoDesc, id)
 								: undefined,
 							link,
 						] satisfies EnrichedAutolink,
@@ -285,8 +284,8 @@ export class Autolinks implements Disposable {
 
 		if (remotes != null && remotes.length !== 0) {
 			remotes = [...remotes].sort((a, b) => {
-				const aConnected = a.provider?.maybeConnected;
-				const bConnected = b.provider?.maybeConnected;
+				const aConnected = a.maybeIntegrationConnected;
+				const bConnected = b.maybeIntegrationConnected;
 				return aConnected !== bConnected ? (aConnected ? -1 : bConnected ? 1 : 0) : 0;
 			});
 			for (const r of remotes) {

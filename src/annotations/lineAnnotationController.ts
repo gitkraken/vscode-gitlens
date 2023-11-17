@@ -158,7 +158,7 @@ export class LineAnnotationController implements Disposable {
 		const prs = new Map<string, Promise<PullRequest | undefined>>();
 		if (lines.size === 0) return prs;
 
-		const remotePromise = this.container.git.getBestRemoteWithRichProvider(repoPath);
+		const remotePromise = this.container.git.getBestRemoteWithIntegration(repoPath);
 
 		for (const [, state] of lines) {
 			if (state.commit.isUncommitted) continue;

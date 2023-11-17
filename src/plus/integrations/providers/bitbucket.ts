@@ -5,9 +5,9 @@ import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issu
 import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
+import type { RepositoryDescriptor, SupportedProviderIds } from '../providerIntegration';
+import { ProviderIntegration } from '../providerIntegration';
 import { ProviderId, providersMetadata } from './models';
-import type { RepositoryDescriptor, SupportedProviderIds } from './providerIntegration';
-import { ProviderIntegration } from './providerIntegration';
 
 const metadata = providersMetadata[ProviderId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });

@@ -23,7 +23,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/m
 import type { GitWorktree } from '../../../git/models/worktree';
 import { getWorktreeForBranch } from '../../../git/models/worktree';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
-import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
+import type { RemoteProvider } from '../../../git/remotes/remoteProvider';
 import { executeCommand } from '../../../system/command';
 import { debug } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
@@ -59,7 +59,7 @@ import {
 
 interface RepoWithRichRemote {
 	repo: Repository;
-	remote: GitRemote<RichRemoteProvider>;
+	remote: GitRemote<RemoteProvider>;
 	isConnected: boolean;
 	isGitHub: boolean;
 }
@@ -528,10 +528,12 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 				disposables.push(repo.onDidChange(this.onRepositoryChanged, this));
 
+				const provider = this.container.integrations.getByRemote(richRemote);
+
 				repos.push({
 					repo: repo,
 					remote: richRemote,
-					isConnected: await richRemote.provider.isConnected(),
+					isConnected: provider?.maybeConnected ?? (await provider?.isConnected()) ?? false,
 					isGitHub: richRemote.provider.id === 'github',
 				});
 			}
@@ -565,7 +567,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			const branchesByRepo = new Map<Repository, PageableResult<GitBranch>>();
 			const worktreesByRepo = new Map<Repository, GitWorktree[]>();
 
-			const queries = richRepos.map(r => [r, this.container.git.getMyPullRequests(r.remote)] as const);
+			const queries = richRepos.map(r => [r, this.container.integrations.getMyPullRequests(r.remote)] as const);
 			for (const [r, query] of queries) {
 				let prs;
 				try {
@@ -647,7 +649,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (force || this._pullRequests == null) {
 			const allIssues = [];
 
-			const queries = richRepos.map(r => [r, this.container.git.getMyIssues(r.remote)] as const);
+			const queries = richRepos.map(r => [r, this.container.integrations.getMyIssues(r.remote)] as const);
 			for (const [r, query] of queries) {
 				let issues;
 				try {

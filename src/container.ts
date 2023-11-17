@@ -26,10 +26,10 @@ import { SubscriptionService } from './plus/gk/account/subscriptionService';
 import { ServerConnection } from './plus/gk/serverConnection';
 import { AzureDevOpsAuthenticationProvider } from './plus/integrations/authentication/azureDevOps';
 import { BitbucketAuthenticationProvider } from './plus/integrations/authentication/bitbucket';
-import { GitHubAuthenticationProvider } from './plus/integrations/authentication/github';
+import { GitHubEnterpriseAuthenticationProvider } from './plus/integrations/authentication/github';
 import { GitLabAuthenticationProvider } from './plus/integrations/authentication/gitlab';
 import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthentication';
-import { ProviderIntegrationService } from './plus/integrations/providers/providerIntegrationService';
+import { IntegrationService } from './plus/integrations/integrationService';
 import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewCommands, registerFocusWebviewPanel } from './plus/webviews/focus/registration';
@@ -498,7 +498,7 @@ export class Container {
 		return this._git;
 	}
 
-	private _github: Promise<import('./plus/github/github').GitHubApi | undefined> | undefined;
+	private _github: Promise<import('./plus/integrations/providers/github/github').GitHubApi | undefined> | undefined;
 	get github() {
 		if (this._github == null) {
 			this._github = this._loadGitHubApi();
@@ -509,7 +509,9 @@ export class Container {
 
 	private async _loadGitHubApi() {
 		try {
-			const github = new (await import(/* webpackChunkName: "github" */ './plus/github/github')).GitHubApi(this);
+			const github = new (
+				await import(/* webpackChunkName: "github" */ './plus/integrations/providers/github/github')
+			).GitHubApi(this);
 			this._disposables.push(github);
 			return github;
 		} catch (ex) {
@@ -518,7 +520,7 @@ export class Container {
 		}
 	}
 
-	private _gitlab: Promise<import('./plus/gitlab/gitlab').GitLabApi | undefined> | undefined;
+	private _gitlab: Promise<import('./plus/integrations/providers/gitlab/gitlab').GitLabApi | undefined> | undefined;
 	get gitlab() {
 		if (this._gitlab == null) {
 			this._gitlab = this._loadGitLabApi();
@@ -529,7 +531,9 @@ export class Container {
 
 	private async _loadGitLabApi() {
 		try {
-			const gitlab = new (await import(/* webpackChunkName: "gitlab" */ './plus/gitlab/gitlab')).GitLabApi(this);
+			const gitlab = new (
+				await import(/* webpackChunkName: "gitlab" */ './plus/integrations/providers/gitlab/gitlab')
+			).GitLabApi(this);
 			this._disposables.push(gitlab);
 			return gitlab;
 		} catch (ex) {
@@ -564,7 +568,7 @@ export class Container {
 			this._disposables.push(
 				(this._integrationAuthentication = new IntegrationAuthenticationService(this)),
 				// Register any integration authentication providers
-				new GitHubAuthenticationProvider(this),
+				new GitHubEnterpriseAuthenticationProvider(this),
 				new GitLabAuthenticationProvider(this),
 				new AzureDevOpsAuthenticationProvider(this),
 				new BitbucketAuthenticationProvider(this),
@@ -572,6 +576,14 @@ export class Container {
 		}
 
 		return this._integrationAuthentication;
+	}
+
+	private _integrations: IntegrationService | undefined;
+	get integrations(): IntegrationService {
+		if (this._integrations == null) {
+			this._integrations = new IntegrationService(this);
+		}
+		return this._integrations;
 	}
 
 	private readonly _keyboard: Keyboard;
@@ -620,14 +632,6 @@ export class Container {
 	@memoize()
 	get prereleaseOrDebugging() {
 		return this._prerelease || this.debugging;
-	}
-
-	private _providers: ProviderIntegrationService | undefined;
-	get providers(): ProviderIntegrationService {
-		if (this._providers == null) {
-			this._providers = new ProviderIntegrationService(this);
-		}
-		return this._providers;
 	}
 
 	private readonly _rebaseEditor: RebaseEditorProvider;

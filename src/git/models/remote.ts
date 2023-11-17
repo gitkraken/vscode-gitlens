@@ -2,17 +2,17 @@ import type { ColorTheme } from 'vscode';
 import { Uri, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import type { ProviderIntegration } from '../../plus/integrations/providerIntegration';
 import { memoize } from '../../system/decorators/memoize';
 import { equalsIgnoreCase, sortCompare } from '../../system/string';
 import { isLightTheme } from '../../system/utils';
 import { parseGitRemoteUrl } from '../parsers/remoteParser';
 import type { RemoteProvider } from '../remotes/remoteProvider';
-import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 
 export type GitRemoteType = 'fetch' | 'push';
 
-export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProvider | RichRemoteProvider | undefined> {
-	static getHighlanderProviders(remotes: GitRemote<RemoteProvider | RichRemoteProvider>[]) {
+export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProvider | undefined> {
+	static getHighlanderProviders(remotes: GitRemote<RemoteProvider>[]) {
 		if (remotes.length === 0) return undefined;
 
 		const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
@@ -24,7 +24,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return undefined;
 	}
 
-	static getHighlanderProviderName(remotes: GitRemote<RemoteProvider | RichRemoteProvider>[]) {
+	static getHighlanderProviderName(remotes: GitRemote<RemoteProvider>[]) {
 		if (remotes.length === 0) return undefined;
 
 		const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
@@ -52,6 +52,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	constructor(
+		private readonly container: Container,
 		public readonly repoPath: string,
 		public readonly name: string,
 		public readonly scheme: string,
@@ -75,6 +76,12 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	@memoize()
 	get id() {
 		return `${this.name}/${this.remoteKey}`;
+	}
+
+	get maybeIntegrationConnected(): boolean | undefined {
+		return this.provider == null || !this.container.integrations.supported(this.provider.id)
+			? false
+			: this.getIntegration()?.maybeConnected;
 	}
 
 	@memoize()
@@ -103,12 +110,12 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return bestUrl!;
 	}
 
-	hasRichIntegration(): this is GitRemote<RichRemoteProvider> {
-		return this.provider?.hasRichIntegration() ?? false;
+	getIntegration(): ProviderIntegration | undefined {
+		return this.provider != null ? this.container.integrations.getByRemote(this) : undefined;
 	}
 
-	get maybeConnected(): boolean | undefined {
-		return this.provider == null ? false : this.provider.maybeConnected;
+	hasIntegration(): this is GitRemote<RemoteProvider> {
+		return this.provider != null && this.container.integrations.supported(this.provider.id);
 	}
 
 	matches(url: string): boolean;

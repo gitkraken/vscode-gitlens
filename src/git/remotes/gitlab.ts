@@ -1,57 +1,32 @@
-import type { AuthenticationSession, Range, Uri } from 'vscode';
+import type { Range, Uri } from 'vscode';
 import type { Autolink, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { GlyphChars } from '../../constants';
-import type { Container } from '../../container';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { GitLabRepositoryDescriptor } from '../../plus/integrations/providers/gitlab';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
-import { log } from '../../system/decorators/log';
+import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { equalsIgnoreCase, escapeMarkdown, unescapeMarkdown } from '../../system/string';
-import type { Account } from '../models/author';
-import type { DefaultBranch } from '../models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
 import { getIssueOrPullRequestMarkdownIcon } from '../models/issue';
-import type { PullRequest, PullRequestState, SearchedPullRequest } from '../models/pullRequest';
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
-import type { RepositoryMetadata } from '../models/repositoryMetadata';
 import type { RemoteProviderId } from './remoteProvider';
-import { ensurePaidPlan, RichRemoteProvider } from './richRemoteProvider';
+import { RemoteProvider } from './remoteProvider';
 
 const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
 const autolinkFullMergeRequestsRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?!([0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/-\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-(\d+))?$/;
 
-const authProvider = Object.freeze({ id: 'gitlab', scopes: ['read_api', 'read_user', 'read_repository'] });
-
 function isGitLabDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'gitlab.com');
 }
 
-type GitLabRepositoryDescriptor =
-	| {
-			owner: string;
-			name: string;
-	  }
-	| Record<string, never>;
-
-export class GitLabRemote extends RichRemoteProvider<GitLabRepositoryDescriptor> {
-	protected get authProvider() {
-		return authProvider;
-	}
-
-	constructor(
-		container: Container,
-		domain: string,
-		path: string,
-		protocol?: string,
-		name?: string,
-		custom: boolean = false,
-	) {
-		super(container, domain, path, protocol, name, custom);
+export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
+	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+		super(domain, path, protocol, name, custom);
 	}
 
 	get apiBaseUrl() {
@@ -163,7 +138,11 @@ export class GitLabRemote extends RichRemoteProvider<GitLabRepositoryDescriptor>
 
 								type: 'issue',
 								description: `${this.name} Issue ${ownerAndRepo}#${num}`,
-								descriptor: { owner: owner, name: repo } satisfies GitLabRepositoryDescriptor,
+								descriptor: {
+									key: this.remoteKey,
+									owner: owner,
+									name: repo,
+								} satisfies GitLabRepositoryDescriptor,
 							});
 						} while (true);
 					},
@@ -260,7 +239,11 @@ export class GitLabRemote extends RichRemoteProvider<GitLabRepositoryDescriptor>
 								type: 'pullrequest',
 								description: `${this.name} Merge Request !${num} from ${ownerAndRepo}`,
 
-								descriptor: { owner: owner, name: repo } satisfies GitLabRepositoryDescriptor,
+								descriptor: {
+									key: this.remoteKey,
+									owner: owner,
+									name: repo,
+								} satisfies GitLabRepositoryDescriptor,
 							});
 						} while (true);
 					},
@@ -288,15 +271,10 @@ export class GitLabRemote extends RichRemoteProvider<GitLabRepositoryDescriptor>
 		return this.formatName('GitLab');
 	}
 
-	@log()
-	override async connect(): Promise<boolean> {
-		if (!equalsIgnoreCase(this.domain, 'gitlab.com')) {
-			if (!(await ensurePaidPlan('GitLab self-managed instance', this.container))) {
-				return false;
-			}
-		}
-
-		return super.connect();
+	@memoize()
+	override get repoDesc(): GitLabRepositoryDescriptor {
+		const [owner, repo] = this.splitPath();
+		return { key: this.remoteKey, owner: owner, name: repo };
 	}
 
 	async getLocalInfoFromRemoteUri(
@@ -395,110 +373,5 @@ export class GitLabRemote extends RichRemoteProvider<GitLabRepositoryDescriptor>
 		if (sha) return `${this.encodeUrl(`${this.baseUrl}/-/blob/${sha}/${fileName}`)}${line}`;
 		if (branch) return `${this.encodeUrl(`${this.baseUrl}/-/blob/${branch}/${fileName}`)}${line}`;
 		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
-	}
-
-	protected override async getProviderAccountForCommit(
-		{ accessToken }: AuthenticationSession,
-		ref: string,
-		options?: {
-			avatarSize?: number;
-		},
-	): Promise<Account | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.gitlab)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
-			...options,
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected override async getProviderAccountForEmail(
-		{ accessToken }: AuthenticationSession,
-		email: string,
-		options?: {
-			avatarSize?: number;
-		},
-	): Promise<Account | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.gitlab)?.getAccountForEmail(this, accessToken, owner, repo, email, {
-			...options,
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected override async getProviderDefaultBranch({
-		accessToken,
-	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.gitlab)?.getDefaultBranch(this, accessToken, owner, repo, {
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected override async getProviderIssueOrPullRequest(
-		{ accessToken }: AuthenticationSession,
-		id: string,
-		descriptor: GitLabRepositoryDescriptor | undefined,
-	): Promise<IssueOrPullRequest | undefined> {
-		let owner;
-		let repo;
-		if (descriptor != null) {
-			({ owner, name: repo } = descriptor);
-		} else {
-			[owner, repo] = this.splitPath();
-		}
-		return (await this.container.gitlab)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected override async getProviderPullRequestForBranch(
-		{ accessToken }: AuthenticationSession,
-		branch: string,
-		options?: {
-			avatarSize?: number;
-			include?: PullRequestState[];
-		},
-	): Promise<PullRequest | undefined> {
-		const [owner, repo] = this.splitPath();
-		const { include, ...opts } = options ?? {};
-
-		const toGitLabMergeRequestState = (await import(/* webpackChunkName: "gitlab" */ '../../plus/gitlab/models'))
-			.toGitLabMergeRequestState;
-		return (await this.container.gitlab)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
-			...opts,
-			include: include?.map(s => toGitLabMergeRequestState(s)),
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected override async getProviderPullRequestForCommit(
-		{ accessToken }: AuthenticationSession,
-		ref: string,
-	): Promise<PullRequest | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.gitlab)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected override async getProviderRepositoryMetadata({
-		accessToken,
-	}: AuthenticationSession): Promise<RepositoryMetadata | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.gitlab)?.getRepositoryMetadata(this, accessToken, owner, repo, {
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected override async searchProviderMyPullRequests(
-		_session: AuthenticationSession,
-	): Promise<SearchedPullRequest[] | undefined> {
-		return Promise.resolve(undefined);
-	}
-
-	protected override async searchProviderMyIssues(
-		_session: AuthenticationSession,
-	): Promise<SearchedIssue[] | undefined> {
-		return Promise.resolve(undefined);
 	}
 }

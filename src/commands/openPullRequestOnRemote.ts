@@ -36,10 +36,13 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		if (args?.pr == null) {
 			if (args?.repoPath == null || args?.ref == null) return;
 
-			const remote = await this.container.git.getBestRemoteWithRichProvider(args.repoPath);
-			if (!remote?.hasRichIntegration()) return;
+			const remote = await this.container.git.getBestRemoteWithIntegration(args.repoPath);
+			if (remote == null) return;
 
-			const pr = await remote.provider.getPullRequestForCommit(args.ref);
+			const provider = this.container.integrations.getByRemote(remote);
+			if (provider == null) return;
+
+			const pr = await provider.getPullRequestForCommit(remote.provider.repoDesc, args.ref);
 			if (pr == null) {
 				void window.showInformationMessage(`No pull request associated with '${shortenRevision(args.ref)}'`);
 				return;

@@ -7,10 +7,10 @@ import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../.
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { Logger } from '../../../system/logger';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
+import type { RepositoryDescriptor, SupportedProviderIds } from '../providerIntegration';
+import { ProviderIntegration } from '../providerIntegration';
 import type { ProviderRepository } from './models';
 import { ProviderId, providersMetadata } from './models';
-import type { RepositoryDescriptor, SupportedProviderIds } from './providerIntegration';
-import { ProviderIntegration } from './providerIntegration';
 
 const metadata = providersMetadata[ProviderId.AzureDevOps];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });

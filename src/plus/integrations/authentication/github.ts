@@ -8,11 +8,11 @@ import type {
 	IntegrationAuthenticationSessionDescriptor,
 } from './integrationAuthentication';
 
-export class GitHubAuthenticationProvider implements Disposable, IntegrationAuthenticationProvider {
+export class GitHubEnterpriseAuthenticationProvider implements Disposable, IntegrationAuthenticationProvider {
 	private readonly _disposable: Disposable;
 
 	constructor(container: Container) {
-		this._disposable = container.integrationAuthentication.registerProvider(ProviderId.GitHub, this);
+		this._disposable = container.integrationAuthentication.registerProvider(ProviderId.GitHubEnterprise, this);
 	}
 
 	dispose() {

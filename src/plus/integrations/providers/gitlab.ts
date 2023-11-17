@@ -1,24 +1,37 @@
 import type { AuthenticationSession } from 'vscode';
+import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
 import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
+import { log } from '../../../system/decorators/log';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
+import type { SupportedProviderIds } from '../providerIntegration';
+import { ensurePaidPlan, ProviderIntegration } from '../providerIntegration';
 import { ProviderId, providersMetadata } from './models';
-import type { RepositoryDescriptor, SupportedProviderIds } from './providerIntegration';
-import { ProviderIntegration } from './providerIntegration';
+import type { ProvidersApi } from './providersApi';
 
 const metadata = providersMetadata[ProviderId.GitLab];
-const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
+const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
+	id: metadata.id,
+	scopes: metadata.scopes,
+});
 
-interface GitLabRepositoryDescriptor extends RepositoryDescriptor {
+const enterpriseMetadata = providersMetadata[ProviderId.GitLabSelfHosted];
+const enterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
+	id: enterpriseMetadata.id,
+	scopes: enterpriseMetadata.scopes,
+});
+
+export type GitLabRepositoryDescriptor = {
+	key: string;
 	owner: string;
 	name: string;
-}
+};
 
 export class GitLabIntegration extends ProviderIntegration<GitLabRepositoryDescriptor> {
-	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
+	readonly authProvider = authProvider;
 	readonly id: SupportedProviderIds = ProviderId.GitLab;
 	readonly name: string = 'GitLab';
 	get domain(): string {
@@ -29,82 +42,149 @@ export class GitLabIntegration extends ProviderIntegration<GitLabRepositoryDescr
 		return 'https://gitlab.com/api/v4';
 	}
 
-	// TODO: implement
 	protected override async getProviderAccountForCommit(
-		_session: AuthenticationSession,
-		_repo: GitLabRepositoryDescriptor,
-		_ref: string,
-		_options?: {
+		{ accessToken }: AuthenticationSession,
+		repo: GitLabRepositoryDescriptor,
+		ref: string,
+		options?: {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.gitlab)?.getAccountForCommit(this, accessToken, repo.owner, repo.name, ref, {
+			...options,
+			baseUrl: this.apiBaseUrl,
+		});
 	}
 
 	protected override async getProviderAccountForEmail(
-		_session: AuthenticationSession,
-		_repo: GitLabRepositoryDescriptor,
-		_email: string,
-		_options?: {
+		{ accessToken }: AuthenticationSession,
+		repo: GitLabRepositoryDescriptor,
+		email: string,
+		options?: {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.gitlab)?.getAccountForEmail(this, accessToken, repo.owner, repo.name, email, {
+			...options,
+			baseUrl: this.apiBaseUrl,
+		});
 	}
 
 	protected override async getProviderDefaultBranch(
-		_session: AuthenticationSession,
-		_repo: GitLabRepositoryDescriptor,
+		{ accessToken }: AuthenticationSession,
+		repo: GitLabRepositoryDescriptor,
 	): Promise<DefaultBranch | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.gitlab)?.getDefaultBranch(this, accessToken, repo.owner, repo.name, {
+			baseUrl: this.apiBaseUrl,
+		});
 	}
 
 	protected override async getProviderIssueOrPullRequest(
-		_session: AuthenticationSession,
-		_repo: GitLabRepositoryDescriptor,
-		_id: string,
+		{ accessToken }: AuthenticationSession,
+		repo: GitLabRepositoryDescriptor,
+		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.gitlab)?.getIssueOrPullRequest(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			Number(id),
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+		);
 	}
 
 	protected override async getProviderPullRequestForBranch(
-		_session: AuthenticationSession,
-		_repo: GitLabRepositoryDescriptor,
-		_branch: string,
-		_options?: {
+		{ accessToken }: AuthenticationSession,
+		repo: GitLabRepositoryDescriptor,
+		branch: string,
+		options?: {
 			avatarSize?: number;
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		const { include, ...opts } = options ?? {};
+
+		const toGitLabMergeRequestState = (await import(/* webpackChunkName: "gitlab" */ './gitlab/models'))
+			.toGitLabMergeRequestState;
+		return (await this.container.gitlab)?.getPullRequestForBranch(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			branch,
+			{
+				...opts,
+				include: include?.map(s => toGitLabMergeRequestState(s)),
+				baseUrl: this.apiBaseUrl,
+			},
+		);
 	}
 
 	protected override async getProviderPullRequestForCommit(
-		_session: AuthenticationSession,
-		_repo: GitLabRepositoryDescriptor,
-		_ref: string,
+		{ accessToken }: AuthenticationSession,
+		repo: GitLabRepositoryDescriptor,
+		ref: string,
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.gitlab)?.getPullRequestForCommit(this, accessToken, repo.owner, repo.name, ref, {
+			baseUrl: this.apiBaseUrl,
+		});
 	}
 
 	protected override async getProviderRepositoryMetadata(
-		_session: AuthenticationSession,
-		_repo: GitLabRepositoryDescriptor,
+		{ accessToken }: AuthenticationSession,
+		repo: GitLabRepositoryDescriptor,
 	): Promise<RepositoryMetadata | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.gitlab)?.getRepositoryMetadata(this, accessToken, repo.owner, repo.name, {
+			baseUrl: this.apiBaseUrl,
+		});
 	}
 
-	protected override async searchProviderMyPullRequests(
+	protected override searchProviderMyPullRequests(
 		_session: AuthenticationSession,
 		_repo?: GitLabRepositoryDescriptor,
 	): Promise<SearchedPullRequest[] | undefined> {
 		return Promise.resolve(undefined);
 	}
 
-	protected override async searchProviderMyIssues(
+	protected override searchProviderMyIssues(
 		_session: AuthenticationSession,
 		_repo?: GitLabRepositoryDescriptor,
 	): Promise<SearchedIssue[] | undefined> {
 		return Promise.resolve(undefined);
+	}
+}
+
+export class GitLabSelfHostedIntegration extends GitLabIntegration {
+	override readonly authProvider = enterpriseAuthProvider;
+	override readonly id = ProviderId.GitHubEnterprise;
+	override readonly name = 'GitLab Self-Hosted';
+	override get domain(): string {
+		return this._domain;
+	}
+	protected override get apiBaseUrl(): string {
+		return `https://${this._domain}/api`;
+	}
+	protected override get key(): `${SupportedProviderIds}:${string}` {
+		return `${this.id}:${this.domain}`;
+	}
+
+	constructor(
+		container: Container,
+		override readonly api: ProvidersApi,
+		private readonly _domain: string,
+	) {
+		super(container, api);
+	}
+
+	@log()
+	override async connect(): Promise<boolean> {
+		if (!(await ensurePaidPlan(`${this.name} instance`, this.container))) {
+			return false;
+		}
+
+		return super.connect();
 	}
 }

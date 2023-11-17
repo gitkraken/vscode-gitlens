@@ -7,28 +7,31 @@ import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../.
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
+import type { SupportedProviderIds } from '../providerIntegration';
+import { ensurePaidPlan, ProviderIntegration } from '../providerIntegration';
 import { ProviderId, providersMetadata } from './models';
-import type { SupportedProviderIds } from './providerIntegration';
-import { ensurePaidPlan, ProviderIntegration } from './providerIntegration';
 import type { ProvidersApi } from './providersApi';
 
 const metadata = providersMetadata[ProviderId.GitHub];
+const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
+	id: metadata.id,
+	scopes: metadata.scopes,
+});
+
 const enterpriseMetadata = providersMetadata[ProviderId.GitHubEnterprise];
-const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
-const enterpriseAuthProvider = Object.freeze({
+const enterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: enterpriseMetadata.id,
 	scopes: enterpriseMetadata.scopes,
 });
 
-export type GitHubRepositoryDescriptor =
-	| {
-			owner: string;
-			name: string;
-	  }
-	| Record<string, never>;
+export type GitHubRepositoryDescriptor = {
+	key: string;
+	owner: string;
+	name: string;
+};
 
 export class GitHubIntegration extends ProviderIntegration<GitHubRepositoryDescriptor> {
-	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
+	readonly authProvider = authProvider;
 	readonly id: SupportedProviderIds = ProviderId.GitHub;
 	readonly name: string = 'GitHub';
 	get domain(): string {
@@ -104,7 +107,7 @@ export class GitHubIntegration extends ProviderIntegration<GitHubRepositoryDescr
 	): Promise<PullRequest | undefined> {
 		const { include, ...opts } = options ?? {};
 
-		const toGitHubPullRequestState = (await import(/* webpackChunkName: "github" */ '../../github/models'))
+		const toGitHubPullRequestState = (await import(/* webpackChunkName: "github" */ './github/models'))
 			.toGitHubPullRequestState;
 		return (await this.container.github)?.getPullRequestForBranch(
 			this,
@@ -184,7 +187,7 @@ export class GitHubEnterpriseIntegration extends GitHubIntegration {
 
 	@log()
 	override async connect(): Promise<boolean> {
-		if (!(await ensurePaidPlan('GitHub Enterprise instance', this.container))) {
+		if (!(await ensurePaidPlan(`${this.name} instance`, this.container))) {
 			return false;
 		}
 
