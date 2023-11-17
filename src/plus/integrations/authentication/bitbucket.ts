@@ -1,25 +1,13 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import type { Container } from '../../../container';
 import { base64 } from '../../../system/string';
 import { supportedInVSCodeVersion } from '../../../system/utils';
-import { ProviderId } from '../providers/models';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from './integrationAuthentication';
 
-export class BitbucketAuthenticationProvider implements Disposable, IntegrationAuthenticationProvider {
-	private readonly _disposable: Disposable;
-
-	constructor(container: Container) {
-		this._disposable = container.integrationAuthentication.registerProvider(ProviderId.Bitbucket, this);
-	}
-
-	dispose() {
-		this._disposable.dispose();
-	}
-
+export class BitbucketAuthenticationProvider implements IntegrationAuthenticationProvider {
 	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
 		return descriptor?.domain ?? '';
 	}

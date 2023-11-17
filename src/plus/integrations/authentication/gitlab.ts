@@ -1,24 +1,12 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import type { Container } from '../../../container';
 import { supportedInVSCodeVersion } from '../../../system/utils';
-import { ProviderId } from '../providers/models';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from './integrationAuthentication';
 
-export class GitLabAuthenticationProvider implements Disposable, IntegrationAuthenticationProvider {
-	private readonly _disposable: Disposable;
-
-	constructor(container: Container) {
-		this._disposable = container.integrationAuthentication.registerProvider(ProviderId.GitLab, this);
-	}
-
-	dispose() {
-		this._disposable.dispose();
-	}
-
+export class GitLabAuthenticationProvider implements IntegrationAuthenticationProvider {
 	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
 		return descriptor?.domain ?? '';
 	}

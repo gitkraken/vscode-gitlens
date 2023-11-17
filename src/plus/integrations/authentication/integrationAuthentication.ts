@@ -1,7 +1,11 @@
 import type { AuthenticationSession, Disposable } from 'vscode';
 import type { Container } from '../../../container';
 import { debug } from '../../../system/decorators/log';
-import type { ProviderId } from '../providers/models';
+import { ProviderId } from '../providers/models';
+import { AzureDevOpsAuthenticationProvider } from './azureDevOps';
+import { BitbucketAuthenticationProvider } from './bitbucket';
+import { GitHubEnterpriseAuthenticationProvider } from './github';
+import { GitLabAuthenticationProvider } from './gitlab';
 
 interface StoredSession {
 	id: string;
@@ -31,7 +35,7 @@ export interface IntegrationAuthenticationProvider {
 }
 
 export class IntegrationAuthenticationService implements Disposable {
-	private readonly providers = new Map<string, IntegrationAuthenticationProvider>();
+	private readonly providers = new Map<ProviderId, IntegrationAuthenticationProvider>();
 
 	constructor(private readonly container: Container) {}
 
@@ -39,28 +43,14 @@ export class IntegrationAuthenticationService implements Disposable {
 		this.providers.clear();
 	}
 
-	registerProvider(providerId: string, provider: IntegrationAuthenticationProvider): Disposable {
-		if (this.providers.has(providerId)) throw new Error(`Provider with id ${providerId} already registered`);
-
-		this.providers.set(providerId, provider);
-		return {
-			dispose: () => this.providers.delete(providerId),
-		};
-	}
-
-	hasProvider(providerId: string): boolean {
-		return this.providers.has(providerId);
-	}
-
 	@debug()
 	async createSession(
-		providerId: string,
+		providerId: ProviderId,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 	): Promise<AuthenticationSession | undefined> {
-		const provider = this.providers.get(providerId);
-		if (provider == null) throw new Error(`Provider with id ${providerId} not registered`);
+		const provider = this.ensureProvider(providerId);
 
-		const session = await provider?.createSession(descriptor);
+		const session = await provider.createSession(descriptor);
 		if (session == null) return undefined;
 
 		const key = this.getSecretKey(providerId, provider.getSessionId(descriptor));
@@ -71,12 +61,11 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	@debug()
 	async getSession(
-		providerId: string,
+		providerId: ProviderId,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<AuthenticationSession | undefined> {
-		const provider = this.providers.get(providerId);
-		if (provider == null) throw new Error(`Provider with id ${providerId} not registered`);
+		const provider = this.ensureProvider(providerId);
 
 		const key = this.getSecretKey(providerId, provider.getSessionId(descriptor));
 
@@ -108,15 +97,53 @@ export class IntegrationAuthenticationService implements Disposable {
 	}
 
 	@debug()
-	async deleteSession(providerId: string, descriptor?: IntegrationAuthenticationSessionDescriptor) {
-		const provider = this.providers.get(providerId);
-		if (provider == null) throw new Error(`Provider with id ${providerId} not registered`);
+	async deleteSession(providerId: ProviderId, descriptor?: IntegrationAuthenticationSessionDescriptor) {
+		const provider = this.ensureProvider(providerId);
 
 		const key = this.getSecretKey(providerId, provider.getSessionId(descriptor));
 		await this.container.storage.deleteSecret(key);
 	}
 
+	supports(providerId: string): boolean {
+		switch (providerId) {
+			case ProviderId.AzureDevOps:
+			case ProviderId.Bitbucket:
+			case ProviderId.GitHubEnterprise:
+			case ProviderId.GitLab:
+			case ProviderId.GitLabSelfHosted:
+				return true;
+			default:
+				return false;
+		}
+	}
+
 	private getSecretKey(providerId: string, id: string): `gitlens.integration.auth:${string}` {
 		return `gitlens.integration.auth:${providerId}|${id}`;
+	}
+
+	private ensureProvider(providerId: ProviderId): IntegrationAuthenticationProvider {
+		let provider = this.providers.get(providerId);
+		if (provider == null) {
+			switch (providerId) {
+				case ProviderId.AzureDevOps:
+					provider = new AzureDevOpsAuthenticationProvider();
+					break;
+				case ProviderId.Bitbucket:
+					provider = new BitbucketAuthenticationProvider();
+					break;
+				case ProviderId.GitHubEnterprise:
+					provider = new GitHubEnterpriseAuthenticationProvider();
+					break;
+				case ProviderId.GitLab:
+				case ProviderId.GitLabSelfHosted:
+					provider = new GitLabAuthenticationProvider();
+					break;
+				default:
+					throw new Error(`Provider '${providerId}' is not supported`);
+			}
+			this.providers.set(providerId, provider);
+		}
+
+		return provider;
 	}
 }

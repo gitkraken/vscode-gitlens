@@ -77,7 +77,7 @@ export class IntegrationService {
 		return provider?.searchMyPullRequests();
 	}
 
-	supported(remoteId: RemoteProviderId): boolean {
+	supports(remoteId: RemoteProviderId): boolean {
 		return convertRemoteIdToProviderId(remoteId) != null;
 	}
 }

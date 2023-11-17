@@ -24,10 +24,6 @@ import { FocusService } from './plus/focus/focusService';
 import { AccountAuthenticationProvider } from './plus/gk/account/authenticationProvider';
 import { SubscriptionService } from './plus/gk/account/subscriptionService';
 import { ServerConnection } from './plus/gk/serverConnection';
-import { AzureDevOpsAuthenticationProvider } from './plus/integrations/authentication/azureDevOps';
-import { BitbucketAuthenticationProvider } from './plus/integrations/authentication/bitbucket';
-import { GitHubEnterpriseAuthenticationProvider } from './plus/integrations/authentication/github';
-import { GitLabAuthenticationProvider } from './plus/integrations/authentication/gitlab';
 import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthentication';
 import { IntegrationService } from './plus/integrations/integrationService';
 import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
@@ -565,14 +561,7 @@ export class Container {
 	private _integrationAuthentication: IntegrationAuthenticationService | undefined;
 	get integrationAuthentication() {
 		if (this._integrationAuthentication == null) {
-			this._disposables.push(
-				(this._integrationAuthentication = new IntegrationAuthenticationService(this)),
-				// Register any integration authentication providers
-				new GitHubEnterpriseAuthenticationProvider(this),
-				new GitLabAuthenticationProvider(this),
-				new AzureDevOpsAuthenticationProvider(this),
-				new BitbucketAuthenticationProvider(this),
-			);
+			this._disposables.push((this._integrationAuthentication = new IntegrationAuthenticationService(this)));
 		}
 
 		return this._integrationAuthentication;

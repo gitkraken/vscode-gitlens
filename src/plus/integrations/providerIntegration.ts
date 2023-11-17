@@ -144,7 +144,7 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 				const cancel = { title: 'Cancel', isCloseAffordance: true };
 
 				let result: MessageItem | undefined;
-				if (this.container.integrationAuthentication.hasProvider(this.authProvider.id)) {
+				if (this.container.integrationAuthentication.supports(this.authProvider.id)) {
 					result = await window.showWarningMessage(
 						`Are you sure you want to disable the rich integration with ${this.name}?\n\nNote: signing out clears the saved authentication.`,
 						{ modal: true },
@@ -837,7 +837,7 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 
 		let session: AuthenticationSession | undefined | null;
 		try {
-			if (this.container.integrationAuthentication.hasProvider(this.authProvider.id)) {
+			if (this.container.integrationAuthentication.supports(this.authProvider.id)) {
 				session = await this.container.integrationAuthentication.getSession(
 					this.authProvider.id,
 					this.authProviderDescriptor,
