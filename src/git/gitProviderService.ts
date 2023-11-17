@@ -222,7 +222,7 @@ export class GitProviderService implements Disposable {
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			container.richRemoteProviders.onAfterDidChangeConnectionState(e => {
+			container.integrations.onDidChangeConnectionState(e => {
 				if (e.reason === 'connected') {
 					resetAvatarCache('failed');
 				}

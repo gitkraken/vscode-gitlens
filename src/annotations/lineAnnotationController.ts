@@ -39,7 +39,7 @@ export class LineAnnotationController implements Disposable {
 			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
-			container.richRemoteProviders.onAfterDidChangeConnectionState(
+			container.integrations.onDidChangeConnectionState(
 				debounce(() => void this.refresh(window.activeTextEditor), 250),
 			),
 		);

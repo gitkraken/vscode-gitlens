@@ -1,13 +1,6 @@
-import type {
-	AuthenticationSession,
-	AuthenticationSessionsChangeEvent,
-	CancellationToken,
-	Event,
-	MessageItem,
-} from 'vscode';
+import type { AuthenticationSession, CancellationToken, Event, MessageItem } from 'vscode';
 import { authentication, CancellationError, EventEmitter, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
-import { isWeb } from '@env/platform';
 import type { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import type { PagedResult } from '../../git/gitProvider';
@@ -58,26 +51,7 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 	constructor(
 		protected readonly container: Container,
 		protected readonly api: ProvidersApi,
-	) {
-		container.context.subscriptions.push(
-			configuration.onDidChange(e => {
-				if (configuration.changed(e, 'remotes')) {
-					this._ignoreSSLErrors.clear();
-				}
-			}),
-			// TODO@eamodio revisit how connections are linked or not
-			container.richRemoteProviders.onDidChangeConnectionState(e => {
-				if (e.key !== this.key) return;
-
-				if (e.reason === 'disconnected') {
-					void this.disconnect({ silent: true });
-				} else if (e.reason === 'connected') {
-					void this.ensureSession(false);
-				}
-			}),
-			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
-		);
-	}
+	) {}
 
 	abstract get authProvider(): IntegrationAuthenticationProviderDescriptor;
 	abstract get id(): SupportedProviderIds;
@@ -110,12 +84,6 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 			return this.ensureSession(false);
 		}
 		return this._session ?? undefined;
-	}
-
-	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
-		if (e.provider.id === this.authProvider.id) {
-			void this.ensureSession(false);
-		}
 	}
 
 	@log()
@@ -182,7 +150,7 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 
 			this._onDidChange.fire();
 			if (!options?.silent && !options?.currentSessionOnly) {
-				this.container.richRemoteProviders.disconnected(this.key);
+				this.container.integrations.disconnected(this.key);
 			}
 		}
 	}
@@ -193,6 +161,10 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 
 		this._session = undefined;
 		void (await this.ensureSession(true, true));
+	}
+
+	refresh() {
+		void this.ensureSession(false);
 	}
 
 	private requestExceptionCount = 0;
@@ -874,27 +846,15 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 
 			queueMicrotask(() => {
 				this._onDidChange.fire();
-				this.container.richRemoteProviders.connected(this.key);
+				this.container.integrations.connected(this.key);
 			});
 		}
 
 		return session ?? undefined;
 	}
 
-	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
 	getIgnoreSSLErrors(): boolean | 'force' {
-		if (isWeb) return false;
-
-		let ignoreSSLErrors = this._ignoreSSLErrors.get(this.id);
-		if (ignoreSSLErrors === undefined) {
-			const cfg = configuration
-				.get('remotes')
-				?.find(remote => remote.type.toLowerCase() === this.id && remote.domain === this.domain);
-			ignoreSSLErrors = cfg?.ignoreSSLErrors ?? false;
-			this._ignoreSSLErrors.set(this.id, ignoreSSLErrors);
-		}
-
-		return ignoreSSLErrors;
+		return this.container.integrations.ignoreSSLErrors(this);
 	}
 }
 

@@ -16,7 +16,6 @@ import { Commands, extensionPrefix } from './constants';
 import { EventBus } from './eventBus';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
-import { RichRemoteProviderService } from './git/remotes/remoteProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPathMappingProvider';
 import { DraftService } from './plus/drafts/draftsService';
@@ -570,7 +569,7 @@ export class Container {
 	private _integrations: IntegrationService | undefined;
 	get integrations(): IntegrationService {
 		if (this._integrations == null) {
-			this._integrations = new IntegrationService(this);
+			this._disposables.push((this._integrations = new IntegrationService(this)));
 		}
 		return this._integrations;
 	}
@@ -644,14 +643,6 @@ export class Container {
 			this._disposables.push((this._repositoryPathMapping = getSupportedRepositoryPathMappingProvider(this)));
 		}
 		return this._repositoryPathMapping;
-	}
-
-	private _richRemoteProviders: RichRemoteProviderService | undefined;
-	get richRemoteProviders(): RichRemoteProviderService {
-		if (this._richRemoteProviders == null) {
-			this._richRemoteProviders = new RichRemoteProviderService(this);
-		}
-		return this._richRemoteProviders;
 	}
 
 	private readonly _searchAndCompareView: SearchAndCompareView;
