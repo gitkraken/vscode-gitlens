@@ -10,7 +10,9 @@ import type { Repository } from '../git/models/repository';
 import { isRepository } from '../git/models/repository';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
+import type { AnthropicModels } from './anthropicProvider';
 import { AnthropicProvider } from './anthropicProvider';
+import type { OpenAIModels } from './openaiProvider';
 import { OpenAIProvider } from './openaiProvider';
 
 export interface AIProvider extends Disposable {
@@ -191,4 +193,42 @@ async function confirmAIProviderToS(provider: AIProvider, storage: Storage): Pro
 	}
 
 	return false;
+}
+
+export function getMaxCharacters(model: OpenAIModels | AnthropicModels, outputLength: number): number {
+	const tokensPerCharacter = 3.1;
+
+	let tokens;
+	switch (model) {
+		case 'gpt-4-1106-preview': // 128,000 tokens (4,096 max output tokens)
+			tokens = 128000;
+			break;
+		case 'gpt-4-32k': // 32,768 tokens
+		case 'gpt-4-32k-0613':
+			tokens = 32768;
+			break;
+		case 'gpt-4': // 8,192 tokens
+		case 'gpt-4-0613':
+			tokens = 8192;
+			break;
+		case 'gpt-3.5-turbo-1106': // 16,385 tokens (4,096 max output tokens)
+			tokens = 16385;
+			break;
+		case 'gpt-3.5-turbo-16k': // 16,385 tokens; Will point to gpt-3.5-turbo-1106 starting Dec 11, 2023
+			tokens = 16385;
+			break;
+		case 'gpt-3.5-turbo': // Will point to gpt-3.5-turbo-1106 starting Dec 11, 2023
+			tokens = 4096;
+			break;
+		case 'claude-2': // 100,000 tokens
+		case 'claude-instant-1':
+			tokens = 100000;
+			break;
+		default: // 4,096 tokens
+			tokens = 4096;
+			break;
+	}
+
+	const max = tokens * tokensPerCharacter - outputLength / tokensPerCharacter;
+	return Math.floor(max - max * 0.1);
 }
