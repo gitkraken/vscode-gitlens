@@ -3,8 +3,7 @@ import { Disposable, EventEmitter, window } from 'vscode';
 import { debug } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
-import { Logger } from '../system/logger';
-import { getLogScope } from '../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { isTextEditor } from '../system/utils';
 
 export interface LinesChangeEvent {
@@ -119,7 +118,7 @@ export class LineTracker<T> implements Disposable {
 
 	protected onStart?(): Disposable | undefined;
 
-	@debug({ args: false })
+	@debug({ args: false, singleLine: true })
 	subscribe(subscriber: unknown, subscription: Disposable): Disposable {
 		const scope = getLogScope();
 
@@ -138,7 +137,7 @@ export class LineTracker<T> implements Disposable {
 		}
 
 		if (first) {
-			Logger.debug(scope, 'Starting line tracker...');
+			setLogScopeExit(scope, ' \u2022 starting line tracker...');
 
 			this._disposable = Disposable.from(
 				window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 0), this),
@@ -147,12 +146,14 @@ export class LineTracker<T> implements Disposable {
 			);
 
 			queueMicrotask(() => this.onActiveTextEditorChanged(window.activeTextEditor));
+		} else {
+			setLogScopeExit(scope, ' \u2022 already started...');
 		}
 
 		return disposable;
 	}
 
-	@debug({ args: false })
+	@debug({ args: false, singleLine: true })
 	unsubscribe(subscriber: unknown) {
 		const subs = this._subscriptions.get(subscriber);
 		if (subs == null) return;

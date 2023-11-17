@@ -220,7 +220,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	const elapsed = sw.elapsed();
 
 	sw.stop({
-		message: ` activated${exitMessage != null ? `, ${exitMessage}` : ''}${
+		message: `activated${exitMessage != null ? `, ${exitMessage}` : ''}${
 			mode != null ? `, mode: ${mode.name}` : ''
 		}`,
 	});
