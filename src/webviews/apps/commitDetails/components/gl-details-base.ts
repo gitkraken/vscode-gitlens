@@ -1,15 +1,30 @@
 import type { TemplateResult } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
-import { when } from 'lit/directives/when.js';
+import type { TextDocumentShowOptions } from 'vscode';
 import type { HierarchicalItem } from '../../../../system/array';
 import { makeHierarchical } from '../../../../system/array';
 import type { Preferences, State } from '../../../commitDetails/protocol';
+import type {
+	TreeItemAction,
+	TreeItemActionDetail,
+	TreeItemBase,
+	TreeItemCheckedDetail,
+	TreeItemSelectionDetail,
+	TreeModel,
+} from '../../shared/components/tree/base';
+import '../../shared/components/tree/tree-generator';
 
 type Files = Mutable<NonNullable<NonNullable<State['commit']>['files']>>;
-type File = Files[0];
+export type File = Files[0];
 type Mode = 'commit' | 'stash' | 'wip';
+
+// Can only import types from 'vscode'
+const BesideViewColumn = -2; /*ViewColumn.Beside*/
+
+export interface FileChangeListItemDetail extends File {
+	showOptions?: TextDocumentShowOptions;
+}
 
 export class GlDetailsBase extends LitElement {
 	readonly tab: 'wip' | 'commit' = 'commit';
@@ -26,164 +41,42 @@ export class GlDetailsBase extends LitElement {
 	@property({ attribute: 'empty-text' })
 	emptyText? = 'No Files';
 
-	private renderWipCategory(staged = true, hasFiles = true) {
-		const label = staged ? 'Staged Changes' : 'Unstaged Changes';
-		const shareLabel = `Share ${label}`;
-		return html`
-			<list-item tree branch hide-icon>
-				${label}
-				${when(
-					this.tab === 'wip',
-					() =>
-						html` <span slot="actions"
-							><a
-								class="change-list__action ${!hasFiles ? 'is-disabled' : ''}"
-								href="#"
-								title="${shareLabel}"
-								aria-label="${shareLabel}"
-								data-action="create-patch"
-								data-wip-checked="${staged ? 'staged' : 'true'}"
-								><code-icon icon="gl-cloud-patch-share"></code-icon></a
-						></span>`,
-				)}</list-item
-			>
-		`;
+	get fileLayout() {
+		return this.preferences?.files?.layout ?? 'auto';
 	}
 
-	private renderFileList(mode: Mode, files: Files) {
-		let items;
-		let classes;
-
-		if (this.isUncommitted) {
-			items = [];
-			classes = `indentGuides-${this.preferences?.indentGuides}`;
-
-			const staged = files.filter(f => f.staged);
-			if (staged.length) {
-				// items.push(html`<list-item tree branch hide-icon>Staged Changes</list-item>`);
-				items.push(this.renderWipCategory(true, true));
-
-				for (const f of staged) {
-					items.push(this.renderFile(mode, f, 2, true));
-				}
-			}
-
-			const unstaged = files.filter(f => !f.staged);
-			if (unstaged.length) {
-				// items.push(html`<list-item tree branch hide-icon>Unstaged Changes</list-item>`);
-				items.push(this.renderWipCategory(false, true));
-
-				for (const f of unstaged) {
-					items.push(this.renderFile(mode, f, 2, true));
-				}
-			}
-		} else {
-			items = files.map(f => this.renderFile(mode, f));
-		}
-
-		return html`<list-container class=${ifDefined(classes)}>${items}</list-container>`;
+	get isCompact() {
+		return this.preferences?.files?.compact ?? true;
 	}
 
-	private renderFileTree(mode: Mode, files: Files) {
-		const compact = this.preferences?.files?.compact ?? true;
-
-		let items;
-
-		if (this.isUncommitted) {
-			items = [];
-
-			const staged = files.filter(f => f.staged);
-			if (staged.length) {
-				// items.push(html`<list-item tree branch hide-icon>Staged Changes</list-item>`);
-				items.push(this.renderWipCategory(true, true));
-				items.push(...this.renderFileSubtree(mode, staged, 1, compact));
-			}
-
-			const unstaged = files.filter(f => !f.staged);
-			if (unstaged.length) {
-				// items.push(html`<list-item tree branch hide-icon>Unstaged Changes</list-item>`);
-				items.push(this.renderWipCategory(false, true));
-				items.push(...this.renderFileSubtree(mode, unstaged, 1, compact));
-			}
-		} else {
-			items = this.renderFileSubtree(mode, files, 0, compact);
-		}
-
-		return html`<list-container class="indentGuides-${this.preferences?.indentGuides}">${items}</list-container>`;
-	}
-
-	private renderFileSubtree(mode: Mode, files: Files, rootLevel: number, compact: boolean) {
-		const tree = makeHierarchical(
-			files,
-			n => n.path.split('/'),
-			(...parts: string[]) => parts.join('/'),
-			compact,
-		);
-		const flatTree = flattenHeirarchy(tree);
-		return flatTree.map(({ level, item }) => {
-			if (item.name === '') return undefined;
-
-			if (item.value == null) {
-				return html`
-					<list-item level="${rootLevel + level}" tree branch>
-						<code-icon slot="icon" icon="folder" title="Directory" aria-label="Directory"></code-icon>
-						${item.name}
-					</list-item>
-				`;
-			}
-
-			return this.renderFile(mode, item.value, rootLevel + level, true);
-		});
-	}
-
-	private renderFile(mode: Mode, file: File, level: number = 1, tree: boolean = false): TemplateResult<1> {
-		return html`
-			<file-change-list-item
-				?tree=${tree}
-				level="${level}"
-				?stash=${mode === 'stash'}
-				?uncommitted=${this.isUncommitted}
-				?readonly=${this.isUncommitted && mode !== 'wip'}
-				path="${file.path}"
-				repo="${file.repoPath}"
-				?staged=${file.staged}
-				status="${file.status}"
-			></file-change-list-item>
-		`;
+	get indentGuides(): 'none' | 'onHover' | 'always' {
+		return this.preferences?.indentGuides ?? 'none';
 	}
 
 	protected renderChangedFiles(mode: Mode, subtitle?: TemplateResult<1>) {
-		const layout = this.preferences?.files?.layout ?? 'auto';
-
+		const isTree = this.isTree(this.files?.length ?? 0);
 		let value = 'tree';
 		let icon = 'list-tree';
 		let label = 'View as Tree';
-		let isTree = false;
-		if (this.preferences != null && this.files != null) {
-			if (layout === 'auto') {
-				isTree = this.files.length > (this.preferences.files?.threshold ?? 5);
-			} else {
-				isTree = layout === 'tree';
-			}
-
-			switch (layout) {
-				case 'auto':
-					value = 'list';
-					icon = 'gl-list-auto';
-					label = 'View as List';
-					break;
-				case 'list':
-					value = 'tree';
-					icon = 'list-flat';
-					label = 'View as Tree';
-					break;
-				case 'tree':
-					value = 'auto';
-					icon = 'list-tree';
-					label = 'View as Auto';
-					break;
-			}
+		switch (this.fileLayout) {
+			case 'auto':
+				value = 'list';
+				icon = 'gl-list-auto';
+				label = 'View as List';
+				break;
+			case 'list':
+				value = 'tree';
+				icon = 'list-flat';
+				label = 'View as Tree';
+				break;
+			case 'tree':
+				value = 'auto';
+				icon = 'list-tree';
+				label = 'View as Auto';
+				break;
 		}
+
+		const treeModel = this.createTreeModel(mode, this.files ?? [], isTree, this.isCompact);
 
 		return html`
 			<webview-pane collapsable expanded>
@@ -198,31 +91,7 @@ export class GlDetailsBase extends LitElement {
 					></action-item>
 				</action-nav>
 
-				<div class="change-list" data-region="files">
-					${when(
-						this.files == null,
-						() => html`
-							<div class="section section--skeleton">
-								<skeleton-loader></skeleton-loader>
-							</div>
-							<div class="section section--skeleton">
-								<skeleton-loader></skeleton-loader>
-							</div>
-							<div class="section section--skeleton">
-								<skeleton-loader></skeleton-loader>
-							</div>
-						`,
-						() =>
-							when(
-								this.files!.length > 0,
-								() =>
-									isTree
-										? this.renderFileTree(mode, this.files!)
-										: this.renderFileList(mode, this.files!),
-								() => html`<div class="section"><p>${this.emptyText}</p></div>`,
-							),
-					)}
-				</div>
+				${this.renderTreeFileModel(treeModel)}
 			</webview-pane>
 		`;
 	}
@@ -240,36 +109,392 @@ export class GlDetailsBase extends LitElement {
 	protected override createRenderRoot() {
 		return this;
 	}
-}
 
-function flattenHeirarchy<T>(item: HierarchicalItem<T>, level = 0): { level: number; item: HierarchicalItem<T> }[] {
-	const flattened: { level: number; item: HierarchicalItem<T> }[] = [];
-	if (item == null) return flattened;
+	// Tree Model changes
+	protected isTree(count: number) {
+		if (this.fileLayout === 'auto') {
+			return count > (this.preferences?.files?.threshold ?? 5);
+		}
+		return this.fileLayout === 'tree';
+	}
 
-	flattened.push({ level: level, item: item });
+	protected createTreeModel(mode: Mode, files: Files, isTree = false, compact = true): TreeModel[] {
+		if (!this.isUncommitted) {
+			return this.createFileTreeModel(mode, files, isTree, compact);
+		}
 
-	if (item.children != null) {
-		const children = Array.from(item.children.values());
+		const children = [];
+		const staged: Files = [];
+		const unstaged: Files = [];
+		for (const f of files) {
+			if (f.staged) {
+				staged.push(f);
+			} else {
+				unstaged.push(f);
+			}
+		}
+
+		if (staged.length === 0 || unstaged.length === 0) {
+			children.push(...this.createFileTreeModel(mode, files, isTree, compact));
+		} else {
+			if (staged.length) {
+				children.push({
+					label: 'Staged Changes',
+					path: '',
+					level: 1, // isMulti ? 2 : 1,
+					branch: true,
+					checkable: false,
+					expanded: true,
+					checked: false, // change.checked !== false,
+					// disableCheck: true,
+					context: ['staged'],
+					children: this.createFileTreeModel(mode, staged, isTree, compact, { level: 2 }),
+					actions: this.getStagedActions(),
+				});
+			}
+
+			if (unstaged.length) {
+				children.push({
+					label: 'Unstaged Changes',
+					path: '',
+					level: 1, // isMulti ? 2 : 1,
+					branch: true,
+					checkable: false,
+					expanded: true,
+					checked: false, // change.checked === true,
+					context: ['unstaged'],
+					children: this.createFileTreeModel(mode, unstaged, isTree, compact, { level: 2 }),
+					actions: this.getUnstagedActions(),
+				});
+			}
+		}
+
+		return children;
+	}
+
+	protected sortChildren(children: TreeModel[]): TreeModel[] {
 		children.sort((a, b) => {
-			if (!a.value || !b.value) {
-				return (a.value ? 1 : -1) - (b.value ? 1 : -1);
-			}
+			if (a.branch && !b.branch) return -1;
+			if (!a.branch && b.branch) return 1;
 
-			if (a.relativePath < b.relativePath) {
-				return -1;
-			}
-
-			if (a.relativePath > b.relativePath) {
-				return 1;
-			}
+			if (a.label < b.label) return -1;
+			if (a.label > b.label) return 1;
 
 			return 0;
 		});
 
-		children.forEach(child => {
-			flattened.push(...flattenHeirarchy(child, level + 1));
-		});
+		return children;
 	}
 
-	return flattened;
+	protected createFileTreeModel(
+		mode: Mode,
+		files: Files,
+		isTree = false,
+		compact = true,
+		options: Partial<TreeItemBase> = { level: 1 },
+	): TreeModel[] {
+		if (options.level === undefined) {
+			options.level = 1;
+		}
+
+		if (!files.length) {
+			return [
+				{
+					label: 'No changes',
+					path: '',
+					level: options.level,
+					branch: false,
+					checkable: false,
+					expanded: true,
+					checked: false,
+				},
+			];
+		}
+
+		const children: TreeModel[] = [];
+		if (isTree) {
+			const fileTree = makeHierarchical(
+				files,
+				n => n.path.split('/'),
+				(...parts: string[]) => parts.join('/'),
+				compact,
+			);
+			if (fileTree.children != null) {
+				for (const child of fileTree.children.values()) {
+					const childModel = this.walkFileTree(child, { level: options.level });
+					children.push(childModel);
+				}
+			}
+		} else {
+			for (const file of files) {
+				const child = this.fileToTreeModel(file, { level: options.level, branch: false }, true);
+				children.push(child);
+			}
+		}
+
+		this.sortChildren(children);
+
+		return children;
+	}
+
+	protected walkFileTree(item: HierarchicalItem<File>, options: Partial<TreeItemBase> = { level: 1 }): TreeModel {
+		if (options.level === undefined) {
+			options.level = 1;
+		}
+
+		let model: TreeModel;
+		if (item.value == null) {
+			model = this.folderToTreeModel(item.name, options);
+		} else {
+			model = this.fileToTreeModel(item.value, options);
+		}
+
+		if (item.children != null) {
+			const children = [];
+			for (const child of item.children.values()) {
+				const childModel = this.walkFileTree(child, { ...options, level: options.level + 1 });
+				children.push(childModel);
+			}
+
+			if (children.length > 0) {
+				this.sortChildren(children);
+				model.branch = true;
+				model.children = children;
+			}
+		}
+
+		return model;
+	}
+
+	protected getStagedActions(_options?: Partial<TreeItemBase>): TreeItemAction[] {
+		if (this.tab === 'wip') {
+			return [
+				{
+					icon: 'gl-cloud-patch-share',
+					label: 'Share Staged Changes',
+					action: 'staged-create-patch',
+				},
+			];
+		}
+		return [];
+	}
+
+	protected getUnstagedActions(_options?: Partial<TreeItemBase>): TreeItemAction[] {
+		if (this.tab === 'wip') {
+			return [
+				{
+					icon: 'gl-cloud-patch-share',
+					label: 'Share Unstaged Changes',
+					action: 'unstaged-create-patch',
+				},
+			];
+		}
+		return [];
+	}
+
+	protected getFileActions(_file: File, _options?: Partial<TreeItemBase>): TreeItemAction[] {
+		return [];
+	}
+
+	protected fileToTreeModel(
+		file: File,
+		options?: Partial<TreeItemBase>,
+		flat = false,
+		glue = '/',
+	): TreeModel<File[]> {
+		const pathIndex = file.path.lastIndexOf(glue);
+		const fileName = pathIndex !== -1 ? file.path.substring(pathIndex + 1) : file.path;
+		const filePath = flat && pathIndex !== -1 ? file.path.substring(0, pathIndex) : '';
+
+		return {
+			branch: false,
+			expanded: true,
+			path: file.path,
+			level: 1,
+			checkable: false,
+			checked: false,
+			icon: 'file', //{ type: 'status', name: file.status },
+			label: fileName,
+			description: flat === true ? filePath : undefined,
+			context: [file],
+			actions: this.getFileActions(file, options),
+			decorations: [{ type: 'text', label: file.status }],
+			...options,
+		};
+	}
+
+	protected folderToTreeModel(name: string, options?: Partial<TreeItemBase>): TreeModel {
+		return {
+			branch: false,
+			expanded: true,
+			path: name,
+			level: 1,
+			checkable: false,
+			checked: false,
+			icon: 'folder',
+			label: name,
+			...options,
+		};
+	}
+
+	protected renderTreeFileModel(treeModel: TreeModel[]) {
+		return html`<gl-tree-generator
+			.model=${treeModel}
+			.guides=${this.indentGuides}
+			@gl-tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
+			@gl-tree-generated-item-checked=${this.onTreeItemChecked}
+			@gl-tree-generated-item-selected=${this.onTreeItemSelected}
+		></gl-tree-generator>`;
+	}
+
+	// Tree Model action events
+	// protected onTreeItemActionClicked?(_e: CustomEvent<TreeItemActionDetail>): void;
+	protected onTreeItemActionClicked(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context || !e.detail.action) return;
+
+		const action = e.detail.action;
+		switch (action.action) {
+			// stage actions
+			case 'staged-create-patch':
+				this.onCreatePatch(e);
+				break;
+			case 'unstaged-create-patch':
+				this.onCreatePatch(e, true);
+				break;
+			// file actions
+			case 'file-open':
+				this.onOpenFile(e);
+				break;
+			case 'file-unstage':
+				this.onUnstageFile(e);
+				break;
+			case 'file-stage':
+				this.onStageFile(e);
+				break;
+			case 'file-compare-working':
+				this.onCompareWorking(e);
+				break;
+			case 'file-open-on-remote':
+				this.onOpenFileOnRemote(e);
+				break;
+			case 'file-more-actions':
+				this.onMoreActions(e);
+				break;
+		}
+	}
+
+	protected onTreeItemChecked?(_e: CustomEvent<TreeItemCheckedDetail>): void;
+
+	// protected onTreeItemSelected?(_e: CustomEvent<TreeItemSelectionDetail>): void;
+	protected onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
+		if (!e.detail.context) return;
+
+		this.onComparePrevious(e);
+	}
+	onCreatePatch(_e: CustomEvent<TreeItemActionDetail>, isAll = false) {
+		const event = new CustomEvent('create-patch', {
+			detail: {
+				checked: isAll ? true : 'staged',
+			},
+		});
+		this.dispatchEvent(event);
+	}
+	onOpenFile(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		const event = new CustomEvent('file-open', {
+			detail: this.getEventDetail(file, {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			}),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onOpenFileOnRemote(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		const event = new CustomEvent('file-open-on-remote', {
+			detail: this.getEventDetail(file, {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			}),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onCompareWorking(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		const event = new CustomEvent('file-compare-working', {
+			detail: this.getEventDetail(file, {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			}),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onComparePrevious(e: CustomEvent<TreeItemSelectionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		const event = new CustomEvent('file-compare-previous', {
+			detail: this.getEventDetail(file, {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			}),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onMoreActions(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		const event = new CustomEvent('file-more-actions', {
+			detail: this.getEventDetail(file),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onStageFile(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		const event = new CustomEvent('file-stage', {
+			detail: this.getEventDetail(file, {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			}),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onUnstageFile(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		const event = new CustomEvent('file-unstage', {
+			detail: this.getEventDetail(file, {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			}),
+		});
+		this.dispatchEvent(event);
+	}
+
+	private getEventDetail(file: File, showOptions?: TextDocumentShowOptions): FileChangeListItemDetail {
+		return {
+			path: file.path,
+			repoPath: file.repoPath,
+			status: file.status,
+			// originalPath: this.originalPath,
+			staged: file.staged,
+			showOptions: showOptions,
+		};
+	}
 }

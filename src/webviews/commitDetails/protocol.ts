@@ -37,7 +37,7 @@ export interface Preferences {
 	avatars: boolean;
 	dateFormat: DateTimeFormat | string;
 	files: Config['views']['commitDetails']['files'];
-	// indent: number;
+	indent: number | undefined;
 	indentGuides: 'none' | 'onHover' | 'always';
 }
 export type UpdateablePreferences = Partial<Pick<Preferences, 'autolinksExpanded' | 'files'>>;

@@ -27,10 +27,11 @@ import {
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommandType, onIpc } from '../../protocol';
 import { App } from '../shared/appBase';
-import type { FileChangeListItem, FileChangeListItemDetail } from '../shared/components/list/file-change-list-item';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane';
 import { DOM } from '../shared/dom';
 import type { GlCommitDetailsApp } from './components/commit-details-app';
+import type { GlCommitDetails } from './components/gl-commit-details';
+import type { FileChangeListItemDetail } from './components/gl-details-base';
 import './commitDetails.scss';
 import '../shared/components/actions/action-item';
 import '../shared/components/actions/action-nav';
@@ -61,27 +62,6 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 	override onBind() {
 		const disposables = [
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-open-on-remote', e =>
-				this.onOpenFileOnRemote(e.detail),
-			),
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-open', e =>
-				this.onOpenFile(e.detail),
-			),
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-compare-working', e =>
-				this.onCompareFileWithWorking(e.detail),
-			),
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-compare-previous', e =>
-				this.onCompareFileWithPrevious(e.detail),
-			),
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-more-actions', e =>
-				this.onFileMoreActions(e.detail),
-			),
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-stage', e =>
-				this.onStageFile(e.detail),
-			),
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-unstage', e =>
-				this.onUnstageFile(e.detail),
-			),
 			DOM.on('[data-action="commit-actions"]', 'click', e => this.onCommitActions(e)),
 			DOM.on('[data-action="pick-commit"]', 'click', e => this.onPickCommit(e)),
 			DOM.on('[data-action="wip"]', 'click', e => this.onSwitchMode(e, 'wip')),
@@ -92,7 +72,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			DOM.on('[data-action="pin"]', 'click', e => this.onTogglePin(e)),
 			DOM.on('[data-action="back"]', 'click', e => this.onNavigate('back', e)),
 			DOM.on('[data-action="forward"]', 'click', e => this.onNavigate('forward', e)),
-			DOM.on('[data-action="create-patch"]', 'click', e => this.onCreatePatchFromWip(e)),
+			DOM.on('[data-action="create-patch"]', 'click', _e => this.onCreatePatchFromWip(true)),
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="rich-pane"]',
 				'expanded-change',
@@ -100,6 +80,33 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			),
 			DOM.on('[data-action="explain-commit"]', 'click', e => this.onExplainCommit(e)),
 			DOM.on('[data-action="switch-ai"]', 'click', e => this.onSwitchAiModel(e)),
+			DOM.on<GlCommitDetails, { checked: boolean | 'staged' }>('gl-wip-details', 'create-patch', e =>
+				this.onCreatePatchFromWip(e.detail.checked),
+			),
+
+			DOM.on<GlCommitDetails, FileChangeListItemDetail>('gl-commit-details', 'file-open-on-remote', e =>
+				this.onOpenFileOnRemote(e.detail),
+			),
+			DOM.on<GlCommitDetails, FileChangeListItemDetail>('gl-commit-details,gl-wip-details', 'file-open', e =>
+				this.onOpenFile(e.detail),
+			),
+			DOM.on<GlCommitDetails, FileChangeListItemDetail>('gl-commit-details', 'file-compare-working', e =>
+				this.onCompareFileWithWorking(e.detail),
+			),
+			DOM.on<GlCommitDetails, FileChangeListItemDetail>(
+				'gl-commit-details,gl-wip-details',
+				'file-compare-previous',
+				e => this.onCompareFileWithPrevious(e.detail),
+			),
+			DOM.on<GlCommitDetails, FileChangeListItemDetail>('gl-commit-details', 'file-more-actions', e =>
+				this.onFileMoreActions(e.detail),
+			),
+			DOM.on<GlCommitDetails, FileChangeListItemDetail>('gl-wip-details', 'file-stage', e =>
+				this.onStageFile(e.detail),
+			),
+			DOM.on<GlCommitDetails, FileChangeListItemDetail>('gl-wip-details', 'file-unstage', e =>
+				this.onUnstageFile(e.detail),
+			),
 		];
 
 		return disposables;
@@ -153,21 +160,9 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		}
 	}
 
-	private onCreatePatchFromWip(e: MouseEvent) {
+	private onCreatePatchFromWip(checked: boolean | 'staged' = true) {
 		if (this.state.wip?.changes == null) return;
-
-		const wipCheckedParam = ((e.target as HTMLElement)?.closest('[data-wip-checked]') as HTMLElement | undefined)
-			?.dataset.wipChecked;
-		let wipChecked: boolean | 'staged';
-		if (wipCheckedParam == null) {
-			wipChecked = true;
-		} else if (wipCheckedParam === 'staged') {
-			wipChecked = wipCheckedParam;
-		} else {
-			wipChecked = wipCheckedParam === 'true';
-		}
-
-		this.sendCommand(CreatePatchFromWipCommandType, { changes: this.state.wip?.changes, checked: wipChecked });
+		this.sendCommand(CreatePatchFromWipCommandType, { changes: this.state.wip?.changes, checked: checked });
 	}
 
 	private onCommandClickedCore(action?: string) {

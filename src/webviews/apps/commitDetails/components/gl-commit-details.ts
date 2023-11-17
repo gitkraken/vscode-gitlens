@@ -8,7 +8,9 @@ import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import type { Serialized } from '../../../../system/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
+import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import { uncommittedSha } from '../commitDetails';
+import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
 
 interface ExplainState {
@@ -521,5 +523,42 @@ export class GlCommitDetails extends GlDetailsBase {
 
 		const { added, deleted, changed } = stats.changedFiles;
 		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
+	}
+
+	override getFileActions(_file: File, _options?: Partial<TreeItemBase>): TreeItemAction[] {
+		const actions = [
+			{
+				icon: 'go-to-file',
+				label: 'Open file',
+				action: 'file-open',
+			},
+		];
+
+		if (this.isUncommitted) {
+			return actions;
+		}
+
+		actions.push({
+			icon: 'git-compare',
+			label: 'Open Changes with Working File',
+			action: 'file-compare-working',
+		});
+
+		if (!this.isStash) {
+			actions.push(
+				{
+					icon: 'globe',
+					label: 'Open on remote',
+					action: 'file-open-on-remote',
+				},
+				{
+					icon: 'ellipsis',
+					label: 'Show more actions',
+					action: 'file-more-actions',
+				},
+			);
+		}
+
+		return actions;
 	}
 }
