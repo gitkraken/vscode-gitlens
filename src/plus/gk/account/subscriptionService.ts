@@ -34,7 +34,7 @@ import { debug, log } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, once } from '../../../system/function';
 import { Logger } from '../../../system/logger';
-import { getLogScope } from '../../../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
 import { flatten } from '../../../system/object';
 import { pluralize } from '../../../system/string';
 import { openWalkthrough } from '../../../system/utils';
@@ -667,7 +667,7 @@ export class SubscriptionService implements Disposable {
 			session = null;
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
-				Logger.debug(scope, 'User declined authentication');
+				setLogScopeExit(scope, ' \u2022 User declined authentication');
 				await this.logoutCore();
 				return null;
 			}
@@ -676,7 +676,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (session == null) {
-			Logger.debug(scope, 'No valid session was found');
+			setLogScopeExit(scope, ' \u2022 No valid session was found');
 			await this.logoutCore();
 			return session ?? null;
 		}
@@ -694,7 +694,11 @@ export class SubscriptionService implements Disposable {
 				statusCode: ex.statusCode,
 			});
 
-			Logger.debug(scope, `Account validation failed (${ex.statusCode ?? ex.original?.code})`);
+			setLogScopeExit(
+				scope,
+				` \u2022 Account validation failed (${ex.statusCode ?? ex.original?.code})`,
+				'FAILED',
+			);
 
 			if (ex instanceof AccountValidationError) {
 				const name = session.account.label;
