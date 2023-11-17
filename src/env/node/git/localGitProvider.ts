@@ -560,7 +560,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return opened;
 	}
 
-	@debug()
+	@debug({ singleLine: true })
 	openRepositoryInitWatcher(): RepositoryInitWatcher {
 		const watcher = workspace.createFileSystemWatcher('**/.git', false, true, true);
 		return {
