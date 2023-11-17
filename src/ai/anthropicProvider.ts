@@ -5,7 +5,8 @@ import type { Container } from '../container';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
 import { supportedInVSCodeVersion } from '../system/utils';
-import type { AIProvider } from './aiProviderService';
+import type {AIProvider} from './aiProviderService';
+import {  getMaxCharacters } from './aiProviderService';
 
 export class AnthropicProvider implements AIProvider {
 	readonly id = 'anthropic';
@@ -24,21 +25,18 @@ export class AnthropicProvider implements AIProvider {
 		if (apiKey == null) return undefined;
 
 		const model = this.model;
-		const maxCodeCharacters = getMaxCharacters(model, 1600);
 
-		const code = diff.substring(0, maxCodeCharacters);
-		if (diff.length > maxCodeCharacters) {
-			void window.showWarningMessage(
-				`The diff of the staged changes had to be truncated to ${maxCodeCharacters} characters to fit within the Anthropic's limits.`,
-			);
-		}
+		let retries = 0;
+		let maxCodeCharacters = getMaxCharacters(model, 2600);
+		while (true) {
+			const code = diff.substring(0, maxCodeCharacters);
 
-		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
-		}
+			let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
+			if (!customPrompt.endsWith('.')) {
+				customPrompt += '.';
+			}
 
-		const prompt = `\n\nHuman: You are an advanced AI programming assistant tasked with summarizing code changes into a concise and meaningful commit message. Compose a commit message that:
+			const prompt = `\n\nHuman: You are an advanced AI programming assistant tasked with summarizing code changes into a concise and meaningful commit message. Compose a commit message that:
 - Strictly synthesizes meaningful information from the provided code diff
 - Utilizes any additional user-provided context to comprehend the rationale behind the code changes
 - Is clear and brief, with an informal yet professional tone, and without superfluous descriptions
@@ -62,31 +60,48 @@ Human: ${customPrompt}
 
 Assistant:`;
 
-		const request: AnthropicCompletionRequest = {
-			model: model,
-			prompt: prompt,
-			stream: false,
-			max_tokens_to_sample: 5000,
-			stop_sequences: ['\n\nHuman:'],
-		};
-		const rsp = await this.fetch(apiKey, request);
-		if (!rsp.ok) {
-			let json;
-			try {
-				json = (await rsp.json()) as { error: { type: string; message: string } } | undefined;
-			} catch {}
+			const request: AnthropicCompletionRequest = {
+				model: model,
+				prompt: prompt,
+				stream: false,
+				max_tokens_to_sample: 5000,
+				stop_sequences: ['\n\nHuman:'],
+			};
+			const rsp = await this.fetch(apiKey, request);
+			if (!rsp.ok) {
+				let json;
+				try {
+					json = (await rsp.json()) as { error?: { type: string; message: string } } | undefined;
+				} catch {}
 
-			debugger;
-			throw new Error(
-				`Unable to generate commit message: (${this.name}:${rsp.status}) ${
-					json?.error.message || rsp.statusText
-				})`,
-			);
+				debugger;
+
+				if (
+					retries++ < 2 &&
+					json?.error?.type === 'invalid_request_error' &&
+					json?.error?.message?.includes('prompt is too long')
+				) {
+					maxCodeCharacters -= 500 * retries;
+					continue;
+				}
+
+				throw new Error(
+					`Unable to generate commit message: (${this.name}:${rsp.status}) ${
+						json?.error?.message || rsp.statusText
+					})`,
+				);
+			}
+
+			if (diff.length > maxCodeCharacters) {
+				void window.showWarningMessage(
+					`The diff of the staged changes had to be truncated to ${maxCodeCharacters} characters to fit within the Anthropic's limits.`,
+				);
+			}
+
+			const data: AnthropicCompletionResponse = await rsp.json();
+			const message = data.completion.trim();
+			return message;
 		}
-
-		const data: AnthropicCompletionResponse = await rsp.json();
-		const message = data.completion.trim();
-		return message;
 	}
 
 	async explainChanges(message: string, diff: string): Promise<string | undefined> {
@@ -94,16 +109,13 @@ Assistant:`;
 		if (apiKey == null) return undefined;
 
 		const model = this.model;
-		const maxCodeCharacters = getMaxCharacters(model, 2400);
 
-		const code = diff.substring(0, maxCodeCharacters);
-		if (diff.length > maxCodeCharacters) {
-			void window.showWarningMessage(
-				`The diff of the commit changes had to be truncated to ${maxCodeCharacters} characters to fit within the OpenAI's limits.`,
-			);
-		}
+		let retries = 0;
+		let maxCodeCharacters = getMaxCharacters(model, 3000);
+		while (true) {
+			const code = diff.substring(0, maxCodeCharacters);
 
-		const prompt = `\n\nHuman: You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
+			const prompt = `\n\nHuman: You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
 			- Concisely synthesizes meaningful information from the provided code diff
 			- Incorporates any additional context provided by the user to understand the rationale behind the code changes
 			- Places the emphasis on the 'why' of the change, clarifying its benefits or addressing the problem that necessitated the change, beyond just detailing the 'what' has changed
@@ -122,30 +134,47 @@ Human: Remember to frame your explanation in a way that is suitable for a review
 
 Assistant:`;
 
-		const request: AnthropicCompletionRequest = {
-			model: model,
-			prompt: prompt,
-			stream: false,
-			max_tokens_to_sample: 5000,
-			stop_sequences: ['\n\nHuman:'],
-		};
+			const request: AnthropicCompletionRequest = {
+				model: model,
+				prompt: prompt,
+				stream: false,
+				max_tokens_to_sample: 5000,
+				stop_sequences: ['\n\nHuman:'],
+			};
 
-		const rsp = await this.fetch(apiKey, request);
-		if (!rsp.ok) {
-			let json;
-			try {
-				json = (await rsp.json()) as { error: { type: string; message: string } } | undefined;
-			} catch {}
+			const rsp = await this.fetch(apiKey, request);
+			if (!rsp.ok) {
+				let json;
+				try {
+					json = (await rsp.json()) as { error?: { type: string; message: string } } | undefined;
+				} catch {}
 
-			debugger;
-			throw new Error(
-				`Unable to explain commit: (${this.name}:${rsp.status}) ${json?.error.message || rsp.statusText})`,
-			);
+				debugger;
+
+				if (
+					retries++ < 2 &&
+					json?.error?.type === 'invalid_request_error' &&
+					json?.error?.message?.includes('prompt is too long')
+				) {
+					maxCodeCharacters -= 500 * retries;
+					continue;
+				}
+
+				throw new Error(
+					`Unable to explain commit: (${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText})`,
+				);
+			}
+
+			if (diff.length > maxCodeCharacters) {
+				void window.showWarningMessage(
+					`The diff of the commit changes had to be truncated to ${maxCodeCharacters} characters to fit within the OpenAI's limits.`,
+				);
+			}
+
+			const data: AnthropicCompletionResponse = await rsp.json();
+			const summary = data.completion.trim();
+			return summary;
 		}
-
-		const data: AnthropicCompletionResponse = await rsp.json();
-		const summary = data.completion.trim();
-		return summary;
 	}
 
 	private fetch(apiKey: string, request: AnthropicCompletionRequest) {
@@ -224,21 +253,6 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 	}
 
 	return apiKey;
-}
-
-function getMaxCharacters(model: AnthropicModels, outputLength: number): number {
-	let tokens;
-	switch (model) {
-		case 'claude-2': // 100,000 tokens
-		case 'claude-instant-1':
-			tokens = 100000;
-			break;
-		default: // 4,096 tokens
-			tokens = 4096;
-			break;
-	}
-
-	return tokens * 4 - outputLength / 4;
 }
 
 export type AnthropicModels = 'claude-instant-1' | 'claude-2';
