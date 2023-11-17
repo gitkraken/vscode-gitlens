@@ -241,6 +241,7 @@ export class WebviewsController implements Disposable {
 			2: false,
 			3: false,
 		},
+		singleLine: true,
 	})
 	registerWebviewPanel<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
 		command: {
