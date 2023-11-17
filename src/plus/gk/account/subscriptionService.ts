@@ -25,10 +25,11 @@ import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import { AccountValidationError } from '../../../errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
+import { pauseOnCancelOrTimeout } from '../../../system/cancellation';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { setContext } from '../../../system/context';
-import { createFromDateDelta } from '../../../system/date';
+import { createFromDateDelta, fromNow } from '../../../system/date';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
@@ -491,7 +492,7 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
-	@gate()
+	@gate<SubscriptionService['validate']>(o => `${o?.force ?? false}`)
 	@log()
 	async validate(options?: { force?: boolean }): Promise<void> {
 		const scope = getLogScope();
@@ -511,11 +512,14 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private _lastValidatedDate: Date | undefined;
-	@gate<SubscriptionService['checkInAndValidate']>(s => s.account.id)
+
+	@debug<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account?.label } })
 	private async checkInAndValidate(
 		session: AuthenticationSession,
 		options?: { force?: boolean; showSlowProgress?: boolean },
 	): Promise<void> {
+		const scope = getLogScope();
+
 		// Only check in if we haven't in the last 12 hours
 		if (
 			!options?.force &&
@@ -523,29 +527,25 @@ export class SubscriptionService implements Disposable {
 			Date.now() - this._lastValidatedDate.getTime() < 12 * 60 * 60 * 1000 &&
 			!isSubscriptionExpired(this._subscription)
 		) {
+			setLogScopeExit(scope, ` (${fromNow(this._lastValidatedDate.getTime(), true)})...`, 'skipped');
 			return;
 		}
 
-		if (!options?.showSlowProgress) return this.checkInAndValidateCore(session);
-
 		const validating = this.checkInAndValidateCore(session);
-		const result = await Promise.race([
-			validating,
-			new Promise<boolean>(resolve => setTimeout(resolve, 3000, true)),
-		]);
+		if (!options?.showSlowProgress) return validating;
 
-		if (result) {
+		// Show progress if we are waiting too long
+		const result = await pauseOnCancelOrTimeout(validating, undefined, 3000);
+		if (result.paused) {
 			await window.withProgress(
-				{
-					location: ProgressLocation.Notification,
-					title: 'Validating your GitKraken account...',
-				},
-				() => validating,
+				{ location: ProgressLocation.Notification, title: 'Validating your GitKraken account...' },
+				() => result.value,
 			);
 		}
 	}
 
-	@debug<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account.label } })
+	@gate<SubscriptionService['checkInAndValidateCore']>(s => s.account.id)
+	@debug<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account?.label } })
 	private async checkInAndValidateCore(session: AuthenticationSession): Promise<void> {
 		const scope = getLogScope();
 		this._lastValidatedDate = undefined;
