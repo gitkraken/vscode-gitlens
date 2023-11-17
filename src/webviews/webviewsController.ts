@@ -121,6 +121,7 @@ export class WebviewsController implements Disposable {
 			1: false,
 			2: false,
 		},
+		singleLine: true,
 	})
 	registerWebviewView<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
 		descriptor: WebviewViewDescriptor,
