@@ -68,6 +68,22 @@ export class GlCommitDetailsApp extends LitElement {
 		defineGkElement(Badge);
 	}
 
+	private indentPreference = 16;
+	private updateDocumentProperties() {
+		const preference = this.state?.preferences?.indent;
+		if (preference === this.indentPreference) return;
+		this.indentPreference = preference ?? 16;
+
+		const rootStyle = document.documentElement.style;
+		rootStyle.setProperty('--gitlens-tree-indent', `${this.indentPreference}px`);
+	}
+
+	override updated(changedProperties: Map<string | number | symbol, unknown>) {
+		if (changedProperties.has('state')) {
+			this.updateDocumentProperties();
+		}
+	}
+
 	override render() {
 		const wip = this.state?.wip;
 

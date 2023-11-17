@@ -3,6 +3,8 @@ import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { pluralize } from '../../../../system/string';
 import type { Wip } from '../../../commitDetails/protocol';
+import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
+import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
 
 @customElement('gl-wip-details')
@@ -75,5 +77,17 @@ export class GlWipDetails extends GlDetailsBase {
 			</div>
 			${this.renderChangedFiles('wip')}
 		`;
+	}
+
+	override getFileActions(file: File, _options?: Partial<TreeItemBase>): TreeItemAction[] {
+		const openFile = {
+			icon: 'go-to-file',
+			label: 'Open file',
+			action: 'file-open',
+		};
+		if (file.staged === true) {
+			return [openFile, { icon: 'remove', label: 'Unstage changes', action: 'file-unstage' }];
+		}
+		return [openFile, { icon: 'plus', label: 'Stage changes', action: 'file-stage' }];
 	}
 }

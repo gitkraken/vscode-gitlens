@@ -399,7 +399,8 @@ export class CommitDetailsWebviewProvider
 				'views.commitDetails.files',
 				'views.commitDetails.avatars',
 			]) ||
-			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')
+			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides') ||
+			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.indent')
 		) {
 			this.updatePendingContext({
 				preferences: {
@@ -430,6 +431,7 @@ export class CommitDetailsWebviewProvider
 				configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
 					'workbench.tree.renderIndentGuides',
 				) ?? 'onHover',
+			indent: configuration.getAny<CoreConfiguration, Preferences['indent']>('workbench.tree.indent'),
 		};
 	}
 
