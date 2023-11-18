@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds support for OpenAI's GPT-4 Turbo and latest Anthropic models for GitLens' experimental AI features &mdash; closes [#3005](https://github.com/gitkraken/vscode-gitlens/issues/3005)
+- Adds a `gitlens.sortPullRequestsBy` setting to change which PR is associated with a commit - closes [#1913](https://github.com/gitkraken/vscode-gitlens/issues/1913) thanks to [PR #3024](https://github.com/gitkraken/vscode-gitlens/pull/3024) by Aaron Miller ([@aaron-skydio](https://github.com/aaron-skydio))
 
 ### Changed
 

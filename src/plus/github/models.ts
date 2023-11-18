@@ -87,6 +87,7 @@ export interface GitHubPullRequest {
 	id: string;
 	title: string;
 	state: GitHubPullRequestState;
+	createdAt: string;
 	updatedAt: string;
 	closedAt: string | null;
 	mergedAt: string | null;

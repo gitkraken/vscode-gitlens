@@ -109,6 +109,7 @@ title
 state
 additions
 deletions
+createdAt
 updatedAt
 closedAt
 mergeable
@@ -596,6 +597,7 @@ export class GitHubApi implements Disposable {
 					number
 					title
 					state
+					createdAt
 					updatedAt
 					closedAt
 					mergedAt
@@ -677,17 +679,46 @@ export class GitHubApi implements Disposable {
 				| undefined;
 		}
 
+		let queryField: string;
+		let queryOrder: string;
+		let timeFunc: (pr: GitHubPullRequest) => number;
+
+		switch (configuration.get('sortPullRequestsBy')) {
+			case 'created:asc':
+				queryField = 'CREATED_AT';
+				queryOrder = 'ASC';
+				timeFunc = pr => -new Date(pr.createdAt).getTime();
+				break;
+			case 'created:desc':
+				queryField = 'CREATED_AT';
+				queryOrder = 'DESC';
+				timeFunc = pr => new Date(pr.createdAt).getTime();
+				break;
+			case 'updated:asc':
+				queryField = 'UPDATED_AT';
+				queryOrder = 'ASC';
+				timeFunc = pr => -new Date(pr.updatedAt).getTime();
+				break;
+			case 'updated:desc':
+				queryField = 'UPDATED_AT';
+				queryOrder = 'DESC';
+				timeFunc = pr => new Date(pr.updatedAt).getTime();
+				break;
+		}
+
 		try {
 			const query = `query getPullRequestForCommit(
 	$owner: String!
 	$repo: String!
 	$ref: GitObjectID!
+	$queryField: PullRequestOrderField!
+	$queryOrder: OrderDirection!
 	$avatarSize: Int
 ) {
 	repository(name: $repo, owner: $owner) {
 		object(oid: $ref) {
 			... on Commit {
-				associatedPullRequests(first: 2, orderBy: {field: UPDATED_AT, direction: DESC}) {
+				associatedPullRequests(first: 2, orderBy: {field: $queryField, direction: $queryOrder}) {
 					nodes {
 						author {
 							login
@@ -698,6 +729,7 @@ export class GitHubApi implements Disposable {
 						number
 						title
 						state
+						createdAt
 						updatedAt
 						closedAt
 						mergedAt
@@ -723,6 +755,8 @@ export class GitHubApi implements Disposable {
 					owner: owner,
 					repo: repo,
 					ref: ref,
+					queryField: queryField,
+					queryOrder: queryOrder,
 				},
 				scope,
 				cancellation,
@@ -739,7 +773,7 @@ export class GitHubApi implements Disposable {
 					(a, b) =>
 						(a.repository.owner.login === owner ? -1 : 1) - (b.repository.owner.login === owner ? -1 : 1) ||
 						(a.state === 'MERGED' ? -1 : 1) - (b.state === 'MERGED' ? -1 : 1) ||
-						new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+						timeFunc(b) - timeFunc(a),
 				);
 			}
 
