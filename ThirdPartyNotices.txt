@@ -3,7 +3,7 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @lit/react version 1.0.1 (https://github.com/lit/lit)
+1. @lit/react version 1.0.2 (https://github.com/lit/lit)
 2. @microsoft/fast-element version 1.12.0 (https://github.com/Microsoft/fast)
 3. @octokit/graphql version 7.0.2 (https://github.com/octokit/graphql.js)
 4. @octokit/request version 8.1.5 (https://github.com/octokit/request.js)
@@ -16,7 +16,7 @@ This project incorporates components from the projects listed below.
 11. billboard.js version 3.10.3 (https://github.com/naver/billboard.js)
 12. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
 13. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-14. lit version 3.0.2 (https://github.com/lit/lit)
+14. lit version 3.1.0 (https://github.com/lit/lit)
 15. microsoft/vscode (https://github.com/microsoft/vscode)
 16. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
 17. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
