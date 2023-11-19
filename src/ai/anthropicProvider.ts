@@ -5,8 +5,8 @@ import type { Container } from '../container';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
 import { supportedInVSCodeVersion } from '../system/utils';
-import type {AIProvider} from './aiProviderService';
-import {  getMaxCharacters } from './aiProviderService';
+import type { AIProvider } from './aiProviderService';
+import { getMaxCharacters } from './aiProviderService';
 
 export class AnthropicProvider implements AIProvider {
 	readonly id = 'anthropic';

@@ -205,7 +205,6 @@
 				}
 			}
 		],
-		"@typescript-eslint/class-literal-property-style": "off",
 		"@typescript-eslint/consistent-type-assertions": [
 			"error",
 			{
@@ -213,9 +212,7 @@
 				"objectLiteralTypeAssertions": "allow-as-parameter"
 			}
 		],
-		"@typescript-eslint/consistent-type-definitions": "off",
 		"@typescript-eslint/consistent-type-imports": ["error", { "disallowTypeAnnotations": false }],
-		"@typescript-eslint/dot-notation": "off",
 		"@typescript-eslint/naming-convention": [
 			"error",
 			{
@@ -266,7 +263,6 @@
 			"error",
 			{ "ignoreArrowShorthand": true, "ignoreVoidOperator": true }
 		],
-		"@typescript-eslint/no-empty-function": "off",
 		"@typescript-eslint/no-explicit-any": "off",
 		"@typescript-eslint/no-inferrable-types": ["warn", { "ignoreParameters": true, "ignoreProperties": true }],
 		"@typescript-eslint/no-invalid-void-type": "off", // Seems to error on `void` return types
@@ -278,6 +274,7 @@
 		"@typescript-eslint/no-unsafe-argument": "off",
 		"@typescript-eslint/no-unsafe-assignment": "off",
 		"@typescript-eslint/no-unsafe-call": "off",
+		"@typescript-eslint/no-unsafe-enum-comparison": "off",
 		"@typescript-eslint/no-unsafe-member-access": "off",
 		"@typescript-eslint/no-unused-expressions": ["warn", { "allowShortCircuit": true }],
 		"@typescript-eslint/no-unused-vars": [
@@ -289,12 +286,10 @@
 				"varsIgnorePattern": "^_$"
 			}
 		],
-		"@typescript-eslint/no-unsafe-enum-comparison": "off",
 		"@typescript-eslint/no-use-before-define": ["error", { "functions": false, "classes": false }],
 		"@typescript-eslint/prefer-for-of": "warn",
 		"@typescript-eslint/prefer-includes": "warn",
 		"@typescript-eslint/prefer-literal-enum-member": ["warn", { "allowBitwiseExpressions": true }],
-		"@typescript-eslint/prefer-nullish-coalescing": "off", // warn
 		"@typescript-eslint/prefer-optional-chain": "warn",
 		"@typescript-eslint/prefer-reduce-type-parameter": "warn",
 		"@typescript-eslint/restrict-template-expressions": [
