@@ -537,7 +537,9 @@ export type SuppressedMessages =
 	| 'suppressRebaseSwitchToTextWarning'
 	| 'suppressIntegrationDisconnectedTooManyFailedRequestsWarning'
 	| 'suppressIntegrationRequestFailed500Warning'
-	| 'suppressIntegrationRequestTimedOutWarning';
+	| 'suppressIntegrationRequestTimedOutWarning'
+	| 'suppressBlameInvalidIgnoreRevsFileWarning'
+	| 'suppressBlameInvalidIgnoreRevsFileBadRevisionWarning';
 
 export interface ViewsCommonConfig {
 	readonly defaultItemLimit: number;

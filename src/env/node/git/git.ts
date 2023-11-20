@@ -10,6 +10,7 @@ import { GlyphChars } from '../../../constants';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
+	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
 	CherryPickError,
 	CherryPickErrorReason,
@@ -35,7 +36,7 @@ import { parseGitTagsDefaultFormat } from '../../../git/parsers/tagParser';
 import { splitAt } from '../../../system/array';
 import { configuration } from '../../../system/configuration';
 import { log } from '../../../system/decorators/log';
-import { join } from '../../../system/iterable';
+import { count, join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import { slowCallWarningThreshold } from '../../../system/logger.constants';
 import { getLogScope } from '../../../system/logger.scope';
@@ -70,12 +71,13 @@ const textDecoder = new TextDecoder('utf8');
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export const GitErrors = {
-	badIgnoreRevsFile: /could not open object name list: (.*)\s/i,
 	badRevision: /bad revision '(.*?)'/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
 	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
 	commitChangesFirst: /Please, commit your changes before you can/i,
 	conflict: /^CONFLICT \([^)]+\): \b/m,
+	invalidObjectName: /invalid object name: (.*)\s/i,
+	invalidObjectNameList: /could not open object name list: (.*)\s/i,
 	noFastForward: /\(non-fast-forward\)/i,
 	noMergeBase: /no merge base/i,
 	noRemoteRepositorySpecified: /No remote repository specified\./i,
@@ -386,20 +388,37 @@ export class Git {
 	async blame(
 		repoPath: string | undefined,
 		fileName: string,
-		ref?: string,
-		options: { args?: string[] | null; ignoreWhitespace?: boolean; startLine?: number; endLine?: number } = {},
+		options?: ({ ref: string | undefined; contents?: never } | { contents: string; ref?: never }) & {
+			args?: string[] | null;
+			correlationKey?: string;
+			ignoreWhitespace?: boolean;
+			startLine?: number;
+			endLine?: number;
+		},
 	) {
 		const [file, root] = splitPath(fileName, repoPath, true);
 
 		const params = ['blame', '--root', '--incremental'];
 
-		if (options.ignoreWhitespace) {
+		if (options?.ignoreWhitespace) {
 			params.push('-w');
 		}
-		if (options.startLine != null && options.endLine != null) {
+		if (options?.startLine != null && options.endLine != null) {
 			params.push(`-L ${options.startLine},${options.endLine}`);
 		}
-		if (options.args != null) {
+		if (options?.args != null) {
+			// See if the args contains a value like: `--ignore-revs-file <file>` or `--ignore-revs-file=<file>` to account for user error
+			// If so split it up into two args
+			const argIndex = options.args.findIndex(
+				arg => arg !== '--ignore-revs-file' && arg.startsWith('--ignore-revs-file'),
+			);
+			if (argIndex !== -1) {
+				const match = /^--ignore-revs-file\s*=?\s*(.*)$/.exec(options.args[argIndex]);
+				if (match != null) {
+					options.args.splice(argIndex, 1, '--ignore-revs-file', match[1]);
+				}
+			}
+
 			params.push(...options.args);
 		}
 
@@ -444,63 +463,26 @@ export class Git {
 		}
 
 		let stdin;
-		if (ref) {
-			if (isUncommittedStaged(ref)) {
+		if (options?.contents != null) {
+			// Pipe the blame contents to stdin
+			params.push('--contents', '-');
+
+			stdin = options.contents;
+		} else if (options?.ref) {
+			if (isUncommittedStaged(options.ref)) {
 				// Pipe the blame contents to stdin
 				params.push('--contents', '-');
 
 				// Get the file contents for the staged version using `:`
 				stdin = await this.show<string>(repoPath, fileName, ':');
 			} else {
-				params.push(ref);
+				params.push(options.ref);
 			}
 		}
-
-		try {
-			const blame = await this.git<string>({ cwd: root, stdin: stdin }, ...params, '--', file);
-			return blame;
-		} catch (ex) {
-			// Since `-c blame.ignoreRevsFile=` doesn't seem to work (unlike as the docs suggest), try to detect the error and throw a more helpful one
-			const match = GitErrors.badIgnoreRevsFile.exec(ex.message);
-			if (match != null) {
-				throw new BlameIgnoreRevsFileError(match[1], ex);
-			}
-			throw ex;
-		}
-	}
-
-	async blame__contents(
-		repoPath: string | undefined,
-		fileName: string,
-		contents: string,
-		options: {
-			args?: string[] | null;
-			correlationKey?: string;
-			ignoreWhitespace?: boolean;
-			startLine?: number;
-			endLine?: number;
-		} = {},
-	) {
-		const [file, root] = splitPath(fileName, repoPath, true);
-
-		const params = ['blame', '--root', '--incremental'];
-
-		if (options.ignoreWhitespace) {
-			params.push('-w');
-		}
-		if (options.startLine != null && options.endLine != null) {
-			params.push(`-L ${options.startLine},${options.endLine}`);
-		}
-		if (options.args != null) {
-			params.push(...options.args);
-		}
-
-		// Pipe the blame contents to stdin
-		params.push('--contents', '-');
 
 		try {
 			const blame = await this.git<string>(
-				{ cwd: root, stdin: contents, correlationKey: options.correlationKey },
+				{ cwd: root, stdin: stdin, correlationKey: options?.correlationKey },
 				...params,
 				'--',
 				file,
@@ -508,10 +490,16 @@ export class Git {
 			return blame;
 		} catch (ex) {
 			// Since `-c blame.ignoreRevsFile=` doesn't seem to work (unlike as the docs suggest), try to detect the error and throw a more helpful one
-			const match = GitErrors.badIgnoreRevsFile.exec(ex.message);
+			let match = GitErrors.invalidObjectNameList.exec(ex.message);
 			if (match != null) {
 				throw new BlameIgnoreRevsFileError(match[1], ex);
 			}
+
+			match = GitErrors.invalidObjectName.exec(ex.message);
+			if (match != null) {
+				throw new BlameIgnoreRevsFileBadRevisionError(match[1], ex);
+			}
+
 			throw ex;
 		}
 	}
