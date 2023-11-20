@@ -552,6 +552,9 @@ export class CommitDetailsWebviewProvider
 			const summary = await this.container.ai.explainCommit(this._context.commit!, {
 				progress: { location: { viewId: this.host.id } },
 			});
+			if (summary == null) {
+				throw new Error('Error retrieving content');
+			}
 			params = { summary: summary };
 		} catch (ex) {
 			debugger;
