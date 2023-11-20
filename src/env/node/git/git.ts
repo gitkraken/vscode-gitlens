@@ -36,7 +36,7 @@ import { parseGitTagsDefaultFormat } from '../../../git/parsers/tagParser';
 import { splitAt } from '../../../system/array';
 import { configuration } from '../../../system/configuration';
 import { log } from '../../../system/decorators/log';
-import { count, join } from '../../../system/iterable';
+import { join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import { slowCallWarningThreshold } from '../../../system/logger.constants';
 import { getLogScope } from '../../../system/logger.scope';
