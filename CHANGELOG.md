@@ -14,11 +14,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Improves the performance of the _Commit Graph_ when loading a large number of commits
 - Refines AI prompts to provide better commit message generation and explanation results
+- Updates Files Changed panel of _Commit Details_, which now supports indent settings and adds better accessibility
 
 ### Fixed
 
 - Fixes [#3018](https://github.com/gitkraken/vscode-gitlens/issues/3018) - Line blame overlay is broken when commit message contains a `)`
 - Fixes [#2625](https://github.com/gitkraken/vscode-gitlens/issues/2625) - full issue ref has escape characters that break hover links
+- Fixes stuck busy state of the _Commit Details_ Explain AI panel after canceling a request
 
 ## [14.5.0] - 2023-11-13
 
