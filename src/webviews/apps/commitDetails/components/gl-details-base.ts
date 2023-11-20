@@ -313,12 +313,12 @@ export class GlDetailsBase extends LitElement {
 			level: 1,
 			checkable: false,
 			checked: false,
-			icon: 'file', //{ type: 'status', name: file.status },
+			icon: { type: 'status', name: file.status }, // 'file',
 			label: fileName,
 			description: flat === true ? filePath : undefined,
 			context: [file],
 			actions: this.getFileActions(file, options),
-			decorations: [{ type: 'text', label: file.status }],
+			// decorations: [{ type: 'text', label: file.status }],
 			...options,
 		};
 	}
