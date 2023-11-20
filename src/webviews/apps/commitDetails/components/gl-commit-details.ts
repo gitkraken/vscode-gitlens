@@ -321,7 +321,7 @@ export class GlCommitDetails extends GlDetailsBase {
 				<div class="section">
 					<p>Let AI assist in understanding the changes made with this commit.</p>
 					<p class="button-container">
-						<span class="button-group">
+						<span class="button-group button-group--single">
 							<button
 								class="button button--full button--busy"
 								type="button"
