@@ -1,5 +1,5 @@
 import type { MessageItem } from 'vscode';
-import { env, QuickInputButtons, Uri, window, workspace } from 'vscode';
+import { QuickInputButtons, Uri, window, workspace } from 'vscode';
 import type { Config } from '../../config';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
@@ -481,7 +481,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						)
 						.then(result => {
 							if (result === openFolder) {
-								void env.openExternal(uri);
+								void revealInFileExplorer(uri);
 							}
 						});
 				} else {
