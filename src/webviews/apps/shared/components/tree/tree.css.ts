@@ -23,7 +23,7 @@ export const treeItemStyles = [
 			align-items: center;
 			justify-content: space-between;
 			font-size: var(--vscode-font-size);
-			color: var(--vscode-sideBar-foreground);
+			color: var(--vscode-foreground);
 
 			content-visibility: auto;
 			contain-intrinsic-size: auto 2.2rem;
@@ -64,6 +64,8 @@ export const treeItemStyles = [
 			gap: 0.6rem;
 			width: 100%;
 			padding: 0;
+			font-family: inherit;
+			font-size: inherit;
 			text-decoration: none;
 			color: inherit;
 			background: none;
@@ -145,6 +147,7 @@ export const treeItemStyles = [
 		.description {
 			display: inline;
 			opacity: 0.7;
+			font-size: 0.9em;
 			margin-left: 0.3rem;
 		}
 
