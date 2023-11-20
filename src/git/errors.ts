@@ -11,16 +11,28 @@ export class BlameIgnoreRevsFileError extends Error {
 		return ex instanceof BlameIgnoreRevsFileError;
 	}
 
-	readonly friendlyMessage: string;
-
 	constructor(
-		filename: string,
+		public readonly fileName: string,
 		public readonly original?: Error,
 	) {
-		super(`Invalid blame.ignoreRevsFile: '${filename}'`);
+		super(`Invalid blame.ignoreRevsFile: '${fileName}'`);
 
-		this.friendlyMessage = `Unable to show blame. Invalid or missing blame.ignoreRevsFile (${filename}) specified in your Git config.`;
 		Error.captureStackTrace?.(this, BlameIgnoreRevsFileError);
+	}
+}
+
+export class BlameIgnoreRevsFileBadRevisionError extends Error {
+	static is(ex: unknown): ex is BlameIgnoreRevsFileBadRevisionError {
+		return ex instanceof BlameIgnoreRevsFileBadRevisionError;
+	}
+
+	constructor(
+		public readonly revision: string,
+		public readonly original?: Error,
+	) {
+		super(`Invalid revision in blame.ignoreRevsFile: '${revision}'`);
+
+		Error.captureStackTrace?.(this, BlameIgnoreRevsFileBadRevisionError);
 	}
 }
 

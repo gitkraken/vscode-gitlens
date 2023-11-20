@@ -17,6 +17,7 @@ import { emojify } from '../../../emojis';
 import { Features } from '../../../features';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
+	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
 	CherryPickError,
 	CherryPickErrorReason,
@@ -150,6 +151,7 @@ import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remo
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
 import {
+	showBlameInvalidIgnoreRevsFileWarningMessage,
 	showGenericErrorMessage,
 	showGitDisabledErrorMessage,
 	showGitInvalidConfigErrorMessage,
@@ -1748,7 +1750,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = paths;
 
 		try {
-			const data = await this.git.blame(root, relativePath, uri.sha, {
+			const data = await this.git.blame(root, relativePath, {
+				ref: uri.sha,
 				args: configuration.get('advanced.blame.customArguments'),
 				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
 			});
@@ -1769,8 +1772,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				document.state.setBlame(key, value);
 				document.setBlameFailure(ex);
 
-				if (ex instanceof BlameIgnoreRevsFileError) {
-					void window.showErrorMessage(ex.friendlyMessage);
+				if (ex instanceof BlameIgnoreRevsFileError || ex instanceof BlameIgnoreRevsFileBadRevisionError) {
+					void showBlameInvalidIgnoreRevsFileWarningMessage(ex);
 				}
 
 				return emptyPromise as Promise<GitBlame>;
@@ -1831,7 +1834,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = paths;
 
 		try {
-			const data = await this.git.blame__contents(root, relativePath, contents, {
+			const data = await this.git.blame(root, relativePath, {
+				contents: contents,
 				args: configuration.get('advanced.blame.customArguments'),
 				correlationKey: `:${key}`,
 				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
@@ -1853,8 +1857,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				document.state.setBlame(key, value);
 				document.setBlameFailure(ex);
 
-				if (ex instanceof BlameIgnoreRevsFileError) {
-					void window.showErrorMessage(ex.friendlyMessage);
+				if (ex instanceof BlameIgnoreRevsFileError || ex instanceof BlameIgnoreRevsFileBadRevisionError) {
+					void showBlameInvalidIgnoreRevsFileWarningMessage(ex);
 				}
 
 				return emptyPromise as Promise<GitBlame>;
@@ -1903,7 +1907,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = splitPath(uri, uri.repoPath);
 
 		try {
-			const data = await this.git.blame(root, relativePath, uri.sha, {
+			const data = await this.git.blame(root, relativePath, {
+				ref: uri.sha,
 				args: configuration.get('advanced.blame.customArguments'),
 				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
 				startLine: lineToBlame,
@@ -1919,8 +1924,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			};
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (ex instanceof BlameIgnoreRevsFileError) {
-				void window.showErrorMessage(ex.friendlyMessage);
+			if (ex instanceof BlameIgnoreRevsFileError || ex instanceof BlameIgnoreRevsFileBadRevisionError) {
+				void showBlameInvalidIgnoreRevsFileWarningMessage(ex);
 			}
 
 			return undefined;
@@ -1959,7 +1964,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = splitPath(uri, uri.repoPath);
 
 		try {
-			const data = await this.git.blame__contents(root, relativePath, contents, {
+			const data = await this.git.blame(root, relativePath, {
+				contents: contents,
 				args: configuration.get('advanced.blame.customArguments'),
 				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
 				startLine: lineToBlame,

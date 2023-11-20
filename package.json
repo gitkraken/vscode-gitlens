@@ -4031,7 +4031,9 @@
 							"suppressRebaseSwitchToTextWarning": false,
 							"suppressIntegrationDisconnectedTooManyFailedRequestsWarning": false,
 							"suppressIntegrationRequestFailed500Warning": false,
-							"suppressIntegrationRequestTimedOutWarning": false
+							"suppressIntegrationRequestTimedOutWarning": false,
+							"suppressBlameInvalidIgnoreRevsFileWarning": false,
+							"suppressBlameInvalidIgnoreRevsFileBadRevisionWarning": false
 						},
 						"properties": {
 							"suppressCommitHasNoPreviousCommitWarning": {
@@ -4103,6 +4105,16 @@
 								"type": "boolean",
 								"default": false,
 								"description": "Integration Request Timed Out Warning"
+							},
+							"suppressBlameInvalidIgnoreRevsFileWarning": {
+								"type": "boolean",
+								"default": false,
+								"description": "Invalid Blame IgnoreRevs File Warning"
+							},
+							"suppressBlameInvalidIgnoreRevsFileBadRevisionWarning": {
+								"type": "boolean",
+								"default": false,
+								"description": "Invalid Revision in Blame IgnoreRevs File Warning"
 							}
 						},
 						"additionalProperties": false,

@@ -2,10 +2,30 @@ import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import type { SuppressedMessages } from './config';
 import { Commands } from './constants';
+import type { BlameIgnoreRevsFileError } from './git/errors';
+import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
 import { executeCommand } from './system/command';
 import { configuration } from './system/configuration';
 import { Logger } from './system/logger';
+
+export function showBlameInvalidIgnoreRevsFileWarningMessage(
+	ex: BlameIgnoreRevsFileError | BlameIgnoreRevsFileBadRevisionError,
+): Promise<MessageItem | undefined> {
+	if (ex instanceof BlameIgnoreRevsFileBadRevisionError) {
+		return showMessage(
+			'error',
+			`Unable to show blame. Invalid revision (${ex.revision}) specified in the blame.ignoreRevsFile in your Git config.`,
+			'suppressBlameInvalidIgnoreRevsFileBadRevisionWarning',
+		);
+	}
+
+	return showMessage(
+		'error',
+		`Unable to show blame. Invalid or missing blame.ignoreRevsFile (${ex.fileName}) specified in your Git config.`,
+		'suppressBlameInvalidIgnoreRevsFileWarning',
+	);
+}
 
 export function showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
 	if (commit == null) {
