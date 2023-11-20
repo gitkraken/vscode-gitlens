@@ -37,15 +37,10 @@ import '../shared/components/actions/action-item';
 import '../shared/components/actions/action-nav';
 import '../shared/components/code-icon';
 import '../shared/components/commit/commit-identity';
-import '../shared/components/formatted-date';
 import '../shared/components/rich/issue-pull-request';
 import '../shared/components/skeleton-loader';
 import '../shared/components/commit/commit-stats';
 import '../shared/components/webview-pane';
-import '../shared/components/progress';
-import '../shared/components/list/list-container';
-import '../shared/components/list/list-item';
-import '../shared/components/list/file-change-list-item';
 import './components/commit-details-app';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
