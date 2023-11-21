@@ -522,46 +522,6 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
-	// renderCollaborators() {
-	// 	return html`
-	// 		<webview-pane collapsable expanded>
-	// 			<span slot="title">Collaborators</span>
-
-	// 			<div class="h-spacing">
-	// 				<list-container>
-	// 					<list-item>
-	// 						<code-icon
-	// 							slot="icon"
-	// 							icon="account"
-	// 							title="Collaborator"
-	// 							aria-label="Collaborator"
-	// 						></code-icon>
-	// 						justin.roberts@gitkraken.com
-	// 					</list-item>
-	// 					<list-item>
-	// 						<code-icon
-	// 							slot="icon"
-	// 							icon="account"
-	// 							title="Collaborator"
-	// 							aria-label="Collaborator"
-	// 						></code-icon>
-	// 						eamodio@gitkraken.com
-	// 					</list-item>
-	// 					<list-item>
-	// 						<code-icon
-	// 							slot="icon"
-	// 							icon="account"
-	// 							title="Collaborator"
-	// 							aria-label="Collaborator"
-	// 						></code-icon>
-	// 						keith.daulton@gitkraken.com
-	// 					</list-item>
-	// 				</list-container>
-	// 			</div>
-	// 		</webview-pane>
-	// 	`;
-	// }
-
 	renderActionbar() {
 		const draft = this.state?.draft;
 		if (draft == null) return undefined;
