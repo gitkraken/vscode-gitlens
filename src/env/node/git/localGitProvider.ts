@@ -3785,7 +3785,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitLog | undefined> {
 		const paths = await this.isTrackedWithDetails(path, repoPath, ref);
 		if (paths == null) {
-			Logger.log(scope, `Skipping blame; '${path}' is not tracked`);
+			Logger.log(scope, `Skipping log; '${path}' is not tracked`);
 			return emptyPromise as Promise<GitLog>;
 		}
 
@@ -3868,7 +3868,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			moreLimit = moreLimit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 
-			const ref = last(log.commits.values())?.ref;
+			const commit = last(log.commits.values());
+			let ref;
+			if (commit != null) {
+				ref = commit.ref;
+				// Check to make sure the filename hasn't changed and if it has use the previous
+				if (commit.file != null) {
+					const path = commit.file.originalPath ?? commit.file.path;
+					if (path !== relativePath) {
+						relativePath = path;
+					}
+				}
+			}
 			const moreLog = await this.getLogForFile(log.repoPath, relativePath, {
 				...options,
 				limit: moreUntil == null ? moreLimit : 0,
