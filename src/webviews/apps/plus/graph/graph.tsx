@@ -147,7 +147,7 @@ export class GraphApp extends App<State> {
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
 				onIpc(DidChangeNotificationType, msg, (params, type) => {
-					this.setState({ ...this.state, ...params }, type);
+					this.setState({ ...this.state, ...params.state }, type);
 				});
 				break;
 
