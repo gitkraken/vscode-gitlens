@@ -3416,6 +3416,25 @@
 						"markdownDescription": "Specifies how contributors are sorted in quick pick menus and views",
 						"scope": "window",
 						"order": 40
+					},
+					"gitlens.sortPullRequestsBy": {
+						"type": "string",
+						"default": "updated:desc",
+						"enum": [
+							"updated:desc",
+							"updated:asc",
+							"created:desc",
+							"created:asc"
+						],
+						"enumDescriptions": [
+							"Picks the most recently updated pull request",
+							"Picks the least recently updated pull request",
+							"Picks the most recently created pull request",
+							"Picks the first created pull request"
+						],
+						"markdownDescription": "Specifies how to select the pull request associated with a commit or branch",
+						"scope": "window",
+						"order": 50
 					}
 				}
 			},

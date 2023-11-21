@@ -169,6 +169,7 @@ export interface Config {
 	readonly sortContributorsBy: ContributorSorting;
 	readonly sortTagsBy: TagSorting;
 	readonly sortRepositoriesBy: RepositoriesSorting;
+	readonly sortPullRequestsBy: PullRequestSorting;
 	readonly statusBar: {
 		readonly alignment: 'left' | 'right';
 		readonly command: StatusBarCommand;
@@ -255,6 +256,7 @@ export const enum CodeLensCommand {
 export type CodeLensScopes = 'document' | 'containers' | 'blocks';
 export type ContributorSorting = 'count:desc' | 'count:asc' | 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
 export type RepositoriesSorting = 'discovered' | 'lastFetched:desc' | 'lastFetched:asc' | 'name:asc' | 'name:desc';
+export type PullRequestSorting = 'updated:desc' | 'updated:asc' | 'created:desc' | 'created:asc';
 export type CustomRemoteType =
 	| 'AzureDevOps'
 	| 'Bitbucket'
