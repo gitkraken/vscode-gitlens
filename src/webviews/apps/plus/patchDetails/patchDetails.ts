@@ -66,15 +66,6 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 	override onBind() {
 		const disposables = [
-			// DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-open-on-remote', e =>
-			// 	this.onOpenFileOnRemote(e.detail),
-			// ),
-			// DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-compare-working', e =>
-			// 	this.onCompareFileWithWorking(e.detail),
-			// ),
-			// DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-more-actions', e =>
-			// 	this.onFileMoreActions(e.detail),
-			// ),
 			DOM.on('[data-switch-value]', 'click', e => this.onToggleFilesLayout(e)),
 			DOM.on('[data-action="ai-explain"]', 'click', e => this.onAIExplain(e)),
 			DOM.on('[data-action="switch-ai"]', 'click', e => this.onSwitchAIModel(e)),
