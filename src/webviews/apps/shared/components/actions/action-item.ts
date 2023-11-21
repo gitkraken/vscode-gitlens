@@ -32,6 +32,11 @@ export class ActionItem extends LitElement {
 		:host(:active) {
 			background-color: var(--vscode-toolbar-activeBackground);
 		}
+
+		:host([disabled]) {
+			pointer-events: none;
+			opacity: 0.5;
+		}
 	`;
 
 	@property()
@@ -43,6 +48,9 @@ export class ActionItem extends LitElement {
 	@property()
 	icon = '';
 
+	@property({ type: Boolean })
+	disabled = false;
+
 	override render() {
 		return html`
 			<a
@@ -50,6 +58,7 @@ export class ActionItem extends LitElement {
 				type="${!this.href ? 'button' : nothing}"
 				aria-label="${this.label}"
 				title="${this.label}"
+				?disabled=${this.disabled}
 			>
 				<code-icon icon="${this.icon}"></code-icon>
 			</a>

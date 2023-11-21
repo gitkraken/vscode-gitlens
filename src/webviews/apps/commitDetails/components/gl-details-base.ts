@@ -5,6 +5,7 @@ import type { TextDocumentShowOptions } from 'vscode';
 import type { HierarchicalItem } from '../../../../system/array';
 import { makeHierarchical } from '../../../../system/array';
 import type { Preferences, State } from '../../../commitDetails/protocol';
+import '../../shared/components/actions/action-item';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,

@@ -40,7 +40,6 @@ import { DOM } from '../../shared/dom';
 import { assertsSerialized, HostIpc } from '../../shared/ipc';
 import type { GlCommitDetails } from './gl-commit-details';
 import type { FileChangeListItemDetail } from './gl-details-base';
-import '../../shared/components/actions/action-item';
 import '../../shared/components/actions/action-nav';
 import '../../shared/components/code-icon';
 import '../../shared/components/commit/commit-identity';
