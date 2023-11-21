@@ -138,17 +138,17 @@ export interface GitProvider extends Disposable {
 	pruneRemote(repoPath: string, name: string): Promise<void>;
 	removeRemote(repoPath: string, name: string): Promise<void>;
 	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
+	applyUnreachableCommitForPatch?(
+		repoPath: string,
+		ref: string,
+		options?: { branchName?: string; createBranchIfNeeded?: boolean; createWorktreePath?: string },
+	): Promise<void>;
 	checkout(
 		repoPath: string,
 		ref: string,
 		options?: { createBranch?: string | undefined } | { path?: string | undefined },
 	): Promise<void>;
 	clone?(url: string, parentPath: string): Promise<string | undefined>;
-	applyPatchCommit?(
-		repoPath: string,
-		patchCommitRef: string,
-		options?: { branchName?: string; createBranchIfNeeded?: boolean; createWorktreePath?: string },
-	): Promise<void>;
 	createUnreachableCommitForPatch?(
 		repoPath: string,
 		contents: string,
