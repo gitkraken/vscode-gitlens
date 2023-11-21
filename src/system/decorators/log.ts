@@ -29,11 +29,9 @@ interface LogOptions<T extends (...arg: any) => any> {
 				4?: ((arg: Parameters<T>[4]) => unknown) | string | false;
 				[key: number]: (((arg: any) => unknown) | string | false) | undefined;
 		  };
-	condition?(...args: Parameters<T>): boolean;
 	enter?(...args: Parameters<T>): string;
 	exit?: ((result: PromiseType<ReturnType<T>>) => string) | boolean;
 	prefix?(context: LogContext, ...args: Parameters<T>): string;
-	sanitize?(key: string, value: any): any;
 	logThreshold?: number;
 	scoped?: boolean;
 	singleLine?: boolean;
@@ -56,11 +54,9 @@ type PromiseType<T> = T extends Promise<infer U> ? U : T;
 
 export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, debug = false) {
 	let overrides: LogOptions<T>['args'] | undefined;
-	let conditionFn: LogOptions<T>['condition'] | undefined;
 	let enterFn: LogOptions<T>['enter'] | undefined;
 	let exitFn: LogOptions<T>['exit'] | undefined;
 	let prefixFn: LogOptions<T>['prefix'] | undefined;
-	let sanitizeFn: LogOptions<T>['sanitize'] | undefined;
 	let logThreshold: NonNullable<LogOptions<T>['logThreshold']> = 0;
 	let scoped: NonNullable<LogOptions<T>['scoped']> = false;
 	let singleLine: NonNullable<LogOptions<T>['singleLine']> = false;
@@ -68,11 +64,9 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 	if (options != null) {
 		({
 			args: overrides,
-			condition: conditionFn,
 			enter: enterFn,
 			exit: exitFn,
 			prefix: prefixFn,
-			sanitize: sanitizeFn,
 			logThreshold = 0,
 			scoped = true,
 			singleLine = false,
@@ -89,9 +83,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 		scoped = true;
 	}
 
-	const logFn = debug ? Logger.debug.bind(Logger) : Logger.log.bind(Logger);
-	const warnFn = Logger.warn.bind(Logger);
-	const errorFn = Logger.error.bind(Logger);
+	const logFn: (message: string, ...params: any[]) => void = debug ? Logger.debug : Logger.log;
 
 	return (target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
 		let fn: Function | undefined;
@@ -105,38 +97,33 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 		}
 		if (fn == null || fnKey == null) throw new Error('Not supported');
 
-		const parameters = getParameters(fn);
+		const debugging = Logger.isDebugging;
+		const parameters = overrides !== false ? getParameters(fn) : [];
 
 		descriptor[fnKey] = function (this: any, ...args: Parameters<T>) {
+			if (!debugging && !Logger.enabled(debug ? 'debug' : 'info')) {
+				return;
+			}
+
 			const scopeId = getNextLogScopeId();
 
-			if (
-				(!Logger.isDebugging && !Logger.enabled('debug') && !(Logger.enabled('info') && !debug)) ||
-				(conditionFn != null && !conditionFn(...args))
-			) {
-				return fn!.apply(this, args);
-			}
+			const instanceName =
+				this != null
+					? this.constructor?.[LogInstanceNameFn]?.(this, getLoggableName(this)) ?? getLoggableName(this)
+					: undefined;
 
-			let instanceName: string;
-			if (this != null) {
-				instanceName = getLoggableName(this);
-				if (this.constructor?.[LogInstanceNameFn]) {
-					instanceName = target.constructor[LogInstanceNameFn](this, instanceName);
-				}
-			} else {
-				instanceName = emptyStr;
-			}
-
-			let prefix = `${scoped ? `[${scopeId.toString(16).padStart(5)}] ` : emptyStr}${
-				instanceName ? `${instanceName}.` : emptyStr
-			}${key}`;
+			let prefix = instanceName
+				? scoped
+					? `[${scopeId.toString(16).padStart(5)}] ${instanceName}.${key}`
+					: `${instanceName}.${key}`
+				: key;
 
 			if (prefixFn != null) {
 				prefix = prefixFn(
 					{
 						id: scopeId,
 						instance: this,
-						instanceName: instanceName,
+						instanceName: instanceName ?? emptyStr,
 						name: key,
 						prefix: prefix,
 					},
@@ -157,7 +144,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 				loggableParams = emptyStr;
 
 				if (!singleLine) {
-					logFn(`${prefix}${enter}`);
+					logFn.call(Logger, `${prefix}${enter}`);
 				}
 			} else {
 				loggableParams = '';
@@ -190,20 +177,14 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 							loggableParams += ', ';
 						}
 
-						paramLogValue = Logger.toLoggable(paramValue, sanitizeFn);
+						paramLogValue = Logger.toLoggable(paramValue);
 					}
 
 					loggableParams += paramName ? `${paramName}=${paramLogValue}` : paramLogValue;
 				}
 
 				if (!singleLine) {
-					logFn(
-						`${prefix}${enter}${
-							loggableParams && (debug || Logger.enabled('debug') || Logger.isDebugging)
-								? `(${loggableParams})`
-								: emptyStr
-						}`,
-					);
+					logFn.call(Logger, loggableParams ? `${prefix}${enter}(${loggableParams})` : `${prefix}${enter}`);
 				}
 			}
 
@@ -215,11 +196,15 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 					if (singleLine) {
 						Logger.error(
 							ex,
-							`${prefix}${enter}${loggableParams ? `(${loggableParams})` : emptyStr}`,
-							`failed${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`,
+							loggableParams ? `${prefix}${enter}(${loggableParams})` : `${prefix}${enter}`,
+							scope?.exitDetails ? `failed${scope.exitDetails}${timing}` : `failed${timing}`,
 						);
 					} else {
-						Logger.error(ex, prefix, `failed${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`);
+						Logger.error(
+							ex,
+							prefix,
+							scope?.exitDetails ? `failed${scope.exitDetails}${timing}` : `failed${timing}`,
+						);
 					}
 
 					if (scoped) {
@@ -242,7 +227,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 					if (start != null) {
 						duration = getDurationMilliseconds(start);
 						if (duration > slowCallWarningThreshold) {
-							exitLogFn = warnFn;
+							exitLogFn = Logger.warn;
 							timing = ` [*${duration}ms] (slow)`;
 						} else {
 							exitLogFn = logFn;
@@ -266,28 +251,28 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 						}
 					} else if (scope?.exitFailed) {
 						exit = scope.exitFailed;
-						exitLogFn = errorFn;
+						exitLogFn = Logger.error;
 					} else {
 						exit = 'completed';
 					}
 
 					if (singleLine) {
 						if (logThreshold === 0 || duration! > logThreshold) {
-							exitLogFn(
-								`${prefix}${enter}${
-									loggableParams && (debug || Logger.enabled('debug') || Logger.isDebugging)
-										? `(${loggableParams})`
-										: emptyStr
-								} ${exit}${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`,
+							exitLogFn.call(
+								Logger,
+								loggableParams
+									? `${prefix}${enter}(${loggableParams}) ${exit}${
+											scope?.exitDetails || emptyStr
+									  }${timing}`
+									: `${prefix}${enter} ${exit}${scope?.exitDetails || emptyStr}${timing}`,
 							);
 						}
 					} else {
-						exitLogFn(
-							`${prefix}${
-								loggableParams && (debug || Logger.enabled('debug') || Logger.isDebugging)
-									? `(${loggableParams})`
-									: emptyStr
-							} ${exit}${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`,
+						exitLogFn.call(
+							Logger,
+							loggableParams
+								? `${prefix}(${loggableParams}) ${exit}${scope?.exitDetails || emptyStr}${timing}`
+								: `${prefix} ${exit}${scope?.exitDetails || emptyStr}${timing}`,
 						);
 					}
 
@@ -297,8 +282,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 				};
 
 				if (result != null && isPromise(result)) {
-					const promise = result.then(logResult);
-					promise.catch(logError);
+					result.then(logResult, logError);
 				} else {
 					logResult(result);
 				}
