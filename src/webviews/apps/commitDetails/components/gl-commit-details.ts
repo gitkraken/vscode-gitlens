@@ -12,6 +12,7 @@ import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/
 import { uncommittedSha } from '../commitDetails';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
+import '../../shared/components/actions/action-item';
 
 interface ExplainState {
 	cancelled?: boolean;
