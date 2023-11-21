@@ -1,6 +1,5 @@
 import type { AuthenticationSession, CancellationToken, Event, MessageItem } from 'vscode';
-import { authentication, CancellationError, EventEmitter, window } from 'vscode';
-import { wrapForForcedInsecureSSL } from '@env/fetch';
+import { CancellationError, EventEmitter, window } from 'vscode';
 import type { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import type { PagedResult } from '../../git/gitProvider';
@@ -809,21 +808,11 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 
 		let session: AuthenticationSession | undefined | null;
 		try {
-			if (this.container.integrationAuthentication.supports(this.authProvider.id)) {
-				session = await this.container.integrationAuthentication.getSession(
-					this.authProvider.id,
-					this.authProviderDescriptor,
-					{ createIfNeeded: createIfNeeded, forceNewSession: forceNewSession },
-				);
-			} else {
-				session = await wrapForForcedInsecureSSL(this.getIgnoreSSLErrors(), () =>
-					authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
-						createIfNone: forceNewSession ? undefined : createIfNeeded,
-						silent: !createIfNeeded && !forceNewSession ? true : undefined,
-						forceNewSession: forceNewSession ? true : undefined,
-					}),
-				);
-			}
+			session = await this.container.integrationAuthentication.getSession(
+				this.authProvider.id,
+				this.authProviderDescriptor,
+				{ createIfNeeded: createIfNeeded, forceNewSession: forceNewSession },
+			);
 		} catch (ex) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);
 

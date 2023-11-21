@@ -142,7 +142,9 @@ export class IntegrationService implements Disposable {
 	}
 
 	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
-	ignoreSSLErrors(integration: ProviderIntegration): boolean | 'force' {
+	ignoreSSLErrors(
+		integration: ProviderIntegration | { id: SupportedProviderIds; domain: string },
+	): boolean | 'force' {
 		if (isWeb) return false;
 
 		let ignoreSSLErrors = this._ignoreSSLErrors.get(integration.id);

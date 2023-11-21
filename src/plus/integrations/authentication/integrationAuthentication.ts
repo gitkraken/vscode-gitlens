@@ -1,4 +1,6 @@
 import type { AuthenticationSession, Disposable } from 'vscode';
+import { authentication } from 'vscode';
+import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { Container } from '../../../container';
 import { debug } from '../../../system/decorators/log';
 import { ProviderId } from '../providers/models';
@@ -65,35 +67,50 @@ export class IntegrationAuthenticationService implements Disposable {
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<AuthenticationSession | undefined> {
-		const provider = this.ensureProvider(providerId);
+		if (this.supports(providerId)) {
+			const provider = this.ensureProvider(providerId);
 
-		const key = this.getSecretKey(providerId, provider.getSessionId(descriptor));
+			const key = this.getSecretKey(providerId, provider.getSessionId(descriptor));
 
-		if (options?.forceNewSession) {
-			await this.container.storage.deleteSecret(key);
-		}
-
-		let storedSession: StoredSession | undefined;
-		try {
-			const sessionJSON = await this.container.storage.getSecret(key);
-			if (sessionJSON) {
-				storedSession = JSON.parse(sessionJSON);
-			}
-		} catch (ex) {
-			try {
+			if (options?.forceNewSession) {
 				await this.container.storage.deleteSecret(key);
-			} catch {}
-
-			if (!options?.createIfNeeded) {
-				throw ex;
 			}
+
+			let storedSession: StoredSession | undefined;
+			try {
+				const sessionJSON = await this.container.storage.getSecret(key);
+				if (sessionJSON) {
+					storedSession = JSON.parse(sessionJSON);
+				}
+			} catch (ex) {
+				try {
+					await this.container.storage.deleteSecret(key);
+				} catch {}
+
+				if (!options?.createIfNeeded) {
+					throw ex;
+				}
+			}
+
+			if (options?.createIfNeeded && storedSession == null) {
+				return this.createSession(providerId, descriptor);
+			}
+
+			return storedSession as AuthenticationSession | undefined;
 		}
 
-		if (options?.createIfNeeded && storedSession == null) {
-			return this.createSession(providerId, descriptor);
-		}
+		if (descriptor == null) return undefined;
 
-		return storedSession as AuthenticationSession | undefined;
+		const { createIfNeeded, forceNewSession } = options ?? {};
+		return wrapForForcedInsecureSSL(
+			this.container.integrations.ignoreSSLErrors({ id: providerId, domain: descriptor?.domain }),
+			() =>
+				authentication.getSession(providerId, descriptor.scopes, {
+					createIfNone: forceNewSession ? undefined : createIfNeeded,
+					silent: !createIfNeeded && !forceNewSession ? true : undefined,
+					forceNewSession: forceNewSession ? true : undefined,
+				}),
+		);
 	}
 
 	@debug()
