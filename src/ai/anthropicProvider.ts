@@ -2,29 +2,42 @@ import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import { fetch } from '@env/fetch';
 import type { Container } from '../container';
+import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
 import { supportedInVSCodeVersion } from '../system/utils';
 import type { AIProvider } from './aiProviderService';
 import { getMaxCharacters } from './aiProviderService';
 
-export class AnthropicProvider implements AIProvider {
+export class AnthropicProvider implements AIProvider<'anthropic'> {
 	readonly id = 'anthropic';
 	readonly name = 'Anthropic';
-
-	private get model(): AnthropicModels {
-		return configuration.get('ai.experimental.anthropic.model') || 'claude-instant-1';
-	}
 
 	constructor(private readonly container: Container) {}
 
 	dispose() {}
 
+	private get model(): AnthropicModels | null {
+		return configuration.get('ai.experimental.anthropic.model') || null;
+	}
+
+	private async getOrChooseModel(): Promise<AnthropicModels | undefined> {
+		const model = this.model;
+		if (model != null) return model;
+
+		const pick = await showAIModelPicker(this.id);
+		if (pick == null) return undefined;
+
+		await configuration.updateEffective(`ai.experimental.${pick.provider}.model`, pick.model);
+		return pick.model;
+	}
+
 	async generateCommitMessage(diff: string, options?: { context?: string }): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
-		const model = this.model;
+		const model = await this.getOrChooseModel();
+		if (model == null) return undefined;
 
 		let retries = 0;
 		let maxCodeCharacters = getMaxCharacters(model, 2600);
@@ -65,7 +78,6 @@ Assistant:`;
 				prompt: prompt,
 				stream: false,
 				max_tokens_to_sample: 5000,
-				stop_sequences: ['\n\nHuman:'],
 			};
 			const rsp = await this.fetch(apiKey, request);
 			if (!rsp.ok) {
@@ -108,19 +120,23 @@ Assistant:`;
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
-		const model = this.model;
+		const model = await this.getOrChooseModel();
+		if (model == null) return undefined;
 
 		let retries = 0;
 		let maxCodeCharacters = getMaxCharacters(model, 3000);
 		while (true) {
 			const code = diff.substring(0, maxCodeCharacters);
 
-			const prompt = `\n\nHuman: You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
-			- Concisely synthesizes meaningful information from the provided code diff
-			- Incorporates any additional context provided by the user to understand the rationale behind the code changes
-			- Places the emphasis on the 'why' of the change, clarifying its benefits or addressing the problem that necessitated the change, beyond just detailing the 'what' has changed
+			// FYI, only Claude 2.1 support system prompts
+			const prompt = `${
+				model !== 'claude-2.1' ? '\n\nHuman: ' : ''
+			}You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
+- Concisely synthesizes meaningful information from the provided code diff
+- Incorporates any additional context provided by the user to understand the rationale behind the code changes
+- Places the emphasis on the 'why' of the change, clarifying its benefits or addressing the problem that necessitated the change, beyond just detailing the 'what' has changed
 
-			Do not make any assumptions or invent details that are not supported by the code diff or the user-provided context.
+Do not make any assumptions or invent details that are not supported by the code diff or the user-provided context.
 
 Human: Here is additional context provided by the author of the changes, which should provide some explanation to why these changes where made. Please strongly consider this information when generating your explanation:
 
@@ -139,7 +155,6 @@ Assistant:`;
 				prompt: prompt,
 				stream: false,
 				max_tokens_to_sample: 5000,
-				stop_sequences: ['\n\nHuman:'],
 			};
 
 			const rsp = await this.fetch(apiKey, request);
@@ -255,7 +270,7 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 	return apiKey;
 }
 
-export type AnthropicModels = 'claude-instant-1' | 'claude-2';
+export type AnthropicModels = 'claude-instant-1' | 'claude-2' | 'claude-2.1';
 
 interface AnthropicCompletionRequest {
 	model: string;
@@ -263,7 +278,7 @@ interface AnthropicCompletionRequest {
 	stream: boolean;
 
 	max_tokens_to_sample: number;
-	stop_sequences: string[];
+	stop_sequences?: string[];
 
 	temperature?: number;
 	top_k?: number;

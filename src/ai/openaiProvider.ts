@@ -2,33 +2,46 @@ import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import { fetch } from '@env/fetch';
 import type { Container } from '../container';
+import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
 import { supportedInVSCodeVersion } from '../system/utils';
 import type { AIProvider } from './aiProviderService';
 import { getMaxCharacters } from './aiProviderService';
 
-export class OpenAIProvider implements AIProvider {
+export class OpenAIProvider implements AIProvider<'openai'> {
 	readonly id = 'openai';
 	readonly name = 'OpenAI';
-
-	private get model(): OpenAIModels {
-		return configuration.get('ai.experimental.openai.model') || 'gpt-3.5-turbo';
-	}
 
 	constructor(private readonly container: Container) {}
 
 	dispose() {}
 
+	private get model(): OpenAIModels | null {
+		return configuration.get('ai.experimental.openai.model') || null;
+	}
+
 	private get url(): string {
 		return configuration.get('ai.experimental.openai.url') || 'https://api.openai.com/v1/chat/completions';
+	}
+
+	private async getOrChooseModel(): Promise<OpenAIModels | undefined> {
+		const model = this.model;
+		if (model != null) return model;
+
+		const pick = await showAIModelPicker(this.id);
+		if (pick == null) return undefined;
+
+		await configuration.updateEffective(`ai.experimental.${pick.provider}.model`, pick.model);
+		return pick.model;
 	}
 
 	async generateCommitMessage(diff: string, options?: { context?: string }): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
-		const model = this.model;
+		const model = await this.getOrChooseModel();
+		if (model == null) return undefined;
 
 		let retries = 0;
 		let maxCodeCharacters = getMaxCharacters(model, 2600);
@@ -122,7 +135,8 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
-		const model = this.model;
+		const model = await this.getOrChooseModel();
+		if (model == null) return undefined;
 
 		let retries = 0;
 		let maxCodeCharacters = getMaxCharacters(model, 3000);

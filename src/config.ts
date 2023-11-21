@@ -1,5 +1,6 @@
 import type { AnthropicModels } from './ai/anthropicProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
+import type { AIProviders } from './constants';
 import type { DateTimeFormat } from './system/date';
 import type { LogLevel } from './system/logger.constants';
 
@@ -9,13 +10,13 @@ export interface Config {
 			readonly generateCommitMessage: {
 				readonly enabled: boolean;
 			};
-			readonly provider: 'openai' | 'anthropic';
+			readonly provider: AIProviders | null;
 			readonly openai: {
-				readonly model?: OpenAIModels;
-				readonly url?: string | null;
+				readonly model: OpenAIModels | null;
+				readonly url: string | null;
 			};
 			readonly anthropic: {
-				readonly model?: AnthropicModels;
+				readonly model: AnthropicModels | null;
 			};
 		};
 	};

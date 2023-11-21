@@ -8,6 +8,7 @@ import { uncommitted, uncommittedStaged } from '../git/models/constants';
 import type { GitRevisionReference } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
 import { isRepository } from '../git/models/repository';
+import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
 import type { AnthropicModels } from './anthropicProvider';
@@ -15,8 +16,8 @@ import { AnthropicProvider } from './anthropicProvider';
 import type { OpenAIModels } from './openaiProvider';
 import { OpenAIProvider } from './openaiProvider';
 
-export interface AIProvider extends Disposable {
-	readonly id: AIProviders;
+export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {
+	readonly id: Provider;
 	readonly name: string;
 
 	generateCommitMessage(diff: string, options?: { context?: string }): Promise<string | undefined>;
@@ -26,21 +27,6 @@ export interface AIProvider extends Disposable {
 export class AIProviderService implements Disposable {
 	private _provider: AIProvider | undefined;
 
-	private get provider() {
-		const providerId = configuration.get('ai.experimental.provider');
-		if (providerId === this._provider?.id) return this._provider;
-
-		this._provider?.dispose();
-
-		if (providerId === 'anthropic') {
-			this._provider = new AnthropicProvider(this.container);
-		} else {
-			this._provider = new OpenAIProvider(this.container);
-		}
-
-		return this._provider;
-	}
-
 	constructor(private readonly container: Container) {}
 
 	dispose() {
@@ -48,7 +34,7 @@ export class AIProviderService implements Disposable {
 	}
 
 	get providerId() {
-		return this.provider?.id;
+		return this._provider?.id;
 	}
 
 	public async generateCommitMessage(
@@ -86,7 +72,8 @@ export class AIProviderService implements Disposable {
 			changes = diff.contents;
 		}
 
-		const provider = this.provider;
+		const provider = await this.getOrChooseProvider();
+		if (provider == null) return undefined;
 
 		const confirmed = await confirmAIProviderToS(provider, this.container.storage);
 		if (!confirmed) return undefined;
@@ -132,7 +119,8 @@ export class AIProviderService implements Disposable {
 		const diff = await this.container.git.getDiff(commit.repoPath, commit.sha);
 		if (!diff?.contents) throw new Error('No changes found to explain.');
 
-		const provider = this.provider;
+		const provider = await this.getOrChooseProvider();
+		if (provider == null) return undefined;
 
 		const confirmed = await confirmAIProviderToS(provider, this.container.storage);
 		if (!confirmed) return undefined;
@@ -158,6 +146,41 @@ export class AIProviderService implements Disposable {
 
 		void this.container.storage.delete(`confirm:ai:tos:${providerId}`);
 		void this.container.storage.deleteWorkspace(`confirm:ai:tos:${providerId}`);
+	}
+
+	supports(provider: AIProviders | string) {
+		return provider === 'anthropic' || provider === 'openai';
+	}
+
+	async switchProvider() {
+		void (await this.getOrChooseProvider(true));
+	}
+
+	private async getOrChooseProvider(force?: boolean): Promise<AIProvider | undefined> {
+		let providerId = !force ? configuration.get('ai.experimental.provider') || undefined : undefined;
+		if (providerId == null || !this.supports(providerId)) {
+			const pick = await showAIModelPicker();
+			if (pick == null) return undefined;
+
+			providerId = pick.provider;
+			await configuration.updateEffective('ai.experimental.provider', providerId);
+			await configuration.updateEffective(`ai.experimental.${providerId}.model`, pick.model);
+		}
+
+		if (providerId !== this._provider?.id) {
+			this._provider?.dispose();
+
+			if (providerId === 'anthropic') {
+				this._provider = new AnthropicProvider(this.container);
+			} else {
+				this._provider = new OpenAIProvider(this.container);
+				if (providerId !== 'openai') {
+					await configuration.updateEffective('ai.experimental.provider', 'openai');
+				}
+			}
+		}
+
+		return this._provider;
 	}
 }
 
@@ -219,6 +242,9 @@ export function getMaxCharacters(model: OpenAIModels | AnthropicModels, outputLe
 			break;
 		case 'gpt-3.5-turbo': // Will point to gpt-3.5-turbo-1106 starting Dec 11, 2023
 			tokens = 4096;
+			break;
+		case 'claude-2.1': // 200,000 tokens
+			tokens = 200000;
 			break;
 		case 'claude-2': // 100,000 tokens
 		case 'claude-instant-1':
