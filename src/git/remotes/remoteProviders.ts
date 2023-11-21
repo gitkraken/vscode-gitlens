@@ -28,12 +28,12 @@ const builtInProviders: RemoteProviders = [
 	{
 		custom: false,
 		matcher: 'github.com',
-		creator: (container: Container, domain: string, path: string) => new GitHubRemote(container, domain, path),
+		creator: (container: Container, domain: string, path: string) => new GitHubRemote(domain, path),
 	},
 	{
 		custom: false,
 		matcher: 'gitlab.com',
-		creator: (container: Container, domain: string, path: string) => new GitLabRemote(container, domain, path),
+		creator: (container: Container, domain: string, path: string) => new GitLabRemote(domain, path),
 	},
 	{
 		custom: false,
@@ -48,7 +48,7 @@ const builtInProviders: RemoteProviders = [
 	{
 		custom: false,
 		matcher: /\bgitlab\b/i,
-		creator: (container: Container, domain: string, path: string) => new GitLabRemote(container, domain, path),
+		creator: (container: Container, domain: string, path: string) => new GitLabRemote(domain, path),
 	},
 	{
 		custom: false,
@@ -127,10 +127,10 @@ function getCustomProviderCreator(cfg: RemotesConfig) {
 				new GiteaRemote(domain, path, cfg.protocol, cfg.name, true);
 		case 'GitHub':
 			return (container: Container, domain: string, path: string) =>
-				new GitHubRemote(container, domain, path, cfg.protocol, cfg.name, true);
+				new GitHubRemote(domain, path, cfg.protocol, cfg.name, true);
 		case 'GitLab':
 			return (container: Container, domain: string, path: string) =>
-				new GitLabRemote(container, domain, path, cfg.protocol, cfg.name, true);
+				new GitLabRemote(domain, path, cfg.protocol, cfg.name, true);
 		default:
 			return undefined;
 	}

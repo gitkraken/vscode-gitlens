@@ -11,18 +11,18 @@ import type {
 } from 'vscode';
 import { authentication, EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
-import { CharCode, Schemes } from '../../constants';
-import type { Container } from '../../container';
-import { emojify } from '../../emojis';
+import { CharCode, Schemes } from '../../../../constants';
+import type { Container } from '../../../../container';
+import { emojify } from '../../../../emojis';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
 	ExtensionNotFoundError,
 	OpenVirtualRepositoryError,
 	OpenVirtualRepositoryErrorReason,
-} from '../../errors';
-import { Features } from '../../features';
-import { GitSearchError } from '../../git/errors';
+} from '../../../../errors';
+import { Features } from '../../../../features';
+import { GitSearchError } from '../../../../git/errors';
 import type {
 	GitCaches,
 	GitProvider,
@@ -34,18 +34,18 @@ import type {
 	RepositoryOpenEvent,
 	RepositoryVisibility,
 	ScmRepository,
-} from '../../git/gitProvider';
-import { GitUri } from '../../git/gitUri';
-import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../git/models/blame';
-import type { BranchSortOptions } from '../../git/models/branch';
-import { getBranchId, getBranchNameWithoutRemote, GitBranch, sortBranches } from '../../git/models/branch';
-import type { GitCommitLine } from '../../git/models/commit';
-import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../git/models/commit';
-import { deletedOrMissing, uncommitted } from '../../git/models/constants';
-import { GitContributor } from '../../git/models/contributor';
-import type { GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../git/models/diff';
-import type { GitFile } from '../../git/models/file';
-import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
+} from '../../../../git/gitProvider';
+import { GitUri } from '../../../../git/gitUri';
+import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../../git/models/blame';
+import type { BranchSortOptions } from '../../../../git/models/branch';
+import { getBranchId, getBranchNameWithoutRemote, GitBranch, sortBranches } from '../../../../git/models/branch';
+import type { GitCommitLine } from '../../../../git/models/commit';
+import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
+import { deletedOrMissing, uncommitted } from '../../../../git/models/constants';
+import { GitContributor } from '../../../../git/models/contributor';
+import type { GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../../../git/models/diff';
+import type { GitFile } from '../../../../git/models/file';
+import { GitFileChange, GitFileIndexStatus } from '../../../../git/models/file';
 import type {
 	GitGraph,
 	GitGraphHostingServiceType,
@@ -56,49 +56,55 @@ import type {
 	GitGraphRowsStats,
 	GitGraphRowStats,
 	GitGraphRowTag,
-} from '../../git/models/graph';
-import type { GitLog } from '../../git/models/log';
-import type { GitMergeStatus } from '../../git/models/merge';
-import type { GitRebaseStatus } from '../../git/models/rebase';
-import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import { createReference, isRevisionRange, isSha, isShaLike, isUncommitted } from '../../git/models/reference';
-import type { GitReflog } from '../../git/models/reflog';
-import { getRemoteIconUri, getVisibilityCacheKey, GitRemote } from '../../git/models/remote';
-import type { RepositoryChangeEvent } from '../../git/models/repository';
-import { Repository } from '../../git/models/repository';
-import type { GitStash } from '../../git/models/stash';
-import type { GitStatusFile } from '../../git/models/status';
-import { GitStatus } from '../../git/models/status';
-import type { TagSortOptions } from '../../git/models/tag';
-import { getTagId, GitTag, sortTags } from '../../git/models/tag';
-import type { GitTreeEntry } from '../../git/models/tree';
-import type { GitUser } from '../../git/models/user';
-import { isUserMatch } from '../../git/models/user';
-import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes/remoteProviders';
-import type { GitSearch, GitSearchResultData, GitSearchResults, SearchOperators, SearchQuery } from '../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
-import { configuration } from '../../system/configuration';
-import { setContext } from '../../system/context';
-import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
-import { filterMap, first, last, map, some } from '../../system/iterable';
-import { Logger } from '../../system/logger';
-import type { LogScope } from '../../system/logger.scope';
-import { getLogScope } from '../../system/logger.scope';
-import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
-import { asSettled, getSettledValue } from '../../system/promise';
-import { serializeWebviewItemContext } from '../../system/webview';
-import type { CachedBlame, CachedLog } from '../../trackers/gitDocumentTracker';
-import { GitDocumentState } from '../../trackers/gitDocumentTracker';
-import type { TrackedDocument } from '../../trackers/trackedDocument';
-import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
-import { getRemoteHubApi, HeadType } from '../remotehub';
+} from '../../../../git/models/graph';
+import type { GitLog } from '../../../../git/models/log';
+import type { GitMergeStatus } from '../../../../git/models/merge';
+import type { GitRebaseStatus } from '../../../../git/models/rebase';
+import type { GitBranchReference, GitReference } from '../../../../git/models/reference';
+import { createReference, isRevisionRange, isSha, isShaLike, isUncommitted } from '../../../../git/models/reference';
+import type { GitReflog } from '../../../../git/models/reflog';
+import { getRemoteIconUri, getVisibilityCacheKey, GitRemote } from '../../../../git/models/remote';
+import type { RepositoryChangeEvent } from '../../../../git/models/repository';
+import { Repository } from '../../../../git/models/repository';
+import type { GitStash } from '../../../../git/models/stash';
+import type { GitStatusFile } from '../../../../git/models/status';
+import { GitStatus } from '../../../../git/models/status';
+import type { TagSortOptions } from '../../../../git/models/tag';
+import { getTagId, GitTag, sortTags } from '../../../../git/models/tag';
+import type { GitTreeEntry } from '../../../../git/models/tree';
+import type { GitUser } from '../../../../git/models/user';
+import { isUserMatch } from '../../../../git/models/user';
+import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../git/remotes/remoteProviders';
+import type {
+	GitSearch,
+	GitSearchResultData,
+	GitSearchResults,
+	SearchOperators,
+	SearchQuery,
+} from '../../../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../git/search';
+import { configuration } from '../../../../system/configuration';
+import { setContext } from '../../../../system/context';
+import { gate } from '../../../../system/decorators/gate';
+import { debug, log } from '../../../../system/decorators/log';
+import { filterMap, first, last, map, some } from '../../../../system/iterable';
+import { Logger } from '../../../../system/logger';
+import type { LogScope } from '../../../../system/logger.scope';
+import { getLogScope } from '../../../../system/logger.scope';
+import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../../../system/path';
+import { asSettled, getSettledValue } from '../../../../system/promise';
+import { serializeWebviewItemContext } from '../../../../system/webview';
+import type { CachedBlame, CachedLog } from '../../../../trackers/gitDocumentTracker';
+import { GitDocumentState } from '../../../../trackers/gitDocumentTracker';
+import type { TrackedDocument } from '../../../../trackers/trackedDocument';
+import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub';
+import { getRemoteHubApi, HeadType } from '../../../remotehub';
 import type {
 	GraphBranchContextValue,
 	GraphItemContext,
 	GraphItemRefContext,
 	GraphTagContextValue,
-} from '../webviews/graph/protocol';
+} from '../../../webviews/graph/protocol';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
 
@@ -2574,6 +2580,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		return [
 			new GitRemote(
+				this.container,
 				repoPath,
 				'origin',
 				'https',

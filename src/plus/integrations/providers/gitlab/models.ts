@@ -1,6 +1,6 @@
-import type { PullRequestState } from '../../git/models/pullRequest';
-import { PullRequest } from '../../git/models/pullRequest';
-import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
+import type { PullRequestState } from '../../../../git/models/pullRequest';
+import { PullRequest } from '../../../../git/models/pullRequest';
+import type { Provider } from '../../../../git/models/remoteProvider';
 
 export interface GitLabUser {
 	id: number;
@@ -89,7 +89,7 @@ export interface GitLabMergeRequestREST {
 	web_url: string;
 }
 
-export function fromGitLabMergeRequestREST(pr: GitLabMergeRequestREST, provider: RichRemoteProvider): PullRequest {
+export function fromGitLabMergeRequestREST(pr: GitLabMergeRequestREST, provider: Provider): PullRequest {
 	return new PullRequest(
 		provider,
 		{
