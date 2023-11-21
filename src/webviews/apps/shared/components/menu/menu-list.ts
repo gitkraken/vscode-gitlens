@@ -1,21 +1,32 @@
-import { css, customElement, FASTElement, html } from '@microsoft/fast-element';
-import { elementBase } from '../styles/base';
+import type { PropertyValueMap } from 'lit';
+import { css, html, LitElement } from 'lit';
+import { customElement } from 'lit/decorators.js';
+import { elementBase } from '../styles/lit/base.css';
 
-const template = html<MenuList>`
-	<template role="listbox">
-		<slot></slot>
-	</template>
-`;
+@customElement('menu-list')
+export class MenuList extends LitElement {
+	static override styles = [
+		elementBase,
+		css`
+			:host {
+				width: max-content;
+				background-color: var(--vscode-menu-background);
+				border: 1px solid var(--vscode-menu-border);
+			}
+		`,
+	];
 
-const styles = css`
-	${elementBase}
-
-	:host {
-		width: max-content;
-		background-color: var(--vscode-menu-background);
-		border: 1px solid var(--vscode-menu-border);
+	protected override firstUpdated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
+		this.role = 'listbox';
 	}
-`;
 
-@customElement({ name: 'menu-list', template: template, styles: styles })
-export class MenuList extends FASTElement {}
+	override render() {
+		return html`<slot></slot>`;
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'menu-list': MenuList;
+	}
+}
