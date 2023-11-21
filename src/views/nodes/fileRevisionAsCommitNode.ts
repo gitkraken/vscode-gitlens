@@ -246,7 +246,7 @@ export async function getFileRevisionAsCommitTooltip(
 	let enrichedAutolinks;
 	let pr;
 
-	if (remote?.hasRichIntegration()) {
+	if (remote?.hasIntegration()) {
 		const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
 			pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote)),
 			commit.getAssociatedPullRequest(remote),

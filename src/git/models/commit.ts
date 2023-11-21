@@ -416,15 +416,18 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	async getAssociatedPullRequest(remote?: GitRemote<RemoteProvider>): Promise<PullRequest | undefined> {
-		remote ??= await this.container.git.getBestRemoteWithRichProvider(this.repoPath);
-		return remote?.hasRichIntegration() ? remote.provider.getPullRequestForCommit(this.ref) : undefined;
+		remote ??= await this.container.git.getBestRemoteWithIntegration(this.repoPath);
+		if (!remote?.hasIntegration()) return undefined;
+
+		const provider = this.container.integrations.getByRemote(remote);
+		return provider?.getPullRequestForCommit(remote.provider.repoDesc, this.ref);
 	}
 
 	async getEnrichedAutolinks(remote?: GitRemote<RemoteProvider>): Promise<Map<string, EnrichedAutolink> | undefined> {
 		if (this.isUncommitted) return undefined;
 
-		remote ??= await this.container.git.getBestRemoteWithRichProvider(this.repoPath);
-		if (!remote?.hasRichIntegration()) return undefined;
+		remote ??= await this.container.git.getBestRemoteWithIntegration(this.repoPath);
+		if (remote?.provider == null) return undefined;
 
 		// TODO@eamodio should we cache these? Seems like we would use more memory than it's worth
 		// async function getCore(this: GitCommit): Promise<Map<string, EnrichedAutolink> | undefined> {

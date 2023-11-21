@@ -25,7 +25,7 @@ import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
 import type { GitDir, GitProviderDescriptor, GitRepositoryCaches } from '../gitProvider';
-import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
+import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { GitSearch, SearchQuery } from '../search';
 import type { BranchSortOptions, GitBranch } from './branch';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch';
@@ -739,8 +739,8 @@ export class Repository implements Disposable {
 		return options?.filter != null ? remotes.filter(options.filter) : remotes;
 	}
 
-	async getRichRemote(connectedOnly: boolean = false): Promise<GitRemote<RichRemoteProvider> | undefined> {
-		return this.container.git.getBestRemoteWithRichProvider(this.uri, { includeDisconnected: !connectedOnly });
+	async getRichRemote(connectedOnly: boolean = false): Promise<GitRemote<RemoteProvider> | undefined> {
+		return this.container.git.getBestRemoteWithIntegration(this.uri, { includeDisconnected: !connectedOnly });
 	}
 
 	getStash(): Promise<GitStash | undefined> {

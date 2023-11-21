@@ -242,6 +242,13 @@
     react-dragula "1.1.17"
     react-onclickoutside "^6.13.0"
 
+"@gitkraken/provider-apis@0.10.0":
+  version "0.10.0"
+  resolved "https://registry.yarnpkg.com/@gitkraken/provider-apis/-/provider-apis-0.10.0.tgz#75cc20d710f07f3eb28df89d83213833b6d40073"
+  integrity sha512-aXMNYROQ/7fCTk08/dsDVqdyvYkohgU39dIsbqdhdj5uRjTVmybqaS3F9mQXPSdnTqztAkz46w43t8JfIi+gTQ==
+  dependencies:
+    node-fetch "2.6.9"
+
 "@gitkraken/shared-web-components@0.1.1-rc.15":
   version "0.1.1-rc.15"
   resolved "https://registry.yarnpkg.com/@gitkraken/shared-web-components/-/shared-web-components-0.1.1-rc.15.tgz#efd520083a7f5a32fe342108f447e8c77723cfd2"
@@ -4920,7 +4927,7 @@ node-addon-api@^6.1.0:
   resolved "https://registry.yarnpkg.com/node-addon-api/-/node-addon-api-6.1.0.tgz#ac8470034e58e67d0c6f1204a18ae6995d9c0d76"
   integrity sha512-+eawOlIgy680F0kBzPUNFhMZGtJ1YmqM6l4+Crf4IkImjYrO/mqPwRMh352g23uIaQKFItcQ64I7KMaJxHgAVA==
 
-node-fetch@2.7.0:
+node-fetch@2.6.9, node-fetch@2.7.0:
   version "2.7.0"
   resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-2.7.0.tgz#d0f0fa6e3e2dc1d27efcd8ad99d550bda94d187d"
   integrity sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==

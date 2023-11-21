@@ -4,10 +4,8 @@ import type { Container } from './container';
 import type { DefaultBranch } from './git/models/defaultBranch';
 import type { IssueOrPullRequest } from './git/models/issue';
 import type { PullRequest } from './git/models/pullRequest';
-import type { GitRemote } from './git/models/remote';
 import type { RepositoryMetadata } from './git/models/repositoryMetadata';
-import type { RemoteProvider } from './git/remotes/remoteProvider';
-import type { RepositoryDescriptor, RichRemoteProvider } from './git/remotes/richRemoteProvider';
+import type { ProviderIntegration, RepositoryDescriptor } from './plus/integrations/providerIntegration';
 import { isPromise } from './system/promise';
 
 type Caches = {
@@ -74,11 +72,11 @@ export class CacheProvider implements Disposable {
 
 	getIssueOrPullRequest(
 		id: string,
-		repo: RepositoryDescriptor | undefined,
-		remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+		repo: RepositoryDescriptor,
+		integration: ProviderIntegration | undefined,
 		cacheable: Cacheable<IssueOrPullRequest>,
 	): CacheResult<IssueOrPullRequest> {
-		const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
+		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
 
 		if (repo == null) {
 			return this.get('issuesOrPrsById', `id:${id}:${key}`, etag, cacheable);
@@ -88,7 +86,7 @@ export class CacheProvider implements Disposable {
 
 	// getEnrichedAutolinks(
 	// 	sha: string,
-	// 	remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+	// 	remoteOrProvider: Integration,
 	// 	cacheable: Cacheable<Map<string, EnrichedAutolink>>,
 	// ): CacheResult<Map<string, EnrichedAutolink>> {
 	// 	const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
@@ -97,39 +95,43 @@ export class CacheProvider implements Disposable {
 
 	getPullRequestForBranch(
 		branch: string,
-		remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+		repo: RepositoryDescriptor,
+		integration: ProviderIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
 	): CacheResult<PullRequest> {
 		const cache = 'prByBranch';
-		const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
+		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
 		// Wrap the cacheable so we can also add the result to the issuesOrPrsById cache
 		return this.get(cache, `branch:${branch}:${key}`, etag, this.wrapPullRequestCacheable(cacheable, key, etag));
 	}
 
 	getPullRequestForSha(
 		sha: string,
-		remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+		repo: RepositoryDescriptor,
+		integration: ProviderIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
 	): CacheResult<PullRequest> {
 		const cache = 'prsBySha';
-		const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
+		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
 		// Wrap the cacheable so we can also add the result to the issuesOrPrsById cache
 		return this.get(cache, `sha:${sha}:${key}`, etag, this.wrapPullRequestCacheable(cacheable, key, etag));
 	}
 
 	getRepositoryDefaultBranch(
-		remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+		repo: RepositoryDescriptor,
+		integration: ProviderIntegration | undefined,
 		cacheable: Cacheable<DefaultBranch>,
 	): CacheResult<DefaultBranch> {
-		const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
+		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
 		return this.get('defaultBranch', `repo:${key}`, etag, cacheable);
 	}
 
 	getRepositoryMetadata(
-		remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+		repo: RepositoryDescriptor,
+		integration: ProviderIntegration | undefined,
 		cacheable: Cacheable<RepositoryMetadata>,
 	): CacheResult<RepositoryMetadata> {
-		const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
+		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
 		return this.get('repoMetadata', `repo:${key}`, etag, cacheable);
 	}
 
@@ -218,11 +220,6 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 	}
 }
 
-function getRemoteKeyAndEtag(remoteOrProvider: RemoteProvider | GitRemote<RichRemoteProvider>) {
-	return {
-		key: remoteOrProvider.remoteKey,
-		etag: remoteOrProvider.hasRichIntegration()
-			? `${remoteOrProvider.remoteKey}:${remoteOrProvider.maybeConnected ?? false}`
-			: remoteOrProvider.remoteKey,
-	};
+function getRemoteKeyAndEtag(repo: RepositoryDescriptor, integration?: ProviderIntegration) {
+	return { key: repo.key, etag: `${repo.key}:${integration?.maybeConnected ?? false}` };
 }

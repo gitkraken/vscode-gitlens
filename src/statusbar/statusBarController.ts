@@ -306,7 +306,7 @@ export class StatusBarController implements Disposable {
 
 		const showPullRequests =
 			!commit.isUncommitted &&
-			remote?.hasRichIntegration() &&
+			remote?.hasIntegration() &&
 			cfg.pullRequests.enabled &&
 			(CommitFormatter.has(
 				cfg.format,

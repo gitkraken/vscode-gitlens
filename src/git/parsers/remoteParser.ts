@@ -1,3 +1,4 @@
+import type { Container } from '../../container';
 import { maybeStopWatch } from '../../system/stopwatch';
 import type { GitRemoteType } from '../models/remote';
 import { GitRemote } from '../models/remote';
@@ -8,6 +9,7 @@ const emptyStr = '';
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
 
 export function parseGitRemotes(
+	container: Container,
 	data: string,
 	repoPath: string,
 	remoteProviderMatcher: ReturnType<typeof getRemoteProviderMatcher>,
@@ -45,22 +47,25 @@ export function parseGitRemotes(
 
 		remote = remotes.get(name);
 		if (remote == null) {
-			remote = new GitRemote(repoPath, name, scheme, domain, path, remoteProviderMatcher(url, domain, path), [
-				{ url: url, type: type as GitRemoteType },
-			]);
+			remote = new GitRemote(
+				container,
+				repoPath,
+				name,
+				scheme,
+				domain,
+				path,
+				remoteProviderMatcher(url, domain, path),
+				[{ url: url, type: type as GitRemoteType }],
+			);
 			remotes.set(name, remote);
 		} else {
 			remote.urls.push({ url: url, type: type as GitRemoteType });
 			if (remote.provider != null && type !== 'push') continue;
 
-			if (remote.provider?.hasRichIntegration()) {
-				remote.provider.dispose();
-			}
-
 			const provider = remoteProviderMatcher(url, domain, path);
 			if (provider == null) continue;
 
-			remote = new GitRemote(repoPath, name, scheme, domain, path, provider, remote.urls);
+			remote = new GitRemote(container, repoPath, name, scheme, domain, path, provider, remote.urls);
 			remotes.set(name, remote);
 		}
 	} while (true);

@@ -4,8 +4,8 @@ import { Uri, window } from 'vscode';
 import type { RequestInit, Response } from '@env/fetch';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
-import type { CoreConfiguration } from '../../constants';
-import type { Container } from '../../container';
+import type { CoreConfiguration } from '../../../../constants';
+import type { Container } from '../../../../container';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -14,24 +14,24 @@ import {
 	ProviderRequestClientError,
 	ProviderRequestNotFoundError,
 	ProviderRequestRateLimitError,
-} from '../../errors';
-import type { Account } from '../../git/models/author';
-import type { DefaultBranch } from '../../git/models/defaultBranch';
-import type { IssueOrPullRequest } from '../../git/models/issue';
-import { PullRequest } from '../../git/models/pullRequest';
-import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
-import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
+} from '../../../../errors';
+import type { Account } from '../../../../git/models/author';
+import type { DefaultBranch } from '../../../../git/models/defaultBranch';
+import type { IssueOrPullRequest } from '../../../../git/models/issue';
+import { PullRequest } from '../../../../git/models/pullRequest';
+import type { Provider } from '../../../../git/models/remoteProvider';
+import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
 import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
-} from '../../messages';
-import { configuration } from '../../system/configuration';
-import { debug } from '../../system/decorators/log';
-import { Logger } from '../../system/logger';
-import type { LogScope } from '../../system/logger.scope';
-import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import { maybeStopWatch } from '../../system/stopwatch';
-import { equalsIgnoreCase } from '../../system/string';
+} from '../../../../messages';
+import { configuration } from '../../../../system/configuration';
+import { debug } from '../../../../system/decorators/log';
+import { Logger } from '../../../../system/logger';
+import type { LogScope } from '../../../../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
+import { maybeStopWatch } from '../../../../system/stopwatch';
+import { equalsIgnoreCase } from '../../../../system/string';
 import type {
 	GitLabCommit,
 	GitLabIssue,
@@ -68,7 +68,7 @@ export class GitLabApi implements Disposable {
 	}
 
 	private _proxyAgents = new Map<string, HttpsProxyAgent | null | undefined>();
-	private getProxyAgent(provider: RichRemoteProvider): HttpsProxyAgent | undefined {
+	private getProxyAgent(provider: Provider): HttpsProxyAgent | undefined {
 		if (isWeb) return undefined;
 
 		let proxyAgent = this._proxyAgents.get(provider.id);
@@ -83,7 +83,7 @@ export class GitLabApi implements Disposable {
 
 	@debug<GitLabApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -150,7 +150,7 @@ export class GitLabApi implements Disposable {
 
 	@debug<GitLabApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForEmail(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		_owner: string,
 		_repo: string,
@@ -181,7 +181,7 @@ export class GitLabApi implements Disposable {
 
 	@debug<GitLabApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getDefaultBranch(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -241,7 +241,7 @@ export class GitLabApi implements Disposable {
 
 	@debug<GitLabApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getIssueOrPullRequest(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -357,7 +357,7 @@ export class GitLabApi implements Disposable {
 
 	@debug<GitLabApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForBranch(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -507,7 +507,7 @@ export class GitLabApi implements Disposable {
 
 	@debug<GitLabApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -556,7 +556,7 @@ export class GitLabApi implements Disposable {
 
 	@debug<GitLabApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getRepositoryMetadata(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -606,7 +606,7 @@ export class GitLabApi implements Disposable {
 	}
 
 	private async findUser(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		search: string,
 		options?: {
@@ -691,7 +691,7 @@ $search: String!
 	}
 
 	private getProjectId(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		group: string,
 		repo: string,
@@ -710,7 +710,7 @@ $search: String!
 	}
 
 	private async getProjectIdCore(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		group: string,
 		repo: string,
@@ -762,7 +762,7 @@ $search: String!
 	}
 
 	private async graphql<T extends object>(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		baseUrl: string | undefined,
 		query: string,
@@ -820,7 +820,7 @@ $search: String!
 	}
 
 	private async request<T>(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		baseUrl: string | undefined,
 		route: string,
@@ -874,7 +874,7 @@ $search: String!
 	}
 
 	private handleRequestError(
-		provider: RichRemoteProvider | undefined,
+		provider: Provider | undefined,
 		token: string,
 		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
 		scope: LogScope | undefined,
@@ -910,7 +910,7 @@ $search: String!
 					provider?.trackRequestException();
 					void showIntegrationRequestFailed500WarningMessage(
 						`${provider?.name ?? 'GitLab'} failed to respond and might be experiencing issues.${
-							!provider?.custom
+							provider == null || provider.id === 'gitlab'
 								? ' Please visit the [GitLab status page](https://status.gitlab.com) for more information.'
 								: ''
 						}`,
@@ -939,7 +939,7 @@ $search: String!
 		}
 	}
 
-	private handleException(ex: Error, provider: RichRemoteProvider, scope: LogScope | undefined): Error {
+	private handleException(ex: Error, provider: Provider, scope: LogScope | undefined): Error {
 		Logger.error(ex, scope);
 		// debugger;
 
@@ -949,7 +949,7 @@ $search: String!
 		return ex;
 	}
 
-	private async showAuthenticationErrorMessage(ex: AuthenticationError, provider: RichRemoteProvider) {
+	private async showAuthenticationErrorMessage(ex: AuthenticationError, provider: Provider) {
 		if (ex.reason === AuthenticationErrorReason.Unauthorized || ex.reason === AuthenticationErrorReason.Forbidden) {
 			const confirm = 'Reauthenticate';
 			const result = await window.showErrorMessage(

@@ -229,8 +229,8 @@ export async function detailsMessage(
 		(options?.autolinks || (options?.autolinks !== false && cfg.autolinks.enabled && cfg.autolinks.enhanced)) &&
 		CommitFormatter.has(cfg.detailsMarkdownFormat, 'message');
 	const prs =
-		remote?.hasRichIntegration() &&
-		remote.provider.maybeConnected !== false &&
+		remote?.hasIntegration() &&
+		remote.maybeIntegrationConnected !== false &&
 		(options?.pullRequests || (options?.pullRequests !== false && cfg.pullRequests.enabled)) &&
 		CommitFormatter.has(
 			options.format,

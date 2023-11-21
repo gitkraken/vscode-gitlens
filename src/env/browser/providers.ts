@@ -1,7 +1,7 @@
 import { Container } from '../../container';
 import { GitCommandOptions } from '../../git/commandOptions';
 // Force import of GitHub since dynamic imports are not supported in the WebWorker ExtensionHost
-import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
+import { GitHubGitProvider } from '../../plus/integrations/providers/github/githubGitProvider';
 import { GitProvider } from '../../git/gitProvider';
 import { RepositoryWebPathMappingProvider } from './pathMapping/repositoryWebPathMappingProvider';
 import { WorkspacesWebPathMappingProvider } from './pathMapping/workspacesWebPathMappingProvider';

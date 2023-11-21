@@ -647,7 +647,7 @@ export class CommitDetailsWebviewProvider
 		const { commit } = current;
 		if (commit == null) return;
 
-		const remote = await this.container.git.getBestRemoteWithRichProvider(commit.repoPath);
+		const remote = await this.container.git.getBestRemoteWithIntegration(commit.repoPath);
 
 		if (cancellation.isCancellationRequested) return;
 
@@ -966,7 +966,7 @@ export class CommitDetailsWebviewProvider
 		const [commitResult, avatarUriResult, remoteResult] = await Promise.allSettled([
 			!commit.hasFullDetails() ? commit.ensureFullDetails().then(() => commit) : commit,
 			commit.author.getAvatarUri(commit, { size: 32 }),
-			this.container.git.getBestRemoteWithRichProvider(commit.repoPath, { includeDisconnected: true }),
+			this.container.git.getBestRemoteWithIntegration(commit.repoPath, { includeDisconnected: true }),
 		]);
 
 		commit = getSettledValue(commitResult, commit);

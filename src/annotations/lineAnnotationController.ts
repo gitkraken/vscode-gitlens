@@ -39,7 +39,7 @@ export class LineAnnotationController implements Disposable {
 			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
-			container.richRemoteProviders.onAfterDidChangeConnectionState(
+			container.integrations.onDidChangeConnectionState(
 				debounce(() => void this.refresh(window.activeTextEditor), 250),
 			),
 		);
@@ -158,7 +158,7 @@ export class LineAnnotationController implements Disposable {
 		const prs = new Map<string, Promise<PullRequest | undefined>>();
 		if (lines.size === 0) return prs;
 
-		const remotePromise = this.container.git.getBestRemoteWithRichProvider(repoPath);
+		const remotePromise = this.container.git.getBestRemoteWithIntegration(repoPath);
 
 		for (const [, state] of lines) {
 			if (state.commit.isUncommitted) continue;

@@ -1,7 +1,7 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
 import type { GitRemote } from '../../git/models/remote';
-import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
+import type { RemoteProvider } from '../../git/remotes/remoteProvider';
 import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
@@ -11,7 +11,7 @@ import { ensureAccount, ensurePaidPlan } from '../utils';
 export interface FocusItem {
 	type: EnrichedItemResponse['entityType'];
 	id: string;
-	remote: GitRemote<RichRemoteProvider>;
+	remote: GitRemote<RemoteProvider>;
 	url: string;
 }
 

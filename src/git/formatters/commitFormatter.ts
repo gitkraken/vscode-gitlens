@@ -472,8 +472,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		} else if (remotes != null) {
 			const [remote] = remotes;
 			if (
-				remote?.hasRichIntegration() &&
-				!remote.provider.maybeConnected &&
+				remote?.hasIntegration() &&
+				!remote.maybeIntegrationConnected &&
 				configuration.get('integrations.enabled')
 			) {
 				commands += `${separator}[$(plug) Connect to ${remote?.provider.name}${

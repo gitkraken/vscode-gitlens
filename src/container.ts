@@ -16,9 +16,6 @@ import { Commands, extensionPrefix } from './constants';
 import { EventBus } from './eventBus';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
-import { GitHubAuthenticationProvider } from './git/remotes/github';
-import { GitLabAuthenticationProvider } from './git/remotes/gitlab';
-import { RichRemoteProviderService } from './git/remotes/remoteProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPathMappingProvider';
 import { DraftService } from './plus/drafts/draftsService';
@@ -26,7 +23,8 @@ import { FocusService } from './plus/focus/focusService';
 import { AccountAuthenticationProvider } from './plus/gk/account/authenticationProvider';
 import { SubscriptionService } from './plus/gk/account/subscriptionService';
 import { ServerConnection } from './plus/gk/serverConnection';
-import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
+import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthentication';
+import { IntegrationService } from './plus/integrations/integrationService';
 import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewCommands, registerFocusWebviewPanel } from './plus/webviews/focus/registration';
@@ -495,7 +493,7 @@ export class Container {
 		return this._git;
 	}
 
-	private _github: Promise<import('./plus/github/github').GitHubApi | undefined> | undefined;
+	private _github: Promise<import('./plus/integrations/providers/github/github').GitHubApi | undefined> | undefined;
 	get github() {
 		if (this._github == null) {
 			this._github = this._loadGitHubApi();
@@ -506,7 +504,9 @@ export class Container {
 
 	private async _loadGitHubApi() {
 		try {
-			const github = new (await import(/* webpackChunkName: "github" */ './plus/github/github')).GitHubApi(this);
+			const github = new (
+				await import(/* webpackChunkName: "github" */ './plus/integrations/providers/github/github')
+			).GitHubApi(this);
 			this._disposables.push(github);
 			return github;
 		} catch (ex) {
@@ -515,7 +515,7 @@ export class Container {
 		}
 	}
 
-	private _gitlab: Promise<import('./plus/gitlab/gitlab').GitLabApi | undefined> | undefined;
+	private _gitlab: Promise<import('./plus/integrations/providers/gitlab/gitlab').GitLabApi | undefined> | undefined;
 	get gitlab() {
 		if (this._gitlab == null) {
 			this._gitlab = this._loadGitLabApi();
@@ -526,7 +526,9 @@ export class Container {
 
 	private async _loadGitLabApi() {
 		try {
-			const gitlab = new (await import(/* webpackChunkName: "gitlab" */ './plus/gitlab/gitlab')).GitLabApi(this);
+			const gitlab = new (
+				await import(/* webpackChunkName: "gitlab" */ './plus/integrations/providers/gitlab/gitlab')
+			).GitLabApi(this);
 			this._disposables.push(gitlab);
 			return gitlab;
 		} catch (ex) {
@@ -558,15 +560,18 @@ export class Container {
 	private _integrationAuthentication: IntegrationAuthenticationService | undefined;
 	get integrationAuthentication() {
 		if (this._integrationAuthentication == null) {
-			this._disposables.push(
-				(this._integrationAuthentication = new IntegrationAuthenticationService(this)),
-				// Register any integration authentication providers
-				new GitHubAuthenticationProvider(this),
-				new GitLabAuthenticationProvider(this),
-			);
+			this._disposables.push((this._integrationAuthentication = new IntegrationAuthenticationService(this)));
 		}
 
 		return this._integrationAuthentication;
+	}
+
+	private _integrations: IntegrationService | undefined;
+	get integrations(): IntegrationService {
+		if (this._integrations == null) {
+			this._disposables.push((this._integrations = new IntegrationService(this)));
+		}
+		return this._integrations;
 	}
 
 	private readonly _keyboard: Keyboard;
@@ -638,14 +643,6 @@ export class Container {
 			this._disposables.push((this._repositoryPathMapping = getSupportedRepositoryPathMappingProvider(this)));
 		}
 		return this._repositoryPathMapping;
-	}
-
-	private _richRemoteProviders: RichRemoteProviderService | undefined;
-	get richRemoteProviders(): RichRemoteProviderService {
-		if (this._richRemoteProviders == null) {
-			this._richRemoteProviders = new RichRemoteProviderService(this);
-		}
-		return this._richRemoteProviders;
 	}
 
 	private readonly _searchAndCompareView: SearchAndCompareView;

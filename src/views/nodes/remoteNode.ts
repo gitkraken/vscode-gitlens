@@ -102,8 +102,9 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 								),
 					    };
 
-			if (provider.hasRichIntegration()) {
-				const connected = provider.maybeConnected ?? (await provider.isConnected());
+			if (this.remote.hasIntegration()) {
+				const integration = this.view.container.integrations.getByRemote(this.remote);
+				const connected = integration?.maybeConnected ?? (await integration?.isConnected());
 
 				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;
 				item.tooltip = `${this.remote.name} (${provider.name} ${GlyphChars.Dash} ${

@@ -3,13 +3,13 @@ import { env } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { RepositoryDescriptor } from '../../plus/integrations/providerIntegration';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import type { RemoteProviderReference } from '../models/remoteProvider';
 import type { RemoteResource } from '../models/remoteResource';
 import { RemoteResourceType } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
-import type { RichRemoteProvider } from './richRemoteProvider';
 
 export type RemoteProviderId =
 	| 'azure-devops'
@@ -22,8 +22,9 @@ export type RemoteProviderId =
 	| 'gitlab'
 	| 'google-source';
 
-export abstract class RemoteProvider implements RemoteProviderReference {
-	readonly type: 'simple' | 'rich' = 'simple';
+export abstract class RemoteProvider<T extends RepositoryDescriptor = RepositoryDescriptor>
+	implements RemoteProviderReference
+{
 	protected readonly _name: string | undefined;
 
 	constructor(
@@ -34,11 +35,6 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		public readonly custom: boolean = false,
 	) {
 		this._name = name;
-	}
-
-	@memoize()
-	get remoteKey() {
-		return this.domain ? `${this.domain}/${this.path}` : this.path;
 	}
 
 	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
@@ -61,6 +57,15 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		return this.splitPath()[0];
 	}
 
+	@memoize()
+	get remoteKey() {
+		return this.domain ? `${this.domain}/${this.path}` : this.path;
+	}
+
+	get repoDesc(): T {
+		return { owner: this.owner, name: this.repoName } as unknown as T;
+	}
+
 	get repoName(): string | undefined {
 		return this.splitPath()[1];
 	}
@@ -76,14 +81,6 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		}
 
 		await env.clipboard.writeText(url);
-	}
-
-	hasRichIntegration(): this is RichRemoteProvider {
-		return this.type === 'rich';
-	}
-
-	get maybeConnected(): boolean | undefined {
-		return false;
 	}
 
 	abstract getLocalInfoFromRemoteUri(

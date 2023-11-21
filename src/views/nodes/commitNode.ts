@@ -9,7 +9,7 @@ import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
-import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
+import type { RemoteProvider } from '../../git/remotes/remoteProvider';
 import { makeHierarchical } from '../../system/array';
 import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { configuration } from '../../system/configuration';
@@ -232,7 +232,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 
 	private async getAssociatedPullRequest(
 		commit: GitCommit,
-		remote?: GitRemote<RichRemoteProvider>,
+		remote?: GitRemote<RemoteProvider>,
 	): Promise<PullRequest | undefined> {
 		let pullRequest = this.getState('pullRequest');
 		if (pullRequest !== undefined) return Promise.resolve(pullRequest ?? undefined);
@@ -264,7 +264,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		let enrichedAutolinks;
 		let pr;
 
-		if (remote?.hasRichIntegration()) {
+		if (remote?.hasIntegration()) {
 			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
 				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote)),
 				this.getAssociatedPullRequest(this.commit, remote),

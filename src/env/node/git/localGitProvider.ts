@@ -314,8 +314,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
-			const remotes = this._remotesCache.get(repo.path);
-			void disposeRemotes([remotes]);
 			this._remotesCache.delete(repo.path);
 		}
 
@@ -1329,8 +1327,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		if (caches.length === 0 || caches.includes('remotes')) {
-			const remotes = this._remotesCache.get(repoPath);
-			void disposeRemotes([remotes]);
 			this._remotesCache.delete(repoPath);
 		}
 
@@ -1364,7 +1360,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		if (caches.length === 0 || caches.includes('remotes')) {
-			void disposeRemotes([...this._remotesCache.values()]);
 			this._remotesCache.clear();
 		}
 
@@ -4536,6 +4531,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				try {
 					const data = await this.git.remote(repoPath!);
 					const remotes = parseGitRemotes(
+						this.container,
 						data,
 						repoPath!,
 						getRemoteProviderMatcher(this.container, providers),
@@ -5695,15 +5691,4 @@ async function getEncoding(uri: Uri): Promise<string> {
 
 	const encodingExists = (await import(/* webpackChunkName: "encoding" */ 'iconv-lite')).encodingExists;
 	return encodingExists(encoding) ? encoding : 'utf8';
-}
-
-async function disposeRemotes(remotes: (Promise<GitRemote[]> | undefined)[]) {
-	const remotesResults = await Promise.allSettled(remotes);
-	for (const remotes of remotesResults) {
-		for (const remote of getSettledValue(remotes) ?? []) {
-			if (remote.hasRichIntegration()) {
-				remote.provider?.dispose();
-			}
-		}
-	}
 }

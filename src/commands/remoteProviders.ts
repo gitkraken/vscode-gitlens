@@ -3,7 +3,7 @@ import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { GitRemote } from '../git/models/remote';
 import type { Repository } from '../git/models/repository';
-import type { RichRemoteProvider } from '../git/remotes/richRemoteProvider';
+import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { showRepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import { first } from '../system/iterable';
@@ -46,15 +46,15 @@ export class ConnectRemoteProviderCommand extends Command {
 	}
 
 	async execute(args?: ConnectRemoteProviderCommandArgs): Promise<any> {
-		let remote: GitRemote<RichRemoteProvider> | undefined;
+		let remote: GitRemote<RemoteProvider> | undefined;
 		let remotes: GitRemote[] | undefined;
 		let repoPath;
 		if (args?.repoPath == null) {
-			const repos = new Map<Repository, GitRemote<RichRemoteProvider>>();
+			const repos = new Map<Repository, GitRemote<RemoteProvider>>();
 
 			for (const repo of this.container.git.openRepositories) {
 				const remote = await repo.getRichRemote();
-				if (remote?.provider != null && !(await remote.provider.isConnected())) {
+				if (remote?.provider != null) {
 					repos.set(repo, remote);
 				}
 			}
@@ -78,17 +78,20 @@ export class ConnectRemoteProviderCommand extends Command {
 		} else if (args?.remote == null) {
 			repoPath = args.repoPath;
 
-			remote = await this.container.git.getBestRemoteWithRichProvider(repoPath, { includeDisconnected: true });
+			remote = await this.container.git.getBestRemoteWithIntegration(repoPath, { includeDisconnected: true });
 			if (remote == null) return false;
 		} else {
 			repoPath = args.repoPath;
 
 			remotes = await this.container.git.getRemotesWithProviders(repoPath);
-			remote = remotes.find(r => r.name === args.remote) as GitRemote<RichRemoteProvider> | undefined;
-			if (!remote?.hasRichIntegration()) return false;
+			remote = remotes.find(r => r.name === args.remote) as GitRemote<RemoteProvider> | undefined;
+			if (!remote?.hasIntegration()) return false;
 		}
 
-		const connected = await remote.provider.connect();
+		const integration = this.container.integrations.getByRemote(remote);
+		if (integration == null) return false;
+
+		const connected = await integration.connect();
 		if (
 			connected &&
 			!(remotes ?? (await this.container.git.getRemotesWithProviders(repoPath))).some(r => r.default)
@@ -138,10 +141,10 @@ export class DisconnectRemoteProviderCommand extends Command {
 	}
 
 	async execute(args?: DisconnectRemoteProviderCommandArgs): Promise<any> {
-		let remote: GitRemote<RichRemoteProvider> | undefined;
+		let remote: GitRemote<RemoteProvider> | undefined;
 		let repoPath;
 		if (args?.repoPath == null) {
-			const repos = new Map<Repository, GitRemote<RichRemoteProvider>>();
+			const repos = new Map<Repository, GitRemote<RemoteProvider>>();
 
 			for (const repo of this.container.git.openRepositories) {
 				const remote = await repo.getRichRemote(true);
@@ -169,17 +172,16 @@ export class DisconnectRemoteProviderCommand extends Command {
 		} else if (args?.remote == null) {
 			repoPath = args.repoPath;
 
-			remote = await this.container.git.getBestRemoteWithRichProvider(repoPath, { includeDisconnected: false });
+			remote = await this.container.git.getBestRemoteWithIntegration(repoPath, { includeDisconnected: false });
 			if (remote == null) return undefined;
 		} else {
 			repoPath = args.repoPath;
 
-			remote = (await this.container.git.getRemotesWithProviders(repoPath)).find(r => r.name === args.remote) as
-				| GitRemote<RichRemoteProvider>
-				| undefined;
-			if (!remote?.hasRichIntegration()) return undefined;
+			remote = (await this.container.git.getRemotesWithProviders(repoPath)).find(r => r.name === args.remote);
+			if (!remote?.hasIntegration()) return undefined;
 		}
 
-		return remote.provider.disconnect();
+		const integration = this.container.integrations.getByRemote(remote);
+		return integration?.disconnect();
 	}
 }
