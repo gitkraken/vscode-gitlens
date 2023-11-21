@@ -1087,54 +1087,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async checkout(
+	async applyUnreachableCommitForPatch(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string } | { path?: string },
-	): Promise<void> {
-		const scope = getLogScope();
-
-		try {
-			await this.git.checkout(repoPath, ref, options);
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['branches', 'status'] });
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			if (/overwritten by checkout/i.test(msg)) {
-				void showGenericErrorMessage(
-					`Unable to checkout '${ref}'. Please commit or stash your changes before switching branches`,
-				);
-				return;
-			}
-
-			Logger.error(ex, scope);
-			void showGenericErrorMessage(`Unable to checkout '${ref}'`);
-		}
-	}
-
-	@log()
-	async clone(url: string, parentPath: string): Promise<string | undefined> {
-		const scope = getLogScope();
-
-		try {
-			return this.git.clone(url, parentPath);
-		} catch (ex) {
-			Logger.error(ex, scope);
-			void showGenericErrorMessage(`Unable to clone '${url}'`);
-		}
-
-		return undefined;
-	}
-
-	async applyPatchCommit(
-		repoPath: string,
-		patchCommitRef: string,
 		options?: { branchName?: string; createBranchIfNeeded?: boolean; createWorktreePath?: string },
 	): Promise<void> {
 		const scope = getLogScope();
+
 		// Stash any changes first
-		const repoStatus = await this.getStatusForRepo(repoPath);
-		const diffStatus = repoStatus?.getDiffStatus();
-		if (diffStatus?.added || diffStatus?.deleted || diffStatus?.changed) {
+		const status = await this.getStatusForRepo(repoPath);
+		if (status?.files?.length) {
+			// TODO@eamodio we should probably prompt the user or provide a flag to prompt or not /cc @axosoft-ramint
 			try {
 				await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
 			} catch (ex) {
@@ -1153,6 +1116,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const currentBranch = await this.getBranch(repoPath);
 		const branchExists =
 			options?.branchName == null ||
+			currentBranch?.name === options.branchName ||
 			(await this.getBranches(repoPath, { filter: b => b.name === options.branchName }))?.values?.length > 0;
 		const shouldCreate = options?.branchName != null && !branchExists && options.createBranchIfNeeded;
 
@@ -1202,7 +1166,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		// Apply the patch using a cherry pick without committing
 		try {
-			await this.git.cherrypick(targetPath, patchCommitRef, { noCommit: true, errors: GitErrorHandling.Throw });
+			await this.git.cherrypick(targetPath, ref, { noCommit: true, errors: GitErrorHandling.Throw });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			if (ex instanceof CherryPickError) {
@@ -1221,6 +1185,45 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		void window.showInformationMessage(`Patch applied successfully`);
+	}
+
+	@log()
+	async checkout(
+		repoPath: string,
+		ref: string,
+		options?: { createBranch?: string } | { path?: string },
+	): Promise<void> {
+		const scope = getLogScope();
+
+		try {
+			await this.git.checkout(repoPath, ref, options);
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['branches', 'status'] });
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			if (/overwritten by checkout/i.test(msg)) {
+				void showGenericErrorMessage(
+					`Unable to checkout '${ref}'. Please commit or stash your changes before switching branches`,
+				);
+				return;
+			}
+
+			Logger.error(ex, scope);
+			void showGenericErrorMessage(`Unable to checkout '${ref}'`);
+		}
+	}
+
+	@log()
+	async clone(url: string, parentPath: string): Promise<string | undefined> {
+		const scope = getLogScope();
+
+		try {
+			return this.git.clone(url, parentPath);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			void showGenericErrorMessage(`Unable to clone '${url}'`);
+		}
+
+		return undefined;
 	}
 
 	@log({ args: { 1: '<contents>', 3: '<message>' } })

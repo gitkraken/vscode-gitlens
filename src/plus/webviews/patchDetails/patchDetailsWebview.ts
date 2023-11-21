@@ -388,7 +388,7 @@ export class PatchDetailsWebviewProvider
 					};
 				}
 
-				void this.container.git.applyPatchCommit(commit.repoPath, commit.ref, options);
+				void this.container.git.applyUnreachableCommitForPatch(commit.repoPath, commit.ref, options);
 			} catch (ex) {
 				void window.showErrorMessage(`Unable apply patch to '${patch.baseRef}': ${ex.message}`);
 			}
