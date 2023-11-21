@@ -83,7 +83,9 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 		scoped = true;
 	}
 
+	const debugging = Logger.isDebugging;
 	const logFn: (message: string, ...params: any[]) => void = debug ? Logger.debug : Logger.log;
+	const logLevel = debugging ? 'debug' : 'info';
 
 	return (target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
 		let fn: Function | undefined;
@@ -97,12 +99,11 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 		}
 		if (fn == null || fnKey == null) throw new Error('Not supported');
 
-		const debugging = Logger.isDebugging;
 		const parameters = overrides !== false ? getParameters(fn) : [];
 
 		descriptor[fnKey] = function (this: any, ...args: Parameters<T>) {
-			if (!debugging && !Logger.enabled(debug ? 'debug' : 'info')) {
-				return;
+			if (!debugging && !Logger.enabled(logLevel)) {
+				return fn!.apply(this, args);
 			}
 
 			const scopeId = getNextLogScopeId();
