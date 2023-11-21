@@ -39,7 +39,7 @@ export class GitLabIntegration extends ProviderIntegration<GitLabRepositoryDescr
 	}
 
 	protected get apiBaseUrl(): string {
-		return 'https://gitlab.com/api/v4';
+		return 'https://gitlab.com/api';
 	}
 
 	protected override async getProviderAccountForCommit(
