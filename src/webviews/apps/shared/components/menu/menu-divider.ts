@@ -1,18 +1,24 @@
-import { css, customElement, FASTElement, html } from '@microsoft/fast-element';
-import { elementBase } from '../styles/base';
+import { css, LitElement } from 'lit';
+import { customElement } from 'lit/decorators.js';
+import { elementBase } from '../styles/lit/base.css';
 
-const template = html<MenuDivider>``;
+@customElement('menu-divider')
+export class MenuDivider extends LitElement {
+	static override styles = [
+		elementBase,
+		css`
+			:host {
+				display: block;
+				height: 0;
+				margin: 0.6rem;
+				border-top: 0.1rem solid var(--vscode-menu-separatorBackground);
+			}
+		`,
+	];
+}
 
-const styles = css`
-	${elementBase}
-
-	:host {
-		display: block;
-		height: 0;
-		margin: 0.6rem;
-		border-top: 0.1rem solid var(--vscode-menu-separatorBackground);
+declare global {
+	interface HTMLElementTagNameMap {
+		'menu-divider': MenuDivider;
 	}
-`;
-
-@customElement({ name: 'menu-divider', template: template, styles: styles })
-export class MenuDivider extends FASTElement {}
+}
