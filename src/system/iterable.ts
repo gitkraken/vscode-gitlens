@@ -99,11 +99,11 @@ export function forEach<T>(source: Iterable<T> | IterableIterator<T>, fn: (item:
 	}
 }
 
-export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): T | null {
+export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): T | undefined {
 	for (const item of source) {
 		if (predicate(item)) return item;
 	}
-	return null;
+	return undefined;
 }
 
 export function findIndex<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): number {
