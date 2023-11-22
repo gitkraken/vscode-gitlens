@@ -2437,7 +2437,7 @@ export class GitProviderService implements Disposable {
 		return provider.getRevisionContent(rp, path, ref);
 	}
 
-	@log()
+	@log({ exit: true })
 	async getFirstCommitSha(repoPath: string | Uri): Promise<string | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		try {
@@ -2447,12 +2447,12 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	@log()
+	@log({ exit: true })
 	getUniqueRepositoryId(repoPath: string | Uri): Promise<string | undefined> {
 		return this.getFirstCommitSha(repoPath);
 	}
 
-	@log({ args: { 1: false } })
+	@log({ args: { 1: false }, exit: true })
 	async hasBranchOrTag(
 		repoPath: string | Uri | undefined,
 		options?: {
@@ -2465,7 +2465,7 @@ export class GitProviderService implements Disposable {
 		return provider.hasBranchOrTag(path, options);
 	}
 
-	@log({ args: { 1: false } })
+	@log({ args: { 1: false }, exit: true })
 	async hasCommitBeenPushed(repoPath: string | Uri, ref: string): Promise<boolean> {
 		if (repoPath == null) return false;
 
@@ -2473,7 +2473,7 @@ export class GitProviderService implements Disposable {
 		return provider.hasCommitBeenPushed(path, ref);
 	}
 
-	@log()
+	@log({ exit: true })
 	async hasRemotes(repoPath: string | Uri | undefined): Promise<boolean> {
 		if (repoPath == null) return false;
 
@@ -2483,7 +2483,7 @@ export class GitProviderService implements Disposable {
 		return repository.hasRemotes();
 	}
 
-	@log()
+	@log({ exit: true })
 	async hasTrackingBranch(repoPath: string | undefined): Promise<boolean> {
 		if (repoPath == null) return false;
 
@@ -2493,7 +2493,7 @@ export class GitProviderService implements Disposable {
 		return repository.hasUpstreamBranch();
 	}
 
-	@log()
+	@log({ exit: true })
 	hasUnsafeRepositories(): boolean {
 		for (const provider of this._providers.values()) {
 			if (provider.hasUnsafeRepositories?.()) return true;
@@ -2506,6 +2506,7 @@ export class GitProviderService implements Disposable {
 			0: r => r.uri.toString(true),
 			1: e => (e != null ? `TextEditor(${Logger.toLoggable(e.document.uri)})` : undefined),
 		},
+		exit: true,
 	})
 	isRepositoryForEditor(repository: Repository, editor?: TextEditor): boolean {
 		editor = editor ?? window.activeTextEditor;
@@ -2631,14 +2632,14 @@ export class GitProviderService implements Disposable {
 		return provider.runGitCommandViaTerminal?.(path, command, args, options);
 	}
 
-	@log()
+	@log({ exit: true })
 	validateBranchOrTagName(repoPath: string | Uri, ref: string): Promise<boolean> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.validateBranchOrTagName(path, ref);
 	}
 
-	@log()
-	async validateReference(repoPath: string | Uri, ref: string) {
+	@log({ exit: true })
+	async validateReference(repoPath: string | Uri, ref: string): Promise<boolean> {
 		if (ref == null || ref.length === 0) return false;
 		if (ref === deletedOrMissing || isUncommitted(ref)) return true;
 
@@ -2738,7 +2739,7 @@ export class GitProviderService implements Disposable {
 		return (await provider.getWorktrees?.(path)) ?? [];
 	}
 
-	@log()
+	@log({ exit: true })
 	async getWorktreesDefaultUri(path: string | Uri): Promise<Uri | undefined> {
 		const { provider, path: rp } = this.getProvider(path);
 		let defaultUri = await provider.getWorktreesDefaultUri?.(rp);
@@ -2757,6 +2758,7 @@ export class GitProviderService implements Disposable {
 		const { provider, path: rp } = this.getProvider(repoPath);
 		return Promise.resolve(provider.deleteWorktree?.(rp, path, options));
 	}
+
 	@log()
 	async getOpenScmRepositories(): Promise<ScmRepository[]> {
 		const results = await Promise.allSettled([...this._providers.values()].map(p => p.getOpenScmRepositories()));
