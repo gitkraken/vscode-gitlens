@@ -1,5 +1,6 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
+import { AuthenticationRequiredError } from '../../errors';
 import type { GitRemote } from '../../git/models/remote';
 import type { RemoteProvider } from '../../git/remotes/remoteProvider';
 import { log } from '../../system/decorators/log';
@@ -84,7 +85,7 @@ export class FocusService implements Disposable {
 			const result = (await rsp.json()) as Result;
 			return type == null ? result.data : result.data.filter(i => i.type === type);
 		} catch (ex) {
-			if (ex instanceof Error && ex.message === 'Authentication required') return [];
+			if (ex instanceof AuthenticationRequiredError) return [];
 
 			Logger.error(ex, scope);
 			debugger;

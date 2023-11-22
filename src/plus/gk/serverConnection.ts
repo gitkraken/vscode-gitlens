@@ -3,6 +3,7 @@ import { Uri } from 'vscode';
 import type { RequestInfo, RequestInit, Response } from '@env/fetch';
 import { fetch as _fetch, getProxyAgent } from '@env/fetch';
 import type { Container } from '../../container';
+import { AuthenticationRequiredError } from '../../errors';
 import { memoize } from '../../system/decorators/memoize';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
@@ -159,7 +160,7 @@ export class ServerConnection implements Disposable {
 		const session = await this.container.subscription.getAuthenticationSession();
 		if (session != null) return session.accessToken;
 
-		throw new Error('Authentication required');
+		throw new AuthenticationRequiredError();
 	}
 }
 
