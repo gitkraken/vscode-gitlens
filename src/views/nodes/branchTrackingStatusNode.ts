@@ -1,4 +1,4 @@
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { Colors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch, GitTrackingState } from '../../git/models/branch';
@@ -37,7 +37,7 @@ export class BranchTrackingStatusNode
 		protected override readonly parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly status: BranchTrackingStatus,
-		public readonly upstreamType: 'ahead' | 'behind' | 'same' | 'none',
+		public readonly upstreamType: 'ahead' | 'behind' | 'same' | 'missing' | 'none',
 		// Specifies that the node is shown as a root
 		public readonly root: boolean = false,
 		private readonly options?: {
@@ -65,7 +65,7 @@ export class BranchTrackingStatusNode
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.upstreamType === 'same' || this.upstreamType === 'none') return [];
+		if (this.upstreamType === 'same' || this.upstreamType === 'missing' || this.upstreamType === 'none') return [];
 
 		const log = await this.getLog();
 		if (log == null) return [];
@@ -141,7 +141,7 @@ export class BranchTrackingStatusNode
 	async getTreeItem(): Promise<TreeItem> {
 		let lastFetched = 0;
 
-		if (this.upstreamType !== 'none') {
+		if (this.upstreamType !== 'missing' && this.upstreamType !== 'none') {
 			const repo = this.view.container.git.getRepository(this.repoPath);
 			lastFetched = (await repo?.getLastFetched()) ?? 0;
 		}
@@ -217,6 +217,26 @@ export class BranchTrackingStatusNode
 					? ContextValues.StatusSameAsUpstream
 					: ContextValues.BranchStatusSameAsUpstream;
 				icon = new ThemeIcon('cloud');
+
+				break;
+			}
+			case 'missing': {
+				const remote = await this.branch.getRemote();
+
+				label = `Missing upstream branch${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
+				description = this.status.upstream;
+				tooltip = `Branch $(git-branch) ${this.branch.name} is missing upstream $(git-branch) ${
+					this.status.upstream
+				}${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
+
+				collapsibleState = TreeItemCollapsibleState.None;
+				contextValue = this.root
+					? ContextValues.StatusMissingUpstream
+					: ContextValues.BranchStatusSameAsUpstream;
+				icon = new ThemeIcon(
+					'warning',
+					new ThemeColor('gitlens.decorations.branchMissingUpstreamForegroundColor' satisfies Colors),
+				);
 
 				break;
 			}

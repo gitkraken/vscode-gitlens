@@ -52,6 +52,7 @@ export const enum ContextValues {
 	Branches = 'gitlens:branches',
 	BranchStatusAheadOfUpstream = 'gitlens:status-branch:upstream:ahead',
 	BranchStatusBehindUpstream = 'gitlens:status-branch:upstream:behind',
+	BranchStatusMissingUpstream = 'gitlens:status-branch:upstream:missing',
 	BranchStatusNoUpstream = 'gitlens:status-branch:upstream:none',
 	BranchStatusSameAsUpstream = 'gitlens:status-branch:upstream:same',
 	BranchStatusFiles = 'gitlens:status-branch:files',
@@ -97,6 +98,7 @@ export const enum ContextValues {
 	StatusFiles = 'gitlens:status:files',
 	StatusAheadOfUpstream = 'gitlens:status:upstream:ahead',
 	StatusBehindUpstream = 'gitlens:status:upstream:behind',
+	StatusMissingUpstream = 'gitlens:status:upstream:missing',
 	StatusNoUpstream = 'gitlens:status:upstream:none',
 	StatusSameAsUpstream = 'gitlens:status:upstream:same',
 	Tag = 'gitlens:tag',
@@ -113,7 +115,7 @@ export interface AmbientContext {
 	readonly autolinksId?: string;
 	readonly branch?: GitBranch;
 	readonly branchStatus?: BranchTrackingStatus;
-	readonly branchStatusUpstreamType?: 'ahead' | 'behind' | 'same' | 'none';
+	readonly branchStatusUpstreamType?: 'ahead' | 'behind' | 'same' | 'missing' | 'none';
 	readonly commit?: GitCommit;
 	readonly comparisonId?: string;
 	readonly comparisonFiltered?: boolean;

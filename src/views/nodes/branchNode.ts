@@ -294,7 +294,11 @@ export class BranchNode
 				};
 
 				if (branch.upstream != null) {
-					if (this.root && !status.state.behind && !status.state.ahead) {
+					if (this.root && branch.upstream.missing) {
+						children.push(
+							new BranchTrackingStatusNode(this.view, this, branch, status, 'missing', this.root),
+						);
+					} else if (this.root && !status.state.behind && !status.state.ahead) {
 						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'same', this.root));
 					} else {
 						if (status.state.behind) {
