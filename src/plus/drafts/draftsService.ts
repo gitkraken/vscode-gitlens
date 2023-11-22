@@ -121,7 +121,7 @@ export class DraftService implements Disposable {
 				const files = diffFiles?.files.map(f => ({ ...f, gkRepositoryId: patch.gitRepositoryId })) ?? [];
 
 				// Upload patch to returned S3 url
-				await this.connection.fetchRaw(url, {
+				await this.connection.fetch(url, {
 					method: method,
 					headers: {
 						'Content-Type': 'text/plain',
@@ -528,7 +528,7 @@ export class DraftService implements Disposable {
 		const { url, method, headers } = secureLink;
 
 		// Download patch from returned S3 url
-		const contentsRsp = await this.connection.fetchRaw(url, {
+		const contentsRsp = await this.connection.fetch(url, {
 			method: method,
 			headers: {
 				Accept: 'text/plain',

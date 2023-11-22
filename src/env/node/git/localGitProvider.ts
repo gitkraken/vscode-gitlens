@@ -648,13 +648,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// Check if the url returns a 200 status code
 		let promise = this._pendingRemoteVisibility.get(url);
 		if (promise == null) {
-			const cancellation = new AbortController();
-			let timeout: ReturnType<typeof setTimeout>;
-			promise = fetch(url, { method: 'HEAD', agent: getProxyAgent(), signal: cancellation.signal }).then(r => {
-				clearTimeout(timeout);
-				return r;
-			});
-			timeout = setTimeout(() => cancellation.abort(), 30000);
+			const aborter = new AbortController();
+			const timer = setTimeout(() => aborter.abort(), 30000);
+
+			promise = fetch(url, { method: 'HEAD', agent: getProxyAgent(), signal: aborter.signal });
+			void promise.finally(() => clearTimeout(timer));
 
 			this._pendingRemoteVisibility.set(url, promise);
 		}

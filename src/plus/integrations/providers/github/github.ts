@@ -2463,7 +2463,7 @@ export class GitHubApi implements Disposable {
 		ex: RequestError | (Error & { name: 'AbortError' }),
 		scope: LogScope | undefined,
 	): void {
-		if (ex.name === 'AbortError') throw new CancellationError();
+		if (ex.name === 'AbortError') throw new CancellationError(ex);
 
 		switch (ex.status) {
 			case 404: // Not found

@@ -6,6 +6,7 @@ import type {
 import { authentication, Disposable, EventEmitter, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Container, Environment } from '../../../container';
+import { CancellationError } from '../../../errors';
 import { debug } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
@@ -96,7 +97,11 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 			if (ex === 'Cancelled') throw ex;
 
 			Logger.error(ex, scope);
-			void window.showErrorMessage(`Unable to sign in to GitKraken: ${ex}`);
+			void window.showErrorMessage(
+				`Unable to sign in to GitKraken: ${
+					ex instanceof CancellationError ? 'request timed out' : ex
+				}. Please try again. If this issue persists, please contact support.`,
+			);
 			throw ex;
 		}
 	}

@@ -879,7 +879,7 @@ $search: String!
 		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
 		scope: LogScope | undefined,
 	): void {
-		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError();
+		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError(ex);
 
 		switch (ex.status) {
 			case 404: // Not found

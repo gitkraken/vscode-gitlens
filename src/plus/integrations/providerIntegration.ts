@@ -1,7 +1,7 @@
 import type { AuthenticationSession, CancellationToken, Event, MessageItem } from 'vscode';
-import { CancellationError, EventEmitter, window } from 'vscode';
+import { EventEmitter, window } from 'vscode';
 import type { Container } from '../../container';
-import { AuthenticationError, ProviderRequestClientError } from '../../errors';
+import { AuthenticationError, CancellationError, ProviderRequestClientError } from '../../errors';
 import type { PagedResult } from '../../git/gitProvider';
 import type { Account } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
