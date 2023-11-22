@@ -15435,7 +15435,7 @@
 					"type": "webview",
 					"id": "gitlens.views.home",
 					"name": "Home",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
 					"initialSize": 6,
 					"visibility": "visible"
@@ -15444,7 +15444,7 @@
 					"id": "gitlens.views.drafts",
 					"name": "Cloud Patches",
 					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.cloudPatches.enabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-cloud-patch)",
 					"initialSize": 2,
 					"visibility": "visible"
@@ -15453,7 +15453,7 @@
 					"id": "gitlens.views.workspaces",
 					"name": "GitKraken Workspaces",
 					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-workspaces-view)",
 					"initialSize": 2,
 					"visibility": "visible"
@@ -15462,7 +15462,7 @@
 					"type": "webview",
 					"id": "gitlens.views.account",
 					"name": "GitKraken Account",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
 					"initialSize": 1,
 					"visibility": "collapsed"
@@ -15474,7 +15474,7 @@
 					"id": "gitlens.views.commitDetails",
 					"name": "Commit Details",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-commit-view)",
 					"initialSize": 6,
 					"visibility": "visible"
@@ -15483,7 +15483,7 @@
 					"id": "gitlens.views.lineHistory",
 					"name": "Line History",
 					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-history-view)",
 					"initialSize": 1,
 					"visibility": "collapsed"
@@ -15492,7 +15492,7 @@
 					"id": "gitlens.views.fileHistory",
 					"name": "File History",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-history-view)",
 					"initialSize": 2,
 					"visibility": "visible"
@@ -15502,7 +15502,7 @@
 					"id": "gitlens.views.timeline",
 					"name": "Visual File History",
 					"when": "!gitlens:disabled && gitlens:plus:enabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(graph-scatter)",
 					"initialSize": 1,
 					"visibility": "visible"
@@ -15511,7 +15511,7 @@
 					"id": "gitlens.views.searchAndCompare",
 					"name": "Search & Compare",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-search-view)",
 					"initialSize": 2,
 					"visibility": "visible"
@@ -15523,7 +15523,7 @@
 					"id": "gitlens.views.graph",
 					"name": "Graph",
 					"when": "!gitlens:disabled && gitlens:plus:enabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-graph)",
 					"initialSize": 4,
 					"visibility": "visible"
@@ -15533,7 +15533,7 @@
 					"id": "gitlens.views.graphDetails",
 					"name": "Graph Details",
 					"when": "!gitlens:disabled && gitlens:plus:enabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-commit-view)",
 					"initialSize": 1,
 					"visibility": "visible"
@@ -15555,7 +15555,7 @@
 					"id": "gitlens.views.repositories",
 					"name": "Repositories",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-repositories-view)",
 					"visibility": "hidden"
 				},
@@ -15563,7 +15563,7 @@
 					"id": "gitlens.views.commits",
 					"name": "Commits",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-commits-view)",
 					"visibility": "visible"
 				},
@@ -15571,7 +15571,7 @@
 					"id": "gitlens.views.branches",
 					"name": "Branches",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-branches-view)",
 					"visibility": "collapsed"
 				},
@@ -15579,7 +15579,7 @@
 					"id": "gitlens.views.remotes",
 					"name": "Remotes",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-remotes-view)",
 					"visibility": "collapsed"
 				},
@@ -15587,7 +15587,7 @@
 					"id": "gitlens.views.stashes",
 					"name": "Stashes",
 					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-stashes-view)",
 					"visibility": "collapsed"
 				},
@@ -15595,7 +15595,7 @@
 					"id": "gitlens.views.tags",
 					"name": "Tags",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-tags-view)",
 					"visibility": "collapsed"
 				},
@@ -15603,7 +15603,7 @@
 					"id": "gitlens.views.worktrees",
 					"name": "Worktrees",
 					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && gitlens:plus:enabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-worktrees-view)",
 					"visibility": "collapsed"
 				},
@@ -15611,7 +15611,7 @@
 					"id": "gitlens.views.contributors",
 					"name": "Contributors",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GL",
+					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-contributors-view)",
 					"visibility": "collapsed"
 				}
