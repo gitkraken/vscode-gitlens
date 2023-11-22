@@ -363,7 +363,7 @@ export class SubscriptionService implements Disposable {
 					method: 'POST',
 					body: JSON.stringify({ id: session.account.id }),
 				},
-				session.accessToken,
+				{ token: session.accessToken },
 			);
 
 			if (!rsp.ok) {
@@ -570,7 +570,7 @@ export class SubscriptionService implements Disposable {
 					method: 'POST',
 					body: JSON.stringify(checkInData),
 				},
-				session.accessToken,
+				{ token: session.accessToken },
 			);
 
 			if (!rsp.ok) {

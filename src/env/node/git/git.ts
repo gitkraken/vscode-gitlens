@@ -284,9 +284,9 @@ export class Git {
 		}
 
 		if (cancellation) {
-			const controller = new AbortController();
-			spawnOpts.signal = controller.signal;
-			cancellation.onCancellationRequested(() => controller.abort());
+			const aborter = new AbortController();
+			spawnOpts.signal = aborter.signal;
+			cancellation.onCancellationRequested(() => aborter.abort());
 		}
 
 		const proc = spawn(await this.path(), args, spawnOpts);

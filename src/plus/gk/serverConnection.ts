@@ -1,12 +1,21 @@
-import type { Disposable } from 'vscode';
+import type { CancellationToken, Disposable } from 'vscode';
 import { Uri } from 'vscode';
 import type { RequestInfo, RequestInit, Response } from '@env/fetch';
 import { fetch as _fetch, getProxyAgent } from '@env/fetch';
 import type { Container } from '../../container';
-import { AuthenticationRequiredError } from '../../errors';
+import { AuthenticationRequiredError, CancellationError } from '../../errors';
 import { memoize } from '../../system/decorators/memoize';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
+
+interface FetchOptions {
+	cancellation?: CancellationToken;
+	timeout?: number;
+}
+
+interface GKFetchOptions extends FetchOptions {
+	token?: string;
+}
 
 export class ServerConnection implements Disposable {
 	constructor(private readonly container: Container) {}
@@ -96,60 +105,85 @@ export class ServerConnection implements Disposable {
 		return 'Visual-Studio-Code-GitLens';
 	}
 
-	async fetch(url: RequestInfo, init?: RequestInit, token?: string): Promise<Response> {
+	async fetch(url: RequestInfo, init?: RequestInit, options?: FetchOptions): Promise<Response> {
 		const scope = getLogScope();
 
+		if (options?.cancellation?.isCancellationRequested) throw new CancellationError();
+
+		const aborter = new AbortController();
+
+		let timeout;
+		if (options?.cancellation != null) {
+			timeout = options.timeout; // Don't set a default timeout if we have a cancellation token
+			options.cancellation.onCancellationRequested(() => aborter.abort());
+		} else {
+			timeout = options?.timeout ?? 60 * 1000;
+		}
+
+		const timer = timeout != null ? setTimeout(() => aborter.abort(), timeout) : undefined;
+
 		try {
-			token ??= await this.getAccessToken();
-			const options = {
+			const promise = _fetch(url, {
 				agent: getProxyAgent(),
 				...init,
 				headers: {
-					Authorization: `Bearer ${token}`,
 					'User-Agent': this.userAgent,
-					'Content-Type': 'application/json',
 					...init?.headers,
 				},
-			};
-
-			// TODO@eamodio handle common response errors
-
-			return await _fetch(url, options);
+				signal: aborter?.signal,
+			});
+			void promise.finally(() => clearTimeout(timer));
+			return await promise;
 		} catch (ex) {
 			Logger.error(ex, scope);
+			if (ex.name === 'AbortError') throw new CancellationError(ex);
+
 			throw ex;
 		}
 	}
 
-	async fetchApi(path: string, init?: RequestInit, token?: string): Promise<Response> {
-		return this.fetch(this.getApiUrl(path), init, token);
+	async fetchApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
+		return this.gkFetch(this.getApiUrl(path), init, options);
 	}
 
-	async fetchApiGraphQL(path: string, request: GraphQLRequest, init?: RequestInit) {
-		return this.fetchApi(path, {
-			method: 'POST',
-			...init,
-			body: JSON.stringify(request),
-		});
+	async fetchApiGraphQL(path: string, request: GraphQLRequest, init?: RequestInit, options?: GKFetchOptions) {
+		return this.fetchApi(
+			path,
+			{
+				method: 'POST',
+				...init,
+				body: JSON.stringify(request),
+			},
+			options,
+		);
 	}
 
-	async fetchGkDevApi(path: string, init?: RequestInit, token?: string): Promise<Response> {
-		return this.fetch(this.getGkDevApiUrl(path), init, token);
+	async fetchGkDevApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
+		return this.gkFetch(this.getGkDevApiUrl(path), init, options);
 	}
 
-	async fetchRaw(url: RequestInfo, init?: RequestInit): Promise<Response> {
+	private async gkFetch(url: RequestInfo, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
 		const scope = getLogScope();
 
 		try {
-			const options = {
-				agent: getProxyAgent(),
-				...init,
-				headers: {
-					'User-Agent': this.userAgent,
-					...init?.headers,
+			let token;
+			({ token, ...options } = options ?? {});
+			token ??= await this.getAccessToken();
+
+			// TODO@eamodio handle common response errors
+
+			return this.fetch(
+				url,
+				{
+					...init,
+					headers: {
+						Authorization: `Bearer ${token}`,
+						'Content-Type': 'application/json',
+						...init?.headers,
+					},
 				},
-			};
-			return await _fetch(url, options);
+				options,
+			);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			throw ex;

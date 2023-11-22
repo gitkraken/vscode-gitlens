@@ -38,13 +38,13 @@ export class AuthenticationConnection implements Disposable {
 		return new Promise<void>(resolve => setTimeout(resolve, 50));
 	}
 
-	@debug({ args: false })
+	@debug<AuthenticationConnection['getAccountInfo']>({ args: false, exit: r => `returned ${r.id}` })
 	async getAccountInfo(token: string): Promise<AccountInfo> {
 		const scope = getLogScope();
 
 		let rsp: Response;
 		try {
-			rsp = await this.connection.fetchApi('user', undefined, token);
+			rsp = await this.connection.fetchApi('user', undefined, { token: token });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			throw ex;

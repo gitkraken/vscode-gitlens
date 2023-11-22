@@ -96,6 +96,11 @@
 						"group": ["react-dom"],
 						"importNames": ["Container"],
 						"message": "Use our Container instead"
+					},
+					{
+						"group": ["vscode"],
+						"importNames": ["CancellationError"],
+						"message": "Use our CancellationError instead"
 					}
 				]
 			}
