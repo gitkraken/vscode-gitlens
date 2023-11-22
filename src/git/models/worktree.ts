@@ -87,7 +87,7 @@ export async function getWorktreeForBranch(
 	branchName: string,
 	upstreamNames: string | string[],
 	worktrees?: GitWorktree[],
-	branches?: PageableResult<GitBranch>,
+	branches?: PageableResult<GitBranch> | Map<unknown, GitBranch>,
 ): Promise<GitWorktree | undefined> {
 	if (upstreamNames != null && !Array.isArray(upstreamNames)) {
 		upstreamNames = [upstreamNames];
