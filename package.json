@@ -13159,7 +13159,7 @@
 				},
 				{
 					"command": "gitlens.views.publishRepository",
-					"when": "!gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status(\\-branch)?:upstream:none/",
+					"when": "!gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)/",
 					"group": "inline@1"
 				},
 				{
@@ -13169,7 +13169,7 @@
 				},
 				{
 					"command": "gitlens.views.publishBranch",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status(\\-branch)?:upstream:none/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)/",
 					"group": "inline@1"
 				},
 				{
@@ -13185,17 +13185,17 @@
 				},
 				{
 					"command": "gitlens.views.fetch",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status(\\-branch)?:upstream:(?!none)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status(\\-branch)?:upstream:(?!(missing|none))/",
 					"group": "inline@2"
 				},
 				{
 					"command": "gitlens.views.createPullRequest",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:action:createPullRequest && viewItem =~ /gitlens:status:upstream:(?!none)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:action:createPullRequest && viewItem =~ /gitlens:status:upstream:(?!(missing|none))/",
 					"group": "inline@3"
 				},
 				{
 					"command": "gitlens.openBranchOnRemote",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream:(?!none)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream:(?!(missing|none))/",
 					"group": "inline@99",
 					"alt": "gitlens.copyRemoteBranchUrl"
 				},
@@ -13216,7 +13216,7 @@
 				},
 				{
 					"command": "gitlens.views.fetch",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream:(?!none)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream:(?!(missing|none))/",
 					"group": "1_gitlens_actions@3"
 				},
 				{
@@ -13231,12 +13231,12 @@
 				},
 				{
 					"command": "gitlens.views.createPullRequest",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:action:createPullRequest && viewItem =~ /gitlens:status:upstream:(?!none)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:action:createPullRequest && viewItem =~ /gitlens:status:upstream:(?!(missing|none))/",
 					"group": "1_gitlens_secondary_actions@3"
 				},
 				{
 					"command": "gitlens.openBranchOnRemote",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream:(?!none)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream:(?!(missing|none))/",
 					"group": "2_gitlens_quickopen@1",
 					"alt": "gitlens.copyRemoteBranchUrl"
 				},
