@@ -238,6 +238,7 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 
 		switch (status) {
 			case 'rebasing':
+			case 'merging':
 				if (conflicts) {
 					return {
 						badge: '!',
