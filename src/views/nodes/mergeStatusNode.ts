@@ -1,4 +1,4 @@
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { Colors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
@@ -75,6 +75,7 @@ export class MergeStatusNode extends ViewNode<'merge-status', ViewsWithCommits> 
 		markdown.isTrusted = true;
 
 		item.tooltip = markdown;
+		item.resourceUri = Uri.parse(`gitlens-view://status/merging${hasConflicts ? '/conflicts' : ''}`);
 
 		return item;
 	}
