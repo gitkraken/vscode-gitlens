@@ -295,7 +295,7 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 export async function getLocalBranchByUpstream(
 	repo: Repository,
 	remoteBranchName: string,
-	branches?: PageableResult<GitBranch>,
+	branches?: PageableResult<GitBranch> | Map<unknown, GitBranch>,
 ): Promise<GitBranch | undefined> {
 	let qualifiedRemoteBranchName;
 	if (remoteBranchName.startsWith('remotes/')) {
