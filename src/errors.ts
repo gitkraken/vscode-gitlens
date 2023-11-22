@@ -86,6 +86,14 @@ export class AuthenticationError extends Error {
 	}
 }
 
+export class AuthenticationRequiredError extends Error {
+	constructor() {
+		super('Authentication required');
+
+		Error.captureStackTrace?.(this, AuthenticationRequiredError);
+	}
+}
+
 export class CancellationError extends _CancellationError {
 	constructor() {
 		super();

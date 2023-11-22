@@ -3,6 +3,7 @@ import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { RepositoriesViewConfig } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { AuthenticationRequiredError } from '../errors';
 import { unknownGitUri } from '../git/gitUri';
 import type { Draft } from '../gk/models/drafts';
 import { showPatchesView } from '../plus/drafts/actions';
@@ -24,10 +25,16 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 		if (this.children == null) {
 			const children: DraftNode[] = [];
 
-			const drafts = await this.view.container.drafts.getDrafts();
-			drafts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-			for (const draft of drafts) {
-				children.push(new DraftNode(this.uri, this.view, this, draft));
+			try {
+				const drafts = await this.view.container.drafts.getDrafts();
+				drafts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+				for (const draft of drafts) {
+					children.push(new DraftNode(this.uri, this.view, this, draft));
+				}
+			} catch (ex) {
+				if (!(ex instanceof AuthenticationRequiredError)) {
+					throw ex;
+				}
 			}
 
 			this.children = children;
