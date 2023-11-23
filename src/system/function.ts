@@ -103,7 +103,6 @@ export function debounce<T extends (...args: any[]) => ReturnType<T>>(fn: T, wai
 }
 
 const comma = ',';
-const emptyStr = '';
 const equals = '=';
 const openBrace = '{';
 const openParen = '(';
@@ -119,7 +118,7 @@ export function getParameters(fn: Function): string[] {
 	if (fn.length === 0) return [];
 
 	let fnBody: string = Function.prototype.toString.call(fn);
-	fnBody = fnBody.replace(fnBodyStripCommentsRegex, emptyStr) || fnBody;
+	fnBody = fnBody.replace(fnBodyStripCommentsRegex, '') || fnBody;
 	fnBody = fnBody.slice(0, fnBody.indexOf(openBrace));
 
 	let open = fnBody.indexOf(openParen);
@@ -133,7 +132,7 @@ export function getParameters(fn: Function): string[] {
 
 	const match = fnBodyRegex.exec(fnBody);
 	return match != null
-		? match[1].split(comma).map(param => param.trim().replace(fnBodyStripParamDefaultValueRegex, emptyStr))
+		? match[1].split(comma).map(param => param.trim().replace(fnBodyStripParamDefaultValueRegex, ''))
 		: [];
 }
 

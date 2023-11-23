@@ -2,8 +2,6 @@ import { normalizePath } from '../../system/path';
 import { maybeStopWatch } from '../../system/stopwatch';
 import { GitStatus, GitStatusFile } from '../models/status';
 
-const emptyStr = '';
-
 const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;
 
@@ -53,7 +51,7 @@ function parseStatusV1(lines: string[], repoPath: string): GitStatus {
 			const rawStatus = line.substring(0, 2);
 			const fileName = line.substring(3);
 			if (rawStatus.startsWith('R') || rawStatus.startsWith('C')) {
-				const [file1, file2] = fileName.replace(/"/g, emptyStr).split('->');
+				const [file1, file2] = fileName.replace(/"/g, '').split('->');
 				files.push(parseStatusFile(repoPath, rawStatus, file2.trim(), file1.trim()));
 			} else {
 				files.push(parseStatusFile(repoPath, rawStatus, fileName));
@@ -61,7 +59,7 @@ function parseStatusV1(lines: string[], repoPath: string): GitStatus {
 		}
 	}
 
-	return new GitStatus(normalizePath(repoPath), branch ?? emptyStr, emptyStr, files, state, upstream);
+	return new GitStatus(normalizePath(repoPath), branch ?? '', '', files, state, upstream);
 }
 
 function parseStatusV2(lines: string[], repoPath: string): GitStatus {
@@ -117,7 +115,7 @@ function parseStatusV2(lines: string[], repoPath: string): GitStatus {
 		}
 	}
 
-	return new GitStatus(normalizePath(repoPath), branch ?? emptyStr, sha ?? emptyStr, files, state, upstream);
+	return new GitStatus(normalizePath(repoPath), branch ?? '', sha ?? '', files, state, upstream);
 }
 
 function parseStatusFile(

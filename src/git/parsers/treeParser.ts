@@ -1,7 +1,6 @@
 import { maybeStopWatch } from '../../system/stopwatch';
 import type { GitLsFilesEntry, GitTreeEntry } from '../models/tree';
 
-const emptyStr = '';
 const treeRegex = /(?:.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+)/gm;
 const filesRegex = /^(\S+)\s+(\S+)\s+(\S+)\s+(.*)$/gm;
 
@@ -25,12 +24,12 @@ export function parseGitTree(data: string | undefined): GitTreeEntry[] {
 
 		trees.push({
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			commitSha: sha == null || sha.length === 0 ? emptyStr : ` ${sha}`.substr(1),
+			commitSha: sha == null || sha.length === 0 ? '' : ` ${sha}`.substr(1),
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			path: filePath == null || filePath.length === 0 ? emptyStr : ` ${filePath}`.substr(1),
+			path: filePath == null || filePath.length === 0 ? '' : ` ${filePath}`.substr(1),
 			size: Number(size) || 0,
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			type: (type == null || type.length === 0 ? emptyStr : ` ${type}`.substr(1)) as 'blob' | 'tree',
+			type: (type == null || type.length === 0 ? '' : ` ${type}`.substr(1)) as 'blob' | 'tree',
 		});
 	} while (true);
 
@@ -59,11 +58,11 @@ export function parseGitLsFiles(data: string | undefined): GitLsFilesEntry[] {
 
 		files.push({
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			path: filePath == null || filePath.length === 0 ? emptyStr : ` ${filePath}`.substr(1),
+			path: filePath == null || filePath.length === 0 ? '' : ` ${filePath}`.substr(1),
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			object: object == null || object.length === 0 ? emptyStr : ` ${object}`.substr(1),
+			object: object == null || object.length === 0 ? '' : ` ${object}`.substr(1),
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			mode: mode == null || mode.length === 0 ? emptyStr : ` ${mode}`.substr(1),
+			mode: mode == null || mode.length === 0 ? '' : ` ${mode}`.substr(1),
 			stage: parseInt(stage, 10),
 		});
 	} while (true);
