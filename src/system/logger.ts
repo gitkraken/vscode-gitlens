@@ -1,8 +1,6 @@
 import type { LogLevel } from './logger.constants';
 import type { LogScope } from './logger.scope';
 
-const emptyStr = '';
-
 const enum OrderedLevel {
 	Off = 0,
 	Error = 1,
@@ -77,16 +75,16 @@ export const Logger = new (class Logger {
 			message = params.shift();
 
 			if (scopeOrMessage != null) {
-				message = `${scopeOrMessage.prefix} ${message ?? emptyStr}`;
+				message = `${scopeOrMessage.prefix} ${message ?? ''}`;
 			}
 		}
 
 		if (this.isDebugging) {
-			console.log(this.timestamp, `[${this.provider!.name}]`, message ?? emptyStr, ...params);
+			console.log(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
 		}
 
 		if (this.output == null || this.level < OrderedLevel.Debug) return;
-		this.output.appendLine(`${this.timestamp} ${message ?? emptyStr}${this.toLoggableParams(true, params)}`);
+		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(true, params)}`);
 	}
 
 	error(ex: Error | unknown, message?: string, ...params: any[]): void;
@@ -98,7 +96,7 @@ export const Logger = new (class Logger {
 		if (scopeOrMessage == null || typeof scopeOrMessage === 'string') {
 			message = scopeOrMessage;
 		} else {
-			message = `${scopeOrMessage.prefix} ${params.shift() ?? emptyStr}`;
+			message = `${scopeOrMessage.prefix} ${params.shift() ?? ''}`;
 		}
 
 		if (message == null) {
@@ -113,15 +111,15 @@ export const Logger = new (class Logger {
 
 		if (this.isDebugging) {
 			if (ex != null) {
-				console.error(this.timestamp, `[${this.provider!.name}]`, message ?? emptyStr, ...params, ex);
+				console.error(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params, ex);
 			} else {
-				console.error(this.timestamp, `[${this.provider!.name}]`, message ?? emptyStr, ...params);
+				console.error(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
 			}
 		}
 
 		if (this.output == null || this.level < OrderedLevel.Error) return;
 		this.output.appendLine(
-			`${this.timestamp} ${message ?? emptyStr}${this.toLoggableParams(false, params)}${
+			`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}${
 				ex != null ? `\n${String(ex)}` : ''
 			}`,
 		);
@@ -139,16 +137,16 @@ export const Logger = new (class Logger {
 			message = params.shift();
 
 			if (scopeOrMessage != null) {
-				message = `${scopeOrMessage.prefix} ${message ?? emptyStr}`;
+				message = `${scopeOrMessage.prefix} ${message ?? ''}`;
 			}
 		}
 
 		if (this.isDebugging) {
-			console.log(this.timestamp, `[${this.provider!.name}]`, message ?? emptyStr, ...params);
+			console.log(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
 		}
 
 		if (this.output == null || this.level < OrderedLevel.Info) return;
-		this.output.appendLine(`${this.timestamp} ${message ?? emptyStr}${this.toLoggableParams(false, params)}`);
+		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}`);
 	}
 
 	warn(message: string, ...params: any[]): void;
@@ -163,16 +161,16 @@ export const Logger = new (class Logger {
 			message = params.shift();
 
 			if (scopeOrMessage != null) {
-				message = `${scopeOrMessage.prefix} ${message ?? emptyStr}`;
+				message = `${scopeOrMessage.prefix} ${message ?? ''}`;
 			}
 		}
 
 		if (this.isDebugging) {
-			console.warn(this.timestamp, `[${this.provider!.name}]`, message ?? emptyStr, ...params);
+			console.warn(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
 		}
 
 		if (this.output == null || this.level < OrderedLevel.Warn) return;
-		this.output.appendLine(`${this.timestamp} ${message ?? emptyStr}${this.toLoggableParams(false, params)}`);
+		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}`);
 	}
 
 	showOutputChannel(preserveFocus?: boolean): void {
@@ -198,11 +196,11 @@ export const Logger = new (class Logger {
 
 	private toLoggableParams(debugOnly: boolean, params: any[]) {
 		if (params.length === 0 || (debugOnly && this.level < OrderedLevel.Debug && !this.isDebugging)) {
-			return emptyStr;
+			return '';
 		}
 
 		const loggableParams = params.map(p => this.toLoggable(p)).join(', ');
-		return loggableParams.length !== 0 ? ` \u2014 ${loggableParams}` : emptyStr;
+		return loggableParams.length !== 0 ? ` \u2014 ${loggableParams}` : '';
 	}
 })();
 
@@ -228,9 +226,9 @@ export function getLoggableName(instance: Function | object) {
 	if (typeof instance === 'function') {
 		if (instance.prototype?.constructor == null) return instance.name;
 
-		name = instance.prototype.constructor.name ?? emptyStr;
+		name = instance.prototype.constructor.name ?? '';
 	} else {
-		name = instance.constructor?.name ?? emptyStr;
+		name = instance.constructor?.name ?? '';
 	}
 
 	// Strip webpack module name (since I never name classes with an _)

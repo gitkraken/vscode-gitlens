@@ -8,8 +8,6 @@ import { clearLogScope, getNextLogScopeId, setLogScope } from '../logger.scope';
 import { isPromise } from '../promise';
 import { getDurationMilliseconds } from '../string';
 
-const emptyStr = '';
-
 export interface LogContext {
 	id: number;
 	instance: any;
@@ -124,7 +122,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 					{
 						id: scopeId,
 						instance: this,
-						instanceName: instanceName ?? emptyStr,
+						instanceName: instanceName ?? '',
 						name: key,
 						prefix: prefix,
 					},
@@ -138,11 +136,11 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 				setLogScope(scopeId, scope);
 			}
 
-			const enter = enterFn != null ? enterFn(...args) : emptyStr;
+			const enter = enterFn != null ? enterFn(...args) : '';
 
 			let loggableParams: string;
 			if (overrides === false || args.length === 0) {
-				loggableParams = emptyStr;
+				loggableParams = '';
 
 				if (!singleLine) {
 					logFn.call(Logger, `${prefix}${enter}`);
@@ -193,7 +191,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 				const start = timed ? hrtime() : undefined;
 
 				const logError = (ex: Error) => {
-					const timing = start !== undefined ? ` [${getDurationMilliseconds(start)}ms]` : emptyStr;
+					const timing = start !== undefined ? ` [${getDurationMilliseconds(start)}ms]` : '';
 					if (singleLine) {
 						Logger.error(
 							ex,
@@ -235,7 +233,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 							timing = ` [${duration}ms]`;
 						}
 					} else {
-						timing = emptyStr;
+						timing = '';
 						exitLogFn = logFn;
 					}
 
@@ -262,18 +260,16 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 							exitLogFn.call(
 								Logger,
 								loggableParams
-									? `${prefix}${enter}(${loggableParams}) ${exit}${
-											scope?.exitDetails || emptyStr
-									  }${timing}`
-									: `${prefix}${enter} ${exit}${scope?.exitDetails || emptyStr}${timing}`,
+									? `${prefix}${enter}(${loggableParams}) ${exit}${scope?.exitDetails || ''}${timing}`
+									: `${prefix}${enter} ${exit}${scope?.exitDetails || ''}${timing}`,
 							);
 						}
 					} else {
 						exitLogFn.call(
 							Logger,
 							loggableParams
-								? `${prefix}(${loggableParams}) ${exit}${scope?.exitDetails || emptyStr}${timing}`
-								: `${prefix} ${exit}${scope?.exitDetails || emptyStr}${timing}`,
+								? `${prefix}(${loggableParams}) ${exit}${scope?.exitDetails || ''}${timing}`
+								: `${prefix} ${exit}${scope?.exitDetails || ''}${timing}`,
 						);
 					}
 

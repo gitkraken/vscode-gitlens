@@ -4,8 +4,6 @@ import type { GitRemoteType } from '../models/remote';
 import { GitRemote } from '../models/remote';
 import type { getRemoteProviderMatcher } from '../remotes/remoteProviders';
 
-const emptyStr = '';
-
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
 
 export function parseGitRemotes(
@@ -117,11 +115,11 @@ export const remoteUrlRegex =
 
 export function parseGitRemoteUrl(url: string): [scheme: string, domain: string, path: string] {
 	const match = remoteUrlRegex.exec(url);
-	if (match == null) return [emptyStr, emptyStr, url];
+	if (match == null) return ['', '', url];
 
 	return [
 		match[1] || match[3] || match[6],
 		match[2] || match[4] || match[5] || match[7] || match[8],
-		match[9].replace(/\.git\/?$/, emptyStr),
+		match[9].replace(/\.git\/?$/, ''),
 	];
 }
