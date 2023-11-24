@@ -9,7 +9,6 @@ const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const esbuild = require('esbuild');
-const { EsbuildPlugin } = require('esbuild-loader');
 const { generateFonts } = require('@twbs/fantasticon');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const fs = require('fs');
@@ -24,7 +23,7 @@ const WebpackRequireFromPlugin = require('webpack-require-from');
 
 module.exports =
 	/**
-	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; esbuildMinify?: boolean; useSharpForImageOptimization?: boolean } | undefined } env
+	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean } | undefined } env
 	 * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
 	 * @returns { WebpackConfig[] }
 	 */
@@ -35,8 +34,6 @@ module.exports =
 			analyzeBundle: false,
 			analyzeDeps: false,
 			esbuild: true,
-			esbuildMinify: false,
-			useSharpForImageOptimization: true,
 			...env,
 		};
 
@@ -50,7 +47,7 @@ module.exports =
 /**
  * @param { 'node' | 'webworker' } target
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; esbuildMinify?: boolean; useSharpForImageOptimization?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean }} env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(target, mode, env) {
@@ -159,36 +156,26 @@ function getExtensionConfig(target, mode, env) {
 		},
 		optimization: {
 			minimizer: [
-				env.esbuildMinify
-					? new EsbuildPlugin({
-							drop: ['debugger'],
-							format: 'cjs',
-							// Keep the class names otherwise @log won't provide a useful name
-							keepNames: true,
-							legalComments: 'none',
-							minify: true,
-							target: 'es2022',
-							treeShaking: true,
-					  })
-					: new TerserPlugin({
-							extractComments: false,
-							parallel: true,
-							terserOptions: {
-								compress: {
-									drop_debugger: true,
-									ecma: 2020,
-									module: true,
-								},
-								ecma: 2020,
-								format: {
-									comments: false,
-									ecma: 2020,
-								},
-								// Keep the class names otherwise @log won't provide a useful name
-								keep_classnames: true,
-								module: true,
-							},
-					  }),
+				new TerserPlugin({
+					minify: TerserPlugin.swcMinify,
+					extractComments: false,
+					parallel: true,
+					terserOptions: {
+						compress: {
+							drop_debugger: true,
+							ecma: 2020,
+							module: true,
+						},
+						ecma: 2020,
+						format: {
+							comments: false,
+							ecma: 2020,
+						},
+						// Keep the class names otherwise @log won't provide a useful name
+						keep_classnames: true,
+						module: true,
+					},
+				}),
 			],
 			splitChunks:
 				target === 'webworker'
@@ -278,7 +265,7 @@ function getExtensionConfig(target, mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; esbuildMinify?: boolean; useSharpForImageOptimization?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean }} env
  * @returns { WebpackConfig }
  */
 function getWebviewsConfig(mode, env) {
@@ -414,38 +401,27 @@ function getWebviewsConfig(mode, env) {
 			minimizer:
 				mode === 'production'
 					? [
-							env.esbuildMinify
-								? new EsbuildPlugin({
-										css: true,
-										drop: ['debugger', 'console'],
-										format: 'esm',
-										// Keep the class names otherwise @log won't provide a useful name
-										// keepNames: true,
-										legalComments: 'none',
-										minify: true,
-										target: 'es2022',
-										treeShaking: true,
-								  })
-								: new TerserPlugin({
-										extractComments: false,
-										parallel: true,
-										terserOptions: {
-											compress: {
-												drop_debugger: true,
-												drop_console: true,
-												ecma: 2020,
-												module: true,
-											},
-											ecma: 2020,
-											format: {
-												comments: false,
-												ecma: 2020,
-											},
-											// // Keep the class names otherwise @log won't provide a useful name
-											// keep_classnames: true,
-											module: true,
-										},
-								  }),
+							new TerserPlugin({
+								minify: TerserPlugin.swcMinify,
+								extractComments: false,
+								parallel: true,
+								terserOptions: {
+									compress: {
+										drop_debugger: true,
+										drop_console: true,
+										ecma: 2020,
+										module: true,
+									},
+									ecma: 2020,
+									format: {
+										comments: false,
+										ecma: 2020,
+									},
+									// // Keep the class names otherwise @log won't provide a useful name
+									// keep_classnames: true,
+									module: true,
+								},
+							}),
 							new ImageMinimizerPlugin({
 								deleteOriginalAssets: true,
 								generator: [imageGeneratorConfig],
@@ -569,7 +545,7 @@ function getWebviewsConfig(mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; useSharpForImageOptimization?: boolean } | undefined } env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean } | undefined } env
  * @returns { CspHtmlPlugin }
  */
 function getCspHtmlPlugin(mode, env) {
@@ -609,48 +585,30 @@ function getCspHtmlPlugin(mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; useSharpForImageOptimization?: boolean } | undefined } env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean } | undefined } env
  * @returns { ImageMinimizerPlugin.Generator<any> }
  */
 function getImageMinimizerConfig(mode, env) {
 	/** @type ImageMinimizerPlugin.Generator<any> */
 	// @ts-ignore
-	return env.useSharpForImageOptimization
-		? {
-				type: 'asset',
-				implementation: ImageMinimizerPlugin.sharpGenerate,
-				options: {
-					encodeOptions: {
-						webp: {
-							lossless: true,
-						},
-					},
+	return {
+		type: 'asset',
+		implementation: ImageMinimizerPlugin.sharpGenerate,
+		options: {
+			encodeOptions: {
+				webp: {
+					lossless: true,
 				},
-		  }
-		: {
-				type: 'asset',
-				implementation: ImageMinimizerPlugin.imageminGenerate,
-				options: {
-					plugins: [
-						[
-							'imagemin-webp',
-							{
-								lossless: true,
-								nearLossless: 0,
-								quality: 100,
-								method: mode === 'production' ? 4 : 0,
-							},
-						],
-					],
-				},
-		  };
+			},
+		},
+	};
 }
 
 /**
  * @param { string } name
  * @param { boolean } plus
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; useSharpForImageOptimization?: boolean } | undefined } env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean } | undefined } env
  * @returns { HtmlPlugin }
  */
 function getHtmlPlugin(name, plus, mode, env) {
