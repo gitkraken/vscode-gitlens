@@ -483,17 +483,12 @@ export abstract class ViewBase<
 	})
 	async findNode(
 		predicate: (node: ViewNode) => boolean,
-		{
-			allowPaging = false,
-			canTraverse,
-			maxDepth = 2,
-			token,
-		}: {
+		options?: {
 			allowPaging?: boolean;
 			canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
 			maxDepth?: number;
 			token?: CancellationToken;
-		} = {},
+		},
 	): Promise<ViewNode | undefined> {
 		const scope = getLogScope();
 
@@ -502,10 +497,10 @@ export abstract class ViewBase<
 				const node = await this.findNodeCoreBFS(
 					predicate,
 					this.ensureRoot(),
-					allowPaging,
-					canTraverse,
-					maxDepth,
-					token,
+					options?.allowPaging ?? false,
+					options?.canTraverse,
+					options?.maxDepth ?? 2,
+					options?.token,
 				);
 
 				return node;
