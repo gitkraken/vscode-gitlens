@@ -471,7 +471,7 @@ export type TreeViewTypes =
 	| 'tags'
 	| 'workspaces'
 	| 'worktrees';
-export type TreeViewIds = `gitlens.views.${TreeViewTypes}`;
+export type TreeViewIds<T extends TreeViewTypes = TreeViewTypes> = `gitlens.views.${T}`;
 
 export type WebviewTypes = 'focus' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome';
 export type WebviewIds = `gitlens.${WebviewTypes}`;
@@ -484,7 +484,7 @@ export type WebviewViewTypes =
 	| 'home'
 	| 'patchDetails'
 	| 'timeline';
-export type WebviewViewIds = `gitlens.views.${WebviewViewTypes}`;
+export type WebviewViewIds<T extends WebviewViewTypes = WebviewViewTypes> = `gitlens.views.${T}`;
 
 export type ViewTypes = TreeViewTypes | WebviewViewTypes;
 export type ViewIds = TreeViewIds | WebviewViewIds;

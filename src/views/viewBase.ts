@@ -28,7 +28,7 @@ import type {
 	WorktreesViewConfig,
 } from '../config';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
-import type { TreeViewCommandSuffixesByViewType, TreeViewTypes } from '../constants';
+import type { TreeViewCommandSuffixesByViewType, TreeViewIds, TreeViewTypes } from '../constants';
 import type { Container } from '../container';
 import { executeCoreCommand } from '../system/command';
 import { configuration } from '../system/configuration';
@@ -113,7 +113,7 @@ export abstract class ViewBase<
 	>
 	implements TreeDataProvider<ViewNode>, Disposable
 {
-	get id(): `gitlens.views.${Type}` {
+	get id(): TreeViewIds<Type> {
 		return `gitlens.views.${this.type}`;
 	}
 
