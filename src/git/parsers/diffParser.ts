@@ -23,8 +23,8 @@ export function parseGitFileDiff(data: string, includeContents = false): GitDiff
 
 	// Skip header
 	let i = -1;
-	while (i < lines.length) {
-		if (lines[++i].startsWith('@@')) {
+	while (++i < lines.length) {
+		if (lines[i].startsWith('@@')) {
 			break;
 		}
 	}
