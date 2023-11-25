@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import * as fs from 'fs';
 import * as path from 'path';
-import fetch from 'node-fetch';
 import * as checker from 'license-checker-rseidelsohn';
 
 /** @typedef { { licenses: string; repository: string; licenseFile: string } } PackageInfo **/
