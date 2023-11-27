@@ -2,6 +2,9 @@ import { css } from 'lit';
 
 export const themeProperties = css`
 	:host {
+		--focus-color: var(--vscode-focusBorder);
+		--gk-focus-border-color: var(--focus-color);
+
 		--gk-additions-color: var(--vscode-gitDecoration-addedResourceForeground);
 		--gk-deletions-color: var(--vscode-gitDecoration-deletedResourceForeground);
 
@@ -9,10 +12,10 @@ export const themeProperties = css`
 		--gk-tag-background-color: var(--background-10);
 		--gk-text-secondary-color: var(--color-foreground--85);
 
-		--gk-menu-border-color: var(--background-30);
-		--gk-menu-background-color: var(--background-10);
-		--gk-menu-item-background-color-hover: var(--background-15);
-		--gk-menu-item-font-color-disabled: var(--color-foreground--50);
+		--gk-menu-border-color: var(--vscode-menu-border);
+		--gk-menu-background-color: var(--vscode-menu-background);
+		--gk-menu-item-background-color-hover: var(--vscode-menu-selectionBackground);
+		--gk-menu-item-background-color-active: var(--vscode-menu-background);
 
 		--gk-button-ghost-color: var(--color-foreground);
 		--gk-button-ghost-color-active: var(--color-foreground--85);

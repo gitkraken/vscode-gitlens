@@ -60,6 +60,7 @@ export const SwitchToBranchCommandType = new IpcCommandType<SwitchToBranchParams
 
 export interface SnoozePrParams {
 	pullRequest: PullRequestShape;
+	expiresAt?: string;
 	snooze?: string;
 }
 export const SnoozePrCommandType = new IpcCommandType<SnoozePrParams>('focus/pr/snooze');
@@ -72,6 +73,7 @@ export const PinPrCommandType = new IpcCommandType<PinPrParams>('focus/pr/pin');
 
 export interface SnoozeIssueParams {
 	issue: IssueShape;
+	expiresAt?: string;
 	snooze?: string;
 }
 export const SnoozeIssueCommandType = new IpcCommandType<SnoozeIssueParams>('focus/issue/snooze');
