@@ -346,7 +346,7 @@ export interface GitProvider extends Disposable {
 			authors?: GitUser[] | undefined;
 			cursor?: string | undefined;
 			limit?: number | undefined;
-			merges?: boolean | undefined;
+			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			ref?: string | undefined;
 			since?: string | undefined;

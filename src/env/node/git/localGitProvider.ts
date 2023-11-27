@@ -2267,7 +2267,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const statsParser = getGraphStatsParser();
 
 		const [refResult, stashResult, branchesResult, remotesResult, currentUserResult] = await Promise.allSettled([
-			this.git.log2(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
+			this.git.log(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
 			this.getStash(repoPath),
 			this.getBranches(repoPath),
 			this.getRemotes(repoPath),
@@ -2339,7 +2339,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				} else {
 					args.push(`-n${nextPageLimit + 1}`);
 
-					data = await this.git.log2(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
+					data = await this.git.log(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
 
 					if (cursor) {
 						if (!getShaInLogRegex(cursor.sha).test(data)) {
@@ -2727,7 +2727,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						}
 						args.push(`--${ordering}-order`, '--all');
 
-						const statsData = await this.git.log2(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
+						const statsData = await this.git.log(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
 						if (statsData) {
 							const commitStats = statsParser.parse(statsData);
 							for (const stat of commitStats) {
@@ -2810,10 +2810,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					const currentUser = await this.getCurrentUser(repoPath);
 					const parser = getContributorsParser(options?.stats);
 
-					const data = await this.git.log(repoPath, options?.ref, {
-						all: options?.all,
-						argsOrFormat: parser.arguments,
-					});
+					const args = [...parser.arguments, '--full-history', '--first-parent'];
+					if (options?.all) {
+						args.push('--all', '--single-worktree');
+					}
+
+					const data = await this.git.log(repoPath, { ref: options?.ref }, ...args);
 
 					const contributors = new Map<string, GitContributor>();
 
@@ -3320,14 +3322,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		try {
 			const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
-			const merges = options?.merges == null ? true : options.merges;
-			const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-
 			const args = [
 				`--format=${options?.all ? parseGitLogAllFormat : parseGitLogDefaultFormat}`,
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-				'-m',
 			];
 
 			if (options?.status !== null) {
@@ -3336,11 +3334,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (options?.all) {
 				args.push('--all');
 			}
-			if (!merges) {
+
+			const merges = options?.merges ?? true;
+			if (merges) {
+				if (limit <= 2) {
+					// Ensure we return the merge commit files when we are asking for a specific ref
+					args.push('-m');
+				}
+				args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
+			} else {
 				args.push('--no-merges');
-			} else if (merges === 'first-parent') {
-				args.push('--first-parent');
 			}
+
+			const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
 			if (ordering) {
 				args.push(`--${ordering}-order`);
 			}
@@ -3374,7 +3380,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push(`-n${limit + 1}`);
 			}
 
-			const data = await this.git.log2(
+			const data = await this.git.log(
 				repoPath,
 				{ configs: gitLogDefaultConfigsWithFiles, ref: options?.ref, stdin: options?.stdin },
 				...args,
@@ -3437,8 +3443,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				if (log.hasMore) {
 					let opts;
 					if (options != null) {
-						let extraArgs;
-						({ extraArgs, ...opts } = options);
+						let _;
+						({ extraArgs: _, ...opts } = options);
 					}
 					log.more = this.getLogMoreFn(log, opts);
 				}
@@ -3459,7 +3465,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			authors?: GitUser[];
 			cursor?: string;
 			limit?: number;
-			merges?: boolean;
+			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			since?: string;
@@ -3471,16 +3477,36 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		try {
 			const parser = createLogParserSingle('%H');
+			const args = [...parser.arguments, '--full-history'];
 
-			const data = await this.git.log(repoPath, options?.ref, {
-				authors: options?.authors,
-				argsOrFormat: parser.arguments,
-				limit: limit,
-				merges: options?.merges == null ? true : options.merges,
-				similarityThreshold: configuration.get('advanced.similarityThreshold'),
-				since: options?.since,
-				ordering: options?.ordering ?? configuration.get('advanced.commitOrdering'),
-			});
+			const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
+			if (ordering) {
+				args.push(`--${ordering}-order`);
+			}
+
+			if (limit) {
+				args.push(`-n${limit + 1}`);
+			}
+
+			if (options?.since) {
+				args.push(`--since="${options.since}"`);
+			}
+
+			const merges = options?.merges ?? true;
+			if (merges) {
+				args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
+			} else {
+				args.push('--no-merges');
+			}
+
+			if (options?.authors?.length) {
+				if (!args.includes('--use-mailmap')) {
+					args.push('--use-mailmap');
+				}
+				args.push(...options.authors.map(a => `--author=^${a.name} <${a.email}>$`));
+			}
+
+			const data = await this.git.log(repoPath, { ref: options?.ref }, ...args);
 
 			const commits = new Set(parser.parse(data));
 			return commits;
@@ -5304,7 +5330,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				let data;
 				try {
-					data = await this.git.log2(
+					data = await this.git.log(
 						repoPath,
 						{
 							cancellation: options?.cancellation,
