@@ -15,14 +15,23 @@ import { when } from 'lit/directives/when.js';
 import type { IssueMember, IssueShape } from '../../../../../git/models/issue';
 import { elementBase } from '../../../shared/components/styles/lit/base.css';
 import { repoBranchStyles } from './branch-tag.css';
-import { rowBaseStyles } from './common.css';
+import { pinStyles, rowBaseStyles } from './common.css';
 import { dateAgeStyles } from './date-styles.css';
 import { themeProperties } from './gk-theme.css';
 import { fromDateRange } from './helpers';
+import './snooze';
 
 @customElement('gk-issue-row')
 export class GkIssueRow extends LitElement {
-	static override styles = [themeProperties, elementBase, dateAgeStyles, repoBranchStyles, rowBaseStyles, css``];
+	static override styles = [
+		themeProperties,
+		elementBase,
+		dateAgeStyles,
+		repoBranchStyles,
+		pinStyles,
+		rowBaseStyles,
+		css``,
+	];
 
 	@property({ type: Number })
 	public rank?: number;
@@ -31,10 +40,10 @@ export class GkIssueRow extends LitElement {
 	public issue?: IssueShape;
 
 	@property()
-	public pinned = false;
+	public pinned?: string;
 
 	@property()
-	public snoozed = false;
+	public snoozed?: string;
 
 	constructor() {
 		super();
@@ -80,16 +89,7 @@ export class GkIssueRow extends LitElement {
 						></a>
 						<span>${this.pinned ? 'Unpin' : 'Pin'}</span>
 					</gk-tooltip>
-					<gk-tooltip>
-						<a
-							href="#"
-							class="icon pin ${this.snoozed ? ' is-active' : ''}"
-							slot="trigger"
-							@click="${this.onSnoozeClick}"
-							><code-icon icon="${this.snoozed ? 'bell' : 'bell-slash'}"></code-icon
-						></a>
-						<span>${this.snoozed ? 'Unsnooze' : 'Snooze'}</span>
-					</gk-tooltip>
+					<gl-snooze .snoozed=${this.snoozed} @gl-snooze-action=${this.onSnoozeAction}></gl-snooze>
 				</span>
 				<span slot="date">
 					<gk-date-from class="date ${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
@@ -159,11 +159,15 @@ export class GkIssueRow extends LitElement {
 		`;
 	}
 
-	onSnoozeClick(e: Event) {
+	onSnoozeAction(e: CustomEvent<{ expiresAt: never; snooze: string } | { expiresAt?: string; snooze: never }>) {
 		e.preventDefault();
 		this.dispatchEvent(
 			new CustomEvent('snooze-item', {
-				detail: { item: this.issue!, snooze: this.snoozed },
+				detail: {
+					item: this.issue!,
+					expiresAt: e.detail.expiresAt,
+					snooze: this.snoozed,
+				},
 			}),
 		);
 	}

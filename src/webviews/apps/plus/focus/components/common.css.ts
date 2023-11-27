@@ -94,6 +94,13 @@ export const rowBaseStyles = css`
 		line-height: 2.4rem;
 	}
 
+	gk-focus-row:not(:hover):not(:focus-within) gl-snooze:not([snoozed]),
+	gk-focus-row:not(:hover):not(:focus-within) .pin:not(.is-active) {
+		opacity: 0;
+	}
+`;
+
+export const pinStyles = css`
 	.icon {
 		box-sizing: border-box;
 		display: inline-flex;
@@ -109,16 +116,26 @@ export const rowBaseStyles = css`
 		cursor: pointer;
 		opacity: 0.4;
 	}
+
 	.pin:hover {
 		opacity: 0.64;
 		text-decoration: none;
 	}
 
-	gk-focus-row:not(:hover):not(:focus-within) .pin:not(.is-active) {
-		opacity: 0;
+	.pin:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
 	}
 
 	.pin.is-active {
 		opacity: 1;
+	}
+
+	.pin-menu {
+		width: max-content;
+	}
+
+	gk-tooltip gk-menu {
+		z-index: 10;
 	}
 `;

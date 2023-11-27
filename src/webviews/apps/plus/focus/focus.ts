@@ -47,22 +47,22 @@ export class FocusApp extends App<State> {
 				'switch-branch',
 				(e, target: HTMLElement) => this.onSwitchBranch(e, target),
 			),
-			DOM.on<GkPullRequestRow, { item: PullRequestShape | IssueShape; snooze?: string }>(
+			DOM.on<GkPullRequestRow, { item: PullRequestShape; date?: number; snooze?: string }>(
 				'gk-pull-request-row',
 				'snooze-item',
 				(e, _target: HTMLElement) => this.onSnoozeItem(e, false),
 			),
-			DOM.on<GkPullRequestRow, { item: PullRequestShape | IssueShape; pin?: string }>(
+			DOM.on<GkPullRequestRow, { item: PullRequestShape; pin?: string }>(
 				'gk-pull-request-row',
 				'pin-item',
 				(e, _target: HTMLElement) => this.onPinItem(e, false),
 			),
-			DOM.on<GkIssueRow, { item: PullRequestShape | IssueShape; snooze?: string }>(
+			DOM.on<GkIssueRow, { item: IssueShape; date?: number; snooze?: string }>(
 				'gk-issue-row',
 				'snooze-item',
 				(e, _target: HTMLElement) => this.onSnoozeItem(e, true),
 			),
-			DOM.on<GkIssueRow, { item: PullRequestShape | IssueShape; pin?: string }>(
+			DOM.on<GkIssueRow, { item: IssueShape; pin?: string }>(
 				'gk-issue-row',
 				'pin-item',
 				(e, _target: HTMLElement) => this.onPinItem(e, true),
@@ -99,12 +99,20 @@ export class FocusApp extends App<State> {
 		this.sendCommand(OpenWorktreeCommandType, { pullRequest: e.detail });
 	}
 
-	private onSnoozeItem(e: CustomEvent<{ item: PullRequestShape | IssueShape; snooze?: string }>, isIssue: boolean) {
+	private onSnoozeItem(
+		e: CustomEvent<{ item: PullRequestShape | IssueShape; expiresAt?: string; snooze?: string }>,
+		isIssue: boolean,
+	) {
 		if (isIssue) {
-			this.sendCommand(SnoozeIssueCommandType, { issue: e.detail.item as IssueShape, snooze: e.detail.snooze });
+			this.sendCommand(SnoozeIssueCommandType, {
+				issue: e.detail.item as IssueShape,
+				expiresAt: e.detail.expiresAt,
+				snooze: e.detail.snooze,
+			});
 		} else {
 			this.sendCommand(SnoozePrCommandType, {
 				pullRequest: e.detail.item as PullRequestShape,
+				expiresAt: e.detail.expiresAt,
 				snooze: e.detail.snooze,
 			});
 		}
