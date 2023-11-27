@@ -33,7 +33,10 @@ export function parseGitFileDiff(data: string, includeContents = false): GitDiff
 	let line;
 	while (i < lines.length) {
 		line = lines[i];
-		if (!line.startsWith('@@')) continue;
+		if (!line.startsWith('@@')) {
+			i++;
+			continue;
+		}
 
 		const header = line.split('@@')[1].trim();
 		const [previousHeaderPart, currentHeaderPart] = header.split(' ');
