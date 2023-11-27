@@ -527,15 +527,6 @@ export function parseGitLog(
 
 				let hasFiles = true;
 				if (next.done || next.value === '</f>') {
-					// If this is a merge commit and there are no files returned, skip the commit and reduce our truncationCount to ensure accurate truncation detection
-					if ((entry.parentShas?.length ?? 0) > 1) {
-						if (truncationCount) {
-							truncationCount--;
-						}
-
-						break;
-					}
-
 					hasFiles = false;
 				}
 

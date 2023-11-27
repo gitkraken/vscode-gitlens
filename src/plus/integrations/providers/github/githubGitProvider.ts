@@ -1782,7 +1782,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			authors?: GitUser[];
 			cursor?: string;
 			limit?: number;
-			merges?: boolean;
+			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			since?: string;
@@ -1887,7 +1887,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			authors?: GitUser[];
 			cursor?: string;
 			limit?: number;
-			merges?: boolean;
+			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			since?: string;
@@ -1905,7 +1905,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		options?: {
 			authors?: GitUser[];
 			limit?: number;
-			merges?: boolean;
+			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 		},
