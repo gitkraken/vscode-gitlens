@@ -402,7 +402,8 @@ function getWebviewsConfig(mode, env) {
 				mode === 'production'
 					? [
 							new TerserPlugin({
-								minify: TerserPlugin.swcMinify,
+								// Terser seems better than SWC for minifying the webviews (esm?)
+								// minify: TerserPlugin.swcMinify,
 								extractComments: false,
 								parallel: true,
 								terserOptions: {
