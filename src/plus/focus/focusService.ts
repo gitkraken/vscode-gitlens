@@ -14,6 +14,7 @@ export interface FocusItem {
 	id: string;
 	remote: GitRemote<RemoteProvider>;
 	url: string;
+	expiresAt?: string;
 }
 
 export type EnrichedItem = {
@@ -26,8 +27,9 @@ export type EnrichedItem = {
 	entityId: string;
 	entityUrl: string;
 
-	createdAt: number;
-	updatedAt: number;
+	createdAt: string;
+	updatedAt: string;
+	expiresAt?: string;
 };
 
 type EnrichedItemRequest = {
@@ -35,6 +37,7 @@ type EnrichedItemRequest = {
 	entityType: EnrichedItemResponse['entityType'];
 	entityId: string;
 	entityUrl: string;
+	expiresAt?: string;
 };
 
 type EnrichedItemResponse = {
@@ -47,8 +50,9 @@ type EnrichedItemResponse = {
 	entityId: string;
 	entityUrl: string;
 
-	createdAt: number;
-	updatedAt: number;
+	createdAt: string;
+	updatedAt: string;
+	expiresAt?: string;
 };
 
 export class FocusService implements Disposable {
@@ -163,6 +167,9 @@ export class FocusService implements Disposable {
 				entityId: item.id,
 				entityUrl: item.url,
 			};
+			if (item.expiresAt != null) {
+				rq.expiresAt = item.expiresAt;
+			}
 
 			const rsp = await this.connection.fetchGkDevApi('v1/enrich-items/snooze', {
 				method: 'POST',
