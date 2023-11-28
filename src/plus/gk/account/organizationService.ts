@@ -5,6 +5,7 @@ import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
 import type { ServerConnection } from '../serverConnection';
 import type { Organization } from './organization';
+import type { SubscriptionChangeEvent } from './subscriptionService';
 
 export class OrganizationService implements Disposable {
 	private _disposable: Disposable;
@@ -51,7 +52,9 @@ export class OrganizationService implements Disposable {
 		this._disposable.dispose();
 	}
 
-	onSubscriptionChanged(): void {
-		this._organizations = undefined;
+	private onSubscriptionChanged(e: SubscriptionChangeEvent): void {
+		if (e.current?.account?.id !== e.previous?.account?.id) {
+			this._organizations = undefined;
+		}
 	}
 }
