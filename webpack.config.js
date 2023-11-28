@@ -204,7 +204,7 @@ function getExtensionConfig(target, mode, env) {
 								options: {
 									format: 'esm',
 									implementation: esbuild,
-									target: ['es2022', 'chrome102', 'node16.14.2'],
+									target: ['es2022', 'chrome114', 'node18.15.0'],
 									tsconfig: path.join(
 										__dirname,
 										target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
@@ -467,7 +467,7 @@ function getWebviewsConfig(mode, env) {
 								options: {
 									format: 'esm',
 									implementation: esbuild,
-									target: 'es2021',
+									target: ['es2021', 'chrome114'],
 									tsconfig: path.join(basePath, 'tsconfig.json'),
 								},
 						  }
@@ -761,10 +761,14 @@ class FantasticonPlugin {
 
 			const logger = compiler.getInfrastructureLogger(this.pluginName);
 			logger.log(`Generating icon font...`);
+
+			const start = Date.now();
+
 			await onBefore?.(fontConfig);
 			await generateFonts(fontConfig);
 			await onComplete?.(fontConfig);
-			logger.log(`Generated icon font`);
+
+			logger.log(`Generated icon font in \x1b[32m${Date.now() - start}ms\x1b[0m`);
 		}
 
 		compiler.hooks.beforeRun.tapPromise(this.pluginName, generate.bind(this));
