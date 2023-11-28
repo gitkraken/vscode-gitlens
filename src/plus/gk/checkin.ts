@@ -7,7 +7,6 @@ export interface GKCheckInResponse {
 		readonly paidLicenses: Record<GKLicenseType, GKLicense>;
 		readonly effectiveLicenses: Record<GKLicenseType, GKLicense>;
 	};
-	readonly orgIds?: string[];
 }
 
 export interface GKUser {
@@ -51,7 +50,6 @@ export function getSubscriptionFromCheckIn(data: GKCheckInResponse): Partial<Sub
 		email: data.user.email,
 		verified: data.user.status === 'activated',
 		createdOn: data.user.createdDate,
-		organizationIds: data.orgIds ?? [],
 	};
 
 	const effectiveLicenses = Object.entries(data.licenses.effectiveLicenses) as [GKLicenseType, GKLicense][];

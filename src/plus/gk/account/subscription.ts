@@ -43,7 +43,6 @@ export interface SubscriptionAccount {
 	readonly email: string | undefined;
 	readonly verified: boolean;
 	readonly createdOn: string;
-	readonly organizationIds: string[];
 }
 
 export interface SubscriptionPreviewTrial {

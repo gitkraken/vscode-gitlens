@@ -164,25 +164,11 @@ export class WorkspacesApi {
 		}
 		queryParams += ')';
 
-		let query = 'query getWorkpaces {';
-		query += `memberProjects: projects ${queryParams} { ${queryData} }`;
-
-		// TODO@axosoft-ramint This is a temporary and hacky workaround until projects api returns all projects the
-		// user belongs to in one query. Update once that is available.
-		if (options?.cursor == null && options?.includeOrganizations) {
-			const organizationIds =
-				(await this.container.subscription.getSubscription())?.account?.organizationIds ?? [];
-			for (const organizationId of organizationIds) {
-				let orgQueryParams = `(first: ${options?.count ?? defaultWorkspaceCount}`;
-				if (options?.page) {
-					orgQueryParams += `, page: ${options.page}`;
-				}
-				orgQueryParams += `, organization_id: "${organizationId}")`;
-				query += `organizationProjects_${organizationId}: projects ${orgQueryParams} { ${queryData} }`;
+		const query = `
+			query getWorkpaces {
+				memberProjects: projects ${queryParams} { ${queryData} }
 			}
-		}
-
-		query += '}';
+		`;
 
 		const rsp = await this.fetch({ query: query });
 
