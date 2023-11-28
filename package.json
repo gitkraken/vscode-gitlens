@@ -4309,6 +4309,19 @@
 				}
 			},
 			{
+				"id": "gitkraken",
+				"title": "GitKraken",
+				"order": 11000,
+				"properties": {
+					"gitlens.gitKraken.activeOrganizationId": {
+						"type": "string",
+						"markdownDescription": "Specifies the ID of the user's active GitKraken organization in GitLens",
+						"scope": "window",
+						"order": 1
+					}
+				}
+			},
+			{
 				"id": "general",
 				"title": "General",
 				"order": 0,

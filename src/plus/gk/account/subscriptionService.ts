@@ -45,6 +45,7 @@ import { getSubscriptionFromCheckIn } from '../checkin';
 import type { ServerConnection } from '../serverConnection';
 import { ensurePlusFeaturesEnabled } from '../utils';
 import { authenticationProviderId, authenticationProviderScopes } from './authenticationProvider';
+import type { Organization } from './organization';
 import type { Subscription } from './subscription';
 import {
 	assertSubscriptionState,
@@ -324,6 +325,7 @@ export class SubscriptionService implements Disposable {
 				),
 			},
 			account: undefined,
+			activeOrganization: undefined,
 		});
 	}
 
@@ -991,6 +993,91 @@ export class SubscriptionService implements Disposable {
 		}
 
 		this._statusBarSubscription.show();
+	}
+
+	async updateActiveOrganization(organizationId: string) {
+		const scope = getLogScope();
+		if (this._subscription == null) {
+			Logger.error('Active subscription not found', scope);
+			return;
+		}
+
+		let organizations;
+		try {
+			organizations = await this.container.organization.getOrganizations();
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+			return;
+		}
+		const organization = organizations.find(org => org.id === organizationId);
+		if (organization == null) {
+			Logger.error('Organization not found', scope);
+			return;
+		}
+
+		if (configuration.get('gitKraken.activeOrganizationId') !== organizationId) {
+			await configuration.updateEffective('gitKraken.activeOrganizationId', organizationId);
+		}
+
+		this.changeSubscription({
+			...this._subscription,
+			activeOrganization: organization,
+		});
+	}
+
+	async ensureActiveOrganization(): Promise<Organization | undefined> {
+		const scope = getLogScope();
+		if (this._subscription == null) {
+			Logger.error('Active subscription not found', scope);
+			return undefined;
+		}
+
+		let organizations;
+		try {
+			organizations = await this.container.organization.getOrganizations();
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+			return undefined;
+		}
+
+		const currentOrganizationId = this._subscription?.activeOrganization?.id;
+		const storedOrganizationId = configuration.get('gitKraken.activeOrganizationId');
+		if (currentOrganizationId != null && organizations.some(org => org.id === currentOrganizationId)) {
+			if (storedOrganizationId != currentOrganizationId) {
+				await configuration.updateEffective('gitKraken.activeOrganizationId', currentOrganizationId);
+			}
+			return this._subscription.activeOrganization;
+		}
+
+		let organization: Organization | undefined;
+		if (storedOrganizationId != null) {
+			organization = organizations.find(org => org.id === storedOrganizationId);
+		}
+
+		if (organization != null) {
+			this.changeSubscription({
+				...this._subscription,
+				activeOrganization: organization,
+			});
+			return organization;
+		}
+
+		const planOrganizationId =
+			this._subscription.plan?.actual?.organizationId ?? this._subscription.plan?.effective?.organizationId;
+		if (planOrganizationId != null) {
+			organization = organizations.find(org => org.id === planOrganizationId);
+			if (organization != null) {
+				await configuration.updateEffective('gitKraken.activeOrganizationId', organization?.id);
+				this.changeSubscription({
+					...this._subscription,
+					activeOrganization: organization,
+				});
+			}
+		}
+
+		return organization;
 	}
 }
 

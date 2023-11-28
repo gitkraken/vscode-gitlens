@@ -21,6 +21,7 @@ import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPath
 import { DraftService } from './plus/drafts/draftsService';
 import { FocusService } from './plus/focus/focusService';
 import { AccountAuthenticationProvider } from './plus/gk/account/authenticationProvider';
+import { OrganizationService } from './plus/gk/account/organizationService';
 import { SubscriptionService } from './plus/gk/account/subscriptionService';
 import { ServerConnection } from './plus/gk/serverConnection';
 import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthentication';
@@ -605,6 +606,14 @@ export class Container {
 			this._mode = configuration.get('modes')?.[configuration.get('mode.active')];
 		}
 		return this._mode;
+	}
+
+	private _organization: OrganizationService | undefined;
+	get organization() {
+		if (this._organization == null) {
+			this._disposables.push((this._organization = new OrganizationService(this, this._connection)));
+		}
+		return this._organization;
 	}
 
 	private readonly _patchDetailsView: WebviewViewProxy<PatchDetailsWebviewShowingArgs>;
