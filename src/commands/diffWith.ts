@@ -7,9 +7,10 @@ import { isCommit } from '../git/models/commit';
 import { deletedOrMissing } from '../git/models/constants';
 import { isShaLike, isUncommitted, shortenRevision } from '../git/models/reference';
 import { showGenericErrorMessage } from '../messages';
-import { command, executeCoreCommand } from '../system/command';
+import { command } from '../system/command';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
+import { openDiffEditor } from '../system/utils';
 import { Command } from './base';
 
 export interface DiffWithCommandArgsRevision {
@@ -179,13 +180,12 @@ export class DiffWithCommand extends Command {
 				args.showOptions.selection = new Range(args.line, 0, args.line, 0);
 			}
 
-			void (await executeCoreCommand(
-				'vscode.diff',
+			await openDiffEditor(
 				lhs ?? this.container.git.getRevisionUri(deletedOrMissing, args.lhs.uri.fsPath, args.repoPath),
 				rhs ?? this.container.git.getRevisionUri(deletedOrMissing, args.rhs.uri.fsPath, args.repoPath),
 				title,
 				args.showOptions,
-			));
+			);
 		} catch (ex) {
 			Logger.error(ex, 'DiffWithCommand', 'getVersionedFile');
 			void showGenericErrorMessage('Unable to open compare');
