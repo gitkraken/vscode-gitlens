@@ -112,6 +112,10 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	dispose() {
+		if (this.enrichmentExpirationTimeout != null) {
+			clearTimeout(this.enrichmentExpirationTimeout);
+			this.enrichmentExpirationTimeout = undefined;
+		}
 		this._disposable.dispose();
 	}
 
@@ -173,7 +177,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	@debug({ args: false })
-	private async onSnoozeIssue({ issue, snooze }: SnoozeIssueParams) {
+	private async onSnoozeIssue({ issue, snooze, expiresAt }: SnoozeIssueParams) {
 		const issueWithRemote = this._issues?.find(r => r.issue.nodeId === issue.nodeId);
 		if (issueWithRemote == null) return;
 
@@ -188,6 +192,9 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				remote: issueWithRemote.repoAndRemote.remote,
 				url: issueWithRemote.issue.url,
 			};
+			if (expiresAt != null) {
+				focusItem.expiresAt = expiresAt;
+			}
 			const enrichedItem = await this.container.focus.snoozeItem(focusItem);
 			if (enrichedItem == null) return;
 			if (this._enrichedItems == null) {
@@ -235,7 +242,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	@debug({ args: false })
-	private async onSnoozePr({ pullRequest, snooze }: SnoozePrParams) {
+	private async onSnoozePr({ pullRequest, snooze, expiresAt }: SnoozePrParams) {
 		const prWithRemote = this._pullRequests?.find(r => r.pullRequest.nodeId === pullRequest.nodeId);
 		if (prWithRemote == null) return;
 
@@ -250,6 +257,9 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				remote: prWithRemote.repoAndRemote.remote,
 				url: prWithRemote.pullRequest.url,
 			};
+			if (expiresAt != null) {
+				focusItem.expiresAt = expiresAt;
+			}
 			const enrichedItem = await this.container.focus.snoozeItem(focusItem);
 			if (enrichedItem == null) return;
 			if (this._enrichedItems == null) {
@@ -427,6 +437,47 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return this._access;
 	}
 
+	private enrichmentExpirationTimeout?: ReturnType<typeof setTimeout>;
+	private ensureEnrichmentExpirationCore(appliedEnrichments?: EnrichedItem[]) {
+		if (this.enrichmentExpirationTimeout != null) {
+			clearTimeout(this.enrichmentExpirationTimeout);
+			this.enrichmentExpirationTimeout = undefined;
+		}
+
+		if (appliedEnrichments == null || appliedEnrichments.length === 0) return;
+
+		const nowTime = Date.now();
+		let expirableEnrichmentTime: number | undefined;
+		for (const item of appliedEnrichments) {
+			if (item.expiresAt == null) continue;
+
+			const expiresAtTime = new Date(item.expiresAt).getTime();
+			if (
+				expirableEnrichmentTime == null ||
+				(expiresAtTime > nowTime && expiresAtTime < expirableEnrichmentTime)
+			) {
+				expirableEnrichmentTime = expiresAtTime;
+			}
+		}
+
+		if (expirableEnrichmentTime == null) return;
+		const debounceTime = expirableEnrichmentTime + 1000 * 60 * 15; // 15 minutes
+		// find the item in appliedEnrichments with largest expiresAtTime that is less than the debounce time + expirableEnrichmentTime
+		for (const item of appliedEnrichments) {
+			if (item.expiresAt == null) continue;
+
+			const expiresAtTime = new Date(item.expiresAt).getTime();
+			if (expiresAtTime > expirableEnrichmentTime && expiresAtTime < debounceTime) {
+				expirableEnrichmentTime = expiresAtTime;
+			}
+		}
+
+		const expiresTimeout = expirableEnrichmentTime - nowTime + 60000;
+		this.enrichmentExpirationTimeout = setTimeout(() => {
+			void this.notifyDidChangeState(true);
+		}, expiresTimeout);
+	}
+
 	@debug()
 	private async getState(force?: boolean, deferState?: boolean): Promise<State> {
 		const baseState = this.host.baseWebviewState;
@@ -469,30 +520,52 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			this.getEnrichedItems(force),
 		]);
 
-		async function getStateCore() {
+		const getStateCore = async () => {
 			const [prsResult, issuesResult, enrichedItems] = await statePromise;
-			return {
-				...baseState,
-				access: access,
-				repos: repos,
-				pullRequests: getSettledValue(prsResult)?.map(pr => ({
+
+			const appliedEnrichments: EnrichedItem[] = [];
+			const pullRequests = getSettledValue(prsResult)?.map(pr => {
+				const itemEnrichments = findEnrichedItems(pr, getSettledValue(enrichedItems));
+				if (itemEnrichments != null) {
+					appliedEnrichments.push(...itemEnrichments);
+				}
+
+				return {
 					pullRequest: serializePullRequest(pr.pullRequest),
 					reasons: pr.reasons,
 					isCurrentBranch: pr.isCurrentBranch ?? false,
 					isCurrentWorktree: pr.isCurrentWorktree ?? false,
 					hasWorktree: pr.hasWorktree ?? false,
 					hasLocalBranch: pr.hasLocalBranch ?? false,
-					enriched: findEnrichedItems(pr, getSettledValue(enrichedItems)),
+					enriched: serializeEnrichedItems(itemEnrichments),
 					rank: pr.rank,
-				})),
-				issues: getSettledValue(issuesResult)?.map(issue => ({
+				};
+			});
+
+			const issues = getSettledValue(issuesResult)?.map(issue => {
+				const itemEnrichments = findEnrichedItems(issue, getSettledValue(enrichedItems));
+				if (itemEnrichments != null) {
+					appliedEnrichments.push(...itemEnrichments);
+				}
+
+				return {
 					issue: serializeIssue(issue.issue),
 					reasons: issue.reasons,
-					enriched: findEnrichedItems(issue, getSettledValue(enrichedItems)),
+					enriched: serializeEnrichedItems(itemEnrichments),
 					rank: issue.rank,
-				})),
+				};
+			});
+
+			this.ensureEnrichmentExpirationCore(appliedEnrichments);
+
+			return {
+				...baseState,
+				access: access,
+				repos: repos,
+				pullRequests: pullRequests,
+				issues: issues,
 			};
-		}
+		};
 
 		if (deferState) {
 			queueMicrotask(async () => {
@@ -705,7 +778,10 @@ function findEnrichedItems(
 	item: SearchedPullRequestWithRemote | SearchedIssueWithRank,
 	enrichedItems?: EnrichedItem[],
 ) {
-	if (enrichedItems == null || enrichedItems.length === 0) return;
+	if (enrichedItems == null || enrichedItems.length === 0) {
+		item.enriched = undefined;
+		return;
+	}
 
 	let result;
 	// TODO: filter by entity id, type, and gitRepositoryId
@@ -719,10 +795,17 @@ function findEnrichedItems(
 
 	item.enriched = result;
 
-	return result.map(result => {
+	return result;
+}
+
+function serializeEnrichedItems(enrichedItems: EnrichedItem[] | undefined) {
+	if (enrichedItems == null || enrichedItems.length === 0) return;
+
+	return enrichedItems.map(enrichedItem => {
 		return {
-			id: result.id,
-			type: result.type,
+			id: enrichedItem.id,
+			type: enrichedItem.type,
+			expiresAt: enrichedItem.expiresAt,
 		};
 	});
 }
