@@ -125,9 +125,13 @@ export function isTextEditor(editor: TextEditor): boolean {
 
 export async function openEditor(
 	uri: Uri,
-	options: TextDocumentShowOptions & { rethrow?: boolean } = {},
+	options?: TextDocumentShowOptions & { throwOnError?: boolean },
 ): Promise<TextEditor | undefined> {
-	const { rethrow, ...opts } = options;
+	let throwOnError;
+	if (options != null) {
+		({ throwOnError, ...options } = options);
+	}
+
 	try {
 		if (isGitUri(uri)) {
 			uri = uri.documentUri();
@@ -144,7 +148,7 @@ export async function openEditor(
 			preserveFocus: false,
 			preview: true,
 			viewColumn: ViewColumn.Active,
-			...opts,
+			...options,
 		});
 	} catch (ex) {
 		const msg: string = ex?.toString() ?? '';
@@ -154,10 +158,23 @@ export async function openEditor(
 			return undefined;
 		}
 
-		if (rethrow) throw ex;
+		if (throwOnError) throw ex;
 
 		Logger.error(ex, 'openEditor');
 		return undefined;
+	}
+}
+
+export async function openDiffEditor(
+	lhs: Uri,
+	rhs: Uri,
+	title: string,
+	options?: TextDocumentShowOptions,
+): Promise<void> {
+	try {
+		await executeCoreCommand('vscode.diff', lhs, rhs, title, options);
+	} catch (ex) {
+		Logger.error(ex, 'openDiffEditor');
 	}
 }
 
