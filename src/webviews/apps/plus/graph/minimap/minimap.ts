@@ -36,6 +36,7 @@ export type GraphMinimapMarker = BranchMarker | RemoteMarker | StashMarker | Tag
 export interface GraphMinimapSearchResultMarker {
 	type: 'search-result';
 	sha: string;
+	count: number;
 }
 
 export interface GraphMinimapStats {
@@ -353,6 +354,24 @@ const styles = css`
 
 	.bb-tooltip .changes {
 		margin: 0.5rem 0;
+	}
+
+	.bb-tooltip .results {
+		display: flex;
+		font-size: 12px;
+		gap: 0.5rem;
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin: 0.5rem 0;
+		max-width: fit-content;
+	}
+
+	.bb-tooltip .results .result {
+		border-radius: 3px;
+		padding: 0 4px;
+		background-color: var(--color-graph-minimap-tip-highlightBackground);
+		border: 1px solid var(--color-graph-minimap-tip-highlightBorder);
+		color: var(--color-graph-minimap-tip-highlightForeground);
 	}
 
 	.bb-tooltip .refs {
@@ -871,15 +890,43 @@ export class GraphMinimap extends FASTElement {
 					contents: (data, _defaultTitleFormat, _defaultValueFormat, _color) => {
 						const date = new Date(data[0].x);
 
-						const stat = this.data?.get(getDay(date));
-						const markers = this.markers?.get(getDay(date));
+						const day = getDay(date);
+						const stat = this.data?.get(day);
+						const markers = this.markers?.get(day);
+						const results = this.searchResults?.get(day);
+
 						let groups;
 						if (markers?.length) {
 							groups = groupByMap(markers, m => m.type);
 						}
 
 						const stashesCount = groups?.get('stash')?.length ?? 0;
-						const showLinesChanged = this.dataType === 'lines';
+
+						let commits;
+						let linesChanged;
+						let resultsCount;
+						if (stat?.commits) {
+							commits = pluralize('commit', stat.commits, { format: c => formatNumeric(c) });
+							if (results?.count) {
+								resultsCount = pluralize('matching commit', results.count);
+							}
+
+							if (this.dataType === 'lines') {
+								linesChanged = `${pluralize('file', stat?.files ?? 0, {
+									format: c => formatNumeric(c),
+									zero: 'No',
+								})}, ${pluralize(
+									'line',
+									(stat?.activity?.additions ?? 0) + (stat?.activity?.deletions ?? 0),
+									{
+										format: c => formatNumeric(c),
+										zero: 'No',
+									},
+								)} changed`;
+							}
+						} else {
+							commits = 'No commits';
+						}
 
 						return /*html*/ `<div class="bb-tooltip">
 							<div class="header">
@@ -887,30 +934,9 @@ export class GraphMinimap extends FASTElement {
 								<span class="header--description">(${capitalize(fromNow(date))})</span>
 							</div>
 							<div class="changes">
-								<span>${
-									(stat?.commits ?? 0) === 0
-										? 'No commits'
-										: `${pluralize('commit', stat?.commits ?? 0, {
-												format: c => formatNumeric(c),
-												zero: 'No',
-										  })}${
-												showLinesChanged
-													? `, ${pluralize('file', stat?.files ?? 0, {
-															format: c => formatNumeric(c),
-															zero: 'No',
-													  })}, ${pluralize(
-															'line',
-															(stat?.activity?.additions ?? 0) +
-																(stat?.activity?.deletions ?? 0),
-															{
-																format: c => formatNumeric(c),
-																zero: 'No',
-															},
-													  )} changed`
-													: ''
-										  }`
-								}</span>
+								<span>${commits}${linesChanged ? `, ${linesChanged}` : ''}</span>
 							</div>
+							${resultsCount ? /*html*/ `<div class="results"><span class="result">${resultsCount}</span></div>` : ''}
 							${
 								groups != null
 									? /*html*/ `

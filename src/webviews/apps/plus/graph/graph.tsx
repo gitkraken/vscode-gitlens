@@ -411,22 +411,11 @@ export class GraphApp extends App<State> {
 			);
 
 			c = Color.fromCssVariable('--vscode-editor-foreground', e.computedStyle);
-			rootStyle.setProperty(
-				'--color-graph-minimap-tip-branchForeground',
-				c.isLighter() ? c.luminance(0.01).toString() : c.luminance(0.99).toString(),
-			);
-
-			c = Color.fromCssVariable('--vscode-editor-foreground', e.computedStyle);
-			rootStyle.setProperty(
-				'--color-graph-minimap-tip-headForeground',
-				c.isLighter() ? c.luminance(0.01).toString() : c.luminance(0.99).toString(),
-			);
-
-			c = Color.fromCssVariable('--vscode-editor-foreground', e.computedStyle);
-			rootStyle.setProperty(
-				'--color-graph-minimap-tip-upstreamForeground',
-				c.isLighter() ? c.luminance(0.01).toString() : c.luminance(0.99).toString(),
-			);
+			const tipForeground = c.isLighter() ? c.luminance(0.01).toString() : c.luminance(0.99).toString();
+			rootStyle.setProperty('--color-graph-minimap-tip-headForeground', tipForeground);
+			rootStyle.setProperty('--color-graph-minimap-tip-upstreamForeground', tipForeground);
+			rootStyle.setProperty('--color-graph-minimap-tip-highlightForeground', tipForeground);
+			rootStyle.setProperty('--color-graph-minimap-tip-branchForeground', tipForeground);
 		}
 
 		const branchStatusLuminance = themeLuminance(e.isLightTheme ? 0.72 : 0.064);

@@ -64,6 +64,10 @@
 	--color-graph-minimap-tip-headBorder: var(--color-graph-scroll-marker-head);
 	--color-graph-minimap-tip-headForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
 
+	--color-graph-minimap-tip-highlightBackground: var(--color-graph-scroll-marker-highlights);
+	--color-graph-minimap-tip-highlightBorder: var(--color-graph-scroll-marker-highlights);
+	--color-graph-minimap-tip-highlightForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
 	--color-graph-minimap-tip-branchBackground: var(--color-graph-scroll-marker-local-branches);
 	--color-graph-minimap-tip-branchBorder: var(--color-graph-scroll-marker-local-branches);
 	--color-graph-minimap-tip-branchForeground: var(--vscode-editor-foreground, var(--vscode-foreground));

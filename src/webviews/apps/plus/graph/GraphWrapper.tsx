@@ -603,7 +603,9 @@ export function GraphWrapper({
 
 				result = searchResultsByDay.get(day);
 				if (result == null) {
-					searchResultsByDay.set(day, { type: 'search-result', sha: sha });
+					searchResultsByDay.set(day, { type: 'search-result', sha: sha, count: 1 });
+				} else {
+					result.count++;
 				}
 			}
 		}
