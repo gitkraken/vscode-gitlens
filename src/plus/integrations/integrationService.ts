@@ -122,19 +122,19 @@ export class IntegrationService implements Disposable {
 	}
 
 	@debug<IntegrationService['getMyIssues']>({ args: { 0: r => r.name } })
-	async getMyIssues(remote: GitRemote): Promise<SearchedIssue[] | undefined> {
+	async getMyIssues(remote: GitRemote, useRepo: boolean = false): Promise<SearchedIssue[] | undefined> {
 		if (remote?.provider == null) return undefined;
 
 		const provider = this.getByRemote(remote);
-		return provider?.searchMyIssues();
+		return provider?.searchMyIssues(useRepo ? remote.provider.repoDesc : undefined);
 	}
 
 	@debug<IntegrationService['getMyPullRequests']>({ args: { 0: r => r.name } })
-	async getMyPullRequests(remote: GitRemote): Promise<SearchedPullRequest[] | undefined> {
+	async getMyPullRequests(remote: GitRemote, useRepo: boolean = false): Promise<SearchedPullRequest[] | undefined> {
 		if (remote?.provider == null) return undefined;
 
 		const provider = this.getByRemote(remote);
-		return provider?.searchMyPullRequests();
+		return provider?.searchMyPullRequests(useRepo ? remote.provider.repoDesc : undefined);
 	}
 
 	supports(remoteId: RemoteProviderId): boolean {
