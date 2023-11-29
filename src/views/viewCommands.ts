@@ -37,7 +37,7 @@ import { log } from '../system/decorators/log';
 import { sequentialize } from '../system/function';
 import type { OpenWorkspaceLocation } from '../system/utils';
 import { openWorkspace, revealInFileExplorer } from '../system/utils';
-import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
+import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import {
 	canEditNode,
 	canViewDismissNode,
@@ -47,30 +47,29 @@ import {
 } from './nodes/abstract/viewNode';
 import { ViewRefFileNode, ViewRefNode } from './nodes/abstract/viewRefNode';
 import type { BranchesNode } from './nodes/branchesNode';
-import { BranchNode } from './nodes/branchNode';
-import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
-import { CommitFileNode } from './nodes/commitFileNode';
-import { CommitNode } from './nodes/commitNode';
+import type { BranchNode } from './nodes/branchNode';
+import type { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
+import type { CommitFileNode } from './nodes/commitFileNode';
+import type { CommitNode } from './nodes/commitNode';
 import type { PagerNode } from './nodes/common';
-import { CompareBranchNode } from './nodes/compareBranchNode';
-import { ContributorNode } from './nodes/contributorNode';
-import { FileHistoryNode } from './nodes/fileHistoryNode';
-import { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode';
-import { FolderNode } from './nodes/folderNode';
-import { LineHistoryNode } from './nodes/lineHistoryNode';
-import { MergeConflictFileNode } from './nodes/mergeConflictFileNode';
-import { PullRequestNode } from './nodes/pullRequestNode';
-import { RemoteNode } from './nodes/remoteNode';
-import { RepositoryNode } from './nodes/repositoryNode';
-import { ResultsFileNode } from './nodes/resultsFileNode';
-import { ResultsFilesNode } from './nodes/resultsFilesNode';
-import { StashFileNode } from './nodes/stashFileNode';
-import { StashNode } from './nodes/stashNode';
-import { StatusFileNode } from './nodes/statusFileNode';
-import { TagNode } from './nodes/tagNode';
+import type { ContributorNode } from './nodes/contributorNode';
+import type { FileHistoryNode } from './nodes/fileHistoryNode';
+import type { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode';
+import type { FolderNode } from './nodes/folderNode';
+import type { LineHistoryNode } from './nodes/lineHistoryNode';
+import type { MergeConflictFileNode } from './nodes/mergeConflictFileNode';
+import type { PullRequestNode } from './nodes/pullRequestNode';
+import type { RemoteNode } from './nodes/remoteNode';
+import type { RepositoryNode } from './nodes/repositoryNode';
+import type { ResultsFileNode } from './nodes/resultsFileNode';
+import type { ResultsFilesNode } from './nodes/resultsFilesNode';
+import type { StashFileNode } from './nodes/stashFileNode';
+import type { StashNode } from './nodes/stashNode';
+import type { StatusFileNode } from './nodes/statusFileNode';
+import type { TagNode } from './nodes/tagNode';
 import type { TagsNode } from './nodes/tagsNode';
-import { WorktreeNode } from './nodes/worktreeNode';
-import { WorktreesNode } from './nodes/worktreesNode';
+import type { WorktreeNode } from './nodes/worktreeNode';
+import type { WorktreesNode } from './nodes/worktreesNode';
 
 interface CompareSelectedInfo {
 	ref: string;
@@ -318,7 +317,7 @@ export class ViewCommands {
 
 	@log()
 	private addAuthor(node?: ContributorNode) {
-		if (node instanceof ContributorNode) {
+		if (node?.is('contributor')) {
 			return ContributorActions.addAuthors(
 				node.repoPath,
 				node.contributor.current ? undefined : node.contributor,
@@ -335,9 +334,7 @@ export class ViewCommands {
 
 	@log()
 	private applyChanges(node: ViewRefFileNode) {
-		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
-
-		if (node instanceof ResultsFileNode) {
+		if (node.is('results-file')) {
 			return CommitActions.applyChanges(
 				node.file,
 				createReference(node.ref1, node.repoPath),
@@ -345,7 +342,7 @@ export class ViewCommands {
 			);
 		}
 
-		if (node.ref == null || node.ref.ref === 'HEAD') return Promise.resolve();
+		if (!(node instanceof ViewRefFileNode) || node.ref == null || node.ref.ref === 'HEAD') return Promise.resolve();
 
 		return CommitActions.applyChanges(node.file, node.ref);
 	}
@@ -370,7 +367,7 @@ export class ViewCommands {
 
 	@log()
 	private cherryPick(node: CommitNode, nodes?: CommitNode[]) {
-		if (!(node instanceof CommitNode)) return Promise.resolve();
+		if (!node.is('commit')) return Promise.resolve();
 
 		if (nodes != null && nodes.length !== 0) {
 			return RepoActions.cherryPick(
@@ -399,14 +396,14 @@ export class ViewCommands {
 			compareNode = node;
 		}
 
-		if (compareNode.is('compare-branch') || compareNode.is('compare-results')) {
+		if (compareNode.isAny('compare-branch', 'compare-results')) {
 			compareNode.clearReviewed();
 		}
 	}
 
 	@log()
 	private closeRepository(node: RepositoryNode | RepositoryFolderNode) {
-		if (!(node instanceof RepositoryNode) && !(node instanceof RepositoryFolderNode)) return;
+		if (!node.isAny('repository', 'repo-folder')) return;
 
 		node.repo.closed = true;
 	}
@@ -416,7 +413,7 @@ export class ViewCommands {
 		let from =
 			node instanceof ViewRefNode || node instanceof ViewRefFileNode
 				? node?.ref
-				: node instanceof BranchTrackingStatusNode
+				: node?.is('tracking-status')
 				  ? node.branch
 				  : undefined;
 		if (from == null) {
@@ -430,9 +427,7 @@ export class ViewCommands {
 
 	@log()
 	private async createPullRequest(node: BranchNode | BranchTrackingStatusNode) {
-		if (!(node instanceof BranchNode) && !(node instanceof BranchTrackingStatusNode)) {
-			return Promise.resolve();
-		}
+		if (!node.isAny('branch', 'tracking-status')) return Promise.resolve();
 
 		const remote = await node.branch.getRemote();
 
@@ -466,7 +461,7 @@ export class ViewCommands {
 		let from =
 			node instanceof ViewRefNode || node instanceof ViewRefFileNode
 				? node?.ref
-				: node instanceof BranchTrackingStatusNode
+				: node?.is('tracking-status')
 				  ? node.branch
 				  : undefined;
 		if (from == null) {
@@ -480,24 +475,24 @@ export class ViewCommands {
 
 	@log()
 	private async createWorktree(node?: BranchNode | WorktreesNode) {
-		if (node instanceof WorktreesNode) {
+		if (node?.is('worktrees')) {
 			node = undefined;
 		}
-		if (node != null && !(node instanceof BranchNode)) return undefined;
+		if (node != null && !node.is('branch')) return undefined;
 
 		return WorktreeActions.create(node?.repoPath, undefined, node?.ref);
 	}
 
 	@log()
 	private deleteBranch(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return Promise.resolve();
+		if (!node.is('branch')) return Promise.resolve();
 
 		return BranchActions.remove(node.repoPath, node.branch);
 	}
 
 	@log()
 	private deleteStash(node: StashNode, nodes?: StashNode[]) {
-		if (!(node instanceof StashNode)) return Promise.resolve();
+		if (!node.is('stash')) return Promise.resolve();
 
 		if (nodes != null && nodes.length !== 0) {
 			const sorted = nodes.sort((a, b) => parseInt(b.commit.number, 10) - parseInt(a.commit.number, 10));
@@ -513,30 +508,30 @@ export class ViewCommands {
 
 	@log()
 	private renameStash(node: StashNode) {
-		if (!(node instanceof StashNode)) return Promise.resolve();
+		if (!node.is('stash')) return Promise.resolve();
 
 		return StashActions.rename(node.repoPath, node.commit);
 	}
 
 	@log()
 	private deleteTag(node: TagNode) {
-		if (!(node instanceof TagNode)) return Promise.resolve();
+		if (!node.is('tag')) return Promise.resolve();
 
 		return TagActions.remove(node.repoPath, node.tag);
 	}
 
 	@log()
 	private async deleteWorktree(node: WorktreeNode) {
-		if (!(node instanceof WorktreeNode)) return undefined;
+		if (!node.is('worktree')) return undefined;
 
 		return WorktreeActions.remove(node.repoPath, node.worktree.uri);
 	}
 
 	@log()
 	private fetch(node: RemoteNode | RepositoryNode | RepositoryFolderNode | BranchNode | BranchTrackingStatusNode) {
-		if (node instanceof RepositoryNode || node instanceof RepositoryFolderNode) return RepoActions.fetch(node.repo);
-		if (node instanceof RemoteNode) return RemoteActions.fetch(node.remote.repoPath, node.remote.name);
-		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
+		if (node.isAny('repository', 'repo-folder')) return RepoActions.fetch(node.repo);
+		if (node.is('remote')) return RemoteActions.fetch(node.remote.repoPath, node.remote.name);
+		if (node.isAny('branch', 'tracking-status')) {
 			return RepoActions.fetch(node.repoPath, node.root ? undefined : node.branch);
 		}
 
@@ -545,14 +540,7 @@ export class ViewCommands {
 
 	@log()
 	private async highlightChanges(node: CommitFileNode | StashFileNode | FileRevisionAsCommitNode | ResultsFileNode) {
-		if (
-			!(node instanceof CommitFileNode) &&
-			!(node instanceof StashFileNode) &&
-			!(node instanceof FileRevisionAsCommitNode) &&
-			!(node instanceof ResultsFileNode)
-		) {
-			return;
-		}
+		if (!node.isAny('commit-file', 'stash-file', 'file-commit', 'results-file')) return;
 
 		await this.openFile(node, { preserveFocus: true, preview: true });
 		void (await this.container.fileAnnotations.toggle(
@@ -567,14 +555,7 @@ export class ViewCommands {
 	private async highlightRevisionChanges(
 		node: CommitFileNode | StashFileNode | FileRevisionAsCommitNode | ResultsFileNode,
 	) {
-		if (
-			!(node instanceof CommitFileNode) &&
-			!(node instanceof StashFileNode) &&
-			!(node instanceof FileRevisionAsCommitNode) &&
-			!(node instanceof ResultsFileNode)
-		) {
-			return;
-		}
+		if (!node.isAny('commit-file', 'stash-file', 'file-commit', 'results-file')) return;
 
 		await this.openFile(node, { preserveFocus: true, preview: true });
 		void (await this.container.fileAnnotations.toggle(
@@ -587,21 +568,21 @@ export class ViewCommands {
 
 	@log()
 	private merge(node: BranchNode | TagNode) {
-		if (!(node instanceof BranchNode) && !(node instanceof TagNode)) return Promise.resolve();
+		if (!node.isAny('branch', 'tag')) return Promise.resolve();
 
-		return RepoActions.merge(node.repoPath, node instanceof BranchNode ? node.branch : node.tag);
+		return RepoActions.merge(node.repoPath, node.is('branch') ? node.branch : node.tag);
 	}
 
 	@log()
 	private openInTerminal(node: RepositoryNode | RepositoryFolderNode) {
-		if (!(node instanceof RepositoryNode) && !(node instanceof RepositoryFolderNode)) return Promise.resolve();
+		if (!node.isAny('repository', 'repo-folder')) return Promise.resolve();
 
 		return executeCoreCommand('openInTerminal', Uri.file(node.repo.path));
 	}
 
 	@log()
 	private openPullRequest(node: PullRequestNode) {
-		if (!(node instanceof PullRequestNode)) return Promise.resolve();
+		if (!node.is('pullrequest')) return Promise.resolve();
 
 		return executeActionCommand<OpenPullRequestActionContext>('openPullRequest', {
 			repoPath: node.uri.repoPath!,
@@ -619,28 +600,28 @@ export class ViewCommands {
 
 	@log()
 	private openWorktree(node: WorktreeNode, options?: { location?: OpenWorkspaceLocation }) {
-		if (!(node instanceof WorktreeNode)) return;
+		if (!node.is('worktree')) return;
 
 		openWorkspace(node.worktree.uri, options);
 	}
 
 	@log()
 	private pruneRemote(node: RemoteNode) {
-		if (!(node instanceof RemoteNode)) return Promise.resolve();
+		if (!node.is('remote')) return Promise.resolve();
 
 		return RemoteActions.prune(node.remote.repoPath, node.remote.name);
 	}
 
 	@log()
 	private async removeRemote(node: RemoteNode) {
-		if (!(node instanceof RemoteNode)) return Promise.resolve();
+		if (!node.is('remote')) return Promise.resolve();
 
 		return RemoteActions.remove(node.remote.repoPath, node.remote.name);
 	}
 
 	@log()
 	private publishBranch(node: BranchNode | BranchTrackingStatusNode) {
-		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
+		if (node.isAny('branch', 'tracking-status')) {
 			return RepoActions.push(node.repoPath, undefined, node.branch);
 		}
 		return Promise.resolve();
@@ -648,7 +629,7 @@ export class ViewCommands {
 
 	@log()
 	private publishRepository(node: BranchNode | BranchTrackingStatusNode) {
-		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
+		if (node.isAny('branch', 'tracking-status')) {
 			return executeCoreGitCommand('git.publish', Uri.file(node.repoPath));
 		}
 		return Promise.resolve();
@@ -656,8 +637,8 @@ export class ViewCommands {
 
 	@log()
 	private pull(node: RepositoryNode | RepositoryFolderNode | BranchNode | BranchTrackingStatusNode) {
-		if (node instanceof RepositoryNode || node instanceof RepositoryFolderNode) return RepoActions.pull(node.repo);
-		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
+		if (node.isAny('repository', 'repo-folder')) return RepoActions.pull(node.repo);
+		if (node.isAny('branch', 'tracking-status')) {
 			return RepoActions.pull(node.repoPath, node.root ? undefined : node.branch);
 		}
 
@@ -675,15 +656,15 @@ export class ViewCommands {
 			| FileRevisionAsCommitNode,
 		force?: boolean,
 	) {
-		if (node instanceof RepositoryNode || node instanceof RepositoryFolderNode) {
+		if (node.isAny('repository', 'repo-folder')) {
 			return RepoActions.push(node.repo, force);
 		}
 
-		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
+		if (node.isAny('branch', 'tracking-status')) {
 			return RepoActions.push(node.repoPath, force, node.root ? undefined : node.branch);
 		}
 
-		if (node instanceof CommitNode || node instanceof FileRevisionAsCommitNode) {
+		if (node.isAny('commit', 'file-commit')) {
 			if (node.isTip) {
 				return RepoActions.push(node.repoPath, force);
 			}
@@ -696,19 +677,14 @@ export class ViewCommands {
 
 	@log()
 	private pushToCommit(node: CommitNode | FileRevisionAsCommitNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
+		if (!node.isAny('commit', 'file-commit')) return Promise.resolve();
 
 		return RepoActions.push(node.repoPath, false, node.commit);
 	}
 
 	@log()
 	private rebase(node: BranchNode | CommitNode | FileRevisionAsCommitNode | TagNode) {
-		if (
-			!(node instanceof BranchNode) &&
-			!(node instanceof CommitNode) &&
-			!(node instanceof FileRevisionAsCommitNode) &&
-			!(node instanceof TagNode)
-		) {
+		if (!node.isAny('branch', 'commit', 'file-commit', 'tag')) {
 			return Promise.resolve();
 		}
 
@@ -717,9 +693,9 @@ export class ViewCommands {
 
 	@log()
 	private rebaseToRemote(node: BranchNode | BranchTrackingStatusNode) {
-		if (!(node instanceof BranchNode) && !(node instanceof BranchTrackingStatusNode)) return Promise.resolve();
+		if (!node.isAny('branch', 'tracking-status')) return Promise.resolve();
 
-		const upstream = node instanceof BranchNode ? node.branch.upstream?.name : node.status.upstream;
+		const upstream = node.is('branch') ? node.branch.upstream?.name : node.status.upstream;
 		if (upstream == null) return Promise.resolve();
 
 		return RepoActions.rebase(
@@ -734,14 +710,14 @@ export class ViewCommands {
 
 	@log()
 	private renameBranch(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return Promise.resolve();
+		if (!node.is('branch')) return Promise.resolve();
 
 		return BranchActions.rename(node.repoPath, node.branch);
 	}
 
 	@log()
 	private resetCommit(node: CommitNode | FileRevisionAsCommitNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
+		if (!node.isAny('commit', 'file-commit')) return Promise.resolve();
 
 		return RepoActions.reset(
 			node.repoPath,
@@ -755,14 +731,14 @@ export class ViewCommands {
 
 	@log()
 	private resetToCommit(node: CommitNode | FileRevisionAsCommitNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
+		if (!node.isAny('commit', 'file-commit')) return Promise.resolve();
 
 		return RepoActions.reset(node.repoPath, node.ref);
 	}
 
 	@log()
 	private resetToTip(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return Promise.resolve();
+		if (!node.is('branch')) return Promise.resolve();
 
 		return RepoActions.reset(
 			node.repoPath,
@@ -779,35 +755,35 @@ export class ViewCommands {
 
 	@log()
 	private revealRepositoryInExplorer(node: RepositoryNode) {
-		if (!(node instanceof RepositoryNode)) return undefined;
+		if (!node.is('repository')) return undefined;
 
 		return revealInFileExplorer(node.repo.uri);
 	}
 
 	@log()
 	private revealWorktreeInExplorer(node: WorktreeNode) {
-		if (!(node instanceof WorktreeNode)) return undefined;
+		if (!node.is('worktree')) return undefined;
 
 		return revealInFileExplorer(node.worktree.uri);
 	}
 
 	@log()
 	private revert(node: CommitNode | FileRevisionAsCommitNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
+		if (!node.isAny('commit', 'file-commit')) return Promise.resolve();
 
 		return RepoActions.revert(node.repoPath, node.ref);
 	}
 
 	@log()
 	private setAsDefault(node: RemoteNode) {
-		if (!(node instanceof RemoteNode)) return Promise.resolve();
+		if (!node.is('remote')) return Promise.resolve();
 
 		return node.setAsDefault();
 	}
 
 	@log()
 	private setBranchComparison(node: ViewNode, comparisonType: Exclude<ViewShowBranchComparison, false>) {
-		if (!(node instanceof CompareBranchNode)) return undefined;
+		if (!node.is('compare-branch')) return undefined;
 
 		return node.setComparisonType(comparisonType);
 	}
@@ -819,11 +795,7 @@ export class ViewCommands {
 
 	@log()
 	private async stageFile(node: CommitFileNode | FileRevisionAsCommitNode | StatusFileNode) {
-		if (
-			!(node instanceof CommitFileNode) &&
-			!(node instanceof FileRevisionAsCommitNode) &&
-			!(node instanceof StatusFileNode)
-		) {
+		if (!node.isAny('commit-file', 'file-commit') && !node.is('status-file')) {
 			return;
 		}
 
@@ -833,7 +805,7 @@ export class ViewCommands {
 
 	@log()
 	private async stageDirectory(node: FolderNode) {
-		if (!(node instanceof FolderNode) || !node.relativePath) return;
+		if (!node.is('folder') || !node.relativePath) return;
 
 		await this.container.git.stageDirectory(node.repoPath, node.relativePath);
 		void node.triggerChange();
@@ -841,11 +813,7 @@ export class ViewCommands {
 
 	@log()
 	private star(node: BranchNode | RepositoryNode | RepositoryFolderNode) {
-		if (
-			!(node instanceof BranchNode) &&
-			!(node instanceof RepositoryNode) &&
-			!(node instanceof RepositoryFolderNode)
-		) {
+		if (!node.isAny('branch', 'repository', 'repo-folder')) {
 			return Promise.resolve();
 		}
 
@@ -860,10 +828,7 @@ export class ViewCommands {
 	@log()
 	private switchTo(node?: ViewNode) {
 		if (node instanceof ViewRefNode) {
-			return RepoActions.switchTo(
-				node.repoPath,
-				node instanceof BranchNode && node.branch.current ? undefined : node.ref,
-			);
+			return RepoActions.switchTo(node.repoPath, node.is('branch') && node.branch.current ? undefined : node.ref);
 		}
 
 		return RepoActions.switchTo(getNodeRepoPath(node));
@@ -871,7 +836,7 @@ export class ViewCommands {
 
 	@log()
 	private async undoCommit(node: CommitNode | FileRevisionAsCommitNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return;
+		if (!node.isAny('commit', 'file-commit')) return;
 
 		const repo = await this.container.git.getOrOpenScmRepository(node.repoPath);
 		const commit = await repo?.getCommit('HEAD');
@@ -892,20 +857,14 @@ export class ViewCommands {
 
 	@log()
 	private unsetAsDefault(node: RemoteNode) {
-		if (!(node instanceof RemoteNode)) return Promise.resolve();
+		if (!node.is('remote')) return Promise.resolve();
 
 		return node.setAsDefault(false);
 	}
 
 	@log()
 	private async unstageFile(node: CommitFileNode | FileRevisionAsCommitNode | StatusFileNode) {
-		if (
-			!(node instanceof CommitFileNode) &&
-			!(node instanceof FileRevisionAsCommitNode) &&
-			!(node instanceof StatusFileNode)
-		) {
-			return;
-		}
+		if (!node.isAny('commit-file', 'file-commit', 'status-file')) return;
 
 		await this.container.git.unstageFile(node.repoPath, node.file.path);
 		void node.triggerChange();
@@ -913,7 +872,7 @@ export class ViewCommands {
 
 	@log()
 	private async unstageDirectory(node: FolderNode) {
-		if (!(node instanceof FolderNode) || !node.relativePath) return;
+		if (!node.is('folder') || !node.relativePath) return;
 
 		await this.container.git.unstageDirectory(node.repoPath, node.relativePath);
 		void node.triggerChange();
@@ -921,50 +880,42 @@ export class ViewCommands {
 
 	@log()
 	private unstar(node: BranchNode | RepositoryNode | RepositoryFolderNode) {
-		if (
-			!(node instanceof BranchNode) &&
-			!(node instanceof RepositoryNode) &&
-			!(node instanceof RepositoryFolderNode)
-		) {
-			return Promise.resolve();
-		}
-
+		if (!node.isAny('branch', 'repository', 'repo-folder')) return Promise.resolve();
 		return node.unstar();
 	}
 
 	@log()
 	private compareHeadWith(node: ViewRefNode | ViewRefFileNode) {
-		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return Promise.resolve();
-
 		if (node instanceof ViewRefFileNode) {
 			return this.compareFileWith(node.repoPath, node.uri, node.ref.ref, undefined, 'HEAD');
 		}
+
+		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
 		return this.container.searchAndCompareView.compare(node.repoPath, 'HEAD', node.ref);
 	}
 
 	@log()
 	private compareWithUpstream(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return Promise.resolve();
-		if (node.branch.upstream == null) return Promise.resolve();
+		if (!node.is('branch') || node.branch.upstream == null) return Promise.resolve();
 
 		return this.container.searchAndCompareView.compare(node.repoPath, node.ref, node.branch.upstream.name);
 	}
 
 	@log()
 	private compareWorkingWith(node: ViewRefNode | ViewRefFileNode) {
-		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return Promise.resolve();
-
 		if (node instanceof ViewRefFileNode) {
 			return this.compareFileWith(node.repoPath, node.uri, node.ref.ref, undefined, '');
 		}
+
+		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
 		return this.container.searchAndCompareView.compare(node.repoPath, '', node.ref);
 	}
 
 	@log()
 	private async compareAncestryWithWorking(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return undefined;
+		if (!node.is('branch')) return undefined;
 
 		const branch = await this.container.git.getBranch(node.repoPath);
 		if (branch == null) return undefined;
@@ -1055,11 +1006,7 @@ export class ViewCommands {
 
 	@log()
 	private async openAllChanges(node: CommitNode | StashNode | ResultsFilesNode, options?: TextDocumentShowOptions) {
-		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
-			return undefined;
-		}
-
-		if (node instanceof ResultsFilesNode) {
+		if (node.is('results-files')) {
 			const { files: diff } = await node.getFilesQueryResults();
 			if (diff == null || diff.length === 0) return undefined;
 
@@ -1074,20 +1021,14 @@ export class ViewCommands {
 			);
 		}
 
+		if (!node.isAny('commit', 'stash')) return undefined;
+
 		return CommitActions.openAllChanges(node.commit, options);
 	}
 
 	@log()
 	private openChanges(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
-		if (
-			!(node instanceof ViewRefFileNode) &&
-			!(node instanceof MergeConflictFileNode) &&
-			!(node instanceof StatusFileNode)
-		) {
-			return;
-		}
-
-		if (node instanceof MergeConflictFileNode) {
+		if (node.is('conflict-file')) {
 			void executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 				lhs: {
 					sha: node.status.HEAD.ref,
@@ -1107,6 +1048,8 @@ export class ViewCommands {
 
 			return;
 		}
+
+		if (!(node instanceof ViewRefFileNode) && !node.is('status-file')) return;
 
 		const command = node.getCommand();
 		if (command?.arguments == null) return;
@@ -1140,11 +1083,7 @@ export class ViewCommands {
 		node: CommitNode | StashNode | ResultsFilesNode,
 		options?: TextDocumentShowOptions,
 	) {
-		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
-			return undefined;
-		}
-
-		if (node instanceof ResultsFilesNode) {
+		if (node.is('results-files')) {
 			const { files: diff } = await node.getFilesQueryResults();
 			if (diff == null || diff.length === 0) return undefined;
 
@@ -1157,6 +1096,8 @@ export class ViewCommands {
 				options,
 			);
 		}
+
+		if (!node.isAny('commit', 'stash')) return undefined;
 
 		return CommitActions.openAllChangesWithWorking(node.commit, options);
 
@@ -1202,15 +1143,7 @@ export class ViewCommands {
 
 	@log()
 	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
-		if (
-			!(node instanceof ViewRefFileNode) &&
-			!(node instanceof MergeConflictFileNode) &&
-			!(node instanceof StatusFileNode)
-		) {
-			return Promise.resolve();
-		}
-
-		if (node instanceof StatusFileNode) {
+		if (node.is('status-file')) {
 			return executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
 				uri: node.uri,
 				showOptions: {
@@ -1218,7 +1151,9 @@ export class ViewCommands {
 					preview: true,
 				},
 			});
-		} else if (node instanceof MergeConflictFileNode) {
+		}
+
+		if (node.is('conflict-file')) {
 			return executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
 				uri: node.baseUri,
 				showOptions: {
@@ -1226,7 +1161,9 @@ export class ViewCommands {
 					preview: true,
 				},
 			});
-		} else if (node instanceof FileRevisionAsCommitNode && node.commit.file?.hasConflicts) {
+		}
+
+		if (node.is('file-commit') && node.commit.file?.hasConflicts) {
 			const baseUri = await node.getConflictBaseUri();
 			if (baseUri != null) {
 				return executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
@@ -1238,6 +1175,8 @@ export class ViewCommands {
 				});
 			}
 		}
+
+		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
 
 		return CommitActions.openChangesWithWorking(node.file, {
 			repoPath: node.repoPath,
@@ -1262,10 +1201,7 @@ export class ViewCommands {
 	) {
 		if (
 			!(node instanceof ViewRefFileNode) &&
-			!(node instanceof MergeConflictFileNode) &&
-			!(node instanceof StatusFileNode) &&
-			!(node instanceof FileHistoryNode) &&
-			!(node instanceof LineHistoryNode)
+			!node.isAny('conflict-file', 'status-file', 'file-history', 'line-history')
 		) {
 			return Promise.resolve();
 		}
@@ -1279,16 +1215,13 @@ export class ViewCommands {
 
 	@log()
 	private async openFiles(node: CommitNode | StashNode | ResultsFilesNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
-			return undefined;
-		}
-
-		if (node instanceof ResultsFilesNode) {
+		if (node.is('results-files')) {
 			const { files: diff } = await node.getFilesQueryResults();
 			if (diff == null || diff.length === 0) return undefined;
 
 			return CommitActions.openFiles(diff, node.repoPath, node.ref1 || node.ref2);
 		}
+		if (!node.isAny('commit', 'stash')) return undefined;
 
 		return CommitActions.openFiles(node.commit);
 	}
@@ -1304,14 +1237,7 @@ export class ViewCommands {
 			| StatusFileNode,
 		options?: OpenFileAtRevisionCommandArgs,
 	) {
-		if (
-			!(node instanceof CommitFileNode) &&
-			!(node instanceof FileRevisionAsCommitNode) &&
-			!(node instanceof ResultsFileNode) &&
-			!(node instanceof StashFileNode) &&
-			!(node instanceof MergeConflictFileNode) &&
-			!(node instanceof StatusFileNode)
-		) {
+		if (!node.isAny('commit-file', 'file-commit', 'results-file', 'stash-file', 'conflict-file', 'status-file')) {
 			return Promise.resolve();
 		}
 
@@ -1319,7 +1245,7 @@ export class ViewCommands {
 
 		let uri = options.revisionUri;
 		if (uri == null) {
-			if (node instanceof ResultsFileNode || node instanceof MergeConflictFileNode) {
+			if (node.isAny('results-file', 'conflict-file')) {
 				uri = this.container.git.getRevisionUri(node.uri);
 			} else {
 				uri =
@@ -1338,23 +1264,20 @@ export class ViewCommands {
 
 	@log()
 	private async openRevisions(node: CommitNode | StashNode | ResultsFilesNode, _options?: TextDocumentShowOptions) {
-		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
-			return undefined;
-		}
-
-		if (node instanceof ResultsFilesNode) {
+		if (node.is('results-files')) {
 			const { files: diff } = await node.getFilesQueryResults();
 			if (diff == null || diff.length === 0) return undefined;
 
 			return CommitActions.openFilesAtRevision(diff, node.repoPath, node.ref1, node.ref2);
 		}
+		if (!node.isAny('commit', 'stash')) return undefined;
 
 		return CommitActions.openFilesAtRevision(node.commit);
 	}
 
 	@log()
 	private async setResultsCommitsFilter(node: ViewNode, filter: boolean) {
-		if (!node?.is('compare-results') && !node?.is('compare-branch')) return;
+		if (!node?.isAny('compare-results', 'compare-branch')) return;
 
 		const repo = this.container.git.getRepository(node.repoPath);
 		if (repo == null) return;

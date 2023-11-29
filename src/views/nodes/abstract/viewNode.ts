@@ -35,6 +35,7 @@ import type { MergeConflictFileNode } from '../mergeConflictFileNode';
 import type { RepositoryNode } from '../repositoryNode';
 import type { ResultsCommitsNode } from '../resultsCommitsNode';
 import type { ResultsFileNode } from '../resultsFileNode';
+import type { ResultsFilesNode } from '../resultsFilesNode';
 import type { StashFileNode } from '../stashFileNode';
 import type { StashNode } from '../stashNode';
 import type { StatusFileNode } from '../statusFileNode';
@@ -212,6 +213,10 @@ export abstract class ViewNode<
 {
 	is<T extends keyof TreeViewNodesByType>(type: T): this is TreeViewNodesByType[T] {
 		return this.type === (type as unknown as Type);
+	}
+
+	isAny<T extends (keyof TreeViewNodesByType)[]>(...types: T): this is TreeViewNodesByType[T[number]] {
+		return types.includes(this.type as unknown as T[number]);
 	}
 
 	protected _uniqueId!: string;
@@ -395,17 +400,19 @@ type TreeViewNodesByType = {
 		                      ? ResultsCommitsNode
 		                      : T extends 'results-file'
 		                        ? ResultsFileNode
-		                        : T extends 'stash'
-		                          ? StashNode
-		                          : T extends 'stash-file'
-		                            ? StashFileNode
-		                            : T extends 'status-file'
-		                              ? StatusFileNode
-		                              : T extends 'tag'
-		                                ? TagNode
-		                                : T extends 'uncommitted-file'
-		                                  ? UncommittedFileNode
-		                                  : ViewNode<T>;
+		                        : T extends 'results-files'
+		                          ? ResultsFilesNode
+		                          : T extends 'stash'
+		                            ? StashNode
+		                            : T extends 'stash-file'
+		                              ? StashFileNode
+		                              : T extends 'status-file'
+		                                ? StatusFileNode
+		                                : T extends 'tag'
+		                                  ? TagNode
+		                                  : T extends 'uncommitted-file'
+		                                    ? UncommittedFileNode
+		                                    : ViewNode<T>;
 };
 
 export function isViewNode(node: unknown): node is ViewNode;
