@@ -1,6 +1,6 @@
 //@ts-check
 
-/** @type { import('@twbs/fantasticon').RunnerOptions} } */
+/** @type {import('@twbs/fantasticon').RunnerOptions} */
 const config = {
 	name: 'glicons',
 	prefix: 'glicon',
