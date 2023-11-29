@@ -761,11 +761,11 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 	}
 
 	@debug()
-	async searchMyIssues(): Promise<SearchedIssue[] | undefined> {
+	async searchMyIssues(repo?: RepositoryDescriptor): Promise<SearchedIssue[] | undefined> {
 		const scope = getLogScope();
 
 		try {
-			const issues = await this.searchProviderMyIssues(this._session!);
+			const issues = await this.searchProviderMyIssues(this._session!, repo);
 			this.resetRequestExceptionCount();
 			return issues;
 		} catch (ex) {
@@ -773,14 +773,17 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 		}
 	}
 
-	protected abstract searchProviderMyIssues(session: AuthenticationSession): Promise<SearchedIssue[] | undefined>;
+	protected abstract searchProviderMyIssues(
+		session: AuthenticationSession,
+		repo?: RepositoryDescriptor,
+	): Promise<SearchedIssue[] | undefined>;
 
 	@debug()
-	async searchMyPullRequests(): Promise<SearchedPullRequest[] | undefined> {
+	async searchMyPullRequests(repo?: RepositoryDescriptor): Promise<SearchedPullRequest[] | undefined> {
 		const scope = getLogScope();
 
 		try {
-			const pullRequests = await this.searchProviderMyPullRequests(this._session!);
+			const pullRequests = await this.searchProviderMyPullRequests(this._session!, repo);
 			this.resetRequestExceptionCount();
 			return pullRequests;
 		} catch (ex) {
@@ -790,6 +793,7 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 
 	protected abstract searchProviderMyPullRequests(
 		session: AuthenticationSession,
+		repo?: RepositoryDescriptor,
 	): Promise<SearchedPullRequest[] | undefined>;
 
 	@gate()
