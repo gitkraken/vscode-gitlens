@@ -6,15 +6,12 @@ import { isTag } from '../../git/models/tag';
 import { isViewNode } from '../../views/nodes/abstract/viewNode';
 
 function replacer(key: string, value: any): any {
-	if (key === '') return value;
-
-	if (value == null) return value;
-	if (typeof value !== 'object') return value;
+	if (key === '' || value == null || typeof value !== 'object') return value;
 
 	if (value instanceof Error) return String(value);
 	if (value instanceof Uri) {
-		if ('sha' in (value as any) && (value as any).sha) {
-			return `${(value as any).sha}:${value.toString()}`;
+		if ('sha' in value && typeof value.sha === 'string' && value.sha) {
+			return `${value.sha}:${value.toString()}`;
 		}
 		return value.toString();
 	}
@@ -28,37 +25,36 @@ function replacer(key: string, value: any): any {
 
 export function defaultResolver(...args: any[]): string {
 	if (args.length === 0) return '';
-	if (args.length !== 1) {
-		return JSON.stringify(args, replacer);
-	}
+	if (args.length > 1) return JSON.stringify(args, replacer);
 
-	const arg0 = args[0];
-	if (arg0 == null) return '';
-	switch (typeof arg0) {
+	const [arg] = args;
+	if (arg == null) return '';
+
+	switch (typeof arg) {
 		case 'string':
-			return arg0;
+			return arg;
 
 		case 'number':
 		case 'boolean':
 		case 'undefined':
 		case 'symbol':
 		case 'bigint':
-			return String(arg0);
+			return String(arg);
 
 		default:
-			if (arg0 instanceof Error) return String(arg0);
-			if (arg0 instanceof Uri) {
-				if ('sha' in arg0 && typeof arg0.sha === 'string' && arg0.sha) {
-					return `${arg0.sha}:${arg0.toString()}`;
+			if (arg instanceof Error) return String(arg);
+			if (arg instanceof Uri) {
+				if ('sha' in arg && typeof arg.sha === 'string' && arg.sha) {
+					return `${arg.sha}:${arg.toString()}`;
 				}
-				return arg0.toString();
+				return arg.toString();
 			}
-			if (isBranch(arg0) || isCommit(arg0) || isTag(arg0) || isViewNode(arg0)) {
-				return arg0.toString();
+			if (isBranch(arg) || isCommit(arg) || isTag(arg) || isViewNode(arg)) {
+				return arg.toString();
 			}
-			if (isContainer(arg0)) return '<container>';
+			if (isContainer(arg)) return '<container>';
 
-			return JSON.stringify(arg0, replacer);
+			return JSON.stringify(arg, replacer);
 	}
 }
 

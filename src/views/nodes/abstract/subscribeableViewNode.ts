@@ -57,7 +57,6 @@ export abstract class SubscribeableViewNode<
 		this.disposable?.dispose();
 	}
 
-	@gate<ViewNode['triggerChange']>((reset, force) => `${reset}|${force}`)
 	@debug()
 	override async triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
 		if (!this.loaded || this._disposed) return;
