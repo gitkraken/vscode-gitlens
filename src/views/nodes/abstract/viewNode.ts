@@ -285,7 +285,7 @@ export abstract class ViewNode<
 
 	refresh?(reset?: boolean): boolean | void | Promise<void> | Promise<boolean>;
 
-	@gate<ViewNode['triggerChange']>((reset, force, avoidSelf) => `${reset}|${force}|${avoidSelf?.toString()}`)
+	@gate()
 	@debug()
 	triggerChange(reset: boolean = false, force: boolean = false, avoidSelf?: ViewNode): Promise<void> {
 		if (this._disposed) return Promise.resolve();
