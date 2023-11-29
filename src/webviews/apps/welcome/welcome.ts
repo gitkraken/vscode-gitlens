@@ -93,6 +93,12 @@ export class WelcomeApp extends App<State> {
 		this.updateFeatures();
 		this.updateRepoState();
 		this.updateAccountState();
+		this.updatePromo();
+	}
+
+	private updatePromo() {
+		const { canShowPromo } = this.state;
+		document.getElementById('promo')!.hidden = !(canShowPromo ?? false);
 	}
 
 	private updateVersion() {

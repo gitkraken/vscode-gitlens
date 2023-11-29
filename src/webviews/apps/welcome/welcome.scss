@@ -3,6 +3,16 @@
 @use '../shared/styles/normalize';
 @use '../shared/styles/theme';
 
+.vscode-high-contrast,
+.vscode-dark {
+	--promo-banner-dark-display: inline-block;
+}
+
+.vscode-high-contrast-light,
+.vscode-light {
+	--promo-banner-light-display: inline-block;
+}
+
 // normalize type
 body {
 	line-height: 1.4;
@@ -181,6 +191,24 @@ li {
 
 gk-card p {
 	margin: 0;
+}
+
+.promo-banner {
+	text-align: center;
+
+	&__media {
+		width: 100%;
+		max-width: 100%;
+		height: auto;
+
+		&.is-light {
+			display: var(--promo-banner-light-display, none);
+		}
+
+		&.is-dark {
+			display: var(--promo-banner-dark-display, none);
+		}
+	}
 }
 
 .welcome {
