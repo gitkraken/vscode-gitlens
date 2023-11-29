@@ -765,6 +765,8 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 	@debug()
 	async searchMyIssues(repos?: RepositoryDescriptor | RepositoryDescriptor[]): Promise<SearchedIssue[] | undefined> {
 		const scope = getLogScope();
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
 
 		try {
 			const issues = await this.searchProviderMyIssues(
@@ -790,6 +792,8 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 		repos?: RepositoryDescriptor | RepositoryDescriptor[],
 	): Promise<SearchedPullRequest[] | undefined> {
 		const scope = getLogScope();
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
 
 		try {
 			const pullRequests = await this.searchProviderMyPullRequests(

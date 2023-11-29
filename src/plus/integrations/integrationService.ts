@@ -121,20 +121,76 @@ export class IntegrationService implements Disposable {
 		return id != null ? this.get(id, remote.domain) : undefined;
 	}
 
-	@debug<IntegrationService['getMyIssues']>({ args: { 0: r => r.name } })
-	async getMyIssues(remote: GitRemote, useRepo: boolean = false): Promise<SearchedIssue[] | undefined> {
-		if (remote?.provider == null) return undefined;
+	async getMyIssues(remote: GitRemote): Promise<SearchedIssue[] | undefined>;
+	async getMyIssues(remotes: GitRemote[]): Promise<SearchedIssue[] | undefined>;
+	@debug<IntegrationService['getMyIssues']>({
+		args: { 0: (r: GitRemote | GitRemote[]) => (Array.isArray(r) ? r.map(rp => rp.name) : r.name) },
+	})
+	async getMyIssues(remoteOrRemotes: GitRemote | GitRemote[]): Promise<SearchedIssue[] | undefined> {
+		if (Array.isArray(remoteOrRemotes)) {
+			const remotesByProviderId = new Map<RemoteProviderId, GitRemote[]>();
+			for (const remote of remoteOrRemotes) {
+				if (remote?.provider == null) continue;
 
-		const provider = this.getByRemote(remote);
-		return provider?.searchMyIssues(useRepo ? remote.provider.repoDesc : undefined);
+				let remotes = remotesByProviderId.get(remote.provider.id);
+				if (remotes == null) {
+					remotes = [];
+					remotesByProviderId.set(remote.provider.id, remotes);
+				}
+				remotes.push(remote);
+			}
+
+			const promises: Promise<SearchedIssue[] | undefined>[] = [];
+			for (const [remoteProviderId, remotes] of remotesByProviderId) {
+				const providerId = convertRemoteIdToProviderId(remoteProviderId);
+				if (providerId == null) continue;
+				const provider = this.get(providerId);
+				promises.push(provider.searchMyIssues(remotes.map(r => r.provider!.repoDesc)));
+			}
+
+			return (await Promise.all(promises)).filter(r => r != null).flat() as SearchedIssue[];
+		}
+
+		if (remoteOrRemotes?.provider == null) return undefined;
+
+		const provider = this.getByRemote(remoteOrRemotes);
+		return provider?.searchMyIssues(remoteOrRemotes.provider.repoDesc);
 	}
 
-	@debug<IntegrationService['getMyPullRequests']>({ args: { 0: r => r.name } })
-	async getMyPullRequests(remote: GitRemote, useRepo: boolean = false): Promise<SearchedPullRequest[] | undefined> {
-		if (remote?.provider == null) return undefined;
+	async getMyPullRequests(remote: GitRemote): Promise<SearchedPullRequest[] | undefined>;
+	async getMyPullRequests(remotes: GitRemote[]): Promise<SearchedPullRequest[] | undefined>;
+	@debug<IntegrationService['getMyPullRequests']>({
+		args: { 0: (r: GitRemote | GitRemote[]) => (Array.isArray(r) ? r.map(rp => rp.name) : r.name) },
+	})
+	async getMyPullRequests(remoteOrRemotes: GitRemote | GitRemote[]): Promise<SearchedPullRequest[] | undefined> {
+		if (Array.isArray(remoteOrRemotes)) {
+			const remotesByProviderId = new Map<RemoteProviderId, GitRemote[]>();
+			for (const remote of remoteOrRemotes) {
+				if (remote?.provider == null) continue;
 
-		const provider = this.getByRemote(remote);
-		return provider?.searchMyPullRequests(useRepo ? remote.provider.repoDesc : undefined);
+				let remotes = remotesByProviderId.get(remote.provider.id);
+				if (remotes == null) {
+					remotes = [];
+					remotesByProviderId.set(remote.provider.id, remotes);
+				}
+				remotes.push(remote);
+			}
+
+			const promises: Promise<SearchedPullRequest[] | undefined>[] = [];
+			for (const [remoteProviderId, remotes] of remotesByProviderId) {
+				const providerId = convertRemoteIdToProviderId(remoteProviderId);
+				if (providerId == null) continue;
+				const provider = this.get(providerId);
+				promises.push(provider.searchMyPullRequests(remotes.map(r => r.provider!.repoDesc)));
+			}
+
+			return (await Promise.all(promises)).filter(r => r != null).flat() as SearchedPullRequest[];
+		}
+
+		if (remoteOrRemotes?.provider == null) return undefined;
+
+		const provider = this.getByRemote(remoteOrRemotes);
+		return provider?.searchMyPullRequests(remoteOrRemotes.provider.repoDesc);
 	}
 
 	supports(remoteId: RemoteProviderId): boolean {
