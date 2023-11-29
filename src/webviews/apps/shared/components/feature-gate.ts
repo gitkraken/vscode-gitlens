@@ -80,7 +80,7 @@ export class FeatureGate extends LitElement {
 		}
 	`;
 
-	@property()
+	@property({ reflect: true })
 	appearance?: 'alert' | 'welcome';
 
 	@property({ attribute: false, type: Number })
