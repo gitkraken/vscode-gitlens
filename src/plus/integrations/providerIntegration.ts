@@ -760,12 +760,17 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 		}
 	}
 
+	async searchMyIssues(repo?: RepositoryDescriptor): Promise<SearchedIssue[] | undefined>;
+	async searchMyIssues(repos: RepositoryDescriptor[]): Promise<SearchedIssue[] | undefined>;
 	@debug()
-	async searchMyIssues(repo?: RepositoryDescriptor): Promise<SearchedIssue[] | undefined> {
+	async searchMyIssues(repos?: RepositoryDescriptor | RepositoryDescriptor[]): Promise<SearchedIssue[] | undefined> {
 		const scope = getLogScope();
 
 		try {
-			const issues = await this.searchProviderMyIssues(this._session!, repo);
+			const issues = await this.searchProviderMyIssues(
+				this._session!,
+				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
+			);
 			this.resetRequestExceptionCount();
 			return issues;
 		} catch (ex) {
@@ -775,15 +780,22 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 
 	protected abstract searchProviderMyIssues(
 		session: AuthenticationSession,
-		repo?: RepositoryDescriptor,
+		repos?: RepositoryDescriptor[],
 	): Promise<SearchedIssue[] | undefined>;
 
+	async searchMyPullRequests(repo?: RepositoryDescriptor): Promise<SearchedPullRequest[] | undefined>;
+	async searchMyPullRequests(repos: RepositoryDescriptor[]): Promise<SearchedPullRequest[] | undefined>;
 	@debug()
-	async searchMyPullRequests(repo?: RepositoryDescriptor): Promise<SearchedPullRequest[] | undefined> {
+	async searchMyPullRequests(
+		repos?: RepositoryDescriptor | RepositoryDescriptor[],
+	): Promise<SearchedPullRequest[] | undefined> {
 		const scope = getLogScope();
 
 		try {
-			const pullRequests = await this.searchProviderMyPullRequests(this._session!, repo);
+			const pullRequests = await this.searchProviderMyPullRequests(
+				this._session!,
+				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
+			);
 			this.resetRequestExceptionCount();
 			return pullRequests;
 		} catch (ex) {
@@ -793,7 +805,7 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 
 	protected abstract searchProviderMyPullRequests(
 		session: AuthenticationSession,
-		repo?: RepositoryDescriptor,
+		repos?: RepositoryDescriptor[],
 	): Promise<SearchedPullRequest[] | undefined>;
 
 	@gate()

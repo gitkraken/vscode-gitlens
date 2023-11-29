@@ -96,14 +96,14 @@ export class BitbucketIntegration extends ProviderIntegration<BitbucketRepositor
 
 	protected override async searchProviderMyPullRequests(
 		_session: AuthenticationSession,
-		_repo?: BitbucketRepositoryDescriptor,
+		_repos?: BitbucketRepositoryDescriptor[],
 	): Promise<SearchedPullRequest[] | undefined> {
 		return Promise.resolve(undefined);
 	}
 
 	protected override async searchProviderMyIssues(
 		_session: AuthenticationSession,
-		_repo?: BitbucketRepositoryDescriptor,
+		_repos?: BitbucketRepositoryDescriptor[],
 	): Promise<SearchedIssue[] | undefined> {
 		return Promise.resolve(undefined);
 	}
