@@ -640,9 +640,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			const branchesByRepo = new Map<Repository, PageableResult<GitBranch>>();
 			const worktreesByRepo = new Map<Repository, GitWorktree[]>();
 
-			const queries = richRepos.map(
-				r => [r, this.container.integrations.getMyPullRequests(r.remote, true)] as const,
-			);
+			const queries = richRepos.map(r => [r, this.container.integrations.getMyPullRequests(r.remote)] as const);
 			for (const [r, query] of queries) {
 				let prs;
 				try {
@@ -724,7 +722,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (force || this._pullRequests == null) {
 			const allIssues = [];
 
-			const queries = richRepos.map(r => [r, this.container.integrations.getMyIssues(r.remote, true)] as const);
+			const queries = richRepos.map(r => [r, this.container.integrations.getMyIssues(r.remote)] as const);
 			for (const [r, query] of queries) {
 				let issues;
 				try {
