@@ -144,14 +144,14 @@ export class GitLabIntegration extends ProviderIntegration<GitLabRepositoryDescr
 
 	protected override searchProviderMyPullRequests(
 		_session: AuthenticationSession,
-		_repo?: GitLabRepositoryDescriptor,
+		_repo?: GitLabRepositoryDescriptor[],
 	): Promise<SearchedPullRequest[] | undefined> {
 		return Promise.resolve(undefined);
 	}
 
 	protected override searchProviderMyIssues(
 		_session: AuthenticationSession,
-		_repo?: GitLabRepositoryDescriptor,
+		_repos?: GitLabRepositoryDescriptor[],
 	): Promise<SearchedIssue[] | undefined> {
 		return Promise.resolve(undefined);
 	}

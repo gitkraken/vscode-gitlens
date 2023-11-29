@@ -144,20 +144,20 @@ export class GitHubIntegration extends ProviderIntegration<GitHubRepositoryDescr
 
 	protected override async searchProviderMyPullRequests(
 		{ accessToken }: AuthenticationSession,
-		repo?: GitHubRepositoryDescriptor,
+		repos?: GitHubRepositoryDescriptor[],
 	): Promise<SearchedPullRequest[] | undefined> {
 		return (await this.container.github)?.searchMyPullRequests(this, accessToken, {
-			repos: repo != null ? [`${repo.owner}/${repo.name}`] : undefined,
+			repos: repos?.map(r => `${r.owner}/${r.name}`),
 			baseUrl: this.apiBaseUrl,
 		});
 	}
 
 	protected override async searchProviderMyIssues(
 		{ accessToken }: AuthenticationSession,
-		repo?: GitHubRepositoryDescriptor,
+		repos?: GitHubRepositoryDescriptor[],
 	): Promise<SearchedIssue[] | undefined> {
 		return (await this.container.github)?.searchMyIssues(this, accessToken, {
-			repos: repo != null ? [`${repo.owner}/${repo.name}`] : undefined,
+			repos: repos?.map(r => `${r.owner}/${r.name}`),
 			baseUrl: this.apiBaseUrl,
 		});
 	}
