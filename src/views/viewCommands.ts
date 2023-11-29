@@ -1180,7 +1180,7 @@ export class ViewCommands {
 
 		return CommitActions.openChangesWithWorking(node.file, {
 			repoPath: node.repoPath,
-			ref: node.ref.ref,
+			ref: node.is('results-file') ? node.ref2 : node.ref.ref,
 		});
 	}
 
@@ -1190,7 +1190,7 @@ export class ViewCommands {
 
 		return CommitActions.openChangesWithWorking(node.file, {
 			repoPath: node.repoPath,
-			ref: `${node.ref.ref}^`,
+			ref: node.is('results-file') ? node.ref1 : `${node.ref.ref}^`,
 		});
 	}
 
