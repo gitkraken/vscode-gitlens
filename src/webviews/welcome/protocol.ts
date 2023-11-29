@@ -9,7 +9,8 @@ export interface State extends WebviewState {
 		currentLine: Config['currentLine']['enabled'];
 	};
 	repoFeaturesBlocked?: boolean;
-	isTrialOrPaid?: boolean;
+	isTrialOrPaid: boolean;
+	canShowPromo: boolean;
 }
 
 export interface UpdateConfigurationParams {

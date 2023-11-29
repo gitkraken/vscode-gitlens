@@ -2,7 +2,7 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
 import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
-import { SubscriptionState } from '../../plus/gk/account/subscription';
+import { isSubscriptionPaid, SubscriptionState } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { configuration } from '../../system/configuration';
 import type { IpcMessage } from '../protocol';
@@ -77,6 +77,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 				this.container.git.openRepositoryCount === 0 ||
 				this.container.git.hasUnsafeRepositories(),
 			isTrialOrPaid: await this.getTrialOrPaidState(subscription),
+			canShowPromo: await this.getCanShowPromo(subscription),
 		};
 	}
 
@@ -88,6 +89,16 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 		}
 
 		return false;
+	}
+
+	private async getCanShowPromo(subscription?: Subscription): Promise<boolean> {
+		const expiresTime = new Date('2023-12-06T07:59:00.000Z').getTime(); // 2023-12-05 23:59:00 PST-0800
+		if (Date.now() > expiresTime) {
+			return false;
+		}
+
+		const sub = subscription ?? (await this.container.subscription.getSubscription(true));
+		return !isSubscriptionPaid(sub);
 	}
 
 	private updateConfiguration(params: UpdateConfigurationParams) {
