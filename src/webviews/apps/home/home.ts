@@ -2,7 +2,7 @@
 import './home.scss';
 import type { Disposable } from 'vscode';
 import type { State } from '../../home/protocol';
-import { DidChangeRepositoriesType } from '../../home/protocol';
+import { DidChangeRepositoriesType, DidChangeSubscriptionType } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommandType, onIpc } from '../../protocol';
 import { App } from '../shared/appBase';
@@ -46,6 +46,13 @@ export class HomeApp extends App<State> {
 					this.state.timestamp = Date.now();
 					this.setState(this.state);
 					this.updateNoRepo();
+				});
+				break;
+			case DidChangeSubscriptionType.method:
+				onIpc(DidChangeSubscriptionType, msg, params => {
+					this.state.promoStates = params.promoStates;
+					this.setState(this.state);
+					this.updatePromos();
 				});
 				break;
 			default:
@@ -98,8 +105,18 @@ export class HomeApp extends App<State> {
 		header.hidden = !noRepos && !hasUnsafe;
 	}
 
+	private updatePromos() {
+		const {
+			promoStates: { cw2023, pro50 },
+		} = this.state;
+
+		setElementVisibility('promo-cw2023', cw2023);
+		setElementVisibility('promo-pro50', pro50);
+	}
+
 	private updateState() {
 		this.updateNoRepo();
+		this.updatePromos();
 	}
 }
 
