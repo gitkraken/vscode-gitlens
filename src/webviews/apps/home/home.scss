@@ -19,6 +19,7 @@
 	--card-background: var(--color-background--lighten-075);
 	--card-hover-background: var(--color-background--lighten-10);
 	--popover-bg: var(--color-background--lighten-15);
+	--promo-banner-dark-display: inline-block;
 }
 
 .vscode-high-contrast-light,
@@ -27,6 +28,7 @@
 	--card-background: var(--color-background--darken-075);
 	--card-hover-background: var(--color-background--darken-10);
 	--popover-bg: var(--color-background--darken-15);
+	--promo-banner-light-display: inline-block;
 }
 
 * {
@@ -139,6 +141,39 @@ p {
 ul {
 	margin-top: 0;
 	padding-left: 1.2em;
+}
+
+.promo-banner {
+	text-align: center;
+	margin-bottom: 1rem;
+
+	&__link {
+		display: inline-block;
+		font-size: 1.1rem;
+		font-weight: bold;
+		color: inherit;
+		text-align: center;
+		text-decoration: none;
+
+		&:hover {
+			color: inherit;
+			text-decoration: underline;
+		}
+	}
+
+	&__media {
+		// width: 100%;
+		max-width: 100%;
+		height: auto;
+
+		&.is-light {
+			display: var(--promo-banner-light-display, none);
+		}
+
+		&.is-dark {
+			display: var(--promo-banner-dark-display, none);
+		}
+	}
 }
 
 .home {
