@@ -1,5 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import { hasAccountFromSubscriptionState, SubscriptionState } from '../../../../../plus/gk/account/subscription';
 import { pluralize } from '../../../../../system/string';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
@@ -153,6 +154,8 @@ export class AccountContent extends LitElement {
 	}
 
 	private renderAccountState() {
+		const inCyberPromo = Date.now() < new Date('2023-12-06T07:59:00.000Z').getTime();
+
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:
 				return html`
@@ -187,10 +190,22 @@ export class AccountContent extends LitElement {
 						Your GitKraken trial has ended, please upgrade to continue to use ✨ features on privately
 						hosted repos.
 					</p>
-					<p>
-						Special: <b>50% off GitKraken's suite of dev tools</b><br />
-						1st & 2nd seats only $4/month each
-					</p>
+					${when(
+						inCyberPromo,
+						() =>
+							html`<p style="text-align: center;">
+								<a
+									href=${'https://www.gitkraken.com/cw23?utm_source=cyber_week&utm_medium=gitlens_banner&utm_campaign=cyber_week_2023'}
+									>Cyber Week Sale: 50% off first seat of Pro — only $4/month! Includes entire
+									GitKraken suite of dev tools.</a
+								>
+							</p>`,
+						() =>
+							html`<p style="text-align: center;">
+								Special: 50% off first seat of Pro — only $4/month! Includes entire GitKraken suite of
+								dev tools.
+							</p>`,
+					)}
 					<button-container>
 						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
 					</button-container>
@@ -216,10 +231,22 @@ export class AccountContent extends LitElement {
 						${this.daysRemaining} remaining in your GitKraken trial.`}
 						Once your trial ends, you'll need a paid plan to continue using ✨ features.
 					</p>
-					<p>
-						Special: <b>50% off GitKraken's suite of dev tools</b><br />
-						1st & 2nd seats only $4/month each
-					</p>
+					${when(
+						inCyberPromo,
+						() =>
+							html`<p style="text-align: center;">
+								<a
+									href=${'https://www.gitkraken.com/cw23?utm_source=cyber_week&utm_medium=gitlens_banner&utm_campaign=cyber_week_2023'}
+									>Cyber Week Sale: <b>50% off first seat of Pro</b> — only $4/month! Includes entire
+									GitKraken suite of dev tools.</a
+								>
+							</p>`,
+						() =>
+							html`<p style="text-align: center;">
+								Special: <b>50% off first seat of Pro</b> — only $4/month! Includes entire GitKraken
+								suite of dev tools.
+							</p>`,
+					)}
 					<button-container>
 						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
 					</button-container>
