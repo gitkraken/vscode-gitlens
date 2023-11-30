@@ -995,12 +995,15 @@ export class SubscriptionService implements Disposable {
 		this._statusBarSubscription.show();
 	}
 
-	async updateActiveOrganization(organizationId: string) {
+	async updateActiveOrganization(organizationId: string): Promise<void> {
 		const scope = getLogScope();
 		if (this._subscription == null) {
 			Logger.error('Active subscription not found', scope);
 			return;
 		}
+
+		const currentActiveOrganization = await this.ensureActiveOrganization();
+		if (currentActiveOrganization?.id === organizationId) return;
 
 		let organizations;
 		try {
@@ -1010,7 +1013,7 @@ export class SubscriptionService implements Disposable {
 			Logger.error(ex, scope);
 			return;
 		}
-		const organization = organizations.find(org => org.id === organizationId);
+		const organization = organizations?.find(org => org.id === organizationId);
 		if (organization == null) {
 			Logger.error('Organization not found', scope);
 			return;
@@ -1026,7 +1029,11 @@ export class SubscriptionService implements Disposable {
 		});
 	}
 
-	async ensureActiveOrganization(): Promise<Organization | undefined> {
+	async getActiveOrganization(): Promise<Organization | undefined> {
+		return this.ensureActiveOrganization();
+	}
+
+	private async ensureActiveOrganization(): Promise<Organization | undefined> {
 		const scope = getLogScope();
 		if (this._subscription == null) {
 			Logger.error('Active subscription not found', scope);
@@ -1042,9 +1049,14 @@ export class SubscriptionService implements Disposable {
 			return undefined;
 		}
 
+		if (organizations == null) return undefined;
+
+		const organizationsById = new Map<string, Organization>();
+		organizations.forEach(org => organizationsById.set(org.id, org));
+
 		const currentOrganizationId = this._subscription?.activeOrganization?.id;
 		const storedOrganizationId = configuration.get('gitKraken.activeOrganizationId');
-		if (currentOrganizationId != null && organizations.some(org => org.id === currentOrganizationId)) {
+		if (currentOrganizationId != null && organizationsById.has(currentOrganizationId)) {
 			if (storedOrganizationId != currentOrganizationId) {
 				await configuration.updateEffective('gitKraken.activeOrganizationId', currentOrganizationId);
 			}
@@ -1053,7 +1065,7 @@ export class SubscriptionService implements Disposable {
 
 		let organization: Organization | undefined;
 		if (storedOrganizationId != null) {
-			organization = organizations.find(org => org.id === storedOrganizationId);
+			organization = organizationsById.get(storedOrganizationId);
 		}
 
 		if (organization != null) {
@@ -1067,7 +1079,7 @@ export class SubscriptionService implements Disposable {
 		const planOrganizationId =
 			this._subscription.plan?.actual?.organizationId ?? this._subscription.plan?.effective?.organizationId;
 		if (planOrganizationId != null) {
-			organization = organizations.find(org => org.id === planOrganizationId);
+			organization = organizationsById.get(planOrganizationId);
 			if (organization != null) {
 				await configuration.updateEffective('gitKraken.activeOrganizationId', organization?.id);
 				this.changeSubscription({

@@ -836,6 +836,7 @@ export type GlobalStorage = {
 	avatars: [string, StoredAvatar][];
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
 	'deepLinks:pending': StoredDeepLinkContext;
+	'gitKraken:organizations': StoredOrganizations;
 	pendingWelcomeOnFocus: boolean;
 	pendingWhatsNewOnFocus: boolean;
 	// Don't change this key name ('premium`) as its the stored subscription
@@ -882,6 +883,18 @@ export type WorkspaceStorage = {
 export interface Stored<T, SchemaVersion extends number = 1> {
 	v: SchemaVersion;
 	data: T;
+}
+
+export interface StoredOrganization {
+	id: string;
+	name: string;
+	role: string;
+}
+
+export interface StoredOrganizations {
+	timestamp: number;
+	userId: string;
+	organizations: StoredOrganization[];
 }
 
 export interface StoredAvatar {

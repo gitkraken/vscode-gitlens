@@ -7,6 +7,8 @@ import type { ServerConnection } from '../serverConnection';
 import type { Organization } from './organization';
 import type { SubscriptionChangeEvent } from './subscriptionService';
 
+const organizationsCacheExpiration = 24 * 60 * 60 * 1000; // 1 day
+
 export class OrganizationService implements Disposable {
 	private _disposable: Disposable;
 	private _organizations: Organization[] | null | undefined;
@@ -16,13 +18,24 @@ export class OrganizationService implements Disposable {
 		private readonly connection: ServerConnection,
 	) {
 		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
-		this._organizations = undefined;
+	}
+
+	dispose(): void {
+		this._disposable.dispose();
 	}
 
 	@gate()
-	async getOrganizations(): Promise<Organization[]> {
+	async getOrganizations(options?: { force?: boolean }): Promise<Organization[] | null | undefined> {
 		const scope = getLogScope();
-		if (this._organizations === undefined) {
+		if (this._organizations === undefined || options?.force) {
+			if (!options?.force) {
+				const storedOrganizations = await this.getStoredOrganizations();
+				if (storedOrganizations != null) {
+					this._organizations = storedOrganizations;
+					return this._organizations;
+				}
+			}
+
 			// TODO: Use organizations-light instead once available.
 			const rsp = await this.connection.fetchApi('user/organizations', {
 				method: 'GET',
@@ -37,24 +50,53 @@ export class OrganizationService implements Disposable {
 				this._organizations = null;
 			}
 
-			const organizations = await rsp.json();
-			this._organizations = organizations.map((o: any) => ({
+			const organizationsResponse = await rsp.json();
+			const organizations = organizationsResponse.map((o: any) => ({
 				id: o.id,
 				name: o.name,
 				role: o.role,
 			}));
+
+			await this.storeOrganizations(organizations);
+			this._organizations = organizations;
 		}
 
-		return this._organizations ?? [];
+		return this._organizations;
 	}
 
-	dispose(): void {
-		this._disposable.dispose();
+	@gate()
+	async getStoredOrganizations(): Promise<Organization[] | undefined> {
+		const userId = (await this.container.subscription.getSubscription())?.account?.id;
+		if (userId == null) return undefined;
+		const storedOrganizations = this.container.storage.get('gitKraken:organizations');
+		if (storedOrganizations == null) return undefined;
+		const { timestamp, organizations, userId: storedUserId } = storedOrganizations;
+		if (storedUserId !== userId || timestamp + organizationsCacheExpiration < Date.now()) {
+			await this.clearStoredOrganizations();
+			return undefined;
+		}
+
+		return organizations;
 	}
 
-	private onSubscriptionChanged(e: SubscriptionChangeEvent): void {
+	private async clearStoredOrganizations(): Promise<void> {
+		return this.container.storage.delete('gitKraken:organizations');
+	}
+
+	private async storeOrganizations(organizations: Organization[]): Promise<void> {
+		const userId = (await this.container.subscription.getSubscription())?.account?.id;
+		if (userId == null) return;
+		return this.container.storage.store('gitKraken:organizations', {
+			timestamp: Date.now(),
+			organizations: organizations,
+			userId: userId,
+		});
+	}
+
+	private async onSubscriptionChanged(e: SubscriptionChangeEvent): Promise<void> {
 		if (e.current?.account?.id !== e.previous?.account?.id) {
 			this._organizations = undefined;
+			await this.clearStoredOrganizations();
 		}
 	}
 }
