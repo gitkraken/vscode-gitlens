@@ -164,6 +164,8 @@ function getExtensionConfig(target, mode, env) {
 						compress: {
 							drop_debugger: true,
 							ecma: 2020,
+							// Keep the class names otherwise @log won't provide a useful name
+							keep_classnames: true,
 							module: true,
 						},
 						ecma: 2020,
@@ -411,6 +413,8 @@ function getWebviewsConfig(mode, env) {
 										drop_debugger: true,
 										drop_console: true,
 										ecma: 2020,
+										// Keep the class names otherwise @log won't provide a useful name
+										keep_classnames: true,
 										module: true,
 									},
 									ecma: 2020,
@@ -418,8 +422,8 @@ function getWebviewsConfig(mode, env) {
 										comments: false,
 										ecma: 2020,
 									},
-									// // Keep the class names otherwise @log won't provide a useful name
-									// keep_classnames: true,
+									// Keep the class names otherwise @log won't provide a useful name
+									keep_classnames: true,
 									module: true,
 								},
 							}),
