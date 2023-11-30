@@ -66,7 +66,7 @@ export class OrganizationService implements Disposable {
 
 	@gate()
 	async getStoredOrganizations(): Promise<Organization[] | undefined> {
-		const userId = (await this.container.subscription.getSubscription())?.account?.id;
+		const userId = (await this.container.subscription.getSubscription(true))?.account?.id;
 		if (userId == null) return undefined;
 		const storedOrganizations = this.container.storage.get('gk:organizations');
 		if (storedOrganizations == null) return undefined;
@@ -84,7 +84,7 @@ export class OrganizationService implements Disposable {
 	}
 
 	private async storeOrganizations(organizations: Organization[]): Promise<void> {
-		const userId = (await this.container.subscription.getSubscription())?.account?.id;
+		const userId = (await this.container.subscription.getSubscription(true))?.account?.id;
 		if (userId == null) return;
 		return this.container.storage.store('gk:organizations', {
 			timestamp: Date.now(),
