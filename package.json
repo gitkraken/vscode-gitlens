@@ -4295,6 +4295,13 @@
 						"scope": "window",
 						"order": 120
 					},
+					"gitlens.experimental.openChangesInMultiDiffEditor": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether to open multiple changes in VS Code's experimental multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
+						"scope": "window",
+						"order": 120
+					},
 					"gitlens.advanced.useSymmetricDifferenceNotation": {
 						"deprecationMessage": "Deprecated. This setting is no longer used",
 						"markdownDescription": "Deprecated. This setting is no longer used"

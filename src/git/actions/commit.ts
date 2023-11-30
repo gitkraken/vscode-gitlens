@@ -9,18 +9,19 @@ import type { OpenWorkingFileCommandArgs } from '../../commands/openWorkingFile'
 import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit';
 import type { ShowQuickCommitFileCommandArgs } from '../../commands/showQuickCommitFile';
 import type { FileAnnotationType } from '../../config';
-import { Commands } from '../../constants';
+import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand, executeEditorCommand } from '../../system/command';
-import { findOrOpenEditor, findOrOpenEditors } from '../../system/utils';
+import { configuration } from '../../system/configuration';
+import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/utils';
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
 import { deletedOrMissing } from '../models/constants';
 import type { GitFile } from '../models/file';
 import type { GitRevisionReference } from '../models/reference';
-import { getReferenceFromRevision, isUncommitted, isUncommittedStaged } from '../models/reference';
+import { getReferenceFromRevision, isUncommitted, isUncommittedStaged, shortenRevision } from '../models/reference';
 
 type Ref = { repoPath: string; ref: string };
 type RefRange = { repoPath: string; rhs: string; lhs: string };
@@ -92,8 +93,11 @@ export async function openAllChanges(
 	refsOrOptions: RefRange | TextDocumentShowOptions | undefined,
 	options?: TextDocumentShowOptions,
 ) {
+	const useChangesEditor = configuration.get('experimental.openChangesInMultiDiffEditor');
+
 	let files;
 	let refs: RefRange | undefined;
+	let title;
 	if (isCommit(commitOrFiles)) {
 		if (commitOrFiles.files == null) {
 			await commitOrFiles.ensureFullDetails();
@@ -103,17 +107,25 @@ export async function openAllChanges(
 		refs = {
 			repoPath: commitOrFiles.repoPath,
 			rhs: commitOrFiles.sha,
-			// Don't need to worry about verifying the previous sha, as the DiffWith command will
-			lhs: commitOrFiles.unresolvedPreviousSha,
+			lhs:
+				commitOrFiles.resolvedPreviousSha ??
+				(useChangesEditor
+					? (await commitOrFiles.getPreviousSha()) ?? commitOrFiles.unresolvedPreviousSha
+					: // Don't need to worry about verifying the previous sha, as the DiffWith command will
+					  commitOrFiles.unresolvedPreviousSha),
 		};
 
 		options = refsOrOptions as TextDocumentShowOptions | undefined;
+		title = `Changes in ${shortenRevision(refs.rhs)}`;
 	} else {
 		files = commitOrFiles;
 		refs = refsOrOptions as RefRange;
+		title = `Changes between ${shortenRevision(refs.lhs)} ${GlyphChars.ArrowLeftRightLong} ${shortenRevision(
+			refs.rhs,
+		)}`;
 	}
 
-	if (files.length > 10) {
+	if (files.length > (useChangesEditor ? 50 : 10)) {
 		const result = await window.showWarningMessage(
 			`Are you sure you want to open the changes for all ${files.length} files?`,
 			{ title: 'Yes' },
@@ -124,9 +136,28 @@ export async function openAllChanges(
 
 	options = { preserveFocus: true, preview: false, ...options };
 
-	for (const file of files) {
-		await openChanges(file, refs, options);
+	if (!useChangesEditor) {
+		for (const file of files) {
+			await openChanges(file, refs, options);
+		}
+		return;
 	}
+
+	const { git } = Container.instance;
+
+	const resources: Parameters<typeof openChangesEditor>[0] = [];
+	for (const file of files) {
+		const rhs =
+			file.status === 'D' ? undefined : (await git.getBestRevisionUri(refs.repoPath, file.path, refs.rhs))!;
+		const lhs =
+			file.status === 'A'
+				? undefined
+				: (await git.getBestRevisionUri(refs.repoPath, file.originalPath ?? file.path, refs.lhs))!;
+		const uri = (file.status === 'D' ? lhs : rhs) ?? GitUri.fromFile(file, refs.repoPath);
+		resources.push({ uri: uri, lhs: lhs, rhs: rhs });
+	}
+
+	await openChangesEditor(resources, title, options);
 }
 
 export async function openAllChangesWithDiffTool(commit: GitCommit): Promise<void>;
@@ -191,7 +222,9 @@ export async function openAllChangesWithWorking(
 		ref = refOrOptions as Ref;
 	}
 
-	if (files.length > 10) {
+	const useChangesEditor = configuration.get('experimental.openChangesInMultiDiffEditor');
+
+	if (files.length > (useChangesEditor ? 50 : 10)) {
 		const result = await window.showWarningMessage(
 			`Are you sure you want to open the changes for all ${files.length} files?`,
 			{ title: 'Yes' },
@@ -202,9 +235,37 @@ export async function openAllChangesWithWorking(
 
 	options = { preserveFocus: true, preview: false, ...options };
 
-	for (const file of files) {
-		await openChangesWithWorking(file, ref, options);
+	if (!useChangesEditor) {
+		for (const file of files) {
+			await openChangesWithWorking(file, ref, options);
+		}
+		return;
 	}
+
+	const { git } = Container.instance;
+
+	const resources: Parameters<typeof openChangesEditor>[0] = [];
+	for (const file of files) {
+		const rhs =
+			file.status === 'D'
+				? undefined
+				: await git.getWorkingUri(
+						ref.repoPath,
+						(await git.getBestRevisionUri(ref.repoPath, file.path, ref.ref))!,
+				  );
+		const lhs =
+			file.status === 'A'
+				? undefined
+				: (await git.getBestRevisionUri(ref.repoPath, file.originalPath ?? file.path, ref.ref))!;
+		const uri = (file.status === 'D' ? lhs : rhs) ?? GitUri.fromFile(file, ref.repoPath);
+		resources.push({ uri: uri, lhs: lhs, rhs: rhs });
+	}
+
+	await openChangesEditor(
+		resources,
+		`Changes between ${shortenRevision(ref.ref)} ${GlyphChars.ArrowLeftRightLong} Working Tree`,
+		options,
+	);
 }
 
 export async function openChanges(
