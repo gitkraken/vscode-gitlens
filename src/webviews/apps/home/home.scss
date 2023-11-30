@@ -147,6 +147,11 @@ ul {
 	text-align: center;
 	margin-bottom: 1rem;
 
+	&--eyebrow {
+		color: var(--color-foreground--50);
+		margin-bottom: 0.2rem;
+	}
+
 	&__link {
 		display: inline-block;
 		font-size: 1.1rem;
@@ -161,9 +166,18 @@ ul {
 		}
 	}
 
+	&--eyebrow &__link {
+		display: block;
+		white-space: nowrap;
+		font-weight: normal;
+		max-width: 100%;
+		text-overflow: ellipsis;
+		overflow: hidden;
+	}
+
 	&__media {
 		// width: 100%;
-		max-width: 100%;
+		max-width: 8.6rem;
 		height: auto;
 
 		&.is-light {
