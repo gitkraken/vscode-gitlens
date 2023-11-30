@@ -638,6 +638,7 @@ export type CoreCommands =
 	| 'vscode.open'
 	| 'vscode.openFolder'
 	| 'vscode.openWith'
+	| 'vscode.changes'
 	| 'vscode.diff'
 	| 'vscode.executeCodeLensProvider'
 	| 'vscode.executeDocumentSymbolProvider'

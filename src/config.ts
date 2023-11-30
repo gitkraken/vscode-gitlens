@@ -74,6 +74,7 @@ export interface Config {
 	readonly experimental: {
 		readonly generateCommitMessagePrompt: string;
 		readonly nativeGit: boolean;
+		readonly openChangesInMultiDiffEditor: boolean;
 	};
 	readonly fileAnnotations: {
 		readonly command: string | null;

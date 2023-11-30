@@ -96,6 +96,7 @@ export function executeCoreCommand<T extends [...unknown[]] = [], U = any>(
 	if (
 		command != 'setContext' &&
 		command !== 'vscode.executeDocumentSymbolProvider' &&
+		command !== 'vscode.changes' &&
 		command !== 'vscode.diff' &&
 		command !== 'vscode.open'
 	) {

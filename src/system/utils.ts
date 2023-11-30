@@ -165,6 +165,22 @@ export async function openEditor(
 	}
 }
 
+export async function openChangesEditor(
+	resources: { uri: Uri; lhs: Uri | undefined; rhs: Uri | undefined }[],
+	title: string,
+	_options?: TextDocumentShowOptions,
+): Promise<void> {
+	try {
+		await executeCoreCommand(
+			'vscode.changes',
+			title,
+			resources.map(r => [r.uri, r.lhs, r.rhs]),
+		);
+	} catch (ex) {
+		Logger.error(ex, 'openChangesEditor');
+	}
+}
+
 export async function openDiffEditor(
 	lhs: Uri,
 	rhs: Uri,

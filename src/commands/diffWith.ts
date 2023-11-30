@@ -58,6 +58,7 @@ export class DiffWithCommand extends Command {
 				args = {
 					repoPath: commit.repoPath,
 					lhs: {
+						// Don't need to worry about verifying the previous sha, as the DiffWith command will
 						sha: commit.unresolvedPreviousSha,
 						uri: commit.file.originalUri ?? commit.file.uri,
 					},

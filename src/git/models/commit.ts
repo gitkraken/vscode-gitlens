@@ -173,6 +173,10 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	private _resolvedPreviousSha: string | undefined;
+	get resolvedPreviousSha(): string | undefined {
+		return this._resolvedPreviousSha;
+	}
+
 	get unresolvedPreviousSha(): string {
 		const previousSha =
 			this._resolvedPreviousSha ??
@@ -517,7 +521,10 @@ export class GitCommit implements GitRevisionReference {
 				}
 
 				const parent = this.parents[0];
-				if (parent != null && isSha(parent)) return parent;
+				if (parent != null && isSha(parent)) {
+					this._resolvedPreviousSha = parent;
+					return parent;
+				}
 
 				const sha = await this.container.git.resolveReference(
 					this.repoPath,
