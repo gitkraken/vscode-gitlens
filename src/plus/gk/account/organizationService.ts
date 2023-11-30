@@ -68,7 +68,7 @@ export class OrganizationService implements Disposable {
 	async getStoredOrganizations(): Promise<Organization[] | undefined> {
 		const userId = (await this.container.subscription.getSubscription())?.account?.id;
 		if (userId == null) return undefined;
-		const storedOrganizations = this.container.storage.get('gitKraken:organizations');
+		const storedOrganizations = this.container.storage.get('gk:organizations');
 		if (storedOrganizations == null) return undefined;
 		const { timestamp, organizations, userId: storedUserId } = storedOrganizations;
 		if (storedUserId !== userId || timestamp + organizationsCacheExpiration < Date.now()) {
@@ -80,13 +80,13 @@ export class OrganizationService implements Disposable {
 	}
 
 	private async clearStoredOrganizations(): Promise<void> {
-		return this.container.storage.delete('gitKraken:organizations');
+		return this.container.storage.delete('gk:organizations');
 	}
 
 	private async storeOrganizations(organizations: Organization[]): Promise<void> {
 		const userId = (await this.container.subscription.getSubscription())?.account?.id;
 		if (userId == null) return;
-		return this.container.storage.store('gitKraken:organizations', {
+		return this.container.storage.store('gk:organizations', {
 			timestamp: Date.now(),
 			organizations: organizations,
 			userId: userId,
