@@ -1,8 +1,9 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import { SubscriptionState } from '../../../../../plus/gk/account/subscription';
-import '../../../shared/components/button';
 import { linkStyles } from './vscode.css';
+import '../../../shared/components/button';
 
 @customElement('gk-feature-gate-plus-state')
 export class FeatureGatePlusState extends LitElement {
@@ -56,6 +57,7 @@ export class FeatureGatePlusState extends LitElement {
 
 		this.hidden = false;
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
+		const inCyberPromo = Date.now() < new Date('2023-12-06T07:59:00.000Z').getTime();
 
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:
@@ -99,10 +101,22 @@ export class FeatureGatePlusState extends LitElement {
 						Your GitKraken trial has ended, please upgrade to continue to use this on privately hosted
 						repos.
 					</p>
-					<p style="text-align: center;">
-						Special: <b>50% off GitKraken's suite of dev tools</b><br />
-						1st & 2nd seats only $4/month each
-					</p>
+					${when(
+						inCyberPromo,
+						() =>
+							html`<p style="text-align: center;">
+								<a
+									href=${'https://www.gitkraken.com/cw23?utm_source=cyber_week&utm_medium=gitlens_banner&utm_campaign=cyber_week_2023'}
+									>Cyber Week Sale: <b>50% off first seat of Pro</b> — only $4/month!<br />
+									Includes entire GitKraken suite of dev tools.</a
+								>
+							</p>`,
+						() =>
+							html`<p style="text-align: center;">
+								Special: <b>50% off first seat of Pro</b> — only $4/month!<br />
+								Includes entire GitKraken suite of dev tools.
+							</p>`,
+					)}
 					<gl-button appearance="${appearance}" href="command:gitlens.plus.purchase"
 						>Upgrade to Pro</gl-button
 					>
