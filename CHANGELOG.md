@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [14.5.2] - 2023-11-30
+
+### Added
+
+- Adds cyber week promotion
+
 ## [14.5.1] - 2023-11-21
 
 ### Added
@@ -5052,7 +5058,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.5.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.5.2...HEAD
+[14.5.2]: https://github.com/gitkraken/vscode-gitlens/compare/v14.5.1...gitkraken:v14.5.2
 [14.5.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.5.0...gitkraken:v14.5.1
 [14.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.4.0...gitkraken:v14.5.0
 [14.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.3.0...gitkraken:v14.4.0
