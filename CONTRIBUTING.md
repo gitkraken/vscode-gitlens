@@ -198,7 +198,9 @@ If the action fails and retries are unsuccessful, the VSIX can be built locally 
 
 1. Create, if needed, a `release/{major}.{minor}` branch from the latest `v{major}.{minor}.{patch}` tag
 2. Cherry-pick the desired commits from `main` into the `release/{major}.{minor}` branch
-3. Follow from Step 2 in [Preparing a Normal Release](#preparing-a-normal-release) above
+3. Follow all the steps from step 2 in [Preparing a Normal Release](#preparing-a-normal-release) above
+
+Note: All patch releases for the same `{major}.{minor}` version use the same `release/{major}.{minor}` branch
 
 ### Pre-releases
 
