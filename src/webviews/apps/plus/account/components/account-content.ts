@@ -61,6 +61,14 @@ export class AccountContent extends LitElement {
 				margin-right: 0.1rem;
 			}
 
+			.account__organization___switch {
+				display: inline-block;
+				position: relative;
+				z-index: 1;
+				padding: 0.3rem;
+				margin: -0.3rem;
+			}
+
 			.account__access {
 				position: relative;
 				margin: 0;
@@ -173,6 +181,7 @@ export class AccountContent extends LitElement {
 								? html`
 										<span>
 											<a
+												class="account__organization___switch"
 												href="command:gitlens.gk.switchOrganization"
 												title="Switch Organization"
 												aria-label="Switch Organization"
