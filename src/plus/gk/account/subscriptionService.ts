@@ -626,7 +626,7 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@debug()
 	private async ensureSession(createIfNeeded: boolean, force?: boolean): Promise<AuthenticationSession | undefined> {
-		if (this._sessionPromise != null && this._session === undefined) {
+		if (this._sessionPromise != null) {
 			void (await this._sessionPromise);
 		}
 
