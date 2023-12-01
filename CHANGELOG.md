@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#2482](https://github.com/gitkraken/vscode-gitlens/issues/2482) - Unresponsive "commits" view and "branches" view update due to git log
 
+## [14.5.2] - 2023-11-30
+
+### Added
+
+- Adds cyber week promotion
+
 ## [14.5.1] - 2023-11-21
 
 ### Added
