@@ -5102,6 +5102,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.gk.switchOrganization",
+				"title": "Switch Organization...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.getStarted",
 				"title": "Get Started",
 				"category": "GitLens"
@@ -8653,6 +8658,10 @@
 				{
 					"command": "gitlens.plus.refreshRepositoryAccess",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.gk.switchOrganization",
+					"when": "gitlens:gk:hasMultipleOrganizations"
 				},
 				{
 					"command": "gitlens.showPatchDetailsPage",

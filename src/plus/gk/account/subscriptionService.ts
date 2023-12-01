@@ -159,6 +159,7 @@ export class SubscriptionService implements Disposable {
 		void this.container.viewCommands;
 
 		return [
+			registerCommand(Commands.GKSwitchOrganization, () => this.switchOrganization()),
 			registerCommand(Commands.PlusLoginOrSignUp, () => this.loginOrSignUp()),
 			registerCommand(Commands.PlusLogout, () => this.logout()),
 
@@ -633,7 +634,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (!force && this._session != null) return this._session;
-		if (this._session === null && !createIfNeeded) return undefined;
+		if (this._session === null && !createIfNeeded && !force) return undefined;
 
 		if (this._sessionPromise === undefined) {
 			this._sessionPromise = this.getOrCreateSession(createIfNeeded).then(
@@ -995,15 +996,12 @@ export class SubscriptionService implements Disposable {
 		this._statusBarSubscription.show();
 	}
 
-	async updateActiveOrganization(organizationId: string): Promise<void> {
+	async switchOrganization(): Promise<void> {
 		const scope = getLogScope();
 		if (this._subscription == null) {
 			Logger.error('Active subscription not found', scope);
 			return;
 		}
-
-		const currentActiveOrganization = await this.ensureActiveOrganization();
-		if (currentActiveOrganization?.id === organizationId) return;
 
 		let organizations;
 		try {
@@ -1013,36 +1011,52 @@ export class SubscriptionService implements Disposable {
 			Logger.error(ex, scope);
 			return;
 		}
-		const organization = organizations?.find(org => org.id === organizationId);
-		if (organization == null) {
-			Logger.error('Organization not found', scope);
-			return;
-		}
 
-		if (configuration.get('gitKraken.activeOrganizationId') !== organizationId) {
-			await configuration.updateEffective('gitKraken.activeOrganizationId', organizationId);
+		if (organizations == null || organizations.length < 2) return;
+		const currentActiveOrganization = await this.ensureActiveOrganization();
+
+		// Show a quickpick to select the active organization
+		const picks = organizations.map(org => ({
+			label: org.name,
+			org: org,
+		}));
+
+		const pick = await window.showQuickPick(picks, {
+			title: 'Switch Organization',
+			placeHolder: 'Select the active organization for your GitKraken account',
+		});
+
+		if (pick?.org == null || (currentActiveOrganization != null && pick.org.id === currentActiveOrganization.id))
+			return;
+		if (configuration.get('gitKraken.activeOrganizationId') !== pick.org.id) {
+			await configuration.updateEffective('gitKraken.activeOrganizationId', pick.org.id);
 		}
 
 		this.changeSubscription({
 			...this._subscription,
-			activeOrganization: organization,
+			activeOrganization: pick.org,
 		});
 	}
 
-	async getActiveOrganization(): Promise<Organization | undefined> {
-		return this.ensureActiveOrganization();
+	async getActiveOrganization(options?: { force?: boolean }): Promise<Organization | undefined> {
+		return this.ensureActiveOrganization(options);
 	}
 
-	private async ensureActiveOrganization(): Promise<Organization | undefined> {
+	private async ensureActiveOrganization(options?: { force?: boolean }): Promise<Organization | undefined> {
 		const scope = getLogScope();
 		if (this._subscription == null) {
 			Logger.error('Active subscription not found', scope);
 			return undefined;
 		}
 
+		const session = await this.ensureSession(false, true);
+		if (session == null) {
+			return undefined;
+		}
+
 		let organizations;
 		try {
-			organizations = await this.container.organization.getOrganizations();
+			organizations = await this.container.organization.getOrganizations(options);
 		} catch (ex) {
 			debugger;
 			Logger.error(ex, scope);

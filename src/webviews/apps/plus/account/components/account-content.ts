@@ -34,7 +34,7 @@ export class AccountContent extends LitElement {
 
 			.account__media {
 				grid-column: 1;
-				grid-row: 1 / span 2;
+				grid-row: 1 / span 3;
 				display: flex;
 				align-items: center;
 			}
@@ -49,6 +49,16 @@ export class AccountContent extends LitElement {
 				font-size: var(--vscode-font-size);
 				font-weight: 600;
 				margin: 0;
+			}
+
+			.account__organization {
+				position: relative;
+				margin: 0.2rem 0 0.2rem 0;
+				color: var(--color-foreground--65);
+			}
+
+			.account__organization__icon {
+				margin-right: 0.1rem;
 			}
 
 			.account__access {
@@ -76,6 +86,12 @@ export class AccountContent extends LitElement {
 
 	@property()
 	name = '';
+
+	@property()
+	organization = '';
+
+	@property()
+	hasMultipleOrganizations = false;
 
 	@property({ type: Number })
 	days = 0;
@@ -143,6 +159,34 @@ export class AccountContent extends LitElement {
 						: html`<code-icon icon="account" size="34"></code-icon>`}
 				</div>
 				<p class="account__title">${this.name}</p>
+				${this.organization
+					? html` <p class="account__organization">
+							<span class="account__organization__icon"
+								><code-icon
+									icon="organization"
+									title="Organization"
+									aria-label="Organization"
+								></code-icon
+							></span>
+							<span>${this.organization}</span>
+							${this.hasMultipleOrganizations
+								? html`
+										<span>
+											<a
+												href="command:gitlens.gk.switchOrganization"
+												title="Switch Organization"
+												aria-label="Switch Organization"
+												><code-icon
+													icon="chevron-down"
+													title="Switch Organization..."
+													aria-label="Switch Organization"
+												></code-icon
+											></a>
+										</span>
+								  `
+								: null}
+					  </p>`
+					: null}
 				<p class="account__access">${this.planName}${this.daysLeft}</p>
 				<div class="account__signout">
 					<gl-button appearance="toolbar" href="command:gitlens.plus.logout"

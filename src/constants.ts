@@ -171,6 +171,7 @@ export const enum Commands {
 	FetchRepositories = 'gitlens.fetchRepositories',
 	GenerateCommitMessage = 'gitlens.generateCommitMessage',
 	GetStarted = 'gitlens.getStarted',
+	GKSwitchOrganization = 'gitlens.gk.switchOrganization',
 	InviteToLiveShare = 'gitlens.inviteToLiveShare',
 	OpenAutolinkUrl = 'gitlens.openAutolinkUrl',
 	OpenBlamePriorToChange = 'gitlens.openBlamePriorToChange',
@@ -600,6 +601,7 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:disabledToggleCodeLens`
 	| `${typeof extensionPrefix}:disabled`
 	| `${typeof extensionPrefix}:enabled`
+	| `${typeof extensionPrefix}:gk:hasMultipleOrganizations`
 	| `${typeof extensionPrefix}:hasConnectedRemotes`
 	| `${typeof extensionPrefix}:hasRemotes`
 	| `${typeof extensionPrefix}:hasRichRemotes`
