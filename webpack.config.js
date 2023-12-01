@@ -91,7 +91,10 @@ function getExtensionConfig(target, mode, env) {
 		plugins.push(
 			new FantasticonPlugin({
 				configPath: '.fantasticonrc.js',
-				onBefore: () =>
+				onBefore:
+					mode !== 'production'
+						? undefined
+						: () =>
 					spawnSync('yarn', ['run', 'icons:svgo'], {
 						cwd: __dirname,
 						encoding: 'utf8',
@@ -764,18 +767,40 @@ class FantasticonPlugin {
 			}
 
 			const logger = compiler.getInfrastructureLogger(this.pluginName);
-			logger.log(`Generating icon font...`);
+			logger.log(`Generating '${compiler.name}' icon font...`);
 
 			const start = Date.now();
 
-			await onBefore?.(fontConfig);
-			await generateFonts(fontConfig);
-			await onComplete?.(fontConfig);
+			let onBeforeDuration = 0;
+			if (onBefore != null) {
+				const start = Date.now();
+				await onBefore(fontConfig);
+				onBeforeDuration = Date.now() - start;
+			}
 
-			logger.log(`Generated icon font in \x1b[32m${Date.now() - start}ms\x1b[0m`);
+			await generateFonts(fontConfig);
+
+			let onCompleteDuration = 0;
+			if (onComplete != null) {
+				const start = Date.now();
+				await onComplete(fontConfig);
+				onCompleteDuration = Date.now() - start;
+			}
+
+			let suffix = '';
+			if (onBeforeDuration > 0 || onCompleteDuration > 0) {
+				suffix = ` (${onBeforeDuration > 0 ? `onBefore: ${onBeforeDuration}ms` : ''}${
+					onCompleteDuration > 0
+						? `${onBeforeDuration > 0 ? ', ' : ''}onComplete: ${onCompleteDuration}ms`
+						: ''
+				})`;
+			}
+
+			logger.log(`Generated '${compiler.name}' icon font in \x1b[32m${Date.now() - start}ms\x1b[0m${suffix}`);
 		}
 
-		compiler.hooks.beforeRun.tapPromise(this.pluginName, generate.bind(this));
-		compiler.hooks.watchRun.tapPromise(this.pluginName, generate.bind(this));
+		const generateFn = generate.bind(this);
+		compiler.hooks.beforeRun.tapPromise(this.pluginName, generateFn);
+		compiler.hooks.watchRun.tapPromise(this.pluginName, generateFn);
 	}
 }
