@@ -186,9 +186,10 @@ GitLens version changes are bucketed into two types:
 Use the [prep-release](scripts/prep-release.js) script to prepare a new release. The script updates the [package.json](package.json) and [CHANGELOG.md](CHANGELOG.md) appropriately, commits the changes as `Bumps to v{major}.{minor}.{patch}`, and creates a `v{major}.{minor}.{patch}` tag which when pushed will trigger the CI to publish a release.
 
 1. Ensure you are on the `main` branch and have a clean working tree
-2. Run `yarn run prep-release` and enter the desired `{major}.{minor}.{patch}` version when prompted
-3. Review the `Bumps to v{major}.{minor}.{patch}` commit
-4. Run `git push --follow-tags` to push the commit and tag
+2. Ensure the [CHANGELOG.md](CHANGELOG.md) has been updated with the release notes
+3. Run `yarn run prep-release` and enter the desired `{major}.{minor}.{patch}` version when prompted
+4. Review the `Bumps to v{major}.{minor}.{patch}` commit
+5. Run `git push --follow-tags` to push the commit and tag
 
 Pushing the `v{major}.{minor}.{patch}` tag will trigger the [Publish Stable workflow](.github/workflows/cd-stable.yml) to automatically package the extension, create a [GitHub release](https://github.com/gitkraken/vscode-gitlens/releases/latest), and deploy it to the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens).
 
@@ -198,7 +199,8 @@ If the action fails and retries are unsuccessful, the VSIX can be built locally 
 
 1. Create, if needed, a `release/{major}.{minor}` branch from the latest `v{major}.{minor}.{patch}` tag
 2. Cherry-pick the desired commits from `main` into the `release/{major}.{minor}` branch
-3. Follow all the steps from step 2 in [Preparing a Normal Release](#preparing-a-normal-release) above
+3. Follow steps 2-5 in [Preparing a Normal Release](#preparing-a-normal-release) above
+4. Manually update the [CHANGELOG.md](CHANGELOG.md) on `main` with the patch release notes
 
 Note: All patch releases for the same `{major}.{minor}` version use the same `release/{major}.{minor}` branch
 
