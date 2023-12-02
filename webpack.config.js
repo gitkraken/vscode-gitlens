@@ -9,6 +9,7 @@ const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const esbuild = require('esbuild');
+const { ESLintLitePlugin } = require('@eamodio/eslint-lite-webpack-plugin');
 const { generateFonts } = require('@twbs/fantasticon');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const fs = require('fs');
@@ -56,22 +57,21 @@ function getExtensionConfig(target, mode, env) {
 	 */
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['!dist/webviews/**'] }),
+		new ESLintLitePlugin({
+			files: path.join(__dirname, 'src', '**', '*.ts'),
+			worker: true,
+			eslintOptions: {
+				cache: true,
+				cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
+				cacheStrategy: 'content',
+				overrideConfigFile: path.join(
+					__dirname,
+					target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
+				),
+			},
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: {
-				enabled: true,
-				files: 'src/**/*.ts?(x)',
-				options: {
-					cache: true,
-					cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
-					cacheStrategy: 'content',
-					fix: mode !== 'production',
-					overrideConfigFile: path.join(
-						__dirname,
-						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
-					),
-				},
-			},
 			formatter: 'basic',
 			typescript: {
 				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
@@ -95,11 +95,11 @@ function getExtensionConfig(target, mode, env) {
 					mode !== 'production'
 						? undefined
 						: () =>
-					spawnSync('yarn', ['run', 'icons:svgo'], {
-						cwd: __dirname,
-						encoding: 'utf8',
-						shell: true,
-					}),
+								spawnSync('yarn', ['run', 'icons:svgo'], {
+									cwd: __dirname,
+									encoding: 'utf8',
+									shell: true,
+								}),
 				onComplete: () =>
 					spawnSync('yarn', ['run', 'icons:apply'], {
 						cwd: __dirname,
@@ -292,18 +292,17 @@ function getWebviewsConfig(mode, env) {
 		new DefinePlugin({
 			DEBUG: mode === 'development',
 		}),
+		new ESLintLitePlugin({
+			files: path.join(basePath, '**', '*.ts?(x)'),
+			worker: true,
+			eslintOptions: {
+				cache: true,
+				cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
+				cacheStrategy: 'content',
+			},
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: {
-				enabled: true,
-				files: path.join(basePath, '**', '*.ts?(x)'),
-				options: {
-					cache: true,
-					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
-					cacheStrategy: 'content',
-					fix: mode !== 'production',
-				},
-			},
 			formatter: 'basic',
 			typescript: {
 				configFile: path.join(basePath, 'tsconfig.json'),
