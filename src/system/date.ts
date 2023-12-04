@@ -210,8 +210,7 @@ export function formatDate(
 		) => {
 			if (literal != null) return (literal as string).substring(1, literal.length - 1);
 
-			for (const key in groups) {
-				const value = groups[key];
+			for (const [key, value] of Object.entries(groups)) {
 				if (value == null) continue;
 
 				const part = parts.find(p => p.type === key);
@@ -275,8 +274,7 @@ function getDateTimeFormatOptionsFromFormatString(
 	for (const { groups } of format.matchAll(customDateTimeFormatParserRegex)) {
 		if (groups == null) continue;
 
-		for (const key in groups) {
-			const value = groups[key];
+		for (const [key, value] of Object.entries(groups)) {
 			if (value == null) continue;
 
 			switch (key) {
