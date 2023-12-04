@@ -112,7 +112,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) for the cinline blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
+						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) for the inline blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
 						"order": 50
 					}
