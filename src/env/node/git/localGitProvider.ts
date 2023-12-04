@@ -1746,12 +1746,23 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = paths;
 
 		try {
-			const data = await this.git.blame(root, relativePath, {
-				ref: uri.sha,
-				args: configuration.get('advanced.blame.customArguments'),
-				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
-			});
-			const blame = parseGitBlame(this.container, data, root, await this.getCurrentUser(root));
+			const [dataResult, userResult, statResult] = await Promise.allSettled([
+				this.git.blame(root, relativePath, {
+					ref: uri.sha,
+					args: configuration.get('advanced.blame.customArguments'),
+					ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
+				}),
+				this.getCurrentUser(root),
+				workspace.fs.stat(uri),
+			]);
+
+			const blame = parseGitBlame(
+				this.container,
+				root,
+				getSettledValue(dataResult),
+				getSettledValue(userResult),
+				getSettledValue(statResult)?.mtime,
+			);
 			return blame;
 		} catch (ex) {
 			Logger.error(ex, scope);
@@ -1830,13 +1841,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = paths;
 
 		try {
-			const data = await this.git.blame(root, relativePath, {
-				contents: contents,
-				args: configuration.get('advanced.blame.customArguments'),
-				correlationKey: `:${key}`,
-				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
-			});
-			const blame = parseGitBlame(this.container, data, root, await this.getCurrentUser(root));
+			const [dataResult, userResult, statResult] = await Promise.allSettled([
+				this.git.blame(root, relativePath, {
+					contents: contents,
+					args: configuration.get('advanced.blame.customArguments'),
+					correlationKey: `:${key}`,
+					ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
+				}),
+				this.getCurrentUser(root),
+				workspace.fs.stat(uri),
+			]);
+
+			const blame = parseGitBlame(
+				this.container,
+				root,
+				getSettledValue(dataResult),
+				getSettledValue(userResult),
+				getSettledValue(statResult)?.mtime,
+			);
 			return blame;
 		} catch (ex) {
 			Logger.error(ex, scope);
@@ -1903,14 +1925,25 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = splitPath(uri, uri.repoPath);
 
 		try {
-			const data = await this.git.blame(root, relativePath, {
-				ref: uri.sha,
-				args: configuration.get('advanced.blame.customArguments'),
-				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
-				startLine: lineToBlame,
-				endLine: lineToBlame,
-			});
-			const blame = parseGitBlame(this.container, data, root, await this.getCurrentUser(root));
+			const [dataResult, userResult, statResult] = await Promise.allSettled([
+				this.git.blame(root, relativePath, {
+					ref: uri.sha,
+					args: configuration.get('advanced.blame.customArguments'),
+					ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
+					startLine: lineToBlame,
+					endLine: lineToBlame,
+				}),
+				this.getCurrentUser(root),
+				workspace.fs.stat(uri),
+			]);
+
+			const blame = parseGitBlame(
+				this.container,
+				root,
+				getSettledValue(dataResult),
+				getSettledValue(userResult),
+				getSettledValue(statResult)?.mtime,
+			);
 			if (blame == null) return undefined;
 
 			return {
@@ -1960,14 +1993,25 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = splitPath(uri, uri.repoPath);
 
 		try {
-			const data = await this.git.blame(root, relativePath, {
-				contents: contents,
-				args: configuration.get('advanced.blame.customArguments'),
-				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
-				startLine: lineToBlame,
-				endLine: lineToBlame,
-			});
-			const blame = parseGitBlame(this.container, data, root, await this.getCurrentUser(root));
+			const [dataResult, userResult, statResult] = await Promise.allSettled([
+				this.git.blame(root, relativePath, {
+					contents: contents,
+					args: configuration.get('advanced.blame.customArguments'),
+					ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
+					startLine: lineToBlame,
+					endLine: lineToBlame,
+				}),
+				this.getCurrentUser(root),
+				workspace.fs.stat(uri),
+			]);
+
+			const blame = parseGitBlame(
+				this.container,
+				root,
+				getSettledValue(dataResult),
+				getSettledValue(userResult),
+				getSettledValue(statResult)?.mtime,
+			);
 			if (blame == null) return undefined;
 
 			return {
