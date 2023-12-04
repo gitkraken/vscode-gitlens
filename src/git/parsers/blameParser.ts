@@ -17,12 +17,12 @@ interface BlameEntry {
 	lineCount: number;
 
 	author: string;
-	authorDate?: string;
+	authorTime: number;
 	authorTimeZone?: string;
 	authorEmail?: string;
 
 	committer: string;
-	committerDate?: string;
+	committerTime: number;
 	committerTimeZone?: string;
 	committerEmail?: string;
 
@@ -36,9 +36,10 @@ interface BlameEntry {
 
 export function parseGitBlame(
 	container: Container,
-	data: string,
 	repoPath: string,
+	data: string | undefined,
 	currentUser: GitUser | undefined,
+	modifiedTime?: number,
 ): GitBlame | undefined {
 	using sw = maybeStopWatch(`Git.parseBlame(${repoPath})`, { log: false, logLevel: 'debug' });
 	if (!data) return undefined;
@@ -97,7 +98,11 @@ export function parseGitBlame(
 				break;
 			}
 			case 'author-time':
-				entry.authorDate = lineParts[1];
+				if (entry.sha === uncommitted && modifiedTime != null) {
+					entry.authorTime = modifiedTime;
+				} else {
+					entry.authorTime = parseInt(lineParts[1], 10) * 1000;
+				}
 				break;
 
 			case 'author-tz':
@@ -132,7 +137,11 @@ export function parseGitBlame(
 				break;
 			}
 			case 'committer-time':
-				entry.committerDate = lineParts[1];
+				if (entry.sha === uncommitted && modifiedTime != null) {
+					entry.authorTime = modifiedTime;
+				} else {
+					entry.committerTime = parseInt(lineParts[1], 10) * 1000;
+				}
 				break;
 
 			case 'committer-tz':
@@ -223,8 +232,8 @@ function parseBlameEntry(
 			container,
 			repoPath,
 			entry.sha,
-			new GitCommitIdentity(entry.author, entry.authorEmail, new Date((entry.authorDate as any) * 1000)),
-			new GitCommitIdentity(entry.committer, entry.committerEmail, new Date((entry.committerDate as any) * 1000)),
+			new GitCommitIdentity(entry.author, entry.authorEmail, new Date(entry.authorTime)),
+			new GitCommitIdentity(entry.committer, entry.committerEmail, new Date(entry.committerTime)),
 			entry.summary!,
 			[],
 			undefined,
