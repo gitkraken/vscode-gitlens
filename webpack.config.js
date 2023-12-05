@@ -178,6 +178,9 @@ function getExtensionConfig(target, mode, env) {
 						},
 						// Keep the class names otherwise @log won't provide a useful name
 						keep_classnames: true,
+						mangle: {
+							keep_classnames: true,
+						},
 						module: true,
 					},
 				}),
@@ -426,6 +429,9 @@ function getWebviewsConfig(mode, env) {
 									},
 									// Keep the class names otherwise @log won't provide a useful name
 									keep_classnames: true,
+									mangle: {
+										keep_classnames: true,
+									},
 									module: true,
 								},
 							}),
