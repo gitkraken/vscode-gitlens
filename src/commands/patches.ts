@@ -9,6 +9,7 @@ import { showPatchesView } from '../plus/drafts/actions';
 import type { Change, CreateDraft } from '../plus/webviews/patchDetails/protocol';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
@@ -178,13 +179,13 @@ export class OpenCloudPatchCommand extends Command {
 			return;
 		}
 
-		const draft = args?.draft ?? (await this.container.drafts.getDraft(args?.id));
-		if (draft == null) {
-			void window.showErrorMessage(`Cannot open Cloud Patch; patch '${args.id}' not found`);
-			return;
+		try {
+			const draft = args?.draft ?? (await this.container.drafts.getDraft(args?.id));
+			void showPatchesView({ mode: 'view', draft: draft });
+		} catch (ex) {
+			Logger.error(ex, 'OpenCloudPatchCommand');
+			void window.showErrorMessage(`Unable to open Cloud Patch '${args.id}'`);
 		}
-
-		void showPatchesView({ mode: 'view', draft: draft });
 	}
 }
 

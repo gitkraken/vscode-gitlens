@@ -135,7 +135,12 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 				async (node: DraftNode) => {
 					let draft = node.draft;
 					if (draft.changesets == null) {
-						draft = await this.container.drafts.getDraft(node.draft.id);
+						try {
+							draft = await this.container.drafts.getDraft(node.draft.id);
+						} catch (ex) {
+							void window.showErrorMessage(`Unable to open Cloud Patch '${node.draft.id}'`);
+							return;
+						}
 					}
 					void showPatchesView({ mode: 'view', draft: draft });
 				},
