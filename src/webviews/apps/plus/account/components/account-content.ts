@@ -32,11 +32,22 @@ export class AccountContent extends LitElement {
 				margin-bottom: 1.3rem;
 			}
 
+			.account--org {
+				font-size: 0.9em;
+				line-height: 1.2;
+				margin-top: -1rem;
+			}
+
 			.account__media {
 				grid-column: 1;
-				grid-row: 1 / span 3;
+				grid-row: 1 / span 2;
 				display: flex;
 				align-items: center;
+				justify-content: center;
+			}
+
+			.account--org .account__media {
+				color: var(--color-foreground--65);
 			}
 
 			.account__image {
@@ -45,28 +56,22 @@ export class AccountContent extends LitElement {
 				border-radius: 50%;
 			}
 
+			.account__details {
+				grid-row: 1 / span 2;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+			}
+
 			.account__title {
-				font-size: var(--vscode-font-size);
+				font-size: 1.5rem;
 				font-weight: 600;
 				margin: 0;
 			}
 
-			.account__organization {
-				position: relative;
-				margin: 0.2rem 0 0.2rem 0;
-				color: var(--color-foreground--65);
-			}
-
-			.account__organization__icon {
-				margin-right: 0.1rem;
-			}
-
-			.account__organization___switch {
-				display: inline-block;
-				position: relative;
-				z-index: 1;
-				padding: 0.3rem;
-				margin: -0.3rem;
+			.account--org .account__title {
+				font-size: 1.2rem;
+				font-weight: normal;
 			}
 
 			.account__access {
@@ -77,6 +82,25 @@ export class AccountContent extends LitElement {
 
 			.account__signout {
 				grid-row: 1 / span 2;
+				display: flex;
+				gap: 0.2rem;
+				flex-direction: row;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.account__badge {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 2.4rem;
+				height: 2.4rem;
+				line-height: 2.4rem;
+				font-size: 1rem;
+				font-weight: 600;
+				color: var(--color-foreground--65);
+				background-color: var(--vscode-toolbar-hoverBackground);
+				border-radius: 50%;
 			}
 
 			.repo-access {
@@ -166,43 +190,38 @@ export class AccountContent extends LitElement {
 						? html`<img src=${this.image} class="account__image" />`
 						: html`<code-icon icon="account" size="34"></code-icon>`}
 				</div>
-				<p class="account__title">${this.name}</p>
-				${this.organization
-					? html` <p class="account__organization">
-							<span class="account__organization__icon"
-								><code-icon
-									icon="organization"
-									title="Organization"
-									aria-label="Organization"
-								></code-icon
-							></span>
-							<span>${this.organization}</span>
-							${this.hasMultipleOrganizationOptions
-								? html`
-										<span>
-											<a
-												class="account__organization___switch"
-												href="command:gitlens.gk.switchOrganization"
-												title="Switch Organization"
-												aria-label="Switch Organization"
-												><code-icon
-													icon="chevron-down"
-													title="Switch Organization..."
-													aria-label="Switch Organization"
-												></code-icon
-											></a>
-										</span>
-								  `
-								: null}
-					  </p>`
-					: null}
-				<p class="account__access">${this.planName}${this.daysLeft}</p>
+				<div class="account__details">
+					<p class="account__title">${this.name}</p>
+				</div>
 				<div class="account__signout">
 					<gl-button appearance="toolbar" href="command:gitlens.plus.logout"
 						><code-icon icon="sign-out" title="Sign Out" aria-label="Sign Out"></code-icon
 					></gl-button>
 				</div>
 			</div>
+			${this.organization
+				? html` <div class="account account--org">
+						<div class="account__media">
+							<code-icon icon="organization" size="22"></code-icon>
+						</div>
+						<div class="account__details">
+							<p class="account__title">${this.organization}</p>
+							<p class="account__access">${this.planName}${this.daysLeft}</p>
+						</div>
+						${this.hasMultipleOrganizationOptions
+							? html` <div class="account__signout">
+									<span class="account__badge">+1</span>
+									<gl-button appearance="toolbar" href="command:gitlens.gk.switchOrganization"
+										><code-icon
+											icon="arrow-swap"
+											title="Switch Organization"
+											aria-label="Switch Organization"
+										></code-icon
+									></gl-button>
+							  </div>`
+							: nothing}
+				  </div>`
+				: nothing}
 		`;
 	}
 
