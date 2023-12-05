@@ -68,6 +68,10 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 				if (isRepository(o) || isBranch(o) || isCommit(o) || isTag(o) || isViewNode(o)) return o.toString();
 
+				if ('rootUri' in o && o.rootUri instanceof Uri) {
+					return `ScmRepository(rootUri=${o.rootUri.toString(true)})`;
+				}
+
 				if ('uri' in o && o.uri instanceof Uri) {
 					return `${
 						'name' in o && 'index' in o ? 'WorkspaceFolder' : getLoggableName(o)
