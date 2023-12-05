@@ -705,7 +705,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (!force && this._session != null) return this._session;
-		if (this._session === null && !createIfNeeded && !force) return undefined;
+		if (this._session === null && !createIfNeeded) return undefined;
 
 		if (this._sessionPromise === undefined) {
 			this._sessionPromise = this.getOrCreateSession(createIfNeeded).then(
