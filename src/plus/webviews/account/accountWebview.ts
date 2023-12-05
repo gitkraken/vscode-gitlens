@@ -80,7 +80,7 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 		return {
 			subscription: sub,
 			avatar: avatar,
-			hasMultipleOrganizationOptions: await this.container.subscription.getHasMultipleOrganizationOptions(),
+			organizationsCount: (await this.container.organization.getOrganizations())?.length ?? 0,
 		};
 	}
 
@@ -92,7 +92,7 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 			webroot: this.host.getWebRoot(),
 			subscription: subscriptionResult.subscription,
 			avatar: subscriptionResult.avatar,
-			hasMultipleOrganizationOptions: subscriptionResult.hasMultipleOrganizationOptions,
+			organizationsCount: subscriptionResult.organizationsCount,
 		};
 	}
 

@@ -6,13 +6,13 @@ export interface State extends WebviewState {
 	webroot?: string;
 	subscription: Subscription;
 	avatar?: string;
-	hasMultipleOrganizationOptions?: boolean;
+	organizationsCount?: number;
 }
 
 export interface DidChangeSubscriptionParams {
 	subscription: Subscription;
 	avatar?: string;
-	hasMultipleOrganizationOptions?: boolean;
+	organizationsCount?: number;
 }
 export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
 	'subscription/didChange',

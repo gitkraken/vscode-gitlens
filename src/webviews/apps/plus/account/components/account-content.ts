@@ -120,10 +120,10 @@ export class AccountContent extends LitElement {
 	name = '';
 
 	@property()
-	organization = '';
+	organization?: string;
 
-	@property()
-	hasMultipleOrganizationOptions = false;
+	@property({ type: Number })
+	organizationsCount = 0;
 
 	@property({ type: Number })
 	days = 0;
@@ -192,6 +192,10 @@ export class AccountContent extends LitElement {
 				</div>
 				<div class="account__details">
 					<p class="account__title">${this.name}</p>
+					${when(
+						this.organizationsCount === 0,
+						() => html`<p class="account__access">${this.planName}${this.daysLeft}</p>`,
+					)}
 				</div>
 				<div class="account__signout">
 					<gl-button appearance="toolbar" href="command:gitlens.plus.logout"
@@ -199,29 +203,38 @@ export class AccountContent extends LitElement {
 					></gl-button>
 				</div>
 			</div>
-			${this.organization
-				? html` <div class="account account--org">
-						<div class="account__media">
-							<code-icon icon="organization" size="22"></code-icon>
-						</div>
-						<div class="account__details">
-							<p class="account__title">${this.organization}</p>
-							<p class="account__access">${this.planName}${this.daysLeft}</p>
-						</div>
-						${this.hasMultipleOrganizationOptions
-							? html` <div class="account__signout">
-									<span class="account__badge">+1</span>
-									<gl-button appearance="toolbar" href="command:gitlens.gk.switchOrganization"
-										><code-icon
-											icon="arrow-swap"
-											title="Switch Organization"
-											aria-label="Switch Organization"
-										></code-icon
-									></gl-button>
-							  </div>`
-							: nothing}
-				  </div>`
-				: nothing}
+		`;
+	}
+
+	private renderOrganization() {
+		if (!this.hasAccount || !this.organization) {
+			return nothing;
+		}
+
+		return html`
+			<div class="account account--org">
+				<div class="account__media">
+					<code-icon icon="organization" size="22"></code-icon>
+				</div>
+				<div class="account__details">
+					<p class="account__title">${this.organization}</p>
+					<p class="account__access">${this.planName}${this.daysLeft}</p>
+				</div>
+				${when(
+					this.organizationsCount > 1,
+					() =>
+						html`<div class="account__signout">
+							<span class="account__badge">+${this.organizationsCount - 1}</span>
+							<gl-button appearance="toolbar" href="command:gitlens.gk.switchOrganization"
+								><code-icon
+									icon="arrow-swap"
+									title="Switch Organization"
+									aria-label="Switch Organization"
+								></code-icon
+							></gl-button>
+						</div>`,
+				)}
+			</div>
 		`;
 	}
 
@@ -350,6 +363,6 @@ export class AccountContent extends LitElement {
 	}
 
 	override render() {
-		return html`${this.renderAccountInfo()}${this.renderAccountState()}`;
+		return html`${this.renderAccountInfo()}${this.renderOrganization()}${this.renderAccountState()}`;
 	}
 }
