@@ -39,14 +39,18 @@ export class OrganizationService implements Disposable {
 				}
 			}
 
-			// TODO: Use organizations-light instead once available.
-			const rsp = await this.connection.fetchApi(
-				'user/organizations-light',
-				{
-					method: 'GET',
-				},
-				{ token: options?.accessToken },
-			);
+			let rsp;
+			try {
+				rsp = await this.connection.fetchApi(
+					'user/organizations-light',
+					{
+						method: 'GET',
+					},
+					{ token: options?.accessToken },
+				);
+			} catch (ex) {
+				return undefined;
+			}
 
 			if (!rsp.ok) {
 				debugger;

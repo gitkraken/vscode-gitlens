@@ -183,7 +183,6 @@ export class SubscriptionService implements Disposable {
 			...this.registerCommands(),
 		);
 		this.updateContext();
-		void this.updateOrganizationContext();
 	}
 
 	private onRepositoriesChanged(_e: RepositoriesChangeEvent): void {
@@ -680,6 +679,9 @@ export class SubscriptionService implements Disposable {
 		let chosenOrganizationId: string | null | undefined = configuration.get('gitKraken.activeOrganizationId');
 		if (chosenOrganizationId === '') {
 			chosenOrganizationId = undefined;
+		} else if (chosenOrganizationId != null && !organizations.some(o => o.id === chosenOrganizationId)) {
+			chosenOrganizationId = undefined;
+			void configuration.updateEffective('gitKraken.activeOrganizationId', undefined);
 		}
 		const subscription = getSubscriptionFromCheckIn(data, organizations, chosenOrganizationId);
 		this._lastValidatedDate = new Date();
@@ -897,9 +899,6 @@ export class SubscriptionService implements Disposable {
 		});
 
 		void this.storeSubscription(subscription);
-		if (previous?.account?.id !== subscription.account?.id) {
-			void configuration.updateEffective('gitKraken.activeOrganizationId', undefined);
-		}
 
 		this._subscription = subscription;
 		this._etag = Date.now();
