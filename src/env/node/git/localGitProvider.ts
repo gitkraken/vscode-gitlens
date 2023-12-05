@@ -5749,10 +5749,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const gitApi = await this.getScmGitApi();
 			if (gitApi == null) return undefined;
 
+			// `getRepository` will return an opened repository that "contains" that path, so for nested repositories, we need to force the opening of the nested path, otherwise we will only get the root repository
 			let repo = gitApi.getRepository(uri);
-			if (repo == null) {
-				Logger.debug(scope, '\u2022 no existing repository found, opening repository...');
-				repo ??= await gitApi.openRepository?.(uri);
+			if (repo == null || (repo != null && repo.rootUri.toString() !== uri.toString())) {
+				Logger.debug(
+					scope,
+					repo == null
+						? '\u2022 no existing repository found, opening repository...'
+						: `\u2022 existing, non-matching repository '${repo.rootUri.toString(
+								true,
+						  )}' found, opening repository...`,
+				);
+				repo = await gitApi.openRepository?.(uri);
 			}
 			return repo ?? undefined;
 		} catch (ex) {
