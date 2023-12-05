@@ -37,7 +37,7 @@ export class AccountApp extends App<State> {
 				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
 					this.state.subscription = params.subscription;
 					this.state.avatar = params.avatar;
-					this.state.hasMultipleOrganizations = params.hasMultipleOrganizations;
+					this.state.hasMultipleOrganizationOptions = params.hasMultipleOrganizationOptions;
 					this.state.timestamp = Date.now();
 					this.setState(this.state);
 					this.updateState();
@@ -71,7 +71,7 @@ export class AccountApp extends App<State> {
 
 	private updateState() {
 		const days = this.getDaysRemaining();
-		const { subscription, avatar, hasMultipleOrganizations } = this.state;
+		const { subscription, avatar, hasMultipleOrganizationOptions } = this.state;
 
 		const $content = document.getElementById('account-content')! as AccountContent;
 
@@ -79,7 +79,7 @@ export class AccountApp extends App<State> {
 		$content.name = subscription.account?.name ?? '';
 		$content.state = subscription.state;
 		$content.organization = subscription.activeOrganization?.name ?? '';
-		$content.hasMultipleOrganizations = hasMultipleOrganizations ?? false;
+		$content.hasMultipleOrganizationOptions = hasMultipleOrganizationOptions ?? false;
 		$content.plan = subscription.plan.effective.name;
 		$content.days = days;
 		$content.trialReactivationCount = subscription.plan.effective.trialReactivationCount;

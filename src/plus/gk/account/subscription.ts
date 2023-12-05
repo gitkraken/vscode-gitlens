@@ -14,17 +14,20 @@ export type FreeSubscriptionPlans = Extract<SubscriptionPlanId, SubscriptionPlan
 export type PaidSubscriptionPlans = Exclude<SubscriptionPlanId, SubscriptionPlanId.Free | SubscriptionPlanId.FreePlus>;
 export type RequiredSubscriptionPlans = Exclude<SubscriptionPlanId, SubscriptionPlanId.Free>;
 
-export interface Subscription {
-	readonly plan: {
-		readonly actual: SubscriptionPlan;
-		readonly effective: SubscriptionPlan;
-	};
-	account: SubscriptionAccount | undefined;
+export interface Subscription extends BaseSubscription {
 	previewTrial?: SubscriptionPreviewTrial;
 
 	state: SubscriptionState;
 
 	lastValidatedAt?: number;
+}
+
+export interface BaseSubscription {
+	readonly plan: {
+		readonly actual: SubscriptionPlan;
+		readonly effective: SubscriptionPlan;
+	};
+	account: SubscriptionAccount | undefined;
 	readonly activeOrganization?: Organization;
 }
 

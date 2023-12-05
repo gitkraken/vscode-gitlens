@@ -40,7 +40,7 @@ import { flatten } from '../../../system/object';
 import { pluralize } from '../../../system/string';
 import { openWalkthrough } from '../../../system/utils';
 import { satisfies } from '../../../system/version';
-import type { GKCheckInResponse } from '../checkin';
+import type { GKCheckInResponse, GKLicense } from '../checkin';
 import { getSubscriptionFromCheckIn } from '../checkin';
 import type { ServerConnection } from '../serverConnection';
 import { ensurePlusFeaturesEnabled } from '../utils';
@@ -76,6 +76,7 @@ export class SubscriptionService implements Disposable {
 
 	private _disposable: Disposable;
 	private _subscription!: Subscription;
+	private _checkinData?: GKCheckInResponse;
 	private _statusBarSubscription: StatusBarItem | undefined;
 	private _validationTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -97,6 +98,8 @@ export class SubscriptionService implements Disposable {
 			}),
 		);
 
+		this._checkinData = this.getStoredCheckinData();
+
 		const subscription = this.getStoredSubscription();
 		// Resets the preview trial state on the upgrade to 14.0
 		if (subscription != null && satisfies(previousVersion, '< 14.0')) {
@@ -111,6 +114,37 @@ export class SubscriptionService implements Disposable {
 		this._statusBarSubscription?.dispose();
 
 		this._disposable.dispose();
+	}
+
+	async getHasMultipleOrganizationOptions(): Promise<boolean> {
+		const organizations = (await this.container.organization.getOrganizations()) ?? [];
+		if (organizations.length === 0) return false;
+		if (organizations.length > 1) return true;
+
+		return this.getShouldShowOrganizationDefault(organizations);
+	}
+
+	private getShouldShowOrganizationDefault(organizations: Organization[]): boolean {
+		if (this._checkinData == null) return false;
+
+		const checkinSubscriptions = [
+			...Object.values(this._checkinData.licenses.effectiveLicenses ?? {}),
+			...Object.values(this._checkinData.licenses.paidLicenses ?? {}),
+		];
+		let hasSubscriptionWithoutOrganization = false;
+		const checkinSubscriptionsByOrganizationId = new Map<string, GKLicense>();
+		for (const subscription of checkinSubscriptions) {
+			if (subscription.organizationId == null) {
+				hasSubscriptionWithoutOrganization = true;
+				continue;
+			}
+			checkinSubscriptionsByOrganizationId.set(subscription.organizationId, subscription);
+		}
+
+		return (
+			hasSubscriptionWithoutOrganization &&
+			!organizations.some(org => !checkinSubscriptionsByOrganizationId.has(org.id))
+		);
 	}
 
 	private async onAuthenticationChanged(e: AuthenticationProviderAuthenticationSessionsChangeEvent) {
@@ -149,6 +183,7 @@ export class SubscriptionService implements Disposable {
 			...this.registerCommands(),
 		);
 		this.updateContext();
+		void this.updateOrganizationContext();
 	}
 
 	private onRepositoriesChanged(_e: RepositoriesChangeEvent): void {
@@ -581,7 +616,9 @@ export class SubscriptionService implements Disposable {
 			}
 
 			const data: GKCheckInResponse = await rsp.json();
-			this.validateAndUpdateSubscription(data);
+			this._checkinData = data;
+			this.storeCheckinData(data);
+			await this.validateAndUpdateSubscriptions(data, session);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -609,10 +646,42 @@ export class SubscriptionService implements Disposable {
 		);
 	}
 
-	@debug()
-	private validateAndUpdateSubscription(data: GKCheckInResponse) {
-		const subscription = getSubscriptionFromCheckIn(data);
+	private storeCheckinData(data: GKCheckInResponse): void {
+		void this.container.storage.store('premium:checkin', {
+			timestamp: Date.now(),
+			data: data,
+		});
+	}
 
+	private getStoredCheckinData(): GKCheckInResponse | undefined {
+		const storedCheckin = this.container.storage.get('premium:checkin');
+		// If more than a day old, ignore
+		if (storedCheckin?.timestamp == null || Date.now() - storedCheckin.timestamp > 24 * 60 * 60 * 1000) {
+			return undefined;
+		}
+
+		return storedCheckin.data;
+	}
+
+	@debug()
+	private async validateAndUpdateSubscriptions(data: GKCheckInResponse, session: AuthenticationSession) {
+		const scope = getLogScope();
+		let organizations: Organization[];
+		try {
+			organizations =
+				(await this.container.organization.getOrganizations({
+					force: true,
+					accessToken: session.accessToken,
+				})) ?? [];
+		} catch (ex) {
+			Logger.error(ex, scope);
+			organizations = [];
+		}
+		let chosenOrganizationId: string | null | undefined = configuration.get('gitKraken.activeOrganizationId');
+		if (chosenOrganizationId === '') {
+			chosenOrganizationId = undefined;
+		}
+		const subscription = getSubscriptionFromCheckIn(data, organizations, chosenOrganizationId);
 		this._lastValidatedDate = new Date();
 		this.changeSubscription(
 			{
@@ -828,12 +897,16 @@ export class SubscriptionService implements Disposable {
 		});
 
 		void this.storeSubscription(subscription);
+		if (previous?.account?.id !== subscription.account?.id) {
+			void configuration.updateEffective('gitKraken.activeOrganizationId', undefined);
+		}
 
 		this._subscription = subscription;
 		this._etag = Date.now();
 
 		if (!options?.silent) {
 			this.updateContext();
+			void this.updateOrganizationContext();
 
 			if (previous != null) {
 				this._onDidChange.fire({ current: subscription, previous: previous, etag: this._etag });
@@ -897,6 +970,10 @@ export class SubscriptionService implements Disposable {
 
 		void setContext('gitlens:plus', actual.id != SubscriptionPlanId.Free ? actual.id : undefined);
 		void setContext('gitlens:plus:state', state);
+	}
+
+	private async updateOrganizationContext(): Promise<void> {
+		void setContext('gitlens:gk:hasMultipleOrganizationOptions', await this.getHasMultipleOrganizationOptions());
 	}
 
 	private async updateAccessContext(cancellation: CancellationToken): Promise<void> {
@@ -998,11 +1075,7 @@ export class SubscriptionService implements Disposable {
 
 	async switchOrganization(): Promise<void> {
 		const scope = getLogScope();
-		if (this._subscription == null) {
-			Logger.error('Active subscription not found', scope);
-			return;
-		}
-
+		if (this._checkinData == null) return;
 		let organizations;
 		try {
 			organizations = await this.container.organization.getOrganizations();
@@ -1012,98 +1085,52 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		if (organizations == null || organizations.length < 2) return;
-		const currentActiveOrganization = await this.ensureActiveOrganization();
+		if (organizations == null || organizations.length === 0) return;
 
 		// Show a quickpick to select the active organization
-		const picks = organizations.map(org => ({
+		const picks: { label: string; org: Organization | null }[] = organizations.map(org => ({
 			label: org.name,
 			org: org,
 		}));
+
+		if (this.getShouldShowOrganizationDefault(organizations)) {
+			picks.push({
+				label: 'None',
+				org: null,
+			});
+		}
 
 		const pick = await window.showQuickPick(picks, {
 			title: 'Switch Organization',
 			placeHolder: 'Select the active organization for your GitKraken account',
 		});
 
-		if (pick?.org == null || (currentActiveOrganization != null && pick.org.id === currentActiveOrganization.id))
+		const currentActiveOrganization = this._subscription?.activeOrganization;
+		if (pick?.org === undefined) {
 			return;
-		if (configuration.get('gitKraken.activeOrganizationId') !== pick.org.id) {
-			await configuration.updateEffective('gitKraken.activeOrganizationId', pick.org.id);
 		}
 
-		this.changeSubscription({
-			...this._subscription,
-			activeOrganization: pick.org,
-		});
-	}
-
-	async getActiveOrganization(options?: { force?: boolean }): Promise<Organization | undefined> {
-		return this.ensureActiveOrganization(options);
-	}
-
-	private async ensureActiveOrganization(options?: { force?: boolean }): Promise<Organization | undefined> {
-		const scope = getLogScope();
-		if (this._subscription == null) {
-			Logger.error('Active subscription not found', scope);
-			return undefined;
+		if (pick?.org != null && currentActiveOrganization != null && pick.org.id === currentActiveOrganization.id) {
+			return;
 		}
 
-		const session = await this.ensureSession(false, true);
-		if (session == null) {
-			return undefined;
+		const organizationSubscription = getSubscriptionFromCheckIn(
+			this._checkinData,
+			organizations,
+			pick.org === null ? null : pick.org.id,
+		);
+		const newActiveOrganizationId = pick.org?.id ?? null;
+		if (configuration.get('gitKraken.activeOrganizationId') !== newActiveOrganizationId) {
+			await configuration.updateEffective('gitKraken.activeOrganizationId', newActiveOrganizationId);
 		}
 
-		let organizations;
-		try {
-			organizations = await this.container.organization.getOrganizations(options);
-		} catch (ex) {
-			debugger;
-			Logger.error(ex, scope);
-			return undefined;
-		}
-
-		if (organizations == null) return undefined;
-
-		const organizationsById = new Map<string, Organization>();
-		organizations.forEach(org => organizationsById.set(org.id, org));
-
-		const currentOrganizationId = this._subscription?.activeOrganization?.id;
-		const storedOrganizationId = configuration.get('gitKraken.activeOrganizationId');
-		if (currentOrganizationId != null && organizationsById.has(currentOrganizationId)) {
-			if (storedOrganizationId != currentOrganizationId) {
-				await configuration.updateEffective('gitKraken.activeOrganizationId', currentOrganizationId);
-			}
-			return this._subscription.activeOrganization;
-		}
-
-		let organization: Organization | undefined;
-		if (storedOrganizationId != null) {
-			organization = organizationsById.get(storedOrganizationId);
-		}
-
-		if (organization != null) {
-			this.changeSubscription({
+		this.changeSubscription(
+			{
 				...this._subscription,
-				activeOrganization: organization,
-			});
-			return organization;
-		}
-
-		const planOrganizationId =
-			this._subscription.plan?.actual?.organizationId ?? this._subscription.plan?.effective?.organizationId;
-		if (planOrganizationId != null) {
-			organization = organizationsById.get(planOrganizationId);
-			if (organization != null) {
-				await configuration.updateEffective('gitKraken.activeOrganizationId', organization?.id);
-				this.changeSubscription({
-					...this._subscription,
-					activeOrganization: organization,
-				});
-			}
-		}
-
-		return organization;
+				...organizationSubscription,
+			},
+			{ store: true },
+		);
 	}
 }
 

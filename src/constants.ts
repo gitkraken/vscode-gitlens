@@ -4,6 +4,7 @@ import type { ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './plus/gk/account/subscription';
+import type { GKCheckInResponse } from './plus/gk/checkin';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 
 export const extensionPrefix = 'gitlens';
@@ -601,7 +602,7 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:disabledToggleCodeLens`
 	| `${typeof extensionPrefix}:disabled`
 	| `${typeof extensionPrefix}:enabled`
-	| `${typeof extensionPrefix}:gk:hasMultipleOrganizations`
+	| `${typeof extensionPrefix}:gk:hasMultipleOrganizationOptions`
 	| `${typeof extensionPrefix}:hasConnectedRemotes`
 	| `${typeof extensionPrefix}:hasRemotes`
 	| `${typeof extensionPrefix}:hasRichRemotes`
@@ -843,6 +844,7 @@ export type GlobalStorage = {
 	pendingWhatsNewOnFocus: boolean;
 	// Don't change this key name ('premium`) as its the stored subscription
 	'premium:subscription': Stored<Subscription & { lastValidatedAt: number | undefined }>;
+	'premium:checkin': StoredCheckinData;
 	'synced:version': string;
 	// Keep the pre-release version separate from the released version
 	'synced:preVersion': string;
@@ -885,6 +887,11 @@ export type WorkspaceStorage = {
 export interface Stored<T, SchemaVersion extends number = 1> {
 	v: SchemaVersion;
 	data: T;
+}
+
+export interface StoredCheckinData {
+	timestamp: number;
+	data: GKCheckInResponse;
 }
 
 export interface StoredOrganization {

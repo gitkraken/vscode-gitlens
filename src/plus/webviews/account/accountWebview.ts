@@ -68,13 +68,7 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async getSubscription(subscription?: Subscription) {
-		let sub = subscription ?? (await this.container.subscription.getSubscription(true));
-		if (sub?.account != null && (sub?.activeOrganization == null || subscription == null)) {
-			const activeOrganization = await this.container.subscription.getActiveOrganization({
-				force: subscription == null,
-			});
-			sub = { ...sub, activeOrganization: activeOrganization };
-		}
+		const sub = subscription ?? (await this.container.subscription.getSubscription(true));
 
 		let avatar;
 		if (sub.account?.email) {
@@ -83,12 +77,10 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 			avatar = `${this.host.getWebRoot() ?? ''}/media/gitlens-logo.webp`;
 		}
 
-		const organizationCount = this.container.organization.organizationCount;
-
 		return {
 			subscription: sub,
 			avatar: avatar,
-			hasMultipleOrganizations: organizationCount != null && organizationCount > 1,
+			hasMultipleOrganizationOptions: await this.container.subscription.getHasMultipleOrganizationOptions(),
 		};
 	}
 
@@ -100,7 +92,7 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 			webroot: this.host.getWebRoot(),
 			subscription: subscriptionResult.subscription,
 			avatar: subscriptionResult.avatar,
-			hasMultipleOrganizations: subscriptionResult.hasMultipleOrganizations,
+			hasMultipleOrganizationOptions: subscriptionResult.hasMultipleOrganizationOptions,
 		};
 	}
 

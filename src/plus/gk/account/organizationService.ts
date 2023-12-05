@@ -1,6 +1,5 @@
 import { Disposable, window } from 'vscode';
 import type { Container } from '../../../container';
-import { setContext } from '../../../system/context';
 import { gate } from '../../../system/decorators/gate';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
@@ -25,27 +24,29 @@ export class OrganizationService implements Disposable {
 		this._disposable.dispose();
 	}
 
-	get organizationCount(): number | undefined {
-		return this._organizations?.length;
-	}
-
 	@gate()
-	async getOrganizations(options?: { force?: boolean }): Promise<Organization[] | null | undefined> {
+	async getOrganizations(options?: {
+		force?: boolean;
+		accessToken?: string;
+	}): Promise<Organization[] | null | undefined> {
 		const scope = getLogScope();
 		if (this._organizations === undefined || options?.force) {
 			if (!options?.force) {
 				const storedOrganizations = await this.getStoredOrganizations();
 				if (storedOrganizations != null) {
 					this._organizations = storedOrganizations;
-					this.updateContext();
 					return this._organizations;
 				}
 			}
 
 			// TODO: Use organizations-light instead once available.
-			const rsp = await this.connection.fetchApi('user/organizations', {
-				method: 'GET',
-			});
+			const rsp = await this.connection.fetchApi(
+				'user/organizations-light',
+				{
+					method: 'GET',
+				},
+				{ token: options?.accessToken },
+			);
 
 			if (!rsp.ok) {
 				debugger;
@@ -54,7 +55,6 @@ export class OrganizationService implements Disposable {
 				void window.showErrorMessage(`Unable to get organizations; Status: ${rsp.statusText}`, 'OK');
 
 				this._organizations = null;
-				this.updateContext();
 			}
 
 			const organizationsResponse = await rsp.json();
@@ -66,7 +66,6 @@ export class OrganizationService implements Disposable {
 
 			await this.storeOrganizations(organizations);
 			this._organizations = organizations;
-			this.updateContext();
 		}
 
 		return this._organizations;
@@ -101,17 +100,9 @@ export class OrganizationService implements Disposable {
 		});
 	}
 
-	private updateContext(): void {
-		void setContext(
-			'gitlens:gk:hasMultipleOrganizations',
-			this.organizationCount != null && this.organizationCount > 1,
-		);
-	}
-
 	private async onSubscriptionChanged(e: SubscriptionChangeEvent): Promise<void> {
 		if (e.current?.account?.id !== e.previous?.account?.id) {
 			this._organizations = undefined;
-			this.updateContext();
 			await this.clearStoredOrganizations();
 		}
 	}

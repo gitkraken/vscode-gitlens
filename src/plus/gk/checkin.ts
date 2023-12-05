@@ -1,4 +1,5 @@
-import type { Subscription } from './account/subscription';
+import type { Organization } from './account/organization';
+import type { BaseSubscription, Subscription } from './account/subscription';
 import { getSubscriptionPlan, getSubscriptionPlanPriority, SubscriptionPlanId } from './account/subscription';
 
 export interface GKCheckInResponse {
@@ -43,7 +44,11 @@ export type GKLicenseType =
 	| 'gitkraken_v1-self-hosted-enterprise'
 	| 'gitkraken_v1-standalone-enterprise';
 
-export function getSubscriptionFromCheckIn(data: GKCheckInResponse): Partial<Subscription> {
+export function getSubscriptionFromCheckIn(
+	data: GKCheckInResponse,
+	organizations: Organization[],
+	organizationId?: string | null,
+): BaseSubscription {
 	const account: Subscription['account'] = {
 		id: data.user.id,
 		name: data.user.name,
@@ -52,25 +57,75 @@ export function getSubscriptionFromCheckIn(data: GKCheckInResponse): Partial<Sub
 		createdOn: data.user.createdDate,
 	};
 
-	const effectiveLicenses = Object.entries(data.licenses.effectiveLicenses) as [GKLicenseType, GKLicense][];
+	let effectiveLicenses = Object.entries(data.licenses.effectiveLicenses) as [GKLicenseType, GKLicense][];
 	let paidLicenses = Object.entries(data.licenses.paidLicenses) as [GKLicenseType, GKLicense][];
 	paidLicenses = paidLicenses.filter(
 		license => license[1].latestStatus !== 'expired' && license[1].latestStatus !== 'cancelled',
 	);
+	if (paidLicenses.length > 1) {
+		paidLicenses.sort(
+			(a, b) =>
+				getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
+				licenseStatusPriority(b[1].latestStatus) -
+				(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
+					licenseStatusPriority(a[1].latestStatus)),
+		);
+	}
+	if (effectiveLicenses.length > 1) {
+		effectiveLicenses.sort(
+			(a, b) =>
+				getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
+				licenseStatusPriority(b[1].latestStatus) -
+				(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
+					licenseStatusPriority(a[1].latestStatus)),
+		);
+	}
+
+	const effectiveLicensesByOrganizationId = new Map<string, [GKLicenseType, GKLicense]>();
+	const paidLicensesByOrganizationId = new Map<string, [GKLicenseType, GKLicense]>();
+	for (const licenseData of effectiveLicenses) {
+		const [, license] = licenseData;
+		if (license.organizationId == null) continue;
+		const existingLicense = effectiveLicensesByOrganizationId.get(license.organizationId);
+		if (existingLicense == null) {
+			effectiveLicensesByOrganizationId.set(license.organizationId, licenseData);
+		}
+	}
+
+	for (const licenseData of paidLicenses) {
+		const [, license] = licenseData;
+		if (license.organizationId == null) continue;
+		const existingLicense = paidLicensesByOrganizationId.get(license.organizationId);
+		if (existingLicense == null) {
+			paidLicensesByOrganizationId.set(license.organizationId, licenseData);
+		}
+	}
+
+	const organizationsWithNoLicense = organizations.filter(
+		organization =>
+			!paidLicensesByOrganizationId.has(organization.id) &&
+			!effectiveLicensesByOrganizationId.has(organization.id),
+	);
+
+	if (organizationId === null) {
+		paidLicenses = paidLicenses.filter(([, license]) => license.organizationId == null);
+		effectiveLicenses = effectiveLicenses.filter(([, license]) => license.organizationId == null);
+	} else if (organizationId != null) {
+		paidLicenses = paidLicenses.filter(
+			([, license]) => license.organizationId === organizationId || license.organizationId == null,
+		);
+		effectiveLicenses = effectiveLicenses.filter(
+			([, license]) => license.organizationId === organizationId || license.organizationId == null,
+		);
+	}
 
 	let actual: Subscription['plan']['actual'] | undefined;
-	if (paidLicenses.length > 0) {
-		if (paidLicenses.length > 1) {
-			paidLicenses.sort(
-				(a, b) =>
-					getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
-					licenseStatusPriority(b[1].latestStatus) -
-					(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
-						licenseStatusPriority(a[1].latestStatus)),
-			);
-		}
-
-		const [licenseType, license] = paidLicenses[0];
+	const bestPaidLicense = paidLicenses.length > 0 ? paidLicenses[0] : undefined;
+	const bestEffectiveLicense = effectiveLicenses.length > 0 ? effectiveLicenses[0] : undefined;
+	const chosenPaidLicense =
+		organizationId != null ? paidLicensesByOrganizationId.get(organizationId) ?? bestPaidLicense : bestPaidLicense;
+	if (chosenPaidLicense != null) {
+		const [licenseType, license] = chosenPaidLicense;
 		actual = getSubscriptionPlan(
 			convertLicenseTypeToPlanId(licenseType),
 			isBundleLicenseType(licenseType),
@@ -96,18 +151,12 @@ export function getSubscriptionFromCheckIn(data: GKCheckInResponse): Partial<Sub
 	}
 
 	let effective: Subscription['plan']['effective'] | undefined;
-	if (effectiveLicenses.length > 0) {
-		if (effectiveLicenses.length > 1) {
-			effectiveLicenses.sort(
-				(a, b) =>
-					getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
-					licenseStatusPriority(b[1].latestStatus) -
-					(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
-						licenseStatusPriority(a[1].latestStatus)),
-			);
-		}
-
-		const [licenseType, license] = effectiveLicenses[0];
+	const chosenEffectiveLicense =
+		organizationId != null
+			? effectiveLicensesByOrganizationId.get(organizationId) ?? bestEffectiveLicense
+			: bestEffectiveLicense;
+	if (chosenEffectiveLicense != null) {
+		const [licenseType, license] = chosenEffectiveLicense;
 		effective = getSubscriptionPlan(
 			convertLicenseTypeToPlanId(licenseType),
 			isBundleLicenseType(licenseType),
@@ -121,6 +170,20 @@ export function getSubscriptionFromCheckIn(data: GKCheckInResponse): Partial<Sub
 
 	if (effective == null || getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id)) {
 		effective = { ...actual };
+	} else if (
+		organizationId != null &&
+		getSubscriptionPlanPriority(effective.id) > getSubscriptionPlanPriority(actual.id)
+	) {
+		actual = { ...effective };
+	}
+
+	let activeOrganization: Organization | undefined;
+	if (organizationId != null) {
+		activeOrganization = organizations.find(organization => organization.id === organizationId);
+	} else if (effective?.organizationId != null) {
+		activeOrganization = organizations.find(organization => organization.id === effective!.organizationId);
+	} else if (organizationsWithNoLicense.length > 0) {
+		activeOrganization = organizationsWithNoLicense[0];
 	}
 
 	return {
@@ -129,6 +192,7 @@ export function getSubscriptionFromCheckIn(data: GKCheckInResponse): Partial<Sub
 			effective: effective,
 		},
 		account: account,
+		activeOrganization: activeOrganization,
 	};
 }
 

@@ -99,7 +99,7 @@ export class AccountContent extends LitElement {
 	organization = '';
 
 	@property()
-	hasMultipleOrganizations = false;
+	hasMultipleOrganizationOptions = false;
 
 	@property({ type: Number })
 	days = 0;
@@ -177,7 +177,7 @@ export class AccountContent extends LitElement {
 								></code-icon
 							></span>
 							<span>${this.organization}</span>
-							${this.hasMultipleOrganizations
+							${this.hasMultipleOrganizationOptions
 								? html`
 										<span>
 											<a
