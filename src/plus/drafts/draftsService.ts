@@ -307,6 +307,8 @@ export class DraftService implements Disposable {
 
 	@log()
 	async getDraft(id: string): Promise<Draft> {
+		const scope = getLogScope();
+
 		type Result = { data: DraftResponse };
 
 		const [rspResult, changesetsResult] = await Promise.allSettled([
@@ -314,15 +316,33 @@ export class DraftService implements Disposable {
 			this.getChangesets(id),
 		]);
 
-		const rsp = getSettledValue(rspResult);
+		if (rspResult.status === 'rejected') {
+			Logger.error(rspResult.reason, scope, `Unable to open draft '${id}': ${rspResult.reason}`);
+			throw new Error(`Unable to open draft '${id}': ${rspResult.reason}`);
+		}
 
+		if (changesetsResult.status === 'rejected') {
+			Logger.error(
+				changesetsResult.reason,
+				scope,
+				`Unable to open changeset for draft '${id}': ${changesetsResult.reason}`,
+			);
+			throw new Error(`Unable to open changesets for draft '${id}': ${changesetsResult.reason}`);
+		}
+
+		const rsp = getSettledValue(rspResult)!;
 		if (rsp?.ok === false) {
-			Logger.error(undefined, `Getting draft failed: (${rsp.status}) ${rsp.statusText}`);
-			throw new Error(rsp.statusText);
+			const json = (await rsp.json()) as { error?: { message?: string } } | undefined;
+			Logger.error(
+				undefined,
+				scope,
+				`Unable to open draft '${id}': (${rsp.status}) ${json?.error?.message ?? rsp.statusText}`,
+			);
+			throw new Error(json?.error?.message ?? rsp.statusText);
 		}
 
 		const draft = ((await rsp.json()) as Result).data;
-		const changesets = getSettledValue(changesetsResult) ?? [];
+		const changesets = getSettledValue(changesetsResult)!;
 
 		const author: Draft['author'] = {
 			id: draft.createdBy,
@@ -394,62 +414,81 @@ export class DraftService implements Disposable {
 
 	@log()
 	async getChangesets(id: string): Promise<DraftChangeset[]> {
+		const scope = getLogScope();
+
 		type Result = { data: DraftChangesetResponse[] };
 
-		const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}/changesets`, { method: 'GET' });
+		try {
+			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}/changesets`, { method: 'GET' });
+			if (rsp?.ok === false) {
+				const json = (await rsp.json()) as { error?: { message?: string } } | undefined;
+				Logger.error(
+					undefined,
+					scope,
+					`Unable to open changesets for draft '${id}': (${rsp.status}) ${
+						json?.error?.message ?? rsp.statusText
+					}`,
+				);
+				throw new Error(json?.error?.message ?? rsp.statusText);
+			}
 
-		const changeset = ((await rsp.json()) as Result).data;
+			const changeset = ((await rsp.json()) as Result).data;
 
-		const changesets: DraftChangeset[] = [];
-		for (const c of changeset) {
-			const patches: DraftPatch[] = [];
+			const changesets: DraftChangeset[] = [];
+			for (const c of changeset) {
+				const patches: DraftPatch[] = [];
 
-			// const repoPromises = Promise.allSettled(c.patches.map(p => this.getRepositoryForGkId(p.gitRepositoryId)));
+				// const repoPromises = Promise.allSettled(c.patches.map(p => this.getRepositoryForGkId(p.gitRepositoryId)));
 
-			for (const p of c.patches) {
-				// const repoData = await this.getRepositoryData(p.gitRepositoryId);
-				// const repo = await this.container.git.findMatchingRepository({
-				// 	firstSha: repoData.initialCommitSha,
-				// 	remoteUrl: repoData.remote?.url,
-				// });
+				for (const p of c.patches) {
+					// const repoData = await this.getRepositoryData(p.gitRepositoryId);
+					// const repo = await this.container.git.findMatchingRepository({
+					// 	firstSha: repoData.initialCommitSha,
+					// 	remoteUrl: repoData.remote?.url,
+					// });
 
-				patches.push({
-					type: 'cloud',
-					id: p.id,
-					createdAt: new Date(p.createdAt),
-					updatedAt: new Date(p.updatedAt ?? p.createdAt),
-					draftId: p.draftId,
-					changesetId: p.changesetId,
+					patches.push({
+						type: 'cloud',
+						id: p.id,
+						createdAt: new Date(p.createdAt),
+						updatedAt: new Date(p.updatedAt ?? p.createdAt),
+						draftId: p.draftId,
+						changesetId: p.changesetId,
+						userId: c.userId,
+
+						baseBranchName: p.baseBranchName,
+						baseRef: p.baseCommitSha,
+						gkRepositoryId: p.gitRepositoryId,
+						secureLink: p.secureDownloadData,
+
+						// // TODO@eamodio FIX THIS
+						// repository: repo,
+						// repoData: repoData,
+					});
+				}
+
+				changesets.push({
+					id: c.id,
+					createdAt: new Date(c.createdAt),
+					updatedAt: new Date(c.updatedAt ?? c.createdAt),
+					draftId: c.draftId,
+					parentChangesetId: c.parentChangesetId,
 					userId: c.userId,
 
-					baseBranchName: p.baseBranchName,
-					baseRef: p.baseCommitSha,
-					gkRepositoryId: p.gitRepositoryId,
-					secureLink: p.secureDownloadData,
+					gitUserName: c.gitUserName,
+					gitUserEmail: c.gitUserEmail,
 
-					// // TODO@eamodio FIX THIS
-					// repository: repo,
-					// repoData: repoData,
+					deepLinkUrl: c.deepLink,
+					patches: patches,
 				});
 			}
 
-			changesets.push({
-				id: c.id,
-				createdAt: new Date(c.createdAt),
-				updatedAt: new Date(c.updatedAt ?? c.createdAt),
-				draftId: c.draftId,
-				parentChangesetId: c.parentChangesetId,
-				userId: c.userId,
+			return changesets;
+		} catch (ex) {
+			Logger.error(ex, scope);
 
-				gitUserName: c.gitUserName,
-				gitUserEmail: c.gitUserEmail,
-
-				deepLinkUrl: c.deepLink,
-				patches: patches,
-			});
+			throw ex;
 		}
-
-		return changesets;
 	}
 
 	@log()
