@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#3026](https://github.com/gitkraken/vscode-gitlens/issues/3026) - Gitlens stopped working in sub-repositories
 - Fixes [#2746](https://github.com/gitkraken/vscode-gitlens/issues/2746) - Remove 'undo commit' command from gitlens inspect
 - Fixes [#2482](https://github.com/gitkraken/vscode-gitlens/issues/2482) - Unresponsive "commits" view and "branches" view update due to git log
 
