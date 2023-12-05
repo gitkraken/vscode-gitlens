@@ -1572,7 +1572,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	protected readonly unsafePaths = new Set<string>();
 
 	@gate()
-	@debug()
+	@debug({ exit: true })
 	async findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined> {
 		const scope = getLogScope();
 
@@ -2250,7 +2250,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return filterMap(data.split('\n'), b => b.trim() || undefined);
 	}
 
-	@log()
+	@log({ exit: true })
 	getCommitCount(repoPath: string, ref: string): Promise<number | undefined> {
 		return this.git.rev_list__count(repoPath, ref);
 	}
@@ -2974,7 +2974,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log()
+	@log({ exit: true })
 	async getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -3302,14 +3302,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return files[0];
 	}
 
-	@log()
+	@log({ exit: true })
 	async getFirstCommitSha(repoPath: string): Promise<string | undefined> {
 		const data = await this.git.rev_list(repoPath, 'HEAD', { maxParents: 0 });
 		return data?.[0];
 	}
 
 	@gate()
-	@debug()
+	@debug<LocalGitProvider['getGitDir']>({
+		exit: r => `returned ${r.uri.toString(true)}, commonUri=${r.commonUri?.toString(true)}`,
+	})
 	async getGitDir(repoPath: string): Promise<GitDir> {
 		const repo = this._repoInfoCache.get(repoPath);
 		if (repo?.gitDir != null) return repo.gitDir;
@@ -5727,7 +5729,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log()
+	@log({ exit: true })
 	async getScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
 		const scope = getLogScope();
 		try {
@@ -5739,19 +5741,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log()
+	@log({ exit: true })
 	async getOrOpenScmRepository(repoPath: string | Uri): Promise<ScmRepository | undefined> {
 		const scope = getLogScope();
 		try {
 			const uri = repoPath instanceof Uri ? repoPath : Uri.file(repoPath);
 			const gitApi = await this.getScmGitApi();
+			if (gitApi == null) return undefined;
 
-			let repo = gitApi?.getRepository(uri) ?? undefined;
-			if (repo == null && gitApi?.openRepository != null) {
-				repo = (await gitApi?.openRepository?.(uri)) ?? undefined;
+			let repo = gitApi.getRepository(uri);
+			if (repo == null) {
+				Logger.debug(scope, '\u2022 no existing repository found, opening repository...');
+				repo ??= await gitApi.openRepository?.(uri);
 			}
-
-			return repo;
+			return repo ?? undefined;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;

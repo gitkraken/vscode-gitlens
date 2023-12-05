@@ -574,7 +574,7 @@ export class GitProviderService implements Disposable {
 
 		setLogScopeExit(
 			scope,
-			` ${GlyphChars.Dot} workspaceFolders=${workspaceFolders?.length}, git.autoRepositoryDetection=${autoRepositoryDetection}`,
+			` ${GlyphChars.Dot} repositories=${this.repositoryCount}, workspaceFolders=${workspaceFolders?.length}, git.autoRepositoryDetection=${autoRepositoryDetection}`,
 		);
 	}
 
