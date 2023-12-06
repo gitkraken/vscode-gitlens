@@ -1,58 +1,140 @@
-// import path from "path";
-import type { Disposable, Uri } from "vscode";
-import { window } from "vscode";
-import { Container } from "../container";
-import type { GitUri } from "../git/gitUri";
-import { filterMap } from "../system/iterable";
-import { getQuickPickIgnoreFocusOut } from "../system/utils";
+import type { Disposable, Uri } from 'vscode';
+import { window } from 'vscode';
+import type { Keys } from '../constants';
+import type { Container } from '../container';
+import type { GitUri } from '../git/gitUri';
+import type { GitTreeEntry } from '../git/models/tree';
+import { filterMap } from '../system/iterable';
+import type { KeyboardScope } from '../system/keyboard';
+import { splitPath } from '../system/path';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import type { QuickPickItemOfT } from './items/common';
+
+export type RevisionQuickPickItem = QuickPickItemOfT<GitTreeEntry>;
 
 export async function showRevisionPicker(
+	container: Container,
 	uri: GitUri,
 	options: {
-		title: string;
+		ignoreFocusOut?: boolean;
 		initialPath?: string;
+		keyboard?: {
+			keys: Keys[];
+			onDidPressKey(key: Keys, uri: Uri): void | Promise<void>;
+		};
+		placeholder?: string;
+		title: string;
 	},
 ): Promise<Uri | undefined> {
 	const disposables: Disposable[] = [];
+
+	const repoPath = uri.repoPath!;
+	const ref = uri.sha!;
+
+	function getRevisionUri(item: RevisionQuickPickItem) {
+		return container.git.getRevisionUri(ref, `${repoPath}/${item.item.path}`, repoPath);
+	}
+
 	try {
-		const picker = window.createQuickPick();
-		picker.title = options.title;
-		picker.value = options.initialPath ?? uri.relativePath;
-		picker.placeholder = 'Enter path to file...';
-		picker.matchOnDescription = true;
-		picker.busy = true;
-		picker.ignoreFocusOut = getQuickPickIgnoreFocusOut();
+		const quickpick = window.createQuickPick<RevisionQuickPickItem>();
+		quickpick.ignoreFocusOut = options?.ignoreFocusOut ?? getQuickPickIgnoreFocusOut();
 
-		picker.show();
+		const value = options.initialPath ?? uri.relativePath;
 
-		const tree = await Container.instance.git.getTreeForRevision(uri.repoPath, uri.sha!);
-		picker.items = Array.from(filterMap(tree, file => {
-			// Exclude directories
-			if (file.type !== 'blob') { return null }
-			return { label: file.path }
-			// FIXME: Remove this unless we opt to show the directory in the description
-			// const parsed = path.parse(file.path)
-			// return { label: parsed.base, description: parsed.dir }
-		}))
-		picker.busy = false;
+		let scope: KeyboardScope | undefined;
+		if (options?.keyboard != null) {
+			const { keyboard } = options;
+			scope = container.keyboard.createScope(
+				Object.fromEntries(
+					keyboard.keys.map(key => [
+						key,
+						{
+							onDidPressKey: async key => {
+								if (quickpick.activeItems.length !== 0) {
+									const [item] = quickpick.activeItems;
+									if (item.item != null) {
+										const ignoreFocusOut = quickpick.ignoreFocusOut;
+										quickpick.ignoreFocusOut = true;
 
-		const pick = await new Promise<string | undefined>(resolve => {
+										await keyboard.onDidPressKey(key, getRevisionUri(item));
+
+										quickpick.ignoreFocusOut = ignoreFocusOut;
+									}
+								}
+							},
+						},
+					]),
+				),
+			);
+			void scope.start();
+			if (value != null) {
+				void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
+			}
+			disposables.push(scope);
+		}
+
+		quickpick.title = options.title;
+		quickpick.placeholder = options?.placeholder ?? 'Search files by name';
+		quickpick.matchOnDescription = true;
+
+		quickpick.value = value;
+		quickpick.busy = true;
+		quickpick.show();
+
+		const tree = await container.git.getTreeForRevision(uri.repoPath, ref);
+		const items: RevisionQuickPickItem[] = [
+			...filterMap(tree, file => {
+				// Exclude directories
+				if (file.type !== 'blob') return undefined;
+
+				const [label, description] = splitPath(file.path, undefined, true);
+				return {
+					label: label,
+					description: description === '.' ? '' : description,
+					item: file,
+				} satisfies RevisionQuickPickItem;
+			}),
+		];
+		quickpick.items = items;
+		quickpick.busy = false;
+
+		const pick = await new Promise<RevisionQuickPickItem | undefined>(resolve => {
 			disposables.push(
-				picker,
-				picker.onDidHide(() => resolve(undefined)),
-				picker.onDidAccept(() => {
-					if (picker.activeItems.length === 0) return;
-					resolve(picker.activeItems[0].label);
+				quickpick,
+				quickpick.onDidHide(() => resolve(undefined)),
+				quickpick.onDidAccept(() => {
+					if (quickpick.activeItems.length === 0) return;
+
+					resolve(quickpick.activeItems[0]);
+				}),
+				quickpick.onDidChangeValue(value => {
+					if (scope == null) return;
+
+					// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
+					if (value.length !== 0) {
+						void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
+					} else {
+						void scope.resume();
+					}
+
+					for (const item of items) {
+						if (
+							item.item.path.includes(value) &&
+							!item.label.includes(value) &&
+							!item.description!.includes(value)
+						) {
+							item.alwaysShow = true;
+						} else {
+							item.alwaysShow = false;
+						}
+					}
+					quickpick.items = items;
 				}),
 			);
 		});
 
-		return pick
-			? Container.instance.git.getRevisionUri(uri.sha!, `${uri.repoPath}/${pick}`, uri.repoPath!)
-			: undefined;
+		return pick != null ? getRevisionUri(pick) : undefined;
 	} finally {
-		disposables.forEach(d => {
-			d.dispose();
-		});
+		disposables.forEach(d => void d.dispose());
 	}
 }
