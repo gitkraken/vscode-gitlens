@@ -79,7 +79,7 @@ export class GitUri extends (Uri as any as UriEx) {
 				ref = commitOrRepoPath.sha;
 			}
 
-			if (isUncommittedStaged(ref) || !isUncommitted(ref)) {
+			if (!isUncommitted(ref) || isUncommittedStaged(ref)) {
 				this.sha = ref;
 			}
 
@@ -99,7 +99,7 @@ export class GitUri extends (Uri as any as UriEx) {
 				ref = commitOrRepoPath.sha;
 			}
 
-			if (ref && (isUncommittedStaged(ref) || !isUncommitted(ref))) {
+			if (ref && (!isUncommitted(ref) || isUncommittedStaged(ref))) {
 				this.sha = ref;
 			}
 
@@ -164,7 +164,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			fragment: uri.fragment,
 		});
 		this.repoPath = commitOrRepoPath.repoPath;
-		if (isUncommittedStaged(commitOrRepoPath.sha) || !isUncommitted(commitOrRepoPath.sha)) {
+		if (!isUncommitted(commitOrRepoPath.sha) || isUncommittedStaged(commitOrRepoPath.sha)) {
 			this.sha = commitOrRepoPath.sha;
 		}
 	}
