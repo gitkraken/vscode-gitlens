@@ -1,4 +1,4 @@
-import type { TextDocumentShowOptions } from 'vscode';
+import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { env, Range, Uri, window, workspace } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
@@ -12,6 +12,7 @@ import type { FileAnnotationType } from '../../config';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
+import { showRevisionPicker } from '../../quickpicks/revisionPicker';
 import { executeCommand, executeEditorCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/utils';
@@ -463,7 +464,7 @@ export async function openFileAtRevision(
 	commitOrOptions?: GitCommit | TextDocumentShowOptions,
 	options?: TextDocumentShowOptions & { annotationType?: FileAnnotationType; line?: number },
 ): Promise<void> {
-	let uri;
+	let uri: Uri;
 	if (fileOrRevisionUri instanceof Uri) {
 		if (isCommit(commitOrOptions)) throw new Error('Invalid arguments');
 
@@ -501,11 +502,30 @@ export async function openFileAtRevision(
 		opts.selection = new Range(line, 0, line, 0);
 	}
 
-	const editor = await findOrOpenEditor(uri, opts);
-	if (annotationType != null && editor != null) {
-		void (await Container.instance.fileAnnotations.show(editor, annotationType, {
-			selection: { line: line },
-		}));
+	const gitUri = await GitUri.fromUri(uri);
+
+	let editor: TextEditor | undefined;
+	try {
+		editor = await findOrOpenEditor(uri, { throwOnError: true, ...opts }).catch(error => {
+			if (error?.message?.includes('Unable to resolve nonexistent file')) {
+				return showRevisionPicker(gitUri, {
+					title: 'File not found in revision - pick another file to open instead',
+				}).then(pickedUri => {
+					return pickedUri ? findOrOpenEditor(pickedUri, opts) : undefined;
+				});
+			}
+			throw error;
+		});
+
+		if (annotationType != null && editor != null) {
+			void (await Container.instance.fileAnnotations.show(editor, annotationType, {
+				selection: { line: line },
+			}));
+		}
+	} catch (error) {
+		await window.showErrorMessage(
+			`Unable to open '${gitUri.relativePath}' - file doesn't exist in selected revision`,
+		);
 	}
 }
 
