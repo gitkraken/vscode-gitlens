@@ -221,7 +221,7 @@ export function splitPath(
 	root: string | undefined,
 	splitOnBaseIfMissing: boolean = false,
 	ignoreCase?: boolean,
-): [string, string] {
+): [path: string, root: string] {
 	pathOrUri = getBestPath(pathOrUri);
 
 	if (root) {
