@@ -4,14 +4,14 @@ import type { GitLsFilesEntry, GitTreeEntry } from '../models/tree';
 const treeRegex = /(?:.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+)/gm;
 const filesRegex = /^(\S+)\s+(\S+)\s+(\S+)\s+(.*)$/gm;
 
-export function parseGitTree(data: string | undefined): GitTreeEntry[] {
+export function parseGitTree(data: string | undefined, ref: string): GitTreeEntry[] {
 	using sw = maybeStopWatch(`Git.parseTree`, { log: false, logLevel: 'debug' });
 
 	const trees: GitTreeEntry[] = [];
 	if (!data) return trees;
 
 	let type;
-	let sha;
+	let oid;
 	let size;
 	let filePath;
 
@@ -20,11 +20,12 @@ export function parseGitTree(data: string | undefined): GitTreeEntry[] {
 		match = treeRegex.exec(data);
 		if (match == null) break;
 
-		[, type, sha, size, filePath] = match;
+		[, type, oid, size, filePath] = match;
 
 		trees.push({
+			ref: ref,
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			commitSha: sha == null || sha.length === 0 ? '' : ` ${sha}`.substr(1),
+			oid: oid == null || oid.length === 0 ? '' : ` ${oid}`.substr(1),
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 			path: filePath == null || filePath.length === 0 ? '' : ` ${filePath}`.substr(1),
 			size: Number(size) || 0,
@@ -46,7 +47,7 @@ export function parseGitLsFiles(data: string | undefined): GitLsFilesEntry[] {
 
 	let filePath;
 	let mode;
-	let object;
+	let oid;
 	let stage;
 
 	let match;
@@ -54,15 +55,15 @@ export function parseGitLsFiles(data: string | undefined): GitLsFilesEntry[] {
 		match = filesRegex.exec(data);
 		if (match == null) break;
 
-		[, mode, object, stage, filePath] = match;
+		[, mode, oid, stage, filePath] = match;
 
 		files.push({
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			path: filePath == null || filePath.length === 0 ? '' : ` ${filePath}`.substr(1),
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			object: object == null || object.length === 0 ? '' : ` ${object}`.substr(1),
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 			mode: mode == null || mode.length === 0 ? '' : ` ${mode}`.substr(1),
+			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+			oid: oid == null || oid.length === 0 ? '' : ` ${oid}`.substr(1),
+			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+			path: filePath == null || filePath.length === 0 ? '' : ` ${filePath}`.substr(1),
 			stage: parseInt(stage, 10),
 		});
 	} while (true);
