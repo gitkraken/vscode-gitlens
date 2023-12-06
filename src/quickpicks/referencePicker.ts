@@ -1,4 +1,4 @@
-import type { Disposable, QuickPick } from 'vscode';
+import type { Disposable } from 'vscode';
 import { CancellationTokenSource, window } from 'vscode';
 import { RevealInSideBarQuickInputButton } from '../commands/quickCommand.buttons';
 import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand.steps';
@@ -35,8 +35,10 @@ export interface ReferencesQuickPickOptions {
 	picked?: string;
 	filter?: { branches?(b: GitBranch): boolean; tags?(t: GitTag): boolean };
 	include?: ReferencesQuickPickIncludes;
-	keys?: Keys[];
-	onDidPressKey?(key: Keys, quickpick: QuickPick<ReferencesQuickPickItem>): void | Promise<void>;
+	keyboard?: {
+		keys: Keys[];
+		onDidPressKey(key: Keys, item: ReferencesQuickPickItem): void | Promise<void>;
+	};
 	sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
 }
 
@@ -44,14 +46,14 @@ export async function showReferencePicker(
 	repoPath: string,
 	title: string,
 	placeHolder: string,
-	options: ReferencesQuickPickOptions = {},
+	options?: ReferencesQuickPickOptions,
 ): Promise<GitReference | undefined> {
 	const quickpick = window.createQuickPick<ReferencesQuickPickItem>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 	quickpick.title = title;
 	quickpick.placeholder =
-		options.allowEnteringRefs != null
+		options?.allowEnteringRefs != null
 			? `${placeHolder}${GlyphChars.Space.repeat(3)}(or enter a reference using #)`
 			: placeHolder;
 	quickpick.matchOnDescription = true;
@@ -59,15 +61,24 @@ export async function showReferencePicker(
 	const disposables: Disposable[] = [];
 
 	let scope: KeyboardScope | undefined;
-	if (options?.keys != null && options.keys.length !== 0 && options?.onDidPressKey !== null) {
+	if (options?.keyboard != null) {
+		const { keyboard } = options;
 		scope = Container.instance.keyboard.createScope(
 			Object.fromEntries(
-				options.keys.map(key => [
+				keyboard.keys.map(key => [
 					key,
 					{
-						onDidPressKey: key => {
+						onDidPressKey: async key => {
 							if (quickpick.activeItems.length !== 0) {
-								void options.onDidPressKey!(key, quickpick);
+								const [item] = quickpick.activeItems;
+								if (item != null) {
+									const ignoreFocusOut = quickpick.ignoreFocusOut;
+									quickpick.ignoreFocusOut = true;
+
+									await keyboard.onDidPressKey(key, item);
+
+									quickpick.ignoreFocusOut = ignoreFocusOut;
+								}
 							}
 						},
 					},
@@ -82,7 +93,7 @@ export async function showReferencePicker(
 
 	let autoPick;
 	let items = getItems(repoPath, options);
-	if (options.autoPick) {
+	if (options?.autoPick) {
 		items = items.then(itms => {
 			if (itms.length <= 1) {
 				autoPick = itms[0];
@@ -93,7 +104,6 @@ export async function showReferencePicker(
 	}
 
 	quickpick.busy = true;
-
 	quickpick.show();
 
 	const getValidateGitReference = getValidateGitReferenceFn(Container.instance.git.getRepository(repoPath), {
@@ -105,7 +115,6 @@ export async function showReferencePicker(
 	});
 
 	quickpick.items = await items;
-
 	quickpick.busy = false;
 
 	try {
@@ -119,19 +128,19 @@ export async function showReferencePicker(
 					resolve(quickpick.activeItems[0]);
 				}),
 				quickpick.onDidChangeValue(async e => {
-					if (options.allowEnteringRefs) {
-						if (!(await getValidateGitReference(quickpick, e))) {
-							quickpick.items = await items;
+					if (scope != null) {
+						// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
+						if (e.length !== 0) {
+							void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
+						} else {
+							void scope.resume();
 						}
 					}
 
-					if (scope == null) return;
-
-					// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
-					if (e.length !== 0) {
-						await scope.pause(['left', 'right']);
-					} else {
-						await scope.resume();
+					if (options?.allowEnteringRefs) {
+						if (!(await getValidateGitReference(quickpick, e))) {
+							quickpick.items = await items;
+						}
 					}
 				}),
 				quickpick.onDidTriggerItemButton(({ button, item: { item } }) => {
@@ -162,11 +171,8 @@ export async function showReferencePicker(
 	}
 }
 
-async function getItems(
-	repoPath: string,
-	{ picked, filter, include, sort }: ReferencesQuickPickOptions,
-): Promise<ReferencesQuickPickItem[]> {
-	include = include ?? ReferencesQuickPickIncludes.BranchesAndTags;
+async function getItems(repoPath: string, options?: ReferencesQuickPickOptions): Promise<ReferencesQuickPickItem[]> {
+	const include = options?.include ?? ReferencesQuickPickIncludes.BranchesAndTags;
 
 	const items: ReferencesQuickPickItem[] = await getBranchesAndOrTags(
 		Container.instance.git.getRepository(repoPath),
@@ -179,13 +185,14 @@ async function getItems(
 			    : [],
 		{
 			buttons: [RevealInSideBarQuickInputButton],
-			filter: filter,
-			picked: picked,
-			sort: sort ?? { branches: { current: false }, tags: {} },
+			filter: options?.filter,
+			picked: options?.picked,
+			sort: options?.sort ?? { branches: { current: false }, tags: {} },
 		},
 	);
 
 	// Move the picked item to the top
+	const picked = options?.picked;
 	if (picked) {
 		const index = items.findIndex(i => i.ref === picked);
 		if (index !== -1) {

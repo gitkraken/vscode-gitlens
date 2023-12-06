@@ -56,21 +56,23 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 				'Choose a commit to compare with',
 				{
 					picked: gitUri.sha,
-					keys: ['right', 'alt+right', 'ctrl+right'],
-					onDidPressKey: async (key, item) => {
-						void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
-							repoPath: gitUri.repoPath,
-							lhs: {
-								sha: item.item.ref,
-								uri: gitUri,
-							},
-							rhs: {
-								sha: '',
-								uri: gitUri,
-							},
-							line: args!.line,
-							showOptions: args!.showOptions,
-						}));
+					keyboard: {
+						keys: ['right', 'alt+right', 'ctrl+right'],
+						onDidPressKey: async (key, item) => {
+							await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+								repoPath: gitUri.repoPath,
+								lhs: {
+									sha: item.item.ref,
+									uri: gitUri,
+								},
+								rhs: {
+									sha: '',
+									uri: gitUri,
+								},
+								line: args!.line,
+								showOptions: args!.showOptions,
+							});
+						},
 					},
 					showOtherReferences: [
 						CommandQuickPickItem.fromCommand('Choose a Branch or Tag...', Commands.DiffWithRevisionFrom),
