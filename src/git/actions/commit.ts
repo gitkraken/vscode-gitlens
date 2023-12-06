@@ -506,26 +506,33 @@ export async function openFileAtRevision(
 
 	let editor: TextEditor | undefined;
 	try {
-		editor = await findOrOpenEditor(uri, { throwOnError: true, ...opts }).catch(error => {
-			if (error?.message?.includes('Unable to resolve nonexistent file')) {
-				return showRevisionPicker(gitUri, {
-					title: 'File not found in revision - pick another file to open instead',
-				}).then(pickedUri => {
-					return pickedUri ? findOrOpenEditor(pickedUri, opts) : undefined;
-				});
-			}
-			throw error;
-		});
-
-		if (annotationType != null && editor != null) {
-			void (await Container.instance.fileAnnotations.show(editor, annotationType, {
-				selection: { line: line },
-			}));
+		editor = await findOrOpenEditor(uri, { throwOnError: true, ...opts });
+	} catch (ex) {
+		if (!ex?.message?.includes('Unable to resolve nonexistent file')) {
+			void window.showErrorMessage(`Unable to open '${gitUri.relativePath}' in revision '${gitUri.sha}'`);
+			return;
 		}
-	} catch (error) {
-		await window.showErrorMessage(
-			`Unable to open '${gitUri.relativePath}' - file doesn't exist in selected revision`,
-		);
+
+		const pickedUri = await showRevisionPicker(Container.instance, gitUri, {
+			ignoreFocusOut: true,
+			title: `Open File at Revision \u2022 Unable to open '${gitUri.relativePath}'`,
+			placeholder: 'Choose a file revision to open',
+			keyboard: {
+				keys: ['right', 'alt+right', 'ctrl+right'],
+				onDidPressKey: async (key, uri) => {
+					await findOrOpenEditor(uri, { ...opts, preserveFocus: true, preview: true });
+				},
+			},
+		});
+		if (pickedUri == null) return;
+
+		editor = await findOrOpenEditor(pickedUri, opts);
+	}
+
+	if (annotationType != null && editor != null) {
+		void (await Container.instance.fileAnnotations.show(editor, annotationType, {
+			selection: { line: line },
+		}));
 	}
 }
 
