@@ -4844,9 +4844,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const [result] = parseGitLsFiles(data);
 			if (result == null) return undefined;
 
-			const size = await this.git.cat_file__size(repoPath, result.object);
+			const size = await this.git.cat_file__size(repoPath, result.oid);
 			return {
-				commitSha: ref,
+				ref: ref,
+				oid: result.oid,
 				path: relativePath,
 				size: size,
 				type: 'blob',
@@ -4854,7 +4855,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		const data = await this.git.ls_tree(root, ref, relativePath);
-		return parseGitTree(data)[0];
+		return parseGitTree(data, ref)[0];
 	}
 
 	@log()
@@ -4862,7 +4863,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (repoPath == null) return [];
 
 		const data = await this.git.ls_tree(repoPath, ref);
-		return parseGitTree(data);
+		return parseGitTree(data, ref);
 	}
 
 	@log({ args: { 1: false } })

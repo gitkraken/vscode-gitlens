@@ -539,8 +539,8 @@ export class Git {
 		);
 	}
 
-	async cat_file__size(repoPath: string, object: string): Promise<number> {
-		const data = await this.git<string>({ cwd: repoPath }, 'cat-file', '-s', object);
+	async cat_file__size(repoPath: string, oid: string): Promise<number> {
+		const data = await this.git<string>({ cwd: repoPath }, 'cat-file', '-s', oid);
 		return data.length ? parseInt(data.trim(), 10) : 0;
 	}
 
@@ -1343,13 +1343,13 @@ export class Git {
 
 	async log__find_object(
 		repoPath: string,
-		objectId: string,
+		oid: string,
 		ref: string,
 		ordering: 'date' | 'author-date' | 'topo' | null,
 		file?: string,
 		cancellation?: CancellationToken,
 	) {
-		const params = ['log', '-n1', '--no-renames', '--format=%H', `--find-object=${objectId}`, ref];
+		const params = ['log', '-n1', '--no-renames', '--format=%H', `--find-object=${oid}`, ref];
 
 		if (ordering) {
 			params.push(`--${ordering}-order`);

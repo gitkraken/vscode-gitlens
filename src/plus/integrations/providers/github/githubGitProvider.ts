@@ -2740,8 +2740,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (stats == null) return undefined;
 
 		return {
+			ref: ref,
+			oid: '',
 			path: this.getRelativePath(uri, repoPath),
-			commitSha: ref,
 			size: stats.size,
 			type: (stats.type & FileType.Directory) === FileType.Directory ? 'tree' : 'blob',
 		};
@@ -2772,8 +2773,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// const stats = await workspace.fs.stat(uri);
 
 			result.push({
+				ref: ref,
+				oid: '',
 				path: this.getRelativePath(path, uri),
-				commitSha: ref,
 				size: 0, // stats?.size,
 				type: (type & FileType.Directory) === FileType.Directory ? 'tree' : 'blob',
 			});
