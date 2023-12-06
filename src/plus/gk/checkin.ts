@@ -170,11 +170,6 @@ export function getSubscriptionFromCheckIn(
 
 	if (effective == null || getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id)) {
 		effective = { ...actual };
-	} else if (
-		organizationId != null &&
-		getSubscriptionPlanPriority(effective.id) > getSubscriptionPlanPriority(actual.id)
-	) {
-		actual = { ...effective };
 	}
 
 	let activeOrganization: Organization | undefined;
