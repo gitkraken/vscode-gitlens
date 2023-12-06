@@ -116,12 +116,9 @@ export class SubscriptionService implements Disposable {
 		this._disposable.dispose();
 	}
 
-	async getHasMultipleOrganizationOptions(): Promise<boolean> {
+	async getOrganizationOptionCount(): Promise<number> {
 		const organizations = (await this.container.organization.getOrganizations()) ?? [];
-		if (organizations.length === 0) return false;
-		if (organizations.length > 1) return true;
-
-		return this.getShouldShowOrganizationDefault(organizations);
+		return organizations.length + (this.getShouldShowOrganizationDefault(organizations) ? 1 : 0);
 	}
 
 	private getShouldShowOrganizationDefault(organizations: Organization[]): boolean {
@@ -143,6 +140,7 @@ export class SubscriptionService implements Disposable {
 
 		return (
 			hasSubscriptionWithoutOrganization &&
+			organizations.length > 0 &&
 			!organizations.some(org => !checkinSubscriptionsByOrganizationId.has(org.id))
 		);
 	}
@@ -972,7 +970,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private async updateOrganizationContext(): Promise<void> {
-		void setContext('gitlens:gk:hasMultipleOrganizationOptions', await this.getHasMultipleOrganizationOptions());
+		void setContext('gitlens:gk:hasMultipleOrganizationOptions', (await this.getOrganizationOptionCount()) > 1);
 	}
 
 	private async updateAccessContext(cancellation: CancellationToken): Promise<void> {
@@ -1094,7 +1092,7 @@ export class SubscriptionService implements Disposable {
 
 		if (this.getShouldShowOrganizationDefault(organizations)) {
 			picks.push({
-				label: 'None',
+				label: 'Default',
 				org: null,
 			});
 		}
