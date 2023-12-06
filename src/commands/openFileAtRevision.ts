@@ -133,14 +133,16 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 					`Choose a commit to ${args.annotationType === 'blame' ? 'blame' : 'open'} the file revision from`,
 					{
 						picked: gitUri.sha,
-						keys: ['right', 'alt+right', 'ctrl+right'],
-						onDidPressKey: async (key, item) => {
-							await openFileAtRevision(item.item.file!, item.item, {
-								annotationType: args!.annotationType,
-								line: args!.line,
-								preserveFocus: true,
-								preview: false,
-							});
+						keyboard: {
+							keys: ['right', 'alt+right', 'ctrl+right'],
+							onDidPressKey: async (key, item) => {
+								await openFileAtRevision(item.item.file!, item.item, {
+									annotationType: args!.annotationType,
+									line: args!.line,
+									preserveFocus: true,
+									preview: true,
+								});
+							},
 						},
 						showOtherReferences: [
 							CommandQuickPickItem.fromCommand(

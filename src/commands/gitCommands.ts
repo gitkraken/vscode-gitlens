@@ -363,6 +363,9 @@ export class GitCommandsCommand extends Command {
 
 				const scope = this.container.keyboard.createScope(mapping);
 				void scope.start();
+				if (step.value != null) {
+					void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
+				}
 
 				disposables.push(
 					scope,
@@ -404,9 +407,9 @@ export class GitCommandsCommand extends Command {
 						if (scope != null) {
 							// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
 							if (e.length !== 0) {
-								await scope.pause(['left', 'right']);
+								void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
 							} else {
-								await scope.resume();
+								void scope.resume();
 							}
 						}
 
@@ -521,6 +524,9 @@ export class GitCommandsCommand extends Command {
 
 				const scope = this.container.keyboard.createScope(mapping);
 				void scope.start();
+				if (step.value != null) {
+					void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
+				}
 
 				let overrideItems = false;
 
@@ -592,9 +598,9 @@ export class GitCommandsCommand extends Command {
 						if (scope != null) {
 							// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
 							if (e.length !== 0) {
-								await scope.pause(['left', 'right']);
+								void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
 							} else {
-								await scope.resume();
+								void scope.resume();
 							}
 						}
 

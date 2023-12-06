@@ -65,20 +65,19 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 					'Choose a branch or tag to open the file revision from',
 					{
 						allowEnteringRefs: true,
-						keys: ['right', 'alt+right', 'ctrl+right'],
-						onDidPressKey: async (key, quickpick) => {
-							const [item] = quickpick.activeItems;
-							if (item != null) {
+						keyboard: {
+							keys: ['right', 'alt+right', 'ctrl+right'],
+							onDidPressKey: async (key, item) => {
 								await openFileAtRevision(
 									this.container.git.getRevisionUri(item.ref, gitUri.fsPath, gitUri.repoPath!),
 									{
 										annotationType: args!.annotationType,
 										line: args!.line,
 										preserveFocus: true,
-										preview: false,
+										preview: true,
 									},
 								);
-							}
+							},
 						},
 					},
 				);

@@ -22,8 +22,10 @@ export async function showCommitPicker(
 	placeholder: string,
 	options?: {
 		picked?: string;
-		keys?: Keys[];
-		onDidPressKey?(key: Keys, item: CommitQuickPickItem): void | Promise<void>;
+		keyboard?: {
+			keys: Keys[];
+			onDidPressKey(key: Keys, item: CommitQuickPickItem): void | Promise<void>;
+		};
 		showOtherReferences?: CommandQuickPickItem[];
 	},
 ): Promise<GitCommit | undefined> {
@@ -98,17 +100,23 @@ export async function showCommitPicker(
 	const disposables: Disposable[] = [];
 
 	let scope: KeyboardScope | undefined;
-	if (options?.keys != null && options.keys.length !== 0 && options?.onDidPressKey !== null) {
+	if (options?.keyboard != null) {
+		const { keyboard } = options;
 		scope = Container.instance.keyboard.createScope(
 			Object.fromEntries(
-				options.keys.map(key => [
+				keyboard.keys.map(key => [
 					key,
 					{
-						onDidPressKey: key => {
+						onDidPressKey: async key => {
 							if (quickpick.activeItems.length !== 0) {
 								const [item] = quickpick.activeItems;
 								if (item != null && !isDirectiveQuickPickItem(item) && !CommandQuickPickItem.is(item)) {
-									void options.onDidPressKey!(key, item);
+									const ignoreFocusOut = quickpick.ignoreFocusOut;
+									quickpick.ignoreFocusOut = true;
+
+									await keyboard.onDidPressKey(key, item);
+
+									quickpick.ignoreFocusOut = ignoreFocusOut;
 								}
 							}
 						},
@@ -143,14 +151,14 @@ export async function showCommitPicker(
 							resolve(item);
 						}
 					}),
-					quickpick.onDidChangeValue(async e => {
+					quickpick.onDidChangeValue(value => {
 						if (scope == null) return;
 
 						// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
-						if (e.length !== 0) {
-							await scope.pause(['left', 'right']);
+						if (value.length !== 0) {
+							void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
 						} else {
-							await scope.resume();
+							void scope.resume();
 						}
 					}),
 				);
@@ -182,8 +190,10 @@ export async function showStashPicker(
 	options?: {
 		empty?: string;
 		filter?: (c: GitStashCommit) => boolean;
-		keys?: Keys[];
-		onDidPressKey?(key: Keys, item: CommitQuickPickItem<GitStashCommit>): void | Promise<void>;
+		keyboard?: {
+			keys: Keys[];
+			onDidPressKey(key: Keys, item: CommitQuickPickItem<GitStashCommit>): void | Promise<void>;
+		};
 		picked?: string;
 		showOtherReferences?: CommandQuickPickItem[];
 	},
@@ -231,17 +241,23 @@ export async function showStashPicker(
 	const disposables: Disposable[] = [];
 
 	let scope: KeyboardScope | undefined;
-	if (options?.keys != null && options.keys.length !== 0 && options?.onDidPressKey !== null) {
+	if (options?.keyboard != null) {
+		const { keyboard } = options;
 		scope = Container.instance.keyboard.createScope(
 			Object.fromEntries(
-				options.keys.map(key => [
+				keyboard.keys.map(key => [
 					key,
 					{
-						onDidPressKey: key => {
+						onDidPressKey: async key => {
 							if (quickpick.activeItems.length !== 0) {
 								const [item] = quickpick.activeItems;
 								if (item != null && !isDirectiveQuickPickItem(item) && !CommandQuickPickItem.is(item)) {
-									void options.onDidPressKey!(key, item);
+									const ignoreFocusOut = quickpick.ignoreFocusOut;
+									quickpick.ignoreFocusOut = true;
+
+									await keyboard.onDidPressKey(key, item);
+
+									quickpick.ignoreFocusOut = ignoreFocusOut;
 								}
 							}
 						},
@@ -270,14 +286,14 @@ export async function showStashPicker(
 						resolve(item);
 					}
 				}),
-				quickpick.onDidChangeValue(async e => {
+				quickpick.onDidChangeValue(value => {
 					if (scope == null) return;
 
 					// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
-					if (e.length !== 0) {
-						await scope.pause(['left', 'right']);
+					if (value.length !== 0) {
+						void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
 					} else {
-						await scope.resume();
+						void scope.resume();
 					}
 				}),
 			);
