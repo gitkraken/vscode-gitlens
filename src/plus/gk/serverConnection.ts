@@ -1,6 +1,6 @@
 import type { CancellationToken, Disposable } from 'vscode';
 import { Uri } from 'vscode';
-import type { RequestInfo, RequestInit, Response } from '@env/fetch';
+import type { HeadersInit, RequestInfo, RequestInit, Response } from '@env/fetch';
 import { fetch as _fetch, getProxyAgent } from '@env/fetch';
 import type { Container } from '../../container';
 import { AuthenticationRequiredError, CancellationError } from '../../errors';
@@ -170,17 +170,26 @@ export class ServerConnection implements Disposable {
 			({ token, ...options } = options ?? {});
 			token ??= await this.getAccessToken();
 
+			// only check for cached subscription or we'll get into an infinite loop
+			const organizationId = (await this.container.subscription.getSubscription(true)).activeOrganization?.id;
+
+			const headers: Record<string, unknown> = {
+				Authorization: `Bearer ${token}`,
+				'Content-Type': 'application/json',
+				...init?.headers,
+			};
+
+			if (organizationId != null) {
+				headers['gk-org-id'] = organizationId;
+			}
+
 			// TODO@eamodio handle common response errors
 
 			return this.fetch(
 				url,
 				{
 					...init,
-					headers: {
-						Authorization: `Bearer ${token}`,
-						'Content-Type': 'application/json',
-						...init?.headers,
-					},
+					headers: headers as HeadersInit,
 				},
 				options,
 			);

@@ -9,10 +9,17 @@ declare global {
 }
 
 declare type _BodyInit = BodyInit;
+declare type _HeadersInit = HeadersInit;
 declare type _RequestInit = RequestInit;
 declare type _Response = Response;
 declare type _RequestInfo = RequestInfo;
-export type { _BodyInit as BodyInit, _RequestInit as RequestInit, _Response as Response, _RequestInfo as RequestInfo };
+export type {
+	_BodyInit as BodyInit,
+	_HeadersInit as HeadersInit,
+	_RequestInit as RequestInit,
+	_Response as Response,
+	_RequestInfo as RequestInfo,
+};
 
 export function getProxyAgent(_strictSSL?: boolean): HttpsProxyAgent | undefined {
 	return undefined;
