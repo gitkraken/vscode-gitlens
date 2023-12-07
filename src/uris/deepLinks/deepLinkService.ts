@@ -1043,7 +1043,11 @@ export class DeepLinkService implements Disposable {
 		}
 
 		if (remoteUrl == null && typeof refOrIdOrRepoPath === 'string') {
-			return new URL(`https://${modePrefixString}gitkraken.dev/link/workspaces/${refOrIdOrRepoPath}`);
+			const deepLinkRedirectUrl = new URL(
+				`https://${modePrefixString}gitkraken.dev/link/workspaces/${refOrIdOrRepoPath}`,
+			);
+			deepLinkRedirectUrl.searchParams.set('origin', 'gitlens');
+			return deepLinkRedirectUrl;
 		}
 
 		const repoPath = typeof refOrIdOrRepoPath !== 'string' ? refOrIdOrRepoPath.repoPath : refOrIdOrRepoPath;
@@ -1100,6 +1104,8 @@ export class DeepLinkService implements Disposable {
 				Buffer.from(deepLink.href).toString('base64'),
 			)}`,
 		);
+
+		deepLinkRedirectUrl.searchParams.set('origin', 'gitlens');
 		return deepLinkRedirectUrl;
 	}
 }
