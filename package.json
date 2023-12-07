@@ -15895,7 +15895,7 @@
 		"sass": "1.69.5",
 		"sass-loader": "13.3.2",
 		"schema-utils": "4.2.0",
-		"sharp": "0.33.0",
+		"sharp": "0.32.6",
 		"svgo": "3.0.5",
 		"terser-webpack-plugin": "5.3.9",
 		"ts-loader": "9.5.1",
