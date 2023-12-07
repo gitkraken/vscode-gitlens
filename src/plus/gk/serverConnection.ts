@@ -1,7 +1,8 @@
 import type { CancellationToken, Disposable } from 'vscode';
-import { Uri } from 'vscode';
+import { version as codeVersion, env, Uri } from 'vscode';
 import type { HeadersInit, RequestInfo, RequestInit, Response } from '@env/fetch';
 import { fetch as _fetch, getProxyAgent } from '@env/fetch';
+import { getPlatform } from '@env/platform';
 import type { Container } from '../../container';
 import { AuthenticationRequiredError, CancellationError } from '../../errors';
 import { memoize } from '../../system/decorators/memoize';
@@ -102,7 +103,18 @@ export class ServerConnection implements Disposable {
 	@memoize()
 	get userAgent(): string {
 		// TODO@eamodio figure out standardized format/structure for our user agents
-		return 'Visual-Studio-Code-GitLens';
+		return `${this.container.debugging ? 'GitLens-Debug' : this.container.prerelease ? 'GitLens-Pre' : 'GitLens'}/${
+			this.container.version
+		} (${env.appName}/${codeVersion}; ${getPlatform()})`;
+	}
+
+	@memoize()
+	get clientName(): string {
+		return this.container.debugging
+			? 'gitlens-vsc-debug'
+			: this.container.prerelease
+			  ? 'gitlens-vsc-pre'
+			  : 'gitlens-vsc';
 	}
 
 	async fetch(url: RequestInfo, init?: RequestInit, options?: FetchOptions): Promise<Response> {
@@ -170,15 +182,16 @@ export class ServerConnection implements Disposable {
 			({ token, ...options } = options ?? {});
 			token ??= await this.getAccessToken();
 
-			// only check for cached subscription or we'll get into an infinite loop
-			const organizationId = (await this.container.subscription.getSubscription(true)).activeOrganization?.id;
-
 			const headers: Record<string, unknown> = {
 				Authorization: `Bearer ${token}`,
 				'Content-Type': 'application/json',
+				'Client-Name': this.clientName,
+				'Client-Version': this.container.version,
 				...init?.headers,
 			};
 
+			// only check for cached subscription or we'll get into an infinite loop
+			const organizationId = (await this.container.subscription.getSubscription(true)).activeOrganization?.id;
 			if (organizationId != null) {
 				headers['gk-org-id'] = organizationId;
 			}
