@@ -81,6 +81,7 @@ interface Context {
 				description?: string;
 				changes: Map<string, RepositoryChangeset>;
 				showingAllRepos: boolean;
+				visibility: 'public' | 'private';
 		  }
 		| undefined;
 	preferences: Preferences;
@@ -405,7 +406,7 @@ export class PatchDetailsWebviewProvider
 		void env.clipboard.writeText(this._context.draft.deepLinkUrl);
 	}
 
-	private async createDraft({ title, changesets, description }: CreatePatchParams): Promise<void> {
+	private async createDraft({ title, changesets, description, visibility }: CreatePatchParams): Promise<void> {
 		if (
 			!(await ensureAccount('Cloud Patches require a GitKraken account.', this.container)) ||
 			!(await confirmDraftStorage(this.container))
@@ -437,12 +438,11 @@ export class PatchDetailsWebviewProvider
 		if (createChanges == null) return;
 
 		try {
-			const draft = await this.container.drafts.createDraft(
-				'patch',
-				title,
-				createChanges,
-				description ? { description: description } : undefined,
-			);
+			const options = {
+				description: description,
+				visibility: visibility,
+			};
+			const draft = await this.container.drafts.createDraft('patch', title, createChanges, options);
 
 			async function showNotification() {
 				const view = { title: 'View Patch' };
@@ -566,6 +566,7 @@ export class PatchDetailsWebviewProvider
 
 		this._context.create.title = params.title;
 		this._context.create.description = params.description;
+		this._context.create.visibility = params.visibility;
 		void this.notifyDidChangeCreateDraftState();
 	}
 
@@ -689,6 +690,7 @@ export class PatchDetailsWebviewProvider
 			description: create.description,
 			changes: changesetByRepo,
 			showingAllRepos: allRepos,
+			visibility: 'public',
 		};
 		this.setMode('create', true);
 		void this.notifyDidChangeCreateDraftState();
@@ -716,6 +718,7 @@ export class PatchDetailsWebviewProvider
 			title: create.title,
 			description: create.description,
 			changes: repoChanges,
+			visibility: create.visibility,
 		};
 	}
 
@@ -796,8 +799,10 @@ export class PatchDetailsWebviewProvider
 				createdAt: draft.createdAt.getTime(),
 				updatedAt: draft.updatedAt.getTime(),
 				author: draft.author,
+				role: draft.role,
 				title: draft.title,
 				description: draft.description,
+				visibility: draft.visibility,
 				patches: serialize(
 					draft.changesets![0].patches.map(p => ({
 						...p,
