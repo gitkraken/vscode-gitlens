@@ -38,7 +38,7 @@ export class DraftService implements Disposable {
 		type: 'patch' | 'stash',
 		title: string,
 		changes: CreateDraftChange[],
-		options?: { description?: string; organizationId?: string },
+		options?: { description?: string; visibility?: 'public' | 'private' },
 	): Promise<Draft> {
 		const scope = getLogScope();
 
@@ -78,7 +78,7 @@ export class DraftService implements Disposable {
 					type: type,
 					title: title,
 					description: options?.description,
-					isPublic: true /*organizationId: undefined,*/,
+					visibility: options?.visibility ?? 'public',
 				} satisfies CreateDraftRequest),
 			});
 
@@ -180,13 +180,14 @@ export class DraftService implements Disposable {
 				updatedAt: new Date(draft.updatedAt ?? draft.createdAt),
 				author: author,
 				organizationId: draft.organizationId || undefined,
+				role: draft.role,
 				isPublished: draft.isPublished,
 
 				title: draft.title,
 				description: draft.description,
 
 				deepLinkUrl: createDraft.deepLink,
-				deepLinkAccess: draft.isPublic ? 'public' : 'private',
+				visibility: draft.visibility,
 
 				latestChangesetId: draft.latestChangesetId,
 				changesets: [
@@ -364,13 +365,14 @@ export class DraftService implements Disposable {
 			updatedAt: new Date(draft.updatedAt ?? draft.createdAt),
 			author: author,
 			organizationId: draft.organizationId || undefined,
+			role: draft.role,
 			isPublished: draft.isPublished,
 
 			title: draft.title,
 			description: draft.description,
 
 			deepLinkUrl: draft.deepLink,
-			deepLinkAccess: draft.isPublic ? 'public' : 'private',
+			visibility: draft.visibility,
 
 			latestChangesetId: draft.latestChangesetId,
 			changesets: changesets,
@@ -396,13 +398,14 @@ export class DraftService implements Disposable {
 						? { id: d.createdBy, name: `${account.name} (you)`, email: account.email }
 						: { id: d.createdBy, name: 'Unknown', email: undefined },
 				organizationId: d.organizationId || undefined,
+				role: d.role,
 				isPublished: d.isPublished,
 
 				title: d.title,
 				description: d.description,
 
 				deepLinkUrl: d.deepLink,
-				deepLinkAccess: d.isPublic ? 'public' : 'private',
+				visibility: d.visibility,
 
 				createdAt: new Date(d.createdAt),
 				updatedAt: new Date(d.updatedAt ?? d.createdAt),
