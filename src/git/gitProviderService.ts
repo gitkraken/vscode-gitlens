@@ -1748,7 +1748,7 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getContributors(
 		repoPath: string | Uri,
-		options?: { all?: boolean; ref?: string; stats?: boolean },
+		options?: { all?: boolean; merges?: boolean | 'first-parent'; ref?: string; stats?: boolean },
 	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 

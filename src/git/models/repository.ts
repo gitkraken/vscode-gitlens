@@ -680,7 +680,12 @@ export class Repository implements Disposable {
 		return this.container.git.getCommit(this.uri, ref);
 	}
 
-	getContributors(options?: { all?: boolean; ref?: string; stats?: boolean }): Promise<GitContributor[]> {
+	getContributors(options?: {
+		all?: boolean;
+		merges?: boolean | 'first-parent';
+		ref?: string;
+		stats?: boolean;
+	}): Promise<GitContributor[]> {
 		return this.container.git.getContributors(this.uri, options);
 	}
 

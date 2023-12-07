@@ -23,6 +23,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 		view: ViewsWithContributorsNode,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
+		private readonly options?: { all?: boolean; showMergeCommits?: boolean; stats?: boolean },
 	) {
 		super('contributors', uri, view, parent);
 
@@ -40,7 +41,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const all = configuration.get('views.contributors.showAllBranches');
+			const all = this.options?.all ?? configuration.get('views.contributors.showAllBranches');
 
 			let ref: string | undefined;
 			// If we aren't getting all branches, get the upstream of the current branch if there is one
@@ -53,9 +54,14 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 				} catch {}
 			}
 
-			const stats = configuration.get('views.contributors.showStatistics');
+			const stats = this.options?.stats ?? configuration.get('views.contributors.showStatistics');
 
-			const contributors = await this.repo.getContributors({ all: all, ref: ref, stats: stats });
+			const contributors = await this.repo.getContributors({
+				all: all,
+				merges: this.options?.showMergeCommits,
+				ref: ref,
+				stats: stats,
+			});
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
 			GitContributor.sort(contributors);
@@ -67,6 +73,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 						all: all,
 						ref: ref,
 						presence: presenceMap,
+						showMergeCommits: this.options?.showMergeCommits,
 					}),
 			);
 		}
