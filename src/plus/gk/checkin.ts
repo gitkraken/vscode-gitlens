@@ -53,7 +53,10 @@ export function getSubscriptionFromCheckIn(data: GKCheckInResponse): Partial<Sub
 	};
 
 	const effectiveLicenses = Object.entries(data.licenses.effectiveLicenses) as [GKLicenseType, GKLicense][];
-	const paidLicenses = Object.entries(data.licenses.paidLicenses) as [GKLicenseType, GKLicense][];
+	let paidLicenses = Object.entries(data.licenses.paidLicenses) as [GKLicenseType, GKLicense][];
+	paidLicenses = paidLicenses.filter(
+		license => license[1].latestStatus !== 'expired' && license[1].latestStatus !== 'cancelled',
+	);
 
 	let actual: Subscription['plan']['actual'] | undefined;
 	if (paidLicenses.length > 0) {
@@ -75,7 +78,6 @@ export function getSubscriptionFromCheckIn(data: GKCheckInResponse): Partial<Sub
 			license.organizationId,
 			new Date(license.latestStartDate),
 			new Date(license.latestEndDate),
-			license.latestStatus === 'cancelled',
 		);
 	}
 
