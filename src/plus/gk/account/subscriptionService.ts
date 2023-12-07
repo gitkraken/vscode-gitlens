@@ -194,10 +194,6 @@ export class SubscriptionService implements Disposable {
 		return this._subscription;
 	}
 
-	get subscriptionAccountId(): string | undefined {
-		return this._subscription.account?.id;
-	}
-
 	@debug()
 	async learnAboutPreviewOrTrial() {
 		const subscription = await this.getSubscription();

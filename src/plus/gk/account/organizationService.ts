@@ -19,18 +19,10 @@ export class OrganizationService implements Disposable {
 		private readonly connection: ServerConnection,
 	) {
 		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
-		const userId = container.subscription.subscriptionAccountId;
-		if (userId != null) {
-			this.loadStoredOrganizations(userId);
-		}
 	}
 
 	dispose(): void {
 		this._disposable.dispose();
-	}
-
-	get organizationCount(): number {
-		return this._organizations?.length ?? 0;
 	}
 
 	@gate()
@@ -40,7 +32,7 @@ export class OrganizationService implements Disposable {
 		userId?: string;
 	}): Promise<Organization[] | null | undefined> {
 		const scope = getLogScope();
-		const userId = options?.userId ?? this.container.subscription.subscriptionAccountId;
+		const userId = options?.userId ?? (await this.container.subscription.getSubscription(true))?.account?.id;
 		if (userId == null) {
 			this.updateOrganizations(undefined);
 			return this._organizations;
@@ -118,6 +110,6 @@ export class OrganizationService implements Disposable {
 
 	private updateOrganizations(organizations: Organization[] | null | undefined): void {
 		this._organizations = organizations;
-		void setContext('gitlens:gk:hasMultipleOrganizationOptions', this.organizationCount > 1);
+		void setContext('gitlens:gk:hasMultipleOrganizationOptions', (organizations ?? []).length > 1);
 	}
 }
