@@ -1,5 +1,6 @@
 import { Disposable, window } from 'vscode';
 import type { Container } from '../../../container';
+import { setContext } from '../../../system/context';
 import { gate } from '../../../system/decorators/gate';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
@@ -18,25 +19,37 @@ export class OrganizationService implements Disposable {
 		private readonly connection: ServerConnection,
 	) {
 		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
+		const userId = container.subscription.subscriptionAccountId;
+		if (userId != null) {
+			this.loadStoredOrganizations(userId);
+		}
 	}
 
 	dispose(): void {
 		this._disposable.dispose();
 	}
 
+	get organizationCount(): number {
+		return this._organizations?.length ?? 0;
+	}
+
 	@gate()
 	async getOrganizations(options?: {
 		force?: boolean;
 		accessToken?: string;
+		userId?: string;
 	}): Promise<Organization[] | null | undefined> {
 		const scope = getLogScope();
+		const userId = options?.userId ?? this.container.subscription.subscriptionAccountId;
+		if (userId == null) {
+			this.updateOrganizations(undefined);
+			return this._organizations;
+		}
+
 		if (this._organizations === undefined || options?.force) {
 			if (!options?.force) {
-				const storedOrganizations = await this.getStoredOrganizations();
-				if (storedOrganizations != null) {
-					this._organizations = storedOrganizations;
-					return this._organizations;
-				}
+				this.loadStoredOrganizations(userId);
+				if (this._organizations != null) return this._organizations;
 			}
 
 			let rsp;
@@ -49,7 +62,8 @@ export class OrganizationService implements Disposable {
 					{ token: options?.accessToken },
 				);
 			} catch (ex) {
-				return undefined;
+				this.updateOrganizations(undefined);
+				return this._organizations;
 			}
 
 			if (!rsp.ok) {
@@ -58,7 +72,8 @@ export class OrganizationService implements Disposable {
 
 				void window.showErrorMessage(`Unable to get organizations; Status: ${rsp.statusText}`, 'OK');
 
-				this._organizations = null;
+				// Setting to null prevents hitting the API again until you reload
+				this.updateOrganizations(null);
 			}
 
 			const organizationsResponse = await rsp.json();
@@ -68,35 +83,26 @@ export class OrganizationService implements Disposable {
 				role: o.role,
 			}));
 
-			await this.storeOrganizations(organizations);
-			this._organizations = organizations;
+			await this.storeOrganizations(organizations, userId);
+			this.updateOrganizations(organizations);
 		}
 
 		return this._organizations;
 	}
 
 	@gate()
-	async getStoredOrganizations(): Promise<Organization[] | undefined> {
-		const userId = (await this.container.subscription.getSubscription(true))?.account?.id;
-		if (userId == null) return undefined;
+	private loadStoredOrganizations(userId: string): void {
 		const storedOrganizations = this.container.storage.get('gk:organizations');
-		if (storedOrganizations == null) return undefined;
+		if (storedOrganizations == null) return;
 		const { timestamp, organizations, userId: storedUserId } = storedOrganizations;
 		if (storedUserId !== userId || timestamp + organizationsCacheExpiration < Date.now()) {
-			await this.clearStoredOrganizations();
-			return undefined;
+			return;
 		}
 
-		return organizations;
+		this.updateOrganizations(organizations);
 	}
 
-	private async clearStoredOrganizations(): Promise<void> {
-		return this.container.storage.delete('gk:organizations');
-	}
-
-	private async storeOrganizations(organizations: Organization[]): Promise<void> {
-		const userId = (await this.container.subscription.getSubscription(true))?.account?.id;
-		if (userId == null) return;
+	private async storeOrganizations(organizations: Organization[], userId: string): Promise<void> {
 		return this.container.storage.store('gk:organizations', {
 			timestamp: Date.now(),
 			organizations: organizations,
@@ -104,10 +110,14 @@ export class OrganizationService implements Disposable {
 		});
 	}
 
-	private async onSubscriptionChanged(e: SubscriptionChangeEvent): Promise<void> {
-		if (e.current?.account?.id !== e.previous?.account?.id) {
-			this._organizations = undefined;
-			await this.clearStoredOrganizations();
+	private onSubscriptionChanged(e: SubscriptionChangeEvent): void {
+		if (e.current?.account?.id == null) {
+			this.updateOrganizations(undefined);
 		}
+	}
+
+	private updateOrganizations(organizations: Organization[] | null | undefined): void {
+		this._organizations = organizations;
+		void setContext('gitlens:gk:hasMultipleOrganizationOptions', this.organizationCount > 1);
 	}
 }

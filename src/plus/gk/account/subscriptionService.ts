@@ -194,6 +194,10 @@ export class SubscriptionService implements Disposable {
 		return this._subscription;
 	}
 
+	get subscriptionAccountId(): string | undefined {
+		return this._subscription.account?.id;
+	}
+
 	@debug()
 	async learnAboutPreviewOrTrial() {
 		const subscription = await this.getSubscription();
@@ -640,6 +644,7 @@ export class SubscriptionService implements Disposable {
 				(await this.container.organization.getOrganizations({
 					force: true,
 					accessToken: session.accessToken,
+					userId: session.account.id,
 				})) ?? [];
 		} catch (ex) {
 			Logger.error(ex, scope);
@@ -874,7 +879,6 @@ export class SubscriptionService implements Disposable {
 
 		if (!options?.silent) {
 			this.updateContext();
-			void this.updateOrganizationContext();
 
 			if (previous != null) {
 				this._onDidChange.fire({ current: subscription, previous: previous, etag: this._etag });
@@ -938,11 +942,6 @@ export class SubscriptionService implements Disposable {
 
 		void setContext('gitlens:plus', actual.id != SubscriptionPlanId.Free ? actual.id : undefined);
 		void setContext('gitlens:plus:state', state);
-	}
-
-	private async updateOrganizationContext(): Promise<void> {
-		const organizations = (await this.container.organization.getOrganizations()) ?? [];
-		void setContext('gitlens:gk:hasMultipleOrganizationOptions', organizations.length > 1);
 	}
 
 	private async updateAccessContext(cancellation: CancellationToken): Promise<void> {

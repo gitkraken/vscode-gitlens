@@ -80,7 +80,7 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 		return {
 			subscription: sub,
 			avatar: avatar,
-			organizationsCount: ((await this.container.organization.getOrganizations()) ?? []).length,
+			organizationsCount: this.container.organization.organizationCount,
 		};
 	}
 
