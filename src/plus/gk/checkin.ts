@@ -47,7 +47,7 @@ export type GKLicenseType =
 export function getSubscriptionFromCheckIn(
 	data: GKCheckInResponse,
 	organizations: Organization[],
-	organizationId?: string | null,
+	organizationId?: string,
 ): BaseSubscription {
 	const account: Subscription['account'] = {
 		id: data.user.id,
@@ -107,10 +107,7 @@ export function getSubscriptionFromCheckIn(
 			!effectiveLicensesByOrganizationId.has(organization.id),
 	);
 
-	if (organizationId === null) {
-		paidLicenses = paidLicenses.filter(([, license]) => license.organizationId == null);
-		effectiveLicenses = effectiveLicenses.filter(([, license]) => license.organizationId == null);
-	} else if (organizationId != null) {
+	if (organizationId != null) {
 		paidLicenses = paidLicenses.filter(
 			([, license]) => license.organizationId === organizationId || license.organizationId == null,
 		);
