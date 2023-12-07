@@ -25,10 +25,11 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		view: ViewsWithContributors,
 		protected override readonly parent: ViewNode,
 		public readonly contributor: GitContributor,
-		private readonly _options?: {
+		private readonly options?: {
 			all?: boolean;
 			ref?: string;
 			presence: Map<string, ContactPresence> | undefined;
+			showMergeCommits?: boolean;
 		},
 	) {
 		super('contributor', uri, view, parent);
@@ -72,7 +73,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const presence = this._options?.presence?.get(this.contributor.email!);
+		const presence = this.options?.presence?.get(this.contributor.email!);
 
 		const item = new TreeItem(
 			this.contributor.current ? `${this.contributor.label} (you)` : this.contributor.label,
@@ -167,9 +168,10 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 	private async getLog() {
 		if (this._log == null) {
 			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
-				all: this._options?.all,
-				ref: this._options?.ref,
+				all: this.options?.all,
+				ref: this.options?.ref,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
+				merges: this.options?.showMergeCommits,
 				authors: [
 					{
 						name: this.contributor.name,

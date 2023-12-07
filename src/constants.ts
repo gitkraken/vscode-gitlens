@@ -354,6 +354,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
 			| `setShowAllBranches${'On' | 'Off'}`
 			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowMergeCommits${'On' | 'Off'}`
 			| `setShowStatistics${'On' | 'Off'}`}`
 	| `drafts.${'copy' | 'refresh' | 'create' | 'delete' | 'open'}`
 	| `fileHistory.${
@@ -610,6 +611,7 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:views:canCompare:file`
 	| `${typeof extensionPrefix}:views:commits:filtered`
 	| `${typeof extensionPrefix}:views:commits:hideMergeCommits`
+	| `${typeof extensionPrefix}:views:contributors:hideMergeCommits`
 	| `${typeof extensionPrefix}:views:fileHistory:canPin`
 	| `${typeof extensionPrefix}:views:fileHistory:cursorFollowing`
 	| `${typeof extensionPrefix}:views:fileHistory:editorFollowing`

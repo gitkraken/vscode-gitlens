@@ -2840,11 +2840,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getContributors(
 		repoPath: string,
-		options?: { all?: boolean; ref?: string; stats?: boolean },
+		options?: { all?: boolean; merges?: boolean | 'first-parent'; ref?: string; stats?: boolean },
 	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
-		const key = options?.stats ? `stats|${repoPath}` : repoPath;
+		let key = `${repoPath}${options?.ref ? `|${options.ref}` : ''}`;
+		if (options?.all) {
+			key += ':all';
+		}
+		if (options?.merges) {
+			key += `:merges:${options.merges}`;
+		}
+		if (options?.stats) {
+			key += ':stats';
+		}
 
 		let contributors = this.useCaching ? this._contributorsCache.get(key) : undefined;
 		if (contributors == null) {
@@ -2854,7 +2863,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					const currentUser = await this.getCurrentUser(repoPath);
 					const parser = getContributorsParser(options?.stats);
 
-					const args = [...parser.arguments, '--full-history', '--first-parent'];
+					const args = [...parser.arguments, '--full-history', '--use-mailmap'];
+
+					const merges = options?.merges ?? true;
+					if (merges) {
+						args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
+					} else {
+						args.push('--no-merges');
+					}
+
 					if (options?.all) {
 						args.push('--all', '--single-worktree');
 					}

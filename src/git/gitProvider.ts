@@ -279,7 +279,12 @@ export interface GitProvider extends Disposable {
 	setConfig?(repoPath: string, key: string, value: string | undefined): Promise<void>;
 	getContributors(
 		repoPath: string,
-		options?: { all?: boolean | undefined; ref?: string | undefined; stats?: boolean | undefined },
+		options?: {
+			all?: boolean | undefined;
+			merges?: boolean | 'first-parent';
+			ref?: string | undefined;
+			stats?: boolean | undefined;
+		},
 	): Promise<GitContributor[]>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
 	getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined>;
