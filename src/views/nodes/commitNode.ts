@@ -1,4 +1,4 @@
-import type { Command } from 'vscode';
+import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { Colors } from '../../constants';
@@ -221,9 +221,9 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		}
 	}
 
-	override async resolveTreeItem(item: TreeItem): Promise<TreeItem> {
+	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
 		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip();
+			item.tooltip = await this.getTooltip(token);
 		}
 		return item;
 	}
@@ -250,11 +250,13 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		return pendingPullRequest;
 	}
 
-	private async getTooltip() {
+	private async getTooltip(cancellation: CancellationToken) {
 		const [remotesResult, _] = await Promise.allSettled([
-			this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath),
+			this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath, cancellation),
 			this.commit.message == null ? this.commit.ensureFullDetails() : undefined,
 		]);
+
+		if (cancellation.isCancellationRequested) return undefined;
 
 		const remotes = getSettledValue(remotesResult, []);
 		const [remote] = remotes;
@@ -264,11 +266,16 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 
 		if (remote?.hasIntegration()) {
 			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
-				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote)),
+				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote), cancellation),
 				this.getAssociatedPullRequest(this.commit, remote),
 			]);
 
-			enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
+			if (cancellation.isCancellationRequested) return undefined;
+
+			const enrichedAutolinksMaybeResult = getSettledValue(enrichedAutolinksResult);
+			if (!enrichedAutolinksMaybeResult?.paused) {
+				enrichedAutolinks = enrichedAutolinksMaybeResult?.value;
+			}
 			pr = getSettledValue(prResult);
 		}
 

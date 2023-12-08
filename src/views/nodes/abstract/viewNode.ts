@@ -1,4 +1,4 @@
-import type { Command, Disposable, Event, TreeItem } from 'vscode';
+import type { CancellationToken, Command, Disposable, Event, TreeItem } from 'vscode';
 import type { TreeViewNodeTypes } from '../../../constants';
 import type { GitUri } from '../../../git/gitUri';
 import type { GitBranch } from '../../../git/models/branch';
@@ -283,7 +283,7 @@ export abstract class ViewNode<
 
 	abstract getTreeItem(): TreeItem | Promise<TreeItem>;
 
-	resolveTreeItem?(item: TreeItem): TreeItem | Promise<TreeItem>;
+	resolveTreeItem?(item: TreeItem, token: CancellationToken): TreeItem | Promise<TreeItem>;
 
 	getCommand(): Command | undefined {
 		return undefined;

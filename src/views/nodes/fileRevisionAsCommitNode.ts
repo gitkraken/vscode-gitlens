@@ -1,4 +1,4 @@
-import type { Command, Selection } from 'vscode';
+import type { CancellationToken, Command, Selection } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { Colors } from '../../constants';
@@ -192,9 +192,9 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		};
 	}
 
-	override async resolveTreeItem(item: TreeItem): Promise<TreeItem> {
+	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
 		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip();
+			item.tooltip = await this.getTooltip(token);
 		}
 		return item;
 	}
@@ -206,7 +206,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		return GitUri.fromFile(this.file, this.repoPath, mergeBase ?? 'HEAD');
 	}
 
-	private async getTooltip() {
+	private async getTooltip(cancellation: CancellationToken) {
 		const tooltip = await getFileRevisionAsCommitTooltip(
 			this.view.container,
 			this.commit,
@@ -215,6 +215,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 			{
 				getBranchAndTagTips: this._options.getBranchAndTagTips,
 				unpublished: this._options.unpublished,
+				cancellation: cancellation,
 			},
 		);
 
@@ -231,14 +232,17 @@ export async function getFileRevisionAsCommitTooltip(
 	file: GitFile,
 	tooltipWithStatusFormat: string,
 	options?: {
+		cancellation?: CancellationToken;
 		getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined;
 		unpublished?: boolean;
 	},
 ) {
 	const [remotesResult, _] = await Promise.allSettled([
-		container.git.getBestRemotesWithProviders(commit.repoPath),
+		container.git.getBestRemotesWithProviders(commit.repoPath, options?.cancellation),
 		commit.message == null ? commit.ensureFullDetails() : undefined,
 	]);
+
+	if (options?.cancellation?.isCancellationRequested) return undefined;
 
 	const remotes = getSettledValue(remotesResult, []);
 	const [remote] = remotes;
@@ -248,11 +252,14 @@ export async function getFileRevisionAsCommitTooltip(
 
 	if (remote?.hasIntegration()) {
 		const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
-			pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote)),
+			pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote), options?.cancellation),
 			commit.getAssociatedPullRequest(remote),
 		]);
 
-		enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
+		const enrichedAutolinksMaybeResult = getSettledValue(enrichedAutolinksResult);
+		if (!enrichedAutolinksMaybeResult?.paused) {
+			enrichedAutolinks = enrichedAutolinksMaybeResult?.value;
+		}
 		pr = getSettledValue(prResult);
 	}
 
