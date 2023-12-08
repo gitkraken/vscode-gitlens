@@ -55,7 +55,7 @@ export const Logger = new (class Logger {
 			this.output?.dispose?.();
 			this.output = undefined;
 		} else {
-			this.output = this.output ?? this.provider!.createChannel(this.provider!.name);
+			this.output ??= this.provider!.createChannel(this.provider!.name);
 		}
 	}
 
@@ -203,6 +203,56 @@ export const Logger = new (class Logger {
 		return loggableParams.length !== 0 ? ` \u2014 ${loggableParams}` : '';
 	}
 })();
+
+export class BufferedLogChannel implements LogChannel {
+	private readonly buffer: string[] = [];
+	private bufferTimer: ReturnType<typeof setTimeout> | undefined;
+
+	constructor(
+		private readonly channel: RequireSome<LogChannel, 'dispose'> & { append(value: string): void },
+		private readonly interval: number = 500,
+	) {}
+
+	dispose(): void {
+		clearInterval(this.bufferTimer);
+		this.bufferTimer = undefined;
+
+		this.channel.dispose();
+	}
+
+	get name(): string {
+		return this.channel.name;
+	}
+
+	appendLine(value: string) {
+		this.buffer.push(value);
+		this.bufferTimer ??= setInterval(() => this.flush(), this.interval);
+	}
+
+	show(preserveFocus?: boolean): void {
+		this.channel.show?.(preserveFocus);
+	}
+
+	private _emptyCounter = 0;
+
+	private flush() {
+		if (this.buffer.length) {
+			this._emptyCounter = 0;
+
+			const value = this.buffer.join('\n');
+			this.buffer.length = 0;
+
+			this.channel.append(value);
+		} else {
+			this._emptyCounter++;
+			if (this._emptyCounter > 10) {
+				clearInterval(this.bufferTimer);
+				this.bufferTimer = undefined;
+				this._emptyCounter = 0;
+			}
+		}
+	}
+}
 
 function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 	switch (logLevel) {
