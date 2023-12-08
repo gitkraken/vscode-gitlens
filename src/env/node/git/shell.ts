@@ -227,7 +227,7 @@ export function run<T extends number | string | Buffer>(
 	encoding: BufferEncoding | 'buffer' | string,
 	options?: RunOptions & { exitCodeOnly?: boolean },
 ): Promise<T> {
-	const { stdin, stdinEncoding, ...opts }: RunOptions = { maxBuffer: 100 * 1024 * 1024, ...options };
+	const { stdin, stdinEncoding, ...opts }: RunOptions = { maxBuffer: 1000 * 1024 * 1024, ...options };
 
 	let killed = false;
 	return new Promise<T>((resolve, reject) => {
