@@ -396,6 +396,48 @@ export class GlDraftDetails extends GlTreeBase {
 	// 	`;
 	// }
 
+	renderActionbar() {
+		const draft = this.state?.draft;
+		if (draft == null) return undefined;
+
+		if (draft.draftType === 'local') {
+			return html`
+				<div class="top-details__actionbar">
+					<div class="top-details__actionbar-group"></div>
+					<div class="top-details__actionbar-group">
+						<a
+							class="commit-action"
+							href="#"
+							aria-label="Share Patch"
+							title="Share Patch"
+							@click=${this.onShareLocalPatch}
+							>Share</a
+						>
+					</div>
+				</div>
+			`;
+		}
+
+		return html`
+			<div class="top-details__actionbar">
+				<div class="top-details__actionbar-group">
+					<span>
+						<code-icon icon="eye"></code-icon>
+						${when(draft.visibility === 'public', () => html` Anyone with the link`)}
+						${when(draft.visibility === 'private', () => html` Anyone in my Org`)}
+						${when(draft.visibility === 'invite_only', () => html` Collaborators only`)}
+					</span>
+				</div>
+				<div class="top-details__actionbar-group">
+					<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
+						<code-icon icon="${this._copiedLink ? 'check' : 'link'}"></code-icon>
+						<span class="top-details__sha">Copy Link</span></a
+					>
+				</div>
+			</div>
+		`;
+	}
+
 	override render() {
 		if (this.state?.draft == null) {
 			return html` <div class="commit-detail-panel scrollable">${this.renderEmptyContent()}</div>`;
@@ -405,30 +447,7 @@ export class GlDraftDetails extends GlTreeBase {
 			<div class="pane-groups">
 				<div class="pane-groups__group-fixed">
 					<div class="section">
-						<div class="top-details__actionbar">
-							<div class="top-details__actionbar-group"></div>
-							<div class="top-details__actionbar-group">
-								${when(
-									this.state?.draft?.draftType === 'cloud',
-									() => html`
-										<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
-											<code-icon icon="${this._copiedLink ? 'check' : 'link'}"></code-icon>
-											<span class="top-details__sha">Copy Link</span></a
-										>
-									`,
-									() => html`
-										<a
-											class="commit-action"
-											href="#"
-											aria-label="Share Patch"
-											title="Share Patch"
-											@click=${this.onShareLocalPatch}
-											>Share</a
-										>
-									`,
-								)}
-							</div>
-						</div>
+						${this.renderActionbar()}
 						${when(
 							this.state.draft?.title != null,
 							() => html`
