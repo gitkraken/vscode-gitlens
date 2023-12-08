@@ -21,7 +21,7 @@ import { configuration, Configuration } from './system/configuration';
 import { setContext } from './system/context';
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
-import { getLoggableName, Logger } from './system/logger';
+import { BufferedLogChannel, getLoggableName, Logger } from './system/logger';
 import { flatten } from './system/object';
 import { Stopwatch } from './system/stopwatch';
 import { Storage } from './system/storage';
@@ -39,7 +39,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		{
 			name: 'GitLens',
 			createChannel: function (name: string) {
-				const channel = window.createOutputChannel(name);
+				const channel = new BufferedLogChannel(window.createOutputChannel(name), 500);
 				context.subscriptions.push(channel);
 
 				if (logLevel === 'error' || logLevel === 'warn') {
