@@ -50,7 +50,6 @@ export abstract class SubscribeableViewNode<
 		this.disposable = Disposable.from(...disposables);
 	}
 
-	@debug()
 	override dispose() {
 		super.dispose();
 		void this.unsubscribe();

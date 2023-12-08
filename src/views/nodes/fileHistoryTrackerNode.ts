@@ -28,7 +28,6 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		super('file-history-tracker', unknownGitUri, view);
 	}
 
-	@debug()
 	override dispose() {
 		super.dispose();
 		this.child = undefined;

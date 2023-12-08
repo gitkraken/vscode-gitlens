@@ -878,9 +878,27 @@ export class ViewNodeState implements Disposable {
 export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren?: ViewNode[]) {
 	if (!oldChildren?.length) return;
 
-	for (const child of oldChildren) {
-		if (newChildren?.includes(child)) continue;
+	const children = newChildren?.length
+		? oldChildren.filter(c => {
+				const dupe = newChildren.includes(c);
+				if (dupe) {
+					debugger;
+				}
+				return !dupe;
+		  })
+		: [...oldChildren];
+	if (!children.length) return;
 
+	if (children.length > 1000) {
+		// Defer the disposals to avoid impacting the treeview's rendering
+		setTimeout(() => {
+			for (const child of children) {
 		child.dispose();
+			}
+		}, 500);
+	} else {
+		for (const child of children) {
+			child.dispose();
+		}
 	}
 }

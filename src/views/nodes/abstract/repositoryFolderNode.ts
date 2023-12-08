@@ -47,7 +47,6 @@ export abstract class RepositoryFolderNode<
 		this._child = value;
 	}
 
-	@debug()
 	override dispose() {
 		super.dispose();
 		this.child = undefined;

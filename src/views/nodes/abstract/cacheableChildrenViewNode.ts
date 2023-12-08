@@ -21,7 +21,6 @@ export abstract class CacheableChildrenViewNode<
 		this._children = value;
 	}
 
-	@debug()
 	override dispose() {
 		super.dispose();
 		this.children = undefined;
