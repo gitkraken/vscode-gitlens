@@ -608,12 +608,12 @@ export class Container {
 		return this._mode;
 	}
 
-	private _organization: OrganizationService | undefined;
-	get organization() {
-		if (this._organization == null) {
-			this._disposables.push((this._organization = new OrganizationService(this, this._connection)));
+	private _organizations: OrganizationService | undefined;
+	get organizations() {
+		if (this._organizations == null) {
+			this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
 		}
-		return this._organization;
+		return this._organizations;
 	}
 
 	private readonly _patchDetailsView: WebviewViewProxy<PatchDetailsWebviewShowingArgs>;

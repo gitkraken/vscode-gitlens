@@ -4,7 +4,6 @@ import type { ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './plus/gk/account/subscription';
-import type { GKCheckInResponse } from './plus/gk/checkin';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 
 export const extensionPrefix = 'gitlens';
@@ -839,12 +838,10 @@ export type GlobalStorage = {
 	avatars: [string, StoredAvatar][];
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
 	'deepLinks:pending': StoredDeepLinkContext;
-	'gk:organizations': StoredOrganizations;
 	pendingWelcomeOnFocus: boolean;
 	pendingWhatsNewOnFocus: boolean;
 	// Don't change this key name ('premium`) as its the stored subscription
 	'premium:subscription': Stored<Subscription & { lastValidatedAt: number | undefined }>;
-	'premium:checkin': StoredCheckinData;
 	'synced:version': string;
 	// Keep the pre-release version separate from the released version
 	'synced:preVersion': string;
@@ -856,6 +853,8 @@ export type GlobalStorage = {
 	'confirm:draft:storage': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
+} & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
+	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;
 };
 
 export type DeprecatedWorkspaceStorage = {
@@ -887,23 +886,55 @@ export type WorkspaceStorage = {
 export interface Stored<T, SchemaVersion extends number = 1> {
 	v: SchemaVersion;
 	data: T;
+	timestamp?: number;
 }
 
-export interface StoredCheckinData {
-	timestamp: number;
-	data: GKCheckInResponse;
+export interface StoredGKCheckInResponse {
+	user: StoredGKUser;
+	licenses: {
+		paidLicenses: Record<StoredGKLicenseType, StoredGKLicense>;
+		effectiveLicenses: Record<StoredGKLicenseType, StoredGKLicense>;
+	};
 }
+
+export interface StoredGKUser {
+	id: string;
+	name: string;
+	email: string;
+	status: 'activated' | 'pending';
+	createdDate: string;
+	firstGitLensCheckIn?: string;
+}
+
+export interface StoredGKLicense {
+	latestStatus: 'active' | 'canceled' | 'cancelled' | 'expired' | 'in_trial' | 'non_renewing' | 'trial';
+	latestStartDate: string;
+	latestEndDate: string;
+	organizationId: string | undefined;
+	reactivationCount?: number;
+}
+
+export type StoredGKLicenseType =
+	| 'gitlens-pro'
+	| 'gitlens-teams'
+	| 'gitlens-hosted-enterprise'
+	| 'gitlens-self-hosted-enterprise'
+	| 'gitlens-standalone-enterprise'
+	| 'bundle-pro'
+	| 'bundle-teams'
+	| 'bundle-hosted-enterprise'
+	| 'bundle-self-hosted-enterprise'
+	| 'bundle-standalone-enterprise'
+	| 'gitkraken_v1-pro'
+	| 'gitkraken_v1-teams'
+	| 'gitkraken_v1-hosted-enterprise'
+	| 'gitkraken_v1-self-hosted-enterprise'
+	| 'gitkraken_v1-standalone-enterprise';
 
 export interface StoredOrganization {
 	id: string;
 	name: string;
-	role: string;
-}
-
-export interface StoredOrganizations {
-	timestamp: number;
-	userId: string;
-	organizations: StoredOrganization[];
+	role: 'owner' | 'admin' | 'billing' | 'user';
 }
 
 export interface StoredAvatar {

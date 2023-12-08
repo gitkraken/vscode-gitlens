@@ -1,5 +1,5 @@
 import type { Organization } from './account/organization';
-import type { BaseSubscription, Subscription } from './account/subscription';
+import type { Subscription } from './account/subscription';
 import { getSubscriptionPlan, getSubscriptionPlanPriority, SubscriptionPlanId } from './account/subscription';
 
 export interface GKCheckInResponse {
@@ -48,7 +48,7 @@ export function getSubscriptionFromCheckIn(
 	data: GKCheckInResponse,
 	organizations: Organization[],
 	organizationId?: string,
-): BaseSubscription {
+): Omit<Subscription, 'state' | 'lastValidatedAt'> {
 	const account: Subscription['account'] = {
 		id: data.user.id,
 		name: data.user.name,

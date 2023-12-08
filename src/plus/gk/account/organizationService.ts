@@ -5,7 +5,7 @@ import { gate } from '../../../system/decorators/gate';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
 import type { ServerConnection } from '../serverConnection';
-import type { Organization } from './organization';
+import type { Organization, OrganizationsResponse } from './organization';
 import type { SubscriptionChangeEvent } from './subscriptionService';
 
 const organizationsCacheExpiration = 24 * 60 * 60 * 1000; // 1 day
@@ -54,6 +54,10 @@ export class OrganizationService implements Disposable {
 					{ token: options?.accessToken },
 				);
 			} catch (ex) {
+				debugger;
+				Logger.error(ex, scope);
+
+				void window.showErrorMessage(`Unable to get organizations due to error: ${ex}`, 'OK');
 				this.updateOrganizations(undefined);
 				return this._organizations;
 			}
@@ -66,9 +70,10 @@ export class OrganizationService implements Disposable {
 
 				// Setting to null prevents hitting the API again until you reload
 				this.updateOrganizations(null);
+				return this._organizations;
 			}
 
-			const organizationsResponse = await rsp.json();
+			const organizationsResponse = (await rsp.json()) as OrganizationsResponse;
 			const organizations = organizationsResponse.map((o: any) => ({
 				id: o.id,
 				name: o.name,
@@ -84,10 +89,10 @@ export class OrganizationService implements Disposable {
 
 	@gate()
 	private loadStoredOrganizations(userId: string): void {
-		const storedOrganizations = this.container.storage.get('gk:organizations');
+		const storedOrganizations = this.container.storage.get(`gk:${userId}:organizations`);
 		if (storedOrganizations == null) return;
-		const { timestamp, organizations, userId: storedUserId } = storedOrganizations;
-		if (storedUserId !== userId || timestamp + organizationsCacheExpiration < Date.now()) {
+		const { timestamp, data: organizations } = storedOrganizations;
+		if (timestamp == null || Date.now() - timestamp > organizationsCacheExpiration) {
 			return;
 		}
 
@@ -95,10 +100,10 @@ export class OrganizationService implements Disposable {
 	}
 
 	private async storeOrganizations(organizations: Organization[], userId: string): Promise<void> {
-		return this.container.storage.store('gk:organizations', {
+		return this.container.storage.store(`gk:${userId}:organizations`, {
+			v: 1,
 			timestamp: Date.now(),
-			organizations: organizations,
-			userId: userId,
+			data: organizations,
 		});
 	}
 

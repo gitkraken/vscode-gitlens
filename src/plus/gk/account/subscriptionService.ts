@@ -98,12 +98,16 @@ export class SubscriptionService implements Disposable {
 			}),
 		);
 
-		this._checkinData = this.getStoredCheckinData();
-
 		const subscription = this.getStoredSubscription();
 		// Resets the preview trial state on the upgrade to 14.0
-		if (subscription != null && satisfies(previousVersion, '< 14.0')) {
-			subscription.previewTrial = undefined;
+		if (subscription != null) {
+			if (satisfies(previousVersion, '< 14.0')) {
+				subscription.previewTrial = undefined;
+			}
+
+			if (subscription.account?.id != null) {
+				this._checkinData = this.getStoredCheckinData(subscription.account.id);
+			}
 		}
 
 		this.changeSubscription(subscription, { silent: true });
@@ -615,14 +619,16 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private storeCheckinData(data: GKCheckInResponse): void {
-		void this.container.storage.store('premium:checkin', {
+		if (data.user?.id == null) return;
+		void this.container.storage.store(`gk:${data.user.id}:checkin`, {
+			v: 1,
 			timestamp: Date.now(),
 			data: data,
 		});
 	}
 
-	private getStoredCheckinData(): GKCheckInResponse | undefined {
-		const storedCheckin = this.container.storage.get('premium:checkin');
+	private getStoredCheckinData(userId: string): GKCheckInResponse | undefined {
+		const storedCheckin = this.container.storage.get(`gk:${userId}:checkin`);
 		// If more than a day old, ignore
 		if (storedCheckin?.timestamp == null || Date.now() - storedCheckin.timestamp > 24 * 60 * 60 * 1000) {
 			return undefined;
@@ -637,7 +643,7 @@ export class SubscriptionService implements Disposable {
 		let organizations: Organization[];
 		try {
 			organizations =
-				(await this.container.organization.getOrganizations({
+				(await this.container.organizations.getOrganizations({
 					force: true,
 					accessToken: session.accessToken,
 					userId: session.account.id,
@@ -1042,7 +1048,7 @@ export class SubscriptionService implements Disposable {
 		if (this._checkinData == null) return;
 		let organizations;
 		try {
-			organizations = await this.container.organization.getOrganizations();
+			organizations = await this.container.organizations.getOrganizations();
 		} catch (ex) {
 			debugger;
 			Logger.error(ex, scope);
