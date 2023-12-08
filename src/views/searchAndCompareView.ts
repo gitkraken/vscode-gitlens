@@ -37,6 +37,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	}
 
 	override dispose() {
+		super.dispose();
 		disposeChildren(this._children);
 	}
 

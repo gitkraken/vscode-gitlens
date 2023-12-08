@@ -12,7 +12,7 @@ import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
+import { log } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
@@ -96,7 +96,6 @@ export class BranchNode
 		};
 	}
 
-	@debug()
 	override dispose() {
 		super.dispose();
 		this.children = undefined;

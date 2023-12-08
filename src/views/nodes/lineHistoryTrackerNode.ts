@@ -34,7 +34,6 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		super('line-history-tracker', unknownGitUri, view);
 	}
 
-	@debug()
 	override dispose() {
 		super.dispose();
 		this.child = undefined;

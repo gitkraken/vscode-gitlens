@@ -14,7 +14,6 @@ import { makeHierarchical } from '../../system/array';
 import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { configuration } from '../../system/configuration';
 import { getContext } from '../../system/context';
-import { debug } from '../../system/decorators/log';
 import { joinPaths, normalizePath } from '../../system/path';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
@@ -51,7 +50,6 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	@debug()
 	override dispose() {
 		super.dispose();
 		this.children = undefined;
