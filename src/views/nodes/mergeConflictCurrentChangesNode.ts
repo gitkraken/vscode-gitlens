@@ -1,4 +1,4 @@
-import type { Command } from 'vscode';
+import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import { Commands, GlyphChars } from '../../constants';
@@ -90,15 +90,16 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 		});
 	}
 
-	override async resolveTreeItem(item: TreeItem): Promise<TreeItem> {
+	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
 		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip();
+			item.tooltip = await this.getTooltip(token);
 		}
 		return item;
 	}
 
-	private async getTooltip() {
+	private async getTooltip(cancellation: CancellationToken) {
 		const commit = await this.getCommit();
+		if (cancellation.isCancellationRequested) return undefined;
 
 		const markdown = new MarkdownString(
 			`Current changes on ${getReferenceLabel(this.status.current, { label: false })}\\\n$(file)${
@@ -114,6 +115,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 			commit,
 			this.file,
 			this.view.config.formats.commits.tooltipWithStatus,
+			{ cancellation: cancellation },
 		);
 
 		markdown.appendMarkdown(`\n\n${tooltip}`);

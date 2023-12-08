@@ -196,8 +196,9 @@ export abstract class ViewBase<
 				this: ViewBase<Type, RootNode, ViewConfig>,
 				item: TreeItem,
 				node: ViewNode,
+				token: CancellationToken,
 			) {
-				item = await resolveTreeItemFn.apply(this, [item, node]);
+				item = await resolveTreeItemFn.apply(this, [item, node, token]);
 
 				addDebuggingInfo(item, node, node.getParent());
 
@@ -379,8 +380,8 @@ export abstract class ViewBase<
 		return node.getTreeItem();
 	}
 
-	resolveTreeItem(item: TreeItem, node: ViewNode): TreeItem | Promise<TreeItem> {
-		return node.resolveTreeItem?.(item) ?? item;
+	resolveTreeItem(item: TreeItem, node: ViewNode, token: CancellationToken): TreeItem | Promise<TreeItem> {
+		return node.resolveTreeItem?.(item, token) ?? item;
 	}
 
 	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {
@@ -893,7 +894,7 @@ export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren
 		// Defer the disposals to avoid impacting the treeview's rendering
 		setTimeout(() => {
 			for (const child of children) {
-		child.dispose();
+				child.dispose();
 			}
 		}, 500);
 	} else {
