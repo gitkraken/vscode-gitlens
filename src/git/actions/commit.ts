@@ -94,7 +94,9 @@ export async function openAllChanges(
 	refsOrOptions: RefRange | TextDocumentShowOptions | undefined,
 	options?: TextDocumentShowOptions,
 ) {
-	const useChangesEditor = configuration.get('experimental.openChangesInMultiDiffEditor');
+	const useChangesEditor =
+		configuration.get('experimental.openChangesInMultiDiffEditor') &&
+		configuration.getCore('multiDiffEditor.experimental.enabled');
 
 	let files;
 	let refs: RefRange | undefined;
@@ -223,7 +225,9 @@ export async function openAllChangesWithWorking(
 		ref = refOrOptions as Ref;
 	}
 
-	const useChangesEditor = configuration.get('experimental.openChangesInMultiDiffEditor');
+	const useChangesEditor =
+		configuration.get('experimental.openChangesInMultiDiffEditor') &&
+		configuration.getCore('multiDiffEditor.experimental.enabled');
 
 	if (files.length > (useChangesEditor ? 50 : 10)) {
 		const result = await window.showWarningMessage(
