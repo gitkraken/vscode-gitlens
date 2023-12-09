@@ -4134,7 +4134,10 @@
 						"order": 5
 					},
 					"gitlens.advanced.repositorySearchDepth": {
-						"type": "number",
+						"type": [
+							"number",
+							"null"
+						],
 						"default": null,
 						"markdownDescription": "Specifies how many folders deep to search for repositories. Defaults to `#git.repositoryScanMaxDepth#`",
 						"scope": "resource",
