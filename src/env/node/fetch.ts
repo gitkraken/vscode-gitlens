@@ -2,7 +2,6 @@ import * as process from 'process';
 import * as url from 'url';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import fetch from 'node-fetch';
-import type { CoreConfiguration } from '../../constants';
 import { configuration } from '../../system/configuration';
 import { Logger } from '../../system/logger';
 
@@ -17,21 +16,13 @@ export function getProxyAgent(strictSSL?: boolean): HttpsProxyAgent | undefined 
 		proxyUrl = proxy.url ?? undefined;
 		strictSSL = strictSSL ?? proxy.strictSSL;
 	} else {
-		const proxySupport = configuration.getAny<CoreConfiguration, 'off' | 'on' | 'override' | 'fallback'>(
-			'http.proxySupport',
-			undefined,
-			'override',
-		);
+		const proxySupport = configuration.getCore('http.proxySupport', undefined, 'override');
 
 		if (proxySupport === 'off') {
 			strictSSL = strictSSL ?? true;
 		} else {
-			strictSSL =
-				strictSSL ?? configuration.getAny<CoreConfiguration, boolean>('http.proxyStrictSSL', undefined, true);
-			proxyUrl =
-				configuration.getAny<CoreConfiguration, string>('http.proxy') ||
-				process.env.HTTPS_PROXY ||
-				process.env.HTTP_PROXY;
+			strictSSL = strictSSL ?? configuration.getCore('http.proxyStrictSSL', undefined, true);
+			proxyUrl = configuration.getCore('http.proxy') || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
 		}
 	}
 

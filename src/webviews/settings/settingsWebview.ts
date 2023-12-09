@@ -1,13 +1,12 @@
 import type { ConfigurationChangeEvent, Disposable, ViewColumn } from 'vscode';
 import { ConfigurationTarget, workspace } from 'vscode';
-import type { CoreConfiguration } from '../../constants';
 import { extensionPrefix } from '../../constants';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
 import { PullRequest } from '../../git/models/pullRequest';
-import type { ConfigPath } from '../../system/configuration';
+import type { ConfigPath, CoreConfigPath } from '../../system/configuration';
 import { configuration } from '../../system/configuration';
 import { map } from '../../system/iterable';
 import { Logger } from '../../system/logger';
@@ -292,7 +291,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 }
 
 interface CustomSetting {
-	name: ConfigPath | CoreConfiguration;
+	name: ConfigPath | CoreConfigPath;
 	enabled: () => boolean;
 	update: (enabled: boolean) => Promise<void>;
 }

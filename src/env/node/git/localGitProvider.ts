@@ -10,7 +10,6 @@ import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
 import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git';
 import { getCachedAvatarUri } from '../../../avatars';
-import type { CoreConfiguration, CoreGitConfiguration } from '../../../constants';
 import { GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
 import { emojify } from '../../../emojis';
@@ -353,7 +352,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private async findGit(): Promise<GitLocation> {
 		const scope = getLogScope();
 
-		if (!configuration.getAny<CoreGitConfiguration, boolean>('git.enabled', null, true)) {
+		if (!configuration.getCore('git.enabled', null, true)) {
 			Logger.log(scope, 'Built-in Git is disabled ("git.enabled": false)');
 			void showGitDisabledErrorMessage();
 
@@ -411,9 +410,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 		void subscribeToScmOpenCloseRepository.call(this);
 
-		const potentialGitPaths =
-			configuration.getAny<CoreGitConfiguration, string | string[]>('git.path') ??
-			this.container.storage.getWorkspace('gitPath');
+		const potentialGitPaths = configuration.getCore('git.path') ?? this.container.storage.getWorkspace('gitPath');
 
 		const start = hrtime();
 
@@ -468,10 +465,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (uri.scheme !== Schemes.File) return [];
 
 		try {
-			const autoRepositoryDetection =
-				configuration.getAny<CoreGitConfiguration, boolean | 'subFolders' | 'openEditors'>(
-					'git.autoRepositoryDetection',
-				) ?? true;
+			const autoRepositoryDetection = configuration.getCore('git.autoRepositoryDetection') ?? true;
 
 			const folder = workspace.getWorkspaceFolder(uri);
 			if (folder == null && !options?.silent) return [];
@@ -697,7 +691,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		depth =
 			depth ??
 			configuration.get('advanced.repositorySearchDepth', rootUri) ??
-			configuration.getAny<CoreGitConfiguration, number>('git.repositoryScanMaxDepth', rootUri, 1);
+			configuration.getCore('git.repositoryScanMaxDepth', rootUri, 1);
 
 		Logger.log(scope, `searching (depth=${depth})...`);
 
@@ -722,12 +716,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (depth <= 0 || cancellation?.isCancellationRequested) return repositories;
 
 		// Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
-		const excludes = new Set<string>(
-			configuration.getAny<CoreGitConfiguration, string[]>('git.repositoryScanIgnoredFolders', rootUri, []),
-		);
+		const excludes = new Set<string>(configuration.getCore('git.repositoryScanIgnoredFolders', rootUri, []));
 		for (let [key, value] of Object.entries({
-			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('files.exclude', rootUri, {}),
-			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('search.exclude', rootUri, {}),
+			...configuration.getCore('files.exclude', rootUri, {}),
+			...configuration.getCore('search.exclude', rootUri, {}),
 		})) {
 			if (!value) continue;
 			if (key.includes('*.')) continue;
@@ -1491,12 +1483,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let forceOpts: PushForceOptions | undefined;
 		if (options?.force) {
-			const withLease = configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushWithLease') ?? true;
+			const withLease = configuration.getCore('git.useForcePushWithLease') ?? true;
 			if (withLease) {
 				forceOpts = {
 					withLease: withLease,
-					ifIncludes:
-						configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushIfIncludes') ?? true,
+					ifIncludes: configuration.getCore('git.useForcePushIfIncludes') ?? true,
 				};
 			} else {
 				forceOpts = {
@@ -5797,7 +5788,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 }
 
 async function getEncoding(uri: Uri): Promise<string> {
-	const encoding = configuration.getAny<CoreConfiguration, string>('files.encoding', uri);
+	const encoding = configuration.getCore('files.encoding', uri);
 	if (encoding == null || encoding === 'utf8') return 'utf8';
 
 	const encodingExists = (await import(/* webpackChunkName: "encoding" */ 'iconv-lite')).encodingExists;

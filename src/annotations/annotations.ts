@@ -8,7 +8,7 @@ import type {
 } from 'vscode';
 import { OverviewRulerLane, ThemeColor, Uri, window } from 'vscode';
 import type { Config } from '../config';
-import type { Colors, CoreConfiguration } from '../constants';
+import type { Colors } from '../constants';
 import { GlyphChars } from '../constants';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
@@ -192,7 +192,7 @@ export function getGutterRenderOptions(
 
 	let width;
 	if (chars >= 0) {
-		const spacing = configuration.getAny<CoreConfiguration, number>('editor.letterSpacing');
+		const spacing = configuration.getCore('editor.letterSpacing');
 		if (spacing != null && spacing !== 0) {
 			width = `calc(${chars}ch + ${Math.round(chars * spacing) + (avatars ? 13 : -6)}px)`;
 		} else {

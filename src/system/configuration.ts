@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent, ConfigurationScope, Event, ExtensionContext } from 'vscode';
 import { ConfigurationTarget, EventEmitter, workspace } from 'vscode';
-import type { Config } from '../config';
+import type { Config, CoreConfig } from '../config';
 import { extensionPrefix } from '../constants';
 import { areEqual } from './object';
 
@@ -87,6 +87,25 @@ export class Configuration {
 			: workspace.getConfiguration(undefined, scope).get<T>(section, defaultValue);
 	}
 
+	getCore<S extends CoreConfigPath>(
+		section: S,
+		scope?: ConfigurationScope | null,
+	): CoreConfigPathValue<S> | undefined;
+	getCore<S extends CoreConfigPath>(
+		section: S,
+		scope: ConfigurationScope | null | undefined,
+		defaultValue: CoreConfigPathValue<S>,
+	): CoreConfigPathValue<S>;
+	getCore<S extends CoreConfigPath>(
+		section: S,
+		scope?: ConfigurationScope | null,
+		defaultValue?: CoreConfigPathValue<S>,
+	): CoreConfigPathValue<S> | undefined {
+		return defaultValue === undefined
+			? workspace.getConfiguration(undefined, scope).get<CoreConfigPathValue<S>>(section)
+			: workspace.getConfiguration(undefined, scope).get<CoreConfigPathValue<S>>(section, defaultValue);
+	}
+
 	changed<S extends ConfigPath>(
 		e: ConfigurationChangeEvent | undefined,
 		section: S | S[],
@@ -111,6 +130,18 @@ export class Configuration {
 			: e.affectsConfiguration(section, scope!);
 	}
 
+	changedCore<S extends CoreConfigPath>(
+		e: ConfigurationChangeEvent | undefined,
+		section: S | S[],
+		scope?: ConfigurationScope | null | undefined,
+	): boolean {
+		if (e == null) return true;
+
+		return Array.isArray(section)
+			? section.some(s => e.affectsConfiguration(s, scope!))
+			: e.affectsConfiguration(section, scope!);
+	}
+
 	inspect<S extends ConfigPath, V extends ConfigPathValue<S>>(section: S, scope?: ConfigurationScope | null) {
 		return workspace
 			.getConfiguration(extensionPrefix, scope)
@@ -119,6 +150,13 @@ export class Configuration {
 
 	inspectAny<S extends string, T>(section: S, scope?: ConfigurationScope | null) {
 		return workspace.getConfiguration(undefined, scope).inspect<T>(section);
+	}
+
+	inspectCore<S extends CoreConfigPath, V extends CoreConfigPathValue<S>>(
+		section: S,
+		scope?: ConfigurationScope | null,
+	) {
+		return workspace.getConfiguration(undefined, scope).inspect<V>(section);
 	}
 
 	isUnset<S extends ConfigPath>(section: S, scope?: ConfigurationScope | null): boolean {
@@ -343,3 +381,6 @@ export type PathValue<T, P extends Path<T>> = P extends `${infer Key}.${infer Re
 
 export type ConfigPath = Path<Config>;
 export type ConfigPathValue<P extends ConfigPath> = PathValue<Config, P>;
+
+export type CoreConfigPath = Path<CoreConfig>;
+export type CoreConfigPathValue<P extends CoreConfigPath> = PathValue<CoreConfig, P>;
