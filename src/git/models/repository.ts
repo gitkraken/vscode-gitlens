@@ -4,7 +4,6 @@ import { md5, uuid } from '@env/crypto';
 import { ForcePushMode } from '../../@types/vscode.git.enums';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { RepositoriesSorting } from '../../config';
-import type { CoreGitConfiguration } from '../../constants';
 import { Schemes } from '../../constants';
 import type { Container } from '../../container';
 import type { FeatureAccess, Features, PlusFeatures } from '../../features';
@@ -837,8 +836,8 @@ export class Repository implements Disposable {
 	private async pullCore(options?: { rebase?: boolean }) {
 		try {
 			if (configuration.get('experimental.nativeGit')) {
-				const withTags = configuration.getAny<CoreGitConfiguration, boolean>('git.pullTags', this.uri);
-				if (configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', this.uri)) {
+				const withTags = configuration.getCore('git.pullTags', this.uri);
+				if (configuration.getCore('git.fetchOnPull', this.uri)) {
 					await this.container.git.fetch(this.uri);
 				}
 
@@ -847,7 +846,7 @@ export class Repository implements Disposable {
 				const upstream = await this.hasUpstreamBranch();
 				if (upstream) {
 					void (await executeCoreGitCommand(options?.rebase ? 'git.pullRebase' : 'git.pull', this.path));
-				} else if (configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', this.uri)) {
+				} else if (configuration.getCore('git.fetchOnPull', this.uri)) {
 					await this.container.git.fetch(this.uri);
 				}
 			}

@@ -1,4 +1,3 @@
-import type { CoreGitConfiguration } from '../../constants';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { Features } from '../../features';
@@ -155,11 +154,10 @@ export class PushGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: PushStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const useForceWithLease =
-			configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushWithLease') ?? true;
+		const useForceWithLease = configuration.getCore('git.useForcePushWithLease') ?? true;
 		const useForceIfIncludes =
 			useForceWithLease &&
-			(configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushIfIncludes') ?? true) &&
+			(configuration.getCore('git.useForcePushIfIncludes') ?? true) &&
 			(await this.container.git.supports(state.repos[0].uri, Features.ForceIfIncludes));
 
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;

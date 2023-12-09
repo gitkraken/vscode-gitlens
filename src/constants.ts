@@ -669,29 +669,6 @@ export type CoreGitCommands =
 	| 'git.pushForce'
 	| 'git.undoCommit';
 
-export type CoreConfiguration =
-	| 'editor.letterSpacing'
-	| 'files.encoding'
-	| 'files.exclude'
-	| 'http.proxy'
-	| 'http.proxySupport'
-	| 'http.proxyStrictSSL'
-	| 'search.exclude'
-	| 'workbench.editorAssociations'
-	| 'workbench.tree.renderIndentGuides'
-	| 'workbench.tree.indent';
-
-export type CoreGitConfiguration =
-	| 'git.autoRepositoryDetection'
-	| 'git.enabled'
-	| 'git.fetchOnPull'
-	| 'git.path'
-	| 'git.pullTags'
-	| 'git.repositoryScanIgnoredFolders'
-	| 'git.repositoryScanMaxDepth'
-	| 'git.useForcePushIfIncludes'
-	| 'git.useForcePushWithLease';
-
 export const enum GlyphChars {
 	AngleBracketLeftHeavy = '\u2770',
 	AngleBracketRightHeavy = '\u2771',

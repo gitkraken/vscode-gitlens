@@ -1,6 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
-import type { CoreConfiguration } from '../../../constants';
 import { Commands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
@@ -260,8 +259,8 @@ export class PatchDetailsWebviewProvider
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
 			configuration.changed(e, ['defaultDateFormat', 'views.patchDetails.files', 'views.patchDetails.avatars']) ||
-			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides') ||
-			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.indent')
+			configuration.changedCore(e, 'workbench.tree.renderIndentGuides') ||
+			configuration.changedCore(e, 'workbench.tree.indent')
 		) {
 			this._context.preferences = { ...this._context.preferences, ...this.getPreferences() };
 			this.updateState();
@@ -273,11 +272,8 @@ export class PatchDetailsWebviewProvider
 			avatars: configuration.get('views.patchDetails.avatars'),
 			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
 			files: configuration.get('views.patchDetails.files'),
-			indentGuides:
-				configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
-					'workbench.tree.renderIndentGuides',
-				) ?? 'onHover',
-			indent: configuration.getAny<CoreConfiguration, Preferences['indent']>('workbench.tree.indent'),
+			indentGuides: configuration.getCore('workbench.tree.renderIndentGuides') ?? 'onHover',
+			indent: configuration.getCore('workbench.tree.indent'),
 		};
 	}
 

@@ -12,7 +12,6 @@ import type {
 import { Disposable, EventEmitter, FileType, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { isWeb } from '@env/platform';
 import { resetAvatarCache } from '../avatars';
-import type { CoreGitConfiguration } from '../constants';
 import { GlyphChars, Schemes } from '../constants';
 import type { Container } from '../container';
 import { AccessDeniedError, CancellationError, ProviderNotFoundError } from '../errors';
@@ -557,10 +556,7 @@ export class GitProviderService implements Disposable {
 			this.updateContext();
 		}
 
-		const autoRepositoryDetection = configuration.getAny<
-			CoreGitConfiguration,
-			boolean | 'subFolders' | 'openEditors'
-		>('git.autoRepositoryDetection');
+		const autoRepositoryDetection = configuration.getCore('git.autoRepositoryDetection');
 
 		if (this.container.telemetry.enabled) {
 			setTimeout(
@@ -2287,10 +2283,7 @@ export class GitProviderService implements Disposable {
 					root = this._repositories.getClosest(provider.getAbsoluteUri(uri, repoUri));
 				}
 
-				const autoRepositoryDetection =
-					configuration.getAny<CoreGitConfiguration, boolean | 'subFolders' | 'openEditors'>(
-						'git.autoRepositoryDetection',
-					) ?? true;
+				const autoRepositoryDetection = configuration.getCore('git.autoRepositoryDetection') ?? true;
 
 				const closed =
 					options?.closeOnOpen ??

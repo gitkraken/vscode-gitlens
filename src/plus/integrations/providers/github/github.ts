@@ -7,7 +7,6 @@ import type { CancellationToken, Disposable, Event } from 'vscode';
 import { EventEmitter, Uri, window } from 'vscode';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
-import type { CoreConfiguration } from '../../../../constants';
 import type { Container } from '../../../../container';
 import {
 	AuthenticationError,
@@ -193,7 +192,7 @@ export class GitHubApi implements Disposable {
 	constructor(_container: Container) {
 		this._disposable = configuration.onDidChangeAny(e => {
 			if (
-				configuration.changedAny<CoreConfiguration>(e, ['http.proxy', 'http.proxyStrictSSL']) ||
+				configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL']) ||
 				configuration.changed(e, ['outputLevel', 'proxy'])
 			) {
 				this.resetCaches();
