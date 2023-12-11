@@ -115,6 +115,6 @@ export class OrganizationService implements Disposable {
 
 	private updateOrganizations(organizations: Organization[] | null | undefined): void {
 		this._organizations = organizations;
-		void setContext('gitlens:gk:hasMultipleOrganizationOptions', (organizations ?? []).length > 1);
+		void setContext('gitlens:gk:hasOrganizations', (organizations ?? []).length > 1);
 	}
 }

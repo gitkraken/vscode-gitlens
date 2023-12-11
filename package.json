@@ -4311,7 +4311,7 @@
 			{
 				"id": "gitkraken",
 				"title": "GitKraken",
-				"order": 11000,
+				"order": 9000,
 				"properties": {
 					"gitlens.gitKraken.activeOrganizationId": {
 						"type": "string",
@@ -8661,7 +8661,7 @@
 				},
 				{
 					"command": "gitlens.gk.switchOrganization",
-					"when": "gitlens:gk:hasMultipleOrganizationOptions"
+					"when": "gitlens:gk:hasOrganizations"
 				},
 				{
 					"command": "gitlens.showPatchDetailsPage",

@@ -601,7 +601,7 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:disabledToggleCodeLens`
 	| `${typeof extensionPrefix}:disabled`
 	| `${typeof extensionPrefix}:enabled`
-	| `${typeof extensionPrefix}:gk:hasMultipleOrganizationOptions`
+	| `${typeof extensionPrefix}:gk:hasOrganizations`
 	| `${typeof extensionPrefix}:hasConnectedRemotes`
 	| `${typeof extensionPrefix}:hasRemotes`
 	| `${typeof extensionPrefix}:hasRichRemotes`
