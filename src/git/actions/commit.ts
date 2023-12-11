@@ -21,11 +21,16 @@ import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
 import { deletedOrMissing } from '../models/constants';
 import type { GitFile } from '../models/file';
+import { GitFileChange } from '../models/file';
 import type { GitRevisionReference } from '../models/reference';
 import { getReferenceFromRevision, isUncommitted, isUncommittedStaged, shortenRevision } from '../models/reference';
 
 type Ref = { repoPath: string; ref: string };
 type RefRange = { repoPath: string; rhs: string; lhs: string };
+
+const filesOpenThreshold = 10;
+const filesOpenDiffsThreshold = 10;
+const filesOpenMultiDiffThreshold = 50;
 
 export async function applyChanges(file: string | GitFile, rev1: GitRevisionReference, rev2?: GitRevisionReference) {
 	let create = false;
@@ -92,57 +97,79 @@ export async function openAllChanges(
 export async function openAllChanges(
 	commitOrFiles: GitCommit | GitFile[],
 	refsOrOptions: RefRange | TextDocumentShowOptions | undefined,
-	options?: TextDocumentShowOptions,
-) {
-	const useChangesEditor =
-		configuration.get('experimental.openChangesInMultiDiffEditor') &&
-		configuration.getCore('multiDiffEditor.experimental.enabled');
-
-	let files;
-	let refs: RefRange | undefined;
-	let title;
-	if (isCommit(commitOrFiles)) {
-		if (commitOrFiles.files == null) {
-			await commitOrFiles.ensureFullDetails();
+	maybeOptions?: TextDocumentShowOptions,
+): Promise<void> {
+	if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
+		if (isCommit(commitOrFiles)) {
+			return openAllChangesEditor(commitOrFiles, refsOrOptions as TextDocumentShowOptions | undefined);
 		}
-
-		files = commitOrFiles.files ?? [];
-		refs = {
-			repoPath: commitOrFiles.repoPath,
-			rhs: commitOrFiles.sha,
-			lhs:
-				commitOrFiles.resolvedPreviousSha ??
-				(useChangesEditor
-					? (await commitOrFiles.getPreviousSha()) ?? commitOrFiles.unresolvedPreviousSha
-					: // Don't need to worry about verifying the previous sha, as the DiffWith command will
-					  commitOrFiles.unresolvedPreviousSha),
-		};
-
-		options = refsOrOptions as TextDocumentShowOptions | undefined;
-		title = `Changes in ${shortenRevision(refs.rhs)}`;
-	} else {
-		files = commitOrFiles;
-		refs = refsOrOptions as RefRange;
-		title = `Changes between ${shortenRevision(refs.lhs)} ${GlyphChars.ArrowLeftRightLong} ${shortenRevision(
-			refs.rhs,
-		)}`;
+		return openAllChangesEditor(commitOrFiles, refsOrOptions as RefRange, maybeOptions);
 	}
 
-	if (files.length > (useChangesEditor ? 50 : 10)) {
-		const result = await window.showWarningMessage(
-			`Are you sure you want to open the changes for all ${files.length} files?`,
-			{ title: 'Yes' },
-			{ title: 'No', isCloseAffordance: true },
-		);
-		if (result == null || result.title === 'No') return;
+	let { files, refs, options } = await getChangesRefsArgs(commitOrFiles, refsOrOptions, maybeOptions);
+
+	if (
+		!(await confirmOpenIfNeeded(files, {
+			message: `Open changes for all ${files.length} files?`,
+			confirmButton: 'Open Changes',
+			threshold: filesOpenDiffsThreshold,
+		}))
+	) {
+		return;
 	}
 
 	options = { preserveFocus: true, preview: false, ...options };
 
-	if (!useChangesEditor) {
-		for (const file of files) {
-			await openChanges(file, refs, options);
+	for (const file of files) {
+		await openChanges(file, refs, options);
+	}
+}
+
+export async function openAllChangesEditor(
+	commit: GitCommit,
+	options?: TextDocumentShowOptions & { title?: string },
+): Promise<void>;
+export async function openAllChangesEditor(
+	files: GitFile[],
+	refs: RefRange,
+	options?: TextDocumentShowOptions & { title?: string },
+): Promise<void>;
+export async function openAllChangesEditor(
+	commitOrFiles: GitCommit | GitFile[],
+	refsOrOptions: RefRange | (TextDocumentShowOptions & { title?: string }) | undefined,
+	maybeOptions?: TextDocumentShowOptions & { title?: string },
+): Promise<void> {
+	if (!configuration.getCore('multiDiffEditor.experimental.enabled')) {
+		void window.showErrorMessage(
+			`Enable the experimental multi-diff editor by setting 'multiDiffEditor.experimental.enabled' to use this command`,
+		);
+		return;
+	}
+
+	let title;
+	if (maybeOptions != null) {
+		({ title, ...maybeOptions } = maybeOptions);
+	}
+
+	const { commit, files, refs, options } = await getChangesRefsArgs(commitOrFiles, refsOrOptions, maybeOptions);
+
+	if (title == null) {
+		if (commit != null) {
+			title = `Changes in ${shortenRevision(refs.rhs, { strings: { working: 'Working Tree' } })}`;
+		} else {
+			title = `Changes between ${shortenRevision(refs.lhs, { strings: { working: 'Working Tree' } })} ${
+				GlyphChars.ArrowLeftRightLong
+			} ${shortenRevision(refs.rhs, { strings: { working: 'Working Tree' } })}`;
 		}
+	}
+
+	if (
+		!(await confirmOpenIfNeeded(files, {
+			message: `Open changes for all ${files.length} files?`,
+			confirmButton: 'Open Changes',
+			threshold: filesOpenMultiDiffThreshold,
+		}))
+	) {
 		return;
 	}
 
@@ -150,12 +177,16 @@ export async function openAllChanges(
 
 	const resources: Parameters<typeof openChangesEditor>[0] = [];
 	for (const file of files) {
-		const rhs =
-			file.status === 'D' ? undefined : (await git.getBestRevisionUri(refs.repoPath, file.path, refs.rhs))!;
+		let rhs = file.status === 'D' ? undefined : (await git.getBestRevisionUri(refs.repoPath, file.path, refs.rhs))!;
+		if (rhs != null && refs.rhs === '') {
+			rhs = await git.getWorkingUri(refs.repoPath, rhs);
+		}
+
 		const lhs =
 			file.status === 'A'
 				? undefined
 				: (await git.getBestRevisionUri(refs.repoPath, file.originalPath ?? file.path, refs.lhs))!;
+
 		const uri = (file.status === 'D' ? lhs : rhs) ?? GitUri.fromFile(file, refs.repoPath);
 		resources.push({ uri: uri, lhs: lhs, rhs: rhs });
 	}
@@ -166,28 +197,16 @@ export async function openAllChanges(
 export async function openAllChangesWithDiffTool(commit: GitCommit): Promise<void>;
 export async function openAllChangesWithDiffTool(files: GitFile[], ref: Ref): Promise<void>;
 export async function openAllChangesWithDiffTool(commitOrFiles: GitCommit | GitFile[], ref?: Ref) {
-	let files;
-	if (isCommit(commitOrFiles)) {
-		if (commitOrFiles.files == null) {
-			await commitOrFiles.ensureFullDetails();
-		}
+	const { files } = await getChangesRefArgs(commitOrFiles, ref);
 
-		files = commitOrFiles.files ?? [];
-		ref = {
-			repoPath: commitOrFiles.repoPath,
-			ref: commitOrFiles.sha,
-		};
-	} else {
-		files = commitOrFiles;
-	}
-
-	if (files.length > 10) {
-		const result = await window.showWarningMessage(
-			`Are you sure you want to open the changes for all ${files.length} files?`,
-			{ title: 'Yes' },
-			{ title: 'No', isCloseAffordance: true },
-		);
-		if (result == null || result.title === 'No') return;
+	if (
+		!(await confirmOpenIfNeeded(files, {
+			message: `Open changes for all ${files.length} files?`,
+			confirmButton: 'Open Changes',
+			threshold: filesOpenDiffsThreshold,
+		}))
+	) {
+		return;
 	}
 
 	for (const file of files) {
@@ -204,73 +223,41 @@ export async function openAllChangesWithWorking(
 export async function openAllChangesWithWorking(
 	commitOrFiles: GitCommit | GitFile[],
 	refOrOptions: Ref | TextDocumentShowOptions | undefined,
-	options?: TextDocumentShowOptions,
+	maybeOptions?: TextDocumentShowOptions,
 ) {
-	let files;
-	let ref;
-	if (isCommit(commitOrFiles)) {
-		if (commitOrFiles.files == null) {
-			await commitOrFiles.ensureFullDetails();
+	if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
+		if (isCommit(commitOrFiles)) {
+			return openAllChangesEditor(commitOrFiles, refOrOptions as TextDocumentShowOptions | undefined);
 		}
 
-		files = commitOrFiles.files ?? [];
-		ref = {
-			repoPath: commitOrFiles.repoPath,
-			ref: commitOrFiles.sha,
-		};
-
-		options = refOrOptions as TextDocumentShowOptions | undefined;
-	} else {
-		files = commitOrFiles;
-		ref = refOrOptions as Ref;
+		return openAllChangesEditor(
+			commitOrFiles,
+			{
+				repoPath: (refOrOptions as Ref).repoPath,
+				lhs: (refOrOptions as Ref).ref,
+				rhs: '',
+			},
+			maybeOptions,
+		);
 	}
 
-	const useChangesEditor =
-		configuration.get('experimental.openChangesInMultiDiffEditor') &&
-		configuration.getCore('multiDiffEditor.experimental.enabled');
+	let { files, ref, options } = await getChangesRefArgs(commitOrFiles, refOrOptions, maybeOptions);
 
-	if (files.length > (useChangesEditor ? 50 : 10)) {
-		const result = await window.showWarningMessage(
-			`Are you sure you want to open the changes for all ${files.length} files?`,
-			{ title: 'Yes' },
-			{ title: 'No', isCloseAffordance: true },
-		);
-		if (result == null || result.title === 'No') return;
+	if (
+		!(await confirmOpenIfNeeded(files, {
+			message: `Open changes for all ${files.length} files?`,
+			confirmButton: 'Open Changes',
+			threshold: filesOpenDiffsThreshold,
+		}))
+	) {
+		return;
 	}
 
 	options = { preserveFocus: true, preview: false, ...options };
 
-	if (!useChangesEditor) {
-		for (const file of files) {
-			await openChangesWithWorking(file, ref, options);
-		}
-		return;
-	}
-
-	const { git } = Container.instance;
-
-	const resources: Parameters<typeof openChangesEditor>[0] = [];
 	for (const file of files) {
-		const rhs =
-			file.status === 'D'
-				? undefined
-				: await git.getWorkingUri(
-						ref.repoPath,
-						(await git.getBestRevisionUri(ref.repoPath, file.path, ref.ref))!,
-				  );
-		const lhs =
-			file.status === 'A'
-				? undefined
-				: (await git.getBestRevisionUri(ref.repoPath, file.originalPath ?? file.path, ref.ref))!;
-		const uri = (file.status === 'D' ? lhs : rhs) ?? GitUri.fromFile(file, ref.repoPath);
-		resources.push({ uri: uri, lhs: lhs, rhs: rhs });
+		await openChangesWithWorking(file, ref, options);
 	}
-
-	await openChangesEditor(
-		resources,
-		`Changes between ${shortenRevision(ref.ref)} ${GlyphChars.ArrowLeftRightLong} Working Tree`,
-		options,
-	);
 }
 
 export async function openChanges(
@@ -293,20 +280,22 @@ export async function openChanges(
 	commitOrRefs: GitCommit | RefRange,
 	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ) {
-	const isArgCommit = isCommit(commitOrRefs);
+	const hasCommit = isCommit(commitOrRefs);
 
 	if (typeof file === 'string') {
-		if (!isArgCommit) throw new Error('Invalid arguments');
+		if (!hasCommit) throw new Error('Invalid arguments');
 
 		const f = await commitOrRefs.findFile(file);
 		if (f == null) throw new Error('Invalid arguments');
 
 		file = f;
+	} else if (!hasCommit && commitOrRefs.rhs === '') {
+		return openChangesWithWorking(file, { repoPath: commitOrRefs.repoPath, ref: commitOrRefs.lhs }, options);
 	}
 
 	options = { preserveFocus: true, preview: false, ...options };
 
-	if (file.status === 'A' && isArgCommit) {
+	if (file.status === 'A' && hasCommit) {
 		const commit = await commitOrRefs.getCommitForFile(file);
 		void executeCommand<DiffWithPreviousCommandArgs>(Commands.DiffWithPrevious, {
 			commit: commit,
@@ -316,7 +305,7 @@ export async function openChanges(
 		return;
 	}
 
-	const refs: RefRange = isArgCommit
+	const refs: RefRange = hasCommit
 		? {
 				repoPath: commitOrRefs.repoPath,
 				rhs: commitOrRefs.sha,
@@ -421,6 +410,44 @@ export async function openDirectoryCompareWithPrevious(ref: Ref | GitCommit): Pr
 
 export async function openDirectoryCompareWithWorking(ref: Ref | GitCommit): Promise<void> {
 	return openDirectoryCompare(ref.repoPath, ref.ref, undefined);
+}
+
+export async function openFolderCompare(
+	pathOrUri: string | Uri,
+	refs: RefRange,
+	options?: TextDocumentShowOptions,
+): Promise<void> {
+	const { git } = Container.instance;
+
+	let comparison;
+	if (refs.lhs === '') {
+		debugger;
+		throw new Error('Cannot get files for comparisons of a ref with working tree');
+	} else if (refs.rhs === '') {
+		comparison = refs.lhs;
+	} else {
+		comparison = `${refs.lhs}..${refs.rhs}`;
+	}
+
+	const relativePath = git.getRelativePath(pathOrUri, refs.repoPath);
+
+	const files = await git.getDiffStatus(refs.repoPath, comparison, undefined, { path: relativePath });
+	if (files == null) {
+		void window.showWarningMessage(
+			`No changes in '${relativePath}' between ${shortenRevision(refs.lhs, {
+				strings: { working: 'Working Tree' },
+			})} ${GlyphChars.ArrowLeftRightLong} ${shortenRevision(refs.rhs, {
+				strings: { working: 'Working Tree' },
+			})}`,
+		);
+		return;
+	}
+
+	const title = `Changes in ${relativePath} between ${shortenRevision(refs.lhs, {
+		strings: { working: 'Working Tree' },
+	})} ${GlyphChars.ArrowLeftRightLong} ${shortenRevision(refs.rhs, { strings: { working: 'Working Tree' } })}`;
+
+	return openAllChangesEditor(files, refs, { ...options, title: title });
 }
 
 export async function openFile(uri: Uri, options?: TextDocumentShowOptions): Promise<void>;
@@ -559,77 +586,63 @@ export async function openFileOnRemote(fileOrUri: string | GitFile | Uri, ref?: 
 	}));
 }
 
-export async function openFiles(commit: GitCommit): Promise<void>;
-export async function openFiles(files: GitFile[], repoPath: string, ref: string): Promise<void>;
-export async function openFiles(commitOrFiles: GitCommit | GitFile[], repoPath?: string, ref?: string): Promise<void> {
-	let files;
-	if (isCommit(commitOrFiles)) {
-		if (commitOrFiles.files == null) {
-			await commitOrFiles.ensureFullDetails();
-		}
+export async function openFiles(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
+export async function openFiles(files: GitFile[], ref: Ref, options?: TextDocumentShowOptions): Promise<void>;
+export async function openFiles(
+	commitOrFiles: GitCommit | GitFile[],
+	refOrOptions: Ref | TextDocumentShowOptions | undefined,
+	maybeOptions?: TextDocumentShowOptions,
+): Promise<void> {
+	const { files, ref, options } = await getChangesRefArgs(commitOrFiles, refOrOptions, maybeOptions);
 
-		files = commitOrFiles.files ?? [];
-		repoPath = commitOrFiles.repoPath;
-		ref = commitOrFiles.sha;
-	} else {
-		files = commitOrFiles;
-	}
-
-	if (files.length > 10) {
-		const result = await window.showWarningMessage(
-			`Are you sure you want to open all ${files.length} files?`,
-			{ title: 'Yes' },
-			{ title: 'No', isCloseAffordance: true },
-		);
-		if (result == null || result.title === 'No') return;
+	if (
+		!(await confirmOpenIfNeeded(files, {
+			message: `Open all ${files.length} files?`,
+			confirmButton: 'Open Files',
+			threshold: filesOpenThreshold,
+		}))
+	) {
+		return;
 	}
 
 	const uris: Uri[] = (
 		await Promise.all(
-			files.map(file => Container.instance.git.getWorkingUri(repoPath!, GitUri.fromFile(file, repoPath!, ref))),
+			files.map(file =>
+				Container.instance.git.getWorkingUri(ref.repoPath, GitUri.fromFile(file, ref.repoPath, ref.ref)),
+			),
 		)
 	).filter(<T>(u?: T): u is T => Boolean(u));
-	findOrOpenEditors(uris);
+	findOrOpenEditors(uris, options);
 }
 
-export async function openFilesAtRevision(commit: GitCommit): Promise<void>;
+export async function openFilesAtRevision(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
 export async function openFilesAtRevision(
 	files: GitFile[],
-	repoPath: string,
-	ref1: string,
-	ref2: string,
+	refs: RefRange,
+	options?: TextDocumentShowOptions,
 ): Promise<void>;
 export async function openFilesAtRevision(
 	commitOrFiles: GitCommit | GitFile[],
-	repoPath?: string,
-	ref1?: string,
-	ref2?: string,
+	refOrOptions: RefRange | TextDocumentShowOptions | undefined,
+	maybeOptions?: TextDocumentShowOptions,
 ): Promise<void> {
-	let files;
-	if (isCommit(commitOrFiles)) {
-		if (commitOrFiles.files == null) {
-			await commitOrFiles.ensureFullDetails();
-		}
+	const { files, refs, options } = await getChangesRefsArgs(commitOrFiles, refOrOptions, maybeOptions);
 
-		files = commitOrFiles.files ?? [];
-		repoPath = commitOrFiles.repoPath;
-		ref1 = commitOrFiles.sha;
-		ref2 = await commitOrFiles.getPreviousSha();
-	} else {
-		files = commitOrFiles;
-	}
-
-	if (files.length > 10) {
-		const result = await window.showWarningMessage(
-			`Are you sure you want to open all ${files.length} file revisions?`,
-			{ title: 'Yes' },
-			{ title: 'No', isCloseAffordance: true },
-		);
-		if (result == null || result.title === 'No') return;
+	if (
+		!(await confirmOpenIfNeeded(files, {
+			message: `Open all ${files.length} file revisions?`,
+			confirmButton: 'Open Revisions',
+			threshold: filesOpenThreshold,
+		}))
+	) {
+		return;
 	}
 
 	findOrOpenEditors(
-		files.map(file => Container.instance.git.getRevisionUri(file.status === 'D' ? ref2! : ref1!, file, repoPath!)),
+		files.map(file =>
+			Container.instance.git.getRevisionUri(file.status === 'D' ? refs.lhs : refs.rhs, file, refs.repoPath),
+		),
+		options,
 	);
 }
 
@@ -729,21 +742,113 @@ export async function showInCommitGraph(
 	}));
 }
 
-export async function openOnlyChangedFiles(commit: GitCommit): Promise<void> {
-	await commit.ensureFullDetails();
+export async function openOnlyChangedFiles(commit: GitCommit): Promise<void>;
+export async function openOnlyChangedFiles(files: GitFile[]): Promise<void>;
+export async function openOnlyChangedFiles(commitOrFiles: GitCommit | GitFile[]): Promise<void> {
+	let files;
+	if (isCommit(commitOrFiles)) {
+		if (commitOrFiles.files == null) {
+			await commitOrFiles.ensureFullDetails();
+		}
 
-	const files = commit.files ?? [];
+		files = commitOrFiles.files ?? [];
+	} else {
+		files = commitOrFiles.map(f => new GitFileChange(f.repoPath!, f.path, f.status, f.originalPath));
+	}
 
-	if (files.length > 10) {
-		const result = await window.showWarningMessage(
-			`Are you sure you want to open all ${files.length} files?`,
-			{ title: 'Yes' },
-			{ title: 'No', isCloseAffordance: true },
-		);
-		if (result == null || result.title === 'No') return;
+	if (
+		!(await confirmOpenIfNeeded(files, {
+			message: `Open all ${files.length} files?`,
+			confirmButton: 'Open Files',
+			threshold: 10,
+		}))
+	) {
+		return;
 	}
 
 	void (await executeCommand<OpenOnlyChangedFilesCommandArgs>(Commands.OpenOnlyChangedFiles, {
 		uris: files.filter(f => f.status !== 'D').map(f => f.uri),
 	}));
+}
+
+async function confirmOpenIfNeeded(
+	items: readonly unknown[],
+	options: { cancelButton?: string; confirmButton?: string; message: string; threshold: number },
+): Promise<boolean> {
+	if (items.length <= options.threshold) return true;
+
+	const confirm = { title: options.confirmButton ?? 'Open' };
+	const cancel = { title: options.cancelButton ?? 'Cancel', isCloseAffordance: true };
+	const result = await window.showWarningMessage(options.message, { modal: true }, confirm, cancel);
+	return result === confirm;
+}
+
+async function getChangesRefArgs(
+	commitOrFiles: GitCommit | GitFile[],
+	refOrOptions: Ref | TextDocumentShowOptions | undefined,
+	options?: TextDocumentShowOptions,
+): Promise<{
+	commit?: GitCommit;
+	files: readonly GitFile[];
+	options: TextDocumentShowOptions | undefined;
+	ref: Ref;
+}> {
+	if (!isCommit(commitOrFiles)) {
+		return {
+			files: commitOrFiles,
+			options: options,
+			ref: refOrOptions as Ref,
+		};
+	}
+
+	if (commitOrFiles.files == null) {
+		await commitOrFiles.ensureFullDetails();
+	}
+
+	return {
+		commit: commitOrFiles,
+		files: commitOrFiles.files ?? [],
+		options: refOrOptions as TextDocumentShowOptions | undefined,
+		ref: {
+			repoPath: commitOrFiles.repoPath,
+			ref: commitOrFiles.sha,
+		},
+	};
+}
+
+async function getChangesRefsArgs(
+	commitOrFiles: GitCommit | GitFile[],
+	refsOrOptions: RefRange | TextDocumentShowOptions | undefined,
+	options?: TextDocumentShowOptions,
+): Promise<{
+	commit?: GitCommit;
+	files: readonly GitFile[];
+	options: TextDocumentShowOptions | undefined;
+	refs: RefRange;
+}> {
+	if (!isCommit(commitOrFiles)) {
+		return {
+			files: commitOrFiles,
+			options: options,
+			refs: refsOrOptions as RefRange,
+		};
+	}
+
+	if (commitOrFiles.files == null) {
+		await commitOrFiles.ensureFullDetails();
+	}
+
+	return {
+		commit: commitOrFiles,
+		files: commitOrFiles.files ?? [],
+		options: refsOrOptions as TextDocumentShowOptions | undefined,
+		refs: {
+			repoPath: commitOrFiles.repoPath,
+			rhs: commitOrFiles.sha,
+			lhs:
+				commitOrFiles.resolvedPreviousSha ??
+				(await commitOrFiles.getPreviousSha()) ??
+				commitOrFiles.unresolvedPreviousSha,
+		},
+	};
 }

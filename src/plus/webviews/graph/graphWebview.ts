@@ -22,7 +22,7 @@ import {
 	openAllChangesWithWorking,
 	openFiles,
 	openFilesAtRevision,
-	openOnlyChangedFiles as openOnlyChangedFilesForCommit,
+	openOnlyChangedFiles,
 	showGraphDetailsView,
 } from '../../../git/actions/commit';
 import * as ContributorActions from '../../../git/actions/contributor';
@@ -2757,7 +2757,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const commit = await this.getCommitFromGraphItemRef(item);
 		if (commit == null) return;
 
-		return openOnlyChangedFilesForCommit(commit);
+		return openOnlyChangedFiles(commit);
 	}
 
 	@debug()

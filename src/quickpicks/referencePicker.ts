@@ -3,7 +3,6 @@ import { CancellationTokenSource, window } from 'vscode';
 import { RevealInSideBarQuickInputButton } from '../commands/quickCommand.buttons';
 import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand.steps';
 import type { Keys } from '../constants';
-import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { reveal as revealBranch } from '../git/actions/branch';
 import { showDetailsView } from '../git/actions/commit';
@@ -27,10 +26,12 @@ export const enum ReferencesQuickPickIncludes {
 
 	// eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member
 	BranchesAndTags = Branches | Tags,
+	// eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member
+	All = Branches | Tags | WorkingTree | HEAD,
 }
 
 export interface ReferencesQuickPickOptions {
-	allowEnteringRefs?: boolean | { ranges?: boolean };
+	allowRevisions?: boolean | { ranges?: boolean };
 	autoPick?: boolean;
 	picked?: string;
 	filter?: { branches?(b: GitBranch): boolean; tags?(t: GitTag): boolean };
@@ -53,8 +54,8 @@ export async function showReferencePicker(
 
 	quickpick.title = title;
 	quickpick.placeholder =
-		options?.allowEnteringRefs != null
-			? `${placeHolder}${GlyphChars.Space.repeat(3)}(or enter a reference using #)`
+		options?.allowRevisions != null && options.allowRevisions !== false
+			? `${placeHolder} (or enter a revision using #)`
 			: placeHolder;
 	quickpick.matchOnDescription = true;
 
@@ -109,8 +110,8 @@ export async function showReferencePicker(
 	const getValidateGitReference = getValidateGitReferenceFn(Container.instance.git.getRepository(repoPath), {
 		buttons: [RevealInSideBarQuickInputButton],
 		ranges:
-			options?.allowEnteringRefs && typeof options.allowEnteringRefs !== 'boolean'
-				? options.allowEnteringRefs.ranges
+			options?.allowRevisions && typeof options.allowRevisions !== 'boolean'
+				? options.allowRevisions.ranges
 				: undefined,
 	});
 
@@ -137,7 +138,7 @@ export async function showReferencePicker(
 						}
 					}
 
-					if (options?.allowEnteringRefs) {
+					if (options?.allowRevisions) {
 						if (!(await getValidateGitReference(quickpick, e))) {
 							quickpick.items = await items;
 						}

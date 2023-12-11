@@ -3279,11 +3279,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		ref1?: string,
 		ref2?: string,
-		options?: { filters?: GitDiffFilter[]; similarityThreshold?: number },
+		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined> {
 		try {
 			const data = await this.git.diff__name_status(repoPath, ref1, ref2, {
-				similarityThreshold: configuration.get('advanced.similarityThreshold'),
+				similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined,
 				...options,
 			});
 			if (!data) return undefined;

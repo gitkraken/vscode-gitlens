@@ -52,6 +52,7 @@ import type { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode'
 import type { CommitFileNode } from './nodes/commitFileNode';
 import type { CommitNode } from './nodes/commitNode';
 import type { PagerNode } from './nodes/common';
+import type { CompareResultsNode } from './nodes/compareResultsNode';
 import type { ContributorNode } from './nodes/contributorNode';
 import type { FileHistoryNode } from './nodes/fileHistoryNode';
 import type { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode';
@@ -215,6 +216,7 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.openFile', this.openFile, this);
 		registerViewCommand('gitlens.views.openFileRevision', this.openRevision, this);
 		registerViewCommand('gitlens.views.openChangedFiles', this.openFiles, this);
+		registerViewCommand('gitlens.views.openOnlyChangedFiles', this.openOnlyChangedFiles);
 		registerViewCommand('gitlens.views.openChangedFileDiffs', this.openAllChanges, this);
 		registerViewCommand('gitlens.views.openChangedFileDiffsWithWorking', this.openAllChangesWithWorking, this);
 		registerViewCommand('gitlens.views.openChangedFileRevisions', this.openRevisions, this);
@@ -1005,13 +1007,21 @@ export class ViewCommands {
 	}
 
 	@log()
-	private async openAllChanges(node: CommitNode | StashNode | ResultsFilesNode, options?: TextDocumentShowOptions) {
+	private async openAllChanges(
+		node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
+		options?: TextDocumentShowOptions,
+	) {
+		if (node.is('compare-results')) {
+			node = (await node.getFilesNode())!;
+			if (node == null) return undefined;
+		}
+
 		if (node.is('results-files')) {
-			const { files: diff } = await node.getFilesQueryResults();
-			if (diff == null || diff.length === 0) return undefined;
+			const { files } = await node.getFilesQueryResults();
+			if (!files?.length) return undefined;
 
 			return CommitActions.openAllChanges(
-				diff,
+				files,
 				{
 					repoPath: node.repoPath,
 					lhs: node.ref1,
@@ -1080,15 +1090,20 @@ export class ViewCommands {
 
 	@log()
 	private async openAllChangesWithWorking(
-		node: CommitNode | StashNode | ResultsFilesNode,
+		node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
 		options?: TextDocumentShowOptions,
 	) {
+		if (node.is('compare-results')) {
+			node = (await node.getFilesNode())!;
+			if (node == null) return undefined;
+		}
+
 		if (node.is('results-files')) {
-			const { files: diff } = await node.getFilesQueryResults();
-			if (diff == null || diff.length === 0) return undefined;
+			const { files } = await node.getFilesQueryResults();
+			if (!files?.length) return undefined;
 
 			return CommitActions.openAllChangesWithWorking(
-				diff,
+				files,
 				{
 					repoPath: node.repoPath,
 					ref: node.ref1 || node.ref2,
@@ -1100,45 +1115,6 @@ export class ViewCommands {
 		if (!node.isAny('commit', 'stash')) return undefined;
 
 		return CommitActions.openAllChangesWithWorking(node.commit, options);
-
-		// options = { preserveFocus: false, preview: false, ...options };
-
-		// let repoPath: string;
-		// let files;
-		// let ref: string;
-
-		// if (node instanceof ResultsFilesNode) {
-		// 	const { diff } = await node.getFilesQueryResults();
-		// 	if (diff == null || diff.length === 0) return;
-
-		// 	repoPath = node.repoPath;
-		// 	files = diff;
-		// 	ref = node.ref1 || node.ref2;
-		// } else {
-		// 	repoPath = node.commit.repoPath;
-		// 	files = node.commit.files;
-		// 	ref = node.commit.sha;
-		// }
-
-		// if (files.length > 20) {
-		// 	const result = await window.showWarningMessage(
-		// 		`Are you sure you want to open all ${files.length} files?`,
-		// 		{ title: 'Yes' },
-		// 		{ title: 'No', isCloseAffordance: true },
-		// 	);
-		// 	if (result == null || result.title === 'No') return;
-		// }
-
-		// for (const file of files) {
-		// 	if (file.status === 'A' || file.status === 'D') continue;
-
-		// 	const args: DiffWithWorkingCommandArgs = {
-		// 		showOptions: options,
-		// 	};
-
-		// 	const uri = GitUri.fromFile(file, repoPath, ref);
-		// 	await executeCommand(Commands.DiffWithWorking, uri, args);
-		// }
 	}
 
 	@log()
@@ -1214,16 +1190,39 @@ export class ViewCommands {
 	}
 
 	@log()
-	private async openFiles(node: CommitNode | StashNode | ResultsFilesNode) {
-		if (node.is('results-files')) {
-			const { files: diff } = await node.getFilesQueryResults();
-			if (diff == null || diff.length === 0) return undefined;
+	private async openFiles(node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode) {
+		if (node.is('compare-results')) {
+			node = (await node.getFilesNode())!;
+			if (node == null) return undefined;
+		}
 
-			return CommitActions.openFiles(diff, node.repoPath, node.ref1 || node.ref2);
+		if (node.is('results-files')) {
+			const { files } = await node.getFilesQueryResults();
+			if (!files?.length) return undefined;
+
+			return CommitActions.openFiles(files, { repoPath: node.repoPath, ref: node.ref1 || node.ref2 });
 		}
 		if (!node.isAny('commit', 'stash')) return undefined;
 
 		return CommitActions.openFiles(node.commit);
+	}
+
+	@log()
+	private async openOnlyChangedFiles(node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode) {
+		if (node.is('compare-results')) {
+			node = (await node.getFilesNode())!;
+			if (node == null) return undefined;
+		}
+
+		if (node.is('results-files')) {
+			const { files } = await node.getFilesQueryResults();
+			if (!files?.length) return undefined;
+
+			return CommitActions.openOnlyChangedFiles(files);
+		}
+		if (!node.isAny('commit', 'stash')) return undefined;
+
+		return CommitActions.openOnlyChangedFiles(node.commit);
 	}
 
 	@log()
@@ -1263,16 +1262,28 @@ export class ViewCommands {
 	}
 
 	@log()
-	private async openRevisions(node: CommitNode | StashNode | ResultsFilesNode, _options?: TextDocumentShowOptions) {
-		if (node.is('results-files')) {
-			const { files: diff } = await node.getFilesQueryResults();
-			if (diff == null || diff.length === 0) return undefined;
+	private async openRevisions(
+		node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
+		options?: TextDocumentShowOptions,
+	) {
+		if (node.is('compare-results')) {
+			node = (await node.getFilesNode())!;
+			if (node == null) return undefined;
+		}
 
-			return CommitActions.openFilesAtRevision(diff, node.repoPath, node.ref1, node.ref2);
+		if (node.is('results-files')) {
+			const { files } = await node.getFilesQueryResults();
+			if (!files?.length) return undefined;
+
+			return CommitActions.openFilesAtRevision(files, {
+				repoPath: node.repoPath,
+				lhs: node.ref2,
+				rhs: node.ref1,
+			});
 		}
 		if (!node.isAny('commit', 'stash')) return undefined;
 
-		return CommitActions.openFilesAtRevision(node.commit);
+		return CommitActions.openFilesAtRevision(node.commit, options);
 	}
 
 	@log()

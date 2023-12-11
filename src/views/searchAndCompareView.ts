@@ -158,9 +158,9 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 			const pick = await showReferencePicker(
 				repoPath,
 				`Compare ${this.getRefName(selectedRef.ref)} with`,
-				'Choose a reference to compare with',
+				'Choose a reference (branch, tag, etc) to compare with',
 				{
-					allowEnteringRefs: true,
+					allowRevisions: true,
 					picked: typeof selectedRef.ref === 'string' ? selectedRef.ref : selectedRef.ref.ref,
 					// checkmarks: true,
 					include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.HEAD,
@@ -194,15 +194,16 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		let prompt = options?.prompt ?? false;
 		let ref2;
 		if (ref == null) {
-			const pick = await showReferencePicker(repoPath, 'Compare', 'Choose a reference to compare', {
-				allowEnteringRefs: { ranges: true },
-				// checkmarks: false,
-				include:
-					ReferencesQuickPickIncludes.BranchesAndTags |
-					ReferencesQuickPickIncludes.HEAD |
-					ReferencesQuickPickIncludes.WorkingTree,
-				sort: { branches: { current: true }, tags: {} },
-			});
+			const pick = await showReferencePicker(
+				repoPath,
+				'Compare',
+				'Choose a reference (branch, tag, etc) to compare',
+				{
+					allowRevisions: { ranges: true },
+					include: ReferencesQuickPickIncludes.All,
+					sort: { branches: { current: true }, tags: {} },
+				},
+			);
 			if (pick == null) {
 				await this.triggerChange();
 

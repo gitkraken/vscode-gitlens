@@ -282,11 +282,10 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		const pick = await showReferencePicker(
 			this.branch.repoPath,
 			`Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with`,
-			'Choose a reference to compare with',
+			'Choose a reference (branch, tag, etc) to compare with',
 			{
-				allowEnteringRefs: true,
+				allowRevisions: true,
 				picked: this.branch.ref,
-				// checkmarks: true,
 				sort: { branches: { current: true }, tags: {} },
 			},
 		);

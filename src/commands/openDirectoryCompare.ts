@@ -69,8 +69,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 					'Directory Compare Working Tree with',
 					'Choose a branch or tag to compare with',
 					{
-						allowEnteringRefs: true,
-						// checkmarks: false,
+						allowRevisions: true,
 					},
 				);
 				if (pick == null) return;
