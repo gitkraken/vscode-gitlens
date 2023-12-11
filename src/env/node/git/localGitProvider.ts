@@ -49,7 +49,7 @@ import type {
 	RevisionUriData,
 	ScmRepository,
 } from '../../../git/gitProvider';
-import { encodeGitLensRevisionUriAuthority, GitUri } from '../../../git/gitUri';
+import { encodeGitLensRevisionUriAuthority, GitUri, isGitUri } from '../../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../git/models/blame';
 import type { BranchSortOptions } from '../../../git/models/branch';
 import {
@@ -4744,31 +4744,28 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getStatusForFile(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined> {
-		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
+	async getStatusForFile(repoPath: string, pathOrUri: string | Uri): Promise<GitStatusFile | undefined> {
+		const status = await this.getStatusForRepo(repoPath);
+		if (!status?.files.length) return undefined;
 
-		const [relativePath, root] = splitPath(uri, repoPath);
-
-		const data = await this.git.status__file(root, relativePath, porcelainVersion, {
-			similarityThreshold: configuration.get('advanced.similarityThreshold'),
-		});
-
-		const status = parseGitStatus(data, root, porcelainVersion);
-		return status?.files?.[0];
+		const [relativePath] = splitPath(pathOrUri, repoPath);
+		const file = status.files.find(f => f.path === relativePath);
+		return file;
 	}
 
 	@log()
 	async getStatusForFiles(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined> {
-		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
+		let [relativePath] = splitPath(pathOrGlob, repoPath);
+		if (!relativePath.endsWith('/*')) {
+			return this.getStatusForFile(repoPath, pathOrGlob).then(f => (f != null ? [f] : undefined));
+		}
 
-		const [relativePath, root] = splitPath(pathOrGlob, repoPath);
+		relativePath = relativePath.substring(0, relativePath.length - 1);
+		const status = await this.getStatusForRepo(repoPath);
+		if (!status?.files.length) return undefined;
 
-		const data = await this.git.status__file(root, relativePath, porcelainVersion, {
-			similarityThreshold: configuration.get('advanced.similarityThreshold'),
-		});
-
-		const status = parseGitStatus(data, root, porcelainVersion);
-		return status?.files ?? [];
+		const files = status.files.filter(f => f.path.startsWith(relativePath));
+		return files;
 	}
 
 	@log()
@@ -4778,7 +4775,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
 
 		const data = await this.git.status(repoPath, porcelainVersion, {
-			similarityThreshold: configuration.get('advanced.similarityThreshold'),
+			similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined,
 		});
 		const status = parseGitStatus(data, repoPath, porcelainVersion);
 
@@ -4935,13 +4932,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (ref === deletedOrMissing) return undefined;
 
 			repository = this.container.git.getRepository(Uri.file(pathOrUri));
-			repoPath = repoPath || repository?.path;
+			repoPath ||= repository?.path;
 
 			[relativePath, repoPath] = splitPath(pathOrUri, repoPath);
 		} else {
 			if (!this.isTrackable(pathOrUri)) return undefined;
 
-			if (pathOrUri instanceof GitUri) {
+			if (isGitUri(pathOrUri)) {
 				// Always use the ref of the GitUri
 				ref = pathOrUri.sha;
 				if (ref === deletedOrMissing) return undefined;
@@ -5033,9 +5030,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 							continue;
 						}
+
+						return undefined;
 					}
 
-					return undefined;
+					if (ref != null) return undefined;
+
+					// If we still didn't find anything then check if we've been renamed first
+					const status = await this.getStatusForFile(repoPath, relativePath);
+					if (status?.originalPath != null) {
+						tracked = Boolean(await this.git.ls_files(repoPath, status.originalPath, { ref: 'HEAD' }));
+						if (!tracked) return undefined;
+					}
 				}
 
 				return [relativePath, repoPath];
