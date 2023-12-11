@@ -847,9 +847,9 @@ export async function* pickBranchOrTagStep<
 		placeholder:
 			branchesAndOrTags.length === 0
 				? `No branches${context.showTags ? ' or tags' : ''} found in ${state.repo.formattedName}`
-				: `${typeof placeholder === 'string' ? placeholder : placeholder(context)}${GlyphChars.Space.repeat(
-						3,
-				  )}(or enter a reference using #)`,
+				: `${
+						typeof placeholder === 'string' ? placeholder : placeholder(context)
+				  } (or enter a revision using #)`,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: value,
@@ -890,7 +890,7 @@ export async function* pickBranchOrTagStep<
 							? `${state.repo.formattedName} has no branches${context.showTags ? ' or tags' : ''}`
 							: `${
 									typeof placeholder === 'string' ? placeholder : placeholder(context)
-							  }${GlyphChars.Space.repeat(3)}(or enter a reference using #)`;
+							  } (or enter a revision using #)`;
 					quickpick.items = branchesAndOrTags;
 				} finally {
 					quickpick.busy = false;
@@ -960,9 +960,9 @@ export async function* pickBranchOrTagStepMultiRepo<
 				  } found in ${
 						state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
 				  }`
-				: `${typeof placeholder === 'string' ? placeholder : placeholder(context)}${GlyphChars.Space.repeat(
-						3,
-				  )}(or enter a reference using #)`,
+				: `${
+						typeof placeholder === 'string' ? placeholder : placeholder(context)
+				  } (or enter a revision using #)`,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: value ?? (isRevisionReference(state.reference) ? state.reference.ref : undefined),
@@ -1003,7 +1003,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 							  }`
 							: `${
 									typeof placeholder === 'string' ? placeholder : placeholder(context)
-							  }${GlyphChars.Space.repeat(3)}(or enter a reference using #)`;
+							  } (or enter a revision using #)`;
 					quickpick.items = branchesAndOrTags;
 				} finally {
 					quickpick.busy = false;

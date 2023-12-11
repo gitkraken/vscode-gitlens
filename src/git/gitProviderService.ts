@@ -1831,7 +1831,7 @@ export class GitProviderService implements Disposable {
 		repoPath: string | Uri,
 		ref1?: string,
 		ref2?: string,
-		options?: { filters?: GitDiffFilter[]; similarityThreshold?: number },
+		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getDiffStatus(path, ref1, ref2, options);

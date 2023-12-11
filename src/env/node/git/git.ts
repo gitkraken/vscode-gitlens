@@ -820,17 +820,17 @@ export class Git {
 		repoPath: string,
 		ref1?: string,
 		ref2?: string,
-		{ filters, similarityThreshold }: { filters?: GitDiffFilter[]; similarityThreshold?: number | null } = {},
+		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	) {
 		const params = [
 			'diff',
 			'--name-status',
-			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+			`-M${options?.similarityThreshold == null ? '' : `${options?.similarityThreshold}%`}`,
 			'--no-ext-diff',
 			'-z',
 		];
-		if (filters != null && filters.length !== 0) {
-			params.push(`--diff-filter=${filters.join('')}`);
+		if (options?.filters?.length) {
+			params.push(`--diff-filter=${options.filters.join('')}`);
 		}
 		if (ref1) {
 			params.push(ref1);
@@ -839,7 +839,12 @@ export class Git {
 			params.push(ref2);
 		}
 
-		return this.git<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params, '--');
+		params.push('--');
+		if (options?.path) {
+			params.push(options.path);
+		}
+
+		return this.git<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params);
 	}
 
 	async diff__shortstat(repoPath: string, ref?: string) {

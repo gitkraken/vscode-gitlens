@@ -1755,7 +1755,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_repoPath: string,
 		_ref1?: string,
 		_ref2?: string,
-		_options?: { filters?: GitDiffFilter[]; similarityThreshold?: number },
+		_options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined> {
 		return undefined;
 	}

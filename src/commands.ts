@@ -9,6 +9,8 @@ import './commands/copyShaToClipboard';
 import './commands/copyRelativePathToClipboard';
 import './commands/createPullRequestOnRemote';
 import './commands/openDirectoryCompare';
+import './commands/diffFolderWithRevision';
+import './commands/diffFolderWithRevisionFrom';
 import './commands/diffLineWithPrevious';
 import './commands/diffLineWithWorking';
 import './commands/diffWith';

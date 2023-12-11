@@ -326,7 +326,7 @@ export interface GitProvider extends Disposable {
 		repoPath: string,
 		ref1?: string,
 		ref2?: string,
-		options?: { filters?: GitDiffFilter[] | undefined; similarityThreshold?: number | undefined },
+		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined>;
 	getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined>;
 	getFirstCommitSha?(repoPath: string): Promise<string | undefined>;

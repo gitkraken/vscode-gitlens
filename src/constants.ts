@@ -147,6 +147,8 @@ export const enum Commands {
 	CreatePullRequestOnRemote = 'gitlens.createPullRequestOnRemote',
 	DiffDirectory = 'gitlens.diffDirectory',
 	DiffDirectoryWithHead = 'gitlens.diffDirectoryWithHead',
+	DiffFolderWithRevision = 'gitlens.diffFolderWithRevision',
+	DiffFolderWithRevisionFrom = 'gitlens.diffFolderWithRevisionFrom',
 	DiffWith = 'gitlens.diffWith',
 	DiffWithNext = 'gitlens.diffWithNext',
 	DiffWithNextInDiffLeft = 'gitlens.diffWithNextInDiffLeft',
