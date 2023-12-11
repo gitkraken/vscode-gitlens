@@ -13,7 +13,7 @@ import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { showRevisionPicker } from '../../quickpicks/revisionPicker';
-import { executeCommand, executeEditorCommand } from '../../system/command';
+import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/utils';
 import { GitUri } from '../gitUri';
@@ -23,7 +23,13 @@ import { deletedOrMissing } from '../models/constants';
 import type { GitFile } from '../models/file';
 import { GitFileChange } from '../models/file';
 import type { GitRevisionReference } from '../models/reference';
-import { getReferenceFromRevision, isUncommitted, isUncommittedStaged, shortenRevision } from '../models/reference';
+import {
+	getReferenceFromRevision,
+	getReferenceLabel,
+	isUncommitted,
+	isUncommittedStaged,
+	shortenRevision,
+} from '../models/reference';
 
 type Ref = { repoPath: string; ref: string };
 type RefRange = { repoPath: string; rhs: string; lhs: string };
@@ -769,6 +775,44 @@ export async function openOnlyChangedFiles(commitOrFiles: GitCommit | GitFile[])
 	void (await executeCommand<OpenOnlyChangedFilesCommandArgs>(Commands.OpenOnlyChangedFiles, {
 		uris: files.filter(f => f.status !== 'D').map(f => f.uri),
 	}));
+}
+
+export async function undoCommit(container: Container, commit: GitRevisionReference) {
+	const repo = await container.git.getOrOpenScmRepository(commit.repoPath);
+	const scmCommit = await repo?.getCommit('HEAD');
+
+	if (scmCommit?.hash !== commit.ref) {
+		void window.showWarningMessage(
+			`Commit ${getReferenceLabel(commit, {
+				capitalize: true,
+				icon: false,
+			})} cannot be undone, because it is no longer the most recent commit.`,
+		);
+
+		return;
+	}
+
+	const status = await container.git.getStatusForRepo(commit.repoPath);
+	if (status?.files.length) {
+		const confirm = { title: 'Undo Commit' };
+		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const result = await window.showWarningMessage(
+			`You have uncommitted changes in the working tree.\n\nDo you still want to undo ${getReferenceLabel(
+				commit,
+				{
+					capitalize: false,
+					icon: false,
+				},
+			)}?`,
+			{ modal: true },
+			confirm,
+			cancel,
+		);
+
+		if (result !== confirm) return;
+	}
+
+	await executeCoreGitCommand('git.undoCommit', commit.repoPath);
 }
 
 async function confirmOpenIfNeeded(

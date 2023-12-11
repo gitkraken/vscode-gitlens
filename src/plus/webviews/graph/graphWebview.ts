@@ -24,6 +24,7 @@ import {
 	openFilesAtRevision,
 	openOnlyChangedFiles,
 	showGraphDetailsView,
+	undoCommit,
 } from '../../../git/actions/commit';
 import * as ContributorActions from '../../../git/actions/contributor';
 import * as RepoActions from '../../../git/actions/repository';
@@ -46,7 +47,6 @@ import type {
 import {
 	createReference,
 	getReferenceFromBranch,
-	getReferenceLabel,
 	isGitReference,
 	isSha,
 	shortenRevision,
@@ -67,7 +67,6 @@ import {
 	executeActionCommand,
 	executeCommand,
 	executeCoreCommand,
-	executeCoreGitCommand,
 	registerCommand,
 } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
@@ -2539,24 +2538,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@debug()
 	private async undoCommit(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item);
+		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		const repo = await this.container.git.getOrOpenScmRepository(ref.repoPath);
-		const commit = await repo?.getCommit('HEAD');
-
-		if (commit?.hash !== ref.ref) {
-			void window.showWarningMessage(
-				`Commit ${getReferenceLabel(ref, {
-					capitalize: true,
-					icon: false,
-				})} cannot be undone, because it is no longer the most recent commit.`,
-			);
-
-			return;
-		}
-
-		return void executeCoreGitCommand('git.undoCommit', ref.repoPath);
+		await undoCommit(this.container, ref);
 	}
 
 	@debug()
