@@ -4312,6 +4312,19 @@
 				}
 			},
 			{
+				"id": "gitkraken",
+				"title": "GitKraken",
+				"order": 9000,
+				"properties": {
+					"gitlens.gitKraken.activeOrganizationId": {
+						"type": "string",
+						"markdownDescription": "Specifies the ID of the user's active GitKraken organization in GitLens",
+						"scope": "window",
+						"order": 1
+					}
+				}
+			},
+			{
 				"id": "general",
 				"title": "General",
 				"order": 0,
@@ -5089,6 +5102,11 @@
 			{
 				"command": "gitlens.plus.refreshRepositoryAccess",
 				"title": "Refresh Repository Access",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gk.switchOrganization",
+				"title": "Switch Organization...",
 				"category": "GitLens"
 			},
 			{
@@ -8657,6 +8675,10 @@
 				{
 					"command": "gitlens.plus.refreshRepositoryAccess",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.gk.switchOrganization",
+					"when": "gitlens:gk:hasOrganizations"
 				},
 				{
 					"command": "gitlens.showPatchDetailsPage",

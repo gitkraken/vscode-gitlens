@@ -45,6 +45,7 @@ import { getSubscriptionFromCheckIn } from '../checkin';
 import type { ServerConnection } from '../serverConnection';
 import { ensurePlusFeaturesEnabled } from '../utils';
 import { authenticationProviderId, authenticationProviderScopes } from './authenticationProvider';
+import type { Organization } from './organization';
 import type { Subscription } from './subscription';
 import {
 	assertSubscriptionState,
@@ -75,6 +76,7 @@ export class SubscriptionService implements Disposable {
 
 	private _disposable: Disposable;
 	private _subscription!: Subscription;
+	private _getCheckInData: () => Promise<GKCheckInResponse | undefined>;
 	private _statusBarSubscription: StatusBarItem | undefined;
 	private _validationTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -97,9 +99,16 @@ export class SubscriptionService implements Disposable {
 		);
 
 		const subscription = this.getStoredSubscription();
+		this._getCheckInData = () => Promise.resolve(undefined);
 		// Resets the preview trial state on the upgrade to 14.0
-		if (subscription != null && satisfies(previousVersion, '< 14.0')) {
-			subscription.previewTrial = undefined;
+		if (subscription != null) {
+			if (satisfies(previousVersion, '< 14.0')) {
+				subscription.previewTrial = undefined;
+			}
+
+			if (subscription.account?.id != null) {
+				this._getCheckInData = () => this.loadStoredCheckInData(subscription.account!.id);
+			}
 		}
 
 		this.changeSubscription(subscription, { silent: true });
@@ -158,6 +167,7 @@ export class SubscriptionService implements Disposable {
 		void this.container.viewCommands;
 
 		return [
+			registerCommand(Commands.GKSwitchOrganization, () => this.switchOrganization()),
 			registerCommand(Commands.PlusLoginOrSignUp, () => this.loginOrSignUp()),
 			registerCommand(Commands.PlusLogout, () => this.logout()),
 
@@ -324,6 +334,7 @@ export class SubscriptionService implements Disposable {
 				),
 			},
 			account: undefined,
+			activeOrganization: undefined,
 		});
 	}
 
@@ -517,7 +528,7 @@ export class SubscriptionService implements Disposable {
 	private async checkInAndValidate(
 		session: AuthenticationSession,
 		options?: { force?: boolean; showSlowProgress?: boolean },
-	): Promise<void> {
+	): Promise<GKCheckInResponse | undefined> {
 		const scope = getLogScope();
 
 		// Only check in if we haven't in the last 12 hours
@@ -537,16 +548,18 @@ export class SubscriptionService implements Disposable {
 		// Show progress if we are waiting too long
 		const result = await pauseOnCancelOrTimeout(validating, undefined, 3000);
 		if (result.paused) {
-			await window.withProgress(
+			return window.withProgress(
 				{ location: ProgressLocation.Notification, title: 'Validating your GitKraken account...' },
 				() => result.value,
 			);
 		}
+
+		return result.value;
 	}
 
 	@gate<SubscriptionService['checkInAndValidateCore']>(s => s.account.id)
 	@debug<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account?.label } })
-	private async checkInAndValidateCore(session: AuthenticationSession): Promise<void> {
+	private async checkInAndValidateCore(session: AuthenticationSession): Promise<GKCheckInResponse | undefined> {
 		const scope = getLogScope();
 		this._lastValidatedDate = undefined;
 
@@ -574,12 +587,19 @@ export class SubscriptionService implements Disposable {
 			);
 
 			if (!rsp.ok) {
+				this._getCheckInData = () => Promise.resolve(undefined);
 				throw new AccountValidationError('Unable to validate account', undefined, rsp.status, rsp.statusText);
 			}
 
 			const data: GKCheckInResponse = await rsp.json();
-			this.validateAndUpdateSubscription(data);
+			this._getCheckInData = () => Promise.resolve(data);
+			this.storeCheckInData(data);
+
+			await this.validateAndUpdateSubscriptions(data, session);
+			return data;
 		} catch (ex) {
+			this._getCheckInData = () => Promise.resolve(undefined);
+
 			Logger.error(ex, scope);
 			debugger;
 			if (ex instanceof AccountValidationError) throw ex;
@@ -606,10 +626,59 @@ export class SubscriptionService implements Disposable {
 		);
 	}
 
-	@debug()
-	private validateAndUpdateSubscription(data: GKCheckInResponse) {
-		const subscription = getSubscriptionFromCheckIn(data);
+	private storeCheckInData(data: GKCheckInResponse): void {
+		if (data.user?.id == null) return;
 
+		void this.container.storage.store(`gk:${data.user.id}:checkin`, {
+			v: 1,
+			timestamp: Date.now(),
+			data: data,
+		});
+	}
+
+	private async loadStoredCheckInData(userId: string): Promise<GKCheckInResponse | undefined> {
+		const scope = getLogScope();
+		const storedCheckIn = this.container.storage.get(`gk:${userId}:checkin`);
+		// If more than a day old, ignore
+		if (storedCheckIn?.timestamp == null || Date.now() - storedCheckIn.timestamp > 24 * 60 * 60 * 1000) {
+			// Attempt a check-in to see if we can get a new one
+			const session = await this.getAuthenticationSession(false);
+			if (session == null) return undefined;
+
+			try {
+				return await this.checkInAndValidate(session, { force: true });
+			} catch (ex) {
+				Logger.error(ex, scope);
+				return undefined;
+			}
+		}
+
+		return storedCheckIn?.data;
+	}
+
+	@debug()
+	private async validateAndUpdateSubscriptions(data: GKCheckInResponse, session: AuthenticationSession) {
+		const scope = getLogScope();
+		let organizations: Organization[];
+		try {
+			organizations =
+				(await this.container.organizations.getOrganizations({
+					force: true,
+					accessToken: session.accessToken,
+					userId: session.account.id,
+				})) ?? [];
+		} catch (ex) {
+			Logger.error(ex, scope);
+			organizations = [];
+		}
+		let chosenOrganizationId: string | undefined = configuration.get('gitKraken.activeOrganizationId') ?? undefined;
+		if (chosenOrganizationId === '') {
+			chosenOrganizationId = undefined;
+		} else if (chosenOrganizationId != null && !organizations.some(o => o.id === chosenOrganizationId)) {
+			chosenOrganizationId = undefined;
+			void configuration.updateEffective('gitKraken.activeOrganizationId', undefined);
+		}
+		const subscription = getSubscriptionFromCheckIn(data, organizations, chosenOrganizationId);
 		this._lastValidatedDate = new Date();
 		this.changeSubscription(
 			{
@@ -991,6 +1060,58 @@ export class SubscriptionService implements Disposable {
 		}
 
 		this._statusBarSubscription.show();
+	}
+
+	async switchOrganization(): Promise<void> {
+		const scope = getLogScope();
+
+		const checkInData = await this._getCheckInData();
+		if (checkInData == null) return;
+
+		let organizations;
+		try {
+			organizations = await this.container.organizations.getOrganizations();
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+			return;
+		}
+
+		if (organizations == null || organizations.length === 0) return;
+
+		// Show a quickpick to select the active organization
+		const picks: { label: string; org: Organization | null }[] = organizations.map(org => ({
+			label: org.name,
+			org: org,
+		}));
+
+		const pick = await window.showQuickPick(picks, {
+			title: 'Switch Organization',
+			placeHolder: 'Select the active organization for your GitKraken account',
+		});
+
+		const currentActiveOrganization = this._subscription?.activeOrganization;
+		if (pick?.org == null) {
+			return;
+		}
+
+		if (currentActiveOrganization != null && pick.org.id === currentActiveOrganization.id) {
+			return;
+		}
+
+		const organizationSubscription = getSubscriptionFromCheckIn(checkInData, organizations, pick.org.id);
+
+		if (configuration.get('gitKraken.activeOrganizationId') !== pick.org.id) {
+			await configuration.updateEffective('gitKraken.activeOrganizationId', pick.org.id);
+		}
+
+		this.changeSubscription(
+			{
+				...this._subscription,
+				...organizationSubscription,
+			},
+			{ store: true },
+		);
 	}
 }
 
