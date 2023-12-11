@@ -90,6 +90,12 @@ gk-menu-item {
 			outline: 1px solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
+
+		&--text {
+			overflow: hidden;
+			white-space: nowrap;
+			opacity: 0.7;
+		}
 	}
 
 	&__action {

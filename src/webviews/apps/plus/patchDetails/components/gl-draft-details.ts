@@ -332,8 +332,33 @@ export class GlDraftDetails extends GlTreeBase {
 		// <div class="section">
 		// 	<div class="patch-base">${getActions()}</div>
 		// </div>
+
+		const draft = this.state.draft!.draftType === 'cloud' ? this.state.draft! : undefined;
+
 		return html`
 			<div class="section section--action">
+				${when(
+					draft != null,
+					() => html`
+						<div class="message-input">
+							<div class="message-input__control message-input__control--text">
+								${when(
+									draft!.visibility === 'public',
+									() => html`<code-icon icon="globe"></code-icon> Anyone with the link`,
+								)}
+								${when(
+									draft!.visibility === 'private',
+									() =>
+										html`<code-icon icon="organization"></code-icon> Members of my Org with the link`,
+								)}
+								${when(
+									draft!.visibility === 'invite_only',
+									() => html`<code-icon icon="lock"></code-icon> Collaborators only`,
+								)}
+							</div>
+						</div>
+					`,
+				)}
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
@@ -420,14 +445,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 		return html`
 			<div class="top-details__actionbar">
-				<div class="top-details__actionbar-group">
-					<span>
-						<code-icon icon="eye"></code-icon>
-						${when(draft.visibility === 'public', () => html` Anyone with the link`)}
-						${when(draft.visibility === 'private', () => html` Anyone in my Org`)}
-						${when(draft.visibility === 'invite_only', () => html` Collaborators only`)}
-					</span>
-				</div>
+				<div class="top-details__actionbar-group"></div>
 				<div class="top-details__actionbar-group">
 					<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
 						<code-icon icon="${this._copiedLink ? 'check' : 'link'}"></code-icon>
