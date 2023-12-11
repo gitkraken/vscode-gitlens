@@ -93,6 +93,9 @@ export interface Config {
 		readonly skipConfirmations: string[];
 		readonly sortBy: GitCommandSorting;
 	};
+	readonly gitKraken: {
+		readonly activeOrganizationId: string | null;
+	};
 	readonly graph: GraphConfig;
 	readonly heatmap: {
 		readonly ageThreshold: number;

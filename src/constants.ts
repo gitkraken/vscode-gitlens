@@ -173,6 +173,7 @@ export const enum Commands {
 	FetchRepositories = 'gitlens.fetchRepositories',
 	GenerateCommitMessage = 'gitlens.generateCommitMessage',
 	GetStarted = 'gitlens.getStarted',
+	GKSwitchOrganization = 'gitlens.gk.switchOrganization',
 	InviteToLiveShare = 'gitlens.inviteToLiveShare',
 	OpenAutolinkUrl = 'gitlens.openAutolinkUrl',
 	OpenBlamePriorToChange = 'gitlens.openBlamePriorToChange',
@@ -602,6 +603,7 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:disabledToggleCodeLens`
 	| `${typeof extensionPrefix}:disabled`
 	| `${typeof extensionPrefix}:enabled`
+	| `${typeof extensionPrefix}:gk:hasOrganizations`
 	| `${typeof extensionPrefix}:hasConnectedRemotes`
 	| `${typeof extensionPrefix}:hasRemotes`
 	| `${typeof extensionPrefix}:hasRichRemotes`
@@ -830,6 +832,8 @@ export type GlobalStorage = {
 	'confirm:draft:storage': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
+} & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
+	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;
 };
 
 export type DeprecatedWorkspaceStorage = {
@@ -861,6 +865,55 @@ export type WorkspaceStorage = {
 export interface Stored<T, SchemaVersion extends number = 1> {
 	v: SchemaVersion;
 	data: T;
+	timestamp?: number;
+}
+
+export interface StoredGKCheckInResponse {
+	user: StoredGKUser;
+	licenses: {
+		paidLicenses: Record<StoredGKLicenseType, StoredGKLicense>;
+		effectiveLicenses: Record<StoredGKLicenseType, StoredGKLicense>;
+	};
+}
+
+export interface StoredGKUser {
+	id: string;
+	name: string;
+	email: string;
+	status: 'activated' | 'pending';
+	createdDate: string;
+	firstGitLensCheckIn?: string;
+}
+
+export interface StoredGKLicense {
+	latestStatus: 'active' | 'canceled' | 'cancelled' | 'expired' | 'in_trial' | 'non_renewing' | 'trial';
+	latestStartDate: string;
+	latestEndDate: string;
+	organizationId: string | undefined;
+	reactivationCount?: number;
+}
+
+export type StoredGKLicenseType =
+	| 'gitlens-pro'
+	| 'gitlens-teams'
+	| 'gitlens-hosted-enterprise'
+	| 'gitlens-self-hosted-enterprise'
+	| 'gitlens-standalone-enterprise'
+	| 'bundle-pro'
+	| 'bundle-teams'
+	| 'bundle-hosted-enterprise'
+	| 'bundle-self-hosted-enterprise'
+	| 'bundle-standalone-enterprise'
+	| 'gitkraken_v1-pro'
+	| 'gitkraken_v1-teams'
+	| 'gitkraken_v1-hosted-enterprise'
+	| 'gitkraken_v1-self-hosted-enterprise'
+	| 'gitkraken_v1-standalone-enterprise';
+
+export interface StoredOrganization {
+	id: string;
+	name: string;
+	role: 'owner' | 'admin' | 'billing' | 'user';
 }
 
 export interface StoredAvatar {

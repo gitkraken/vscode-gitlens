@@ -32,11 +32,22 @@ export class AccountContent extends LitElement {
 				margin-bottom: 1.3rem;
 			}
 
+			.account--org {
+				font-size: 0.9em;
+				line-height: 1.2;
+				margin-top: -1rem;
+			}
+
 			.account__media {
 				grid-column: 1;
 				grid-row: 1 / span 2;
 				display: flex;
 				align-items: center;
+				justify-content: center;
+			}
+
+			.account--org .account__media {
+				color: var(--color-foreground--65);
 			}
 
 			.account__image {
@@ -45,10 +56,22 @@ export class AccountContent extends LitElement {
 				border-radius: 50%;
 			}
 
+			.account__details {
+				grid-row: 1 / span 2;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+			}
+
 			.account__title {
-				font-size: var(--vscode-font-size);
+				font-size: 1.5rem;
 				font-weight: 600;
 				margin: 0;
+			}
+
+			.account--org .account__title {
+				font-size: 1.2rem;
+				font-weight: normal;
 			}
 
 			.account__access {
@@ -59,6 +82,25 @@ export class AccountContent extends LitElement {
 
 			.account__signout {
 				grid-row: 1 / span 2;
+				display: flex;
+				gap: 0.2rem;
+				flex-direction: row;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.account__badge {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 2.4rem;
+				height: 2.4rem;
+				line-height: 2.4rem;
+				font-size: 1rem;
+				font-weight: 600;
+				color: var(--color-foreground--65);
+				background-color: var(--vscode-toolbar-hoverBackground);
+				border-radius: 50%;
 			}
 
 			.repo-access {
@@ -76,6 +118,12 @@ export class AccountContent extends LitElement {
 
 	@property()
 	name = '';
+
+	@property()
+	organization?: string;
+
+	@property({ type: Number })
+	organizationsCount = 0;
 
 	@property({ type: Number })
 	days = 0;
@@ -142,13 +190,50 @@ export class AccountContent extends LitElement {
 						? html`<img src=${this.image} class="account__image" />`
 						: html`<code-icon icon="account" size="34"></code-icon>`}
 				</div>
-				<p class="account__title">${this.name}</p>
-				<p class="account__access">${this.planName}${this.daysLeft}</p>
+				<div class="account__details">
+					<p class="account__title">${this.name}</p>
+					${when(
+						this.organizationsCount === 0,
+						() => html`<p class="account__access">${this.planName}${this.daysLeft}</p>`,
+					)}
+				</div>
 				<div class="account__signout">
 					<gl-button appearance="toolbar" href="command:gitlens.plus.logout"
 						><code-icon icon="sign-out" title="Sign Out" aria-label="Sign Out"></code-icon
 					></gl-button>
 				</div>
+			</div>
+		`;
+	}
+
+	private renderOrganization() {
+		if (!this.hasAccount || !this.organization) {
+			return nothing;
+		}
+
+		return html`
+			<div class="account account--org">
+				<div class="account__media">
+					<code-icon icon="organization" size="22"></code-icon>
+				</div>
+				<div class="account__details">
+					<p class="account__title">${this.organization}</p>
+					<p class="account__access">${this.planName}${this.daysLeft}</p>
+				</div>
+				${when(
+					this.organizationsCount > 1,
+					() =>
+						html`<div class="account__signout">
+							<span class="account__badge">+${this.organizationsCount - 1}</span>
+							<gl-button appearance="toolbar" href="command:gitlens.gk.switchOrganization"
+								><code-icon
+									icon="arrow-swap"
+									title="Switch Organization"
+									aria-label="Switch Organization"
+								></code-icon
+							></gl-button>
+						</div>`,
+				)}
 			</div>
 		`;
 	}
@@ -279,6 +364,6 @@ export class AccountContent extends LitElement {
 	}
 
 	override render() {
-		return html`${this.renderAccountInfo()}${this.renderAccountState()}`;
+		return html`${this.renderAccountInfo()}${this.renderOrganization()}${this.renderAccountState()}`;
 	}
 }
