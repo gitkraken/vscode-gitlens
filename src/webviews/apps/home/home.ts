@@ -107,10 +107,10 @@ export class HomeApp extends App<State> {
 
 	private updatePromos() {
 		const {
-			promoStates: { cw2023, pro50 },
+			promoStates: { hs2023, pro50 },
 		} = this.state;
 
-		setElementVisibility('promo-cw2023', cw2023);
+		setElementVisibility('promo-hs2023', hs2023);
 		setElementVisibility('promo-pro50', pro50);
 	}
 
