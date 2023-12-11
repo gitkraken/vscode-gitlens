@@ -377,6 +377,8 @@ export class SearchAndCompareView extends ViewBase<
 				repoPath,
 				typeof ref1 === 'string' ? { ref: ref1 } : ref1,
 				typeof ref2 === 'string' ? { ref: ref2 } : ref2,
+				// Provide a timestamp so we won't try to add it to our storage prematurely (and end up with a duplicate)
+				Date.now(),
 			),
 		);
 	}

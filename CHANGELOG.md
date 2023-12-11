@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3026](https://github.com/gitkraken/vscode-gitlens/issues/3026) - Gitlens stopped working in sub-repositories
 - Fixes [#2746](https://github.com/gitkraken/vscode-gitlens/issues/2746) - Remove 'undo commit' command from gitlens inspect
 - Fixes [#2482](https://github.com/gitkraken/vscode-gitlens/issues/2482) - Unresponsive "commits" view and "branches" view update due to git log
+- Fixes duplicate entries in the _Search & Compare_ view when adding a new comparison from outside the view and before the view has loaded
 - Fixes _Load more_ in the _File History_ view when the file has been renamed
 - Fixes broken _Open Changed & Close Unchanged Files_ (`gitlens.views.openOnlyChangedFiles`) command in the views
 - Fixes issues with _Contributors_ view updating when changing toggles
