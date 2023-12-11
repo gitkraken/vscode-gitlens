@@ -21,7 +21,7 @@ import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
 import { matchContributor } from '../git/models/contributor';
 import type { GitStashReference } from '../git/models/reference';
-import { createReference, getReferenceLabel, shortenRevision } from '../git/models/reference';
+import { createReference, shortenRevision } from '../git/models/reference';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import {
 	executeActionCommand,
@@ -840,21 +840,7 @@ export class ViewCommands {
 	private async undoCommit(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!node.isAny('commit', 'file-commit')) return;
 
-		const repo = await this.container.git.getOrOpenScmRepository(node.repoPath);
-		const commit = await repo?.getCommit('HEAD');
-
-		if (commit?.hash !== node.ref.ref) {
-			void window.showWarningMessage(
-				`Commit ${getReferenceLabel(node.ref, {
-					capitalize: true,
-					icon: false,
-				})} cannot be undone, because it is no longer the most recent commit.`,
-			);
-
-			return;
-		}
-
-		await executeCoreGitCommand('git.undoCommit', node.repoPath);
+		await CommitActions.undoCommit(this.container, node.ref);
 	}
 
 	@log()
