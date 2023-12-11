@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds the ability to open folder changes &mdash; closes [#3020](https://github.com/gitkraken/vscode-gitlens/issues/3020)
   - Adds _Open Folder Changes with Revision..._ & _Open Folder Changes with Branch or Tag..._ commands to the Command Palette and to the _Explorer_ and _Source Control_ views
   - Requires VS Code `1.85` or later and `multiDiffEditor.experimental.enabled` to be enabled
+- Adds last modified time of the file when showing blame annotations for uncommitted changes
+- Adds search results to the minimap tooltips on the _Commit Graph_
+- Adds support for Anthropic's Claude 2.1 model for GitLens' experimental AI features
+- Adds a status indicator when the upstream branch is missing in _Commits_ view
 - Adds support for opening renamed/deleted files using the _Open File at Revision..._ & _Open File at Revision from..._ commands by showing a quick pick menu if the requested file doesn't exist in the selected revision &mdash; closes [#708](https://github.com/gitkraken/vscode-gitlens/issues/708) thanks to [PR #2825](https://github.com/gitkraken/vscode-gitlens/pull/2825) by Victor Hallberg ([@mogelbrod](https://github.com/mogelbrod))
 - Adds an _Open Changes_ submenu to comparisons in the _Search & Compare_ view
 - Adds experimental `gitlens.experimental.openChangesInMultiDiffEditor` setting to specify whether to open multiple changes in VS Code's experimental multi-diff editor (single tab) or in individual diff editors (multiple tabs)
@@ -21,7 +25,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Changes blame to show the last modified time of the file for uncommitted changes
+- Improves AI model choice selection for GitLens' experimental AI features
+- Improves performance when logging is enabled
+- Changes the contextual view title from GL to GitLens
 
 ### Fixed
 
@@ -29,7 +35,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3026](https://github.com/gitkraken/vscode-gitlens/issues/3026) - Gitlens stopped working in sub-repositories
 - Fixes [#2746](https://github.com/gitkraken/vscode-gitlens/issues/2746) - Remove 'undo commit' command from gitlens inspect
 - Fixes [#2482](https://github.com/gitkraken/vscode-gitlens/issues/2482) - Unresponsive "commits" view and "branches" view update due to git log
+- Fixes _Load more_ in the _File History_ view when the file has been renamed
 - Fixes broken _Open Changed & Close Unchanged Files_ (`gitlens.views.openOnlyChangedFiles`) command in the views
+- Fixes issues with _Contributors_ view updating when changing toggles
+- Fixes issues with _Open [Previous] Changes with Working File_ command in comparisons
+- Fixes banner styling on the _Commit Graph_
 
 ## [14.5.2] - 2023-11-30
 
