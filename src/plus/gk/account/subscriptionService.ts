@@ -76,7 +76,7 @@ export class SubscriptionService implements Disposable {
 
 	private _disposable: Disposable;
 	private _subscription!: Subscription;
-	private _checkinData: () => Promise<GKCheckInResponse | undefined>;
+	private _checkinData: Promise<GKCheckInResponse | undefined>;
 	private _statusBarSubscription: StatusBarItem | undefined;
 	private _validationTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -99,7 +99,7 @@ export class SubscriptionService implements Disposable {
 		);
 
 		const subscription = this.getStoredSubscription();
-		this._checkinData = () => Promise.resolve(undefined);
+		this._checkinData = Promise.resolve(undefined);
 		// Resets the preview trial state on the upgrade to 14.0
 		if (subscription != null) {
 			if (satisfies(previousVersion, '< 14.0')) {
@@ -107,7 +107,7 @@ export class SubscriptionService implements Disposable {
 			}
 
 			if (subscription.account?.id != null) {
-				this._checkinData = () => this.loadStoredCheckinData(subscription.account!.id);
+				this._checkinData = this.loadStoredCheckinData(subscription.account.id);
 			}
 		}
 
@@ -585,7 +585,7 @@ export class SubscriptionService implements Disposable {
 			);
 
 			if (!rsp.ok) {
-				this._checkinData = () => Promise.resolve(undefined);
+				this._checkinData = Promise.resolve(undefined);
 				throw new AccountValidationError('Unable to validate account', undefined, rsp.status, rsp.statusText);
 			}
 
@@ -621,7 +621,7 @@ export class SubscriptionService implements Disposable {
 
 	private storeCheckinData(data: GKCheckInResponse): void {
 		if (data.user?.id == null) return;
-		this._checkinData = () => Promise.resolve(data);
+		this._checkinData = Promise.resolve(data);
 		void this.container.storage.store(`gk:${data.user.id}:checkin`, {
 			v: 1,
 			timestamp: Date.now(),
@@ -630,14 +630,22 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private async loadStoredCheckinData(userId: string): Promise<GKCheckInResponse | undefined> {
+		const scope = getLogScope();
 		const storedCheckin = this.container.storage.get(`gk:${userId}:checkin`);
 		// If more than a day old, ignore
 		if (storedCheckin?.timestamp == null || Date.now() - storedCheckin.timestamp > 24 * 60 * 60 * 1000) {
 			// Attempt a check-in to see if we can get a new one
 			const session = await this.getAuthenticationSession(false);
 			if (session == null) return undefined;
-			await this.checkInAndValidate(session, { force: true });
-			return this._checkinData();
+			try {
+				await this.checkInAndValidate(session, { force: true });
+			} catch (ex) {
+				Logger.error(ex, scope);
+				debugger;
+				return undefined;
+			}
+
+			return this._checkinData;
 		}
 
 		return storedCheckin?.data;
@@ -1051,7 +1059,7 @@ export class SubscriptionService implements Disposable {
 
 	async switchOrganization(): Promise<void> {
 		const scope = getLogScope();
-		const checkinData = await this._checkinData();
+		const checkinData = await this._checkinData;
 		if (checkinData == null) return;
 		let organizations;
 		try {
