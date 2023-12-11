@@ -74,14 +74,14 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	private async getCanShowPromos(subscription?: Subscription): Promise<Record<string, boolean>> {
 		const promos = {
-			cw2023: false,
+			hs2023: false,
 			pro50: false,
 		};
 
 		const sub = subscription ?? (await this.container.subscription.getSubscription(true));
-		const expiresTime = new Date('2023-12-06T07:59:00.000Z').getTime(); // 2023-12-05 23:59:00 PST-0800
+		const expiresTime = new Date('2023-12-31T07:59:00.000Z').getTime(); // 2023-12-30 23:59:00 PST-0800
 		if (Date.now() < expiresTime && !isSubscriptionPaid(sub)) {
-			promos.cw2023 = true;
+			promos.hs2023 = true;
 		} else if (subscription != null && (isSubscriptionTrial(subscription) || isSubscriptionExpired(subscription))) {
 			promos.pro50 = true;
 		}

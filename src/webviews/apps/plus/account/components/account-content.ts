@@ -154,7 +154,8 @@ export class AccountContent extends LitElement {
 	}
 
 	private renderAccountState() {
-		const inCyberPromo = Date.now() < new Date('2023-12-06T07:59:00.000Z').getTime();
+		const expiresTime = new Date('2023-12-31T07:59:00.000Z').getTime(); // 2023-12-30 23:59:00 PST-0800
+		const inHolidayPromo = Date.now() < expiresTime;
 
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:
@@ -191,12 +192,12 @@ export class AccountContent extends LitElement {
 						hosted repos.
 					</p>
 					${when(
-						inCyberPromo,
+						inHolidayPromo,
 						() =>
 							html`<p style="text-align: center;">
 								<a
-									href=${'https://www.gitkraken.com/cw23?utm_source=cyber_week&utm_medium=gitlens_banner&utm_campaign=cyber_week_2023'}
-									>Cyber Week Sale: 50% off first seat of Pro — only $4/month! Includes entire
+									href=${'https://www.gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023'}
+									>Holiday Special: 50% off first seat of Pro — only $4/month! Includes entire
 									GitKraken suite of dev tools.</a
 								>
 							</p>`,
@@ -232,7 +233,7 @@ export class AccountContent extends LitElement {
 						Once your trial ends, you'll need a paid plan to continue using ✨ features.
 					</p>
 					${when(
-						inCyberPromo,
+						inHolidayPromo,
 						() =>
 							html`<p style="text-align: center;">
 								<a

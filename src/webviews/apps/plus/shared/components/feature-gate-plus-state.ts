@@ -57,7 +57,8 @@ export class FeatureGatePlusState extends LitElement {
 
 		this.hidden = false;
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
-		const inCyberPromo = Date.now() < new Date('2023-12-06T07:59:00.000Z').getTime();
+		const expiresTime = new Date('2023-12-31T07:59:00.000Z').getTime(); // 2023-12-30 23:59:00 PST-0800
+		const inHolidayPromo = Date.now() < expiresTime;
 
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:
@@ -102,12 +103,12 @@ export class FeatureGatePlusState extends LitElement {
 						repos.
 					</p>
 					${when(
-						inCyberPromo,
+						inHolidayPromo,
 						() =>
 							html`<p style="text-align: center;">
 								<a
-									href=${'https://www.gitkraken.com/cw23?utm_source=cyber_week&utm_medium=gitlens_banner&utm_campaign=cyber_week_2023'}
-									>Cyber Week Sale: <b>50% off first seat of Pro</b> — only $4/month!<br />
+									href=${'https://www.gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023'}
+									>Holiday Special: <b>50% off first seat of Pro</b> — only $4/month!<br />
 									Includes entire GitKraken suite of dev tools.</a
 								>
 							</p>`,
