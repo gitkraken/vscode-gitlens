@@ -102,6 +102,10 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		return flatCount(this.createChanges, c => c.files?.length ?? 0);
 	}
 
+	get draftVisibility() {
+		return this.state?.create?.visibility ?? 'public';
+	}
+
 	constructor() {
 		super();
 
@@ -121,10 +125,12 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 				)}
 				<div class="message-input">
 					<div class="message-input__select">
-						<span class="message-input__select-icon"><code-icon icon="link"></code-icon></span>
+						<span class="message-input__select-icon"><code-icon icon=${
+							this.draftVisibility === 'private' ? 'organization' : 'globe'
+						}></code-icon></span>
 					<select id="visibility" class="message-input__control" @change=${this.onVisibilityChange}>
-						<option value="public" ?selected=${this.state!.create!.visibility === 'public'}>Anyone with the link</option>
-						<option value="private" ?selected=${this.state!.create!.visibility === 'private'}>Anyone in my Org</option>
+						<option value="public" ?selected=${this.draftVisibility === 'public'}>Anyone with the link</option>
+						<option value="private" ?selected=${this.draftVisibility === 'private'}>Members of my Org with the link</option>
 					</select>
 						<span class="message-input__select-caret"><code-icon icon="chevron-down"></code-icon></span>
 					</div>
