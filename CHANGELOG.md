@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a _[Show|Hide] Merge Commits_ toggle to the _Contributors_ view
 - Adds _Open in Integrated Terminal_ command to repositories in the views &mdash; closes [#3053](https://github.com/gitkraken/vscode-gitlens/issues/3053)
 - Adds _Open in Terminal_ & _Open in Integrated Terminal_ commands to the upstream status in the _Commits_ view
+- Adds the ability to choose an active GitKraken organization in the _Account View_ for users with multiple GitKraken organizations.
 
 ### Changed
 
