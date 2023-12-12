@@ -72,6 +72,7 @@ export const enum ContextValues {
 	File = 'gitlens:file',
 	FileHistory = 'gitlens:history:file',
 	Folder = 'gitlens:folder',
+	Grouping = 'gitlens:grouping',
 	LineHistory = 'gitlens:history:line',
 	Merge = 'gitlens:merge',
 	MergeConflictCurrentChanges = 'gitlens:merge-conflict:current',

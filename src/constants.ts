@@ -569,6 +569,7 @@ export type TreeViewNodeTypes =
 	| 'conflict-incoming-changes'
 	| 'draft'
 	| 'drafts'
+	| 'grouping'
 	| 'merge-status'
 	| 'message'
 	| 'pager'

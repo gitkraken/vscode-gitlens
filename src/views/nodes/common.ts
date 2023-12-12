@@ -1,4 +1,4 @@
-import type { Command, ThemeIcon, Uri } from 'vscode';
+import type { Command } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
@@ -14,14 +14,7 @@ export class MessageNode extends ViewNode<'message'> {
 		private readonly _message: string,
 		private readonly _description?: string,
 		private readonly _tooltip?: string,
-		private readonly _iconPath?:
-			| string
-			| Uri
-			| {
-					light: string | Uri;
-					dark: string | Uri;
-			  }
-			| ThemeIcon,
+		private readonly _iconPath?: TreeItem['iconPath'],
 		private readonly _contextValue?: string,
 	) {
 		super('message', unknownGitUri, view, parent);
@@ -49,14 +42,7 @@ export class CommandMessageNode extends MessageNode {
 		message: string,
 		description?: string,
 		tooltip?: string,
-		iconPath?:
-			| string
-			| Uri
-			| {
-					light: string | Uri;
-					dark: string | Uri;
-			  }
-			| ThemeIcon,
+		iconPath?: TreeItem['iconPath'],
 	) {
 		super(view, parent, message, description, tooltip, iconPath);
 	}
