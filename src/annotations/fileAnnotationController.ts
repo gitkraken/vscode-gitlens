@@ -23,6 +23,7 @@ import {
 import type { AnnotationsToggleMode, FileAnnotationType } from '../config';
 import type { Colors, CoreColors } from '../constants';
 import type { Container } from '../container';
+import { registerCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
 import { once } from '../system/event';
@@ -174,24 +175,24 @@ export class FileAnnotationController implements Disposable {
 			void setContext('gitlens:annotationStatus', undefined);
 			void this.detachKeyboardHook();
 		} else {
-			void setContext('gitlens:annotationStatus', provider.status);
+			void setContext('gitlens:annotationStatus', provider.statusContextValue);
 			void this.attachKeyboardHook();
 		}
 	}
 
 	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
-		// Only care if we are becoming un-blameable
-		if (e.blameable) return;
-
 		const editor = window.activeTextEditor;
 		if (editor == null) return;
+
+		// Only care if we are becoming un-blameable
+		if (e.blameable) return;
 
 		void this.clear(editor, 'BlameabilityChanged');
 	}
 
 	private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
 		for (const [key, p] of this._annotationProviders) {
-			if (!e.document.is(p.document)) continue;
+			if (!e.document.is(p.editor.document)) continue;
 
 			void this.clearCore(key, 'DocumentChanged');
 		}
@@ -201,7 +202,7 @@ export class FileAnnotationController implements Disposable {
 		if (!this.container.git.isTrackable(document.uri)) return;
 
 		for (const [key, p] of this._annotationProviders) {
-			if (p.document !== document) continue;
+			if (p.editor.document !== document) continue;
 
 			void this.clearCore(key, 'DocumentClosed');
 		}
@@ -223,12 +224,12 @@ export class FileAnnotationController implements Disposable {
 			return;
 		}
 
-		void provider.restore(e.textEditor);
+		provider.restore(e.textEditor);
 	}
 
 	private onVisibleTextEditorsChanged(editors: readonly TextEditor[]) {
 		for (const e of editors) {
-			void this.getProvider(e)?.restore(e);
+			this.getProvider(e)?.restore(e);
 		}
 	}
 
@@ -308,7 +309,6 @@ export class FileAnnotationController implements Disposable {
 		const currentProvider = this.getProvider(editor);
 		if (currentProvider?.annotationType === type) {
 			await currentProvider.provideAnnotation(context);
-			await currentProvider.selection(context?.selection);
 			return true;
 		}
 
@@ -321,7 +321,7 @@ export class FileAnnotationController implements Disposable {
 				const provider = await computingAnnotations;
 
 				if (editor === this._editor) {
-					await setContext('gitlens:annotationStatus', provider?.status);
+					await setContext('gitlens:annotationStatus', provider?.statusContextValue);
 				}
 
 				return computingAnnotations;
@@ -359,7 +359,7 @@ export class FileAnnotationController implements Disposable {
 		const provider = this.getProvider(editor);
 		if (provider == null) return this.show(editor, type, context);
 
-		const reopen = provider.annotationType !== type || provider.mustReopen(context);
+		const reopen = provider.annotationType !== type || !provider.canReuse(context);
 		if (on === true && !reopen) return true;
 
 		if (this.isInWindowToggle()) {
@@ -371,6 +371,16 @@ export class FileAnnotationController implements Disposable {
 		if (!reopen) return false;
 
 		return this.show(editor, type, context);
+	}
+
+	nextChange() {
+		const provider = this.getProvider(window.activeTextEditor);
+		provider?.nextChange?.();
+	}
+
+	previousChange() {
+		const provider = this.getProvider(window.activeTextEditor);
+		provider?.previousChange?.();
 	}
 
 	private async attachKeyboardHook() {
@@ -399,12 +409,12 @@ export class FileAnnotationController implements Disposable {
 		this._annotationProviders.delete(key);
 		provider.dispose();
 
-		if (this._annotationProviders.size === 0 || key === getEditorCorrelationKey(this._editor)) {
+		if (!this._annotationProviders.size || key === getEditorCorrelationKey(this._editor)) {
 			await setContext('gitlens:annotationStatus', undefined);
 			await this.detachKeyboardHook();
 		}
 
-		if (this._annotationProviders.size === 0) {
+		if (!this._annotationProviders.size) {
 			Logger.log('Remove all listener registrations for annotations');
 
 			this._annotationsDisposable?.dispose();
@@ -460,25 +470,25 @@ export class FileAnnotationController implements Disposable {
 				const { GutterBlameAnnotationProvider } = await import(
 					/* webpackChunkName: "annotations-blame" */ './gutterBlameAnnotationProvider'
 				);
-				provider = new GutterBlameAnnotationProvider(editor, trackedDocument, this.container);
+				provider = new GutterBlameAnnotationProvider(this.container, editor, trackedDocument);
 				break;
 			}
 			case 'changes': {
 				const { GutterChangesAnnotationProvider } = await import(
 					/* webpackChunkName: "annotations-changes" */ './gutterChangesAnnotationProvider'
 				);
-				provider = new GutterChangesAnnotationProvider(editor, trackedDocument, this.container);
+				provider = new GutterChangesAnnotationProvider(this.container, editor, trackedDocument);
 				break;
 			}
 			case 'heatmap': {
 				const { GutterHeatmapBlameAnnotationProvider } = await import(
 					/* webpackChunkName: "annotations-heatmap" */ './gutterHeatmapBlameAnnotationProvider'
 				);
-				provider = new GutterHeatmapBlameAnnotationProvider(editor, trackedDocument, this.container);
+				provider = new GutterHeatmapBlameAnnotationProvider(this.container, editor, trackedDocument);
 				break;
 			}
 		}
-		if (provider == null || !(await provider.validate())) return undefined;
+		if (provider == null || (await provider.validate?.()) === false) return undefined;
 
 		if (currentProvider != null) {
 			await this.clearCore(currentProvider.correlationKey, 'User');
@@ -494,6 +504,8 @@ export class FileAnnotationController implements Disposable {
 				workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 				this.container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
 				this.container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
+				registerCommand('gitlens.annotations.nextChange', () => this.nextChange()),
+				registerCommand('gitlens.annotations.previousChange', () => this.previousChange()),
 			);
 		}
 

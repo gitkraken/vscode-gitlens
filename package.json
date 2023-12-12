@@ -5556,6 +5556,16 @@
 				}
 			},
 			{
+				"command": "gitlens.annotations.nextChange",
+				"title": "Next Change",
+				"icon": "$(arrow-down)"
+			},
+			{
+				"command": "gitlens.annotations.previousChange",
+				"title": "Previous Change",
+				"icon": "$(arrow-up)"
+			},
+			{
 				"command": "gitlens.clearFileAnnotations",
 				"title": "Clear File Annotations",
 				"category": "GitLens",
@@ -8994,8 +9004,16 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.annotations.nextChange",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.annotations.previousChange",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.clearFileAnnotations",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computed"
+					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus =~ /computed\\b/"
 				},
 				{
 					"command": "gitlens.computingFileAnnotations",
@@ -11105,12 +11123,12 @@
 				},
 				{
 					"command": "gitlens.computingFileAnnotations",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computing && config.gitlens.menus.editorGroup.blame",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus =~ /computing\\b/ && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.clearFileAnnotations",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computed && config.gitlens.menus.editorGroup.blame",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus =~ /computed\\b/ && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
 				},
 				{
