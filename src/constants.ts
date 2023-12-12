@@ -637,6 +637,7 @@ export type CoreCommands =
 	| 'editor.action.webvieweditor.showFind'
 	| 'editorScroll'
 	| 'list.collapseAllToFocus'
+	| 'openInIntegratedTerminal'
 	| 'openInTerminal'
 	| 'revealFileInOS'
 	| 'revealInExplorer'

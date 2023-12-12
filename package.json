@@ -6366,6 +6366,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.openInIntegratedTerminal",
+				"title": "Open in Integrated Terminal",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.setAsDefault",
 				"title": "Set as Default",
 				"category": "GitLens"
@@ -9510,6 +9515,10 @@
 				},
 				{
 					"command": "gitlens.views.openInTerminal",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openInIntegratedTerminal",
 					"when": "false"
 				},
 				{
@@ -13100,15 +13109,20 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.openRepoOnRemote",
-					"when": "viewItem =~ /gitlens:repository\\b/ && gitlens:hasRemotes",
-					"group": "2_gitlens_quickopen@2",
-					"alt": "gitlens.copyRemoteRepositoryUrl"
+					"command": "gitlens.views.openInIntegratedTerminal",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b/",
+					"group": "2_gitlens_quickopen@2"
 				},
 				{
 					"command": "gitlens.views.revealRepositoryInExplorer",
 					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b)/",
-					"group": "2_gitlens_quickopen@2"
+					"group": "2_gitlens_quickopen@3"
+				},
+				{
+					"command": "gitlens.openRepoOnRemote",
+					"when": "viewItem =~ /gitlens:repository\\b/ && gitlens:hasRemotes",
+					"group": "2_gitlens_quickopen@4",
+					"alt": "gitlens.copyRemoteRepositoryUrl"
 				},
 				{
 					"command": "gitlens.showCommitSearch",
@@ -13202,9 +13216,14 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
+					"command": "gitlens.views.openInIntegratedTerminal",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "2_gitlens_quickopen@2"
+				},
+				{
 					"command": "gitlens.openRepoOnRemote",
 					"when": "viewItem =~ /gitlens:repo-folder\\b/ && gitlens:hasRemotes",
-					"group": "2_gitlens_quickopen@2",
+					"group": "2_gitlens_quickopen@3",
 					"alt": "gitlens.copyRemoteRepositoryUrl"
 				},
 				{
@@ -13330,9 +13349,19 @@
 					"group": "1_gitlens_secondary_actions@3"
 				},
 				{
+					"command": "gitlens.views.openInTerminal",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream\\b/",
+					"group": "2_gitlens_quickopen@1"
+				},
+				{
+					"command": "gitlens.views.openInIntegratedTerminal",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream\\b/",
+					"group": "2_gitlens_quickopen@2"
+				},
+				{
 					"command": "gitlens.openBranchOnRemote",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream:(?!(missing|none))/",
-					"group": "2_gitlens_quickopen@1",
+					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:status:upstream:(?!(missing|none))/",
+					"group": "2_gitlens_quickopen@3",
 					"alt": "gitlens.copyRemoteBranchUrl"
 				},
 				{

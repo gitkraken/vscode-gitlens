@@ -187,6 +187,7 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.unsetAsDefault', this.unsetAsDefault, this);
 
 		registerViewCommand('gitlens.views.openInTerminal', this.openInTerminal, this);
+		registerViewCommand('gitlens.views.openInIntegratedTerminal', this.openInIntegratedTerminal, this);
 		registerViewCommand('gitlens.views.star', this.star, this);
 		registerViewCommand('gitlens.views.unstar', this.unstar, this);
 
@@ -576,10 +577,17 @@ export class ViewCommands {
 	}
 
 	@log()
-	private openInTerminal(node: RepositoryNode | RepositoryFolderNode) {
-		if (!node.isAny('repository', 'repo-folder')) return Promise.resolve();
+	private openInTerminal(node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode) {
+		if (!node.isAny('tracking-status', 'repository', 'repo-folder')) return Promise.resolve();
 
-		return executeCoreCommand('openInTerminal', Uri.file(node.repo.path));
+		return executeCoreCommand('openInTerminal', Uri.file(node.repoPath));
+	}
+
+	@log()
+	private openInIntegratedTerminal(node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode) {
+		if (!node.isAny('tracking-status', 'repository', 'repo-folder')) return Promise.resolve();
+
+		return executeCoreCommand('openInIntegratedTerminal', Uri.file(node.repoPath));
 	}
 
 	@log()
