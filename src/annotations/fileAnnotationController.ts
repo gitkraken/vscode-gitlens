@@ -244,7 +244,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	clear(editor: TextEditor, reason: AnnotationClearReason = 'User') {
-		if (this.isInWindowToggle()) {
+		if (this.isInWindowToggle() && reason === 'User') {
 			return this.clearAll();
 		}
 
