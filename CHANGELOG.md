@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - _Anyone with the link_ will allow anyone with a GitKraken account to open the Cloud Patch
   - _Members of my Org with the link_ option will allow anyone in your GitKraken organization to open the Cloud Patch
   - Selecting specific collaborators is coming soon
+  - Cloud Patches that have been shared with you now will appear in the _Cloud Patches_ view under _Shared with Me_
 - Adds timed snoozing for items in the _Focus View_ &mdash; choose from a selection of times when snoozing and the item will automatically move out of the snoozed tab when that time expires
 - Adds the ability to open folder changes &mdash; closes [#3020](https://github.com/gitkraken/vscode-gitlens/issues/3020)
   - Adds _Open Folder Changes with Revision..._ & _Open Folder Changes with Branch or Tag..._ commands to the Command Palette and to the _Explorer_ and _Source Control_ views
