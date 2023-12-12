@@ -23,6 +23,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Requires VS Code `1.85` or later and `multiDiffEditor.experimental.enabled` to be enabled
 - Adds a confirmation prompt when attempting to undo a commit with uncommitted changes
 - Adds a _[Show|Hide] Merge Commits_ toggle to the _Contributors_ view
+- Adds _Open in Integrated Terminal_ command to repositories in the views &mdash; closes [#3053](https://github.com/gitkraken/vscode-gitlens/issues/3053)
+- Adds _Open in Terminal_ & _Open in Integrated Terminal_ commands to the upstream status in the _Commits_ view
 
 ### Changed
 
