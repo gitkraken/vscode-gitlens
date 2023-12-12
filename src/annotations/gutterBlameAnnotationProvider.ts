@@ -1,11 +1,10 @@
 import type { DecorationOptions, TextEditor, ThemableDecorationAttachmentRenderOptions } from 'vscode';
 import { Range } from 'vscode';
-import type { FileAnnotationType, GravatarDefaultStyle } from '../config';
+import type { GravatarDefaultStyle } from '../config';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
-import type { GitBlame } from '../git/models/blame';
 import type { GitCommit } from '../git/models/commit';
 import { filterMap } from '../system/array';
 import { configuration } from '../system/configuration';
@@ -25,8 +24,8 @@ import { Decorations } from './fileAnnotationController';
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
-	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>, container: Container) {
-		super('blame', editor, trackedDocument, container);
+	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
+		super(container, 'blame', editor, trackedDocument);
 	}
 
 	override clear() {
@@ -40,12 +39,12 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	}
 
 	@log()
-	async onProvideAnnotation(context?: AnnotationContext, _type?: FileAnnotationType): Promise<boolean> {
+	override async onProvideAnnotation(context?: AnnotationContext, force?: boolean): Promise<boolean> {
 		const scope = getLogScope();
 
 		this.annotationContext = context;
 
-		const blame = await this.getBlame();
+		const blame = await this.getBlame(force);
 		if (blame == null) return false;
 
 		using sw = maybeStopWatch(scope);
@@ -176,13 +175,11 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	}
 
 	@log({ args: false })
-	async selection(selection?: AnnotationContext['selection'], blame?: GitBlame): Promise<void> {
+	override async selection(selection?: AnnotationContext['selection']): Promise<void> {
 		if (selection === false || Decorations.gutterBlameHighlight == null) return;
 
-		if (blame == null) {
-			blame = await this.blame;
-			if (!blame?.lines.length) return;
-		}
+		const blame = await this.blame;
+		if (!blame?.lines.length) return;
 
 		let sha: string | undefined = undefined;
 		if (selection?.sha != null) {

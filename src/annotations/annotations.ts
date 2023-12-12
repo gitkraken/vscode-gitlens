@@ -24,6 +24,12 @@ export interface ComputedHeatmap {
 	computeOpacity(date: Date): number;
 }
 
+export type Decoration<T extends Range[] | DecorationOptions[] = Range[] | DecorationOptions[]> = {
+	decorationType: TextEditorDecorationType;
+	rangesOrOptions: T;
+	dispose?: boolean;
+};
+
 interface RenderOptions
 	extends DecorationInstanceRenderOptions,
 		ThemableDecorationRenderOptions,
@@ -93,7 +99,7 @@ export function addOrUpdateGutterHeatmapDecoration(
 	date: Date,
 	heatmap: ComputedHeatmap,
 	range: Range,
-	map: Map<string, { decorationType: TextEditorDecorationType; rangesOrOptions: Range[] }>,
+	map: Map<string, Decoration<Range[]>>,
 ) {
 	const [r, g, b, a] = getHeatmapColor(date, heatmap);
 
@@ -122,6 +128,7 @@ export function addOrUpdateGutterHeatmapDecoration(
 				overviewRulerColor: scrollbar ? `rgba(${r},${g},${b},${a * 0.7})` : undefined,
 			}),
 			rangesOrOptions: [range],
+			dispose: true,
 		};
 		map.set(key, colorDecoration);
 	} else {
