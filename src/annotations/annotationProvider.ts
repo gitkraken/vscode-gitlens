@@ -11,7 +11,12 @@ import type { Decoration } from './annotations';
 export type AnnotationStatus = 'computing' | 'computed';
 
 export interface AnnotationContext {
-	selection?: { sha?: string; line?: undefined } | { sha?: undefined; line?: number } | false;
+	selection?: { sha?: string; line?: never } | { sha?: never; line?: number } | false;
+}
+
+export interface AnnotationState {
+	recompute?: boolean;
+	restoring?: boolean;
 }
 
 export type TextEditorCorrelationKey = string;
@@ -48,7 +53,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 	get annotationContext(): TContext | undefined {
 		return this._annotationContext;
 	}
-	protected set annotationContext(value: TContext | undefined) {
+	private set annotationContext(value: TContext | undefined) {
 		this._annotationContext = value;
 	}
 
@@ -117,13 +122,17 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 	nextChange?(): void;
 	previousChange?(): void;
 
-	async provideAnnotation(context?: TContext, force?: boolean): Promise<boolean> {
+	async provideAnnotation(context?: TContext, state?: AnnotationState): Promise<boolean> {
 		void this.setStatus('computing', this.editor);
 
 		try {
-			if (await this.onProvideAnnotation(context, force)) {
+			this.annotationContext = context;
+
+			if (await this.onProvideAnnotation(context, state)) {
 				void this.setStatus('computed', this.editor);
-				await this.selection?.(force ? { line: this.editor.selection.active.line } : context?.selection);
+				await this.selection?.(
+					state?.restoring ? { line: this.editor.selection.active.line } : context?.selection,
+				);
 				return true;
 			}
 		} catch (ex) {
@@ -134,7 +143,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		return false;
 	}
 
-	protected abstract onProvideAnnotation(context?: TContext, force?: boolean): Promise<boolean>;
+	protected abstract onProvideAnnotation(context?: TContext, state?: AnnotationState): Promise<boolean>;
 
 	refresh(replaceDecorationTypes: Map<TextEditorDecorationType, TextEditorDecorationType | null>) {
 		if (this.editor == null || !this.decorations?.length) return;
@@ -155,19 +164,19 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		this.setDecorations(this.decorations);
 	}
 
-	restore(editor: TextEditor, force?: boolean) {
+	restore(editor: TextEditor, recompute?: boolean) {
 		// If the editor isn't disposed then we don't need to do anything
 		// Explicitly check for `false`
 		if ((this.editor as any)._disposed === false) return;
 
-		if (force || this.decorations == null) {
-			void this.provideAnnotation(this.annotationContext, force);
+		this.editor = editor;
+
+		if (recompute || this.decorations == null) {
+			void this.provideAnnotation(this.annotationContext, { recompute: true, restoring: true });
 			return;
 		}
 
 		void this.setStatus('computing', this.editor);
-
-		this.editor = editor;
 
 		if (this.decorations?.length) {
 			for (const d of this.decorations) {

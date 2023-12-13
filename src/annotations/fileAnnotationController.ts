@@ -27,13 +27,18 @@ import { registerCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
 import { once } from '../system/event';
+import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { find } from '../system/iterable';
 import type { KeyboardScope } from '../system/keyboard';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
 import { isTextEditor } from '../system/utils';
-import type { DocumentBlameStateChangeEvent, DocumentDirtyStateChangeEvent } from '../trackers/documentTracker';
+import type {
+	DocumentBlameStateChangeEvent,
+	DocumentDirtyIdleTriggerEvent,
+	DocumentDirtyStateChangeEvent,
+} from '../trackers/documentTracker';
 import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
 import { getEditorCorrelationKey } from './annotationProvider';
@@ -185,16 +190,35 @@ export class FileAnnotationController implements Disposable {
 		if (editor == null) return;
 
 		// Only care if we are becoming un-blameable
-		if (e.blameable) return;
+		if (e.blameable) {
+			if (configuration.get('experimental.allowAnnotationsWhenDirty')) {
+				this.restore(editor);
+			}
+
+			return;
+		}
 
 		void this.clear(editor, 'BlameabilityChanged');
+	}
+
+	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
+		if (!e.document.isBlameable || !configuration.get('experimental.allowAnnotationsWhenDirty')) return;
+
+		const editor = window.activeTextEditor;
+		if (editor == null) return;
+
+		this.restore(editor);
 	}
 
 	private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
 		for (const [key, p] of this._annotationProviders) {
 			if (!e.document.is(p.editor.document)) continue;
 
-			void this.clearCore(key, 'DocumentChanged');
+			if (e.dirty) {
+				void this.clearCore(key, 'DocumentChanged');
+			} else if (configuration.get('experimental.allowAnnotationsWhenDirty')) {
+				this.restore(e.editor);
+			}
 		}
 	}
 
@@ -229,7 +253,7 @@ export class FileAnnotationController implements Disposable {
 
 	private onVisibleTextEditorsChanged(editors: readonly TextEditor[]) {
 		for (const e of editors) {
-			this.getProvider(e)?.restore(e);
+			this.getProvider(e)?.restore(e, false);
 		}
 	}
 
@@ -271,6 +295,24 @@ export class FileAnnotationController implements Disposable {
 	getProvider(editor: TextEditor | undefined): AnnotationProviderBase | undefined {
 		if (editor?.document == null) return undefined;
 		return this._annotationProviders.get(getEditorCorrelationKey(editor));
+	}
+
+	private debouncedRestores = new WeakMap<TextEditor, Deferrable<AnnotationProviderBase['restore']>>();
+
+	private restore(editor: TextEditor, recompute?: boolean) {
+		const provider = this.getProvider(editor);
+		if (provider == null) return;
+
+		let debouncedRestore = this.debouncedRestores.get(editor);
+		if (debouncedRestore == null) {
+			debouncedRestore = debounce((editor: TextEditor) => {
+				this.debouncedRestores.delete(editor);
+				provider.restore(editor, recompute ?? true);
+			}, 500);
+			this.debouncedRestores.set(editor, debouncedRestore);
+		}
+
+		debouncedRestore(editor);
 	}
 
 	async show(editor: TextEditor | undefined, type: FileAnnotationType, context?: AnnotationContext): Promise<boolean>;
@@ -406,8 +448,13 @@ export class FileAnnotationController implements Disposable {
 
 		Logger.log(`${reason}:`, `Clear annotations for ${key}`);
 
-		this._annotationProviders.delete(key);
-		provider.dispose();
+		if (
+			!configuration.get('experimental.allowAnnotationsWhenDirty') ||
+			(reason !== 'BlameabilityChanged' && reason !== 'DocumentChanged')
+		) {
+			this._annotationProviders.delete(key);
+			provider.dispose();
+		}
 
 		if (!this._annotationProviders.size || key === getEditorCorrelationKey(this._editor)) {
 			await setContext('gitlens:annotationStatus', undefined);
@@ -504,6 +551,7 @@ export class FileAnnotationController implements Disposable {
 				workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 				this.container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
 				this.container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
+				this.container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
 				registerCommand('gitlens.annotations.nextChange', () => this.nextChange()),
 				registerCommand('gitlens.annotations.previousChange', () => this.previousChange()),
 			);
@@ -586,7 +634,7 @@ export class FileAnnotationController implements Disposable {
 						`data:image/svg+xml,${encodeURIComponent(
 							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${addedColor.join(
 								',',
-							)})' x='15' y='0' width='3' height='18'/></svg>`,
+							)})' x='13' y='0' width='3' height='18'/></svg>`,
 						)}`,
 				  )
 				: undefined,
@@ -605,7 +653,7 @@ export class FileAnnotationController implements Disposable {
 						`data:image/svg+xml,${encodeURIComponent(
 							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${changedColor.join(
 								',',
-							)})' x='15' y='0' width='3' height='18'/></svg>`,
+							)})' x='13' y='0' width='3' height='18'/></svg>`,
 						)}`,
 				  )
 				: undefined,

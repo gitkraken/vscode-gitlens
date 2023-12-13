@@ -11,7 +11,7 @@ import { getSettledValue } from '../system/promise';
 import { maybeStopWatch } from '../system/stopwatch';
 import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../trackers/trackedDocument';
-import type { AnnotationContext } from './annotationProvider';
+import type { AnnotationContext, AnnotationState } from './annotationProvider';
 import { AnnotationProviderBase } from './annotationProvider';
 import type { Decoration } from './annotations';
 import { Decorations } from './fileAnnotationController';
@@ -95,10 +95,8 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 	}
 
 	@log()
-	override async onProvideAnnotation(context?: ChangesAnnotationContext, _force?: boolean): Promise<boolean> {
+	override async onProvideAnnotation(context?: ChangesAnnotationContext, state?: AnnotationState): Promise<boolean> {
 		const scope = getLogScope();
-
-		this.annotationContext = context;
 
 		let ref1 = this.trackedDocument.uri.sha;
 		let ref2 = context?.sha != null && context.sha !== ref1 ? `${context.sha}^` : undefined;
@@ -263,7 +261,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 			sw?.stop({ suffix: ' to apply all recent changes annotations' });
 
-			if (selection != null && context?.selection !== false) {
+			if (selection != null && context?.selection !== false && !state?.restoring) {
 				this.editor.selection = selection;
 				this.editor.revealRange(selection, TextEditorRevealType.InCenterIfOutsideViewport);
 			}
