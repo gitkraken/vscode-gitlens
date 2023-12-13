@@ -3874,12 +3874,26 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				range = new Range(range.end, range.start);
 			}
 
-			const data = await this.git.log__file(root, relativePath, ref, {
+			let data = await this.git.log__file(root, relativePath, ref, {
 				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
 				startLine: range == null ? undefined : range.start.line + 1,
 				endLine: range == null ? undefined : range.end.line + 1,
 			});
+
+			// If we didn't find any history from the working tree, check to see if the file was renamed
+			if (!data && ref == null) {
+				const status = await this.getStatusForFile(root, relativePath);
+				if (status?.originalPath != null) {
+					data = await this.git.log__file(root, status.originalPath, ref, {
+						ordering: configuration.get('advanced.commitOrdering'),
+						...options,
+						startLine: range == null ? undefined : range.start.line + 1,
+						endLine: range == null ? undefined : range.end.line + 1,
+					});
+				}
+			}
+
 			const log = parseGitLog(
 				this.container,
 				data,
@@ -5030,18 +5044,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 							continue;
 						}
-
-						return undefined;
 					}
 
-					if (ref != null) return undefined;
-
-					// If we still didn't find anything then check if we've been renamed first
-					const status = await this.getStatusForFile(repoPath, relativePath);
-					if (status?.originalPath != null) {
-						tracked = Boolean(await this.git.ls_files(repoPath, status.originalPath, { ref: 'HEAD' }));
-						if (!tracked) return undefined;
-					}
+					return undefined;
 				}
 
 				return [relativePath, repoPath];
