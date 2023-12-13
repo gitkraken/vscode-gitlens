@@ -12240,7 +12240,7 @@
 				},
 				{
 					"command": "gitlens.views.drafts.delete",
-					"when": "viewItem =~  /gitlens:draft\\b/ && gitlens:plus",
+					"when": "viewItem =~  /gitlens:draft\\b(?=.*?\\b\\+mine\\b)/ && gitlens:plus",
 					"group": "6_gitlens_actions@1"
 				},
 				{

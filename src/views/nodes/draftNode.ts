@@ -40,7 +40,11 @@ export class DraftNode extends ViewNode<'draft', DraftsView> {
 		const showUpdated = this.draft.updatedAt.getTime() - this.draft.createdAt.getTime() >= 1000;
 
 		item.id = this.id;
-		item.contextValue = ContextValues.Draft;
+		let contextValue = `${ContextValues.Draft}`;
+		if (this.draft.isMine) {
+			contextValue += '+mine';
+		}
+		item.contextValue = contextValue;
 		item.iconPath = new ThemeIcon('cloud');
 		item.tooltip = new MarkdownString(
 			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\nCreated ${fromNow(

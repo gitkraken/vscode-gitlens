@@ -27,16 +27,12 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 			const children: (GroupingNode | DraftNode)[] = [];
 
 			try {
-				const { account } = await this.view.container.subscription.getSubscription(true);
-				if (account == null) throw new AuthenticationRequiredError();
-
 				const drafts = await this.view.container.drafts.getDrafts();
 				drafts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-				const userId = account.id;
 				const groups = groupByFilterMap(
 					drafts,
-					d => (d.author.id === userId ? 'mine' : 'shared'),
+					d => (d.isMine ? 'mine' : 'shared'),
 					d => new DraftNode(this.uri, this.view, this, d),
 				);
 

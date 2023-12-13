@@ -23,6 +23,7 @@ export interface Draft {
 		email: string | undefined;
 		avatar?: string;
 	};
+	readonly isMine: boolean;
 	readonly organizationId?: string;
 	readonly role: 'owner' | 'admin' | 'editor' | 'viewer';
 	readonly isPublished: boolean;
