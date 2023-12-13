@@ -42,6 +42,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2663](https://github.com/gitkraken/vscode-gitlens/issues/2663) - Debounce bug: file blame isn't cleared when editing document while text in output window changes
 - Fixes [#3050](https://github.com/gitkraken/vscode-gitlens/issues/3050) - Opening revision of a renamed file is broken
 - Fixes [#3019](https://github.com/gitkraken/vscode-gitlens/issues/3019) - Commits Views not working
 - Fixes [#3026](https://github.com/gitkraken/vscode-gitlens/issues/3026) - Gitlens stopped working in sub-repositories
