@@ -218,8 +218,22 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.openFileRevision', this.openRevision, this);
 		registerViewCommand('gitlens.views.openChangedFiles', this.openFiles, this);
 		registerViewCommand('gitlens.views.openOnlyChangedFiles', this.openOnlyChangedFiles);
-		registerViewCommand('gitlens.views.openChangedFileDiffs', this.openAllChanges, this);
-		registerViewCommand('gitlens.views.openChangedFileDiffsWithWorking', this.openAllChangesWithWorking, this);
+		registerViewCommand('gitlens.views.openChangedFileDiffs', (n, o) => this.openAllChanges(n, o), this);
+		registerViewCommand(
+			'gitlens.views.openChangedFileDiffsWithWorking',
+			(n, o) => this.openAllChangesWithWorking(n, o),
+			this,
+		);
+		registerViewCommand(
+			'gitlens.views.openChangedFileDiffsIndividually',
+			(n, o) => this.openAllChanges(n, o, true),
+			this,
+		);
+		registerViewCommand(
+			'gitlens.views.openChangedFileDiffsWithWorkingIndividually',
+			(n, o) => this.openAllChangesWithWorking(n, o, true),
+			this,
+		);
 		registerViewCommand('gitlens.views.openChangedFileRevisions', this.openRevisions, this);
 		registerViewCommand('gitlens.views.applyChanges', this.applyChanges, this);
 		registerViewCommand('gitlens.views.highlightChanges', this.highlightChanges, this);
@@ -1004,6 +1018,7 @@ export class ViewCommands {
 	private async openAllChanges(
 		node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
 		options?: TextDocumentShowOptions,
+		individually?: boolean,
 	) {
 		if (node.is('compare-results')) {
 			node = (await node.getFilesNode())!;
@@ -1014,7 +1029,7 @@ export class ViewCommands {
 			const { files } = await node.getFilesQueryResults();
 			if (!files?.length) return undefined;
 
-			return CommitActions.openAllChanges(
+			return (individually ? CommitActions.openAllChangesIndividually : CommitActions.openAllChanges)(
 				files,
 				{
 					repoPath: node.repoPath,
@@ -1027,7 +1042,10 @@ export class ViewCommands {
 
 		if (!node.isAny('commit', 'stash')) return undefined;
 
-		return CommitActions.openAllChanges(node.commit, options);
+		return (individually ? CommitActions.openAllChangesIndividually : CommitActions.openAllChanges)(
+			node.commit,
+			options,
+		);
 	}
 
 	@log()
@@ -1086,6 +1104,7 @@ export class ViewCommands {
 	private async openAllChangesWithWorking(
 		node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
 		options?: TextDocumentShowOptions,
+		individually?: boolean,
 	) {
 		if (node.is('compare-results')) {
 			node = (await node.getFilesNode())!;
@@ -1096,7 +1115,11 @@ export class ViewCommands {
 			const { files } = await node.getFilesQueryResults();
 			if (!files?.length) return undefined;
 
-			return CommitActions.openAllChangesWithWorking(
+			return (
+				individually
+					? CommitActions.openAllChangesWithWorkingIndividually
+					: CommitActions.openAllChangesWithWorking
+			)(
 				files,
 				{
 					repoPath: node.repoPath,
@@ -1108,7 +1131,9 @@ export class ViewCommands {
 
 		if (!node.isAny('commit', 'stash')) return undefined;
 
-		return CommitActions.openAllChangesWithWorking(node.commit, options);
+		return (
+			individually ? CommitActions.openAllChangesWithWorkingIndividually : CommitActions.openAllChangesWithWorking
+		)(node.commit, options);
 	}
 
 	@log()

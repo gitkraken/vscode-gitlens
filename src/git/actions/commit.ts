@@ -105,13 +105,30 @@ export async function openAllChanges(
 	refsOrOptions: RefRange | TextDocumentShowOptions | undefined,
 	maybeOptions?: TextDocumentShowOptions,
 ): Promise<void> {
-	if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
-		if (isCommit(commitOrFiles)) {
-			return openAllChangesEditor(commitOrFiles, refsOrOptions as TextDocumentShowOptions | undefined);
+	if (isCommit(commitOrFiles)) {
+		if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
+			return openAllChangesInChangesEditor(commitOrFiles, refsOrOptions as TextDocumentShowOptions | undefined);
 		}
-		return openAllChangesEditor(commitOrFiles, refsOrOptions as RefRange, maybeOptions);
+		return openAllChangesIndividually(commitOrFiles, refsOrOptions as TextDocumentShowOptions | undefined);
 	}
 
+	if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
+		return openAllChangesInChangesEditor(commitOrFiles, refsOrOptions as RefRange, maybeOptions);
+	}
+	return openAllChangesIndividually(commitOrFiles, refsOrOptions as RefRange, maybeOptions);
+}
+
+export async function openAllChangesIndividually(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
+export async function openAllChangesIndividually(
+	files: GitFile[],
+	refs: RefRange,
+	options?: TextDocumentShowOptions,
+): Promise<void>;
+export async function openAllChangesIndividually(
+	commitOrFiles: GitCommit | GitFile[],
+	refsOrOptions: RefRange | TextDocumentShowOptions | undefined,
+	maybeOptions?: TextDocumentShowOptions,
+): Promise<void> {
 	let { files, refs, options } = await getChangesRefsArgs(commitOrFiles, refsOrOptions, maybeOptions);
 
 	if (
@@ -131,16 +148,16 @@ export async function openAllChanges(
 	}
 }
 
-export async function openAllChangesEditor(
+export async function openAllChangesInChangesEditor(
 	commit: GitCommit,
 	options?: TextDocumentShowOptions & { title?: string },
 ): Promise<void>;
-export async function openAllChangesEditor(
+export async function openAllChangesInChangesEditor(
 	files: GitFile[],
 	refs: RefRange,
 	options?: TextDocumentShowOptions & { title?: string },
 ): Promise<void>;
-export async function openAllChangesEditor(
+export async function openAllChangesInChangesEditor(
 	commitOrFiles: GitCommit | GitFile[],
 	refsOrOptions: RefRange | (TextDocumentShowOptions & { title?: string }) | undefined,
 	maybeOptions?: TextDocumentShowOptions & { title?: string },
@@ -231,12 +248,18 @@ export async function openAllChangesWithWorking(
 	refOrOptions: Ref | TextDocumentShowOptions | undefined,
 	maybeOptions?: TextDocumentShowOptions,
 ) {
-	if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
-		if (isCommit(commitOrFiles)) {
-			return openAllChangesEditor(commitOrFiles, refOrOptions as TextDocumentShowOptions | undefined);
+	if (isCommit(commitOrFiles)) {
+		if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
+			return openAllChangesInChangesEditor(commitOrFiles, refOrOptions as TextDocumentShowOptions | undefined);
 		}
+		return openAllChangesWithWorkingIndividually(
+			commitOrFiles,
+			refOrOptions as TextDocumentShowOptions | undefined,
+		);
+	}
 
-		return openAllChangesEditor(
+	if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
+		return openAllChangesInChangesEditor(
 			commitOrFiles,
 			{
 				repoPath: (refOrOptions as Ref).repoPath,
@@ -246,7 +269,23 @@ export async function openAllChangesWithWorking(
 			maybeOptions,
 		);
 	}
+	return openAllChangesWithWorkingIndividually(commitOrFiles, refOrOptions as Ref, maybeOptions);
+}
 
+export async function openAllChangesWithWorkingIndividually(
+	commit: GitCommit,
+	options?: TextDocumentShowOptions,
+): Promise<void>;
+export async function openAllChangesWithWorkingIndividually(
+	files: GitFile[],
+	ref: Ref,
+	options?: TextDocumentShowOptions,
+): Promise<void>;
+export async function openAllChangesWithWorkingIndividually(
+	commitOrFiles: GitCommit | GitFile[],
+	refOrOptions: Ref | TextDocumentShowOptions | undefined,
+	maybeOptions?: TextDocumentShowOptions,
+) {
 	let { files, ref, options } = await getChangesRefArgs(commitOrFiles, refOrOptions, maybeOptions);
 
 	if (
@@ -453,7 +492,7 @@ export async function openFolderCompare(
 		strings: { working: 'Working Tree' },
 	})} ${GlyphChars.ArrowLeftRightLong} ${shortenRevision(refs.rhs, { strings: { working: 'Working Tree' } })}`;
 
-	return openAllChangesEditor(files, refs, { ...options, title: title });
+	return openAllChangesInChangesEditor(files, refs, { ...options, title: title });
 }
 
 export async function openFile(uri: Uri, options?: TextDocumentShowOptions): Promise<void>;
