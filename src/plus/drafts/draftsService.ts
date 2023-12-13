@@ -179,6 +179,7 @@ export class DraftService implements Disposable {
 				createdAt: new Date(draft.createdAt),
 				updatedAt: new Date(draft.updatedAt ?? draft.createdAt),
 				author: author,
+				isMine: true,
 				organizationId: draft.organizationId || undefined,
 				role: draft.role,
 				isPublished: draft.isPublished,
@@ -351,10 +352,12 @@ export class DraftService implements Disposable {
 			email: undefined,
 		};
 
+		let isMine = false;
 		const { account } = await this.container.subscription.getSubscription();
 		if (draft.createdBy === account?.id) {
 			author.name = `${account.name} (you)`;
 			author.email = account.email;
+			isMine = true;
 		}
 
 		return {
@@ -364,6 +367,7 @@ export class DraftService implements Disposable {
 			createdAt: new Date(draft.createdAt),
 			updatedAt: new Date(draft.updatedAt ?? draft.createdAt),
 			author: author,
+			isMine: isMine,
 			organizationId: draft.organizationId || undefined,
 			role: draft.role,
 			isPublished: draft.isPublished,
@@ -388,15 +392,16 @@ export class DraftService implements Disposable {
 		const draft = ((await rsp.json()) as Result).data;
 		const { account } = await this.container.subscription.getSubscription();
 
-		return draft.map(
-			(d): Draft => ({
+		return draft.map((d): Draft => {
+			const isMine = d.createdBy === account?.id;
+			return {
 				draftType: 'cloud',
 				type: d.type,
 				id: d.id,
-				author:
-					d.createdBy === account?.id
-						? { id: d.createdBy, name: `${account.name} (you)`, email: account.email }
-						: { id: d.createdBy, name: 'Unknown', email: undefined },
+				author: isMine
+					? { id: d.createdBy, name: `${account.name} (you)`, email: account.email }
+					: { id: d.createdBy, name: 'Unknown', email: undefined },
+				isMine: isMine,
 				organizationId: d.organizationId || undefined,
 				role: d.role,
 				isPublished: d.isPublished,
