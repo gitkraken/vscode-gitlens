@@ -19,7 +19,9 @@ import { PlusFeatures } from '../../../features';
 import * as BranchActions from '../../../git/actions/branch';
 import {
 	openAllChanges,
+	openAllChangesIndividually,
 	openAllChangesWithWorking,
+	openAllChangesWithWorkingIndividually,
 	openFiles,
 	openFilesAtRevision,
 	openOnlyChangedFiles,
@@ -63,12 +65,7 @@ import {
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
-import {
-	executeActionCommand,
-	executeCommand,
-	executeCoreCommand,
-	registerCommand,
-} from '../../../system/command';
+import { executeActionCommand, executeCommand, executeCoreCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { getContext, onDidChangeContext } from '../../../system/context';
 import { gate } from '../../../system/decorators/gate';
@@ -534,10 +531,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			this.host.registerWebviewCommand('gitlens.graph.openChangedFiles', this.openFiles),
 			this.host.registerWebviewCommand('gitlens.graph.openOnlyChangedFiles', this.openOnlyChangedFiles),
-			this.host.registerWebviewCommand('gitlens.graph.openChangedFileDiffs', this.openAllChanges),
-			this.host.registerWebviewCommand(
-				'gitlens.graph.openChangedFileDiffsWithWorking',
-				this.openAllChangesWithWorking,
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.openChangedFileDiffs', item =>
+				this.openAllChanges(item),
+			),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.openChangedFileDiffsWithWorking', item =>
+				this.openAllChangesWithWorking(item),
+			),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.openChangedFileDiffsIndividually', item =>
+				this.openAllChanges(item, true),
+			),
+			this.host.registerWebviewCommand<GraphItemContext>(
+				'gitlens.graph.openChangedFileDiffsWithWorkingIndividually',
+				item => this.openAllChangesWithWorking(item, true),
 			),
 			this.host.registerWebviewCommand('gitlens.graph.openChangedFileRevisions', this.openRevisions),
 
@@ -2714,18 +2719,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
-	private async openAllChanges(item?: GraphItemContext) {
+	private async openAllChanges(item?: GraphItemContext, individually?: boolean) {
 		const commit = await this.getCommitFromGraphItemRef(item);
 		if (commit == null) return;
 
+		if (individually) {
+			return openAllChangesIndividually(commit);
+		}
 		return openAllChanges(commit);
 	}
 
 	@debug()
-	private async openAllChangesWithWorking(item?: GraphItemContext) {
+	private async openAllChangesWithWorking(item?: GraphItemContext, individually?: boolean) {
 		const commit = await this.getCommitFromGraphItemRef(item);
 		if (commit == null) return;
 
+		if (individually) {
+			return openAllChangesWithWorkingIndividually(commit);
+		}
 		return openAllChangesWithWorking(commit);
 	}
 

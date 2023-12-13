@@ -6487,6 +6487,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.openChangedFileDiffsIndividually",
+				"title": "Open All Changes, Individually",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.openChangedFileDiffsWithWorkingIndividually",
+				"title": "Open All Changes with Working Tree, Individually",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.openChangedFileRevisions",
 				"title": "Open Files at Revision",
 				"category": "GitLens"
@@ -8180,6 +8190,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.openChangedFileDiffsIndividually",
+				"title": "Open All Changes Individually",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.openChangedFileDiffsWithWorkingIndividually",
+				"title": "Open All Changes with Working Tree Individually",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.openChangedFileRevisions",
 				"title": "Open Files at Revision",
 				"category": "GitLens"
@@ -9612,6 +9632,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.openChangedFileDiffsIndividually",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openChangedFileDiffsWithWorkingIndividually",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.openChangedFileRevisions",
 					"when": "false"
 				},
@@ -10781,6 +10809,14 @@
 				},
 				{
 					"command": "gitlens.graph.openChangedFileDiffsWithWorking",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileDiffsIndividually",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileDiffsWithWorkingIndividually",
 					"when": "false"
 				},
 				{
@@ -14290,8 +14326,18 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.views.openChangedFileDiffsWithWorking",
+					"command": "gitlens.views.openChangedFileDiffsIndividually",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.openChangedFileDiffsWithWorking",
+					"group": "1_gitlens@3"
+				},
+				{
+					"command": "gitlens.views.openChangedFileDiffsWithWorkingIndividually",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"group": "1_gitlens@4"
 				},
 				{
 					"command": "gitlens.views.openChangedFiles",
@@ -14312,9 +14358,19 @@
 					"group": "1_gitlens@1"
 				},
 				{
+					"command": "gitlens.graph.openChangedFileDiffsIndividually",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"group": "1_gitlens@2"
+				},
+				{
 					"command": "gitlens.graph.openChangedFileDiffsWithWorking",
 					"when": "webviewItem != gitlens:wip",
-					"group": "1_gitlens@2"
+					"group": "1_gitlens@3"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileDiffsWithWorkingIndividually",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"group": "1_gitlens@4"
 				},
 				{
 					"command": "gitlens.graph.openChangedFiles",

@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds experimental `gitlens.experimental.openChangesInMultiDiffEditor` setting to specify whether to open multiple changes in VS Code's experimental multi-diff editor (single tab) or in individual diff editors (multiple tabs)
   - Adds an inline _Open All Changes_ command to commits, stashes, and comparisons in the views
   - Changes _Open All Changes_ & _Open All Changes with Working Tree_ commands to use the new multi-diff editor when enabled
+  - Adds _Open All Changes, Individually_ & _Open All Changes with Working Tree, Individually_ commands to provide access to the previous behavior
   - Requires VS Code `1.85` or later and `multiDiffEditor.experimental.enabled` to be enabled
 - Adds a confirmation prompt when attempting to undo a commit with uncommitted changes
 - Adds a _[Show|Hide] Merge Commits_ toggle to the _Contributors_ view
