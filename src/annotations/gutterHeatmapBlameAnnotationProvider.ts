@@ -7,7 +7,7 @@ import { getLogScope } from '../system/logger.scope';
 import { maybeStopWatch } from '../system/stopwatch';
 import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../trackers/trackedDocument';
-import type { AnnotationContext } from './annotationProvider';
+import type { AnnotationContext, AnnotationState } from './annotationProvider';
 import type { Decoration } from './annotations';
 import { addOrUpdateGutterHeatmapDecoration } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
@@ -18,12 +18,10 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 	}
 
 	@log()
-	override async onProvideAnnotation(context?: AnnotationContext, force?: boolean): Promise<boolean> {
+	override async onProvideAnnotation(context?: AnnotationContext, state?: AnnotationState): Promise<boolean> {
 		const scope = getLogScope();
 
-		this.annotationContext = context;
-
-		const blame = await this.getBlame(force);
+		const blame = await this.getBlame(state?.recompute);
 		if (blame == null) return false;
 
 		using sw = maybeStopWatch(scope);

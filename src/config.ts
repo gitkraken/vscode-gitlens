@@ -72,6 +72,7 @@ export interface Config {
 	readonly defaultTimeFormat: DateTimeFormat | (string & object) | null;
 	readonly detectNestedRepositories: boolean;
 	readonly experimental: {
+		readonly allowAnnotationsWhenDirty: boolean;
 		readonly generateCommitMessagePrompt: string;
 		readonly nativeGit: boolean;
 		readonly openChangesInMultiDiffEditor: boolean;

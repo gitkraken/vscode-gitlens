@@ -4008,6 +4008,50 @@
 				}
 			},
 			{
+				"id": "gitkraken",
+				"title": "GitKraken",
+				"order": 9000,
+				"properties": {
+					"gitlens.gitKraken.activeOrganizationId": {
+						"type": "string",
+						"markdownDescription": "Specifies the ID of the user's active GitKraken organization in GitLens",
+						"scope": "window",
+						"order": 1
+					}
+				}
+			},
+			{
+				"id": "experimental",
+				"title": "Experimental",
+				"order": 9500,
+				"properties": {
+					"gitlens.experimental.openChangesInMultiDiffEditor": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether to open multiple changes in VS Code's experimental multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.experimental.allowAnnotationsWhenDirty": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether file annotations are allowed on dirty files. Use `#gitlens.advanced.blame.delayAfterEdit#` to control how long to wait before the annotation will refresh while still dirty",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.experimental.nativeGit": {
+						"type": [
+							"boolean",
+							"null"
+						],
+						"default": true,
+						"markdownDescription": "(Experimental) Specifies whether to use Git directly for fetch/push/pull operation instead of relying on VS Code's built-in Git implementation",
+						"scope": "window",
+						"order": 30
+					}
+				}
+			},
+			{
 				"id": "advanced",
 				"title": "Advanced",
 				"order": 10000,
@@ -4202,7 +4246,7 @@
 					"gitlens.advanced.blame.delayAfterEdit": {
 						"type": "number",
 						"default": 5000,
-						"markdownDescription": "Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit. Use 0 to specify an infinite wait",
+						"markdownDescription": "Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit but before it is saved. Use 0 to specify an infinite wait",
 						"scope": "window",
 						"order": 42
 					},
@@ -4288,39 +4332,9 @@
 						"scope": "window",
 						"order": 110
 					},
-					"gitlens.experimental.nativeGit": {
-						"type": [
-							"boolean",
-							"null"
-						],
-						"default": true,
-						"markdownDescription": "(Experimental) Specifies whether to use Git directly for fetch/push/pull operation instead of relying on VS Code's built-in Git implementation",
-						"scope": "window",
-						"order": 120
-					},
-					"gitlens.experimental.openChangesInMultiDiffEditor": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "(Experimental) Specifies whether to open multiple changes in VS Code's experimental multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
-						"scope": "window",
-						"order": 120
-					},
 					"gitlens.advanced.useSymmetricDifferenceNotation": {
 						"deprecationMessage": "Deprecated. This setting is no longer used",
 						"markdownDescription": "Deprecated. This setting is no longer used"
-					}
-				}
-			},
-			{
-				"id": "gitkraken",
-				"title": "GitKraken",
-				"order": 9000,
-				"properties": {
-					"gitlens.gitKraken.activeOrganizationId": {
-						"type": "string",
-						"markdownDescription": "Specifies the ID of the user's active GitKraken organization in GitLens",
-						"scope": "window",
-						"order": 1
 					}
 				}
 			},
