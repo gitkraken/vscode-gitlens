@@ -416,8 +416,8 @@ export class DraftService implements Disposable {
 				updatedAt: new Date(d.updatedAt ?? d.createdAt),
 
 				latestChangesetId: d.latestChangesetId,
-			}),
-		);
+			};
+		});
 	}
 
 	@log()
