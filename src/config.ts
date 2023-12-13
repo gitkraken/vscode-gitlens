@@ -74,7 +74,6 @@ export interface Config {
 	readonly experimental: {
 		readonly allowAnnotationsWhenDirty: boolean;
 		readonly generateCommitMessagePrompt: string;
-		readonly nativeGit: boolean;
 		readonly openChangesInMultiDiffEditor: boolean;
 	};
 	readonly fileAnnotations: {
