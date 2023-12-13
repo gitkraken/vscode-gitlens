@@ -12,7 +12,11 @@ interface PropOfValue {
 	value: string | undefined;
 }
 
-export function debounce<T extends (...args: any[]) => ReturnType<T>>(fn: T, wait: number): Deferrable<T> {
+export function debounce<T extends (...args: any[]) => ReturnType<T>>(
+	fn: T,
+	wait: number,
+	aggregator?: (prevArgs: Parameters<T>, nextArgs: Parameters<T>) => Parameters<T>,
+): Deferrable<T> {
 	let lastArgs: Parameters<T>;
 	let lastCallTime: number | undefined;
 	let lastThis: ThisType<T>;
@@ -77,7 +81,12 @@ export function debounce<T extends (...args: any[]) => ReturnType<T>>(fn: T, wai
 		const time = Date.now();
 		const isInvoking = shouldInvoke(time);
 
-		lastArgs = args;
+		if (aggregator != null && lastArgs) {
+			lastArgs = aggregator(lastArgs, args);
+		} else {
+			lastArgs = args;
+		}
+
 		// eslint-disable-next-line @typescript-eslint/no-this-alias
 		lastThis = this;
 		lastCallTime = time;

@@ -77,8 +77,7 @@ export class DocumentTracker<T> implements Disposable {
 			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			window.onDidChangeActiveTextEditor(this.onActiveTextEditorChanged, this),
-			// window.onDidChangeVisibleTextEditors(debounce(this.onVisibleEditorsChanged, 5000), this),
-			workspace.onDidChangeTextDocument(debounce(this.onTextDocumentChanged, 50), this),
+			workspace.onDidChangeTextDocument(this.onTextDocumentChanged, this),
 			workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 			workspace.onDidSaveTextDocument(this.onTextDocumentSaved, this),
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
@@ -170,9 +169,38 @@ export class DocumentTracker<T> implements Disposable {
 		}
 	}
 
-	private async onTextDocumentChanged(e: TextDocumentChangeEvent) {
+	private debouncedTextDocumentChanges = new WeakMap<
+		TextDocument,
+		Deferrable<Parameters<typeof workspace.onDidChangeTextDocument>[0]>
+	>();
+
+	private onTextDocumentChanged(e: TextDocumentChangeEvent) {
 		const { scheme } = e.document.uri;
 		if (!this.container.git.supportedSchemes.has(scheme)) return;
+
+		let debouncedChange = this.debouncedTextDocumentChanges.get(e.document);
+		if (debouncedChange == null) {
+			debouncedChange = debounce(
+				e => this.onTextDocumentChangedCore(e),
+				50,
+				([prev]: [TextDocumentChangeEvent], [next]: [TextDocumentChangeEvent]) => {
+					return [
+						{
+							...next,
+							// Aggregate content changes
+							contentChanges: [...prev.contentChanges, ...next.contentChanges],
+						} satisfies TextDocumentChangeEvent,
+					];
+				},
+			);
+			this.debouncedTextDocumentChanges.set(e.document, debouncedChange);
+		}
+
+		debouncedChange(e);
+	}
+
+	private async onTextDocumentChangedCore(e: TextDocumentChangeEvent) {
+		this.debouncedTextDocumentChanges.delete(e.document);
 
 		const doc = await (this._documentMap.get(e.document) ?? this.addCore(e.document));
 		doc.refresh('doc-changed');
