@@ -322,8 +322,8 @@ export class AccountContent extends LitElement {
 						() =>
 							html`<p style="text-align: center;">
 								<a
-									href=${'https://www.gitkraken.com/cw23?utm_source=cyber_week&utm_medium=gitlens_banner&utm_campaign=cyber_week_2023'}
-									>Cyber Week Sale: <b>50% off first seat of Pro</b> — only $4/month! Includes entire
+									href=${'https://www.gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023'}
+									>Holiday Special: 50% off first seat of Pro — only $4/month! Includes entire
 									GitKraken suite of dev tools.</a
 								>
 							</p>`,
