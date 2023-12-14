@@ -138,7 +138,7 @@ export function parseGitBlame(
 			}
 			case 'committer-time':
 				if (entry.sha === uncommitted && modifiedTime != null) {
-					entry.authorTime = modifiedTime;
+					entry.committerTime = modifiedTime;
 				} else {
 					entry.committerTime = parseInt(lineParts[1], 10) * 1000;
 				}
