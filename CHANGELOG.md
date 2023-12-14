@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [14.6.1] - 2023-12-14
+
 ### Fixed
 
 - Fixes [#3057](https://github.com/gitkraken/vscode-gitlens/issues/3057) - Uncommitted changes cause an error when gitlens.defaultDateSource is "committed"
@@ -5113,7 +5115,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.6.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.6.1...HEAD
+[14.6.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.6.0...gitkraken:v14.6.1
 [14.6.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.5.1...gitkraken:v14.6.0
 [14.5.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.5.0...gitkraken:v14.5.1
 [14.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.4.0...gitkraken:v14.5.0
