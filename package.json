@@ -4401,6 +4401,13 @@
 						"scope": "window",
 						"order": 40
 					},
+					"gitlens.fileAnnotations.dismissOnEscape": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether pressing the `ESC` key dismisses the active file annotations",
+						"scope": "window",
+						"order": 45
+					},
 					"gitlens.fileAnnotations.command": {
 						"type": [
 							"string",
@@ -15299,7 +15306,7 @@
 			{
 				"command": "gitlens.key.escape",
 				"key": "escape",
-				"when": "gitlens:key:escape && editorTextFocus && !findWidgetVisible && !quickFixWidgetVisible && !renameInputVisible && !suggestWidgetVisible && !isInEmbeddedEditor"
+				"when": "gitlens:key:escape && editorTextFocus && !findWidgetVisible && !quickFixWidgetVisible && !renameInputVisible && !suggestWidgetVisible && !referenceSearchVisible && !codeActionMenuVisible && !parameterHintsVisible && !isInEmbeddedEditor"
 			},
 			{
 				"command": "gitlens.gitCommands",

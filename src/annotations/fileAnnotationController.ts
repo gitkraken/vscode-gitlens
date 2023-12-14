@@ -111,6 +111,16 @@ export class FileAnnotationController implements Disposable {
 			this.updateDecorations(false);
 		}
 
+		if (configuration.changed(e, 'fileAnnotations.dismissOnEscape')) {
+			if (configuration.get('fileAnnotations.dismissOnEscape')) {
+				if (window.visibleTextEditors.some(e => this.getProvider(e))) {
+					void this.attachKeyboardHook();
+				}
+			} else {
+				void this.detachKeyboardHook();
+			}
+		}
+
 		let toggleMode;
 		if (configuration.changed(e, 'blame.toggleMode')) {
 			toggleMode = configuration.get('blame.toggleMode');
@@ -426,6 +436,8 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private async attachKeyboardHook() {
+		if (!configuration.get('fileAnnotations.dismissOnEscape')) return;
+
 		// Allows pressing escape to exit the annotations
 		if (this._keyboardScope == null) {
 			this._keyboardScope = await this.container.keyboard.beginScope({

@@ -79,6 +79,7 @@ export interface Config {
 	};
 	readonly fileAnnotations: {
 		readonly command: string | null;
+		readonly dismissOnEscape: boolean;
 	};
 	readonly focus: {
 		readonly allowMultiple: boolean;
