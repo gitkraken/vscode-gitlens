@@ -54,7 +54,7 @@ export type AnnotationClearReason =
 
 export const Decorations = {
 	gutterBlameAnnotation: window.createTextEditorDecorationType({
-		rangeBehavior: DecorationRangeBehavior.ClosedOpen,
+		rangeBehavior: DecorationRangeBehavior.OpenOpen,
 		textDecoration: 'none',
 	}),
 	gutterBlameHighlight: undefined as TextEditorDecorationType | undefined,

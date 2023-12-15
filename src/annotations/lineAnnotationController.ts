@@ -24,7 +24,7 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
 		margin: '0 0 0 3em',
 		textDecoration: 'none',
 	},
-	rangeBehavior: DecorationRangeBehavior.ClosedOpen,
+	rangeBehavior: DecorationRangeBehavior.OpenOpen,
 });
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
