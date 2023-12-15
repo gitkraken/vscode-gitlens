@@ -239,6 +239,8 @@ export class LineAnnotationController implements Disposable {
 				.join()}`;
 		}
 
+		let uncommittedOnly = true;
+
 		const commitPromises = new Map<string, Promise<void>>();
 		const lines = new Map<number, GitLineState>();
 		for (const selection of selections) {
@@ -252,6 +254,9 @@ export class LineAnnotationController implements Disposable {
 				commitPromises.set(state.commit.ref, state.commit.ensureFullDetails());
 			}
 			lines.set(selection.active, state);
+			if (!state.commit.isUncommitted) {
+				uncommittedOnly = false;
+			}
 		}
 
 		const repoPath = trackedDocument.uri.repoPath;
@@ -269,6 +274,7 @@ export class LineAnnotationController implements Disposable {
 		}
 
 		const getPullRequests =
+			!uncommittedOnly &&
 			repoPath != null &&
 			cfg.pullRequests.enabled &&
 			CommitFormatter.has(
