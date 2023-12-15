@@ -234,7 +234,18 @@ export function getGitArgsFromSearchQuery(
 
 							files.push(value);
 						} else {
-							files.push(`${search.matchCase ? '' : ':(icase)'}${value}`);
+							const prefix = search.matchCase ? '' : ':(icase)';
+							if (/[/\\*?|![\]{}]/.test(value)) {
+								files.push(`${prefix}${value}`);
+							} else {
+								const index = value.indexOf('.');
+								if (index > 0) {
+									// maybe a file extension
+									files.push(`${prefix}**/${value}`);
+								} else {
+									files.push(`${prefix}*${value}*`);
+								}
+							}
 						}
 					}
 
