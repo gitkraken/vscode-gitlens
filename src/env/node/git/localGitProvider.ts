@@ -962,7 +962,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			authority: encodeGitLensRevisionUriAuthority(metadata),
 			path: path,
 			// Replace `/` with `\u2009\u2215\u2009` so that it doesn't get treated as part of the path of the file
-			query: ref ? JSON.stringify({ ref: shortenRevision(ref).replace('/', '\u2009\u2215\u2009') }) : undefined,
+			query: ref ? JSON.stringify({ ref: shortenRevision(ref).replaceAll('/', '\u2009\u2215\u2009') }) : undefined,
 		});
 		return uri;
 	}
