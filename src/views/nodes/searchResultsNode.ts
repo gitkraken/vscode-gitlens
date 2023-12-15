@@ -66,6 +66,10 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		return this._uniqueId;
 	}
 
+	override toClipboard(): string {
+		return this.search.query;
+	}
+
 	get order(): number {
 		return this._storedAt;
 	}

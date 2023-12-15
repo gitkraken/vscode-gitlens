@@ -13771,12 +13771,7 @@
 				},
 				{
 					"command": "gitlens.views.copy",
-					"when": "viewItem =~ /gitlens:(?=(autolinked:issue|branch|commit|contributor|folder|history:line|pullrequest|remote|repository|repo-folder|stash|tag|workspace|worktree)\\b)/",
-					"group": "7_gitlens_cutcopypaste@1"
-				},
-				{
-					"command": "gitlens.views.copy",
-					"when": "viewItem =~ /gitlens:file(?!.*?\\b\\+(staged|unstaged))\\b/",
+					"when": "viewItem =~ /gitlens:(?=(autolinked:issue|branch|commit|contributor|file(?!.*?\\b\\+(staged|unstaged))\\b|folder|history:line|pullrequest|remote|repository|repo-folder|search:results|stash|tag|workspace|worktree)\\b)/",
 					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
