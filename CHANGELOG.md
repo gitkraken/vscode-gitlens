@@ -10,11 +10,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a `gitlens.fileAnnotations.dismissOnEscape` setting to specify whether pressing the `ESC` key dismisses the active file annotations &mdash; closes [#3016](https://github.com/gitkraken/vscode-gitlens/issues/3016)
 
+### Fixed
+
+- Fixes [#2926](https://github.com/gitkraken/vscode-gitlens/issues/2926) in more cases - "Open File at Revision" has incorrect editor label if revision contains path separator &mdash; thanks to [PR #3060](https://github.com/gitkraken/vscode-gitlens/issues/3060) by Ian Chamberlain ([@ian-h-chamberlain](https://github.com/ian-h-chamberlain)
+
 ## [14.6.1] - 2023-12-14
 
 ### Fixed
 
-- Fixes [#2926](https://github.com/gitkraken/vscode-gitlens/issues/2926) in more cases - "Open File at Revision" has incorrect editor label if revision contains path separator &mdash; thanks to [PR #3060](https://github.com/gitkraken/vscode-gitlens/issues/3060) by Ian Chamberlain ([@ian-h-chamberlain](https://github.com/ian-h-chamberlain)
 - Fixes [#3057](https://github.com/gitkraken/vscode-gitlens/issues/3057) - Uncommitted changes cause an error when gitlens.defaultDateSource is "committed"
 
 ## [14.6.0] - 2023-12-13
