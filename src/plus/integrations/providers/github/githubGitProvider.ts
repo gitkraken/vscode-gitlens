@@ -3071,9 +3071,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const values = operations.get('commit:');
 			if (values != null) {
-				const commitsResults = await Promise.allSettled<Promise<GitCommit | undefined>[]>([
-					...map(values, v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
-				]);
+				const commitsResults = await Promise.allSettled(
+					map(values, v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
+				);
 
 				let i = 0;
 				for (const commitResult of commitsResults) {

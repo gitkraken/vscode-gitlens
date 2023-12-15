@@ -88,11 +88,11 @@ export async function showRepositoryPicker(
 
 	let items: RepositoryQuickPickItem[];
 	if (repositoriesOrOptions == null || Array.isArray(repositoriesOrOptions)) {
-		items = await Promise.all<Promise<RepositoryQuickPickItem>>([
-			...map(repositoriesOrOptions ?? Container.instance.git.openRepositories, r =>
+		items = await Promise.all<Promise<RepositoryQuickPickItem>>(
+			map(repositoriesOrOptions ?? Container.instance.git.openRepositories, r =>
 				createRepositoryQuickPickItem(r, undefined, { branch: true, status: true }),
 			),
-		]);
+		);
 	} else {
 		const { filter } = repositoriesOrOptions;
 		items = await filterMapAsync(Container.instance.git.openRepositories, async r =>
@@ -162,11 +162,11 @@ export async function showRepositoriesPicker(
 
 	let items: RepositoryQuickPickItem[];
 	if (repositoriesOrOptions == null || Array.isArray(repositoriesOrOptions)) {
-		items = await Promise.all<Promise<RepositoryQuickPickItem>>([
-			...map(repositoriesOrOptions ?? Container.instance.git.openRepositories, r =>
+		items = await Promise.all<Promise<RepositoryQuickPickItem>>(
+			map(repositoriesOrOptions ?? Container.instance.git.openRepositories, r =>
 				createRepositoryQuickPickItem(r, undefined, { branch: true, status: true }),
 			),
-		]);
+		);
 	} else {
 		const { filter } = repositoriesOrOptions;
 		items = await filterMapAsync(Container.instance.git.openRepositories, async r =>

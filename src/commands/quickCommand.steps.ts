@@ -228,8 +228,8 @@ export async function getWorktrees(
 	},
 ): Promise<WorktreeQuickPickItem[]> {
 	const worktrees = repoOrWorktrees instanceof Repository ? await repoOrWorktrees.getWorktrees() : repoOrWorktrees;
-	return Promise.all<WorktreeQuickPickItem>([
-		...worktrees
+	return Promise.all<WorktreeQuickPickItem>(
+		worktrees
 			.filter(w => filter == null || filter(w))
 			.map(async w => {
 				let missing = false;
@@ -254,7 +254,7 @@ export async function getWorktrees(
 					},
 				);
 			}),
-	]);
+	);
 }
 
 export async function getBranchesAndOrTags(

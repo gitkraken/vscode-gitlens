@@ -142,7 +142,7 @@ export class TelemetryService implements Disposable {
 				type: 'sendEvent',
 				name: name,
 				data: data,
-				global: new Map([...this.globalAttributes]),
+				global: new Map(this.globalAttributes),
 				startTime: startTime ?? Date.now(),
 				endTime: endTime ?? Date.now(),
 			});
