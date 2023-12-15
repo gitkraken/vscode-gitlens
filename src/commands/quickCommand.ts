@@ -334,7 +334,7 @@ export function createConfirmStep<T extends QuickPickItem, Context extends { tit
 		ignoreFocusOut: true,
 		items: [...confirmations, cancel ?? createDirectiveQuickPickItem(Directive.Cancel)],
 		selectedItems: [confirmations.find(c => c.picked) ?? confirmations[0]],
-		...(options ?? {}),
+		...options,
 	});
 }
 

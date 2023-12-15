@@ -756,7 +756,7 @@ class FantasticonPlugin {
 			return;
 		}
 
-		const fontConfig = { ...(loadedConfig ?? {}), ...(config ?? {}) };
+		const fontConfig = { ...loadedConfig, ...config };
 
 		// TODO@eamodio: Figure out how to add watching for the fontConfig.inputDir
 		// Maybe something like: https://github.com/Fridus/webpack-watch-files-plugin

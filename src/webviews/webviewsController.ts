@@ -298,11 +298,9 @@ export class WebviewsController implements Disposable {
 						descriptor.title,
 						{ viewColumn: column, preserveFocus: options?.preserveFocus ?? false },
 						{
-							...{
-								enableCommandUris: true,
-								enableScripts: true,
-								localResourceRoots: [Uri.file(container.context.extensionPath)],
-							},
+							enableCommandUris: true,
+							enableScripts: true,
+							localResourceRoots: [Uri.file(container.context.extensionPath)],
 							...descriptor.webviewOptions,
 							...descriptor.webviewHostOptions,
 						},
