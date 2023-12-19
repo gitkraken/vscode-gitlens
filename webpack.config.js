@@ -444,6 +444,7 @@ function getWebviewsConfig(mode, env) {
 									preset: [
 										'cssnano-preset-advanced',
 										{
+											autoprefixer: false,
 											discardUnused: false,
 											mergeIdents: false,
 											reduceIdents: false,
