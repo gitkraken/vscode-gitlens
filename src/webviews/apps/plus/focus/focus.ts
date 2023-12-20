@@ -14,10 +14,12 @@ import {
 import type { IpcMessage } from '../../../protocol';
 import { onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
+import { litToStyleSheet } from '../../shared/components/styles/lit/utils';
 import { DOM } from '../../shared/dom';
 import type { GlFocusApp } from './components/focus-app';
 import type { GkIssueRow } from './components/gk-issue-row';
 import type { GkPullRequestRow } from './components/gk-pull-request-row';
+import { focusStyles, webviewBaseStyles } from './focus.css';
 import './components/focus-app';
 import './focus.scss';
 
@@ -28,6 +30,7 @@ export class FocusApp extends App<State> {
 
 	override onInitialize() {
 		this.attachState();
+		document.adoptedStyleSheets.push(...litToStyleSheet(focusStyles, webviewBaseStyles));
 	}
 
 	protected override onBind() {
