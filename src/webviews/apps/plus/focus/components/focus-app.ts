@@ -17,7 +17,6 @@ import type { State } from '../../../../../plus/webviews/focus/protocol';
 import { debounce } from '../../../../../system/function';
 import type { FeatureGate } from '../../../shared/components/feature-gate';
 import type { FeatureGateBadge } from '../../../shared/components/feature-gate-badge';
-import { themeProperties } from './gk-theme.css';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/feature-gate';
@@ -27,7 +26,7 @@ import './gk-issue-row';
 
 @customElement('gl-focus-app')
 export class GlFocusApp extends LitElement {
-	static override styles = [themeProperties];
+	static override styles = [];
 	private readonly tabFilters = ['prs', 'issues', 'snoozed'];
 	private readonly tabFilterOptions = [
 		{ label: 'All', value: '' },

@@ -10,14 +10,14 @@ export const rowBaseStyles = css`
 	}
 
 	a {
-		color: var(--vscode-textLink-foreground);
+		color: var(--gl-link-foreground);
 		text-decoration: none;
 	}
 	a:hover {
 		text-decoration: underline;
 	}
 	a:focus {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: 1px solid var(--gl-focus-color);
 		outline-offset: -1px;
 	}
 
@@ -40,10 +40,10 @@ export const rowBaseStyles = css`
 		cursor: pointer;
 	}
 	.actions a:hover {
-		background-color: var(--vscode-toolbar-hoverBackground);
+		background-color: var(--gl-action-item-hover-background);
 	}
 	.actions a:active {
-		background-color: var(--vscode-toolbar-activeBackground);
+		background-color: var(--gl-action-item-active-background);
 	}
 	.actions a[tabindex='-1'] {
 		opacity: 0.5;
@@ -55,16 +55,16 @@ export const rowBaseStyles = css`
 	}
 
 	.indicator-info {
-		color: var(--vscode-problemsInfoIcon-foreground);
+		color: var(--gl-indicator-info-foreground);
 	}
 	.indicator-warning {
-		color: var(--vscode-problemsWarningIcon-foreground);
+		color: var(--gl-indicator-warning-foreground);
 	}
 	.indicator-error {
-		color: var(--vscode-problemsErrorIcon-foreground);
+		color: var(--gl-indicator-error-foreground);
 	}
 	.indicator-neutral {
-		color: var(--color-alert-neutralBorder);
+		color: var(--gl-indicator-neutral-foreground);
 	}
 
 	.row-type {
@@ -123,7 +123,7 @@ export const pinStyles = css`
 	}
 
 	.pin:focus {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: 1px solid var(--gl-focus-color);
 		outline-offset: -1px;
 	}
 

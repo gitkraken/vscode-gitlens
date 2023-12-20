@@ -10,37 +10,66 @@
 }
 
 body {
-	--avatar-size: 2.4rem;
-	--focus-color: var(--vscode-focusBorder);
-	--table-separator: var(--vscode-textSeparator-foreground);
-	--table-heading: var(--color-foreground--50);
-	--table-text: var(--color-foreground--65);
-	--table-pinned-background: var(--color-background);
-	--layout-gutter-outer: 20px;
+	// gitlens theming
+	--gl-link-foreground: var(--vscode-textLink-foreground);
+	--gl-indicator-info-foreground: var(--vscode-problemsInfoIcon-foreground);
+	--gl-indicator-warning-foreground: var(--vscode-problemsWarningIcon-foreground);
+	--gl-indicator-error-foreground: var(--vscode-problemsErrorIcon-foreground);
+	--gl-indicator-neutral-foreground: var(--vscode-alert-neutralBorder);
+
+	--gl-action-item-hover-background: var(--vscode-toolbar-hoverBackground);
+	--gl-action-item-active-background: var(--vscode-toolbar-activeBackground);
+	--gl-focus-color: var(--vscode-focusBorder);
+
+	// shared components theming
 	--gk-input-background-color: var(--vscode-input-background);
 	--gk-input-border-color: var(--vscode-input-border);
 	--gk-input-color: var(--vscode-input-foreground);
+
 	--gk-text-secondary-color: var(--color-foreground--65);
+	// --gk-text-secondary-color: var(--color-foreground--85);
+
 	--gk-button-ghost-color: var(--color-foreground--50);
+	// --gk-button-ghost-color: var(--color-foreground);
+	--gk-button-ghost-color-active: var(--color-foreground--85);
+	--gk-button-ghost-color-disabled: var(--color-foreground--50);
+
+	--gk-button-outline-color: var(--color-foreground);
+	--gk-button-outline-color-active: var(--background-10);
+	--gk-button-outline-color-disabled: var(--color-foreground--50);
 
 	--gk-menu-border-color: var(--vscode-menu-border);
 	--gk-menu-background-color: var(--vscode-menu-background);
 	--gk-menu-item-background-color-hover: var(--vscode-menu-selectionBackground);
 	--gk-menu-item-background-color-active: var(--vscode-menu-background);
-	--gk-focus-border-color: var(--focus-color);
+
+	--gk-focus-border-color: var(--gl-focus-color);
+	--gk-focus-background-color-hover: var(--background-05);
+	--gk-focus-row-pin-min-width: 64px;
+	--gk-focus-item-repo-min-width: 150px;
+
 	--gk-badge-outline-color: var(--vscode-badge-foreground);
 	--gk-badge-filled-background-color: var(--vscode-badge-background);
 	--gk-badge-filled-color: var(--vscode-badge-foreground);
-	--gk-tooltip-padding: 0.4rem 0.8rem;
-	--gk-focus-background-color-hover: var(--background-05);
+
 	--gk-divider-color: var(--background-05);
-	--gk-focus-row-pin-min-width: 64px;
-	--gk-focus-item-repo-min-width: 150px;
+
+	--gk-additions-color: var(--vscode-gitDecoration-addedResourceForeground);
+	--gk-deletions-color: var(--vscode-gitDecoration-deletedResourceForeground);
+
+	--gk-avatar-background-color: var(--background-10);
+
+	--gk-tag-background-color: var(--background-10);
+
+	--gk-tooltip-padding: 0.4rem 0.8rem;
+	--gk-tooltip-background-color: var(--popover-bg); // var(--vscode-editorHoverWidget-background);
+	--gk-tooltip-font-color: var(--color-foreground); // var(--vscode-editorHoverWidget-foreground);
+	--gk-tooltip-font-weight: normal;
+	--gk-tooltip-font-size: 1.2rem;
 }
 
 .vscode-high-contrast,
 .vscode-dark {
-	--avatar-bg: var(--color-background--lighten-30);
 	--background-05: var(--color-background--lighten-05);
 	--background-075: var(--color-background--lighten-075);
 	--background-10: var(--color-background--lighten-10);
@@ -52,7 +81,6 @@ body {
 
 .vscode-high-contrast-light,
 .vscode-light {
-	--avatar-bg: var(--color-background--darken-30);
 	--background-05: var(--color-background--darken-05);
 	--background-075: var(--color-background--darken-075);
 	--background-10: var(--color-background--darken-10);

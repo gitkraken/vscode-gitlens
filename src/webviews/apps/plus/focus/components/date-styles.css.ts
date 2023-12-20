@@ -2,9 +2,9 @@ import { css } from 'lit';
 
 export const dateAgeStyles = css`
 	.indicator-warning {
-		color: var(--vscode-problemsWarningIcon-foreground);
+		color: var(--gl-indicator-warning-foreground);
 	}
 	.indicator-danger {
-		color: var(--vscode-problemsErrorIcon-foreground);
+		color: var(--gl-indicator-error-foreground);
 	}
 `;

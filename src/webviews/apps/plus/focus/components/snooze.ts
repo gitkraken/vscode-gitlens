@@ -2,13 +2,12 @@ import { defineGkElement, Menu, MenuItem, Popover, Tooltip } from '@gitkraken/sh
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { pinStyles } from './common.css';
-import { themeProperties } from './gk-theme.css';
 
 const HOUR = 60 * 60 * 1000;
 
 @customElement('gl-snooze')
 class GlSnooze extends LitElement {
-	static override styles = [themeProperties, pinStyles];
+	static override styles = [pinStyles];
 
 	@property({ reflect: true })
 	public snoozed?: string;

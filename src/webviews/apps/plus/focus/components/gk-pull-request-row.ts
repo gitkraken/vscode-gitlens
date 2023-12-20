@@ -18,21 +18,12 @@ import { elementBase } from '../../../shared/components/styles/lit/base.css';
 import { repoBranchStyles } from './branch-tag.css';
 import { pinStyles, rowBaseStyles } from './common.css';
 import { dateAgeStyles } from './date-styles.css';
-import { themeProperties } from './gk-theme.css';
 import { fromDateRange } from './helpers';
 import './snooze';
 
 @customElement('gk-pull-request-row')
 export class GkPullRequestRow extends LitElement {
-	static override styles = [
-		themeProperties,
-		elementBase,
-		dateAgeStyles,
-		repoBranchStyles,
-		pinStyles,
-		rowBaseStyles,
-		css``,
-	];
+	static override styles = [elementBase, dateAgeStyles, repoBranchStyles, pinStyles, rowBaseStyles, css``];
 
 	@property({ type: Number })
 	public rank?: number;
