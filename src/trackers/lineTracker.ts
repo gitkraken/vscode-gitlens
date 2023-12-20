@@ -44,6 +44,7 @@ export class LineTracker<T> implements Disposable {
 		this._selections = toLineSelections(editor?.selections);
 
 		this.notifyLinesChanged('editor');
+		this.onActiveEditorChanged?.();
 	}
 
 	private onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent) {
@@ -196,6 +197,12 @@ export class LineTracker<T> implements Disposable {
 		this.onSuspend?.();
 		this.notifyLinesChanged('editor');
 	}
+
+	/**
+	 * Called after the active editor is changed and line tracker state has been
+	 * updated for it.
+	 */
+	protected onActiveEditorChanged?(): void;
 
 	protected fireLinesChanged(e: LinesChangeEvent) {
 		this._onDidChangeActiveLines.fire(e);
