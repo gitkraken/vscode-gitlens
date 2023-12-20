@@ -58,6 +58,18 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		this._subscriptionOnlyWhenActive = undefined;
 	}
 
+	protected override onActiveEditorChanged() {
+		// The GitLineTracker is suspended for performance while users have
+		// dirty changes in a large editor with lines exceeding the
+		// advanced.blame.sizeThresholdAfterEdit config.
+		//
+		// We'll need to resume if the active editor has changed (since the
+		// suspension was for the previous editor). Otherwise the line tracker
+		// would stay suspended after navigating away from the large dirty
+		// document.
+		this.resume();
+	}
+
 	@debug<GitLineTracker['onBlameStateChanged']>({
 		args: {
 			0: e => `editor/doc=${e.editor.document.uri.toString(true)}, blameable=${e.blameable}`,
