@@ -3820,7 +3820,7 @@
 						],
 						"enumDescriptions": [
 							"Adds an alternate set of shortcut keys that start with `Alt` (⌥ on macOS)",
-							"Adds a chorded set of shortcut keys that start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)",
+							"Adds a chorded set of shortcut keys that start with `Ctrl+Shift+G` (`⌥⌘G` on macOS)",
 							"No shortcut keys will be added"
 						],
 						"markdownDescription": "Specifies the keymap to use for GitLens shortcut keys",
