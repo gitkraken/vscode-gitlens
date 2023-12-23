@@ -332,8 +332,33 @@ export class GlDraftDetails extends GlTreeBase {
 		// <div class="section">
 		// 	<div class="patch-base">${getActions()}</div>
 		// </div>
+
+		const draft = this.state.draft!.draftType === 'cloud' ? this.state.draft! : undefined;
+
 		return html`
 			<div class="section section--action">
+				${when(
+					draft != null,
+					() => html`
+						<div class="message-input">
+							<div class="message-input__control message-input__control--text">
+								${when(
+									draft!.visibility === 'public',
+									() => html`<code-icon icon="globe"></code-icon> Anyone with the link`,
+								)}
+								${when(
+									draft!.visibility === 'private',
+									() =>
+										html`<code-icon icon="organization"></code-icon> Members of my Org with the link`,
+								)}
+								${when(
+									draft!.visibility === 'invite_only',
+									() => html`<code-icon icon="lock"></code-icon> Collaborators only`,
+								)}
+							</div>
+						</div>
+					`,
+				)}
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
@@ -396,6 +421,41 @@ export class GlDraftDetails extends GlTreeBase {
 	// 	`;
 	// }
 
+	renderActionbar() {
+		const draft = this.state?.draft;
+		if (draft == null) return undefined;
+
+		if (draft.draftType === 'local') {
+			return html`
+				<div class="top-details__actionbar">
+					<div class="top-details__actionbar-group"></div>
+					<div class="top-details__actionbar-group">
+						<a
+							class="commit-action"
+							href="#"
+							aria-label="Share Patch"
+							title="Share Patch"
+							@click=${this.onShareLocalPatch}
+							>Share</a
+						>
+					</div>
+				</div>
+			`;
+		}
+
+		return html`
+			<div class="top-details__actionbar">
+				<div class="top-details__actionbar-group"></div>
+				<div class="top-details__actionbar-group">
+					<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
+						<code-icon icon="${this._copiedLink ? 'check' : 'link'}"></code-icon>
+						<span class="top-details__sha">Copy Link</span></a
+					>
+				</div>
+			</div>
+		`;
+	}
+
 	override render() {
 		if (this.state?.draft == null) {
 			return html` <div class="commit-detail-panel scrollable">${this.renderEmptyContent()}</div>`;
@@ -405,30 +465,7 @@ export class GlDraftDetails extends GlTreeBase {
 			<div class="pane-groups">
 				<div class="pane-groups__group-fixed">
 					<div class="section">
-						<div class="top-details__actionbar">
-							<div class="top-details__actionbar-group"></div>
-							<div class="top-details__actionbar-group">
-								${when(
-									this.state?.draft?.draftType === 'cloud',
-									() => html`
-										<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
-											<code-icon icon="${this._copiedLink ? 'check' : 'link'}"></code-icon>
-											<span class="top-details__sha">Copy Link</span></a
-										>
-									`,
-									() => html`
-										<a
-											class="commit-action"
-											href="#"
-											aria-label="Share Patch"
-											title="Share Patch"
-											@click=${this.onShareLocalPatch}
-											>Share</a
-										>
-									`,
-								)}
-							</div>
-						</div>
+						${this.renderActionbar()}
 						${when(
 							this.state.draft?.title != null,
 							() => html`

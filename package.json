@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "14.5.1",
+	"version": "14.6.1",
 	"engines": {
 		"vscode": "^1.82.0"
 	},
@@ -725,7 +725,7 @@
 							"Compares the working tree with a user-selected reference"
 						],
 						"default": "working",
-						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag. etc) in the _Commits_ view",
+						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag, etc) in the _Commits_ view",
 						"scope": "window",
 						"order": 10
 					},
@@ -914,7 +914,7 @@
 							"Compares the working tree with a user-selected reference"
 						],
 						"default": "working",
-						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag. etc) in the _Repositories_ view",
+						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag, etc) in the _Repositories_ view",
 						"scope": "window",
 						"order": 10
 					},
@@ -1112,7 +1112,7 @@
 							"Compares the branch with a user-selected reference"
 						],
 						"default": "branch",
-						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) under each branch in the _Repositories_ view",
+						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag, etc) under each branch in the _Repositories_ view",
 						"scope": "window",
 						"order": 100
 					},
@@ -1254,7 +1254,7 @@
 							"Compares the branch with a user-selected reference"
 						],
 						"default": "branch",
-						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) in the _Branches_ view",
+						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag, etc) in the _Branches_ view",
 						"scope": "window",
 						"order": 10
 					},
@@ -1655,7 +1655,7 @@
 							"Compares the worktree branch with a user-selected reference"
 						],
 						"default": "working",
-						"markdownDescription": "Specifies whether to show a comparison of the worktree branch with a user-selected reference (branch, tag. etc) in the _Worktrees_ view",
+						"markdownDescription": "Specifies whether to show a comparison of the worktree branch with a user-selected reference (branch, tag, etc) in the _Worktrees_ view",
 						"scope": "window",
 						"order": 20
 					},
@@ -1932,7 +1932,7 @@
 							"Compares the working tree with a user-selected reference"
 						],
 						"default": "working",
-						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag. etc) in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag, etc) in the _GitKraken Workspaces_ view",
 						"scope": "window",
 						"order": 10
 					},
@@ -2116,7 +2116,7 @@
 							"Compares the branch with a user-selected reference"
 						],
 						"default": "branch",
-						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) under each branch in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag, etc) under each branch in the _GitKraken Workspaces_ view",
 						"scope": "window",
 						"order": 100
 					}
@@ -3820,7 +3820,7 @@
 						],
 						"enumDescriptions": [
 							"Adds an alternate set of shortcut keys that start with `Alt` (⌥ on macOS)",
-							"Adds a chorded set of shortcut keys that start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)",
+							"Adds a chorded set of shortcut keys that start with `Ctrl+Shift+G` (`⌥⌘G` on macOS)",
 							"No shortcut keys will be added"
 						],
 						"markdownDescription": "Specifies the keymap to use for GitLens shortcut keys",
@@ -4008,6 +4008,40 @@
 				}
 			},
 			{
+				"id": "gitkraken",
+				"title": "GitKraken",
+				"order": 9000,
+				"properties": {
+					"gitlens.gitKraken.activeOrganizationId": {
+						"type": "string",
+						"markdownDescription": "Specifies the ID of the user's active GitKraken organization in GitLens",
+						"scope": "window",
+						"order": 1
+					}
+				}
+			},
+			{
+				"id": "experimental",
+				"title": "Experimental",
+				"order": 9500,
+				"properties": {
+					"gitlens.experimental.openChangesInMultiDiffEditor": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether to open multiple changes in VS Code's experimental multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.experimental.allowAnnotationsWhenDirty": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether file annotations are allowed on dirty files. Use `#gitlens.advanced.blame.delayAfterEdit#` to control how long to wait before the annotation will refresh while still dirty",
+						"scope": "window",
+						"order": 20
+					}
+				}
+			},
+			{
 				"id": "advanced",
 				"title": "Advanced",
 				"order": 10000,
@@ -4134,7 +4168,10 @@
 						"order": 5
 					},
 					"gitlens.advanced.repositorySearchDepth": {
-						"type": "number",
+						"type": [
+							"number",
+							"null"
+						],
 						"default": null,
 						"markdownDescription": "Specifies how many folders deep to search for repositories. Defaults to `#git.repositoryScanMaxDepth#`",
 						"scope": "resource",
@@ -4199,7 +4236,7 @@
 					"gitlens.advanced.blame.delayAfterEdit": {
 						"type": "number",
 						"default": 5000,
-						"markdownDescription": "Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit. Use 0 to specify an infinite wait",
+						"markdownDescription": "Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit but before it is saved. Use 0 to specify an infinite wait",
 						"scope": "window",
 						"order": 42
 					},
@@ -4285,23 +4322,6 @@
 						"scope": "window",
 						"order": 110
 					},
-					"gitlens.experimental.nativeGit": {
-						"type": [
-							"boolean",
-							"null"
-						],
-						"default": true,
-						"markdownDescription": "(Experimental) Specifies whether to use Git directly for fetch/push/pull operation instead of relying on VS Code's built-in Git implementation",
-						"scope": "window",
-						"order": 120
-					},
-					"gitlens.experimental.openChangesInMultiDiffEditor": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "(Experimental) Specifies whether to open multiple changes in VS Code's experimental multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
-						"scope": "window",
-						"order": 120
-					},
 					"gitlens.advanced.useSymmetricDifferenceNotation": {
 						"deprecationMessage": "Deprecated. This setting is no longer used",
 						"markdownDescription": "Deprecated. This setting is no longer used"
@@ -4370,6 +4390,13 @@
 						"markdownDescription": "Specifies the style of the gravatar default (fallback) images",
 						"scope": "window",
 						"order": 40
+					},
+					"gitlens.fileAnnotations.dismissOnEscape": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether pressing the `ESC` key dismisses the active file annotations",
+						"scope": "window",
+						"order": 45
 					},
 					"gitlens.fileAnnotations.command": {
 						"type": [
@@ -5089,6 +5116,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.gk.switchOrganization",
+				"title": "Switch Organization...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.getStarted",
 				"title": "Get Started",
 				"category": "GitLens"
@@ -5454,6 +5486,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.diffFolderWithRevision",
+				"title": "Open Folder Changes with Revision...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.diffFolderWithRevisionFrom",
+				"title": "Open Folder Changes with Branch or Tag...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.diffWithRevision",
 				"title": "Open Changes with Revision...",
 				"category": "GitLens",
@@ -5523,6 +5565,16 @@
 					"dark": "images/dark/icon-git.svg",
 					"light": "images/light/icon-git.svg"
 				}
+			},
+			{
+				"command": "gitlens.annotations.nextChange",
+				"title": "Next Change",
+				"icon": "$(arrow-down)"
+			},
+			{
+				"command": "gitlens.annotations.previousChange",
+				"title": "Previous Change",
+				"icon": "$(arrow-up)"
 			},
 			{
 				"command": "gitlens.clearFileAnnotations",
@@ -6335,6 +6387,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.openInIntegratedTerminal",
+				"title": "Open in Integrated Terminal",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.setAsDefault",
 				"title": "Set as Default",
 				"category": "GitLens"
@@ -6431,11 +6488,23 @@
 			{
 				"command": "gitlens.views.openChangedFileDiffs",
 				"title": "Open All Changes",
+				"icon": "$(diff-multiple)",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.openChangedFileDiffsWithWorking",
 				"title": "Open All Changes with Working Tree",
+				"icon": "$(diff-multiple)",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.openChangedFileDiffsIndividually",
+				"title": "Open All Changes, Individually",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.openChangedFileDiffsWithWorkingIndividually",
+				"title": "Open All Changes with Working Tree, Individually",
 				"category": "GitLens"
 			},
 			{
@@ -8122,11 +8191,23 @@
 			{
 				"command": "gitlens.graph.openChangedFileDiffs",
 				"title": "Open All Changes",
+				"icon": "$(diff-multiple)",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.graph.openChangedFileDiffsWithWorking",
 				"title": "Open All Changes with Working Tree",
+				"icon": "$(diff-multiple)",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.openChangedFileDiffsIndividually",
+				"title": "Open All Changes Individually",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.openChangedFileDiffsWithWorkingIndividually",
+				"title": "Open All Changes with Working Tree Individually",
 				"category": "GitLens"
 			},
 			{
@@ -8642,6 +8723,10 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.gk.switchOrganization",
+					"when": "gitlens:gk:hasOrganizations"
+				},
+				{
 					"command": "gitlens.showPatchDetailsPage",
 					"when": "gitlens:enabled && config.gitlens.cloudPatches.enabled"
 				},
@@ -8862,10 +8947,6 @@
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{
-					"command": "gitlens.diffWithRevisionFrom",
-					"when": "gitlens:activeFileStatus =~ /tracked/"
-				},
-				{
 					"command": "gitlens.diffWithNext",
 					"when": "gitlens:activeFileStatus =~ /revision/ && !isInDiffEditor"
 				},
@@ -8894,7 +8975,19 @@
 					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
 				{
+					"command": "gitlens.diffFolderWithRevision",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.diffFolderWithRevisionFrom",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
 					"command": "gitlens.diffWithRevision",
+					"when": "gitlens:activeFileStatus =~ /tracked/"
+				},
+				{
+					"command": "gitlens.diffWithRevisionFrom",
 					"when": "gitlens:activeFileStatus =~ /tracked/"
 				},
 				{
@@ -8942,8 +9035,16 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.annotations.nextChange",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.annotations.previousChange",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.clearFileAnnotations",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computed"
+					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus =~ /computed\\b/"
 				},
 				{
 					"command": "gitlens.computingFileAnnotations",
@@ -9466,6 +9567,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.openInIntegratedTerminal",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.setAsDefault",
 					"when": "false"
 				},
@@ -9535,6 +9640,14 @@
 				},
 				{
 					"command": "gitlens.views.openChangedFileDiffsWithWorking",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openChangedFileDiffsIndividually",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openChangedFileDiffsWithWorkingIndividually",
 					"when": "false"
 				},
 				{
@@ -10710,6 +10823,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.openChangedFileDiffsIndividually",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileDiffsWithWorkingIndividually",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.openChangedFileRevisions",
 					"when": "false"
 				},
@@ -11049,12 +11170,12 @@
 				},
 				{
 					"command": "gitlens.computingFileAnnotations",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computing && config.gitlens.menus.editorGroup.blame",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus =~ /computing\\b/ && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.clearFileAnnotations",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computed && config.gitlens.menus.editorGroup.blame",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus =~ /computed\\b/ && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
 				},
 				{
@@ -11143,7 +11264,7 @@
 			"explorer/context": [
 				{
 					"submenu": "gitlens/explorer/changes",
-					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.compare",
+					"when": "!explorerResourceIsRoot && gitlens:enabled && config.gitlens.menus.explorer.compare",
 					"group": "4_t_gitlens@0"
 				},
 				{
@@ -11267,6 +11388,13 @@
 					"command": "gitlens.openOnlyChangedFiles",
 					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.openClose",
 					"group": "3_gitlens@2"
+				}
+			],
+			"scm/resourceFolder/context": [
+				{
+					"submenu": "gitlens/scm/resourceFolder/changes",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.compare",
+					"group": "2_gitlens@1"
 				}
 			],
 			"scm/resourceState/context": [
@@ -12109,7 +12237,7 @@
 				},
 				{
 					"command": "gitlens.views.drafts.delete",
-					"when": "viewItem =~  /gitlens:draft\\b/ && gitlens:plus",
+					"when": "viewItem =~  /gitlens:draft\\b(?=.*?\\b\\+mine\\b)/ && gitlens:plus",
 					"group": "6_gitlens_actions@1"
 				},
 				{
@@ -12273,18 +12401,18 @@
 				{
 					"command": "gitlens.views.undoCommit",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/",
-					"group": "inline@95"
+					"group": "inline@78"
 				},
 				{
 					"command": "gitlens.views.push",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/",
-					"group": "inline@96",
+					"group": "inline@79",
 					"alt": "gitlens.views.pushWithForce"
 				},
 				{
 					"command": "gitlens.views.pushToCommit",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/",
-					"group": "inline@96"
+					"group": "inline@80"
 				},
 				{
 					"command": "gitlens.views.compareWithHead",
@@ -12567,8 +12695,14 @@
 					"group": "1_gitlens_actions_1@4"
 				},
 				{
+					"command": "gitlens.views.openChangedFileDiffs",
+					"when": "viewItem =~ /gitlens:(compare:results(?!:)\\b(?!.*?\\b\\+filtered\\b)|commit|stash|results:files)\\b/ && config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"group": "inline@90",
+					"alt": "gitlens.views.openChangedFileDiffsWithWorking"
+				},
+				{
 					"submenu": "gitlens/commit/changes",
-					"when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
+					"when": "viewItem =~ /gitlens:(compare:results(?!:)\\b(?!.*?\\b\\+filtered\\b)|commit|stash|results:files)\\b/",
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
@@ -13040,15 +13174,20 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.openRepoOnRemote",
-					"when": "viewItem =~ /gitlens:repository\\b/ && gitlens:hasRemotes",
-					"group": "2_gitlens_quickopen@2",
-					"alt": "gitlens.copyRemoteRepositoryUrl"
+					"command": "gitlens.views.openInIntegratedTerminal",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b/",
+					"group": "2_gitlens_quickopen@2"
 				},
 				{
 					"command": "gitlens.views.revealRepositoryInExplorer",
 					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b)/",
-					"group": "2_gitlens_quickopen@2"
+					"group": "2_gitlens_quickopen@3"
+				},
+				{
+					"command": "gitlens.openRepoOnRemote",
+					"when": "viewItem =~ /gitlens:repository\\b/ && gitlens:hasRemotes",
+					"group": "2_gitlens_quickopen@4",
+					"alt": "gitlens.copyRemoteRepositoryUrl"
 				},
 				{
 					"command": "gitlens.showCommitSearch",
@@ -13142,9 +13281,14 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
+					"command": "gitlens.views.openInIntegratedTerminal",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "2_gitlens_quickopen@2"
+				},
+				{
 					"command": "gitlens.openRepoOnRemote",
 					"when": "viewItem =~ /gitlens:repo-folder\\b/ && gitlens:hasRemotes",
-					"group": "2_gitlens_quickopen@2",
+					"group": "2_gitlens_quickopen@3",
 					"alt": "gitlens.copyRemoteRepositoryUrl"
 				},
 				{
@@ -13270,9 +13414,19 @@
 					"group": "1_gitlens_secondary_actions@3"
 				},
 				{
+					"command": "gitlens.views.openInTerminal",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream\\b/",
+					"group": "2_gitlens_quickopen@1"
+				},
+				{
+					"command": "gitlens.views.openInIntegratedTerminal",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream\\b/",
+					"group": "2_gitlens_quickopen@2"
+				},
+				{
 					"command": "gitlens.openBranchOnRemote",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:status:upstream:(?!(missing|none))/",
-					"group": "2_gitlens_quickopen@1",
+					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:status:upstream:(?!(missing|none))/",
+					"group": "2_gitlens_quickopen@3",
 					"alt": "gitlens.copyRemoteBranchUrl"
 				},
 				{
@@ -13348,17 +13502,17 @@
 				{
 					"command": "gitlens.views.searchAndCompare.swapComparison",
 					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b/",
-					"group": "inline@1"
+					"group": "inline@96"
 				},
 				{
 					"submenu": "gitlens/comparison/results/files/filter/inline",
 					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filterable\\b)(?!.*?\\b\\+filtered\\b)/",
-					"group": "inline@1"
+					"group": "inline@99"
 				},
 				{
 					"submenu": "gitlens/comparison/results/files/filtered/inline",
 					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filterable\\b)(?=.*?\\b\\+filtered\\b)/",
-					"group": "inline@1"
+					"group": "inline@99"
 				},
 				{
 					"command": "gitlens.views.clearReviewed",
@@ -13607,12 +13761,7 @@
 				},
 				{
 					"command": "gitlens.views.copy",
-					"when": "viewItem =~ /gitlens:(?=(autolinked:issue|branch|commit|contributor|folder|history:line|pullrequest|remote|repository|repo-folder|stash|tag|workspace|worktree)\\b)/",
-					"group": "7_gitlens_cutcopypaste@1"
-				},
-				{
-					"command": "gitlens.views.copy",
-					"when": "viewItem =~ /gitlens:file(?!.*?\\b\\+(staged|unstaged))\\b/",
+					"when": "viewItem =~ /gitlens:(?=(autolinked:issue|branch|commit|contributor|file(?!.*?\\b\\+(staged|unstaged))\\b|folder|history:line|pullrequest|remote|repository|repo-folder|search:results|stash|tag|workspace|worktree)\\b)/",
 					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
@@ -14183,8 +14332,18 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.views.openChangedFileDiffsWithWorking",
+					"command": "gitlens.views.openChangedFileDiffsIndividually",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.openChangedFileDiffsWithWorking",
+					"group": "1_gitlens@3"
+				},
+				{
+					"command": "gitlens.views.openChangedFileDiffsWithWorkingIndividually",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"group": "1_gitlens@4"
 				},
 				{
 					"command": "gitlens.views.openChangedFiles",
@@ -14205,9 +14364,19 @@
 					"group": "1_gitlens@1"
 				},
 				{
+					"command": "gitlens.graph.openChangedFileDiffsIndividually",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"group": "1_gitlens@2"
+				},
+				{
 					"command": "gitlens.graph.openChangedFileDiffsWithWorking",
 					"when": "webviewItem != gitlens:wip",
-					"group": "1_gitlens@2"
+					"group": "1_gitlens@3"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileDiffsWithWorkingIndividually",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"group": "1_gitlens@4"
 				},
 				{
 					"command": "gitlens.graph.openChangedFiles",
@@ -14563,14 +14732,27 @@
 			"gitlens/explorer/changes": [
 				{
 					"command": "gitlens.diffWithPrevious",
+					"when": "!explorerResourceIsFolder",
 					"group": "1_gitlens@1"
 				},
 				{
+					"command": "gitlens.diffFolderWithRevision",
+					"when": "!gitlens:hasVirtualFolders && explorerResourceIsFolder",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.diffFolderWithRevisionFrom",
+					"when": "!gitlens:hasVirtualFolders && explorerResourceIsFolder",
+					"group": "1_gitlens@2"
+				},
+				{
 					"command": "gitlens.diffWithRevision",
+					"when": "!explorerResourceIsFolder",
 					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.diffWithRevisionFrom",
+					"when": "!explorerResourceIsFolder",
 					"group": "1_gitlens@3"
 				}
 			],
@@ -14668,17 +14850,29 @@
 				{
 					"command": "gitlens.externalDiffAll",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens@1"
+					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.diffDirectoryWithHead",
 					"when": "!gitlens:hasVirtualFolders",
-					"group": "1_gitlens@2"
+					"group": "2_gitlens@2"
 				},
 				{
 					"command": "gitlens.diffDirectory",
 					"when": "!gitlens:hasVirtualFolders",
-					"group": "1_gitlens@3"
+					"group": "2_gitlens@3"
+				}
+			],
+			"gitlens/scm/resourceFolder/changes": [
+				{
+					"command": "gitlens.diffFolderWithRevision",
+					"when": "!gitlens:hasVirtualFolders",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.diffFolderWithRevisionFrom",
+					"when": "!gitlens:hasVirtualFolders",
+					"group": "1_gitlens@2"
 				}
 			],
 			"gitlens/scm/resourceState/changes": [
@@ -14992,6 +15186,10 @@
 				"label": "Open Changes"
 			},
 			{
+				"id": "gitlens/scm/resourceFolder/changes",
+				"label": "Open Changes with"
+			},
+			{
 				"id": "gitlens/scm/resourceState/changes",
 				"label": "Open Changes with"
 			},
@@ -15093,7 +15291,7 @@
 			{
 				"command": "gitlens.key.escape",
 				"key": "escape",
-				"when": "gitlens:key:escape && editorTextFocus && !findWidgetVisible && !quickFixWidgetVisible && !renameInputVisible && !suggestWidgetVisible && !isInEmbeddedEditor"
+				"when": "gitlens:key:escape && editorTextFocus && !findWidgetVisible && !quickFixWidgetVisible && !renameInputVisible && !suggestWidgetVisible && !referenceSearchVisible && !codeActionMenuVisible && !parameterHintsVisible && !isInEmbeddedEditor"
 			},
 			{
 				"command": "gitlens.gitCommands",
@@ -15871,7 +16069,7 @@
 		"css-loader": "6.8.1",
 		"css-minimizer-webpack-plugin": "5.0.1",
 		"cssnano-preset-advanced": "6.0.1",
-		"esbuild": "0.19.8",
+		"esbuild": "0.19.9",
 		"esbuild-loader": "4.0.2",
 		"esbuild-sass-plugin": "2.16.0",
 		"eslint": "8.55.0",
@@ -15896,7 +16094,7 @@
 		"sass-loader": "13.3.2",
 		"schema-utils": "4.2.0",
 		"sharp": "0.32.6",
-		"svgo": "3.0.5",
+		"svgo": "3.1.0",
 		"terser-webpack-plugin": "5.3.9",
 		"ts-loader": "9.5.1",
 		"tsc-alias": "1.8.8",

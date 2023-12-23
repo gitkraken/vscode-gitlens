@@ -1,5 +1,5 @@
-import type { CancellationToken, Disposable } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { CancellationToken } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { RepositoriesViewConfig } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -8,28 +8,47 @@ import { unknownGitUri } from '../git/gitUri';
 import type { Draft } from '../gk/models/drafts';
 import { showPatchesView } from '../plus/drafts/actions';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
+import { groupByFilterMap } from '../system/array';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
-import type { ViewNode } from './nodes/abstract/viewNode';
 import { DraftNode } from './nodes/draftNode';
+import { GroupingNode } from './nodes/groupingNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
-export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsView, DraftNode> {
+export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsView, GroupingNode | DraftNode> {
 	constructor(view: DraftsView) {
 		super('drafts', unknownGitUri, view);
 	}
 
-	async getChildren(): Promise<ViewNode[]> {
+	async getChildren(): Promise<(GroupingNode | DraftNode)[]> {
 		if (this.children == null) {
-			const children: DraftNode[] = [];
+			const children: (GroupingNode | DraftNode)[] = [];
 
 			try {
 				const drafts = await this.view.container.drafts.getDrafts();
 				drafts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-				for (const draft of drafts) {
-					children.push(new DraftNode(this.uri, this.view, this, draft));
+
+				const groups = groupByFilterMap(
+					drafts,
+					d => (d.isMine ? 'mine' : 'shared'),
+					d => new DraftNode(this.uri, this.view, this, d),
+				);
+
+				const mine = groups.get('mine');
+				const shared = groups.get('shared');
+
+				if (mine?.length) {
+					if (shared?.length) {
+						children.push(new GroupingNode(this.view, 'Created by Me', mine));
+					} else {
+						children.push(...mine);
+					}
+				}
+
+				if (shared?.length) {
+					children.push(new GroupingNode(this.view, 'Shared with Me', shared));
 				}
 			} catch (ex) {
 				if (!(ex instanceof AuthenticationRequiredError)) {
@@ -75,11 +94,12 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
-		// if (this._disposable == null) {
-		// 	this._disposable = Disposable.from(
-		// 		this.container.drafts.onDidResetDrafts(() => void this.ensureRoot().triggerChange(true)),
-		// 	);
-		// }
+		if (this._disposable == null) {
+			// 	this._disposable = Disposable.from(
+			// 		this.container.drafts.onDidResetDrafts(() => void this.ensureRoot().triggerChange(true)),
+			// 	);
+			this._disposable = Disposable.from(this.container.subscription.onDidChange(() => this.refresh(true), this));
+		}
 
 		return super.show(options);
 	}

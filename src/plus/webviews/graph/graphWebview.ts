@@ -19,11 +19,14 @@ import { PlusFeatures } from '../../../features';
 import * as BranchActions from '../../../git/actions/branch';
 import {
 	openAllChanges,
+	openAllChangesIndividually,
 	openAllChangesWithWorking,
+	openAllChangesWithWorkingIndividually,
 	openFiles,
 	openFilesAtRevision,
-	openOnlyChangedFiles as openOnlyChangedFilesForCommit,
+	openOnlyChangedFiles,
 	showGraphDetailsView,
+	undoCommit,
 } from '../../../git/actions/commit';
 import * as ContributorActions from '../../../git/actions/contributor';
 import * as RepoActions from '../../../git/actions/repository';
@@ -46,7 +49,6 @@ import type {
 import {
 	createReference,
 	getReferenceFromBranch,
-	getReferenceLabel,
 	isGitReference,
 	isSha,
 	shortenRevision,
@@ -63,13 +65,7 @@ import {
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
-import {
-	executeActionCommand,
-	executeCommand,
-	executeCoreCommand,
-	executeCoreGitCommand,
-	registerCommand,
-} from '../../../system/command';
+import { executeActionCommand, executeCommand, executeCoreCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { getContext, onDidChangeContext } from '../../../system/context';
 import { gate } from '../../../system/decorators/gate';
@@ -535,10 +531,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			this.host.registerWebviewCommand('gitlens.graph.openChangedFiles', this.openFiles),
 			this.host.registerWebviewCommand('gitlens.graph.openOnlyChangedFiles', this.openOnlyChangedFiles),
-			this.host.registerWebviewCommand('gitlens.graph.openChangedFileDiffs', this.openAllChanges),
-			this.host.registerWebviewCommand(
-				'gitlens.graph.openChangedFileDiffsWithWorking',
-				this.openAllChangesWithWorking,
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.openChangedFileDiffs', item =>
+				this.openAllChanges(item),
+			),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.openChangedFileDiffsWithWorking', item =>
+				this.openAllChangesWithWorking(item),
+			),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.openChangedFileDiffsIndividually', item =>
+				this.openAllChanges(item, true),
+			),
+			this.host.registerWebviewCommand<GraphItemContext>(
+				'gitlens.graph.openChangedFileDiffsWithWorkingIndividually',
+				item => this.openAllChangesWithWorking(item, true),
 			),
 			this.host.registerWebviewCommand('gitlens.graph.openChangedFileRevisions', this.openRevisions),
 
@@ -2539,24 +2543,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@debug()
 	private async undoCommit(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item);
+		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		const repo = await this.container.git.getOrOpenScmRepository(ref.repoPath);
-		const commit = await repo?.getCommit('HEAD');
-
-		if (commit?.hash !== ref.ref) {
-			void window.showWarningMessage(
-				`Commit ${getReferenceLabel(ref, {
-					capitalize: true,
-					icon: false,
-				})} cannot be undone, because it is no longer the most recent commit.`,
-			);
-
-			return;
-		}
-
-		return void executeCoreGitCommand('git.undoCommit', ref.repoPath);
+		await undoCommit(this.container, ref);
 	}
 
 	@debug()
@@ -2729,18 +2719,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
-	private async openAllChanges(item?: GraphItemContext) {
+	private async openAllChanges(item?: GraphItemContext, individually?: boolean) {
 		const commit = await this.getCommitFromGraphItemRef(item);
 		if (commit == null) return;
 
+		if (individually) {
+			return openAllChangesIndividually(commit);
+		}
 		return openAllChanges(commit);
 	}
 
 	@debug()
-	private async openAllChangesWithWorking(item?: GraphItemContext) {
+	private async openAllChangesWithWorking(item?: GraphItemContext, individually?: boolean) {
 		const commit = await this.getCommitFromGraphItemRef(item);
 		if (commit == null) return;
 
+		if (individually) {
+			return openAllChangesWithWorkingIndividually(commit);
+		}
 		return openAllChangesWithWorking(commit);
 	}
 
@@ -2757,7 +2753,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const commit = await this.getCommitFromGraphItemRef(item);
 		if (commit == null) return;
 
-		return openOnlyChangedFilesForCommit(commit);
+		return openOnlyChangedFiles(commit);
 	}
 
 	@debug()

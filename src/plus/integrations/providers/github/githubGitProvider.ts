@@ -1755,7 +1755,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_repoPath: string,
 		_ref1?: string,
 		_ref2?: string,
-		_options?: { filters?: GitDiffFilter[]; similarityThreshold?: number },
+		_options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined> {
 		return undefined;
 	}
@@ -3071,9 +3071,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const values = operations.get('commit:');
 			if (values != null) {
-				const commitsResults = await Promise.allSettled<Promise<GitCommit | undefined>[]>([
-					...map(values, v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
-				]);
+				const commitsResults = await Promise.allSettled(
+					map(values, v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
+				);
 
 				let i = 0;
 				for (const commitResult of commitsResults) {

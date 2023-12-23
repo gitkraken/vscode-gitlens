@@ -820,17 +820,17 @@ export class Git {
 		repoPath: string,
 		ref1?: string,
 		ref2?: string,
-		{ filters, similarityThreshold }: { filters?: GitDiffFilter[]; similarityThreshold?: number | null } = {},
+		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	) {
 		const params = [
 			'diff',
 			'--name-status',
-			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+			`-M${options?.similarityThreshold == null ? '' : `${options?.similarityThreshold}%`}`,
 			'--no-ext-diff',
 			'-z',
 		];
-		if (filters != null && filters.length !== 0) {
-			params.push(`--diff-filter=${filters.join('')}`);
+		if (options?.filters?.length) {
+			params.push(`--diff-filter=${options.filters.join('')}`);
 		}
 		if (ref1) {
 			params.push(ref1);
@@ -839,7 +839,12 @@ export class Git {
 			params.push(ref2);
 		}
 
-		return this.git<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params, '--');
+		params.push('--');
+		if (options?.path) {
+			params.push(options.path);
+		}
+
+		return this.git<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params);
 	}
 
 	async diff__shortstat(repoPath: string, ref?: string) {
@@ -2086,7 +2091,7 @@ export class Git {
 	async status(
 		repoPath: string,
 		porcelainVersion: number = 1,
-		{ similarityThreshold }: { similarityThreshold?: number | null } = {},
+		options?: { similarityThreshold?: number },
 	): Promise<string> {
 		const params = [
 			'status',
@@ -2095,34 +2100,15 @@ export class Git {
 			'-u',
 		];
 		if (await this.isAtLeastVersion('2.18')) {
-			params.push(`--find-renames${similarityThreshold == null ? '' : `=${similarityThreshold}%`}`);
+			params.push(
+				`--find-renames${options?.similarityThreshold == null ? '' : `=${options.similarityThreshold}%`}`,
+			);
 		}
 
 		return this.git<string>(
 			{ cwd: repoPath, configs: gitStatusDefaultConfigs, env: { GIT_OPTIONAL_LOCKS: '0' } },
 			...params,
 			'--',
-		);
-	}
-
-	async status__file(
-		repoPath: string,
-		fileName: string,
-		porcelainVersion: number = 1,
-		{ similarityThreshold }: { similarityThreshold?: number | null } = {},
-	): Promise<string> {
-		const [file, root] = splitPath(fileName, repoPath, true);
-
-		const params = ['status', porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain'];
-		if (await this.isAtLeastVersion('2.18')) {
-			params.push(`--find-renames${similarityThreshold == null ? '' : `=${similarityThreshold}%`}`);
-		}
-
-		return this.git<string>(
-			{ cwd: root, configs: gitStatusDefaultConfigs, env: { GIT_OPTIONAL_LOCKS: '0' } },
-			...params,
-			'--',
-			file,
 		);
 	}
 

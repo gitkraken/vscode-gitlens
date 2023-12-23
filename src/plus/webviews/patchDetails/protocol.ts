@@ -64,6 +64,9 @@ interface CloudDraftDetails {
 		avatar?: string;
 	};
 
+	role: 'owner' | 'admin' | 'editor' | 'viewer';
+	visibility: 'private' | 'public' | 'invite_only';
+
 	title: string;
 	description?: string;
 
@@ -120,6 +123,7 @@ export interface State {
 		description?: string;
 		changes: Record<string, Change>;
 		creationError?: string;
+		visibility: 'private' | 'public';
 	};
 }
 
@@ -139,6 +143,7 @@ export interface CreatePatchParams {
 	title: string;
 	description?: string;
 	changesets: Record<string, Change>;
+	visibility: 'private' | 'public';
 }
 export const CreatePatchCommandType = new IpcCommandType<CreatePatchParams>('patch/create');
 
@@ -195,6 +200,7 @@ export const UpdateCreatePatchRepositoryCheckedStateCommandType =
 export interface UpdateCreatePatchMetadataParams {
 	title: string;
 	description: string | undefined;
+	visibility: 'private' | 'public';
 }
 export const UpdateCreatePatchMetadataCommandType = new IpcCommandType<UpdateCreatePatchMetadataParams>(
 	'patch/update/create/metadata',

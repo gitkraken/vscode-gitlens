@@ -232,6 +232,11 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		return Promise.resolve<[string, string]>([this._compareWith.ref, this._ref.ref]);
 	}
 
+	async getFilesNode(): Promise<ResultsFilesNode | undefined> {
+		const children = await this.getChildren();
+		return children.find(c => c.is('results-files')) as ResultsFilesNode | undefined;
+	}
+
 	@log()
 	clearReviewed() {
 		resetComparisonCheckedFiles(this.view, this.getStorageId());

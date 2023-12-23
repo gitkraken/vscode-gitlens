@@ -1,17 +1,15 @@
 import type { CancellationToken, ConfigurationChangeEvent, Event, Uri, WorkspaceFolder } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, RelativePattern, window, workspace } from 'vscode';
 import { md5, uuid } from '@env/crypto';
-import { ForcePushMode } from '../../@types/vscode.git.enums';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { RepositoriesSorting } from '../../config';
-import type { CoreGitConfiguration } from '../../constants';
 import { Schemes } from '../../constants';
 import type { Container } from '../../container';
 import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
 import { groupByMap } from '../../system/array';
-import { executeActionCommand, executeCoreGitCommand } from '../../system/command';
+import { executeActionCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
@@ -637,11 +635,7 @@ export class Repository implements Disposable {
 		remote?: string;
 	}) {
 		try {
-			if (options?.branch != null || configuration.get('experimental.nativeGit')) {
-				await this.container.git.fetch(this.uri, options);
-			} else {
-				void (await executeCoreGitCommand('git.fetch', this.path));
-			}
+			await this.container.git.fetch(this.uri, options);
 
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
@@ -836,21 +830,12 @@ export class Repository implements Disposable {
 
 	private async pullCore(options?: { rebase?: boolean }) {
 		try {
-			if (configuration.get('experimental.nativeGit')) {
-				const withTags = configuration.getAny<CoreGitConfiguration, boolean>('git.pullTags', this.uri);
-				if (configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', this.uri)) {
-					await this.container.git.fetch(this.uri);
-				}
-
-				await this.container.git.pull(this.uri, { ...options, tags: withTags });
-			} else {
-				const upstream = await this.hasUpstreamBranch();
-				if (upstream) {
-					void (await executeCoreGitCommand(options?.rebase ? 'git.pullRebase' : 'git.pull', this.path));
-				} else if (configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', this.uri)) {
-					await this.container.git.fetch(this.uri);
-				}
+			const withTags = configuration.getCore('git.pullTags', this.uri);
+			if (configuration.getCore('git.fetchOnPull', this.uri)) {
+				await this.container.git.fetch(this.uri);
 			}
+
+			await this.container.git.pull(this.uri, { ...options, tags: withTags });
 
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
@@ -914,49 +899,14 @@ export class Repository implements Disposable {
 
 	private async pushCore(options?: { force?: boolean; reference?: GitReference; publish?: { remote: string } }) {
 		try {
-			if (configuration.get('experimental.nativeGit')) {
-				await this.container.git.push(this.uri, {
-					reference: options?.reference,
-					force: options?.force,
-					publish: options?.publish,
-				});
+			await this.container.git.push(this.uri, {
+				reference: options?.reference,
+				force: options?.force,
+				publish: options?.publish,
+			});
 
-				if (isBranchReference(options?.reference) && options?.publish != null) {
-					void this.showCreatePullRequestPrompt(options.publish.remote, options.reference);
-				}
-			} else if (isBranchReference(options?.reference)) {
-				const repo = await this.container.git.getOrOpenScmRepository(this.uri);
-				if (repo == null) return;
-
-				if (options?.publish != null) {
-					await repo?.push(options.publish.remote, options.reference.name, true);
-					void this.showCreatePullRequestPrompt(options.publish.remote, options.reference);
-				} else {
-					const branch = await this.getBranch(options?.reference.name);
-					if (branch == null) return;
-
-					await repo?.push(
-						branch.getRemoteName(),
-						branch.name,
-						undefined,
-						options?.force ? ForcePushMode.ForceWithLease : undefined,
-					);
-				}
-			} else if (options?.reference != null) {
-				const repo = await this.container.git.getOrOpenScmRepository(this.uri);
-				if (repo == null) return;
-
-				const branch = await this.getBranch();
-				if (branch == null) return;
-
-				await repo?.push(
-					branch.getRemoteName(),
-					`${options.reference.ref}:${branch.getNameWithoutRemote()}`,
-					undefined,
-					options?.force ? ForcePushMode.ForceWithLease : undefined,
-				);
-			} else {
-				void (await executeCoreGitCommand(options?.force ? 'git.pushForce' : 'git.push', this.path));
+			if (isBranchReference(options?.reference) && options?.publish != null) {
+				void this.showCreatePullRequestPrompt(options.publish.remote, options.reference);
 			}
 
 			this.fireChange(RepositoryChange.Unknown);

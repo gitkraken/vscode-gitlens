@@ -21,7 +21,7 @@ import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
 import { matchContributor } from '../git/models/contributor';
 import type { GitStashReference } from '../git/models/reference';
-import { createReference, getReferenceLabel, shortenRevision } from '../git/models/reference';
+import { createReference, shortenRevision } from '../git/models/reference';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import {
 	executeActionCommand,
@@ -52,6 +52,7 @@ import type { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode'
 import type { CommitFileNode } from './nodes/commitFileNode';
 import type { CommitNode } from './nodes/commitNode';
 import type { PagerNode } from './nodes/common';
+import type { CompareResultsNode } from './nodes/compareResultsNode';
 import type { ContributorNode } from './nodes/contributorNode';
 import type { FileHistoryNode } from './nodes/fileHistoryNode';
 import type { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode';
@@ -186,6 +187,7 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.unsetAsDefault', this.unsetAsDefault, this);
 
 		registerViewCommand('gitlens.views.openInTerminal', this.openInTerminal, this);
+		registerViewCommand('gitlens.views.openInIntegratedTerminal', this.openInIntegratedTerminal, this);
 		registerViewCommand('gitlens.views.star', this.star, this);
 		registerViewCommand('gitlens.views.unstar', this.unstar, this);
 
@@ -215,8 +217,23 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.openFile', this.openFile, this);
 		registerViewCommand('gitlens.views.openFileRevision', this.openRevision, this);
 		registerViewCommand('gitlens.views.openChangedFiles', this.openFiles, this);
-		registerViewCommand('gitlens.views.openChangedFileDiffs', this.openAllChanges, this);
-		registerViewCommand('gitlens.views.openChangedFileDiffsWithWorking', this.openAllChangesWithWorking, this);
+		registerViewCommand('gitlens.views.openOnlyChangedFiles', this.openOnlyChangedFiles);
+		registerViewCommand('gitlens.views.openChangedFileDiffs', (n, o) => this.openAllChanges(n, o), this);
+		registerViewCommand(
+			'gitlens.views.openChangedFileDiffsWithWorking',
+			(n, o) => this.openAllChangesWithWorking(n, o),
+			this,
+		);
+		registerViewCommand(
+			'gitlens.views.openChangedFileDiffsIndividually',
+			(n, o) => this.openAllChanges(n, o, true),
+			this,
+		);
+		registerViewCommand(
+			'gitlens.views.openChangedFileDiffsWithWorkingIndividually',
+			(n, o) => this.openAllChangesWithWorking(n, o, true),
+			this,
+		);
 		registerViewCommand('gitlens.views.openChangedFileRevisions', this.openRevisions, this);
 		registerViewCommand('gitlens.views.applyChanges', this.applyChanges, this);
 		registerViewCommand('gitlens.views.highlightChanges', this.highlightChanges, this);
@@ -574,10 +591,17 @@ export class ViewCommands {
 	}
 
 	@log()
-	private openInTerminal(node: RepositoryNode | RepositoryFolderNode) {
-		if (!node.isAny('repository', 'repo-folder')) return Promise.resolve();
+	private openInTerminal(node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode) {
+		if (!node.isAny('tracking-status', 'repository', 'repo-folder')) return Promise.resolve();
 
-		return executeCoreCommand('openInTerminal', Uri.file(node.repo.path));
+		return executeCoreCommand('openInTerminal', Uri.file(node.repoPath));
+	}
+
+	@log()
+	private openInIntegratedTerminal(node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode) {
+		if (!node.isAny('tracking-status', 'repository', 'repo-folder')) return Promise.resolve();
+
+		return executeCoreCommand('openInIntegratedTerminal', Uri.file(node.repoPath));
 	}
 
 	@log()
@@ -838,21 +862,7 @@ export class ViewCommands {
 	private async undoCommit(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!node.isAny('commit', 'file-commit')) return;
 
-		const repo = await this.container.git.getOrOpenScmRepository(node.repoPath);
-		const commit = await repo?.getCommit('HEAD');
-
-		if (commit?.hash !== node.ref.ref) {
-			void window.showWarningMessage(
-				`Commit ${getReferenceLabel(node.ref, {
-					capitalize: true,
-					icon: false,
-				})} cannot be undone, because it is no longer the most recent commit.`,
-			);
-
-			return;
-		}
-
-		await executeCoreGitCommand('git.undoCommit', node.repoPath);
+		await CommitActions.undoCommit(this.container, node.ref);
 	}
 
 	@log()
@@ -1005,13 +1015,22 @@ export class ViewCommands {
 	}
 
 	@log()
-	private async openAllChanges(node: CommitNode | StashNode | ResultsFilesNode, options?: TextDocumentShowOptions) {
-		if (node.is('results-files')) {
-			const { files: diff } = await node.getFilesQueryResults();
-			if (diff == null || diff.length === 0) return undefined;
+	private async openAllChanges(
+		node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
+		options?: TextDocumentShowOptions,
+		individually?: boolean,
+	) {
+		if (node.is('compare-results')) {
+			node = (await node.getFilesNode())!;
+			if (node == null) return undefined;
+		}
 
-			return CommitActions.openAllChanges(
-				diff,
+		if (node.is('results-files')) {
+			const { files } = await node.getFilesQueryResults();
+			if (!files?.length) return undefined;
+
+			return (individually ? CommitActions.openAllChangesIndividually : CommitActions.openAllChanges)(
+				files,
 				{
 					repoPath: node.repoPath,
 					lhs: node.ref1,
@@ -1023,7 +1042,10 @@ export class ViewCommands {
 
 		if (!node.isAny('commit', 'stash')) return undefined;
 
-		return CommitActions.openAllChanges(node.commit, options);
+		return (individually ? CommitActions.openAllChangesIndividually : CommitActions.openAllChanges)(
+			node.commit,
+			options,
+		);
 	}
 
 	@log()
@@ -1080,15 +1102,25 @@ export class ViewCommands {
 
 	@log()
 	private async openAllChangesWithWorking(
-		node: CommitNode | StashNode | ResultsFilesNode,
+		node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
 		options?: TextDocumentShowOptions,
+		individually?: boolean,
 	) {
-		if (node.is('results-files')) {
-			const { files: diff } = await node.getFilesQueryResults();
-			if (diff == null || diff.length === 0) return undefined;
+		if (node.is('compare-results')) {
+			node = (await node.getFilesNode())!;
+			if (node == null) return undefined;
+		}
 
-			return CommitActions.openAllChangesWithWorking(
-				diff,
+		if (node.is('results-files')) {
+			const { files } = await node.getFilesQueryResults();
+			if (!files?.length) return undefined;
+
+			return (
+				individually
+					? CommitActions.openAllChangesWithWorkingIndividually
+					: CommitActions.openAllChangesWithWorking
+			)(
+				files,
 				{
 					repoPath: node.repoPath,
 					ref: node.ref1 || node.ref2,
@@ -1099,46 +1131,9 @@ export class ViewCommands {
 
 		if (!node.isAny('commit', 'stash')) return undefined;
 
-		return CommitActions.openAllChangesWithWorking(node.commit, options);
-
-		// options = { preserveFocus: false, preview: false, ...options };
-
-		// let repoPath: string;
-		// let files;
-		// let ref: string;
-
-		// if (node instanceof ResultsFilesNode) {
-		// 	const { diff } = await node.getFilesQueryResults();
-		// 	if (diff == null || diff.length === 0) return;
-
-		// 	repoPath = node.repoPath;
-		// 	files = diff;
-		// 	ref = node.ref1 || node.ref2;
-		// } else {
-		// 	repoPath = node.commit.repoPath;
-		// 	files = node.commit.files;
-		// 	ref = node.commit.sha;
-		// }
-
-		// if (files.length > 20) {
-		// 	const result = await window.showWarningMessage(
-		// 		`Are you sure you want to open all ${files.length} files?`,
-		// 		{ title: 'Yes' },
-		// 		{ title: 'No', isCloseAffordance: true },
-		// 	);
-		// 	if (result == null || result.title === 'No') return;
-		// }
-
-		// for (const file of files) {
-		// 	if (file.status === 'A' || file.status === 'D') continue;
-
-		// 	const args: DiffWithWorkingCommandArgs = {
-		// 		showOptions: options,
-		// 	};
-
-		// 	const uri = GitUri.fromFile(file, repoPath, ref);
-		// 	await executeCommand(Commands.DiffWithWorking, uri, args);
-		// }
+		return (
+			individually ? CommitActions.openAllChangesWithWorkingIndividually : CommitActions.openAllChangesWithWorking
+		)(node.commit, options);
 	}
 
 	@log()
@@ -1214,16 +1209,39 @@ export class ViewCommands {
 	}
 
 	@log()
-	private async openFiles(node: CommitNode | StashNode | ResultsFilesNode) {
-		if (node.is('results-files')) {
-			const { files: diff } = await node.getFilesQueryResults();
-			if (diff == null || diff.length === 0) return undefined;
+	private async openFiles(node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode) {
+		if (node.is('compare-results')) {
+			node = (await node.getFilesNode())!;
+			if (node == null) return undefined;
+		}
 
-			return CommitActions.openFiles(diff, node.repoPath, node.ref1 || node.ref2);
+		if (node.is('results-files')) {
+			const { files } = await node.getFilesQueryResults();
+			if (!files?.length) return undefined;
+
+			return CommitActions.openFiles(files, { repoPath: node.repoPath, ref: node.ref1 || node.ref2 });
 		}
 		if (!node.isAny('commit', 'stash')) return undefined;
 
 		return CommitActions.openFiles(node.commit);
+	}
+
+	@log()
+	private async openOnlyChangedFiles(node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode) {
+		if (node.is('compare-results')) {
+			node = (await node.getFilesNode())!;
+			if (node == null) return undefined;
+		}
+
+		if (node.is('results-files')) {
+			const { files } = await node.getFilesQueryResults();
+			if (!files?.length) return undefined;
+
+			return CommitActions.openOnlyChangedFiles(files);
+		}
+		if (!node.isAny('commit', 'stash')) return undefined;
+
+		return CommitActions.openOnlyChangedFiles(node.commit);
 	}
 
 	@log()
@@ -1263,16 +1281,28 @@ export class ViewCommands {
 	}
 
 	@log()
-	private async openRevisions(node: CommitNode | StashNode | ResultsFilesNode, _options?: TextDocumentShowOptions) {
-		if (node.is('results-files')) {
-			const { files: diff } = await node.getFilesQueryResults();
-			if (diff == null || diff.length === 0) return undefined;
+	private async openRevisions(
+		node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
+		options?: TextDocumentShowOptions,
+	) {
+		if (node.is('compare-results')) {
+			node = (await node.getFilesNode())!;
+			if (node == null) return undefined;
+		}
 
-			return CommitActions.openFilesAtRevision(diff, node.repoPath, node.ref1, node.ref2);
+		if (node.is('results-files')) {
+			const { files } = await node.getFilesQueryResults();
+			if (!files?.length) return undefined;
+
+			return CommitActions.openFilesAtRevision(files, {
+				repoPath: node.repoPath,
+				lhs: node.ref2,
+				rhs: node.ref1,
+			});
 		}
 		if (!node.isAny('commit', 'stash')) return undefined;
 
-		return CommitActions.openFilesAtRevision(node.commit);
+		return CommitActions.openFilesAtRevision(node.commit, options);
 	}
 
 	@log()

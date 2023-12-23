@@ -30,7 +30,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) {
-			void showNoRepositoryWarningMessage('Unable to open file compare');
+			void showNoRepositoryWarningMessage('Unable to open file comparison');
 
 			return;
 		}
@@ -65,10 +65,9 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			const pick = await showReferencePicker(
 				gitUri.repoPath,
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
-				'Choose a branch or tag to compare with',
+				'Choose a reference (branch, tag, etc) to compare with',
 				{
-					allowEnteringRefs: true,
-					// checkmarks: false,
+					allowRevisions: true,
 				},
 			);
 			if (pick == null) return;

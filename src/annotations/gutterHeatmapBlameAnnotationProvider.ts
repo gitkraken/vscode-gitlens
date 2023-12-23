@@ -1,6 +1,5 @@
-import type { TextEditor, TextEditorDecorationType } from 'vscode';
+import type { TextEditor } from 'vscode';
 import { Range } from 'vscode';
-import type { FileAnnotationType } from '../config';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { log } from '../system/decorators/log';
@@ -8,30 +7,26 @@ import { getLogScope } from '../system/logger.scope';
 import { maybeStopWatch } from '../system/stopwatch';
 import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../trackers/trackedDocument';
-import type { AnnotationContext } from './annotationProvider';
+import type { AnnotationContext, AnnotationState } from './annotationProvider';
+import type { Decoration } from './annotations';
 import { addOrUpdateGutterHeatmapDecoration } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
-	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>, container: Container) {
-		super('heatmap', editor, trackedDocument, container);
+	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
+		super(container, 'heatmap', editor, trackedDocument);
 	}
 
 	@log()
-	async onProvideAnnotation(context?: AnnotationContext, _type?: FileAnnotationType): Promise<boolean> {
+	override async onProvideAnnotation(context?: AnnotationContext, state?: AnnotationState): Promise<boolean> {
 		const scope = getLogScope();
 
-		this.annotationContext = context;
-
-		const blame = await this.getBlame();
+		const blame = await this.getBlame(state?.recompute);
 		if (blame == null) return false;
 
 		using sw = maybeStopWatch(scope);
 
-		const decorationsMap = new Map<
-			string,
-			{ decorationType: TextEditorDecorationType; rangesOrOptions: Range[] }
-		>();
+		const decorationsMap = new Map<string, Decoration<Range[]>>();
 		const computedHeatmap = this.getComputedHeatmap(blame);
 
 		let commit: GitCommit | undefined;
@@ -60,9 +55,5 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 
 		// this.registerHoverProviders(configuration.get('hovers.annotations'));
 		return true;
-	}
-
-	selection(_selection?: AnnotationContext['selection']): Promise<void> {
-		return Promise.resolve();
 	}
 }

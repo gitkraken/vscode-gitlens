@@ -38,7 +38,7 @@ export class DraftService implements Disposable {
 		type: 'patch' | 'stash',
 		title: string,
 		changes: CreateDraftChange[],
-		options?: { description?: string; organizationId?: string },
+		options?: { description?: string; visibility?: 'public' | 'private' },
 	): Promise<Draft> {
 		const scope = getLogScope();
 
@@ -78,7 +78,7 @@ export class DraftService implements Disposable {
 					type: type,
 					title: title,
 					description: options?.description,
-					isPublic: true /*organizationId: undefined,*/,
+					visibility: options?.visibility ?? 'public',
 				} satisfies CreateDraftRequest),
 			});
 
@@ -179,14 +179,16 @@ export class DraftService implements Disposable {
 				createdAt: new Date(draft.createdAt),
 				updatedAt: new Date(draft.updatedAt ?? draft.createdAt),
 				author: author,
+				isMine: true,
 				organizationId: draft.organizationId || undefined,
+				role: draft.role,
 				isPublished: draft.isPublished,
 
 				title: draft.title,
 				description: draft.description,
 
 				deepLinkUrl: createDraft.deepLink,
-				deepLinkAccess: draft.isPublic ? 'public' : 'private',
+				visibility: draft.visibility,
 
 				latestChangesetId: draft.latestChangesetId,
 				changesets: [
@@ -350,10 +352,12 @@ export class DraftService implements Disposable {
 			email: undefined,
 		};
 
+		let isMine = false;
 		const { account } = await this.container.subscription.getSubscription();
 		if (draft.createdBy === account?.id) {
 			author.name = `${account.name} (you)`;
 			author.email = account.email;
+			isMine = true;
 		}
 
 		return {
@@ -363,14 +367,16 @@ export class DraftService implements Disposable {
 			createdAt: new Date(draft.createdAt),
 			updatedAt: new Date(draft.updatedAt ?? draft.createdAt),
 			author: author,
+			isMine: isMine,
 			organizationId: draft.organizationId || undefined,
+			role: draft.role,
 			isPublished: draft.isPublished,
 
 			title: draft.title,
 			description: draft.description,
 
 			deepLinkUrl: draft.deepLink,
-			deepLinkAccess: draft.isPublic ? 'public' : 'private',
+			visibility: draft.visibility,
 
 			latestChangesetId: draft.latestChangesetId,
 			changesets: changesets,
@@ -386,30 +392,32 @@ export class DraftService implements Disposable {
 		const draft = ((await rsp.json()) as Result).data;
 		const { account } = await this.container.subscription.getSubscription();
 
-		return draft.map(
-			(d): Draft => ({
+		return draft.map((d): Draft => {
+			const isMine = d.createdBy === account?.id;
+			return {
 				draftType: 'cloud',
 				type: d.type,
 				id: d.id,
-				author:
-					d.createdBy === account?.id
-						? { id: d.createdBy, name: `${account.name} (you)`, email: account.email }
-						: { id: d.createdBy, name: 'Unknown', email: undefined },
+				author: isMine
+					? { id: d.createdBy, name: `${account.name} (you)`, email: account.email }
+					: { id: d.createdBy, name: 'Unknown', email: undefined },
+				isMine: isMine,
 				organizationId: d.organizationId || undefined,
+				role: d.role,
 				isPublished: d.isPublished,
 
 				title: d.title,
 				description: d.description,
 
 				deepLinkUrl: d.deepLink,
-				deepLinkAccess: d.isPublic ? 'public' : 'private',
+				visibility: d.visibility,
 
 				createdAt: new Date(d.createdAt),
 				updatedAt: new Date(d.updatedAt ?? d.createdAt),
 
 				latestChangesetId: d.latestChangesetId,
-			}),
-		);
+			};
+		});
 	}
 
 	@log()

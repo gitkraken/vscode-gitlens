@@ -72,12 +72,13 @@ export interface Config {
 	readonly defaultTimeFormat: DateTimeFormat | (string & object) | null;
 	readonly detectNestedRepositories: boolean;
 	readonly experimental: {
+		readonly allowAnnotationsWhenDirty: boolean;
 		readonly generateCommitMessagePrompt: string;
-		readonly nativeGit: boolean;
 		readonly openChangesInMultiDiffEditor: boolean;
 	};
 	readonly fileAnnotations: {
 		readonly command: string | null;
+		readonly dismissOnEscape: boolean;
 	};
 	readonly focus: {
 		readonly allowMultiple: boolean;
@@ -92,6 +93,9 @@ export interface Config {
 		};
 		readonly skipConfirmations: string[];
 		readonly sortBy: GitCommandSorting;
+	};
+	readonly gitKraken: {
+		readonly activeOrganizationId: string | null;
 	};
 	readonly graph: GraphConfig;
 	readonly heatmap: {
@@ -809,3 +813,44 @@ export function fromOutputLevel(level: OutputLevel): LogLevel {
 			return level;
 	}
 }
+
+export type CoreConfig = {
+	readonly editor: {
+		readonly letterSpacing: number;
+	};
+	readonly files: {
+		readonly encoding: string;
+		readonly exclude: Record<string, boolean>;
+	};
+	readonly git: {
+		readonly autoRepositoryDetection: boolean | 'subFolders' | 'openEditors';
+		readonly enabled: boolean;
+		readonly fetchOnPull: boolean;
+		readonly path: string | string[] | null;
+		readonly pullTags: boolean;
+		readonly repositoryScanIgnoredFolders: string[];
+		readonly repositoryScanMaxDepth: number;
+		readonly useForcePushIfIncludes: boolean;
+		readonly useForcePushWithLease: boolean;
+	};
+	readonly http: {
+		readonly proxy: string;
+		readonly proxySupport: 'fallback' | 'off' | 'on' | 'override';
+		readonly proxyStrictSSL: boolean;
+	};
+	readonly multiDiffEditor: {
+		readonly experimental: {
+			readonly enabled: boolean;
+		};
+	};
+	readonly search: {
+		readonly exclude: Record<string, boolean>;
+	};
+	readonly workbench: {
+		readonly editorAssociations: Record<string, string> | { viewType: string; filenamePattern: string }[];
+		readonly tree: {
+			readonly renderIndentGuides: 'always' | 'none' | 'onHover';
+			readonly indent: number;
+		};
+	};
+};

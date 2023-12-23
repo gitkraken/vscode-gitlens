@@ -112,7 +112,7 @@ export class CustomRemote extends RemoteProvider {
 			repo: this.path,
 			repoBase: repoBase,
 			repoPath: repoPath,
-			...(additionalContext ?? {}),
+			...additionalContext,
 		};
 
 		for (const [key, value] of Object.entries(context)) {

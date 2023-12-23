@@ -23,12 +23,14 @@ import '../../../shared/components/webview-pane';
 export interface CreatePatchEventDetail {
 	title: string;
 	description?: string;
+	visibility: 'public' | 'private';
 	changesets: Record<string, Change>;
 }
 
 export interface CreatePatchMetadataEventDetail {
 	title: string;
 	description: string | undefined;
+	visibility: 'public' | 'private';
 }
 
 export interface CreatePatchCheckRepositoryEventDetail {
@@ -100,6 +102,10 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		return flatCount(this.createChanges, c => c.files?.length ?? 0);
 	}
 
+	get draftVisibility() {
+		return this.state?.create?.visibility ?? 'public';
+	}
+
 	constructor() {
 		super();
 
@@ -117,6 +123,18 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 							<p class="alert__content">${this.state!.create!.creationError}</p>
 						</div>`,
 				)}
+				<div class="message-input">
+					<div class="message-input__select">
+						<span class="message-input__select-icon"><code-icon icon=${
+							this.draftVisibility === 'private' ? 'organization' : 'globe'
+						}></code-icon></span>
+					<select id="visibility" class="message-input__control" @change=${this.onVisibilityChange}>
+						<option value="public" ?selected=${this.draftVisibility === 'public'}>Anyone with the link</option>
+						<option value="private" ?selected=${this.draftVisibility === 'private'}>Members of my Org with the link</option>
+					</select>
+						<span class="message-input__select-caret"><code-icon icon="chevron-down"></code-icon></span>
+					</div>
+				</div>
 				<div class="message-input">
 					<input id="title" type="text" class="message-input__control" placeholder="Title (required)" maxlength="100" .value=${
 						this.create.title ?? ''
@@ -370,6 +388,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 			title: this.create.title ?? '',
 			description: this.create.description,
 			changesets: changes,
+			visibility: this.create.visibility,
 		};
 		this.fireEvent('gl-patch-create-patch', patch);
 	}
@@ -437,6 +456,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		this.fireEvent('gl-patch-create-update-metadata', {
 			title: this.create.title,
 			description: this.create.description,
+			visibility: this.create.visibility,
 		});
 	}
 
@@ -445,6 +465,16 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		this.fireEvent('gl-patch-create-update-metadata', {
 			title: this.create.title!,
 			description: this.create.description,
+			visibility: this.create.visibility,
+		});
+	}
+
+	private onVisibilityChange(e: Event) {
+		this.create.visibility = (e.target as HTMLInputElement).value as 'public' | 'private';
+		this.fireEvent('gl-patch-create-update-metadata', {
+			title: this.create.title!,
+			description: this.create.description,
+			visibility: this.create.visibility,
 		});
 	}
 

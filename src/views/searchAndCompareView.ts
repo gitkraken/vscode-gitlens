@@ -158,9 +158,9 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 			const pick = await showReferencePicker(
 				repoPath,
 				`Compare ${this.getRefName(selectedRef.ref)} with`,
-				'Choose a reference to compare with',
+				'Choose a reference (branch, tag, etc) to compare with',
 				{
-					allowEnteringRefs: true,
+					allowRevisions: true,
 					picked: typeof selectedRef.ref === 'string' ? selectedRef.ref : selectedRef.ref.ref,
 					// checkmarks: true,
 					include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.HEAD,
@@ -194,15 +194,16 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		let prompt = options?.prompt ?? false;
 		let ref2;
 		if (ref == null) {
-			const pick = await showReferencePicker(repoPath, 'Compare', 'Choose a reference to compare', {
-				allowEnteringRefs: { ranges: true },
-				// checkmarks: false,
-				include:
-					ReferencesQuickPickIncludes.BranchesAndTags |
-					ReferencesQuickPickIncludes.HEAD |
-					ReferencesQuickPickIncludes.WorkingTree,
-				sort: { branches: { current: true }, tags: {} },
-			});
+			const pick = await showReferencePicker(
+				repoPath,
+				'Compare',
+				'Choose a reference (branch, tag, etc) to compare',
+				{
+					allowRevisions: { ranges: true },
+					include: ReferencesQuickPickIncludes.All,
+					sort: { branches: { current: true }, tags: {} },
+				},
+			);
 			if (pick == null) {
 				await this.triggerChange();
 
@@ -376,6 +377,8 @@ export class SearchAndCompareView extends ViewBase<
 				repoPath,
 				typeof ref1 === 'string' ? { ref: ref1 } : ref1,
 				typeof ref2 === 'string' ? { ref: ref2 } : ref2,
+				// Provide a timestamp so we won't try to add it to our storage prematurely (and end up with a duplicate)
+				Date.now(),
 			),
 		);
 	}

@@ -1,6 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
-import type { CoreConfiguration } from '../../../constants';
 import { Commands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
@@ -81,6 +80,7 @@ interface Context {
 				description?: string;
 				changes: Map<string, RepositoryChangeset>;
 				showingAllRepos: boolean;
+				visibility: 'public' | 'private';
 		  }
 		| undefined;
 	preferences: Preferences;
@@ -260,8 +260,8 @@ export class PatchDetailsWebviewProvider
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
 			configuration.changed(e, ['defaultDateFormat', 'views.patchDetails.files', 'views.patchDetails.avatars']) ||
-			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides') ||
-			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.indent')
+			configuration.changedCore(e, 'workbench.tree.renderIndentGuides') ||
+			configuration.changedCore(e, 'workbench.tree.indent')
 		) {
 			this._context.preferences = { ...this._context.preferences, ...this.getPreferences() };
 			this.updateState();
@@ -273,11 +273,8 @@ export class PatchDetailsWebviewProvider
 			avatars: configuration.get('views.patchDetails.avatars'),
 			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
 			files: configuration.get('views.patchDetails.files'),
-			indentGuides:
-				configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
-					'workbench.tree.renderIndentGuides',
-				) ?? 'onHover',
-			indent: configuration.getAny<CoreConfiguration, Preferences['indent']>('workbench.tree.indent'),
+			indentGuides: configuration.getCore('workbench.tree.renderIndentGuides') ?? 'onHover',
+			indent: configuration.getCore('workbench.tree.indent'),
 		};
 	}
 
@@ -405,7 +402,7 @@ export class PatchDetailsWebviewProvider
 		void env.clipboard.writeText(this._context.draft.deepLinkUrl);
 	}
 
-	private async createDraft({ title, changesets, description }: CreatePatchParams): Promise<void> {
+	private async createDraft({ title, changesets, description, visibility }: CreatePatchParams): Promise<void> {
 		if (
 			!(await ensureAccount('Cloud Patches require a GitKraken account.', this.container)) ||
 			!(await confirmDraftStorage(this.container))
@@ -437,12 +434,11 @@ export class PatchDetailsWebviewProvider
 		if (createChanges == null) return;
 
 		try {
-			const draft = await this.container.drafts.createDraft(
-				'patch',
-				title,
-				createChanges,
-				description ? { description: description } : undefined,
-			);
+			const options = {
+				description: description,
+				visibility: visibility,
+			};
+			const draft = await this.container.drafts.createDraft('patch', title, createChanges, options);
 
 			async function showNotification() {
 				const view = { title: 'View Patch' };
@@ -566,6 +562,7 @@ export class PatchDetailsWebviewProvider
 
 		this._context.create.title = params.title;
 		this._context.create.description = params.description;
+		this._context.create.visibility = params.visibility;
 		void this.notifyDidChangeCreateDraftState();
 	}
 
@@ -689,6 +686,7 @@ export class PatchDetailsWebviewProvider
 			description: create.description,
 			changes: changesetByRepo,
 			showingAllRepos: allRepos,
+			visibility: 'public',
 		};
 		this.setMode('create', true);
 		void this.notifyDidChangeCreateDraftState();
@@ -716,6 +714,7 @@ export class PatchDetailsWebviewProvider
 			title: create.title,
 			description: create.description,
 			changes: repoChanges,
+			visibility: create.visibility,
 		};
 	}
 
@@ -796,8 +795,10 @@ export class PatchDetailsWebviewProvider
 				createdAt: draft.createdAt.getTime(),
 				updatedAt: draft.updatedAt.getTime(),
 				author: draft.author,
+				role: draft.role,
 				title: draft.title,
 				description: draft.description,
+				visibility: draft.visibility,
 				patches: serialize(
 					draft.changesets![0].patches.map(p => ({
 						...p,

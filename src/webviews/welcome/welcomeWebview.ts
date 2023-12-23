@@ -92,7 +92,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async getCanShowPromo(subscription?: Subscription): Promise<boolean> {
-		const expiresTime = new Date('2023-12-06T07:59:00.000Z').getTime(); // 2023-12-05 23:59:00 PST-0800
+		const expiresTime = new Date('2023-12-31T07:59:00.000Z').getTime(); // 2023-12-30 23:59:00 PST-0800
 		if (Date.now() > expiresTime) {
 			return false;
 		}

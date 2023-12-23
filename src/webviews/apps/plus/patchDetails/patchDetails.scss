@@ -61,10 +61,12 @@ gk-menu-item {
 	}
 }
 
+// TODO: these form styles should be moved to a common location
 .message-input {
 	padding-top: 0.8rem;
 
 	&__control {
+		flex: 1;
 		border: 1px solid var(--vscode-input-border);
 		background: var(--vscode-input-background);
 		padding: 0.5rem;
@@ -88,6 +90,60 @@ gk-menu-item {
 			outline: 1px solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
+
+		&--text {
+			overflow: hidden;
+			white-space: nowrap;
+			opacity: 0.7;
+		}
+	}
+
+	&__action {
+		flex: none;
+	}
+
+	&__select {
+		flex: 1;
+		position: relative;
+
+		&-icon {
+			position: absolute;
+			left: 0;
+			top: 0;
+			display: flex;
+			width: 2.4rem;
+			height: 100%;
+			align-items: center;
+			justify-content: center;
+			pointer-events: none;
+			color: var(--vscode-foreground);
+		}
+		&-caret {
+			position: absolute;
+			right: 0;
+			top: 0;
+			display: flex;
+			width: 2.4rem;
+			height: 100%;
+			align-items: center;
+			justify-content: center;
+			pointer-events: none;
+			color: var(--vscode-foreground);
+		}
+	}
+
+	&__select &__control {
+		box-sizing: border-box;
+		appearance: none;
+		padding-left: 2.4rem;
+		padding-right: 2.4rem;
+	}
+
+	&--group {
+		display: flex;
+		flex-direction: row;
+		align-items: stretch;
+		gap: 0.6rem;
 	}
 }
 

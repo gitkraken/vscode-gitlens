@@ -8,7 +8,7 @@ import type {
 } from 'vscode';
 import { OverviewRulerLane, ThemeColor, Uri, window } from 'vscode';
 import type { Config } from '../config';
-import type { Colors, CoreConfiguration } from '../constants';
+import type { Colors } from '../constants';
 import { GlyphChars } from '../constants';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
@@ -23,6 +23,12 @@ export interface ComputedHeatmap {
 	computeRelativeAge(date: Date): number;
 	computeOpacity(date: Date): number;
 }
+
+export type Decoration<T extends Range[] | DecorationOptions[] = Range[] | DecorationOptions[]> = {
+	decorationType: TextEditorDecorationType;
+	rangesOrOptions: T;
+	dispose?: boolean;
+};
 
 interface RenderOptions
 	extends DecorationInstanceRenderOptions,
@@ -93,7 +99,7 @@ export function addOrUpdateGutterHeatmapDecoration(
 	date: Date,
 	heatmap: ComputedHeatmap,
 	range: Range,
-	map: Map<string, { decorationType: TextEditorDecorationType; rangesOrOptions: Range[] }>,
+	map: Map<string, Decoration<Range[]>>,
 ) {
 	const [r, g, b, a] = getHeatmapColor(date, heatmap);
 
@@ -122,6 +128,7 @@ export function addOrUpdateGutterHeatmapDecoration(
 				overviewRulerColor: scrollbar ? `rgba(${r},${g},${b},${a * 0.7})` : undefined,
 			}),
 			rangesOrOptions: [range],
+			dispose: true,
 		};
 		map.set(key, colorDecoration);
 	} else {
@@ -192,7 +199,7 @@ export function getGutterRenderOptions(
 
 	let width;
 	if (chars >= 0) {
-		const spacing = configuration.getAny<CoreConfiguration, number>('editor.letterSpacing');
+		const spacing = configuration.getCore('editor.letterSpacing');
 		if (spacing != null && spacing !== 0) {
 			width = `calc(${chars}ch + ${Math.round(chars * spacing) + (avatars ? 13 : -6)}px)`;
 		} else {

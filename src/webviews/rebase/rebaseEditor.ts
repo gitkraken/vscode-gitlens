@@ -8,7 +8,6 @@ import type {
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
 import { ShowCommitsInViewCommand } from '../../commands/showCommitsInView';
-import type { CoreConfiguration } from '../../constants';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitCommit } from '../../git/models/commit';
@@ -137,10 +136,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	get enabled(): boolean {
-		const associations = configuration.inspectAny<
-			CoreConfiguration,
-			Record<string, string> | { viewType: string; filenamePattern: string }[]
-		>('workbench.editorAssociations')?.globalValue;
+		const associations = configuration.inspectCore('workbench.editorAssociations')?.globalValue;
 		if (associations == null || associations.length === 0) return true;
 
 		if (Array.isArray(associations)) {
@@ -163,10 +159,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	async setEnabled(enabled: boolean): Promise<void> {
 		this._disableAfterNextUse = false;
 
-		const inspection = configuration.inspectAny<
-			CoreConfiguration,
-			Record<string, string> | { viewType: string; filenamePattern: string }[]
-		>('workbench.editorAssociations');
+		const inspection = configuration.inspectCore('workbench.editorAssociations');
 
 		let associations = inspection?.globalValue;
 		if (Array.isArray(associations)) {

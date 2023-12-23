@@ -46,7 +46,7 @@ rl.question(`Enter the new version number (format x.x.x, current is ${currentVer
 	// Add the new version header below the ## [Unreleased] header
 	data = data.replace('## [Unreleased]', newVersionHeader);
 
-	const unreleasedLink = match[0].replace(/\/compare\/v(.+?)\.\.\.HEAD/, `\/compare\/v${version}...HEAD`);
+	const unreleasedLink = match[0].replace(/\/compare\/v(.+?)\.\.\.HEAD/, `/compare/v${version}...HEAD`);
 
 	// Update the [unreleased]: line
 	data = data.replace(match[0], `${unreleasedLink}\n${newVersionLink}`);

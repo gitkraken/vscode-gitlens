@@ -3,7 +3,6 @@ import { CancellationTokenSource, Disposable, Uri, window } from 'vscode';
 import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
-import type { CoreConfiguration } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import type { CommitSelectedEvent } from '../../eventBus';
@@ -399,8 +398,8 @@ export class CommitDetailsWebviewProvider
 				'views.commitDetails.files',
 				'views.commitDetails.avatars',
 			]) ||
-			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides') ||
-			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.indent')
+			configuration.changedCore(e, 'workbench.tree.renderIndentGuides') ||
+			configuration.changedCore(e, 'workbench.tree.indent')
 		) {
 			this.updatePendingContext({
 				preferences: {
@@ -427,11 +426,8 @@ export class CommitDetailsWebviewProvider
 			avatars: configuration.get('views.commitDetails.avatars'),
 			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
 			files: configuration.get('views.commitDetails.files'),
-			indentGuides:
-				configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
-					'workbench.tree.renderIndentGuides',
-				) ?? 'onHover',
-			indent: configuration.getAny<CoreConfiguration, Preferences['indent']>('workbench.tree.indent'),
+			indentGuides: configuration.getCore('workbench.tree.renderIndentGuides') ?? 'onHover',
+			indent: configuration.getCore('workbench.tree.indent'),
 		};
 	}
 

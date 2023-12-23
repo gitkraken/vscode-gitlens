@@ -879,15 +879,7 @@ export class ViewNodeState implements Disposable {
 export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren?: ViewNode[]) {
 	if (!oldChildren?.length) return;
 
-	const children = newChildren?.length
-		? oldChildren.filter(c => {
-				const dupe = newChildren.includes(c);
-				if (dupe) {
-					debugger;
-				}
-				return !dupe;
-		  })
-		: [...oldChildren];
+	const children = newChildren?.length ? oldChildren.filter(c => !newChildren.includes(c)) : [...oldChildren];
 	if (!children.length) return;
 
 	if (children.length > 1000) {

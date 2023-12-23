@@ -24,7 +24,7 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
 		margin: '0 0 0 3em',
 		textDecoration: 'none',
 	},
-	rangeBehavior: DecorationRangeBehavior.ClosedOpen,
+	rangeBehavior: DecorationRangeBehavior.OpenOpen,
 });
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
@@ -239,6 +239,8 @@ export class LineAnnotationController implements Disposable {
 				.join()}`;
 		}
 
+		let uncommittedOnly = true;
+
 		const commitPromises = new Map<string, Promise<void>>();
 		const lines = new Map<number, GitLineState>();
 		for (const selection of selections) {
@@ -252,6 +254,9 @@ export class LineAnnotationController implements Disposable {
 				commitPromises.set(state.commit.ref, state.commit.ensureFullDetails());
 			}
 			lines.set(selection.active, state);
+			if (!state.commit.isUncommitted) {
+				uncommittedOnly = false;
+			}
 		}
 
 		const repoPath = trackedDocument.uri.repoPath;
@@ -269,6 +274,7 @@ export class LineAnnotationController implements Disposable {
 		}
 
 		const getPullRequests =
+			!uncommittedOnly &&
 			repoPath != null &&
 			cfg.pullRequests.enabled &&
 			CommitFormatter.has(

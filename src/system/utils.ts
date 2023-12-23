@@ -29,7 +29,7 @@ export function findEditor(uri: Uri): TextEditor | undefined {
 
 export async function findOrOpenEditor(
 	uri: Uri,
-	options?: TextDocumentShowOptions & { throwOnError?: boolean },
+	options?: TextDocumentShowOptions & { background?: boolean; throwOnError?: boolean },
 ): Promise<TextEditor | undefined> {
 	const e = findEditor(uri);
 	if (e != null) {
@@ -43,7 +43,7 @@ export async function findOrOpenEditor(
 	return openEditor(uri, { viewColumn: window.activeTextEditor?.viewColumn, ...options });
 }
 
-export function findOrOpenEditors(uris: Uri[]): void {
+export function findOrOpenEditors(uris: Uri[], options?: TextDocumentShowOptions & { background?: boolean }): void {
 	const normalizedUris = new Map(uris.map(uri => [uri.toString(), uri]));
 
 	for (const e of window.visibleTextEditors) {
@@ -53,8 +53,9 @@ export function findOrOpenEditors(uris: Uri[]): void {
 		}
 	}
 
+	options = { background: true, preview: false, ...options };
 	for (const uri of normalizedUris.values()) {
-		void executeCoreCommand('vscode.open', uri, { background: true, preview: false });
+		void executeCoreCommand('vscode.open', uri, options);
 	}
 }
 
@@ -125,11 +126,12 @@ export function isTextEditor(editor: TextEditor): boolean {
 
 export async function openEditor(
 	uri: Uri,
-	options?: TextDocumentShowOptions & { throwOnError?: boolean },
+	options?: TextDocumentShowOptions & { background?: boolean; throwOnError?: boolean },
 ): Promise<TextEditor | undefined> {
+	let background;
 	let throwOnError;
 	if (options != null) {
-		({ throwOnError, ...options } = options);
+		({ background, throwOnError, ...options } = options);
 	}
 
 	try {
@@ -137,8 +139,8 @@ export async function openEditor(
 			uri = uri.documentUri();
 		}
 
-		if (uri.scheme === Schemes.GitLens && ImageMimetypes[extname(uri.fsPath)]) {
-			await executeCoreCommand('vscode.open', uri);
+		if (background || (uri.scheme === Schemes.GitLens && ImageMimetypes[extname(uri.fsPath)])) {
+			await executeCoreCommand('vscode.open', uri, { background: background, ...options });
 
 			return undefined;
 		}

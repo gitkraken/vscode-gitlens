@@ -10,7 +10,6 @@ import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
 import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git';
 import { getCachedAvatarUri } from '../../../avatars';
-import type { CoreConfiguration, CoreGitConfiguration } from '../../../constants';
 import { GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
 import { emojify } from '../../../emojis';
@@ -50,7 +49,7 @@ import type {
 	RevisionUriData,
 	ScmRepository,
 } from '../../../git/gitProvider';
-import { encodeGitLensRevisionUriAuthority, GitUri } from '../../../git/gitUri';
+import { encodeGitLensRevisionUriAuthority, GitUri, isGitUri } from '../../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../git/models/blame';
 import type { BranchSortOptions } from '../../../git/models/branch';
 import {
@@ -353,7 +352,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private async findGit(): Promise<GitLocation> {
 		const scope = getLogScope();
 
-		if (!configuration.getAny<CoreGitConfiguration, boolean>('git.enabled', null, true)) {
+		if (!configuration.getCore('git.enabled', null, true)) {
 			Logger.log(scope, 'Built-in Git is disabled ("git.enabled": false)');
 			void showGitDisabledErrorMessage();
 
@@ -369,16 +368,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			registerCommitMessageProvider(this.container, scmGit);
 
 			// Find env to pass to Git
-			if (configuration.get('experimental.nativeGit')) {
-				for (const v of Object.values(scmGit.git)) {
-					if (v != null && typeof v === 'object' && 'git' in v) {
-						for (const vv of Object.values(v.git)) {
-							if (vv != null && typeof vv === 'object' && 'GIT_ASKPASS' in vv) {
-								Logger.debug(scope, 'Found built-in Git env');
+			for (const v of Object.values(scmGit.git)) {
+				if (v != null && typeof v === 'object' && 'git' in v) {
+					for (const vv of Object.values(v.git)) {
+						if (vv != null && typeof vv === 'object' && 'GIT_ASKPASS' in vv) {
+							Logger.debug(scope, 'Found built-in Git env');
 
-								this.git.setEnv(vv);
-								break;
-							}
+							this.git.setEnv(vv);
+							break;
 						}
 					}
 				}
@@ -411,9 +408,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 		void subscribeToScmOpenCloseRepository.call(this);
 
-		const potentialGitPaths =
-			configuration.getAny<CoreGitConfiguration, string | string[]>('git.path') ??
-			this.container.storage.getWorkspace('gitPath');
+		const potentialGitPaths = configuration.getCore('git.path') ?? this.container.storage.getWorkspace('gitPath');
 
 		const start = hrtime();
 
@@ -468,10 +463,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (uri.scheme !== Schemes.File) return [];
 
 		try {
-			const autoRepositoryDetection =
-				configuration.getAny<CoreGitConfiguration, boolean | 'subFolders' | 'openEditors'>(
-					'git.autoRepositoryDetection',
-				) ?? true;
+			const autoRepositoryDetection = configuration.getCore('git.autoRepositoryDetection') ?? true;
 
 			const folder = workspace.getWorkspaceFolder(uri);
 			if (folder == null && !options?.silent) return [];
@@ -697,7 +689,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		depth =
 			depth ??
 			configuration.get('advanced.repositorySearchDepth', rootUri) ??
-			configuration.getAny<CoreGitConfiguration, number>('git.repositoryScanMaxDepth', rootUri, 1);
+			configuration.getCore('git.repositoryScanMaxDepth', rootUri, 1);
 
 		Logger.log(scope, `searching (depth=${depth})...`);
 
@@ -722,12 +714,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (depth <= 0 || cancellation?.isCancellationRequested) return repositories;
 
 		// Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
-		const excludes = new Set<string>(
-			configuration.getAny<CoreGitConfiguration, string[]>('git.repositoryScanIgnoredFolders', rootUri, []),
-		);
+		const excludes = new Set<string>(configuration.getCore('git.repositoryScanIgnoredFolders', rootUri, []));
 		for (let [key, value] of Object.entries({
-			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('files.exclude', rootUri, {}),
-			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('search.exclude', rootUri, {}),
+			...configuration.getCore('files.exclude', rootUri, {}),
+			...configuration.getCore('search.exclude', rootUri, {}),
 		})) {
 			if (!value) continue;
 			if (key.includes('*.')) continue;
@@ -970,7 +960,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			authority: encodeGitLensRevisionUriAuthority(metadata),
 			path: path,
 			// Replace `/` with `\u2009\u2215\u2009` so that it doesn't get treated as part of the path of the file
-			query: ref ? JSON.stringify({ ref: shortenRevision(ref).replace('/', '\u2009\u2215\u2009') }) : undefined,
+			query: ref ? JSON.stringify({ ref: shortenRevision(ref).replaceAll('/', '\u2009\u2215\u2009') }) : undefined,
 		});
 		return uri;
 	}
@@ -1491,12 +1481,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let forceOpts: PushForceOptions | undefined;
 		if (options?.force) {
-			const withLease = configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushWithLease') ?? true;
+			const withLease = configuration.getCore('git.useForcePushWithLease') ?? true;
 			if (withLease) {
 				forceOpts = {
 					withLease: withLease,
-					ifIncludes:
-						configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushIfIncludes') ?? true,
+					ifIncludes: configuration.getCore('git.useForcePushIfIncludes') ?? true,
 				};
 			} else {
 				forceOpts = {
@@ -3288,11 +3277,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		ref1?: string,
 		ref2?: string,
-		options?: { filters?: GitDiffFilter[]; similarityThreshold?: number },
+		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined> {
 		try {
 			const data = await this.git.diff__name_status(repoPath, ref1, ref2, {
-				similarityThreshold: configuration.get('advanced.similarityThreshold'),
+				similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined,
 				...options,
 			});
 			if (!data) return undefined;
@@ -3883,12 +3872,26 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				range = new Range(range.end, range.start);
 			}
 
-			const data = await this.git.log__file(root, relativePath, ref, {
+			let data = await this.git.log__file(root, relativePath, ref, {
 				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
 				startLine: range == null ? undefined : range.start.line + 1,
 				endLine: range == null ? undefined : range.end.line + 1,
 			});
+
+			// If we didn't find any history from the working tree, check to see if the file was renamed
+			if (!data && ref == null) {
+				const status = await this.getStatusForFile(root, relativePath);
+				if (status?.originalPath != null) {
+					data = await this.git.log__file(root, status.originalPath, ref, {
+						ordering: configuration.get('advanced.commitOrdering'),
+						...options,
+						startLine: range == null ? undefined : range.start.line + 1,
+						endLine: range == null ? undefined : range.end.line + 1,
+					});
+				}
+			}
+
 			const log = parseGitLog(
 				this.container,
 				data,
@@ -4753,31 +4756,28 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getStatusForFile(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined> {
-		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
+	async getStatusForFile(repoPath: string, pathOrUri: string | Uri): Promise<GitStatusFile | undefined> {
+		const status = await this.getStatusForRepo(repoPath);
+		if (!status?.files.length) return undefined;
 
-		const [relativePath, root] = splitPath(uri, repoPath);
-
-		const data = await this.git.status__file(root, relativePath, porcelainVersion, {
-			similarityThreshold: configuration.get('advanced.similarityThreshold'),
-		});
-
-		const status = parseGitStatus(data, root, porcelainVersion);
-		return status?.files?.[0];
+		const [relativePath] = splitPath(pathOrUri, repoPath);
+		const file = status.files.find(f => f.path === relativePath);
+		return file;
 	}
 
 	@log()
 	async getStatusForFiles(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined> {
-		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
+		let [relativePath] = splitPath(pathOrGlob, repoPath);
+		if (!relativePath.endsWith('/*')) {
+			return this.getStatusForFile(repoPath, pathOrGlob).then(f => (f != null ? [f] : undefined));
+		}
 
-		const [relativePath, root] = splitPath(pathOrGlob, repoPath);
+		relativePath = relativePath.substring(0, relativePath.length - 1);
+		const status = await this.getStatusForRepo(repoPath);
+		if (!status?.files.length) return undefined;
 
-		const data = await this.git.status__file(root, relativePath, porcelainVersion, {
-			similarityThreshold: configuration.get('advanced.similarityThreshold'),
-		});
-
-		const status = parseGitStatus(data, root, porcelainVersion);
-		return status?.files ?? [];
+		const files = status.files.filter(f => f.path.startsWith(relativePath));
+		return files;
 	}
 
 	@log()
@@ -4787,7 +4787,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
 
 		const data = await this.git.status(repoPath, porcelainVersion, {
-			similarityThreshold: configuration.get('advanced.similarityThreshold'),
+			similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined,
 		});
 		const status = parseGitStatus(data, repoPath, porcelainVersion);
 
@@ -4944,13 +4944,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (ref === deletedOrMissing) return undefined;
 
 			repository = this.container.git.getRepository(Uri.file(pathOrUri));
-			repoPath = repoPath || repository?.path;
+			repoPath ||= repository?.path;
 
 			[relativePath, repoPath] = splitPath(pathOrUri, repoPath);
 		} else {
 			if (!this.isTrackable(pathOrUri)) return undefined;
 
-			if (pathOrUri instanceof GitUri) {
+			if (isGitUri(pathOrUri)) {
 				// Always use the ref of the GitUri
 				ref = pathOrUri.sha;
 				if (ref === deletedOrMissing) return undefined;
@@ -5797,7 +5797,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 }
 
 async function getEncoding(uri: Uri): Promise<string> {
-	const encoding = configuration.getAny<CoreConfiguration, string>('files.encoding', uri);
+	const encoding = configuration.getCore('files.encoding', uri);
 	if (encoding == null || encoding === 'utf8') return 'utf8';
 
 	const encodingExists = (await import(/* webpackChunkName: "encoding" */ 'iconv-lite')).encodingExists;

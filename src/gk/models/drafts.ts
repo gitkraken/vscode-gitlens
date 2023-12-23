@@ -23,14 +23,16 @@ export interface Draft {
 		email: string | undefined;
 		avatar?: string;
 	};
+	readonly isMine: boolean;
 	readonly organizationId?: string;
+	readonly role: 'owner' | 'admin' | 'editor' | 'viewer';
 	readonly isPublished: boolean;
 
 	readonly title: string;
 	readonly description?: string;
 
 	readonly deepLinkUrl: string;
-	readonly deepLinkAccess: 'public' | 'private';
+	readonly visibility: 'public' | 'private' | 'invite_only';
 
 	readonly latestChangesetId: string;
 	changesets?: DraftChangeset[];
@@ -108,8 +110,7 @@ export interface CreateDraftRequest {
 	type: 'patch' | 'stash';
 	title: string;
 	description?: string;
-	isPublic: boolean;
-	organizationId?: string;
+	visibility: 'public' | 'private'; // TODO: support 'invite_only'
 }
 
 export interface CreateDraftResponse {
@@ -124,11 +125,12 @@ export interface DraftResponse {
 	readonly updatedAt: string;
 	readonly createdBy: string;
 	readonly organizationId?: string;
+	readonly role: 'owner' | 'admin' | 'editor' | 'viewer';
 
 	readonly deepLink: string;
-	readonly isPublic: boolean;
 	readonly isPublished: boolean;
 	readonly latestChangesetId: string;
+	readonly visibility: 'public' | 'private' | 'invite_only';
 
 	readonly title: string;
 	readonly description?: string;
