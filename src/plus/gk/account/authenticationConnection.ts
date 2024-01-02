@@ -60,7 +60,7 @@ export class AuthenticationConnection implements Disposable {
 	}
 
 	@debug()
-	async login(scopes: string[], scopeKey: string): Promise<string> {
+	async login(scopes: string[], scopeKey: string, signUp: boolean = false): Promise<string> {
 		this.updateStatusBarItem(true);
 
 		// Include a state parameter here to prevent CSRF attacks
@@ -73,7 +73,7 @@ export class AuthenticationConnection implements Disposable {
 		);
 
 		const uri = this.connection.getGkDevAccountsUri(
-			'login',
+			signUp ? 'register' : 'login',
 			`${scopes.includes('gitlens') ? 'source=gitlens&' : ''}state=${encodeURIComponent(
 				gkstate,
 			)}&redirect_uri=${encodeURIComponent(callbackUri.toString())}`,

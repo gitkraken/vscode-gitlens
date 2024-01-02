@@ -75,9 +75,10 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		// Ensure that the scopes are sorted consistently (since we use them for matching and order doesn't matter)
 		scopes = scopes.sort();
 		const scopesKey = getScopesKey(scopes);
+		const signUp = scopes.includes('signUp');
 
 		try {
-			const token = await this._authConnection.login(scopes, scopesKey);
+			const token = await this._authConnection.login(scopes, scopesKey, signUp);
 			const session = await this.createSessionForToken(token, scopes);
 
 			const sessions = await this._sessionsPromise;
