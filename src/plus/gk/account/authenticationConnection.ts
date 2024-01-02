@@ -69,25 +69,24 @@ export class AuthenticationConnection implements Disposable {
 		this._pendingStates.set(scopeKey, [...existingStates, gkstate]);
 
 		const callbackUri = await env.asExternalUri(
-			Uri.parse(
-				`${env.uriScheme}://${this.container.context.extension.id}/${AuthenticationUriPathPrefix}?gkstate=${gkstate}`,
-			),
+			Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${AuthenticationUriPathPrefix}`),
 		);
 
-		const uri = this.connection.getAccountsUri(
-			'register',
-			`${scopes.includes('gitlens') ? 'referrer=gitlens&' : ''}pass-token=true&return-url=${encodeURIComponent(
-				callbackUri.toString(),
-			)}`,
+		const uri = this.connection.getGkDevAccountsUri(
+			'login',
+			`${scopes.includes('gitlens') ? 'source=gitlens&' : ''}state=${encodeURIComponent(
+				gkstate,
+			)}&redirect_uri=${encodeURIComponent(callbackUri.toString())}`,
 		);
-		void (await env.openExternal(uri));
+		// @ts-expect-error openExternal does allow a string, though the typing doesn't reflect it. Must pass as a string to avoid a double encoding
+		void (await env.openExternal(uri.toString(true)));
 
 		// Ensure there is only a single listener for the URI callback, in case the user starts the login process multiple times before completing it
 		let deferredCodeExchange = this._deferredCodeExchanges.get(scopeKey);
 		if (deferredCodeExchange == null) {
 			deferredCodeExchange = promisifyDeferred(
 				this.container.uri.onDidReceiveAuthenticationUri,
-				this.getUriHandlerDeferredExecutor(scopeKey),
+				this.getUriHandlerDeferredExecutor(scopeKey, gkstate),
 			);
 			this._deferredCodeExchanges.set(scopeKey, deferredCodeExchange);
 		}
@@ -99,10 +98,11 @@ export class AuthenticationConnection implements Disposable {
 
 		this._cancellationSource = new CancellationTokenSource();
 
-		void this.openCompletionInputFallback(this._cancellationSource.token);
-
 		return Promise.race([
 			deferredCodeExchange.promise,
+			new Promise<string>((resolve, reject) =>
+				this.openCompletionInputFallback(scopeKey, this._cancellationSource!.token, gkstate, resolve, reject),
+			),
 			new Promise<string>(
 				(_, reject) =>
 					// eslint-disable-next-line prefer-promise-reject-errors
@@ -120,77 +120,107 @@ export class AuthenticationConnection implements Disposable {
 		});
 	}
 
-	private async openCompletionInputFallback(cancellationToken: CancellationToken) {
+	private async openCompletionInputFallback(
+		scopeKey: string,
+		cancellationToken: CancellationToken,
+		state: string,
+		resolve: (token: string) => void,
+		reject: (reason: any) => void,
+	) {
 		const input = window.createInputBox();
 		input.ignoreFocusOut = true;
 
 		const disposables: Disposable[] = [];
+		let code: string | undefined = undefined;
+		let token: string | undefined = undefined;
 
 		try {
 			if (cancellationToken.isCancellationRequested) return;
 
-			const uri = await new Promise<Uri | undefined>(resolve => {
+			code = await new Promise<string | undefined>(resolve => {
 				disposables.push(
 					cancellationToken.onCancellationRequested(() => input.hide()),
 					input.onDidHide(() => resolve(undefined)),
 					input.onDidChangeValue(e => {
 						if (!e) {
-							input.validationMessage = undefined;
+							input.validationMessage = 'Please enter a valid code';
 							return;
 						}
 
-						try {
-							const uri = Uri.parse(e.trim());
-							if (uri.scheme && uri.scheme !== 'file') {
-								input.validationMessage = undefined;
-								return;
-							}
-						} catch {}
-
-						input.validationMessage = 'Please enter a valid authorization URL';
+						input.validationMessage = undefined;
 					}),
-					input.onDidAccept(() => resolve(Uri.parse(input.value.trim()))),
+					input.onDidAccept(() => resolve(input.value)),
 				);
 
 				input.title = 'GitKraken Sign In';
-				input.placeholder = 'Please enter the provided authorization URL';
-				input.prompt = 'If the auto-redirect fails, paste the authorization URL';
+				input.placeholder = 'Please enter the provided authorization code';
+				input.prompt = 'If the auto-redirect fails, paste the authorization code';
 
 				input.show();
 			});
-
-			if (uri != null) {
-				this.container.uri.handleUri(uri);
-			}
 		} finally {
 			input.dispose();
 			disposables.forEach(d => void d.dispose());
 		}
-	}
 
-	private getUriHandlerDeferredExecutor(_scopeKey: string): DeferredEventExecutor<Uri, string> {
-		return (uri: Uri, resolve, reject) => {
-			// TODO: We should really support a code to token exchange, but just return the token from the query string
-			// await this.exchangeCodeForToken(uri.query);
-			// As the backend still doesn't implement yet the code to token exchange, we just validate the state returned
-			const queryParams: URLSearchParams = new URLSearchParams(uri.query);
-
-			const acceptedStates = this._pendingStates.get(_scopeKey);
-			const state = queryParams.get('gkstate');
-
-			if (acceptedStates == null || !state || !acceptedStates.includes(state)) {
-				// A common scenario of this happening is if you:
-				// 1. Trigger a sign in with one set of scopes
-				// 2. Before finishing 1, you trigger a sign in with a different set of scopes
-				// In this scenario we should just return and wait for the next UriHandler event
-				// to run as we are probably still waiting on the user to hit 'Continue'
-				Logger.log('State not found in accepted state. Skipping this execution...');
+		if (code != null) {
+			token = await this.getTokenFromCodeAndState(scopeKey, code, state);
+			if (token == null) {
+				reject('Token not returned');
 				return;
 			}
 
-			const accessToken = queryParams.get('access-token');
+			resolve(token);
+		}
+	}
+
+	private async getTokenFromCodeAndState(scopeKey: string, code: string, state: string): Promise<string | undefined> {
+		const existingStates = this._pendingStates.get(scopeKey);
+		if (existingStates == null || !existingStates.includes(state)) {
+			Logger.error(undefined, `Getting token failed: Invalid state`);
+			return undefined;
+		}
+
+		try {
+			const rsp = await this.connection.fetchGkDevApi(
+				'oauth/access_token',
+				{
+					method: 'POST',
+					body: JSON.stringify({
+						grant_type: 'authorization_code',
+						client_id: 'gitkraken.gitlens',
+						code: code,
+						state: state,
+					}),
+				},
+				{
+					unAuthenticated: true,
+				},
+			);
+
+			if (!rsp.ok) {
+				Logger.error(undefined, `Getting token failed: (${rsp.status}) ${rsp.statusText}`);
+				return undefined;
+			}
+
+			const json: { access_token: string } = await rsp.json();
+			return json.access_token;
+		} catch (ex) {
+			Logger.error(ex, 'Getting token failed');
+			return undefined;
+		}
+	}
+
+	private getUriHandlerDeferredExecutor(scopeKey: string, state: string): DeferredEventExecutor<Uri, string> {
+		return async (uri: Uri, resolve, reject) => {
+			const queryParams: URLSearchParams = new URLSearchParams(uri.query);
 			const code = queryParams.get('code');
-			const token = accessToken ?? code;
+			if (code == null) {
+				reject('Code not returned');
+				return;
+			}
+
+			const token = await this.getTokenFromCodeAndState(scopeKey, code, state);
 
 			if (token == null) {
 				reject('Token not returned');
