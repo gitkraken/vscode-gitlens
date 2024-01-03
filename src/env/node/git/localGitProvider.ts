@@ -960,7 +960,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			authority: encodeGitLensRevisionUriAuthority(metadata),
 			path: path,
 			// Replace `/` with `\u2009\u2215\u2009` so that it doesn't get treated as part of the path of the file
-			query: ref ? JSON.stringify({ ref: shortenRevision(ref).replaceAll('/', '\u2009\u2215\u2009') }) : undefined,
+			query: ref
+				? JSON.stringify({ ref: shortenRevision(ref).replaceAll('/', '\u2009\u2215\u2009') })
+				: undefined,
 		});
 		return uri;
 	}
@@ -5591,7 +5593,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const pathspecs = uris.map(u => `./${splitPath(u, repoPath)[0]}`);
 
 		const stdinVersion = '2.30.0';
-		const stdin = await this.git.isAtLeastVersion(stdinVersion);
+		let stdin = await this.git.isAtLeastVersion(stdinVersion);
+		if (stdin && options?.onlyStaged && uris.length) {
+			// Since Git doesn't support --staged with --pathspec-from-file try to pass them in directly
+			stdin = false;
+		}
+
 		// If we don't support stdin, then error out if we are over the maximum allowed git cli length
 		if (!stdin && countStringLength(pathspecs) > maxGitCliLength) {
 			await this.ensureGitVersion(

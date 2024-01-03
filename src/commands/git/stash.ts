@@ -560,17 +560,12 @@ export class StashGitCommand extends QuickCommand<State> {
 				) {
 					const confirm = { title: 'Yes' };
 					const cancel = { title: 'No', isCloseAffordance: true };
-					const result = await window.showErrorMessage(
-						ex.message,
-						{
-							modal: true,
-						},
-						confirm,
-						cancel,
-					);
+					const result = await window.showErrorMessage(ex.message, { modal: true }, confirm, cancel);
 
 					if (result === confirm) {
-						state.uris = state.onlyStagedUris;
+						if (state.uris == null) {
+							state.uris = state.onlyStagedUris;
+						}
 						state.flags.splice(state.flags.indexOf('--staged'), 1);
 						continue;
 					}
@@ -623,43 +618,72 @@ export class StashGitCommand extends QuickCommand<State> {
 	}
 
 	private *pushCommandConfirmStep(state: PushStepState, context: Context): StepResultGenerator<PushFlags[]> {
+		const stagedOnly = state.flags.includes('--staged');
+
+		const baseFlags: PushFlags[] = [];
+		if (stagedOnly) {
+			baseFlags.push('--staged');
+		}
+
+		const confirmations: QuickPickItemOfT<PushFlags[]>[] = [];
+		if (state.uris?.length) {
+			if (state.flags.includes('--include-untracked')) {
+				baseFlags.push('--include-untracked');
+			}
+
+			confirmations.push(
+				createFlagsQuickPickItem<PushFlags>(state.flags, [...baseFlags], {
+					label: context.title,
+					detail: `Will stash changes from ${
+						state.uris.length === 1
+							? formatPath(state.uris[0], { fileOnly: true })
+							: `${state.uris.length} files`
+					}`,
+				}),
+			);
+			// If we are including untracked file, then avoid allowing --keep-index since Git will error out for some reason
+			if (!state.flags.includes('--include-untracked')) {
+				confirmations.push(
+					createFlagsQuickPickItem<PushFlags>(state.flags, [...baseFlags, '--keep-index'], {
+						label: `${context.title} & Keep Staged`,
+						detail: `Will stash changes from ${
+							state.uris.length === 1
+								? formatPath(state.uris[0], { fileOnly: true })
+								: `${state.uris.length} files`
+						}, but will keep staged files intact`,
+					}),
+				);
+			}
+		} else {
+			confirmations.push(
+				createFlagsQuickPickItem<PushFlags>(state.flags, [...baseFlags], {
+					label: context.title,
+					detail: `Will stash ${stagedOnly ? 'staged' : 'uncommitted'} changes`,
+				}),
+			);
+			if (!stagedOnly) {
+				confirmations.push(
+					createFlagsQuickPickItem<PushFlags>(state.flags, [...baseFlags, '--include-untracked'], {
+						label: `${context.title} & Include Untracked`,
+						description: '--include-untracked',
+						detail: 'Will stash uncommitted changes, including untracked files',
+					}),
+				);
+				confirmations.push(
+					createFlagsQuickPickItem<PushFlags>(state.flags, [...baseFlags, '--keep-index'], {
+						label: `${context.title} & Keep Staged`,
+						description: '--keep-index',
+						detail: `Will stash ${
+							stagedOnly ? 'staged' : 'uncommitted'
+						} changes, but will keep staged files intact`,
+					}),
+				);
+			}
+		}
+
 		const step: QuickPickStep<FlagsQuickPickItem<PushFlags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
-			state.uris == null || state.uris.length === 0
-				? [
-						createFlagsQuickPickItem<PushFlags>(state.flags, [], {
-							label: context.title,
-							detail: 'Will stash uncommitted changes',
-						}),
-						createFlagsQuickPickItem<PushFlags>(state.flags, ['--include-untracked'], {
-							label: `${context.title} & Include Untracked`,
-							description: '--include-untracked',
-							detail: 'Will stash uncommitted changes, including untracked files',
-						}),
-						createFlagsQuickPickItem<PushFlags>(state.flags, ['--keep-index'], {
-							label: `${context.title} & Keep Staged`,
-							description: '--keep-index',
-							detail: 'Will stash uncommitted changes, but will keep staged files intact',
-						}),
-				  ]
-				: [
-						createFlagsQuickPickItem<PushFlags>(state.flags, [], {
-							label: context.title,
-							detail: `Will stash changes from ${
-								state.uris.length === 1
-									? formatPath(state.uris[0], { fileOnly: true })
-									: `${state.uris.length} files`
-							}`,
-						}),
-						createFlagsQuickPickItem<PushFlags>(state.flags, ['--keep-index'], {
-							label: `${context.title} & Keep Staged`,
-							detail: `Will stash changes from ${
-								state.uris.length === 1
-									? formatPath(state.uris[0], { fileOnly: true })
-									: `${state.uris.length} files`
-							}, but will keep staged files intact`,
-						}),
-				  ],
+			confirmations,
 			undefined,
 			{ placeholder: `Confirm ${context.title}` },
 		);
