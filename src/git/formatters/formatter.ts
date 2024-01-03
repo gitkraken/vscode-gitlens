@@ -57,14 +57,17 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		if (s == null || s.length === 0) return s;
 
 		// NOTE: the collapsable whitespace logic relies on the javascript template evaluation to be left to right
-		if (options == null) {
-			options = {
-				collapseWhitespace: false,
-				padDirection: 'left',
-				prefix: undefined,
-				suffix: undefined,
-				truncateTo: undefined,
-			};
+		options ??= {
+			collapseWhitespace: false,
+			padDirection: 'left',
+			prefix: undefined,
+			suffix: undefined,
+			truncateTo: undefined,
+		};
+
+		// 0 is a special case to collapse to just the prefix and suffix
+		if (options.truncateTo === 0) {
+			return `${(options.prefix ?? '').trimEnd()}${(options.suffix ?? '').trimStart()}`;
 		}
 
 		let max = options.truncateTo;

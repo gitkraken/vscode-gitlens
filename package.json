@@ -601,7 +601,7 @@
 					},
 					"gitlens.views.formats.commits.label": {
 						"type": "string",
-						"default": "${❰ tips ❱➤  }${message}",
+						"default": "${❰ tips|11? ❱➤  }${message}",
 						"markdownDescription": "Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 30
@@ -6139,7 +6139,14 @@
 			},
 			{
 				"command": "gitlens.stashApply",
-				"title": "Apply Stash",
+				"title": "Apply a Stash...",
+				"category": "GitLens",
+				"icon": "$(gitlens-stash-pop)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.views.stash.apply",
+				"title": "Apply Stash...",
 				"category": "GitLens",
 				"icon": "$(gitlens-stash-pop)",
 				"enablement": "!operationInProgress"
@@ -6160,14 +6167,14 @@
 			},
 			{
 				"command": "gitlens.stashSave",
-				"title": "Stash All Changes",
+				"title": "Stash All Changes...",
 				"category": "GitLens",
 				"icon": "$(gitlens-stash-save)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.stashSaveFiles",
-				"title": "Stash Changes",
+				"title": "Stash Changes...",
 				"category": "GitLens",
 				"icon": "$(gitlens-stash-save)",
 				"enablement": "!operationInProgress"
@@ -6581,13 +6588,6 @@
 				"title": "Add as Co-author",
 				"category": "GitLens",
 				"icon": "$(person-add)"
-			},
-			{
-				"command": "gitlens.views.title.applyStash",
-				"title": "Apply a Stash...",
-				"category": "GitLens",
-				"icon": "$(gitlens-stash-pop)",
-				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.createWorktree",
@@ -8094,15 +8094,15 @@
 				"enablement": "!operationInProgress"
 			},
 			{
-				"command": "gitlens.graph.saveStash",
-				"title": "Stash All Changes",
+				"command": "gitlens.graph.stash.save",
+				"title": "Stash All Changes...",
 				"category": "GitLens",
 				"icon": "$(gitlens-stash-save)",
 				"enablement": "!operationInProgress"
 			},
 			{
-				"command": "gitlens.graph.applyStash",
-				"title": "Apply Stash",
+				"command": "gitlens.graph.stash.apply",
+				"title": "Apply Stash...",
 				"category": "GitLens",
 				"icon": "$(gitlens-stash-pop)",
 				"enablement": "!operationInProgress"
@@ -9423,6 +9423,10 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.views.stash.apply",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.stash.delete",
 					"when": "false"
 				},
@@ -9704,10 +9708,6 @@
 				},
 				{
 					"command": "gitlens.views.addAuthor",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.title.applyStash",
 					"when": "false"
 				},
 				{
@@ -10755,11 +10755,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.saveStash",
+					"command": "gitlens.graph.stash.save",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.applyStash",
+					"command": "gitlens.graph.stash.apply",
 					"when": "false"
 				},
 				{
@@ -12004,7 +12004,7 @@
 					"group": "navigation@10"
 				},
 				{
-					"command": "gitlens.views.title.applyStash",
+					"command": "gitlens.stashApply",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.stashes/",
 					"group": "navigation@11"
 				},
@@ -13628,7 +13628,7 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
-					"command": "gitlens.stashApply",
+					"command": "gitlens.views.stash.apply",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem == gitlens:stash",
 					"group": "inline@1"
 				},
@@ -13643,7 +13643,7 @@
 					"group": "inline@99"
 				},
 				{
-					"command": "gitlens.stashApply",
+					"command": "gitlens.views.stash.apply",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem == gitlens:stash",
 					"group": "1_gitlens_actions@1"
 				},
@@ -14004,7 +14004,7 @@
 					"group": "7_gitlens_cutcopypaste@3"
 				},
 				{
-					"command": "gitlens.graph.applyStash",
+					"command": "gitlens.graph.stash.apply",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem == gitlens:stash",
 					"group": "1_gitlens_actions@1"
 				},
@@ -14019,7 +14019,7 @@
 					"group": "1_gitlens_actions@3"
 				},
 				{
-					"command": "gitlens.graph.saveStash",
+					"command": "gitlens.graph.stash.save",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem == gitlens:wip",
 					"group": "1_gitlens_actions@3"
 				},
