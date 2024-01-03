@@ -279,7 +279,7 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.deleteBranch', this.deleteBranch, this);
 		registerViewCommand('gitlens.views.renameBranch', this.renameBranch, this);
 
-		registerViewCommand('gitlens.views.title.applyStash', () => this.applyStash());
+		registerViewCommand('gitlens.views.stash.apply', this.applyStash, this);
 		registerViewCommand('gitlens.views.stash.delete', this.deleteStash, this, ViewCommandMultiSelectMode.Custom);
 		registerViewCommand('gitlens.views.stash.rename', this.renameStash, this);
 
@@ -365,8 +365,10 @@ export class ViewCommands {
 	}
 
 	@log()
-	private applyStash() {
-		return StashActions.apply();
+	private applyStash(node: StashNode) {
+		if (!node.is('stash')) return Promise.resolve();
+
+		return StashActions.apply(node.repoPath, node.commit);
 	}
 
 	@log()

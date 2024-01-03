@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
-import { ScmResourceGroupType } from '../@types/vscode.git.resources.enums';
+import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Features } from '../features';
@@ -19,6 +19,7 @@ export interface StashSaveCommandArgs {
 	message?: string;
 	repoPath?: string;
 	uris?: Uri[];
+	includeUntracked?: boolean;
 	keepStaged?: boolean;
 	onlyStaged?: boolean;
 	onlyStagedUris?: Uri[];
@@ -43,48 +44,81 @@ export class StashSaveCommand extends Command {
 			args.repoPath = context.node.repoPath;
 		} else if (context.type === 'scm-states') {
 			args = { ...args };
-			args.uris = context.scmResourceStates.map(s => s.resourceUri);
-			args.repoPath = (await this.container.git.getOrOpenRepository(args.uris[0]))?.path;
 
-			if (
-				!context.scmResourceStates.some(
-					s => (s as ScmResource).resourceGroupType === ScmResourceGroupType.Index,
-				)
-			) {
+			let hasOnlyStaged = undefined;
+			let hasStaged = false;
+			let hasUntracked = false;
+
+			const uris: Uri[] = [];
+
+			for (const resource of context.scmResourceStates as ScmResource[]) {
+				uris.push(resource.resourceUri);
+				if (resource.type === ScmStatus.UNTRACKED) {
+					hasUntracked = true;
+				}
+
+				if (resource.resourceGroupType === ScmResourceGroupType.Index) {
+					hasStaged = true;
+					if (hasOnlyStaged == null) {
+						hasOnlyStaged = true;
+					}
+				} else {
+					hasOnlyStaged = false;
+				}
+			}
+
+			const repo = await this.container.git.getOrOpenRepository(uris[0]);
+
+			args.repoPath = repo?.path;
+			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.supports(Features.StashOnlyStaged) : false;
+			if (args.keepStaged == null && !hasStaged) {
 				args.keepStaged = true;
 			}
+			args.includeUntracked = hasUntracked;
+
+			args.uris = uris;
 		} else if (context.type === 'scm-groups') {
 			args = { ...args };
 
-			let isStagedOnly = true;
+			let hasOnlyStaged = undefined;
 			let hasStaged = false;
-			const uris = context.scmResourceGroups.reduce<Uri[]>((a, b) => {
-				const isStaged = b.id === 'index';
-				if (isStagedOnly && !isStaged) {
-					isStagedOnly = false;
-				}
-				if (isStaged) {
-					hasStaged = true;
-				}
-				return a.concat(b.resourceStates.map(s => s.resourceUri));
-			}, []);
+			let hasUntracked = false;
 
-			const repo = await this.container.git.getOrOpenRepository(uris[0]);
-			let canUseStagedOnly = false;
-			if (isStagedOnly && repo != null) {
-				canUseStagedOnly = await repo.supports(Features.StashOnlyStaged);
+			const uris: Uri[] = [];
+			const stagedUris: Uri[] = [];
+
+			for (const group of context.scmResourceGroups) {
+				for (const resource of group.resourceStates as ScmResource[]) {
+					uris.push(resource.resourceUri);
+					if (resource.type === ScmStatus.UNTRACKED) {
+						hasUntracked = true;
+					}
+				}
+
+				if (group.id === 'index') {
+					hasStaged = true;
+					if (hasOnlyStaged == null) {
+						hasOnlyStaged = true;
+					}
+					stagedUris.push(...group.resourceStates.map(s => s.resourceUri));
+				} else {
+					hasOnlyStaged = false;
+				}
 			}
 
-			if (canUseStagedOnly) {
-				args.onlyStaged = true;
-				args.onlyStagedUris = uris;
+			const repo = await this.container.git.getOrOpenRepository(uris[0]);
+
+			args.repoPath = repo?.path;
+			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.supports(Features.StashOnlyStaged) : false;
+			if (args.keepStaged == null && !hasStaged) {
+				args.keepStaged = true;
+			}
+			args.includeUntracked = hasUntracked;
+
+			if (args.onlyStaged) {
+				args.onlyStagedUris = stagedUris;
 			} else {
 				args.uris = uris;
-				args.repoPath = repo?.path;
-
-				if (!hasStaged) {
-					args.keepStaged = true;
-				}
 			}
 		}
 
@@ -96,6 +130,7 @@ export class StashSaveCommand extends Command {
 			args?.repoPath,
 			args?.uris,
 			args?.message,
+			args?.includeUntracked,
 			args?.keepStaged,
 			args?.onlyStaged,
 			args?.onlyStagedUris,

@@ -38,6 +38,7 @@ export function push(
 	repo?: string | Repository,
 	uris?: Uri[],
 	message?: string,
+	includeUntracked: boolean = false,
 	keepStaged: boolean = false,
 	onlyStaged: boolean = false,
 	onlyStagedUris?: Uri[],
@@ -50,7 +51,11 @@ export function push(
 			uris: uris,
 			onlyStagedUris: onlyStagedUris,
 			message: message,
-			flags: [...(keepStaged ? ['--keep-index'] : []), ...(onlyStaged ? ['--staged'] : [])] as PushFlags[],
+			flags: [
+				...(includeUntracked ? ['--include-untracked'] : []),
+				...(keepStaged ? ['--keep-index'] : []),
+				...(onlyStaged ? ['--staged'] : []),
+			] as PushFlags[],
 		},
 	});
 }

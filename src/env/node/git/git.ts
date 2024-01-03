@@ -2022,31 +2022,25 @@ export class Git {
 	async stash__push(
 		repoPath: string,
 		message?: string,
-		{
-			includeUntracked,
-			keepIndex,
-			onlyStaged,
-			pathspecs,
-			stdin,
-		}: {
+		options?: {
 			includeUntracked?: boolean;
 			keepIndex?: boolean;
 			onlyStaged?: boolean;
 			pathspecs?: string[];
 			stdin?: boolean;
-		} = {},
+		},
 	): Promise<void> {
 		const params = ['stash', 'push'];
 
-		if (includeUntracked || (pathspecs != null && pathspecs.length !== 0)) {
-			params.push('-u');
+		if ((options?.includeUntracked || options?.pathspecs?.length) && !options?.onlyStaged) {
+			params.push('--include-untracked');
 		}
 
-		if (keepIndex) {
-			params.push('-k');
+		if (options?.keepIndex && !options?.includeUntracked) {
+			params.push('--keep-index');
 		}
 
-		if (onlyStaged) {
+		if (options?.onlyStaged) {
 			if (await this.isAtLeastVersion('2.35')) {
 				params.push('--staged');
 			} else {
@@ -2058,24 +2052,20 @@ export class Git {
 			params.push('-m', message);
 		}
 
-		if (stdin && pathspecs != null && pathspecs.length !== 0) {
-			void (await this.git<string>(
-				{ cwd: repoPath, stdin: pathspecs.join('\0') },
-				...params,
-				'--pathspec-from-file=-',
-				'--pathspec-file-nul',
-			));
-
-			return;
-		}
-
-		params.push('--');
-		if (pathspecs != null && pathspecs.length !== 0) {
-			params.push(...pathspecs);
+		let stdin;
+		if (options?.pathspecs?.length) {
+			if (options.stdin) {
+				stdin = options.pathspecs.join('\0');
+				params.push('--pathspec-from-file=-', '--pathspec-file-nul', '--');
+			} else {
+				params.push('--', ...options.pathspecs);
+			}
+		} else {
+			params.push('--');
 		}
 
 		try {
-			void (await this.git<string>({ cwd: repoPath }, ...params));
+			void (await this.git<string>({ cwd: repoPath, stdin: stdin }, ...params));
 		} catch (ex) {
 			if (
 				ex instanceof RunError &&
