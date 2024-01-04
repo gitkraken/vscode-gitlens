@@ -105,7 +105,7 @@ const normalizeSearchOperatorsMap = new Map<SearchOperators, NormalizedSearchOpe
 ]);
 
 const searchOperationRegex =
-	/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)\s?(?<value>".+?"|\S+}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change):)/gi;
+	/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)\s?(?<value>".+?"|\S+}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change):)/g;
 
 export function parseSearchQuery(search: SearchQuery): Map<NormalizedSearchOperators, Set<string>> {
 	const operations = new Map<NormalizedSearchOperators, Set<string>>();
