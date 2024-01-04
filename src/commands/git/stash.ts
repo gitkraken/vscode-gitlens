@@ -72,7 +72,7 @@ interface PopState {
 	reference: GitStashReference;
 }
 
-export type PushFlags = '--include-untracked' | '--keep-index' | '--staged';
+export type PushFlags = '--include-untracked' | '--keep-index' | '--staged' | '--snapshot';
 
 interface PushState {
 	subcommand: 'push';
@@ -543,11 +543,15 @@ export class StashGitCommand extends QuickCommand<State> {
 			}
 
 			try {
-				await state.repo.stashSave(state.message, state.uris, {
-					includeUntracked: state.flags.includes('--include-untracked'),
-					keepIndex: state.flags.includes('--keep-index'),
-					onlyStaged: state.flags.includes('--staged'),
-				});
+				if (state.flags.includes('--snapshot')) {
+					await state.repo.stashSaveSnapshot(state.message);
+				} else {
+					await state.repo.stashSave(state.message, state.uris, {
+						includeUntracked: state.flags.includes('--include-untracked'),
+						keepIndex: state.flags.includes('--keep-index'),
+						onlyStaged: state.flags.includes('--staged'),
+					});
+				}
 
 				endSteps(state);
 			} catch (ex) {
@@ -662,6 +666,12 @@ export class StashGitCommand extends QuickCommand<State> {
 				}),
 			);
 			if (!stagedOnly) {
+				confirmations.push(
+					createFlagsQuickPickItem<PushFlags>(state.flags, [...baseFlags, '--snapshot'], {
+						label: `${context.title} Snapshot`,
+						detail: 'Will stash uncommitted changes without changing the working tree',
+					}),
+				);
 				confirmations.push(
 					createFlagsQuickPickItem<PushFlags>(state.flags, [...baseFlags, '--include-untracked'], {
 						label: `${context.title} & Include Untracked`,

@@ -502,8 +502,9 @@ export interface GitProvider extends Disposable {
 		repoPath: string,
 		message?: string,
 		uris?: Uri[],
-		options?: { includeUntracked?: boolean | undefined; keepIndex?: boolean | undefined; onlyStaged?: boolean },
+		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void>;
+	stashSaveSnapshot?(repoPath: string, message?: string): Promise<void>;
 
 	createWorktree?(
 		repoPath: string,
