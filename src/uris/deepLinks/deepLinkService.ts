@@ -1,7 +1,8 @@
-import { Disposable, env, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
+import { openFileAtRevision } from '../../git/actions/commit';
 import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
@@ -16,7 +17,7 @@ import { once } from '../../system/event';
 import { Logger } from '../../system/logger';
 import { normalizePath } from '../../system/path';
 import type { OpenWorkspaceLocation } from '../../system/utils';
-import { openWorkspace } from '../../system/utils';
+import { findOrOpenEditor, openWorkspace } from '../../system/utils';
 import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink';
 import {
 	AccountDeepLinkTypes,
@@ -102,6 +103,7 @@ export class DeepLinkService implements Disposable {
 			remote: undefined,
 			secondaryRemote: undefined,
 			repoPath: undefined,
+			filePath: undefined,
 			targetId: undefined,
 			secondaryTargetId: undefined,
 			secondaryRemoteUrl: undefined,
@@ -118,6 +120,7 @@ export class DeepLinkService implements Disposable {
 			url: url,
 			remoteUrl: link.remoteUrl,
 			repoPath: link.repoPath,
+			filePath: link.filePath,
 			targetId: link.targetId,
 			secondaryTargetId: link.secondaryTargetId,
 			secondaryRemoteUrl: link.secondaryRemoteUrl,
@@ -227,14 +230,14 @@ export class DeepLinkService implements Disposable {
 		targetId: string,
 		secondaryTargetId: string,
 	): Promise<[string, string] | undefined> {
-		const sha1 = await this.getComparisonRefSha(targetId);
+		const sha1 = await this.getRefSha(targetId);
 		if (sha1 == null) return undefined;
-		const sha2 = await this.getComparisonRefSha(secondaryTargetId);
+		const sha2 = await this.getRefSha(secondaryTargetId);
 		if (sha2 == null) return undefined;
 		return [sha1, sha2];
 	}
 
-	private async getComparisonRefSha(ref: string) {
+	private async getRefSha(ref: string) {
 		// try treating each id as a commit sha first, then a branch if that fails, then a tag if that fails.
 		// Note: a blank target id will be treated as 'Working Tree' and will resolve to a blank Sha.
 
@@ -267,6 +270,10 @@ export class DeepLinkService implements Disposable {
 
 		if (targetType === DeepLinkType.Commit) {
 			return this.getShaForCommit(targetId);
+		}
+
+		if (targetType === DeepLinkType.File) {
+			return this.getRefSha(targetId);
 		}
 
 		if (targetType === DeepLinkType.Comparison) {
@@ -410,6 +417,7 @@ export class DeepLinkService implements Disposable {
 				remote,
 				secondaryRemote,
 				repoPath,
+				filePath,
 				targetId,
 				secondaryTargetId,
 				targetSha,
@@ -842,13 +850,16 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (targetType === DeepLinkType.Repository) {
-						action = DeepLinkServiceAction.TargetMatched;
+						action = DeepLinkServiceAction.TargetMatchedForGraph;
 						break;
 					}
 
 					if (targetType === DeepLinkType.Comparison) {
 						[this._context.targetSha, this._context.secondaryTargetSha] =
 							(await this.getShasForTargets()) ?? [];
+					} else if (targetType === DeepLinkType.File && targetId == null) {
+						action = DeepLinkServiceAction.TargetMatchedForFile;
+						break;
 					} else {
 						this._context.targetSha = (await this.getShasForTargets()) as string | undefined;
 					}
@@ -866,10 +877,18 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					action =
-						targetType === DeepLinkType.Comparison
-							? DeepLinkServiceAction.TargetsMatched
-							: DeepLinkServiceAction.TargetMatched;
+					switch (targetType) {
+						case DeepLinkType.File:
+							action = DeepLinkServiceAction.TargetMatchedForFile;
+							break;
+						case DeepLinkType.Comparison:
+							action = DeepLinkServiceAction.TargetsMatchedForComparison;
+							break;
+						default:
+							action = DeepLinkServiceAction.TargetMatchedForGraph;
+							break;
+					}
+
 					break;
 				}
 				case DeepLinkServiceState.Fetch: {
@@ -984,6 +1003,78 @@ export class DeepLinkService implements Disposable {
 
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
+				}
+				case DeepLinkServiceState.OpenFile: {
+					if (filePath == null || !repo) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Missing file path.';
+						break;
+					}
+
+					let selection: Range | undefined;
+					if (secondaryTargetId != null) {
+						// secondary target id can be a single number or a range separated with a dash. If it's a single number, form a range from it. If it's a range, parse it.
+						const range = secondaryTargetId.split('-');
+						if (range.length === 1) {
+							const lineNumber = parseInt(range[0]);
+							if (!isNaN(lineNumber)) {
+								selection = new Range(lineNumber < 1 ? 0 : lineNumber - 1, 0, lineNumber, 0);
+							}
+						} else if (range.length === 2) {
+							const startLineNumber = parseInt(range[0]);
+							const endLineNumber = parseInt(range[1]);
+							if (!isNaN(startLineNumber) && !isNaN(endLineNumber)) {
+								selection = new Range(
+									startLineNumber < 1 ? 0 : startLineNumber - 1,
+									0,
+									endLineNumber,
+									0,
+								);
+							}
+						}
+					}
+
+					if (targetSha == null) {
+						try {
+							await findOrOpenEditor(Uri.file(`${repo.path}/${filePath}`), {
+								preview: false,
+								selection: selection,
+							});
+							action = DeepLinkServiceAction.DeepLinkResolved;
+							break;
+						} catch {
+							action = DeepLinkServiceAction.DeepLinkErrored;
+							message = 'Unable to open file.';
+							break;
+						}
+					}
+
+					let revisionUri: Uri | undefined;
+					try {
+						revisionUri = this.container.git.getRevisionUri(
+							targetSha,
+							filePath,
+							repoPath ?? repo.uri.fsPath,
+						);
+					} catch {}
+					if (revisionUri == null) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Unable to get revision uri.';
+						break;
+					}
+
+					try {
+						await openFileAtRevision(revisionUri, {
+							preview: false,
+							selection: selection,
+						});
+						action = DeepLinkServiceAction.DeepLinkResolved;
+						break;
+					} catch {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Unable to open file.';
+						break;
+					}
 				}
 				default: {
 					action = DeepLinkServiceAction.DeepLinkErrored;
