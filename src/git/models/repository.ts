@@ -1024,8 +1024,16 @@ export class Repository implements Disposable {
 		message?: string,
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
-	) {
+	): Promise<void> {
 		await this.container.git.stashSave(this.uri, message, uris, options);
+
+		this.fireChange(RepositoryChange.Stash);
+	}
+
+	@gate()
+	@log()
+	async stashSaveSnapshot(message?: string): Promise<void> {
+		await this.container.git.stashSaveSnapshot(this.uri, message);
 
 		this.fireChange(RepositoryChange.Stash);
 	}

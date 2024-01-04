@@ -2019,6 +2019,25 @@ export class Git {
 		);
 	}
 
+	async stash__create(repoPath: string): Promise<string | undefined> {
+		const params = ['stash', 'create'];
+
+		const data = await this.git<string>({ cwd: repoPath }, ...params);
+		return data?.trim() || undefined;
+	}
+
+	async stash__store(repoPath: string, sha: string, message?: string): Promise<void> {
+		const params = ['stash', 'store'];
+
+		if (message) {
+			params.push('-m', message);
+		}
+
+		params.push(sha);
+
+		await this.git<string>({ cwd: repoPath }, ...params);
+	}
+
 	async stash__push(
 		repoPath: string,
 		message?: string,

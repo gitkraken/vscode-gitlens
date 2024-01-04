@@ -2708,6 +2708,12 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	async stashSaveSnapshot(repoPath: string | Uri, message?: string): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.stashSaveSnapshot?.(path, message);
+	}
+
+	@log()
 	createWorktree(
 		repoPath: string | Uri,
 		path: string,

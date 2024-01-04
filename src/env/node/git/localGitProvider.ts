@@ -5578,41 +5578,52 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void> {
-		if (uris == null) {
-			await this.git.stash__push(repoPath, message, options);
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes', 'status'] });
-			return;
-		}
+		try {
+			if (!uris?.length) {
+				await this.git.stash__push(repoPath, message, options);
+				return;
+			}
 
-		await this.ensureGitVersion(
-			'2.13.2',
-			'Stashing individual files',
-			' Please retry by stashing everything or install a more recent version of Git and try again.',
-		);
-
-		const pathspecs = uris.map(u => `./${splitPath(u, repoPath)[0]}`);
-
-		const stdinVersion = '2.30.0';
-		let stdin = await this.git.isAtLeastVersion(stdinVersion);
-		if (stdin && options?.onlyStaged && uris.length) {
-			// Since Git doesn't support --staged with --pathspec-from-file try to pass them in directly
-			stdin = false;
-		}
-
-		// If we don't support stdin, then error out if we are over the maximum allowed git cli length
-		if (!stdin && countStringLength(pathspecs) > maxGitCliLength) {
 			await this.ensureGitVersion(
-				stdinVersion,
-				`Stashing so many files (${pathspecs.length}) at once`,
-				' Please retry by stashing fewer files or install a more recent version of Git and try again.',
+				'2.13.2',
+				'Stashing individual files',
+				' Please retry by stashing everything or install a more recent version of Git and try again.',
 			);
-		}
 
-		await this.git.stash__push(repoPath, message, {
-			...options,
-			pathspecs: pathspecs,
-			stdin: stdin,
-		});
+			const pathspecs = uris.map(u => `./${splitPath(u, repoPath)[0]}`);
+
+			const stdinVersion = '2.30.0';
+			let stdin = await this.git.isAtLeastVersion(stdinVersion);
+			if (stdin && options?.onlyStaged && uris.length) {
+				// Since Git doesn't support --staged with --pathspec-from-file try to pass them in directly
+				stdin = false;
+			}
+
+			// If we don't support stdin, then error out if we are over the maximum allowed git cli length
+			if (!stdin && countStringLength(pathspecs) > maxGitCliLength) {
+				await this.ensureGitVersion(
+					stdinVersion,
+					`Stashing so many files (${pathspecs.length}) at once`,
+					' Please retry by stashing fewer files or install a more recent version of Git and try again.',
+				);
+			}
+
+			await this.git.stash__push(repoPath, message, {
+				...options,
+				pathspecs: pathspecs,
+				stdin: stdin,
+			});
+		} finally {
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes', 'status'] });
+		}
+	}
+
+	@log()
+	async stashSaveSnapshot(repoPath: string, message?: string): Promise<void> {
+		const id = await this.git.stash__create(repoPath);
+		if (id == null) return;
+
+		await this.git.stash__store(repoPath, id, message);
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
 
