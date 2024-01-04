@@ -11,7 +11,7 @@ export function ensureGitTerminal(): Terminal {
 	if (_terminal == null) {
 		_terminal = window.createTerminal(extensionTerminalName);
 		_disposable = window.onDidCloseTerminal((e: Terminal) => {
-			if (e.name === extensionTerminalName) {
+			if (e === _terminal) {
 				_terminal = undefined;
 				_disposable?.dispose();
 				_disposable = undefined;
