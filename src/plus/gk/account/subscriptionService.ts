@@ -168,7 +168,8 @@ export class SubscriptionService implements Disposable {
 
 		return [
 			registerCommand(Commands.GKSwitchOrganization, () => this.switchOrganization()),
-			registerCommand(Commands.PlusLoginOrSignUp, () => this.loginOrSignUp()),
+			registerCommand(Commands.PlusLogin, () => this.loginOrSignUp()),
+			registerCommand(Commands.PlusSignUp, () => this.loginOrSignUp(true)),
 			registerCommand(Commands.PlusLogout, () => this.logout()),
 
 			registerCommand(Commands.PlusStartPreviewTrial, () => this.startPreviewTrial()),
@@ -220,14 +221,14 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async loginOrSignUp(): Promise<boolean> {
+	async loginOrSignUp(signUp: boolean = false): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 
 		// Abort any waiting authentication to ensure we can start a new flow
 		await this.container.accountAuthentication.abort();
 		void this.showAccountView();
 
-		const session = await this.ensureSession(true);
+		const session = await this.ensureSession(true, { signUp: signUp });
 		const loggedIn = Boolean(session);
 		if (loggedIn) {
 			const {
@@ -619,7 +620,7 @@ export class SubscriptionService implements Disposable {
 		this._validationTimer = setInterval(
 			() => {
 				if (this._lastValidatedDate == null || this._lastValidatedDate.getDate() !== new Date().getDate()) {
-					void this.ensureSession(false, true);
+					void this.ensureSession(false, { force: true });
 				}
 			},
 			6 * 60 * 60 * 1000,
@@ -694,16 +695,19 @@ export class SubscriptionService implements Disposable {
 
 	@gate()
 	@debug()
-	private async ensureSession(createIfNeeded: boolean, force?: boolean): Promise<AuthenticationSession | undefined> {
+	private async ensureSession(
+		createIfNeeded: boolean,
+		options?: { force?: boolean; signUp?: boolean },
+	): Promise<AuthenticationSession | undefined> {
 		if (this._sessionPromise != null) {
 			void (await this._sessionPromise);
 		}
 
-		if (!force && this._session != null) return this._session;
+		if (!options?.force && this._session != null) return this._session;
 		if (this._session === null && !createIfNeeded) return undefined;
 
 		if (this._sessionPromise === undefined) {
-			this._sessionPromise = this.getOrCreateSession(createIfNeeded).then(
+			this._sessionPromise = this.getOrCreateSession(createIfNeeded, options?.signUp).then(
 				s => {
 					this._session = s;
 					this._sessionPromise = undefined;
@@ -722,16 +726,23 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@debug()
-	private async getOrCreateSession(createIfNeeded: boolean): Promise<AuthenticationSession | null> {
+	private async getOrCreateSession(
+		createIfNeeded: boolean,
+		signUp: boolean = false,
+	): Promise<AuthenticationSession | null> {
 		const scope = getLogScope();
 
 		let session: AuthenticationSession | null | undefined;
 
 		try {
-			session = await authentication.getSession(authenticationProviderId, authenticationProviderScopes, {
-				createIfNone: createIfNeeded,
-				silent: !createIfNeeded,
-			});
+			session = await authentication.getSession(
+				authenticationProviderId,
+				signUp ? [...authenticationProviderScopes, 'signUp'] : authenticationProviderScopes,
+				{
+					createIfNone: createIfNeeded,
+					silent: !createIfNeeded,
+				},
+			);
 		} catch (ex) {
 			session = null;
 

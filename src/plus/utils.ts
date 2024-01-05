@@ -88,17 +88,23 @@ export async function ensureAccount(title: string, container: Container): Promis
 
 		if (subscription.account != null) break;
 
-		const signIn = { title: 'Sign In / Sign Up' };
+		const signIn = { title: 'Sign In' };
+		const signUp = { title: 'Sign Up' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
 		const result = await window.showWarningMessage(
 			`${title}\n\nGain access to our developer productivity and collaboration services.`,
 			{ modal: true },
 			signIn,
+			signUp,
 			cancel,
 		);
 
 		if (result === signIn) {
 			if (await container.subscription.loginOrSignUp()) {
+				continue;
+			}
+		} else if (result === signUp) {
+			if (await container.subscription.loginOrSignUp(true)) {
 				continue;
 			}
 		}

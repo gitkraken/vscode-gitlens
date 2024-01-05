@@ -16,12 +16,34 @@ interface FetchOptions {
 
 interface GKFetchOptions extends FetchOptions {
 	token?: string;
+	unAuthenticated?: boolean;
 }
 
 export class ServerConnection implements Disposable {
 	constructor(private readonly container: Container) {}
 
 	dispose() {}
+
+	@memoize()
+	private get baseGkDevAccountsUri(): Uri {
+		if (this.container.env === 'staging') {
+			return Uri.parse('https://staging.gitkraken.dev');
+		}
+
+		if (this.container.env === 'dev') {
+			return Uri.parse('https://dev.gitkraken.dev');
+		}
+
+		return Uri.parse('https://gitkraken.dev');
+	}
+
+	getGkDevAccountsUri(path?: string, query?: string) {
+		let uri = path != null ? Uri.joinPath(this.baseGkDevAccountsUri, path) : this.baseGkDevAccountsUri;
+		if (query != null) {
+			uri = uri.with({ query: query });
+		}
+		return uri;
+	}
 
 	@memoize()
 	private get accountsUri(): Uri {
@@ -180,7 +202,9 @@ export class ServerConnection implements Disposable {
 		try {
 			let token;
 			({ token, ...options } = options ?? {});
-			token ??= await this.getAccessToken();
+			if (!options?.unAuthenticated) {
+				token ??= await this.getAccessToken();
+			}
 
 			const headers: Record<string, unknown> = {
 				Authorization: `Bearer ${token}`,
