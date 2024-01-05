@@ -87,7 +87,7 @@ export class AuthenticationConnection implements Disposable {
 		if (deferredCodeExchange == null) {
 			deferredCodeExchange = promisifyDeferred(
 				this.container.uri.onDidReceiveAuthenticationUri,
-				this.getUriHandlerDeferredExecutor(scopeKey, gkstate),
+				this.getUriHandlerDeferredExecutor(),
 			);
 			this._deferredCodeExchanges.set(scopeKey, deferredCodeExchange);
 		}
@@ -99,18 +99,23 @@ export class AuthenticationConnection implements Disposable {
 
 		this._cancellationSource = new CancellationTokenSource();
 
-		return Promise.race([
-			deferredCodeExchange.promise,
-			new Promise<string>((resolve, reject) =>
-				this.openCompletionInputFallback(scopeKey, this._cancellationSource!.token, gkstate, resolve, reject),
-			),
-			new Promise<string>(
-				(_, reject) =>
-					// eslint-disable-next-line prefer-promise-reject-errors
-					this._cancellationSource?.token.onCancellationRequested(() => reject('Cancelled')),
-			),
-			new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
-		]).finally(() => {
+		try {
+			const code = await Promise.race([
+				deferredCodeExchange.promise,
+				new Promise<string>(resolve =>
+					this.openCompletionInputFallback(this._cancellationSource!.token, resolve),
+				),
+				new Promise<string>(
+					(_, reject) =>
+						// eslint-disable-next-line prefer-promise-reject-errors
+						this._cancellationSource?.token.onCancellationRequested(() => reject('Cancelled')),
+				),
+				new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
+			]);
+
+			const token = await this.getTokenFromCodeAndState(scopeKey, code, gkstate);
+			return token;
+		} finally {
 			this._cancellationSource?.cancel();
 			this._cancellationSource = undefined;
 
@@ -118,22 +123,15 @@ export class AuthenticationConnection implements Disposable {
 			deferredCodeExchange?.cancel();
 			this._deferredCodeExchanges.delete(scopeKey);
 			this.updateStatusBarItem(false);
-		});
+		}
 	}
 
-	private async openCompletionInputFallback(
-		scopeKey: string,
-		cancellationToken: CancellationToken,
-		state: string,
-		resolve: (token: string) => void,
-		reject: (reason: any) => void,
-	) {
+	private async openCompletionInputFallback(cancellationToken: CancellationToken, resolve: (token: string) => void) {
 		const input = window.createInputBox();
 		input.ignoreFocusOut = true;
 
 		const disposables: Disposable[] = [];
 		let code: string | undefined = undefined;
-		let token: string | undefined = undefined;
 
 		try {
 			if (cancellationToken.isCancellationRequested) return;
@@ -165,55 +163,46 @@ export class AuthenticationConnection implements Disposable {
 		}
 
 		if (code != null) {
-			token = await this.getTokenFromCodeAndState(scopeKey, code, state);
-			if (token == null) {
-				reject('Token not returned');
-				return;
-			}
-
-			resolve(token);
+			resolve(code);
 		}
 	}
 
-	private async getTokenFromCodeAndState(scopeKey: string, code: string, state: string): Promise<string | undefined> {
+	private async getTokenFromCodeAndState(scopeKey: string, code: string, state: string): Promise<string> {
 		const existingStates = this._pendingStates.get(scopeKey);
 		if (existingStates == null || !existingStates.includes(state)) {
-			Logger.error(undefined, `Getting token failed: Invalid state`);
-			return undefined;
+			throw new Error('Getting token failed: Invalid state');
 		}
 
-		try {
-			const rsp = await this.connection.fetchGkDevApi(
-				'oauth/access_token',
-				{
-					method: 'POST',
-					body: JSON.stringify({
-						grant_type: 'authorization_code',
-						client_id: 'gitkraken.gitlens',
-						code: code,
-						state: state,
-					}),
-				},
-				{
-					unAuthenticated: true,
-				},
-			);
+		const rsp = await this.connection.fetchGkDevApi(
+			'oauth/access_token',
+			{
+				method: 'POST',
+				body: JSON.stringify({
+					grant_type: 'authorization_code',
+					client_id: 'gitkraken.gitlens',
+					code: code,
+					state: state,
+				}),
+			},
+			{
+				unAuthenticated: true,
+			},
+		);
 
-			if (!rsp.ok) {
-				Logger.error(undefined, `Getting token failed: (${rsp.status}) ${rsp.statusText}`);
-				return undefined;
-			}
-
-			const json: { access_token: string } = await rsp.json();
-			return json.access_token;
-		} catch (ex) {
-			Logger.error(ex, 'Getting token failed');
-			return undefined;
+		if (!rsp.ok) {
+			throw new Error(`Getting token failed: (${rsp.status}) ${rsp.statusText}`);
 		}
+
+		const json: { access_token: string } = await rsp.json();
+		if (json.access_token == null) {
+			throw new Error('Getting token failed: No access token returned');
+		}
+
+		return json.access_token;
 	}
 
-	private getUriHandlerDeferredExecutor(scopeKey: string, state: string): DeferredEventExecutor<Uri, string> {
-		return async (uri: Uri, resolve, reject) => {
+	private getUriHandlerDeferredExecutor(): DeferredEventExecutor<Uri, string> {
+		return (uri: Uri, resolve, reject) => {
 			const queryParams: URLSearchParams = new URLSearchParams(uri.query);
 			const code = queryParams.get('code');
 			if (code == null) {
@@ -221,13 +210,7 @@ export class AuthenticationConnection implements Disposable {
 				return;
 			}
 
-			const token = await this.getTokenFromCodeAndState(scopeKey, code, state);
-
-			if (token == null) {
-				reject('Token not returned');
-			} else {
-				resolve(token);
-			}
+			resolve(code);
 		};
 	}
 
