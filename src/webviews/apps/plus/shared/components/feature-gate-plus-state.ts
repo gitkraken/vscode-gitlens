@@ -79,7 +79,7 @@ export class FeatureGatePlusState extends LitElement {
 					>
 					<p>
 						Preview Pro for 3 days, or
-						<a href="command:gitlens.plus.loginOrSignUp">sign in</a> to start a full 7-day GitKraken trial.
+						<a href="command:gitlens.plus.signUp">sign up</a> to start a full 7-day GitKraken trial.
 					</p>
 					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>
 				`;
@@ -88,9 +88,9 @@ export class FeatureGatePlusState extends LitElement {
 				return html`
 					<p>
 						Your 3-day Pro preview has ended, start a free GitKraken trial to get an additional 7 days, or
-						<a href="command:gitlens.plus.loginOrSignUp">sign in</a>.
+						<a href="command:gitlens.plus.login">sign in</a>.
 					</p>
-					<gl-button appearance="${appearance}" href="command:gitlens.plus.loginOrSignUp"
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.signUp"
 						>Start Free GitKraken Trial</gl-button
 					>
 					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>

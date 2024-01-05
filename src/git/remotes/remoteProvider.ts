@@ -6,6 +6,7 @@ import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { RepositoryDescriptor } from '../../plus/integrations/providerIntegration';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
+import { openUrl } from '../../system/utils';
 import type { RemoteProviderReference } from '../models/remoteProvider';
 import type { RemoteResource } from '../models/remoteResource';
 import { RemoteResourceType } from '../models/remoteResource';
@@ -90,7 +91,7 @@ export abstract class RemoteProvider<T extends RepositoryDescriptor = Repository
 	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined>;
 
 	open(resource: RemoteResource): Promise<boolean | undefined> {
-		return this.openUrl(this.url(resource));
+		return openUrl(this.url(resource));
 	}
 
 	url(resource: RemoteResource): string | undefined {
@@ -164,14 +165,6 @@ export abstract class RemoteProvider<T extends RepositoryDescriptor = Repository
 
 	protected getUrlForRepository(): string {
 		return this.baseUrl;
-	}
-
-	private async openUrl(url?: string): Promise<boolean | undefined> {
-		if (url == null) return undefined;
-
-		// Pass a string to openExternal to avoid double encoding issues: https://github.com/microsoft/vscode/issues/85930
-		// vscode.d.ts currently says it only supports a Uri, but it actually accepts a string too
-		return (env.openExternal as unknown as (target: string) => Thenable<boolean>)(url);
 	}
 
 	protected encodeUrl(url: string): string;
