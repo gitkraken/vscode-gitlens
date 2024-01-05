@@ -72,10 +72,15 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 	public async createSession(scopes: string[]): Promise<AuthenticationSession> {
 		const scope = getLogScope();
 
+		const signUp = scopes.includes('signUp');
+		// 'signUp' is just a flag, not a valid scope, so remove it before continuing
+		if (signUp) {
+			scopes = scopes.filter(s => s !== 'signUp');
+		}
+
 		// Ensure that the scopes are sorted consistently (since we use them for matching and order doesn't matter)
 		scopes = scopes.sort();
 		const scopesKey = getScopesKey(scopes);
-		const signUp = scopes.includes('signUp');
 
 		try {
 			const token = await this._authConnection.login(scopes, scopesKey, signUp);
