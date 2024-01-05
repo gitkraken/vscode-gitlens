@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a `gitlens.fileAnnotations.dismissOnEscape` setting to specify whether pressing the `ESC` key dismisses the active file annotations &mdash; closes [#3016](https://github.com/gitkraken/vscode-gitlens/issues/3016)
 - Adds _Copy_ to search results in the _Search & Compare_ view to copy the search query to more easily share or paste queries into the _Commit Graph_
 
+### Changed
+
+- Changes the commit search by file to allow some fuzziness by default &mdash; closes [#3086](https://github.com/gitkraken/vscode-gitlens/issues/3086)
+  - For example, if you enter `file:readme.txt`, we will treat it as `file:**/readme.txt`, or if you enter `file:readme` it will be treated as `file:*readme*`
+
 ### Fixed
 
 - Fixes [#3087](https://github.com/gitkraken/vscode-gitlens/issues/3087) - Terminal executed commands fail if the GitLens terminal is closed
