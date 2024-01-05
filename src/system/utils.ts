@@ -246,3 +246,11 @@ export function supportedInVSCodeVersion(feature: 'input-prompt-links') {
 			return false;
 	}
 }
+
+export async function openUrl(url?: string): Promise<boolean | undefined> {
+	if (url == null) return undefined;
+
+	// Pass a string to openExternal to avoid double encoding issues: https://github.com/microsoft/vscode/issues/85930
+	// vscode.d.ts currently says it only supports a Uri, but it actually accepts a string too
+	return (env.openExternal as unknown as (target: string) => Thenable<boolean>)(url);
+}

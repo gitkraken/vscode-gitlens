@@ -8,6 +8,7 @@ import type { DeferredEvent, DeferredEventExecutor } from '../../../system/event
 import { promisifyDeferred } from '../../../system/event';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
+import { openUrl } from '../../../system/utils';
 import type { ServerConnection } from '../serverConnection';
 
 export const AuthenticationUriPathPrefix = 'did-authenticate';
@@ -78,8 +79,8 @@ export class AuthenticationConnection implements Disposable {
 				gkstate,
 			)}&redirect_uri=${encodeURIComponent(callbackUri.toString())}`,
 		);
-		// @ts-expect-error openExternal does allow a string, though the typing doesn't reflect it. Must pass as a string to avoid a double encoding
-		void (await env.openExternal(uri.toString(true)));
+
+		void (await openUrl(uri.toString(true)));
 
 		// Ensure there is only a single listener for the URI callback, in case the user starts the login process multiple times before completing it
 		let deferredCodeExchange = this._deferredCodeExchanges.get(scopeKey);
