@@ -21,6 +21,7 @@ import type {
 import type { RepositoryIdentityRequest } from '../../gk/models/repositoryIdentities';
 import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
+import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 import { getSettledValue } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';
@@ -83,8 +84,7 @@ export class DraftService implements Disposable {
 			});
 
 			if (!createDraftRsp.ok) {
-				const json = (await createDraftRsp.json()) as { error?: { message?: string } } | undefined;
-				throw new Error(json?.error?.message ?? createDraftRsp.statusText);
+				await handleBadDraftResponse('Unable to create draft', createDraftRsp, scope);
 			}
 
 			const createDraft = ((await createDraftRsp.json()) as DraftResult).data;
@@ -102,6 +102,14 @@ export class DraftService implements Disposable {
 					patches: patchRequests.map(p => p.patch),
 				} satisfies DraftChangesetCreateRequest),
 			});
+
+			if (!createChangesetRsp.ok) {
+				await handleBadDraftResponse(
+					`Unable to create changeset for draft '${draftId}'`,
+					createChangesetRsp,
+					scope,
+				);
+			}
 
 			const createChangeset = ((await createChangesetRsp.json()) as ChangesetResult).data;
 
@@ -152,11 +160,17 @@ export class DraftService implements Disposable {
 
 			// POST /v1/drafts/:draftId/publish
 			const publishRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}/publish`, { method: 'POST' });
-			if (!publishRsp.ok) throw new Error(`Failed to publish draft: ${publishRsp.statusText}`);
+			if (!publishRsp.ok) {
+				await handleBadDraftResponse(`Failed to publish draft '${draftId}'`, publishRsp, scope);
+			}
 
 			type Result = { data: DraftResponse };
 
 			const draftRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}`, { method: 'GET' });
+
+			if (!draftRsp.ok) {
+				await handleBadDraftResponse(`Unable to open draft '${draftId}'`, draftRsp, scope);
+			}
 
 			const draft = ((await draftRsp.json()) as Result).data;
 
@@ -333,14 +347,8 @@ export class DraftService implements Disposable {
 		}
 
 		const rsp = getSettledValue(rspResult)!;
-		if (rsp?.ok === false) {
-			const json = (await rsp.json()) as { error?: { message?: string } } | undefined;
-			Logger.error(
-				undefined,
-				scope,
-				`Unable to open draft '${id}': (${rsp.status}) ${json?.error?.message ?? rsp.statusText}`,
-			);
-			throw new Error(json?.error?.message ?? rsp.statusText);
+		if (!rsp?.ok) {
+			await handleBadDraftResponse(`Unable to open draft '${id}'`, rsp, scope);
 		}
 
 		const draft = ((await rsp.json()) as Result).data;
@@ -385,9 +393,14 @@ export class DraftService implements Disposable {
 
 	@log()
 	async getDrafts(): Promise<Draft[]> {
+		const scope = getLogScope();
 		type Result = { data: DraftResponse[] };
 
 		const rsp = await this.connection.fetchGkDevApi('/v1/drafts', { method: 'GET' });
+
+		if (!rsp.ok) {
+			await handleBadDraftResponse('Unable to open drafts', rsp, scope);
+		}
 
 		const draft = ((await rsp.json()) as Result).data;
 		const { account } = await this.container.subscription.getSubscription();
@@ -428,16 +441,8 @@ export class DraftService implements Disposable {
 
 		try {
 			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}/changesets`, { method: 'GET' });
-			if (rsp?.ok === false) {
-				const json = (await rsp.json()) as { error?: { message?: string } } | undefined;
-				Logger.error(
-					undefined,
-					scope,
-					`Unable to open changesets for draft '${id}': (${rsp.status}) ${
-						json?.error?.message ?? rsp.statusText
-					}`,
-				);
-				throw new Error(json?.error?.message ?? rsp.statusText);
+			if (!rsp.ok) {
+				await handleBadDraftResponse(`Unable to open changesets for draft '${id}'`, rsp, scope);
 			}
 
 			const changeset = ((await rsp.json()) as Result).data;
@@ -512,10 +517,15 @@ export class DraftService implements Disposable {
 	}
 
 	private async getPatchCore(id: string): Promise<DraftPatch> {
+		const scope = getLogScope();
 		type Result = { data: DraftPatchResponse };
 
 		// GET /v1/patches/:patchId
 		const rsp = await this.connection.fetchGkDevApi(`/v1/patches/${id}`, { method: 'GET' });
+
+		if (!rsp.ok) {
+			await handleBadDraftResponse(`Unable to open patch '${id}'`, rsp, scope);
+		}
 
 		const data = ((await rsp.json()) as Result).data;
 		return {
@@ -585,4 +595,15 @@ export class DraftService implements Disposable {
 
 		return contentsRsp.text();
 	}
+}
+
+async function handleBadDraftResponse(message: string, rsp?: any, scope?: LogScope) {
+	let json: { error?: { message?: string } } | { error?: string } | undefined;
+	try {
+		json = (await rsp?.json()) as { error?: { message?: string } } | { error?: string } | undefined;
+	} catch {}
+	const rspErrorMessage = typeof json?.error === 'string' ? json.error : json?.error?.message ?? rsp?.statusText;
+	const errorMessage = rsp != null ? `${message}: (${rsp?.status}) ${rspErrorMessage}` : message;
+	Logger.error(undefined, scope, errorMessage);
+	throw new Error(errorMessage);
 }
