@@ -1813,16 +1813,9 @@ export class Git {
 					'--is-bare-repository',
 				);
 				if (data.trim() === 'true') {
-					// If we are in a bare clone, then the common dir is the git dir
-					data = await this.git<string>(
-						{ cwd: cwd, errors: GitErrorHandling.Ignore },
-						'rev-parse',
-						'--git-common-dir',
-					);
-					data = data.trim();
-					if (data.length) {
-						return [true, normalizePath((data === '.' ? cwd : data).trimStart().replace(/[\r|\n]+$/, ''))];
-					}
+					const result = await this.rev_parse__git_dir(cwd);
+					const repoPath = result?.commonPath ?? result?.path;
+					if (repoPath?.length) return [true, repoPath];
 				}
 			}
 
