@@ -1107,6 +1107,17 @@ export class DeepLinkService implements Disposable {
 		await env.clipboard.writeText(url.toString());
 	}
 
+	async copyFileDeepLinkUrl(
+		repoPath: string,
+		filePath: string,
+		remoteUrl: string,
+		lines?: number[],
+		ref?: GitReference,
+	): Promise<void> {
+		const url = await this.generateFileDeepLinkUr(repoPath, filePath, remoteUrl, lines, ref);
+		await env.clipboard.writeText(url.toString());
+	}
+
 	async generateDeepLinkUrl(workspaceId: string): Promise<URL>;
 	async generateDeepLinkUrl(ref: GitReference, remoteUrl: string): Promise<URL>;
 	async generateDeepLinkUrl(
@@ -1188,6 +1199,73 @@ export class DeepLinkService implements Disposable {
 		if (remoteUrl != null) {
 			// Add the remote URL as a query parameter
 			deepLink.searchParams.set('url', remoteUrl);
+		}
+
+		const deepLinkRedirectUrl = new URL(
+			`https://${modePrefixString}gitkraken.dev/link/${encodeURIComponent(
+				Buffer.from(deepLink.href).toString('base64'),
+			)}`,
+		);
+
+		deepLinkRedirectUrl.searchParams.set('origin', 'gitlens');
+		return deepLinkRedirectUrl;
+	}
+
+	async generateFileDeepLinkUr(
+		repoPath: string,
+		filePath: string,
+		remoteUrl: string,
+		lines?: number[],
+		ref?: GitReference,
+	): Promise<URL> {
+		const targetType = DeepLinkType.File;
+		const targetId = filePath;
+		const schemeOverride = configuration.get('deepLinks.schemeOverride');
+		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
+		let modePrefixString = '';
+		if (this.container.env === 'dev') {
+			modePrefixString = 'dev.';
+		} else if (this.container.env === 'staging') {
+			modePrefixString = 'staging.';
+		}
+
+		const repoId = (await this.container.git.getUniqueRepositoryId(repoPath)) ?? missingRepositoryId;
+		let linesString = '';
+		if (lines != null) {
+			if (lines.length === 1) {
+				linesString = `${lines[0]}`;
+			} else if (lines.length === 2) {
+				if (lines[0] === lines[1]) {
+					linesString = `${lines[0]}`;
+				} else if (lines[0] < lines[1]) {
+					linesString = `${lines[0]}-${lines[1]}`;
+				}
+			}
+		}
+
+		const deepLink = new URL(
+			`${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
+				DeepLinkType.Repository
+			}/${repoId}/${targetType}/${targetId}`,
+		);
+
+		deepLink.searchParams.set('url', remoteUrl);
+		if (linesString !== '') {
+			deepLink.searchParams.set('lines', linesString);
+		}
+
+		if (ref != null) {
+			switch (ref.refType) {
+				case 'branch':
+					deepLink.searchParams.set('ref', ref.name);
+					break;
+				case 'revision':
+					deepLink.searchParams.set('ref', ref.ref);
+					break;
+				case 'tag':
+					deepLink.searchParams.set('ref', ref.name);
+					break;
+			}
 		}
 
 		const deepLinkRedirectUrl = new URL(
