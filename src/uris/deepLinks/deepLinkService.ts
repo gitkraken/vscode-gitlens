@@ -1039,12 +1039,13 @@ export class DeepLinkService implements Disposable {
 							await findOrOpenEditor(Uri.file(`${repo.path}/${filePath}`), {
 								preview: false,
 								selection: selection,
+								throwOnError: true,
 							});
 							action = DeepLinkServiceAction.DeepLinkResolved;
 							break;
-						} catch {
+						} catch (ex) {
 							action = DeepLinkServiceAction.DeepLinkErrored;
-							message = 'Unable to open file.';
+							message = `Unable to open file${ex?.message ? `: ${ex.message}` : ''}`;
 							break;
 						}
 					}
