@@ -30,6 +30,7 @@ import {
 	UpdatePatchUserSelectionCommandType,
 	UpdatePreferencesCommandType,
 } from '../../../../plus/webviews/patchDetails/protocol';
+import { debounce } from '../../../../system/function';
 import type { Serialized } from '../../../../system/serialize';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommandType, onIpc } from '../../../protocol';
@@ -64,7 +65,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 	}
 
 	override onInitialize() {
-		this.attachState();
+		this.debouncedAttachState();
 	}
 
 	override onBind() {
@@ -177,7 +178,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 					this.state = params.state;
 					this.setState(this.state);
-					this.attachState();
+					this.debouncedAttachState();
 				});
 				break;
 
@@ -187,7 +188,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 					this.state = { ...this.state, ...params };
 					this.setState(this.state);
-					this.attachState(true);
+					this.debouncedAttachState(true);
 				});
 				break;
 
@@ -197,7 +198,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 					this.state = { ...this.state, ...params };
 					this.setState(this.state);
-					this.attachState(true);
+					this.debouncedAttachState(true);
 				});
 				break;
 
@@ -207,7 +208,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 					this.state = { ...this.state, ...params };
 					this.setState(this.state);
-					this.attachState(true);
+					this.debouncedAttachState(true);
 				});
 				break;
 
@@ -225,7 +226,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 						draft: draft,
 					};
 					this.setState(this.state);
-					this.attachState(true);
+					this.debouncedAttachState(true);
 				});
 				break;
 
@@ -329,7 +330,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		};
 
 		this.state = { ...this.state, preferences: { ...this.state.preferences, files: files } };
-		this.attachState();
+		this.debouncedAttachState();
 
 		this.sendCommand(UpdatePreferencesCommandType, { files: files });
 	}
@@ -371,12 +372,13 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		return this._component;
 	}
 
-	attachState(_force?: boolean) {
+	private attachState(_force?: boolean) {
 		this.component.state = this.state!;
 		// if (force) {
 		// 	this.component.requestUpdate('state');
 		// }
 	}
+	private debouncedAttachState = debounce(this.attachState.bind(this), 100);
 }
 
 function assertsSerialized<T>(obj: unknown): asserts obj is Serialized<T> {}
