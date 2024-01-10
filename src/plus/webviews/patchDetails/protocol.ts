@@ -8,7 +8,9 @@ import type {
 	Draft,
 	DraftPatch,
 	DraftPatchFileChange,
+	DraftPendingUser,
 	DraftRole,
+	DraftUser,
 	DraftVisibility,
 	LocalDraft,
 } from '../../../gk/models/drafts';
@@ -16,6 +18,7 @@ import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import type { DateTimeFormat } from '../../../system/date';
 import type { Serialized } from '../../../system/serialize';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
+import type { OrganizationMember } from '../../gk/account/organization';
 
 export const messageHeadlineSplitterToken = '\x00\n\x00';
 
@@ -78,9 +81,19 @@ interface CloudDraftDetails {
 	description?: string;
 
 	patches?: PatchDetails[];
+
+	users?: DraftUser[];
+	userSelections?: DraftUserSelection[];
 }
 
 export type DraftDetails = LocalDraftDetails | CloudDraftDetails;
+
+export interface DraftUserSelection {
+	change: 'add' | 'modify' | 'delete' | undefined;
+	member: OrganizationMember;
+	user: DraftUser | DraftPendingUser;
+	avatarUrl?: string;
+}
 
 export interface Preferences {
 	avatars: boolean;
@@ -131,6 +144,7 @@ export interface State {
 		changes: Record<string, Change>;
 		creationError?: string;
 		visibility: DraftVisibility;
+		userSelections?: DraftUserSelection[];
 	};
 }
 
@@ -151,6 +165,7 @@ export interface CreatePatchParams {
 	description?: string;
 	changesets: Record<string, Change>;
 	visibility: DraftVisibility;
+	userSelections?: DraftUserSelection[];
 }
 export const CreatePatchCommandType = new IpcCommandType<CreatePatchParams>('patch/create');
 
@@ -211,6 +226,16 @@ export interface UpdateCreatePatchMetadataParams {
 }
 export const UpdateCreatePatchMetadataCommandType = new IpcCommandType<UpdateCreatePatchMetadataParams>(
 	'patch/update/create/metadata',
+);
+
+export const UpdatePatchUsersCommandType = new IpcCommandType<undefined>('patch/update/users');
+
+export interface UpdatePatchUserSelection {
+	selection: DraftUserSelection;
+	role: Exclude<DraftRole, 'owner'> | 'remove';
+}
+export const UpdatePatchUserSelectionCommandType = new IpcCommandType<UpdatePatchUserSelection>(
+	'patch/update/userSelection',
 );
 
 // NOTIFICATIONS

@@ -1,5 +1,7 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
+import { getAvatarUri } from '../../../avatars';
+import { ClearQuickInputButton } from '../../../commands/quickCommand.buttons';
 import { Commands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
@@ -15,11 +17,14 @@ import type {
 	Draft,
 	DraftPatch,
 	DraftPatchFileChange,
+	DraftPendingUser,
+	DraftUser,
 	DraftVisibility,
 	LocalDraft,
 } from '../../../gk/models/drafts';
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker';
+import type { QuickPickItemOfT } from '../../../quickpicks/items/common';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { setContext } from '../../../system/context';
@@ -28,6 +33,7 @@ import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { find, some } from '../../../system/iterable';
 import { basename } from '../../../system/path';
+import { defer } from '../../../system/promise';
 import type { Serialized } from '../../../system/serialize';
 import { serialize } from '../../../system/serialize';
 import type { IpcMessage } from '../../../webviews/protocol';
@@ -35,6 +41,7 @@ import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { showPatchesView } from '../../drafts/actions';
+import type { OrganizationMember } from '../../gk/account/organization';
 import { confirmDraftStorage, ensureAccount } from '../../utils';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
@@ -44,6 +51,7 @@ import type {
 	CreatePatchParams,
 	DidExplainParams,
 	DraftPatchCheckedParams,
+	DraftUserSelection,
 	FileActionParams,
 	Mode,
 	Preferences,
@@ -52,6 +60,7 @@ import type {
 	UpdateablePreferences,
 	UpdateCreatePatchMetadataParams,
 	UpdateCreatePatchRepositoryCheckedStateParams,
+	UpdatePatchUserSelection,
 } from './protocol';
 import {
 	ApplyPatchCommandType,
@@ -72,15 +81,22 @@ import {
 	SwitchModeCommandType,
 	UpdateCreatePatchMetadataCommandType,
 	UpdateCreatePatchRepositoryCheckedStateCommandType,
+	UpdatePatchUsersCommandType,
+	UpdatePatchUserSelectionCommandType,
 	UpdatePreferencesCommandType,
 } from './protocol';
 import type { PatchDetailsWebviewShowingArgs } from './registration';
 import type { RepositoryChangeset } from './repositoryChangeset';
 import { RepositoryRefChangeset, RepositoryWipChangeset } from './repositoryChangeset';
 
+interface DraftUserState {
+	users: DraftUser[];
+	selections: DraftUserSelection[];
+}
 interface Context {
 	mode: Mode;
 	draft: LocalDraft | Draft | undefined;
+	draftUserState: DraftUserState | undefined;
 	create:
 		| {
 				title?: string;
@@ -88,6 +104,7 @@ interface Context {
 				changes: Map<string, RepositoryChangeset>;
 				showingAllRepos: boolean;
 				visibility: DraftVisibility;
+				userSelections?: DraftUserSelection[];
 		  }
 		| undefined;
 	preferences: Preferences;
@@ -106,6 +123,7 @@ export class PatchDetailsWebviewProvider
 		this._context = {
 			mode: 'create',
 			draft: undefined,
+			draftUserState: undefined,
 			create: undefined,
 			preferences: this.getPreferences(),
 		};
@@ -243,6 +261,12 @@ export class PatchDetailsWebviewProvider
 				break;
 			case DraftPatchCheckedCommandType.method:
 				onIpc(DraftPatchCheckedCommandType, e, params => this.onPatchChecked(params));
+				break;
+			case UpdatePatchUsersCommandType.method:
+				onIpc(UpdatePatchUsersCommandType, e, () => this.onInviteUsers());
+				break;
+			case UpdatePatchUserSelectionCommandType.method:
+				onIpc(UpdatePatchUserSelectionCommandType, e, params => this.onUpdatePatchUserSelection(params));
 				break;
 		}
 	}
@@ -409,7 +433,142 @@ export class PatchDetailsWebviewProvider
 		void env.clipboard.writeText(this._context.draft.deepLinkUrl);
 	}
 
-	private async createDraft({ title, changesets, description, visibility }: CreatePatchParams): Promise<void> {
+	private async getOrganizationMembers() {
+		const sub = await this.container.subscription.getSubscription(true);
+		const activeOrg = sub?.activeOrganization;
+		// TODO: need messaging for no Org
+		if (activeOrg == null) return [];
+
+		return this.container.organizations.getOrganizationMembers(activeOrg.id);
+	}
+
+	private async onInviteUsers() {
+		let initSelections: Set<DraftUser['userId']> | undefined;
+		if (this.mode === 'create') {
+			const userIds = this._context.create?.userSelections?.map(u => u.user.userId);
+			if (userIds != null) {
+				initSelections = new Set(userIds);
+			}
+		} else {
+			const userIds = this._context.draftUserState?.selections?.map(u => u.user.userId);
+			if (userIds != null) {
+				initSelections = new Set(userIds);
+			}
+		}
+		const picks = await this.selectCollaborators(initSelections);
+		console.log(picks);
+		if (picks == null || picks.length === 0) return;
+
+		if (this.mode === 'create') {
+			const userSelections = picks.map(p =>
+				toDraftUserSelection(
+					{
+						userId: p.id,
+						role: 'editor',
+					},
+					p,
+					'add',
+				),
+			);
+			if (this._context.create!.userSelections == null) {
+				this._context.create!.userSelections = userSelections;
+			} else {
+				this._context.create!.userSelections.push(...userSelections);
+			}
+			void this.notifyDidChangeCreateDraftState();
+		}
+		// TODO: edit existing draft (this.mode === 'view')
+	}
+
+	private async selectCollaborators(
+		initSelections?: Set<DraftUser['userId']>,
+	): Promise<OrganizationMember[] | undefined> {
+		const members = await this.getOrganizationMembers();
+		if (members.length === 0) return undefined;
+
+		type OrganizationMemberQuickPickItem = QuickPickItemOfT<OrganizationMember>;
+		const deferred = defer<OrganizationMember[] | undefined>();
+		const disposables: Disposable[] = [];
+
+		try {
+			const quickpick = window.createQuickPick<OrganizationMemberQuickPickItem>();
+			disposables.push(
+				quickpick,
+				quickpick.onDidHide(() => deferred.fulfill(undefined)),
+				quickpick.onDidAccept(() =>
+					!quickpick.busy ? deferred.fulfill(quickpick.selectedItems.map(c => c.item)) : undefined,
+				),
+				quickpick.onDidTriggerButton(e => {
+					if (e === ClearQuickInputButton) {
+						if (quickpick.canSelectMany) {
+							quickpick.selectedItems = [];
+						} else {
+							deferred.fulfill([]);
+						}
+					}
+				}),
+			);
+
+			quickpick.title = 'Select Collaborators';
+			quickpick.placeholder = 'Select the collaborators to share this patch with';
+			quickpick.matchOnDescription = true;
+			quickpick.matchOnDetail = true;
+			quickpick.canSelectMany = true;
+			quickpick.buttons = [ClearQuickInputButton];
+
+			quickpick.busy = true;
+			quickpick.show();
+
+			const items = members.map(member => {
+				const item: OrganizationMemberQuickPickItem = {
+					label: member.name,
+					description: member.email,
+					// TODO: needs to support current collaborator selections
+					picked: initSelections ? initSelections.has(member.id) : false,
+					item: member,
+					iconPath: getAvatarUri(member.email, undefined),
+				};
+
+				return item;
+			});
+			quickpick.items = items;
+
+			quickpick.busy = false;
+
+			const picks = await deferred.promise;
+			return picks;
+		} finally {
+			disposables.forEach(d => void d.dispose());
+		}
+	}
+
+	private onUpdatePatchUserSelection(params: UpdatePatchUserSelection) {
+		if (this.mode === 'create') {
+			const userSelections = this._context.create?.userSelections;
+			if (userSelections == null) return;
+
+			if (params.role === 'remove') {
+				const selection = userSelections.findIndex(u => u.user.userId === params.selection.user.userId);
+				if (selection === -1) return;
+				userSelections.splice(selection, 1);
+			} else {
+				const selection = userSelections.find(u => u.user.userId === params.selection.user.userId);
+				if (selection == null) return;
+				(selection.user as DraftPendingUser).role = params.role;
+			}
+
+			void this.notifyDidChangeCreateDraftState();
+		}
+		// TODO: apply to existing draft (this.mode === 'view')
+	}
+
+	private async createDraft({
+		title,
+		changesets,
+		description,
+		visibility,
+		userSelections,
+	}: CreatePatchParams): Promise<void> {
 		if (
 			!(await ensureAccount('Cloud Patches require a GitKraken account.', this.container)) ||
 			!(await confirmDraftStorage(this.container))
@@ -446,6 +605,16 @@ export class PatchDetailsWebviewProvider
 				visibility: visibility,
 			};
 			const draft = await this.container.drafts.createDraft('patch', title, createChanges, options);
+
+			if (userSelections != null && userSelections.length !== 0) {
+				await this.container.drafts.addDraftUsers(
+					draft.id,
+					userSelections.map(u => ({
+						userId: (u.user as DraftPendingUser).userId,
+						role: (u.user as DraftPendingUser).role,
+					})),
+				);
+			}
 
 			async function showNotification() {
 				const view = { title: 'View Patch' };
@@ -722,6 +891,7 @@ export class PatchDetailsWebviewProvider
 			description: create.description,
 			changes: repoChanges,
 			visibility: create.visibility,
+			userSelections: create.userSelections,
 		};
 	}
 
@@ -738,7 +908,6 @@ export class PatchDetailsWebviewProvider
 		void this.notifyDidChangeViewDraftState();
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
 	private async getViewDraftState(current: Context): Promise<State['draft'] | undefined> {
 		if (current.draft == null) return undefined;
 
@@ -796,6 +965,7 @@ export class PatchDetailsWebviewProvider
 				}, 0);
 			}
 
+			const draftUserState = await this.getDraftUserState(draft);
 			return {
 				draftType: 'cloud',
 				id: draft.id,
@@ -818,10 +988,35 @@ export class PatchDetailsWebviewProvider
 						},
 					})),
 				),
+				users: draftUserState?.users,
+				userSelections: draftUserState?.selections,
 			};
 		}
 
 		return undefined;
+	}
+
+	private async getDraftUserState(draft: Draft, options?: { force?: boolean }): Promise<DraftUserState | undefined> {
+		if (this._context.draftUserState != null && !options?.force) {
+			return this._context.draftUserState;
+		}
+
+		const draftUsers = await this.container.drafts.getDraftUsers(draft.id);
+		if (draftUsers.length === 0) {
+			return undefined;
+		}
+
+		const users: DraftUser[] = [];
+		const userSelections: DraftUserSelection[] = [];
+		const members = await this.getOrganizationMembers();
+		for (const user of draftUsers) {
+			users.push(user);
+			const member = members.find(m => m.id === user.id)!;
+			userSelections.push(toDraftUserSelection(user, member));
+		}
+
+		this._context.draftUserState = { users: users, selections: userSelections };
+		return this._context.draftUserState;
 	}
 
 	private async notifyDidChangeViewDraftState() {
@@ -1041,4 +1236,17 @@ export class PatchDetailsWebviewProvider
 			lhsTitle: this.mode === 'view' ? `${basename(file.path)} (Patch)` : undefined,
 		});
 	}
+}
+
+function toDraftUserSelection(
+	user: DraftUserSelection['user'],
+	member: OrganizationMember,
+	change?: DraftUserSelection['change'],
+): DraftUserSelection {
+	return {
+		change: change,
+		member: member,
+		user: user,
+		avatarUrl: member?.email != null ? getAvatarUri(member.email, undefined).toString() : undefined,
+	};
 }

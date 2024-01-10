@@ -1,9 +1,17 @@
-import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
+import { Avatar, Button, defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
 import { html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { map } from 'lit/directives/map.js';
+import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
-import type { DraftVisibility } from '../../../../../gk/models/drafts';
+import type { DraftRole, DraftVisibility } from '../../../../../gk/models/drafts';
+import type {
+	Change,
+	DraftUserSelection,
+	FileActionParams,
+	State,
+} from '../../../../../plus/webviews/patchDetails/protocol';
 import { flatCount } from '../../../../../system/iterable';
 import type { Serialized } from '../../../../../system/serialize';
 import type {
@@ -36,6 +44,11 @@ export interface CreatePatchMetadataEventDetail {
 export interface CreatePatchCheckRepositoryEventDetail {
 	repoUri: string;
 	checked: boolean | 'staged';
+}
+
+export interface CreatePatchUpdateSelectionEventDetail {
+	selection: DraftUserSelection;
+	role: Exclude<DraftRole, 'owner'> | 'remove';
 }
 
 // Can only import types from 'vscode'
@@ -109,10 +122,86 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 	constructor() {
 		super();
 
-		defineGkElement(Menu, MenuItem, Popover);
+		defineGkElement(Avatar, Button, Menu, MenuItem, Popover);
+	}
+
+	renderUserSelection(userSelection: DraftUserSelection) {
+		const role = userSelection.user.role;
+		const options = new Map<string, string>([
+			['admin', 'admin'],
+			['viewer', 'can edit'],
+			['editor', 'can view'],
+			['remove', 'un-invite'],
+		]);
+		const roleLabel = options.get(role);
+		return html`
+			<div class="user-selection">
+				<div class="user-selection__avatar">
+					<gk-avatar .src=${userSelection.avatarUrl}></gk-avatar>
+				</div>
+				<div class="user-selection__info">
+					<div class="user-selection__name">${userSelection.member.name}</div>
+				</div>
+				<div class="user-selection__actions">
+					<gk-popover>
+						<gk-button slot="trigger">${roleLabel} <code-icon icon="chevron-down"></code-icon></gk-button>
+						<gk-menu>
+							${map(
+								options,
+								([value, label]) =>
+									html`<gk-menu-item
+										@click=${(e: MouseEvent) =>
+											this.onChangeSelectionRole(
+												e,
+												userSelection,
+												value as CreatePatchUpdateSelectionEventDetail['role'],
+											)}
+									>
+										<code-icon
+											icon="check"
+											class="user-selection__check ${userSelection.user.role === value
+												? 'is-active'
+												: ''}"
+										></code-icon>
+										${label}
+									</gk-menu-item>`,
+							)}
+						</gk-menu>
+					</gk-popover>
+				</div>
+			</div>
+		`;
+	}
+
+	renderUserSelectionList() {
+		if (this.state?.create?.userSelections == null || this.state?.create?.userSelections.length === 0) {
+			return undefined;
+		}
+
+		return html`
+			<div class="message-input">
+				${repeat(
+					this.state.create.userSelections,
+					userSelection => userSelection.user.userId,
+					userSelection => this.renderUserSelection(userSelection),
+				)}
+			</div>
+		`;
 	}
 
 	renderForm() {
+		let visibilityIcon: string | undefined;
+		switch (this.draftVisibility) {
+			case 'private':
+				visibilityIcon = 'organization';
+				break;
+			case 'invite_only':
+				visibilityIcon = 'lock';
+				break;
+			default:
+				visibilityIcon = 'globe';
+				break;
+		}
 		return html`
 			<div class="section section--action">
 				${when(
@@ -123,18 +212,21 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 							<p class="alert__content">${this.state!.create!.creationError}</p>
 						</div>`,
 				)}
-				<div class="message-input">
+				<div class="message-input message-input--group">
 					<div class="message-input__select">
-						<span class="message-input__select-icon"><code-icon icon=${
-							this.draftVisibility === 'private' ? 'organization' : 'globe'
-						}></code-icon></span>
-					<select id="visibility" class="message-input__control" @change=${this.onVisibilityChange}>
-						<option value="public" ?selected=${this.draftVisibility === 'public'}>Anyone with the link</option>
-						<option value="private" ?selected=${this.draftVisibility === 'private'}>Members of my Org with the link</option>
-					</select>
+						<span class="message-input__select-icon"><code-icon icon=${visibilityIcon}></code-icon></span>
+						<select id="visibility" class="message-input__control" @change=${this.onVisibilityChange}>
+							<option value="public" ?selected=${this.draftVisibility === 'public'}>Anyone with the link</option>
+							<option value="private" ?selected=${this.draftVisibility === 'private'}>Members of my Org with the link</option>
+							<option value="invite_only" ?selected=${this.draftVisibility === 'invite_only'}>Collaborators only</option>
+						</select>
 						<span class="message-input__select-caret"><code-icon icon="chevron-down"></code-icon></span>
 					</div>
+					<gl-button appearance="secondary" @click=${
+						this.onInviteUsers
+					}><code-icon icon="person-add"></code-icon> Invite</gl-button>
 				</div>
+				${this.renderUserSelectionList()}
 				<div class="message-input">
 					<input id="title" type="text" class="message-input__control" placeholder="Title (required)" maxlength="100" .value=${
 						this.create.title ?? ''
@@ -469,8 +561,23 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		});
 	}
 
+	private onInviteUsers(_e: Event) {
+		this.fireEvent('gl-patch-create-invite-users');
+	}
+
+	private onChangeSelectionRole(
+		e: MouseEvent,
+		selection: DraftUserSelection,
+		role: CreatePatchUpdateSelectionEventDetail['role'],
+	) {
+		this.fireEvent('gl-patch-create-update-selection', { selection: selection, role: role });
+
+		const popoverEl: Popover | null = (e.target as HTMLElement)?.closest('gk-popover');
+		popoverEl?.hidePopover();
+	}
+
 	private onVisibilityChange(e: Event) {
-		this.create.visibility = (e.target as HTMLInputElement).value as 'public' | 'private';
+		this.create.visibility = (e.target as HTMLInputElement).value as DraftVisibility;
 		this.fireEvent('gl-patch-create-update-metadata', {
 			title: this.create.title!,
 			description: this.create.description,
@@ -547,6 +654,8 @@ declare global {
 		'gl-patch-file-compare-previous': CustomEvent<FileActionParams>;
 		'gl-patch-file-compare-working': CustomEvent<FileActionParams>;
 		'gl-patch-file-open': CustomEvent<FileActionParams>;
+		'gl-patch-create-invite-users': CustomEvent<undefined>;
+		'gl-patch-create-update-selection': CustomEvent<CreatePatchUpdateSelectionEventDetail>;
 		// 'gl-patch-details-graph-show-patch': CustomEvent<{ draft: State['create'] }>;
 	}
 }
