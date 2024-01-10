@@ -17,6 +17,7 @@ import type {
 	DraftPatchDetails,
 	DraftPatchResponse,
 	DraftResponse,
+	DraftVisibility,
 } from '../../gk/models/drafts';
 import type { RepositoryIdentityRequest } from '../../gk/models/repositoryIdentities';
 import { log } from '../../system/decorators/log';
@@ -39,7 +40,7 @@ export class DraftService implements Disposable {
 		type: 'patch' | 'stash',
 		title: string,
 		changes: CreateDraftChange[],
-		options?: { description?: string; visibility?: 'public' | 'private' },
+		options?: { description?: string; visibility?: DraftVisibility },
 	): Promise<Draft> {
 		const scope = getLogScope();
 

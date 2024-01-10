@@ -3,7 +3,7 @@ import { html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
-import type { Change, FileActionParams, State } from '../../../../../plus/webviews/patchDetails/protocol';
+import type { DraftVisibility } from '../../../../../gk/models/drafts';
 import { flatCount } from '../../../../../system/iterable';
 import type { Serialized } from '../../../../../system/serialize';
 import type {
@@ -23,14 +23,14 @@ import '../../../shared/components/webview-pane';
 export interface CreatePatchEventDetail {
 	title: string;
 	description?: string;
-	visibility: 'public' | 'private';
+	visibility: DraftVisibility;
 	changesets: Record<string, Change>;
 }
 
 export interface CreatePatchMetadataEventDetail {
 	title: string;
 	description: string | undefined;
-	visibility: 'public' | 'private';
+	visibility: DraftVisibility;
 }
 
 export interface CreatePatchCheckRepositoryEventDetail {

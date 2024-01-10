@@ -4,7 +4,14 @@ import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import type { GitFileChangeShape } from '../../../git/models/file';
 import type { PatchRevisionRange } from '../../../git/models/patch';
 import type { Repository } from '../../../git/models/repository';
-import type { Draft, DraftPatch, DraftPatchFileChange, LocalDraft } from '../../../gk/models/drafts';
+import type {
+	Draft,
+	DraftPatch,
+	DraftPatchFileChange,
+	DraftRole,
+	DraftVisibility,
+	LocalDraft,
+} from '../../../gk/models/drafts';
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import type { DateTimeFormat } from '../../../system/date';
 import type { Serialized } from '../../../system/serialize';
@@ -64,8 +71,8 @@ interface CloudDraftDetails {
 		avatar?: string;
 	};
 
-	role: 'owner' | 'admin' | 'editor' | 'viewer';
-	visibility: 'private' | 'public' | 'invite_only';
+	role: DraftRole;
+	visibility: DraftVisibility;
 
 	title: string;
 	description?: string;
@@ -123,7 +130,7 @@ export interface State {
 		description?: string;
 		changes: Record<string, Change>;
 		creationError?: string;
-		visibility: 'private' | 'public';
+		visibility: DraftVisibility;
 	};
 }
 
@@ -143,7 +150,7 @@ export interface CreatePatchParams {
 	title: string;
 	description?: string;
 	changesets: Record<string, Change>;
-	visibility: 'private' | 'public';
+	visibility: DraftVisibility;
 }
 export const CreatePatchCommandType = new IpcCommandType<CreatePatchParams>('patch/create');
 
@@ -200,7 +207,7 @@ export const UpdateCreatePatchRepositoryCheckedStateCommandType =
 export interface UpdateCreatePatchMetadataParams {
 	title: string;
 	description: string | undefined;
-	visibility: 'private' | 'public';
+	visibility: DraftVisibility;
 }
 export const UpdateCreatePatchMetadataCommandType = new IpcCommandType<UpdateCreatePatchMetadataParams>(
 	'patch/update/create/metadata',
