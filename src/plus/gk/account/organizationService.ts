@@ -5,7 +5,7 @@ import { gate } from '../../../system/decorators/gate';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
 import type { ServerConnection } from '../serverConnection';
-import type { Organization, OrganizationsResponse } from './organization';
+import type { FullOrganization, Organization, OrganizationMember, OrganizationsResponse } from './organization';
 import type { SubscriptionChangeEvent } from './subscriptionService';
 
 const organizationsCacheExpiration = 24 * 60 * 60 * 1000; // 1 day
@@ -13,6 +13,7 @@ const organizationsCacheExpiration = 24 * 60 * 60 * 1000; // 1 day
 export class OrganizationService implements Disposable {
 	private _disposable: Disposable;
 	private _organizations: Organization[] | null | undefined;
+	private _fullOrganizations: Map<FullOrganization['id'], FullOrganization> | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -116,5 +117,49 @@ export class OrganizationService implements Disposable {
 	private updateOrganizations(organizations: Organization[] | null | undefined): void {
 		this._organizations = organizations;
 		void setContext('gitlens:gk:hasOrganizations', (organizations ?? []).length > 1);
+	}
+
+	@gate()
+	private async getFullOrganization(
+		id: string,
+		options?: { force?: boolean },
+	): Promise<FullOrganization | undefined> {
+		if (!this._fullOrganizations?.has(id) || options?.force === true) {
+			const session = await this.container.subscription.getAuthenticationSession();
+
+			const rsp = await this.connection.fetchApi(
+				`organization/${id}`,
+				{
+					method: 'GET',
+				},
+				{ token: session?.accessToken },
+			);
+
+			if (!rsp.ok) {
+				Logger.error(
+					'',
+					getLogScope(),
+					`Unable to get organization; status=(${rsp.status}): ${rsp.statusText}`,
+				);
+				return undefined;
+			}
+
+			const organization = (await rsp.json()) as FullOrganization;
+			if (this._fullOrganizations == null) {
+				this._fullOrganizations = new Map();
+			}
+			this._fullOrganizations?.set(id, organization);
+		}
+		return this._fullOrganizations.get(id);
+	}
+
+	@gate()
+	async getOrganizationMembers(id: string, options?: { force?: boolean }): Promise<OrganizationMember[]> {
+		const organization = await this.getFullOrganization(id, options);
+		if (organization != null) {
+			return organization.members;
+		}
+
+		return [];
 	}
 }
