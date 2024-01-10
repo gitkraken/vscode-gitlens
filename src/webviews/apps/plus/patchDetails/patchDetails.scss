@@ -105,6 +105,8 @@ gk-menu-item {
 	&__select {
 		flex: 1;
 		position: relative;
+		display: flex;
+		align-items: stretch;
 
 		&-icon {
 			position: absolute;
@@ -151,6 +153,30 @@ textarea.message-input__control {
 	resize: vertical;
 	min-height: 4rem;
 	max-height: 40rem;
+}
+
+.user-selection {
+	--gk-avatar-size: 2rem;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 0.4rem;
+
+	&__avatar {
+		flex: none;
+	}
+
+	&__info {
+		flex: 1;
+	}
+
+	&__actions {
+		flex: none;
+	}
+
+	&__check:not(.is-active) {
+		opacity: 0;
+	}
 }
 
 .h {

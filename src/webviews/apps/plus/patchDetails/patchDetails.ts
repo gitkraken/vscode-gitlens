@@ -26,6 +26,8 @@ import {
 	SwitchModeCommandType,
 	UpdateCreatePatchMetadataCommandType,
 	UpdateCreatePatchRepositoryCheckedStateCommandType,
+	UpdatePatchUsersCommandType,
+	UpdatePatchUserSelectionCommandType,
 	UpdatePreferencesCommandType,
 } from '../../../../plus/webviews/patchDetails/protocol';
 import type { Serialized } from '../../../../system/serialize';
@@ -38,6 +40,7 @@ import type {
 	CreatePatchCheckRepositoryEventDetail,
 	CreatePatchEventDetail,
 	CreatePatchMetadataEventDetail,
+	CreatePatchUpdateSelectionEventDetail,
 	GlPatchCreate,
 } from './components/gl-patch-create';
 import type {
@@ -101,6 +104,14 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			),
 			DOM.on<GlDraftDetails, undefined>('gl-draft-details', 'gl-patch-details-copy-cloud-link', () =>
 				this.onCopyCloudLink(),
+			),
+			DOM.on<GlPatchCreate, undefined>('gl-patch-create', 'gl-patch-create-invite-users', () =>
+				this.onInviteUsers(),
+			),
+			DOM.on<GlPatchCreate, CreatePatchUpdateSelectionEventDetail>(
+				'gl-patch-create',
+				'gl-patch-create-update-selection',
+				e => this.onCreateUpdateSelection(e.detail),
 			),
 			DOM.on<GlPatchCreate, CreatePatchCheckRepositoryEventDetail>(
 				'gl-patch-create',
@@ -321,6 +332,14 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		this.attachState();
 
 		this.sendCommand(UpdatePreferencesCommandType, { files: files });
+	}
+
+	private onInviteUsers() {
+		this.sendCommand(UpdatePatchUsersCommandType, undefined);
+	}
+
+	private onCreateUpdateSelection(e: CreatePatchUpdateSelectionEventDetail) {
+		this.sendCommand(UpdatePatchUserSelectionCommandType, e);
 	}
 
 	private onOpenFileOnRemote(e: FileChangeListItemDetail) {
