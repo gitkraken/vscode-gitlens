@@ -11,6 +11,8 @@ export interface LocalDraft {
 	patch: GitPatch;
 }
 
+export type DraftRole = 'owner' | 'admin' | 'editor' | 'viewer';
+
 export interface Draft {
 	readonly draftType: 'cloud';
 	readonly type: 'patch' | 'stash';
@@ -25,14 +27,14 @@ export interface Draft {
 	};
 	readonly isMine: boolean;
 	readonly organizationId?: string;
-	readonly role: 'owner' | 'admin' | 'editor' | 'viewer';
+	readonly role: DraftRole;
 	readonly isPublished: boolean;
 
 	readonly title: string;
 	readonly description?: string;
 
 	readonly deepLinkUrl: string;
-	readonly visibility: 'public' | 'private' | 'invite_only';
+	readonly visibility: DraftVisibility;
 
 	readonly latestChangesetId: string;
 	changesets?: DraftChangeset[];
@@ -106,11 +108,13 @@ export interface CreateDraftPatchRequestFromChange {
 	user: GitUser | undefined;
 }
 
+export type DraftVisibility = 'public' | 'private' | 'invite_only';
+
 export interface CreateDraftRequest {
 	type: 'patch' | 'stash';
 	title: string;
 	description?: string;
-	visibility: 'public' | 'private'; // TODO: support 'invite_only'
+	visibility: DraftVisibility;
 }
 
 export interface CreateDraftResponse {
@@ -125,12 +129,12 @@ export interface DraftResponse {
 	readonly updatedAt: string;
 	readonly createdBy: string;
 	readonly organizationId?: string;
-	readonly role: 'owner' | 'admin' | 'editor' | 'viewer';
+	readonly role: DraftRole;
 
 	readonly deepLink: string;
 	readonly isPublished: boolean;
 	readonly latestChangesetId: string;
-	readonly visibility: 'public' | 'private' | 'invite_only';
+	readonly visibility: DraftVisibility;
 
 	readonly title: string;
 	readonly description?: string;

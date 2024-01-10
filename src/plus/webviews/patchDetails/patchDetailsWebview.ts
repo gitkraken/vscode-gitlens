@@ -10,7 +10,14 @@ import { GitFileChange } from '../../../git/models/file';
 import type { PatchRevisionRange } from '../../../git/models/patch';
 import { createReference } from '../../../git/models/reference';
 import { isRepository } from '../../../git/models/repository';
-import type { CreateDraftChange, Draft, DraftPatch, DraftPatchFileChange, LocalDraft } from '../../../gk/models/drafts';
+import type {
+	CreateDraftChange,
+	Draft,
+	DraftPatch,
+	DraftPatchFileChange,
+	DraftVisibility,
+	LocalDraft,
+} from '../../../gk/models/drafts';
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker';
 import { executeCommand, registerCommand } from '../../../system/command';
@@ -80,7 +87,7 @@ interface Context {
 				description?: string;
 				changes: Map<string, RepositoryChangeset>;
 				showingAllRepos: boolean;
-				visibility: 'public' | 'private';
+				visibility: DraftVisibility;
 		  }
 		| undefined;
 	preferences: Preferences;
