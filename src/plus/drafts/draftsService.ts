@@ -16,7 +16,9 @@ import type {
 	DraftPatch,
 	DraftPatchDetails,
 	DraftPatchResponse,
+	DraftPendingUser,
 	DraftResponse,
+	DraftUser,
 	DraftVisibility,
 } from '../../gk/models/drafts';
 import type { RepositoryIdentityRequest } from '../../gk/models/repositoryIdentities';
@@ -595,6 +597,36 @@ export class DraftService implements Disposable {
 		});
 
 		return contentsRsp.text();
+	}
+
+	@log()
+	async addDraftUsers(id: string, userAndRoles: DraftPendingUser[]): Promise<DraftUser[]> {
+		const scope = getLogScope();
+
+		type Result = { data: DraftUser[] };
+		type Request = { id: string; users: DraftPendingUser[] };
+
+		try {
+			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}/users`, {
+				method: 'POST',
+				body: JSON.stringify({
+					id: id,
+					users: userAndRoles,
+				} as Request),
+			});
+
+			if (rsp?.ok === false) {
+				await handleBadDraftResponse(`Unable to add users for draft '${id}'`, rsp, scope);
+			}
+
+			const users: DraftUser[] = ((await rsp.json()) as Result).data;
+
+			return users;
+		} catch (ex) {
+			Logger.error(ex, scope);
+
+			throw ex;
+		}
 	}
 }
 
