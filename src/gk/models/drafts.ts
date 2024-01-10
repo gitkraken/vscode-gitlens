@@ -140,6 +140,20 @@ export interface DraftResponse {
 	readonly description?: string;
 }
 
+export interface DraftUser {
+	readonly id: string;
+	readonly userId: string;
+	readonly draftId: string;
+	readonly role: DraftRole;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface DraftPendingUser {
+	userId: string;
+	role: Exclude<DraftRole, 'owner'>;
+}
+
 export interface DraftChangesetCreateRequest {
 	parentChangesetId?: string | null;
 	gitUserName?: string;
