@@ -10,6 +10,7 @@ export enum DeepLinkType {
 	Commit = 'c',
 	Comparison = 'compare',
 	Draft = 'drafts',
+	File = 'f',
 	Repository = 'r',
 	Tag = 't',
 	Workspace = 'workspace',
@@ -28,6 +29,8 @@ export function deepLinkTypeToString(type: DeepLinkType): string {
 			return 'Comparison';
 		case DeepLinkType.Draft:
 			return 'Cloud Patch';
+		case DeepLinkType.File:
+			return 'File';
 		case DeepLinkType.Repository:
 			return 'Repository';
 		case DeepLinkType.Tag:
@@ -58,6 +61,7 @@ export interface DeepLink {
 	mainId?: string;
 	remoteUrl?: string;
 	repoPath?: string;
+	filePath?: string;
 	targetId?: string;
 	secondaryTargetId?: string;
 	secondaryRemoteUrl?: string;
@@ -94,9 +98,10 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 
 			if (rest == null || rest.length === 0) return undefined;
 
-			let targetId: string;
+			let targetId: string | undefined;
 			let secondaryTargetId: string | undefined;
 			let secondaryRemoteUrl: string | undefined;
+			let filePath: string | undefined;
 			const joined = rest.join('/');
 
 			if (target === DeepLinkType.Comparison) {
@@ -108,6 +113,18 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				if (secondaryRemoteUrl != null) {
 					secondaryRemoteUrl = decodeURIComponent(secondaryRemoteUrl);
 				}
+			} else if (target === DeepLinkType.File) {
+				filePath = joined;
+				let ref = urlParams.get('ref') ?? undefined;
+				if (ref != null) {
+					ref = decodeURIComponent(ref);
+				}
+				targetId = ref;
+				let lines = urlParams.get('lines') ?? undefined;
+				if (lines != null) {
+					lines = decodeURIComponent(lines);
+				}
+				secondaryTargetId = lines;
 			} else {
 				targetId = joined;
 			}
@@ -117,6 +134,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				mainId: mainId,
 				remoteUrl: remoteUrl,
 				repoPath: repoPath,
+				filePath: filePath,
 				targetId: targetId,
 				secondaryTargetId: secondaryTargetId,
 				secondaryRemoteUrl: secondaryRemoteUrl,
@@ -166,6 +184,7 @@ export const enum DeepLinkServiceState {
 	OpenComparison,
 	OpenDraft,
 	OpenWorkspace,
+	OpenFile,
 }
 
 export const enum DeepLinkServiceAction {
@@ -189,8 +208,9 @@ export const enum DeepLinkServiceAction {
 	RemoteMatchFailed,
 	RemoteMatchUnneeded,
 	RemoteAdded,
-	TargetMatched,
-	TargetsMatched,
+	TargetMatchedForGraph,
+	TargetMatchedForFile,
+	TargetsMatchedForComparison,
 	TargetMatchFailed,
 	TargetFetched,
 }
@@ -206,6 +226,7 @@ export interface DeepLinkServiceContext {
 	remote?: GitRemote | undefined;
 	secondaryRemote?: GitRemote | undefined;
 	repoPath?: string | undefined;
+	filePath?: string | undefined;
 	targetId?: string | undefined;
 	secondaryTargetId?: string | undefined;
 	secondaryRemoteUrl?: string | undefined;
@@ -271,8 +292,9 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	},
 	[DeepLinkServiceState.TargetMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
-		[DeepLinkServiceAction.TargetMatched]: DeepLinkServiceState.OpenGraph,
-		[DeepLinkServiceAction.TargetsMatched]: DeepLinkServiceState.OpenComparison,
+		[DeepLinkServiceAction.TargetMatchedForGraph]: DeepLinkServiceState.OpenGraph,
+		[DeepLinkServiceAction.TargetsMatchedForComparison]: DeepLinkServiceState.OpenComparison,
+		[DeepLinkServiceAction.TargetMatchedForFile]: DeepLinkServiceState.OpenFile,
 		[DeepLinkServiceAction.TargetMatchFailed]: DeepLinkServiceState.Fetch,
 	},
 	[DeepLinkServiceState.Fetch]: {
@@ -281,8 +303,9 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.FetchedTargetMatch]: {
-		[DeepLinkServiceAction.TargetMatched]: DeepLinkServiceState.OpenGraph,
-		[DeepLinkServiceAction.TargetsMatched]: DeepLinkServiceState.OpenComparison,
+		[DeepLinkServiceAction.TargetMatchedForGraph]: DeepLinkServiceState.OpenGraph,
+		[DeepLinkServiceAction.TargetsMatchedForComparison]: DeepLinkServiceState.OpenComparison,
+		[DeepLinkServiceAction.TargetMatchedForFile]: DeepLinkServiceState.OpenFile,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpenGraph]: {
@@ -298,6 +321,10 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpenWorkspace]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.OpenFile]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
@@ -326,4 +353,5 @@ export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.OpenComparison]: { message: 'Opening comparison...', increment: 95 },
 	[DeepLinkServiceState.OpenDraft]: { message: 'Opening cloud patch...', increment: 95 },
 	[DeepLinkServiceState.OpenWorkspace]: { message: 'Opening workspace...', increment: 95 },
+	[DeepLinkServiceState.OpenFile]: { message: 'Opening file...', increment: 95 },
 };
