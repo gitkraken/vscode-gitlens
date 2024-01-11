@@ -600,6 +600,55 @@ export class DraftService implements Disposable {
 	}
 
 	@log()
+	async updateDraftVisibility(id: string, visibility: DraftVisibility): Promise<Draft> {
+		const scope = getLogScope();
+
+		type Result = { data: Draft };
+
+		try {
+			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}`, {
+				method: 'PATCH',
+				body: JSON.stringify({ visibility: visibility }),
+			});
+
+			if (rsp?.ok === false) {
+				await handleBadDraftResponse(`Unable to update draft '${id}'`, rsp, scope);
+			}
+
+			const draft = ((await rsp.json()) as Result).data;
+
+			return draft;
+		} catch (ex) {
+			Logger.error(ex, scope);
+
+			throw ex;
+		}
+	}
+
+	@log()
+	async getDraftUsers(id: string): Promise<DraftUser[]> {
+		const scope = getLogScope();
+
+		type Result = { data: DraftUser[] };
+
+		try {
+			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}/users`, { method: 'GET' });
+
+			if (rsp?.ok === false) {
+				await handleBadDraftResponse(`Unable to get users for draft '${id}'`, rsp, scope);
+			}
+
+			const users: DraftUser[] = ((await rsp.json()) as Result).data;
+
+			return users;
+		} catch (ex) {
+			Logger.error(ex, scope);
+
+			throw ex;
+		}
+	}
+
+	@log()
 	async addDraftUsers(id: string, userAndRoles: DraftPendingUser[]): Promise<DraftUser[]> {
 		const scope = getLogScope();
 
@@ -627,6 +676,37 @@ export class DraftService implements Disposable {
 
 			throw ex;
 		}
+	}
+
+	@log()
+	async updateDraftUser(draftId: string, userId: DraftUser['id'], role: DraftUser['role']): Promise<DraftUser> {
+		const scope = getLogScope();
+
+		type Result = { data: DraftUser };
+
+		try {
+			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${draftId}/users/${userId}`, {
+				method: 'PATCH',
+				body: JSON.stringify({ role: role }),
+			});
+
+			if (rsp?.ok === false) {
+				await handleBadDraftResponse(`Unable to update user for draft '${draftId}'`, rsp, scope);
+			}
+
+			const user: DraftUser = ((await rsp.json()) as Result).data;
+
+			return user;
+		} catch (ex) {
+			Logger.error(ex, scope);
+
+			throw ex;
+		}
+	}
+
+	@log()
+	async removeDraftUser(id: string, userId: DraftUser['userId']): Promise<void> {
+		await this.connection.fetchGkDevApi(`/v1/drafts/${id}/users/${userId}`, { method: 'DELETE' });
 	}
 }
 
