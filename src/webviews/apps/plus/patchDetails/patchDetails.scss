@@ -155,12 +155,18 @@ textarea.message-input__control {
 	max-height: 40rem;
 }
 
+.user-selection-container {
+	max-height: (2.4rem * 4);
+	overflow: auto;
+}
+
 .user-selection {
 	--gk-avatar-size: 2rem;
 	display: flex;
 	flex-direction: row;
 	align-items: center;
 	gap: 0.4rem;
+	height: 2.4rem;
 
 	&__avatar {
 		flex: none;

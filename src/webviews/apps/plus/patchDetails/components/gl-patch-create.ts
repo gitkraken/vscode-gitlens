@@ -180,11 +180,13 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 
 		return html`
 			<div class="message-input">
-				${repeat(
-					this.state.create.userSelections,
-					userSelection => userSelection.user.userId,
-					userSelection => this.renderUserSelection(userSelection),
-				)}
+				<div class="user-selection-container scrollable">
+					${repeat(
+						this.state.create.userSelections,
+						userSelection => userSelection.user.userId,
+						userSelection => this.renderUserSelection(userSelection),
+					)}
+				</div>
 			</div>
 		`;
 	}
