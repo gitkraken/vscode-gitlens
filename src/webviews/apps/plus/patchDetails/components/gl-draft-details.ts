@@ -320,25 +320,25 @@ export class GlDraftDetails extends GlTreeBase {
 									>${roleLabel} <code-icon icon="chevron-down"></code-icon
 								></gk-button>
 								<gk-menu>
-									${map(
-										options,
-										([value, label]) =>
-											html`<gk-menu-item
-												@click=${(e: MouseEvent) =>
-													this.onChangeSelectionRole(
-														e,
-														userSelection,
-														value as PatchDetailsUpdateSelectionEventDetail['role'],
-													)}
-											>
-												<code-icon
-													icon="check"
-													class="user-selection__check ${userSelection.user.role === value
-														? 'is-active'
-														: ''}"
-												></code-icon>
-												${label}
-											</gk-menu-item>`,
+									${map(options, ([value, label]) =>
+										value === 'owner'
+											? undefined
+											: html`<gk-menu-item
+													@click=${(e: MouseEvent) =>
+														this.onChangeSelectionRole(
+															e,
+															userSelection,
+															value as PatchDetailsUpdateSelectionEventDetail['role'],
+														)}
+											  >
+													<code-icon
+														icon="check"
+														class="user-selection__check ${userSelection.user.role === value
+															? 'is-active'
+															: ''}"
+													></code-icon>
+													${label}
+											  </gk-menu-item>`,
 									)}
 								</gk-menu>
 							</gk-popover>
@@ -357,11 +357,13 @@ export class GlDraftDetails extends GlTreeBase {
 
 		return html`
 			<div class="message-input">
-				${repeat(
-					draft.userSelections,
-					userSelection => userSelection.user.userId,
-					userSelection => this.renderUserSelection(userSelection, draft.role),
-				)}
+				<div class="user-selection-container scrollable">
+					${repeat(
+						draft.userSelections,
+						userSelection => userSelection.user.userId,
+						userSelection => this.renderUserSelection(userSelection, draft.role),
+					)}
+				</div>
 			</div>
 		`;
 	}
