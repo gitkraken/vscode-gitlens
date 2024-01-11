@@ -6068,6 +6068,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.openFileByRevision",
+				"title": "Open File by Revision...",
+				"icon": "$(gitlens-open-revision)",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.openAutolinkUrl",
 				"title": "Open Autolink URL",
 				"category": "GitLens",

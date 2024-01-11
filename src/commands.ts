@@ -36,6 +36,7 @@ import './commands/openFileFromRemote';
 import './commands/openFileOnRemote';
 import './commands/openFileAtRevision';
 import './commands/openFileAtRevisionFrom';
+import './commands/openFileByRevision';
 import './commands/openOnRemote';
 import './commands/openIssueOnRemote';
 import './commands/openPullRequestOnRemote';

@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new _Push Stash Snapshot_ confirmation option to the _Git Command Palette_'s _stash push_ command to save a stash without changing the working tree
 - Adds a `gitlens.fileAnnotations.dismissOnEscape` setting to specify whether pressing the `ESC` key dismisses the active file annotations &mdash; closes [#3016](https://github.com/gitkraken/vscode-gitlens/issues/3016)
 - Adds _Copy_ to search results in the _Search & Compare_ view to copy the search query to more easily share or paste queries into the _Commit Graph_
+- Adds support for opening renamed/deleted files using the _Open File at Revision..._ commands by showing a quickpick prompt if the requested file doesn't exist in the selected revision &mdash; thanks to [PR #TODO](https://github.com/gitkraken/vscode-gitlens/pull/3036) by Victor Hallberg ([@mogelbrod](https://github.com/mogelbrod))
 
 ### Changed
 
