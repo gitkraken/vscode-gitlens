@@ -61,7 +61,7 @@ interface LocalDraftDetails {
 	patches?: PatchDetails[];
 }
 
-interface CloudDraftDetails {
+export interface CloudDraftDetails {
 	draftType: 'cloud';
 
 	id: string;
@@ -227,6 +227,15 @@ export interface UpdateCreatePatchMetadataParams {
 export const UpdateCreatePatchMetadataCommandType = new IpcCommandType<UpdateCreatePatchMetadataParams>(
 	'patch/update/create/metadata',
 );
+
+export interface UpdatePatchDetailsMetadataParams {
+	visibility: DraftVisibility;
+}
+export const UpdatePatchDetailsMetadataCommandType = new IpcCommandType<UpdatePatchDetailsMetadataParams>(
+	'patch/update/draft/metadata',
+);
+
+export const UpdatePatchDetailsPermissionsCommandType = new IpcCommandType<undefined>('patch/update/draft/permissions');
 
 export const UpdatePatchUsersCommandType = new IpcCommandType<undefined>('patch/update/users');
 

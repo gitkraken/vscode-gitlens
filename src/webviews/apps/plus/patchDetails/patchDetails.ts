@@ -1,7 +1,7 @@
 /*global*/
 import type { TextDocumentShowOptions } from 'vscode';
 import type { ViewFilesLayout } from '../../../../config';
-import type { DraftPatchFileChange } from '../../../../gk/models/drafts';
+import type { DraftPatchFileChange, DraftVisibility } from '../../../../gk/models/drafts';
 import type { State, SwitchModeParams } from '../../../../plus/webviews/patchDetails/protocol';
 import {
 	ApplyPatchCommandType,
@@ -26,6 +26,8 @@ import {
 	SwitchModeCommandType,
 	UpdateCreatePatchMetadataCommandType,
 	UpdateCreatePatchRepositoryCheckedStateCommandType,
+	UpdatePatchDetailsMetadataCommandType,
+	UpdatePatchDetailsPermissionsCommandType,
 	UpdatePatchUsersCommandType,
 	UpdatePatchUserSelectionCommandType,
 	UpdatePreferencesCommandType,
@@ -36,7 +38,12 @@ import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import { DOM } from '../../shared/dom';
-import type { ApplyPatchDetail, GlDraftDetails, PatchCheckedDetail } from './components/gl-draft-details';
+import type {
+	ApplyPatchDetail,
+	GlDraftDetails,
+	PatchCheckedDetail,
+	PatchDetailsUpdateSelectionEventDetail,
+} from './components/gl-draft-details';
 import type {
 	CreatePatchCheckRepositoryEventDetail,
 	CreatePatchEventDetail,
@@ -109,10 +116,18 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			DOM.on<GlPatchCreate, undefined>('gl-patch-create', 'gl-patch-create-invite-users', () =>
 				this.onInviteUsers(),
 			),
+			DOM.on<GlDraftDetails, undefined>('gl-draft-details', 'gl-patch-details-invite-users', () =>
+				this.onInviteUsers(),
+			),
 			DOM.on<GlPatchCreate, CreatePatchUpdateSelectionEventDetail>(
 				'gl-patch-create',
 				'gl-patch-create-update-selection',
-				e => this.onCreateUpdateSelection(e.detail),
+				e => this.onUpdateUserSelection(e.detail),
+			),
+			DOM.on<GlDraftDetails, PatchDetailsUpdateSelectionEventDetail>(
+				'gl-draft-details',
+				'gl-patch-details-update-selection',
+				e => this.onUpdateUserSelection(e.detail),
 			),
 			DOM.on<GlPatchCreate, CreatePatchCheckRepositoryEventDetail>(
 				'gl-patch-create',
@@ -123,6 +138,14 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 				'gl-patch-create',
 				'gl-patch-create-update-metadata',
 				e => this.onCreateUpdateMetadata(e.detail),
+			),
+			DOM.on<GlDraftDetails, { visibility: DraftVisibility }>(
+				'gl-draft-details',
+				'gl-patch-details-update-metadata',
+				e => this.onDraftUpdateMetadata(e.detail),
+			),
+			DOM.on<GlDraftDetails, undefined>('gl-draft-details', 'gl-patch-details-update-permissions', () =>
+				this.onDraftUpdatePermissions(),
 			),
 			DOM.on<GlPatchCreate, FileChangeListItemDetail>(
 				'gl-patch-create,gl-draft-details',
@@ -247,6 +270,14 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		this.sendCommand(UpdateCreatePatchMetadataCommandType, e);
 	}
 
+	private onDraftUpdateMetadata(e: { visibility: DraftVisibility }) {
+		this.sendCommand(UpdatePatchDetailsMetadataCommandType, e);
+	}
+
+	private onDraftUpdatePermissions() {
+		this.sendCommand(UpdatePatchDetailsPermissionsCommandType, undefined);
+	}
+
 	private onShowPatchInGraph(_e: ShowPatchInGraphDetail) {
 		// this.sendCommand(OpenInCommitGraphCommandType, { });
 	}
@@ -339,7 +370,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		this.sendCommand(UpdatePatchUsersCommandType, undefined);
 	}
 
-	private onCreateUpdateSelection(e: CreatePatchUpdateSelectionEventDetail) {
+	private onUpdateUserSelection(e: CreatePatchUpdateSelectionEventDetail | PatchDetailsUpdateSelectionEventDetail) {
 		this.sendCommand(UpdatePatchUserSelectionCommandType, e);
 	}
 

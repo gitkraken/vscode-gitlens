@@ -60,6 +60,7 @@ import type {
 	UpdateablePreferences,
 	UpdateCreatePatchMetadataParams,
 	UpdateCreatePatchRepositoryCheckedStateParams,
+	UpdatePatchDetailsMetadataParams,
 	UpdatePatchUserSelection,
 } from './protocol';
 import {
@@ -81,6 +82,8 @@ import {
 	SwitchModeCommandType,
 	UpdateCreatePatchMetadataCommandType,
 	UpdateCreatePatchRepositoryCheckedStateCommandType,
+	UpdatePatchDetailsMetadataCommandType,
+	UpdatePatchDetailsPermissionsCommandType,
 	UpdatePatchUsersCommandType,
 	UpdatePatchUserSelectionCommandType,
 	UpdatePreferencesCommandType,
@@ -96,6 +99,7 @@ interface DraftUserState {
 interface Context {
 	mode: Mode;
 	draft: LocalDraft | Draft | undefined;
+	draftVisibiltyState: DraftVisibility | undefined;
 	draftUserState: DraftUserState | undefined;
 	create:
 		| {
@@ -124,6 +128,7 @@ export class PatchDetailsWebviewProvider
 			mode: 'create',
 			draft: undefined,
 			draftUserState: undefined,
+			draftVisibiltyState: undefined,
 			create: undefined,
 			preferences: this.getPreferences(),
 		};
@@ -169,7 +174,7 @@ export class PatchDetailsWebviewProvider
 	): Promise<boolean> {
 		const [arg] = args;
 		if (arg?.mode === 'view' && arg.draft != null) {
-			this.updateViewDraftState(arg.draft);
+			await this.updateViewDraftState(arg.draft);
 		} else {
 			if (this.container.git.isDiscoveringRepositories) {
 				await this.container.git.isDiscoveringRepositories;
@@ -250,6 +255,12 @@ export class PatchDetailsWebviewProvider
 				break;
 			case UpdateCreatePatchMetadataCommandType.method:
 				onIpc(UpdateCreatePatchMetadataCommandType, e, params => this.updateCreateMetadata(params));
+				break;
+			case UpdatePatchDetailsMetadataCommandType.method:
+				onIpc(UpdatePatchDetailsMetadataCommandType, e, params => this.updateDraftMetadata(params));
+				break;
+			case UpdatePatchDetailsPermissionsCommandType.method:
+				onIpc(UpdatePatchDetailsPermissionsCommandType, e, () => this.updateDraftPermissions());
 				break;
 			case UpdateCreatePatchRepositoryCheckedStateCommandType.method:
 				onIpc(UpdateCreatePatchRepositoryCheckedStateCommandType, e, params =>
@@ -476,8 +487,31 @@ export class PatchDetailsWebviewProvider
 				this._context.create!.userSelections.push(...userSelections);
 			}
 			void this.notifyDidChangeCreateDraftState();
+			return;
 		}
-		// TODO: edit existing draft (this.mode === 'view')
+
+		const draftUserState = this._context.draftUserState!;
+		let added = false;
+		for (const pick of picks) {
+			const existing = draftUserState.selections.find(u => u.member.id === pick.id);
+			if (existing != null) {
+				continue;
+			}
+			added = true;
+			draftUserState.selections.push(
+				toDraftUserSelection(
+					{
+						userId: pick.id,
+						role: 'editor',
+					} as DraftPendingUser,
+					pick,
+					'add',
+				),
+			);
+		}
+		if (added) {
+			void this.notifyDidChangeViewDraftState();
+		}
 	}
 
 	private async selectCollaborators(
@@ -558,8 +592,21 @@ export class PatchDetailsWebviewProvider
 			}
 
 			void this.notifyDidChangeCreateDraftState();
+			return;
 		}
-		// TODO: apply to existing draft (this.mode === 'view')
+
+		const allSelections = this._context.draftUserState!.selections;
+		const selection = allSelections.find(u => u.user.userId === params.selection.user.userId);
+		if (selection == null) return;
+
+		if (params.role === 'remove') {
+			selection.change = 'delete';
+		} else {
+			selection.change = 'modify';
+			(selection.user as DraftPendingUser).role = params.role;
+		}
+
+		void this.notifyDidChangeViewDraftState();
 	}
 
 	private async createDraft({
@@ -742,6 +789,56 @@ export class PatchDetailsWebviewProvider
 		void this.notifyDidChangeCreateDraftState();
 	}
 
+	private updateDraftMetadata(params: UpdatePatchDetailsMetadataParams) {
+		if (this._context.draft == null) return;
+
+		this._context.draftVisibiltyState = params.visibility;
+		void this.notifyDidChangeViewDraftState();
+	}
+
+	private async updateDraftPermissions() {
+		const draft = (this._context.draft as Draft)!;
+		const draftId = draft.id;
+		const changes = [];
+
+		if (this._context.draftVisibiltyState != null && this._context.draftVisibiltyState !== draft.visibility) {
+			changes.push(this.container.drafts.updateDraftVisibility(draftId, this._context.draftVisibiltyState));
+		}
+
+		const selections = this._context.draftUserState?.selections;
+		if (selections != null) {
+			const adds: DraftPendingUser[] = [];
+			for (const selection of selections) {
+				if (selection.change === undefined) continue;
+
+				switch (selection.change) {
+					case 'add':
+						changes.push({
+							userId: selection.user.userId,
+							role: selection.user.role as DraftPendingUser['role'],
+						});
+						break;
+					case 'modify':
+						changes.push(
+							this.container.drafts.updateDraftUser(draftId, selection.member.id, selection.user.role),
+						);
+						break;
+					case 'delete':
+						changes.push(this.container.drafts.removeDraftUser(draftId, selection.member.id));
+						break;
+				}
+			}
+
+			if (adds.length !== 0) {
+				changes.push(this.container.drafts.addDraftUsers(draftId, adds));
+			}
+		}
+
+		if (changes.length !== 0) {
+			await Promise.all(changes);
+		}
+	}
+
 	// private shareLocalPatch() {
 	// 	if (this._context.open?.draftType !== 'local') return;
 
@@ -902,12 +999,16 @@ export class PatchDetailsWebviewProvider
 		});
 	}
 
-	private updateViewDraftState(draft: LocalDraft | Draft | undefined) {
+	private async updateViewDraftState(draft: LocalDraft | Draft | undefined) {
 		this._context.draft = draft;
+		if (draft?.draftType === 'cloud') {
+			await this.createDraftUserState(draft);
+		}
 		this.setMode('view', true);
 		void this.notifyDidChangeViewDraftState();
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	private async getViewDraftState(current: Context): Promise<State['draft'] | undefined> {
 		if (current.draft == null) return undefined;
 
@@ -965,7 +1066,7 @@ export class PatchDetailsWebviewProvider
 				}, 0);
 			}
 
-			const draftUserState = await this.getDraftUserState(draft);
+			const draftUserState = this._context.draftUserState!;
 			return {
 				draftType: 'cloud',
 				id: draft.id,
@@ -988,35 +1089,38 @@ export class PatchDetailsWebviewProvider
 						},
 					})),
 				),
-				users: draftUserState?.users,
-				userSelections: draftUserState?.selections,
+				users: draftUserState.users,
+				userSelections: draftUserState.selections,
 			};
 		}
 
 		return undefined;
 	}
 
-	private async getDraftUserState(draft: Draft, options?: { force?: boolean }): Promise<DraftUserState | undefined> {
-		if (this._context.draftUserState != null && !options?.force) {
-			return this._context.draftUserState;
+	private async createDraftUserState(draft: Draft, options?: { force?: boolean }): Promise<void> {
+		if (this._context.draftUserState != null && options?.force !== true) {
+			return;
 		}
+		// try to create the state if it doesn't exist
+		try {
+			const draftUsers = await this.container.drafts.getDraftUsers(draft.id);
+			if (draftUsers.length === 0) {
+				return;
+			}
 
-		const draftUsers = await this.container.drafts.getDraftUsers(draft.id);
-		if (draftUsers.length === 0) {
-			return undefined;
+			const users: DraftUser[] = [];
+			const userSelections: DraftUserSelection[] = [];
+			const members = await this.getOrganizationMembers();
+			for (const user of draftUsers) {
+				users.push(user);
+				const member = members.find(m => m.id === user.userId)!;
+				userSelections.push(toDraftUserSelection(user, member));
+			}
+
+			this._context.draftUserState = { users: users, selections: userSelections };
+		} catch (ex) {
+			debugger;
 		}
-
-		const users: DraftUser[] = [];
-		const userSelections: DraftUserSelection[] = [];
-		const members = await this.getOrganizationMembers();
-		for (const user of draftUsers) {
-			users.push(user);
-			const member = members.find(m => m.id === user.id)!;
-			userSelections.push(toDraftUserSelection(user, member));
-		}
-
-		this._context.draftUserState = { users: users, selections: userSelections };
-		return this._context.draftUserState;
 	}
 
 	private async notifyDidChangeViewDraftState() {

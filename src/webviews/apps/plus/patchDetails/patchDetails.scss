@@ -172,6 +172,11 @@ textarea.message-input__control {
 
 	&__actions {
 		flex: none;
+
+		gk-button::part(base) {
+			padding-right: 0;
+			padding-block: 0.4rem;
+		}
 	}
 
 	&__check:not(.is-active) {

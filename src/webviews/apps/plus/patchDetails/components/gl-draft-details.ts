@@ -1,13 +1,17 @@
-import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
+import { Avatar, Button, defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
 import { html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { map } from 'lit/directives/map.js';
+import { repeat } from 'lit/directives/repeat.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
-import type { DraftPatchFileChange } from '../../../../../gk/models/drafts';
+import type { DraftPatchFileChange, DraftRole, DraftVisibility } from '../../../../../gk/models/drafts';
 import type {
+	CloudDraftDetails,
 	DraftDetails,
+	DraftUserSelection,
 	FileActionParams,
 	PatchDetails,
 	State,
@@ -69,6 +73,11 @@ export interface PatchCheckedDetail {
 	checked: boolean;
 }
 
+export interface PatchDetailsUpdateSelectionEventDetail {
+	selection: DraftUserSelection;
+	role: Exclude<DraftRole, 'owner'> | 'remove';
+}
+
 @customElement('gl-draft-details')
 export class GlDraftDetails extends GlTreeBase {
 	@property({ type: Object })
@@ -97,7 +106,7 @@ export class GlDraftDetails extends GlTreeBase {
 	constructor() {
 		super();
 
-		defineGkElement(Popover, Menu, MenuItem);
+		defineGkElement(Avatar, Button, Popover, Menu, MenuItem);
 	}
 
 	override updated(changedProperties: Map<string, any>) {
@@ -284,6 +293,155 @@ export class GlDraftDetails extends GlTreeBase {
 		return models;
 	}
 
+	renderUserSelection(userSelection: DraftUserSelection, role: DraftRole) {
+		const selectionRole = userSelection.user.role;
+		const options = new Map<string, string>([
+			['owner', 'owner'],
+			['admin', 'admin'],
+			['viewer', 'can edit'],
+			['editor', 'can view'],
+			['remove', 'un-invite'],
+		]);
+		const roleLabel = options.get(selectionRole);
+		return html`
+			<div class="user-selection">
+				<div class="user-selection__avatar">
+					<gk-avatar .src=${userSelection.avatarUrl}></gk-avatar>
+				</div>
+				<div class="user-selection__info">
+					<div class="user-selection__name">${userSelection.member.name}</div>
+				</div>
+				<div class="user-selection__actions">
+					${when(
+						selectionRole !== 'owner' && (role === 'owner' || role === 'admin'),
+						() => html`
+							<gk-popover>
+								<gk-button slot="trigger"
+									>${roleLabel} <code-icon icon="chevron-down"></code-icon
+								></gk-button>
+								<gk-menu>
+									${map(
+										options,
+										([value, label]) =>
+											html`<gk-menu-item
+												@click=${(e: MouseEvent) =>
+													this.onChangeSelectionRole(
+														e,
+														userSelection,
+														value as PatchDetailsUpdateSelectionEventDetail['role'],
+													)}
+											>
+												<code-icon
+													icon="check"
+													class="user-selection__check ${userSelection.user.role === value
+														? 'is-active'
+														: ''}"
+												></code-icon>
+												${label}
+											</gk-menu-item>`,
+									)}
+								</gk-menu>
+							</gk-popover>
+						`,
+						() => html`${roleLabel}`,
+					)}
+				</div>
+			</div>
+		`;
+	}
+
+	renderUserSelectionList(draft: CloudDraftDetails) {
+		if (draft.userSelections == null || draft.userSelections.length === 0) {
+			return undefined;
+		}
+
+		return html`
+			<div class="message-input">
+				${repeat(
+					draft.userSelections,
+					userSelection => userSelection.user.userId,
+					userSelection => this.renderUserSelection(userSelection, draft.role),
+				)}
+			</div>
+		`;
+	}
+
+	renderPatchPermissions() {
+		const draft = this.state.draft!.draftType === 'cloud' ? this.state.draft! : undefined;
+		if (draft == null) return undefined;
+
+		if (draft.role === 'admin' || draft.role === 'owner') {
+			const hasChanges = draft.userSelections?.some(selection => selection.change !== undefined);
+			let visibilityIcon: string | undefined;
+			switch (draft.visibility) {
+				case 'private':
+					visibilityIcon = 'organization';
+					break;
+				case 'invite_only':
+					visibilityIcon = 'lock';
+					break;
+				default:
+					visibilityIcon = 'globe';
+					break;
+			}
+			return html`
+				<div class="message-input message-input--group">
+					<div class="message-input__select">
+						<span class="message-input__select-icon"><code-icon icon=${visibilityIcon}></code-icon></span>
+						<select id="visibility" class="message-input__control" @change=${this.onVisibilityChange}>
+							<option value="public" ?selected=${draft.visibility === 'public'}>
+								Anyone with the link
+							</option>
+							<option value="private" ?selected=${draft.visibility === 'private'}>
+								Members of my Org with the link
+							</option>
+							<option value="invite_only" ?selected=${draft.visibility === 'invite_only'}>
+								Collaborators only
+							</option>
+						</select>
+						<span class="message-input__select-caret"><code-icon icon="chevron-down"></code-icon></span>
+					</div>
+					<gl-button appearance="secondary" @click=${this.onInviteUsers}
+						><code-icon icon="person-add"></code-icon> Invite</gl-button
+					>
+				</div>
+				${this.renderUserSelectionList(draft)}
+				${when(
+					hasChanges,
+					() => html`
+						<p class="button-container">
+							<span class="button-group button-group--single">
+								<gl-button appearance="secondary" full @click=${this.onUpdatePatch}
+									>Update Patch</gl-button
+								>
+							</span>
+						</p>
+					`,
+				)}
+			`;
+		}
+
+		return html`
+			<div class="message-input">
+				<div class="message-input__control message-input__control--text">
+					${when(
+						draft.visibility === 'public',
+						() => html`<code-icon icon="globe"></code-icon> Anyone with the link`,
+					)}
+					${when(
+						draft.visibility === 'private',
+						() => html`<code-icon icon="organization"></code-icon> Members of my Org with the link`,
+					)}
+					${when(
+						draft.visibility === 'invite_only',
+						() => html`<code-icon icon="lock"></code-icon> Collaborators only`,
+					)}
+				</div>
+			</div>
+			${this.renderUserSelectionList(draft)}
+		`;
+	}
+
 	renderPatches() {
 		// // const path = this.state.draft?.repoPath;
 		// const repo = this.state.draft?.repoName;
@@ -333,32 +491,9 @@ export class GlDraftDetails extends GlTreeBase {
 		// 	<div class="patch-base">${getActions()}</div>
 		// </div>
 
-		const draft = this.state.draft!.draftType === 'cloud' ? this.state.draft! : undefined;
-
 		return html`
 			<div class="section section--action">
-				${when(
-					draft != null,
-					() => html`
-						<div class="message-input">
-							<div class="message-input__control message-input__control--text">
-								${when(
-									draft!.visibility === 'public',
-									() => html`<code-icon icon="globe"></code-icon> Anyone with the link`,
-								)}
-								${when(
-									draft!.visibility === 'private',
-									() =>
-										html`<code-icon icon="organization"></code-icon> Members of my Org with the link`,
-								)}
-								${when(
-									draft!.visibility === 'invite_only',
-									() => html`<code-icon icon="lock"></code-icon> Collaborators only`,
-								)}
-							</div>
-						</div>
-					`,
-				)}
+				${this.renderPatchPermissions()}
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
@@ -485,6 +620,33 @@ export class GlDraftDetails extends GlTreeBase {
 
 	protected override createRenderRoot() {
 		return this;
+	}
+
+	private onInviteUsers(_e: Event) {
+		this.fireEvent('gl-patch-details-invite-users');
+	}
+
+	private onChangeSelectionRole(
+		e: MouseEvent,
+		selection: DraftUserSelection,
+		role: PatchDetailsUpdateSelectionEventDetail['role'],
+	) {
+		this.fireEvent('gl-patch-details-update-selection', { selection: selection, role: role });
+
+		const popoverEl: Popover | null = (e.target as HTMLElement)?.closest('gk-popover');
+		popoverEl?.hidePopover();
+	}
+
+	private onVisibilityChange(e: Event) {
+		const draft = this.state.draft as CloudDraftDetails;
+		draft.visibility = (e.target as HTMLInputElement).value as DraftVisibility;
+		this.fireEvent('gl-patch-details-update-metadata', {
+			visibility: draft.visibility,
+		});
+	}
+
+	private onUpdatePatch(_e: Event) {
+		this.fireEvent('gl-patch-details-update-permissions');
 	}
 
 	onExplainChanges(e: MouseEvent | KeyboardEvent) {
@@ -740,5 +902,9 @@ declare global {
 		'gl-patch-file-compare-working': CustomEvent<FileActionParams>;
 		'gl-patch-file-open': CustomEvent<FileActionParams>;
 		'gl-patch-checked': CustomEvent<PatchCheckedDetail>;
+		'gl-patch-details-invite-users': CustomEvent<undefined>;
+		'gl-patch-details-update-selection': CustomEvent<PatchDetailsUpdateSelectionEventDetail>;
+		'gl-patch-details-update-metadata': CustomEvent<{ visibility: DraftVisibility }>;
+		'gl-patch-details-update-permissions': CustomEvent<undefined>;
 	}
 }
