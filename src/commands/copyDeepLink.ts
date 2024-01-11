@@ -5,8 +5,9 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { getBranchNameAndRemote } from '../git/models/branch';
 import type { GitReference } from '../git/models/reference';
+import { createReference } from '../git/models/reference';
 import { showGenericErrorMessage } from '../messages';
-import { showReferencePicker } from '../quickpicks/referencePicker';
+import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { showRemotePicker } from '../quickpicks/remotePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
@@ -179,12 +180,7 @@ export interface CopyFileDeepLinkCommandArgs {
 @command()
 export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([
-			Commands.CopyDeepLinkToFile,
-			Commands.CopyDeepLinkToFileAtReference,
-			Commands.CopyDeepLinkToLines,
-			Commands.CopyDeepLinkToLinesAtReference,
-		]);
+		super([Commands.CopyDeepLinkToFile, Commands.CopyDeepLinkToFileAtRevision, Commands.CopyDeepLinkToLines]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: CopyFileDeepLinkCommandArgs) {
@@ -192,18 +188,13 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 			args = {};
 		}
 
-		if (
-			args.ref == null &&
-			(context.command === Commands.CopyDeepLinkToFileAtReference ||
-				context.command === Commands.CopyDeepLinkToLinesAtReference)
-		) {
+		if (args.ref == null && context.command === Commands.CopyDeepLinkToFileAtRevision) {
 			args.chooseRef = true;
 		}
 
 		if (
 			args.lines == null &&
-			(context.command === Commands.CopyDeepLinkToLines ||
-				context.command === Commands.CopyDeepLinkToLinesAtReference) &&
+			context.command === Commands.CopyDeepLinkToLines &&
 			context.editor?.selection != null &&
 			!context.editor.selection.isEmpty
 		) {
@@ -226,7 +217,8 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 		const type = DeepLinkType.File;
 		let repoPath = args?.repoPath;
 		let filePath = args?.filePath;
-		if (repoPath == null || filePath == null) {
+		let ref = args?.ref;
+		if (repoPath == null || filePath == null || ref == null) {
 			uri = getCommandUri(uri, editor);
 			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 			if (gitUri?.path == null || gitUri?.repoPath == null) return;
@@ -237,6 +229,10 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 
 			if (filePath == null) {
 				filePath = gitUri?.fsPath;
+			}
+
+			if (args?.chooseRef !== true && ref == null && repoPath != null && gitUri?.sha != null) {
+				ref = createReference(gitUri.sha, repoPath, { refType: 'revision' });
 			}
 
 			if (repoPath == null || filePath == null) return;
@@ -259,19 +255,24 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 
 		if (!repoPath || !filePath) return;
 
-		let ref = args?.ref;
-		if (ref == null && args?.chooseRef) {
+		if (args?.chooseRef) {
 			const pick = await showReferencePicker(
 				repoPath,
 				`Copy Link to ${filePath} at Reference`,
 				'Choose a reference (branch, tag, etc) to copy the file link for',
 				{
 					allowRevisions: true,
+					include: ReferencesQuickPickIncludes.All,
 				},
 			);
 
-			if (pick == null) return;
-			ref = pick;
+			if (pick == null) {
+				return;
+			} else if (pick.ref === '') {
+				ref = undefined;
+			} else {
+				ref = pick;
+			}
 		}
 
 		if (!args.remote) {
