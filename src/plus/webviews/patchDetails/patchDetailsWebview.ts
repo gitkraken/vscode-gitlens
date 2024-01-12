@@ -583,6 +583,7 @@ export class PatchDetailsWebviewProvider
 			selection.pendingRole = params.role;
 		}
 
+		void window.showInformationMessage('Cloud Patch successfully updated');
 		void this.notifyDidChangeViewDraftState();
 	}
 

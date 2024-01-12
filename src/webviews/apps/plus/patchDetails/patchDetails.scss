@@ -8,6 +8,7 @@ body {
 	--gk-focus-border-color: var(--focus-color);
 	--gk-tooltip-padding: 0.4rem 0.8rem;
 	--gk-divider-color: var(--color-background--level-05);
+	--gk-button-ghost-color: var(--color-foreground--50);
 }
 
 gk-menu {
@@ -178,10 +179,15 @@ textarea.message-input__control {
 
 	&__actions {
 		flex: none;
+		color: var(--gk-button-ghost-color);
 
 		gk-button::part(base) {
 			padding-right: 0;
 			padding-block: 0.4rem;
+		}
+
+		gk-button code-icon {
+			pointer-events: none;
 		}
 	}
 
