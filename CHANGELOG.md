@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new _Push Stash Snapshot_ confirmation option to the _Git Command Palette_'s _stash push_ command to save a stash without changing the working tree
 - Adds a `gitlens.fileAnnotations.dismissOnEscape` setting to specify whether pressing the `ESC` key dismisses the active file annotations &mdash; closes [#3016](https://github.com/gitkraken/vscode-gitlens/issues/3016)
 - Adds _Copy_ to search results in the _Search & Compare_ view to copy the search query to more easily share or paste queries into the _Commit Graph_
+- Adds support for deep links to files and code
+  - Deep link format: `https://gitkraken.dev/link/r/{repoId}/f/{filePath}?[url={remoteUrl}|path={repoPath}]&lines={lines}&ref={ref}`
+  - Adds _Copy Link to File_, _Copy Link to File at Revision..._, and _Copy Link to Code_ commands to the _Copy As_ submenu in the editor context menu and to the _Share_ submenu of files in GitLens views
 
 ### Changed
 
