@@ -130,8 +130,8 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		const role = userSelection.pendingRole!;
 		const options = new Map<string, string>([
 			['admin', 'admin'],
-			['viewer', 'can edit'],
-			['editor', 'can view'],
+			['editor', 'can edit'],
+			['viewer', 'can view'],
 			['remove', 'un-invite'],
 		]);
 		const roleLabel = options.get(role);
