@@ -298,8 +298,8 @@ export class GlDraftDetails extends GlTreeBase {
 		const options = new Map<string, string>([
 			['owner', 'owner'],
 			['admin', 'admin'],
-			['viewer', 'can edit'],
-			['editor', 'can view'],
+			['editor', 'can edit'],
+			['viewer', 'can view'],
 			['remove', 'un-invite'],
 		]);
 		const roleLabel = options.get(selectionRole);
