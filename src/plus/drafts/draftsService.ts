@@ -649,18 +649,22 @@ export class DraftService implements Disposable {
 	}
 
 	@log()
-	async addDraftUsers(id: string, userAndRoles: DraftPendingUser[]): Promise<DraftUser[]> {
+	async addDraftUsers(id: string, pendingUsers: DraftPendingUser[]): Promise<DraftUser[]> {
 		const scope = getLogScope();
 
 		type Result = { data: DraftUser[] };
 		type Request = { id: string; users: DraftPendingUser[] };
 
 		try {
+			if (pendingUsers.length === 0) {
+				throw new Error('No changes found');
+			}
+
 			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}/users`, {
 				method: 'POST',
 				body: JSON.stringify({
 					id: id,
-					users: userAndRoles,
+					users: pendingUsers,
 				} as Request),
 			});
 
@@ -679,34 +683,21 @@ export class DraftService implements Disposable {
 	}
 
 	@log()
-	async updateDraftUser(draftId: string, userId: DraftUser['id'], role: DraftUser['role']): Promise<DraftUser> {
+	async removeDraftUser(id: string, userId: DraftUser['userId']): Promise<boolean> {
 		const scope = getLogScope();
-
-		type Result = { data: DraftUser };
-
 		try {
-			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${draftId}/users/${userId}`, {
-				method: 'PATCH',
-				body: JSON.stringify({ role: role }),
-			});
+			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}/users/${userId}`, { method: 'DELETE' });
 
 			if (rsp?.ok === false) {
-				await handleBadDraftResponse(`Unable to update user for draft '${draftId}'`, rsp, scope);
+				await handleBadDraftResponse(`Unable to update user ${userId} for draft '${id}'`, rsp, scope);
 			}
 
-			const user: DraftUser = ((await rsp.json()) as Result).data;
-
-			return user;
+			return true;
 		} catch (ex) {
 			Logger.error(ex, scope);
 
 			throw ex;
 		}
-	}
-
-	@log()
-	async removeDraftUser(id: string, userId: DraftUser['userId']): Promise<void> {
-		await this.connection.fetchGkDevApi(`/v1/drafts/${id}/users/${userId}`, { method: 'DELETE' });
 	}
 }
 

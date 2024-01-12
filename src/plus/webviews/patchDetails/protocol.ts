@@ -91,7 +91,8 @@ export type DraftDetails = LocalDraftDetails | CloudDraftDetails;
 export interface DraftUserSelection {
 	change: 'add' | 'modify' | 'delete' | undefined;
 	member: OrganizationMember;
-	user: DraftUser | DraftPendingUser;
+	user: DraftUser | undefined;
+	pendingRole: DraftPendingUser['role'] | undefined;
 	avatarUrl?: string;
 }
 
