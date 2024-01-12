@@ -583,7 +583,6 @@ export class PatchDetailsWebviewProvider
 			selection.pendingRole = params.role;
 		}
 
-		void window.showInformationMessage('Cloud Patch successfully updated');
 		void this.notifyDidChangeViewDraftState();
 	}
 
@@ -815,6 +814,8 @@ export class PatchDetailsWebviewProvider
 			await this.container.drafts.addDraftUsers(draftId, adds);
 		}
 		await this.createDraftUserState(draft, { force: true });
+
+		void window.showInformationMessage('Cloud Patch successfully updated');
 		void this.notifyDidChangeViewDraftState();
 	}
 
