@@ -454,33 +454,19 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async onInviteUsers() {
-		let initSelections: Set<DraftUser['userId']> | undefined;
+		let userIds: string[] | undefined;
 		if (this.mode === 'create') {
-			const userIds = this._context.create?.userSelections?.map(u => u.user.userId);
-			if (userIds != null) {
-				initSelections = new Set(userIds);
-			}
+			userIds = this._context.create?.userSelections?.map(u => u.member.id);
 		} else {
-			const userIds = this._context.draftUserState?.selections?.map(u => u.user.userId);
-			if (userIds != null) {
-				initSelections = new Set(userIds);
-			}
+			userIds = this._context.draftUserState?.selections?.map(u => u.member.id);
 		}
+
+		const initSelections: Set<DraftUser['userId']> | undefined = userIds != null ? new Set(userIds) : undefined;
 		const picks = await this.selectCollaborators(initSelections);
-		console.log(picks);
 		if (picks == null || picks.length === 0) return;
 
 		if (this.mode === 'create') {
-			const userSelections = picks.map(p =>
-				toDraftUserSelection(
-					{
-						userId: p.id,
-						role: 'editor',
-					},
-					p,
-					'add',
-				),
-			);
+			const userSelections = picks.map(pick => toDraftUserSelection(pick, undefined, 'editor', 'add'));
 			if (this._context.create!.userSelections == null) {
 				this._context.create!.userSelections = userSelections;
 			} else {
@@ -498,16 +484,7 @@ export class PatchDetailsWebviewProvider
 				continue;
 			}
 			added = true;
-			draftUserState.selections.push(
-				toDraftUserSelection(
-					{
-						userId: pick.id,
-						role: 'editor',
-					} as DraftPendingUser,
-					pick,
-					'add',
-				),
-			);
+			draftUserState.selections.push(toDraftUserSelection(pick, undefined, 'editor', 'add'));
 		}
 		if (added) {
 			void this.notifyDidChangeViewDraftState();
@@ -582,13 +559,13 @@ export class PatchDetailsWebviewProvider
 			if (userSelections == null) return;
 
 			if (params.role === 'remove') {
-				const selection = userSelections.findIndex(u => u.user.userId === params.selection.user.userId);
+				const selection = userSelections.findIndex(u => u.member.id === params.selection.member.id);
 				if (selection === -1) return;
 				userSelections.splice(selection, 1);
 			} else {
-				const selection = userSelections.find(u => u.user.userId === params.selection.user.userId);
+				const selection = userSelections.find(u => u.member.id === params.selection.member.id);
 				if (selection == null) return;
-				(selection.user as DraftPendingUser).role = params.role;
+				selection.pendingRole = params.role;
 			}
 
 			void this.notifyDidChangeCreateDraftState();
@@ -596,14 +573,14 @@ export class PatchDetailsWebviewProvider
 		}
 
 		const allSelections = this._context.draftUserState!.selections;
-		const selection = allSelections.find(u => u.user.userId === params.selection.user.userId);
+		const selection = allSelections.find(u => u.member.id === params.selection.member.id);
 		if (selection == null) return;
 
 		if (params.role === 'remove') {
 			selection.change = 'delete';
 		} else {
 			selection.change = 'modify';
-			(selection.user as DraftPendingUser).role = params.role;
+			selection.pendingRole = params.role;
 		}
 
 		void this.notifyDidChangeViewDraftState();
@@ -657,8 +634,8 @@ export class PatchDetailsWebviewProvider
 				await this.container.drafts.addDraftUsers(
 					draft.id,
 					userSelections.map(u => ({
-						userId: (u.user as DraftPendingUser).userId,
-						role: (u.user as DraftPendingUser).role,
+						userId: u.member.id,
+						role: u.pendingRole!,
 					})),
 				);
 			}
@@ -806,37 +783,38 @@ export class PatchDetailsWebviewProvider
 		}
 
 		const selections = this._context.draftUserState?.selections;
+		const adds: DraftPendingUser[] = [];
 		if (selections != null) {
-			const adds: DraftPendingUser[] = [];
 			for (const selection of selections) {
 				if (selection.change === undefined) continue;
 
-				switch (selection.change) {
-					case 'add':
-						changes.push({
-							userId: selection.user.userId,
-							role: selection.user.role as DraftPendingUser['role'],
-						});
-						break;
-					case 'modify':
-						changes.push(
-							this.container.drafts.updateDraftUser(draftId, selection.member.id, selection.user.role),
-						);
-						break;
-					case 'delete':
-						changes.push(this.container.drafts.removeDraftUser(draftId, selection.member.id));
-						break;
+				// modifying an existing user has to be done by deleting and adding back
+				if (selection.change !== 'delete') {
+					adds.push({
+						userId: selection.member.id,
+						role: selection.pendingRole!,
+					});
+				}
+
+				if (selection.change !== 'add') {
+					changes.push(this.container.drafts.removeDraftUser(draftId, selection.member.id));
 				}
 			}
-
-			if (adds.length !== 0) {
-				changes.push(this.container.drafts.addDraftUsers(draftId, adds));
-			}
 		}
 
+		if (changes.length === 0 && adds.length === 0) {
+			return;
+		}
 		if (changes.length !== 0) {
-			await Promise.all(changes);
+			const results = await Promise.all(changes);
+			console.log(results);
 		}
+
+		if (adds.length !== 0) {
+			await this.container.drafts.addDraftUsers(draftId, adds);
+		}
+		await this.createDraftUserState(draft, { force: true });
+		void this.notifyDidChangeViewDraftState();
 	}
 
 	// private shareLocalPatch() {
@@ -1002,7 +980,7 @@ export class PatchDetailsWebviewProvider
 	private async updateViewDraftState(draft: LocalDraft | Draft | undefined) {
 		this._context.draft = draft;
 		if (draft?.draftType === 'cloud') {
-			await this.createDraftUserState(draft);
+			await this.createDraftUserState(draft, { force: true });
 		}
 		this.setMode('view', true);
 		void this.notifyDidChangeViewDraftState();
@@ -1114,7 +1092,7 @@ export class PatchDetailsWebviewProvider
 			for (const user of draftUsers) {
 				users.push(user);
 				const member = members.find(m => m.id === user.userId)!;
-				userSelections.push(toDraftUserSelection(user, member));
+				userSelections.push(toDraftUserSelection(member, user));
 			}
 
 			this._context.draftUserState = { users: users, selections: userSelections };
@@ -1343,14 +1321,16 @@ export class PatchDetailsWebviewProvider
 }
 
 function toDraftUserSelection(
-	user: DraftUserSelection['user'],
 	member: OrganizationMember,
+	user?: DraftUserSelection['user'],
+	pendingRole?: DraftPendingUser['role'],
 	change?: DraftUserSelection['change'],
 ): DraftUserSelection {
 	return {
 		change: change,
 		member: member,
 		user: user,
+		pendingRole: pendingRole,
 		avatarUrl: member?.email != null ? getAvatarUri(member.email, undefined).toString() : undefined,
 	};
 }

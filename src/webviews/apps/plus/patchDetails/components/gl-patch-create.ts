@@ -33,6 +33,7 @@ export interface CreatePatchEventDetail {
 	description?: string;
 	visibility: DraftVisibility;
 	changesets: Record<string, Change>;
+	userSelections: DraftUserSelection[] | undefined;
 }
 
 export interface CreatePatchMetadataEventDetail {
@@ -126,7 +127,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 	}
 
 	renderUserSelection(userSelection: DraftUserSelection) {
-		const role = userSelection.user.role;
+		const role = userSelection.pendingRole!;
 		const options = new Map<string, string>([
 			['admin', 'admin'],
 			['viewer', 'can edit'],
@@ -159,9 +160,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 									>
 										<code-icon
 											icon="check"
-											class="user-selection__check ${userSelection.user.role === value
-												? 'is-active'
-												: ''}"
+											class="user-selection__check ${role === value ? 'is-active' : ''}"
 										></code-icon>
 										${label}
 									</gk-menu-item>`,
@@ -183,7 +182,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 				<div class="user-selection-container scrollable">
 					${repeat(
 						this.state.create.userSelections,
-						userSelection => userSelection.user.userId,
+						userSelection => userSelection.member.id,
 						userSelection => this.renderUserSelection(userSelection),
 					)}
 				</div>
@@ -478,11 +477,12 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 			return a;
 		}, {});
 
-		const patch = {
+		const patch: CreatePatchEventDetail = {
 			title: this.create.title ?? '',
 			description: this.create.description,
 			changesets: changes,
 			visibility: this.create.visibility,
+			userSelections: this.create.userSelections,
 		};
 		this.fireEvent('gl-patch-create-patch', patch);
 	}

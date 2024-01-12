@@ -294,7 +294,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	renderUserSelection(userSelection: DraftUserSelection, role: DraftRole) {
-		const selectionRole = userSelection.user.role;
+		const selectionRole = userSelection.pendingRole ?? userSelection.user!.role;
 		const options = new Map<string, string>([
 			['owner', 'owner'],
 			['admin', 'admin'],
@@ -333,7 +333,7 @@ export class GlDraftDetails extends GlTreeBase {
 											  >
 													<code-icon
 														icon="check"
-														class="user-selection__check ${userSelection.user.role === value
+														class="user-selection__check ${selectionRole === value
 															? 'is-active'
 															: ''}"
 													></code-icon>
@@ -360,7 +360,7 @@ export class GlDraftDetails extends GlTreeBase {
 				<div class="user-selection-container scrollable">
 					${repeat(
 						draft.userSelections,
-						userSelection => userSelection.user.userId,
+						userSelection => userSelection.member.id,
 						userSelection => this.renderUserSelection(userSelection, draft.role),
 					)}
 				</div>
