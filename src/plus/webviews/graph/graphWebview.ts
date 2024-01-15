@@ -2570,7 +2570,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item, 'stash');
 		if (ref == null) return Promise.resolve();
 
-		return StashActions.drop(ref.repoPath, ref);
+		return StashActions.drop(ref.repoPath, [ref]);
 	}
 
 	@debug()

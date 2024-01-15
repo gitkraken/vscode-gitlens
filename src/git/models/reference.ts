@@ -126,7 +126,7 @@ export interface GitStashReference {
 	name: string;
 	ref: string;
 	repoPath: string;
-	number: string | undefined;
+	number: string;
 
 	message?: string | undefined;
 	stashOnRef?: string | undefined;

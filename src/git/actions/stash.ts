@@ -13,10 +13,10 @@ export function apply(repo?: string | Repository, ref?: GitStashReference) {
 	});
 }
 
-export function drop(repo?: string | Repository, ref?: GitStashReference) {
+export function drop(repo?: string | Repository, refs?: GitStashReference[]) {
 	return executeGitCommand({
 		command: 'stash',
-		state: { subcommand: 'drop', repo: repo, reference: ref },
+		state: { subcommand: 'drop', repo: repo, references: refs },
 	});
 }
 
