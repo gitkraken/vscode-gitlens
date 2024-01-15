@@ -20,7 +20,6 @@ import * as WorktreeActions from '../git/actions/worktree';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
 import { matchContributor } from '../git/models/contributor';
-import type { GitStashReference } from '../git/models/reference';
 import { createReference, shortenRevision } from '../git/models/reference';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import {
@@ -513,16 +512,8 @@ export class ViewCommands {
 	private deleteStash(node: StashNode, nodes?: StashNode[]) {
 		if (!node.is('stash')) return Promise.resolve();
 
-		if (nodes != null && nodes.length !== 0) {
-			const sorted = nodes.sort((a, b) => parseInt(b.commit.number, 10) - parseInt(a.commit.number, 10));
-
-			return sequentialize(
-				StashActions.drop,
-				sorted.map<[string, GitStashReference]>(n => [n.repoPath, n.commit]),
-				this,
-			);
-		}
-		return StashActions.drop(node.repoPath, node.commit);
+		const refs = nodes?.length ? nodes.map(n => n.commit) : [node.commit];
+		return StashActions.drop(node.repoPath, refs);
 	}
 
 	@log()

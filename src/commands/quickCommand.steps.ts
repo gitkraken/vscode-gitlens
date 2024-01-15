@@ -1603,6 +1603,66 @@ export function* pickStashStep<
 	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
 
+export function* pickStashesStep<
+	State extends PartialStepState & { repo: Repository },
+	Context extends { repos: Repository[]; title: string },
+>(
+	state: State,
+	context: Context,
+	{
+		ignoreFocusOut,
+		stash,
+		picked,
+		placeholder,
+		titleContext,
+	}: {
+		ignoreFocusOut?: boolean;
+		stash: GitStash | undefined;
+		picked: string | string[] | undefined;
+		placeholder: string | ((context: Context, stash: GitStash | undefined) => string);
+		titleContext?: string;
+	},
+): StepResultGenerator<GitStashCommit[]> {
+	const step = createPickStep<CommitQuickPickItem<GitStashCommit>>({
+		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
+		multiselect: true,
+		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, stash),
+		ignoreFocusOut: ignoreFocusOut,
+		matchOnDescription: true,
+		matchOnDetail: true,
+		items:
+			stash == null
+				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
+				: [
+						...map(stash.commits.values(), commit =>
+							createCommitQuickPickItem(
+								commit,
+								picked != null &&
+									(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+								{
+									buttons: [ShowDetailsViewQuickInputButton],
+									compact: true,
+									icon: true,
+								},
+							),
+						),
+				  ],
+		onDidClickItemButton: (_quickpick, button, { item }) => {
+			if (button === ShowDetailsViewQuickInputButton) {
+				void StashActions.showDetailsView(item, { pin: false, preserveFocus: true });
+			}
+		},
+		keys: ['right', 'alt+right', 'ctrl+right'],
+		onDidPressKey: async quickpick => {
+			if (quickpick.activeItems.length === 0) return;
+
+			await StashActions.showDetailsView(quickpick.activeItems[0].item, { pin: false, preserveFocus: true });
+		},
+	});
+	const selection: StepSelection<typeof step> = yield step;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
+}
+
 export async function* pickTagsStep<
 	State extends PartialStepState & { repo: Repository },
 	Context extends { repos: Repository[]; showTags?: boolean; title: string },
@@ -1868,7 +1928,7 @@ async function getShowCommitOrStashStepItems<
 				state: {
 					subcommand: 'drop',
 					repo: state.repo,
-					reference: state.reference,
+					references: [state.reference],
 				},
 			}),
 

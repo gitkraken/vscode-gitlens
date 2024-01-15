@@ -39,7 +39,7 @@ import {
 	StepResultBreak,
 } from '../quickCommand';
 import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../quickCommand.buttons';
-import { appendReposToTitle, pickRepositoryStep, pickStashStep } from '../quickCommand.steps';
+import { appendReposToTitle, pickRepositoryStep, pickStashesStep, pickStashStep } from '../quickCommand.steps';
 
 interface Context {
 	repos: Repository[];
@@ -57,7 +57,7 @@ interface ApplyState {
 interface DropState {
 	subcommand: 'drop';
 	repo: string | Repository;
-	reference: GitStashReference;
+	references: GitStashReference[];
 }
 
 interface ListState {
@@ -108,6 +108,9 @@ const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['rename', 'Rename'],
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
+	if (subcommand === 'drop') {
+		title = 'Stashes';
+	}
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
 }
 
@@ -131,9 +134,13 @@ export class StashGitCommand extends QuickCommand<State> {
 
 			switch (args.state.subcommand) {
 				case 'apply':
-				case 'drop':
 				case 'pop':
 					if (args.state.reference != null) {
+						counter++;
+					}
+					break;
+				case 'drop':
+					if (args.state.references != null) {
 						counter++;
 					}
 					break;
@@ -275,7 +282,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				},
 				{
 					label: 'drop',
-					description: 'deletes the specified stash',
+					description: 'deletes the specified stashes',
 					picked: state.subcommand === 'drop',
 					item: 'drop',
 				},
@@ -419,32 +426,36 @@ export class StashGitCommand extends QuickCommand<State> {
 
 	private async *dropCommandSteps(state: DropStepState, context: Context): StepGenerator {
 		while (this.canStepsContinue(state)) {
-			if (state.counter < 3 || state.reference == null) {
-				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
+			if (state.counter < 3 || !state.references?.length) {
+				const result: StepResult<GitStashReference[]> = yield* pickStashesStep(state, context, {
 					stash: await this.container.git.getStash(state.repo.path),
 					placeholder: (context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash to delete',
-					picked: state.reference?.ref,
+						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose stashes to delete',
+					picked: state.references?.map(r => r.ref),
 				});
 				// Always break on the first step (so we will go back)
 				if (result === StepResultBreak) break;
 
-				state.reference = result;
+				state.references = result;
 			}
 
 			const result = yield* this.dropCommandConfirmStep(state, context);
 			if (result === StepResultBreak) continue;
 
 			endSteps(state);
-			try {
-				// drop can only take a stash index, e.g. `stash@{1}`
-				await state.repo.stashDelete(`stash@{${state.reference.number}}`, state.reference.ref);
-			} catch (ex) {
-				Logger.error(ex, context.title);
 
-				void showGenericErrorMessage('Unable to delete stash');
+			state.references.sort((a, b) => parseInt(b.number, 10) - parseInt(a.number, 10));
+			for (const ref of state.references) {
+				try {
+					// drop can only take a stash index, e.g. `stash@{1}`
+					await state.repo.stashDelete(`stash@{${ref.number}}`, ref.ref);
+				} catch (ex) {
+					Logger.error(ex, context.title);
 
-				return;
+					void showGenericErrorMessage(
+						`Unable to delete stash@{${ref.number}}${ref.message ? `: ${ref.message}` : ''}`,
+					);
+				}
 			}
 		}
 	}
@@ -455,27 +466,11 @@ export class StashGitCommand extends QuickCommand<State> {
 			[
 				{
 					label: context.title,
-					detail: `Will delete ${getReferenceLabel(state.reference)}`,
+					detail: `Will delete ${getReferenceLabel(state.references)}`,
 				},
 			],
 			undefined,
-			{
-				placeholder: `Confirm ${context.title}`,
-				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
-				onDidClickButton: (quickpick, button) => {
-					if (button === ShowDetailsViewQuickInputButton) {
-						void showDetailsView(state.reference, {
-							pin: false,
-							preserveFocus: true,
-						});
-					} else if (button === RevealInSideBarQuickInputButton) {
-						void reveal(state.reference, {
-							select: true,
-							expand: true,
-						});
-					}
-				},
-			},
+			{ placeholder: `Confirm ${context.title}` },
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;
