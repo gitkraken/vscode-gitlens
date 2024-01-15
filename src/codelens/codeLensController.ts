@@ -6,7 +6,6 @@ import { setContext } from '../system/context';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
 import type { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent } from '../trackers/documentTracker';
-import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 
 export class GitCodeLensController implements Disposable {
 	private _canToggle: boolean = false;
@@ -49,22 +48,19 @@ export class GitCodeLensController implements Disposable {
 		}
 	}
 
-	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
+	private onBlameStateChanged(e: DocumentBlameStateChangeEvent) {
 		// Only reset if we have saved, since the CodeLens won't naturally be re-rendered
 		if (this._provider == null || !e.blameable) return;
 
 		Logger.log('Blame state changed; resetting CodeLens provider');
-		this._provider.reset('saved');
+		this._provider.reset();
 	}
 
-	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
+	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent) {
 		if (this._provider == null || !e.document.isBlameable) return;
 
-		const maxLines = configuration.get('advanced.blame.sizeThresholdAfterEdit');
-		if (maxLines > 0 && e.document.lineCount > maxLines) return;
-
 		Logger.log('Dirty idle triggered; resetting CodeLens provider');
-		this._provider.reset('idle');
+		this._provider.reset();
 	}
 
 	toggleCodeLens() {
@@ -95,8 +91,8 @@ export class GitCodeLensController implements Disposable {
 		this._provider = new GitCodeLensProvider(this.container);
 		this._providerDisposable = Disposable.from(
 			languages.registerCodeLensProvider(GitCodeLensProvider.selector, this._provider),
-			this.container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
-			this.container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
+			this.container.documentTracker.onDidChangeBlameState(this.onBlameStateChanged, this),
+			this.container.documentTracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
 		);
 	}
 }

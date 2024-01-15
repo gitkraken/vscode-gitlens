@@ -8,8 +8,7 @@ import type { GitCommit } from '../git/models/commit';
 import { changesMessage, detailsMessage } from '../hovers/hovers';
 import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
-import type { GitDocumentState } from '../trackers/gitDocumentTracker';
-import type { TrackedDocument } from '../trackers/trackedDocument';
+import type { TrackedGitDocument } from '../trackers/trackedDocument';
 import { AnnotationProviderBase } from './annotationProvider';
 import type { ComputedHeatmap } from './annotations';
 import { getHeatmapColors } from './annotations';
@@ -24,7 +23,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		container: Container,
 		annotationType: FileAnnotationType,
 		editor: TextEditor,
-		trackedDocument: TrackedDocument<GitDocumentState>,
+		trackedDocument: TrackedGitDocument,
 	) {
 		super(container, annotationType, editor, trackedDocument);
 

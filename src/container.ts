@@ -59,8 +59,8 @@ import type { Storage } from './system/storage';
 import { TelemetryService } from './telemetry/telemetry';
 import { UsageTracker } from './telemetry/usageTracker';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
-import { GitDocumentTracker } from './trackers/gitDocumentTracker';
-import { GitLineTracker } from './trackers/gitLineTracker';
+import { GitDocumentTracker } from './trackers/documentTracker';
+import { LineTracker } from './trackers/lineTracker';
 import { DeepLinkService } from './uris/deepLinks/deepLinkService';
 import { UriService } from './uris/uriService';
 import { BranchesView } from './views/branchesView';
@@ -221,8 +221,8 @@ export class Container {
 		this._disposables.push((this._deepLinks = new DeepLinkService(this)));
 
 		this._disposables.push((this._actionRunners = new ActionRunners(this)));
-		this._disposables.push((this._tracker = new GitDocumentTracker(this)));
-		this._disposables.push((this._lineTracker = new GitLineTracker(this)));
+		this._disposables.push((this._documentTracker = new GitDocumentTracker(this)));
+		this._disposables.push((this._lineTracker = new LineTracker(this, this._documentTracker)));
 		this._disposables.push((this._keyboard = new Keyboard()));
 		this._disposables.push((this._vsls = new VslsController(this)));
 		this._disposables.push((this._eventBus = new EventBus()));
@@ -454,6 +454,11 @@ export class Container {
 		return this._deepLinks;
 	}
 
+	private readonly _documentTracker: GitDocumentTracker;
+	get documentTracker() {
+		return this._documentTracker;
+	}
+
 	@memoize()
 	get env(): Environment {
 		if (this.prereleaseOrDebugging) {
@@ -595,7 +600,7 @@ export class Container {
 		return this._lineHoverController;
 	}
 
-	private readonly _lineTracker: GitLineTracker;
+	private readonly _lineTracker: LineTracker;
 	get lineTracker() {
 		return this._lineTracker;
 	}
@@ -692,11 +697,6 @@ export class Container {
 	private readonly _timelineView: WebviewViewProxy<TimelineWebviewShowingArgs>;
 	get timelineView() {
 		return this._timelineView;
-	}
-
-	private readonly _tracker: GitDocumentTracker;
-	get tracker() {
-		return this._tracker;
 	}
 
 	private readonly _uri: UriService;

@@ -120,7 +120,7 @@ export class LineHoverController implements Disposable {
 		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 		editorLine = commitLine.originalLine - 1;
 
-		const trackedDocument = await this.container.tracker.get(document);
+		const trackedDocument = await this.container.documentTracker.get(document);
 		if (trackedDocument == null || token.isCancellationRequested) return undefined;
 
 		const message =
@@ -175,7 +175,7 @@ export class LineHoverController implements Disposable {
 		);
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
-		const trackedDocument = await this.container.tracker.get(document);
+		const trackedDocument = await this.container.documentTracker.get(document);
 		if (trackedDocument == null) return undefined;
 
 		const message = await changesMessage(

@@ -151,7 +151,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 
 		if (reset) {
 			if (this._uri != null && this._uri !== unknownGitUri) {
-				await this.view.container.tracker.resetCache(this._uri, 'log');
+				await this.view.container.documentTracker.resetCache(this._uri, 'log');
 			}
 
 			this.reset();

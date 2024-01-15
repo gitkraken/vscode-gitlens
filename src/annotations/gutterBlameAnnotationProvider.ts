@@ -14,8 +14,7 @@ import { getLogScope } from '../system/logger.scope';
 import { maybeStopWatch } from '../system/stopwatch';
 import type { TokenOptions } from '../system/string';
 import { getTokensFromTemplate, getWidth } from '../system/string';
-import type { GitDocumentState } from '../trackers/gitDocumentTracker';
-import type { TrackedDocument } from '../trackers/trackedDocument';
+import type { TrackedGitDocument } from '../trackers/trackedDocument';
 import type { AnnotationContext, AnnotationState } from './annotationProvider';
 import { applyHeatmap, getGutterDecoration, getGutterRenderOptions } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
@@ -24,7 +23,7 @@ import { Decorations } from './fileAnnotationController';
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
-	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
+	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedGitDocument) {
 		super(container, 'blame', editor, trackedDocument);
 	}
 

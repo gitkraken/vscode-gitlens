@@ -91,7 +91,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	constructor(private readonly container: Container) {}
 
-	reset(_reason?: 'idle' | 'saved') {
+	reset() {
 		this._onDidChangeCodeLenses.fire();
 	}
 
@@ -99,20 +99,13 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		// Since we can't currently blame edited virtual documents, don't even attempt anything if dirty
 		if (document.isDirty && isVirtualUri(document.uri)) return [];
 
-		const trackedDocument = await this.container.tracker.getOrAdd(document);
+		const trackedDocument = await this.container.documentTracker.getOrAdd(document);
 		if (!trackedDocument.isBlameable) return [];
 
 		let dirty = false;
-		if (document.isDirty) {
-			// Only allow dirty blames if we are idle
-			if (trackedDocument.isDirtyIdle) {
-				const maxLines = configuration.get('advanced.blame.sizeThresholdAfterEdit');
-				if (maxLines > 0 && document.lineCount > maxLines) {
-					dirty = true;
-				}
-			} else {
-				dirty = true;
-			}
+		// Only allow dirty blames if we are idle
+		if (document.isDirty && !trackedDocument.isDirtyIdle) {
+			dirty = true;
 		}
 
 		const cfg = configuration.get('codeLens', document);

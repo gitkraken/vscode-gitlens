@@ -94,9 +94,8 @@ import { getLogScope } from '../../../../system/logger.scope';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../../../system/path';
 import { asSettled, getSettledValue } from '../../../../system/promise';
 import { serializeWebviewItemContext } from '../../../../system/webview';
-import type { CachedBlame, CachedLog } from '../../../../trackers/gitDocumentTracker';
-import { GitDocumentState } from '../../../../trackers/gitDocumentTracker';
-import type { TrackedDocument } from '../../../../trackers/trackedDocument';
+import type { CachedBlame, CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
+import { GitDocumentState } from '../../../../trackers/trackedDocument';
 import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub';
 import { getRemoteHubApi, HeadType } from '../../../remotehub';
 import type {
@@ -549,7 +548,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			key += `:${uri.sha}`;
 		}
 
-		const doc = await this.container.tracker.getOrAdd(uri);
+		const doc = await this.container.documentTracker.getOrAdd(uri);
 		if (doc.state != null) {
 			const cachedBlame = doc.state.getBlame(key);
 			if (cachedBlame != null) {
@@ -580,7 +579,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	private async getBlameCore(
 		uri: GitUri,
-		document: TrackedDocument<GitDocumentState>,
+		document: TrackedGitDocument,
 		key: string,
 		scope: LogScope | undefined,
 	): Promise<GitBlame | undefined> {
@@ -2053,7 +2052,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			key += `:cursor=${options.cursor}`;
 		}
 
-		const doc = await this.container.tracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, options.ref));
+		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, options.ref));
 		if (!options.force && options.range == null) {
 			if (doc.state != null) {
 				const cachedLog = doc.state.getLog(key);
@@ -2140,7 +2139,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	private async getLogForFileCore(
 		repoPath: string | undefined,
 		path: string,
-		document: TrackedDocument<GitDocumentState>,
+		document: TrackedGitDocument,
 		key: string,
 		scope: LogScope | undefined,
 		options?: {

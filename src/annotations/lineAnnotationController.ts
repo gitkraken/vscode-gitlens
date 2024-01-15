@@ -15,8 +15,7 @@ import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { getSettledValue } from '../system/promise';
 import { isTextEditor } from '../system/utils';
-import type { GitLineState } from '../trackers/gitLineTracker';
-import type { LinesChangeEvent } from '../trackers/lineTracker';
+import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
 import { getInlineDecoration } from './annotations';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -153,7 +152,7 @@ export class LineAnnotationController implements Disposable {
 
 	private getPullRequestsForLines(
 		repoPath: string,
-		lines: Map<number, GitLineState>,
+		lines: Map<number, LineState>,
 	): Map<string, Promise<PullRequest | undefined>> {
 		const prs = new Map<string, Promise<PullRequest | undefined>>();
 		if (lines.size === 0) return prs;
@@ -205,7 +204,7 @@ export class LineAnnotationController implements Disposable {
 			return;
 		}
 
-		const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
+		const trackedDocument = await this.container.documentTracker.getOrAdd(editor.document);
 		if (!trackedDocument.isBlameable && this.suspended) {
 			if (scope != null) {
 				scope.exitDetails = ` ${GlyphChars.Dot} Skipped because the ${
@@ -242,7 +241,7 @@ export class LineAnnotationController implements Disposable {
 		let uncommittedOnly = true;
 
 		const commitPromises = new Map<string, Promise<void>>();
-		const lines = new Map<number, GitLineState>();
+		const lines = new Map<number, LineState>();
 		for (const selection of selections) {
 			const state = this.container.lineTracker.getState(selection.active);
 			if (state?.commit == null) {

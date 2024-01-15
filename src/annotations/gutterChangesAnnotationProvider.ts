@@ -9,8 +9,7 @@ import { log } from '../system/decorators/log';
 import { getLogScope } from '../system/logger.scope';
 import { getSettledValue } from '../system/promise';
 import { maybeStopWatch } from '../system/stopwatch';
-import type { GitDocumentState } from '../trackers/gitDocumentTracker';
-import type { TrackedDocument } from '../trackers/trackedDocument';
+import type { TrackedGitDocument } from '../trackers/trackedDocument';
 import type { AnnotationContext, AnnotationState } from './annotationProvider';
 import { AnnotationProviderBase } from './annotationProvider';
 import type { Decoration } from './annotations';
@@ -28,7 +27,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 	private sortedHunkStarts: number[] | undefined;
 	private state: { commit: GitCommit | undefined; diffs: GitDiffFile[] } | undefined;
 
-	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
+	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedGitDocument) {
 		super(container, 'changes', editor, trackedDocument);
 	}
 
