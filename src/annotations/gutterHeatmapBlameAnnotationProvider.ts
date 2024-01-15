@@ -5,15 +5,14 @@ import type { GitCommit } from '../git/models/commit';
 import { log } from '../system/decorators/log';
 import { getLogScope } from '../system/logger.scope';
 import { maybeStopWatch } from '../system/stopwatch';
-import type { GitDocumentState } from '../trackers/gitDocumentTracker';
-import type { TrackedDocument } from '../trackers/trackedDocument';
+import type { TrackedGitDocument } from '../trackers/trackedDocument';
 import type { AnnotationContext, AnnotationState } from './annotationProvider';
 import type { Decoration } from './annotations';
 import { addOrUpdateGutterHeatmapDecoration } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
-	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
+	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedGitDocument) {
 		super(container, 'heatmap', editor, trackedDocument);
 	}
 

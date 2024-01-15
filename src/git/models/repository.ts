@@ -1163,6 +1163,7 @@ export class Repository implements Disposable {
 
 		this._fsChangeDelay = minDelay;
 		this._fireFileSystemChangeDebounced?.flush();
+		this._fireFileSystemChangeDebounced?.cancel();
 		this._fireFileSystemChangeDebounced = undefined;
 	}
 

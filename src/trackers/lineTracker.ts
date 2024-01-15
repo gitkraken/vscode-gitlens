@@ -1,10 +1,19 @@
 import type { Event, Selection, TextEditor, TextEditorSelectionChangeEvent } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
+import type { Container } from '../container';
+import type { GitCommit } from '../git/models/commit';
 import { debug } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { isTextEditor } from '../system/utils';
+import type {
+	DocumentBlameStateChangeEvent,
+	DocumentContentChangeEvent,
+	DocumentDirtyIdleTriggerEvent,
+	DocumentDirtyStateChangeEvent,
+	GitDocumentTracker,
+} from './documentTracker';
 
 export interface LinesChangeEvent {
 	readonly editor: TextEditor | undefined;
@@ -20,7 +29,11 @@ export interface LineSelection {
 	active: number;
 }
 
-export class LineTracker<T> implements Disposable {
+export interface LineState {
+	commit: GitCommit;
+}
+
+export class LineTracker {
 	private _onDidChangeActiveLines = new EventEmitter<LinesChangeEvent>();
 	get onDidChangeActiveLines(): Event<LinesChangeEvent> {
 		return this._onDidChangeActiveLines.event;
@@ -28,7 +41,14 @@ export class LineTracker<T> implements Disposable {
 
 	protected _disposable: Disposable | undefined;
 	private _editor: TextEditor | undefined;
-	private readonly _state = new Map<number, T | undefined>();
+	private readonly _state = new Map<number, LineState | undefined>();
+	private _subscriptions = new Map<unknown, Disposable[]>();
+	private _subscriptionOnlyWhenTracking: Disposable | undefined;
+
+	constructor(
+		private readonly container: Container,
+		private readonly documentTracker: GitDocumentTracker,
+	) {}
 
 	dispose() {
 		for (const subscriber of this._subscriptions.keys()) {
@@ -43,8 +63,62 @@ export class LineTracker<T> implements Disposable {
 		this._editor = editor;
 		this._selections = toLineSelections(editor?.selections);
 
+		if (this._suspended) {
+			this.resume({ force: true });
+		} else {
+			this.notifyLinesChanged('editor');
+		}
+	}
+
+	@debug<LineTracker['onBlameStateChanged']>({
+		args: {
+			0: e => `editor/doc=${e.editor.document.uri.toString(true)}, blameable=${e.blameable}`,
+		},
+	})
+	private onBlameStateChanged(_e: DocumentBlameStateChangeEvent) {
 		this.notifyLinesChanged('editor');
-		this.onActiveEditorChanged?.();
+	}
+
+	@debug<LineTracker['onContentChanged']>({
+		args: {
+			0: e => `editor/doc=${e.editor.document.uri.toString(true)}`,
+		},
+	})
+	private onContentChanged(e: DocumentContentChangeEvent) {
+		if (
+			this.selections?.length &&
+			e.contentChanges.some(c =>
+				this.selections!.some(
+					selection =>
+						(c.range.end.line >= selection.active && selection.active >= c.range.start.line) ||
+						(c.range.start.line >= selection.active && selection.active >= c.range.end.line),
+				),
+			)
+		) {
+			this.notifyLinesChanged('editor');
+		}
+	}
+
+	@debug<LineTracker['onDirtyIdleTriggered']>({
+		args: {
+			0: e => `editor/doc=${e.editor.document.uri.toString(true)}`,
+		},
+	})
+	private onDirtyIdleTriggered(_e: DocumentDirtyIdleTriggerEvent) {
+		this.resume();
+	}
+
+	@debug<LineTracker['onDirtyStateChanged']>({
+		args: {
+			0: e => `editor/doc=${e.editor.document.uri.toString(true)}, dirty=${e.dirty}`,
+		},
+	})
+	private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent) {
+		if (e.dirty) {
+			this.suspend();
+		} else {
+			this.resume({ force: true });
+		}
 	}
 
 	private onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent) {
@@ -60,7 +134,17 @@ export class LineTracker<T> implements Disposable {
 		this.notifyLinesChanged(this._editor === e.textEditor ? 'selection' : 'editor');
 	}
 
-	getState(line: number): T | undefined {
+	private _selections: LineSelection[] | undefined;
+	get selections(): LineSelection[] | undefined {
+		return this._selections;
+	}
+
+	private _suspended = false;
+	get suspended() {
+		return this._suspended;
+	}
+
+	getState(line: number): LineState | undefined {
 		return this._state.get(line);
 	}
 
@@ -73,13 +157,8 @@ export class LineTracker<T> implements Disposable {
 		this._state.clear();
 	}
 
-	setState(line: number, state: T | undefined) {
+	setState(line: number, state: LineState | undefined) {
 		this._state.set(line, state);
-	}
-
-	private _selections: LineSelection[] | undefined;
-	get selections(): LineSelection[] | undefined {
-		return this._selections;
 	}
 
 	includes(selections: LineSelection[]): boolean;
@@ -111,13 +190,34 @@ export class LineTracker<T> implements Disposable {
 		this.notifyLinesChanged('editor');
 	}
 
-	private _subscriptions = new Map<unknown, Disposable[]>();
+	@debug()
+	resume(options?: { force?: boolean; silent?: boolean }) {
+		if (!options?.force && !this._suspended) return;
+
+		this._suspended = false;
+		this._subscriptionOnlyWhenTracking ??= this.documentTracker.onDidChangeContent(this.onContentChanged, this);
+
+		if (!options?.silent) {
+			this.notifyLinesChanged('editor');
+		}
+	}
+
+	@debug()
+	suspend(options?: { force?: boolean; silent?: boolean }) {
+		if (!options?.force && this._suspended) return;
+
+		this._suspended = true;
+		this._subscriptionOnlyWhenTracking?.dispose();
+		this._subscriptionOnlyWhenTracking = undefined;
+
+		if (!options?.silent) {
+			this.notifyLinesChanged('editor');
+		}
+	}
 
 	subscribed(subscriber: unknown) {
 		return this._subscriptions.has(subscriber);
 	}
-
-	protected onStart?(): Disposable | undefined;
 
 	@debug({ args: false, singleLine: true })
 	subscribe(subscriber: unknown, subscription: Disposable): Disposable {
@@ -140,10 +240,15 @@ export class LineTracker<T> implements Disposable {
 		if (first) {
 			setLogScopeExit(scope, ' \u2022 starting line tracker...');
 
+			this.resume({ force: true, silent: true });
+
 			this._disposable = Disposable.from(
+				{ dispose: () => this.suspend({ force: true, silent: true }) },
 				window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 0), this),
 				window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
-				this.onStart?.() ?? { dispose: () => {} },
+				this.documentTracker.onDidChangeBlameState(this.onBlameStateChanged, this),
+				this.documentTracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
+				this.documentTracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
 			);
 
 			queueMicrotask(() => this.onActiveTextEditorChanged(window.activeTextEditor));
@@ -171,45 +276,17 @@ export class LineTracker<T> implements Disposable {
 		this._disposable = undefined;
 	}
 
-	private _suspended = false;
-	get suspended() {
-		return this._suspended;
-	}
+	private async fireLinesChanged(e: LinesChangeEvent) {
+		let updated = false;
+		if (!this.suspended && !e.pending && e.selections != null && e.editor != null) {
+			updated = await this.updateState(e.selections, e.editor);
+		}
 
-	protected onResume?(): void;
-
-	@debug()
-	resume(options?: { force?: boolean }) {
-		if (!options?.force && !this._suspended) return;
-
-		this._suspended = false;
-		this.onResume?.();
-		this.notifyLinesChanged('editor');
-	}
-
-	protected onSuspend?(): void;
-
-	@debug()
-	suspend(options?: { force?: boolean }) {
-		if (!options?.force && this._suspended) return;
-
-		this._suspended = true;
-		this.onSuspend?.();
-		this.notifyLinesChanged('editor');
-	}
-
-	/**
-	 * Called after the active editor is changed and line tracker state has been
-	 * updated for it.
-	 */
-	protected onActiveEditorChanged?(): void;
-
-	protected fireLinesChanged(e: LinesChangeEvent) {
-		this._onDidChangeActiveLines.fire(e);
+		this._onDidChangeActiveLines.fire(updated ? e : { ...e, selections: undefined, suspended: this.suspended });
 	}
 
 	private _fireLinesChangedDebounced: Deferrable<(e: LinesChangeEvent) => void> | undefined;
-	protected notifyLinesChanged(reason: 'editor' | 'selection') {
+	private notifyLinesChanged(reason: 'editor' | 'selection') {
 		if (reason === 'editor') {
 			this.resetState();
 		}
@@ -221,7 +298,7 @@ export class LineTracker<T> implements Disposable {
 
 				this._fireLinesChangedDebounced?.cancel();
 
-				this.fireLinesChanged(e);
+				void this.fireLinesChanged(e);
 			});
 
 			return;
@@ -236,16 +313,98 @@ export class LineTracker<T> implements Disposable {
 					return;
 				}
 
-				this.fireLinesChanged(e);
+				void this.fireLinesChanged(e);
 			}, 250);
 		}
 
 		// If we have no pending moves, then fire an immediate pending event, and defer the real event
-		if (!this._fireLinesChangedDebounced.pending?.()) {
-			this.fireLinesChanged({ ...e, pending: true });
+		if (!this._fireLinesChangedDebounced.pending()) {
+			void this.fireLinesChanged({ ...e, pending: true });
 		}
 
 		this._fireLinesChangedDebounced(e);
+	}
+
+	@debug<LineTracker['updateState']>({
+		args: { 0: selections => selections?.map(s => s.active).join(','), 1: e => e.document.uri.toString(true) },
+		exit: true,
+	})
+	private async updateState(selections: LineSelection[], editor: TextEditor): Promise<boolean> {
+		const scope = getLogScope();
+
+		if (!this.includes(selections)) {
+			setLogScopeExit(scope, ` \u2022 lines no longer match`);
+
+			return false;
+		}
+
+		const document = await this.documentTracker.getOrAdd(editor.document);
+		if (!document.isBlameable) {
+			setLogScopeExit(scope, ` \u2022 document is not blameable`);
+
+			return false;
+		}
+
+		if (selections.length === 1) {
+			const blameLine = await this.container.git.getBlameForLine(
+				document.uri,
+				selections[0].active,
+				editor?.document,
+			);
+			if (blameLine == null) {
+				setLogScopeExit(scope, ` \u2022 blame failed`);
+
+				return false;
+			}
+
+			if (blameLine.commit != null && blameLine.commit.file == null) {
+				debugger;
+			}
+
+			this.setState(blameLine.line.line - 1, { commit: blameLine.commit });
+		} else {
+			const blame = await this.container.git.getBlame(document.uri, editor.document);
+			if (blame == null) {
+				setLogScopeExit(scope, ` \u2022 blame failed`);
+
+				return false;
+			}
+
+			for (const selection of selections) {
+				const commitLine = blame.lines[selection.active];
+				const commit = blame.commits.get(commitLine.sha);
+				if (commit != null && commit.file == null) {
+					debugger;
+				}
+
+				if (commit == null) {
+					debugger;
+					this.resetState(selection.active);
+				} else {
+					this.setState(selection.active, { commit: commit });
+				}
+			}
+		}
+
+		// Check again because of the awaits above
+
+		if (!this.includes(selections)) {
+			setLogScopeExit(scope, ` \u2022 lines no longer match`);
+
+			return false;
+		}
+
+		if (!document.isBlameable) {
+			setLogScopeExit(scope, ` \u2022 document is not blameable`);
+
+			return false;
+		}
+
+		if (editor.document.isDirty) {
+			document.setForceDirtyStateChangeOnNextDocumentChange();
+		}
+
+		return true;
 	}
 }
 
@@ -253,9 +412,8 @@ function isIncluded(selections: LineSelection[] | undefined, within: LineSelecti
 	if (selections == null && within == null) return true;
 	if (selections == null || within == null || selections.length !== within.length) return false;
 
-	let match;
 	return selections.every((s, i) => {
-		match = within[i];
+		const match = within[i];
 		return s.active === match.active && s.anchor === match.anchor;
 	});
 }

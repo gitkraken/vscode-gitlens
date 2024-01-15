@@ -4,7 +4,7 @@ export interface Deferrable<T extends (...args: any[]) => any> {
 	(...args: Parameters<T>): ReturnType<T> | undefined;
 	cancel(): void;
 	flush(): ReturnType<T> | undefined;
-	pending?(): boolean;
+	pending(): boolean;
 }
 
 interface PropOfValue {
@@ -57,7 +57,8 @@ export function debounce<T extends (...args: any[]) => ReturnType<T>>(
 
 		// Only invoke if we have `lastArgs` which means `fn` has been debounced at least once
 		if (lastArgs) return invoke();
-		lastArgs = lastThis = undefined!;
+		lastArgs = undefined!;
+		lastThis = undefined!;
 
 		return result;
 	}
@@ -66,14 +67,17 @@ export function debounce<T extends (...args: any[]) => ReturnType<T>>(
 		if (timer != null) {
 			clearTimeout(timer);
 		}
-		lastArgs = lastCallTime = lastThis = timer = undefined!;
+		lastArgs = undefined!;
+		lastCallTime = undefined!;
+		lastThis = undefined!;
+		timer = undefined!;
 	}
 
 	function flush() {
 		return timer != null ? trailingEdge() : result;
 	}
 
-	function pending() {
+	function pending(): boolean {
 		return timer != null;
 	}
 

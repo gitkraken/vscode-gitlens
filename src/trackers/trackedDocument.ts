@@ -2,7 +2,11 @@ import type { Disposable, Event, TextDocument } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
+import type { GitBlame } from '../git/models/blame';
 import { deletedOrMissing } from '../git/models/constants';
+import type { GitDiffFile } from '../git/models/diff';
+import type { GitLog } from '../git/models/log';
+import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
@@ -10,24 +14,99 @@ import { Logger } from '../system/logger';
 import { getEditorIfActive, isActiveDocument } from '../system/utils';
 import type { DocumentBlameStateChangeEvent } from './documentTracker';
 
-export class TrackedDocument<T> implements Disposable {
-	static async create<T>(
+interface CachedItem<T> {
+	item: Promise<T>;
+	errorMessage?: string;
+}
+
+export type CachedBlame = CachedItem<GitBlame>;
+export type CachedDiff = CachedItem<GitDiffFile>;
+export type CachedLog = CachedItem<GitLog>;
+
+export class GitDocumentState {
+	private readonly blameCache = new Map<string, CachedBlame>();
+	private readonly diffCache = new Map<string, CachedDiff>();
+	private readonly logCache = new Map<string, CachedLog>();
+
+	clearBlame(key?: string): void {
+		if (key == null) {
+			this.blameCache.clear();
+			return;
+		}
+		this.blameCache.delete(key);
+	}
+
+	clearDiff(key?: string): void {
+		if (key == null) {
+			this.diffCache.clear();
+			return;
+		}
+		this.diffCache.delete(key);
+	}
+
+	clearLog(key?: string): void {
+		if (key == null) {
+			this.logCache.clear();
+			return;
+		}
+		this.logCache.delete(key);
+	}
+
+	getBlame(key: string): CachedBlame | undefined {
+		return this.blameCache.get(key);
+	}
+
+	getDiff(key: string): CachedDiff | undefined {
+		return this.diffCache.get(key);
+	}
+
+	getLog(key: string): CachedLog | undefined {
+		return this.logCache.get(key);
+	}
+
+	setBlame(key: string, value: CachedBlame | undefined) {
+		if (value == null) {
+			this.blameCache.delete(key);
+			return;
+		}
+		this.blameCache.set(key, value);
+	}
+
+	setDiff(key: string, value: CachedDiff | undefined) {
+		if (value == null) {
+			this.diffCache.delete(key);
+			return;
+		}
+		this.diffCache.set(key, value);
+	}
+
+	setLog(key: string, value: CachedLog | undefined) {
+		if (value == null) {
+			this.logCache.delete(key);
+			return;
+		}
+		this.logCache.set(key, value);
+	}
+}
+
+export class TrackedGitDocument implements Disposable {
+	static async create(
 		document: TextDocument,
 		dirty: boolean,
-		eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void },
+		eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent): void },
 		container: Container,
 	) {
-		const doc = new TrackedDocument(document, dirty, eventDelegates, container);
+		const doc = new TrackedGitDocument(document, dirty, eventDelegates, container);
 		await doc.initialize();
 		return doc;
 	}
 
-	private _onDidBlameStateChange = new EventEmitter<DocumentBlameStateChangeEvent<T>>();
-	get onDidBlameStateChange(): Event<DocumentBlameStateChangeEvent<T>> {
+	private _onDidBlameStateChange = new EventEmitter<DocumentBlameStateChangeEvent>();
+	get onDidBlameStateChange(): Event<DocumentBlameStateChangeEvent> {
 		return this._onDidBlameStateChange.event;
 	}
 
-	state: T | undefined;
+	state: GitDocumentState | undefined;
 
 	private _disposable: Disposable | undefined;
 	private _disposed: boolean = false;
@@ -36,7 +115,7 @@ export class TrackedDocument<T> implements Disposable {
 	private constructor(
 		readonly document: TextDocument,
 		public dirty: boolean,
-		private _eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void },
+		private _eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent): void },
 		private readonly container: Container,
 	) {}
 
@@ -53,7 +132,7 @@ export class TrackedDocument<T> implements Disposable {
 
 		this._uri = await GitUri.fromUri(uri);
 		if (!this._disposed) {
-			await this.update();
+			await this.update({ forceDirtyIdle: true });
 		}
 
 		this.initializing = false;
@@ -73,12 +152,23 @@ export class TrackedDocument<T> implements Disposable {
 		return this._blameFailed != null ? false : this._isTracked;
 	}
 
+	get canDirtyIdle(): boolean {
+		if (!this.document.isDirty) return false;
+
+		const maxLines = configuration.get('advanced.blame.sizeThresholdAfterEdit');
+		return !(maxLines > 0 && this.document.lineCount > maxLines);
+	}
+
 	private _isDirtyIdle: boolean = false;
 	get isDirtyIdle() {
 		return this._isDirtyIdle;
 	}
-	set isDirtyIdle(value: boolean) {
-		this._isDirtyIdle = value;
+
+	setIsDirtyIdle(): boolean {
+		if (!this.canDirtyIdle) return false;
+
+		this._isDirtyIdle = true;
+		return true;
 	}
 
 	get isRevision() {
@@ -100,7 +190,7 @@ export class TrackedDocument<T> implements Disposable {
 
 	async activate(): Promise<void> {
 		if (this._requiresUpdate) {
-			await this.update();
+			await this.update({ forceDirtyIdle: true });
 		}
 		void setContext('gitlens:activeFileStatus', this.getStatus());
 	}
@@ -152,7 +242,7 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	private _requiresUpdate: boolean = true;
-	async update(options?: { forceBlameChange?: boolean }) {
+	async update(options?: { forceBlameChange?: boolean; forceDirtyIdle?: boolean }): Promise<void> {
 		this._requiresUpdate = false;
 
 		if (this._disposed || this._uri == null) {
@@ -162,7 +252,11 @@ export class TrackedDocument<T> implements Disposable {
 			return;
 		}
 
-		this._isDirtyIdle = false;
+		if (this.document.isDirty && options?.forceDirtyIdle && this.canDirtyIdle) {
+			this._isDirtyIdle = true;
+		} else {
+			this._isDirtyIdle = false;
+		}
 
 		// Caches these before the awaits
 		const active = getEditorIfActive(this.document);
@@ -185,7 +279,7 @@ export class TrackedDocument<T> implements Disposable {
 			void setContext('gitlens:activeFileStatus', this.getStatus());
 
 			if (!this.initializing && wasBlameable !== blameable) {
-				const e: DocumentBlameStateChangeEvent<T> = { editor: active, document: this, blameable: blameable };
+				const e: DocumentBlameStateChangeEvent = { editor: active, document: this, blameable: blameable };
 				this._onDidBlameStateChange.fire(e);
 				this._eventDelegates.onDidBlameStateChange(e);
 			}

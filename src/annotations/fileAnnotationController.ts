@@ -39,7 +39,6 @@ import type {
 	DocumentDirtyIdleTriggerEvent,
 	DocumentDirtyStateChangeEvent,
 } from '../trackers/documentTracker';
-import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
 import { getEditorCorrelationKey } from './annotationProvider';
 import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
@@ -195,7 +194,7 @@ export class FileAnnotationController implements Disposable {
 		}
 	}
 
-	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
+	private onBlameStateChanged(e: DocumentBlameStateChangeEvent) {
 		const editor = window.activeTextEditor;
 		if (editor == null) return;
 
@@ -211,7 +210,7 @@ export class FileAnnotationController implements Disposable {
 		void this.clear(editor, 'BlameabilityChanged');
 	}
 
-	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
+	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent) {
 		if (!e.document.isBlameable || !configuration.get('experimental.allowAnnotationsWhenDirty')) return;
 
 		const editor = window.activeTextEditor;
@@ -220,7 +219,7 @@ export class FileAnnotationController implements Disposable {
 		this.restore(editor);
 	}
 
-	private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
+	private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent) {
 		for (const [key, p] of this._annotationProviders) {
 			if (!e.document.is(p.editor.document)) continue;
 
@@ -296,8 +295,8 @@ export class FileAnnotationController implements Disposable {
 		const provider = this.getProvider(editor);
 		if (provider == null) return undefined;
 
-		const trackedDocument = await this.container.tracker.get(editor!.document);
-		if (trackedDocument == null || !trackedDocument.isBlameable) return undefined;
+		const trackedDocument = await this.container.documentTracker.get(editor!.document);
+		if (!trackedDocument?.isBlameable) return undefined;
 
 		return provider.annotationType;
 	}
@@ -355,7 +354,7 @@ export class FileAnnotationController implements Disposable {
 		if (editor == null) return false; // || editor.viewColumn == null) return false;
 		this._editor = editor;
 
-		const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
+		const trackedDocument = await this.container.documentTracker.getOrAdd(editor.document);
 		if (!trackedDocument.isBlameable) return false;
 
 		const currentProvider = this.getProvider(editor);
@@ -402,7 +401,7 @@ export class FileAnnotationController implements Disposable {
 		on?: boolean,
 	): Promise<boolean> {
 		if (editor != null && this._toggleModes.get(type) === 'file') {
-			const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
+			const trackedDocument = await this.container.documentTracker.getOrAdd(editor.document);
 			if ((type === 'changes' && !trackedDocument.isTracked) || !trackedDocument.isBlameable) {
 				return false;
 			}
@@ -521,7 +520,7 @@ export class FileAnnotationController implements Disposable {
 		// Allows pressing escape to exit the annotations
 		await this.attachKeyboardHook();
 
-		const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
+		const trackedDocument = await this.container.documentTracker.getOrAdd(editor.document);
 
 		let provider: AnnotationProviderBase | undefined = undefined;
 		switch (type) {
@@ -561,9 +560,9 @@ export class FileAnnotationController implements Disposable {
 				window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
 				window.onDidChangeVisibleTextEditors(debounce(this.onVisibleTextEditorsChanged, 50), this),
 				workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
-				this.container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
-				this.container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
-				this.container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
+				this.container.documentTracker.onDidChangeBlameState(this.onBlameStateChanged, this),
+				this.container.documentTracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
+				this.container.documentTracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
 				registerCommand('gitlens.annotations.nextChange', () => this.nextChange()),
 				registerCommand('gitlens.annotations.previousChange', () => this.previousChange()),
 			);

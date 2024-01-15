@@ -4,8 +4,7 @@ import type { FileAnnotationType } from '../config';
 import type { Container } from '../container';
 import { setContext } from '../system/context';
 import { Logger } from '../system/logger';
-import type { GitDocumentState } from '../trackers/gitDocumentTracker';
-import type { TrackedDocument } from '../trackers/trackedDocument';
+import type { TrackedGitDocument } from '../trackers/trackedDocument';
 import type { Decoration } from './annotations';
 
 export type AnnotationStatus = 'computing' | 'computed';
@@ -34,7 +33,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		protected readonly container: Container,
 		public readonly annotationType: FileAnnotationType,
 		editor: TextEditor,
-		protected readonly trackedDocument: TrackedDocument<GitDocumentState>,
+		protected readonly trackedDocument: TrackedGitDocument,
 	) {
 		this.editor = editor;
 

@@ -193,9 +193,8 @@ import { equalsIgnoreCase, getDurationMilliseconds, interpolate, splitSingle } f
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
 import { serializeWebviewItemContext } from '../../../system/webview';
-import type { CachedBlame, CachedDiff, CachedLog } from '../../../trackers/gitDocumentTracker';
-import { GitDocumentState } from '../../../trackers/gitDocumentTracker';
-import type { TrackedDocument } from '../../../trackers/trackedDocument';
+import type { CachedBlame, CachedDiff, CachedLog, TrackedGitDocument } from '../../../trackers/trackedDocument';
+import { GitDocumentState } from '../../../trackers/trackedDocument';
 import { registerCommitMessageProvider } from './commitMessageProvider';
 import type { Git, PushForceOptions } from './git';
 import {
@@ -1693,7 +1692,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			key += `:${uri.sha}`;
 		}
 
-		const doc = await this.container.tracker.getOrAdd(document ?? uri);
+		const doc = await this.container.documentTracker.getOrAdd(document ?? uri);
 		if (this.useCaching) {
 			if (doc.state != null) {
 				const cachedBlame = doc.state.getBlame(key);
@@ -1724,7 +1723,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private async getBlameCore(
 		uri: GitUri,
-		document: TrackedDocument<GitDocumentState>,
+		document: TrackedGitDocument,
 		key: string,
 		scope: LogScope | undefined,
 	): Promise<GitBlame | undefined> {
@@ -1787,7 +1786,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const key = `blame:${md5(contents)}`;
 
-		const doc = await this.container.tracker.getOrAdd(uri);
+		const doc = await this.container.documentTracker.getOrAdd(uri);
 		if (this.useCaching) {
 			if (doc.state != null) {
 				const cachedBlame = doc.state.getBlame(key);
@@ -1819,7 +1818,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private async getBlameContentsCore(
 		uri: GitUri,
 		contents: string,
-		document: TrackedDocument<GitDocumentState>,
+		document: TrackedGitDocument,
 		key: string,
 		scope: LogScope | undefined,
 	): Promise<GitBlame | undefined> {
@@ -3081,7 +3080,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			key += `:${ref2}`;
 		}
 
-		const doc = await this.container.tracker.getOrAdd(uri);
+		const doc = await this.container.documentTracker.getOrAdd(uri);
 		if (this.useCaching) {
 			if (doc.state != null) {
 				const cachedDiff = doc.state.getDiff(key);
@@ -3126,7 +3125,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		ref1: string | undefined,
 		ref2: string | undefined,
 		options: { encoding?: string },
-		document: TrackedDocument<GitDocumentState>,
+		document: TrackedGitDocument,
 		key: string,
 		scope: LogScope | undefined,
 	): Promise<GitDiffFile | undefined> {
@@ -3168,7 +3167,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const key = `diff:${md5(contents)}`;
 
-		const doc = await this.container.tracker.getOrAdd(uri);
+		const doc = await this.container.documentTracker.getOrAdd(uri);
 		if (this.useCaching) {
 			if (doc.state != null) {
 				const cachedDiff = doc.state.getDiff(key);
@@ -3213,7 +3212,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		ref: string,
 		contents: string,
 		options: { encoding?: string },
-		document: TrackedDocument<GitDocumentState>,
+		document: TrackedGitDocument,
 		key: string,
 		scope: LogScope | undefined,
 	): Promise<GitDiffFile | undefined> {
@@ -3755,7 +3754,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			key += `:skip${opts.skip}`;
 		}
 
-		const doc = await this.container.tracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, opts.ref));
+		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, opts.ref));
 		if (!opts.force && this.useCaching && opts.range == null) {
 			if (doc.state != null) {
 				const cachedLog = doc.state.getLog(key);
@@ -3857,7 +3856,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			since?: string;
 			skip?: number;
 		},
-		document: TrackedDocument<GitDocumentState>,
+		document: TrackedGitDocument,
 		key: string,
 		scope: LogScope | undefined,
 	): Promise<GitLog | undefined> {

@@ -17,8 +17,7 @@ import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import { getSettledValue } from '../system/promise';
 import { isTextEditor } from '../system/utils';
-import type { GitLineState } from '../trackers/gitLineTracker';
-import type { LinesChangeEvent } from '../trackers/lineTracker';
+import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
 
 export class StatusBarController implements Disposable {
 	private _cancellation: CancellationTokenSource | undefined;
@@ -155,6 +154,36 @@ export class StatusBarController implements Disposable {
 
 		if (clear) {
 			this.clearBlame();
+
+			if (e.suspended && e.editor?.document.isDirty && this._statusBarBlame != null) {
+				const statusBarItem = this._statusBarBlame;
+				const trackedDocumentPromise = this.container.documentTracker.get(e.editor.document);
+				queueMicrotask(async () => {
+					const doc = await trackedDocumentPromise;
+					if (doc == null || !doc.isBlameable) return;
+
+					statusBarItem.tooltip = new MarkdownString();
+					statusBarItem.tooltip.isTrusted = { enabledCommands: ['workbench.action.openSettings'] };
+
+					if (doc.canDirtyIdle) {
+						statusBarItem.text = '$(watch) Blame Paused';
+						statusBarItem.tooltip.appendMarkdown(
+							`Blame will resume after a [${configuration.get(
+								'advanced.blame.delayAfterEdit',
+							)} ms delay](command:workbench.action.openSettings?%22gitlens.advanced.blame.delayAfterEdit%22 'Change the after edit delay') to limit the performance impact because there are unsaved changes`,
+						);
+					} else {
+						statusBarItem.text = '$(debug-pause) Blame Paused';
+						statusBarItem.tooltip.appendMarkdown(
+							`Blame will resume after saving because there are unsaved changes and the file is over the [${configuration.get(
+								'advanced.blame.sizeThresholdAfterEdit',
+							)} line threshold](command:workbench.action.openSettings?%22gitlens.advanced.blame.sizeThresholdAfterEdit%22 'Change the after edit line threshold') to limit the performance impact`,
+						);
+					}
+
+					statusBarItem.show();
+				});
+			}
 		} else if (this._statusBarBlame?.text.startsWith('$(git-commit)')) {
 			this._statusBarBlame.text = `$(watch)${this._statusBarBlame.text.substring(13)}`;
 		}
@@ -172,7 +201,7 @@ export class StatusBarController implements Disposable {
 			1: s => s.commit?.sha,
 		},
 	})
-	private async updateBlame(editor: TextEditor, state: GitLineState) {
+	private async updateBlame(editor: TextEditor, state: LineState) {
 		const cfg = configuration.get('statusBar');
 		if (!cfg.enabled || this._statusBarBlame == null || !isTextEditor(editor)) {
 			this._cancellation?.cancel();
