@@ -183,7 +183,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				state.createBranch = undefined;
 			}
 
-			if (this.confirm(state.confirm || context.switchToLocalFrom != null)) {
+			if (this.confirm(context.switchToLocalFrom != null ? true : state.confirm)) {
 				const result = yield* this.confirmStep(state as SwitchStepState, context);
 				if (result === StepResultBreak) continue;
 
