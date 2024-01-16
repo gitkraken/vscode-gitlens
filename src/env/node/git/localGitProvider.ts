@@ -5700,7 +5700,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		);
 
 		try {
-			await this.git.worktree__remove(repoPath, path, options);
+			await this.git.worktree__remove(repoPath, normalizePath(path), options);
 		} catch (ex) {
 			Logger.error(ex, scope);
 
