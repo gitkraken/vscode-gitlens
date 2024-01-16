@@ -98,7 +98,7 @@ export class WorkspaceNode extends SubscribeableViewNode<
 
 		const cloud = this.workspace.type === 'cloud';
 
-		let contextValue = `${ContextValues.Workspace}`;
+		let contextValue: string = ContextValues.Workspace;
 		item.resourceUri = undefined;
 		const descriptionItems = [];
 		if (cloud) {

@@ -1410,7 +1410,7 @@ export class GitProviderService implements Disposable {
 		return provider.push(path, options);
 	}
 
-	@gate<GitProviderService['pushAll']>(repos => `${repos == null ? '' : repos.map(r => r.id).join(',')}`)
+	@gate<GitProviderService['pushAll']>(repos => (repos == null ? '' : repos.map(r => r.id).join(',')))
 	@log<GitProviderService['pushAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
 	async pushAll(
 		repositories?: Repository[],

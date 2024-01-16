@@ -2362,7 +2362,7 @@ export function* showRepositoryStatusStep<
 	const working = context.status.getFormattedDiffStatus({ expand: true, separator: ', ' });
 	const step: QuickPickStep<CommandQuickPickItem> = createPickStep<CommandQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
-		placeholder: `${upstream ? `${upstream}, ${working}` : working}`, //'Changes to be committed',
+		placeholder: upstream ? `${upstream}, ${working}` : working, //'Changes to be committed',
 		ignoreFocusOut: true,
 		items: getShowRepositoryStatusStepItems(state, context),
 		keys: ['right', 'alt+right', 'ctrl+right'],

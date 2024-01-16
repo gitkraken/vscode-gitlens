@@ -40,7 +40,7 @@ export class DraftNode extends ViewNode<'draft', DraftsView> {
 		const showUpdated = this.draft.updatedAt.getTime() - this.draft.createdAt.getTime() >= 1000;
 
 		item.id = this.id;
-		let contextValue = `${ContextValues.Draft}`;
+		let contextValue: string = ContextValues.Draft;
 		if (this.draft.isMine) {
 			contextValue += '+mine';
 		}

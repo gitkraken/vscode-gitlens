@@ -139,9 +139,9 @@ export abstract class RepositoryFolderNode<
 				true,
 			);
 		} else {
-			item.tooltip = `${
-				this.repo.formattedName ? `${this.repo.formattedName}\n${this.uri.repoPath}` : this.uri.repoPath ?? ''
-			}`;
+			item.tooltip = this.repo.formattedName
+				? `${this.repo.formattedName}\n${this.uri.repoPath}`
+				: this.uri.repoPath ?? '';
 		}
 
 		return item;

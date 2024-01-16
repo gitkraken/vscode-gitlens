@@ -1249,7 +1249,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 
 		const ids = new Set<string>();
-		const remote = getSettledValue(remotesResult)![0]!;
+		const remote = getSettledValue(remotesResult)![0];
 		const remoteMap = remote != null ? new Map([[remote.name, remote]]) : new Map<string, GitRemote>();
 
 		const tagTips = new Map<string, string[]>();
