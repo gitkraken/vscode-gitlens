@@ -102,7 +102,7 @@ export async function createBranchQuickPickItem(
 		const status = `${branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${GlyphChars.Space} ${
 			branch.upstream.name
 		}`;
-		description = `${description ? `${description}${GlyphChars.Space.repeat(2)}${status}` : status}`;
+		description = description ? `${description}${GlyphChars.Space.repeat(2)}${status}` : status;
 	}
 
 	if (options?.ref) {
@@ -388,7 +388,7 @@ export async function createRepositoryQuickPickItem(
 
 		const status = `${upstreamStatus}${workingStatus}`;
 		if (status) {
-			description = `${description ? `${description}${status}` : status}`;
+			description = description ? `${description}${status}` : status;
 		}
 	}
 
@@ -396,7 +396,7 @@ export async function createRepositoryQuickPickItem(
 		const lastFetched = await repository.getLastFetched();
 		if (lastFetched !== 0) {
 			const fetched = `Last fetched ${fromNow(new Date(lastFetched))}`;
-			description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}${fetched}` : fetched}`;
+			description = description ? `${description}${pad(GlyphChars.Dot, 2, 2)}${fetched}` : fetched;
 		}
 	}
 

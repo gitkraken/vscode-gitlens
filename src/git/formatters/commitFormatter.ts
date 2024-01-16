@@ -363,7 +363,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			const { previousLineComparisonUris: diffUris } = this._options;
 			if (diffUris?.previous != null) {
 				commands = `[\`${this._padOrTruncate(
-					shortenRevision(isUncommittedStaged(diffUris.current.sha) ? diffUris.current.sha : uncommitted)!,
+					shortenRevision(isUncommittedStaged(diffUris.current.sha) ? diffUris.current.sha : uncommitted),
 					this._options.tokenOptions.commands,
 				)}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
 					this._item.sha,
@@ -390,7 +390,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				)} "Open Blame Prior to this Change")`;
 			} else {
 				commands = `[\`${this._padOrTruncate(
-					shortenRevision(this._item.isUncommittedStaged ? uncommittedStaged : uncommitted)!,
+					shortenRevision(this._item.isUncommittedStaged ? uncommittedStaged : uncommitted),
 					this._options.tokenOptions.commands,
 				)}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
 					this._item.sha,

@@ -774,7 +774,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async updateDraftPermissions() {
-		const draft = (this._context.draft as Draft)!;
+		const draft = this._context.draft as Draft;
 		const draftId = draft.id;
 		const changes = [];
 

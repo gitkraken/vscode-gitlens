@@ -128,6 +128,7 @@ export function cancellable<T>(
 				disposeCancellation?.dispose();
 				disposeTimeout?.dispose();
 
+				// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
 				reject(ex);
 			},
 		);
@@ -155,6 +156,7 @@ export function defer<T>(): Deferred<T> {
 		};
 		deferred.cancel = function () {
 			deferred.pending = false;
+			// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
 			reject();
 		};
 	});

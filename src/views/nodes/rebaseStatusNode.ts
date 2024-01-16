@@ -61,7 +61,7 @@ export class RebaseStatusNode extends ViewNode<'rebase-status', ViewsWithCommits
 		const item = new TreeItem(
 			`${hasConflicts ? 'Resolve conflicts to continue rebasing' : started ? 'Rebasing' : 'Pending rebase of'} ${
 				this.rebaseStatus.incoming != null
-					? `${getReferenceLabel(this.rebaseStatus.incoming, { expand: false, icon: false })}`
+					? getReferenceLabel(this.rebaseStatus.incoming, { expand: false, icon: false })
 					: ''
 			} onto ${getReferenceLabel(this.rebaseStatus.current ?? this.rebaseStatus.onto, {
 				expand: false,

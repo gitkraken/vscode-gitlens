@@ -561,7 +561,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					canSelectMany: false,
 					defaultUri: context.pickedUri ?? state.uri ?? context.defaultUri,
 					openLabel: 'Select Worktree Location',
-					title: `${appendReposToTitle(`Choose a Worktree Location${options.titleContext}`, state, context)}`,
+					title: appendReposToTitle(`Choose a Worktree Location${options.titleContext}`, state, context),
 				});
 
 				if (uris == null || uris.length === 0) return Directive.Back;
