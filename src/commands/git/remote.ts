@@ -370,8 +370,6 @@ export class RemoteGitCommand extends QuickCommand<State> {
 			}
 
 			if (state.counter < 3 || state.remote == null) {
-				context.title = getTitle('Remotes', state.subcommand);
-
 				const result = yield* pickRemoteStep(state, context, {
 					picked: state.remote?.name,
 					placeholder: 'Choose remote to remove',
