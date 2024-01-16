@@ -16060,6 +16060,7 @@
 		"icons:svgo": "svgo -q -f ./images/icons/ --config svgo.config.js",
 		"lint": "eslint --cache --cache-location .eslintcache/ --cache-strategy content \"src/**/*.ts?(x)\"",
 		"lint:webviews": "eslint --cache --cache-location .eslintcache/webviews/ --cache-strategy content \"src/webviews/apps/**/*.ts?(x)\"",
+		"lint:clear-cache": "npx rimraf .eslintcache",
 		"package": "vsce package --yarn",
 		"package-pre": "yarn run patch-pre && yarn run package --pre-release",
 		"patch-pre": "node ./scripts/applyPreReleasePatch.js",
