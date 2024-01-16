@@ -25,6 +25,9 @@ export declare global {
 	export type Prefix<P extends string, T extends string, S extends string = ''> = T extends `${P}${S}${infer R}`
 		? R
 		: never;
+
+	export type Replace<T, K extends keyof T, R> = Omit<T, K> & { [P in K]: R };
+
 	export type StartsWith<P extends string, T extends string, S extends string = ''> = T extends `${P}${S}${string}`
 		? T
 		: never;

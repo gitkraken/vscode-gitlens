@@ -755,12 +755,14 @@ export async function* pickBranchesStep<
 		filter,
 		picked,
 		placeholder,
+		emptyPlaceholder,
 		sort,
 		titleContext,
 	}: {
 		filter?: (b: GitBranch) => boolean;
 		picked?: string | string[];
 		placeholder: string;
+		emptyPlaceholder?: string;
 		sort?: BranchSortOptions;
 		titleContext?: string;
 	},
@@ -773,14 +775,15 @@ export async function* pickBranchesStep<
 	});
 
 	const step = createPickStep<BranchQuickPickItem>({
-		multiselect: branches.length !== 0,
+		multiselect: Boolean(branches.length),
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
-		placeholder: branches.length === 0 ? `No branches found in ${state.repo.formattedName}` : placeholder,
+		placeholder: !branches.length
+			? emptyPlaceholder ?? `No branches found in ${state.repo.formattedName}`
+			: placeholder,
 		matchOnDetail: true,
-		items:
-			branches.length === 0
-				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
-				: branches,
+		items: !branches.length
+			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
+			: branches,
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
