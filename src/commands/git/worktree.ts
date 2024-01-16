@@ -95,6 +95,12 @@ interface OpenState {
 	repo: string | Repository;
 	uri: Uri;
 	flags: OpenFlags[];
+
+	openOnly?: boolean;
+	overrides?: {
+		confirmTitle?: string;
+		confirmPlaceholder?: string;
+	};
 }
 
 type State = CreateState | DeleteState | OpenState;
@@ -852,21 +858,23 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	}
 
 	private *openCommandConfirmStep(state: OpenStepState, context: Context): StepResultGenerator<OpenFlags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<OpenFlags>> = createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
-			[
-				createFlagsQuickPickItem<OpenFlags>(state.flags, [], {
-					label: context.title,
-					detail: `Will open in the current window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
-						state.uri,
-					)}`,
-				}),
-				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--new-window'], {
-					label: `${context.title} in a New Window`,
-					detail: `Will open in a new window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
-						state.uri,
-					)}`,
-				}),
+		const confirmations: QuickPickItemOfT<OpenFlags[]>[] = [
+			createFlagsQuickPickItem<OpenFlags>(state.flags, [], {
+				label: context.title,
+				detail: `Will open in the current window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
+					state.uri,
+				)}`,
+			}),
+			createFlagsQuickPickItem<OpenFlags>(state.flags, ['--new-window'], {
+				label: `${context.title} in a New Window`,
+				detail: `Will open in a new window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
+					state.uri,
+				)}`,
+			}),
+		];
+
+		if (!state.openOnly) {
+			confirmations.push(
 				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--add-to-workspace'], {
 					label: `Add Worktree to Workspace`,
 					detail: `Will add into the current workspace, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
@@ -879,8 +887,15 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						state.uri,
 					)}`,
 				}),
-			],
+			);
+		}
+
+		const step: QuickPickStep<FlagsQuickPickItem<OpenFlags>> = createConfirmStep(
+			appendReposToTitle(state.overrides?.confirmTitle ?? `Confirm ${context.title}`, state, context),
+			confirmations,
 			context,
+			undefined,
+			state.overrides?.confirmPlaceholder ? { placeholder: state.overrides.confirmPlaceholder } : undefined,
 		);
 
 		const selection: StepSelection<typeof step> = yield step;

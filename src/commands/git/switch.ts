@@ -6,6 +6,7 @@ import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { isStringArray } from '../../system/array';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { getSteps } from '../gitCommands.utils';
 import type {
 	PartialStepState,
 	QuickPickStep,
@@ -154,30 +155,69 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				state.reference = result;
 			}
 
-			if (isBranchReference(state.reference) && state.reference.remote) {
-				context.title = `Create Branch and ${this.title}`;
+			if (isBranchReference(state.reference)) {
+				if (state.reference.remote) {
+					context.title = `Create Branch and ${this.title}`;
 
-				const { values: branches } = await this.container.git.getBranches(state.reference.repoPath, {
-					filter: b => b.upstream?.name === state.reference!.name,
-					sort: { orderBy: 'date:desc' },
-				});
-
-				if (branches.length === 0) {
-					const result = yield* inputBranchNameStep(state as SwitchStepState, context, {
-						placeholder: 'Please provide a name for the new branch',
-						titleContext: ` based on ${getReferenceLabel(state.reference, {
-							icon: false,
-						})}`,
-						value: state.createBranch ?? getNameWithoutRemote(state.reference),
+					const { values: branches } = await this.container.git.getBranches(state.reference.repoPath, {
+						filter: b => b.upstream?.name === state.reference!.name,
+						sort: { orderBy: 'date:desc' },
 					});
-					if (result === StepResultBreak) continue;
 
-					state.createBranch = result;
+					if (branches.length === 0) {
+						const result = yield* inputBranchNameStep(state as SwitchStepState, context, {
+							placeholder: 'Please provide a name for the new branch',
+							titleContext: ` based on ${getReferenceLabel(state.reference, {
+								icon: false,
+							})}`,
+							value: state.createBranch ?? getNameWithoutRemote(state.reference),
+						});
+						if (result === StepResultBreak) continue;
+
+						state.createBranch = result;
+					} else {
+						context.title = `${this.title} to Local Branch`;
+						context.switchToLocalFrom = state.reference;
+						state.reference = branches[0];
+						state.createBranch = undefined;
+					}
 				} else {
-					context.title = `${this.title} to Local Branch`;
-					context.switchToLocalFrom = state.reference;
-					state.reference = branches[0];
 					state.createBranch = undefined;
+
+					const worktree = await this.container.git.getWorktree(
+						state.reference.repoPath,
+						w => w.branch === state.reference!.name,
+					);
+					if (worktree != null) {
+						yield* getSteps(
+							this.container,
+							{
+								command: 'worktree',
+								state: {
+									subcommand: 'open',
+									uri: worktree.uri,
+									openOnly: true,
+									overrides: {
+										confirmTitle: `Confirm Switch to Worktree \u2022 ${getReferenceLabel(
+											state.reference,
+											{
+												icon: false,
+												label: false,
+											},
+										)}`,
+										confirmPlaceholder: `${getReferenceLabel(state.reference, {
+											capitalize: true,
+											icon: false,
+										})} is linked to a worktree`,
+									},
+								},
+							},
+							this.pickedVia,
+						);
+
+						endSteps(state);
+						return;
+					}
 				}
 			} else {
 				state.createBranch = undefined;
