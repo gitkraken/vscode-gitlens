@@ -82,6 +82,7 @@ export const GitErrors = {
 	noMergeBase: /no merge base/i,
 	noRemoteRepositorySpecified: /No remote repository specified\./i,
 	notAValidObjectName: /Not a valid object name/i,
+	notAWorkingTree: /'(.*?)' is not a working tree/i,
 	noUserNameConfigured: /Please tell me who you are\./i,
 	invalidLineCount: /file .+? has only \d+ lines/i,
 	uncommittedChanges: /contains modified or untracked files/i,
