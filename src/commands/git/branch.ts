@@ -343,7 +343,6 @@ export class BranchGitCommand extends QuickCommand {
 
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputBranchNameStep(state, context, {
-					placeholder: 'Please provide a name for the new branch',
 					titleContext: ` from ${getReferenceLabel(state.reference, {
 						capitalize: true,
 						icon: false,
@@ -523,9 +522,6 @@ export class BranchGitCommand extends QuickCommand {
 
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputBranchNameStep(state, context, {
-					placeholder: `Please provide a new name for ${getReferenceLabel(state.reference, {
-						icon: false,
-					})}`,
 					titleContext: ` ${getReferenceLabel(state.reference, false)}`,
 					value: state.name ?? state.reference.name,
 				});

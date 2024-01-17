@@ -1,9 +1,7 @@
 import type { QuickPickItem } from 'vscode';
 import type { QuickPickItemOfT } from './common';
 
-export type FlagsQuickPickItem<T, Context = void> = Context extends void
-	? QuickPickItemOfT<T[]>
-	: QuickPickItemOfT<T[]> & { context: Context };
+export type FlagsQuickPickItem<T, Context = void> = QuickPickItemOfT<T[]> & { context: Context };
 
 export function createFlagsQuickPickItem<T>(flags: T[], item: T[], options: QuickPickItem): FlagsQuickPickItem<T>;
 export function createFlagsQuickPickItem<T, Context>(
@@ -18,7 +16,7 @@ export function createFlagsQuickPickItem<T, Context = void>(
 	options: QuickPickItem,
 	context?: Context,
 ): any {
-	return { ...options, item: item, picked: hasFlags(flags, item), context: context };
+	return { ...options, item: item, picked: options.picked ?? hasFlags(flags, item), context: context };
 }
 
 function hasFlags<T>(flags: T[], has?: T | T[]): boolean {

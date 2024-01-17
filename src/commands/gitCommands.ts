@@ -74,6 +74,7 @@ export class GitCommandsCommand extends Command {
 		super([
 			Commands.GitCommands,
 			Commands.GitCommandsBranch,
+			Commands.GitCommandsCheckout,
 			Commands.GitCommandsCherryPick,
 			Commands.GitCommandsMerge,
 			Commands.GitCommandsRebase,
@@ -106,6 +107,7 @@ export class GitCommandsCommand extends Command {
 			case Commands.GitCommandsRevert:
 				args = { command: 'revert' };
 				break;
+			case Commands.GitCommandsCheckout:
 			case Commands.GitCommandsSwitch:
 				args = { command: 'switch' };
 				break;
@@ -278,6 +280,11 @@ export class GitCommandsCommand extends Command {
 
 	private async getCommandStep(command: QuickCommand, commandsStep: PickCommandStep) {
 		commandsStep.setCommand(command, 'command');
+
+		// Ensure we've finished discovering repositories before continuing
+		if (this.container.git.isDiscoveringRepositories != null) {
+			await this.container.git.isDiscoveringRepositories;
+		}
 
 		const next = await command.next();
 		if (next.done) return undefined;

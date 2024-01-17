@@ -147,12 +147,12 @@ export class PullGitCommand extends QuickCommand<State> {
 			step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will pull ${state.repos.length} repositories`,
+					detail: `Will pull ${state.repos.length} repos`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--rebase'], {
 					label: `${this.title} with Rebase`,
 					description: '--rebase',
-					detail: `Will pull ${state.repos.length} repositories by rebasing`,
+					detail: `Will pull ${state.repos.length} repos by rebasing`,
 				}),
 			]);
 		} else if (isBranchReference(state.reference)) {

@@ -1,6 +1,7 @@
 import type { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import type { Keys } from '../constants';
 import type { Container } from '../container';
+import { createQuickPickSeparator } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirective } from '../quickpicks/items/directive';
 import { configuration } from '../system/configuration';
@@ -332,7 +333,11 @@ export function createConfirmStep<T extends QuickPickItem, Context extends { tit
 		placeholder: `Confirm ${context.title}`,
 		title: title,
 		ignoreFocusOut: true,
-		items: [...confirmations, cancel ?? createDirectiveQuickPickItem(Directive.Cancel)],
+		items: [
+			...confirmations,
+			createQuickPickSeparator<T>(),
+			cancel ?? createDirectiveQuickPickItem(Directive.Cancel),
+		],
 		selectedItems: [confirmations.find(c => c.picked) ?? confirmations[0]],
 		...options,
 	});

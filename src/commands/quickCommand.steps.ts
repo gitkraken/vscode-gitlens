@@ -522,13 +522,13 @@ export async function* inputBranchNameStep<
 >(
 	state: State,
 	context: Context,
-	options: { placeholder: string; titleContext?: string; value?: string },
+	options: { placeholder?: string; prompt?: string; titleContext?: string; value?: string },
 ): AsyncStepResultGenerator<string> {
 	const step = createInputStep({
 		title: appendReposToTitle(`${context.title}${options.titleContext ?? ''}`, state, context),
-		placeholder: options.placeholder,
+		placeholder: options.placeholder ?? 'Branch name',
 		value: options.value,
-		prompt: 'Enter branch name',
+		prompt: options.prompt ?? 'Please provide a new branch name',
 		validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
 			if (value == null) return [false, undefined];
 
@@ -960,9 +960,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 			branchesAndOrTags.length === 0
 				? `No ${state.repos.length === 1 ? '' : 'common '}branches${
 						context.showTags ? ' or tags' : ''
-				  } found in ${
-						state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
-				  }`
+				  } found in ${state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repos`}`
 				: `${
 						typeof placeholder === 'string' ? placeholder : placeholder(context)
 				  } (or enter a revision using #)`,
@@ -1002,7 +1000,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 							  } found in ${
 									state.repos.length === 1
 										? state.repos[0].formattedName
-										: `${state.repos.length} repositories`
+										: `${state.repos.length} repos`
 							  }`
 							: `${
 									typeof placeholder === 'string' ? placeholder : placeholder(context)
