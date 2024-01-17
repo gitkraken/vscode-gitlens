@@ -74,15 +74,36 @@ export class GitCommandsCommand extends Command {
 		super([
 			Commands.GitCommands,
 			Commands.GitCommandsBranch,
+			Commands.GitCommandsBranchCreate,
+			Commands.GitCommandsBranchDelete,
+			Commands.GitCommandsBranchPrune,
+			Commands.GitCommandsBranchRename,
 			Commands.GitCommandsCheckout,
 			Commands.GitCommandsCherryPick,
+			Commands.GitCommandsHistory,
 			Commands.GitCommandsMerge,
 			Commands.GitCommandsRebase,
+			Commands.GitCommandsRemote,
+			Commands.GitCommandsRemoteAdd,
+			Commands.GitCommandsRemotePrune,
+			Commands.GitCommandsRemoteRemove,
 			Commands.GitCommandsReset,
 			Commands.GitCommandsRevert,
+			Commands.GitCommandsShow,
+			Commands.GitCommandsStash,
+			Commands.GitCommandsStashDrop,
+			Commands.GitCommandsStashList,
+			Commands.GitCommandsStashPop,
+			Commands.GitCommandsStashPush,
+			Commands.GitCommandsStashRename,
+			Commands.GitCommandsStatus,
 			Commands.GitCommandsSwitch,
 			Commands.GitCommandsTag,
+			Commands.GitCommandsTagCreate,
+			Commands.GitCommandsTagDelete,
 			Commands.GitCommandsWorktree,
+			Commands.GitCommandsWorktreeCreate,
+			Commands.GitCommandsWorktreeDelete,
 			Commands.GitCommandsWorktreeOpen,
 		]);
 	}
@@ -92,8 +113,23 @@ export class GitCommandsCommand extends Command {
 			case Commands.GitCommandsBranch:
 				args = { command: 'branch' };
 				break;
+			case Commands.GitCommandsBranchCreate:
+				args = { command: 'branch', state: { subcommand: 'create' } };
+				break;
+			case Commands.GitCommandsBranchDelete:
+				args = { command: 'branch', state: { subcommand: 'delete' } };
+				break;
+			case Commands.GitCommandsBranchPrune:
+				args = { command: 'branch', state: { subcommand: 'prune' } };
+				break;
+			case Commands.GitCommandsBranchRename:
+				args = { command: 'branch', state: { subcommand: 'rename' } };
+				break;
 			case Commands.GitCommandsCherryPick:
 				args = { command: 'cherry-pick' };
+				break;
+			case Commands.GitCommandsHistory:
+				args = { command: 'log' };
 				break;
 			case Commands.GitCommandsMerge:
 				args = { command: 'merge' };
@@ -101,21 +137,69 @@ export class GitCommandsCommand extends Command {
 			case Commands.GitCommandsRebase:
 				args = { command: 'rebase' };
 				break;
+			case Commands.GitCommandsRemote:
+				args = { command: 'remote' };
+				break;
+			case Commands.GitCommandsRemoteAdd:
+				args = { command: 'remote', state: { subcommand: 'add' } };
+				break;
+			case Commands.GitCommandsRemotePrune:
+				args = { command: 'remote', state: { subcommand: 'prune' } };
+				break;
+			case Commands.GitCommandsRemoteRemove:
+				args = { command: 'remote', state: { subcommand: 'remove' } };
+				break;
 			case Commands.GitCommandsReset:
 				args = { command: 'reset' };
 				break;
 			case Commands.GitCommandsRevert:
 				args = { command: 'revert' };
 				break;
-			case Commands.GitCommandsCheckout:
+			case Commands.GitCommandsShow:
+				args = { command: 'show' };
+				break;
+			case Commands.GitCommandsStash:
+				args = { command: 'stash' };
+				break;
+			case Commands.GitCommandsStashDrop:
+				args = { command: 'stash', state: { subcommand: 'drop' } };
+				break;
+			case Commands.GitCommandsStashList:
+				args = { command: 'stash', state: { subcommand: 'list' } };
+				break;
+			case Commands.GitCommandsStashPop:
+				args = { command: 'stash', state: { subcommand: 'pop' } };
+				break;
+			case Commands.GitCommandsStashPush:
+				args = { command: 'stash', state: { subcommand: 'push' } };
+				break;
+			case Commands.GitCommandsStashRename:
+				args = { command: 'stash', state: { subcommand: 'rename' } };
+				break;
+			case Commands.GitCommandsStatus:
+				args = { command: 'status' };
+				break;
 			case Commands.GitCommandsSwitch:
+			case Commands.GitCommandsCheckout:
 				args = { command: 'switch' };
 				break;
 			case Commands.GitCommandsTag:
 				args = { command: 'tag' };
 				break;
+			case Commands.GitCommandsTagCreate:
+				args = { command: 'tag', state: { subcommand: 'create' } };
+				break;
+			case Commands.GitCommandsTagDelete:
+				args = { command: 'tag', state: { subcommand: 'delete' } };
+				break;
 			case Commands.GitCommandsWorktree:
 				args = { command: 'worktree' };
+				break;
+			case Commands.GitCommandsWorktreeCreate:
+				args = { command: 'worktree', state: { subcommand: 'create' } };
+				break;
+			case Commands.GitCommandsWorktreeDelete:
+				args = { command: 'worktree', state: { subcommand: 'delete' } };
 				break;
 			case Commands.GitCommandsWorktreeOpen:
 				args = { command: 'worktree', state: { subcommand: 'open' } };
