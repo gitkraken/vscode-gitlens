@@ -5664,6 +5664,26 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.gitCommands.branch.create",
+				"title": "Git Create Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.branch.delete",
+				"title": "Git Delete Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.branch.prune",
+				"title": "Git Prune Branches...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.branch.rename",
+				"title": "Git Rename Branch...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.gitCommands.checkout",
 				"title": "Git Checkout...",
 				"category": "GitLens"
@@ -5671,6 +5691,11 @@
 			{
 				"command": "gitlens.gitCommands.cherryPick",
 				"title": "Git Cherry Pick...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.history",
+				"title": "Git History (log)...",
 				"category": "GitLens"
 			},
 			{
@@ -5684,6 +5709,26 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.gitCommands.remote",
+				"title": "Git Remote...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.remote.add",
+				"title": "Git Add Remote...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.remote.prune",
+				"title": "Git Prune Remote...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.remote.remove",
+				"title": "Git Remove Remote...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.gitCommands.reset",
 				"title": "Git Reset...",
 				"category": "GitLens"
@@ -5691,6 +5736,46 @@
 			{
 				"command": "gitlens.gitCommands.revert",
 				"title": "Git Revert...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.show",
+				"title": "Git Show...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.stash",
+				"title": "Git Stash...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.stash.drop",
+				"title": "Git Drop Stash...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.stash.list",
+				"title": "Git Stash List...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.stash.pop",
+				"title": "Git Pop Stash...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.stash.push",
+				"title": "Git Push Stash...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.stash.rename",
+				"title": "Git Rename Stash...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.status",
+				"title": "Git Status...",
 				"category": "GitLens"
 			},
 			{
@@ -5704,13 +5789,33 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.gitCommands.tag.create",
+				"title": "Git Create Tag...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.tag.delete",
+				"title": "Git Delete Tag...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.gitCommands.worktree",
 				"title": "Git Worktree...",
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.gitCommands.worktree.create",
+				"title": "Git Create Worktree...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.worktree.delete",
+				"title": "Git Delete Worktree...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.gitCommands.worktree.open",
-				"title": "Open Git Worktree...",
+				"title": "Git Open Worktree...",
 				"category": "GitLens"
 			},
 			{
@@ -5855,7 +5960,7 @@
 			},
 			{
 				"command": "gitlens.addAuthors",
-				"title": "Add Co-authors",
+				"title": "Add Co-authors...",
 				"category": "GitLens",
 				"icon": "$(person-add)"
 			},
@@ -6606,7 +6711,7 @@
 			},
 			{
 				"command": "gitlens.views.addAuthors",
-				"title": "Add Co-authors",
+				"title": "Add Co-authors...",
 				"category": "GitLens",
 				"icon": "$(person-add)"
 			},
@@ -9118,11 +9223,31 @@
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.gitCommands.branch.create",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.branch.delete",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.branch.prune",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.branch.rename",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
 					"command": "gitlens.gitCommands.checkout",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.gitCommands.cherryPick",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.history",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
@@ -9134,11 +9259,59 @@
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.gitCommands.remote",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.remote.add",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.remote.prune",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.remote.remove",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
 					"command": "gitlens.gitCommands.reset",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.gitCommands.revert",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.show",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.stash",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.stash.drop",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.stash.list",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.stash.pop",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.stash.push",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.stash.rename",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.status",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
@@ -9150,7 +9323,23 @@
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.gitCommands.tag.create",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.tag.delete",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
 					"command": "gitlens.gitCommands.worktree",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.worktree.create",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.worktree.delete",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
