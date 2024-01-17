@@ -1924,7 +1924,15 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-			new GitCommandQuickPickItem('Delete Stash...', {
+			new GitCommandQuickPickItem('Rename Stash...', {
+				command: 'stash',
+				state: {
+					subcommand: 'rename',
+					repo: state.repo,
+					reference: state.reference,
+				},
+			}),
+			new GitCommandQuickPickItem('Drop Stash...', {
 				command: 'stash',
 				state: {
 					subcommand: 'drop',
