@@ -11069,19 +11069,19 @@
 					"group": "3_gitlens@2"
 				},
 				{
+					"command": "gitlens.copyDeepLinkToLines",
+					"when": "editorTextFocus && editorHasSelection && config.gitlens.menus.editor.clipboard && isFileSystemResource && resourceScheme =~ /^(?!output$|vscode-(?!remote|vfs$)).*$/",
+					"group": "1_gitlens@2"
+				},
+				{
 					"command": "gitlens.copyDeepLinkToFile",
 					"when": "editorTextFocus && config.gitlens.menus.editor.clipboard && isFileSystemResource && resourceScheme =~ /^(?!output$|vscode-(?!remote|vfs$)).*$/",
-					"group": "1_gitlens@1"
+					"group": "1_gitlens@3"
 				},
 				{
 					"command": "gitlens.copyDeepLinkToFileAtRevision",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard && isFileSystemResource && resourceScheme =~ /^(?!output$|vscode-(?!remote|vfs$)).*$/",
-					"group": "1_gitlens@1"
-				},
-				{
-					"command": "gitlens.copyDeepLinkToLines",
-					"when": "editorTextFocus && editorHasSelection && config.gitlens.menus.editor.clipboard && isFileSystemResource && resourceScheme =~ /^(?!output$|vscode-(?!remote|vfs$)).*$/",
-					"group": "1_gitlens@2"
+					"group": "1_gitlens@4"
 				}
 			],
 			"editor/lineNumber/context": [
