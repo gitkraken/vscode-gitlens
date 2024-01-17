@@ -2816,8 +2816,7 @@
 						"type": "array",
 						"default": [
 							"fetch:command",
-							"stash-push:command",
-							"switch:command"
+							"stash-push:command"
 						],
 						"items": {
 							"type": "string",
@@ -5665,6 +5664,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.gitCommands.checkout",
+				"title": "Git Checkout...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.gitCommands.cherryPick",
 				"title": "Git Cherry Pick...",
 				"category": "GitLens"
@@ -5691,7 +5695,7 @@
 			},
 			{
 				"command": "gitlens.gitCommands.switch",
-				"title": "Git Switch...",
+				"title": "Git Switch to...",
 				"category": "GitLens"
 			},
 			{
@@ -9111,6 +9115,10 @@
 				},
 				{
 					"command": "gitlens.gitCommands.branch",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.checkout",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{

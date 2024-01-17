@@ -211,6 +211,7 @@ export const enum Commands {
 	PushRepositories = 'gitlens.pushRepositories',
 	GitCommands = 'gitlens.gitCommands',
 	GitCommandsBranch = 'gitlens.gitCommands.branch',
+	GitCommandsCheckout = 'gitlens.gitCommands.checkout',
 	GitCommandsCherryPick = 'gitlens.gitCommands.cherryPick',
 	GitCommandsMerge = 'gitlens.gitCommands.merge',
 	GitCommandsRebase = 'gitlens.gitCommands.rebase',

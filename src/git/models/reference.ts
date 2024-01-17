@@ -301,6 +301,17 @@ export function isTagReference(ref: GitReference | undefined): ref is GitTagRefe
 	return ref?.refType === 'tag';
 }
 
+export function getReferenceTypeLabel(ref: GitReference | undefined) {
+	switch (ref?.refType) {
+		case 'branch':
+			return 'Branch';
+		case 'tag':
+			return 'Tag';
+		default:
+			return 'Commit';
+	}
+}
+
 export function getReferenceLabel(
 	refs: GitReference | GitReference[] | undefined,
 	options?: { capitalize?: boolean; expand?: boolean; icon?: boolean; label?: boolean; quoted?: boolean } | false,
@@ -317,16 +328,26 @@ export function getReferenceLabel(
 		const ref = Array.isArray(refs) ? refs[0] : refs;
 		let refName = options?.quoted ? `'${ref.name}'` : ref.name;
 		switch (ref.refType) {
-			case 'branch':
+			case 'branch': {
 				if (ref.remote) {
 					refName = `${getRemoteNameFromBranchName(refName)}: ${getBranchNameWithoutRemote(refName)}`;
 					refName = options?.quoted ? `'${refName}'` : refName;
 				}
 
-				result = `${options.label ? `${ref.remote ? 'remote ' : ''}branch ` : ''}${
-					options.icon ? `$(git-branch)${GlyphChars.Space}${refName}` : refName
-				}`;
+				let label;
+				if (options.label) {
+					if (options.capitalize && options.expand) {
+						label = `${ref.remote ? 'Remote ' : ''}Branch `;
+					} else {
+						label = `${ref.remote ? 'remote ' : ''}branch `;
+					}
+				} else {
+					label = '';
+				}
+
+				result = `${label}${options.icon ? `$(git-branch)${GlyphChars.Space}${refName}` : refName}`;
 				break;
+			}
 			case 'tag':
 				result = `${options.label ? 'tag ' : ''}${
 					options.icon ? `$(tag)${GlyphChars.Space}${refName}` : refName

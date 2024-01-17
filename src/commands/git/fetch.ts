@@ -155,9 +155,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 			);
 		} else {
 			const reposToFetch =
-				state.repos.length === 1
-					? `$(repo) ${state.repos[0].formattedName}`
-					: `${state.repos.length} repositories`;
+				state.repos.length === 1 ? `$(repo) ${state.repos[0].formattedName}` : `${state.repos.length} repos`;
 
 			step = createConfirmStep(
 				appendReposToTitle(`Confirm ${this.title}`, state, context, lastFetchedOn),

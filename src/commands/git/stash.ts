@@ -21,7 +21,6 @@ import { getSteps } from '../gitCommands.utils';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
-	QuickPickStep,
 	StepGenerator,
 	StepResult,
 	StepResultGenerator,
@@ -624,7 +623,9 @@ export class StashGitCommand extends QuickCommand<State> {
 			baseFlags.push('--staged');
 		}
 
-		const confirmations: QuickPickItemOfT<PushFlags[]>[] = [];
+		type StepType = FlagsQuickPickItem<PushFlags>;
+
+		const confirmations: StepType[] = [];
 		if (state.uris?.length) {
 			if (state.flags.includes('--include-untracked')) {
 				baseFlags.push('--include-untracked');
@@ -684,7 +685,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			}
 		}
 
-		const step: QuickPickStep<FlagsQuickPickItem<PushFlags>> = this.createConfirmStep(
+		const step = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			confirmations,
 			undefined,

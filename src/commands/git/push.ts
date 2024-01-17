@@ -166,7 +166,7 @@ export class PushGitCommand extends QuickCommand<State> {
 			step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will push ${state.repos.length} repositories`,
+					detail: `Will push ${state.repos.length} repos`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
 					label: `Force ${this.title}${
@@ -177,7 +177,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					}`,
 					detail: `Will force push${
 						useForceIfIncludes ? ' (with lease and if includes)' : useForceWithLease ? ' (with lease)' : ''
-					} ${state.repos.length} repositories`,
+					} ${state.repos.length} repos`,
 				}),
 			]);
 		} else {

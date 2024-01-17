@@ -60,12 +60,14 @@ interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
 	defaultUri?: Uri;
-	pickedUri?: Uri;
+	pickedRootFolder?: Uri;
+	pickedSpecificFolder?: Uri;
 	showTags: boolean;
 	title: string;
 	worktrees?: GitWorktree[];
 }
 
+type CreateConfirmationChoice = Uri | 'changeRoot' | 'chooseFolder';
 type CreateFlags = '--force' | '-b' | '--detach' | '--direct';
 
 interface CreateState {
@@ -135,7 +137,6 @@ export interface WorktreeGitCommandArgs {
 
 export class WorktreeGitCommand extends QuickCommand<State> {
 	private subcommand: State['subcommand'] | undefined;
-	private canSkipConfirmOverride: boolean | undefined;
 
 	constructor(container: Container, args?: WorktreeGitCommandArgs) {
 		super(container, 'worktree', 'worktree', 'Worktree', {
@@ -187,8 +188,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		return this.subcommand != null;
 	}
 
+	private _canSkipConfirmOverride: boolean | undefined;
 	override get canSkipConfirm(): boolean {
-		return this.canSkipConfirmOverride ?? false;
+		return this._canSkipConfirmOverride ?? false;
 	}
 
 	override get skipConfirmKey() {
@@ -318,11 +320,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			state.flags = [];
 		}
 
-		context.pickedUri = undefined;
+		context.pickedRootFolder = undefined;
+		context.pickedSpecificFolder = undefined;
 
 		// Don't allow skipping the confirm step
 		state.confirm = true;
-		this.canSkipConfirmOverride = undefined;
+		this._canSkipConfirmOverride = undefined;
 
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
@@ -339,40 +342,55 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				state.reference = result;
 			}
 
-			if (state.counter < 4 || state.uri == null) {
-				if (
-					state.reference != null &&
-					!configuration.get('worktrees.promptForLocation', state.repo.folder) &&
-					context.defaultUri != null
-				) {
-					state.uri = context.defaultUri;
-				} else {
-					const result = yield* this.createCommandChoosePathStep(state, context, {
-						titleContext: ` for ${getReferenceLabel(state.reference, {
-							capitalize: true,
-							icon: false,
-							label: state.reference.refType !== 'branch',
-						})}`,
-						defaultUri: context.defaultUri,
-					});
-					if (result === StepResultBreak) continue;
-
-					state.uri = result;
-					// Keep track of the actual uri they picked, because we will modify it in later steps
-					context.pickedUri = state.uri;
-				}
+			if (state.uri == null) {
+				state.uri = context.defaultUri!;
 			}
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.createCommandConfirmStep(state, context);
 				if (result === StepResultBreak) continue;
 
+				if (typeof result[0] === 'string') {
+					switch (result[0]) {
+						case 'changeRoot': {
+							const result = yield* this.createCommandChoosePathStep(state, context, {
+								title: `Choose a Different Root Folder for this Worktree`,
+								label: 'Choose Root Folder',
+								pickedUri: context.pickedRootFolder,
+								defaultUri: context.pickedRootFolder ?? context.defaultUri,
+							});
+							if (result === StepResultBreak) continue;
+
+							state.uri = result;
+							// Keep track of the actual uri they picked, because we will modify it in later steps
+							context.pickedRootFolder = state.uri;
+							context.pickedSpecificFolder = undefined;
+							continue;
+						}
+						case 'chooseFolder': {
+							const result = yield* this.createCommandChoosePathStep(state, context, {
+								title: `Choose a Specific Folder for this Worktree`,
+								label: 'Choose Worktree Folder',
+								pickedUri: context.pickedRootFolder,
+								defaultUri: context.pickedSpecificFolder ?? context.defaultUri,
+							});
+							if (result === StepResultBreak) continue;
+
+							state.uri = result;
+							// Keep track of the actual uri they picked, because we will modify it in later steps
+							context.pickedRootFolder = undefined;
+							context.pickedSpecificFolder = state.uri;
+							continue;
+						}
+					}
+				}
+
 				[state.uri, state.flags] = result;
 			}
 
 			// Reset any confirmation overrides
 			state.confirm = true;
-			this.canSkipConfirmOverride = undefined;
+			this._canSkipConfirmOverride = undefined;
 
 			const isRemoteBranch = state.reference?.refType === 'branch' && state.reference?.remote;
 			if (isRemoteBranch && !state.flags.includes('-b')) {
@@ -402,8 +420,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 				if (state.createBranch == null) {
 					const result = yield* inputBranchNameStep(state, context, {
-						placeholder: 'Please provide a name for the new branch',
-						titleContext: ` from ${getReferenceLabel(state.reference, {
+						titleContext: ` and New Branch from ${getReferenceLabel(state.reference, {
 							capitalize: true,
 							icon: false,
 							label: state.reference.refType !== 'branch',
@@ -463,14 +480,14 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 					if (result === createBranch) {
 						state.flags.push('-b');
-						this.canSkipConfirmOverride = true;
+						this._canSkipConfirmOverride = true;
 						state.confirm = false;
 						continue;
 					}
 
 					if (result === force) {
 						state.flags.push('--force');
-						this.canSkipConfirmOverride = true;
+						this._canSkipConfirmOverride = true;
 						state.confirm = false;
 						continue;
 					}
@@ -512,6 +529,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						uri: worktree.uri,
 						counter: 3,
 						confirm: true,
+						openOnly: true,
 					} as OpenStepState,
 					context,
 				);
@@ -540,28 +558,17 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	private async *createCommandChoosePathStep(
 		state: CreateStepState,
 		context: Context,
-		options: { titleContext: string; defaultUri?: Uri },
+		options: { title: string; label: string; pickedUri: Uri | undefined; defaultUri?: Uri },
 	): AsyncStepResultGenerator<Uri> {
 		const step = createCustomStep<Uri>({
 			show: async (_step: CustomStep<Uri>) => {
-				const hasDefault = options?.defaultUri != null;
-				const result = await window.showInformationMessage(
-					`Choose a location in which to create the worktree${options.titleContext}.`,
-					{ modal: true },
-					{ title: 'Choose Location' },
-					...(hasDefault ? [{ title: 'Use Default Location' }] : []),
-				);
-
-				if (result == null) return Directive.Back;
-				if (result.title === 'Use Default Location') return options.defaultUri!;
-
 				const uris = await window.showOpenDialog({
 					canSelectFiles: false,
 					canSelectFolders: true,
 					canSelectMany: false,
-					defaultUri: context.pickedUri ?? state.uri ?? context.defaultUri,
-					openLabel: 'Select Worktree Location',
-					title: appendReposToTitle(`Choose a Worktree Location${options.titleContext}`, state, context),
+					defaultUri: options.pickedUri ?? state.uri ?? context.defaultUri,
+					openLabel: options.label,
+					title: options.title,
 				});
 
 				if (uris == null || uris.length === 0) return Directive.Back;
@@ -582,7 +589,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	private *createCommandConfirmStep(
 		state: CreateStepState,
 		context: Context,
-	): StepResultGenerator<[Uri, CreateFlags[]]> {
+	): StepResultGenerator<[CreateConfirmationChoice, CreateFlags[]]> {
 		/**
 		 * Here are the rules for creating the recommended path for the new worktree:
 		 *
@@ -591,10 +598,14 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		 * If the user picks a folder inside the repo, it will be `<repo>/../<repo>.worktrees/<?branch>`
 		 */
 
-		const pickedUri = context.pickedUri ?? state.uri;
+		let createDirectlyInFolder = false;
+		if (context.pickedSpecificFolder != null) {
+			createDirectlyInFolder = true;
+		}
+
+		const pickedUri = context.pickedSpecificFolder ?? context.pickedRootFolder ?? state.uri;
 		const pickedFriendlyPath = truncateLeft(GitWorktree.getFriendlyPath(pickedUri), 60);
 
-		let canCreateDirectlyInPicked = true;
 		let recommendedRootUri;
 
 		const repoUri = state.repo.uri;
@@ -611,40 +622,31 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		} else {
 			recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
 			// Don't allow creating directly into the main worktree folder
-			canCreateDirectlyInPicked = false;
+			createDirectlyInFolder = false;
 		}
 
 		const branchName =
 			state.createBranch ?? (state.reference != null ? getNameWithoutRemote(state.reference) : undefined);
 
-		const recommendedUri = branchName
-			? Uri.joinPath(recommendedRootUri, ...branchName.replace(/\\/g, '/').split('/'))
-			: recommendedRootUri;
-		const recommendedFriendlyPath = truncateLeft(GitWorktree.getFriendlyPath(recommendedUri), 65);
-
-		const recommendedNewBranchFriendlyPath = truncateLeft(
-			GitWorktree.getFriendlyPath(Uri.joinPath(recommendedRootUri, '<new-branch-name>')),
-			60,
-		);
+		const recommendedFriendlyPath = `<root>/${truncateLeft(
+			`${trailer}/${branchName?.replace(/\\/g, '/') ?? ''}`,
+			65,
+		)}`;
+		const recommendedNewBranchFriendlyPath = `<root>/${trailer}/<new-branch-name>`;
 
 		const isRemoteBranch = state.reference?.refType === 'branch' && state.reference?.remote;
 
-		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags, Uri>> = createConfirmStep(
-			appendReposToTitle(
-				`Confirm ${context.title} \u2022 ${getReferenceLabel(state.reference, {
-					icon: false,
-					label: false,
-				})}`,
-				state,
-				context,
-			),
-			[
+		type StepType = FlagsQuickPickItem<CreateFlags, CreateConfirmationChoice>;
+
+		const confirmations: StepType[] = [];
+		if (!createDirectlyInFolder) {
+			confirmations.push(
 				createFlagsQuickPickItem<CreateFlags, Uri>(
 					state.flags,
-					isRemoteBranch ? ['-b'] : [],
+					[],
 					{
 						label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
-						description: ' in subfolder',
+						description: '',
 						detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
 					},
 					recommendedRootUri,
@@ -656,39 +658,78 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						label: isRemoteBranch
 							? 'Create New Local Branch and Worktree'
 							: 'Create New Branch and Worktree',
-						description: ' in subfolder',
+						description: '',
 						detail: `Will create worktree in $(folder) ${recommendedNewBranchFriendlyPath}`,
 					},
 					recommendedRootUri,
 				),
-				...(canCreateDirectlyInPicked
-					? [
-							createQuickPickSeparator(),
-							createFlagsQuickPickItem<CreateFlags, Uri>(
-								state.flags,
-								['--direct'],
-								{
-									label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
-									description: ' directly in folder',
-									detail: `Will create worktree directly in $(folder) ${pickedFriendlyPath}`,
-								},
-								pickedUri,
-							),
-							createFlagsQuickPickItem<CreateFlags, Uri>(
-								state.flags,
-								['-b', '--direct'],
-								{
-									label: isRemoteBranch
-										? 'Create New Local Branch and Worktree'
-										: 'Create New Branch and Worktree',
-									description: ' directly in folder',
-									detail: `Will create worktree directly in $(folder) ${pickedFriendlyPath}`,
-								},
-								pickedUri,
-							),
-					  ]
-					: []),
-			] as FlagsQuickPickItem<CreateFlags, Uri>[],
+			);
+		} else {
+			confirmations.push(
+				createFlagsQuickPickItem<CreateFlags, Uri>(
+					state.flags,
+					['--direct'],
+					{
+						label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
+						description: '',
+						detail: `Will create worktree directly in $(folder) ${truncateLeft(pickedFriendlyPath, 60)}`,
+					},
+					pickedUri,
+				),
+				createFlagsQuickPickItem<CreateFlags, Uri>(
+					state.flags,
+					['-b', '--direct'],
+					{
+						label: isRemoteBranch
+							? 'Create New Local Branch and Worktree'
+							: 'Create New Branch and Worktree',
+						description: '',
+						detail: `Will create worktree directly in $(folder) ${truncateLeft(pickedFriendlyPath, 60)}`,
+					},
+					pickedUri,
+				),
+			);
+		}
+
+		if (!createDirectlyInFolder) {
+			confirmations.push(
+				createQuickPickSeparator(),
+				createFlagsQuickPickItem<CreateFlags, CreateConfirmationChoice>(
+					[],
+					[],
+					{
+						label: 'Change Root Folder...',
+						description: `$(folder) ${truncateLeft(pickedFriendlyPath, 65)}`,
+						picked: false,
+					},
+					'changeRoot',
+				),
+			);
+		}
+
+		confirmations.push(
+			createFlagsQuickPickItem<CreateFlags, CreateConfirmationChoice>(
+				[],
+				[],
+				{
+					label: 'Choose a Specific Folder...',
+					description: '',
+					picked: false,
+				},
+				'chooseFolder',
+			),
+		);
+
+		const step = createConfirmStep(
+			appendReposToTitle(
+				`Confirm ${context.title} \u2022 ${getReferenceLabel(state.reference, {
+					icon: false,
+					label: false,
+				})}`,
+				state,
+				context,
+			),
+			confirmations,
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
@@ -837,7 +878,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				state.uri = result.uri;
 			}
 
-			context.title = getTitle('Worktree', state.subcommand);
+			context.title = getTitle(`Worktree \u2022 ${truncateLeft(basename(state.uri.path), 40)}`, state.subcommand);
 
 			const result = yield* this.openCommandConfirmStep(state, context);
 			if (result === StepResultBreak) continue;
@@ -858,18 +899,16 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	}
 
 	private *openCommandConfirmStep(state: OpenStepState, context: Context): StepResultGenerator<OpenFlags[]> {
-		const confirmations: QuickPickItemOfT<OpenFlags[]>[] = [
+		type StepType = FlagsQuickPickItem<OpenFlags>;
+
+		const confirmations: StepType[] = [
 			createFlagsQuickPickItem<OpenFlags>(state.flags, [], {
-				label: context.title,
-				detail: `Will open in the current window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
-					state.uri,
-				)}`,
+				label: 'Open Worktree',
+				detail: 'Will open the worktree in the current window',
 			}),
 			createFlagsQuickPickItem<OpenFlags>(state.flags, ['--new-window'], {
-				label: `${context.title} in a New Window`,
-				detail: `Will open in a new window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
-					state.uri,
-				)}`,
+				label: `Open Worktree in a New Window`,
+				detail: 'Will open the worktree in a new window',
 			}),
 		];
 
@@ -877,25 +916,24 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			confirmations.push(
 				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--add-to-workspace'], {
 					label: `Add Worktree to Workspace`,
-					detail: `Will add into the current workspace, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
-						state.uri,
-					)}`,
+					detail: 'Will add the worktree into the current workspace',
 				}),
 				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--reveal-explorer'], {
 					label: `Reveal in File Explorer`,
-					detail: `Will open in the File Explorer, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
-						state.uri,
-					)}`,
+					description: `$(folder) ${truncateLeft(GitWorktree.getFriendlyPath(state.uri), 40)}`,
+					detail: 'Will open the worktree in the File Explorer',
 				}),
 			);
 		}
 
-		const step: QuickPickStep<FlagsQuickPickItem<OpenFlags>> = createConfirmStep(
+		const step = createConfirmStep(
 			appendReposToTitle(state.overrides?.confirmTitle ?? `Confirm ${context.title}`, state, context),
 			confirmations,
 			context,
 			undefined,
-			state.overrides?.confirmPlaceholder ? { placeholder: state.overrides.confirmPlaceholder } : undefined,
+			state.overrides?.confirmPlaceholder
+				? { placeholder: state.overrides.confirmPlaceholder }
+				: { placeholder: 'Confirm Open Worktree' },
 		);
 
 		const selection: StepSelection<typeof step> = yield step;
