@@ -4035,7 +4035,7 @@
 					"gitlens.experimental.allowAnnotationsWhenDirty": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "(Experimental) Specifies whether file annotations are allowed on dirty files. Use `#gitlens.advanced.blame.delayAfterEdit#` to control how long to wait before the annotation will refresh while still dirty",
+						"markdownDescription": "(Experimental) Specifies whether file annotations are allowed on files with unsaved changes (dirty). Use `#gitlens.advanced.blame.delayAfterEdit#` to control how long to wait before the annotation will update while the file is still dirty",
 						"scope": "window",
 						"order": 20
 					}
@@ -4236,7 +4236,7 @@
 					"gitlens.advanced.blame.delayAfterEdit": {
 						"type": "number",
 						"default": 5000,
-						"markdownDescription": "Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit but before it is saved. Use 0 to specify an infinite wait",
+						"markdownDescription": "Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit but before it is saved. Use 0 to specify an infinite wait. Only applies if the file is under the `#gitlens.advanced.sizeThresholdAfterEdit#`",
 						"scope": "window",
 						"order": 42
 					},
