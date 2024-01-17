@@ -659,14 +659,12 @@ export class StashGitCommand extends QuickCommand<State> {
 					label: context.title,
 					detail: `Will stash ${stagedOnly ? 'staged' : 'uncommitted'} changes`,
 				}),
+				createFlagsQuickPickItem<PushFlags>(state.flags, [...baseFlags, '--snapshot'], {
+					label: `${context.title} Snapshot`,
+					detail: 'Will stash uncommitted changes without changing the working tree',
+				}),
 			);
 			if (!stagedOnly) {
-				confirmations.push(
-					createFlagsQuickPickItem<PushFlags>(state.flags, [...baseFlags, '--snapshot'], {
-						label: `${context.title} Snapshot`,
-						detail: 'Will stash uncommitted changes without changing the working tree',
-					}),
-				);
 				confirmations.push(
 					createFlagsQuickPickItem<PushFlags>(state.flags, [...baseFlags, '--include-untracked'], {
 						label: `${context.title} & Include Untracked`,
