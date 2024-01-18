@@ -148,6 +148,7 @@ export class OrganizationService implements Disposable {
 			if (this._fullOrganizations == null) {
 				this._fullOrganizations = new Map();
 			}
+			organization.members.sort((a, b) => (a.name ?? a.username).localeCompare(b.name ?? b.username));
 			this._fullOrganizations.set(id, organization);
 		}
 		return this._fullOrganizations.get(id);

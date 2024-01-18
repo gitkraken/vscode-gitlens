@@ -175,6 +175,13 @@ textarea.message-input__control {
 
 	&__info {
 		flex: 1;
+		min-width: 0;
+		white-space: nowrap;
+	}
+
+	&__name {
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	&__actions {
