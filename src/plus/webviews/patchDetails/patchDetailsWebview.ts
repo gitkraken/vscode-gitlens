@@ -532,7 +532,7 @@ export class PatchDetailsWebviewProvider
 
 			const items = members.map(member => {
 				const item: OrganizationMemberQuickPickItem = {
-					label: member.name,
+					label: member.name ?? member.username,
 					description: member.email,
 					// TODO: needs to support current collaborator selections
 					picked: initSelections ? initSelections.has(member.id) : false,

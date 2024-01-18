@@ -141,7 +141,9 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 					<gk-avatar .src=${userSelection.avatarUrl}></gk-avatar>
 				</div>
 				<div class="user-selection__info">
-					<div class="user-selection__name">${userSelection.member.name}</div>
+					<div class="user-selection__name">
+						${userSelection.member.name ?? userSelection.member.username}
+					</div>
 				</div>
 				<div class="user-selection__actions">
 					<gk-popover>
