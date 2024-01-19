@@ -26,22 +26,30 @@ import type {
 	PagedProjectInput,
 	PagedRepoInput,
 	ProviderAccount,
+	ProviderId,
 	ProviderIssue,
 	ProviderPullRequest,
 	ProviderRepoInput,
 	ProviderReposInput,
+	SelfHostedProviderId,
 } from './providers/models';
-import { IssueFilter, PagingMode, ProviderId, PullRequestFilter } from './providers/models';
+import { HostedProviderId, IssueFilter, PagingMode, PullRequestFilter } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
 
-// TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
-
 export type SupportedProviderIds = ProviderId;
-export type ProviderKey = `${SupportedProviderIds}|${string}`;
+export type SupportedHostedProviderIds = HostedProviderId;
+export type SupportedSelfHostedProviderIds = SelfHostedProviderId;
+export type ProviderKey = `${SupportedHostedProviderIds}` | `${SupportedSelfHostedProviderIds}:${string}`;
+export type ProviderKeyById<T extends SupportedProviderIds> = T extends SupportedHostedProviderIds
+	? `${SupportedHostedProviderIds}`
+	: `${SupportedSelfHostedProviderIds}:${string}`;
 
 export type RepositoryDescriptor = { key: string } & Record<string, unknown>;
 
-export abstract class ProviderIntegration<T extends RepositoryDescriptor = RepositoryDescriptor> {
+export abstract class ProviderIntegration<
+	ID extends SupportedProviderIds = SupportedProviderIds,
+	T extends RepositoryDescriptor = RepositoryDescriptor,
+> {
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
@@ -53,7 +61,8 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 	) {}
 
 	abstract get authProvider(): IntegrationAuthenticationProviderDescriptor;
-	abstract get id(): SupportedProviderIds;
+	abstract get id(): ID;
+	protected abstract get key(): ProviderKeyById<ID>;
 	abstract get name(): string;
 	abstract get domain(): string;
 
@@ -62,10 +71,6 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 	}
 
 	get icon(): string {
-		return this.id;
-	}
-
-	protected get key(): `${SupportedProviderIds}` | `${SupportedProviderIds}:${string}` {
 		return this.id;
 	}
 
@@ -419,9 +424,9 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 		if (!connected) return undefined;
 
 		if (
-			providerId !== ProviderId.GitLab &&
+			providerId !== HostedProviderId.GitLab &&
 			(this.api.isRepoIdsInput(reposOrRepoIds) ||
-				(providerId === ProviderId.AzureDevOps &&
+				(providerId === HostedProviderId.AzureDevOps &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			Logger.warn(`Unsupported input for provider ${providerId}`, 'getIssuesForRepos');
@@ -429,7 +434,7 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 		}
 
 		let getIssuesOptions: GetIssuesOptions | undefined;
-		if (providerId === ProviderId.AzureDevOps) {
+		if (providerId === HostedProviderId.AzureDevOps) {
 			const organizations = new Set<string>();
 			const projects = new Set<string>();
 			for (const repo of reposOrRepoIds as ProviderRepoInput[]) {
@@ -624,9 +629,9 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 		if (!connected) return undefined;
 
 		if (
-			providerId !== ProviderId.GitLab &&
+			providerId !== HostedProviderId.GitLab &&
 			(this.api.isRepoIdsInput(reposOrRepoIds) ||
-				(providerId === ProviderId.AzureDevOps &&
+				(providerId === HostedProviderId.AzureDevOps &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			Logger.warn(`Unsupported input for provider ${providerId}`);
@@ -641,7 +646,7 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 			}
 
 			let userAccount: ProviderAccount | undefined;
-			if (providerId === ProviderId.AzureDevOps) {
+			if (providerId === HostedProviderId.AzureDevOps) {
 				const organizations = new Set<string>();
 				for (const repo of reposOrRepoIds as ProviderRepoInput[]) {
 					organizations.add(repo.namespace);
@@ -681,8 +686,8 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 
 			let userFilterProperty: string | null;
 			switch (providerId) {
-				case ProviderId.Bitbucket:
-				case ProviderId.AzureDevOps:
+				case HostedProviderId.Bitbucket:
+				case HostedProviderId.AzureDevOps:
 					userFilterProperty = userAccount.id;
 					break;
 				default:
@@ -761,7 +766,7 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 	}
 
 	async searchMyIssues(repo?: RepositoryDescriptor): Promise<SearchedIssue[] | undefined>;
-	async searchMyIssues(repos: RepositoryDescriptor[]): Promise<SearchedIssue[] | undefined>;
+	async searchMyIssues(repos?: RepositoryDescriptor[]): Promise<SearchedIssue[] | undefined>;
 	@debug()
 	async searchMyIssues(repos?: RepositoryDescriptor | RepositoryDescriptor[]): Promise<SearchedIssue[] | undefined> {
 		const scope = getLogScope();
@@ -786,7 +791,7 @@ export abstract class ProviderIntegration<T extends RepositoryDescriptor = Repos
 	): Promise<SearchedIssue[] | undefined>;
 
 	async searchMyPullRequests(repo?: RepositoryDescriptor): Promise<SearchedPullRequest[] | undefined>;
-	async searchMyPullRequests(repos: RepositoryDescriptor[]): Promise<SearchedPullRequest[] | undefined>;
+	async searchMyPullRequests(repos?: RepositoryDescriptor[]): Promise<SearchedPullRequest[] | undefined>;
 	@debug()
 	async searchMyPullRequests(
 		repos?: RepositoryDescriptor | RepositoryDescriptor[],

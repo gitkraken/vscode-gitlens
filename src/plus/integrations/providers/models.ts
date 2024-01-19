@@ -20,15 +20,29 @@ export type ProviderPullRequest = GitPullRequest;
 export type ProviderRepository = GitRepository;
 export type ProviderIssue = Issue;
 
-export enum ProviderId {
+export type ProviderId = HostedProviderId | SelfHostedProviderId;
+
+export enum HostedProviderId {
 	GitHub = 'github',
-	GitHubEnterprise = 'github-enterprise',
 	GitLab = 'gitlab',
-	GitLabSelfHosted = 'gitlab-self-hosted',
 	Bitbucket = 'bitbucket',
 	Jira = 'jira',
 	Trello = 'trello',
 	AzureDevOps = 'azureDevOps',
+}
+
+export enum SelfHostedProviderId {
+	GitHubEnterprise = 'github-enterprise',
+	GitLabSelfHosted = 'gitlab-self-hosted',
+}
+
+const selfHostedProviderIds: SelfHostedProviderId[] = [
+	SelfHostedProviderId.GitHubEnterprise,
+	SelfHostedProviderId.GitLabSelfHosted,
+] as const;
+
+export function isSelfHostedProviderId(id: ProviderId): id is SelfHostedProviderId {
+	return selfHostedProviderIds.includes(id as SelfHostedProviderId);
 }
 
 export enum PullRequestFilter {
@@ -189,9 +203,9 @@ export type Providers = Record<ProviderId, ProviderInfo>;
 export type ProvidersMetadata = Record<ProviderId, ProviderMetadata>;
 
 export const providersMetadata: ProvidersMetadata = {
-	[ProviderId.GitHub]: {
+	[HostedProviderId.GitHub]: {
 		domain: 'github.com',
-		id: ProviderId.GitHub,
+		id: HostedProviderId.GitHub,
 		issuesPagingMode: PagingMode.Repos,
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters
@@ -205,9 +219,9 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
-	[ProviderId.GitHubEnterprise]: {
+	[SelfHostedProviderId.GitHubEnterprise]: {
 		domain: '',
-		id: ProviderId.GitHubEnterprise,
+		id: SelfHostedProviderId.GitHubEnterprise,
 		issuesPagingMode: PagingMode.Repos,
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters
@@ -221,9 +235,9 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
-	[ProviderId.GitLab]: {
+	[HostedProviderId.GitLab]: {
 		domain: 'gitlab.com',
-		id: ProviderId.GitLab,
+		id: HostedProviderId.GitLab,
 		issuesPagingMode: PagingMode.Repo,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'username' property on account for PR filters
@@ -236,9 +250,9 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
 		scopes: ['read_api', 'read_user', 'read_repository'],
 	},
-	[ProviderId.GitLabSelfHosted]: {
+	[SelfHostedProviderId.GitLabSelfHosted]: {
 		domain: '',
-		id: ProviderId.GitLabSelfHosted,
+		id: SelfHostedProviderId.GitLabSelfHosted,
 		issuesPagingMode: PagingMode.Repo,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'username' property on account for PR filters
@@ -251,17 +265,17 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
 		scopes: ['read_api', 'read_user', 'read_repository'],
 	},
-	[ProviderId.Bitbucket]: {
+	[HostedProviderId.Bitbucket]: {
 		domain: 'bitbucket.org',
-		id: ProviderId.Bitbucket,
+		id: HostedProviderId.Bitbucket,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'id' property on account for PR filters
 		supportedPullRequestFilters: [PullRequestFilter.Author],
 		scopes: ['account:read', 'repository:read', 'pullrequest:read', 'issue:read'],
 	},
-	[ProviderId.AzureDevOps]: {
+	[HostedProviderId.AzureDevOps]: {
 		domain: 'dev.azure.com',
-		id: ProviderId.AzureDevOps,
+		id: HostedProviderId.AzureDevOps,
 		issuesPagingMode: PagingMode.Project,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'id' property on account for PR filters
@@ -270,14 +284,14 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
 	},
-	[ProviderId.Jira]: {
+	[HostedProviderId.Jira]: {
 		domain: 'atlassian.net',
-		id: ProviderId.Jira,
+		id: HostedProviderId.Jira,
 		scopes: [],
 	},
-	[ProviderId.Trello]: {
+	[HostedProviderId.Trello]: {
 		domain: 'trello.com',
-		id: ProviderId.Trello,
+		id: HostedProviderId.Trello,
 		scopes: [],
 	},
 };

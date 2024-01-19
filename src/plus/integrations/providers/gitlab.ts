@@ -9,16 +9,16 @@ import { log } from '../../../system/decorators/log';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
 import type { SupportedProviderIds } from '../providerIntegration';
 import { ensurePaidPlan, ProviderIntegration } from '../providerIntegration';
-import { ProviderId, providersMetadata } from './models';
+import { HostedProviderId, providersMetadata, SelfHostedProviderId } from './models';
 import type { ProvidersApi } from './providersApi';
 
-const metadata = providersMetadata[ProviderId.GitLab];
+const metadata = providersMetadata[HostedProviderId.GitLab];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: metadata.id,
 	scopes: metadata.scopes,
 });
 
-const enterpriseMetadata = providersMetadata[ProviderId.GitLabSelfHosted];
+const enterpriseMetadata = providersMetadata[SelfHostedProviderId.GitLabSelfHosted];
 const enterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: enterpriseMetadata.id,
 	scopes: enterpriseMetadata.scopes,
@@ -30,17 +30,11 @@ export type GitLabRepositoryDescriptor = {
 	name: string;
 };
 
-export class GitLabIntegration extends ProviderIntegration<GitLabRepositoryDescriptor> {
-	readonly authProvider = authProvider;
-	readonly id: SupportedProviderIds = ProviderId.GitLab;
-	readonly name: string = 'GitLab';
-	get domain(): string {
-		return metadata.domain;
-	}
-
-	protected get apiBaseUrl(): string {
-		return 'https://gitlab.com/api';
-	}
+abstract class GitLabIntegrationBase<ID extends SupportedProviderIds> extends ProviderIntegration<
+	ID,
+	GitLabRepositoryDescriptor
+> {
+	protected abstract get apiBaseUrl(): string;
 
 	protected override async getProviderAccountForCommit(
 		{ accessToken }: AuthenticationSession,
@@ -157,18 +151,30 @@ export class GitLabIntegration extends ProviderIntegration<GitLabRepositoryDescr
 	}
 }
 
-export class GitLabSelfHostedIntegration extends GitLabIntegration {
-	override readonly authProvider = enterpriseAuthProvider;
-	override readonly id = ProviderId.GitHubEnterprise;
-	override readonly name = 'GitLab Self-Hosted';
-	override get domain(): string {
+export class GitLabIntegration extends GitLabIntegrationBase<HostedProviderId.GitLab> {
+	readonly authProvider = authProvider;
+	readonly id = HostedProviderId.GitLab;
+	protected readonly key = this.id;
+	readonly name: string = 'GitLab';
+	get domain(): string {
+		return metadata.domain;
+	}
+
+	protected get apiBaseUrl(): string {
+		return 'https://gitlab.com/api';
+	}
+}
+
+export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<SelfHostedProviderId.GitHubEnterprise> {
+	readonly authProvider = enterpriseAuthProvider;
+	readonly id = SelfHostedProviderId.GitHubEnterprise;
+	protected readonly key = `${this.id}:${this.domain}` as const;
+	readonly name = 'GitLab Self-Hosted';
+	get domain(): string {
 		return this._domain;
 	}
 	protected override get apiBaseUrl(): string {
 		return `https://${this._domain}/api`;
-	}
-	protected override get key(): `${SupportedProviderIds}:${string}` {
-		return `${this.id}:${this.domain}`;
 	}
 
 	constructor(

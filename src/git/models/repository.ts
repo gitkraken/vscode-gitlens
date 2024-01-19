@@ -7,6 +7,7 @@ import { Schemes } from '../../constants';
 import type { Container } from '../../container';
 import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
+import type { ProviderIntegration } from '../../plus/integrations/providerIntegration';
 import { asRepoComparisonKey } from '../../repositories';
 import { groupByMap } from '../../system/array';
 import { executeActionCommand } from '../../system/command';
@@ -644,6 +645,13 @@ export class Repository implements Disposable {
 		}
 	}
 
+	async getBestRemoteWithIntegration(options?: {
+		filter?: (remote: GitRemote, integration: ProviderIntegration) => boolean;
+		includeDisconnected?: boolean;
+	}): Promise<GitRemote<RemoteProvider> | undefined> {
+		return this.container.git.getBestRemoteWithIntegration(this.uri, options);
+	}
+
 	async getBranch(name?: string): Promise<GitBranch | undefined> {
 		if (name) {
 			const {
@@ -738,10 +746,6 @@ export class Repository implements Disposable {
 		return options?.filter != null ? remotes.filter(options.filter) : remotes;
 	}
 
-	async getRichRemote(connectedOnly: boolean = false): Promise<GitRemote<RemoteProvider> | undefined> {
-		return this.container.git.getBestRemoteWithIntegration(this.uri, { includeDisconnected: !connectedOnly });
-	}
-
 	getStash(): Promise<GitStash | undefined> {
 		return this.container.git.getStash(this.uri);
 	}
@@ -788,8 +792,11 @@ export class Repository implements Disposable {
 		return remotes?.length > 0;
 	}
 
-	async hasRichRemote(connectedOnly: boolean = false): Promise<boolean> {
-		const remote = await this.getRichRemote(connectedOnly);
+	async hasRemoteWithIntegration(options?: {
+		filter?: (remote: GitRemote, integration: ProviderIntegration) => boolean;
+		includeDisconnected?: boolean;
+	}): Promise<boolean> {
+		const remote = await this.getBestRemoteWithIntegration(options);
 		return remote?.provider != null;
 	}
 
