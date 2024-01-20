@@ -165,9 +165,9 @@ export class GitLabIntegration extends GitLabIntegrationBase<HostedProviderId.Gi
 	}
 }
 
-export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<SelfHostedProviderId.GitHubEnterprise> {
+export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<SelfHostedProviderId.GitLabSelfHosted> {
 	readonly authProvider = enterpriseAuthProvider;
-	readonly id = SelfHostedProviderId.GitHubEnterprise;
+	readonly id = SelfHostedProviderId.GitLabSelfHosted;
 	protected readonly key = `${this.id}:${this.domain}` as const;
 	readonly name = 'GitLab Self-Hosted';
 	get domain(): string {
