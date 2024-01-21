@@ -3299,7 +3299,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies the locale, a [BCP 47 language tag](https://en.wikipedia.org/wiki/IETF_language_tag#List_of_major_primary_language_subtags), to use for date formatting, defaults to the VS Code locale. Use `system` to follow the current system locale, or choose a specific locale, e.g `en-US` — US English, `en-GB` — British English, `de-DE` — German, 'ja-JP = Japanese, etc.",
+						"markdownDescription": "Specifies the locale, a [BCP 47 language tag](https://en.wikipedia.org/wiki/IETF_language_tag#List_of_major_primary_language_subtags), to use for date formatting, defaults to the VS Code locale. Use `system` to follow the current system locale, or choose a specific locale, e.g `en-US` — US English, `en-GB` — British English, `de-DE` — German, `ja-JP` = Japanese, etc.",
 						"scope": "window",
 						"order": 21
 					},
