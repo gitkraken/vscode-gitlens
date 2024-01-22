@@ -37,3 +37,24 @@ export interface OrganizationMember {
 	readonly role: OrganizationRole;
 	readonly licenseConsumption: Record<string, boolean>;
 }
+
+export interface OrganizationSettings {
+	aiSettings: OrganizationSetting;
+	draftSettings: OrganizationDraftSettings;
+}
+
+export interface OrganizationSetting {
+	readonly enabled: boolean;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface OrganizationDraftSettings extends OrganizationSetting {
+	readonly bucket:
+		| {
+				readonly name: string;
+				readonly region: string;
+				readonly provider: string;
+		  }
+		| undefined;
+}
