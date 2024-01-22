@@ -5,7 +5,13 @@ import { gate } from '../../../system/decorators/gate';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
 import type { ServerConnection } from '../serverConnection';
-import type { FullOrganization, Organization, OrganizationMember, OrganizationsResponse } from './organization';
+import type {
+	FullOrganization,
+	Organization,
+	OrganizationMember,
+	OrganizationSettings,
+	OrganizationsResponse,
+} from './organization';
 import type { SubscriptionChangeEvent } from './subscriptionService';
 
 const organizationsCacheExpiration = 24 * 60 * 60 * 1000; // 1 day
@@ -14,6 +20,7 @@ export class OrganizationService implements Disposable {
 	private _disposable: Disposable;
 	private _organizations: Organization[] | null | undefined;
 	private _fullOrganizations: Map<FullOrganization['id'], FullOrganization> | undefined;
+	private _organizationSettings: Map<FullOrganization['id'], OrganizationSettings> | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -112,11 +119,24 @@ export class OrganizationService implements Disposable {
 		if (e.current?.account?.id == null) {
 			this.updateOrganizations(undefined);
 		}
+		void this.updateOrganizationPermissions(e.current?.activeOrganization?.id);
 	}
 
 	private updateOrganizations(organizations: Organization[] | null | undefined): void {
 		this._organizations = organizations;
 		void setContext('gitlens:gk:hasOrganizations', (organizations ?? []).length > 1);
+	}
+
+	private async updateOrganizationPermissions(orgId: string | undefined): Promise<void> {
+		const settings = orgId != null ? await this.getOrganizationSettings(orgId) : undefined;
+		if (settings == null) {
+			void setContext('gitlens:gk:organization:ai:disabled', false);
+			void setContext('gitlens:gk:organization:drafts:disabled', false);
+			return;
+		}
+
+		void setContext('gitlens:gk:organization:ai:disabled', settings.aiSettings.enabled === false);
+		void setContext('gitlens:gk:organization:drafts:disabled', settings.draftSettings.enabled === false);
 	}
 
 	@gate()
@@ -162,5 +182,43 @@ export class OrganizationService implements Disposable {
 		}
 
 		return [];
+	}
+
+	@gate()
+	async getOrganizationSettings(
+		orgId: string | undefined,
+		options?: { force?: boolean },
+	): Promise<OrganizationSettings | undefined> {
+		// TODO: maybe getSubscription(false) when force is true
+		const id = orgId ?? (await this.container.subscription.getSubscription(true)).activeOrganization?.id;
+		if (id == null) return undefined;
+
+		if (!this._organizationSettings?.has(id) || options?.force === true) {
+			const session = await this.container.subscription.getAuthenticationSession();
+
+			const rsp = await this.connection.fetchApi(
+				`v1/organization/settings`,
+				{
+					method: 'GET',
+				},
+				{ token: session?.accessToken },
+			);
+
+			if (!rsp.ok) {
+				Logger.error(
+					'',
+					getLogScope(),
+					`Unable to get organization settings; status=(${rsp.status}): ${rsp.statusText}`,
+				);
+				return undefined;
+			}
+
+			const organizationSettings = (await rsp.json()) as OrganizationSettings;
+			if (this._organizationSettings == null) {
+				this._organizationSettings = new Map();
+			}
+			this._organizationSettings.set(id, organizationSettings);
+		}
+		return this._organizationSettings.get(id);
 	}
 }
