@@ -65,6 +65,10 @@ export interface State extends WebviewState {
 		hint?: string;
 	};
 	preferences: Preferences;
+	orgSettings: {
+		ai: boolean;
+		drafts: boolean;
+	};
 	includeRichContent?: boolean;
 
 	commit?: CommitDetails;
@@ -146,3 +150,8 @@ export type DidExplainParams =
 	  }
 	| { error: { message: string } };
 export const DidExplainCommandType = new IpcNotificationType<DidExplainParams>('commit/didExplain');
+
+export type DidChangeOrgSettings = Pick<Serialized<State>, 'orgSettings'>;
+export const DidChangeOrgSettingsNotificationType = new IpcNotificationType<DidChangeOrgSettings>(
+	'org/settings/didChange',
+);

@@ -3,6 +3,7 @@ import { CancellationTokenSource, Disposable, Uri, window } from 'vscode';
 import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
+import type { ContextKeys } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import type { CommitSelectedEvent } from '../../eventBus';
@@ -34,7 +35,7 @@ import type { Change } from '../../plus/webviews/patchDetails/protocol';
 import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
-import { getContext } from '../../system/context';
+import { getContext, onDidChangeContext } from '../../system/context';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
@@ -108,6 +109,7 @@ interface Context {
 	autolinkedIssues: IssueOrPullRequest[] | undefined;
 	pullRequest: PullRequest | undefined;
 	wip: Wip | undefined;
+	orgSettings: State['orgSettings'];
 }
 
 export class CommitDetailsWebviewProvider
@@ -143,9 +145,13 @@ export class CommitDetailsWebviewProvider
 			autolinkedIssues: undefined,
 			pullRequest: undefined,
 			wip: undefined,
+			orgSettings: this.getOrgSettings(),
 		};
 
-		this._disposable = configuration.onDidChangeAny(this.onAnyConfigurationChanged, this);
+		this._disposable = Disposable.from(
+			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
+			onDidChangeContext(this.onContextChanged, this),
+		);
 	}
 
 	dispose() {
@@ -431,6 +437,20 @@ export class CommitDetailsWebviewProvider
 		};
 	}
 
+	private onContextChanged(key: ContextKeys) {
+		if (['gitlens:gk:organization:ai:disabled', 'gitlens:gk:organization:drafts:disabled'].includes(key)) {
+			this.updatePendingContext({ orgSettings: this.getOrgSettings() });
+			this.updateState();
+		}
+	}
+
+	private getOrgSettings(): State['orgSettings'] {
+		return {
+			ai: !getContext<boolean>('gitlens:gk:organization:ai:disabled', false),
+			drafts: !getContext<boolean>('gitlens:gk:organization:drafts:disabled', false),
+		};
+	}
+
 	private onCommitSelected(e: CommitSelectedEvent) {
 		if (
 			e.data == null ||
@@ -601,6 +621,7 @@ export class CommitDetailsWebviewProvider
 			autolinkedIssues: current.autolinkedIssues?.map(serializeIssueOrPullRequest),
 			pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
 			wip: current.wip,
+			orgSettings: current.orgSettings,
 		});
 		return state;
 	}

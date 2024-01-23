@@ -309,6 +309,8 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private renderExplainAi() {
+		if (this.state?.orgSettings.ai === false) return undefined;
+
 		// TODO: add loading and response states
 		return html`
 			<webview-pane collapsable data-region="explain-pane">

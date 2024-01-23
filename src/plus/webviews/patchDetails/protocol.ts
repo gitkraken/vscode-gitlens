@@ -1,6 +1,5 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import type { Config } from '../../../config';
-import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import type { GitFileChangeShape } from '../../../git/models/file';
 import type { PatchRevisionRange } from '../../../git/models/patch';
 import type { Repository } from '../../../git/models/repository';
@@ -17,6 +16,7 @@ import type {
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import type { DateTimeFormat } from '../../../system/date';
 import type { Serialized } from '../../../system/serialize';
+import type { WebviewState } from '../../../webviews/protocol';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 import type { OrganizationMember } from '../../gk/account/organization';
 
@@ -131,12 +131,13 @@ export interface RevisionChange {
 
 export type Change = WipChange | RevisionChange;
 
-export interface State {
-	webviewId: WebviewIds | WebviewViewIds;
-	timestamp: number;
+export interface State extends WebviewState {
 	mode: Mode;
 
 	preferences: Preferences;
+	orgSettings: {
+		ai: boolean;
+	};
 
 	draft?: DraftDetails;
 	create?: {
@@ -279,4 +280,9 @@ export interface DidChangePatchRepositoryParams {
 }
 export const DidChangePatchRepositoryNotificationType = new IpcNotificationType<DidChangePatchRepositoryParams>(
 	'patch/draft/didChangeRepository',
+);
+
+export type DidChangeOrgSettings = Pick<Serialized<State>, 'orgSettings'>;
+export const DidChangeOrgSettingsNotificationType = new IpcNotificationType<DidChangeOrgSettings>(
+	'org/settings/didChange',
 );
