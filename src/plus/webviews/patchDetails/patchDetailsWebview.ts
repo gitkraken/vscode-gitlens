@@ -2,6 +2,7 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
 import { getAvatarUri } from '../../../avatars';
 import { ClearQuickInputButton } from '../../../commands/quickCommand.buttons';
+import type { ContextKeys } from '../../../constants';
 import { Commands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
@@ -27,7 +28,7 @@ import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker';
 import type { QuickPickItemOfT } from '../../../quickpicks/items/common';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
-import { setContext } from '../../../system/context';
+import { getContext, onDidChangeContext, setContext } from '../../../system/context';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
@@ -112,6 +113,7 @@ interface Context {
 		  }
 		| undefined;
 	preferences: Preferences;
+	orgSettings: State['orgSettings'];
 }
 
 export class PatchDetailsWebviewProvider
@@ -131,6 +133,7 @@ export class PatchDetailsWebviewProvider
 			draftVisibiltyState: undefined,
 			create: undefined,
 			preferences: this.getPreferences(),
+			orgSettings: this.getOrgSettings(),
 		};
 
 		this.setHostTitle();
@@ -139,6 +142,7 @@ export class PatchDetailsWebviewProvider
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
+			onDidChangeContext(this.onContextChanged, this),
 		);
 	}
 
@@ -317,6 +321,19 @@ export class PatchDetailsWebviewProvider
 			files: configuration.get('views.patchDetails.files'),
 			indentGuides: configuration.getCore('workbench.tree.renderIndentGuides') ?? 'onHover',
 			indent: configuration.getCore('workbench.tree.indent'),
+		};
+	}
+
+	private onContextChanged(key: ContextKeys) {
+		if (['gitlens:gk:organization:ai:disabled', 'gitlens:gk:organization:drafts:disabled'].includes(key)) {
+			this._context.orgSettings = this.getOrgSettings();
+			this.updateState();
+		}
+	}
+
+	private getOrgSettings(): State['orgSettings'] {
+		return {
+			ai: !getContext<boolean>('gitlens:gk:organization:ai:disabled', false),
 		};
 	}
 
@@ -864,6 +881,7 @@ export class PatchDetailsWebviewProvider
 			create: create,
 			draft: draft,
 			preferences: current.preferences,
+			orgSettings: current.orgSettings,
 		});
 		return state;
 	}

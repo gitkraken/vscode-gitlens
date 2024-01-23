@@ -126,6 +126,7 @@ export class GlCommitDetailsApp extends LitElement {
 								.files=${this.state?.commit?.files}
 								.explain=${this.explain}
 								.preferences=${this.state?.preferences}
+								.orgSettings=${this.state?.orgSettings}
 								.isUncommitted=${this.isUncommitted}
 							></gl-commit-details>`,
 						() =>
