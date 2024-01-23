@@ -2,7 +2,7 @@ import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { pluralize } from '../../../../system/string';
-import type { Wip } from '../../../commitDetails/protocol';
+import type { State, Wip } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
@@ -13,6 +13,9 @@ export class GlWipDetails extends GlDetailsBase {
 
 	@property({ type: Object })
 	wip?: Wip;
+
+	@property({ type: Object })
+	orgSettings!: State['orgSettings'];
 
 	override render() {
 		return html`
@@ -43,16 +46,21 @@ export class GlWipDetails extends GlDetailsBase {
 							)}
 						</div>
 						<div class="top-details__actionbar-group">
-							<a
-								class="commit-action"
-								href="#"
-								data-action="create-patch"
-								aria-label="Share as Cloud Patch"
-								title="Share as Cloud Patch"
-							>
-								<code-icon icon="gl-cloud-patch-share"></code-icon>
-								<span class="top-details__sha">Share</span>
-							</a>
+							${when(
+								this.orgSettings?.drafts !== false,
+								() => html`
+									<a
+										class="commit-action"
+										href="#"
+										data-action="create-patch"
+										aria-label="Share as Cloud Patch"
+										title="Share as Cloud Patch"
+									>
+										<code-icon icon="gl-cloud-patch-share"></code-icon>
+										<span class="top-details__sha">Share</span>
+									</a>
+								`,
+							)}
 							<a
 								class="commit-action"
 								href="#"
