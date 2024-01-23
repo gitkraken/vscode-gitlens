@@ -4,6 +4,7 @@ import type { ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './plus/gk/account/subscription';
+import type { ProviderIntegration } from './plus/integrations/providerIntegration';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 
 export const extensionPrefix = 'gitlens';
@@ -888,7 +889,9 @@ export type WorkspaceStorage = {
 	'views:repositories:autoRefresh': boolean;
 	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:commitDetails:autolinksExpanded': boolean;
-} & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & { [key in `connected:${string}`]: boolean };
+} & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
+	[key in `connected:${ProviderIntegration['key']}`]: boolean;
+};
 
 export interface Stored<T, SchemaVersion extends number = 1> {
 	v: SchemaVersion;

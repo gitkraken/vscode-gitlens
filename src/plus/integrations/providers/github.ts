@@ -9,16 +9,16 @@ import { log } from '../../../system/decorators/log';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
 import type { SupportedProviderIds } from '../providerIntegration';
 import { ensurePaidPlan, ProviderIntegration } from '../providerIntegration';
-import { ProviderId, providersMetadata } from './models';
+import { HostedProviderId, providersMetadata, SelfHostedProviderId } from './models';
 import type { ProvidersApi } from './providersApi';
 
-const metadata = providersMetadata[ProviderId.GitHub];
+const metadata = providersMetadata[HostedProviderId.GitHub];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: metadata.id,
 	scopes: metadata.scopes,
 });
 
-const enterpriseMetadata = providersMetadata[ProviderId.GitHubEnterprise];
+const enterpriseMetadata = providersMetadata[SelfHostedProviderId.GitHubEnterprise];
 const enterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: enterpriseMetadata.id,
 	scopes: enterpriseMetadata.scopes,
@@ -30,17 +30,11 @@ export type GitHubRepositoryDescriptor = {
 	name: string;
 };
 
-export class GitHubIntegration extends ProviderIntegration<GitHubRepositoryDescriptor> {
-	readonly authProvider = authProvider;
-	readonly id: SupportedProviderIds = ProviderId.GitHub;
-	readonly name: string = 'GitHub';
-	get domain(): string {
-		return metadata.domain;
-	}
-
-	protected get apiBaseUrl(): string {
-		return 'https://api.github.com';
-	}
+abstract class GitHubIntegrationBase<ID extends SupportedProviderIds> extends ProviderIntegration<
+	ID,
+	GitHubRepositoryDescriptor
+> {
+	protected abstract get apiBaseUrl(): string;
 
 	protected override async getProviderAccountForCommit(
 		{ accessToken }: AuthenticationSession,
@@ -163,18 +157,31 @@ export class GitHubIntegration extends ProviderIntegration<GitHubRepositoryDescr
 	}
 }
 
-export class GitHubEnterpriseIntegration extends GitHubIntegration {
-	override readonly authProvider = enterpriseAuthProvider;
-	override readonly id = ProviderId.GitHubEnterprise;
-	override readonly name = 'GitHub Enterprise';
-	override get domain(): string {
+export class GitHubIntegration extends GitHubIntegrationBase<HostedProviderId.GitHub> {
+	readonly authProvider = authProvider;
+	readonly id = HostedProviderId.GitHub;
+	protected readonly key = this.id;
+	readonly name: string = 'GitHub';
+	get domain(): string {
+		return metadata.domain;
+	}
+
+	protected override get apiBaseUrl(): string {
+		return 'https://api.github.com';
+	}
+}
+
+export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHostedProviderId.GitHubEnterprise> {
+	readonly authProvider = enterpriseAuthProvider;
+	readonly id = SelfHostedProviderId.GitHubEnterprise;
+	protected readonly key = `${this.id}:${this.domain}` as const;
+	readonly name = 'GitHub Enterprise';
+	get domain(): string {
 		return this._domain;
 	}
+
 	protected override get apiBaseUrl(): string {
 		return `https://${this._domain}/api/v3`;
-	}
-	protected override get key(): `${SupportedProviderIds}:${string}` {
-		return `${this.id}:${this.domain}`;
 	}
 
 	constructor(
