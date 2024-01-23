@@ -5,11 +5,11 @@ import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issu
 import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
-import type { RepositoryDescriptor, SupportedProviderIds } from '../providerIntegration';
+import type { RepositoryDescriptor } from '../providerIntegration';
 import { ProviderIntegration } from '../providerIntegration';
-import { ProviderId, providersMetadata } from './models';
+import { HostedProviderId, providersMetadata } from './models';
 
-const metadata = providersMetadata[ProviderId.Bitbucket];
+const metadata = providersMetadata[HostedProviderId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 
 interface BitbucketRepositoryDescriptor extends RepositoryDescriptor {
@@ -17,9 +17,13 @@ interface BitbucketRepositoryDescriptor extends RepositoryDescriptor {
 	name: string;
 }
 
-export class BitbucketIntegration extends ProviderIntegration<BitbucketRepositoryDescriptor> {
+export class BitbucketIntegration extends ProviderIntegration<
+	HostedProviderId.Bitbucket,
+	BitbucketRepositoryDescriptor
+> {
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
-	readonly id: SupportedProviderIds = ProviderId.Bitbucket;
+	readonly id = HostedProviderId.Bitbucket;
+	protected readonly key = this.id;
 	readonly name: string = 'Bitbucket';
 	get domain(): string {
 		return metadata.domain;

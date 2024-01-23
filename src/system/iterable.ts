@@ -141,6 +141,10 @@ export function* flatMap<T, TMapped>(
 	}
 }
 
+export function flatten<T>(source: Iterable<Iterable<T>> | IterableIterator<IterableIterator<T>>): IterableIterator<T> {
+	return flatMap(source, i => i);
+}
+
 export function has<T>(source: Iterable<T> | IterableIterator<T>, item: T): boolean {
 	return some(source, i => i === item);
 }

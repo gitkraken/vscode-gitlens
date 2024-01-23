@@ -19,6 +19,7 @@ import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '.
 import type { Subscription } from '../plus/gk/account/subscription';
 import { isSubscriptionPaidPlan, SubscriptionPlanId } from '../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
+import type { ProviderIntegration } from '../plus/integrations/providerIntegration';
 import type { RepoComparisonKey } from '../repositories';
 import { asRepoComparisonKey, Repositories } from '../repositories';
 import { groupByFilterMap, groupByMap, joinUnique } from '../system/array';
@@ -1078,7 +1079,7 @@ export class GitProviderService implements Disposable {
 			const remoteProviders = new Set<string>();
 
 			let hasRemotes = false;
-			let hasRichRemotes = false;
+			let hasRemotesWithIntegrations = false;
 			let hasConnectedRemotes = false;
 
 			if (hasRepositories) {
@@ -1091,18 +1092,18 @@ export class GitProviderService implements Disposable {
 					}
 
 					if (!hasConnectedRemotes && integrations) {
-						hasConnectedRemotes = await repo.hasRichRemote(true);
+						hasConnectedRemotes = await repo.hasRemoteWithIntegration({ includeDisconnected: false });
 
 						if (hasConnectedRemotes) {
-							hasRichRemotes = true;
+							hasRemotesWithIntegrations = true;
 							hasRemotes = true;
 						}
 					}
 
-					if (!hasRichRemotes && integrations) {
-						hasRichRemotes = await repo.hasRichRemote();
+					if (!hasRemotesWithIntegrations && integrations) {
+						hasRemotesWithIntegrations = await repo.hasRemoteWithIntegration();
 
-						if (hasRichRemotes) {
+						if (hasRemotesWithIntegrations) {
 							hasRemotes = true;
 						}
 					}
@@ -1111,14 +1112,14 @@ export class GitProviderService implements Disposable {
 						hasRemotes = await repo.hasRemotes();
 					}
 
-					if (hasRemotes && ((hasRichRemotes && hasConnectedRemotes) || !integrations)) break;
+					if (hasRemotes && ((hasRemotesWithIntegrations && hasConnectedRemotes) || !integrations)) break;
 				}
 			}
 
 			if (telemetryEnabled) {
 				this.container.telemetry.setGlobalAttributes({
 					'repositories.hasRemotes': hasRemotes,
-					'repositories.hasRichRemotes': hasRichRemotes,
+					'repositories.hasRichRemotes': hasRemotesWithIntegrations,
 					'repositories.hasConnectedRemotes': hasConnectedRemotes,
 					'repositories.remoteProviders': join(remoteProviders, ','),
 				});
@@ -1133,7 +1134,7 @@ export class GitProviderService implements Disposable {
 
 			await Promise.allSettled([
 				setContext('gitlens:hasRemotes', hasRemotes),
-				setContext('gitlens:hasRichRemotes', hasRichRemotes),
+				setContext('gitlens:hasRichRemotes', hasRemotesWithIntegrations),
 				setContext('gitlens:hasConnectedRemotes', hasConnectedRemotes),
 			]);
 		}
@@ -2097,7 +2098,10 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getBestRemoteWithIntegration(
 		repoPath: string | Uri,
-		options?: { includeDisconnected?: boolean },
+		options?: {
+			filter?: (remote: GitRemote, integration: ProviderIntegration) => boolean;
+			includeDisconnected?: boolean;
+		},
 		cancellation?: CancellationToken,
 	): Promise<GitRemote<RemoteProvider> | undefined> {
 		const remotes = await this.getBestRemotesWithProviders(repoPath, cancellation);
@@ -2105,11 +2109,13 @@ export class GitProviderService implements Disposable {
 		const includeDisconnected = options?.includeDisconnected ?? false;
 		for (const r of remotes) {
 			if (r.hasIntegration()) {
-				const provider = this.container.integrations.getByRemote(r);
-				if (provider != null) {
-					if (includeDisconnected || provider.maybeConnected === true) return r;
-					if (provider.maybeConnected === undefined && r.default) {
-						if (await provider.isConnected()) return r;
+				const integration = this.container.integrations.getByRemote(r);
+				if (integration != null) {
+					if (options?.filter?.(r, integration) === false) continue;
+
+					if (includeDisconnected || integration.maybeConnected === true) return r;
+					if (integration.maybeConnected === undefined && (r.default || remotes.length === 1)) {
+						if (await integration.isConnected()) return r;
 					}
 				}
 			}

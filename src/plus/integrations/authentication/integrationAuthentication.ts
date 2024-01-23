@@ -3,7 +3,8 @@ import { authentication } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { Container } from '../../../container';
 import { debug } from '../../../system/decorators/log';
-import { ProviderId } from '../providers/models';
+import type { ProviderId } from '../providers/models';
+import { HostedProviderId, SelfHostedProviderId } from '../providers/models';
 import { AzureDevOpsAuthenticationProvider } from './azureDevOps';
 import { BitbucketAuthenticationProvider } from './bitbucket';
 import { GitHubEnterpriseAuthenticationProvider } from './github';
@@ -123,11 +124,11 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	supports(providerId: string): boolean {
 		switch (providerId) {
-			case ProviderId.AzureDevOps:
-			case ProviderId.Bitbucket:
-			case ProviderId.GitHubEnterprise:
-			case ProviderId.GitLab:
-			case ProviderId.GitLabSelfHosted:
+			case HostedProviderId.AzureDevOps:
+			case HostedProviderId.Bitbucket:
+			case SelfHostedProviderId.GitHubEnterprise:
+			case HostedProviderId.GitLab:
+			case SelfHostedProviderId.GitLabSelfHosted:
 				return true;
 			default:
 				return false;
@@ -142,17 +143,17 @@ export class IntegrationAuthenticationService implements Disposable {
 		let provider = this.providers.get(providerId);
 		if (provider == null) {
 			switch (providerId) {
-				case ProviderId.AzureDevOps:
+				case HostedProviderId.AzureDevOps:
 					provider = new AzureDevOpsAuthenticationProvider();
 					break;
-				case ProviderId.Bitbucket:
+				case HostedProviderId.Bitbucket:
 					provider = new BitbucketAuthenticationProvider();
 					break;
-				case ProviderId.GitHubEnterprise:
+				case SelfHostedProviderId.GitHubEnterprise:
 					provider = new GitHubEnterpriseAuthenticationProvider();
 					break;
-				case ProviderId.GitLab:
-				case ProviderId.GitLabSelfHosted:
+				case HostedProviderId.GitLab:
+				case SelfHostedProviderId.GitLabSelfHosted:
 					provider = new GitLabAuthenticationProvider();
 					break;
 				default:

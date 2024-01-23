@@ -8,12 +8,21 @@ import type { GitRemote } from '../../git/models/remote';
 import type { RemoteProviderId } from '../../git/remotes/remoteProvider';
 import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
-import type { ProviderIntegration, ProviderKey, SupportedProviderIds } from './providerIntegration';
+import { filterMap, flatten } from '../../system/iterable';
+import type {
+	ProviderIntegration,
+	ProviderKey,
+	RepositoryDescriptor,
+	SupportedHostedProviderIds,
+	SupportedProviderIds,
+	SupportedSelfHostedProviderIds,
+} from './providerIntegration';
 import { AzureDevOpsIntegration } from './providers/azureDevOps';
 import { BitbucketIntegration } from './providers/bitbucket';
 import { GitHubEnterpriseIntegration, GitHubIntegration } from './providers/github';
 import { GitLabIntegration, GitLabSelfHostedIntegration } from './providers/gitlab';
-import { ProviderId } from './providers/models';
+import type { ProviderId } from './providers/models';
+import { HostedProviderId, isSelfHostedProviderId, SelfHostedProviderId } from './providers/models';
 import { ProvidersApi } from './providers/providersApi';
 
 export interface ConnectionStateChangeEvent {
@@ -80,29 +89,31 @@ export class IntegrationService implements Disposable {
 		return key == null ? this._connectedCache.size !== 0 : this._connectedCache.has(key);
 	}
 
-	get(id: SupportedProviderIds, domain?: string): ProviderIntegration {
-		const key: ProviderKey = `${id}|${domain}`;
+	get(id: SupportedHostedProviderIds): ProviderIntegration;
+	get(id: SupportedSelfHostedProviderIds, domain: string): ProviderIntegration;
+	get(id: SupportedHostedProviderIds | SupportedSelfHostedProviderIds, domain?: string): ProviderIntegration {
+		const key = isSelfHostedProviderId(id) ? (`${id}:${domain}` as const) : id;
 		let provider = this._integrations.get(key);
 		if (provider == null) {
 			switch (id) {
-				case ProviderId.GitHub:
+				case HostedProviderId.GitHub:
 					provider = new GitHubIntegration(this.container, this._providersApi);
 					break;
-				case ProviderId.GitHubEnterprise:
+				case SelfHostedProviderId.GitHubEnterprise:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
 					provider = new GitHubEnterpriseIntegration(this.container, this._providersApi, domain);
 					break;
-				case ProviderId.GitLab:
+				case HostedProviderId.GitLab:
 					provider = new GitLabIntegration(this.container, this._providersApi);
 					break;
-				case ProviderId.GitLabSelfHosted:
+				case SelfHostedProviderId.GitLabSelfHosted:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
 					provider = new GitLabSelfHostedIntegration(this.container, this._providersApi, domain);
 					break;
-				case ProviderId.Bitbucket:
+				case HostedProviderId.Bitbucket:
 					provider = new BitbucketIntegration(this.container, this._providersApi);
 					break;
-				case ProviderId.AzureDevOps:
+				case HostedProviderId.AzureDevOps:
 					provider = new AzureDevOpsIntegration(this.container, this._providersApi);
 					break;
 				default:
@@ -117,89 +128,173 @@ export class IntegrationService implements Disposable {
 	getByRemote(remote: GitRemote): ProviderIntegration | undefined {
 		if (remote?.provider == null) return undefined;
 
-		const id = convertRemoteIdToProviderId(remote.provider.id);
-		return id != null ? this.get(id, remote.domain) : undefined;
+		switch (remote.provider.id) {
+			case 'azure-devops':
+				return this.get(HostedProviderId.AzureDevOps);
+			case 'bitbucket':
+				return this.get(HostedProviderId.Bitbucket);
+			case 'github':
+				if (remote.provider.custom && remote.provider.domain != null) {
+					return this.get(SelfHostedProviderId.GitHubEnterprise, remote.provider.domain);
+				}
+				return this.get(HostedProviderId.GitHub);
+			case 'gitlab':
+				if (remote.provider.custom && remote.provider.domain != null) {
+					return this.get(SelfHostedProviderId.GitLabSelfHosted, remote.provider.domain);
+				}
+				return this.get(HostedProviderId.GitLab);
+			case 'bitbucket-server':
+			default:
+				return undefined;
+		}
 	}
 
-	async getMyIssues(remote: GitRemote): Promise<SearchedIssue[] | undefined>;
-	async getMyIssues(remotes: GitRemote[]): Promise<SearchedIssue[] | undefined>;
-	@debug<IntegrationService['getMyIssues']>({
-		args: { 0: (r: GitRemote | GitRemote[]) => (Array.isArray(r) ? r.map(rp => rp.name) : r.name) },
-	})
-	async getMyIssues(remoteOrRemotes: GitRemote | GitRemote[]): Promise<SearchedIssue[] | undefined> {
-		if (Array.isArray(remoteOrRemotes)) {
-			const remotesByProviderId = new Map<RemoteProviderId, GitRemote[]>();
-			for (const remote of remoteOrRemotes) {
-				if (remote?.provider == null) continue;
-
-				let remotes = remotesByProviderId.get(remote.provider.id);
-				if (remotes == null) {
-					remotes = [];
-					remotesByProviderId.set(remote.provider.id, remotes);
-				}
-				remotes.push(remote);
+	async getMyIssues(providerIds?: ProviderId[]): Promise<SearchedIssue[] | undefined> {
+		const providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined> = new Map();
+		for (const integration of this._integrations.values()) {
+			if (providerIds == null || providerIds.includes(integration.id)) {
+				providers.set(integration, undefined);
 			}
-
-			const promises: Promise<SearchedIssue[] | undefined>[] = [];
-			for (const [remoteProviderId, remotes] of remotesByProviderId) {
-				const providerId = convertRemoteIdToProviderId(remoteProviderId);
-				if (providerId == null) continue;
-				const provider = this.get(providerId);
-				promises.push(provider.searchMyIssues(remotes.map(r => r.provider!.repoDesc)));
-			}
-
-			return (await Promise.all(promises)).filter(r => r != null).flat() as SearchedIssue[];
 		}
+		if (providers.size === 0) return undefined;
 
-		if (remoteOrRemotes?.provider == null) return undefined;
-
-		const provider = this.getByRemote(remoteOrRemotes);
-		return provider?.searchMyIssues(remoteOrRemotes.provider.repoDesc);
+		return this.getMyIssuesCore(providers);
 	}
 
-	async getMyPullRequests(remote: GitRemote): Promise<SearchedPullRequest[] | undefined>;
-	async getMyPullRequests(remotes: GitRemote[]): Promise<SearchedPullRequest[] | undefined>;
-	@debug<IntegrationService['getMyPullRequests']>({
-		args: { 0: (r: GitRemote | GitRemote[]) => (Array.isArray(r) ? r.map(rp => rp.name) : r.name) },
-	})
-	async getMyPullRequests(remoteOrRemotes: GitRemote | GitRemote[]): Promise<SearchedPullRequest[] | undefined> {
-		if (Array.isArray(remoteOrRemotes)) {
-			const remotesByProviderId = new Map<RemoteProviderId, GitRemote[]>();
-			for (const remote of remoteOrRemotes) {
-				if (remote?.provider == null) continue;
+	private async getMyIssuesCore(
+		providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined>,
+	): Promise<SearchedIssue[] | undefined> {
+		const promises: Promise<SearchedIssue[] | undefined>[] = [];
+		for (const [provider, repos] of providers) {
+			if (provider == null) continue;
 
-				let remotes = remotesByProviderId.get(remote.provider.id);
-				if (remotes == null) {
-					remotes = [];
-					remotesByProviderId.set(remote.provider.id, remotes);
-				}
-				remotes.push(remote);
-			}
-
-			const promises: Promise<SearchedPullRequest[] | undefined>[] = [];
-			for (const [remoteProviderId, remotes] of remotesByProviderId) {
-				const providerId = convertRemoteIdToProviderId(remoteProviderId);
-				if (providerId == null) continue;
-				const provider = this.get(providerId);
-				promises.push(provider.searchMyPullRequests(remotes.map(r => r.provider!.repoDesc)));
-			}
-
-			return (await Promise.all(promises)).filter(r => r != null).flat() as SearchedPullRequest[];
+			promises.push(provider.searchMyIssues(repos));
 		}
 
-		if (remoteOrRemotes?.provider == null) return undefined;
+		const results = await Promise.allSettled(promises);
+		return [...flatten(filterMap(results, r => (r.status === 'fulfilled' ? r.value : undefined)))];
+	}
 
-		const provider = this.getByRemote(remoteOrRemotes);
-		return provider?.searchMyPullRequests(remoteOrRemotes.provider.repoDesc);
+	async getMyIssuesForRemotes(remote: GitRemote): Promise<SearchedIssue[] | undefined>;
+	async getMyIssuesForRemotes(remotes: GitRemote[]): Promise<SearchedIssue[] | undefined>;
+	@debug<IntegrationService['getMyIssuesForRemotes']>({
+		args: { 0: (r: GitRemote | GitRemote[]) => (Array.isArray(r) ? r.map(rp => rp.name) : r.name) },
+	})
+	async getMyIssuesForRemotes(remoteOrRemotes: GitRemote | GitRemote[]): Promise<SearchedIssue[] | undefined> {
+		if (!Array.isArray(remoteOrRemotes)) {
+			remoteOrRemotes = [remoteOrRemotes];
+		}
+
+		if (!remoteOrRemotes.length) return undefined;
+		if (remoteOrRemotes.length === 1) {
+			const [remote] = remoteOrRemotes;
+			if (remote?.provider == null) return undefined;
+
+			const provider = this.getByRemote(remote);
+			return provider?.searchMyIssues(remote.provider.repoDesc);
+		}
+
+		const providers = new Map<ProviderIntegration, RepositoryDescriptor[]>();
+
+		for (const remote of remoteOrRemotes) {
+			if (remote?.provider == null) continue;
+
+			const integration = remote.getIntegration();
+			if (integration == null) continue;
+
+			let repos = providers.get(integration);
+			if (repos == null) {
+				repos = [];
+				providers.set(integration, repos);
+			}
+			repos.push(remote.provider.repoDesc);
+		}
+
+		return this.getMyIssuesCore(providers);
+	}
+
+	async getMyPullRequests(providerIds?: ProviderId[]): Promise<SearchedPullRequest[] | undefined> {
+		const providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined> = new Map();
+		for (const integration of this._integrations.values()) {
+			if (providerIds == null || providerIds.includes(integration.id)) {
+				providers.set(integration, undefined);
+			}
+		}
+		if (providers.size === 0) return undefined;
+
+		return this.getMyPullRequestsCore(providers);
+	}
+
+	private async getMyPullRequestsCore(
+		providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined>,
+	): Promise<SearchedPullRequest[] | undefined> {
+		const promises: Promise<SearchedPullRequest[] | undefined>[] = [];
+		for (const [provider, repos] of providers) {
+			if (provider == null) continue;
+
+			promises.push(provider.searchMyPullRequests(repos));
+		}
+
+		const results = await Promise.allSettled(promises);
+		return [...flatten(filterMap(results, r => (r.status === 'fulfilled' ? r.value : undefined)))];
+	}
+
+	async getMyPullRequestsForRemotes(remote: GitRemote): Promise<SearchedPullRequest[] | undefined>;
+	async getMyPullRequestsForRemotes(remotes: GitRemote[]): Promise<SearchedPullRequest[] | undefined>;
+	@debug<IntegrationService['getMyPullRequestsForRemotes']>({
+		args: { 0: (r: GitRemote | GitRemote[]) => (Array.isArray(r) ? r.map(rp => rp.name) : r.name) },
+	})
+	async getMyPullRequestsForRemotes(
+		remoteOrRemotes: GitRemote | GitRemote[],
+	): Promise<SearchedPullRequest[] | undefined> {
+		if (!Array.isArray(remoteOrRemotes)) {
+			remoteOrRemotes = [remoteOrRemotes];
+		}
+
+		if (!remoteOrRemotes.length) return undefined;
+		if (remoteOrRemotes.length === 1) {
+			const [remote] = remoteOrRemotes;
+			if (remote?.provider == null) return undefined;
+
+			const provider = this.getByRemote(remote);
+			return provider?.searchMyPullRequests(remote.provider.repoDesc);
+		}
+
+		const providers = new Map<ProviderIntegration, RepositoryDescriptor[]>();
+
+		for (const remote of remoteOrRemotes) {
+			if (remote?.provider == null) continue;
+
+			const integration = remote.getIntegration();
+			if (integration == null) continue;
+
+			let repos = providers.get(integration);
+			if (repos == null) {
+				repos = [];
+				providers.set(integration, repos);
+			}
+			repos.push(remote.provider.repoDesc);
+		}
+
+		return this.getMyPullRequestsCore(providers);
 	}
 
 	supports(remoteId: RemoteProviderId): boolean {
-		return convertRemoteIdToProviderId(remoteId) != null;
+		switch (remoteId) {
+			case 'azure-devops':
+			case 'bitbucket':
+			case 'github':
+			case 'gitlab':
+				return true;
+			case 'bitbucket-server':
+			default:
+				return false;
+		}
 	}
 
 	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
 	ignoreSSLErrors(
-		integration: ProviderIntegration | { id: SupportedProviderIds; domain: string },
+		integration: ProviderIntegration | { id: SupportedProviderIds; domain?: string },
 	): boolean | 'force' {
 		if (isWeb) return false;
 
@@ -213,21 +308,5 @@ export class IntegrationService implements Disposable {
 		}
 
 		return ignoreSSLErrors;
-	}
-}
-
-function convertRemoteIdToProviderId(remoteId: RemoteProviderId): SupportedProviderIds | undefined {
-	switch (remoteId) {
-		case 'azure-devops':
-			return ProviderId.AzureDevOps;
-		case 'bitbucket':
-		case 'bitbucket-server':
-			return ProviderId.Bitbucket;
-		case 'github':
-			return ProviderId.GitHub;
-		case 'gitlab':
-			return ProviderId.GitLab;
-		default:
-			return undefined;
 	}
 }

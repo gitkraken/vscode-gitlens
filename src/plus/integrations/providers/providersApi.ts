@@ -16,6 +16,7 @@ import type {
 	IssueFilter,
 	PagingMode,
 	ProviderAccount,
+	ProviderId,
 	ProviderInfo,
 	ProviderIssue,
 	ProviderPullRequest,
@@ -25,15 +26,16 @@ import type {
 	Providers,
 	PullRequestFilter,
 } from './models';
-import { ProviderId, providersMetadata } from './models';
+import { HostedProviderId, providersMetadata, SelfHostedProviderId } from './models';
 
 export class ProvidersApi {
 	private readonly providers: Providers;
+
 	constructor(private readonly container: Container) {
 		const providerApis = ProviderApis();
 		this.providers = {
-			[ProviderId.GitHub]: {
-				...providersMetadata[ProviderId.GitHub],
+			[HostedProviderId.GitHub]: {
+				...providersMetadata[HostedProviderId.GitHub],
 				provider: providerApis.github,
 				getCurrentUserFn: providerApis.github.getCurrentUser.bind(providerApis.github) as getCurrentUserFn,
 				getPullRequestsForReposFn: providerApis.github.getPullRequestsForRepos.bind(
@@ -43,8 +45,8 @@ export class ProvidersApi {
 					providerApis.github,
 				) as GetIssuesForReposFn,
 			},
-			[ProviderId.GitHubEnterprise]: {
-				...providersMetadata[ProviderId.GitHubEnterprise],
+			[SelfHostedProviderId.GitHubEnterprise]: {
+				...providersMetadata[SelfHostedProviderId.GitHubEnterprise],
 				provider: providerApis.github,
 				getCurrentUserFn: providerApis.github.getCurrentUser.bind(providerApis.github) as getCurrentUserFn,
 				getPullRequestsForReposFn: providerApis.github.getPullRequestsForRepos.bind(
@@ -54,8 +56,8 @@ export class ProvidersApi {
 					providerApis.github,
 				) as GetIssuesForReposFn,
 			},
-			[ProviderId.GitLab]: {
-				...providersMetadata[ProviderId.GitLab],
+			[HostedProviderId.GitLab]: {
+				...providersMetadata[HostedProviderId.GitLab],
 				provider: providerApis.gitlab,
 				getCurrentUserFn: providerApis.gitlab.getCurrentUser.bind(providerApis.gitlab) as getCurrentUserFn,
 				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
@@ -71,8 +73,8 @@ export class ProvidersApi {
 					providerApis.gitlab,
 				) as GetIssuesForRepoFn,
 			},
-			[ProviderId.GitLabSelfHosted]: {
-				...providersMetadata[ProviderId.GitLabSelfHosted],
+			[SelfHostedProviderId.GitLabSelfHosted]: {
+				...providersMetadata[SelfHostedProviderId.GitLabSelfHosted],
 				provider: providerApis.gitlab,
 				getCurrentUserFn: providerApis.gitlab.getCurrentUser.bind(providerApis.gitlab) as getCurrentUserFn,
 				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
@@ -88,8 +90,8 @@ export class ProvidersApi {
 					providerApis.gitlab,
 				) as GetIssuesForRepoFn,
 			},
-			[ProviderId.Bitbucket]: {
-				...providersMetadata[ProviderId.Bitbucket],
+			[HostedProviderId.Bitbucket]: {
+				...providersMetadata[HostedProviderId.Bitbucket],
 				provider: providerApis.bitbucket,
 				getCurrentUserFn: providerApis.bitbucket.getCurrentUser.bind(
 					providerApis.bitbucket,
@@ -101,8 +103,8 @@ export class ProvidersApi {
 					providerApis.bitbucket,
 				) as GetPullRequestsForRepoFn,
 			},
-			[ProviderId.AzureDevOps]: {
-				...providersMetadata[ProviderId.AzureDevOps],
+			[HostedProviderId.AzureDevOps]: {
+				...providersMetadata[HostedProviderId.AzureDevOps],
 				provider: providerApis.azureDevOps,
 				getCurrentUserForInstanceFn: providerApis.azureDevOps.getCurrentUserForInstance.bind(
 					providerApis.azureDevOps,
@@ -120,12 +122,12 @@ export class ProvidersApi {
 					providerApis.azureDevOps,
 				) as GetReposForAzureProjectFn,
 			},
-			[ProviderId.Jira]: {
-				...providersMetadata[ProviderId.Jira],
+			[HostedProviderId.Jira]: {
+				...providersMetadata[HostedProviderId.Jira],
 				provider: providerApis.jira,
 			},
-			[ProviderId.Trello]: {
-				...providersMetadata[ProviderId.Trello],
+			[HostedProviderId.Trello]: {
+				...providersMetadata[HostedProviderId.Trello],
 				provider: providerApis.trello,
 			},
 		};
@@ -326,7 +328,7 @@ export class ProvidersApi {
 			throw new Error(`Provider with id ${providerId} does not support getting issues for repositories`);
 		}
 
-		if (provider.id === ProviderId.AzureDevOps) {
+		if (provider.id === HostedProviderId.AzureDevOps) {
 			throw new Error(
 				`Provider with id ${providerId} does not support getting issues for repositories; use getIssuesForAzureProject instead`,
 			);
@@ -391,7 +393,7 @@ export class ProvidersApi {
 			throw new Error(`Provider with id ${providerId} does not support getting issues for a repository`);
 		}
 
-		if (provider.id === ProviderId.AzureDevOps) {
+		if (provider.id === HostedProviderId.AzureDevOps) {
 			throw new Error(
 				`Provider with id ${providerId} does not support getting issues for a repository; use getIssuesForAzureProject instead`,
 			);
@@ -444,19 +446,19 @@ export class ProvidersApi {
 		project: string,
 		options?: GetIssuesOptions,
 	): Promise<PagedResult<ProviderIssue>> {
-		const provider = this.providers[ProviderId.AzureDevOps];
+		const provider = this.providers[HostedProviderId.AzureDevOps];
 		if (provider == null) {
-			throw new Error(`Provider with id ${ProviderId.AzureDevOps} not registered`);
+			throw new Error(`Provider with id ${HostedProviderId.AzureDevOps} not registered`);
 		}
 
 		const token = await this.getProviderToken(provider);
 		if (token == null) {
-			throw new Error(`Not connected to provider ${ProviderId.AzureDevOps}`);
+			throw new Error(`Not connected to provider ${HostedProviderId.AzureDevOps}`);
 		}
 
 		if (provider.getIssuesForAzureProjectFn == null) {
 			throw new Error(
-				`Provider with id ${ProviderId.AzureDevOps} does not support getting issues for an Azure project`,
+				`Provider with id ${HostedProviderId.AzureDevOps} does not support getting issues for an Azure project`,
 			);
 		}
 
@@ -508,19 +510,19 @@ export class ProvidersApi {
 		project: string,
 		options?: GetReposOptions,
 	): Promise<PagedResult<ProviderRepository>> {
-		const provider = this.providers[ProviderId.AzureDevOps];
+		const provider = this.providers[HostedProviderId.AzureDevOps];
 		if (provider == null) {
-			throw new Error(`Provider with id ${ProviderId.AzureDevOps} not registered`);
+			throw new Error(`Provider with id ${HostedProviderId.AzureDevOps} not registered`);
 		}
 
 		const token = await this.getProviderToken(provider);
 		if (token == null) {
-			throw new Error(`Not connected to provider ${ProviderId.AzureDevOps}`);
+			throw new Error(`Not connected to provider ${HostedProviderId.AzureDevOps}`);
 		}
 
 		if (provider.getReposForAzureProjectFn == null) {
 			throw new Error(
-				`Provider with id ${ProviderId.AzureDevOps} does not support getting repositories for Azure projects`,
+				`Provider with id ${HostedProviderId.AzureDevOps} does not support getting repositories for Azure projects`,
 			);
 		}
 

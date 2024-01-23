@@ -594,20 +594,23 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			const repos = [];
 			const disposables = [];
 			for (const repo of this.container.git.openRepositories) {
-				const richRemote = await repo.getRichRemote();
-				if (richRemote == null || repos.findIndex(repo => repo.remote === richRemote) > -1) {
+				const remoteWithIntegration = await repo.getBestRemoteWithIntegration({ includeDisconnected: true });
+				if (
+					remoteWithIntegration == null ||
+					repos.findIndex(repo => repo.remote === remoteWithIntegration) > -1
+				) {
 					continue;
 				}
 
 				disposables.push(repo.onDidChange(this.onRepositoryChanged, this));
 
-				const provider = this.container.integrations.getByRemote(richRemote);
+				const provider = this.container.integrations.getByRemote(remoteWithIntegration);
 
 				repos.push({
 					repo: repo,
-					remote: richRemote,
+					remote: remoteWithIntegration,
 					isConnected: provider?.maybeConnected ?? (await provider?.isConnected()) ?? false,
-					isGitHub: richRemote.provider.id === 'github',
+					isGitHub: remoteWithIntegration.provider.id === 'github',
 				});
 			}
 			if (this._repositoryEventsDisposable) {
@@ -640,7 +643,9 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			const branchesByRepo = new Map<Repository, PageableResult<GitBranch>>();
 			const worktreesByRepo = new Map<Repository, GitWorktree[]>();
 
-			const queries = richRepos.map(r => [r, this.container.integrations.getMyPullRequests(r.remote)] as const);
+			const queries = richRepos.map(
+				r => [r, this.container.integrations.getMyPullRequestsForRemotes(r.remote)] as const,
+			);
 			for (const [r, query] of queries) {
 				let prs;
 				try {
@@ -722,7 +727,9 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (force || this._pullRequests == null) {
 			const allIssues = [];
 
-			const queries = richRepos.map(r => [r, this.container.integrations.getMyIssues(r.remote)] as const);
+			const queries = richRepos.map(
+				r => [r, this.container.integrations.getMyIssuesForRemotes(r.remote)] as const,
+			);
 			for (const [r, query] of queries) {
 				let issues;
 				try {
