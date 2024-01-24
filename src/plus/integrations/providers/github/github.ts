@@ -598,12 +598,31 @@ export class GitHubApi implements Disposable {
 					updatedAt
 					closedAt
 					mergedAt
+					baseRefName
+					baseRefOid
+					baseRepository {
+						name
+						owner {
+							login
+						}
+						url
+					}
+					headRefName
+					headRefOid
+					headRepository {
+						name
+						owner {
+							login
+						}
+						url
+					}
 					repository {
 						isFork
 						owner {
 							login
 						}
 					}
+					isCrossRepository
 				}
 			}
 		}
@@ -700,12 +719,31 @@ export class GitHubApi implements Disposable {
 						updatedAt
 						closedAt
 						mergedAt
+						baseRefName
+						baseRefOid
+						baseRepository {
+							name
+							owner {
+								login
+							}
+							url
+						}
+						headRefName
+						headRefOid
+						headRepository {
+							name
+							owner {
+								login
+							}
+							url
+						}
 						repository {
 							isFork
 							owner {
 								login
 							}
 						}
+						isCrossRepository
 					}
 				}
 			}

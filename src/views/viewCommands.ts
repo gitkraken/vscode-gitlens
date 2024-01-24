@@ -301,6 +301,8 @@ export class ViewCommands {
 
 		registerViewCommand('gitlens.views.createPullRequest', this.createPullRequest, this);
 		registerViewCommand('gitlens.views.openPullRequest', this.openPullRequest, this);
+		registerViewCommand('gitlens.views.openPullRequestChanges', this.openPullRequestChanges, this);
+		registerViewCommand('gitlens.views.openPullRequestComparison', this.openPullRequestComparison, this);
 
 		registerViewCommand('gitlens.views.title.createWorktree', () => this.createWorktree());
 		registerViewCommand('gitlens.views.createWorktree', this.createWorktree, this);
@@ -613,6 +615,31 @@ export class ViewCommands {
 				url: node.pullRequest.url,
 			},
 		});
+	}
+
+	@log()
+	private async openPullRequestChanges(node: PullRequestNode) {
+		if (!node.is('pullrequest')) return Promise.resolve();
+		if (node.pullRequest.refs?.base == null || node.pullRequest.refs.head == null) return Promise.resolve();
+
+		return this.container.searchAndCompareView.openComparisonChanges(
+			node.repoPath,
+			{ ref: node.pullRequest.refs.head.sha, label: node.pullRequest.refs.head.branch },
+			{ ref: node.pullRequest.refs.base.sha, label: node.pullRequest.refs.base.branch },
+			{ title: `Changes in Pull Request #${node.pullRequest.id}` },
+		);
+	}
+
+	@log()
+	private openPullRequestComparison(node: PullRequestNode) {
+		if (!node.is('pullrequest')) return Promise.resolve();
+		if (node.pullRequest.refs?.base == null || node.pullRequest.refs.head == null) return Promise.resolve();
+
+		return this.container.searchAndCompareView.compare(
+			node.repoPath,
+			{ ref: node.pullRequest.refs.head.sha, label: node.pullRequest.refs.head.branch },
+			{ ref: node.pullRequest.refs.base.sha, label: node.pullRequest.refs.base.branch },
+		);
 	}
 
 	@log()

@@ -15,6 +15,7 @@ import { getGitFileFormattedDirectory, getGitFileStatusCodicon } from '../../git
 import type { GitStatusFile } from '../../git/models/status';
 import { basename } from '../../system/path';
 import { pad } from '../../system/string';
+import type { CompareResultsNode } from '../../views/nodes/compareResultsNode';
 import { CommandQuickPickItem } from './common';
 
 export class CommitFilesQuickPickItem extends CommandQuickPickItem {
@@ -135,7 +136,7 @@ export class CommitCompareWithHEADCommandQuickPickItem extends CommandQuickPickI
 		super(item ?? '$(compare-changes) Compare with HEAD');
 	}
 
-	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<CompareResultsNode> {
 		return Container.instance.searchAndCompareView.compare(this.commit.repoPath, this.commit.ref, 'HEAD');
 	}
 }
@@ -148,7 +149,7 @@ export class CommitCompareWithWorkingCommandQuickPickItem extends CommandQuickPi
 		super(item ?? '$(compare-changes) Compare with Working Tree');
 	}
 
-	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<CompareResultsNode> {
 		return Container.instance.searchAndCompareView.compare(this.commit.repoPath, this.commit.ref, '');
 	}
 }
