@@ -40,7 +40,7 @@ export interface OrganizationMember {
 
 export interface OrganizationSettings {
 	aiSettings: OrganizationSetting;
-	draftSettings: OrganizationDraftSettings;
+	draftsSettings: OrganizationDraftsSettings;
 }
 
 export interface OrganizationSetting {
@@ -49,7 +49,7 @@ export interface OrganizationSetting {
 	readonly updatedAt: string;
 }
 
-export interface OrganizationDraftSettings extends OrganizationSetting {
+export interface OrganizationDraftsSettings extends OrganizationSetting {
 	readonly bucket:
 		| {
 				readonly name: string;

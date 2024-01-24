@@ -136,7 +136,7 @@ export class OrganizationService implements Disposable {
 		}
 
 		void setContext('gitlens:gk:organization:ai:disabled', settings.aiSettings.enabled === false);
-		void setContext('gitlens:gk:organization:drafts:disabled', settings.draftSettings.enabled === false);
+		void setContext('gitlens:gk:organization:drafts:disabled', settings.draftsSettings.enabled === false);
 	}
 
 	@gate()
@@ -189,6 +189,10 @@ export class OrganizationService implements Disposable {
 		orgId: string | undefined,
 		options?: { force?: boolean },
 	): Promise<OrganizationSettings | undefined> {
+		type OrganizationSettingsResponse = {
+			data: OrganizationSettings;
+			error: string | undefined;
+		};
 		// TODO: maybe getSubscription(false) when force is true
 		const id = orgId ?? (await this.container.subscription.getSubscription(true)).activeOrganization?.id;
 		if (id == null) return undefined;
@@ -197,7 +201,7 @@ export class OrganizationService implements Disposable {
 			const session = await this.container.subscription.getAuthenticationSession();
 
 			const rsp = await this.connection.fetchApi(
-				`v1/organization/settings`,
+				`v1/organizations/settings`,
 				{
 					method: 'GET',
 				},
@@ -213,11 +217,20 @@ export class OrganizationService implements Disposable {
 				return undefined;
 			}
 
-			const organizationSettings = (await rsp.json()) as OrganizationSettings;
+			const organizationResponse = (await rsp.json()) as OrganizationSettingsResponse;
+			if (organizationResponse.error != null) {
+				Logger.error(
+					'',
+					getLogScope(),
+					`Unable to get organization settings; status=(${rsp.status}): ${organizationResponse.error}`,
+				);
+				return undefined;
+			}
+
 			if (this._organizationSettings == null) {
 				this._organizationSettings = new Map();
 			}
-			this._organizationSettings.set(id, organizationSettings);
+			this._organizationSettings.set(id, organizationResponse.data);
 		}
 		return this._organizationSettings.get(id);
 	}
