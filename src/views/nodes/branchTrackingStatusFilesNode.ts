@@ -1,9 +1,10 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitFileWithCommit } from '../../git/models/file';
 import { createRevisionRange } from '../../git/models/reference';
-import { groupBy, makeHierarchical } from '../../system/array';
+import { groupByMap, makeHierarchical } from '../../system/array';
 import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
@@ -28,51 +29,70 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
+	get ref1(): string {
+		return this.branch.ref;
+	}
+
+	get ref2(): string {
+		return this.status.upstream;
+	}
+
 	get repoPath(): string {
 		return this.status.repoPath;
 	}
 
-	async getChildren(): Promise<ViewNode[]> {
+	async getFilesComparison(): Promise<FilesComparison> {
+		const grouped = await this.getGroupedFiles();
+		return {
+			files: [...map(grouped, ([, files]) => files[files.length - 1])],
+			repoPath: this.repoPath,
+			ref1: this.ref1,
+			ref2: this.ref2,
+			title: this.direction === 'ahead' ? `Changes to push to ${this.ref2}` : `Changes to pull from ${this.ref2}`,
+		};
+	}
+
+	private async getGroupedFiles(): Promise<Map<string, GitFileWithCommit[]>> {
 		const log = await this.view.container.git.getLog(this.repoPath, {
 			limit: 0,
-			ref: createRevisionRange(this.status.upstream, this.branch.ref, this.direction === 'behind' ? '...' : '..'),
+			ref: createRevisionRange(this.ref2, this.ref1, this.direction === 'behind' ? '...' : '..'),
 		});
+		if (log == null) return new Map();
 
-		let files: GitFileWithCommit[];
+		await Promise.allSettled(
+			map(
+				filter(log.commits.values(), c => c.files == null),
+				c => c.ensureFullDetails(),
+			),
+		);
 
-		if (log != null) {
-			await Promise.allSettled(
-				map(
-					filter(log.commits.values(), c => c.files == null),
-					c => c.ensureFullDetails(),
-				),
-			);
-
-			files = [
-				...flatMap(
-					log.commits.values(),
-					c => c.files?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? [],
-				),
-			];
-		} else {
-			files = [];
-		}
+		const files = [
+			...flatMap(log.commits.values(), c => c.files?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? []),
+		];
 
 		files.sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime());
 
-		const groups = groupBy(files, s => s.path);
+		const groups = groupByMap(files, s => s.path);
+		return groups;
+	}
 
-		let children: FileNode[] = Object.values(groups).map(
-			files =>
-				new StatusFileNode(
-					this.view,
-					this,
-					files[files.length - 1],
-					this.repoPath,
-					files.map(s => s.commit),
-					this.direction,
-				),
-		);
+	async getChildren(): Promise<ViewNode[]> {
+		const files = await this.getGroupedFiles();
+
+		let children: FileNode[] = [
+			...map(
+				files.values(),
+				files =>
+					new StatusFileNode(
+						this.view,
+						this,
+						files[files.length - 1],
+						this.repoPath,
+						files.map(s => s.commit),
+						this.direction,
+					),
+			),
+		];
 
 		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
@@ -94,7 +114,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 	async getTreeItem(): Promise<TreeItem> {
 		const stats = await this.view.container.git.getChangedFilesCount(
 			this.repoPath,
-			this.direction === 'behind' ? `${this.ref2}...${this.ref1}` : `${this.ref1}...`,
+			this.direction === 'behind' ? `${this.ref1}...${this.ref2}` : `${this.ref2}...`,
 		);
 		const files = stats?.changedFiles ?? 0;
 

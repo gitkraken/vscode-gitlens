@@ -1,4 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
 import type { GitDiffShortStat } from '../../git/models/diff';
 import type { GitFile } from '../../git/models/file';
@@ -72,6 +73,16 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 
 	get filterable(): boolean {
 		return this.filter != null || (this.ref1 !== this.ref2 && this.direction === undefined);
+	}
+
+	async getFilesComparison(): Promise<FilesComparison> {
+		const { files } = await this.getFilesQueryResults();
+		return {
+			files: files ?? [],
+			repoPath: this.repoPath,
+			ref1: this.ref1,
+			ref2: this.ref2,
+		};
 	}
 
 	private getFilterContextValue(): string {
@@ -200,7 +211,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 	private _filesQueryResults: Promise<FilesQueryResults> | undefined;
 	private _filterResults: Promise<void> | undefined;
 
-	async getFilesQueryResults() {
+	private async getFilesQueryResults() {
 		if (this._filesQueryResults === undefined) {
 			this._filesQueryResults = this._filesQuery();
 		}

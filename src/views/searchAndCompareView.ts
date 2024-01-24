@@ -405,21 +405,14 @@ export class SearchAndCompareView extends ViewBase<
 		options?: TextDocumentShowOptions & { title?: string },
 	): Promise<void> {
 		// TODO@eamodio this is a total hack but works -- eventually need to extract the functionality out of the CompareResultsNode
-		const node = await this.createCompareResultsNode(repoPath, ref1, ref2).getFilesNode();
-		if (node == null) return;
+		const comparison = await this.createCompareResultsNode(repoPath, ref1, ref2).getFilesComparison();
+		if (!comparison?.files.length) return undefined;
 
-		const { files } = await node.getFilesQueryResults();
-		if (files?.length) {
-			await openAllChangesInChangesEditor(
-				files,
-				{
-					repoPath: node.repoPath,
-					lhs: node.ref1,
-					rhs: node.ref2,
-				},
-				options,
-			);
-		}
+		await openAllChangesInChangesEditor(
+			comparison.files,
+			{ repoPath: comparison.repoPath, lhs: comparison.ref1, rhs: comparison.ref2 },
+			options,
+		);
 	}
 
 	compareWithSelected(repoPath?: string, ref?: string | StoredNamedRef) {

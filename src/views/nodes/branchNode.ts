@@ -158,6 +158,7 @@ export class BranchNode
 
 			let onCompleted: Deferred<void> | undefined;
 			let pullRequest;
+			let pullRequestInsertIndex = 0;
 
 			if (
 				this.view.config.pullRequests.enabled &&
@@ -189,7 +190,7 @@ export class BranchNode
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
 						if (pr != null && this.children != null) {
 							this.children.splice(
-								this.children[0] instanceof CompareBranchNode ? 1 : 0,
+								pullRequestInsertIndex,
 								0,
 								new PullRequestNode(this.view, this, pr, branch),
 							);
@@ -237,26 +238,10 @@ export class BranchNode
 
 			const children = [];
 
-			if (this.options.showComparison !== false && this.view.type !== 'remotes') {
-				children.push(
-					new CompareBranchNode(
-						this.uri,
-						this.view,
-						this,
-						branch,
-						this.options.showComparison,
-						this.splatted,
-					),
-				);
-			}
-
-			if (pullRequest != null) {
-				children.push(new PullRequestNode(this.view, this, pullRequest, branch));
-			}
-
 			const status = getSettledValue(statusResult);
 			const mergeStatus = getSettledValue(mergeStatusResult);
 			const rebaseStatus = getSettledValue(rebaseStatusResult);
+			const unpublishedCommits = getSettledValue(unpublishedCommitsResult);
 
 			if (this.options.showStatus && mergeStatus != null) {
 				children.push(
@@ -308,7 +293,9 @@ export class BranchNode
 
 						if (status.state.ahead) {
 							children.push(
-								new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', this.root),
+								new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', this.root, {
+									unpublishedCommits: unpublishedCommits,
+								}),
 							);
 						}
 					}
@@ -317,11 +304,29 @@ export class BranchNode
 				}
 			}
 
+			pullRequestInsertIndex = 0; //children.length;
+
+			if (this.options.showComparison !== false && this.view.type !== 'remotes') {
+				children.push(
+					new CompareBranchNode(
+						this.uri,
+						this.view,
+						this,
+						branch,
+						this.options.showComparison,
+						this.splatted,
+					),
+				);
+			}
+
+			if (pullRequest != null) {
+				children.push(new PullRequestNode(this.view, this, pullRequest, branch));
+			}
+
 			if (children.length !== 0) {
 				children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
 			}
 
-			const unpublishedCommits = getSettledValue(unpublishedCommitsResult);
 			const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
 
 			children.push(
