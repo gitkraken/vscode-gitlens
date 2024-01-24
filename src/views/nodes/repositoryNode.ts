@@ -226,18 +226,20 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			}
 		}
 
-		let iconSuffix;
+		let iconType: '' | '-solid' | '-cloud' = '';
+		let iconColor: '' | '-blue' | '-green' | '-yellow' | '-red' = '';
+
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
 		if (this.repo.closed) {
 			contextValue += '+closed';
-			iconSuffix = '';
+			iconType = '';
 		} else {
-			iconSuffix = '-solid';
+			iconType = '-solid';
 		}
 
 		if (this.repo.virtual) {
 			contextValue += '+virtual';
-			iconSuffix = '-cloud';
+			iconType = '-cloud';
 		}
 
 		const status = await this._status;
@@ -268,7 +270,6 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				providerName = remote?.provider?.name;
 			}
 
-			iconSuffix += workingStatus ? '-blue' : '';
 			if (status.upstream != null) {
 				tooltip += ` is ${status.getUpstreamStatus({
 					empty: `up to date with $(git-branch) ${status.upstream}${
@@ -282,11 +283,11 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 				if (status.state.behind) {
 					contextValue += '+behind';
-					iconSuffix += '-red';
+					iconColor = '-red';
 				}
 				if (status.state.ahead) {
-					iconSuffix += status.state.behind ? '-yellow' : '-green';
 					contextValue += '+ahead';
+					iconColor = status.state.behind ? '-yellow' : '-green';
 				}
 			}
 
@@ -296,6 +297,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					prefix: '\n',
 					separator: '\n',
 				})}`;
+				iconColor = '-blue';
 			}
 		}
 
@@ -315,8 +317,8 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			lastFetched ? `${pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''
 		}`;
 		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
-			light: this.view.container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
+			dark: this.view.container.context.asAbsolutePath(`images/dark/icon-repo${iconType}${iconColor}.svg`),
+			light: this.view.container.context.asAbsolutePath(`images/light/icon-repo${iconType}${iconColor}.svg`),
 		};
 
 		if (workspace != null && !this.repo.closed) {
