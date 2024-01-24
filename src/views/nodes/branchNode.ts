@@ -243,6 +243,10 @@ export class BranchNode
 			const rebaseStatus = getSettledValue(rebaseStatusResult);
 			const unpublishedCommits = getSettledValue(unpublishedCommitsResult);
 
+			if (pullRequest != null) {
+				children.push(new PullRequestNode(this.view, this, pullRequest, branch));
+			}
+
 			if (this.options.showStatus && mergeStatus != null) {
 				children.push(
 					new MergeStatusNode(
@@ -317,10 +321,6 @@ export class BranchNode
 						this.splatted,
 					),
 				);
-			}
-
-			if (pullRequest != null) {
-				children.push(new PullRequestNode(this.view, this, pullRequest, branch));
 			}
 
 			if (children.length !== 0) {
