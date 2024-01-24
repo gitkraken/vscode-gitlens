@@ -392,7 +392,7 @@ export class GitStatusFile implements GitFile {
 
 			switch (y) {
 				case 'A':
-				case '?':
+					// case '?':
 					this.workingTreeStatus = GitFileWorkingTreeStatus.Added;
 					break;
 				case 'D':
