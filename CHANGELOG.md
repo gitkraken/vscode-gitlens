@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a _Compare Pull Request with Base_ inline button and context menu command to pull requests to open a comparison for the pull request
 - Adds an _Open All Changes_ inline button to branch status (upstream) and branch status files in GitLens views
 - Adds an _Open Changes_ submenu to branch status (upstream) and branch status files in GitLens views
-- Adds an alternate flow (pick another file) when using the _Open File at Revision..._ and _Open Changes with Revision..._ commands to open a file that has been renamed and the rename is currently unstaged &mdash; closes [#3050](https://github.com/gitkraken/vscode-gitlens/issues/3050)
+- Adds an alternate flow (pick another file) when using the _Open File at Revision..._ and _Open Changes with Revision..._ commands to open a file that has been renamed and the rename is currently unstaged &mdash; closes [#3109](https://github.com/gitkraken/vscode-gitlens/issues/3109)
 
 ### Changed
 
