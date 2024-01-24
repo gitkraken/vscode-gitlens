@@ -34,6 +34,14 @@ import {
 type Ref = { repoPath: string; ref: string };
 type RefRange = { repoPath: string; rhs: string; lhs: string };
 
+export interface FilesComparison {
+	files: GitFile[];
+	repoPath: string;
+	ref1: string;
+	ref2: string;
+	title?: string;
+}
+
 const filesOpenThreshold = 10;
 const filesOpenDiffsThreshold = 10;
 const filesOpenMultiDiffThreshold = 50;
@@ -94,16 +102,19 @@ export async function copyMessageToClipboard(ref: Ref | GitCommit): Promise<void
 	await env.clipboard.writeText(message);
 }
 
-export async function openAllChanges(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
+export async function openAllChanges(
+	commit: GitCommit,
+	options?: TextDocumentShowOptions & { title?: string },
+): Promise<void>;
 export async function openAllChanges(
 	files: GitFile[],
 	refs: RefRange,
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { title?: string },
 ): Promise<void>;
 export async function openAllChanges(
 	commitOrFiles: GitCommit | GitFile[],
-	refsOrOptions: RefRange | TextDocumentShowOptions | undefined,
-	maybeOptions?: TextDocumentShowOptions,
+	refsOrOptions: RefRange | (TextDocumentShowOptions & { title?: string }) | undefined,
+	maybeOptions?: TextDocumentShowOptions & { title?: string },
 ): Promise<void> {
 	if (isCommit(commitOrFiles)) {
 		if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
@@ -133,7 +144,7 @@ export async function openAllChangesIndividually(
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Open changes for all ${files.length} files?`,
+			message: `Are you sure you want to open the changes for each of the ${files.length} files?`,
 			confirmButton: 'Open Changes',
 			threshold: filesOpenDiffsThreshold,
 		}))
@@ -188,8 +199,8 @@ export async function openAllChangesInChangesEditor(
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Open changes for all ${files.length} files?`,
-			confirmButton: 'Open Changes',
+			message: `Are you sure you want to view the changes for all ${files.length} files?`,
+			confirmButton: 'View All Changes',
 			threshold: filesOpenMultiDiffThreshold,
 		}))
 	) {
@@ -224,7 +235,7 @@ export async function openAllChangesWithDiffTool(commitOrFiles: GitCommit | GitF
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Open changes for all ${files.length} files?`,
+			message: `Are you sure you want to externally open the changes for each of the ${files.length} files?`,
 			confirmButton: 'Open Changes',
 			threshold: filesOpenDiffsThreshold,
 		}))
@@ -237,16 +248,19 @@ export async function openAllChangesWithDiffTool(commitOrFiles: GitCommit | GitF
 	}
 }
 
-export async function openAllChangesWithWorking(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
+export async function openAllChangesWithWorking(
+	commit: GitCommit,
+	options?: TextDocumentShowOptions & { title?: string },
+): Promise<void>;
 export async function openAllChangesWithWorking(
 	files: GitFile[],
 	ref: Ref,
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { title?: string },
 ): Promise<void>;
 export async function openAllChangesWithWorking(
 	commitOrFiles: GitCommit | GitFile[],
-	refOrOptions: Ref | TextDocumentShowOptions | undefined,
-	maybeOptions?: TextDocumentShowOptions,
+	refOrOptions: Ref | (TextDocumentShowOptions & { title?: string }) | undefined,
+	maybeOptions?: TextDocumentShowOptions & { title?: string },
 ) {
 	if (isCommit(commitOrFiles)) {
 		if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
@@ -290,7 +304,7 @@ export async function openAllChangesWithWorkingIndividually(
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Open changes for all ${files.length} files?`,
+			message: `Are you sure you want to open the changes for each of the ${files.length} files?`,
 			confirmButton: 'Open Changes',
 			threshold: filesOpenDiffsThreshold,
 		}))
@@ -642,7 +656,7 @@ export async function openFiles(
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Open all ${files.length} files?`,
+			message: `Are you sure you want to open each of the ${files.length} files?`,
 			confirmButton: 'Open Files',
 			threshold: filesOpenThreshold,
 		}))
@@ -675,7 +689,7 @@ export async function openFilesAtRevision(
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Open all ${files.length} file revisions?`,
+			message: `Are you sure you want to open each of the ${files.length} file revisions?`,
 			confirmButton: 'Open Revisions',
 			threshold: filesOpenThreshold,
 		}))
@@ -803,7 +817,7 @@ export async function openOnlyChangedFiles(commitOrFiles: GitCommit | GitFile[])
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Open all ${files.length} files?`,
+			message: `Are you sure you want to open each of the ${files.length} files?`,
 			confirmButton: 'Open Files',
 			threshold: 10,
 		}))

@@ -23,7 +23,8 @@ import { is as isA } from '../../../system/function';
 import { getLoggableName } from '../../../system/logger';
 import type { View } from '../../viewBase';
 import type { BranchNode } from '../branchNode';
-import type { BranchTrackingStatus } from '../branchTrackingStatusNode';
+import type { BranchTrackingStatusFilesNode } from '../branchTrackingStatusFilesNode';
+import type { BranchTrackingStatus, BranchTrackingStatusNode } from '../branchTrackingStatusNode';
 import type { CommitFileNode } from '../commitFileNode';
 import type { CommitNode } from '../commitNode';
 import type { CompareBranchNode } from '../compareBranchNode';
@@ -412,9 +413,13 @@ type TreeViewNodesByType = {
 		                                ? StatusFileNode
 		                                : T extends 'tag'
 		                                  ? TagNode
-		                                  : T extends 'uncommitted-file'
-		                                    ? UncommittedFileNode
-		                                    : ViewNode<T>;
+		                                  : T extends 'tracking-status'
+		                                    ? BranchTrackingStatusNode
+		                                    : T extends 'tracking-status-files'
+		                                      ? BranchTrackingStatusFilesNode
+		                                      : T extends 'uncommitted-file'
+		                                        ? UncommittedFileNode
+		                                        : ViewNode<T>;
 };
 
 export function isViewNode(node: unknown): node is ViewNode;

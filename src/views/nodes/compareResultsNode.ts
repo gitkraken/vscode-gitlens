@@ -2,6 +2,7 @@ import type { Disposable, TreeCheckboxChangeEvent } from 'vscode';
 import { ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, window } from 'vscode';
 import { md5 } from '@env/crypto';
 import type { StoredNamedRef } from '../../constants';
+import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
 import { createRevisionRange, shortenRevision } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
@@ -232,9 +233,10 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		return Promise.resolve<[string, string]>([this._compareWith.ref, this._ref.ref]);
 	}
 
-	async getFilesNode(): Promise<ResultsFilesNode | undefined> {
+	async getFilesComparison(): Promise<FilesComparison | undefined> {
 		const children = await this.getChildren();
-		return children.find(c => c.is('results-files')) as ResultsFilesNode | undefined;
+		const node = children.find(c => c.is('results-files')) as ResultsFilesNode | undefined;
+		return node?.getFilesComparison();
 	}
 
 	@log()

@@ -47,6 +47,7 @@ import {
 import { ViewRefFileNode, ViewRefNode } from './nodes/abstract/viewRefNode';
 import type { BranchesNode } from './nodes/branchesNode';
 import type { BranchNode } from './nodes/branchNode';
+import type { BranchTrackingStatusFilesNode } from './nodes/branchTrackingStatusFilesNode';
 import type { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
 import type { CommitFileNode } from './nodes/commitFileNode';
 import type { CommitNode } from './nodes/commitNode';
@@ -1036,26 +1037,27 @@ export class ViewCommands {
 
 	@log()
 	private async openAllChanges(
-		node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
-		options?: TextDocumentShowOptions,
+		node:
+			| BranchTrackingStatusFilesNode
+			| BranchTrackingStatusNode
+			| CompareResultsNode
+			| CommitNode
+			| ResultsFilesNode
+			| StashNode,
+		options?: TextDocumentShowOptions & { title?: string },
 		individually?: boolean,
 	) {
-		if (node.is('compare-results')) {
-			node = (await node.getFilesNode())!;
-			if (node == null) return undefined;
-		}
+		if (node.isAny('compare-results', 'results-files', 'tracking-status', 'tracking-status-files')) {
+			const comparison = await node.getFilesComparison();
+			if (!comparison?.files.length) return undefined;
 
-		if (node.is('results-files')) {
-			const { files } = await node.getFilesQueryResults();
-			if (!files?.length) return undefined;
+			if (comparison.title != null) {
+				options = { ...options, title: comparison.title };
+			}
 
 			return (individually ? CommitActions.openAllChangesIndividually : CommitActions.openAllChanges)(
-				files,
-				{
-					repoPath: node.repoPath,
-					lhs: node.ref1,
-					rhs: node.ref2,
-				},
+				comparison.files,
+				{ repoPath: comparison.repoPath, lhs: comparison.ref1, rhs: comparison.ref2 },
 				options,
 			);
 		}
@@ -1122,31 +1124,25 @@ export class ViewCommands {
 
 	@log()
 	private async openAllChangesWithWorking(
-		node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
-		options?: TextDocumentShowOptions,
+		node:
+			| BranchTrackingStatusFilesNode
+			| BranchTrackingStatusNode
+			| CompareResultsNode
+			| CommitNode
+			| ResultsFilesNode
+			| StashNode,
+		options?: TextDocumentShowOptions & { title?: string },
 		individually?: boolean,
 	) {
-		if (node.is('compare-results')) {
-			node = (await node.getFilesNode())!;
-			if (node == null) return undefined;
-		}
-
-		if (node.is('results-files')) {
-			const { files } = await node.getFilesQueryResults();
-			if (!files?.length) return undefined;
+		if (node.isAny('compare-results', 'results-files', 'tracking-status', 'tracking-status-files')) {
+			const comparison = await node.getFilesComparison();
+			if (!comparison?.files.length) return undefined;
 
 			return (
 				individually
 					? CommitActions.openAllChangesWithWorkingIndividually
 					: CommitActions.openAllChangesWithWorking
-			)(
-				files,
-				{
-					repoPath: node.repoPath,
-					ref: node.ref1 || node.ref2,
-				},
-				options,
-			);
+			)(comparison.files, { repoPath: comparison.repoPath, ref: comparison.ref1 || comparison.ref2 }, options);
 		}
 
 		if (!node.isAny('commit', 'stash')) return undefined;
@@ -1229,17 +1225,17 @@ export class ViewCommands {
 	}
 
 	@log()
-	private async openFiles(node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode) {
-		if (node.is('compare-results')) {
-			node = (await node.getFilesNode())!;
-			if (node == null) return undefined;
-		}
+	private async openFiles(
+		node: BranchTrackingStatusFilesNode | CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
+	) {
+		if (node.isAny('compare-results', 'results-files', 'tracking-status', 'tracking-status-files')) {
+			const comparison = await node.getFilesComparison();
+			if (!comparison?.files.length) return undefined;
 
-		if (node.is('results-files')) {
-			const { files } = await node.getFilesQueryResults();
-			if (!files?.length) return undefined;
-
-			return CommitActions.openFiles(files, { repoPath: node.repoPath, ref: node.ref1 || node.ref2 });
+			return CommitActions.openFiles(comparison.files, {
+				repoPath: comparison.repoPath,
+				ref: comparison.ref1 || comparison.ref2,
+			});
 		}
 		if (!node.isAny('commit', 'stash')) return undefined;
 
@@ -1247,17 +1243,19 @@ export class ViewCommands {
 	}
 
 	@log()
-	private async openOnlyChangedFiles(node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode) {
-		if (node.is('compare-results')) {
-			node = (await node.getFilesNode())!;
-			if (node == null) return undefined;
-		}
+	private async openOnlyChangedFiles(
+		node: BranchTrackingStatusFilesNode | CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
+	) {
+		if (
+			node.is('compare-results') ||
+			node.is('results-files') ||
+			node.is('tracking-status') ||
+			node.is('tracking-status-files')
+		) {
+			const comparison = await node.getFilesComparison();
+			if (!comparison?.files.length) return undefined;
 
-		if (node.is('results-files')) {
-			const { files } = await node.getFilesQueryResults();
-			if (!files?.length) return undefined;
-
-			return CommitActions.openOnlyChangedFiles(files);
+			return CommitActions.openOnlyChangedFiles(comparison.files);
 		}
 		if (!node.isAny('commit', 'stash')) return undefined;
 
@@ -1302,22 +1300,17 @@ export class ViewCommands {
 
 	@log()
 	private async openRevisions(
-		node: CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
+		node: BranchTrackingStatusFilesNode | CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
 		options?: TextDocumentShowOptions,
 	) {
-		if (node.is('compare-results')) {
-			node = (await node.getFilesNode())!;
-			if (node == null) return undefined;
-		}
+		if (node.isAny('compare-results', 'results-files', 'tracking-status', 'tracking-status-files')) {
+			const comparison = await node.getFilesComparison();
+			if (!comparison?.files.length) return undefined;
 
-		if (node.is('results-files')) {
-			const { files } = await node.getFilesQueryResults();
-			if (!files?.length) return undefined;
-
-			return CommitActions.openFilesAtRevision(files, {
-				repoPath: node.repoPath,
-				lhs: node.ref2,
-				rhs: node.ref1,
+			return CommitActions.openFilesAtRevision(comparison.files, {
+				repoPath: comparison.repoPath,
+				lhs: comparison.ref2,
+				rhs: comparison.ref1,
 			});
 		}
 		if (!node.isAny('commit', 'stash')) return undefined;

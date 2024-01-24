@@ -1,5 +1,6 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { Colors } from '../../constants';
+import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch, GitTrackingState } from '../../git/models/branch';
 import { getRemoteNameFromBranchName } from '../../git/models/branch';
@@ -9,7 +10,7 @@ import { GitRemote } from '../../git/models/remote';
 import { fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { first, map } from '../../system/iterable';
+import { first, last, map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import type { PageableViewNode } from './abstract/viewNode';
@@ -42,6 +43,7 @@ export class BranchTrackingStatusNode
 		public readonly root: boolean = false,
 		private readonly options?: {
 			showAheadCommits?: boolean;
+			unpublishedCommits?: Set<string>;
 		},
 	) {
 		super('tracking-status', GitUri.fromRepoPath(status.repoPath), view, parent);
@@ -62,6 +64,38 @@ export class BranchTrackingStatusNode
 
 	get repoPath(): string {
 		return this.uri.repoPath!;
+	}
+
+	async getFilesComparison(): Promise<FilesComparison | undefined> {
+		// if we are ahead we don't actually add the files node, just each of its children individually
+		if (this.upstreamType === 'ahead') {
+			const node = new BranchTrackingStatusFilesNode(
+				this.view,
+				this,
+				this.branch,
+				this.status as Required<BranchTrackingStatus>,
+				this.upstreamType,
+			);
+
+			const comparison = await node?.getFilesComparison();
+			if (comparison == null) return undefined;
+
+			// Get the oldest unpublished (unpushed) commit
+			const ref = this.options?.unpublishedCommits != null ? last(this.options.unpublishedCommits) : undefined;
+			if (ref == null) return undefined;
+
+			const resolved = await this.view.container.git.resolveReference(this.repoPath, `${ref}^`);
+			return {
+				...comparison,
+				ref1: resolved,
+				ref2: comparison.ref1,
+				title: `Changes to push to ${comparison.ref2}`,
+			};
+		}
+
+		const children = await this.getChildren();
+		const node = children.find(c => c.is('tracking-status-files')) as BranchTrackingStatusFilesNode | undefined;
+		return node?.getFilesComparison();
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -160,9 +194,13 @@ export class BranchTrackingStatusNode
 					remote?.provider?.name ? ` on ${remote?.provider.name}` : ''
 				}`;
 				description = pluralize('commit', this.status.state.ahead);
-				tooltip = `Branch $(git-branch) ${this.branch.name} is ${pluralize('commit', this.status.state.ahead, {
-					infix: '$(arrow-up) ',
-				})} ahead of $(git-branch) ${this.status.upstream}${
+				tooltip = `Outgoing changes to push\n\nBranch $(git-branch) ${this.branch.name} is ${pluralize(
+					'commit',
+					this.status.state.ahead,
+					{
+						infix: '$(arrow-up) ',
+					},
+				)} ahead of $(git-branch) ${this.status.upstream}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 
@@ -184,9 +222,13 @@ export class BranchTrackingStatusNode
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 				description = pluralize('commit', this.status.state.behind);
-				tooltip = `Branch $(git-branch) ${this.branch.name} is ${pluralize('commit', this.status.state.behind, {
-					infix: '$(arrow-down) ',
-				})} behind $(git-branch) ${this.status.upstream}${
+				tooltip = `Incoming changes to pull\n\nBranch $(git-branch) ${this.branch.name} is ${pluralize(
+					'commit',
+					this.status.state.behind,
+					{
+						infix: '$(arrow-down) ',
+					},
+				)} behind $(git-branch) ${this.status.upstream}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 

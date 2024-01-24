@@ -97,19 +97,6 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					status.rebasing,
 				);
 
-				if (this.view.config.showBranchComparison !== false) {
-					children.push(
-						new CompareBranchNode(
-							this.uri,
-							this.view,
-							this,
-							branch,
-							this.view.config.showBranchComparison,
-							true,
-						),
-					);
-				}
-
 				const [mergeStatus, rebaseStatus] = await Promise.all([
 					this.view.container.git.getMergeStatus(status.repoPath),
 					this.view.container.git.getRebaseStatus(status.repoPath),
@@ -146,6 +133,19 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				if (this.view.config.includeWorkingTree && status.files.length !== 0) {
 					const range = undefined; //status.upstream ? createRange(status.upstream, branch.ref) : undefined;
 					children.push(new StatusFilesNode(this.view, this, status, range));
+				}
+
+				if (this.view.config.showBranchComparison !== false) {
+					children.push(
+						new CompareBranchNode(
+							this.uri,
+							this.view,
+							this,
+							branch,
+							this.view.config.showBranchComparison,
+							true,
+						),
+					);
 				}
 
 				if (children.length !== 0 && !this.view.config.compact) {
