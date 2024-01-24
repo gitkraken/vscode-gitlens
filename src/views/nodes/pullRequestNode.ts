@@ -55,6 +55,9 @@ export class PullRequestNode extends ViewNode<'pullrequest', ViewsWithCommits> {
 		const item = new TreeItem(`#${this.pullRequest.id}: ${this.pullRequest.title}`, TreeItemCollapsibleState.None);
 		item.id = this.id;
 		item.contextValue = ContextValues.PullRequest;
+		if (this.pullRequest.refs?.base != null && this.pullRequest.refs.head != null) {
+			item.contextValue += `+refs`;
+		}
 		item.description = `${this.pullRequest.state}, ${this.pullRequest.formatDateFromNow()}`;
 		item.iconPath = getIssueOrPullRequestThemeIcon(this.pullRequest);
 

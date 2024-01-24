@@ -6917,6 +6917,18 @@
 				"icon": "$(git-pull-request)"
 			},
 			{
+				"command": "gitlens.views.openPullRequestChanges",
+				"title": "Open Pull Request Changes",
+				"category": "GitLens",
+				"icon": "$(diff-multiple)"
+			},
+			{
+				"command": "gitlens.views.openPullRequestComparison",
+				"title": "Compare Pull Request with Base",
+				"category": "GitLens",
+				"icon": "$(compare-changes)"
+			},
+			{
 				"command": "gitlens.views.clearComparison",
 				"title": "Clear Comparison",
 				"category": "GitLens",
@@ -10071,6 +10083,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.openPullRequestChanges",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openPullRequestComparison",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.clearComparison",
 					"when": "false"
 				},
@@ -13208,6 +13228,16 @@
 					"group": "inline@1"
 				},
 				{
+					"command": "gitlens.views.openPullRequestChanges",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor && viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"group": "inline@2"
+				},
+				{
+					"command": "gitlens.views.openPullRequestComparison",
+					"when": "viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"group": "inline@3"
+				},
+				{
 					"command": "gitlens.openPullRequestOnRemote",
 					"when": "viewItem =~ /gitlens:pullrequest\\b/",
 					"group": "inline@99",
@@ -13219,10 +13249,20 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.views.openPullRequestChanges",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor && viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"group": "1_gitlens_actions@98"
+				},
+				{
 					"command": "gitlens.openPullRequestOnRemote",
 					"when": "viewItem =~ /gitlens:pullrequest\\b/",
 					"group": "1_gitlens_actions@99",
 					"alt": "gitlens.copyRemotePullRequestUrl"
+				},
+				{
+					"command": "gitlens.views.openPullRequestComparison",
+					"when": "viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"group": "4_gitlens_compare@1"
 				},
 				{
 					"command": "gitlens.copyRemotePullRequestUrl",

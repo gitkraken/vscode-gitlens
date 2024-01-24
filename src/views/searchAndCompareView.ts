@@ -1,9 +1,10 @@
-import type { ConfigurationChangeEvent, Disposable } from 'vscode';
+import type { ConfigurationChangeEvent, Disposable, TextDocumentShowOptions } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { SearchAndCompareViewConfig, ViewFilesLayout } from '../config';
 import type { StoredNamedRef, StoredSearchAndCompareItem } from '../constants';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { openAllChangesInChangesEditor } from '../git/actions/commit';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitLog } from '../git/models/log';
 import { isRevisionRange, shortenRevision, splitRevisionRange } from '../git/models/reference';
@@ -369,18 +370,56 @@ export class SearchAndCompareView extends ViewBase<
 		this.root.dismiss(node);
 	}
 
-	compare(repoPath: string, ref1: string | StoredNamedRef, ref2: string | StoredNamedRef) {
+	compare(
+		repoPath: string,
+		ref1: string | StoredNamedRef,
+		ref2: string | StoredNamedRef,
+		options?: { reveal?: boolean },
+	): Promise<CompareResultsNode> {
 		return this.addResults(
-			new CompareResultsNode(
-				this,
-				this.ensureRoot(),
-				repoPath,
-				typeof ref1 === 'string' ? { ref: ref1 } : ref1,
-				typeof ref2 === 'string' ? { ref: ref2 } : ref2,
-				// Provide a timestamp so we won't try to add it to our storage prematurely (and end up with a duplicate)
-				Date.now(),
-			),
+			this.createCompareResultsNode(repoPath, ref1, ref2),
+			options?.reveal === false ? false : undefined,
 		);
+	}
+
+	private createCompareResultsNode(
+		repoPath: string,
+		ref1: string | StoredNamedRef,
+		ref2: string | StoredNamedRef,
+	): CompareResultsNode {
+		return new CompareResultsNode(
+			this,
+			this.ensureRoot(),
+			repoPath,
+			typeof ref1 === 'string' ? { ref: ref1 } : ref1,
+			typeof ref2 === 'string' ? { ref: ref2 } : ref2,
+			// Provide a timestamp so we won't try to add it to our storage prematurely (and end up with a duplicate)
+			Date.now(),
+		);
+	}
+
+	async openComparisonChanges(
+		repoPath: string,
+		ref1: string | StoredNamedRef,
+		ref2: string | StoredNamedRef,
+		options?: TextDocumentShowOptions & { title?: string },
+	): Promise<void> {
+		// TODO@eamodio this is a total hack but works -- eventually need to extract the functionality out of the CompareResultsNode
+		const node = await this.createCompareResultsNode(repoPath, ref1, ref2).getFilesNode();
+		if (node == null) return;
+
+		const { files } = await node.getFilesQueryResults();
+		if (files?.length) {
+			await openAllChangesInChangesEditor(
+				files,
+				{
+					repoPath: node.repoPath,
+					lhs: node.ref1,
+					rhs: node.ref2,
+				},
+				options,
+			);
+		}
 	}
 
 	compareWithSelected(repoPath?: string, ref?: string | StoredNamedRef) {
@@ -496,22 +535,28 @@ export class SearchAndCompareView extends ViewBase<
 		return node;
 	}
 
-	private async addResults(
-		results: CompareResultsNode | SearchResultsNode,
-		options: {
-			expand?: boolean | number;
-			focus?: boolean;
-			select?: boolean;
-		} = { expand: true, focus: true, select: true },
-	) {
-		if (!this.visible) {
+	private async addResults<T extends CompareResultsNode | SearchResultsNode>(
+		results: T,
+		reveal:
+			| {
+					expand?: boolean | number;
+					focus?: boolean;
+					select?: boolean;
+			  }
+			| false = { expand: true, focus: true, select: true },
+	): Promise<T> {
+		if (!this.visible && reveal !== false) {
 			await this.show();
 		}
 
 		const root = this.ensureRoot();
 		root.addOrReplace(results);
 
-		queueMicrotask(() => this.reveal(results, options));
+		if (reveal !== false) {
+			queueMicrotask(() => this.reveal(results, reveal));
+		}
+
+		return results;
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {

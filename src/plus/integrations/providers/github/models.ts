@@ -90,12 +90,35 @@ export interface GitHubPullRequest {
 	updatedAt: string;
 	closedAt: string | null;
 	mergedAt: string | null;
+
+	baseRefName: string;
+	baseRefOid: string;
+	baseRepository: {
+		name: string;
+		owner: {
+			login: string;
+		};
+		url: string;
+	};
+
+	headRefName: string;
+	headRefOid: string;
+	headRepository: {
+		name: string;
+		owner: {
+			login: string;
+		};
+		url: string;
+	};
+
 	repository: {
 		isFork: boolean;
 		owner: {
 			login: string;
 		};
 	};
+
+	isCrossRepository: boolean;
 }
 
 export interface GitHubIssueDetailed extends GitHubIssueOrPullRequest {
@@ -122,28 +145,9 @@ export type GitHubPullRequestReviewDecision = 'CHANGES_REQUESTED' | 'APPROVED' |
 export type GitHubPullRequestMergeableState = 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 
 export interface GitHubDetailedPullRequest extends GitHubPullRequest {
-	baseRefName: string;
-	baseRefOid: string;
-	baseRepository: {
-		name: string;
-		owner: {
-			login: string;
-		};
-		url: string;
-	};
-	headRefName: string;
-	headRefOid: string;
-	headRepository: {
-		name: string;
-		owner: {
-			login: string;
-		};
-		url: string;
-	};
 	reviewDecision: GitHubPullRequestReviewDecision;
 	isReadByViewer: boolean;
 	isDraft: boolean;
-	isCrossRepository: boolean;
 	checksUrl: string;
 	totalCommentsCount: number;
 	mergeable: GitHubPullRequestMergeableState;
@@ -176,6 +180,26 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 		new Date(pr.updatedAt),
 		pr.closedAt == null ? undefined : new Date(pr.closedAt),
 		pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
+		undefined,
+		{
+			head: {
+				exists: pr.headRepository != null,
+				owner: pr.headRepository?.owner.login,
+				repo: pr.baseRepository?.name,
+				sha: pr.headRefOid,
+				branch: pr.headRefName,
+				url: pr.headRepository?.url,
+			},
+			base: {
+				exists: pr.baseRepository != null,
+				owner: pr.baseRepository?.owner.login,
+				repo: pr.baseRepository?.name,
+				sha: pr.baseRefOid,
+				branch: pr.baseRefName,
+				url: pr.baseRepository?.url,
+			},
+			isCrossRepository: pr.isCrossRepository,
+		},
 	);
 }
 
