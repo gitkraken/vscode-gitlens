@@ -16,11 +16,18 @@ import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } fro
 import type { CommitQuickPickItem } from './items/gitCommands';
 import { createCommitQuickPickItem } from './items/gitCommands';
 
+type Item = CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem;
+
 export async function showCommitPicker(
 	log: GitLog | undefined | Promise<GitLog | undefined>,
 	title: string,
 	placeholder: string,
 	options?: {
+		empty?: {
+			getState?: () =>
+				| { items: Item[]; placeholder?: string; title?: string }
+				| Promise<{ items: Item[]; placeholder?: string; title?: string }>;
+		};
 		picked?: string;
 		keyboard?: {
 			keys: Keys[];
@@ -29,7 +36,7 @@ export async function showCommitPicker(
 		showOtherReferences?: CommandQuickPickItem[];
 	},
 ): Promise<GitCommit | undefined> {
-	const quickpick = window.createQuickPick<CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem>();
+	const quickpick = window.createQuickPick<Item>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 	quickpick.title = title;
@@ -42,39 +49,68 @@ export async function showCommitPicker(
 		quickpick.show();
 
 		log = await log;
-
-		if (log == null) {
-			quickpick.placeholder = 'Unable to show commit history';
-		}
 	}
 
-	quickpick.items = getItems(log);
+	if (log == null) {
+		quickpick.placeholder = 'No commits found';
+
+		if (options?.empty?.getState != null) {
+			const empty = await options.empty.getState();
+			quickpick.items = empty.items;
+			if (empty.placeholder != null) {
+				quickpick.placeholder = empty.placeholder;
+			}
+			if (empty.title != null) {
+				quickpick.title = empty.title;
+			}
+		} else {
+			quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })];
+		}
+	} else {
+		quickpick.items = getItems(log);
+	}
 
 	if (options?.picked) {
 		quickpick.activeItems = quickpick.items.filter(i => (CommandQuickPickItem.is(i) ? false : i.picked));
 	}
 
-	function getItems(log: GitLog | undefined) {
-		return log == null
-			? [createDirectiveQuickPickItem(Directive.Cancel)]
-			: [
-					...(options?.showOtherReferences ?? []),
-					...map(log.commits.values(), commit =>
-						createCommitQuickPickItem(commit, options?.picked === commit.ref, {
-							compact: true,
-							icon: true,
-						}),
-					),
-					...(log?.hasMore ? [createDirectiveQuickPickItem(Directive.LoadMore)] : []),
-			  ];
+	function getItems(log: GitLog) {
+		return [
+			...(options?.showOtherReferences ?? []),
+			...map(log.commits.values(), commit =>
+				createCommitQuickPickItem(commit, options?.picked === commit.ref, {
+					compact: true,
+					icon: true,
+				}),
+			),
+			...(log?.hasMore ? [createDirectiveQuickPickItem(Directive.LoadMore)] : []),
+		];
 	}
 
 	async function loadMore() {
+		quickpick.ignoreFocusOut = true;
 		quickpick.busy = true;
 
 		try {
 			log = await (await log)?.more?.(configuration.get('advanced.maxListItems'));
-			const items = getItems(log);
+
+			let items;
+			if (log == null) {
+				if (options?.empty?.getState != null) {
+					const empty = await options.empty.getState();
+					items = empty.items;
+					if (empty.placeholder != null) {
+						quickpick.placeholder = empty.placeholder;
+					}
+					if (empty.title != null) {
+						quickpick.title = empty.title;
+					}
+				} else {
+					items = [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })];
+				}
+			} else {
+				items = getItems(log);
+			}
 
 			let activeIndex = -1;
 			if (quickpick.activeItems.length !== 0) {
@@ -129,45 +165,43 @@ export async function showCommitPicker(
 	}
 
 	try {
-		const pick = await new Promise<CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem | undefined>(
-			resolve => {
-				disposables.push(
-					quickpick.onDidHide(() => resolve(undefined)),
-					quickpick.onDidAccept(() => {
-						if (quickpick.activeItems.length !== 0) {
-							const [item] = quickpick.activeItems;
-							if (isDirectiveQuickPickItem(item)) {
-								switch (item.directive) {
-									case Directive.LoadMore:
-										void loadMore();
-										return;
+		const pick = await new Promise<Item | undefined>(resolve => {
+			disposables.push(
+				quickpick.onDidHide(() => resolve(undefined)),
+				quickpick.onDidAccept(() => {
+					if (quickpick.activeItems.length !== 0) {
+						const [item] = quickpick.activeItems;
+						if (isDirectiveQuickPickItem(item)) {
+							switch (item.directive) {
+								case Directive.LoadMore:
+									void loadMore();
+									return;
 
-									default:
-										resolve(undefined);
-										return;
-								}
+								default:
+									resolve(undefined);
+									return;
 							}
-
-							resolve(item);
 						}
-					}),
-					quickpick.onDidChangeValue(value => {
-						if (scope == null) return;
 
-						// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
-						if (value.length !== 0) {
-							void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
-						} else {
-							void scope.resume();
-						}
-					}),
-				);
+						resolve(item);
+					}
+				}),
+				quickpick.onDidChangeValue(value => {
+					if (scope == null) return;
 
-				quickpick.busy = false;
+					// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
+					if (value.length !== 0) {
+						void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
+					} else {
+						void scope.resume();
+					}
+				}),
+			);
 
-				quickpick.show();
-			},
-		);
+			quickpick.busy = false;
+
+			quickpick.show();
+		});
 		if (pick == null || isDirectiveQuickPickItem(pick)) return undefined;
 
 		if (pick instanceof CommandQuickPickItem) {

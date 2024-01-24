@@ -12,7 +12,7 @@ import type { FileAnnotationType } from '../../config';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
-import { showRevisionPicker } from '../../quickpicks/revisionPicker';
+import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
 import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/utils';
@@ -603,7 +603,7 @@ export async function openFileAtRevision(
 			return;
 		}
 
-		const pickedUri = await showRevisionPicker(Container.instance, gitUri, {
+		const pickedUri = await showRevisionFilesPicker(Container.instance, gitUri, {
 			ignoreFocusOut: true,
 			title: `Open File at Revision \u2022 Unable to open '${gitUri.relativePath}'`,
 			placeholder: 'Choose a file revision to open',

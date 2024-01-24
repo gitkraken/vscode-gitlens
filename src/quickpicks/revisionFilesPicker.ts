@@ -12,7 +12,7 @@ import type { QuickPickItemOfT } from './items/common';
 
 export type RevisionQuickPickItem = QuickPickItemOfT<GitTreeEntry>;
 
-export async function showRevisionPicker(
+export async function showRevisionFilesPicker(
 	container: Container,
 	uri: GitUri,
 	options: {
