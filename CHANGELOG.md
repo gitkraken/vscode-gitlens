@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds new comparison features to pull requests in GitLens views
+  - Adds an _Open Pull Request Changes_ inline button and context menu command to pull requests to view the pull request changes in a multi-diff editor (single tab)
+    - Requires VS Code `1.85` or later with `multiDiffEditor.experimental.enabled` and `gitlens.experimental.openChangesInMultiDiffEditor` to be enabled
+  - Adds a _Compare Pull Request with Base_ inline button and context menu command to pull requests to open a comparison for the pull request
+- Adds an _Open All Changes_ inline button to branch status (upstream) and branch status files in GitLens views
+- Adds an _Open Changes_ submenu to branch status (upstream) and branch status files in GitLens views
+
+### Changed
+
+- Moves the pull request to be first item in the _Commits_ view, when applicable
+- Moves the branch comparison to be below the branch status in the _Commits_ view to keep top focus on the status over the comparison
+
+### Fixed
+
+- Fixes ahead/behind diffs on files (root) in the _Commits_ view to correctly show the diff of the range rather than the base to the working tree
+- Fixes missing repository icons in the _Repositories_ view
+
 ## [14.7.0] - 2024-01-17
 
 ### Added
