@@ -87,6 +87,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 					files[files.length - 1],
 					repoPath,
 					files.map(s => s.commit),
+					'working',
 				),
 		);
 
@@ -146,6 +147,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 
 		const label = files === -1 ? '?? files changed' : `${pluralize('file', files)} changed`;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
+		item.description = 'working tree';
 		item.id = this.id;
 		item.contextValue = ContextValues.StatusFiles;
 		item.iconPath = {
