@@ -1,7 +1,8 @@
 import { Disposable, window } from 'vscode';
 import type { Container } from '../../../container';
-import { setContext } from '../../../system/context';
+import { onDidChangeContext, setContext } from '../../../system/context';
 import { gate } from '../../../system/decorators/gate';
+import { once } from '../../../system/function';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
 import type { ServerConnection } from '../serverConnection';
@@ -26,7 +27,15 @@ export class OrganizationService implements Disposable {
 		private readonly container: Container,
 		private readonly connection: ServerConnection,
 	) {
-		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
+		this._disposable = Disposable.from(
+			once(onDidChangeContext)(async key => {
+				if (key === 'gitlens:plus') {
+					const orgId = await this.getActiveOrganizationId();
+					void this.updateOrganizationPermissions(orgId);
+				}
+			}, this),
+			container.subscription.onDidChange(this.onSubscriptionChanged, this),
+		);
 	}
 
 	dispose(): void {
@@ -184,6 +193,11 @@ export class OrganizationService implements Disposable {
 		return [];
 	}
 
+	private async getActiveOrganizationId(cached = true): Promise<string | undefined> {
+		const subscription = await this.container.subscription.getSubscription(cached);
+		return subscription?.activeOrganization?.id;
+	}
+
 	@gate()
 	async getOrganizationSettings(
 		orgId: string | undefined,
@@ -193,8 +207,8 @@ export class OrganizationService implements Disposable {
 			data: OrganizationSettings;
 			error: string | undefined;
 		};
-		// TODO: maybe getSubscription(false) when force is true
-		const id = orgId ?? (await this.container.subscription.getSubscription(true)).activeOrganization?.id;
+		// TODO: maybe getActiveOrganizationId(false) when force is true
+		const id = orgId ?? (await this.getActiveOrganizationId());
 		if (id == null) return undefined;
 
 		if (!this._organizationSettings?.has(id) || options?.force === true) {

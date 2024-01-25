@@ -212,6 +212,7 @@ export class Container {
 			(this._accountAuthentication = new AccountAuthenticationProvider(this, this._connection)),
 		);
 		this._disposables.push((this._subscription = new SubscriptionService(this, this._connection, previousVersion)));
+		this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
 
 		this._disposables.push((this._git = new GitProviderService(this)));
 		this._disposables.push(new GitFileSystemProvider(this));
@@ -613,11 +614,8 @@ export class Container {
 		return this._mode;
 	}
 
-	private _organizations: OrganizationService | undefined;
+	private _organizations: OrganizationService;
 	get organizations() {
-		if (this._organizations == null) {
-			this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
-		}
 		return this._organizations;
 	}
 
