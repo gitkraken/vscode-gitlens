@@ -86,6 +86,7 @@ import {
 	createRefQuickPickItem,
 	createRemoteQuickPickItem,
 	createRepositoryQuickPickItem,
+	createStashQuickPickItem,
 	createTagQuickPickItem,
 	createWorktreeQuickPickItem,
 	GitCommandQuickPickItem,
@@ -506,11 +507,11 @@ export function getValidateGitReferenceFn(
 
 		const commit = await Container.instance.git.getCommit(repos.path, value);
 		quickpick.items = [
-			createCommitQuickPickItem(commit!, true, {
+			await createCommitQuickPickItem(commit!, true, {
 				alwaysShow: true,
 				buttons: options?.buttons,
 				compact: true,
-				icon: true,
+				icon: 'avatar',
 			}),
 		];
 		return true;
@@ -1061,7 +1062,7 @@ export async function* pickCommitStep<
 		titleContext?: string;
 	},
 ): AsyncStepResultGenerator<GitCommit> {
-	function getItems(log: GitLog | undefined) {
+	async function getItems(log: GitLog | undefined) {
 		if (log == null) {
 			return [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)];
 		}
@@ -1073,21 +1074,27 @@ export async function* pickCommitStep<
 			buttons.splice(0, 0, OpenChangesViewQuickInputButton);
 		}
 
-		return [
-			...map(log.commits.values(), commit =>
-				createCommitQuickPickItem(
-					commit,
-					picked != null &&
-						(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
-					{
-						buttons: buttons,
-						compact: true,
-						icon: true,
-					},
-				),
+		const items = [];
+
+		for await (const item of map(log.commits.values(), async commit =>
+			createCommitQuickPickItem(
+				commit,
+				picked != null && (typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+				{
+					buttons: buttons,
+					compact: true,
+					icon: 'avatar',
+				},
 			),
-			...(log?.hasMore ? [createDirectiveQuickPickItem(Directive.LoadMore)] : []),
-		];
+		)) {
+			items.push(item);
+		}
+
+		if (log.hasMore) {
+			items.push(createDirectiveQuickPickItem(Directive.LoadMore));
+		}
+
+		return items;
 	}
 
 	const step = createPickStep<CommandQuickPickItem | CommitQuickPickItem>({
@@ -1098,7 +1105,7 @@ export async function* pickCommitStep<
 		matchOnDetail: true,
 		value: typeof picked === 'string' && log?.count === 0 ? picked : undefined,
 		selectValueWhenShown: true,
-		items: showInSideBarCommand != null ? [showInSideBarCommand, ...getItems(log)] : getItems(log),
+		items: showInSideBarCommand != null ? [showInSideBarCommand, ...(await getItems(log))] : await getItems(log),
 		onDidLoadMore: async quickpick => {
 			quickpick.keepScrollPosition = true;
 			log = await log?.more?.(configuration.get('advanced.maxListItems'));
@@ -1182,7 +1189,7 @@ export async function* pickCommitStep<
 	return selection[0].item;
 }
 
-export function* pickCommitsStep<
+export async function* pickCommitsStep<
 	State extends PartialStepState & { repo: Repository },
 	Context extends { repos: Repository[]; title: string },
 >(
@@ -1201,26 +1208,33 @@ export function* pickCommitsStep<
 		placeholder: string | ((context: Context, log: GitLog | undefined) => string);
 		titleContext?: string;
 	},
-): StepResultGenerator<GitRevisionReference[]> {
-	function getItems(log: GitLog | undefined) {
-		return log == null
-			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
-			: [
-					...map(log.commits.values(), commit =>
-						createCommitQuickPickItem(
-							commit,
-							picked != null &&
-								(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
-							{
-								buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
-								compact: true,
-								icon: true,
-							},
-						),
-					),
-					// Since this is multi-select, we can't have a "Load more" item
-					// ...(log?.hasMore ? [DirectiveQuickPickItem.create(Directive.LoadMore)] : []),
-			  ];
+): AsyncStepResultGenerator<GitRevisionReference[]> {
+	async function getItems(log: GitLog | undefined) {
+		if (log == null)
+			return [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)];
+
+		const items = [];
+
+		for await (const item of map(log.commits.values(), async commit =>
+			createCommitQuickPickItem(
+				commit,
+				picked != null && (typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+				{
+					buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
+					compact: true,
+					icon: 'avatar',
+				},
+			),
+		)) {
+			items.push(item);
+		}
+
+		// Since this is multi-select, we can't have a "Load more" item
+		// if (log.hasMore) {
+		// 	items.push(createDirectiveQuickPickItem(Directive.LoadMore));
+		// }
+
+		return items;
 	}
 
 	const step = createPickStep<CommitQuickPickItem>({
@@ -1229,7 +1243,7 @@ export function* pickCommitsStep<
 		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, log),
 		matchOnDescription: true,
 		matchOnDetail: true,
-		items: getItems(log),
+		items: await getItems(log),
 		onDidLoadMore: async quickpick => {
 			quickpick.keepScrollPosition = true;
 			log = await log?.more?.(configuration.get('advanced.maxListItems'));
@@ -1577,7 +1591,7 @@ export function* pickStashStep<
 				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: [
 						...map(stash.commits.values(), commit =>
-							createCommitQuickPickItem(
+							createStashQuickPickItem(
 								commit,
 								picked != null &&
 									(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
@@ -1637,7 +1651,7 @@ export function* pickStashesStep<
 				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: [
 						...map(stash.commits.values(), commit =>
-							createCommitQuickPickItem(
+							createStashQuickPickItem(
 								commit,
 								picked != null &&
 									(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),

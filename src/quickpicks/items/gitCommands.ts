@@ -6,7 +6,7 @@ import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitBranch } from '../../git/models/branch';
-import type { GitCommit } from '../../git/models/commit';
+import type { GitCommit, GitStashCommit } from '../../git/models/commit';
 import { isStash } from '../../git/models/commit';
 import type { GitContributor } from '../../git/models/contributor';
 import type { GitReference } from '../../git/models/reference';
@@ -17,6 +17,7 @@ import type { Repository } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
 import type { GitTag } from '../../git/models/tag';
 import type { GitWorktree } from '../../git/models/worktree';
+import { configuration } from '../../system/configuration';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
 import type { QuickPickItemOfT } from './common';
@@ -145,46 +146,29 @@ export class CommitLoadMoreQuickPickItem implements QuickPickItem {
 
 export type CommitQuickPickItem<T extends GitCommit = GitCommit> = QuickPickItemOfT<T>;
 
-export function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
+export async function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
 	commit: T,
 	picked?: boolean,
-	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean },
+	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean | 'avatar' },
 ) {
 	if (isStash(commit)) {
-		const number = commit.number == null ? '' : `${commit.number}: `;
+		return createStashQuickPickItem(commit, picked, {
+			...options,
+			icon: options?.icon === 'avatar' ? true : options?.icon,
+		});
+	}
 
-		if (options?.compact) {
-			const item: CommitQuickPickItem<T> = {
-				label: `${number}${commit.summary}`,
-				description: `${commit.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
-					compact: true,
-				})}`,
-				alwaysShow: options.alwaysShow,
-				buttons: options.buttons,
-				picked: picked,
-				item: commit,
-				iconPath: options.icon ? new ThemeIcon('archive') : undefined,
-			};
-
-			return item;
+	let iconPath;
+	if (options?.icon === 'avatar') {
+		if (configuration.get('gitCommands.avatars')) {
+			iconPath = await commit.getAvatarUri();
+		} else {
+			options.icon = true;
 		}
+	}
 
-		const item: CommitQuickPickItem<T> = {
-			label: `${number}${commit.summary}`,
-			description: '',
-			detail: `${GlyphChars.Space.repeat(2)}${commit.formattedDate}${pad(
-				GlyphChars.Dot,
-				2,
-				2,
-			)}${commit.formatStats({ compact: true })}`,
-			alwaysShow: options?.alwaysShow,
-			buttons: options?.buttons,
-			picked: picked,
-			item: commit,
-			iconPath: options?.icon ? new ThemeIcon('archive') : undefined,
-		};
-
-		return item;
+	if (options?.icon === true) {
+		iconPath = new ThemeIcon('git-commit');
 	}
 
 	if (options?.compact) {
@@ -197,7 +181,7 @@ export function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
 			buttons: options.buttons,
 			picked: picked,
 			item: commit,
-			iconPath: options?.icon ? new ThemeIcon('git-commit') : undefined,
+			iconPath: iconPath,
 		};
 		return item;
 	}
@@ -216,8 +200,47 @@ export function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
 		buttons: options?.buttons,
 		picked: picked,
 		item: commit,
-		iconPath: options?.icon ? new ThemeIcon('git-commit') : undefined,
+		iconPath: iconPath,
 	};
+	return item;
+}
+
+export function createStashQuickPickItem(
+	commit: GitStashCommit,
+	picked?: boolean,
+	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean },
+) {
+	const number = commit.number == null ? '' : `${commit.number}: `;
+
+	if (options?.compact) {
+		const item: CommitQuickPickItem<GitStashCommit> = {
+			label: `${number}${commit.summary}`,
+			description: `${commit.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
+				compact: true,
+			})}`,
+			alwaysShow: options.alwaysShow,
+			buttons: options.buttons,
+			picked: picked,
+			item: commit,
+			iconPath: options.icon ? new ThemeIcon('archive') : undefined,
+		};
+
+		return item;
+	}
+
+	const item: CommitQuickPickItem<GitStashCommit> = {
+		label: `${number}${commit.summary}`,
+		description: '',
+		detail: `${GlyphChars.Space.repeat(2)}${commit.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
+			compact: true,
+		})}`,
+		alwaysShow: options?.alwaysShow,
+		buttons: options?.buttons,
+		picked: picked,
+		item: commit,
+		iconPath: options?.icon ? new ThemeIcon('archive') : undefined,
+	};
+
 	return item;
 }
 
@@ -235,7 +258,7 @@ export async function createContributorQuickPickItem(
 		buttons: options?.buttons,
 		picked: picked,
 		item: contributor,
-		iconPath: await contributor.getAvatarUri(),
+		iconPath: configuration.get('gitCommands.avatars') ? await contributor.getAvatarUri() : undefined,
 	};
 	return item;
 }

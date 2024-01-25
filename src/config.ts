@@ -84,6 +84,7 @@ export interface Config {
 		readonly allowMultiple: boolean;
 	};
 	readonly gitCommands: {
+		readonly avatars: boolean;
 		readonly closeOnFocusOut: boolean;
 		readonly search: {
 			readonly matchAll: boolean;
