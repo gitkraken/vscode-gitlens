@@ -1,4 +1,5 @@
 import type { QuickInputButton, QuickPick } from 'vscode';
+import { ThemeIcon } from 'vscode';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import type { PlusFeatures } from '../features';
@@ -2495,35 +2496,23 @@ function getShowRepositoryStatusStepItems<
 	}
 
 	if (computed.staged > 0) {
-		items.push(
-			new OpenChangedFilesCommandQuickPickItem(computed.stagedAddsAndChanges, {
-				label: '$(files) Open Staged Files',
-			}),
-		);
+		items.push(new OpenChangedFilesCommandQuickPickItem(computed.stagedAddsAndChanges, 'Open Staged Files'));
 
 		items.push(
-			new OpenOnlyChangedFilesCommandQuickPickItem(computed.stagedAddsAndChanges, {
-				label: '$(files) Open Only Staged Files',
-			}),
+			new OpenOnlyChangedFilesCommandQuickPickItem(computed.stagedAddsAndChanges, 'Open Only Staged Files'),
 		);
 	}
 
 	if (computed.unstaged > 0) {
-		items.push(
-			new OpenChangedFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, {
-				label: '$(files) Open Unstaged Files',
-			}),
-		);
+		items.push(new OpenChangedFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, 'Open Unstaged Files'));
 
 		items.push(
-			new OpenOnlyChangedFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, {
-				label: '$(files) Open Only Unstaged Files',
-			}),
+			new OpenOnlyChangedFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, 'Open Only Unstaged Files'),
 		);
 	}
 
 	if (context.status.files.length) {
-		items.push(new CommandQuickPickItem('$(x) Close Unchanged Files', Commands.CloseUnchangedFiles));
+		items.push(new CommandQuickPickItem('Close Unchanged Files', new ThemeIcon('x'), Commands.CloseUnchangedFiles));
 	}
 
 	return items;

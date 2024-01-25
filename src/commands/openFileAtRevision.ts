@@ -156,6 +156,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 															label: label,
 															description: description,
 														},
+														undefined,
 														Commands.OpenFileAtRevision,
 														[this.container.git.getAbsoluteUri(f.path, gitUri.repoPath)],
 													),

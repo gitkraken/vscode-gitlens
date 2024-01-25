@@ -1,5 +1,5 @@
 import type { Disposable, QuickInputButton } from 'vscode';
-import { env, Uri, window } from 'vscode';
+import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quickCommand.buttons';
 import type { Keys } from '../constants';
@@ -103,10 +103,10 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			remotes: remotes,
 			clipboard: true,
 		};
-		const label = `$(copy) Copy Link to ${getNameFromRemoteResource(resource)} for ${
+		const label = `Copy Link to ${getNameFromRemoteResource(resource)} for ${
 			providers?.length ? providers[0].name : 'Remote'
 		}${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`;
-		super(label, Commands.OpenOnRemote, [commandArgs]);
+		super(label, new ThemeIcon('copy'), Commands.OpenOnRemote, [commandArgs]);
 	}
 
 	override async onDidPressKey(key: Keys): Promise<void> {
@@ -124,11 +124,12 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			clipboard: false,
 		};
 		super(
-			`$(link-external) Open ${getNameFromRemoteResource(resource)} on ${
+			`Open ${getNameFromRemoteResource(resource)} on ${
 				providers?.length === 1
 					? providers[0].name
 					: `${providers?.length ? providers[0].name : 'Remote'}${GlyphChars.Ellipsis}`
 			}`,
+			new ThemeIcon('link-external'),
 			Commands.OpenOnRemote,
 			[commandArgs],
 		);

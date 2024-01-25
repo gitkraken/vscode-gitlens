@@ -1,4 +1,5 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
+import { ThemeIcon } from 'vscode';
 import type { GitCommandsCommandArgs } from '../../commands/gitCommands';
 import { getSteps } from '../../commands/gitCommands.utils';
 import { Commands, GlyphChars } from '../../constants';
@@ -25,7 +26,7 @@ export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCo
 	constructor(label: string, args: GitCommandsCommandArgs);
 	constructor(item: QuickPickItem, args: GitCommandsCommandArgs);
 	constructor(labelOrItem: string | QuickPickItem, args: GitCommandsCommandArgs) {
-		super(labelOrItem, Commands.GitCommands, [args], { suppressKeyPress: true });
+		super(labelOrItem, undefined, Commands.GitCommands, [args], { suppressKeyPress: true });
 	}
 
 	executeSteps(pickedVia: 'menu' | 'command') {
@@ -122,9 +123,7 @@ export async function createBranchQuickPickItem(
 	const checked =
 		options?.checked || (options?.checked == null && options?.current === 'checkmark' && branch.current);
 	const item: BranchQuickPickItem = {
-		label: `$(git-branch)${GlyphChars.Space}${branch.starred ? `$(star-full)${GlyphChars.Space}` : ''}${
-			branch.name
-		}${checked ? pad('$(check)', 2) : ''}`,
+		label: checked ? `${branch.name}${pad('$(check)', 2)}` : branch.name,
 		description: description,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
@@ -133,6 +132,7 @@ export async function createBranchQuickPickItem(
 		current: branch.current,
 		ref: branch.name,
 		remote: branch.remote,
+		iconPath: branch.starred ? new ThemeIcon('star-full') : new ThemeIcon('git-branch'),
 	};
 
 	return item;
@@ -155,7 +155,7 @@ export function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
 
 		if (options?.compact) {
 			const item: CommitQuickPickItem<T> = {
-				label: `${options.icon ? `$(archive)${GlyphChars.Space}` : ''}${number}${commit.summary}`,
+				label: `${number}${commit.summary}`,
 				description: `${commit.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
 					compact: true,
 				})}`,
@@ -163,13 +163,14 @@ export function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
 				buttons: options.buttons,
 				picked: picked,
 				item: commit,
+				iconPath: options.icon ? new ThemeIcon('archive') : undefined,
 			};
 
 			return item;
 		}
 
 		const item: CommitQuickPickItem<T> = {
-			label: `${options?.icon ? `$(archive)${GlyphChars.Space}` : ''}${number}${commit.summary}`,
+			label: `${number}${commit.summary}`,
 			description: '',
 			detail: `${GlyphChars.Space.repeat(2)}${commit.formattedDate}${pad(
 				GlyphChars.Dot,
@@ -180,6 +181,7 @@ export function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
 			buttons: options?.buttons,
 			picked: picked,
 			item: commit,
+			iconPath: options?.icon ? new ThemeIcon('archive') : undefined,
 		};
 
 		return item;
@@ -187,7 +189,7 @@ export function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
 
 	if (options?.compact) {
 		const item: CommitQuickPickItem<T> = {
-			label: `${options.icon ? `$(git-commit)${GlyphChars.Space}` : ''}${commit.summary}`,
+			label: commit.summary,
 			description: `${commit.author.name}, ${commit.formattedDate}${pad('$(git-commit)', 2, 1)}${
 				commit.shortSha
 			}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({ compact: true })}`,
@@ -195,12 +197,13 @@ export function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
 			buttons: options.buttons,
 			picked: picked,
 			item: commit,
+			iconPath: options?.icon ? new ThemeIcon('git-commit') : undefined,
 		};
 		return item;
 	}
 
 	const item: CommitQuickPickItem<T> = {
-		label: `${options?.icon ? `$(git-commit)${GlyphChars.Space}` : ''}${commit.summary}`,
+		label: commit.summary,
 		description: '',
 		detail: `${GlyphChars.Space.repeat(2)}${commit.author.name}, ${commit.formattedDate}${pad(
 			'$(git-commit)',
@@ -213,6 +216,7 @@ export function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
 		buttons: options?.buttons,
 		picked: picked,
 		item: commit,
+		iconPath: options?.icon ? new ThemeIcon('git-commit') : undefined,
 	};
 	return item;
 }
@@ -250,7 +254,7 @@ export function createRefQuickPickItem(
 ): RefQuickPickItem {
 	if (ref === '') {
 		return {
-			label: `${options?.icon ? `$(file-directory)${GlyphChars.Space}` : ''}Working Tree`,
+			label: 'Working Tree',
 			description: '',
 			alwaysShow: options?.alwaysShow,
 			buttons: options?.buttons,
@@ -259,12 +263,13 @@ export function createRefQuickPickItem(
 			current: false,
 			ref: ref,
 			remote: false,
+			iconPath: options?.icon ? new ThemeIcon('file-directory') : undefined,
 		};
 	}
 
 	if (ref === 'HEAD') {
 		return {
-			label: `${options?.icon ? `$(git-branch)${GlyphChars.Space}` : ''}HEAD`,
+			label: 'HEAD',
 			description: '',
 			alwaysShow: options?.alwaysShow,
 			buttons: options?.buttons,
@@ -273,6 +278,7 @@ export function createRefQuickPickItem(
 			current: false,
 			ref: ref,
 			remote: false,
+			iconPath: options?.icon ? new ThemeIcon('git-branch') : undefined,
 		};
 	}
 
@@ -337,12 +343,13 @@ export function createRemoteQuickPickItem(
 	}
 
 	const item: RemoteQuickPickItem = {
-		label: `$(cloud)${GlyphChars.Space}${remote.name}${options?.checked ? pad('$(check)', 2) : ''}`,
+		label: options?.checked ? `${remote.name}${pad('$(check)', 2)}` : remote.name,
 		description: description,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked,
 		item: remote,
+		iconPath: new ThemeIcon('cloud'),
 	};
 
 	return item;
@@ -448,7 +455,7 @@ export function createTagQuickPickItem(
 	}
 
 	const item: TagQuickPickItem = {
-		label: `$(tag)${GlyphChars.Space}${tag.name}${options?.checked ? pad('$(check)', 2) : ''}`,
+		label: options?.checked ? `${tag.name}${pad('$(check)', 2)}` : tag.name,
 		description: description,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
@@ -457,6 +464,7 @@ export function createTagQuickPickItem(
 		current: false,
 		ref: tag.name,
 		remote: false,
+		iconPath: new ThemeIcon('tag'),
 	};
 
 	return item;
@@ -492,25 +500,25 @@ export function createWorktreeQuickPickItem(
 			: pad('No changes', description ? 2 : 0, 0);
 	}
 
-	let icon;
+	let iconPath;
 	let label;
 	switch (worktree.type) {
 		case 'bare':
 			label = '(bare)';
-			icon = '$(folder)';
+			iconPath = new ThemeIcon('folder');
 			break;
 		case 'branch':
 			label = worktree.branch!;
-			icon = '$(git-branch)';
+			iconPath = new ThemeIcon('git-branch');
 			break;
 		case 'detached':
 			label = shortenRevision(worktree.sha);
-			icon = '$(git-commit)';
+			iconPath = new ThemeIcon('git-commit');
 			break;
 	}
 
 	const item: WorktreeQuickPickItem = {
-		label: `${icon}${GlyphChars.Space}${label}${options?.checked ? pad('$(check)', 2) : ''}`,
+		label: options?.checked ? `${label}${pad('$(check)', 2)}` : label,
 		description: description,
 		detail: options?.path
 			? missing
@@ -523,6 +531,7 @@ export function createWorktreeQuickPickItem(
 		item: worktree,
 		opened: worktree.opened,
 		hasChanges: options?.status?.hasChanges,
+		iconPath: iconPath,
 	};
 
 	return item;
