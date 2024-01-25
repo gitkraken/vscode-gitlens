@@ -201,14 +201,15 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 							},
 						},
 						showOtherReferences: [
-							CommandQuickPickItem.fromCommand(
+							CommandQuickPickItem.fromCommand<[Uri]>(
 								'Choose a Branch or Tag...',
 								Commands.OpenFileAtRevisionFrom,
+								[uri],
 							),
-							CommandQuickPickItem.fromCommand<OpenFileAtRevisionFromCommandArgs>(
+							CommandQuickPickItem.fromCommand<[Uri, OpenFileAtRevisionFromCommandArgs]>(
 								'Choose a Stash...',
 								Commands.OpenFileAtRevisionFrom,
-								{ stash: true },
+								[uri, { stash: true }],
 							),
 						],
 					},

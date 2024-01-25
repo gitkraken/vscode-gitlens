@@ -29,7 +29,7 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 			typeof labelOrItem === 'string' ? { label: labelOrItem } : labelOrItem,
 			undefined,
 			command,
-			args == null ? [] : [args],
+			args == null ? [] : Array.isArray(args) ? args : [args],
 		);
 	}
 

@@ -76,7 +76,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 													description: description,
 												},
 												undefined,
-												Commands.OpenFileAtRevision,
+												Commands.DiffWithRevision,
 												[this.container.git.getAbsoluteUri(f.path, gitUri.repoPath)],
 											),
 										);
@@ -127,11 +127,15 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 					},
 				},
 				showOtherReferences: [
-					CommandQuickPickItem.fromCommand('Choose a Branch or Tag...', Commands.DiffWithRevisionFrom),
-					CommandQuickPickItem.fromCommand<DiffWithRevisionFromCommandArgs>(
+					CommandQuickPickItem.fromCommand<[Uri]>(
+						'Choose a Branch or Tag...',
+						Commands.DiffWithRevisionFrom,
+						[uri],
+					),
+					CommandQuickPickItem.fromCommand<[Uri, DiffWithRevisionFromCommandArgs]>(
 						'Choose a Stash...',
 						Commands.DiffWithRevisionFrom,
-						{ stash: true },
+						[uri, { stash: true }],
 					),
 				],
 			});
