@@ -15026,28 +15026,28 @@
 			"gitlens/editor/lineNumber/context/share": [
 				{
 					"command": "gitlens.copyRemoteFileUrlToClipboard",
-					"group": "1_gitlens@2"
+					"group": "1_gitlens_remote@2"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlFrom",
-					"group": "1_gitlens@3"
+					"group": "1_gitlens_remote@3"
 				},
 				{
 					"command": "gitlens.copyRemoteCommitUrl",
-					"group": "1_gitlens_commit@1"
+					"group": "1_gitlens_remote_commit@1"
 				},
 				{
 					"command": "gitlens.copyDeepLinkToLines",
-					"group": "1_gitlens_link@1"
+					"group": "1_gitlens@1"
 				},
 				{
 					"command": "gitlens.copyDeepLinkToFile",
-					"group": "1_gitlens_link@2"
+					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.copyDeepLinkToFileAtRevision",
 					"when": "gitlens:activeFileStatus =~ /blameable/",
-					"group": "1_gitlens_link@3"
+					"group": "1_gitlens@3"
 				}
 			],
 			"gitlens/explorer/changes": [
