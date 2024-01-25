@@ -1,4 +1,5 @@
 import type { Uri } from 'vscode';
+import { ThemeIcon } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
@@ -119,26 +120,27 @@ export function getGitFileStatusIcon(status: GitFileStatus): string {
 
 const statusCodiconsMap = {
 	'.': undefined,
-	'!': '$(diff-ignored)',
-	'?': '$(diff-added)',
-	A: '$(diff-added)',
-	D: '$(diff-removed)',
-	M: '$(diff-modified)',
-	R: '$(diff-renamed)',
-	C: '$(diff-added)',
-	AA: '$(warning)',
-	AU: '$(warning)',
-	UA: '$(warning)',
-	DD: '$(warning)',
-	DU: '$(warning)',
-	UD: '$(warning)',
-	UU: '$(warning)',
-	T: '$(diff-modified)',
-	U: '$(diff-modified)',
+	'!': 'diff-ignored',
+	'?': 'diff-added',
+	A: 'diff-added',
+	D: 'diff-removed',
+	M: 'diff-modified',
+	R: 'diff-renamed',
+	C: 'diff-added',
+	AA: 'warning',
+	AU: 'warning',
+	UA: 'warning',
+	DD: 'warning',
+	DU: 'warning',
+	UD: 'warning',
+	UU: 'warning',
+	T: 'diff-modified',
+	U: 'diff-modified',
 };
 
-export function getGitFileStatusCodicon(status: GitFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
-	return statusCodiconsMap[status] ?? missing;
+export function getGitFileStatusThemeIcon(status: GitFileStatus): ThemeIcon | undefined {
+	const codicon = statusCodiconsMap[status];
+	return codicon != null ? new ThemeIcon(codicon) : undefined;
 }
 
 const statusTextMap = {

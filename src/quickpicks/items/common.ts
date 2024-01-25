@@ -1,4 +1,4 @@
-import type { QuickPickItem } from 'vscode';
+import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
 import { commands, QuickPickItemKind } from 'vscode';
 import type { Commands, Keys } from '../../constants';
 
@@ -27,6 +27,7 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 	static fromCommand<T>(labelOrItem: string | QuickPickItem, command: Commands, args?: T): CommandQuickPickItem {
 		return new CommandQuickPickItem(
 			typeof labelOrItem === 'string' ? { label: labelOrItem } : labelOrItem,
+			undefined,
 			command,
 			args == null ? [] : [args],
 		);
@@ -39,9 +40,11 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 	label!: string;
 	description?: string;
 	detail?: string | undefined;
+	iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon | undefined;
 
 	constructor(
 		label: string,
+		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon | undefined,
 		command?: Commands,
 		args?: Arguments,
 		options?: {
@@ -51,6 +54,7 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 	);
 	constructor(
 		item: QuickPickItem,
+		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon | undefined,
 		command?: Commands,
 		args?: Arguments,
 		options?: {
@@ -60,6 +64,7 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 	);
 	constructor(
 		labelOrItem: string | QuickPickItem,
+		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon | undefined,
 		command?: Commands,
 		args?: Arguments,
 		options?: {
@@ -69,6 +74,7 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 	);
 	constructor(
 		labelOrItem: string | QuickPickItem,
+		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon | undefined,
 		protected readonly command?: Commands,
 		protected readonly args?: Arguments,
 		protected readonly options?: {
@@ -87,6 +93,10 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 			this.label = labelOrItem;
 		} else {
 			Object.assign(this, labelOrItem);
+		}
+
+		if (iconPath != null) {
+			this.iconPath = iconPath;
 		}
 	}
 

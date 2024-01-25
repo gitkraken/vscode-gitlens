@@ -11,7 +11,6 @@ import type { GitFile, GitFileStatus } from './file';
 import {
 	getGitFileFormattedDirectory,
 	getGitFileFormattedPath,
-	getGitFileStatusCodicon,
 	getGitFileStatusText,
 	GitFileChange,
 	GitFileConflictStatus,
@@ -433,10 +432,6 @@ export class GitStatusFile implements GitFile {
 
 	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {
 		return getGitFileFormattedPath(this, options);
-	}
-
-	getOcticon() {
-		return getGitFileStatusCodicon(this.status);
 	}
 
 	getStatusText(): string {
