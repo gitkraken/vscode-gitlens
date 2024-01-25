@@ -14,7 +14,7 @@ import { CommandQuickPickItem } from './items/common';
 import type { DirectiveQuickPickItem } from './items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from './items/directive';
 import type { CommitQuickPickItem } from './items/gitCommands';
-import { createCommitQuickPickItem } from './items/gitCommands';
+import { createCommitQuickPickItem, createStashQuickPickItem } from './items/gitCommands';
 
 type Item = CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem;
 
@@ -67,24 +67,30 @@ export async function showCommitPicker(
 			quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })];
 		}
 	} else {
-		quickpick.items = getItems(log);
+		quickpick.items = await getItems(log);
 	}
 
 	if (options?.picked) {
 		quickpick.activeItems = quickpick.items.filter(i => (CommandQuickPickItem.is(i) ? false : i.picked));
 	}
 
-	function getItems(log: GitLog) {
-		return [
-			...(options?.showOtherReferences ?? []),
-			...map(log.commits.values(), commit =>
-				createCommitQuickPickItem(commit, options?.picked === commit.ref, {
-					compact: true,
-					icon: true,
-				}),
-			),
-			...(log?.hasMore ? [createDirectiveQuickPickItem(Directive.LoadMore)] : []),
-		];
+	async function getItems(log: GitLog) {
+		const items = [];
+		if (options?.showOtherReferences != null) {
+			items.push(...options.showOtherReferences);
+		}
+
+		for await (const item of map(log.commits.values(), async commit =>
+			createCommitQuickPickItem(commit, options?.picked === commit.ref, { compact: true, icon: 'avatar' }),
+		)) {
+			items.push(item);
+		}
+
+		if (log.hasMore) {
+			items.push(createDirectiveQuickPickItem(Directive.LoadMore));
+		}
+
+		return items;
 	}
 
 	async function loadMore() {
@@ -109,7 +115,7 @@ export async function showCommitPicker(
 					items = [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })];
 				}
 			} else {
-				items = getItems(log);
+				items = await getItems(log);
 			}
 
 			let activeIndex = -1;
@@ -255,7 +261,7 @@ export async function showStashPicker(
 			...map(
 				options?.filter != null ? filter(stash.commits.values(), options.filter) : stash.commits.values(),
 				commit =>
-					createCommitQuickPickItem(commit, options?.picked === commit.ref, {
+					createStashQuickPickItem(commit, options?.picked === commit.ref, {
 						compact: true,
 						icon: true,
 					}),
