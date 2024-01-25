@@ -15035,6 +15035,19 @@
 				{
 					"command": "gitlens.copyRemoteCommitUrl",
 					"group": "1_gitlens_commit@1"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToLines",
+					"group": "1_gitlens_link@1"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToFile",
+					"group": "1_gitlens_link@2"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToFileAtRevision",
+					"when": "gitlens:activeFileStatus =~ /blameable/",
+					"group": "1_gitlens_link@3"
 				}
 			],
 			"gitlens/explorer/changes": [

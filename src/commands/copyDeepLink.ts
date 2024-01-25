@@ -18,6 +18,7 @@ import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
 	getCommandUri,
+	isCommandContextEditorLine,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasComparison,
@@ -192,17 +193,16 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 			args.chooseRef = true;
 		}
 
-		if (
-			args.lines == null &&
-			context.command === Commands.CopyDeepLinkToLines &&
-			context.editor?.selection != null &&
-			!context.editor.selection.isEmpty
-		) {
+		if (args.lines == null && context.command === Commands.CopyDeepLinkToLines) {
 			let lines: number[] | undefined;
-			if (context.editor.selection.isSingleLine) {
-				lines = [context.editor.selection.start.line + 1];
-			} else {
-				lines = [context.editor.selection.start.line + 1, context.editor.selection.end.line + 1];
+			if (isCommandContextEditorLine(context) && context.line != null) {
+				lines = [context.line + 1];
+			} else if (context.editor?.selection != null && !context.editor.selection.isEmpty) {
+				if (context.editor.selection.isSingleLine) {
+					lines = [context.editor.selection.start.line + 1];
+				} else {
+					lines = [context.editor.selection.start.line + 1, context.editor.selection.end.line + 1];
+				}
 			}
 
 			args.lines = lines;
