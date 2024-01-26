@@ -27,6 +27,7 @@ interface LogOptions<T extends (...arg: any) => any> {
 				4?: ((arg: Parameters<T>[4]) => unknown) | string | false;
 				[key: number]: (((arg: any) => unknown) | string | false) | undefined;
 		  };
+	if?(this: any, ...args: Parameters<T>): boolean;
 	enter?(...args: Parameters<T>): string;
 	exit?: ((result: PromiseType<ReturnType<T>>) => string) | boolean;
 	prefix?(context: LogContext, ...args: Parameters<T>): string;
@@ -52,6 +53,7 @@ type PromiseType<T> = T extends Promise<infer U> ? U : T;
 
 export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, debug = false) {
 	let overrides: LogOptions<T>['args'] | undefined;
+	let ifFn: LogOptions<T>['if'] | undefined;
 	let enterFn: LogOptions<T>['enter'] | undefined;
 	let exitFn: LogOptions<T>['exit'] | undefined;
 	let prefixFn: LogOptions<T>['prefix'] | undefined;
@@ -62,6 +64,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 	if (options != null) {
 		({
 			args: overrides,
+			if: ifFn,
 			enter: enterFn,
 			exit: exitFn,
 			prefix: prefixFn,
@@ -100,7 +103,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 		const parameters = overrides !== false ? getParameters(fn) : [];
 
 		descriptor[fnKey] = function (this: any, ...args: Parameters<T>) {
-			if (!debugging && !Logger.enabled(logLevel)) {
+			if ((!debugging && !Logger.enabled(logLevel)) || (ifFn != null && !ifFn.apply(this, args))) {
 				return fn!.apply(this, args);
 			}
 
