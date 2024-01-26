@@ -33,6 +33,7 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 export function registerSettingsWebviewCommands<T>(panels: WebviewPanelsProxy<SettingsWebviewShowingArgs, T>) {
 	return Disposable.from(
 		...[
+			Commands.ShowSettingsPageAndJumpToFileAnnotations,
 			Commands.ShowSettingsPageAndJumpToBranchesView,
 			Commands.ShowSettingsPageAndJumpToCommitsView,
 			Commands.ShowSettingsPageAndJumpToContributorsView,
@@ -48,7 +49,7 @@ export function registerSettingsWebviewCommands<T>(panels: WebviewPanelsProxy<Se
 			Commands.ShowSettingsPageAndJumpToCommitGraph,
 			Commands.ShowSettingsPageAndJumpToAutolinks,
 		].map(c => {
-			// The show and jump commands are structured to have a # separating the base command from the anchor
+			// The show and jump commands are structured to have a ! separating the base command from the anchor
 			let anchor: string | undefined;
 			const match = /.*?!(.*)/.exec(c);
 			if (match != null) {
