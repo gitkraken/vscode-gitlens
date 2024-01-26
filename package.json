@@ -5305,6 +5305,12 @@
 				"icon": "$(gear)"
 			},
 			{
+				"command": "gitlens.showSettingsPage!blame",
+				"title": "Open File Annotation Settings",
+				"category": "GitLens",
+				"icon": "$(gear)"
+			},
+			{
 				"command": "gitlens.showSettingsPage!branches-view",
 				"title": "Open View Settings",
 				"category": "GitLens",
@@ -8999,6 +9005,10 @@
 				},
 				{
 					"command": "gitlens.showSettingsPage!views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showSettingsPage!blame",
 					"when": "false"
 				},
 				{
@@ -14872,6 +14882,11 @@
 					"command": "gitlens.toggleFileChanges",
 					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:hasVirtualFolders",
 					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.showSettingsPage!blame",
+					"when": "gitlens:activeFileStatus =~ /blameable/",
+					"group": "8_gitlens@1"
 				}
 			],
 			"gitlens/editor/context/changes": [
