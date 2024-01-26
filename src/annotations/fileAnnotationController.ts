@@ -26,12 +26,12 @@ import type { Container } from '../container';
 import { registerCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
+import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { find } from '../system/iterable';
 import type { KeyboardScope } from '../system/keyboard';
-import { Logger } from '../system/logger';
 import { basename } from '../system/path';
 import { isTextEditor } from '../system/utils';
 import type {
@@ -42,14 +42,6 @@ import type {
 import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
 import { getEditorCorrelationKey } from './annotationProvider';
 import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
-
-export type AnnotationClearReason =
-	| 'User'
-	| 'BlameabilityChanged'
-	| 'ColumnChanged'
-	| 'Disposing'
-	| 'DocumentChanged'
-	| 'DocumentClosed';
 
 export const Decorations = {
 	gutterBlameAnnotation: window.createTextEditorDecorationType({
@@ -95,7 +87,6 @@ export class FileAnnotationController implements Disposable {
 		Decorations.changesLineAddedAnnotation?.dispose();
 		Decorations.changesLineDeletedAnnotation?.dispose();
 
-		this._annotationsDisposable?.dispose();
 		this._disposable?.dispose();
 	}
 
@@ -207,7 +198,7 @@ export class FileAnnotationController implements Disposable {
 			return;
 		}
 
-		void this.clear(editor, 'BlameabilityChanged');
+		void this.clearCore(getEditorCorrelationKey(editor));
 	}
 
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent) {
@@ -223,10 +214,12 @@ export class FileAnnotationController implements Disposable {
 		for (const [key, p] of this._annotationProviders) {
 			if (!e.document.is(p.editor.document)) continue;
 
-			if (e.dirty) {
-				void this.clearCore(key, 'DocumentChanged');
-			} else if (configuration.get('experimental.allowAnnotationsWhenDirty')) {
-				this.restore(e.editor);
+			if (configuration.get('experimental.allowAnnotationsWhenDirty')) {
+				if (!e.dirty) {
+					this.restore(e.editor);
+				}
+			} else if (e.dirty) {
+				void this.clearCore(key);
 			}
 		}
 	}
@@ -237,7 +230,7 @@ export class FileAnnotationController implements Disposable {
 		for (const [key, p] of this._annotationProviders) {
 			if (p.editor.document !== document) continue;
 
-			void this.clearCore(key, 'DocumentClosed');
+			void this.clearCore(key);
 		}
 	}
 
@@ -252,7 +245,7 @@ export class FileAnnotationController implements Disposable {
 			);
 			if (fuzzyProvider == null) return;
 
-			void this.clearCore(fuzzyProvider.correlationKey, 'ColumnChanged');
+			void this.clearCore(fuzzyProvider.correlationKey);
 
 			return;
 		}
@@ -276,19 +269,22 @@ export class FileAnnotationController implements Disposable {
 		return this._toggleModes.get(annotationType) ?? 'file';
 	}
 
-	clear(editor: TextEditor, reason: AnnotationClearReason = 'User') {
-		if (this.isInWindowToggle() && reason === 'User') {
-			return this.clearAll();
-		}
+	@log<FileAnnotationController['clear']>({ args: { 0: e => e?.document.uri.toString(true) } })
+	clear(editor: TextEditor) {
+		if (this.isInWindowToggle()) return this.clearAll();
 
-		return this.clearCore(getEditorCorrelationKey(editor), reason);
+		return this.clearCore(getEditorCorrelationKey(editor), true);
 	}
 
+	@log()
 	async clearAll() {
 		this._windowAnnotationType = undefined;
+
 		for (const [key] of this._annotationProviders) {
-			await this.clearCore(key, 'Disposing');
+			await this.clearCore(key, true);
 		}
+
+		this.unsubscribe();
 	}
 
 	async getAnnotationType(editor: TextEditor | undefined): Promise<FileAnnotationType | undefined> {
@@ -326,6 +322,12 @@ export class FileAnnotationController implements Disposable {
 
 	async show(editor: TextEditor | undefined, type: FileAnnotationType, context?: AnnotationContext): Promise<boolean>;
 	async show(editor: TextEditor | undefined, type: 'changes', context?: ChangesAnnotationContext): Promise<boolean>;
+	@log<FileAnnotationController['show']>({
+		args: {
+			0: e => e?.document.uri.toString(true),
+			2: false,
+		},
+	})
 	async show(
 		editor: TextEditor | undefined,
 		type: FileAnnotationType,
@@ -348,6 +350,11 @@ export class FileAnnotationController implements Disposable {
 
 					void this.show(e, type);
 				}
+			}
+
+			if (editor == null) {
+				this.subscribe();
+				return false;
 			}
 		}
 
@@ -394,6 +401,12 @@ export class FileAnnotationController implements Disposable {
 		context?: ChangesAnnotationContext,
 		on?: boolean,
 	): Promise<boolean>;
+	@log<FileAnnotationController['toggle']>({
+		args: {
+			0: e => e?.document.uri.toString(true),
+			2: false,
+		},
+	})
 	async toggle(
 		editor: TextEditor | undefined,
 		type: FileAnnotationType,
@@ -408,7 +421,14 @@ export class FileAnnotationController implements Disposable {
 		}
 
 		const provider = this.getProvider(editor);
-		if (provider == null) return this.show(editor, type, context);
+		if (provider == null) {
+			if (editor == null && this.isInWindowToggle()) {
+				await this.clearAll();
+				return false;
+			}
+
+			return this.show(editor, type, context);
+		}
 
 		const reopen = provider.annotationType !== type || !provider.canReuse(context);
 		if (on === true && !reopen) return true;
@@ -416,7 +436,7 @@ export class FileAnnotationController implements Disposable {
 		if (this.isInWindowToggle()) {
 			await this.clearAll();
 		} else {
-			await this.clearCore(provider.correlationKey, 'User');
+			await this.clearCore(provider.correlationKey, true);
 		}
 
 		if (!reopen) return false;
@@ -424,11 +444,13 @@ export class FileAnnotationController implements Disposable {
 		return this.show(editor, type, context);
 	}
 
+	@log()
 	nextChange() {
 		const provider = this.getProvider(window.activeTextEditor);
 		provider?.nextChange?.();
 	}
 
+	@log()
 	previousChange() {
 		const provider = this.getProvider(window.activeTextEditor);
 		provider?.previousChange?.();
@@ -445,7 +467,7 @@ export class FileAnnotationController implements Disposable {
 						const e = this._editor;
 						if (e == null) return undefined;
 
-						await this.clear(e, 'User');
+						await this.clear(e);
 						return undefined;
 					},
 				},
@@ -453,30 +475,22 @@ export class FileAnnotationController implements Disposable {
 		}
 	}
 
-	private async clearCore(key: TextEditorCorrelationKey, reason: AnnotationClearReason) {
+	@log()
+	private async clearCore(key: TextEditorCorrelationKey, force?: boolean) {
 		const provider = this._annotationProviders.get(key);
 		if (provider == null) return;
 
-		Logger.log(`${reason}:`, `Clear annotations for ${key}`);
-
-		if (
-			!configuration.get('experimental.allowAnnotationsWhenDirty') ||
-			(reason !== 'BlameabilityChanged' && reason !== 'DocumentChanged')
-		) {
-			this._annotationProviders.delete(key);
-			provider.dispose();
-		}
+		this._annotationProviders.delete(key);
+		provider.dispose();
 
 		if (!this._annotationProviders.size || key === getEditorCorrelationKey(this._editor)) {
 			await setContext('gitlens:annotationStatus', undefined);
 			await this.detachKeyboardHook();
 		}
 
-		if (!this._annotationProviders.size) {
-			Logger.log('Remove all listener registrations for annotations');
-
-			this._annotationsDisposable?.dispose();
-			this._annotationsDisposable = undefined;
+		if (!this._annotationProviders.size && (force || !this.isInWindowToggle())) {
+			this._windowAnnotationType = undefined;
+			this.unsubscribe();
 		}
 
 		this._onDidToggleAnnotations.fire();
@@ -549,23 +563,11 @@ export class FileAnnotationController implements Disposable {
 		if (provider == null || (await provider.validate?.()) === false) return undefined;
 
 		if (currentProvider != null) {
-			await this.clearCore(currentProvider.correlationKey, 'User');
+			await this.clearCore(currentProvider.correlationKey, true);
 		}
 
-		if (this._annotationsDisposable == null && this._annotationProviders.size === 0) {
-			Logger.log('Add listener registrations for annotations');
-
-			this._annotationsDisposable = Disposable.from(
-				window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 50), this),
-				window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
-				window.onDidChangeVisibleTextEditors(debounce(this.onVisibleTextEditorsChanged, 50), this),
-				workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
-				this.container.documentTracker.onDidChangeBlameState(this.onBlameStateChanged, this),
-				this.container.documentTracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
-				this.container.documentTracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
-				registerCommand('gitlens.annotations.nextChange', () => this.nextChange()),
-				registerCommand('gitlens.annotations.previousChange', () => this.previousChange()),
-			);
+		if (this._annotationProviders.size === 0) {
+			this.subscribe();
 		}
 
 		this._annotationProviders.set(provider.correlationKey, provider);
@@ -574,9 +576,40 @@ export class FileAnnotationController implements Disposable {
 			return provider;
 		}
 
-		await this.clearCore(provider.correlationKey, 'Disposing');
+		await this.clearCore(provider.correlationKey, true);
 
 		return undefined;
+	}
+
+	@debug({
+		singleLine: true,
+		if: function () {
+			return this._annotationsDisposable == null;
+		},
+	})
+	private subscribe() {
+		this._annotationsDisposable ??= Disposable.from(
+			window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 50), this),
+			window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
+			window.onDidChangeVisibleTextEditors(debounce(this.onVisibleTextEditorsChanged, 50), this),
+			workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
+			this.container.documentTracker.onDidChangeBlameState(this.onBlameStateChanged, this),
+			this.container.documentTracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
+			this.container.documentTracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
+			registerCommand('gitlens.annotations.nextChange', () => this.nextChange()),
+			registerCommand('gitlens.annotations.previousChange', () => this.previousChange()),
+		);
+	}
+
+	@debug({
+		singleLine: true,
+		if: function () {
+			return this._annotationsDisposable != null;
+		},
+	})
+	private unsubscribe() {
+		this._annotationsDisposable?.dispose();
+		this._annotationsDisposable = undefined;
 	}
 
 	private updateDecorations(refresh: boolean) {

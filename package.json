@@ -9189,7 +9189,7 @@
 				},
 				{
 					"command": "gitlens.toggleFileBlame",
-					"when": "gitlens:activeFileStatus =~ /blameable/"
+					"when": "gitlens:activeFileStatus =~ /blameable/ || config.gitlens.blame.toggleMode == window"
 				},
 				{
 					"command": "gitlens.toggleFileBlameInDiffLeft",
@@ -9217,7 +9217,7 @@
 				},
 				{
 					"command": "gitlens.toggleFileHeatmap",
-					"when": "gitlens:activeFileStatus =~ /blameable/"
+					"when": "gitlens:activeFileStatus =~ /blameable/ || config.gitlens.heatmap.toggleMode == window"
 				},
 				{
 					"command": "gitlens.toggleFileHeatmapInDiffLeft",
@@ -9229,7 +9229,7 @@
 				},
 				{
 					"command": "gitlens.toggleFileChanges",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:hasVirtualFolders"
+					"when": "(gitlens:activeFileStatus =~ /blameable/  || config.gitlens.changes.toggleMode == window) && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.toggleFileChangesOnly",
