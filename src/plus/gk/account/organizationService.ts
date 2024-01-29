@@ -141,11 +141,13 @@ export class OrganizationService implements Disposable {
 		if (settings == null) {
 			void setContext('gitlens:gk:organization:ai:disabled', false);
 			void setContext('gitlens:gk:organization:drafts:disabled', false);
+			void setContext('gitlens:gk:organization:drafts:byob', false);
 			return;
 		}
 
 		void setContext('gitlens:gk:organization:ai:disabled', settings.aiSettings.enabled === false);
 		void setContext('gitlens:gk:organization:drafts:disabled', settings.draftsSettings.enabled === false);
+		void setContext('gitlens:gk:organization:drafts:byob', settings.draftsSettings.bucket != null);
 	}
 
 	@gate()
