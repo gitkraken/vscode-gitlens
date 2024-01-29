@@ -137,6 +137,7 @@ export interface State extends WebviewState {
 	preferences: Preferences;
 	orgSettings: {
 		ai: boolean;
+		byob: boolean;
 	};
 
 	draft?: DraftDetails;

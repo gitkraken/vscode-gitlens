@@ -334,6 +334,7 @@ export class PatchDetailsWebviewProvider
 	private getOrgSettings(): State['orgSettings'] {
 		return {
 			ai: !getContext<boolean>('gitlens:gk:organization:ai:disabled', false),
+			byob: getContext<boolean>('gitlens:gk:organization:drafts:byob', false),
 		};
 	}
 

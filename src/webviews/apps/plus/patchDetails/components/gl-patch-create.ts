@@ -246,11 +246,39 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 					</span>
 				</p>
 				<!-- <p class="h-deemphasize"><code-icon icon="account"></code-icon> Requires a GitKraken account <a href="#">sign-in</a></p> -->
-				<p class="h-deemphasize"><code-icon icon="info"></code-icon> <a href="https://www.gitkraken.com/solutions/cloud-patches" title="Learn more about Cloud Patches"
-					aria-label="Learn more about GitKraken security">Cloud Patches</a> are <a href="https://help.gitkraken.com/gitlens/security/"
-					title="Learn more about Cloud Patches"
-					aria-label="Learn more about GitKraken security">securely stored</a> by GitKraken.
-				</p>
+				${when(
+					this.state?.orgSettings.byob === true,
+					() =>
+						html`<p class="h-deemphasize">
+							<code-icon icon="lock"></code-icon>
+							<a
+								href="https://www.gitkraken.com/solutions/cloud-patches"
+								title="Learn more about Cloud Patches"
+								aria-label="Learn more about GitKraken security"
+								>Cloud Patches</a
+							>
+							are
+							<a
+								href="https://help.gitkraken.com/gitlens/security"
+								title="Learn more about Cloud Patches"
+								aria-label="Learn more about GitKraken security"
+								>securely stored</a
+							>
+							by GitKraken.
+						</p>`,
+					() =>
+						html`<p class="h-deemphasize">
+							<code-icon icon="info"></code-icon>
+							Your
+							<a
+								href="https://www.gitkraken.com/solutions/cloud-patches"
+								title="Learn more about Cloud Patches"
+								aria-label="Learn more about GitKraken security"
+								>Cloud Patch</a
+							>
+							will be securely stored in your organization's self-hosted storage
+						</p>`,
+				)}
 			</div>
 			`;
 	}
