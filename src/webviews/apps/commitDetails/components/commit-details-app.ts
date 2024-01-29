@@ -134,6 +134,7 @@ export class GlCommitDetailsApp extends LitElement {
 								.wip=${wip}
 								.files=${wip?.changes?.files}
 								.preferences=${this.state?.preferences}
+								.orgSettings=${this.state?.orgSettings}
 								.isUncommitted=${true}
 								.emptyText=${'No working changes'}
 							></gl-wip-details>`,
