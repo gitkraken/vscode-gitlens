@@ -326,7 +326,9 @@ export class GitCommandsCommand extends Command {
 				return buttons;
 			}
 
-			buttons.push(QuickInputButtons.Back);
+			if (step.disallowBack !== true) {
+				buttons.push(QuickInputButtons.Back);
+			}
 
 			if (step.additionalButtons != null) {
 				buttons.push(...step.additionalButtons);
@@ -436,6 +438,8 @@ export class GitCommandsCommand extends Command {
 			// eslint-disable-next-line no-async-promise-executor
 			return await new Promise<QuickPickStep | QuickInputStep | undefined>(async resolve => {
 				const goBack = async () => {
+					if (step.disallowBack === true) return;
+
 					input.value = '';
 					if (commandsStep.command != null) {
 						input.busy = true;
@@ -566,6 +570,8 @@ export class GitCommandsCommand extends Command {
 		try {
 			return await new Promise<QuickPickStep | QuickInputStep | undefined>(resolve => {
 				async function goBack() {
+					if (step.disallowBack === true) return;
+
 					quickpick.value = '';
 					if (commandsStep.command != null) {
 						quickpick.busy = true;

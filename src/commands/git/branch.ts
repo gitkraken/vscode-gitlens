@@ -8,6 +8,7 @@ import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { getSteps } from '../gitCommands.utils';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -41,7 +42,7 @@ interface Context {
 	title: string;
 }
 
-type CreateFlags = '--switch';
+type CreateFlags = '--switch' | '--worktree';
 
 interface CreateState {
 	subcommand: 'create';
@@ -362,6 +363,25 @@ export class BranchGitCommand extends QuickCommand {
 				state.flags = result;
 			}
 
+			if (state.flags.includes('--worktree')) {
+				const worktreeResult = yield* getSteps(
+					this.container,
+					{
+						command: 'worktree',
+						state: {
+							subcommand: 'create',
+							reference: state.reference,
+							createBranch: state.name,
+						},
+					},
+					this.pickedVia,
+				);
+				if (worktreeResult === StepResultBreak) continue;
+
+				endSteps(state);
+				return;
+			}
+
 			endSteps(state);
 			if (state.flags.includes('--switch')) {
 				await state.repo.switch(state.reference.ref, { createBranch: state.name });
@@ -380,9 +400,15 @@ export class BranchGitCommand extends QuickCommand {
 					detail: `Will create a new branch named ${state.name} from ${getReferenceLabel(state.reference)}`,
 				}),
 				createFlagsQuickPickItem<CreateFlags>(state.flags, ['--switch'], {
-					label: `${context.title} and Switch`,
-					description: '--switch',
+					label: `Create & Switch to Branch`,
 					detail: `Will create and switch to a new branch named ${state.name} from ${getReferenceLabel(
+						state.reference,
+					)}`,
+				}),
+				createFlagsQuickPickItem<CreateFlags>(state.flags, ['--worktree'], {
+					label: `${context.title} in New Worktree`,
+					description: 'avoids modifying your working tree',
+					detail: `Will create a new worktree for a new branch named ${state.name} from ${getReferenceLabel(
 						state.reference,
 					)}`,
 				}),
