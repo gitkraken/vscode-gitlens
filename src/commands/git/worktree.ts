@@ -100,6 +100,7 @@ interface OpenState {
 
 	openOnly?: boolean;
 	overrides?: {
+		disallowBack?: boolean;
 		confirmTitle?: string;
 		confirmPlaceholder?: string;
 	};
@@ -527,10 +528,16 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						subcommand: 'open',
 						repo: state.repo,
 						uri: worktree.uri,
+						flags: [],
 						counter: 3,
 						confirm: true,
 						openOnly: true,
-					} as OpenStepState,
+						overrides: {
+							disallowBack: true,
+							confirmTitle: 'Open Worktree',
+							confirmPlaceholder: 'Confirm Open Worktree',
+						},
+					} satisfies OpenStepState,
 					context,
 				);
 
@@ -625,14 +632,13 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			createDirectlyInFolder = false;
 		}
 
-		const branchName =
-			state.createBranch ?? (state.reference != null ? getNameWithoutRemote(state.reference) : undefined);
+		const branchName = state.reference != null ? getNameWithoutRemote(state.reference) : undefined;
 
 		const recommendedFriendlyPath = `<root>/${truncateLeft(
 			`${trailer}/${branchName?.replace(/\\/g, '/') ?? ''}`,
 			65,
 		)}`;
-		const recommendedNewBranchFriendlyPath = `<root>/${trailer}/<new-branch-name>`;
+		const recommendedNewBranchFriendlyPath = `<root>/${trailer}/${state.createBranch || '<new-branch-name>'}`;
 
 		const isRemoteBranch = state.reference?.refType === 'branch' && state.reference?.remote;
 
@@ -640,17 +646,22 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		const confirmations: StepType[] = [];
 		if (!createDirectlyInFolder) {
+			if (!state.createBranch) {
+				confirmations.push(
+					createFlagsQuickPickItem<CreateFlags, Uri>(
+						state.flags,
+						[],
+						{
+							label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
+							description: '',
+							detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
+						},
+						recommendedRootUri,
+					),
+				);
+			}
+
 			confirmations.push(
-				createFlagsQuickPickItem<CreateFlags, Uri>(
-					state.flags,
-					[],
-					{
-						label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
-						description: '',
-						detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
-					},
-					recommendedRootUri,
-				),
 				createFlagsQuickPickItem<CreateFlags, Uri>(
 					state.flags,
 					['-b'],
@@ -665,17 +676,25 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				),
 			);
 		} else {
+			if (!state.createBranch) {
+				confirmations.push(
+					createFlagsQuickPickItem<CreateFlags, Uri>(
+						state.flags,
+						['--direct'],
+						{
+							label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
+							description: '',
+							detail: `Will create worktree directly in $(folder) ${truncateLeft(
+								pickedFriendlyPath,
+								60,
+							)}`,
+						},
+						pickedUri,
+					),
+				);
+			}
+
 			confirmations.push(
-				createFlagsQuickPickItem<CreateFlags, Uri>(
-					state.flags,
-					['--direct'],
-					{
-						label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
-						description: '',
-						detail: `Will create worktree directly in $(folder) ${truncateLeft(pickedFriendlyPath, 60)}`,
-					},
-					pickedUri,
-				),
 				createFlagsQuickPickItem<CreateFlags, Uri>(
 					state.flags,
 					['-b', '--direct'],
@@ -722,10 +741,13 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		const step = createConfirmStep(
 			appendReposToTitle(
-				`Confirm ${context.title} \u2022 ${getReferenceLabel(state.reference, {
-					icon: false,
-					label: false,
-				})}`,
+				`Confirm ${context.title} \u2022 ${
+					state.createBranch ||
+					getReferenceLabel(state.reference, {
+						icon: false,
+						label: false,
+					})
+				}`,
 				state,
 				context,
 			),
@@ -931,9 +953,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			confirmations,
 			context,
 			undefined,
-			state.overrides?.confirmPlaceholder
-				? { placeholder: state.overrides.confirmPlaceholder }
-				: { placeholder: 'Confirm Open Worktree' },
+			{
+				disallowBack: state.overrides?.disallowBack,
+				placeholder: state.overrides?.confirmPlaceholder ?? 'Confirm Open Worktree',
+			},
 		);
 
 		const selection: StepSelection<typeof step> = yield step;

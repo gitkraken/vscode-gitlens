@@ -21,6 +21,7 @@ export function isCustomStep(
 export interface QuickInputStep {
 	additionalButtons?: QuickInputButton[];
 	buttons?: QuickInputButton[];
+	disallowBack?: boolean;
 	ignoreFocusOut?: boolean;
 	isConfirmationStep?: boolean;
 	keys?: StepNavigationKeys[];
@@ -44,9 +45,10 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	additionalButtons?: QuickInputButton[];
 	allowEmpty?: boolean;
 	buttons?: QuickInputButton[];
+	disallowBack?: boolean;
 	ignoreFocusOut?: boolean;
 	isConfirmationStep?: boolean;
-	items: (DirectiveQuickPickItem | T)[]; // | DirectiveQuickPickItem[];
+	items: (DirectiveQuickPickItem | T)[];
 	keys?: StepNavigationKeys[];
 	matchOnDescription?: boolean;
 	matchOnDetail?: boolean;
