@@ -21,6 +21,10 @@ export interface QuickPickItemOfT<T = any> extends QuickPickItem {
 	readonly item: T;
 }
 
+export function createQuickPickItemOfT<T = any>(labelOrItem: string | QuickPickItem, item: T): QuickPickItemOfT<T> {
+	return typeof labelOrItem === 'string' ? { label: labelOrItem, item: item } : { ...labelOrItem, item: item };
+}
+
 export class CommandQuickPickItem<Arguments extends any[] = any[]> implements QuickPickItem {
 	static fromCommand<T>(label: string, command: Commands, args?: T): CommandQuickPickItem;
 	static fromCommand<T>(item: QuickPickItem, command: Commands, args?: T): CommandQuickPickItem;

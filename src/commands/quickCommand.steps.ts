@@ -733,16 +733,15 @@ export async function* pickBranchStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await BranchActions.reveal(quickpick.activeItems[0].item, {
+		onDidPressKey: async (_quickpick, _key, { item }) => {
+			await BranchActions.reveal(item, {
 				select: true,
 				focus: false,
 				expand: true,
 			});
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
@@ -792,16 +791,15 @@ export async function* pickBranchesStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await BranchActions.reveal(quickpick.activeItems[0].item, {
+		onDidPressKey: async (_quickpick, _key, { item }) => {
+			await BranchActions.reveal(item, {
 				select: true,
 				focus: false,
 				expand: true,
 			});
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
@@ -903,10 +901,7 @@ export async function* pickBranchOrTagStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			const item = quickpick.activeItems[0].item;
+		onDidPressKey: (_quickpick, _key, { item }) => {
 			if (isBranchReference(item)) {
 				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
 			} else if (isTagReference(item)) {
@@ -917,6 +912,7 @@ export async function* pickBranchOrTagStep<
 		},
 		onValidateValue: getValidateGitReferenceFn(state.repo, { ranges: ranges }),
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
@@ -1014,10 +1010,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			const item = quickpick.activeItems[0].item;
+		onDidPressKey: (_quickpick, _key, { item }) => {
 			if (isBranchReference(item)) {
 				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
 			} else if (isTagReference(item)) {
@@ -1156,8 +1149,6 @@ export async function* pickCommitStep<
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (quickpick, key) => {
-			if (quickpick.activeItems.length === 0) return;
-
 			const items = quickpick.activeItems.filter<CommitQuickPickItem>(
 				(i): i is CommitQuickPickItem => !CommandQuickPickItem.is(i),
 			);
@@ -1176,6 +1167,7 @@ export async function* pickCommitStep<
 			buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 		}),
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	if (!canPickStepContinue(step, state, selection)) return StepResultBreak;
 
@@ -1270,16 +1262,14 @@ export async function* pickCommitsStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async (quickpick, key) => {
-			if (quickpick.activeItems.length === 0) return;
-
+		onDidPressKey: async (_quickpick, key, { item }) => {
 			if (key === 'ctrl+right') {
-				void CommitActions.showDetailsView(quickpick.activeItems[0].item, {
+				void CommitActions.showDetailsView(item, {
 					pin: false,
 					preserveFocus: true,
 				});
 			} else {
-				await CommitActions.reveal(quickpick.activeItems[0].item, {
+				await CommitActions.reveal(item, {
 					select: true,
 					focus: false,
 					expand: true,
@@ -1287,6 +1277,7 @@ export async function* pickCommitsStep<
 			}
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
@@ -1321,16 +1312,15 @@ export async function* pickContributorsStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			void ContributorActions.reveal(quickpick.activeItems[0].item, {
+		onDidPressKey: (_quickpick, _key, { item }) => {
+			void ContributorActions.reveal(item, {
 				select: true,
 				focus: false,
 				expand: true,
 			});
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
@@ -1373,16 +1363,15 @@ export async function* pickRemoteStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await RemoteActions.reveal(quickpick.activeItems[0].item, {
+		onDidPressKey: async (_quickpick, _key, { item }) => {
+			await RemoteActions.reveal(item, {
 				select: true,
 				focus: false,
 				expand: true,
 			});
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
@@ -1426,16 +1415,15 @@ export async function* pickRemotesStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await RemoteActions.reveal(quickpick.activeItems[0].item, {
+		onDidPressKey: async (_quickpick, _key, { item }) => {
+			await RemoteActions.reveal(item, {
 				select: true,
 				focus: false,
 				expand: true,
 			});
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
@@ -1476,16 +1464,15 @@ export async function* pickRepositoryStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			void RepositoryActions.reveal(quickpick.activeItems[0].item.path, context.associatedView, {
+		onDidPressKey: (_quickpick, _key, { item }) => {
+			void RepositoryActions.reveal(item.path, context.associatedView, {
 				select: true,
 				focus: false,
 				expand: true,
 			});
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
@@ -1546,16 +1533,15 @@ export async function* pickRepositoriesStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			void RepositoryActions.reveal(quickpick.activeItems[0].item.path, context.associatedView, {
+		onDidPressKey: (_quickpick, _key, { item }) => {
+			void RepositoryActions.reveal(item.path, context.associatedView, {
 				select: true,
 				focus: false,
 				expand: true,
 			});
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
@@ -1609,12 +1595,11 @@ export function* pickStashStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await StashActions.showDetailsView(quickpick.activeItems[0].item, { pin: false, preserveFocus: true });
+		onDidPressKey: async (_quickpick, _key, { item }) => {
+			await StashActions.showDetailsView(item, { pin: false, preserveFocus: true });
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
@@ -1669,12 +1654,11 @@ export function* pickStashesStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await StashActions.showDetailsView(quickpick.activeItems[0].item, { pin: false, preserveFocus: true });
+		onDidPressKey: async (_quickpick, _key, { item }) => {
+			await StashActions.showDetailsView(item, { pin: false, preserveFocus: true });
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
@@ -1722,16 +1706,15 @@ export async function* pickTagsStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await TagActions.reveal(quickpick.activeItems[0].item, {
+		onDidPressKey: async (_quickpick, _key, { item }) => {
+			await TagActions.reveal(item, {
 				select: true,
 				focus: false,
 				expand: true,
 			});
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
@@ -1782,16 +1765,15 @@ export async function* pickWorktreeStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await WorktreeActions.reveal(quickpick.activeItems[0].item, {
+		onDidPressKey: async (_quickpick, _key, { item }) => {
+			await WorktreeActions.reveal(item, {
 				select: true,
 				focus: false,
 				expand: true,
 			});
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
@@ -1843,16 +1825,15 @@ export async function* pickWorktreesStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async quickpick => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await WorktreeActions.reveal(quickpick.activeItems[0].item, {
+		onDidPressKey: async (_quickpick, _key, { item }) => {
+			await WorktreeActions.reveal(item, {
 				select: true,
 				focus: false,
 				expand: true,
 			});
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
@@ -1908,12 +1889,11 @@ export async function* showCommitOrStashStep<
 				}
 			},
 			keys: ['right', 'alt+right', 'ctrl+right'],
-			onDidPressKey: async (quickpick, key) => {
-				if (quickpick.activeItems.length === 0) return;
-
-				await quickpick.activeItems[0].onDidPressKey(key);
+			onDidPressKey: async (_quickpick, key, item) => {
+				await item.onDidPressKey(key);
 			},
 		});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection[0] : StepResultBreak;
 }
@@ -2197,12 +2177,11 @@ export function* showCommitOrStashFilesStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async (quickpick, key) => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await quickpick.activeItems[0].onDidPressKey(key);
+		onDidPressKey: async (_quickpick, key, item) => {
+			await item.onDidPressKey(key);
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection[0] : StepResultBreak;
 }
@@ -2264,12 +2243,11 @@ export async function* showCommitOrStashFileStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async (quickpick, key) => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await quickpick.activeItems[0].onDidPressKey(key);
+		onDidPressKey: async (_quickpick, key, item) => {
+			await item.onDidPressKey(key);
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection[0] : StepResultBreak;
 }
@@ -2387,12 +2365,11 @@ export function* showRepositoryStatusStep<
 		ignoreFocusOut: true,
 		items: getShowRepositoryStatusStepItems(state, context),
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async (quickpick, key) => {
-			if (quickpick.activeItems.length === 0) return;
-
-			await quickpick.activeItems[0].onDidPressKey(key);
+		onDidPressKey: async (quickpick, key, item) => {
+			await item.onDidPressKey(key);
 		},
 	});
+
 	const selection: StepSelection<typeof step> = yield step;
 	return canPickStepContinue(step, state, selection) ? selection[0] : StepResultBreak;
 }
