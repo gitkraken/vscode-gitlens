@@ -18,7 +18,7 @@ export async function showAIModelPicker(provider?: AIProviders): Promise<ModelQu
 
 	let items: (ModelQuickPickItem | QuickPickSeparator)[] = [
 		{ label: 'OpenAI', kind: QuickPickItemKind.Separator },
-		{ label: 'OpenAI', description: 'GPT-4 Turbo', provider: 'openai', model: 'gpt-4-1106-preview' },
+		{ label: 'OpenAI', description: 'GPT-4 Turbo', provider: 'openai', model: 'gpt-4-turbo-preview' },
 		{ label: 'OpenAI', description: 'GPT-4', provider: 'openai', model: 'gpt-4' },
 		{ label: 'OpenAI', description: 'GPT-4 32k', provider: 'openai', model: 'gpt-4-32k' },
 		{ label: 'OpenAI', description: 'GPT-3.5 Turbo', provider: 'openai', model: 'gpt-3.5-turbo-1106' },
@@ -36,7 +36,7 @@ export async function showAIModelPicker(provider?: AIProviders): Promise<ModelQu
 
 	let model = configuration.get(`ai.experimental.${provider}.model`);
 	if (model == null) {
-		model = provider === 'anthropic' ? 'claude-2.1' : 'gpt-4-1106-preview';
+		model = provider === 'anthropic' ? 'claude-2.1' : 'gpt-4-turbo-preview';
 	}
 
 	for (const item of items) {

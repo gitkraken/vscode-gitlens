@@ -223,6 +223,8 @@ export function getMaxCharacters(model: OpenAIModels | AnthropicModels, outputLe
 
 	let tokens;
 	switch (model) {
+		case 'gpt-4-turbo-preview':
+		case 'gpt-4-0125-preview':
 		case 'gpt-4-1106-preview': // 128,000 tokens (4,096 max output tokens)
 			tokens = 128000;
 			break;
