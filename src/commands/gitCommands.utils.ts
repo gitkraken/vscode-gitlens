@@ -43,7 +43,8 @@ export function getSteps(
 	return command.executeSteps();
 }
 
-export class PickCommandStep implements QuickPickStep {
+export class PickCommandStep implements QuickPickStep<QuickCommand> {
+	readonly type = 'pick';
 	readonly buttons = [];
 	private readonly hiddenItems: QuickCommand[];
 	ignoreFocusOut = false;

@@ -36,7 +36,6 @@ import type {
 	StepState,
 } from '../quickCommand';
 import {
-	canInputStepContinue,
 	canPickStepContinue,
 	canStepContinue,
 	createConfirmStep,
@@ -562,11 +561,11 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	private async *createCommandChoosePathStep(
+	private *createCommandChoosePathStep(
 		state: CreateStepState,
 		context: Context,
 		options: { title: string; label: string; pickedUri: Uri | undefined; defaultUri?: Uri },
-	): AsyncStepResultGenerator<Uri> {
+	): StepResultGenerator<Uri> {
 		const step = createCustomStep<Uri>({
 			show: async (_step: CustomStep<Uri>) => {
 				const uris = await window.showOpenDialog({
@@ -585,10 +584,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		});
 
 		const value: StepSelection<typeof step> = yield step;
-
-		if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
-			return StepResultBreak;
-		}
+		if (!canStepContinue(step, state, value)) return StepResultBreak;
 
 		return value;
 	}

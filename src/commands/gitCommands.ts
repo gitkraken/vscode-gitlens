@@ -436,7 +436,7 @@ export class GitCommandsCommand extends Command {
 
 		try {
 			// eslint-disable-next-line no-async-promise-executor
-			return await new Promise<QuickPickStep | QuickInputStep | undefined>(async resolve => {
+			return await new Promise<QuickPickStep | QuickInputStep | CustomStep | undefined>(async resolve => {
 				const goBack = async () => {
 					if (step.disallowBack === true) return;
 
@@ -533,11 +533,6 @@ export class GitCommandsCommand extends Command {
 					}
 				}
 
-				// If we are starting over clear the previously active command
-				if (commandsStep.command != null && step === commandsStep) {
-					commandsStep.setCommand(undefined, 'menu');
-				}
-
 				input.show();
 
 				// Manually trigger `onDidChangeValue`, because the InputBox fails to call it if the value is set before it is shown
@@ -568,7 +563,7 @@ export class GitCommandsCommand extends Command {
 		const disposables: Disposable[] = [];
 
 		try {
-			return await new Promise<QuickPickStep | QuickInputStep | undefined>(resolve => {
+			return await new Promise<QuickPickStep | QuickInputStep | CustomStep | undefined>(resolve => {
 				async function goBack() {
 					if (step.disallowBack === true) return;
 
@@ -653,7 +648,7 @@ export class GitCommandsCommand extends Command {
 						}
 
 						if (e instanceof ToggleQuickInputButton && e.onDidClick != null) {
-							let activeCommand;
+							let activeCommand: QuickCommand | undefined;
 							if (commandsStep.command == null && quickpick.activeItems.length !== 0) {
 								const active = quickpick.activeItems[0];
 								if (isQuickCommand(active)) {
@@ -664,7 +659,7 @@ export class GitCommandsCommand extends Command {
 							const result = e.onDidClick(quickpick);
 
 							quickpick.buttons = this.getButtons(
-								activeCommand != null ? activeCommand.value : step,
+								activeCommand?.value && !isCustomStep(activeCommand.value) ? activeCommand.value : step,
 								activeCommand ?? commandsStep.command,
 							);
 
@@ -675,7 +670,9 @@ export class GitCommandsCommand extends Command {
 
 							if (isPromise(result)) {
 								quickpick.buttons = this.getButtons(
-									activeCommand != null ? activeCommand.value : step,
+									activeCommand?.value && !isCustomStep(activeCommand.value)
+										? activeCommand.value
+										: step,
 									activeCommand ?? commandsStep.command,
 								);
 							}
