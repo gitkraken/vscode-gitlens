@@ -1,4 +1,4 @@
-import type { AuthenticationSession } from 'vscode';
+import type { AuthenticationSession, CancellationToken } from 'vscode';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -139,21 +139,33 @@ abstract class GitHubIntegrationBase<ID extends SupportedProviderIds> extends Pr
 	protected override async searchProviderMyPullRequests(
 		{ accessToken }: AuthenticationSession,
 		repos?: GitHubRepositoryDescriptor[],
+		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined> {
-		return (await this.container.github)?.searchMyPullRequests(this, accessToken, {
-			repos: repos?.map(r => `${r.owner}/${r.name}`),
-			baseUrl: this.apiBaseUrl,
-		});
+		return (await this.container.github)?.searchMyPullRequests(
+			this,
+			accessToken,
+			{
+				repos: repos?.map(r => `${r.owner}/${r.name}`),
+				baseUrl: this.apiBaseUrl,
+			},
+			cancellation,
+		);
 	}
 
 	protected override async searchProviderMyIssues(
 		{ accessToken }: AuthenticationSession,
 		repos?: GitHubRepositoryDescriptor[],
+		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined> {
-		return (await this.container.github)?.searchMyIssues(this, accessToken, {
-			repos: repos?.map(r => `${r.owner}/${r.name}`),
-			baseUrl: this.apiBaseUrl,
-		});
+		return (await this.container.github)?.searchMyIssues(
+			this,
+			accessToken,
+			{
+				repos: repos?.map(r => `${r.owner}/${r.name}`),
+				baseUrl: this.apiBaseUrl,
+			},
+			cancellation,
+		);
 	}
 }
 

@@ -765,10 +765,19 @@ export abstract class ProviderIntegration<
 		}
 	}
 
-	async searchMyIssues(repo?: RepositoryDescriptor): Promise<SearchedIssue[] | undefined>;
-	async searchMyIssues(repos?: RepositoryDescriptor[]): Promise<SearchedIssue[] | undefined>;
+	async searchMyIssues(
+		repo?: RepositoryDescriptor,
+		cancellation?: CancellationToken,
+	): Promise<SearchedIssue[] | undefined>;
+	async searchMyIssues(
+		repos?: RepositoryDescriptor[],
+		cancellation?: CancellationToken,
+	): Promise<SearchedIssue[] | undefined>;
 	@debug()
-	async searchMyIssues(repos?: RepositoryDescriptor | RepositoryDescriptor[]): Promise<SearchedIssue[] | undefined> {
+	async searchMyIssues(
+		repos?: RepositoryDescriptor | RepositoryDescriptor[],
+		cancellation?: CancellationToken,
+	): Promise<SearchedIssue[] | undefined> {
 		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -777,6 +786,7 @@ export abstract class ProviderIntegration<
 			const issues = await this.searchProviderMyIssues(
 				this._session!,
 				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
+				cancellation,
 			);
 			this.resetRequestExceptionCount();
 			return issues;
@@ -788,13 +798,21 @@ export abstract class ProviderIntegration<
 	protected abstract searchProviderMyIssues(
 		session: AuthenticationSession,
 		repos?: RepositoryDescriptor[],
+		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined>;
 
-	async searchMyPullRequests(repo?: RepositoryDescriptor): Promise<SearchedPullRequest[] | undefined>;
-	async searchMyPullRequests(repos?: RepositoryDescriptor[]): Promise<SearchedPullRequest[] | undefined>;
+	async searchMyPullRequests(
+		repo?: RepositoryDescriptor,
+		cancellation?: CancellationToken,
+	): Promise<SearchedPullRequest[] | undefined>;
+	async searchMyPullRequests(
+		repos?: RepositoryDescriptor[],
+		cancellation?: CancellationToken,
+	): Promise<SearchedPullRequest[] | undefined>;
 	@debug()
 	async searchMyPullRequests(
 		repos?: RepositoryDescriptor | RepositoryDescriptor[],
+		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined> {
 		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -804,6 +822,7 @@ export abstract class ProviderIntegration<
 			const pullRequests = await this.searchProviderMyPullRequests(
 				this._session!,
 				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
+				cancellation,
 			);
 			this.resetRequestExceptionCount();
 			return pullRequests;
@@ -815,6 +834,7 @@ export abstract class ProviderIntegration<
 	protected abstract searchProviderMyPullRequests(
 		session: AuthenticationSession,
 		repos?: RepositoryDescriptor[],
+		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined>;
 
 	@gate()

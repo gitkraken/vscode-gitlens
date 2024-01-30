@@ -1,4 +1,4 @@
-import type { AuthenticationSessionsChangeEvent, Event } from 'vscode';
+import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
 import { authentication, Disposable, EventEmitter } from 'vscode';
 import { isWeb } from '@env/platform';
 import type { Container } from '../../container';
@@ -149,7 +149,10 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
-	async getMyIssues(providerIds?: ProviderId[]): Promise<SearchedIssue[] | undefined> {
+	async getMyIssues(
+		providerIds?: ProviderId[],
+		cancellation?: CancellationToken,
+	): Promise<SearchedIssue[] | undefined> {
 		const providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined> = new Map();
 		for (const integration of this._integrations.values()) {
 			if (providerIds == null || providerIds.includes(integration.id)) {
@@ -158,17 +161,18 @@ export class IntegrationService implements Disposable {
 		}
 		if (providers.size === 0) return undefined;
 
-		return this.getMyIssuesCore(providers);
+		return this.getMyIssuesCore(providers, cancellation);
 	}
 
 	private async getMyIssuesCore(
 		providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined>,
+		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined> {
 		const promises: Promise<SearchedIssue[] | undefined>[] = [];
 		for (const [provider, repos] of providers) {
 			if (provider == null) continue;
 
-			promises.push(provider.searchMyIssues(repos));
+			promises.push(provider.searchMyIssues(repos, cancellation));
 		}
 
 		const results = await Promise.allSettled(promises);
@@ -213,7 +217,10 @@ export class IntegrationService implements Disposable {
 		return this.getMyIssuesCore(providers);
 	}
 
-	async getMyPullRequests(providerIds?: ProviderId[]): Promise<SearchedPullRequest[] | undefined> {
+	async getMyPullRequests(
+		providerIds?: ProviderId[],
+		cancellation?: CancellationToken,
+	): Promise<SearchedPullRequest[] | undefined> {
 		const providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined> = new Map();
 		for (const integration of this._integrations.values()) {
 			if (providerIds == null || providerIds.includes(integration.id)) {
@@ -222,17 +229,18 @@ export class IntegrationService implements Disposable {
 		}
 		if (providers.size === 0) return undefined;
 
-		return this.getMyPullRequestsCore(providers);
+		return this.getMyPullRequestsCore(providers, cancellation);
 	}
 
 	private async getMyPullRequestsCore(
 		providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined>,
+		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined> {
 		const promises: Promise<SearchedPullRequest[] | undefined>[] = [];
 		for (const [provider, repos] of providers) {
 			if (provider == null) continue;
 
-			promises.push(provider.searchMyPullRequests(repos));
+			promises.push(provider.searchMyPullRequests(repos, cancellation));
 		}
 
 		const results = await Promise.allSettled(promises);

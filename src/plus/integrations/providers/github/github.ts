@@ -2638,6 +2638,7 @@ export class GitHubApi implements Disposable {
 		provider: Provider,
 		token: string,
 		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string },
+		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[]> {
 		const scope = getLogScope();
 
@@ -2719,6 +2720,7 @@ export class GitHubApi implements Disposable {
 					baseUrl: options?.baseUrl,
 				},
 				scope,
+				cancellation,
 			);
 			if (resp === undefined) return [];
 
@@ -2749,6 +2751,7 @@ export class GitHubApi implements Disposable {
 		provider: Provider,
 		token: string,
 		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string },
+		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined> {
 		const scope = getLogScope();
 		interface SearchResult {
@@ -2812,6 +2815,7 @@ export class GitHubApi implements Disposable {
 					baseUrl: options?.baseUrl,
 				},
 				scope,
+				cancellation,
 			);
 
 			function toQueryResult(issue: GitHubIssueDetailed, reason?: string): SearchedIssue {
