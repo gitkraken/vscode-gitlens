@@ -67,20 +67,29 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 
 	frozen?: boolean;
 
-	onDidAccept?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
-	onDidChangeValue?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
-	onDidClickButton?(quickpick: QuickPick<T>, button: QuickInputButton): boolean | void | Promise<boolean | void>;
+	onDidAccept?(quickpick: QuickPick<DirectiveQuickPickItem | T>): boolean | Promise<boolean>;
+	onDidChangeValue?(quickpick: QuickPick<DirectiveQuickPickItem | T>): boolean | Promise<boolean>;
+	onDidClickButton?(
+		quickpick: QuickPick<DirectiveQuickPickItem | T>,
+		button: QuickInputButton,
+	): boolean | void | Promise<boolean | void>;
 	/**
 	 * @returns `true` if the current item should be selected
 	 */
 	onDidClickItemButton?(
-		quickpick: QuickPick<T>,
+		quickpick: QuickPick<DirectiveQuickPickItem | T>,
 		button: QuickInputButton,
 		item: T,
 	): boolean | void | Promise<boolean | void>;
-	onDidLoadMore?(quickpick: QuickPick<T>): (DirectiveQuickPickItem | T)[] | Promise<(DirectiveQuickPickItem | T)[]>;
-	onDidPressKey?(quickpick: QuickPick<T>, key: Keys): void | Promise<void>;
-	onValidateValue?(quickpick: QuickPick<T>, value: string, items: T[]): boolean | Promise<boolean>;
+	onDidLoadMore?(
+		quickpick: QuickPick<DirectiveQuickPickItem | T>,
+	): (DirectiveQuickPickItem | T)[] | Promise<(DirectiveQuickPickItem | T)[]>;
+	onDidPressKey?(quickpick: QuickPick<DirectiveQuickPickItem | T>, key: Keys, item: T): void | Promise<void>;
+	onValidateValue?(
+		quickpick: QuickPick<DirectiveQuickPickItem | T>,
+		value: string,
+		items: T[],
+	): boolean | Promise<boolean>;
 	validate?(selection: T[]): boolean;
 }
 
@@ -119,9 +128,9 @@ export type AsyncStepResultGenerator<T> = AsyncGenerator<
 // 	| Generator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>
 // 	| AsyncGenerator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>;
 export type StepSelection<T> = T extends CustomStep<infer U>
-	? U | Directive
+	? Exclude<U, DirectiveQuickPickItem> | Directive
 	: T extends QuickPickStep<infer U>
-	  ? U[] | Directive
+	  ? Exclude<U, DirectiveQuickPickItem>[] | Directive
 	  : T extends QuickInputStep
 	    ? string | Directive
 	    : never;

@@ -609,7 +609,14 @@ export class GitCommandsCommand extends Command {
 				if (step.onDidPressKey != null && step.keys != null && step.keys.length !== 0) {
 					for (const key of step.keys) {
 						mapping[key] = {
-							onDidPressKey: key => step.onDidPressKey!(quickpick, key),
+							onDidPressKey: key => {
+								if (!quickpick.activeItems.length) return;
+
+								const item = quickpick.activeItems[0];
+								if (isDirectiveQuickPickItem(item)) return;
+
+								return step.onDidPressKey!(quickpick, key, item);
+							},
 						};
 					}
 				}
@@ -852,6 +859,9 @@ export class GitCommandsCommand extends Command {
 									case Directive.RequiresPaidSubscription:
 										void Container.instance.subscription.purchase();
 										resolve(undefined);
+										return;
+
+									case Directive.Noop:
 										return;
 								}
 							}

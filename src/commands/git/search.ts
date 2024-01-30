@@ -11,6 +11,7 @@ import { getSearchQueryComparisonKey, parseSearchQuery, searchOperators } from '
 import { showContributorsPicker } from '../../quickpicks/contributorsPicker';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { ActionQuickPickItem } from '../../quickpicks/items/common';
+import { isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { configuration } from '../../system/configuration';
 import { getContext } from '../../system/context';
 import { join, map } from '../../system/iterable';
@@ -365,6 +366,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			selectValueWhenShown: false,
 			onDidAccept: async quickpick => {
 				const item = quickpick.selectedItems[0];
+				if (isDirectiveQuickPickItem(item)) return false;
 				if (!searchOperators.has(item.item)) return true;
 
 				await updateSearchQuery(item, {}, quickpick, step, state, context);
