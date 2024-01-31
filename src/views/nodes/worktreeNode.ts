@@ -67,6 +67,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 
 			let onCompleted: Deferred<void> | undefined;
 			let pullRequest;
+			const pullRequestInsertIndex = 0;
 
 			if (
 				branch != null &&
@@ -98,7 +99,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
 						if (pr != null && this.children != null) {
 							this.children.splice(
-								this.children[0].type === 'compare-branch' ? 1 : 0,
+								pullRequestInsertIndex,
 								0,
 								new PullRequestNode(this.view, this, pr, branch),
 							);
@@ -133,6 +134,10 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 
 			const children = [];
 
+			if (branch != null && pullRequest != null) {
+				children.push(new PullRequestNode(this.view, this, pullRequest, branch));
+			}
+
 			if (branch != null && this.view.config.showBranchComparison !== false) {
 				children.push(
 					new CompareBranchNode(
@@ -144,10 +149,6 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 						this.splatted,
 					),
 				);
-			}
-
-			if (branch != null && pullRequest != null) {
-				children.push(new PullRequestNode(this.view, this, pullRequest, branch));
 			}
 
 			const unpublishedCommits = getSettledValue(unpublishedCommitsResult);
