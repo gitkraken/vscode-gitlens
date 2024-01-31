@@ -8893,7 +8893,7 @@
 				},
 				{
 					"command": "gitlens.showPatchDetailsPage",
-					"when": "gitlens:enabled && !gitlens:gk:organization:drafts:disabled && config.gitlens.cloudPatches.enabled"
+					"when": "gitlens:enabled && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled"
 				},
 				{
 					"command": "gitlens.createPatch",
@@ -8901,11 +8901,11 @@
 				},
 				{
 					"command": "gitlens.createCloudPatch",
-					"when": "gitlens:enabled && !gitlens:gk:organization:drafts:disabled && config.gitlens.cloudPatches.enabled"
+					"when": "gitlens:enabled && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled"
 				},
 				{
 					"command": "gitlens.shareAsCloudPatch",
-					"when": "gitlens:enabled && !gitlens:gk:organization:drafts:disabled && config.gitlens.cloudPatches.enabled"
+					"when": "gitlens:enabled && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled"
 				},
 				{
 					"command": "gitlens.openCloudPatch",
@@ -8937,7 +8937,7 @@
 				},
 				{
 					"command": "gitlens.showDraftsView",
-					"when": "gitlens:enabled && !gitlens:gk:organization:drafts:disabled"
+					"when": "gitlens:enabled && gitlens:gk:organization:drafts:enabled"
 				},
 				{
 					"command": "gitlens.showFileHistoryView",
@@ -9381,7 +9381,7 @@
 				},
 				{
 					"command": "gitlens.switchAIModel",
-					"when": "gitlens:enabled && !gitlens:gk:organization:ai:disabled"
+					"when": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 				},
 				{
 					"command": "gitlens.switchMode",
@@ -11241,11 +11241,11 @@
 				},
 				{
 					"command": "gitlens.generateCommitMessage",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:gk:organization:ai:disabled && config.gitlens.ai.experimental.generateCommitMessage.enabled"
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommitMessage.enabled"
 				},
 				{
 					"command": "gitlens.resetAIKey",
-					"when": "gitlens:enabled && !gitlens:gk:organization:ai:disabled"
+					"when": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 				}
 			],
 			"editor/context": [
@@ -11605,7 +11605,7 @@
 				},
 				{
 					"command": "gitlens.generateCommitMessage",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:gk:organization:ai:disabled && config.gitlens.ai.experimental.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
 					"group": "4_gitlens@2"
 				}
 			],
@@ -11641,7 +11641,7 @@
 				},
 				{
 					"command": "gitlens.generateCommitMessage",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:gk:organization:ai:disabled && config.gitlens.ai.experimental.generateCommitMessage.enabled && scmProvider == git && config.gitlens.menus.scmRepository.generateCommitMessage",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommitMessage.enabled && scmProvider == git && config.gitlens.menus.scmRepository.generateCommitMessage",
 					"group": "2_z_gitlens@2"
 				},
 				{
@@ -12978,7 +12978,7 @@
 				},
 				{
 					"command": "gitlens.createCloudPatch",
-					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:gk:organization:drafts:disabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:(commit|stash)\\b/",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:(commit|stash)\\b/",
 					"group": "1_gitlens_actions_1@3"
 				},
 				{
@@ -13873,7 +13873,7 @@
 				},
 				{
 					"command": "gitlens.createCloudPatch",
-					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:gk:organization:drafts:disabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:compare:results(?!:)\\b/",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:compare:results(?!:)\\b/",
 					"group": "1_gitlens_secondary_actions@2"
 				},
 				{
@@ -14271,7 +14271,7 @@
 				},
 				{
 					"command": "gitlens.createCloudPatch",
-					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:gk:organization:drafts:disabled && config.gitlens.cloudPatches.enabled && webviewItem =~ /gitlens:(commit|stash)\\b/",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && webviewItem =~ /gitlens:(commit|stash)\\b/",
 					"group": "1_gitlens_actions_1@3"
 				},
 				{
@@ -14534,12 +14534,12 @@
 			"gitlens/share": [
 				{
 					"command": "gitlens.shareAsCloudPatch",
-					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:gk:organization:drafts:disabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:((commit|stash|compare:results(?!:)|)\\b|file\\b(?=.*?\\b\\+committed\\b))/",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:((commit|stash|compare:results(?!:)|)\\b|file\\b(?=.*?\\b\\+committed\\b))/",
 					"group": "1_a_gitlens@1"
 				},
 				{
 					"command": "gitlens.graph.shareAsCloudPatch",
-					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:gk:organization:drafts:disabled && config.gitlens.cloudPatches.enabled && webviewItem =~ /gitlens:(commit|stash)\\b/",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && webviewItem =~ /gitlens:(commit|stash)\\b/",
 					"group": "1_a_gitlens@1"
 				},
 				{
@@ -14787,7 +14787,7 @@
 				},
 				{
 					"command": "gitlens.createCloudPatch",
-					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:gk:organization:drafts:disabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "1_gitlens_secondary_actions@3"
 				},
 				{
@@ -16021,7 +16021,7 @@
 				{
 					"id": "gitlens.views.drafts",
 					"name": "Cloud Patches",
-					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:gk:organization:drafts:disabled && config.gitlens.cloudPatches.enabled",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-cloud-patch)",
 					"initialSize": 2,

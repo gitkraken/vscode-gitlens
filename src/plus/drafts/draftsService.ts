@@ -402,12 +402,7 @@ export class DraftService implements Disposable {
 		const rsp = await this.connection.fetchGkDevApi('/v1/drafts', { method: 'GET' });
 
 		if (!rsp.ok) {
-			let message = 'Unable to open drafts';
-			if (rsp.status === 403) {
-				message =
-					"The Cloud Patches feature has been disabled by your organization. Please contact your organization's admin to enable it";
-			}
-			await handleBadDraftResponse(message, rsp, scope);
+			await handleBadDraftResponse('Unable to open drafts', rsp, scope);
 		}
 
 		const draft = ((await rsp.json()) as Result).data;

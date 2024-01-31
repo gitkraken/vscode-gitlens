@@ -55,12 +55,12 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	private getOrgSettings(): State['orgSettings'] {
 		return {
-			drafts: !getContext<boolean>('gitlens:gk:organization:drafts:disabled', false),
+			drafts: getContext<boolean>('gitlens:gk:organization:drafts:enabled', false),
 		};
 	}
 
 	private onContextChanged(key: ContextKeys) {
-		if (key === 'gitlens:gk:organization:drafts:disabled') {
+		if (key === 'gitlens:gk:organization:drafts:enabled') {
 			this.notifyDidChangeOrgSettings();
 		}
 	}
