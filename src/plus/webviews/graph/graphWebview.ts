@@ -1,6 +1,6 @@
 import type { ColorTheme, ConfigurationChangeEvent, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, env, window } from 'vscode';
-import type { CreatePullRequestActionContext } from '../../../api/gitlens';
+import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
 import { parseCommandContext } from '../../../commands/base';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink';
@@ -454,6 +454,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.createWorktree', this.createWorktree),
 
 			this.host.registerWebviewCommand('gitlens.graph.createPullRequest', this.createPullRequest),
+			this.host.registerWebviewCommand('gitlens.graph.openPullRequest', this.openPullRequest),
+			this.host.registerWebviewCommand('gitlens.graph.openPullRequestChanges', this.openPullRequestChanges),
+			this.host.registerWebviewCommand('gitlens.graph.openPullRequestComparison', this.openPullRequestComparison),
 			this.host.registerWebviewCommand('gitlens.graph.openPullRequestOnRemote', this.openPullRequestOnRemote),
 
 			this.host.registerWebviewCommand('gitlens.graph.compareWithUpstream', this.compareWithUpstream),
@@ -995,11 +998,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						state: pr.state,
 						url: pr.url,
 						context: serializeWebviewItemContext<GraphItemContext>({
-							webviewItem: 'gitlens:pullrequest',
+							webviewItem: `gitlens:pullrequest${pr.refs ? '+refs' : ''}`,
 							webviewItemValue: {
 								type: 'pullrequest',
 								id: pr.id,
 								url: pr.url,
+								repoPath: repoPath,
+								refs: pr.refs,
+								provider: {
+									id: pr.provider.id,
+									name: pr.provider.name,
+									domain: pr.provider.domain,
+									icon: pr.provider.icon,
+								},
 							},
 						}),
 					};
@@ -2645,12 +2656,62 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
+	private openPullRequest(item?: GraphItemContext) {
+		if (isGraphItemTypedContext(item, 'pullrequest')) {
+			const pr = item.webviewItemValue;
+			return executeActionCommand<OpenPullRequestActionContext>('openPullRequest', {
+				repoPath: pr.repoPath,
+				provider: {
+					id: pr.provider.id,
+					name: pr.provider.name,
+					domain: pr.provider.domain,
+				},
+				pullRequest: {
+					id: pr.id,
+					url: pr.url,
+				},
+			});
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private openPullRequestChanges(item?: GraphItemContext) {
+		if (isGraphItemTypedContext(item, 'pullrequest')) {
+			const pr = item.webviewItemValue;
+			if (pr.refs?.base != null && pr.refs.head != null) {
+				return this.container.searchAndCompareView.openComparisonChanges(
+					pr.repoPath,
+					{ ref: pr.refs.head.sha, label: pr.refs.head.branch },
+					{ ref: pr.refs.base.sha, label: pr.refs.base.branch },
+					{ title: `Changes in Pull Request #${pr.id}` },
+				);
+			}
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private openPullRequestComparison(item?: GraphItemContext) {
+		if (isGraphItemTypedContext(item, 'pullrequest')) {
+			const pr = item.webviewItemValue;
+			if (pr.refs?.base != null && pr.refs.head != null) {
+				return this.container.searchAndCompareView.compare(
+					pr.repoPath,
+					{ ref: pr.refs.head.sha, label: pr.refs.head.branch },
+					{ ref: pr.refs.base.sha, label: pr.refs.base.branch },
+				);
+			}
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
 	private openPullRequestOnRemote(item?: GraphItemContext, clipboard?: boolean) {
-		if (
-			isGraphItemContext(item) &&
-			typeof item.webviewItemValue === 'object' &&
-			item.webviewItemValue.type === 'pullrequest'
-		) {
+		if (isGraphItemTypedContext(item, 'pullrequest')) {
 			const { url } = item.webviewItemValue;
 			return executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
 				pr: { url: url },

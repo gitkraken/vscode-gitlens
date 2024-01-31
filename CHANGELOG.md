@@ -9,9 +9,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds new comparison features to pull requests in GitLens views
-  - Adds an _Open Pull Request Changes_ inline button and context menu command to pull requests to view the pull request changes in a multi-diff editor (single tab)
+  - Adds an _Open Pull Request Changes_ context menu command on pull requests in the _Commit Graph_ and other GitLens views to view pull request changes in a multi-diff editor (single tab)
     - Requires VS Code `1.85` or later with `multiDiffEditor.experimental.enabled` and `gitlens.experimental.openChangesInMultiDiffEditor` to be enabled
-  - Adds a _Compare Pull Request with Base_ inline button and context menu command to pull requests to open a comparison for the pull request
+  - Adds a _Compare Pull Request_ context menu command on pull requests in the _Commit Graph_ and other GitLens views to open a comparison between the head and base of the pull request for easy reviewing
+- Adds an _Open in Commit Graph_ context menu command on pull requests in GitLens view to open the tip commit in the _Commit Graph_
 - Adds an _Open All Changes_ inline button to branch status (upstream) and branch status files in GitLens views
 - Adds an _Open Changes_ submenu to branch status (upstream) and branch status files in GitLens views
 - Adds an alternate flow (pick another file) when using the _Open File at Revision..._ and _Open Changes with Revision..._ commands to open a file that has been renamed and the rename is currently unstaged &mdash; closes [#3109](https://github.com/gitkraken/vscode-gitlens/issues/3109)

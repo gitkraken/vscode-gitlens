@@ -26,6 +26,7 @@ import type { Config, DateStyle } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
+import type { PullRequestRefs } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -33,6 +34,7 @@ import type {
 	GitStashReference,
 	GitTagReference,
 } from '../../../git/models/reference';
+import type { RemoteProviderReference } from '../../../git/models/remoteProvider';
 import type { GitSearchResultData, SearchQuery } from '../../../git/search';
 import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
@@ -485,6 +487,9 @@ export interface GraphPullRequestContextValue {
 	type: 'pullrequest';
 	id: string;
 	url: string;
+	repoPath: string;
+	refs?: PullRequestRefs;
+	provider: RemoteProviderReference;
 }
 
 export interface GraphBranchContextValue {
