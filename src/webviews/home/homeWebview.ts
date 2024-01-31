@@ -1,12 +1,14 @@
 import { Disposable, workspace } from 'vscode';
+import type { ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import { isSubscriptionExpired, isSubscriptionPaid, isSubscriptionTrial } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { registerCommand } from '../../system/command';
+import { getContext, onDidChangeContext } from '../../system/context';
 import type { WebviewController, WebviewProvider } from '../webviewController';
 import type { DidChangeRepositoriesParams, State } from './protocol';
-import { DidChangeRepositoriesType, DidChangeSubscriptionType } from './protocol';
+import { DidChangeOrgSettingsType, DidChangeRepositoriesType, DidChangeSubscriptionType } from './protocol';
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {
@@ -27,6 +29,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 				? workspace.onDidGrantWorkspaceTrust(this.notifyDidChangeRepositories, this)
 				: emptyDisposable,
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			onDidChangeContext(this.onContextChanged, this),
 		);
 	}
 
@@ -50,6 +53,18 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		this.notifyDidChangeRepositories();
 	}
 
+	private getOrgSettings(): State['orgSettings'] {
+		return {
+			drafts: !getContext<boolean>('gitlens:gk:organization:drafts:disabled', false),
+		};
+	}
+
+	private onContextChanged(key: ContextKeys) {
+		if (key === 'gitlens:gk:organization:drafts:disabled') {
+			this.notifyDidChangeOrgSettings();
+		}
+	}
+
 	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		void this.notifyDidChangeSubscription(e.current);
 	}
@@ -60,6 +75,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
 			promoStates: await this.getCanShowPromos(subscription),
+			orgSettings: this.getOrgSettings(),
 		};
 	}
 
@@ -96,6 +112,12 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	private async notifyDidChangeSubscription(subscription?: Subscription) {
 		void this.host.notify(DidChangeSubscriptionType, {
 			promoStates: await this.getCanShowPromos(subscription),
+		});
+	}
+
+	private notifyDidChangeOrgSettings() {
+		void this.host.notify(DidChangeOrgSettingsType, {
+			orgSettings: this.getOrgSettings(),
 		});
 	}
 }

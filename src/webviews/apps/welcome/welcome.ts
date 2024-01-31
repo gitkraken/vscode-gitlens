@@ -4,7 +4,11 @@ import type { Disposable } from 'vscode';
 import type { IpcMessage } from '../../protocol';
 import { onIpc } from '../../protocol';
 import type { State } from '../../welcome/protocol';
-import { DidChangeNotificationType, UpdateConfigurationCommandType } from '../../welcome/protocol';
+import {
+	DidChangeNotificationType,
+	DidChangeOrgSettingsType,
+	UpdateConfigurationCommandType,
+} from '../../welcome/protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 import type { BlameSvg } from './components/svg-blame';
@@ -48,6 +52,13 @@ export class WelcomeApp extends App<State> {
 					this.state = params.state;
 					this.setState(this.state);
 					this.updateState();
+				});
+				break;
+			case DidChangeOrgSettingsType.method:
+				onIpc(DidChangeOrgSettingsType, msg, params => {
+					this.state.orgSettings = params.orgSettings;
+					this.setState(this.state);
+					this.updateOrgSettings();
 				});
 				break;
 			default:
@@ -94,6 +105,16 @@ export class WelcomeApp extends App<State> {
 		this.updateRepoState();
 		this.updateAccountState();
 		this.updatePromo();
+		this.updateOrgSettings();
+	}
+
+	private updateOrgSettings() {
+		const {
+			orgSettings: { drafts, ai },
+		} = this.state;
+
+		document.body.dataset.orgDrafts = drafts ? 'allowed' : 'blocked';
+		document.body.dataset.orgAi = ai ? 'allowed' : 'blocked';
 	}
 
 	private updatePromo() {

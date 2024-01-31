@@ -11,6 +11,10 @@ export interface State extends WebviewState {
 	repoFeaturesBlocked?: boolean;
 	isTrialOrPaid: boolean;
 	canShowPromo: boolean;
+	orgSettings: {
+		ai: boolean;
+		drafts: boolean;
+	};
 }
 
 export interface UpdateConfigurationParams {
@@ -25,3 +29,8 @@ export interface DidChangeParams {
 	state: State;
 }
 export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('welcome/didChange', true);
+
+export interface DidChangeOrgSettingsParams {
+	orgSettings: State['orgSettings'];
+}
+export const DidChangeOrgSettingsType = new IpcNotificationType<DidChangeOrgSettingsParams>('org/settings/didChange');

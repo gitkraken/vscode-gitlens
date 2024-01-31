@@ -427,4 +427,14 @@ body {
 	&:not([data-repos='blocked']) [data-requires='norepo'] {
 		display: none;
 	}
+
+	&[data-org-ai='blocked'] [data-org-requires='ai'],
+	&[data-org-drafts='blocked'] [data-org-requires='drafts'] {
+		display: none;
+	}
+
+	&[data-org-ai='allowed'] [data-org-requires='noai'],
+	&[data-org-drafts='allowed'] [data-org-requires='nodrafts'] {
+		display: none;
+	}
 }

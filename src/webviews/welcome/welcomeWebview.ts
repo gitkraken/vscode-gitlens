@@ -1,15 +1,17 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
+import type { ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import { isSubscriptionPaid, SubscriptionState } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { configuration } from '../../system/configuration';
+import { getContext, onDidChangeContext } from '../../system/context';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
 import type { State, UpdateConfigurationParams } from './protocol';
-import { DidChangeNotificationType, UpdateConfigurationCommandType } from './protocol';
+import { DidChangeNotificationType, DidChangeOrgSettingsType, UpdateConfigurationCommandType } from './protocol';
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {
@@ -31,6 +33,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 				? workspace.onDidGrantWorkspaceTrust(() => this.notifyDidChange(), this)
 				: emptyDisposable,
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			onDidChangeContext(this.onContextChanged, this),
 		);
 	}
 
@@ -44,6 +47,19 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 
 	onReloaded() {
 		void this.notifyDidChange();
+	}
+
+	private getOrgSettings(): State['orgSettings'] {
+		return {
+			ai: !getContext<boolean>('gitlens:gk:organization:ai:disabled', false),
+			drafts: !getContext<boolean>('gitlens:gk:organization:drafts:disabled', false),
+		};
+	}
+
+	private onContextChanged(key: ContextKeys) {
+		if (['gitlens:gk:organization:ai:disabled', 'gitlens:gk:organization:drafts:disabled'].includes(key)) {
+			this.notifyDidChangeOrgSettings();
+		}
 	}
 
 	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
@@ -78,6 +94,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 				this.container.git.hasUnsafeRepositories(),
 			isTrialOrPaid: await this.getTrialOrPaidState(subscription),
 			canShowPromo: await this.getCanShowPromo(subscription),
+			orgSettings: this.getOrgSettings(),
 		};
 	}
 
@@ -107,5 +124,11 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 
 	private async notifyDidChange(subscription?: Subscription) {
 		void this.host.notify(DidChangeNotificationType, { state: await this.getState(subscription) });
+	}
+
+	private notifyDidChangeOrgSettings() {
+		void this.host.notify(DidChangeOrgSettingsType, {
+			orgSettings: this.getOrgSettings(),
+		});
 	}
 }
