@@ -1,11 +1,16 @@
 import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { focusOutline } from './styles/lit/a11y.css';
 import { elementBase } from './styles/lit/base.css';
 
 @customElement('gl-button')
 export class GlButton extends LitElement {
+	static override shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
+
 	static override styles = [
 		elementBase,
 		css`
@@ -33,11 +38,7 @@ export class GlButton extends LitElement {
 				border-radius: var(--gk-action-radius);
 			}
 
-			:host(:not([href])) {
-				padding: var(--button-padding);
-			}
-
-			:host([href]) > a {
+			.control {
 				display: inline-block;
 				padding: var(--button-padding);
 
@@ -46,13 +47,24 @@ export class GlButton extends LitElement {
 
 				width: 100%;
 				height: 100%;
+				cursor: pointer;
+			}
+
+			button.control {
+				appearance: none;
+				background: transparent;
+				border: none;
+			}
+
+			.control:focus {
+				outline: none;
 			}
 
 			:host(:hover) {
 				background: var(--button-hover-background);
 			}
 
-			:host(:focus) {
+			:host(:focus-within) {
 				${focusOutline}
 			}
 
@@ -111,6 +123,9 @@ export class GlButton extends LitElement {
 		`,
 	];
 
+	@query('.control')
+	protected control!: HTMLElement;
+
 	@property({ type: Boolean, reflect: true })
 	full = false;
 
@@ -131,20 +146,38 @@ export class GlButton extends LitElement {
 	@property()
 	appearance?: string;
 
-	@property({ type: Number, reflect: true })
-	override tabIndex = 0;
-
 	protected override updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
 
 		if (changedProperties.has('disabled')) {
-			this.tabIndex = this.disabled ? -1 : 0;
 			this.setAttribute('aria-disabled', this.disabled.toString());
 		}
 	}
 
 	override render() {
-		const main = html`<slot></slot>`;
-		return this.href != null ? html`<a href=${this.href}>${main}</a>` : main;
+		if (this.href != null) {
+			return html`<a class="control" part="base" tabindex="${this.disabled === false ? -1 : 0}" href=${this.href}
+				><slot></slot
+			></a>`;
+		}
+		return html`<button class="control" part="base" ?disabled=${this.disabled}><slot></slot></button>`;
+	}
+
+	override focus(options?: FocusOptions) {
+		this.control.focus(options);
+	}
+
+	override blur() {
+		this.control.blur();
+	}
+
+	override click() {
+		this.control.click();
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-button': GlButton;
 	}
 }
