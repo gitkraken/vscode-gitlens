@@ -633,9 +633,9 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:disabled`
 	| `${typeof extensionPrefix}:enabled`
 	| `${typeof extensionPrefix}:gk:hasOrganizations`
-	| `${typeof extensionPrefix}:gk:organization:ai:disabled`
+	| `${typeof extensionPrefix}:gk:organization:ai:enabled`
 	| `${typeof extensionPrefix}:gk:organization:drafts:byob`
-	| `${typeof extensionPrefix}:gk:organization:drafts:disabled`
+	| `${typeof extensionPrefix}:gk:organization:drafts:enabled`
 	| `${typeof extensionPrefix}:hasConnectedRemotes`
 	| `${typeof extensionPrefix}:hasRemotes`
 	| `${typeof extensionPrefix}:hasRichRemotes`
