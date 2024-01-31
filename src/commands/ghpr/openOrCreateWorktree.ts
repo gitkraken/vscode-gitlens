@@ -2,7 +2,6 @@ import type { Uri } from 'vscode';
 import { window } from 'vscode';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
-import { add as addRemote } from '../../git/actions/remote';
 import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
 import { getLocalBranchByUpstream } from '../../git/models/branch';
 import type { GitBranchReference } from '../../git/models/reference';
@@ -87,36 +86,27 @@ export class OpenOrCreateWorktreeCommand extends Command {
 		const remoteUrl = remoteUri.toString();
 		const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
 
-		let remote: GitRemote | undefined;
-		[remote] = await repo.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
+		const remotes = await repo.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
+		const remote = remotes[0] as GitRemote | undefined;
+
+		let addRemote: { name: string; url: string } | undefined;
+		let remoteName;
 		if (remote != null) {
+			remoteName = remote.name;
 			// Ensure we have the latest from the remote
 			await this.container.git.fetch(repo.path, { remote: remote.name });
 		} else {
-			const result = await window.showInformationMessage(
-				`Unable to find a remote for '${remoteUrl}'. Would you like to add a new remote?`,
-				{ modal: true },
-				{ title: 'Yes' },
-				{ title: 'No', isCloseAffordance: true },
-			);
-			if (result?.title !== 'Yes') return;
-
-			await addRemote(repo, remoteOwner, remoteUrl, {
-				confirm: false,
-				fetch: true,
-				reveal: false,
-			});
-			[remote] = await repo.getRemotes({ filter: r => r.url === remoteUrl });
-			if (remote == null) return;
+			remoteName = remoteOwner;
+			addRemote = { name: remoteOwner, url: remoteUrl };
 		}
 
-		const remoteBranchName = `${remote.name}/${ref}`;
+		const remoteBranchName = `${remoteName}/${ref}`;
 		const localBranchName = `pr/${rootUri.toString() === remoteUri.toString() ? ref : remoteBranchName}`;
 		const qualifiedRemoteBranchName = `remotes/${remoteBranchName}`;
 
 		const worktree = await getWorktreeForBranch(repo, localBranchName, remoteBranchName);
 		if (worktree != null) {
-			void openWorktree(worktree);
+			void openWorktree(worktree, { openOnly: true });
 			return;
 		}
 
@@ -139,10 +129,10 @@ export class OpenOrCreateWorktreeCommand extends Command {
 		await waitUntilNextTick();
 
 		try {
-			await createWorktree(repo, undefined, branchRef, { createBranch: createBranch });
-
-			// Ensure that the worktree was created
-			const worktree = await this.container.git.getWorktree(repo.path, w => w.branch === localBranchName);
+			const worktree = await createWorktree(repo, undefined, branchRef, {
+				addRemote: addRemote,
+				createBranch: createBranch,
+			});
 			if (worktree == null) return;
 
 			// Save the PR number in the branch config

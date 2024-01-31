@@ -184,7 +184,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 							command: 'worktree',
 							state: {
 								subcommand: 'open',
-								uri: worktree.uri,
+								worktree: worktree,
 								openOnly: true,
 								overrides: {
 									disallowBack: true,

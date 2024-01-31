@@ -6747,7 +6747,7 @@
 			},
 			{
 				"command": "gitlens.ghpr.views.openOrCreateWorktree",
-				"title": "Open Worktree for Pull Request via GitLens...",
+				"title": "Checkout Pull Request in Worktree (GitLens)...",
 				"category": "GitLens",
 				"enablement": "!operationInProgress"
 			},

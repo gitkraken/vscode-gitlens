@@ -3,7 +3,7 @@ import { QuickInputButtons, Uri, window, workspace } from 'vscode';
 import type { Config } from '../../config';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
-import { convertOpenFlagsToLocation, reveal } from '../../git/actions/worktree';
+import { convertLocationToOpenFlags, convertOpenFlagsToLocation, reveal } from '../../git/actions/worktree';
 import {
 	WorktreeCreateError,
 	WorktreeCreateErrorReason,
@@ -11,7 +11,12 @@ import {
 	WorktreeDeleteErrorReason,
 } from '../../git/errors';
 import type { GitReference } from '../../git/models/reference';
-import { getNameWithoutRemote, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
+import {
+	getNameWithoutRemote,
+	getReferenceLabel,
+	isBranchReference,
+	isRevisionReference,
+} from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { GitWorktree } from '../../git/models/worktree';
 import { showGenericErrorMessage } from '../../messages';
@@ -22,6 +27,7 @@ import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { configuration } from '../../system/configuration';
 import { basename, isDescendant } from '../../system/path';
+import type { Deferred } from '../../system/promise';
 import { pluralize, truncateLeft } from '../../system/string';
 import { openWorkspace, revealInFileExplorer } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
@@ -74,9 +80,11 @@ interface CreateState {
 	repo: string | Repository;
 	uri: Uri;
 	reference?: GitReference;
+	addRemote?: { name: string; url: string };
 	createBranch?: string;
 	flags: CreateFlags[];
 
+	result?: Deferred<GitWorktree | undefined>;
 	reveal?: boolean;
 }
 
@@ -94,7 +102,7 @@ type OpenFlags = '--add-to-workspace' | '--new-window' | '--reveal-explorer';
 interface OpenState {
 	subcommand: 'open';
 	repo: string | Repository;
-	uri: Uri;
+	worktree: GitWorktree;
 	flags: OpenFlags[];
 
 	openOnly?: boolean;
@@ -165,7 +173,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 					break;
 				case 'open':
-					if (args.state.uri != null) {
+					if (args.state.worktree != null) {
 						counter++;
 					}
 
@@ -190,7 +198,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 	private _canSkipConfirmOverride: boolean | undefined;
 	override get canSkipConfirm(): boolean {
-		return this._canSkipConfirmOverride ?? false;
+		return this._canSkipConfirmOverride ?? this.subcommand === 'open';
 	}
 
 	override get skipConfirmKey() {
@@ -446,19 +454,17 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			let worktree: GitWorktree | undefined;
 			try {
+				if (state.addRemote != null) {
+					await state.repo.addRemote(state.addRemote.name, state.addRemote.url, { fetch: true });
+				}
+
 				worktree = await state.repo.createWorktree(uri, {
 					commitish: state.reference?.name,
 					createBranch: state.flags.includes('-b') ? state.createBranch : undefined,
 					detach: state.flags.includes('--detach'),
 					force: state.flags.includes('--force'),
 				});
-
-				if (state.reveal !== false) {
-					void reveal(undefined, {
-						select: true,
-						focus: true,
-					});
-				}
+				state.result?.fulfill(worktree);
 			} catch (ex) {
 				if (
 					WorktreeCreateError.is(ex, WorktreeCreateErrorReason.AlreadyCheckedOut) &&
@@ -517,19 +523,43 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			endSteps(state);
 			if (worktree == null) break;
 
+			if (state.reveal !== false) {
+				setTimeout(() => {
+					if (this.container.worktreesView.visible) {
+						void reveal(worktree, { select: true, focus: false });
+					}
+				}, 100);
+			}
+
 			type OpenAction = Config['worktrees']['openAfterCreate'];
 			const action: OpenAction = configuration.get('worktrees.openAfterCreate');
-			if (action === 'never') break;
+			if (action !== 'never') {
+				let flags: OpenFlags[];
+				switch (action) {
+					case 'always':
+						flags = convertLocationToOpenFlags('currentWindow');
+						break;
+					case 'alwaysNewWindow':
+						flags = convertLocationToOpenFlags('newWindow');
+						break;
+					case 'onlyWhenEmpty':
+						flags = convertLocationToOpenFlags(
+							workspace.workspaceFolders?.length ? 'newWindow' : 'currentWindow',
+						);
+						break;
+					default:
+						flags = [];
+						break;
+				}
 
-			if (action === 'prompt') {
 				yield* this.openCommandSteps(
 					{
 						subcommand: 'open',
 						repo: state.repo,
-						uri: worktree.uri,
-						flags: [],
+						worktree: worktree,
+						flags: flags,
 						counter: 3,
-						confirm: true,
+						confirm: action === 'prompt',
 						openOnly: true,
 						overrides: {
 							disallowBack: true,
@@ -539,25 +569,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					} satisfies OpenStepState,
 					context,
 				);
-
-				break;
 			}
-
-			queueMicrotask(() => {
-				switch (action) {
-					case 'always':
-						openWorkspace(worktree!.uri, { location: 'currentWindow' });
-						break;
-					case 'alwaysNewWindow':
-						openWorkspace(worktree!.uri, { location: 'newWindow' });
-						break;
-					case 'onlyWhenEmpty':
-						openWorkspace(worktree!.uri, {
-							location: workspace.workspaceFolders?.length ? 'currentWindow' : 'newWindow',
-						});
-						break;
-				}
-			});
 		}
 	}
 
@@ -636,7 +648,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		)}`;
 		const recommendedNewBranchFriendlyPath = `<root>/${trailer}/${state.createBranch || '<new-branch-name>'}`;
 
-		const isRemoteBranch = state.reference?.refType === 'branch' && state.reference?.remote;
+		const isBranch = isBranchReference(state.reference);
+		const isRemoteBranch = isBranchReference(state.reference) && state.reference?.remote;
 
 		type StepType = FlagsQuickPickItem<CreateFlags, CreateConfirmationChoice>;
 
@@ -648,7 +661,11 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						state.flags,
 						[],
 						{
-							label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
+							label: isRemoteBranch
+								? 'Create Worktree for Local Branch'
+								: isBranch
+								  ? 'Create Worktree for Branch'
+								  : context.title,
 							description: '',
 							detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
 						},
@@ -663,8 +680,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					['-b'],
 					{
 						label: isRemoteBranch
-							? 'Create New Local Branch and Worktree'
-							: 'Create New Branch and Worktree',
+							? 'Create Worktree for New Local Branch'
+							: 'Create Worktree for New Branch',
 						description: '',
 						detail: `Will create worktree in $(folder) ${recommendedNewBranchFriendlyPath}`,
 					},
@@ -678,7 +695,11 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						state.flags,
 						['--direct'],
 						{
-							label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
+							label: isRemoteBranch
+								? 'Create Worktree for Local Branch'
+								: isBranch
+								  ? 'Create Worktree for Branch'
+								  : context.title,
 							description: '',
 							detail: `Will create worktree directly in $(folder) ${truncateLeft(
 								pickedFriendlyPath,
@@ -696,8 +717,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					['-b', '--direct'],
 					{
 						label: isRemoteBranch
-							? 'Create New Local Branch and Worktree'
-							: 'Create New Branch and Worktree',
+							? 'Create Worktree for New Local Branch'
+							: 'Create Worktree for New Branch',
 						description: '',
 						detail: `Will create worktree directly in $(folder) ${truncateLeft(pickedFriendlyPath, 60)}`,
 					},
@@ -875,43 +896,47 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	}
 
 	private async *openCommandSteps(state: OpenStepState, context: Context): StepGenerator {
-		context.worktrees = await state.repo.getWorktrees();
-
 		if (state.flags == null) {
 			state.flags = [];
 		}
 
+		// Allow skipping the confirm step
+		this._canSkipConfirmOverride = true;
+
 		while (this.canStepsContinue(state)) {
-			if (state.counter < 3 || state.uri == null) {
+			if (state.counter < 3 || state.worktree == null) {
 				context.title = getTitle('Worktree', state.subcommand);
+				context.worktrees ??= await state.repo.getWorktrees();
 
 				const result = yield* pickWorktreeStep(state, context, {
 					includeStatus: true,
-					picked: state.uri?.toString(),
+					picked: state.worktree.uri?.toString(),
 					placeholder: 'Choose worktree to open',
 				});
 				// Always break on the first step (so we will go back)
 				if (result === StepResultBreak) break;
 
-				state.uri = result.uri;
+				state.worktree = result;
 			}
 
-			context.title = getTitle(`Worktree \u2022 ${truncateLeft(basename(state.uri.path), 40)}`, state.subcommand);
+			context.title = getTitle(
+				`Worktree \u2022 ${truncateLeft(basename(state.worktree.uri.path), 40)}`,
+				state.subcommand,
+			);
 
-			const result = yield* this.openCommandConfirmStep(state, context);
-			if (result === StepResultBreak) continue;
+			if (this.confirm(state.confirm)) {
+				const result = yield* this.openCommandConfirmStep(state, context);
+				if (result === StepResultBreak) continue;
 
-			state.flags = result;
+				state.flags = result;
+			}
 
 			endSteps(state);
 
-			const worktree = context.worktrees.find(wt => wt.uri.toString() === state.uri.toString());
-			if (worktree == null) break;
-
 			if (state.flags.includes('--reveal-explorer')) {
-				void revealInFileExplorer(worktree.uri);
+				void revealInFileExplorer(state.worktree.uri);
 			} else {
-				openWorkspace(worktree.uri, { location: convertOpenFlagsToLocation(state.flags) });
+				openWorkspace(state.worktree.uri, { location: convertOpenFlagsToLocation(state.flags) });
 			}
 		}
 	}
@@ -938,7 +963,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				}),
 				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--reveal-explorer'], {
 					label: `Reveal in File Explorer`,
-					description: `$(folder) ${truncateLeft(GitWorktree.getFriendlyPath(state.uri), 40)}`,
+					description: `$(folder) ${truncateLeft(GitWorktree.getFriendlyPath(state.worktree.uri), 40)}`,
 					detail: 'Will open the worktree in the File Explorer',
 				}),
 			);
