@@ -19,7 +19,7 @@ import { GitProviderService } from './git/gitProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPathMappingProvider';
 import { DraftService } from './plus/drafts/draftsService';
-import { FocusService } from './plus/focus/focusService';
+import { EnrichmentService } from './plus/focus/enrichmentService';
 import { AccountAuthenticationProvider } from './plus/gk/account/authenticationProvider';
 import { OrganizationService } from './plus/gk/account/organizationService';
 import { SubscriptionService } from './plus/gk/account/subscriptionService';
@@ -460,6 +460,15 @@ export class Container {
 		return this._documentTracker;
 	}
 
+	private _enrichments: EnrichmentService | undefined;
+	get enrichments() {
+		if (this._enrichments == null) {
+			this._disposables.push((this._enrichments = new EnrichmentService(this, new ServerConnection(this))));
+		}
+
+		return this._enrichments;
+	}
+
 	@memoize()
 	get env(): Environment {
 		if (this.prereleaseOrDebugging) {
@@ -484,15 +493,6 @@ export class Container {
 	private readonly _fileHistoryView: FileHistoryView;
 	get fileHistoryView() {
 		return this._fileHistoryView;
-	}
-
-	private _focus: FocusService | undefined;
-	get focus() {
-		if (this._focus == null) {
-			this._disposables.push((this._focus = new FocusService(this, new ServerConnection(this))));
-		}
-
-		return this._focus;
 	}
 
 	private readonly _git: GitProviderService;

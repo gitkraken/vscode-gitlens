@@ -33,7 +33,8 @@ import { getSettledValue } from '../../../system/promise';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
-import type { EnrichedItem, FocusItem } from '../../focus/focusService';
+import type { EnrichableItem, EnrichedItem } from '../../focus/enrichmentService';
+import { convertRemoteProviderToEnrichProvider } from '../../focus/enrichmentService';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
@@ -151,17 +152,17 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (issueWithRemote == null) return;
 
 		if (pin) {
-			await this.container.focus.unpinItem(pin);
+			await this.container.enrichments.unpinItem(pin);
 			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== pin);
 			issueWithRemote.enriched = issueWithRemote.enriched?.filter(e => e.id !== pin);
 		} else {
-			const focusItem: FocusItem = {
+			const focusItem: EnrichableItem = {
 				type: 'issue',
 				id: issueWithRemote.issue.nodeId!,
-				remote: issueWithRemote.repoAndRemote.remote,
+				provider: convertRemoteProviderToEnrichProvider(issueWithRemote.repoAndRemote.remote.provider),
 				url: issueWithRemote.issue.url,
 			};
-			const enrichedItem = await this.container.focus.pinItem(focusItem);
+			const enrichedItem = await this.container.enrichments.pinItem(focusItem);
 			if (enrichedItem == null) return;
 			if (this._enrichedItems == null) {
 				this._enrichedItems = [];
@@ -182,20 +183,20 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (issueWithRemote == null) return;
 
 		if (snooze) {
-			await this.container.focus.unsnoozeItem(snooze);
+			await this.container.enrichments.unsnoozeItem(snooze);
 			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== snooze);
 			issueWithRemote.enriched = issueWithRemote.enriched?.filter(e => e.id !== snooze);
 		} else {
-			const focusItem: FocusItem = {
+			const focusItem: EnrichableItem = {
 				type: 'issue',
 				id: issueWithRemote.issue.nodeId!,
-				remote: issueWithRemote.repoAndRemote.remote,
+				provider: convertRemoteProviderToEnrichProvider(issueWithRemote.repoAndRemote.remote.provider),
 				url: issueWithRemote.issue.url,
 			};
 			if (expiresAt != null) {
 				focusItem.expiresAt = expiresAt;
 			}
-			const enrichedItem = await this.container.focus.snoozeItem(focusItem);
+			const enrichedItem = await this.container.enrichments.snoozeItem(focusItem);
 			if (enrichedItem == null) return;
 			if (this._enrichedItems == null) {
 				this._enrichedItems = [];
@@ -216,17 +217,17 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (prWithRemote == null) return;
 
 		if (pin) {
-			await this.container.focus.unpinItem(pin);
+			await this.container.enrichments.unpinItem(pin);
 			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== pin);
 			prWithRemote.enriched = prWithRemote.enriched?.filter(e => e.id !== pin);
 		} else {
-			const focusItem: FocusItem = {
+			const focusItem: EnrichableItem = {
 				type: 'pr',
 				id: prWithRemote.pullRequest.nodeId!,
-				remote: prWithRemote.repoAndRemote.remote,
+				provider: convertRemoteProviderToEnrichProvider(prWithRemote.repoAndRemote.remote.provider),
 				url: prWithRemote.pullRequest.url,
 			};
-			const enrichedItem = await this.container.focus.pinItem(focusItem);
+			const enrichedItem = await this.container.enrichments.pinItem(focusItem);
 			if (enrichedItem == null) return;
 			if (this._enrichedItems == null) {
 				this._enrichedItems = [];
@@ -247,20 +248,20 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (prWithRemote == null) return;
 
 		if (snooze) {
-			await this.container.focus.unsnoozeItem(snooze);
+			await this.container.enrichments.unsnoozeItem(snooze);
 			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== snooze);
 			prWithRemote.enriched = prWithRemote.enriched?.filter(e => e.id !== snooze);
 		} else {
-			const focusItem: FocusItem = {
+			const focusItem: EnrichableItem = {
 				type: 'pr',
 				id: prWithRemote.pullRequest.nodeId!,
-				remote: prWithRemote.repoAndRemote.remote,
+				provider: convertRemoteProviderToEnrichProvider(prWithRemote.repoAndRemote.remote.provider),
 				url: prWithRemote.pullRequest.url,
 			};
 			if (expiresAt != null) {
 				focusItem.expiresAt = expiresAt;
 			}
-			const enrichedItem = await this.container.focus.snoozeItem(focusItem);
+			const enrichedItem = await this.container.enrichments.snoozeItem(focusItem);
 			if (enrichedItem == null) return;
 			if (this._enrichedItems == null) {
 				this._enrichedItems = [];
@@ -770,7 +771,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	private async getEnrichedItems(force?: boolean): Promise<EnrichedItem[] | undefined> {
 		// TODO needs cache invalidation
 		if (force || this._enrichedItems == null) {
-			const enrichedItems = await this.container.focus.get();
+			const enrichedItems = await this.container.enrichments.get();
 			this._enrichedItems = enrichedItems;
 		}
 		return this._enrichedItems;

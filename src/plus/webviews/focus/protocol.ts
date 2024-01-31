@@ -3,7 +3,7 @@ import type { IssueShape } from '../../../git/models/issue';
 import type { PullRequestShape } from '../../../git/models/pullRequest';
 import type { WebviewState } from '../../../webviews/protocol';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
-import type { EnrichedItem } from '../../focus/focusService';
+import type { EnrichedItem } from '../../focus/enrichmentService';
 
 export interface State extends WebviewState {
 	access: FeatureAccess;
