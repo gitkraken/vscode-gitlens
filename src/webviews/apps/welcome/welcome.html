@@ -212,6 +212,7 @@
 					<a
 						href="command:gitlens.showDraftsView"
 						data-requires="repo"
+						data-org-requires="drafts"
 						title="Show Cloud Patches view"
 						aria-label="Show Cloud Patches view"
 						><code-icon icon="gl-cloud-patch" size="20"></code-icon>Cloud Patches ☁️</a
@@ -269,11 +270,13 @@
 				<h3>
 					<a
 						class="muted"
+						data-org-requires="drafts"
 						href="command:gitlens.showDraftsView"
 						title="Show Cloud Patches view"
 						aria-label="Show Cloud Patches view"
 						>Cloud Patches</a
 					>
+					<span data-org-requires="nodrafts">Cloud Patches</span>
 					☁️
 					<span class="welcome__preview">Preview</span>
 				</h3>
@@ -541,6 +544,7 @@
 					<a
 						href="command:gitlens.showDraftsView"
 						data-requires="repo"
+						data-org-requires="drafts"
 						title="Show Cloud Patches view"
 						aria-label="Show Cloud Patches view"
 						><code-icon icon="gl-cloud-patch"></code-icon>Cloud Patches ☁️</a

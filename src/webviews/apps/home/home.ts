@@ -2,7 +2,7 @@
 import './home.scss';
 import type { Disposable } from 'vscode';
 import type { State } from '../../home/protocol';
-import { DidChangeRepositoriesType, DidChangeSubscriptionType } from '../../home/protocol';
+import { DidChangeOrgSettingsType, DidChangeRepositoriesType, DidChangeSubscriptionType } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommandType, onIpc } from '../../protocol';
 import { App } from '../shared/appBase';
@@ -53,6 +53,13 @@ export class HomeApp extends App<State> {
 					this.state.promoStates = params.promoStates;
 					this.setState(this.state);
 					this.updatePromos();
+				});
+				break;
+			case DidChangeOrgSettingsType.method:
+				onIpc(DidChangeOrgSettingsType, msg, params => {
+					this.state.orgSettings = params.orgSettings;
+					this.setState(this.state);
+					this.updateOrgSettings();
 				});
 				break;
 			default:
@@ -114,9 +121,18 @@ export class HomeApp extends App<State> {
 		setElementVisibility('promo-pro50', pro50);
 	}
 
+	private updateOrgSettings() {
+		const {
+			orgSettings: { drafts },
+		} = this.state;
+
+		setElementVisibility('org-settings-drafts', drafts);
+	}
+
 	private updateState() {
 		this.updateNoRepo();
 		this.updatePromos();
+		this.updateOrgSettings();
 	}
 }
 
