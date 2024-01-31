@@ -11,6 +11,7 @@ import { ViewNode } from '../../../views/nodes/abstract/viewNode';
 import type { BranchNode } from '../../../views/nodes/branchNode';
 import type { CommitFileNode } from '../../../views/nodes/commitFileNode';
 import type { CommitNode } from '../../../views/nodes/commitNode';
+import { PullRequestNode } from '../../../views/nodes/pullRequestNode';
 import type { StashNode } from '../../../views/nodes/stashNode';
 import type { TagNode } from '../../../views/nodes/tagNode';
 import type {
@@ -137,9 +138,16 @@ export function registerGraphWebviewCommands<T>(
 					| BranchNode
 					| CommitNode
 					| CommitFileNode
+					| PullRequestNode
 					| StashNode
 					| TagNode,
 			) => {
+				if (args instanceof PullRequestNode) {
+					if (args.ref == null) return;
+
+					args = { ref: args.ref };
+				}
+
 				const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
 				if (configuration.get('graph.layout') === 'panel') {
 					if (!container.graphView.visible) {
@@ -165,9 +173,16 @@ export function registerGraphWebviewCommands<T>(
 					| BranchNode
 					| CommitNode
 					| CommitFileNode
+					| PullRequestNode
 					| StashNode
 					| TagNode,
 			) => {
+				if (args instanceof PullRequestNode) {
+					if (args.ref == null) return;
+
+					args = { ref: args.ref };
+				}
+
 				const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
 				void container.graphView.show({ preserveFocus: preserveFocus }, args);
 			},

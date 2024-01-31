@@ -6941,7 +6941,7 @@
 			},
 			{
 				"command": "gitlens.views.openPullRequestComparison",
-				"title": "Compare Pull Request with Base",
+				"title": "Compare Pull Request",
 				"category": "GitLens",
 				"icon": "$(compare-changes)"
 			},
@@ -8315,6 +8315,24 @@
 				"title": "Create Pull Request...",
 				"category": "GitLens",
 				"icon": "$(git-pull-request-create)"
+			},
+			{
+				"command": "gitlens.graph.openPullRequest",
+				"title": "Open Pull Request",
+				"category": "GitLens",
+				"icon": "$(git-pull-request)"
+			},
+			{
+				"command": "gitlens.graph.openPullRequestChanges",
+				"title": "Open Pull Request Changes",
+				"category": "GitLens",
+				"icon": "$(diff-multiple)"
+			},
+			{
+				"command": "gitlens.graph.openPullRequestComparison",
+				"title": "Compare Pull Request",
+				"category": "GitLens",
+				"icon": "$(compare-changes)"
 			},
 			{
 				"command": "gitlens.graph.openPullRequestOnRemote",
@@ -11068,6 +11086,18 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.openPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openPullRequestChanges",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openPullRequestComparison",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.openPullRequestOnRemote",
 					"when": "false"
 				},
@@ -13265,13 +13295,13 @@
 					"alt": "gitlens.copyRemotePullRequestUrl"
 				},
 				{
-					"command": "gitlens.views.openPullRequest",
-					"when": "gitlens:action:openPullRequest > 1 && viewItem =~ /gitlens:pullrequest\\b/",
+					"command": "gitlens.views.openPullRequestChanges",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor && viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
 					"group": "1_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.views.openPullRequestChanges",
-					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor && viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"command": "gitlens.views.openPullRequest",
+					"when": "gitlens:action:openPullRequest > 1 && viewItem =~ /gitlens:pullrequest\\b/",
 					"group": "1_gitlens_actions@98"
 				},
 				{
@@ -13279,6 +13309,11 @@
 					"when": "viewItem =~ /gitlens:pullrequest\\b/",
 					"group": "1_gitlens_actions@99",
 					"alt": "gitlens.copyRemotePullRequestUrl"
+				},
+				{
+					"command": "gitlens.showInCommitGraph",
+					"when": "viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"group": "3_gitlens_explore@1"
 				},
 				{
 					"command": "gitlens.views.openPullRequestComparison",
@@ -14356,9 +14391,24 @@
 					"group": "8_gitlens_actions@10"
 				},
 				{
+					"command": "gitlens.graph.openPullRequestChanges",
+					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor && webviewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.graph.openPullRequest",
+					"when": "gitlens:action:openPullRequest > 1 && webviewItem =~ /gitlens:pullrequest\\b/",
+					"group": "1_gitlens_actions@98"
+				},
+				{
 					"command": "gitlens.graph.openPullRequestOnRemote",
 					"when": "webviewItem =~ /gitlens:pullrequest\\b/",
-					"group": "1_gitlens_actions@1"
+					"group": "1_gitlens_actions@99"
+				},
+				{
+					"command": "gitlens.graph.openPullRequestComparison",
+					"when": "webviewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"group": "4_gitlens_compare@1"
 				},
 				{
 					"command": "gitlens.graph.push",

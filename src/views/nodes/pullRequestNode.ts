@@ -4,6 +4,7 @@ import { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
+import type { GitBranchReference } from '../../git/models/reference';
 import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
@@ -45,6 +46,32 @@ export class PullRequestNode extends ViewNode<'pullrequest', ViewsWithCommits> {
 
 	override toClipboard(): string {
 		return this.pullRequest.url;
+	}
+
+	get baseRef(): GitBranchReference | undefined {
+		if (this.pullRequest.refs?.base != null) {
+			return {
+				refType: 'branch',
+				repoPath: this.repoPath,
+				ref: this.pullRequest.refs.base.sha,
+				name: this.pullRequest.refs.base.branch,
+				remote: true,
+			};
+		}
+		return undefined;
+	}
+
+	get ref(): GitBranchReference | undefined {
+		if (this.pullRequest.refs?.head != null) {
+			return {
+				refType: 'branch',
+				repoPath: this.repoPath,
+				ref: this.pullRequest.refs.head.sha,
+				name: this.pullRequest.refs.head.branch,
+				remote: true,
+			};
+		}
+		return undefined;
 	}
 
 	getChildren(): ViewNode[] {
