@@ -1,7 +1,6 @@
-import type { Disposable } from 'vscode';
+import type { CancellationToken, Disposable } from 'vscode';
 import type { Container } from '../../container';
-import { AuthenticationRequiredError } from '../../errors';
-import type { GitRemote } from '../../git/models/remote';
+import { AuthenticationRequiredError, CancellationError } from '../../errors';
 import type { RemoteProvider } from '../../git/remotes/remoteProvider';
 import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
@@ -9,10 +8,10 @@ import { getLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
 import { ensureAccount, ensurePaidPlan } from '../utils';
 
-export interface FocusItem {
+export interface EnrichableItem {
 	type: EnrichedItemResponse['entityType'];
 	id: string;
-	remote: GitRemote<RemoteProvider>;
+	provider: EnrichedItemResponse['provider'];
 	url: string;
 	expiresAt?: string;
 }
@@ -55,7 +54,7 @@ type EnrichedItemResponse = {
 	expiresAt?: string;
 };
 
-export class FocusService implements Disposable {
+export class EnrichmentService implements Disposable {
 	constructor(
 		private readonly container: Container,
 		private readonly connection: ServerConnection,
@@ -78,15 +77,18 @@ export class FocusService implements Disposable {
 	}
 
 	@log()
-	async get(type?: EnrichedItemResponse['type']): Promise<EnrichedItem[]> {
+	async get(type?: EnrichedItemResponse['type'], cancellation?: CancellationToken): Promise<EnrichedItem[]> {
 		const scope = getLogScope();
 
 		try {
 			type Result = { data: EnrichedItemResponse[] };
 
 			const rsp = await this.connection.fetchGkDevApi('v1/enrich-items', { method: 'GET' });
+			if (cancellation?.isCancellationRequested) throw new CancellationError();
 
 			const result = (await rsp.json()) as Result;
+			if (cancellation?.isCancellationRequested) throw new CancellationError();
+
 			return type == null ? result.data : result.data.filter(i => i.type === type);
 		} catch (ex) {
 			if (ex instanceof AuthenticationRequiredError) return [];
@@ -98,17 +100,17 @@ export class FocusService implements Disposable {
 	}
 
 	@log()
-	getPins(): Promise<EnrichedItem[]> {
-		return this.get('pin');
+	getPins(cancellation?: CancellationToken): Promise<EnrichedItem[]> {
+		return this.get('pin', cancellation);
 	}
 
 	@log()
-	getSnoozed(): Promise<EnrichedItem[]> {
-		return this.get('snooze');
+	getSnoozed(cancellation?: CancellationToken): Promise<EnrichedItem[]> {
+		return this.get('snooze', cancellation);
 	}
 
-	@log<FocusService['pinItem']>({ args: { 0: i => `${i.id} (${i.remote.provider.name} ${i.type})` } })
-	async pinItem(item: FocusItem): Promise<EnrichedItem> {
+	@log<EnrichmentService['pinItem']>({ args: { 0: i => `${i.id} (${i.provider} ${i.type})` } })
+	async pinItem(item: EnrichableItem): Promise<EnrichedItem> {
 		const scope = getLogScope();
 
 		try {
@@ -119,7 +121,7 @@ export class FocusService implements Disposable {
 			type Result = { data: EnrichedItemResponse };
 
 			const rq: EnrichedItemRequest = {
-				provider: item.remote.provider.id as EnrichedItemResponse['provider'],
+				provider: item.provider,
 				entityType: item.type,
 				entityId: item.id,
 				entityUrl: item.url,
@@ -150,8 +152,8 @@ export class FocusService implements Disposable {
 		return this.delete(id, 'unpin');
 	}
 
-	@log<FocusService['snoozeItem']>({ args: { 0: i => `${i.id} (${i.remote.provider.name} ${i.type})` } })
-	async snoozeItem(item: FocusItem): Promise<EnrichedItem> {
+	@log<EnrichmentService['snoozeItem']>({ args: { 0: i => `${i.id} (${i.provider} ${i.type})` } })
+	async snoozeItem(item: EnrichableItem): Promise<EnrichedItem> {
 		const scope = getLogScope();
 
 		try {
@@ -162,7 +164,7 @@ export class FocusService implements Disposable {
 			type Result = { data: EnrichedItemResponse };
 
 			const rq: EnrichedItemRequest = {
-				provider: item.remote.provider.id as EnrichedItemResponse['provider'],
+				provider: item.provider,
 				entityType: item.type,
 				entityId: item.id,
 				entityUrl: item.url,
@@ -194,5 +196,25 @@ export class FocusService implements Disposable {
 	@log()
 	unsnoozeItem(id: string): Promise<void> {
 		return this.delete(id, 'unsnooze');
+	}
+}
+
+export function convertRemoteProviderToEnrichProvider(provider: RemoteProvider): EnrichedItemResponse['provider'] {
+	switch (provider.id) {
+		case 'azure-devops':
+			return 'azure';
+
+		case 'bitbucket':
+		case 'bitbucket-server':
+			return 'bitbucket';
+
+		case 'github':
+			return 'github';
+
+		case 'gitlab':
+			return 'gitlab';
+
+		default:
+			throw new Error(`Unknown remote provider '${provider.id}'`);
 	}
 }
