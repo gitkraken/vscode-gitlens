@@ -499,6 +499,10 @@ export class GitCommandsCommand extends Command {
 						}
 					}),
 					input.onDidChangeValue(async e => {
+						if (!input.ignoreFocusOut) {
+							input.ignoreFocusOut = true;
+						}
+
 						if (scope != null) {
 							// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
 							if (e.length !== 0) {
@@ -552,13 +556,10 @@ export class GitCommandsCommand extends Command {
 	}
 
 	private async showPickStep(step: QuickPickStep, commandsStep: PickCommandStep) {
-		const originalIgnoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut')
+		const quickpick = window.createQuickPick();
+		quickpick.ignoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut')
 			? true
 			: step.ignoreFocusOut ?? false;
-		const originalStepIgnoreFocusOut = step.ignoreFocusOut;
-
-		const quickpick = window.createQuickPick();
-		quickpick.ignoreFocusOut = originalIgnoreFocusOut;
 
 		const disposables: Disposable[] = [];
 
@@ -606,7 +607,7 @@ export class GitCommandsCommand extends Command {
 				const mapping: KeyMapping = {
 					left: { onDidPressKey: goBack },
 				};
-				if (step.onDidPressKey != null && step.keys != null && step.keys.length !== 0) {
+				if (step.onDidPressKey != null && step.keys?.length) {
 					for (const key of step.keys) {
 						mapping[key] = {
 							onDidPressKey: key => {
@@ -627,6 +628,7 @@ export class GitCommandsCommand extends Command {
 					void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
 				}
 
+				let firstActiveChange = true;
 				let overrideItems = false;
 
 				disposables.push(
@@ -696,6 +698,12 @@ export class GitCommandsCommand extends Command {
 						}
 					}),
 					quickpick.onDidChangeValue(async e => {
+						// If something was typed, keep the quick pick open on focus loss
+						if (!quickpick.ignoreFocusOut) {
+							quickpick.ignoreFocusOut = true;
+							step.ignoreFocusOut = true;
+						}
+
 						if (scope != null) {
 							// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
 							if (e.length !== 0) {
@@ -708,17 +716,6 @@ export class GitCommandsCommand extends Command {
 						if (step.onDidChangeValue != null) {
 							const cancel = await step.onDidChangeValue(quickpick);
 							if (cancel) return;
-						}
-
-						// If something was typed, keep the quick pick open on focus loss
-						if (e.length !== 0 && !quickpick.ignoreFocusOut) {
-							quickpick.ignoreFocusOut = true;
-							step.ignoreFocusOut = true;
-						}
-						// If something typed was cleared, and we changed the behavior, then allow the quick pick close on focus loss
-						else if (e.length === 0 && quickpick.ignoreFocusOut && !originalIgnoreFocusOut) {
-							quickpick.ignoreFocusOut = originalIgnoreFocusOut;
-							step.ignoreFocusOut = originalStepIgnoreFocusOut;
 						}
 
 						if (!overrideItems) {
@@ -776,6 +773,16 @@ export class GitCommandsCommand extends Command {
 						}
 					}),
 					quickpick.onDidChangeActive(() => {
+						// If something changed (after the first time which happens on open), keep the quick pick open on focus loss
+						if (!firstActiveChange && !quickpick.ignoreFocusOut) {
+							quickpick.ignoreFocusOut = true;
+							step.ignoreFocusOut = true;
+						}
+
+						if (firstActiveChange) {
+							firstActiveChange = false;
+						}
+
 						if (commandsStep.command != null || quickpick.activeItems.length === 0) return;
 
 						const command = quickpick.activeItems[0];
@@ -783,18 +790,13 @@ export class GitCommandsCommand extends Command {
 
 						quickpick.buttons = this.getButtons(undefined, command);
 					}),
-					quickpick.onDidChangeSelection(e => {
+					quickpick.onDidChangeSelection(_e => {
 						if (!quickpick.canSelectMany) return;
 
-						// If something was selected, keep the quick pick open on focus loss
-						if (e.length !== 0 && !quickpick.ignoreFocusOut) {
+						// If something is selected, keep the quick pick open on focus loss
+						if (!quickpick.ignoreFocusOut) {
 							quickpick.ignoreFocusOut = true;
 							step.ignoreFocusOut = true;
-						}
-						// If the selection was cleared, and we changed the behavior, then allow the quick pick close on focus loss
-						else if (e?.length === 0 && quickpick.ignoreFocusOut && !originalIgnoreFocusOut) {
-							quickpick.ignoreFocusOut = originalIgnoreFocusOut;
-							step.ignoreFocusOut = originalStepIgnoreFocusOut;
 						}
 					}),
 					quickpick.onDidAccept(async () => {
