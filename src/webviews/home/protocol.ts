@@ -5,6 +5,9 @@ export interface State extends WebviewState {
 	repositories: DidChangeRepositoriesParams;
 	webroot?: string;
 	promoStates: Record<string, boolean>;
+	orgSettings: {
+		drafts: boolean;
+	};
 }
 
 export interface DidChangeRepositoriesParams {
@@ -19,3 +22,8 @@ export interface DidChangeSubscriptionParams {
 	promoStates: Record<string, boolean>;
 }
 export const DidChangeSubscriptionType = new IpcNotificationType<DidChangeSubscriptionParams>('subscription/didChange');
+
+export interface DidChangeOrgSettingsParams {
+	orgSettings: State['orgSettings'];
+}
+export const DidChangeOrgSettingsType = new IpcNotificationType<DidChangeOrgSettingsParams>('org/settings/didChange');
