@@ -2,40 +2,52 @@ import type { Uri } from 'vscode';
 import type { WorktreeGitCommandArgs } from '../../commands/git/worktree';
 import { Container } from '../../container';
 import { ensure } from '../../system/array';
+import { defer } from '../../system/promise';
 import type { OpenWorkspaceLocation } from '../../system/utils';
 import { executeGitCommand } from '../actions';
 import type { GitReference } from '../models/reference';
 import type { Repository } from '../models/repository';
 import type { GitWorktree } from '../models/worktree';
 
-export function create(
+export async function create(
 	repo?: string | Repository,
 	uri?: Uri,
 	ref?: GitReference,
-	options?: { createBranch?: string; reveal?: boolean },
+	options?: { addRemote?: { name: string; url: string }; createBranch?: string; reveal?: boolean },
 ) {
-	return executeGitCommand({
+	const deferred = defer<GitWorktree | undefined>();
+
+	await executeGitCommand({
 		command: 'worktree',
 		state: {
 			subcommand: 'create',
 			repo: repo,
 			uri: uri,
 			reference: ref,
+			addRemote: options?.addRemote,
 			createBranch: options?.createBranch,
 			flags: options?.createBranch ? ['-b'] : undefined,
+			result: deferred,
 			reveal: options?.reveal,
 		},
 	});
+
+	// If the result is still pending, then the command was cancelled
+	if (!deferred.pending) return deferred.promise;
+
+	deferred.cancel();
+	return undefined;
 }
 
-export function open(worktree: GitWorktree, options?: { location?: OpenWorkspaceLocation }) {
+export function open(worktree: GitWorktree, options?: { location?: OpenWorkspaceLocation; openOnly?: boolean }) {
 	return executeGitCommand({
 		command: 'worktree',
 		state: {
 			subcommand: 'open',
 			repo: worktree.repoPath,
-			uri: worktree.uri,
+			worktree: worktree,
 			flags: convertLocationToOpenFlags(options?.location),
+			openOnly: options?.openOnly,
 		},
 	});
 }
@@ -64,9 +76,14 @@ export async function reveal(
 	return node;
 }
 
-type OpenFlagsArray = Extract<NonNullable<Required<WorktreeGitCommandArgs['state']>>, { subcommand: 'open' }>['flags'];
+type OpenFlags = Extract<
+	NonNullable<Required<WorktreeGitCommandArgs['state']>>,
+	{ subcommand: 'open' }
+>['flags'][number];
 
-export function convertLocationToOpenFlags(location: OpenWorkspaceLocation | undefined): OpenFlagsArray | undefined {
+export function convertLocationToOpenFlags(location: OpenWorkspaceLocation): OpenFlags[];
+export function convertLocationToOpenFlags(location: OpenWorkspaceLocation | undefined): OpenFlags[] | undefined;
+export function convertLocationToOpenFlags(location: OpenWorkspaceLocation | undefined): OpenFlags[] | undefined {
 	if (location == null) return undefined;
 
 	switch (location) {
@@ -80,7 +97,9 @@ export function convertLocationToOpenFlags(location: OpenWorkspaceLocation | und
 	}
 }
 
-export function convertOpenFlagsToLocation(flags: OpenFlagsArray | undefined): OpenWorkspaceLocation | undefined {
+export function convertOpenFlagsToLocation(flags: OpenFlags[]): OpenWorkspaceLocation;
+export function convertOpenFlagsToLocation(flags: OpenFlags[] | undefined): OpenWorkspaceLocation | undefined;
+export function convertOpenFlagsToLocation(flags: OpenFlags[] | undefined): OpenWorkspaceLocation | undefined {
 	if (flags == null) return undefined;
 
 	if (flags.includes('--new-window')) return 'newWindow';
