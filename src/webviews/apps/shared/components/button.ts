@@ -111,7 +111,7 @@ export class GlButton extends LitElement {
 				width: max-content;
 			}
 
-			:host([density='compact']) {
+			:host([density='compact']) .control {
 				padding: var(--button-compact-padding);
 			}
 
