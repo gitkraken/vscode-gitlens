@@ -78,55 +78,6 @@ export function findLastIndex<T>(source: T[], predicate: (value: T, index: numbe
 	return -1;
 }
 
-export function groupBy<T>(source: readonly T[], groupingKey: (item: T) => string): Record<string, T[]> {
-	return source.reduce<Record<string, T[]>>((groupings, current) => {
-		const value = groupingKey(current);
-		const group = groupings[value];
-		if (group === undefined) {
-			groupings[value] = [current];
-		} else {
-			group.push(current);
-		}
-		return groupings;
-	}, Object.create(null));
-}
-
-export function groupByMap<TKey, TValue>(
-	source: readonly TValue[],
-	groupingKey: (item: TValue) => TKey,
-): Map<TKey, TValue[]> {
-	return source.reduce((groupings, current) => {
-		const value = groupingKey(current);
-		const group = groupings.get(value);
-		if (group === undefined) {
-			groupings.set(value, [current]);
-		} else {
-			group.push(current);
-		}
-		return groupings;
-	}, new Map<TKey, TValue[]>());
-}
-
-export function groupByFilterMap<TKey, TValue, TMapped>(
-	source: readonly TValue[],
-	groupingKey: (item: TValue) => TKey,
-	predicateMapper: (item: TValue) => TMapped | null | undefined,
-): Map<TKey, TMapped[]> {
-	return source.reduce((groupings, current) => {
-		const mapped = predicateMapper(current);
-		if (mapped != null) {
-			const value = groupingKey(current);
-			const group = groupings.get(value);
-			if (group === undefined) {
-				groupings.set(value, [mapped]);
-			} else {
-				group.push(mapped);
-			}
-		}
-		return groupings;
-	}, new Map<TKey, TMapped[]>());
-}
-
 export function intersection<T>(sources: T[][], comparator: (a: T, b: T) => boolean): T[] {
 	const results: T[] = [];
 
@@ -252,25 +203,4 @@ export function joinUnique<T>(source: readonly T[], separator: string): string {
 
 export function splitAt<T>(source: T[], index: number): [T[], T[]] {
 	return index < 0 ? [source, []] : [source.slice(0, index), source.slice(index)];
-}
-
-export function uniqueBy<TKey, TValue>(
-	source: readonly TValue[],
-	uniqueKey: (item: TValue) => TKey,
-	onDuplicate: (original: TValue, current: TValue) => TValue | void,
-): TValue[] {
-	const map = source.reduce((uniques, current) => {
-		const value = uniqueKey(current);
-		const original = uniques.get(value);
-		if (original === undefined) {
-			uniques.set(value, current);
-		} else {
-			const updated = onDuplicate(original, current);
-			if (updated !== undefined) {
-				uniques.set(value, updated);
-			}
-		}
-		return uniques;
-	}, new Map<TKey, TValue>());
-	return [...map.values()];
 }
