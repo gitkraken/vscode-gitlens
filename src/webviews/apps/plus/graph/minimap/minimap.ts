@@ -1,9 +1,8 @@
 import { css, customElement, FASTElement, html, observable, ref } from '@microsoft/fast-element';
 import type { Chart, DataItem, RegionOptions } from 'billboard.js';
-import { groupByMap } from '../../../../../system/array';
 import { debug } from '../../../../../system/decorators/log';
 import { debounce } from '../../../../../system/function';
-import { first, flatMap, map, union } from '../../../../../system/iterable';
+import { first, flatMap, groupByMap, map, union } from '../../../../../system/iterable';
 import { pluralize } from '../../../../../system/string';
 import { formatDate, formatNumeric, fromNow } from '../../../shared/date';
 

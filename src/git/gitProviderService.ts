@@ -22,7 +22,7 @@ import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionSer
 import type { ProviderIntegration } from '../plus/integrations/providerIntegration';
 import type { RepoComparisonKey } from '../repositories';
 import { asRepoComparisonKey, Repositories } from '../repositories';
-import { groupByFilterMap, groupByMap, joinUnique } from '../system/array';
+import { joinUnique } from '../system/array';
 import { registerCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
@@ -30,7 +30,7 @@ import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
-import { count, filter, first, flatMap, join, map, some } from '../system/iterable';
+import { count, filter, first, flatMap, groupByFilterMap, groupByMap, join, map, some } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';

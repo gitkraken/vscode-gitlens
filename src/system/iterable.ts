@@ -145,6 +145,72 @@ export function flatten<T>(source: Iterable<Iterable<T>> | IterableIterator<Iter
 	return flatMap(source, i => i);
 }
 
+export function groupBy<T>(
+	source: Iterable<T> | IterableIterator<T>,
+	groupingKey: (item: T) => string,
+): Record<string, T[]> {
+	const groupings: Record<string, T[]> = Object.create(null);
+
+	for (const current of source) {
+		const value = groupingKey(current);
+		const group = groupings[value];
+		if (group === undefined) {
+			groupings[value] = [current];
+		} else {
+			group.push(current);
+		}
+	}
+
+	return groupings;
+}
+
+export function groupByMap<TKey, TValue>(
+	source: Iterable<TValue> | IterableIterator<TValue>,
+	groupingKey: (item: TValue) => TKey,
+	options?: { filterNullGroups?: boolean },
+): Map<TKey, TValue[]> {
+	const groupings = new Map<TKey, TValue[]>();
+
+	const filterNullGroups = options?.filterNullGroups ?? false;
+
+	for (const current of source) {
+		const value = groupingKey(current);
+		if (value == null && filterNullGroups) continue;
+
+		const group = groupings.get(value);
+		if (group === undefined) {
+			groupings.set(value, [current]);
+		} else {
+			group.push(current);
+		}
+	}
+
+	return groupings;
+}
+
+export function groupByFilterMap<TKey, TValue, TMapped>(
+	source: Iterable<TValue> | IterableIterator<TValue>,
+	groupingKey: (item: TValue) => TKey,
+	predicateMapper: (item: TValue) => TMapped | null | undefined,
+): Map<TKey, TMapped[]> {
+	const groupings = new Map<TKey, TMapped[]>();
+
+	for (const current of source) {
+		const mapped = predicateMapper(current);
+		if (mapped == null) continue;
+
+		const value = groupingKey(current);
+		const group = groupings.get(value);
+		if (group === undefined) {
+			groupings.set(value, [mapped]);
+		} else {
+			group.push(mapped);
+		}
+	}
+
+	return groupings;
+}
+
 export function has<T>(source: Iterable<T> | IterableIterator<T>, item: T): boolean {
 	return some(source, i => i === item);
 }

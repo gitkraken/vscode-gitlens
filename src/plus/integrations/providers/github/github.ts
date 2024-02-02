@@ -30,9 +30,9 @@ import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../../../messages';
-import { uniqueBy } from '../../../../system/array';
 import { configuration } from '../../../../system/configuration';
 import { debug } from '../../../../system/decorators/log';
+import { uniqueBy } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
@@ -2847,10 +2847,12 @@ function isGitHubDotCom(options?: { baseUrl?: string }) {
 }
 
 function uniqueWithReasons<T extends { reasons: string[] }>(items: T[], lookup: (item: T) => unknown): T[] {
-	return uniqueBy(items, lookup, (original, current) => {
-		if (current.reasons.length !== 0) {
-			original.reasons.push(...current.reasons);
-		}
-		return original;
-	});
+	return [
+		...uniqueBy(items, lookup, (original, current) => {
+			if (current.reasons.length !== 0) {
+				original.reasons.push(...current.reasons);
+			}
+			return original;
+		}),
+	];
 }
