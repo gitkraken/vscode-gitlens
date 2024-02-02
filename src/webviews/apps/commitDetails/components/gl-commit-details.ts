@@ -102,22 +102,20 @@ export class GlCommitDetails extends GlDetailsBase {
 				<p>Alternatively, show your work-in-progress, or search for or choose a commit</p>
 
 				<p class="button-container">
-					<button class="button button--full" type="button" data-action="wip">Show Working Changes</button>
+					<span class="button-group button-group--single">
+						<gl-button full data-action="wip">Show Working Changes</gl-button>
+					</span>
 				</p>
 				<p class="button-container">
 					<span class="button-group button-group--single">
-						<button class="button button--full" type="button" data-action="pick-commit">
-							Choose Commit...
-						</button>
-						<button
-							class="button"
-							type="button"
+						<gl-button full data-action="pick-commit">Choose Commit...</gl-button>
+						<gl-button
+							density="compact"
 							data-action="search-commit"
 							aria-label="Search for Commit"
 							title="Search for Commit"
-						>
-							<code-icon icon="search"></code-icon>
-						</button>
+							><code-icon icon="search"></code-icon
+						></gl-button>
 					</span>
 				</p>
 			</div>
@@ -336,16 +334,15 @@ export class GlCommitDetails extends GlDetailsBase {
 					<p>Let AI assist in understanding the changes made with this commit.</p>
 					<p class="button-container">
 						<span class="button-group button-group--single">
-							<button
-								class="button button--full button--busy"
-								type="button"
+							<gl-button
+								full
+								class="button--busy"
 								data-action="explain-commit"
 								aria-busy="${this.explainBusy ? 'true' : nothing}"
 								@click=${this.onExplainChanges}
 								@keydown=${this.onExplainChanges}
+								><code-icon icon="loading" modifier="spin"></code-icon>Explain Changes</gl-button
 							>
-								<code-icon icon="loading" modifier="spin"></code-icon>Explain Changes
-							</button>
 						</span>
 					</p>
 					${when(

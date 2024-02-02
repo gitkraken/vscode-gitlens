@@ -109,42 +109,6 @@ ul {
 	}
 }
 
-.button {
-	--button-foreground: var(--vscode-button-foreground);
-	--button-background: var(--vscode-button-background);
-	--button-hover-background: var(--vscode-button-hoverBackground);
-
-	display: inline-block;
-	border: none;
-	padding: 0.4rem;
-	font-family: inherit;
-	font-size: inherit;
-	line-height: 1.4;
-	text-align: center;
-	text-decoration: none;
-	user-select: none;
-	background: var(--button-background);
-	color: var(--button-foreground);
-	cursor: pointer;
-
-	&:hover {
-		background: var(--button-hover-background);
-	}
-
-	&:focus {
-		outline: 1px solid var(--vscode-focusBorder);
-		outline-offset: 0.2rem;
-	}
-
-	&--full {
-		width: 100%;
-	}
-
-	code-icon {
-		pointer-events: none;
-	}
-}
-
 .button--busy {
 	code-icon {
 		margin-right: 0.5rem;
