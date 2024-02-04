@@ -2209,6 +2209,27 @@
 						"scope": "window",
 						"order": 20
 					},
+					"gitlens.blame.fontFamily": {
+						"type": "string",
+						"default": "",
+						"markdownDescription": "Specifies the font family of the file blame annotations",
+						"scope": "window",
+						"order": 21
+					},
+					"gitlens.blame.fontSize": {
+						"type": "number",
+						"default": 0,
+						"markdownDescription": "Specifies the font size of the file blame annotations",
+						"scope": "window",
+						"order": 22
+					},
+					"gitlens.blame.fontWeight": {
+						"type": "string",
+						"default": "normal",
+						"markdownDescription": "Specifies the font weight of the file blame annotations",
+						"scope": "window",
+						"order": 22
+					},
 					"gitlens.blame.heatmap.enabled": {
 						"type": "boolean",
 						"default": true,

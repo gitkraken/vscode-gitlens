@@ -22,6 +22,12 @@ import { Decorations } from './fileAnnotationController';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
+export interface BlameFontOptions {
+	family: string;
+	size: number;
+	weight: string;
+}
+
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedGitDocument) {
 		super(container, 'blame', editor, trackedDocument);
@@ -68,10 +74,23 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			tokenOptions: tokenOptions,
 		};
 
+		const fontOptions: BlameFontOptions = {
+			family: configuration.get('blame.fontFamily'),
+			size: configuration.get('blame.fontSize'),
+			weight: configuration.get('blame.fontWeight'),
+		};
+
 		const avatars = cfg.avatars;
 		const gravatarDefault = configuration.get('defaultGravatarsStyle');
 		const separateLines = cfg.separateLines;
-		const renderOptions = getGutterRenderOptions(separateLines, cfg.heatmap, cfg.avatars, cfg.format, options);
+		const renderOptions = getGutterRenderOptions(
+			separateLines,
+			cfg.heatmap,
+			cfg.avatars,
+			cfg.format,
+			options,
+			fontOptions,
+		);
 
 		const decorationOptions = [];
 		const decorationsMap = new Map<string, DecorationOptions | undefined>();
@@ -109,6 +128,8 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 					if (separateLines) {
 						gutter.renderOptions.before!.textDecoration = `none;box-sizing: border-box${
 							avatars ? ';padding: 0 0 0 18px' : ''
+						}${fontOptions.family ? `;font-family: ${fontOptions.family}` : ''}${
+							fontOptions.size ? `;font-size: ${fontOptions.size}px` : ''
 						}`;
 					}
 
