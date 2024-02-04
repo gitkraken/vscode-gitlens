@@ -16,6 +16,7 @@ import type { GitCommit } from '../git/models/commit';
 import { scale, toRgba } from '../system/color';
 import { configuration } from '../system/configuration';
 import { getWidth, interpolate, pad } from '../system/string';
+import type { BlameFontOptions } from './gutterBlameAnnotationProvider';
 
 export interface ComputedHeatmap {
 	coldThresholdTimestamp: number;
@@ -166,6 +167,7 @@ export function getGutterRenderOptions(
 	avatars: boolean,
 	format: string,
 	options: CommitFormatOptions,
+	fontOptions: BlameFontOptions,
 ): RenderOptions {
 	// Get the character count of all the tokens, assuming there there is a cap (bail if not)
 	let chars = 0;
@@ -212,12 +214,14 @@ export function getGutterRenderOptions(
 		borderStyle: borderStyle,
 		borderWidth: borderWidth,
 		color: new ThemeColor('gitlens.gutterForegroundColor' satisfies Colors),
-		fontWeight: 'normal',
-		fontStyle: 'normal',
+		fontWeight: fontOptions.weight ?? 'normal',
+		fontStyle: fontOptions.weight ?? 'normal',
 		height: '100%',
 		margin: '0 26px -1px 0',
 		textDecoration: `${separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none'};box-sizing: border-box${
 			avatars ? ';padding: 0 0 0 18px' : ''
+		}${fontOptions.family ? `;font-family: ${fontOptions.family}` : ''}${
+			fontOptions.size ? `;font-size: ${fontOptions.size}px` : ''
 		}`,
 		width: width,
 		uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor' satisfies Colors),

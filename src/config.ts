@@ -25,6 +25,9 @@ export interface Config {
 		readonly avatars: boolean;
 		readonly compact: boolean;
 		readonly dateFormat: DateTimeFormat | (string & object) | null;
+		readonly fontFamily: string;
+		readonly fontSize: number;
+		readonly fontWeight: string;
 		readonly format: string;
 		readonly heatmap: {
 			readonly enabled: boolean;
