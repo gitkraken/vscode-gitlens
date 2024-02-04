@@ -6,8 +6,7 @@
 		"eslint:recommended",
 		"plugin:@typescript-eslint/strict-type-checked",
 		"plugin:import/recommended",
-		"plugin:import/typescript",
-		"prettier"
+		"plugin:import/typescript"
 	],
 	"parser": "@typescript-eslint/parser",
 	"parserOptions": {
