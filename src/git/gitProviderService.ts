@@ -1773,7 +1773,7 @@ export class GitProviderService implements Disposable {
 		repoPath: string | Uri,
 		to: string,
 		from?: string,
-		options?: { context?: number },
+		options?: { context?: number; uris?: Uri[] },
 	): Promise<GitDiff | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getDiff?.(path, to, from, options);
@@ -2635,6 +2635,16 @@ export class GitProviderService implements Disposable {
 	validateBranchOrTagName(repoPath: string | Uri, ref: string): Promise<boolean> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.validateBranchOrTagName(path, ref);
+	}
+
+	@log({ args: { 1: false }, exit: true })
+	async validatePatch(repoPath: string | Uri, contents: string): Promise<boolean> {
+		try {
+			const { provider, path } = this.getProvider(repoPath);
+			return (await provider.validatePatch?.(path || undefined, contents)) ?? false;
+		} catch {
+			return false;
+		}
 	}
 
 	@log({ exit: true })

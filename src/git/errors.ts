@@ -6,6 +6,31 @@ export class GitSearchError extends Error {
 	}
 }
 
+export const enum ApplyPatchCommitErrorReason {
+	StashFailed = 1,
+	CreateWorktreeFailed = 2,
+	ApplyFailed = 3,
+	AppliedWithConflicts = 4,
+}
+
+export class ApplyPatchCommitError extends Error {
+	static is(ex: unknown, reason?: ApplyPatchCommitErrorReason): ex is ApplyPatchCommitError {
+		return ex instanceof ApplyPatchCommitError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: ApplyPatchCommitErrorReason | undefined;
+
+	constructor(reason: ApplyPatchCommitErrorReason, message?: string, original?: Error) {
+		message ||= 'Unable to apply patch';
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		Error.captureStackTrace?.(this, ApplyPatchCommitError);
+	}
+}
+
 export class BlameIgnoreRevsFileError extends Error {
 	static is(ex: unknown): ex is BlameIgnoreRevsFileError {
 		return ex instanceof BlameIgnoreRevsFileError;

@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Requires VS Code `1.85` or later with `multiDiffEditor.experimental.enabled` and `gitlens.experimental.openChangesInMultiDiffEditor` to be enabled
   - Adds a _Compare Pull Request_ context menu command on pull requests in the _Commit Graph_ and other GitLens views to open a comparison between the head and base of the pull request for easy reviewing
 - Adds an _Open in Commit Graph_ context menu command on pull requests in GitLens view to open the tip commit in the _Commit Graph_
+- Adds ability to copy changes, commits, stashes, and comparison as a patch to the clipboard
+  - Adds a _Copy as Patch_ context menu command on files, commits, stashes, and comparisons in GitLens views
+  - Adds a _Copy as Patch_ context menu command on files in the _Changes_ and _Staged Changes_ groups as well as the groups themselves in the _Source Control_ view
+  - Adds a _Apply Copied Patch_ command in the command palette to apply a patch from the clipboard
 - Adds an _Open All Changes_ inline button to branch status (upstream) and branch status files in GitLens views
 - Adds an _Open Changes_ submenu to branch status (upstream) and branch status files in GitLens views
 - Adds an alternate flow (pick another file) when using the _Open File at Revision..._ and _Open Changes with Revision..._ commands to open a file that has been renamed and the rename is currently unstaged &mdash; closes [#3109](https://github.com/gitkraken/vscode-gitlens/issues/3109)
@@ -89,7 +93,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Cloud Patches that have been explicitly shared with you, i.e. you are a collaborator, now will appear in the _Cloud Patches_ view under _Shared with Me_
 - Adds timed snoozing for items in the _Focus View_ &mdash; choose from a selection of times when snoozing and the item will automatically move out of the snoozed tab when that time expires
 - Adds the ability to open folder changes &mdash; closes [#3020](https://github.com/gitkraken/vscode-gitlens/issues/3020)
-  - Adds _Open Folder Changes with Revision..._ & _Open Folder Changes with Branch or Tag..._ commands to the Command Palette and to the _Explorer_ and _Source Control_ views
+  - Adds _Open Folder Changes with Revision..._ & _Open Folder Changes with Branch or Tag..._ commands to the command palette and to the _Explorer_ and _Source Control_ views
   - Requires VS Code `1.85` or later and `multiDiffEditor.experimental.enabled` to be enabled
 - Adds last modified time of the file when showing blame annotations for uncommitted changes
 - Adds search results to the minimap tooltips on the _Commit Graph_

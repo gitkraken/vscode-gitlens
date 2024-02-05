@@ -6,6 +6,7 @@ import type { ContextKeys } from '../../../constants';
 import { Commands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
+import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../../../git/errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted, uncommittedStaged } from '../../../git/models/constants';
@@ -445,9 +446,18 @@ export class PatchDetailsWebviewProvider
 					};
 				}
 
-				void this.container.git.applyUnreachableCommitForPatch(commit.repoPath, commit.ref, options);
+				await this.container.git.applyUnreachableCommitForPatch(commit.repoPath, commit.ref, options);
+				void window.showInformationMessage(`Patch applied successfully`);
 			} catch (ex) {
-				void window.showErrorMessage(`Unable apply patch to '${patch.baseRef}': ${ex.message}`);
+				if (ex instanceof ApplyPatchCommitError) {
+					if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
+						void window.showWarningMessage('Patch applied with conflicts');
+					} else {
+						void window.showErrorMessage(ex.message);
+					}
+				} else {
+					void window.showErrorMessage(`Unable apply patch to '${patch.baseRef}': ${ex.message}`);
+				}
 			}
 		}
 	}

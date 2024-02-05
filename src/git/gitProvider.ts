@@ -292,7 +292,7 @@ export interface GitProvider extends Disposable {
 		repoPath: string | Uri,
 		to: string,
 		from?: string,
-		options?: { context?: number },
+		options?: { context?: number; uris?: Uri[] },
 	): Promise<GitDiff | undefined>;
 	getDiffFiles?(repoPath: string | Uri, contents: string): Promise<GitDiffFiles | undefined>;
 	/**
@@ -488,6 +488,7 @@ export interface GitProvider extends Disposable {
 	): Promise<void>;
 
 	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
+	validatePatch?(repoPath: string | undefined, contents: string): Promise<boolean>;
 	validateReference(repoPath: string, ref: string): Promise<boolean>;
 
 	stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
