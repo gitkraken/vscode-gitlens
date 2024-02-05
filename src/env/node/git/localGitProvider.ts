@@ -16,6 +16,8 @@ import { emojify } from '../../../emojis';
 import { Features } from '../../../features';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
+	ApplyPatchCommitError,
+	ApplyPatchCommitErrorReason,
 	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
 	CherryPickError,
@@ -1091,13 +1093,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
 			} catch (ex) {
 				Logger.error(ex, scope);
-				if (ex instanceof StashPushError) {
-					void showGenericErrorMessage(`Error applying patch - unable to stash changes: ${ex.message}`);
-				} else {
-					void showGenericErrorMessage(`Error applying patch - unable to stash changes`);
-				}
-
-				return;
+				throw new ApplyPatchCommitError(
+					ApplyPatchCommitErrorReason.StashFailed,
+					`Unable to apply patch; failed stashing working changes changes${
+						ex instanceof StashPushError ? `: ${ex.message}` : ''
+					}`,
+					ex,
+				);
 			}
 		}
 
@@ -1114,8 +1116,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// worktree cannot be opened and we cannot handle issues elegantly.
 		if (options?.createWorktreePath != null) {
 			if (options?.branchName === null || options.branchName === currentBranch?.name) {
-				void showGenericErrorMessage(`Error applying patch - unable to create worktree`);
-				return;
+				throw new ApplyPatchCommitError(
+					ApplyPatchCommitErrorReason.CreateWorktreeFailed,
+					'Unable to apply patch; failed creating worktree',
+				);
 			}
 
 			try {
@@ -1125,13 +1129,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				});
 			} catch (ex) {
 				Logger.error(ex, scope);
-				if (ex instanceof WorktreeCreateError) {
-					void showGenericErrorMessage(`Error applying patch - unable to create worktree: ${ex.message}`);
-				} else {
-					void showGenericErrorMessage(`Error applying patch - unable to create worktree`);
-				}
-
-				return;
+				throw new ApplyPatchCommitError(
+					ApplyPatchCommitErrorReason.CreateWorktreeFailed,
+					`Unable to apply patch; failed creating worktree${
+						ex instanceof WorktreeCreateError ? `: ${ex.message}` : ''
+					}`,
+					ex,
+				);
 			}
 
 			const worktree = await this.container.git.getWorktree(
@@ -1139,8 +1143,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				w => normalizePath(w.uri.fsPath) === normalizePath(options.createWorktreePath!),
 			);
 			if (worktree == null) {
-				void showGenericErrorMessage(`Error applying patch - unable to create worktree`);
-				return;
+				throw new ApplyPatchCommitError(
+					ApplyPatchCommitErrorReason.CreateWorktreeFailed,
+					'Unable to apply patch; failed creating worktree',
+				);
 			}
 
 			targetPath = worktree.uri.fsPath;
@@ -1158,22 +1164,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			await this.git.cherrypick(targetPath, ref, { noCommit: true, errors: GitErrorHandling.Throw });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (ex instanceof CherryPickError) {
-				if (ex.reason === CherryPickErrorReason.Conflict) {
-					void showGenericErrorMessage(
-						`Error applying patch - conflicts detected. Please resolve conflicts.`,
-					);
-				} else {
-					void showGenericErrorMessage(`Error applying patch - unable to apply patch changes: ${ex.message}`);
-				}
-			} else {
-				void showGenericErrorMessage(`Error applying patch - unable to apply patch changes`);
+			if (ex instanceof CherryPickError && ex.reason === CherryPickErrorReason.Conflict) {
+				throw new ApplyPatchCommitError(
+					ApplyPatchCommitErrorReason.AppliedWithConflicts,
+					`Patch applied with conflicts`,
+					ex,
+				);
 			}
 
-			return;
+			throw new ApplyPatchCommitError(
+				ApplyPatchCommitErrorReason.ApplyFailed,
+				`Unable to apply patch${ex instanceof CherryPickError ? `: ${ex.message}` : ''}`,
+				ex,
+			);
 		}
-
-		void window.showInformationMessage(`Patch applied successfully`);
 	}
 
 	@log()
@@ -3012,7 +3016,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		to: string,
 		from?: string,
-		options?: { context?: number },
+		options?: { context?: number; uris?: Uri[] },
 	): Promise<GitDiff | undefined> {
 		const scope = getLogScope();
 		const params = [`-U${options?.context ?? 3}`];
@@ -3042,6 +3046,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		} else {
 			params.push(from, to);
+		}
+
+		if (options?.uris) {
+			params.push('--', ...options.uris.map(u => u.fsPath));
 		}
 
 		let data;
@@ -5487,6 +5495,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean> {
 		return this.git.check_ref_format(ref, repoPath);
+	}
+
+	@log({ args: { 1: false } })
+	async validatePatch(repoPath: string | undefined, contents: string): Promise<boolean> {
+		try {
+			await this.git.apply2(repoPath!, { stdin: contents }, '--check');
+			return true;
+		} catch (ex) {
+			if (ex instanceof Error && ex.message) {
+				if (ex.message.includes('No valid patches in input')) {
+					return false;
+				}
+
+				return true;
+			}
+
+			return false;
+		}
 	}
 
 	@log()

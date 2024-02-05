@@ -5167,6 +5167,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.applyPatchFromClipboard",
+				"title": "Apply Copied Patch",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.copyPatchToClipboard",
+				"title": "Copy as Patch",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.createPatch",
 				"title": "Create Patch...",
 				"category": "GitLens"
@@ -8935,8 +8945,16 @@
 					"when": "gitlens:enabled && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled"
 				},
 				{
+					"command": "gitlens.applyPatchFromClipboard",
+					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
 					"command": "gitlens.createPatch",
-					"when": "false && gitlens:enabled"
+					"when": "false && gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.createCloudPatch",
@@ -11714,7 +11732,7 @@
 				},
 				{
 					"submenu": "gitlens/scm/resourceGroup/changes",
-					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.compare",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmGroup.compare",
 					"group": "2_gitlens@1"
 				},
 				{
@@ -11730,7 +11748,12 @@
 				{
 					"command": "gitlens.openOnlyChangedFiles",
 					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.openClose",
-					"group": "3_gitlens@2"
+					"group": "3_gitlens@3"
+				},
+				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.compare",
+					"group": "7_cutcopypaste@97"
 				}
 			],
 			"scm/resourceFolder/context": [
@@ -11738,6 +11761,11 @@
 					"submenu": "gitlens/scm/resourceFolder/changes",
 					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.compare",
 					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.compare",
+					"group": "7_cutcopypaste@97"
 				}
 			],
 			"scm/resourceState/context": [
@@ -11770,6 +11798,11 @@
 					"submenu": "gitlens/share",
 					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.share",
 					"group": "7_a_gitlens_share@1"
+				},
+				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmItem.compare",
+					"group": "7_cutcopypaste@97"
 				},
 				{
 					"command": "gitlens.copyRelativePathToClipboard",
@@ -13028,6 +13061,11 @@
 					"group": "1_gitlens_actions_1@2"
 				},
 				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:(commit|stash)\\b/",
+					"group": "7_gitlens_cutcopypaste@97"
+				},
+				{
 					"command": "gitlens.createCloudPatch",
 					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:(commit|stash)\\b/",
 					"group": "1_gitlens_actions_1@3"
@@ -13081,13 +13119,28 @@
 				},
 				{
 					"command": "gitlens.copyShaToClipboard",
-					"when": "(viewItem =~ /gitlens:(commit|stash)\\b/) || (viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(file|line)History/)",
+					"when": "viewItem =~ /gitlens:(commit|stash)\\b/",
 					"group": "7_gitlens_cutcopypaste@3"
 				},
 				{
 					"command": "gitlens.copyMessageToClipboard",
-					"when": "(viewItem =~ /gitlens:(commit|stash)\\b/) || (viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(file|line)History/)",
+					"when": "viewItem =~ /gitlens:(commit|stash)\\b/",
 					"group": "7_gitlens_cutcopypaste@4"
+				},
+				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "7_gitlens_cutcopypaste@3"
+				},
+				{
+					"command": "gitlens.copyShaToClipboard",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(file|line)History/",
+					"group": "7_gitlens_cutcopypaste@97"
+				},
+				{
+					"command": "gitlens.copyMessageToClipboard",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(file|line)History/",
+					"group": "7_gitlens_cutcopypaste@98"
 				},
 				{
 					"submenu": "gitlens/commit/copy",
@@ -13928,6 +13981,11 @@
 					"group": "1_gitlens_secondary_actions@1"
 				},
 				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:compare:results(?!:)\\b/",
+					"group": "7_gitlens_cutcopypaste@97"
+				},
+				{
 					"command": "gitlens.createCloudPatch",
 					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:compare:results(?!:)\\b/",
 					"group": "1_gitlens_secondary_actions@2"
@@ -14324,6 +14382,11 @@
 					"command": "gitlens.createPatch",
 					"when": "false && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:(commit|stash)\\b/",
 					"group": "1_gitlens_actions_1@2"
+				},
+				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:(commit|stash)\\b/",
+					"group": "7_cutcopypaste@97"
 				},
 				{
 					"command": "gitlens.createCloudPatch",

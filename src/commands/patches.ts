@@ -1,7 +1,12 @@
 import type { TextEditor } from 'vscode';
-import { window, workspace } from 'vscode';
+import { env, Uri, window, workspace } from 'vscode';
+import type { ScmResource } from '../@types/vscode.git.resources';
+import { ScmResourceGroupType } from '../@types/vscode.git.resources.enums';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../git/errors';
+import { uncommitted, uncommittedStaged } from '../git/models/constants';
+import type { GitDiff } from '../git/models/diff';
 import { isSha, shortenRevision } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
 import type { Draft, LocalDraft } from '../gk/models/drafts';
@@ -9,6 +14,7 @@ import { showPatchesView } from '../plus/drafts/actions';
 import type { Change, CreateDraft } from '../plus/webviews/patchDetails/protocol';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
+import { map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import {
@@ -16,28 +22,75 @@ import {
 	Command,
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasComparison,
+	isCommandContextViewNodeHasFileCommit,
 } from './base';
 
 export interface CreatePatchCommandArgs {
 	to?: string;
 	from?: string;
 	repoPath?: string;
+	uris?: Uri[];
 }
 
-@command()
-export class CreatePatchCommand extends Command {
-	constructor(private readonly container: Container) {
-		super(Commands.CreatePatch);
+abstract class CreatePatchCommandBase extends Command {
+	constructor(
+		private readonly container: Container,
+		command: Commands | Commands[],
+	) {
+		super(command);
 	}
 
-	protected override preExecute(context: CommandContext, args?: CreatePatchCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: CreatePatchCommandArgs) {
 		if (args == null) {
-			if (context.type === 'viewItem') {
+			if (context.type === 'scm-states') {
+				const resourcesByGroup = new Map<ScmResourceGroupType, ScmResource[]>();
+				const uris = new Set<string>();
+
+				let repo;
+				for (const resource of context.scmResourceStates as ScmResource[]) {
+					repo ??= await this.container.git.getOrOpenRepository(resource.resourceUri);
+
+					uris.add(resource.resourceUri.toString());
+
+					let groupResources = resourcesByGroup.get(resource.resourceGroupType!);
+					if (groupResources == null) {
+						groupResources = [];
+						resourcesByGroup.set(resource.resourceGroupType!, groupResources);
+					} else {
+						groupResources.push(resource);
+					}
+				}
+
+				args = {
+					repoPath: repo?.path,
+					to:
+						resourcesByGroup.size == 1 && resourcesByGroup.has(ScmResourceGroupType.Index)
+							? uncommittedStaged
+							: uncommitted,
+					from: 'HEAD',
+					uris: [...map(uris, u => Uri.parse(u))],
+				};
+			} else if (context.type === 'scm-groups') {
+				const group = context.scmResourceGroups[0];
+				if (!group?.resourceStates?.length) return;
+
+				const repo = await this.container.git.getOrOpenRepository(group.resourceStates[0].resourceUri);
+
+				args = {
+					repoPath: repo?.path,
+					to: group.id === 'index' ? uncommittedStaged : uncommitted,
+					from: 'HEAD',
+				};
+			} else if (context.type === 'viewItem') {
 				if (isCommandContextViewNodeHasCommit(context)) {
 					args = {
 						repoPath: context.node.commit.repoPath,
 						to: context.node.commit.ref,
+						from: `${context.node.commit.ref}^`,
 					};
+					if (isCommandContextViewNodeHasFileCommit(context)) {
+						args.uris = [context.node.uri];
+					}
 				} else if (isCommandContextViewNodeHasComparison(context)) {
 					args = {
 						repoPath: context.node.uri.fsPath,
@@ -51,17 +104,33 @@ export class CreatePatchCommand extends Command {
 		return this.execute(args);
 	}
 
-	async execute(args?: CreatePatchCommandArgs) {
+	protected async getDiff(title: string, args?: CreatePatchCommandArgs): Promise<GitDiff | undefined> {
 		let repo;
-		if (args?.repoPath == null) {
-			repo = await getRepositoryOrShowPicker('Create Patch');
-		} else {
+		if (args?.repoPath != null) {
 			repo = this.container.git.getRepository(args.repoPath);
 		}
-		if (repo == null) return undefined;
-		if (args?.to == null) return;
+		repo ??= await getRepositoryOrShowPicker(title);
+		if (repo == null) return;
 
-		const diff = await this.container.git.getDiff(repo.uri, args.to ?? 'HEAD', args.from);
+		return this.container.git.getDiff(
+			repo.uri,
+			args?.to ?? uncommitted,
+			args?.from ?? 'HEAD',
+			args?.uris?.length ? { uris: args.uris } : undefined,
+		);
+	}
+
+	abstract override execute(args?: CreatePatchCommandArgs): Promise<void>;
+}
+
+@command()
+export class CreatePatchCommand extends CreatePatchCommandBase {
+	constructor(container: Container) {
+		super(container, Commands.CreatePatch);
+	}
+
+	async execute(args?: CreatePatchCommandArgs) {
+		const diff = await this.getDiff('Create Patch', args);
 		if (diff == null) return;
 
 		const d = await workspace.openTextDocument({ content: diff.contents, language: 'diff' });
@@ -74,6 +143,68 @@ export class CreatePatchCommand extends Command {
 		// if (uri == null) return;
 
 		// await workspace.fs.writeFile(uri, new TextEncoder().encode(patch.contents));
+	}
+}
+
+@command()
+export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
+	constructor(container: Container) {
+		super(container, Commands.CopyPatchToClipboard);
+	}
+
+	async execute(args?: CreatePatchCommandArgs) {
+		const diff = await this.getDiff('Copy as Patch', args);
+		if (diff == null) return;
+
+		await env.clipboard.writeText(diff.contents);
+		void window.showInformationMessage(
+			"Copied patch \u2014 use 'Apply Copied Patch' in another window to apply it",
+		);
+	}
+}
+
+@command()
+export class ApplyPatchFromClipboardCommand extends Command {
+	constructor(private readonly container: Container) {
+		super(Commands.ApplyPatchFromClipboard);
+	}
+
+	async execute() {
+		const patch = await env.clipboard.readText();
+		let repo = this.container.git.highlander;
+
+		// Make sure it looks like a valid patch
+		const valid = patch.length ? await this.container.git.validatePatch(repo?.uri ?? Uri.file(''), patch) : false;
+		if (!valid) {
+			void window.showWarningMessage('No valid patch found in the clipboard');
+			return;
+		}
+
+		repo ??= await getRepositoryOrShowPicker('Apply Copied Patch');
+		if (repo == null) return;
+
+		try {
+			const commit = await this.container.git.createUnreachableCommitForPatch(
+				repo.uri,
+				patch,
+				'HEAD',
+				'Pasted Patch',
+			);
+			if (commit == null) return;
+
+			await this.container.git.applyUnreachableCommitForPatch(repo.uri, commit.sha);
+			void window.showInformationMessage(`Patch applied successfully`);
+		} catch (ex) {
+			if (ex instanceof ApplyPatchCommitError) {
+				if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
+					void window.showWarningMessage('Patch applied with conflicts');
+				} else {
+					void window.showErrorMessage(ex.message);
+				}
+			} else {
+				void window.showErrorMessage(`Unable apply patch: ${ex.message}`);
+			}
+		}
 	}
 }
 
