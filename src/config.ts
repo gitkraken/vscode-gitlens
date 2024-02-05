@@ -77,7 +77,6 @@ export interface Config {
 	readonly experimental: {
 		readonly allowAnnotationsWhenDirty: boolean;
 		readonly generateCommitMessagePrompt: string;
-		readonly openChangesInMultiDiffEditor: boolean;
 	};
 	readonly fileAnnotations: {
 		readonly command: string | null;
@@ -569,6 +568,7 @@ export interface ViewsCommonConfig {
 			readonly description: string;
 		};
 	};
+	readonly openChangesInMultiDiffEditor: boolean;
 	readonly pageItemLimit: number;
 	readonly showRelativeDateMarkers: boolean;
 
