@@ -655,10 +655,10 @@
 						"scope": "window",
 						"order": 51
 					},
-					"gitlens.views.experimental.multiSelect.enabled": {
+					"gitlens.views.openChangesInMultiDiffEditor": {
 						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to enable experimental multi-select support in the views.\n**NOTE**: Requires a restart to take effect.",
+						"default": true,
+						"markdownDescription": "Specifies whether to open multiple changes in VS Code's experimental multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
 						"scope": "window",
 						"order": 60
 					},
@@ -2718,21 +2718,6 @@
 						"markdownDescription": "Specifies whether to enable the preview of _Cloud Patches_, which allow you to easily and securely share code with your teammates or other developers",
 						"scope": "window",
 						"order": 10
-					},
-					"gitlens.cloudPatches.experimental.layout": {
-						"type": "string",
-						"default": "view",
-						"enum": [
-							"editor",
-							"view"
-						],
-						"enumDescriptions": [
-							"Prefer showing Cloud Patches in the editor area",
-							"Prefer showing Cloud Patches in a view"
-						],
-						"markdownDescription": "Specifies the preferred layout of for _Cloud Patches_ (experimental)",
-						"scope": "window",
-						"order": 11
 					}
 				}
 			},
@@ -4056,19 +4041,34 @@
 				"title": "Experimental",
 				"order": 9500,
 				"properties": {
-					"gitlens.experimental.openChangesInMultiDiffEditor": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "(Experimental) Specifies whether to open multiple changes in VS Code's experimental multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
-						"scope": "window",
-						"order": 10
-					},
 					"gitlens.experimental.allowAnnotationsWhenDirty": {
 						"type": "boolean",
 						"default": false,
 						"markdownDescription": "(Experimental) Specifies whether file annotations are allowed on files with unsaved changes (dirty). Use `#gitlens.advanced.blame.delayAfterEdit#` to control how long to wait before the annotation will update while the file is still dirty",
 						"scope": "window",
+						"order": 10
+					},
+					"gitlens.cloudPatches.experimental.layout": {
+						"type": "string",
+						"default": "view",
+						"enum": [
+							"editor",
+							"view"
+						],
+						"enumDescriptions": [
+							"Prefer showing Cloud Patches in the editor area",
+							"Prefer showing Cloud Patches in a view"
+						],
+						"markdownDescription": "(Experimental) Specifies the preferred layout of for _Cloud Patches_",
+						"scope": "window",
 						"order": 20
+					},
+					"gitlens.views.experimental.multiSelect.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether to enable experimental multi-select support in the views.\n**NOTE**: Requires a restart to take effect.",
+						"scope": "window",
+						"order": 30
 					}
 				}
 			},
@@ -13077,7 +13077,7 @@
 				},
 				{
 					"command": "gitlens.views.openChangedFileDiffs",
-					"when": "viewItem =~ /gitlens:(compare:results(?!:)\\b(?!.*?\\b\\+filtered\\b)|commit|stash|results:files|status-branch:files|status:upstream:(ahead|behind))\\b/ && config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"when": "viewItem =~ /gitlens:(compare:results(?!:)\\b(?!.*?\\b\\+filtered\\b)|commit|stash|results:files|status-branch:files|status:upstream:(ahead|behind))\\b/ && config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
 					"group": "inline@90",
 					"alt": "gitlens.views.openChangedFileDiffsWithWorking"
 				},
@@ -13354,7 +13354,7 @@
 				},
 				{
 					"command": "gitlens.views.openPullRequestChanges",
-					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor && viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"when": "viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/ && config.multiDiffEditor.experimental.enabled",
 					"group": "inline@2"
 				},
 				{
@@ -13370,7 +13370,7 @@
 				},
 				{
 					"command": "gitlens.views.openPullRequestChanges",
-					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor && viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"when": "viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/ && config.multiDiffEditor.experimental.enabled",
 					"group": "1_gitlens_actions@1"
 				},
 				{
@@ -14476,7 +14476,7 @@
 				},
 				{
 					"command": "gitlens.graph.openPullRequestChanges",
-					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor && webviewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"when": "webviewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/ && config.multiDiffEditor.experimental.enabled",
 					"group": "1_gitlens_actions@1"
 				},
 				{
@@ -14789,7 +14789,7 @@
 				},
 				{
 					"command": "gitlens.views.openChangedFileDiffsIndividually",
-					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -14798,7 +14798,7 @@
 				},
 				{
 					"command": "gitlens.views.openChangedFileDiffsWithWorkingIndividually",
-					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
 					"group": "1_gitlens@4"
 				},
 				{
@@ -14821,7 +14821,7 @@
 				},
 				{
 					"command": "gitlens.graph.openChangedFileDiffsIndividually",
-					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -14831,7 +14831,7 @@
 				},
 				{
 					"command": "gitlens.graph.openChangedFileDiffsWithWorkingIndividually",
-					"when": "config.gitlens.experimental.openChangesInMultiDiffEditor",
+					"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
 					"group": "1_gitlens@4"
 				},
 				{
