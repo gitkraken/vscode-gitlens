@@ -117,13 +117,13 @@ export async function openAllChanges(
 	maybeOptions?: TextDocumentShowOptions & { title?: string },
 ): Promise<void> {
 	if (isCommit(commitOrFiles)) {
-		if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
+		if (configuration.get('views.openChangesInMultiDiffEditor')) {
 			return openAllChangesInChangesEditor(commitOrFiles, refsOrOptions as TextDocumentShowOptions | undefined);
 		}
 		return openAllChangesIndividually(commitOrFiles, refsOrOptions as TextDocumentShowOptions | undefined);
 	}
 
-	if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
+	if (configuration.get('views.openChangesInMultiDiffEditor')) {
 		return openAllChangesInChangesEditor(commitOrFiles, refsOrOptions as RefRange, maybeOptions);
 	}
 	return openAllChangesIndividually(commitOrFiles, refsOrOptions as RefRange, maybeOptions);
@@ -263,7 +263,7 @@ export async function openAllChangesWithWorking(
 	maybeOptions?: TextDocumentShowOptions & { title?: string },
 ) {
 	if (isCommit(commitOrFiles)) {
-		if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
+		if (configuration.get('views.openChangesInMultiDiffEditor')) {
 			return openAllChangesInChangesEditor(commitOrFiles, refOrOptions as TextDocumentShowOptions | undefined);
 		}
 		return openAllChangesWithWorkingIndividually(
@@ -272,7 +272,7 @@ export async function openAllChangesWithWorking(
 		);
 	}
 
-	if (configuration.get('experimental.openChangesInMultiDiffEditor')) {
+	if (configuration.get('views.openChangesInMultiDiffEditor')) {
 		return openAllChangesInChangesEditor(
 			commitOrFiles,
 			{
