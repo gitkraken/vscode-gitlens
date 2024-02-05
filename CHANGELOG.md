@@ -8,9 +8,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds ability to open multiple changes in VS Code's new multi-diff editor, previously experimental and now enabled by default
+  - Adds an inline _Open All Changes_ command to commits, stashes, and comparisons in the views
+  - Changes _Open All Changes_ & _Open All Changes with Working Tree_ commands to use the new multi-diff editor when enabled
+  - Adds _Open All Changes, Individually_ & _Open All Changes with Working Tree, Individually_ commands to provide access to the previous behavior
+  - Adds a `gitlens.views.openChangesInMultiDiffEditor` setting, which is enabled by default, to specify whether to open changes in the multi-diff editor (single tab) or in individual diff editors (multiple tabs)
+  - Requires VS Code `1.86` or later, or VS Code `1.85` with `multiDiffEditor.experimental.enabled` enabled
 - Adds new comparison features to pull requests in GitLens views
   - Adds an _Open Pull Request Changes_ context menu command on pull requests in the _Commit Graph_ and other GitLens views to view pull request changes in a multi-diff editor (single tab)
-    - Requires VS Code `1.85` or later with `multiDiffEditor.experimental.enabled` and `gitlens.experimental.openChangesInMultiDiffEditor` to be enabled
+    - Requires VS Code `1.86` or later, or VS Code `1.85` with `multiDiffEditor.experimental.enabled` enabled
   - Adds a _Compare Pull Request_ context menu command on pull requests in the _Commit Graph_ and other GitLens views to open a comparison between the head and base of the pull request for easy reviewing
 - Adds an _Open in Commit Graph_ context menu command on pull requests in GitLens view to open the tip commit in the _Commit Graph_
 - Adds ability to copy changes, commits, stashes, and comparison as a patch to the clipboard
@@ -27,6 +33,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Moves the pull request to be first item in the _Commits_ view, when applicable
 - Moves the branch comparison to be below the branch status in the _Commits_ view to keep top focus on the status over the comparison
+- Renames the `gitlens.experimental.openChangesInMultiDiffEditor` setting to `gitlens.views.openChangesInMultiDiffEditor` as it is no longer experimental and enabled by default
 
 ### Fixed
 
