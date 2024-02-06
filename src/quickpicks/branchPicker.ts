@@ -1,6 +1,7 @@
 import type { Disposable, QuickPickItem } from 'vscode';
 import { window } from 'vscode';
 import { getBranches } from '../commands/quickCommand.steps';
+import type { GitBranch } from '../git/models/branch';
 import type { Repository } from '../git/models/repository';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import type { BranchQuickPickItem } from './items/gitCommands';
@@ -9,7 +10,7 @@ export async function showBranchPicker(
 	title: string | undefined,
 	placeholder?: string,
 	repository?: Repository,
-): Promise<BranchQuickPickItem | undefined> {
+): Promise<GitBranch | undefined> {
 	if (repository == null) {
 		return undefined;
 	}
@@ -41,9 +42,8 @@ export async function showBranchPicker(
 
 			quickpick.show();
 		});
-		if (pick == null) return undefined;
 
-		return pick;
+		return pick?.item;
 	} finally {
 		quickpick.dispose();
 		disposables.forEach(d => void d.dispose());
@@ -93,7 +93,7 @@ export async function showNewBranchPicker(
 export async function showNewOrSelectBranchPicker(
 	title: string | undefined,
 	repository?: Repository,
-): Promise<BranchQuickPickItem | string | undefined> {
+): Promise<GitBranch | string | undefined> {
 	if (repository == null) {
 		return undefined;
 	}
