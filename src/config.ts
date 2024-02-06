@@ -75,10 +75,10 @@ export interface Config {
 	readonly defaultTimeFormat: DateTimeFormat | (string & object) | null;
 	readonly detectNestedRepositories: boolean;
 	readonly experimental: {
-		readonly allowAnnotationsWhenDirty: boolean;
 		readonly generateCommitMessagePrompt: string;
 	};
 	readonly fileAnnotations: {
+		readonly preserveWhileEditing: boolean;
 		readonly command: string | null;
 		readonly dismissOnEscape: boolean;
 	};

@@ -1,5 +1,6 @@
 import type { ConfigurationChangeEvent, StatusBarItem, TextEditor, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
+import { Command } from '../commands/base';
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
 import { StatusBarCommand } from '../config';
 import { Commands, GlyphChars } from '../constants';
@@ -163,21 +164,27 @@ export class StatusBarController implements Disposable {
 					if (doc == null || !doc.isBlameable) return;
 
 					statusBarItem.tooltip = new MarkdownString();
-					statusBarItem.tooltip.isTrusted = { enabledCommands: ['workbench.action.openSettings'] };
+					statusBarItem.tooltip.isTrusted = { enabledCommands: [Commands.ShowSettingsPage] };
 
 					if (doc.canDirtyIdle) {
 						statusBarItem.text = '$(watch) Blame Paused';
 						statusBarItem.tooltip.appendMarkdown(
 							`Blame will resume after a [${configuration.get(
 								'advanced.blame.delayAfterEdit',
-							)} ms delay](command:workbench.action.openSettings?%22gitlens.advanced.blame.delayAfterEdit%22 'Change the after edit delay') to limit the performance impact because there are unsaved changes`,
+							)} ms delay](${Command.getMarkdownCommandArgsCore<[undefined, string]>(
+								Commands.ShowSettingsPage,
+								[undefined, 'advanced.blame.delayAfterEdit'],
+							)} 'Change the after edit delay') to limit the performance impact because there are unsaved changes`,
 						);
 					} else {
 						statusBarItem.text = '$(debug-pause) Blame Paused';
 						statusBarItem.tooltip.appendMarkdown(
 							`Blame will resume after saving because there are unsaved changes and the file is over the [${configuration.get(
 								'advanced.blame.sizeThresholdAfterEdit',
-							)} line threshold](command:workbench.action.openSettings?%22gitlens.advanced.blame.sizeThresholdAfterEdit%22 'Change the after edit line threshold') to limit the performance impact`,
+							)} line threshold](${Command.getMarkdownCommandArgsCore<[undefined, string]>(
+								Commands.ShowSettingsPage,
+								[undefined, 'advanced.blame.sizeThresholdAfterEdit'],
+							)} 'Change the after edit line threshold') to limit the performance impact`,
 						);
 					}
 

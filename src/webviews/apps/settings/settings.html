@@ -83,6 +83,7 @@
 				<%= require('html-loader?{"esModule":false}!./partials/code-lens.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/status-bar.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/hovers.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/file-annotations.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/blame.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/changes.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/heatmap.html') %>
@@ -151,6 +152,15 @@
 						</li>
 
 						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#file-annotations"
+								title="Jump to File Annotations settings"
+								>File Annotations</a
+							>
+						</li>
+						<li>
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
