@@ -349,7 +349,7 @@ export class TagGitCommand extends QuickCommand<State> {
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
-	private async *deleteCommandSteps(state: DeleteStepState, context: Context): StepGenerator {
+	private *deleteCommandSteps(state: DeleteStepState, context: Context): StepGenerator {
 		while (this.canStepsContinue(state)) {
 			if (state.references != null && !Array.isArray(state.references)) {
 				state.references = [state.references];
