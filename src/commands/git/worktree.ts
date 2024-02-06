@@ -1084,7 +1084,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				);
 				if (commit == null) return;
 
-				await this.container.git.applyUnreachableCommitForPatch(state.worktree.uri, commit.sha);
+				await this.container.git.applyUnreachableCommitForPatch(state.worktree.uri, commit.sha, { stash: false });
 				void window.showInformationMessage(`Changes copied successfully`);
 			} catch (ex) {
 				if (ex instanceof ApplyPatchCommitError) {

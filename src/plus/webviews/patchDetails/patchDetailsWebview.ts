@@ -446,7 +446,10 @@ export class PatchDetailsWebviewProvider
 					};
 				}
 
-				await this.container.git.applyUnreachableCommitForPatch(commit.repoPath, commit.ref, options);
+				await this.container.git.applyUnreachableCommitForPatch(commit.repoPath, commit.ref, {
+					stash: true,
+					...options,
+				});
 				void window.showInformationMessage(`Patch applied successfully`);
 			} catch (ex) {
 				if (ex instanceof ApplyPatchCommitError) {

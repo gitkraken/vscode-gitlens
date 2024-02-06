@@ -1081,25 +1081,27 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async applyUnreachableCommitForPatch(
 		repoPath: string,
 		ref: string,
-		options?: { branchName?: string; createBranchIfNeeded?: boolean; createWorktreePath?: string },
+		options?: { branchName?: string; createBranchIfNeeded?: boolean; createWorktreePath?: string; stash?: boolean },
 	): Promise<void> {
 		const scope = getLogScope();
 
-		// Stash any changes first
-		const status = await this.getStatusForRepo(repoPath);
-		if (status?.files?.length) {
-			// TODO@eamodio we should probably prompt the user or provide a flag to prompt or not /cc @axosoft-ramint
-			try {
-				await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
-			} catch (ex) {
-				Logger.error(ex, scope);
-				throw new ApplyPatchCommitError(
-					ApplyPatchCommitErrorReason.StashFailed,
-					`Unable to apply patch; failed stashing working changes changes${
-						ex instanceof StashPushError ? `: ${ex.message}` : ''
-					}`,
-					ex,
-				);
+		if (options?.stash) {
+			// Stash any changes first
+			const status = await this.getStatusForRepo(repoPath);
+			if (status?.files?.length) {
+				// TODO@eamodio we should probably prompt the user or provide a flag to prompt or not /cc @axosoft-ramint
+				try {
+					await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
+				} catch (ex) {
+					Logger.error(ex, scope);
+					throw new ApplyPatchCommitError(
+						ApplyPatchCommitErrorReason.StashFailed,
+						`Unable to apply patch; failed stashing working changes changes${
+							ex instanceof StashPushError ? `: ${ex.message}` : ''
+						}`,
+						ex,
+					);
+				}
 			}
 		}
 
