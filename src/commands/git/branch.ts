@@ -419,10 +419,7 @@ export class BranchGitCommand extends QuickCommand {
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
-	private async *deleteCommandSteps(
-		state: DeleteStepState | PruneStepState,
-		context: Context,
-	): AsyncStepResultGenerator<void> {
+	private *deleteCommandSteps(state: DeleteStepState | PruneStepState, context: Context): StepResultGenerator<void> {
 		const prune = state.subcommand === 'prune';
 		if (state.flags == null) {
 			state.flags = [];
