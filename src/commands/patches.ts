@@ -192,7 +192,7 @@ export class ApplyPatchFromClipboardCommand extends Command {
 			);
 			if (commit == null) return;
 
-			await this.container.git.applyUnreachableCommitForPatch(repo.uri, commit.sha);
+			await this.container.git.applyUnreachableCommitForPatch(repo.uri, commit.sha, { stash: false });
 			void window.showInformationMessage(`Patch applied successfully`);
 		} catch (ex) {
 			if (ex instanceof ApplyPatchCommitError) {
