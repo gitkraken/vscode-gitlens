@@ -307,7 +307,7 @@ export const enum Commands {
 	ShowRepositoriesView = 'gitlens.showRepositoriesView',
 	ShowSearchAndCompareView = 'gitlens.showSearchAndCompareView',
 	ShowSettingsPage = 'gitlens.showSettingsPage',
-	ShowSettingsPageAndJumpToFileAnnotations = 'gitlens.showSettingsPage!blame',
+	ShowSettingsPageAndJumpToFileAnnotations = 'gitlens.showSettingsPage!file-annotations',
 	ShowSettingsPageAndJumpToBranchesView = 'gitlens.showSettingsPage!branches-view',
 	ShowSettingsPageAndJumpToCommitsView = 'gitlens.showSettingsPage!commits-view',
 	ShowSettingsPageAndJumpToContributorsView = 'gitlens.showSettingsPage!contributors-view',

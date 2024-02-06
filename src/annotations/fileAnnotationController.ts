@@ -191,7 +191,7 @@ export class FileAnnotationController implements Disposable {
 
 		// Only care if we are becoming un-blameable
 		if (e.blameable) {
-			if (configuration.get('experimental.allowAnnotationsWhenDirty')) {
+			if (configuration.get('fileAnnotations.preserveWhileEditing')) {
 				this.restore(editor);
 			}
 
@@ -202,7 +202,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent) {
-		if (!e.document.isBlameable || !configuration.get('experimental.allowAnnotationsWhenDirty')) return;
+		if (!e.document.isBlameable || !configuration.get('fileAnnotations.preserveWhileEditing')) return;
 
 		const editor = window.activeTextEditor;
 		if (editor == null) return;
@@ -214,7 +214,7 @@ export class FileAnnotationController implements Disposable {
 		for (const [key, p] of this._annotationProviders) {
 			if (!e.document.is(p.editor.document)) continue;
 
-			if (configuration.get('experimental.allowAnnotationsWhenDirty')) {
+			if (configuration.get('fileAnnotations.preserveWhileEditing')) {
 				if (!e.dirty) {
 					this.restore(e.editor);
 				}

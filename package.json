@@ -2183,9 +2183,66 @@
 				}
 			},
 			{
+				"id": "file-annotations",
+				"title": "File Annotations",
+				"order": 14,
+				"properties": {
+					"gitlens.fileAnnotations.dismissOnEscape": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether pressing the `ESC` key dismisses the active file annotations",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.fileAnnotations.command": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"enum": [
+							null,
+							"blame",
+							"heatmap",
+							"changes"
+						],
+						"enumDescriptions": [
+							"Shows a menu to choose which file annotations to toggle",
+							"Toggles file blame annotations",
+							"Toggles file heatmap annotations",
+							"Toggles file changes annotations"
+						],
+						"markdownDescription": "Specifies whether the file annotations button in the editor title shows a menu or immediately toggles the specified file annotations",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.fileAnnotations.preserveWhileEditing": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether file annotations will be preserved while editing. Use `#gitlens.advanced.blame.delayAfterEdit#` to control how long to wait before the annotation will update while the file is still dirty",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.advanced.blame.delayAfterEdit": {
+						"type": "number",
+						"default": 5000,
+						"markdownDescription": "Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit but before it is saved. Use 0 to specify an infinite wait. Only applies if the file is under the `#gitlens.advanced.sizeThresholdAfterEdit#`",
+						"scope": "window",
+						"order": 90
+					},
+					"gitlens.advanced.blame.sizeThresholdAfterEdit": {
+						"type": "number",
+						"default": 5000,
+						"markdownDescription": "Specifies the maximum document size (in lines) allowed to be re-blamed after an edit while still unsaved. Use 0 to specify no maximum",
+						"scope": "window",
+						"order": 91
+					}
+				}
+			},
+			{
 				"id": "file-blame",
 				"title": "File Blame",
-				"order": 100,
+				"order": 15,
 				"properties": {
 					"gitlens.blame.toggleMode": {
 						"type": "string",
@@ -2322,7 +2379,7 @@
 			{
 				"id": "file-changes",
 				"title": "File Changes",
-				"order": 101,
+				"order": 16,
 				"properties": {
 					"gitlens.changes.toggleMode": {
 						"type": "string",
@@ -2371,7 +2428,7 @@
 			{
 				"id": "file-heatmap",
 				"title": "File Heatmap",
-				"order": 102,
+				"order": 17,
 				"properties": {
 					"gitlens.heatmap.toggleMode": {
 						"type": "string",
@@ -4041,13 +4098,6 @@
 				"title": "Experimental",
 				"order": 9500,
 				"properties": {
-					"gitlens.experimental.allowAnnotationsWhenDirty": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "(Experimental) Specifies whether file annotations are allowed on files with unsaved changes (dirty). Use `#gitlens.advanced.blame.delayAfterEdit#` to control how long to wait before the annotation will update while the file is still dirty",
-						"scope": "window",
-						"order": 10
-					},
 					"gitlens.cloudPatches.experimental.layout": {
 						"type": "string",
 						"default": "view",
@@ -4264,20 +4314,6 @@
 						"scope": "resource",
 						"order": 41
 					},
-					"gitlens.advanced.blame.delayAfterEdit": {
-						"type": "number",
-						"default": 5000,
-						"markdownDescription": "Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit but before it is saved. Use 0 to specify an infinite wait. Only applies if the file is under the `#gitlens.advanced.sizeThresholdAfterEdit#`",
-						"scope": "window",
-						"order": 42
-					},
-					"gitlens.advanced.blame.sizeThresholdAfterEdit": {
-						"type": "number",
-						"default": 5000,
-						"markdownDescription": "Specifies the maximum document size (in lines) allowed to be re-blamed after an edit while still unsaved. Use 0 to specify no maximum",
-						"scope": "window",
-						"order": 43
-					},
 					"gitlens.advanced.similarityThreshold": {
 						"type": [
 							"number",
@@ -4421,35 +4457,6 @@
 						"markdownDescription": "Specifies the style of the gravatar default (fallback) images",
 						"scope": "window",
 						"order": 40
-					},
-					"gitlens.fileAnnotations.dismissOnEscape": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether pressing the `ESC` key dismisses the active file annotations",
-						"scope": "window",
-						"order": 45
-					},
-					"gitlens.fileAnnotations.command": {
-						"type": [
-							"string",
-							"null"
-						],
-						"default": null,
-						"enum": [
-							null,
-							"blame",
-							"heatmap",
-							"changes"
-						],
-						"enumDescriptions": [
-							"Shows a menu to choose which file annotations to toggle",
-							"Toggles file blame annotations",
-							"Toggles file heatmap annotations",
-							"Toggles file changes annotations"
-						],
-						"markdownDescription": "Specifies whether the file annotations button in the editor title shows a menu or immediately toggles the specified file annotations",
-						"scope": "window",
-						"order": 50
 					},
 					"gitlens.proxy": {
 						"type": [
@@ -5340,7 +5347,7 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage!blame",
+				"command": "gitlens.showSettingsPage!file-annotations",
 				"title": "Open File Annotation Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
@@ -9069,7 +9076,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage!blame",
+					"command": "gitlens.showSettingsPage!file-annotations",
 					"when": "false"
 				},
 				{
@@ -15022,7 +15029,7 @@
 					"group": "2_gitlens@3"
 				},
 				{
-					"command": "gitlens.showSettingsPage!blame",
+					"command": "gitlens.showSettingsPage!file-annotations",
 					"when": "gitlens:activeFileStatus =~ /blameable/",
 					"group": "8_gitlens@1"
 				}
