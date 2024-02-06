@@ -105,6 +105,8 @@ export class GitCommandsCommand extends Command {
 			Commands.GitCommandsWorktreeCreate,
 			Commands.GitCommandsWorktreeDelete,
 			Commands.GitCommandsWorktreeOpen,
+
+			Commands.CopyWorkingChangesToWorktree,
 		]);
 	}
 
@@ -203,6 +205,12 @@ export class GitCommandsCommand extends Command {
 				break;
 			case Commands.GitCommandsWorktreeOpen:
 				args = { command: 'worktree', state: { subcommand: 'open' } };
+				break;
+			case Commands.CopyWorkingChangesToWorktree:
+				args = {
+					command: 'worktree',
+					state: { subcommand: 'copy-changes', changes: { type: 'working-tree' } },
+				};
 				break;
 		}
 
