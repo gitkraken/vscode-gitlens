@@ -146,7 +146,8 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 					},
 				);
 				if (pick == null) return;
-				chosenRemote = pick.item;
+
+				chosenRemote = pick;
 			}
 
 			if (chosenRemote == null) return;
@@ -308,7 +309,8 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 					},
 				);
 				if (pick == null) return;
-				chosenRemote = pick.item;
+
+				chosenRemote = pick;
 			}
 
 			if (chosenRemote == null) return;

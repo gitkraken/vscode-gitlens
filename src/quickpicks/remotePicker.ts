@@ -15,7 +15,7 @@ export async function showRemotePicker(
 		picked?: string;
 		setDefault?: boolean;
 	},
-): Promise<RemoteQuickPickItem | undefined> {
+): Promise<GitRemote | undefined> {
 	const items: RemoteQuickPickItem[] = [];
 	let picked: RemoteQuickPickItem | undefined;
 
@@ -43,7 +43,7 @@ export async function showRemotePicker(
 		}
 	}
 
-	if (options?.autoPick && remotes.length === 1) return items[0];
+	if (options?.autoPick && remotes.length === 1) return items[0].item;
 
 	const quickpick = window.createQuickPick<RemoteQuickPickItem>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
@@ -77,9 +77,8 @@ export async function showRemotePicker(
 
 			quickpick.show();
 		});
-		if (pick == null) return undefined;
 
-		return pick;
+		return pick?.item;
 	} finally {
 		quickpick.dispose();
 		disposables.forEach(d => void d.dispose());
