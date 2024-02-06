@@ -127,7 +127,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 		let skippedStepOne = false;
 
-		while (this.canStepsContinue(state)) {
+		outer: while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
 			if (state.counter < 1 || state.repos == null || state.repos.length === 0 || isStringArray(state.repos)) {
@@ -178,6 +178,10 @@ export class SwitchGitCommand extends QuickCommand<State> {
 					w => w.branch === state.reference!.name,
 				);
 				if (worktree != null) {
+					if (state.fastForwardTo != null) {
+						state.repos[0].merge('--ff-only', state.fastForwardTo.ref);
+					}
+
 					const worktreeResult = yield* getSteps(
 						this.container,
 						{
@@ -232,12 +236,12 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				switch (result) {
 					case 'switchToLocalBranch':
 						state.reference = context.canSwitchToLocalBranch!;
-						break;
+						continue outer;
 
 					case 'switchToLocalBranchAndFastForward':
 						state.fastForwardTo = state.reference;
 						state.reference = context.canSwitchToLocalBranch!;
-						break;
+						continue outer;
 
 					case 'switchToNewBranch': {
 						context.title = `Switch to New Branch`;
@@ -254,7 +258,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 						this._canConfirmOverride = undefined;
 
-						if (result === StepResultBreak) continue;
+						if (result === StepResultBreak) continue outer;
 
 						state.createBranch = result;
 						break;
@@ -278,7 +282,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 							},
 							this.pickedVia,
 						);
-						if (worktreeResult === StepResultBreak) continue;
+						if (worktreeResult === StepResultBreak) continue outer;
 
 						endSteps(state);
 						return;
