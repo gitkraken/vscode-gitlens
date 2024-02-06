@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Simplifies the create worktree and open worktree flows &mdash; reduces number of steps and options presented
   - Adds _Create Branch in New Worktree_ confirmation option when creating branches, e.g. via the _GitLens: Git Create Branch..._ command
   - Adds _Create Worktree for Branch_, _Create Worktree for Local Branch_, and _Create Worktree for New Local Branch_ confirmation options when switching branches, e.g. via the _GitLens: Git Switch to..._ command
-  - Adds a _Copy Working Changes to Worktree..._ command to the command palette to copy the current working changes to an existing worktree
+  - Adds a _Copy Working Changes to Worktree..._ command to the _Commit Graph_ and command palette to copy the current working changes to an existing worktree
   - Avoids prompt to add a (required) remote and instead auto-adds the remote during worktree creation from a pull request
 - Adds ability to open multiple changes in VS Code's new multi-diff editor, previously experimental and now enabled by default
   - Adds an inline _Open All Changes_ command to commits, stashes, and comparisons in the views

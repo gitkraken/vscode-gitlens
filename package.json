@@ -5189,6 +5189,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.copyWorkingChangesToWorktree",
+				"title": "Copy Working Changes to Worktree...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.createPatch",
 				"title": "Create Patch...",
 				"category": "GitLens"
@@ -8967,6 +8972,10 @@
 				{
 					"command": "gitlens.copyWorkingChangesToWorktree",
 					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.graph.copyWorkingChangesToWorktree",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.createPatch",
@@ -14469,6 +14478,11 @@
 					"command": "gitlens.graph.stash.save",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem == gitlens:wip",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.copyWorkingChangesToWorktree",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem == gitlens:wip",
+					"group": "1_gitlens_actions@4"
 				},
 				{
 					"command": "gitlens.graph.switchToTag",

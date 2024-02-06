@@ -39,6 +39,24 @@ export async function create(
 	return undefined;
 }
 
+export function copyChangesToWorktree(
+	type: 'working-tree' | 'index',
+	repo?: string | Repository,
+	worktree?: GitWorktree,
+) {
+	return executeGitCommand({
+		command: 'worktree',
+		state: {
+			subcommand: 'copy-changes',
+			repo: repo,
+			worktree: worktree,
+			changes: {
+				type: type,
+			},
+		},
+	});
+}
+
 export function open(worktree: GitWorktree, options?: { location?: OpenWorkspaceLocation; openOnly?: boolean }) {
 	return executeGitCommand({
 		command: 'worktree',

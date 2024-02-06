@@ -555,6 +555,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.resetColumnsCompact', () =>
 				this.updateColumns(compactGraphColumnsSettings),
 			),
+
+			this.host.registerWebviewCommand(
+				'gitlens.graph.copyWorkingChangesToWorktree',
+				this.copyWorkingChangesToWorktree,
+			),
 		];
 	}
 
@@ -2769,6 +2774,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		return this.container.searchAndCompareView.compare(ref.repoPath, '', ref.ref);
+	}
+
+	private copyWorkingChangesToWorktree(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
+
+		return WorktreeActions.copyChangesToWorktree('working-tree', ref.repoPath);
 	}
 
 	@debug()
