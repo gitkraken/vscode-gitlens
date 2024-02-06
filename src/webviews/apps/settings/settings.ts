@@ -117,6 +117,7 @@ export class SettingsApp extends App<State> {
 				this.onSettingExpanderCicked(target, e),
 			),
 			DOM.on('a[data-action="jump"]', 'mousedown', e => {
+				e.target?.focus();
 				e.stopPropagation();
 				e.preventDefault();
 			}),
@@ -124,6 +125,7 @@ export class SettingsApp extends App<State> {
 				this.onJumpToLinkClicked(target, e),
 			),
 			DOM.on('[data-action]', 'mousedown', e => {
+				e.target?.focus();
 				e.stopPropagation();
 				e.preventDefault();
 			}),
@@ -434,7 +436,10 @@ export class SettingsApp extends App<State> {
 
 				const newTop =
 					el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - (offset ?? 0);
-				if (Math.abs(top - newTop) < 2) return;
+				if (Math.abs(top - newTop) < 2) {
+					el.focus({ preventScroll: true });
+					return;
+				}
 
 				this.scrollTo(el, behavior, offset);
 			}, 50);
