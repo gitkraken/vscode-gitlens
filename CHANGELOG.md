@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Improves worktree usage, discoverability, and accessibility
+  - Simplifies the create worktree and open worktree flows &mdash; reduces number of steps and options presented
+  - Adds _Create Branch in New Worktree_ confirmation option when creating branches, e.g. via the _GitLens: Git Create Branch..._ command
+  - Adds _Create Worktree for Branch_, _Create Worktree for Local Branch_, and _Create Worktree for New Local Branch_ confirmation options when switching branches, e.g. via the _GitLens: Git Switch to..._ command
+  - Avoids prompt to add a (required) remote and instead auto-adds the remote during worktree creation from a pull request
 - Adds ability to open multiple changes in VS Code's new multi-diff editor, previously experimental and now enabled by default
   - Adds an inline _Open All Changes_ command to commits, stashes, and comparisons in the views
   - Changes _Open All Changes_ & _Open All Changes with Working Tree_ commands to use the new multi-diff editor when enabled
@@ -30,12 +35,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Use the existing `gitlens.advanced.blame.delayAfterEdit` setting to control how long to wait (defaults to 5s) before the annotation will update while the file is still dirty, which only applies if the file is under the `gitlens.advanced.sizeThresholdAfterEdit` setting threshold (defaults to 5000 lines)
 - Adds an _Open File Annotation Settings_ command to the _File Annotations_ submenu in the editor toolbar to open the GitLens Settings editor to the file annotations sections
 - Adds `gitlens.blame.fontFamily`, `gitlens.blame.fontSize`, `gitlens.blame.fontWeight` settings to specify the font (family, size, and weight respectively) of the _File Blame_ annotations &mdash; closes [#3134](https://github.com/gitkraken/vscode-gitlens/issues/3134)
+- Adds _Copy Link to Code_, _Copy Link to File_, and _Copy Link to File at Revision..._ commands to the _Share_ submenu in the editor line number (gutter) context menu
 - Adds an alternate flow (pick another file) when using the _Open File at Revision..._ and _Open Changes with Revision..._ commands to open a file that has been renamed and the rename is currently unstaged &mdash; closes [#3109](https://github.com/gitkraken/vscode-gitlens/issues/3109)
+- Adds access to most _Git Command Palette_ commands directly to the command palette
+- Adds _Rename Stash..._ options to stash quick pick menus
+- Adds support for the latest GPT-4 Turbo models
 
 ### Changed
 
-- Moves the pull request to be first item in the _Commits_ view, when applicable
-- Moves the branch comparison to be below the branch status in the _Commits_ view to keep top focus on the status over the comparison
+- Changes adds avatars to commits in quick pick menus
+- Changes the pull request to be first item in the _Commits_ view, when applicable
+- Changes the branch comparison to be below the branch status in the _Commits_ view to keep top focus on the status over the comparison
+- Renames "Open Worktree for Pull Request via GitLens..." to "Checkout Pull Request in Worktree (GitLens)..."
 - Renames the `gitlens.experimental.openChangesInMultiDiffEditor` setting to `gitlens.views.openChangesInMultiDiffEditor` as it is no longer experimental and enabled by default
 
 ### Fixed
@@ -69,7 +80,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes the commit search by file to allow some fuzziness by default &mdash; closes [#3086](https://github.com/gitkraken/vscode-gitlens/issues/3086)
   - For example, if you enter `file:readme.txt`, we will treat it as `file:**/readme.txt`, or if you enter `file:readme` it will be treated as `file:*readme*`
 - Improves the _Switch_ command to no longer fail when trying to switch to a branch that is linked to another worktree and instead offers to open the worktree
-- Changes branch/tag "tips" that are show on commits in many GitLens views to be truncated to 11 characters by default to avoid stealing to much real estate
+- Changes branch/tag "tips" that are shown on commits in many GitLens views to be truncated to 11 characters by default to avoid stealing to much real estate
 
 ### Fixed
 
