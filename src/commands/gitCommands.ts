@@ -564,7 +564,8 @@ export class GitCommandsCommand extends Command {
 		const disposables: Disposable[] = [];
 
 		try {
-			return await new Promise<QuickPickStep | QuickInputStep | CustomStep | undefined>(resolve => {
+			// eslint-disable-next-line no-async-promise-executor
+			return await new Promise<QuickPickStep | QuickInputStep | CustomStep | undefined>(async resolve => {
 				async function goBack() {
 					if (step.disallowBack === true) return;
 
@@ -740,7 +741,7 @@ export class GitCommandsCommand extends Command {
 									commandsStep.setCommand(command, this.startedWith);
 								} else {
 									const cmd = quickpick.value.trim().toLowerCase();
-									const item = step.items.find(
+									const item = (await step.items).find(
 										i => i.label.replace(sanitizeLabel, '').toLowerCase() === cmd,
 									);
 									if (item == null) return;
@@ -762,14 +763,17 @@ export class GitCommandsCommand extends Command {
 						) {
 							if (step.onValidateValue == null) return;
 
-							overrideItems = await step.onValidateValue(quickpick, e.trim(), step.items);
+							overrideItems = await step.onValidateValue(quickpick, e.trim(), await step.items);
 						} else {
 							overrideItems = false;
 						}
 
 						// If we are no longer overriding the items, put them back (only if we need to)
-						if (!overrideItems && quickpick.items.length !== step.items.length) {
-							quickpick.items = step.items;
+						if (!overrideItems) {
+							step.items = await step.items;
+							if (quickpick.items.length !== step.items.length) {
+								quickpick.items = step.items;
+							}
 						}
 					}),
 					quickpick.onDidChangeActive(() => {
@@ -893,12 +897,30 @@ export class GitCommandsCommand extends Command {
 				);
 
 				quickpick.title = step.title;
-				quickpick.placeholder = step.placeholder;
 				quickpick.matchOnDescription = Boolean(step.matchOnDescription);
 				quickpick.matchOnDetail = Boolean(step.matchOnDetail);
-				quickpick.canSelectMany = Boolean(step.multiselect);
 
-				quickpick.items = step.items;
+				if (isPromise(step.items)) {
+					quickpick.placeholder = 'Loading...';
+
+					quickpick.busy = true;
+					quickpick.show();
+
+					quickpick.items = await step.items;
+					quickpick.placeholder =
+						typeof step.placeholder === 'function'
+							? step.placeholder(quickpick.items.length)
+							: step.placeholder;
+					quickpick.busy = false;
+				} else {
+					quickpick.placeholder =
+						typeof step.placeholder === 'function'
+							? step.placeholder(quickpick.items.length)
+							: step.placeholder;
+					quickpick.items = step.items;
+				}
+
+				quickpick.canSelectMany = Boolean(step.multiselect) && quickpick.items.length > 1;
 
 				if (quickpick.canSelectMany) {
 					quickpick.selectedItems = step.selectedItems ?? quickpick.items.filter(i => i.picked);

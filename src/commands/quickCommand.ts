@@ -54,12 +54,12 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	disallowBack?: boolean;
 	ignoreFocusOut?: boolean;
 	isConfirmationStep?: boolean;
-	items: (DirectiveQuickPickItem | T)[];
+	items: (DirectiveQuickPickItem | T)[] | Promise<(DirectiveQuickPickItem | T)[]>;
 	keys?: StepNavigationKeys[];
 	matchOnDescription?: boolean;
 	matchOnDetail?: boolean;
 	multiselect?: boolean;
-	placeholder?: string;
+	placeholder?: string | ((count: number) => string);
 	selectedItems?: QuickPickItem[];
 	title?: string;
 	value?: string;
