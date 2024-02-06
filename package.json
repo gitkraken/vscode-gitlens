@@ -5184,6 +5184,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.copyWorkingChangesToWorktree",
+				"title": "Copy Working Changes to Worktree...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.createPatch",
 				"title": "Create Patch...",
 				"category": "GitLens"
@@ -8957,6 +8962,10 @@
 				},
 				{
 					"command": "gitlens.copyPatchToClipboard",
+					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.copyWorkingChangesToWorktree",
 					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{

@@ -188,17 +188,16 @@ export class SwitchGitCommand extends QuickCommand<State> {
 								openOnly: true,
 								overrides: {
 									disallowBack: true,
-									confirmTitle: `Confirm Switch to Worktree \u2022 ${getReferenceLabel(
-										state.reference,
-										{
+									confirmation: {
+										title: `Confirm Switch to Worktree \u2022 ${getReferenceLabel(state.reference, {
 											icon: false,
 											label: false,
-										},
-									)}`,
-									confirmPlaceholder: `${getReferenceLabel(state.reference, {
-										capitalize: true,
-										icon: false,
-									})} is linked to a worktree`,
+										})}`,
+										placeholder: `${getReferenceLabel(state.reference, {
+											capitalize: true,
+											icon: false,
+										})} is linked to a worktree`,
+									},
 								},
 							},
 						},

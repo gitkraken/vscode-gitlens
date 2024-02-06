@@ -5,11 +5,14 @@ import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
 import { convertLocationToOpenFlags, convertOpenFlagsToLocation, reveal } from '../../git/actions/worktree';
 import {
+	ApplyPatchCommitError,
+	ApplyPatchCommitErrorReason,
 	WorktreeCreateError,
 	WorktreeCreateErrorReason,
 	WorktreeDeleteError,
 	WorktreeDeleteErrorReason,
 } from '../../git/errors';
+import { uncommitted, uncommittedStaged } from '../../git/models/constants';
 import type { GitReference } from '../../git/models/reference';
 import {
 	getNameWithoutRemote,
@@ -86,6 +89,10 @@ interface CreateState {
 
 	result?: Deferred<GitWorktree | undefined>;
 	reveal?: boolean;
+
+	overrides?: {
+		title?: string;
+	};
 }
 
 type DeleteFlags = '--force';
@@ -95,6 +102,10 @@ interface DeleteState {
 	repo: string | Repository;
 	uris: Uri[];
 	flags: DeleteFlags[];
+
+	overrides?: {
+		title?: string;
+	};
 }
 
 type OpenFlags = '--add-to-workspace' | '--new-window' | '--reveal-explorer';
@@ -108,16 +119,34 @@ interface OpenState {
 	openOnly?: boolean;
 	overrides?: {
 		disallowBack?: boolean;
-		confirmTitle?: string;
-		confirmPlaceholder?: string;
+		title?: string;
+
+		confirmation?: {
+			title?: string;
+			placeholder?: string;
+		};
 	};
 }
 
-type State = CreateState | DeleteState | OpenState;
+interface CopyChangesState {
+	subcommand: 'copy-changes';
+	repo: string | Repository;
+	worktree: GitWorktree;
+	changes: { contents?: string; type: 'index' | 'working-tree' } | { contents: string; type?: never };
+
+	overrides?: {
+		title?: string;
+	};
+}
+
+type State = CreateState | DeleteState | OpenState | CopyChangesState;
 type WorktreeStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
 type CreateStepState<T extends CreateState = CreateState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;
 type DeleteStepState<T extends DeleteState = DeleteState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;
 type OpenStepState<T extends OpenState = OpenState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;
+type CopyChangesStepState<T extends CopyChangesState = CopyChangesState> = WorktreeStepState<
+	ExcludeSome<T, 'repo', string>
+>;
 
 function assertStateStepRepository(
 	state: PartialStepState<State>,
@@ -132,6 +161,7 @@ const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['create', 'Create'],
 	['delete', 'Delete'],
 	['open', 'Open'],
+	['copy-changes', 'Copy Changes to'],
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
@@ -178,6 +208,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					}
 
 					break;
+				case 'copy-changes':
+					if (args.state.worktree != null) {
+						counter++;
+					}
+
+					break;
 			}
 		}
 
@@ -216,7 +252,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		let skippedStepTwo = false;
 
 		while (this.canStepsContinue(state)) {
-			context.title = this.title;
+			context.title = state.overrides?.title ?? this.title;
 
 			if (state.counter < 1 || state.subcommand == null) {
 				this.subcommand = undefined;
@@ -229,6 +265,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			this.subcommand = state.subcommand;
+			context.title =
+				state.overrides?.title ??
+				getTitle(state.subcommand === 'delete' ? 'Worktrees' : this.title, state.subcommand);
 
 			if (state.counter < 2 || state.repo == null || typeof state.repo === 'string') {
 				skippedStepTwo = false;
@@ -247,14 +286,14 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			// Ensure we use the "main" repository if we are in a worktree already
-			state.repo = (await state.repo.getMainRepository()) ?? state.repo;
+			if (state.subcommand !== 'copy-changes') {
+				// Ensure we use the "main" repository if we are in a worktree already
+				state.repo = (await state.repo.getMainRepository()) ?? state.repo;
+			}
 			assertStateStepRepository(state);
 
 			const result = yield* ensureAccessStep(state, context, PlusFeatures.Worktrees);
 			if (result === StepResultBreak) break;
-
-			context.title = getTitle(state.subcommand === 'delete' ? 'Worktrees' : this.title, state.subcommand);
 
 			switch (state.subcommand) {
 				case 'create': {
@@ -273,6 +312,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				}
 				case 'open': {
 					yield* this.openCommandSteps(state as OpenStepState, context);
+					break;
+				}
+				case 'copy-changes': {
+					yield* this.copyChangesCommandSteps(state as CopyChangesStepState, context);
 					break;
 				}
 				default:
@@ -561,11 +604,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						counter: 3,
 						confirm: action === 'prompt',
 						openOnly: true,
-						overrides: {
-							disallowBack: true,
-							confirmTitle: 'Open Worktree',
-							confirmPlaceholder: 'Confirm Open Worktree',
-						},
+						overrides: { disallowBack: true },
 					} satisfies OpenStepState,
 					context,
 				);
@@ -910,7 +949,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 				const result = yield* pickWorktreeStep(state, context, {
 					includeStatus: true,
-					picked: state.worktree.uri?.toString(),
+					picked: state.worktree?.uri?.toString(),
 					placeholder: 'Choose worktree to open',
 				});
 				// Always break on the first step (so we will go back)
@@ -919,10 +958,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				state.worktree = result;
 			}
 
-			context.title = getTitle(
-				`Worktree \u2022 ${truncateLeft(basename(state.worktree.uri.path), 40)}`,
-				state.subcommand,
-			);
+			context.title = getTitle(`Worktree \u2022 ${state.worktree.name}`, state.subcommand);
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.openCommandConfirmStep(state, context);
@@ -970,17 +1006,161 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		}
 
 		const step = createConfirmStep(
-			appendReposToTitle(state.overrides?.confirmTitle ?? `Confirm ${context.title}`, state, context),
+			appendReposToTitle(state.overrides?.confirmation?.title ?? `Confirm ${context.title}`, state, context),
 			confirmations,
 			context,
 			undefined,
 			{
 				disallowBack: state.overrides?.disallowBack,
-				placeholder: state.overrides?.confirmPlaceholder ?? 'Confirm Open Worktree',
+				placeholder: state.overrides?.confirmation?.placeholder ?? 'Confirm Open Worktree',
 			},
 		);
 
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
+	}
+
+	private async *copyChangesCommandSteps(state: CopyChangesStepState, context: Context): StepGenerator {
+		while (this.canStepsContinue(state)) {
+			context.title = state?.overrides?.title ?? getTitle('Worktree', state.subcommand);
+
+			if (state.counter < 3 || state.worktree == null) {
+				context.worktrees ??= await state.repo.getWorktrees();
+
+				let placeholder;
+				switch (state.changes.type) {
+					case 'index':
+						placeholder = 'Choose a worktree to copy your staged changes to';
+						break;
+					case 'working-tree':
+						placeholder = 'Choose a worktree to copy your working changes to';
+						break;
+					default:
+						placeholder = 'Choose a worktree to copy changes to';
+						break;
+				}
+
+				const result = yield* pickWorktreeStep(state, context, {
+					excludeOpened: true,
+					includeStatus: true,
+					picked: state.worktree?.uri?.toString(),
+					placeholder: placeholder,
+				});
+				// Always break on the first step (so we will go back)
+				if (result === StepResultBreak) break;
+
+				state.worktree = result;
+			}
+
+			if (!state.changes.contents) {
+				const diff = await this.container.git.getDiff(
+					state.repo.uri,
+					state.changes.type === 'index' ? uncommittedStaged : uncommitted,
+					'HEAD',
+				);
+				if (!diff?.contents) {
+					void window.showErrorMessage(`No changes to copy`);
+
+					endSteps(state);
+					break;
+				}
+
+				state.changes.contents = diff.contents;
+			}
+
+			if (this.confirm(state.confirm)) {
+				const result = yield* this.copyChangesCommandConfirmStep(state, context);
+				if (result === StepResultBreak) continue;
+			}
+
+			endSteps(state);
+
+			try {
+				const commit = await this.container.git.createUnreachableCommitForPatch(
+					state.worktree.uri,
+					state.changes.contents,
+					'HEAD',
+					'Copied Changes',
+				);
+				if (commit == null) return;
+
+				await this.container.git.applyUnreachableCommitForPatch(state.worktree.uri, commit.sha);
+				void window.showInformationMessage(`Changes copied successfully`);
+			} catch (ex) {
+				if (ex instanceof ApplyPatchCommitError) {
+					if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
+						void window.showWarningMessage('Changes copied with conflicts');
+					} else {
+						void window.showErrorMessage(ex.message);
+						return;
+					}
+				} else {
+					void window.showErrorMessage(`Unable to copy changes: ${ex.message}`);
+					return;
+				}
+			}
+
+			yield* this.openCommandSteps(
+				{
+					subcommand: 'open',
+					repo: state.repo,
+					worktree: state.worktree,
+					flags: [],
+					counter: 3,
+					confirm: true,
+					openOnly: true,
+					overrides: { disallowBack: true },
+				} satisfies OpenStepState,
+				context,
+			);
+		}
+	}
+
+	private async *copyChangesCommandConfirmStep(
+		state: CopyChangesStepState,
+		context: Context,
+	): AsyncStepResultGenerator<void> {
+		const files = await this.container.git.getDiffFiles(state.repo.uri, state.changes.contents!);
+		const count = files?.files.length ?? 0;
+
+		const confirmations = [];
+		switch (state.changes.type) {
+			case 'index':
+				confirmations.push({
+					label: 'Copy Staged Changes to Worktree',
+					detail: `Will copy the staged changes${
+						count > 0 ? ` (${pluralize('file', count)})` : ''
+					} to worktree '${state.worktree.name}'`,
+				});
+				break;
+			case 'working-tree':
+				confirmations.push({
+					label: 'Copy Working Changes to Worktree',
+					detail: `Will copy the working changes${
+						count > 0 ? ` (${pluralize('file', count)})` : ''
+					} to worktree '${state.worktree.name}'`,
+				});
+				break;
+
+			default:
+				confirmations.push(
+					createFlagsQuickPickItem([], [], {
+						label: 'Copy Changes to Worktree',
+						detail: `Will copy the changes${
+							count > 0 ? ` (${pluralize('file', count)})` : ''
+						} to worktree '${state.worktree.name}'`,
+					}),
+				);
+				break;
+		}
+
+		const step = createConfirmStep(
+			`Confirm ${context.title} \u2022 ${state.worktree.name}`,
+			confirmations,
+			context,
+		);
+
+		const selection: StepSelection<typeof step> = yield step;
+		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;
 	}
 }
