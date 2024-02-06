@@ -376,7 +376,9 @@ export class GitProviderService implements Disposable {
 	}
 
 	get highlander(): Repository | undefined {
-		return this.repositoryCount === 1 ? first(this._repositories.values()) : undefined;
+		return this.repositoryCount === 1 || this.openRepositoryCount === 1
+			? first(this._repositories.values())
+			: undefined;
 	}
 
 	// get readonly() {
