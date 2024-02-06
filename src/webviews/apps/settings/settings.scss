@@ -58,6 +58,15 @@ header {
 	}
 }
 
+a.secondary {
+	color: var(--color-foreground--75);
+	font-weight: 400;
+
+	&:hover {
+		color: var(--color-foreground);
+	}
+}
+
 .blurb {
 	font-size: 1.5rem;
 	font-weight: 200;
@@ -476,6 +485,10 @@ section {
 	color: var(--color-foreground--75);
 	font-weight: 200;
 	margin: 0;
+
+	b {
+		font-weight: 400;
+	}
 }
 
 .section__preview {
