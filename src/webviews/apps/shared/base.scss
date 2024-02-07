@@ -140,6 +140,11 @@ input[type='checkbox'] {
 		color: var(--color-foreground--75);
 		cursor: default;
 	}
+
+	.vscode-high-contrast-light &,
+	.vscode-light & {
+		accent-color: var(--color-background--darken-50);
+	}
 }
 
 input[type='number'],
