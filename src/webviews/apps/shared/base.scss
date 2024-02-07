@@ -127,12 +127,13 @@ input[type='checkbox'] {
 	cursor: pointer;
 	margin: 0;
 	padding: 0 10px;
-	mix-blend-mode: luminosity;
+	accent-color: var(--color-background--lighten-30);
 
 	&:focus {
 		background: rgba(0, 0, 0, 0.1);
 		border-radius: 5px;
-		outline: none;
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
 	}
 
 	&[disabled] {
