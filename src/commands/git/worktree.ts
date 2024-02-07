@@ -19,6 +19,7 @@ import {
 	getReferenceLabel,
 	isBranchReference,
 	isRevisionReference,
+	isSha,
 } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { GitWorktree } from '../../git/models/worktree';
@@ -132,7 +133,9 @@ interface CopyChangesState {
 	subcommand: 'copy-changes';
 	repo: string | Repository;
 	worktree: GitWorktree;
-	changes: { contents?: string; type: 'index' | 'working-tree' } | { contents: string; type?: never };
+	changes:
+		| { baseSha?: string; contents?: string; type: 'index' | 'working-tree' }
+		| { baseSha: string; contents: string; type?: 'index' | 'working-tree' };
 
 	overrides?: {
 		title?: string;
@@ -1052,7 +1055,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				state.worktree = result;
 			}
 
-			if (!state.changes.contents) {
+			if (!state.changes.contents || !state.changes.baseSha) {
 				const diff = await this.container.git.getDiff(
 					state.repo.uri,
 					state.changes.type === 'index' ? uncommittedStaged : uncommitted,
@@ -1066,6 +1069,14 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				}
 
 				state.changes.contents = diff.contents;
+				state.changes.baseSha = diff.from;
+			}
+
+			if (!isSha(state.changes.baseSha)) {
+				const commit = await this.container.git.getCommit(state.repo.uri, state.changes.baseSha);
+				if (commit != null) {
+					state.changes.baseSha = commit.sha;
+				}
 			}
 
 			if (this.confirm(state.confirm)) {
@@ -1079,19 +1090,26 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				const commit = await this.container.git.createUnreachableCommitForPatch(
 					state.worktree.uri,
 					state.changes.contents,
-					'HEAD',
+					state.changes.baseSha,
 					'Copied Changes',
 				);
 				if (commit == null) return;
 
-				await this.container.git.applyUnreachableCommitForPatch(state.worktree.uri, commit.sha, { stash: false });
+				await this.container.git.applyUnreachableCommitForPatch(state.worktree.uri, commit.sha, {
+					stash: false,
+				});
 				void window.showInformationMessage(`Changes copied successfully`);
 			} catch (ex) {
 				if (ex instanceof ApplyPatchCommitError) {
 					if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
 						void window.showWarningMessage('Changes copied with conflicts');
+					} else if (ex.reason === ApplyPatchCommitErrorReason.ApplyAbortedWouldOverwrite) {
+						void window.showErrorMessage(
+							'Unable to copy changes as some local changes would be overwritten',
+						);
+						return;
 					} else {
-						void window.showErrorMessage(ex.message);
+						void window.showErrorMessage(`Unable to copy changes: ${ex.message}`);
 						return;
 					}
 				} else {

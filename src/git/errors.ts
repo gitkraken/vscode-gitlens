@@ -7,10 +7,11 @@ export class GitSearchError extends Error {
 }
 
 export const enum ApplyPatchCommitErrorReason {
-	StashFailed = 1,
-	CreateWorktreeFailed = 2,
-	ApplyFailed = 3,
-	AppliedWithConflicts = 4,
+	StashFailed,
+	CreateWorktreeFailed,
+	ApplyFailed,
+	ApplyAbortedWouldOverwrite,
+	AppliedWithConflicts,
 }
 
 export class ApplyPatchCommitError extends Error {
@@ -352,8 +353,8 @@ export class FetchError extends Error {
 }
 
 export const enum CherryPickErrorReason {
-	Conflict,
-	OverwrittenChanges,
+	Conflicts,
+	AbortedWouldOverwrite,
 	Other,
 }
 
@@ -379,10 +380,10 @@ export class CherryPickError extends Error {
 		} else {
 			reason = messageOrReason;
 			switch (reason) {
-				case CherryPickErrorReason.OverwrittenChanges:
-					message = `${baseMessage} because local changes to some files would be overwritten.`;
+				case CherryPickErrorReason.AbortedWouldOverwrite:
+					message = `${baseMessage} as some local changes would be overwritten.`;
 					break;
-				case CherryPickErrorReason.Conflict:
+				case CherryPickErrorReason.Conflicts:
 					message = `${baseMessage} due to conflicts.`;
 					break;
 				default:
