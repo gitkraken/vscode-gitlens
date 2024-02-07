@@ -1166,12 +1166,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			await this.git.cherrypick(targetPath, ref, { noCommit: true, errors: GitErrorHandling.Throw });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (ex instanceof CherryPickError && ex.reason === CherryPickErrorReason.Conflict) {
-				throw new ApplyPatchCommitError(
-					ApplyPatchCommitErrorReason.AppliedWithConflicts,
-					`Patch applied with conflicts`,
-					ex,
-				);
+			if (ex instanceof CherryPickError) {
+				if (ex.reason === CherryPickErrorReason.Conflicts) {
+					throw new ApplyPatchCommitError(
+						ApplyPatchCommitErrorReason.AppliedWithConflicts,
+						`Patch applied with conflicts`,
+						ex,
+					);
+				}
+
+				if (ex.reason === CherryPickErrorReason.AbortedWouldOverwrite) {
+					throw new ApplyPatchCommitError(
+						ApplyPatchCommitErrorReason.ApplyAbortedWouldOverwrite,
+						`Unable to apply patch as some local changes would be overwritten`,
+						ex,
+					);
+				}
 			}
 
 			throw new ApplyPatchCommitError(

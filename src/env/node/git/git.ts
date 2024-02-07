@@ -611,9 +611,9 @@ export class Git {
 				GitErrors.changesWouldBeOverwritten.test(msg) ||
 				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
 			) {
-				reason = CherryPickErrorReason.OverwrittenChanges;
+				reason = CherryPickErrorReason.AbortedWouldOverwrite;
 			} else if (GitErrors.conflict.test(msg) || GitErrors.conflict.test(ex.stdout ?? '')) {
-				reason = CherryPickErrorReason.Conflict;
+				reason = CherryPickErrorReason.Conflicts;
 			}
 
 			throw new CherryPickError(reason, ex, sha);
