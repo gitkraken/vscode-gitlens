@@ -6,7 +6,7 @@ import type { GitBranch, GitTrackingState } from '../../git/models/branch';
 import { getRemoteNameFromBranchName } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import { createRevisionRange } from '../../git/models/reference';
-import { GitRemote } from '../../git/models/remote';
+import { getHighlanderProviders } from '../../git/models/remote';
 import { fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
@@ -284,7 +284,7 @@ export class BranchTrackingStatusNode
 			}
 			case 'none': {
 				const remotes = await this.view.container.git.getRemotesWithProviders(this.branch.repoPath);
-				const providers = GitRemote.getHighlanderProviders(remotes);
+				const providers = getHighlanderProviders(remotes);
 				const providerName = providers?.length ? providers[0].name : undefined;
 
 				label = `Publish ${this.branch.name} to ${providerName ?? 'a remote'}`;

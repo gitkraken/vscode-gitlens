@@ -1,7 +1,8 @@
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { createRevisionRange, shortenRevision } from '../git/models/reference';
-import { GitRemote } from '../git/models/remote';
+import type { GitRemote } from '../git/models/remote';
+import { getHighlanderProviders } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
@@ -76,7 +77,7 @@ export class OpenOnRemoteCommand extends Command {
 				}
 			}
 
-			const providers = GitRemote.getHighlanderProviders(remotes);
+			const providers = getHighlanderProviders(remotes);
 			const provider = providers?.length ? providers[0].name : 'Remote';
 
 			const options: Parameters<typeof showRemoteProviderPicker>[4] = {

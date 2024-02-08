@@ -12,45 +12,6 @@ import type { RemoteProvider } from '../remotes/remoteProvider';
 export type GitRemoteType = 'fetch' | 'push';
 
 export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProvider | undefined> {
-	static getHighlanderProviders(remotes: GitRemote<RemoteProvider>[]) {
-		if (remotes.length === 0) return undefined;
-
-		const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
-		if (remote != null) return [remote.provider];
-
-		const providerName = remotes[0].provider.name;
-		if (remotes.every(r => r.provider.name === providerName)) return remotes.map(r => r.provider);
-
-		return undefined;
-	}
-
-	static getHighlanderProviderName(remotes: GitRemote<RemoteProvider>[]) {
-		if (remotes.length === 0) return undefined;
-
-		const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
-		if (remote != null) return remote.provider.name;
-
-		const providerName = remotes[0].provider.name;
-		// Only use the real provider name if there is only 1 type of provider
-		if (remotes.every(r => r.provider.name === providerName)) return providerName;
-
-		return undefined;
-	}
-
-	static is(remote: any): remote is GitRemote {
-		return remote instanceof GitRemote;
-	}
-
-	static sort(remotes: GitRemote[]) {
-		return remotes.sort(
-			(a, b) =>
-				(a.default ? -1 : 1) - (b.default ? -1 : 1) ||
-				(a.name === 'origin' ? -1 : 1) - (b.name === 'origin' ? -1 : 1) ||
-				(a.name === 'upstream' ? -1 : 1) - (b.name === 'upstream' ? -1 : 1) ||
-				sortCompare(a.name, b.name),
-		);
-	}
-
 	constructor(
 		private readonly container: Container,
 		public readonly repoPath: string,
@@ -135,6 +96,31 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 }
 
+export function getHighlanderProviders(remotes: GitRemote<RemoteProvider>[]) {
+	if (remotes.length === 0) return undefined;
+
+	const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
+	if (remote != null) return [remote.provider];
+
+	const providerName = remotes[0].provider.name;
+	if (remotes.every(r => r.provider.name === providerName)) return remotes.map(r => r.provider);
+
+	return undefined;
+}
+
+export function getHighlanderProviderName(remotes: GitRemote<RemoteProvider>[]) {
+	if (remotes.length === 0) return undefined;
+
+	const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
+	if (remote != null) return remote.provider.name;
+
+	const providerName = remotes[0].provider.name;
+	// Only use the real provider name if there is only 1 type of provider
+	if (remotes.every(r => r.provider.name === providerName)) return providerName;
+
+	return undefined;
+}
+
 export function getRemoteArrowsGlyph(remote: GitRemote): GlyphChars {
 	let arrows;
 	let left;
@@ -164,19 +150,6 @@ export function getRemoteArrowsGlyph(remote: GitRemote): GlyphChars {
 	return arrows;
 }
 
-export function getRemoteUpstreamDescription(remote: GitRemote): string {
-	const arrows = getRemoteArrowsGlyph(remote);
-
-	const { provider } = remote;
-	if (provider != null) {
-		return `${arrows}${GlyphChars.Space} ${provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${provider.displayPath}`;
-	}
-
-	return `${arrows}${GlyphChars.Space} ${
-		remote.domain ? `${remote.domain} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ` : ''
-	}${remote.path}`;
-}
-
 export function getRemoteIconUri(
 	container: Container,
 	remote: GitRemote,
@@ -192,6 +165,19 @@ export function getRemoteIconUri(
 	return asWebviewUri != null ? asWebviewUri(uri) : uri;
 }
 
+export function getRemoteUpstreamDescription(remote: GitRemote): string {
+	const arrows = getRemoteArrowsGlyph(remote);
+
+	const { provider } = remote;
+	if (provider != null) {
+		return `${arrows}${GlyphChars.Space} ${provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${provider.displayPath}`;
+	}
+
+	return `${arrows}${GlyphChars.Space} ${
+		remote.domain ? `${remote.domain} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ` : ''
+	}${remote.path}`;
+}
+
 export function getVisibilityCacheKey(remote: GitRemote): string;
 export function getVisibilityCacheKey(remotes: GitRemote[]): string;
 export function getVisibilityCacheKey(remotes: GitRemote | GitRemote[]): string {
@@ -200,4 +186,18 @@ export function getVisibilityCacheKey(remotes: GitRemote | GitRemote[]): string 
 		.map(r => r.remoteKey)
 		.sort()
 		.join(',');
+}
+
+export function isRemote(remote: any): remote is GitRemote {
+	return remote instanceof GitRemote;
+}
+
+export function sortRemotes<T extends GitRemote>(remotes: T[]) {
+	return remotes.sort(
+		(a, b) =>
+			(a.default ? -1 : 1) - (b.default ? -1 : 1) ||
+			(a.name === 'origin' ? -1 : 1) - (b.name === 'origin' ? -1 : 1) ||
+			(a.name === 'upstream' ? -1 : 1) - (b.name === 'upstream' ? -1 : 1) ||
+			sortCompare(a.name, b.name),
+	);
 }

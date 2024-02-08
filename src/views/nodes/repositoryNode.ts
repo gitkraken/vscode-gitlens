@@ -3,7 +3,7 @@ import { GlyphChars } from '../../constants';
 import { Features } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import { GitBranch } from '../../git/models/branch';
-import { GitRemote } from '../../git/models/remote';
+import { getHighlanderProviders } from '../../git/models/remote';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
@@ -261,7 +261,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 			let providerName;
 			if (status.upstream != null) {
-				const providers = GitRemote.getHighlanderProviders(
+				const providers = getHighlanderProviders(
 					await this.view.container.git.getRemotesWithProviders(status.repoPath),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;

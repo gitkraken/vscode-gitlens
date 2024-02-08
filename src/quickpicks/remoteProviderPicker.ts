@@ -6,7 +6,8 @@ import type { Keys } from '../constants';
 import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
-import { GitRemote } from '../git/models/remote';
+import type { GitRemote } from '../git/models/remote';
+import { getHighlanderProviders } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
 import { getNameFromRemoteResource, RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
@@ -97,7 +98,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 
 export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(remotes: GitRemote<RemoteProvider>[], resource: RemoteResource) {
-		const providers = GitRemote.getHighlanderProviders(remotes);
+		const providers = getHighlanderProviders(remotes);
 		const commandArgs: OpenOnRemoteCommandArgs = {
 			resource: resource,
 			remotes: remotes,
@@ -117,7 +118,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 
 export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(remotes: GitRemote<RemoteProvider>[], resource: RemoteResource) {
-		const providers = GitRemote.getHighlanderProviders(remotes);
+		const providers = getHighlanderProviders(remotes);
 		const commandArgs: OpenOnRemoteCommandArgs = {
 			resource: resource,
 			remotes: remotes,

@@ -17,7 +17,8 @@ import { isCommit } from '../git/models/commit';
 import { GitContributor } from '../git/models/contributor';
 import type { GitFile } from '../git/models/file';
 import type { GitReference } from '../git/models/reference';
-import { GitRemote } from '../git/models/remote';
+import type { GitRemote } from '../git/models/remote';
+import { isRemote } from '../git/models/remote';
 import { Repository } from '../git/models/repository';
 import type { GitTag } from '../git/models/tag';
 import { isTag } from '../git/models/tag';
@@ -187,7 +188,7 @@ export function isCommandContextViewNodeHasRemote(
 ): context is CommandViewNodeContext & { node: ViewNode & { remote: GitRemote } } {
 	if (context.type !== 'viewItem') return false;
 
-	return GitRemote.is((context.node as ViewNode & { remote: GitRemote }).remote);
+	return isRemote((context.node as ViewNode & { remote: GitRemote }).remote);
 }
 
 export function isCommandContextViewNodeHasRepository(

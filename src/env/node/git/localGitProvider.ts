@@ -105,7 +105,8 @@ import {
 	shortenRevision,
 } from '../../../git/models/reference';
 import type { GitReflog } from '../../../git/models/reflog';
-import { getRemoteIconUri, getVisibilityCacheKey, GitRemote } from '../../../git/models/remote';
+import type { GitRemote } from '../../../git/models/remote';
+import { getRemoteIconUri, getVisibilityCacheKey, sortRemotes } from '../../../git/models/remote';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
@@ -4678,7 +4679,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const remotes = await remotesPromise;
 		if (options?.sort) {
-			GitRemote.sort(remotes);
+			sortRemotes(remotes);
 		}
 
 		return remotes;
