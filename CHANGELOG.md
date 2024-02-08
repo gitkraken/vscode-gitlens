@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support for Cloud Patches hosted on your own dedicated storage for the highest level of security (requires an Enterprise plan)
 - Improves worktree usage, discoverability, and accessibility
   - Simplifies the create worktree and open worktree flows &mdash; reduces number of steps and options presented
   - Adds _Create Branch in New Worktree_ confirmation option when creating branches, e.g. via the _GitLens: Git Create Branch..._ command
@@ -55,6 +56,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3115](https://github.com/gitkraken/vscode-gitlens/issues/3115) - Always-on file annotations
 - Fixes ahead/behind diffs on files (root) in the _Commits_ view to correctly show the diff of the range rather than the base to the working tree
 - Fixes missing repository icons in the _Repositories_ view
+- Fixes [#3116](https://github.com/gitkraken/vscode-gitlens/issues/3116) - Fix typos in README.md and package.json &mdash; thanks to [PR #3117](https://github.com/gitkraken/vscode-gitlens/pull/3117) by yutotnh ([@yutotnh](https://github.com/yutotnh))
 
 ## [14.7.0] - 2024-01-17
 
