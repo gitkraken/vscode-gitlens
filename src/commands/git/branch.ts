@@ -50,6 +50,8 @@ interface CreateState {
 	reference: GitReference;
 	name: string;
 	flags: CreateFlags[];
+
+	suggestNameOnly?: boolean;
 }
 
 type DeleteFlags = '--force' | '--remotes';
@@ -151,7 +153,7 @@ export class BranchGitCommand extends QuickCommand {
 						counter++;
 					}
 
-					if (args.state.name != null) {
+					if (!args.state.suggestNameOnly && args.state.name != null) {
 						counter++;
 					}
 

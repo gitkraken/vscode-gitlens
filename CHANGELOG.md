@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a _Create New Branch..._ option to the _Git Switch to..._ command to easily create a new branch to switch to &mdash; closes [#3138](https://github.com/gitkraken/vscode-gitlens/issues/3138)
+
 ## [14.8.0] - 2024-02-08
 
 ### Added

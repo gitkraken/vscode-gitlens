@@ -155,6 +155,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			if (state.counter < 2 || state.reference == null) {
 				const result = yield* pickBranchOrTagStepMultiRepo(state as SwitchStepState, context, {
 					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to switch to`,
+					allowCreate: state.repos.length === 1,
 				});
 				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
@@ -163,6 +164,26 @@ export class SwitchGitCommand extends QuickCommand<State> {
 					}
 
 					continue;
+				}
+
+				if (typeof result == 'string') {
+					yield* getSteps(
+						this.container,
+						{
+							command: 'branch',
+							state: {
+								subcommand: 'create',
+								repo: state.repos[0],
+								name: result,
+								suggestNameOnly: true,
+								flags: ['--switch'],
+							},
+						},
+						this.pickedVia,
+					);
+
+					endSteps(state);
+					return;
 				}
 
 				state.reference = result;
