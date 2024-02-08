@@ -29,7 +29,8 @@ import {
 	isStashReference,
 	isTagReference,
 } from '../git/models/reference';
-import { GitRemote } from '../git/models/remote';
+import type { GitRemote } from '../git/models/remote';
+import { getHighlanderProviderName } from '../git/models/remote';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { Repository } from '../git/models/repository';
 import type { GitStash } from '../git/models/stash';
@@ -1971,7 +1972,7 @@ async function getShowCommitOrStashStepItems<
 		const remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
 		if (remotes?.length) {
 			items.push(
-				createQuickPickSeparator(GitRemote.getHighlanderProviderName(remotes) ?? 'Remote'),
+				createQuickPickSeparator(getHighlanderProviderName(remotes) ?? 'Remote'),
 				new OpenRemoteResourceCommandQuickPickItem(remotes, {
 					type: RemoteResourceType.Commit,
 					sha: state.reference.sha,
@@ -2309,7 +2310,7 @@ async function getShowCommitOrStashFileStepItems<
 		const remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
 		if (remotes?.length) {
 			items.push(
-				createQuickPickSeparator(GitRemote.getHighlanderProviderName(remotes) ?? 'Remote'),
+				createQuickPickSeparator(getHighlanderProviderName(remotes) ?? 'Remote'),
 				new OpenRemoteResourceCommandQuickPickItem(remotes, {
 					type: RemoteResourceType.Revision,
 					fileName: state.fileName,

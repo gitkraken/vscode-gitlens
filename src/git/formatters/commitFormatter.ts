@@ -34,7 +34,8 @@ import { uncommitted, uncommittedStaged } from '../models/constants';
 import { getIssueOrPullRequestMarkdownIcon } from '../models/issue';
 import { PullRequest } from '../models/pullRequest';
 import { getReferenceFromRevision, isUncommittedStaged, shortenRevision } from '../models/reference';
-import { GitRemote } from '../models/remote';
+import type { GitRemote } from '../models/remote';
+import { getHighlanderProviders } from '../models/remote';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { FormatOptions, RequiredTokenOptions } from './formatter';
 import { Formatter } from './formatter';
@@ -446,7 +447,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const { pullRequest: pr, remotes } = this._options;
 
 		if (remotes?.length) {
-			const providers = GitRemote.getHighlanderProviders(remotes);
+			const providers = getHighlanderProviders(remotes);
 
 			commands += ` &nbsp;[$(globe)](${OpenCommitOnRemoteCommand.getMarkdownCommandArgs(
 				this._item.sha,

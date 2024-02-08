@@ -1,7 +1,8 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
-import { GitRemote } from '../git/models/remote';
+import type { GitRemote } from '../git/models/remote';
+import { isRemote } from '../git/models/remote';
 import type { Repository } from '../git/models/repository';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { showRepositoryPicker } from '../quickpicks/repositoryPicker';
@@ -21,7 +22,7 @@ export class ConnectRemoteProviderCommand extends Command {
 	static getMarkdownCommandArgs(remote: GitRemote): string;
 	static getMarkdownCommandArgs(argsOrRemote: ConnectRemoteProviderCommandArgs | GitRemote): string {
 		let args: ConnectRemoteProviderCommandArgs | GitCommit;
-		if (GitRemote.is(argsOrRemote)) {
+		if (isRemote(argsOrRemote)) {
 			args = {
 				remote: argsOrRemote.name,
 				repoPath: argsOrRemote.repoPath,
@@ -113,7 +114,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 	static getMarkdownCommandArgs(remote: GitRemote): string;
 	static getMarkdownCommandArgs(argsOrRemote: DisconnectRemoteProviderCommandArgs | GitRemote): string {
 		let args: DisconnectRemoteProviderCommandArgs | GitCommit;
-		if (GitRemote.is(argsOrRemote)) {
+		if (isRemote(argsOrRemote)) {
 			args = {
 				remote: argsOrRemote.name,
 				repoPath: argsOrRemote.repoPath,

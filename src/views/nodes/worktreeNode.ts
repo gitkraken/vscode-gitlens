@@ -5,7 +5,7 @@ import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import { shortenRevision } from '../../git/models/reference';
-import { GitRemote } from '../../git/models/remote';
+import { getHighlanderProviderName } from '../../git/models/remote';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
@@ -307,7 +307,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 								})}`,
 							);
 						} else {
-							const providerName = GitRemote.getHighlanderProviderName(
+							const providerName = getHighlanderProviderName(
 								await this.view.container.git.getRemotesWithProviders(branch.repoPath),
 							);
 

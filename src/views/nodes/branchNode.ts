@@ -7,7 +7,7 @@ import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
-import { GitRemote } from '../../git/models/remote';
+import { getHighlanderProviders } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import { getContext } from '../../system/context';
@@ -465,7 +465,7 @@ export class BranchNode
 					}
 				}
 			} else {
-				const providers = GitRemote.getHighlanderProviders(
+				const providers = getHighlanderProviders(
 					await this.view.container.git.getRemotesWithProviders(this.branch.repoPath),
 				);
 				const providerName = providers?.length ? providers[0].name : undefined;

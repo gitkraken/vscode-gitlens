@@ -2,7 +2,7 @@ import type { Disposable } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../../constants';
 import type { GitUri } from '../../../git/gitUri';
-import { GitRemote } from '../../../git/models/remote';
+import { getHighlanderProviders } from '../../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { gate } from '../../../system/decorators/gate';
@@ -100,7 +100,7 @@ export abstract class RepositoryFolderNode<
 
 			let providerName;
 			if (branch.upstream != null) {
-				const providers = GitRemote.getHighlanderProviders(
+				const providers = getHighlanderProviders(
 					await this.view.container.git.getRemotesWithProviders(branch.repoPath),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
