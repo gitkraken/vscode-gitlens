@@ -1,4 +1,4 @@
-import type { QuickInputButton, QuickPick } from 'vscode';
+import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
@@ -931,27 +931,36 @@ export function* pickBranchOrTagStep<
 
 export function* pickBranchOrTagStepMultiRepo<
 	State extends StepState & { repos: Repository[]; reference?: GitReference },
-	Context extends { repos: Repository[]; showTags?: boolean; title: string },
+	Context extends { allowCreate?: boolean; repos: Repository[]; showTags?: boolean; title: string },
 >(
 	state: State,
 	context: Context,
 	{
+		allowCreate,
 		filter,
 		picked,
 		placeholder,
 		titleContext,
 		value,
 	}: {
+		allowCreate?: boolean;
 		filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		picked?: string | string[];
 		placeholder: string | ((context: Context) => string);
 		titleContext?: string;
 		value?: string;
 	},
-): StepResultGenerator<GitReference> {
+): StepResultGenerator<GitReference | string> {
 	context.showTags = state.repos.length === 1;
 
 	const showTagsButton = new ShowTagsToggleQuickInputButton(context.showTags);
+
+	const createNewBranchItem: QuickPickItem & { item: string } = {
+		label: 'Create New Branch...',
+		iconPath: new ThemeIcon('plus'),
+		alwaysShow: true,
+		item: '',
+	};
 
 	const getBranchesAndOrTagsFn = () => {
 		return getBranchesAndOrTags(state.repos, context.showTags ? ['branches', 'tags'] : ['branches'], {
@@ -965,10 +974,12 @@ export function* pickBranchOrTagStepMultiRepo<
 	const items = getBranchesAndOrTagsFn().then(branchesAndOrTags =>
 		branchesAndOrTags.length === 0
 			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
-			: branchesAndOrTags,
+			: allowCreate
+			  ? [createNewBranchItem, ...branchesAndOrTags]
+			  : branchesAndOrTags,
 	);
 
-	const step = createPickStep<ReferencesQuickPickItem>({
+	const step = createPickStep<ReferencesQuickPickItem | typeof createNewBranchItem>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: count =>
 			!count
@@ -984,7 +995,13 @@ export function* pickBranchOrTagStepMultiRepo<
 		selectValueWhenShown: true,
 		items: items,
 		additionalButtons: [showTagsButton],
+		onDidChangeValue: quickpick => {
+			createNewBranchItem.item = quickpick.value;
+			return true;
+		},
 		onDidClickItemButton: (quickpick, button, { item }) => {
+			if (typeof item === 'string') return;
+
 			if (button === RevealInSideBarQuickInputButton) {
 				if (isBranchReference(item)) {
 					void BranchActions.reveal(item, { select: true, focus: false, expand: true });
@@ -1024,6 +1041,8 @@ export function* pickBranchOrTagStepMultiRepo<
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: (_quickpick, _key, { item }) => {
+			if (typeof item === 'string') return;
+
 			if (isBranchReference(item)) {
 				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
 			} else if (isTagReference(item)) {
