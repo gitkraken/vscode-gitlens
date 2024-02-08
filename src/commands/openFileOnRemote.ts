@@ -120,7 +120,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		args = { range: true, ...args };
 
 		try {
-			let remotes = await this.container.git.getRemotesWithProviders(gitUri.repoPath);
+			let remotes = await this.container.git.getRemotesWithProviders(gitUri.repoPath, { sort: true });
 
 			let range: Range | undefined;
 			if (args.range) {
