@@ -65,7 +65,6 @@ export function promisifyDeferred<T, U>(
 		cancel = () => {
 			pending = false;
 			cancel = undefined;
-			// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
 			reject();
 		};
 
