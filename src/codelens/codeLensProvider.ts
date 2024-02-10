@@ -451,7 +451,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	resolveCodeLens(lens: CodeLens, token: CancellationToken): CodeLens | Promise<CodeLens> {
 		if (lens instanceof GitRecentChangeCodeLens) return this.resolveGitRecentChangeCodeLens(lens, token);
 		if (lens instanceof GitAuthorsCodeLens) return this.resolveGitAuthorsCodeLens(lens, token);
-		// eslint-disable-next-line prefer-promise-reject-errors, @typescript-eslint/prefer-promise-reject-errors
+		// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
 		return Promise.reject<CodeLens>(undefined);
 	}
 
