@@ -24,6 +24,12 @@ export namespace DOM {
 		listener: (e: DocumentEventMap[K] & { target: HTMLElement | null }, target: T) => void,
 		options?: boolean | AddEventListenerOptions,
 	): Disposable;
+	export function on<T extends HTMLElement, K>(
+		elemtent: T,
+		name: string,
+		listener: (e: CustomEvent<K> & { target: HTMLElement | null }, target: T) => void,
+		options?: boolean | AddEventListenerOptions,
+	): Disposable;
 	export function on<T extends Element, K extends keyof DocumentEventMap>(
 		selector: string,
 		name: K,
