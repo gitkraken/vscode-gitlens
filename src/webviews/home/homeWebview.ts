@@ -6,7 +6,7 @@ import { isSubscriptionExpired, isSubscriptionPaid, isSubscriptionTrial } from '
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { registerCommand } from '../../system/command';
 import { getContext, onDidChangeContext } from '../../system/context';
-import type { WebviewController, WebviewProvider } from '../webviewController';
+import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type { DidChangeRepositoriesParams, State } from './protocol';
 import { DidChangeOrgSettingsType, DidChangeRepositoriesType, DidChangeSubscriptionType } from './protocol';
 
@@ -21,7 +21,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State>,
+		private readonly host: WebviewHost,
 	) {
 		this._disposable = Disposable.from(
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),

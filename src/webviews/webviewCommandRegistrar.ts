@@ -3,7 +3,7 @@ import type { CommandCallback } from '../system/command';
 import { registerWebviewCommand } from '../system/command';
 import type { WebviewContext } from '../system/webview';
 import { isWebviewContext } from '../system/webview';
-import type { WebviewProvider } from './webviewController';
+import type { WebviewProvider } from './webviewProvider';
 
 export type WebviewCommandCallback<T extends Partial<WebviewContext>> = (arg?: T | undefined) => any;
 export class WebviewCommandRegistrar implements Disposable {

@@ -80,7 +80,7 @@ import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemCo
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
 import type { IpcMessage, IpcNotificationType } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import type { WebviewController, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewController';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewProvider';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
@@ -249,13 +249,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State, State, GraphWebviewShowingArgs>,
+		private readonly host: WebviewHost,
 	) {
 		this._showDetailsView = configuration.get('graph.showDetailsView');
 		this._theme = window.activeColorTheme;
 		this.ensureRepositorySubscriptions();
 
-		if (this.host.isView()) {
+		if (!this.host.isEditor()) {
 			this.host.description = '✨';
 		}
 
@@ -382,21 +382,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	registerCommands(): Disposable[] {
-		return [
-			...(this.host.isView()
-				? [
-						registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
-						registerCommand(
-							`${this.host.id}.openInTab`,
-							() =>
-								void executeCommand<WebviewPanelShowCommandArgs>(
-									Commands.ShowGraphPage,
-									undefined,
-									this.repository,
-								),
+		let inViewCommands;
+		if (!this.host.isEditor()) {
+			inViewCommands = [
+				registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
+				registerCommand(
+					`${this.host.id}.openInTab`,
+					() =>
+						void executeCommand<WebviewPanelShowCommandArgs>(
+							Commands.ShowGraphPage,
+							undefined,
+							this.repository,
 						),
-				  ]
-				: []),
+				),
+			];
+		}
+
+		return [
+			...(inViewCommands ?? []),
 
 			this.host.registerWebviewCommand('gitlens.graph.push', this.push),
 			this.host.registerWebviewCommand('gitlens.graph.pull', this.pull),
@@ -654,6 +657,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				break;
 		}
 	}
+
 	updateGraphConfig(params: UpdateGraphConfigurationParams) {
 		const config = this.getComponentConfig();
 
@@ -886,7 +890,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					},
 				);
 
-				const details = this.host.isView() ? this.container.graphDetailsView : this.container.commitDetailsView;
+				const details = this.host.isEditor()
+					? this.container.commitDetailsView
+					: this.container.graphDetailsView;
 				if (!details.ready) {
 					void details.show({ preserveFocus: e.preserveFocus }, {
 						commit: commit,
@@ -2381,14 +2387,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		if (this.host.isView()) {
-			return void showGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
+		if (this.host.isEditor()) {
+			return executeCommand<ShowCommitsInViewCommandArgs>(Commands.ShowInDetailsView, {
+				repoPath: ref.repoPath,
+				refs: [ref.ref],
+			});
 		}
 
-		return executeCommand<ShowCommitsInViewCommandArgs>(Commands.ShowInDetailsView, {
-			repoPath: ref.repoPath,
-			refs: [ref.ref],
-		});
+		return void showGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
 	}
 
 	@debug()

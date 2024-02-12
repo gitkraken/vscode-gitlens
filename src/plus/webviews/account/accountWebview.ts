@@ -4,7 +4,7 @@ import type { Container } from '../../../container';
 import { registerCommand } from '../../../system/command';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
-import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProvider';
 import type { Subscription } from '../../gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { State } from './protocol';
@@ -15,7 +15,7 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State>,
+		private readonly host: WebviewHost,
 	) {
 		this._disposable = Disposable.from(this.container.subscription.onDidChange(this.onSubscriptionChanged, this));
 	}

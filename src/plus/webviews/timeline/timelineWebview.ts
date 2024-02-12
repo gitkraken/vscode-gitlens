@@ -20,8 +20,8 @@ import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import { isViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import type { WebviewController, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewController';
 import { updatePendingContext } from '../../../webviews/webviewController';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewProvider';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
@@ -49,7 +49,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State, State, TimelineWebviewShowingArgs>,
+		private readonly host: WebviewHost,
 	) {
 		this._context = {
 			uri: undefined,
@@ -151,8 +151,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	}
 
 	registerCommands(): Disposable[] {
-		return this.host.isView()
-			? [
+		return this.host.isEditor()
+			? []
+			: [
 					registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
 					registerCommand(
 						`${this.host.id}.openInTab`,
@@ -163,14 +164,13 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 						},
 						this,
 					),
-			  ]
-			: [];
+			  ];
 	}
 
 	onVisibilityChanged(visible: boolean) {
 		if (!visible) return;
 
-		if (this.host.isView()) {
+		if (!this.host.isEditor()) {
 			this.updatePendingEditor(window.activeTextEditor);
 		}
 

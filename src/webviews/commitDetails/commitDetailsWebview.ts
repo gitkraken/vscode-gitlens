@@ -49,8 +49,8 @@ import { serialize } from '../../system/serialize';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
-import type { WebviewController, WebviewProvider, WebviewShowingArgs } from '../webviewController';
 import { updatePendingContext } from '../webviewController';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
 import { isSerializedState } from '../webviewsController';
 import type {
@@ -127,7 +127,7 @@ export class CommitDetailsWebviewProvider
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State, Serialized<State>, CommitDetailsWebviewShowingArgs>,
+		private readonly host: WebviewHost,
 		private readonly options: { attachedTo: 'default' | 'graph' },
 	) {
 		this._context = {

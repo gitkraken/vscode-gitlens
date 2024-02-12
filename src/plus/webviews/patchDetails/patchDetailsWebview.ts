@@ -40,7 +40,7 @@ import type { Serialized } from '../../../system/serialize';
 import { serialize } from '../../../system/serialize';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProvider';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { showPatchesView } from '../../drafts/actions';
 import type { OrganizationMember } from '../../gk/account/organization';
@@ -125,7 +125,7 @@ export class PatchDetailsWebviewProvider
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State, Serialized<State>, PatchDetailsWebviewShowingArgs>,
+		private readonly host: WebviewHost,
 	) {
 		this._context = {
 			mode: 'create',
@@ -199,12 +199,12 @@ export class PatchDetailsWebviewProvider
 	}
 
 	registerCommands(): Disposable[] {
-		return this.host.isView()
-			? [
+		return this.host.isEditor()
+			? []
+			: [
 					registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
 					registerCommand(`${this.host.id}.close`, () => this.closeView()),
-			  ]
-			: [];
+			  ];
 	}
 
 	onMessageReceived(e: IpcMessage) {
