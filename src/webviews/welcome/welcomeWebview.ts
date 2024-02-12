@@ -9,7 +9,7 @@ import { configuration } from '../../system/configuration';
 import { getContext, onDidChangeContext } from '../../system/context';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
-import type { WebviewController, WebviewProvider } from '../webviewController';
+import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type { State, UpdateConfigurationParams } from './protocol';
 import { DidChangeNotificationType, DidChangeOrgSettingsType, UpdateConfigurationCommandType } from './protocol';
 
@@ -24,7 +24,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State>,
+		private readonly host: WebviewHost,
 	) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),

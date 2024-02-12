@@ -21,7 +21,7 @@ import {
 	onIpc,
 	UpdateConfigurationCommandType,
 } from '../protocol';
-import type { WebviewController, WebviewProvider } from '../webviewController';
+import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type { State } from './protocol';
 import type { SettingsWebviewShowingArgs } from './registration';
 
@@ -31,7 +31,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 
 	constructor(
 		protected readonly container: Container,
-		protected readonly host: WebviewController<State, State, SettingsWebviewShowingArgs>,
+		protected readonly host: WebviewHost,
 	) {
 		this._disposable = configuration.onDidChangeAny(this.onAnyConfigurationChanged, this);
 	}

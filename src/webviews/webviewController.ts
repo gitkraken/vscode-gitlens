@@ -22,6 +22,7 @@ import type {
 } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
 import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
 import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor } from './webviewsController';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
@@ -45,38 +46,6 @@ type GetParentType<T extends WebviewPanelDescriptor | WebviewViewDescriptor> = T
 	  ? WebviewView
 	  : never;
 
-export type WebviewShowingArgs<T extends unknown[], SerializedState> = T | [{ state: Partial<SerializedState> }] | [];
-
-export interface WebviewProvider<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>
-	extends Disposable {
-	/**
-	 * Determines whether the webview instance can be reused
-	 * @returns `true` if the webview should be reused, `false` if it should NOT be reused, and `undefined` if it *could* be reused but not ideal
-	 */
-	canReuseInstance?(...args: WebviewShowingArgs<ShowingArgs, SerializedState>): boolean | undefined;
-	getSplitArgs?(): WebviewShowingArgs<ShowingArgs, SerializedState>;
-	onShowing?(
-		loading: boolean,
-		options: WebviewShowOptions,
-		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
-	): boolean | Promise<boolean>;
-	registerCommands?(): Disposable[];
-
-	includeBootstrap?(): SerializedState | Promise<SerializedState>;
-	includeHead?(): string | Promise<string>;
-	includeBody?(): string | Promise<string>;
-	includeEndOfBody?(): string | Promise<string>;
-
-	onReady?(): void;
-	onRefresh?(force?: boolean): void;
-	onReloaded?(): void;
-	onMessageReceived?(e: IpcMessage): void;
-	onActiveChanged?(active: boolean): void;
-	onFocusChanged?(focused: boolean): void;
-	onVisibilityChanged?(visible: boolean): void;
-	onWindowFocusChanged?(focused: boolean): void;
-}
-
 type WebviewPanelController<
 	State,
 	SerializedState = State,
@@ -90,11 +59,14 @@ type WebviewViewController<
 
 @logName<WebviewController<any>>(c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`)
 export class WebviewController<
-	State,
-	SerializedState = State,
-	ShowingArgs extends unknown[] = unknown[],
-	Descriptor extends WebviewPanelDescriptor | WebviewViewDescriptor = WebviewPanelDescriptor | WebviewViewDescriptor,
-> implements Disposable
+		State,
+		SerializedState = State,
+		ShowingArgs extends unknown[] = unknown[],
+		Descriptor extends WebviewPanelDescriptor | WebviewViewDescriptor =
+			| WebviewPanelDescriptor
+			| WebviewViewDescriptor,
+	>
+	implements WebviewHost<Descriptor>, Disposable
 {
 	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
 		container: Container,
@@ -104,7 +76,7 @@ export class WebviewController<
 		parent: WebviewPanel,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState, ShowingArgs>,
+			host: WebviewHost,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	): Promise<WebviewController<State, SerializedState, ShowingArgs, WebviewPanelDescriptor>>;
 	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
@@ -115,7 +87,7 @@ export class WebviewController<
 		parent: WebviewView,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState, ShowingArgs>,
+			host: WebviewHost,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	): Promise<WebviewController<State, SerializedState, ShowingArgs, WebviewViewDescriptor>>;
 	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
@@ -126,7 +98,7 @@ export class WebviewController<
 		parent: WebviewPanel | WebviewView,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState, ShowingArgs>,
+			host: WebviewHost,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	): Promise<WebviewController<State, SerializedState, ShowingArgs>> {
 		const controller = new WebviewController<State, SerializedState, ShowingArgs>(
@@ -165,7 +137,7 @@ export class WebviewController<
 		public readonly parent: GetParentType<Descriptor>,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState, ShowingArgs>,
+			host: WebviewHost,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	) {
 		this.id = descriptor.id;

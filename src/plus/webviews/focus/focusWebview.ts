@@ -32,7 +32,7 @@ import { PageableResult } from '../../../system/paging';
 import { getSettledValue } from '../../../system/promise';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProvider';
 import type { EnrichableItem, EnrichedItem } from '../../focus/enrichmentService';
 import { convertRemoteProviderToEnrichProvider } from '../../focus/enrichmentService';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
@@ -95,7 +95,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State>,
+		private readonly host: WebviewHost,
 	) {
 		this._disposable = Disposable.from(
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),

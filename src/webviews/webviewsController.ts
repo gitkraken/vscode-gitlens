@@ -18,8 +18,8 @@ import { Logger } from '../system/logger';
 import { getNewLogScope } from '../system/logger.scope';
 import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import { WebviewCommandRegistrar } from './webviewCommandRegistrar';
-import type { WebviewProvider, WebviewShowingArgs } from './webviewController';
 import { WebviewController } from './webviewController';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
 
 export interface WebviewPanelDescriptor {
 	id: WebviewIds;
@@ -127,7 +127,7 @@ export class WebviewsController implements Disposable {
 		descriptor: WebviewViewDescriptor,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState, ShowingArgs>,
+			host: WebviewHost,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 		onBeforeShow?: (...args: WebviewShowingArgs<ShowingArgs, SerializedState>) => void | Promise<void>,
 	): WebviewViewProxy<ShowingArgs, SerializedState> {
@@ -252,7 +252,7 @@ export class WebviewsController implements Disposable {
 		descriptor: WebviewPanelDescriptor,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState, ShowingArgs>,
+			host: WebviewHost,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	): WebviewPanelsProxy<ShowingArgs, SerializedState> {
 		const scope = getNewLogScope(`WebviewPanel(${descriptor.id})`);
