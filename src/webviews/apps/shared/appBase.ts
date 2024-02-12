@@ -1,11 +1,8 @@
 /*global window document*/
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants';
-import { debug } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
-import { getLogScope, getNewLogScope } from '../../../system/logger.scope';
-import { maybeStopWatch } from '../../../system/stopwatch';
 import type {
 	IpcCommandType,
 	IpcMessage,
@@ -13,36 +10,15 @@ import type {
 	IpcNotificationType,
 	WebviewFocusChangedParams,
 } from '../../protocol';
-import { onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from '../../protocol';
+import { WebviewFocusChangedCommandType, WebviewReadyCommandType } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable } from './events';
+import type { HostIpcApi } from './ipc';
+import { getHostIpcApi, HostIpc } from './ipc';
 import type { ThemeChangeEvent } from './theme';
 import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme';
 
 declare const DEBUG: boolean;
-
-interface VsCodeApi {
-	postMessage(msg: unknown): void;
-	setState(state: unknown): void;
-	getState(): unknown;
-}
-
-declare function acquireVsCodeApi(): VsCodeApi;
-
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
-
-let ipcSequence = 0;
-function nextIpcId() {
-	if (ipcSequence === maxSmallIntegerV8) {
-		ipcSequence = 1;
-	} else {
-		ipcSequence++;
-	}
-
-	return `webview:${ipcSequence}`;
-}
-
-const textDecoder = new TextDecoder();
 
 export abstract class App<
 	State extends { webviewId: CustomEditorIds | WebviewIds | WebviewViewIds; timestamp: number } = {
@@ -50,7 +26,9 @@ export abstract class App<
 		timestamp: number;
 	},
 > {
-	private readonly _api: VsCodeApi;
+	private readonly _api: HostIpcApi;
+	private readonly _hostIpc: HostIpc;
+
 	protected state: State;
 	protected readonly placement: 'editor' | 'view';
 
@@ -86,7 +64,10 @@ export abstract class App<
 		this.log(`${appName}()`);
 		// this.log(`ctor(${this.state ? JSON.stringify(this.state) : ''})`);
 
-		this._api = acquireVsCodeApi();
+		this._api = getHostIpcApi();
+		this._hostIpc = new HostIpc(this.appName);
+		disposables.push(this._hostIpc);
+
 		if (this.state != null) {
 			const state = this.getState();
 			if (this.state.timestamp >= (state?.timestamp ?? 0)) {
@@ -106,7 +87,7 @@ export abstract class App<
 				this.bind();
 
 				if (this.onMessageReceived != null) {
-					disposables.push(DOM.on(window, 'message', e => this.onMessageReceivedCore(e)));
+					disposables.push(this._hostIpc.onReceiveMessage(msg => this.onMessageReceived!(msg)));
 				}
 
 				this.sendCommand(WebviewReadyCommandType, undefined);
@@ -135,23 +116,6 @@ export abstract class App<
 	protected onInitialized?(): void;
 	protected onMessageReceived?(msg: IpcMessage): void;
 	protected onThemeUpdated?(e: ThemeChangeEvent): void;
-
-	@debug<App['onMessageReceivedCore']>({ args: { 0: e => `${e.data.id}, method=${e.data.method}` } })
-	private onMessageReceivedCore(e: MessageEvent) {
-		const scope = getLogScope();
-
-		const msg = e.data as IpcMessage;
-		if (msg.packed && msg.params instanceof Uint8Array) {
-			const sw = maybeStopWatch(getNewLogScope(` deserializing msg=${e.data.method}`, scope), {
-				log: false,
-				logLevel: 'debug',
-			});
-			msg.params = JSON.parse(textDecoder.decode(msg.params));
-			sw?.stop();
-		}
-
-		this.onMessageReceived!(msg);
-	}
 
 	private _focused?: boolean;
 	private _inputFocused?: boolean;
@@ -207,13 +171,10 @@ export abstract class App<
 		command: TCommand,
 		params: IpcMessageParams<TCommand>,
 	): void {
-		const id = nextIpcId();
-		this.log(`${this.appName}.sendCommand(${id}): name=${command.method}`);
-
-		this.postMessage({ id: id, method: command.method, params: params });
+		this._hostIpc.sendCommand(command, params);
 	}
 
-	protected async sendCommandWithCompletion<
+	protected sendCommandWithCompletion<
 		TCommand extends IpcCommandType<any>,
 		TCompletion extends IpcNotificationType<any>,
 	>(
@@ -221,48 +182,10 @@ export abstract class App<
 		params: IpcMessageParams<TCommand>,
 		completion: TCompletion,
 	): Promise<IpcMessageParams<TCompletion>> {
-		const id = nextIpcId();
-		this.log(`${this.appName}.sendCommandWithCompletion(${id}): name=${command.method}`);
-
-		const promise = new Promise<IpcMessageParams<TCompletion>>((resolve, reject) => {
-			let timeout: ReturnType<typeof setTimeout> | undefined;
-
-			const disposables = [
-				DOM.on(window, 'message', (e: MessageEvent<IpcMessage>) => {
-					onIpc(completion, e.data, params => {
-						if (e.data.completionId === id) {
-							disposables.forEach(d => d.dispose());
-							queueMicrotask(() => resolve(params));
-						}
-					});
-				}),
-				{
-					dispose: function () {
-						if (timeout != null) {
-							clearTimeout(timeout);
-							timeout = undefined;
-						}
-					},
-				},
-			];
-
-			timeout = setTimeout(() => {
-				timeout = undefined;
-				disposables.forEach(d => d.dispose());
-				debugger;
-				reject(new Error(`Timed out waiting for completion of ${completion.method}`));
-			}, 60000);
-		});
-
-		this.postMessage({ id: id, method: command.method, params: params, completionId: id });
-		return promise;
+		return this._hostIpc.sendCommandWithCompletion(command, params, completion);
 	}
 
 	protected setState(state: Partial<State>) {
 		this._api.setState(state);
-	}
-
-	private postMessage(e: IpcMessage) {
-		this._api.postMessage(e);
 	}
 }
