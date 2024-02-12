@@ -9,7 +9,7 @@ import type { Serialized } from '../../../../system/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
-import { uncommittedSha } from '../commitDetails';
+import { uncommittedSha } from './commit-details-app';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
 
