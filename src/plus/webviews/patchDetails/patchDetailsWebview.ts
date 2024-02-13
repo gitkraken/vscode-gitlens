@@ -199,12 +199,16 @@ export class PatchDetailsWebviewProvider
 	}
 
 	registerCommands(): Disposable[] {
-		return this.host.isEditor()
-			? []
-			: [
-					registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
-					registerCommand(`${this.host.id}.close`, () => this.closeView()),
-			  ];
+		const commands: Disposable[] = [];
+
+		if (this.host.isHost('view')) {
+			commands.push(
+				registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
+				registerCommand(`${this.host.id}.close`, () => this.closeView()),
+			);
+		}
+
+		return commands;
 	}
 
 	onMessageReceived(e: IpcMessage) {

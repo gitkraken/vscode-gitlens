@@ -255,7 +255,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._theme = window.activeColorTheme;
 		this.ensureRepositorySubscriptions();
 
-		if (!this.host.isEditor()) {
+		if (this.host.isHost('view')) {
 			this.host.description = '✨';
 		}
 
@@ -382,9 +382,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	registerCommands(): Disposable[] {
-		let inViewCommands;
-		if (!this.host.isEditor()) {
-			inViewCommands = [
+		const commands: Disposable[] = [];
+
+		if (this.host.isHost('view')) {
+			commands.push(
 				registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
 				registerCommand(
 					`${this.host.id}.openInTab`,
@@ -395,12 +396,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							this.repository,
 						),
 				),
-			];
+			);
 		}
 
-		return [
-			...(inViewCommands ?? []),
-
+		commands.push(
 			this.host.registerWebviewCommand('gitlens.graph.push', this.push),
 			this.host.registerWebviewCommand('gitlens.graph.pull', this.pull),
 			this.host.registerWebviewCommand('gitlens.graph.fetch', this.fetch),
@@ -563,7 +562,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				'gitlens.graph.copyWorkingChangesToWorktree',
 				this.copyWorkingChangesToWorktree,
 			),
-		];
+		);
+
+		return commands;
 	}
 
 	onWindowFocusChanged(focused: boolean): void {
@@ -890,7 +891,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					},
 				);
 
-				const details = this.host.isEditor()
+				const details = this.host.isHost('editor')
 					? this.container.commitDetailsView
 					: this.container.graphDetailsView;
 				if (!details.ready) {
@@ -1262,7 +1263,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._selection = commits;
 
 		if (commits == null) return;
-		if (!this._firstSelection && this.host.isEditor() && !this.host.active) return;
+		if (!this._firstSelection && this.host.isHost('editor') && !this.host.active) return;
 
 		this.container.events.fire(
 			'commit:selected',
@@ -2387,14 +2388,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		if (this.host.isEditor()) {
-			return executeCommand<ShowCommitsInViewCommandArgs>(Commands.ShowInDetailsView, {
-				repoPath: ref.repoPath,
-				refs: [ref.ref],
-			});
+		if (this.host.isHost('view')) {
+			return void showGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
 		}
 
-		return void showGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
+		return executeCommand<ShowCommitsInViewCommandArgs>(Commands.ShowInDetailsView, {
+			repoPath: ref.repoPath,
+			refs: [ref.ref],
+		});
 	}
 
 	@debug()
