@@ -118,7 +118,7 @@ export class WebviewController<
 		return this._onDidDispose.event;
 	}
 
-	public readonly id: Descriptor['id'];
+	readonly id: Descriptor['id'];
 
 	private _ready: boolean = false;
 	get ready() {
@@ -126,6 +126,7 @@ export class WebviewController<
 	}
 
 	private disposable: Disposable | undefined;
+	private _isInEditor: boolean;
 	private /*readonly*/ provider!: WebviewProvider<State, SerializedState, ShowingArgs>;
 	private readonly webview: Webview;
 
@@ -144,7 +145,7 @@ export class WebviewController<
 		this.webview = parent.webview;
 
 		const isInEditor = 'onDidChangeViewState' in parent;
-		this._isEditor = isInEditor;
+		this._isInEditor = isInEditor;
 		this._originalTitle = descriptor.title;
 		parent.title = descriptor.title;
 
@@ -196,12 +197,14 @@ export class WebviewController<
 		this._initializing = undefined;
 	}
 
-	private _isEditor: boolean;
-	isEditor(): this is WebviewPanelController<State, SerializedState> {
-		return this._isEditor;
-	}
-	isView(): this is WebviewViewController<State, SerializedState> {
-		return !this._isEditor;
+	isHost(type: 'editor'): this is WebviewPanelController<State, SerializedState, ShowingArgs>;
+	isHost(type: 'view'): this is WebviewViewController<State, SerializedState, ShowingArgs>;
+	isHost(
+		type: 'editor' | 'view',
+	): this is
+		| WebviewPanelController<State, SerializedState, ShowingArgs>
+		| WebviewViewController<State, SerializedState, ShowingArgs> {
+		return type === 'editor' ? this._isInEditor : !this._isInEditor;
 	}
 
 	get active() {
@@ -256,14 +259,14 @@ export class WebviewController<
 		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 	): boolean | undefined {
-		if (!this.isEditor()) return undefined;
+		if (!this.isHost('editor')) return undefined;
 
 		if (options?.column != null && options.column !== this.parent.viewColumn) return false;
 		return this.provider.canReuseInstance?.(...args);
 	}
 
 	getSplitArgs(): WebviewShowingArgs<ShowingArgs, SerializedState> {
-		if (!this.isEditor()) return [];
+		if (this.isHost('view')) return [];
 
 		return this.provider.getSplitArgs?.() ?? [];
 	}
@@ -291,14 +294,14 @@ export class WebviewController<
 			this.webview.html = await this.getHtml(this.webview);
 		}
 
-		if (this.isEditor()) {
+		if (this.isHost('editor')) {
 			if (!loading) {
 				this.parent.reveal(
 					options.column ?? this.parent.viewColumn ?? this.descriptor.column ?? ViewColumn.Beside,
 					options.preserveFocus ?? false,
 				);
 			}
-		} else if (this.isView()) {
+		} else if (this.isHost('view')) {
 			await executeCoreCommand(`${this.id}.focus`, options);
 			if (loading) {
 				this.provider.onVisibilityChanged?.(true);
@@ -490,7 +493,7 @@ export class WebviewController<
 			this._cspNonce,
 			this.asWebviewUri(this.getRootUri()).toString(),
 			this.getWebRoot(),
-			this.isEditor() ? 'editor' : 'view',
+			this.isHost('editor') ? 'editor' : 'view',
 			bootstrap,
 			head,
 			body,
@@ -573,7 +576,7 @@ export class WebviewController<
 
 		let success;
 
-		if (this.isView()) {
+		if (this.isHost('view')) {
 			// If we are in a view, show progress if we are waiting too long
 			const result = await pauseOnCancelOrTimeout(promise, undefined, 100);
 			if (result.paused) {

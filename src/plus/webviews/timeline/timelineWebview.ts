@@ -62,7 +62,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		this._context = { ...this._context, ...this._pendingContext };
 		this._pendingContext = undefined;
 
-		if (this.host.isEditor()) {
+		if (this.host.isHost('editor')) {
 			this._disposable = Disposable.from(
 				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 				this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
@@ -151,26 +151,30 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	}
 
 	registerCommands(): Disposable[] {
-		return this.host.isEditor()
-			? []
-			: [
-					registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
-					registerCommand(
-						`${this.host.id}.openInTab`,
-						() => {
-							if (this._context.uri == null) return;
+		const commands: Disposable[] = [];
 
-							void executeCommand(Commands.ShowInTimeline, this._context.uri);
-						},
-						this,
-					),
-			  ];
+		if (this.host.isHost('view')) {
+			commands.push(
+				registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
+				registerCommand(
+					`${this.host.id}.openInTab`,
+					() => {
+						if (this._context.uri == null) return;
+
+						void executeCommand(Commands.ShowInTimeline, this._context.uri);
+					},
+					this,
+				),
+			);
+		}
+
+		return commands;
 	}
 
 	onVisibilityChanged(visible: boolean) {
 		if (!visible) return;
 
-		if (!this.host.isEditor()) {
+		if (this.host.isHost('view')) {
 			this.updatePendingEditor(window.activeTextEditor);
 		}
 
@@ -298,7 +302,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		const gitUri = current.uri != null ? await GitUri.fromUri(current.uri) : undefined;
 		const repoPath = gitUri?.repoPath;
 
-		if (this.host.isEditor()) {
+		if (this.host.isHost('editor')) {
 			this.host.title =
 				gitUri == null ? this.host.originalTitle : `${this.host.originalTitle}: ${gitUri.fileName}`;
 		} else {

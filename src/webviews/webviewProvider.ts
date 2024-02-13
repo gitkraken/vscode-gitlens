@@ -63,7 +63,9 @@ export interface WebviewHost<
 	clearPendingIpcNotifications(): void;
 	sendPendingIpcNotifications(): void;
 
-	isEditor(): boolean;
+	isHost(type: 'editor'): this is WebviewHost<WebviewPanelDescriptor>;
+	isHost(type: 'view'): this is WebviewHost<WebviewViewDescriptor>;
+
 	notify<T extends IpcNotificationType<any>>(
 		type: T,
 		params: IpcMessageParams<T>,
