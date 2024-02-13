@@ -5124,6 +5124,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.plus.reactivateProTrial",
+				"title": "Reactivate GitKraken Trial",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.plus.manage",
 				"title": "Manage Your Account...",
 				"category": "GitLens"
@@ -8928,6 +8933,10 @@
 				{
 					"command": "gitlens.plus.startPreviewTrial",
 					"when": "!gitlens:plus"
+				},
+				{
+					"command": "gitlens.plus.reactivateProTrial",
+					"when": "gitlens:plus:state == 5"
 				},
 				{
 					"command": "gitlens.plus.manage",
@@ -16123,7 +16132,7 @@
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "[Start Free Pro Trial](command:gitlens.plus.signUp)\n\nStart a free 7-day Pro trial to use Cloud Patches, or [sign in](command:gitlens.plus.login).\n☁️ Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc",
+				"contents": "[Start Free GitKraken Trial](command:gitlens.plus.signUp)\n\nStart a free 7-day GitKraken trial to use Cloud Patches, or [sign in](command:gitlens.plus.login).\n☁️ Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc",
 				"when": "!gitlens:plus"
 			},
 			{
@@ -16169,6 +16178,11 @@
 				"view": "gitlens.views.worktrees",
 				"contents": "Your GitKraken trial has ended, please upgrade to continue to use this on privately hosted repos.\n\n[Upgrade to Pro](command:gitlens.plus.purchase)\n✨ A paid plan is required to use this on privately hosted repos.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "You're eligible to reactivate your GitLens Pro trial and experience all the new Pro features — free for another 7 days!\n\n[Try Pro](command:gitlens.plus.reactivateProTrial)\nYour Pro trial provides access to [✨ Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) for seamlessly switching between branches without any hassle.",
+				"when": "gitlens:plus:required && gitlens:plus:state == 5"
 			}
 		],
 		"views": {

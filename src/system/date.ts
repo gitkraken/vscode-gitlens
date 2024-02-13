@@ -236,19 +236,21 @@ export function getDateDifference(
 	first: Date | number,
 	second: Date | number,
 	unit?: 'days' | 'hours' | 'minutes' | 'seconds',
+	roundFn?: (value: number) => number,
 ): number {
 	const diff =
 		(typeof second === 'number' ? second : second.getTime()) -
 		(typeof first === 'number' ? first : first.getTime());
+	const round = roundFn ?? Math.floor;
 	switch (unit) {
 		case 'days':
-			return Math.floor(diff / (1000 * 60 * 60 * 24));
+			return round(diff / (1000 * 60 * 60 * 24));
 		case 'hours':
-			return Math.floor(diff / (1000 * 60 * 60));
+			return round(diff / (1000 * 60 * 60));
 		case 'minutes':
-			return Math.floor(diff / (1000 * 60));
+			return round(diff / (1000 * 60));
 		case 'seconds':
-			return Math.floor(diff / 1000);
+			return round(diff / 1000);
 		default:
 			return diff;
 	}

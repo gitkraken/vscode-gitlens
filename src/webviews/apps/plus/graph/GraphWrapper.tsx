@@ -1369,6 +1369,13 @@ export function GraphWrapper({
 					to search by a specific commit, message, author, a changed file or files, or even a specific code
 					change.
 				</p>
+				<p slot="feature-link">
+					Your Pro trial provides access to{' '}
+					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#commit-graph-%e2%9c%a8">
+						✨ The Commit Graph
+					</a>
+					, to easily visualize your repository and keep track of work in progress all in one view.
+				</p>
 			</FeatureGate>
 			{graphConfig?.minimap && (
 				<GraphMinimap

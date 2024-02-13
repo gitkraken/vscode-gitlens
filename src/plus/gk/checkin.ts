@@ -8,6 +8,7 @@ export interface GKCheckInResponse {
 		readonly paidLicenses: Record<GKLicenseType, GKLicense>;
 		readonly effectiveLicenses: Record<GKLicenseType, GKLicense>;
 	};
+	readonly nextOptInDate?: string;
 }
 
 export interface GKUser {
@@ -25,6 +26,7 @@ export interface GKLicense {
 	readonly latestEndDate: string;
 	readonly organizationId: string | undefined;
 	readonly reactivationCount?: number;
+	readonly nextOptInDate?: string;
 }
 
 export type GKLicenseType =
@@ -144,6 +146,9 @@ export function getSubscriptionFromCheckIn(
 				: data.user.createdDate != null
 				  ? new Date(data.user.createdDate)
 				  : undefined,
+			undefined,
+			undefined,
+			data.nextOptInDate,
 		);
 	}
 
@@ -162,6 +167,7 @@ export function getSubscriptionFromCheckIn(
 			new Date(license.latestStartDate),
 			new Date(license.latestEndDate),
 			license.latestStatus === 'cancelled',
+			license.nextOptInDate ?? data.nextOptInDate,
 		);
 	}
 

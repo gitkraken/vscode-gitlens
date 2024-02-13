@@ -324,6 +324,13 @@ export class GlFocusApp extends LitElement {
 							Brings all of your GitHub pull requests and issues into a unified actionable view to help to
 							you more easily juggle work in progress, pending work, reviews, and more. Quickly see if
 							anything requires your attention while keeping you focused.
+						</p>
+						<p slot="feature-link">
+							Your Pro trial provides access to
+							<a href="https://help.gitkraken.com/gitlens/gitlens-features/#focus-view-%e2%9c%a8"
+								>✨ Focus View</a
+							>, for effortlessly viewing all your GitHub pull requests and issues in a unified,
+							actionable view.
 						</p></gk-feature-gate
 					>
 					<gk-feature-gate .visible=${this.showConnectionGate} id="connection-gate" class="scrollable">

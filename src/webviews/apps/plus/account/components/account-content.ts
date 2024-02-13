@@ -149,6 +149,7 @@ export class AccountContent extends LitElement {
 			case SubscriptionState.Free:
 			case SubscriptionState.FreePreviewTrialExpired:
 			case SubscriptionState.FreePlusTrialExpired:
+			case SubscriptionState.FreePlusTrialReactivationEligible:
 				return 'GitKraken Free';
 			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePlusInTrial:
@@ -298,6 +299,23 @@ export class AccountContent extends LitElement {
 					<p>
 						You only have access to ✨ features on local and publicly hosted repos and ☁️ features based on
 						your plan, e.g. Free, Pro, etc.
+					</p>
+				`;
+
+			case SubscriptionState.FreePlusTrialReactivationEligible:
+				return html`
+					<p>
+						You're eligible to reactivate your GitLens Pro trial and experience all the new Pro features —
+						free for another 7 days!
+					</p>
+					<button-container>
+						<gl-button full href="command:gitlens.plus.reactivateProTrial">Try Pro</gl-button>
+					</button-container>
+					<p>
+						Your Pro trial provides access to the entire
+						<a href="https://www.gitkraken.com/suite">GitKraken suite</a>, unleashing powerful Git
+						visualization & productivity capabilities everywhere you work: IDE, desktop, browser and
+						terminal.
 					</p>
 				`;
 

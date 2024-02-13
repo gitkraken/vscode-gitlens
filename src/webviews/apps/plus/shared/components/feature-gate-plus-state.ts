@@ -121,7 +121,18 @@ export class FeatureGatePlusState extends LitElement {
 					<gl-button appearance="${appearance}" href="command:gitlens.plus.purchase"
 						>Upgrade to Pro</gl-button
 					>
-					<p>✨ A paid plan is required to use this on privately hosted repos.</p>
+					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>
+				`;
+
+			case SubscriptionState.FreePlusTrialReactivationEligible:
+				return html`
+					<p>
+						You're eligible to reactivate your GitLens Pro trial and experience all the new Pro features —
+						free for another 7 days!
+					</p>
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.reactivateProTrial"
+						>Try Pro</gl-button
+					>
 				`;
 		}
 
