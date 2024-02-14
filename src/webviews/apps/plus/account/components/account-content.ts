@@ -259,6 +259,17 @@ export class AccountContent extends LitElement {
 
 			case SubscriptionState.Free:
 			case SubscriptionState.FreeInPreviewTrial:
+				return html`
+					<p>
+						Sign up for access to our developer productivity and collaboration services, e.g. Workspaces, or
+						<a href="command:gitlens.plus.login">sign in</a>.
+					</p>
+					<button-container>
+						<gl-button full href="command:gitlens.plus.signUp">Sign Up</gl-button>
+					</button-container>
+					<p>Signing up starts a free 7-day GitKraken trial.</p>
+				`;
+
 			case SubscriptionState.FreePreviewTrialExpired:
 				return html`
 					<p>
