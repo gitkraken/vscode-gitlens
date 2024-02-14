@@ -16176,7 +16176,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Your GitLens Pro trial has ended. Please upgrade to continue to use this on privately hosted repos.\n\n[Upgrade to Pro](command:gitlens.plus.purchase)\n[✨ Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) — seamlessly work on multiple branches simultaneously.",
+				"contents": "Your GitLens Pro trial has ended. Please upgrade to continue to use this on privately hosted repos.\n\n[Get GitLens Pro](command:gitlens.plus.purchase)\n[✨ Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) — seamlessly work on multiple branches simultaneously.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			},
 			{
