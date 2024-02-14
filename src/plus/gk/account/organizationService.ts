@@ -28,12 +28,10 @@ export class OrganizationService implements Disposable {
 		private readonly connection: ServerConnection,
 	) {
 		this._disposable = Disposable.from(
-			once(onDidChangeContext)(async key => {
-				if (key === 'gitlens:plus') {
-					const orgId = await this.getActiveOrganizationId();
-					void this.updateOrganizationPermissions(orgId);
-				}
-			}, this),
+			once(container.onReady)(async () => {
+				const orgId = await this.getActiveOrganizationId();
+				void this.updateOrganizationPermissions(orgId);
+			}),
 			container.subscription.onDidChange(this.onSubscriptionChanged, this),
 		);
 	}
