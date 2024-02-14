@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a _Create New Branch..._ option to the _Git Switch to..._ command to easily create a new branch to switch to &mdash; closes [#3138](https://github.com/gitkraken/vscode-gitlens/issues/3138)
 - Adds the ability to start a new trial from the _Account View_ and feature gates for users without a Pro account whose Pro trial has been expired for over 90 days.
 
+### Fixed
+
+- Fixes AI features not being displayed when signed-out of an account
+
 ## [14.8.0] - 2024-02-08
 
 ### Added
