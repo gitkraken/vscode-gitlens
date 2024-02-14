@@ -108,8 +108,12 @@ export class FeatureGate extends LitElement {
 				</slot>
 				<gk-feature-gate-plus-state appearance=${appearance} .state=${this.state}></gk-feature-gate-plus-state>
 				<slot
-					name="feature-link"
-					hidden=${this.state === SubscriptionState.FreePlusTrialReactivationEligible ? nothing : ''}
+					name="feature-short"
+					hidden=${this.state === SubscriptionState.FreePreviewTrialExpired ||
+					this.state === SubscriptionState.FreePlusTrialExpired ||
+					this.state === SubscriptionState.FreePlusTrialReactivationEligible
+						? nothing
+						: ''}
 				></slot>
 			</section>
 		`;

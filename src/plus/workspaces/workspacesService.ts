@@ -163,7 +163,7 @@ export class WorkspacesService implements Disposable {
 			cloudWorkspaces: cloudWorkspaces,
 			cloudWorkspaceInfo:
 				filteredSharedWorkspaceCount > 0
-					? `${filteredSharedWorkspaceCount} shared workspaces hidden - upgrade to GitKraken Pro to access.`
+					? `${filteredSharedWorkspaceCount} shared workspaces hidden - upgrade to GitLens Pro to access.`
 					: undefined,
 		};
 	}

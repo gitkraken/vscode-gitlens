@@ -53,7 +53,7 @@ export function createDirectiveQuickPickItem(
 				detail = 'Preview Pro for 3-days to use this on privately hosted repos';
 				break;
 			case Directive.ExtendTrial:
-				label = 'Start Free GitKraken Trial';
+				label = 'Start Pro Trial';
 				detail = 'Continue to use this on privately hosted repos, free for an additional 7 days';
 				break;
 			case Directive.RequiresVerification:

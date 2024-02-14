@@ -79,7 +79,7 @@ export class FeatureGatePlusState extends LitElement {
 					>
 					<p>
 						Preview Pro for 3 days, or
-						<a href="command:gitlens.plus.signUp">sign up</a> to start a full 7-day GitKraken trial.
+						<a href="command:gitlens.plus.signUp">sign up</a> to start a full 7-day GitLens Pro trial.
 					</p>
 					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>
 				`;
@@ -87,19 +87,16 @@ export class FeatureGatePlusState extends LitElement {
 			case SubscriptionState.FreePreviewTrialExpired:
 				return html`
 					<p>
-						Your 3-day Pro preview has ended, start a free GitKraken trial to get an additional 7 days, or
+						Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days, or
 						<a href="command:gitlens.plus.login">sign in</a>.
 					</p>
-					<gl-button appearance="${appearance}" href="command:gitlens.plus.signUp"
-						>Start Free GitKraken Trial</gl-button
-					>
-					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.signUp">Start Pro Trial</gl-button>
 				`;
 
 			case SubscriptionState.FreePlusTrialExpired:
 				return html`
 					<p>
-						Your GitKraken trial has ended, please upgrade to continue to use this on privately hosted
+						Your GitLens Pro trial has ended. Please upgrade to continue to use this on privately hosted
 						repos.
 					</p>
 					${when(
@@ -108,20 +105,17 @@ export class FeatureGatePlusState extends LitElement {
 							html`<p style="text-align: center;">
 								<a
 									href=${'https://www.gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023'}
-									>Holiday Special: <b>50% off first seat of Pro</b> — only $4/month!<br />
-									Includes entire GitKraken suite of dev tools.</a
-								>
+									>Holiday Special: <b>50% off first seat of Pro</b> — only $4/month!<br
+								/></a>
 							</p>`,
 						() =>
 							html`<p style="text-align: center;">
 								Special: <b>50% off first seat of Pro</b> — only $4/month!<br />
-								Includes entire GitKraken suite of dev tools.
 							</p>`,
 					)}
 					<gl-button appearance="${appearance}" href="command:gitlens.plus.purchase"
-						>Upgrade to Pro</gl-button
+						>Get GitLens Pro</gl-button
 					>
-					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>
 				`;
 
 			case SubscriptionState.FreePlusTrialReactivationEligible:

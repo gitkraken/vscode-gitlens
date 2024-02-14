@@ -934,7 +934,7 @@ export async function ensurePaidPlan(providerName: string, container: Container)
 			void container.subscription.startPreviewTrial();
 			break;
 		} else if (subscription.account == null) {
-			const signIn = { title: 'Start Free GitKraken Trial' };
+			const signIn = { title: 'Start Pro Trial' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
 				`${title}\n\nDo you want to continue to use ✨ features on privately hosted repos, free for an additional 7 days?`,

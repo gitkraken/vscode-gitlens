@@ -29,7 +29,7 @@ export async function ensurePaidPlan(title: string, container: Container): Promi
 		if (isSubscriptionPaidPlan(plan)) break;
 
 		if (subscription.account == null) {
-			const signIn = { title: 'Start Free GitKraken Trial' };
+			const signIn = { title: 'Start Pro Trial' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
 				`${title}\n\nTry our developer productivity and collaboration services free for 7 days.`,
