@@ -42,6 +42,14 @@ body[data-placement='editor'] {
 	background-color: var(--color-background);
 }
 
+a {
+	text-decoration: none;
+
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
 .container {
 	display: grid;
 	grid-template-rows: min-content 1fr min-content;

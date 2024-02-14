@@ -1364,7 +1364,7 @@ export function GraphWrapper({
 				<p slot="feature">
 					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#commit-graph-%e2%9c%a8">
 						Commit Graph
-					</a>
+					</a>{' '}
 					&mdash; helps you easily visualize your repository and keep track of all work in progress.
 					<br />
 					<br />
@@ -1375,7 +1375,7 @@ export function GraphWrapper({
 				<p slot="feature-short">
 					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#commit-graph-%e2%9c%a8">
 						Commit Graph
-					</a>
+					</a>{' '}
 					&mdash; easily visualize your repository and keep track of work in progress all in one view.
 				</p>
 			</FeatureGate>
