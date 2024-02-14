@@ -17,6 +17,7 @@ import {
 	ProgressLocation,
 	StatusBarAlignment,
 	ThemeColor,
+	Uri,
 	window,
 } from 'vscode';
 import { getPlatform } from '@env/platform';
@@ -173,6 +174,7 @@ export class SubscriptionService implements Disposable {
 			registerCommand(Commands.PlusLogout, () => this.logout()),
 
 			registerCommand(Commands.PlusStartPreviewTrial, () => this.startPreviewTrial()),
+			registerCommand(Commands.PlusReactivateProTrial, () => this.reactivateProTrial()),
 			registerCommand(Commands.PlusManage, () => this.manage()),
 			registerCommand(Commands.PlusPurchase, () => this.purchase()),
 
@@ -436,10 +438,10 @@ export class SubscriptionService implements Disposable {
 			void this.showAccountView();
 
 			if (!silent && plan.effective.id === SubscriptionPlanId.Free) {
-				const confirm: MessageItem = { title: 'Start Free GitKraken Trial', isCloseAffordance: true };
+				const confirm: MessageItem = { title: 'Start Pro Trial', isCloseAffordance: true };
 				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your 3-day Pro preview has ended, start a free GitKraken trial to get an additional 7 days.\n\n✨ A trial or paid plan is required to use Pro features on privately hosted repos.',
+					'Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days.\n\n✨ A trial or paid plan is required to use Pro features on privately hosted repos.',
 					{ modal: true },
 					confirm,
 					cancel,
@@ -492,7 +494,7 @@ export class SubscriptionService implements Disposable {
 					`You can now preview Pro features for ${pluralize(
 						'day',
 						days,
-					)}. After which, you can start a free GitKraken trial for an additional 7 days.`,
+					)}. After which, you can start a free GitLens Pro trial for an additional 7 days.`,
 					confirm,
 					learn,
 				);
@@ -501,6 +503,66 @@ export class SubscriptionService implements Disposable {
 					void this.learnAboutPreviewOrTrial();
 				}
 			}, 1);
+		}
+	}
+
+	@gate()
+	@log()
+	async reactivateProTrial(): Promise<void> {
+		if (!(await ensurePlusFeaturesEnabled())) return;
+		const scope = getLogScope();
+
+		const session = await this.ensureSession(false);
+		if (session == null) return;
+
+		const rsp = await this.connection.fetchApi('user/reactivate-trial', {
+			method: 'POST',
+			body: JSON.stringify({ client: 'gitlens' }),
+		});
+
+		if (!rsp.ok) {
+			if (rsp.status === 409) {
+				void window.showErrorMessage(
+					'Unable to reactivate trial: User not eligible. Please try again. If this issue persists, please contact support.',
+					'OK',
+				);
+				return;
+			}
+
+			void window.showErrorMessage(
+				`Unable to reactivate trial: (${rsp.status}) ${rsp.statusText}. Please try again. If this issue persists, please contact support.`,
+				'OK',
+			);
+			return;
+		}
+
+		// Trial was reactivated. Do a check-in to update, and show a message if successful.
+		try {
+			await this.checkInAndValidate(session, { force: true });
+			if (isSubscriptionTrial(this._subscription)) {
+				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
+
+				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+				const learn: MessageItem = { title: "See What's New" };
+				const result = await window.showInformationMessage(
+					`Your new trial has been activated! Enjoy access to Pro features on privately hosted repos for another ${pluralize(
+						'day',
+						remaining ?? 0,
+					)}.`,
+					{ modal: true },
+					confirm,
+					learn,
+				);
+
+				if (result === learn) {
+					void env.openExternal(
+						Uri.parse('https://help.gitkraken.com/gitlens/gitlens-release-notes-current/'),
+					);
+				}
+			}
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
 		}
 	}
 

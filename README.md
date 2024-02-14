@@ -29,7 +29,7 @@ See the [FAQ](#is-gitlens-free-to-use 'Jump to FAQ') for more details.
 
 [Features](#discover-powerful-features 'Jump to Discover Powerful Features')
 | [Labs](#gitkraken-labs 'Jump to GitKraken Labs')
-| [Pro](#ready-for-gitlens-pro 'Jump to Ready for GitKraken Pro?')
+| [Pro](#ready-for-gitlens-pro 'Jump to Ready for GitLens Pro?')
 | [FAQ](#faq 'Jump to FAQ')
 | [Support and Community](#support-and-community 'Jump to Support and Community')
 | [Contributing](#contributing 'Jump to Contributing')
@@ -257,11 +257,11 @@ Use the Explain panel on the **Commit Details** view to leverage AI to help you 
 
 Use the `Generate Commit Message` command from the Source Control view's context menu to automatically generate a commit message for your staged changes by leveraging AI.
 
-# Ready for GitKraken Pro?
+# Ready for GitLens Pro?
 
-When you're ready to unlock the full potential of GitLens and enjoy all the benefits on your privately hosted repos, consider upgrading to GitKraken Pro. With GitKraken Pro, you'll gain access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan.
+When you're ready to unlock the full potential of GitLens and enjoy all the benefits on your privately hosted repos, consider upgrading to GitLens Pro. With GitLens Pro, you'll gain access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan.
 
-To learn more about the pricing and the additional ✨ and ☁️ features offered with GitKraken Pro, visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing). Upgrade to GitKraken Pro today and take your Git workflow to the next level!
+To learn more about the pricing and the additional ✨ and ☁️ features offered with GitLens Pro, visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing). Upgrade to GitLens Pro today and take your Git workflow to the next level!
 
 # FAQ
 
@@ -274,7 +274,7 @@ Yes. All features are free to use on all repos, **except** for features,
 
 While GitLens offers a remarkable set of free features, a subset of features tailored for professional developers and teams, marked with a ✨, require a trial or paid plan for use on privately hosted repos &mdash; use on local or publicly hosted repos is free for everyone. Additionally some features marked with a ☁️, rely on GitKraken Dev Services which requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc.
 
-Preview ✨ features instantly for free for 3 days without an account, or start a free GitKraken trial to get an additional 7 days and gain access to ☁️ features to experience the full power of GitLens.
+Preview ✨ features instantly for free for 3 days without an account, or start a free GitLens Pro trial to get an additional 7 days and gain access to ☁️ features to experience the full power of GitLens.
 
 ## Are ✨ and ☁️ features free to use?
 
@@ -300,7 +300,7 @@ Join the GitLens community on [GitHub Discussions](https://github.com/gitkraken/
 
 For any issues or inquiries related to GitLens, you can reach out to the GitKraken support team via the [official support page](https://support.gitkraken.com/). They will be happy to assist you with any problems you may encounter.
 
-With GitKraken Pro, you gain access to priority email support from our customer success team, ensuring higher priority and faster response times. Custom onboarding and training are also available to help you and your team quickly get up and running with a GitKraken Pro plan.
+With GitLens Pro, you gain access to priority email support from our customer success team, ensuring higher priority and faster response times. Custom onboarding and training are also available to help you and your team quickly get up and running with a GitLens Pro plan.
 
 # Contributing
 

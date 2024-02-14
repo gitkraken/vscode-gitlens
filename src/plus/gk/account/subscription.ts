@@ -34,6 +34,7 @@ export interface SubscriptionPlan {
 	readonly name: string;
 	readonly bundle: boolean;
 	readonly trialReactivationCount: number;
+	readonly nextTrialOptInDate?: string | undefined;
 	readonly cancelled: boolean;
 	readonly startedOn: string;
 	readonly expiresOn?: string | undefined;
@@ -53,6 +54,7 @@ export interface SubscriptionPreviewTrial {
 	readonly expiresOn: string;
 }
 
+// Note: Pay attention to gitlens:plus:state in package.json when modifying this enum
 export const enum SubscriptionState {
 	/** Indicates a user who hasn't verified their email address yet */
 	VerificationRequired = -1,
@@ -64,8 +66,10 @@ export const enum SubscriptionState {
 	FreePreviewTrialExpired,
 	/** Indicates a Free+ user with a completed trial */
 	FreePlusInTrial,
-	/** Indicates a Free+ user who's trial has expired */
+	/** Indicates a Free+ user who's trial has expired and is not yet eligible for reactivation */
 	FreePlusTrialExpired,
+	/** Indicated a Free+ user who's trial has expired and is eligible for reactivation */
+	FreePlusTrialReactivationEligible,
 	/** Indicates a Paid user */
 	Paid,
 }
@@ -84,8 +88,13 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 			case SubscriptionPlanId.Free:
 				return preview == null ? SubscriptionState.Free : SubscriptionState.FreePreviewTrialExpired;
 
-			case SubscriptionPlanId.FreePlus:
+			case SubscriptionPlanId.FreePlus: {
+				if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
+					return SubscriptionState.FreePlusTrialReactivationEligible;
+				}
+
 				return SubscriptionState.FreePlusTrialExpired;
+			}
 
 			case SubscriptionPlanId.Pro:
 			case SubscriptionPlanId.Teams:
@@ -98,8 +107,13 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 		case SubscriptionPlanId.Free:
 			return preview == null ? SubscriptionState.Free : SubscriptionState.FreeInPreviewTrial;
 
-		case SubscriptionPlanId.FreePlus:
+		case SubscriptionPlanId.FreePlus: {
+			if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
+				return SubscriptionState.FreePlusTrialReactivationEligible;
+			}
+
 			return SubscriptionState.FreePlusTrialExpired;
+		}
 
 		case SubscriptionPlanId.Pro:
 			return actual.id === SubscriptionPlanId.Free
@@ -120,6 +134,7 @@ export function getSubscriptionPlan(
 	startedOn?: Date,
 	expiresOn?: Date,
 	cancelled: boolean = false,
+	nextTrialOptInDate?: string,
 ): SubscriptionPlan {
 	return {
 		id: id,
@@ -128,6 +143,7 @@ export function getSubscriptionPlan(
 		cancelled: cancelled,
 		organizationId: organizationId,
 		trialReactivationCount: trialReactivationCount,
+		nextTrialOptInDate: nextTrialOptInDate,
 		startedOn: (startedOn ?? new Date()).toISOString(),
 		expiresOn: expiresOn != null ? expiresOn.toISOString() : undefined,
 	};
@@ -152,6 +168,7 @@ export function getSubscriptionPlanName(id: SubscriptionPlanId) {
 export function getSubscriptionStatePlanName(state: SubscriptionState | undefined, id: SubscriptionPlanId | undefined) {
 	switch (state) {
 		case SubscriptionState.FreePlusTrialExpired:
+		case SubscriptionState.FreePlusTrialReactivationEligible:
 			return getSubscriptionPlanName(SubscriptionPlanId.FreePlus);
 		case SubscriptionState.FreeInPreviewTrial:
 			return `${getSubscriptionPlanName(SubscriptionPlanId.Pro)} (Trial)`;
@@ -193,7 +210,7 @@ export function getTimeRemaining(
 	expiresOn: string | undefined,
 	unit?: 'days' | 'hours' | 'minutes' | 'seconds',
 ): number | undefined {
-	return expiresOn != null ? getDateDifference(Date.now(), new Date(expiresOn), unit) : undefined;
+	return expiresOn != null ? getDateDifference(Date.now(), new Date(expiresOn), unit, Math.round) : undefined;
 }
 
 export function isSubscriptionPaid(subscription: Optional<Subscription, 'state'>): boolean {
