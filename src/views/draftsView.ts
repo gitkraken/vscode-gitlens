@@ -1,4 +1,4 @@
-import type { CancellationToken } from 'vscode';
+import type { CancellationToken, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { RepositoriesViewConfig } from '../config';
 import { Commands } from '../constants';
@@ -91,15 +91,16 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 		return new DraftsViewNode(this);
 	}
 
-	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
-		if (!(await ensurePlusFeaturesEnabled())) return;
-
+	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
 		if (this._disposable == null) {
-			// 	this._disposable = Disposable.from(
-			// 		this.container.drafts.onDidResetDrafts(() => void this.ensureRoot().triggerChange(true)),
-			// 	);
 			this._disposable = Disposable.from(this.container.subscription.onDidChange(() => this.refresh(true), this));
 		}
+
+		super.onVisibilityChanged(e);
+	}
+
+	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
+		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		return super.show(options);
 	}
