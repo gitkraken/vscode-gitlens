@@ -16151,8 +16151,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Worktrees help you multitask by minimizing the context switching between branches, allowing you to easily work on different branches of a repository simultaneously.\n\nYou can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace.",
-				"when": "!gitlens:plus:required || gitlens:plus:state == 0"
+				"contents": "[Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) — minimizes context switching by allowing you to work on multiple branches simultaneously."
 			},
 			{
 				"view": "gitlens.views.worktrees",
@@ -16161,27 +16160,27 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "You must verify your email before you can continue.\n\n[Resend verification email](command:gitlens.plus.resendVerification)\n\n[Refresh verification status](command:gitlens.plus.validate)",
+				"contents": "[Resend verification email](command:gitlens.plus.resendVerification)\n\n[Refresh verification status](command:gitlens.plus.validate)\n\nYou must verify your email before you can continue.",
 				"when": "gitlens:plus:state == -1"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview Pro for 3 days, or [sign up](command:gitlens.plus.signUp) to start a full 7-day GitLens Pro trial.\n[✨ Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) — seamlessly work on multiple branches simultaneously.",
+				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview Pro for 3 days, or [sign up](command:gitlens.plus.signUp) to start a full 7-day GitLens Pro trial.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days, or [sign in](command:gitlens.plus.login).\n\n[Start Pro Trial](command:gitlens.plus.signUp)\n[✨ Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) — seamlessly work on multiple branches simultaneously.",
+				"contents": "[Try Pro](command:gitlens.plus.signUp)\n\nYour 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days, or [sign in](command:gitlens.plus.login).",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Your GitLens Pro trial has ended. Please upgrade to continue to use this on privately hosted repos.\n\n[Get GitLens Pro](command:gitlens.plus.purchase)\n[✨ Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) — seamlessly work on multiple branches simultaneously.",
+				"contents": "[Get GitLens Pro](command:gitlens.plus.purchase)\n\nYour GitLens Pro trial has ended. Please upgrade to continue to use this on privately hosted repos.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "You're eligible to reactivate your GitLens Pro trial and experience all the new Pro features — free for another 7 days!\n\n[Try Pro](command:gitlens.plus.reactivateProTrial)\n[✨ Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) — seamlessly work on multiple branches simultaneously.",
+				"contents": "[Try Pro](command:gitlens.plus.reactivateProTrial)\n\nYou're eligible to reactivate your GitLens Pro trial and experience all the new Pro features — free for another 7 days!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 5"
 			}
 		],
