@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [14.8.1] - 2024-02-15
+
 ### Added
 
 - Adds a _Create New Branch..._ option to the _Git Switch to..._ command to easily create a new branch to switch to &mdash; closes [#3138](https://github.com/gitkraken/vscode-gitlens/issues/3138)
@@ -5220,7 +5222,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.8.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.8.1...HEAD
+[14.8.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.8.0...gitkraken:v14.8.1
 [14.8.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.7.0...gitkraken:v14.8.0
 [14.7.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.6.1...gitkraken:v14.7.0
 [14.6.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.6.0...gitkraken:v14.6.1
