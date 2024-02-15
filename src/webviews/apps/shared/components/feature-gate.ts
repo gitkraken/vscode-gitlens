@@ -1,6 +1,7 @@
-import { css, html, LitElement, nothing } from 'lit';
+import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { isSubscriptionStatePaidOrTrial, SubscriptionState } from '../../../../plus/gk/account/subscription';
+import type { SubscriptionState } from '../../../../plus/gk/account/subscription';
+import { isSubscriptionStatePaidOrTrial } from '../../../../plus/gk/account/subscription';
 import '../../plus/shared/components/feature-gate-plus-state';
 
 @customElement('gk-feature-gate')
@@ -103,18 +104,9 @@ export class FeatureGate extends LitElement {
 		this.hidden = false;
 		return html`
 			<section>
-				<slot>
-					<slot name="feature" hidden=${this.state === SubscriptionState.Free ? nothing : ''}></slot>
-				</slot>
+				<slot></slot>
+				<slot name="feature"></slot>
 				<gk-feature-gate-plus-state appearance=${appearance} .state=${this.state}></gk-feature-gate-plus-state>
-				<slot
-					name="feature-short"
-					hidden=${this.state === SubscriptionState.FreePreviewTrialExpired ||
-					this.state === SubscriptionState.FreePlusTrialExpired ||
-					this.state === SubscriptionState.FreePlusTrialReactivationEligible
-						? nothing
-						: ''}
-				></slot>
 			</section>
 		`;
 	}

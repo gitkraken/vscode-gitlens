@@ -63,19 +63,19 @@ export class FeatureGatePlusState extends LitElement {
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:
 				return html`
-					<p>You must verify your email before you can continue.</p>
 					<gl-button appearance="${appearance}" href="command:gitlens.plus.resendVerification"
 						>Resend verification email</gl-button
 					>
 					<gl-button appearance="${appearance}" href="command:gitlens.plus.validate"
 						>Refresh verification status</gl-button
 					>
+					<p>You must verify your email before you can continue.</p>
 				`;
 
 			case SubscriptionState.Free:
 				return html`
 					<gl-button appearance="${appearance}" href="command:gitlens.plus.startPreviewTrial"
-						>Preview Now</gl-button
+						>Preview Pro</gl-button
 					>
 					<p>
 						Preview Pro for 3 days, or
@@ -86,15 +86,18 @@ export class FeatureGatePlusState extends LitElement {
 
 			case SubscriptionState.FreePreviewTrialExpired:
 				return html`
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.signUp">Try Pro</gl-button>
 					<p>
 						Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days, or
 						<a href="command:gitlens.plus.login">sign in</a>.
 					</p>
-					<gl-button appearance="${appearance}" href="command:gitlens.plus.signUp">Start Pro Trial</gl-button>
 				`;
 
 			case SubscriptionState.FreePlusTrialExpired:
 				return html`
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.purchase"
+						>Get GitLens Pro</gl-button
+					>
 					<p>
 						Your GitLens Pro trial has ended. Please upgrade to continue to use this on privately hosted
 						repos.
@@ -113,20 +116,17 @@ export class FeatureGatePlusState extends LitElement {
 								Special: <b>50% off first seat of Pro</b> — only $4/month!<br />
 							</p>`,
 					)}
-					<gl-button appearance="${appearance}" href="command:gitlens.plus.purchase"
-						>Get GitLens Pro</gl-button
-					>
 				`;
 
 			case SubscriptionState.FreePlusTrialReactivationEligible:
 				return html`
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.reactivateProTrial"
+						>Try Pro</gl-button
+					>
 					<p>
 						You're eligible to reactivate your GitLens Pro trial and experience all the new Pro features —
 						free for another 7 days!
 					</p>
-					<gl-button appearance="${appearance}" href="command:gitlens.plus.reactivateProTrial"
-						>Try Pro</gl-button
-					>
 				`;
 		}
 

@@ -1365,18 +1365,9 @@ export function GraphWrapper({
 					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#commit-graph-%e2%9c%a8">
 						Commit Graph
 					</a>{' '}
-					&mdash; helps you easily visualize your repository and keep track of all work in progress.
-					<br />
-					<br />
-					Use the rich commit search to find exactly what you're looking for. It's powerful filters allow you
-					to search by a specific commit, message, author, a changed file or files, or even a specific code
+					&mdash; easily visualize your repository and keep track of all work in progress. Use the rich commit
+					search to find a specific commit, message, author, a changed file or files, or even a specific code
 					change.
-				</p>
-				<p slot="feature-short">
-					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#commit-graph-%e2%9c%a8">
-						Commit Graph
-					</a>{' '}
-					&mdash; easily visualize your repository and keep track of work in progress all in one view.
 				</p>
 			</FeatureGate>
 			{graphConfig?.minimap && (
