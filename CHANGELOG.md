@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes incorrect organization self-hosting message when creating a Cloud Patch
+
 ## [14.8.1] - 2024-02-15
 
 ### Added
