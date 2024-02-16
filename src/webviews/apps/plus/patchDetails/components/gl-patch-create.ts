@@ -253,13 +253,13 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 							<a
 								href="https://www.gitkraken.com/solutions/cloud-patches"
 								title="Learn more about Cloud Patches"
-								aria-label="Learn more about GitKraken security"
+								aria-label="Learn more about Cloud Patches"
 								>Cloud Patches</a
 							>
 							are
 							<a
 								href="https://help.gitkraken.com/gitlens/security"
-								title="Learn more about Cloud Patches"
+								title="Learn more about GitKraken security"
 								aria-label="Learn more about GitKraken security"
 								>securely stored</a
 							>
@@ -272,7 +272,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 							<a
 								href="https://www.gitkraken.com/solutions/cloud-patches"
 								title="Learn more about Cloud Patches"
-								aria-label="Learn more about GitKraken security"
+								aria-label="Learn more about Cloud Patches"
 								>Cloud Patch</a
 							>
 							will be securely stored in your organization's self-hosted storage
