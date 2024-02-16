@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [14.8.2] - 2024-02-16
+
 ### Fixed
 
 - Fixes incorrect organization self-hosting message when creating a Cloud Patch
@@ -5226,7 +5228,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.8.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.8.2...HEAD
+[14.8.2]: https://github.com/gitkraken/vscode-gitlens/compare/v14.8.1...gitkraken:v14.8.2
 [14.8.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.8.0...gitkraken:v14.8.1
 [14.8.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.7.0...gitkraken:v14.8.0
 [14.7.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.6.1...gitkraken:v14.7.0
