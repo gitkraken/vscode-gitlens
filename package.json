@@ -2667,7 +2667,7 @@
 							"string",
 							"null"
 						],
-						"default": "relative",
+						"default": null,
 						"enum": [
 							"relative",
 							"absolute"
