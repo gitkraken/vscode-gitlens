@@ -456,18 +456,24 @@ export class SettingsApp extends App<State> {
 			switch (op) {
 				case '=': {
 					// Equals
-					let value = changes[lhs];
+					let value: string | boolean | null | undefined = changes[lhs];
 					if (value === undefined) {
-						value = this.getSettingValue<string | boolean>(lhs) ?? false;
+						value = this.getSettingValue<string | boolean>(lhs);
+						if (value === undefined || (value === null && typeof rhs !== 'string')) {
+							value = false;
+						}
 					}
 					state = rhs !== undefined ? rhs === String(value) : Boolean(value);
 					break;
 				}
 				case '!': {
 					// Not equals
-					let value = changes[lhs];
+					let value: string | boolean | null | undefined = changes[lhs];
 					if (value === undefined) {
-						value = this.getSettingValue<string | boolean>(lhs) ?? false;
+						value = this.getSettingValue<string | boolean>(lhs);
+						if (value === undefined || (value === null && typeof rhs !== 'string')) {
+							value = false;
+						}
 					}
 					state = rhs !== undefined ? rhs !== String(value) : !value;
 					break;
@@ -524,6 +530,7 @@ export class SettingsApp extends App<State> {
 				} else if (el.dataset.valueOff != null) {
 					const value = this.getSettingValue<string>(el.name);
 					el.checked = el.dataset.valueOff !== value;
+					el.indeterminate = value === null;
 				} else {
 					el.checked = this.getSettingValue<boolean>(el.name) ?? false;
 				}
@@ -604,12 +611,12 @@ export class SettingsApp extends App<State> {
 				}
 
 				if (!value) {
-					value = el.dataset.settingPreviewDefault;
+					const lookup = el.dataset.settingPreviewDefaultLookup;
+					if (lookup != null) {
+						value = this.getSettingValue<string>(lookup);
+					}
 					if (value == null) {
-						const lookup = el.dataset.settingPreviewDefaultLookup;
-						if (lookup != null) {
-							value = this.getSettingValue<string>(lookup);
-						}
+						value = el.dataset.settingPreviewDefault;
 					}
 				}
 
