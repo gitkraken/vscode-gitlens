@@ -1,6 +1,6 @@
 import { Disposable, window } from 'vscode';
 import type { Container } from '../../../container';
-import { onDidChangeContext, setContext } from '../../../system/context';
+import { setContext } from '../../../system/context';
 import { gate } from '../../../system/decorators/gate';
 import { once } from '../../../system/function';
 import { Logger } from '../../../system/logger';
