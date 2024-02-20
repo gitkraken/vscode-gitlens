@@ -975,7 +975,16 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			if (state.flags.includes('--reveal-explorer')) {
 				void revealInFileExplorer(state.worktree.uri);
 			} else {
-				openWorkspace(state.worktree.uri, { location: convertOpenFlagsToLocation(state.flags) });
+				let name;
+
+				const repo = (await state.repo.getMainRepository()) ?? state.repo;
+				if (repo.name !== state.worktree.name) {
+					name = `${repo.name}: ${state.worktree.name}`;
+				} else {
+					name = state.worktree.name;
+				}
+
+				openWorkspace(state.worktree.uri, { location: convertOpenFlagsToLocation(state.flags), name: name });
 			}
 		}
 	}
@@ -992,14 +1001,15 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				label: `Open Worktree in a New Window`,
 				detail: 'Will open the worktree in a new window',
 			}),
+			createFlagsQuickPickItem<OpenFlags>(state.flags, ['--add-to-workspace'], {
+				label: `Add Worktree to Workspace`,
+				detail: 'Will add the worktree into the current workspace',
+			}),
 		];
 
 		if (!state.openOnly) {
 			confirmations.push(
-				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--add-to-workspace'], {
-					label: `Add Worktree to Workspace`,
-					detail: 'Will add the worktree into the current workspace',
-				}),
+				createQuickPickSeparator(),
 				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--reveal-explorer'], {
 					label: `Reveal in File Explorer`,
 					description: `$(folder) ${truncateLeft(GitWorktree.getFriendlyPath(state.worktree.uri), 40)}`,
