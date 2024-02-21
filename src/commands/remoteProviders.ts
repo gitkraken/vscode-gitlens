@@ -71,10 +71,10 @@ export class ConnectRemoteProviderCommand extends Command {
 					'Choose which repository to connect to the remote provider',
 					[...repos.keys()],
 				);
-				if (pick?.item == null) return undefined;
+				if (pick == null) return undefined;
 
-				repoPath = pick.repoPath;
-				remote = repos.get(pick.item)!;
+				repoPath = pick.path;
+				remote = repos.get(pick)!;
 			}
 		} else if (args?.remote == null) {
 			repoPath = args.repoPath;
@@ -165,10 +165,10 @@ export class DisconnectRemoteProviderCommand extends Command {
 					'Choose which repository to disconnect from the remote provider',
 					[...repos.keys()],
 				);
-				if (pick?.item == null) return undefined;
+				if (pick == null) return undefined;
 
-				repoPath = pick.repoPath;
-				remote = repos.get(pick.item)!;
+				repoPath = pick.path;
+				remote = repos.get(pick)!;
 			}
 		} else if (args?.remote == null) {
 			repoPath = args.repoPath;

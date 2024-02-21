@@ -342,7 +342,7 @@ export class WorkspacesService implements Disposable {
 				repositoriesToAdd,
 			);
 			if (pick.length === 0) return;
-			chosenRepoPaths = pick.map(p => p.repoPath);
+			chosenRepoPaths = pick.map(p => p.path);
 		} else {
 			chosenRepoPaths = repositoriesToAdd.map(r => r.path);
 		}
@@ -899,7 +899,7 @@ export class WorkspacesService implements Disposable {
 				validRepos,
 			);
 			if (pick.length === 0) return;
-			reposOrRepoPaths = pick.map(p => p.repoPath);
+			reposOrRepoPaths = pick.map(p => p.path);
 		}
 
 		if (reposOrRepoPaths == null) return;

@@ -25,13 +25,13 @@ export async function getBestRepositoryOrShowPicker(
 	}
 	if (repository != null) return repository;
 
-	const pick = await showRepositoryPicker(title, placeholder, options);
+	const pick = await showRepositoryPicker(title, placeholder, undefined, options);
 	if (pick instanceof CommandQuickPickItem) {
 		await pick.execute();
 		return undefined;
 	}
 
-	return pick?.item;
+	return pick;
 }
 
 export async function getRepositoryOrShowPicker(
@@ -54,50 +54,35 @@ export async function getRepositoryOrShowPicker(
 	}
 	if (repository != null) return repository;
 
-	const pick = await showRepositoryPicker(title, placeholder, options);
+	const pick = await showRepositoryPicker(title, placeholder, undefined, options);
 	if (pick instanceof CommandQuickPickItem) {
 		void (await pick.execute());
 		return undefined;
 	}
 
-	return pick?.item;
+	return pick;
 }
 
 export async function showRepositoryPicker(
 	title: string | undefined,
 	placeholder?: string,
 	repositories?: Repository[],
-): Promise<RepositoryQuickPickItem | undefined>;
-export async function showRepositoryPicker(
-	title: string | undefined,
-	placeholder?: string,
-	options?: { filter?: (r: Repository) => Promise<boolean> },
-): Promise<RepositoryQuickPickItem | undefined>;
-export async function showRepositoryPicker(
-	title: string | undefined,
-	placeholder: string = 'Choose a repository',
-	repositoriesOrOptions?: Repository[] | { filter?: (r: Repository) => Promise<boolean> },
-): Promise<RepositoryQuickPickItem | undefined> {
-	if (
-		repositoriesOrOptions != null &&
-		!Array.isArray(repositoriesOrOptions) &&
-		repositoriesOrOptions.filter == null
-	) {
-		repositoriesOrOptions = undefined;
-	}
+	options?: { filter?: (r: Repository) => Promise<boolean>; picked?: Repository },
+): Promise<Repository | undefined> {
+	repositories ??= Container.instance.git.openRepositories;
 
 	let items: RepositoryQuickPickItem[];
-	if (repositoriesOrOptions == null || Array.isArray(repositoriesOrOptions)) {
+	if (options?.filter == null) {
 		items = await Promise.all<Promise<RepositoryQuickPickItem>>(
-			map(repositoriesOrOptions ?? Container.instance.git.openRepositories, r =>
-				createRepositoryQuickPickItem(r, undefined, { branch: true, status: true }),
+			map(repositories ?? Container.instance.git.openRepositories, r =>
+				createRepositoryQuickPickItem(r, r === options?.picked, { branch: true, status: true }),
 			),
 		);
 	} else {
-		const { filter } = repositoriesOrOptions;
+		const { filter } = options;
 		items = await filterMapAsync(Container.instance.git.openRepositories, async r =>
-			(await filter!(r))
-				? createRepositoryQuickPickItem(r, undefined, { branch: true, status: true })
+			(await filter(r))
+				? createRepositoryQuickPickItem(r, r === options?.picked, { branch: true, status: true })
 				: undefined,
 		);
 	}
@@ -128,9 +113,8 @@ export async function showRepositoryPicker(
 
 			quickpick.show();
 		});
-		if (pick == null) return undefined;
 
-		return pick;
+		return pick?.item;
 	} finally {
 		quickpick.dispose();
 		disposables.forEach(d => void d.dispose());
@@ -141,17 +125,17 @@ export async function showRepositoriesPicker(
 	title: string | undefined,
 	placeholder?: string,
 	repositories?: Repository[],
-): Promise<readonly RepositoryQuickPickItem[]>;
+): Promise<readonly Repository[]>;
 export async function showRepositoriesPicker(
 	title: string | undefined,
 	placeholder?: string,
 	options?: { filter?: (r: Repository) => Promise<boolean> },
-): Promise<readonly RepositoryQuickPickItem[]>;
+): Promise<readonly Repository[]>;
 export async function showRepositoriesPicker(
 	title: string | undefined,
 	placeholder: string = 'Choose a repository',
 	repositoriesOrOptions?: Repository[] | { filter?: (r: Repository) => Promise<boolean> },
-): Promise<readonly RepositoryQuickPickItem[]> {
+): Promise<readonly Repository[]> {
 	if (
 		repositoriesOrOptions != null &&
 		!Array.isArray(repositoriesOrOptions) &&
@@ -204,7 +188,7 @@ export async function showRepositoriesPicker(
 		});
 		if (picks == null) return [];
 
-		return picks;
+		return picks.map(p => p.item);
 	} finally {
 		quickpick.dispose();
 		disposables.forEach(d => void d.dispose());

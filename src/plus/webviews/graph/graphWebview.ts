@@ -1235,7 +1235,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		);
 		if (pick == null) return;
 
-		this.repository = pick.item;
+		this.repository = pick;
 	}
 
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =
