@@ -551,24 +551,36 @@ export class StashGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				if (
-					ex instanceof StashPushError &&
-					ex.reason === StashPushErrorReason.ConflictingStagedAndUnstagedLines &&
-					state.flags.includes('--staged')
-				) {
-					const confirm = { title: 'Yes' };
-					const cancel = { title: 'No', isCloseAffordance: true };
-					const result = await window.showErrorMessage(ex.message, { modal: true }, confirm, cancel);
-
-					if (result === confirm) {
-						if (state.uris == null) {
-							state.uris = state.onlyStagedUris;
+				if (ex instanceof StashPushError) {
+					if (ex.reason === StashPushErrorReason.NothingToSave) {
+						if (!state.flags.includes('--include-untracked')) {
+							void window.showWarningMessage(
+								'No changes to stash. Choose the "Push & Include Untracked" option, if you have untracked files.',
+							);
+							continue;
 						}
-						state.flags.splice(state.flags.indexOf('--staged'), 1);
-						continue;
-					}
 
-					return;
+						void window.showInformationMessage('No changes to stash.');
+						return;
+					}
+					if (
+						ex.reason === StashPushErrorReason.ConflictingStagedAndUnstagedLines &&
+						state.flags.includes('--staged')
+					) {
+						const confirm = { title: 'Yes' };
+						const cancel = { title: 'No', isCloseAffordance: true };
+						const result = await window.showErrorMessage(ex.message, { modal: true }, confirm, cancel);
+
+						if (result === confirm) {
+							if (state.uris == null) {
+								state.uris = state.onlyStagedUris;
+							}
+							state.flags.splice(state.flags.indexOf('--staged'), 1);
+							continue;
+						}
+
+						return;
+					}
 				}
 
 				const msg: string = ex?.message ?? ex?.toString() ?? '';

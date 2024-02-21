@@ -63,7 +63,7 @@ export class BlameIgnoreRevsFileBadRevisionError extends Error {
 }
 
 export const enum StashApplyErrorReason {
-	WorkingChanges = 1,
+	WorkingChanges,
 }
 
 export class StashApplyError extends Error {
@@ -98,7 +98,8 @@ export class StashApplyError extends Error {
 }
 
 export const enum StashPushErrorReason {
-	ConflictingStagedAndUnstagedLines = 1,
+	ConflictingStagedAndUnstagedLines,
+	NothingToSave,
 }
 
 export class StashPushError extends Error {
@@ -126,6 +127,9 @@ export class StashPushError extends Error {
 					message =
 						'Stash was created, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s).\n\nDo you want to try again by stashing both your staged and unstaged changes?';
 					break;
+				case StashPushErrorReason.NothingToSave:
+					message = 'No files to stash';
+					break;
 				default:
 					message = 'Unable to stash';
 			}
@@ -139,7 +143,7 @@ export class StashPushError extends Error {
 }
 
 export const enum PushErrorReason {
-	RemoteAhead = 1,
+	RemoteAhead,
 	TipBehind,
 	PushRejected,
 	PushRejectedWithLease,
@@ -215,17 +219,17 @@ export class PushError extends Error {
 }
 
 export const enum PullErrorReason {
-	Conflict = 1,
-	GitIdentity = 2,
-	RemoteConnection = 3,
-	UnstagedChanges = 4,
-	UnmergedFiles = 5,
-	UncommittedChanges = 6,
-	OverwrittenChanges = 7,
-	RefLocked = 8,
-	RebaseMultipleBranches = 9,
-	TagConflict = 10,
-	Other = 11,
+	Conflict,
+	GitIdentity,
+	RemoteConnection,
+	UnstagedChanges,
+	UnmergedFiles,
+	UncommittedChanges,
+	OverwrittenChanges,
+	RefLocked,
+	RebaseMultipleBranches,
+	TagConflict,
+	Other,
 }
 
 export class PullError extends Error {
@@ -298,10 +302,10 @@ export class PullError extends Error {
 }
 
 export const enum FetchErrorReason {
-	NoFastForward = 1,
-	NoRemote = 2,
-	RemoteConnection = 3,
-	Other = 4,
+	NoFastForward,
+	NoRemote,
+	RemoteConnection,
+	Other,
 }
 
 export class FetchError extends Error {
@@ -407,8 +411,8 @@ export class WorkspaceUntrustedError extends Error {
 }
 
 export const enum WorktreeCreateErrorReason {
-	AlreadyCheckedOut = 1,
-	AlreadyExists = 2,
+	AlreadyCheckedOut,
+	AlreadyExists,
 }
 
 export class WorktreeCreateError extends Error {
@@ -449,8 +453,8 @@ export class WorktreeCreateError extends Error {
 }
 
 export const enum WorktreeDeleteErrorReason {
-	HasChanges = 1,
-	MainWorkingTree = 2,
+	HasChanges,
+	MainWorkingTree,
 }
 
 export class WorktreeDeleteError extends Error {

@@ -2085,7 +2085,11 @@ export class Git {
 		}
 
 		try {
-			void (await this.git<string>({ cwd: repoPath, stdin: stdin }, ...params));
+			const data = await this.git<string>({ cwd: repoPath, stdin: stdin }, ...params);
+			if (data.includes('No local changes to save')) {
+				throw new StashPushError(StashPushErrorReason.NothingToSave);
+				return;
+			}
 		} catch (ex) {
 			if (
 				ex instanceof RunError &&
