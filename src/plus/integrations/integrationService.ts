@@ -150,14 +150,15 @@ export class IntegrationService implements Disposable {
 	}
 
 	async getMyIssues(
-		providerIds?: ProviderId[],
+		providerIds?: HostedProviderId[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined> {
 		const providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined> = new Map();
-		for (const integration of this._integrations.values()) {
-			if (providerIds == null || providerIds.includes(integration.id)) {
-				providers.set(integration, undefined);
-			}
+		for (const providerId of providerIds?.length ? providerIds : Object.values(HostedProviderId)) {
+			const provider = this.get(providerId);
+			if (provider == null) continue;
+
+			providers.set(provider, undefined);
 		}
 		if (providers.size === 0) return undefined;
 
@@ -218,14 +219,15 @@ export class IntegrationService implements Disposable {
 	}
 
 	async getMyPullRequests(
-		providerIds?: ProviderId[],
+		providerIds?: HostedProviderId[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined> {
 		const providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined> = new Map();
-		for (const integration of this._integrations.values()) {
-			if (providerIds == null || providerIds.includes(integration.id)) {
-				providers.set(integration, undefined);
-			}
+		for (const providerId of providerIds?.length ? providerIds : Object.values(HostedProviderId)) {
+			const provider = this.get(providerId);
+			if (provider == null) continue;
+
+			providers.set(provider, undefined);
 		}
 		if (providers.size === 0) return undefined;
 
