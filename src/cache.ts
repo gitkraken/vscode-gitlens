@@ -5,7 +5,7 @@ import type { DefaultBranch } from './git/models/defaultBranch';
 import type { IssueOrPullRequest } from './git/models/issue';
 import type { PullRequest } from './git/models/pullRequest';
 import type { RepositoryMetadata } from './git/models/repositoryMetadata';
-import type { ProviderIntegration, RepositoryDescriptor } from './plus/integrations/providerIntegration';
+import type { HostingIntegration, ResourceDescriptor } from './plus/integrations/integration';
 import { isPromise } from './system/promise';
 
 type Caches = {
@@ -72,8 +72,8 @@ export class CacheProvider implements Disposable {
 
 	getIssueOrPullRequest(
 		id: string,
-		repo: RepositoryDescriptor,
-		integration: ProviderIntegration | undefined,
+		repo: ResourceDescriptor,
+		integration: HostingIntegration | undefined,
 		cacheable: Cacheable<IssueOrPullRequest>,
 	): CacheResult<IssueOrPullRequest> {
 		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
@@ -95,8 +95,8 @@ export class CacheProvider implements Disposable {
 
 	getPullRequestForBranch(
 		branch: string,
-		repo: RepositoryDescriptor,
-		integration: ProviderIntegration | undefined,
+		repo: ResourceDescriptor,
+		integration: HostingIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
 	): CacheResult<PullRequest> {
 		const cache = 'prByBranch';
@@ -107,8 +107,8 @@ export class CacheProvider implements Disposable {
 
 	getPullRequestForSha(
 		sha: string,
-		repo: RepositoryDescriptor,
-		integration: ProviderIntegration | undefined,
+		repo: ResourceDescriptor,
+		integration: HostingIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
 	): CacheResult<PullRequest> {
 		const cache = 'prsBySha';
@@ -118,8 +118,8 @@ export class CacheProvider implements Disposable {
 	}
 
 	getRepositoryDefaultBranch(
-		repo: RepositoryDescriptor,
-		integration: ProviderIntegration | undefined,
+		repo: ResourceDescriptor,
+		integration: HostingIntegration | undefined,
 		cacheable: Cacheable<DefaultBranch>,
 	): CacheResult<DefaultBranch> {
 		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
@@ -127,8 +127,8 @@ export class CacheProvider implements Disposable {
 	}
 
 	getRepositoryMetadata(
-		repo: RepositoryDescriptor,
-		integration: ProviderIntegration | undefined,
+		repo: ResourceDescriptor,
+		integration: HostingIntegration | undefined,
 		cacheable: Cacheable<RepositoryMetadata>,
 	): CacheResult<RepositoryMetadata> {
 		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
@@ -220,6 +220,6 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 	}
 }
 
-function getRemoteKeyAndEtag(repo: RepositoryDescriptor, integration?: ProviderIntegration) {
+function getRemoteKeyAndEtag(repo: ResourceDescriptor, integration?: HostingIntegration) {
 	return { key: repo.key, etag: `${repo.key}:${integration?.maybeConnected ?? false}` };
 }
