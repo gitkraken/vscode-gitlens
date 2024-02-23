@@ -77,7 +77,7 @@ export class AuthenticationConnection implements Disposable {
 			signUp ? 'register' : 'login',
 			`${scopes.includes('gitlens') ? 'source=gitlens&' : ''}state=${encodeURIComponent(
 				gkstate,
-			)}&redirect_uri=${encodeURIComponent(callbackUri.toString())}`,
+			)}&redirect_uri=${encodeURIComponent(callbackUri.toString(true))}`,
 		);
 
 		void (await openUrl(uri.toString(true)));
