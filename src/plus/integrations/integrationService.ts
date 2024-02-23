@@ -21,7 +21,6 @@ import { AzureDevOpsIntegration } from './providers/azureDevOps';
 import { BitbucketIntegration } from './providers/bitbucket';
 import { GitHubEnterpriseIntegration, GitHubIntegration } from './providers/github';
 import { GitLabIntegration, GitLabSelfHostedIntegration } from './providers/gitlab';
-import type { ProviderId } from './providers/models';
 import { HostedProviderId, isSelfHostedProviderId, SelfHostedProviderId } from './providers/models';
 import { ProvidersApi } from './providers/providersApi';
 
