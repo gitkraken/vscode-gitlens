@@ -7,18 +7,18 @@ import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../.
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
-import type { SupportedProviderIds } from '../providerIntegration';
-import { ensurePaidPlan, ProviderIntegration } from '../providerIntegration';
-import { HostedProviderId, providersMetadata, SelfHostedProviderId } from './models';
+import type { SupportedIntegrationIds } from '../integration';
+import { ensurePaidPlan, HostingIntegration } from '../integration';
+import { HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
 import type { ProvidersApi } from './providersApi';
 
-const metadata = providersMetadata[HostedProviderId.GitLab];
+const metadata = providersMetadata[HostingIntegrationId.GitLab];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: metadata.id,
 	scopes: metadata.scopes,
 });
 
-const enterpriseMetadata = providersMetadata[SelfHostedProviderId.GitLabSelfHosted];
+const enterpriseMetadata = providersMetadata[SelfHostedIntegrationId.GitLabSelfHosted];
 const enterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: enterpriseMetadata.id,
 	scopes: enterpriseMetadata.scopes,
@@ -30,7 +30,7 @@ export type GitLabRepositoryDescriptor = {
 	name: string;
 };
 
-abstract class GitLabIntegrationBase<ID extends SupportedProviderIds> extends ProviderIntegration<
+abstract class GitLabIntegrationBase<ID extends SupportedIntegrationIds> extends HostingIntegration<
 	ID,
 	GitLabRepositoryDescriptor
 > {
@@ -151,9 +151,9 @@ abstract class GitLabIntegrationBase<ID extends SupportedProviderIds> extends Pr
 	}
 }
 
-export class GitLabIntegration extends GitLabIntegrationBase<HostedProviderId.GitLab> {
+export class GitLabIntegration extends GitLabIntegrationBase<HostingIntegrationId.GitLab> {
 	readonly authProvider = authProvider;
-	readonly id = HostedProviderId.GitLab;
+	readonly id = HostingIntegrationId.GitLab;
 	protected readonly key = this.id;
 	readonly name: string = 'GitLab';
 	get domain(): string {
@@ -165,9 +165,9 @@ export class GitLabIntegration extends GitLabIntegrationBase<HostedProviderId.Gi
 	}
 }
 
-export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<SelfHostedProviderId.GitLabSelfHosted> {
+export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<SelfHostedIntegrationId.GitLabSelfHosted> {
 	readonly authProvider = enterpriseAuthProvider;
-	readonly id = SelfHostedProviderId.GitLabSelfHosted;
+	readonly id = SelfHostedIntegrationId.GitLabSelfHosted;
 	protected readonly key = `${this.id}:${this.domain}` as const;
 	readonly name = 'GitLab Self-Hosted';
 	get domain(): string {

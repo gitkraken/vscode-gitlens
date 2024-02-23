@@ -3,7 +3,7 @@ import { env } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
-import type { RepositoryDescriptor } from '../../plus/integrations/providerIntegration';
+import type { ResourceDescriptor } from '../../plus/integrations/integration';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { openUrl } from '../../system/utils';
@@ -23,7 +23,7 @@ export type RemoteProviderId =
 	| 'gitlab'
 	| 'google-source';
 
-export abstract class RemoteProvider<T extends RepositoryDescriptor = RepositoryDescriptor>
+export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDescriptor>
 	implements RemoteProviderReference
 {
 	protected readonly _name: string | undefined;

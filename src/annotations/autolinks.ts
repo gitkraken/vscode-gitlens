@@ -7,7 +7,7 @@ import type { IssueOrPullRequest } from '../git/models/issue';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/models/issue';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProviderReference } from '../git/models/remoteProvider';
-import type { RepositoryDescriptor } from '../plus/integrations/providerIntegration';
+import type { ResourceDescriptor } from '../plus/integrations/integration';
 import type { MaybePausedResult } from '../system/cancellation';
 import { configuration } from '../system/configuration';
 import { fromNow } from '../system/date';
@@ -31,7 +31,7 @@ export interface Autolink {
 	type?: AutolinkType;
 	description?: string;
 
-	descriptor?: RepositoryDescriptor;
+	descriptor?: ResourceDescriptor;
 }
 
 export type EnrichedAutolink = [

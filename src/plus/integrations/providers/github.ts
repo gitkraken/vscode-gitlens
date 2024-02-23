@@ -7,18 +7,18 @@ import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../.
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
-import type { SupportedProviderIds } from '../providerIntegration';
-import { ensurePaidPlan, ProviderIntegration } from '../providerIntegration';
-import { HostedProviderId, providersMetadata, SelfHostedProviderId } from './models';
+import type { SupportedIntegrationIds } from '../integration';
+import { ensurePaidPlan, HostingIntegration } from '../integration';
+import { HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
 import type { ProvidersApi } from './providersApi';
 
-const metadata = providersMetadata[HostedProviderId.GitHub];
+const metadata = providersMetadata[HostingIntegrationId.GitHub];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: metadata.id,
 	scopes: metadata.scopes,
 });
 
-const enterpriseMetadata = providersMetadata[SelfHostedProviderId.GitHubEnterprise];
+const enterpriseMetadata = providersMetadata[SelfHostedIntegrationId.GitHubEnterprise];
 const enterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: enterpriseMetadata.id,
 	scopes: enterpriseMetadata.scopes,
@@ -30,7 +30,7 @@ export type GitHubRepositoryDescriptor = {
 	name: string;
 };
 
-abstract class GitHubIntegrationBase<ID extends SupportedProviderIds> extends ProviderIntegration<
+abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends HostingIntegration<
 	ID,
 	GitHubRepositoryDescriptor
 > {
@@ -169,9 +169,9 @@ abstract class GitHubIntegrationBase<ID extends SupportedProviderIds> extends Pr
 	}
 }
 
-export class GitHubIntegration extends GitHubIntegrationBase<HostedProviderId.GitHub> {
+export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationId.GitHub> {
 	readonly authProvider = authProvider;
-	readonly id = HostedProviderId.GitHub;
+	readonly id = HostingIntegrationId.GitHub;
 	protected readonly key = this.id;
 	readonly name: string = 'GitHub';
 	get domain(): string {
@@ -183,9 +183,9 @@ export class GitHubIntegration extends GitHubIntegrationBase<HostedProviderId.Gi
 	}
 }
 
-export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHostedProviderId.GitHubEnterprise> {
+export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHostedIntegrationId.GitHubEnterprise> {
 	readonly authProvider = enterpriseAuthProvider;
-	readonly id = SelfHostedProviderId.GitHubEnterprise;
+	readonly id = SelfHostedIntegrationId.GitHubEnterprise;
 	protected readonly key = `${this.id}:${this.domain}` as const;
 	readonly name = 'GitHub Enterprise';
 	get domain(): string {

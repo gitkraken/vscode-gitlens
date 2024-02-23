@@ -19,7 +19,7 @@ import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '.
 import type { Subscription } from '../plus/gk/account/subscription';
 import { isSubscriptionPaidPlan, SubscriptionPlanId } from '../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
-import type { ProviderIntegration } from '../plus/integrations/providerIntegration';
+import type { HostingIntegration } from '../plus/integrations/integration';
 import type { RepoComparisonKey } from '../repositories';
 import { asRepoComparisonKey, Repositories } from '../repositories';
 import { joinUnique } from '../system/array';
@@ -2101,7 +2101,7 @@ export class GitProviderService implements Disposable {
 	async getBestRemoteWithIntegration(
 		repoPath: string | Uri,
 		options?: {
-			filter?: (remote: GitRemote, integration: ProviderIntegration) => boolean;
+			filter?: (remote: GitRemote, integration: HostingIntegration) => boolean;
 			includeDisconnected?: boolean;
 		},
 		cancellation?: CancellationToken,

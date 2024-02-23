@@ -7,25 +7,25 @@ import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../.
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { Logger } from '../../../system/logger';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
-import type { RepositoryDescriptor } from '../providerIntegration';
-import { ProviderIntegration } from '../providerIntegration';
+import type { ResourceDescriptor } from '../integration';
+import { HostingIntegration } from '../integration';
 import type { ProviderRepository } from './models';
-import { HostedProviderId, providersMetadata } from './models';
+import { HostingIntegrationId, providersMetadata } from './models';
 
-const metadata = providersMetadata[HostedProviderId.AzureDevOps];
+const metadata = providersMetadata[HostingIntegrationId.AzureDevOps];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 
-interface AzureRepositoryDescriptor extends RepositoryDescriptor {
+interface AzureRepositoryDescriptor extends ResourceDescriptor {
 	owner: string;
 	name: string;
 }
 
-export class AzureDevOpsIntegration extends ProviderIntegration<
-	HostedProviderId.AzureDevOps,
+export class AzureDevOpsIntegration extends HostingIntegration<
+	HostingIntegrationId.AzureDevOps,
 	AzureRepositoryDescriptor
 > {
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
-	readonly id = HostedProviderId.AzureDevOps;
+	readonly id = HostingIntegrationId.AzureDevOps;
 	protected readonly key = this.id;
 	readonly name: string = 'Azure DevOps';
 	get domain(): string {

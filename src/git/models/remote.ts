@@ -2,7 +2,7 @@ import type { ColorTheme } from 'vscode';
 import { Uri, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import type { ProviderIntegration } from '../../plus/integrations/providerIntegration';
+import type { HostingIntegration } from '../../plus/integrations/integration';
 import { memoize } from '../../system/decorators/memoize';
 import { equalsIgnoreCase, sortCompare } from '../../system/string';
 import { isLightTheme } from '../../system/utils';
@@ -71,7 +71,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return bestUrl!;
 	}
 
-	getIntegration(): ProviderIntegration | undefined {
+	getIntegration(): HostingIntegration | undefined {
 		return this.provider != null ? this.container.integrations.getByRemote(this) : undefined;
 	}
 

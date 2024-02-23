@@ -20,29 +20,32 @@ export type ProviderPullRequest = GitPullRequest;
 export type ProviderRepository = GitRepository;
 export type ProviderIssue = Issue;
 
-export type ProviderId = HostedProviderId | SelfHostedProviderId;
+export type IntegrationId = HostingIntegrationId | IssueIntegrationId | SelfHostedIntegrationId;
 
-export enum HostedProviderId {
+export enum HostingIntegrationId {
 	GitHub = 'github',
 	GitLab = 'gitlab',
 	Bitbucket = 'bitbucket',
-	Jira = 'jira',
-	Trello = 'trello',
 	AzureDevOps = 'azureDevOps',
 }
 
-export enum SelfHostedProviderId {
+export enum IssueIntegrationId {
+	Jira = 'jira',
+	Trello = 'trello',
+}
+
+export enum SelfHostedIntegrationId {
 	GitHubEnterprise = 'github-enterprise',
 	GitLabSelfHosted = 'gitlab-self-hosted',
 }
 
-const selfHostedProviderIds: SelfHostedProviderId[] = [
-	SelfHostedProviderId.GitHubEnterprise,
-	SelfHostedProviderId.GitLabSelfHosted,
+const selfHostedIntegrationIds: SelfHostedIntegrationId[] = [
+	SelfHostedIntegrationId.GitHubEnterprise,
+	SelfHostedIntegrationId.GitLabSelfHosted,
 ] as const;
 
-export function isSelfHostedProviderId(id: ProviderId): id is SelfHostedProviderId {
-	return selfHostedProviderIds.includes(id as SelfHostedProviderId);
+export function isSelfHostedIntegrationId(id: IntegrationId): id is SelfHostedIntegrationId {
+	return selfHostedIntegrationIds.includes(id as SelfHostedIntegrationId);
 }
 
 export enum PullRequestFilter {
@@ -191,7 +194,7 @@ export interface ProviderInfo extends ProviderMetadata {
 
 export interface ProviderMetadata {
 	domain: string;
-	id: ProviderId;
+	id: IntegrationId;
 	issuesPagingMode?: PagingMode;
 	pullRequestsPagingMode?: PagingMode;
 	scopes: string[];
@@ -199,13 +202,13 @@ export interface ProviderMetadata {
 	supportedIssueFilters?: IssueFilter[];
 }
 
-export type Providers = Record<ProviderId, ProviderInfo>;
-export type ProvidersMetadata = Record<ProviderId, ProviderMetadata>;
+export type Providers = Record<IntegrationId, ProviderInfo>;
+export type ProvidersMetadata = Record<IntegrationId, ProviderMetadata>;
 
 export const providersMetadata: ProvidersMetadata = {
-	[HostedProviderId.GitHub]: {
+	[HostingIntegrationId.GitHub]: {
 		domain: 'github.com',
-		id: HostedProviderId.GitHub,
+		id: HostingIntegrationId.GitHub,
 		issuesPagingMode: PagingMode.Repos,
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters
@@ -219,9 +222,9 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
-	[SelfHostedProviderId.GitHubEnterprise]: {
+	[SelfHostedIntegrationId.GitHubEnterprise]: {
 		domain: '',
-		id: SelfHostedProviderId.GitHubEnterprise,
+		id: SelfHostedIntegrationId.GitHubEnterprise,
 		issuesPagingMode: PagingMode.Repos,
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters
@@ -235,9 +238,9 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
-	[HostedProviderId.GitLab]: {
+	[HostingIntegrationId.GitLab]: {
 		domain: 'gitlab.com',
-		id: HostedProviderId.GitLab,
+		id: HostingIntegrationId.GitLab,
 		issuesPagingMode: PagingMode.Repo,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'username' property on account for PR filters
@@ -250,9 +253,9 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
 		scopes: ['read_api', 'read_user', 'read_repository'],
 	},
-	[SelfHostedProviderId.GitLabSelfHosted]: {
+	[SelfHostedIntegrationId.GitLabSelfHosted]: {
 		domain: '',
-		id: SelfHostedProviderId.GitLabSelfHosted,
+		id: SelfHostedIntegrationId.GitLabSelfHosted,
 		issuesPagingMode: PagingMode.Repo,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'username' property on account for PR filters
@@ -265,17 +268,17 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
 		scopes: ['read_api', 'read_user', 'read_repository'],
 	},
-	[HostedProviderId.Bitbucket]: {
+	[HostingIntegrationId.Bitbucket]: {
 		domain: 'bitbucket.org',
-		id: HostedProviderId.Bitbucket,
+		id: HostingIntegrationId.Bitbucket,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'id' property on account for PR filters
 		supportedPullRequestFilters: [PullRequestFilter.Author],
 		scopes: ['account:read', 'repository:read', 'pullrequest:read', 'issue:read'],
 	},
-	[HostedProviderId.AzureDevOps]: {
+	[HostingIntegrationId.AzureDevOps]: {
 		domain: 'dev.azure.com',
-		id: HostedProviderId.AzureDevOps,
+		id: HostingIntegrationId.AzureDevOps,
 		issuesPagingMode: PagingMode.Project,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'id' property on account for PR filters
@@ -284,14 +287,14 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
 	},
-	[HostedProviderId.Jira]: {
+	[IssueIntegrationId.Jira]: {
 		domain: 'atlassian.net',
-		id: HostedProviderId.Jira,
+		id: IssueIntegrationId.Jira,
 		scopes: [],
 	},
-	[HostedProviderId.Trello]: {
+	[IssueIntegrationId.Trello]: {
 		domain: 'trello.com',
-		id: HostedProviderId.Trello,
+		id: IssueIntegrationId.Trello,
 		scopes: [],
 	},
 };

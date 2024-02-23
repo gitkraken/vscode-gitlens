@@ -3,12 +3,13 @@ import { authentication } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { Container } from '../../../container';
 import { debug } from '../../../system/decorators/log';
-import type { ProviderId } from '../providers/models';
-import { HostedProviderId, SelfHostedProviderId } from '../providers/models';
+import type { IntegrationId } from '../providers/models';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 import { AzureDevOpsAuthenticationProvider } from './azureDevOps';
 import { BitbucketAuthenticationProvider } from './bitbucket';
 import { GitHubEnterpriseAuthenticationProvider } from './github';
 import { GitLabAuthenticationProvider } from './gitlab';
+import type { ProviderAuthenticationSession } from './models';
 
 interface StoredSession {
 	id: string;
@@ -19,10 +20,11 @@ interface StoredSession {
 		id: string;
 	};
 	scopes: string[];
+	expiresAt?: string;
 }
 
 export interface IntegrationAuthenticationProviderDescriptor {
-	id: ProviderId;
+	id: IntegrationId;
 	scopes: string[];
 }
 
@@ -34,11 +36,13 @@ export interface IntegrationAuthenticationSessionDescriptor {
 
 export interface IntegrationAuthenticationProvider {
 	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string;
-	createSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<AuthenticationSession | undefined>;
+	createSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+	): Promise<ProviderAuthenticationSession | undefined>;
 }
 
 export class IntegrationAuthenticationService implements Disposable {
-	private readonly providers = new Map<ProviderId, IntegrationAuthenticationProvider>();
+	private readonly providers = new Map<IntegrationId, IntegrationAuthenticationProvider>();
 
 	constructor(private readonly container: Container) {}
 
@@ -48,7 +52,7 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	@debug()
 	async createSession(
-		providerId: ProviderId,
+		providerId: IntegrationId,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 	): Promise<AuthenticationSession | undefined> {
 		const provider = this.ensureProvider(providerId);
@@ -64,10 +68,10 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	@debug()
 	async getSession(
-		providerId: ProviderId,
+		providerId: IntegrationId,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
-	): Promise<AuthenticationSession | undefined> {
+	): Promise<ProviderAuthenticationSession | undefined> {
 		if (this.supports(providerId)) {
 			const provider = this.ensureProvider(providerId);
 
@@ -93,11 +97,14 @@ export class IntegrationAuthenticationService implements Disposable {
 				}
 			}
 
-			if (options?.createIfNeeded && storedSession == null) {
+			if (
+				(options?.createIfNeeded && storedSession == null) ||
+				(storedSession?.expiresAt != null && new Date(storedSession.expiresAt).getTime() < Date.now())
+			) {
 				return this.createSession(providerId, descriptor);
 			}
 
-			return storedSession as AuthenticationSession | undefined;
+			return storedSession as ProviderAuthenticationSession | undefined;
 		}
 
 		if (descriptor == null) return undefined;
@@ -115,7 +122,7 @@ export class IntegrationAuthenticationService implements Disposable {
 	}
 
 	@debug()
-	async deleteSession(providerId: ProviderId, descriptor?: IntegrationAuthenticationSessionDescriptor) {
+	async deleteSession(providerId: IntegrationId, descriptor?: IntegrationAuthenticationSessionDescriptor) {
 		const provider = this.ensureProvider(providerId);
 
 		const key = this.getSecretKey(providerId, provider.getSessionId(descriptor));
@@ -124,11 +131,11 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	supports(providerId: string): boolean {
 		switch (providerId) {
-			case HostedProviderId.AzureDevOps:
-			case HostedProviderId.Bitbucket:
-			case SelfHostedProviderId.GitHubEnterprise:
-			case HostedProviderId.GitLab:
-			case SelfHostedProviderId.GitLabSelfHosted:
+			case HostingIntegrationId.AzureDevOps:
+			case HostingIntegrationId.Bitbucket:
+			case SelfHostedIntegrationId.GitHubEnterprise:
+			case HostingIntegrationId.GitLab:
+			case SelfHostedIntegrationId.GitLabSelfHosted:
 				return true;
 			default:
 				return false;
@@ -139,21 +146,21 @@ export class IntegrationAuthenticationService implements Disposable {
 		return `gitlens.integration.auth:${providerId}|${id}`;
 	}
 
-	private ensureProvider(providerId: ProviderId): IntegrationAuthenticationProvider {
+	private ensureProvider(providerId: IntegrationId): IntegrationAuthenticationProvider {
 		let provider = this.providers.get(providerId);
 		if (provider == null) {
 			switch (providerId) {
-				case HostedProviderId.AzureDevOps:
+				case HostingIntegrationId.AzureDevOps:
 					provider = new AzureDevOpsAuthenticationProvider();
 					break;
-				case HostedProviderId.Bitbucket:
+				case HostingIntegrationId.Bitbucket:
 					provider = new BitbucketAuthenticationProvider();
 					break;
-				case SelfHostedProviderId.GitHubEnterprise:
+				case SelfHostedIntegrationId.GitHubEnterprise:
 					provider = new GitHubEnterpriseAuthenticationProvider();
 					break;
-				case HostedProviderId.GitLab:
-				case SelfHostedProviderId.GitLabSelfHosted:
+				case HostingIntegrationId.GitLab:
+				case SelfHostedIntegrationId.GitLabSelfHosted:
 					provider = new GitLabAuthenticationProvider();
 					break;
 				default:

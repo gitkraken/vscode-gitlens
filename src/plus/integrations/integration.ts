@@ -1,4 +1,4 @@
-import type { AuthenticationSession, CancellationToken, Event, MessageItem } from 'vscode';
+import type { CancellationToken, Event, MessageItem } from 'vscode';
 import { EventEmitter, window } from 'vscode';
 import type { Container } from '../../container';
 import { AuthenticationError, CancellationError, ProviderRequestClientError } from '../../errors';
@@ -20,36 +20,49 @@ import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationSessionDescriptor,
 } from './authentication/integrationAuthentication';
+import type { ProviderAuthenticationSession } from './authentication/models';
 import type {
 	GetIssuesOptions,
 	GetPullRequestsOptions,
+	IntegrationId,
+	IssueIntegrationId,
 	PagedProjectInput,
 	PagedRepoInput,
 	ProviderAccount,
-	ProviderId,
 	ProviderIssue,
 	ProviderPullRequest,
 	ProviderRepoInput,
 	ProviderReposInput,
-	SelfHostedProviderId,
+	SelfHostedIntegrationId,
 } from './providers/models';
-import { HostedProviderId, IssueFilter, PagingMode, PullRequestFilter } from './providers/models';
+import { HostingIntegrationId, IssueFilter, PagingMode, PullRequestFilter } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
 
-export type SupportedProviderIds = ProviderId;
-export type SupportedHostedProviderIds = HostedProviderId;
-export type SupportedSelfHostedProviderIds = SelfHostedProviderId;
-export type ProviderKey = `${SupportedHostedProviderIds}` | `${SupportedSelfHostedProviderIds}:${string}`;
-export type ProviderKeyById<T extends SupportedProviderIds> = T extends SupportedHostedProviderIds
-	? `${SupportedHostedProviderIds}`
-	: `${SupportedSelfHostedProviderIds}:${string}`;
+export type SupportedIntegrationIds = IntegrationId;
+export type SupportedHostingIntegrationIds = HostingIntegrationId;
+export type SupportedIssueIntegrationIds = IssueIntegrationId;
+export type SupportedSelfHostedIntegrationIds = SelfHostedIntegrationId;
+export type ProviderKey =
+	| `${SupportedHostingIntegrationIds}`
+	| `${SupportedIssueIntegrationIds}`
+	| `${SupportedSelfHostedIntegrationIds}:${string}`;
+export type ProviderKeyById<T extends SupportedIntegrationIds> = T extends SupportedIssueIntegrationIds
+	? `${SupportedIssueIntegrationIds}`
+	: T extends SupportedHostingIntegrationIds
+	  ? `${SupportedHostingIntegrationIds}`
+	  : `${SupportedSelfHostedIntegrationIds}:${string}`;
 
-export type RepositoryDescriptor = { key: string } & Record<string, unknown>;
+export type ResourceDescriptor = { key: string } & Record<string, unknown>;
+export type IntegrationType = 'issues' | 'hosting';
+export type Integration = IssueIntegration | HostingIntegration;
+export function isHostingIntegration(integration: Integration): integration is HostingIntegration {
+	return integration.type === 'hosting';
+}
+export function isIssueIntegration(integration: Integration): integration is IssueIntegration {
+	return integration.type === 'issues';
+}
 
-export abstract class ProviderIntegration<
-	ID extends SupportedProviderIds = SupportedProviderIds,
-	T extends RepositoryDescriptor = RepositoryDescriptor,
-> {
+export abstract class BaseIntegration<ID extends SupportedIntegrationIds = SupportedIntegrationIds> {
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
@@ -74,7 +87,7 @@ export abstract class ProviderIntegration<
 		return this.id;
 	}
 
-	private get connectedKey(): `connected:${ProviderIntegration['key']}` {
+	private get connectedKey(): `connected:${HostingIntegration['key']}` {
 		return `connected:${this.key}`;
 	}
 
@@ -82,7 +95,12 @@ export abstract class ProviderIntegration<
 		return this._session === undefined ? undefined : this._session !== null;
 	}
 
-	protected _session: AuthenticationSession | null | undefined;
+	get connectionExpired(): boolean | undefined {
+		if (this._session?.expiresAt == null) return undefined;
+		return new Date(this._session.expiresAt) < new Date();
+	}
+
+	protected _session: ProviderAuthenticationSession | null | undefined;
 	protected session() {
 		if (this._session === undefined) {
 			return this.ensureSession(false);
@@ -177,7 +195,7 @@ export abstract class ProviderIntegration<
 		this.requestExceptionCount = 0;
 	}
 
-	private handleProviderException<T>(ex: Error, scope: LogScope | undefined, defaultValue: T): T {
+	protected handleProviderException<T>(ex: Error, scope: LogScope | undefined, defaultValue: T): T {
 		if (ex instanceof CancellationError) return defaultValue;
 
 		Logger.error(ex, scope);
@@ -204,37 +222,186 @@ export abstract class ProviderIntegration<
 	}
 
 	@gate()
-	@debug()
-	async getAccountForCommit(
-		repo: T,
-		ref: string,
-		options?: {
-			avatarSize?: number;
-		},
-	): Promise<Account | undefined> {
-		const scope = getLogScope();
+	private async ensureSession(
+		createIfNeeded: boolean,
+		forceNewSession: boolean = false,
+	): Promise<ProviderAuthenticationSession | undefined> {
+		if (this._session != null) return this._session;
+		if (!configuration.get('integrations.enabled')) return undefined;
 
+		if (createIfNeeded) {
+			await this.container.storage.deleteWorkspace(this.connectedKey);
+		} else if (this.container.storage.getWorkspace(this.connectedKey) === false) {
+			return undefined;
+		}
+
+		let session: ProviderAuthenticationSession | undefined | null;
+		try {
+			session = await this.container.integrationAuthentication.getSession(
+				this.authProvider.id,
+				this.authProviderDescriptor,
+				{ createIfNeeded: createIfNeeded, forceNewSession: forceNewSession },
+			);
+		} catch (ex) {
+			await this.container.storage.deleteWorkspace(this.connectedKey);
+
+			if (ex instanceof Error && ex.message.includes('User did not consent')) {
+				return undefined;
+			}
+
+			session = null;
+		}
+
+		if (session === undefined && !createIfNeeded) {
+			await this.container.storage.deleteWorkspace(this.connectedKey);
+		}
+
+		this._session = session ?? null;
+		this.resetRequestExceptionCount();
+
+		if (session != null) {
+			await this.container.storage.storeWorkspace(this.connectedKey, true);
+
+			queueMicrotask(() => {
+				this._onDidChange.fire();
+				this.container.integrations.connected(this.key);
+			});
+		}
+
+		return session ?? undefined;
+	}
+
+	getIgnoreSSLErrors(): boolean | 'force' {
+		return this.container.integrations.ignoreSSLErrors(this);
+	}
+
+	async searchMyIssues(
+		resource?: ResourceDescriptor,
+		cancellation?: CancellationToken,
+	): Promise<SearchedIssue[] | undefined>;
+	async searchMyIssues(
+		resources?: ResourceDescriptor[],
+		cancellation?: CancellationToken,
+	): Promise<SearchedIssue[] | undefined>;
+	@debug()
+	async searchMyIssues(
+		resources?: ResourceDescriptor | ResourceDescriptor[],
+		cancellation?: CancellationToken,
+	): Promise<SearchedIssue[] | undefined> {
+		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
 		try {
-			const author = await this.getProviderAccountForCommit(this._session!, repo, ref, options);
+			const issues = await this.searchProviderMyIssues(
+				this._session!,
+				resources != null ? (Array.isArray(resources) ? resources : [resources]) : undefined,
+				cancellation,
+			);
 			this.resetRequestExceptionCount();
-			return author;
+			return issues;
 		} catch (ex) {
-			return this.handleProviderException<Account | undefined>(ex, scope, undefined);
+			return this.handleProviderException<SearchedIssue[] | undefined>(ex, scope, undefined);
 		}
 	}
 
-	protected abstract getProviderAccountForCommit(
-		session: AuthenticationSession,
-		repo: T,
-		ref: string,
-		options?: {
-			avatarSize?: number;
-		},
+	protected abstract searchProviderMyIssues(
+		session: ProviderAuthenticationSession,
+		resources?: ResourceDescriptor[],
+		cancellation?: CancellationToken,
+	): Promise<SearchedIssue[] | undefined>;
+}
+
+export abstract class IssueIntegration<
+	ID extends SupportedIntegrationIds = SupportedIntegrationIds,
+	T extends ResourceDescriptor = ResourceDescriptor,
+> extends BaseIntegration<ID> {
+	readonly type: IntegrationType = 'issues';
+	@gate()
+	@debug()
+	async getAccountForResource(resource: T): Promise<Account | undefined> {
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		try {
+			const account = await this.getProviderAccountForResource(this._session!, resource);
+			this.resetRequestExceptionCount();
+			return account;
+		} catch (ex) {
+			return this.handleProviderException<Account | undefined>(ex, undefined, undefined);
+		}
+	}
+
+	protected abstract getProviderAccountForResource(
+		session: ProviderAuthenticationSession,
+		resource: T,
 	): Promise<Account | undefined>;
 
+	@gate()
+	@debug()
+	async getResourcesForUser(): Promise<T[] | undefined> {
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		try {
+			const resources = await this.getProviderResourcesForUser(this._session!);
+			this.resetRequestExceptionCount();
+			return resources;
+		} catch (ex) {
+			return this.handleProviderException<T[] | undefined>(ex, undefined, undefined);
+		}
+	}
+
+	protected abstract getProviderResourcesForUser(session: ProviderAuthenticationSession): Promise<T[] | undefined>;
+
+	@debug()
+	async getProjectsForResources(resources: T[]): Promise<T[] | undefined> {
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		try {
+			const projects = await this.getProviderProjectsForResources(this._session!, resources);
+			this.resetRequestExceptionCount();
+			return projects;
+		} catch (ex) {
+			return this.handleProviderException<T[] | undefined>(ex, undefined, undefined);
+		}
+	}
+
+	protected abstract getProviderProjectsForResources(
+		session: ProviderAuthenticationSession,
+		resources: T[],
+	): Promise<T[] | undefined>;
+
+	@debug()
+	async getIssuesForProject(
+		project: T,
+		options?: { user?: string; filters?: IssueFilter[] },
+	): Promise<SearchedIssue[] | undefined> {
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		try {
+			const issues = await this.getProviderIssuesForProject(this._session!, project, options);
+			this.resetRequestExceptionCount();
+			return issues;
+		} catch (ex) {
+			return this.handleProviderException<SearchedIssue[] | undefined>(ex, undefined, undefined);
+		}
+	}
+
+	protected abstract getProviderIssuesForProject(
+		session: ProviderAuthenticationSession,
+		project: T,
+		options?: { user?: string; filters?: IssueFilter[] },
+	): Promise<SearchedIssue[] | undefined>;
+}
+
+export abstract class HostingIntegration<
+	ID extends SupportedIntegrationIds = SupportedIntegrationIds,
+	T extends ResourceDescriptor = ResourceDescriptor,
+> extends BaseIntegration<ID> {
+	readonly type: IntegrationType = 'hosting';
 	@gate()
 	@debug()
 	async getAccountForEmail(
@@ -259,9 +426,41 @@ export abstract class ProviderIntegration<
 	}
 
 	protected abstract getProviderAccountForEmail(
-		session: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		repo: T,
 		email: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined>;
+
+	@gate()
+	@debug()
+	async getAccountForCommit(
+		repo: T,
+		ref: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const scope = getLogScope();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		try {
+			const author = await this.getProviderAccountForCommit(this._session!, repo, ref, options);
+			this.resetRequestExceptionCount();
+			return author;
+		} catch (ex) {
+			return this.handleProviderException<Account | undefined>(ex, scope, undefined);
+		}
+	}
+
+	protected abstract getProviderAccountForCommit(
+		session: ProviderAuthenticationSession,
+		repo: T,
+		ref: string,
 		options?: {
 			avatarSize?: number;
 		},
@@ -289,7 +488,7 @@ export abstract class ProviderIntegration<
 	}
 
 	protected abstract getProviderDefaultBranch(
-		{ accessToken }: AuthenticationSession,
+		{ accessToken }: ProviderAuthenticationSession,
 		repo: T,
 	): Promise<DefaultBranch | undefined>;
 
@@ -315,7 +514,7 @@ export abstract class ProviderIntegration<
 	}
 
 	protected abstract getProviderRepositoryMetadata(
-		session: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		repo: T,
 	): Promise<RepositoryMetadata | undefined>;
 
@@ -341,7 +540,7 @@ export abstract class ProviderIntegration<
 	}
 
 	protected abstract getProviderIssueOrPullRequest(
-		session: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		repo: T,
 		id: string,
 	): Promise<IssueOrPullRequest | undefined>;
@@ -375,7 +574,7 @@ export abstract class ProviderIntegration<
 	}
 
 	protected abstract getProviderPullRequestForBranch(
-		session: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		repo: T,
 		branch: string,
 		options?: {
@@ -406,7 +605,7 @@ export abstract class ProviderIntegration<
 	}
 
 	protected abstract getProviderPullRequestForCommit(
-		session: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		repo: T,
 		ref: string,
 	): Promise<PullRequest | undefined>;
@@ -424,9 +623,9 @@ export abstract class ProviderIntegration<
 		if (!connected) return undefined;
 
 		if (
-			providerId !== HostedProviderId.GitLab &&
+			providerId !== HostingIntegrationId.GitLab &&
 			(this.api.isRepoIdsInput(reposOrRepoIds) ||
-				(providerId === HostedProviderId.AzureDevOps &&
+				(providerId === HostingIntegrationId.AzureDevOps &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			Logger.warn(`Unsupported input for provider ${providerId}`, 'getIssuesForRepos');
@@ -434,7 +633,7 @@ export abstract class ProviderIntegration<
 		}
 
 		let getIssuesOptions: GetIssuesOptions | undefined;
-		if (providerId === HostedProviderId.AzureDevOps) {
+		if (providerId === HostingIntegrationId.AzureDevOps) {
 			const organizations = new Set<string>();
 			const projects = new Set<string>();
 			for (const repo of reposOrRepoIds as ProviderRepoInput[]) {
@@ -629,9 +828,9 @@ export abstract class ProviderIntegration<
 		if (!connected) return undefined;
 
 		if (
-			providerId !== HostedProviderId.GitLab &&
+			providerId !== HostingIntegrationId.GitLab &&
 			(this.api.isRepoIdsInput(reposOrRepoIds) ||
-				(providerId === HostedProviderId.AzureDevOps &&
+				(providerId === HostingIntegrationId.AzureDevOps &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			Logger.warn(`Unsupported input for provider ${providerId}`);
@@ -646,7 +845,7 @@ export abstract class ProviderIntegration<
 			}
 
 			let userAccount: ProviderAccount | undefined;
-			if (providerId === HostedProviderId.AzureDevOps) {
+			if (providerId === HostingIntegrationId.AzureDevOps) {
 				const organizations = new Set<string>();
 				for (const repo of reposOrRepoIds as ProviderRepoInput[]) {
 					organizations.add(repo.namespace);
@@ -686,8 +885,8 @@ export abstract class ProviderIntegration<
 
 			let userFilterProperty: string | null;
 			switch (providerId) {
-				case HostedProviderId.Bitbucket:
-				case HostedProviderId.AzureDevOps:
+				case HostingIntegrationId.Bitbucket:
+				case HostingIntegrationId.AzureDevOps:
 					userFilterProperty = userAccount.id;
 					break;
 				default:
@@ -765,53 +964,14 @@ export abstract class ProviderIntegration<
 		}
 	}
 
-	async searchMyIssues(
-		repo?: RepositoryDescriptor,
-		cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined>;
-	async searchMyIssues(
-		repos?: RepositoryDescriptor[],
-		cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined>;
-	@debug()
-	async searchMyIssues(
-		repos?: RepositoryDescriptor | RepositoryDescriptor[],
-		cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined> {
-		const scope = getLogScope();
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		try {
-			const issues = await this.searchProviderMyIssues(
-				this._session!,
-				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
-				cancellation,
-			);
-			this.resetRequestExceptionCount();
-			return issues;
-		} catch (ex) {
-			return this.handleProviderException<SearchedIssue[] | undefined>(ex, scope, undefined);
-		}
-	}
-
-	protected abstract searchProviderMyIssues(
-		session: AuthenticationSession,
-		repos?: RepositoryDescriptor[],
-		cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined>;
-
+	async searchMyPullRequests(repo?: T, cancellation?: CancellationToken): Promise<SearchedPullRequest[] | undefined>;
 	async searchMyPullRequests(
-		repo?: RepositoryDescriptor,
-		cancellation?: CancellationToken,
-	): Promise<SearchedPullRequest[] | undefined>;
-	async searchMyPullRequests(
-		repos?: RepositoryDescriptor[],
+		repos?: T[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined>;
 	@debug()
 	async searchMyPullRequests(
-		repos?: RepositoryDescriptor | RepositoryDescriptor[],
+		repos?: T | T[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined> {
 		const scope = getLogScope();
@@ -832,64 +992,10 @@ export abstract class ProviderIntegration<
 	}
 
 	protected abstract searchProviderMyPullRequests(
-		session: AuthenticationSession,
-		repos?: RepositoryDescriptor[],
+		session: ProviderAuthenticationSession,
+		repos?: T[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined>;
-
-	@gate()
-	private async ensureSession(
-		createIfNeeded: boolean,
-		forceNewSession: boolean = false,
-	): Promise<AuthenticationSession | undefined> {
-		if (this._session != null) return this._session;
-		if (!configuration.get('integrations.enabled')) return undefined;
-
-		if (createIfNeeded) {
-			await this.container.storage.deleteWorkspace(this.connectedKey);
-		} else if (this.container.storage.getWorkspace(this.connectedKey) === false) {
-			return undefined;
-		}
-
-		let session: AuthenticationSession | undefined | null;
-		try {
-			session = await this.container.integrationAuthentication.getSession(
-				this.authProvider.id,
-				this.authProviderDescriptor,
-				{ createIfNeeded: createIfNeeded, forceNewSession: forceNewSession },
-			);
-		} catch (ex) {
-			await this.container.storage.deleteWorkspace(this.connectedKey);
-
-			if (ex instanceof Error && ex.message.includes('User did not consent')) {
-				return undefined;
-			}
-
-			session = null;
-		}
-
-		if (session === undefined && !createIfNeeded) {
-			await this.container.storage.deleteWorkspace(this.connectedKey);
-		}
-
-		this._session = session ?? null;
-		this.resetRequestExceptionCount();
-
-		if (session != null) {
-			await this.container.storage.storeWorkspace(this.connectedKey, true);
-
-			queueMicrotask(() => {
-				this._onDidChange.fire();
-				this.container.integrations.connected(this.key);
-			});
-		}
-
-		return session ?? undefined;
-	}
-
-	getIgnoreSSLErrors(): boolean | 'force' {
-		return this.container.integrations.ignoreSSLErrors(this);
-	}
 }
 
 export async function ensurePaidPlan(providerName: string, container: Container): Promise<boolean> {
