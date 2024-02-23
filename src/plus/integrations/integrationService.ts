@@ -10,18 +10,21 @@ import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
 import { filterMap, flatten } from '../../system/iterable';
 import type {
-	ProviderIntegration,
+	HostingIntegration,
+	Integration,
+	IssueIntegration,
 	ProviderKey,
-	RepositoryDescriptor,
-	SupportedHostedProviderIds,
-	SupportedProviderIds,
-	SupportedSelfHostedProviderIds,
-} from './providerIntegration';
+	ResourceDescriptor,
+	SupportedHostingIntegrationIds,
+	SupportedIntegrationIds,
+	SupportedIssueIntegrationIds,
+	SupportedSelfHostedIntegrationIds,
+} from './integration';
 import { AzureDevOpsIntegration } from './providers/azureDevOps';
 import { BitbucketIntegration } from './providers/bitbucket';
 import { GitHubEnterpriseIntegration, GitHubIntegration } from './providers/github';
 import { GitLabIntegration, GitLabSelfHostedIntegration } from './providers/gitlab';
-import { HostedProviderId, isSelfHostedProviderId, SelfHostedProviderId } from './providers/models';
+import { HostingIntegrationId, isSelfHostedIntegrationId, SelfHostedIntegrationId } from './providers/models';
 import { ProvidersApi } from './providers/providersApi';
 
 export interface ConnectionStateChangeEvent {
@@ -37,7 +40,7 @@ export class IntegrationService implements Disposable {
 
 	private readonly _connectedCache = new Set<string>();
 	private readonly _disposable: Disposable;
-	private _integrations = new Map<ProviderKey, ProviderIntegration>();
+	private _integrations = new Map<ProviderKey, Integration>();
 	private _providersApi: ProvidersApi;
 
 	constructor(private readonly container: Container) {
@@ -88,31 +91,35 @@ export class IntegrationService implements Disposable {
 		return key == null ? this._connectedCache.size !== 0 : this._connectedCache.has(key);
 	}
 
-	get(id: SupportedHostedProviderIds): ProviderIntegration;
-	get(id: SupportedSelfHostedProviderIds, domain: string): ProviderIntegration;
-	get(id: SupportedHostedProviderIds | SupportedSelfHostedProviderIds, domain?: string): ProviderIntegration {
-		const key = isSelfHostedProviderId(id) ? (`${id}:${domain}` as const) : id;
+	get(id: SupportedHostingIntegrationIds): HostingIntegration;
+	get(id: SupportedIssueIntegrationIds): IssueIntegration;
+	get(id: SupportedSelfHostedIntegrationIds, domain: string): HostingIntegration;
+	get(
+		id: SupportedHostingIntegrationIds | SupportedIssueIntegrationIds | SupportedSelfHostedIntegrationIds,
+		domain?: string,
+	): Integration {
+		const key = isSelfHostedIntegrationId(id) ? (`${id}:${domain}` as const) : id;
 		let provider = this._integrations.get(key);
 		if (provider == null) {
 			switch (id) {
-				case HostedProviderId.GitHub:
+				case HostingIntegrationId.GitHub:
 					provider = new GitHubIntegration(this.container, this._providersApi);
 					break;
-				case SelfHostedProviderId.GitHubEnterprise:
+				case SelfHostedIntegrationId.GitHubEnterprise:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
 					provider = new GitHubEnterpriseIntegration(this.container, this._providersApi, domain);
 					break;
-				case HostedProviderId.GitLab:
+				case HostingIntegrationId.GitLab:
 					provider = new GitLabIntegration(this.container, this._providersApi);
 					break;
-				case SelfHostedProviderId.GitLabSelfHosted:
+				case SelfHostedIntegrationId.GitLabSelfHosted:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
 					provider = new GitLabSelfHostedIntegration(this.container, this._providersApi, domain);
 					break;
-				case HostedProviderId.Bitbucket:
+				case HostingIntegrationId.Bitbucket:
 					provider = new BitbucketIntegration(this.container, this._providersApi);
 					break;
-				case HostedProviderId.AzureDevOps:
+				case HostingIntegrationId.AzureDevOps:
 					provider = new AzureDevOpsIntegration(this.container, this._providersApi);
 					break;
 				default:
@@ -124,24 +131,24 @@ export class IntegrationService implements Disposable {
 		return provider;
 	}
 
-	getByRemote(remote: GitRemote): ProviderIntegration | undefined {
+	getByRemote(remote: GitRemote): HostingIntegration | undefined {
 		if (remote?.provider == null) return undefined;
 
 		switch (remote.provider.id) {
 			case 'azure-devops':
-				return this.get(HostedProviderId.AzureDevOps);
+				return this.get(HostingIntegrationId.AzureDevOps);
 			case 'bitbucket':
-				return this.get(HostedProviderId.Bitbucket);
+				return this.get(HostingIntegrationId.Bitbucket);
 			case 'github':
 				if (remote.provider.custom && remote.provider.domain != null) {
-					return this.get(SelfHostedProviderId.GitHubEnterprise, remote.provider.domain);
+					return this.get(SelfHostedIntegrationId.GitHubEnterprise, remote.provider.domain);
 				}
-				return this.get(HostedProviderId.GitHub);
+				return this.get(HostingIntegrationId.GitHub);
 			case 'gitlab':
 				if (remote.provider.custom && remote.provider.domain != null) {
-					return this.get(SelfHostedProviderId.GitLabSelfHosted, remote.provider.domain);
+					return this.get(SelfHostedIntegrationId.GitLabSelfHosted, remote.provider.domain);
 				}
-				return this.get(HostedProviderId.GitLab);
+				return this.get(HostingIntegrationId.GitLab);
 			case 'bitbucket-server':
 			default:
 				return undefined;
@@ -149,11 +156,11 @@ export class IntegrationService implements Disposable {
 	}
 
 	async getMyIssues(
-		providerIds?: HostedProviderId[],
+		providerIds?: HostingIntegrationId[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined> {
-		const providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined> = new Map();
-		for (const providerId of providerIds?.length ? providerIds : Object.values(HostedProviderId)) {
+		const providers: Map<Integration, ResourceDescriptor[] | undefined> = new Map();
+		for (const providerId of providerIds?.length ? providerIds : Object.values(HostingIntegrationId)) {
 			const provider = this.get(providerId);
 			if (provider == null) continue;
 
@@ -165,7 +172,7 @@ export class IntegrationService implements Disposable {
 	}
 
 	private async getMyIssuesCore(
-		providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined>,
+		providers: Map<Integration, ResourceDescriptor[] | undefined>,
 		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined> {
 		const promises: Promise<SearchedIssue[] | undefined>[] = [];
@@ -198,7 +205,7 @@ export class IntegrationService implements Disposable {
 			return provider?.searchMyIssues(remote.provider.repoDesc);
 		}
 
-		const providers = new Map<ProviderIntegration, RepositoryDescriptor[]>();
+		const providers = new Map<HostingIntegration, ResourceDescriptor[]>();
 
 		for (const remote of remoteOrRemotes) {
 			if (remote?.provider == null) continue;
@@ -218,11 +225,11 @@ export class IntegrationService implements Disposable {
 	}
 
 	async getMyPullRequests(
-		providerIds?: HostedProviderId[],
+		providerIds?: HostingIntegrationId[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined> {
-		const providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined> = new Map();
-		for (const providerId of providerIds?.length ? providerIds : Object.values(HostedProviderId)) {
+		const providers: Map<HostingIntegration, ResourceDescriptor[] | undefined> = new Map();
+		for (const providerId of providerIds?.length ? providerIds : Object.values(HostingIntegrationId)) {
 			const provider = this.get(providerId);
 			if (provider == null) continue;
 
@@ -234,7 +241,7 @@ export class IntegrationService implements Disposable {
 	}
 
 	private async getMyPullRequestsCore(
-		providers: Map<ProviderIntegration, RepositoryDescriptor[] | undefined>,
+		providers: Map<HostingIntegration, ResourceDescriptor[] | undefined>,
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined> {
 		const promises: Promise<SearchedPullRequest[] | undefined>[] = [];
@@ -269,7 +276,7 @@ export class IntegrationService implements Disposable {
 			return provider?.searchMyPullRequests(remote.provider.repoDesc);
 		}
 
-		const providers = new Map<ProviderIntegration, RepositoryDescriptor[]>();
+		const providers = new Map<HostingIntegration, ResourceDescriptor[]>();
 
 		for (const remote of remoteOrRemotes) {
 			if (remote?.provider == null) continue;
@@ -303,7 +310,7 @@ export class IntegrationService implements Disposable {
 
 	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
 	ignoreSSLErrors(
-		integration: ProviderIntegration | { id: SupportedProviderIds; domain?: string },
+		integration: HostingIntegration | { id: SupportedIntegrationIds; domain?: string },
 	): boolean | 'force' {
 		if (isWeb) return false;
 
