@@ -196,8 +196,8 @@ export class VslsHostService implements Disposable {
 		return { data: data, count: count };
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
 	@log()
+	// eslint-disable-next-line @typescript-eslint/require-await
 	private async onGetRepositoriesForUriRequest(
 		request: GetRepositoriesForUriRequest,
 		_cancellation: CancellationToken,

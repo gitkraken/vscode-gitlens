@@ -5708,8 +5708,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return parseGitWorktrees(data, repoPath);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
 	@log()
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async getWorktreesDefaultUri(repoPath: string): Promise<Uri | undefined> {
 		let location = configuration.get('worktrees.defaultLocation');
 		if (location == null) return undefined;
