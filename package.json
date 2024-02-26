@@ -16495,6 +16495,7 @@
 		"analyze:bundle": "webpack --mode production --env analyzeBundle",
 		"analyze:deps": "webpack --env analyzeDeps",
 		"build": "webpack --mode development",
+		"build:quick": "webpack --mode development --env skipLint",
 		"build:extension": "webpack --mode development --config-name extension:node",
 		"build:extension:browser": "webpack --mode development --config-name extension:webworker",
 		"build:webviews": "webpack --mode development --config-name webviews",
