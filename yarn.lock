@@ -3433,6 +3433,11 @@ fast-memoize@^2.5.1:
   resolved "https://registry.yarnpkg.com/fast-memoize/-/fast-memoize-2.5.2.tgz#79e3bb6a4ec867ea40ba0e7146816f6cdce9b57e"
   integrity sha512-Ue0LwpDYErFbmNnZSF0UH6eImUwDmogUO1jyE+JbN2gsQz/jICm1Ve7t9QT0rNSsfJt+Hs4/S3GnsDVjL4HVrw==
 
+fast-string-width@1.0.4:
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/fast-string-width/-/fast-string-width-1.0.4.tgz#2be6909809f1c3195b7a9c5693e5209222794b07"
+  integrity sha512-LNP+TPEioODMdFEdjq/h1Ck4220TnS7pgI5fzHMtzfbP6kGkereW1KgeBAAazMEa4M2MvqEibnY4lrIvVn6JmA==
+
 fastest-levenshtein@^1.0.12:
   version "1.0.16"
   resolved "https://registry.yarnpkg.com/fastest-levenshtein/-/fastest-levenshtein-1.0.16.tgz#210e61b6ff181de91ea9b3d1b84fdedd47e034e5"

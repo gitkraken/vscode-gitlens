@@ -1,4 +1,6 @@
-import ansiRegex from 'ansi-regex';
+// import ansiRegex from 'ansi-regex';
+import type { Options as FastStringWidthOptions } from 'fast-string-width';
+import getStringWidth from 'fast-string-width';
 import { hrtime } from '@env/hrtime';
 import { CharCode } from '../constants';
 
@@ -207,6 +209,22 @@ export function* getLines(data: string | string[], char: string = '\n'): Iterabl
 			i = j + 1;
 		}
 	}
+}
+
+const defaultWidthOptions: FastStringWidthOptions = {
+	ansiWidth: 0,
+	controlWidth: 0,
+	ambiguousWidth: 1,
+	emojiWidth: 2,
+	fullWidthWidth: 2,
+	regularWidth: 1,
+	wideWidth: 2,
+};
+
+export function getWidth(s: string): number {
+	if (s == null || s.length === 0) return 0;
+
+	return getStringWidth(s, defaultWidthOptions);
 }
 
 const superscripts = ['\u00B9', '\u00B2', '\u00B3', '\u2074', '\u2075', '\u2076', '\u2077', '\u2078', '\u2079'];
@@ -595,118 +613,6 @@ export function truncateMiddle(s: string, truncateTo: number, ellipsis: string =
 	if (width <= truncateTo) return s;
 
 	return `${s.slice(0, Math.floor(truncateTo / 2) - 1)}${ellipsis}${s.slice(width - Math.ceil(truncateTo / 2))}`;
-}
-
-let cachedAnsiRegex: RegExp | undefined;
-const containsNonAsciiRegex = /[^\x20-\x7F\u00a0\u2026]/;
-
-// See sindresorhus/string-width
-export function getWidth(s: string): number {
-	if (s == null || s.length === 0) return 0;
-
-	// Shortcut to avoid needless string `RegExp`s, replacements, and allocations
-	if (!containsNonAsciiRegex.test(s)) return s.length;
-
-	if (cachedAnsiRegex == null) {
-		cachedAnsiRegex = ansiRegex();
-	}
-	s = s.replace(cachedAnsiRegex, '');
-
-	if (s.length === 0) return 0;
-
-	let count = 0;
-	let emoji = 0;
-	let joiners = 0;
-
-	const graphemes = [...s];
-	for (let i = 0; i < graphemes.length; i++) {
-		const code = graphemes[i].codePointAt(0)!;
-
-		// Ignore control characters
-		if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) continue;
-
-		// Ignore combining characters
-		if (code >= 0x300 && code <= 0x36f) continue;
-
-		if (
-			(code >= 0x1f600 && code <= 0x1f64f) || // Emoticons
-			(code >= 0x1f300 && code <= 0x1f5ff) || // Misc Symbols and Pictographs
-			(code >= 0x1f680 && code <= 0x1f6ff) || // Transport and Map
-			(code >= 0x2600 && code <= 0x26ff) || // Misc symbols
-			(code >= 0x2700 && code <= 0x27bf) || // Dingbats
-			(code >= 0xfe00 && code <= 0xfe0f) || // Variation Selectors
-			(code >= 0x1f900 && code <= 0x1f9ff) || // Supplemental Symbols and Pictographs
-			(code >= 65024 && code <= 65039) || // Variation selector
-			(code >= 8400 && code <= 8447) // Combining Diacritical Marks for Symbols
-		) {
-			if (code >= 0x1f3fb && code <= 0x1f3ff) continue; // emoji modifier fitzpatrick type
-
-			emoji++;
-			count += 2;
-			continue;
-		}
-
-		// Ignore zero-width joiners '\u200d'
-		if (code === 8205) {
-			joiners++;
-			count -= 2;
-			continue;
-		}
-
-		// Surrogates
-		if (code > 0xffff) {
-			i++;
-		}
-
-		count += isFullwidthCodePoint(code) ? 2 : 1;
-	}
-
-	const offset = emoji - joiners;
-	if (offset > 1) {
-		count += offset - 1;
-	}
-	return count;
-}
-
-// See sindresorhus/is-fullwidth-code-point
-function isFullwidthCodePoint(cp: number) {
-	// code points are derived from:
-	// http://www.unix.org/Public/UNIDATA/EastAsianWidth.txt
-	if (
-		cp >= 0x1100 &&
-		(cp <= 0x115f || // Hangul Jamo
-			cp === 0x2329 || // LEFT-POINTING ANGLE BRACKET
-			cp === 0x232a || // RIGHT-POINTING ANGLE BRACKET
-			// CJK Radicals Supplement .. Enclosed CJK Letters and Months
-			(cp >= 0x2e80 && cp <= 0x3247 && cp !== 0x303f) ||
-			// Enclosed CJK Letters and Months .. CJK Unified Ideographs Extension A
-			(cp >= 0x3250 && cp <= 0x4dbf) ||
-			// CJK Unified Ideographs .. Yi Radicals
-			(cp >= 0x4e00 && cp <= 0xa4c6) ||
-			// Hangul Jamo Extended-A
-			(cp >= 0xa960 && cp <= 0xa97c) ||
-			// Hangul Syllables
-			(cp >= 0xac00 && cp <= 0xd7a3) ||
-			// CJK Compatibility Ideographs
-			(cp >= 0xf900 && cp <= 0xfaff) ||
-			// Vertical Forms
-			(cp >= 0xfe10 && cp <= 0xfe19) ||
-			// CJK Compatibility Forms .. Small Form Variants
-			(cp >= 0xfe30 && cp <= 0xfe6b) ||
-			// Halfwidth and Fullwidth Forms
-			(cp >= 0xff01 && cp <= 0xff60) ||
-			(cp >= 0xffe0 && cp <= 0xffe6) ||
-			// Kana Supplement
-			(cp >= 0x1b000 && cp <= 0x1b001) ||
-			// Enclosed Ideographic Supplement
-			(cp >= 0x1f200 && cp <= 0x1f251) ||
-			// CJK Unified Ideographs Extension B .. Tertiary Ideographic Plane
-			(cp >= 0x20000 && cp <= 0x3fffd))
-	) {
-		return true;
-	}
-
-	return false;
 }
 
 // Below adapted from https://github.com/pieroxy/lz-string
