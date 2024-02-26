@@ -24,7 +24,7 @@ const WebpackRequireFromPlugin = require('webpack-require-from');
 
 module.exports =
 	/**
-	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean } | undefined } env
+	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean } | undefined } env
 	 * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
 	 * @returns { WebpackConfig[] }
 	 */
@@ -35,6 +35,7 @@ module.exports =
 			analyzeBundle: false,
 			analyzeDeps: false,
 			esbuild: true,
+			skipLint: false,
 			...env,
 		};
 
@@ -48,7 +49,7 @@ module.exports =
 /**
  * @param { 'node' | 'webworker' } target
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(target, mode, env) {
@@ -57,19 +58,6 @@ function getExtensionConfig(target, mode, env) {
 	 */
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['!dist/webviews/**'] }),
-		new ESLintLitePlugin({
-			files: path.join(__dirname, 'src', '**', '*.ts'),
-			worker: true,
-			eslintOptions: {
-				cache: true,
-				cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
-				cacheStrategy: 'content',
-				overrideConfigFile: path.join(
-					__dirname,
-					target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
-				),
-			},
-		}),
 		new ForkTsCheckerPlugin({
 			async: false,
 			formatter: 'basic',
@@ -78,6 +66,24 @@ function getExtensionConfig(target, mode, env) {
 			},
 		}),
 	];
+
+	if (!env.skipLint) {
+		plugins.push(
+			new ESLintLitePlugin({
+				files: path.join(__dirname, 'src', '**', '*.ts'),
+				worker: true,
+				eslintOptions: {
+					cache: true,
+					cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
+					cacheStrategy: 'content',
+					overrideConfigFile: path.join(
+						__dirname,
+						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
+					),
+				},
+			}),
+		);
+	}
 
 	if (target === 'webworker') {
 		plugins.push(new optimize.LimitChunkCountPlugin({ maxChunks: 1 }));
@@ -273,7 +279,7 @@ function getExtensionConfig(target, mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
  * @returns { WebpackConfig }
  */
 function getWebviewsConfig(mode, env) {
@@ -294,15 +300,6 @@ function getWebviewsConfig(mode, env) {
 		),
 		new DefinePlugin({
 			DEBUG: mode === 'development',
-		}),
-		new ESLintLitePlugin({
-			files: path.join(basePath, '**', '*.ts?(x)'),
-			worker: true,
-			eslintOptions: {
-				cache: true,
-				cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
-				cacheStrategy: 'content',
-			},
 		}),
 		new ForkTsCheckerPlugin({
 			async: false,
@@ -347,6 +344,20 @@ function getWebviewsConfig(mode, env) {
 			],
 		}),
 	];
+
+	if (!env.skipLint) {
+		plugins.push(
+			new ESLintLitePlugin({
+				files: path.join(basePath, '**', '*.ts?(x)'),
+				worker: true,
+				eslintOptions: {
+					cache: true,
+					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
+					cacheStrategy: 'content',
+				},
+			}),
+		);
+	}
 
 	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
 
