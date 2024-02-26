@@ -224,6 +224,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 										})} is linked to a worktree`,
 									},
 								},
+								repo: state.repos[0],
 							},
 						},
 						this.pickedVia,
@@ -299,6 +300,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 											: state.reference,
 									createBranch:
 										result === 'switchToNewBranchViaWorktree' ? state.createBranch : undefined,
+									repo: state.repos[0],
 								},
 							},
 							this.pickedVia,
