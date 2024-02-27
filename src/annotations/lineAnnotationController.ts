@@ -25,7 +25,7 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
 	},
 	rangeBehavior: DecorationRangeBehavior.OpenOpen,
 });
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 export class LineAnnotationController implements Disposable {
 	private _cancellation: CancellationTokenSource | undefined;

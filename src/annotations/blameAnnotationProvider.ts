@@ -13,7 +13,7 @@ import { AnnotationProviderBase } from './annotationProvider';
 import type { ComputedHeatmap } from './annotations';
 import { getHeatmapColors } from './annotations';
 
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 	protected blame: Promise<GitBlame | undefined>;

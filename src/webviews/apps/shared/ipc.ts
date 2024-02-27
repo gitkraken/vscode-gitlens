@@ -22,7 +22,7 @@ export function getHostIpcApi() {
 	return (_api ??= acquireVsCodeApi());
 }
 
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 let ipcSequence = 0;
 export function nextIpcId() {

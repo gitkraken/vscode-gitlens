@@ -1,4 +1,4 @@
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 const scopes = new Map<number, LogScope>();
 let scopeCounter = 0;

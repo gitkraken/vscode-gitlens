@@ -10,7 +10,7 @@ import { sortCompare } from '../system/string';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import type { Action, ActionContext, ActionRunner } from './gitlens';
 
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 type Actions = ActionContext['type'];
 const actions: Actions[] = ['createPullRequest', 'openPullRequest', 'hover.commands'];

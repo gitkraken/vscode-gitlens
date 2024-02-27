@@ -9,7 +9,7 @@ import { Logger } from '../system/logger';
 import type { LinesChangeEvent } from '../trackers/lineTracker';
 import { changesMessage, detailsMessage } from './hovers';
 
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 export class LineHoverController implements Disposable {
 	private readonly _disposable: Disposable;
