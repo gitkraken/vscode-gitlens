@@ -12,6 +12,7 @@ import type {
 	FileActionParams,
 	State,
 } from '../../../../../plus/webviews/patchDetails/protocol';
+import { debounce } from '../../../../../system/function';
 import { flatCount } from '../../../../../system/iterable';
 import type { Serialized } from '../../../../../system/serialize';
 import type {
@@ -233,16 +234,16 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 				<div class="message-input">
 					<input id="title" type="text" class="message-input__control" placeholder="Title (required)" maxlength="100" .value=${
 						this.create.title ?? ''
-					} @input=${this.onTitleInput}></textarea>
+					} @input=${(e: InputEvent) => this.onDebounceTitleInput(e)}></textarea>
 				</div>
 				<div class="message-input">
 					<textarea id="desc" class="message-input__control" placeholder="Description (optional)" maxlength="10000" .value=${
 						this.create.description ?? ''
-					}  @input=${this.onDescriptionInput}></textarea>
+					}  @input=${(e: InputEvent) => this.onDebounceDescriptionInput(e)}></textarea>
 				</div>
 				<p class="button-container">
 					<span class="button-group button-group--single">
-						<gl-button full @click=${this.onCreateAll}>Create Cloud Patch</gl-button>
+						<gl-button full @click=${(e: Event) => this.onDebouncedCreateAll(e)}>Create Cloud Patch</gl-button>
 					</span>
 				</p>
 				${when(
@@ -525,6 +526,8 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		this.createPatch();
 	}
 
+	private onDebouncedCreateAll = debounce(this.onCreateAll.bind(this), 250);
+
 	private onSelectCreateOption(_e: CustomEvent<{ target: MenuItem }>) {
 		// const target = e.detail?.target;
 		// const value = target?.dataset?.value as 'staged' | 'unstaged' | undefined;
@@ -583,6 +586,8 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		});
 	}
 
+	private onDebounceTitleInput = debounce(this.onTitleInput.bind(this), 500);
+
 	private onDescriptionInput(e: InputEvent) {
 		this.create.description = (e.target as HTMLInputElement).value;
 		this.fireEvent('gl-patch-create-update-metadata', {
@@ -591,6 +596,8 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 			visibility: this.create.visibility,
 		});
 	}
+
+	private onDebounceDescriptionInput = debounce(this.onDescriptionInput.bind(this), 500);
 
 	private onInviteUsers(_e: Event) {
 		this.fireEvent('gl-patch-create-invite-users');
