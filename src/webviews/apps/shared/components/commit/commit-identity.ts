@@ -61,6 +61,9 @@ export class CommitIdentity extends LitElement {
 	@property()
 	dateFormat = 'MMMM Do, YYYY h:mma';
 
+	@property()
+	dateStyle: 'relative' | 'absolute' = 'relative';
+
 	@property({ type: Boolean })
 	committer = false;
 
@@ -78,7 +81,11 @@ export class CommitIdentity extends LitElement {
 			<a class="name" href="${this.email ? `mailto:${this.email}` : '#'}">${this.name}</a>
 			<span class="date">
 				${this.actionLabel}
-				<formatted-date date=${this.date?.getTime()} format=${this.dateFormat}> </formatted-date>
+				<formatted-date
+					.date=${this.date}
+					.format=${this.dateFormat}
+					.dateStyle=${this.dateStyle}
+				></formatted-date>
 			</span>
 		`;
 	}

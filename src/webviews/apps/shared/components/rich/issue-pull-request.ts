@@ -50,6 +50,12 @@ export class IssuePullRequest extends LitElement {
 	date = '';
 
 	@property()
+	dateFormat?: string;
+
+	@property()
+	dateStyle?: string;
+
+	@property()
 	status: 'opened' | 'closed' | 'merged' = 'merged';
 
 	@property()
@@ -62,7 +68,11 @@ export class IssuePullRequest extends LitElement {
 		if (this.date === '') {
 			return nothing;
 		}
-		return html`<formatted-date date="${this.date}"></formatted-date>`;
+		return html`<formatted-date
+			date="${this.date}"
+			.format=${this.dateFormat}
+			.dateStyle=${this.dateStyle}
+		></formatted-date>`;
 	}
 
 	override render() {

@@ -6,14 +6,18 @@ import { dateConverter } from './converters/date-converter';
 @customElement('formatted-date')
 export class FormattedDate extends LitElement {
 	@property()
-	format = 'MMMM Do, YYYY h:mma';
+	format?: string;
+
+	@property({ attribute: 'date-style' })
+	dateStyle: 'relative' | 'absolute' = 'relative';
 
 	@property({ converter: dateConverter(), reflect: true })
 	date = new Date();
 
 	override render() {
-		return html`<time datetime="${this.date}" title="${formatDate(this.date, this.format ?? 'MMMM Do, YYYY h:mma')}"
-			>${fromNow(this.date)}</time
+		const formattedDate = formatDate(this.date, this.format ?? 'MMMM Do, YYYY h:mma');
+		return html`<time datetime="${this.date.toISOString()}" title="${formattedDate}"
+			>${this.dateStyle === 'relative' ? fromNow(this.date) : formattedDate}</time
 		>`;
 	}
 }

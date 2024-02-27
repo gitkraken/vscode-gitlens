@@ -401,6 +401,7 @@ export class CommitDetailsWebviewProvider
 		if (
 			configuration.changed(e, [
 				'defaultDateFormat',
+				'defaultDateStyle',
 				'views.commitDetails.files',
 				'views.commitDetails.avatars',
 			]) ||
@@ -431,6 +432,7 @@ export class CommitDetailsWebviewProvider
 			autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded') ?? true,
 			avatars: configuration.get('views.commitDetails.avatars'),
 			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
+			dateStyle: configuration.get('defaultDateStyle') ?? 'relative',
 			files: configuration.get('views.commitDetails.files'),
 			indentGuides: configuration.getCore('workbench.tree.renderIndentGuides') ?? 'onHover',
 			indent: configuration.getCore('workbench.tree.indent'),

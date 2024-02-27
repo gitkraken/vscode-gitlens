@@ -273,7 +273,8 @@ export class GlCommitDetails extends GlDetailsBase {
 																key="#${pr.id}"
 																status="${pr.state}"
 																date=${pr.date}
-																dateFormat="${this.state!.preferences.dateFormat}"
+																.dateFormat="${this.state!.preferences.dateFormat}"
+																.dateStyle="${this.state!.preferences.dateStyle}"
 															></issue-pull-request>
 														</section>
 									  				`,
@@ -293,7 +294,8 @@ export class GlCommitDetails extends GlDetailsBase {
 															key="${issue.id}"
 															status="${issue.state}"
 															date="${issue.closed ? issue.closedDate : issue.date}"
-															dateFormat="${this.state!.preferences.dateFormat}"
+															.dateFormat="${this.state!.preferences.dateFormat}"
+															.dateStyle="${this.state!.preferences.dateStyle}"
 														></issue-pull-request>
 													`,
 												)}
@@ -490,8 +492,9 @@ export class GlCommitDetails extends GlDetailsBase {
 										email="${details.author.email}"
 										date=${details.author.date}
 										dateFormat="${this.preferences?.dateFormat}"
+										dateStyle="${this.preferences?.dateStyle}"
 										avatarUrl="${details.author.avatar ?? ''}"
-										showAvatar="${this.preferences?.avatars ?? true}"
+										.showAvatar="${this.preferences?.avatars ?? true}"
 										actionLabel="${details.sha === uncommittedSha ? 'modified' : 'committed'}"
 									></commit-identity>
 								</li>

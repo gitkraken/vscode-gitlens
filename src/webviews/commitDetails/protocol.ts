@@ -1,6 +1,6 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import type { Autolink } from '../../annotations/autolinks';
-import type { Config } from '../../config';
+import type { Config, DateStyle } from '../../config';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
@@ -36,6 +36,7 @@ export interface Preferences {
 	autolinksExpanded: boolean;
 	avatars: boolean;
 	dateFormat: DateTimeFormat | string;
+	dateStyle: DateStyle;
 	files: Config['views']['commitDetails']['files'];
 	indent: number | undefined;
 	indentGuides: 'none' | 'onHover' | 'always';
