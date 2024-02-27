@@ -25,7 +25,7 @@ import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewC
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
 import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor } from './webviewsController';
 
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 const utf8TextDecoder = new TextDecoder('utf8');
 const utf8TextEncoder = new TextEncoder();
 

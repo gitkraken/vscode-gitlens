@@ -20,7 +20,7 @@ import { applyHeatmap, getGutterDecoration, getGutterRenderOptions } from './ann
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { Decorations } from './fileAnnotationController';
 
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 export interface BlameFontOptions {
 	family: string;

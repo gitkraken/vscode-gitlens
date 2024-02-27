@@ -15,7 +15,7 @@ import { AnnotationProviderBase } from './annotationProvider';
 import type { Decoration } from './annotations';
 import { Decorations } from './fileAnnotationController';
 
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 export interface ChangesAnnotationContext extends AnnotationContext {
 	sha?: string;
