@@ -1,7 +1,7 @@
-import type { RemoteProviderReference } from './remoteProvider';
+import type { ProviderReference } from './remoteProvider';
 
 export interface Account {
-	provider: RemoteProviderReference;
+	provider: ProviderReference;
 	name: string | undefined;
 	email: string | undefined;
 	avatarUrl: string | undefined;

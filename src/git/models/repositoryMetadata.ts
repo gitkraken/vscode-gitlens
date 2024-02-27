@@ -1,7 +1,7 @@
-import type { RemoteProviderReference } from './remoteProvider';
+import type { ProviderReference } from './remoteProvider';
 
 export interface RepositoryMetadata {
-	provider: RemoteProviderReference;
+	provider: ProviderReference;
 	owner: string;
 	name: string;
 	isFork: boolean;

@@ -6,7 +6,7 @@ import type { Container } from '../container';
 import type { IssueOrPullRequest } from '../git/models/issue';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/models/issue';
 import type { GitRemote } from '../git/models/remote';
-import type { RemoteProviderReference } from '../git/models/remoteProvider';
+import type { ProviderReference } from '../git/models/remoteProvider';
 import type { ResourceDescriptor } from '../plus/integrations/integration';
 import type { MaybePausedResult } from '../system/cancellation';
 import { configuration } from '../system/configuration';
@@ -22,7 +22,7 @@ const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 const numRegex = /<num>/g;
 
 export interface Autolink {
-	provider?: RemoteProviderReference;
+	provider?: ProviderReference;
 	id: string;
 	prefix: string;
 	title?: string;
@@ -150,7 +150,7 @@ export class Autolinks implements Disposable {
 	})
 	getAutolinks(message: string, remote?: GitRemote, options?: { excludeCustom?: boolean }): Map<string, Autolink> {
 		const refsets: [
-			RemoteProviderReference | undefined,
+			ProviderReference | undefined,
 			(AutolinkReference | DynamicAutolinkReference)[] | CacheableAutolinkReference[],
 		][] = [];
 		if (remote?.provider?.autolinks?.length) {

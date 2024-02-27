@@ -34,7 +34,7 @@ import type {
 	GitStashReference,
 	GitTagReference,
 } from '../../../git/models/reference';
-import type { RemoteProviderReference } from '../../../git/models/remoteProvider';
+import type { ProviderReference } from '../../../git/models/remoteProvider';
 import type { GitSearchResultData, SearchQuery } from '../../../git/search';
 import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
@@ -489,7 +489,7 @@ export interface GraphPullRequestContextValue {
 	url: string;
 	repoPath: string;
 	refs?: PullRequestRefs;
-	provider: RemoteProviderReference;
+	provider: ProviderReference;
 }
 
 export interface GraphBranchContextValue {
