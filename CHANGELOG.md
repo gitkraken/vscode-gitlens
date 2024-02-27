@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes double encoding of redirect URLs during account sign-in which affects certain environments
 - Fixes issue when switching to a worktree via branch switch when there are multiple repos in the workspace
+- Fixes [#3153](https://github.com/gitkraken/vscode-gitlens/issues/3153) - `gitlens.defaultDateStyle` not working in Commit Details view
 
 ## [14.8.2] - 2024-02-16
 
