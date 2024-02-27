@@ -1,13 +1,13 @@
 import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
 import type { Colors } from '../../constants';
-import type { RemoteProviderReference } from './remoteProvider';
+import type { ProviderReference } from './remoteProvider';
 
 export type IssueOrPullRequestType = 'issue' | 'pullrequest';
 export type IssueOrPullRequestState = 'opened' | 'closed' | 'merged';
 
 export interface IssueOrPullRequest {
 	readonly type: IssueOrPullRequestType;
-	readonly provider: RemoteProviderReference;
+	readonly provider: ProviderReference;
 	readonly id: string;
 	readonly nodeId: string | undefined;
 	readonly title: string;
@@ -224,7 +224,7 @@ export class Issue implements IssueShape {
 	readonly type = 'issue';
 
 	constructor(
-		public readonly provider: RemoteProviderReference,
+		public readonly provider: ProviderReference,
 		public readonly id: string,
 		public readonly nodeId: string | undefined,
 		public readonly title: string,
