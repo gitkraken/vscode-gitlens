@@ -7,7 +7,7 @@ import type { ResourceDescriptor } from '../../plus/integrations/integration';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { openUrl } from '../../system/utils';
-import type { RemoteProviderReference } from '../models/remoteProvider';
+import type { ProviderReference } from '../models/remoteProvider';
 import type { RemoteResource } from '../models/remoteResource';
 import { RemoteResourceType } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
@@ -23,9 +23,7 @@ export type RemoteProviderId =
 	| 'gitlab'
 	| 'google-source';
 
-export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDescriptor>
-	implements RemoteProviderReference
-{
+export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDescriptor> implements ProviderReference {
 	protected readonly _name: string | undefined;
 
 	constructor(
