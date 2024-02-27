@@ -136,7 +136,7 @@ export class DraftService implements Disposable {
 					method: method,
 					headers: {
 						'Content-Type': 'text/plain',
-						Host: headers?.['Host']?.['0'] ?? '',
+						...headers,
 					},
 					body: contents,
 				});
@@ -592,7 +592,7 @@ export class DraftService implements Disposable {
 			method: method,
 			headers: {
 				Accept: 'text/plain',
-				Host: headers?.['Host']?.['0'] ?? '',
+				...headers,
 			},
 		});
 

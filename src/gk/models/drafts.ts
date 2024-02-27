@@ -208,9 +208,7 @@ export interface DraftPatchCreateResponse {
 	readonly gitRepositoryId: GkRepositoryId;
 
 	readonly secureUploadData: {
-		readonly headers: {
-			readonly Host: string[];
-		};
+		readonly headers: Record<string, unknown>;
 		readonly method: string;
 		readonly url: string;
 	};
@@ -229,9 +227,7 @@ export interface DraftPatchResponse {
 	readonly gitRepositoryId: GkRepositoryId;
 
 	readonly secureDownloadData: {
-		readonly headers: {
-			readonly Host: string[];
-		};
+		readonly headers: Record<string, unknown>;
 		readonly method: string;
 		readonly url: string;
 	};
