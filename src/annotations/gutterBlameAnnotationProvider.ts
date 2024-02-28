@@ -106,6 +106,8 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			computedHeatmap = this.getComputedHeatmap(blame);
 		}
 
+		let emptyLine: string | undefined;
+
 		for (const l of blame.lines) {
 			// editor lines are 0-based
 			const editorLine = l.line - 1;
@@ -117,11 +119,16 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				gutter = { ...gutter };
 
 				if (cfg.compact && !compacted) {
+					// Since the line length is the same just generate a single new empty line
+					if (emptyLine == null) {
+						emptyLine = GlyphChars.Space.repeat(getWidth(gutter.renderOptions!.before!.contentText!));
+					}
+
 					// Since we are wiping out the contextText make sure to copy the objects
 					gutter.renderOptions = {
 						before: {
 							...gutter.renderOptions!.before,
-							contentText: GlyphChars.Space.repeat(getWidth(gutter.renderOptions!.before!.contentText!)),
+							contentText: emptyLine,
 						},
 					};
 
