@@ -578,6 +578,13 @@
 				"title": "Views",
 				"order": 20,
 				"properties": {
+					"gitlens.views.collapseWorktreesWhenPossible": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to try to collapse the opened worktrees into a single (common) repository in the views when possible",
+						"scope": "window",
+						"order": 1
+					},
 					"gitlens.views.defaultItemLimit": {
 						"type": "number",
 						"default": 10,

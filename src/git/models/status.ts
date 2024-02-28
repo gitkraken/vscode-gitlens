@@ -311,7 +311,7 @@ export function getUpstreamStatus(
 				status += `${status.length === 0 ? '' : separator}${pluralize('commit', state.ahead, {
 					infix: icons ? '$(arrow-up) ' : undefined,
 				})} ahead`;
-				if (suffix.startsWith(` ${upstream.name.split('/')[0]}`)) {
+				if (suffix.includes(upstream.name.split('/')[0])) {
 					status += ' of';
 				}
 			}
