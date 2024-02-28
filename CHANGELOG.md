@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds the repository name as a prefix to worktree name when adding to the current workspace
+- Adds a better message when stashing only untracked files without including untracked files
+
+### Changed
+
+- Re-adds _Add to Workspace_ option when creating a worktree &mdash; closes [#3160](https://github.com/gitkraken/vscode-gitlens/issues/3160)
+- Changes _Commit Graph_ date style to default to the default date style &mdash; refs [#3153](https://github.com/gitkraken/vscode-gitlens/issues/3153)
+- Improves _File Blame_ annotations performance and layout accuracy with certain character sets
+- Improves string formatting performance
+
+### Fixed
+
+- Fixes double encoding of redirect URLs during account sign-in which affects certain environments
+- Fixes issue when switching to a worktree via branch switch when there are multiple repos in the workspace
+
 ## [14.8.2] - 2024-02-16
 
 ### Fixed
