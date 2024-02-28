@@ -8,6 +8,7 @@ import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '..
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { weakEvent } from '../../../system/event';
+import { basename } from '../../../system/path';
 import { pad } from '../../../system/string';
 import type { View } from '../../viewBase';
 import { SubscribeableViewNode } from './subscribeableViewNode';
@@ -73,8 +74,19 @@ export abstract class RepositoryFolderNode<
 
 		const expand = ahead || behind || this.repo.starred || this.view.container.git.isRepositoryForEditor(this.repo);
 
+		let label = this.repo.formattedName ?? this.uri.repoPath ?? '';
+		if (this.options?.showBranchAndLastFetched && branch != null) {
+			const remove = `: ${basename(branch.name)}`;
+			const suffix = `: ${branch.name}`;
+			if (label.endsWith(remove)) {
+				label = label.substring(0, label.length - remove.length) + suffix;
+			} else if (!label.endsWith(suffix)) {
+				label += suffix;
+			}
+		}
+
 		const item = new TreeItem(
-			this.repo.formattedName ?? this.uri.repoPath ?? '',
+			label,
 			expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = `${ContextValues.RepositoryFolder}${this.repo.starred ? '+starred' : ''}`;
@@ -92,11 +104,15 @@ export abstract class RepositoryFolderNode<
 			const lastFetched = (await this.repo.getLastFetched()) ?? 0;
 
 			const status = branch.getTrackingStatus();
-			item.description = `${status ? `${status}${pad(GlyphChars.Dot, 1, 1)}` : ''}${branch.name}${
-				lastFetched
-					? `${pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
-					: ''
-			}`;
+			if (status) {
+				item.description = status;
+				if (lastFetched) {
+					item.description += pad(GlyphChars.Dot, 1, 1);
+				}
+			}
+			if (lastFetched) {
+				item.description = `${item.description ?? ''}Last fetched ${Repository.formatLastFetched(lastFetched)}`;
+			}
 
 			let providerName;
 			if (branch.upstream != null) {

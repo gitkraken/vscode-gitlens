@@ -291,7 +291,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			if (state.subcommand !== 'copy-changes') {
 				// Ensure we use the "main" repository if we are in a worktree already
-				state.repo = (await state.repo.getMainRepository()) ?? state.repo;
+				state.repo = (await state.repo.getCommonRepository()) ?? state.repo;
 			}
 			assertStateStepRepository(state);
 
@@ -977,7 +977,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			} else {
 				let name;
 
-				const repo = (await state.repo.getMainRepository()) ?? state.repo;
+				const repo = (await state.repo.getCommonRepository()) ?? state.repo;
 				if (repo.name !== state.worktree.name) {
 					name = `${repo.name}: ${state.worktree.name}`;
 				} else {

@@ -551,6 +551,7 @@ export type SuppressedMessages =
 	| 'suppressBlameInvalidIgnoreRevsFileBadRevisionWarning';
 
 export interface ViewsCommonConfig {
+	readonly collapseWorktreesWhenPossible: boolean;
 	readonly defaultItemLimit: number;
 	readonly formats: {
 		readonly commits: {

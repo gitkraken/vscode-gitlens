@@ -7,7 +7,7 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitContributor } from '../git/models/contributor';
 import type { RepositoryChangeEvent } from '../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
@@ -54,7 +54,15 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 export class ContributorsViewNode extends RepositoriesSubscribeableNode<ContributorsView, ContributorsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = this.view.container.git.openRepositories;
+			let repositories = this.view.container.git.openRepositories;
+			if (
+				configuration.get('views.collapseWorktreesWhenPossible') &&
+				configuration.get('views.contributors.showAllBranches')
+			) {
+				const grouped = await groupRepositories(repositories);
+				repositories = [...grouped.keys()];
+			}
+
 			if (repositories.length === 0) {
 				this.view.message = this.view.container.git.isDiscoveringRepositories
 					? 'Loading contributors...'
@@ -225,7 +233,8 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'sortContributorsBy') &&
-			!configuration.changed(e, 'sortRepositoriesBy')
+			!configuration.changed(e, 'sortRepositoriesBy') &&
+			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
 		) {
 			return false;
 		}

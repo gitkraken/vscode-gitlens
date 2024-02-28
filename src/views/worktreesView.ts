@@ -7,7 +7,7 @@ import type { Container } from '../container';
 import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import { executeCommand } from '../system/command';
@@ -46,7 +46,12 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 		if (access.allowed === false) return [];
 
 		if (this.children == null) {
-			const repositories = this.view.container.git.openRepositories;
+			let repositories = this.view.container.git.openRepositories;
+			if (configuration.get('views.collapseWorktreesWhenPossible')) {
+				const grouped = await groupRepositories(repositories);
+				repositories = [...grouped.keys()];
+			}
+
 			if (repositories.length === 0) {
 				this.view.message = this.view.container.git.isDiscoveringRepositories
 					? 'Loading worktrees...'
@@ -215,7 +220,8 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'sortRepositoriesBy')
+			!configuration.changed(e, 'sortRepositoriesBy') &&
+			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
 			// !configuration.changed(e, 'sortWorktreesBy')
 		) {
 			return false;

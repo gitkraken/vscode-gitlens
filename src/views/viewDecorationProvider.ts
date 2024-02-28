@@ -21,7 +21,7 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 
 					switch (uri.authority) {
 						case 'branch':
-							return this.provideBranchCurrentDecoration(uri, token);
+							return this.provideBranchDecoration(uri, token);
 						case 'remote':
 							return this.provideRemoteDefaultDecoration(uri, token);
 						case 'status':
@@ -191,10 +191,14 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 		}
 	}
 
-	provideBranchCurrentDecoration(uri: Uri, _token: CancellationToken): FileDecoration | undefined {
-		const [, , status, current] = uri.path.split('/');
+	provideBranchDecoration(uri: Uri, _token: CancellationToken): FileDecoration | undefined {
+		const query = new URLSearchParams(uri.query);
 
-		if (!current) return undefined;
+		const current = Boolean(query.get('current'));
+		const opened = Boolean(query.get('opened'));
+		const status = query.get('status')! as GitBranchStatus;
+
+		if (!current && !opened) return undefined;
 
 		let color;
 		switch (status as GitBranchStatus) {
@@ -218,7 +222,7 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 		return {
 			badge: GlyphChars.Check,
 			color: color,
-			tooltip: 'Current Branch',
+			tooltip: current ? 'Current Branch' : 'Opened Worktree Branch',
 		};
 	}
 

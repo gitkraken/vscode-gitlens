@@ -8,6 +8,7 @@ import type { Container } from '../../container';
 import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
 import type { ProviderIntegration } from '../../plus/integrations/providerIntegration';
+import type { RepoComparisonKey } from '../../repositories';
 import { asRepoComparisonKey } from '../../repositories';
 import { executeActionCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
@@ -16,7 +17,7 @@ import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
-import { filter, groupByMap, join, min, some } from '../../system/iterable';
+import { filter, groupByMap, join, map, min, some } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
@@ -223,9 +224,13 @@ export class Repository implements Disposable {
 		return this.name;
 	}
 
-	readonly id: string;
+	readonly id: RepoComparisonKey;
 	readonly index: number;
-	readonly name: string;
+
+	private _name: string;
+	get name(): string {
+		return this._name;
+	}
 
 	private _idHash: string | undefined;
 	get idHash() {
@@ -255,13 +260,13 @@ export class Repository implements Disposable {
 	) {
 		if (folder != null) {
 			if (root) {
-				this.name = folder.name;
+				this._name = folder.name;
 			} else {
 				const relativePath = container.git.getRelativePath(uri, folder.uri);
-				this.name = relativePath ? relativePath : folder.name;
+				this._name = relativePath ? relativePath : folder.name;
 			}
 		} else {
-			this.name = basename(uri.path);
+			this._name = basename(uri.path);
 
 			// TODO@eamodio should we create a fake workspace folder?
 			// folder = {
@@ -270,6 +275,22 @@ export class Repository implements Disposable {
 			// 	index: container.git.repositoryCount,
 			// };
 		}
+
+		// Update the name if it is a worktree
+		void this.getGitDir().then(gd => {
+			if (gd?.commonUri == null) return;
+
+			let path = gd.commonUri.path;
+			if (path.endsWith('/.git')) {
+				path = path.substring(0, path.length - 5);
+			}
+
+			const prefix = `${basename(path)}: `;
+			if (!this._name.startsWith(prefix)) {
+				this._name = `${prefix}${this._name}`;
+			}
+		});
+
 		this.index = folder?.index ?? container.git.repositoryCount;
 
 		this.id = asRepoComparisonKey(uri);
@@ -681,6 +702,32 @@ export class Repository implements Disposable {
 		return this.container.git.getCommit(this.uri, ref);
 	}
 
+	@gate()
+	@log({ exit: true })
+	async getCommonRepository(): Promise<Repository | undefined> {
+		const gitDir = await this.getGitDir();
+		if (gitDir?.commonUri == null) return this;
+
+		// If the repository isn't already opened, then open it as a "closed" repo (won't show up in the UI)
+		return this.container.git.getOrOpenRepository(gitDir.commonUri, {
+			detectNested: false,
+			force: true,
+			closeOnOpen: true,
+		});
+	}
+
+	@log({ exit: true })
+	async getCommonRepositoryUri(): Promise<Uri | undefined> {
+		const gitDir = await this.getGitDir();
+		if (gitDir?.commonUri?.path.endsWith('/.git')) {
+			return gitDir.commonUri.with({
+				path: gitDir.commonUri.path.substring(0, gitDir.commonUri.path.length - 5),
+			});
+		}
+
+		return gitDir?.commonUri;
+	}
+
 	getContributors(options?: {
 		all?: boolean;
 		merges?: boolean | 'first-parent';
@@ -709,20 +756,6 @@ export class Repository implements Disposable {
 		}
 
 		return this._lastFetched ?? 0;
-	}
-
-	@gate()
-	@log({ exit: true })
-	async getMainRepository(): Promise<Repository | undefined> {
-		const gitDir = await this.getGitDir();
-		if (gitDir?.commonUri == null) return this;
-
-		// If the repository isn't already opened, then open it as a "closed" repo (won't show up in the UI)
-		return this.container.git.getOrOpenRepository(gitDir.commonUri, {
-			detectNested: false,
-			force: true,
-			closeOnOpen: true,
-		});
 	}
 
 	getMergeStatus(): Promise<GitMergeStatus | undefined> {
@@ -1261,4 +1294,41 @@ export class Repository implements Disposable {
 
 export function isRepository(repository: unknown): repository is Repository {
 	return repository instanceof Repository;
+}
+
+export async function groupRepositories(repositories: Repository[]): Promise<Map<Repository, Repository[]>> {
+	const repos = new Map<string, Repository>(repositories.map(r => [r.id, r]));
+
+	// Group worktree repos under the common repo when the common repo is also in the list
+	const result = new Map<string, { repo: Repository; worktrees: Repository[] }>();
+	for (const [, repo] of repos) {
+		const commonUri = await repo.getCommonRepositoryUri();
+		if (commonUri == null) {
+			if (result.has(repo.id)) {
+				debugger;
+			}
+			result.set(repo.id, { repo: repo, worktrees: [] });
+			continue;
+		}
+
+		const commonId = asRepoComparisonKey(commonUri);
+		const commonRepo = repos.get(commonId);
+		if (commonRepo == null) {
+			if (result.has(repo.id)) {
+				debugger;
+			}
+			result.set(repo.id, { repo: repo, worktrees: [] });
+			continue;
+		}
+
+		let r = result.get(commonRepo.id);
+		if (r == null) {
+			r = { repo: commonRepo, worktrees: [] };
+			result.set(commonRepo.id, r);
+		} else {
+			r.worktrees.push(repo);
+		}
+	}
+
+	return new Map(map(result, ([, r]) => [r.repo, r.worktrees]));
 }
