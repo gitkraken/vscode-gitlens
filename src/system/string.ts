@@ -1,6 +1,9 @@
-// import ansiRegex from 'ansi-regex';
-import type { Options as FastStringWidthOptions } from 'fast-string-width';
-import getStringWidth from 'fast-string-width';
+import type {
+	WidthOptions as StringWidthOptions,
+	TruncationOptions as StringWidthTruncationOptions,
+	Result as TruncatedStringWidthResult,
+} from 'fast-string-truncated-width';
+import getTruncatedStringWidth from 'fast-string-truncated-width';
 import { hrtime } from '@env/hrtime';
 import { CharCode } from '../constants';
 
@@ -211,7 +214,12 @@ export function* getLines(data: string | string[], char: string = '\n'): Iterabl
 	}
 }
 
-const defaultWidthOptions: FastStringWidthOptions = {
+const defaultTruncationOptions: StringWidthTruncationOptions = {
+	ellipsisWidth: 0,
+	limit: 2 ** 30 - 1,
+};
+
+const defaultWidthOptions: StringWidthOptions = {
 	ansiWidth: 0,
 	controlWidth: 0,
 	ambiguousWidth: 1,
@@ -221,10 +229,24 @@ const defaultWidthOptions: FastStringWidthOptions = {
 	wideWidth: 2,
 };
 
+export function getTruncatedWidth(s: string, limit: number, ellipsisWidth: number): TruncatedStringWidthResult {
+	if (s == null || s.length === 0) {
+		return {
+			truncated: false,
+			ellipsed: false,
+			width: 0,
+			index: 0,
+		};
+	}
+
+	return getTruncatedStringWidth(s, { limit: limit, ellipsisWidth: ellipsisWidth ?? 0 }, defaultWidthOptions);
+}
+
 export function getWidth(s: string): number {
 	if (s == null || s.length === 0) return 0;
 
-	return getStringWidth(s, defaultWidthOptions);
+	const result = getTruncatedStringWidth(s, defaultTruncationOptions, defaultWidthOptions);
+	return result.width;
 }
 
 const superscripts = ['\u00B9', '\u00B2', '\u00B3', '\u2074', '\u2075', '\u2076', '\u2077', '\u2078', '\u2079'];
@@ -476,40 +498,6 @@ export function pad(s: string, before: number = 0, after: number = 0, padding: s
 	if (before === 0 && after === 0) return s;
 
 	return `${before === 0 ? '' : padding.repeat(before)}${s}${after === 0 ? '' : padding.repeat(after)}`;
-}
-
-export function padLeft(s: string, padTo: number, padding: string = '\u00a0', width?: number) {
-	const diff = padTo - (width ?? getWidth(s));
-	return diff <= 0 ? s : padding.repeat(diff) + s;
-}
-
-export function padLeftOrTruncate(s: string, max: number, padding?: string, width?: number) {
-	width = width ?? getWidth(s);
-	if (width < max) return padLeft(s, max, padding, width);
-	if (width > max) return truncate(s, max, undefined, width);
-	return s;
-}
-
-export function padRight(s: string, padTo: number, padding: string = '\u00a0', width?: number) {
-	const diff = padTo - (width ?? getWidth(s));
-	return diff <= 0 ? s : s + padding.repeat(diff);
-}
-
-export function padOrTruncate(s: string, max: number, padding?: string, width?: number) {
-	const left = max < 0;
-	max = Math.abs(max);
-
-	width = width ?? getWidth(s);
-	if (width < max) return left ? padLeft(s, max, padding, width) : padRight(s, max, padding, width);
-	if (width > max) return truncate(s, max, undefined, width);
-	return s;
-}
-
-export function padRightOrTruncate(s: string, max: number, padding?: string, width?: number) {
-	width = width ?? getWidth(s);
-	if (width < max) return padRight(s, max, padding, width);
-	if (width > max) return truncate(s, max);
-	return s;
 }
 
 export function pluralize(
