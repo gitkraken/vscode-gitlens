@@ -77,7 +77,7 @@ export class OpenOrCreateWorktreeCommand extends Command {
 			return;
 		}
 
-		repo = await repo.getMainRepository();
+		repo = await repo.getCommonRepository();
 		if (repo == null) {
 			void window.showWarningMessage(`Unable to find main repository(${localUri.toString()}) for PR #${number}`);
 			return;

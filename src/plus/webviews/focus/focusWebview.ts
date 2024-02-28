@@ -285,7 +285,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		const repoAndRemote = searchedPullRequest.repoAndRemote;
 		const localUri = repoAndRemote.repo.uri;
 
-		const repo = await repoAndRemote.repo.getMainRepository();
+		const repo = await repoAndRemote.repo.getCommonRepository();
 		if (repo == null) {
 			void window.showWarningMessage(
 				`Unable to find main repository(${localUri.toString()}) for PR #${pullRequest.id}`,

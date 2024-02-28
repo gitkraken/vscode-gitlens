@@ -41,6 +41,13 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 			});
 			if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
+			// if (configuration.get('views.collapseWorktreesWhenPossible')) {
+			// 	sortBranches(branches.values, {
+			// 		current: true,
+			// 		openWorktreeBranches: this.context.openWorktreeBranches,
+			// 	});
+			// }
+
 			// TODO@eamodio handle paging
 			const branchNodes = branches.values.map(
 				b =>

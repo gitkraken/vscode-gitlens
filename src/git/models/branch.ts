@@ -36,6 +36,7 @@ export interface BranchSortOptions {
 	current?: boolean;
 	missingUpstream?: boolean;
 	orderBy?: BranchSorting;
+	openWorktreeBranches?: string[];
 }
 
 export function getBranchId(repoPath: string, remote: boolean, name: string): string {
@@ -251,6 +252,10 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 				(a, b) =>
 					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(options.openWorktreeBranches
+						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
+						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
+						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 					(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()),
@@ -260,6 +265,10 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 				(a, b) =>
 					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(options.openWorktreeBranches
+						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
+						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
+						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
 					(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
@@ -272,6 +281,10 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 				(a, b) =>
 					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(options.openWorktreeBranches
+						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
+						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
+						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
 					(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
@@ -285,6 +298,10 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 				(a, b) =>
 					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(options.openWorktreeBranches
+						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
+						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
+						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 					(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()),

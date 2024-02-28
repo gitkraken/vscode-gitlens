@@ -8,8 +8,8 @@ import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
 import { getReferenceLabel } from '../git/models/reference';
-import type { RepositoryChangeEvent } from '../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import type { Repository, RepositoryChangeEvent } from '../git/models/repository';
+import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
@@ -48,7 +48,15 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView, BranchesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = this.view.container.git.openRepositories;
+			let nestedWorktrees: Repository[] | undefined;
+
+			let repositories = this.view.container.git.openRepositories;
+			if (configuration.get('views.collapseWorktreesWhenPossible')) {
+				const grouped = await groupRepositories(repositories);
+				repositories = [...grouped.keys()];
+				nestedWorktrees = [...grouped.values()].flat();
+			}
+
 			if (repositories.length === 0) {
 				this.view.message = this.view.container.git.isDiscoveringRepositories
 					? 'Loading branches...'
@@ -58,6 +66,17 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 			}
 
 			this.view.message = undefined;
+
+			if (nestedWorktrees?.length) {
+				const openWorktreeBranches: string[] = [];
+				for (const r of nestedWorktrees) {
+					const branch = await r.getBranch();
+					if (branch != null) {
+						openWorktreeBranches.push(branch.name);
+					}
+				}
+				this.updateContext({ openWorktreeBranches: openWorktreeBranches });
+			}
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
@@ -181,7 +200,8 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'sortBranchesBy') &&
-			!configuration.changed(e, 'sortRepositoriesBy')
+			!configuration.changed(e, 'sortRepositoriesBy') &&
+			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
 		) {
 			return false;
 		}
