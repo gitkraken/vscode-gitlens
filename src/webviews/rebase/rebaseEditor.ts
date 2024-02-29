@@ -16,6 +16,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/mode
 import { showRebaseSwitchToTextWarningMessage } from '../../messages';
 import { executeCoreCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
+import { getScopedCounter } from '../../system/counter';
 import { debug, log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
@@ -51,27 +52,8 @@ import {
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 const utf8TextDecoder = new TextDecoder('utf8');
 
-let ipcSequence = 0;
-function nextIpcId() {
-	if (ipcSequence === maxSmallIntegerV8) {
-		ipcSequence = 1;
-	} else {
-		ipcSequence++;
-	}
-
-	return `host:${ipcSequence}`;
-}
-
-let webviewId = 0;
-function nextWebviewId() {
-	if (webviewId === maxSmallIntegerV8) {
-		webviewId = 1;
-	} else {
-		webviewId++;
-	}
-
-	return webviewId;
-}
+const ipcSequencer = getScopedCounter();
+const webviewIdGenerator = getScopedCounter();
 
 const rebaseRegex = /^\s?#\s?Rebase\s([0-9a-f]+)(?:..([0-9a-f]+))?\sonto\s([0-9a-f]+)\s.*$/im;
 const rebaseCommandsRegex = /^\s?(p|pick|r|reword|e|edit|s|squash|f|fixup|d|drop)\s([0-9a-f]+?)\s(.*)$/gm;
@@ -193,7 +175,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		const context: RebaseEditorContext = {
 			dispose: () => void Disposable.from(...subscriptions).dispose(),
 
-			id: nextWebviewId(),
+			id: webviewIdGenerator.next(),
 			subscriptions: subscriptions,
 			document: document,
 			panel: panel,
@@ -528,7 +510,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		const state = await this.parseState(context);
 		void this.postMessage(context, {
-			id: nextIpcId(),
+			id: `host:${ipcSequencer.next()}`,
 			method: DidChangeNotificationType.method,
 			params: { state: state },
 		});

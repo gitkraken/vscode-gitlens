@@ -6,6 +6,7 @@ import type { Container } from '../container';
 import { pauseOnCancelOrTimeout } from '../system/cancellation';
 import { executeCommand, executeCoreCommand } from '../system/command';
 import { setContext } from '../system/context';
+import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
 import { Logger } from '../system/logger';
@@ -25,20 +26,9 @@ import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewC
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
 import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor } from './webviewsController';
 
-const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
+const ipcSequencer = getScopedCounter();
 const utf8TextDecoder = new TextDecoder('utf8');
 const utf8TextEncoder = new TextEncoder();
-
-let ipcSequence = 0;
-function nextIpcId() {
-	if (ipcSequence === maxSmallIntegerV8) {
-		ipcSequence = 1;
-	} else {
-		ipcSequence++;
-	}
-
-	return `host:${ipcSequence}`;
-}
 
 type GetParentType<T extends WebviewPanelDescriptor | WebviewViewDescriptor> = T extends WebviewPanelDescriptor
 	? WebviewPanel
@@ -503,7 +493,7 @@ export class WebviewController<
 	}
 
 	nextIpcId(): string {
-		return nextIpcId();
+		return `host:${ipcSequencer.next()}`;
 	}
 
 	async notify<T extends IpcNotificationType<any>>(

@@ -216,7 +216,7 @@ export function* getLines(data: string | string[], char: string = '\n'): Iterabl
 
 const defaultTruncationOptions: StringWidthTruncationOptions = {
 	ellipsisWidth: 0,
-	limit: 2 ** 30 - 1,
+	limit: 2 ** 30 - 1, // Max number that can be stored in V8's smis (small integers)
 };
 
 const defaultWidthOptions: StringWidthOptions = {

@@ -4,7 +4,7 @@ import { getParameters } from '../function';
 import { getLoggableName, Logger } from '../logger';
 import { slowCallWarningThreshold } from '../logger.constants';
 import type { LogScope } from '../logger.scope';
-import { clearLogScope, getNextLogScopeId, setLogScope } from '../logger.scope';
+import { clearLogScope, logScopeIdGenerator, setLogScope } from '../logger.scope';
 import { isPromise } from '../promise';
 import { getDurationMilliseconds } from '../string';
 
@@ -107,7 +107,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 				return fn!.apply(this, args);
 			}
 
-			const scopeId = getNextLogScopeId();
+			const scopeId = logScopeIdGenerator.next();
 
 			const instanceName =
 				this != null

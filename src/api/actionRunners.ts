@@ -6,11 +6,10 @@ import type { Container } from '../container';
 import { registerCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
+import { getScopedCounter } from '../system/counter';
 import { sortCompare } from '../system/string';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import type { Action, ActionContext, ActionRunner } from './gitlens';
-
-const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 type Actions = ActionContext['type'];
 const actions: Actions[] = ['createPullRequest', 'openPullRequest', 'hover.commands'];
@@ -56,16 +55,7 @@ class NoActionRunnersQuickPickItem implements QuickPickItem {
 	}
 }
 
-let runnerId = 0;
-function nextRunnerId() {
-	if (runnerId === maxSmallIntegerV8) {
-		runnerId = 1;
-	} else {
-		runnerId++;
-	}
-
-	return runnerId;
-}
+const runnerIdGenerator = getScopedCounter();
 
 class RegisteredActionRunner<T extends ActionContext = ActionContext> implements ActionRunner<T>, Disposable {
 	readonly id: number;
@@ -75,7 +65,7 @@ class RegisteredActionRunner<T extends ActionContext = ActionContext> implements
 		private readonly runner: ActionRunner<T>,
 		private readonly unregister: () => void,
 	) {
-		this.id = nextRunnerId();
+		this.id = runnerIdGenerator.next();
 	}
 
 	dispose() {

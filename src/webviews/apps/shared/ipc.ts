@@ -1,4 +1,5 @@
 /*global window */
+import { getScopedCounter } from '../../../system/counter';
 import { debug, logName } from '../../../system/decorators/log';
 import { getLogScope, getNewLogScope } from '../../../system/logger.scope';
 import type { Serialized } from '../../../system/serialize';
@@ -22,17 +23,9 @@ export function getHostIpcApi() {
 	return (_api ??= acquireVsCodeApi());
 }
 
-const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
-
-let ipcSequence = 0;
-export function nextIpcId() {
-	if (ipcSequence === maxSmallIntegerV8) {
-		ipcSequence = 1;
-	} else {
-		ipcSequence++;
-	}
-
-	return `webview:${ipcSequence}`;
+const ipcSequencer = getScopedCounter();
+function nextIpcId() {
+	return `webview:${ipcSequencer.next()}`;
 }
 
 @logName<HostIpc>((c, name) => `${c.appName}(${name})`)
