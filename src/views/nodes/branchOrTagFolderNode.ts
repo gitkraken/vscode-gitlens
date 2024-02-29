@@ -15,7 +15,7 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 		public readonly repoPath: string,
 		public readonly folderName: string,
 		public readonly relativePath: string | undefined,
-		private readonly _expanded: boolean = false,
+		private readonly _expand: boolean = false,
 	) {
 		super('branch-tag-folder', GitUri.fromRepoPath(repoPath), view, parent);
 
@@ -38,7 +38,7 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 		for (const folder of this.root.children.values()) {
 			if (folder.value === undefined) {
 				// If the folder contains the current branch, expand it by default
-				const expanded = folder.descendants?.some(n => n.is('branch') && n.current);
+				const expand = folder.descendants?.some(n => n.is('branch') && n.current);
 				children.push(
 					new BranchOrTagFolderNode(
 						this.view,
@@ -48,7 +48,7 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 						this.repoPath,
 						folder.name,
 						folder.relativePath,
-						expanded,
+						expand,
 					),
 				);
 				continue;
@@ -65,7 +65,7 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(
 			this.label,
-			this._expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
+			this._expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.contextValue = ContextValues.Folder;

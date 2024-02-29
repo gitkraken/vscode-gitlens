@@ -43,7 +43,7 @@ export class BranchNode
 	limit: number | undefined;
 
 	private readonly options: {
-		expanded: boolean;
+		expand: boolean;
 		limitCommits: boolean;
 		showAsCommits: boolean;
 		showComparison: false | ViewShowBranchComparison;
@@ -64,7 +64,7 @@ export class BranchNode
 		// Specifies that the node is shown as a root
 		public readonly root: boolean,
 		options?: {
-			expanded?: boolean;
+			expand?: boolean;
 			limitCommits?: boolean;
 			showAsCommits?: boolean;
 			showComparison?: false | ViewShowBranchComparison;
@@ -82,7 +82,7 @@ export class BranchNode
 		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this.options = {
-			expanded: false,
+			expand: false,
 			limitCommits: false,
 			showAsCommits: false,
 			showComparison: false,
@@ -499,7 +499,7 @@ export class BranchNode
 
 		const item = new TreeItem(
 			this.label,
-			this.options.expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
+			this.options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.contextValue = contextValue;
