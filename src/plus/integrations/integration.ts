@@ -87,7 +87,7 @@ export abstract class BaseIntegration<ID extends SupportedIntegrationIds = Suppo
 		return this.id;
 	}
 
-	private get connectedKey(): `connected:${HostingIntegration['key']}` {
+	private get connectedKey(): `connected:${Integration['key']}` {
 		return `connected:${this.key}`;
 	}
 
