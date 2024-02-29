@@ -450,7 +450,7 @@ export interface MenuConfig {
 		| {
 				readonly graph: boolean;
 		  };
-	readonly scmRepositoryInline: false | { readonly graph: boolean };
+	readonly scmRepositoryInline: false | { readonly graph: boolean; readonly stash: boolean };
 	readonly scmRepository:
 		| false
 		| {
