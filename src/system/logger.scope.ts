@@ -1,7 +1,8 @@
-const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
+import { getScopedCounter } from './counter';
+
+export const logScopeIdGenerator = getScopedCounter();
 
 const scopes = new Map<number, LogScope>();
-let scopeCounter = 0;
 
 export interface LogScope {
 	readonly scopeId?: number;
@@ -15,28 +16,17 @@ export function clearLogScope(scopeId: number) {
 }
 
 export function getLogScope(): LogScope | undefined {
-	return scopes.get(scopeCounter);
+	return scopes.get(logScopeIdGenerator.current);
 }
 
 export function getNewLogScope(prefix: string, scope?: LogScope | undefined): LogScope {
 	if (scope != null) return { scopeId: scope.scopeId, prefix: `${scope.prefix}${prefix}` };
 
-	const scopeId = getNextLogScopeId();
+	const scopeId = logScopeIdGenerator.next();
 	return {
 		scopeId: scopeId,
 		prefix: `[${String(scopeId).padStart(5)}] ${prefix}`,
 	};
-}
-
-export function getLogScopeId(): number {
-	return scopeCounter;
-}
-
-export function getNextLogScopeId(): number {
-	if (scopeCounter === maxSmallIntegerV8) {
-		scopeCounter = 0;
-	}
-	return ++scopeCounter;
 }
 
 export function setLogScope(scopeId: number, scope: LogScope) {
