@@ -48,13 +48,12 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView, BranchesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			let nestedWorktrees: Repository[] | undefined;
+			let grouped: Map<Repository, Map<string, Repository>> | undefined;
 
 			let repositories = this.view.container.git.openRepositories;
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
-				const grouped = await groupRepositories(repositories);
+				grouped = await groupRepositories(repositories);
 				repositories = [...grouped.keys()];
-				nestedWorktrees = [...grouped.values()].flat();
 			}
 
 			if (repositories.length === 0) {
@@ -67,16 +66,27 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 
 			this.view.message = undefined;
 
-			if (nestedWorktrees?.length) {
-				const openWorktreeBranches: string[] = [];
-				for (const r of nestedWorktrees) {
-					const branch = await r.getBranch();
-					if (branch != null) {
-						openWorktreeBranches.push(branch.name);
-					}
-				}
-				this.updateContext({ openWorktreeBranches: openWorktreeBranches });
+			let openWorktreeBranches: Set<string> | undefined;
+			if (grouped?.size) {
+				// Get all the opened worktree branches to pass along downstream, e.g. in the BranchNode to display an indicator
+				openWorktreeBranches = new Set<string>();
+
+				await Promise.allSettled(
+					[...grouped].map(async ([r, nested]) => {
+						if (!nested.size) return;
+
+						const worktrees = await r.getWorktrees();
+						for (const wt of worktrees) {
+							if (wt.branch == null || nested.has(wt.repoPath)) return;
+
+							openWorktreeBranches!.add(wt.branch);
+						}
+					}),
+				);
 			}
+			this.updateContext({
+				openWorktreeBranches: openWorktreeBranches?.size ? openWorktreeBranches : undefined,
+			});
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
