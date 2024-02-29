@@ -1296,18 +1296,18 @@ export function isRepository(repository: unknown): repository is Repository {
 	return repository instanceof Repository;
 }
 
-export async function groupRepositories(repositories: Repository[]): Promise<Map<Repository, Repository[]>> {
+export async function groupRepositories(repositories: Repository[]): Promise<Map<Repository, Map<string, Repository>>> {
 	const repos = new Map<string, Repository>(repositories.map(r => [r.id, r]));
 
 	// Group worktree repos under the common repo when the common repo is also in the list
-	const result = new Map<string, { repo: Repository; worktrees: Repository[] }>();
+	const result = new Map<string, { repo: Repository; worktrees: Map<string, Repository> }>();
 	for (const [, repo] of repos) {
 		const commonUri = await repo.getCommonRepositoryUri();
 		if (commonUri == null) {
 			if (result.has(repo.id)) {
 				debugger;
 			}
-			result.set(repo.id, { repo: repo, worktrees: [] });
+			result.set(repo.id, { repo: repo, worktrees: new Map() });
 			continue;
 		}
 
@@ -1317,16 +1317,16 @@ export async function groupRepositories(repositories: Repository[]): Promise<Map
 			if (result.has(repo.id)) {
 				debugger;
 			}
-			result.set(repo.id, { repo: repo, worktrees: [] });
+			result.set(repo.id, { repo: repo, worktrees: new Map() });
 			continue;
 		}
 
 		let r = result.get(commonRepo.id);
 		if (r == null) {
-			r = { repo: commonRepo, worktrees: [] };
+			r = { repo: commonRepo, worktrees: new Map() };
 			result.set(commonRepo.id, r);
 		} else {
-			r.worktrees.push(repo);
+			r.worktrees.set(repo.path, repo);
 		}
 	}
 

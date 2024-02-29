@@ -109,7 +109,7 @@ export class BranchNode
 	}
 
 	get opened(): boolean {
-		return this.context.openWorktreeBranches?.includes(this.branch.name) ?? false;
+		return this.context.openWorktreeBranches?.has(this.branch.name) ?? false;
 	}
 
 	get label(): string {
