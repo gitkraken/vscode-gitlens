@@ -3688,6 +3688,9 @@
 												"properties": {
 													"graph": {
 														"type": "boolean"
+													},
+													"stash": {
+														"type": "boolean"
 													}
 												}
 											}
@@ -3845,7 +3848,8 @@
 								"graph": true
 							},
 							"scmRepositoryInline": {
-								"graph": true
+								"graph": true,
+								"stash": false
 							},
 							"scmRepository": {
 								"authors": true,
@@ -11732,6 +11736,11 @@
 				}
 			],
 			"scm/title": [
+				{
+					"command": "gitlens.stashSave",
+					"when": "gitlens:enabled && config.gitlens.menus.scmRepositoryInline.stash && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && scmProvider == git",
+					"group": "navigation@-1001"
+				},
 				{
 					"command": "gitlens.showGraph",
 					"when": "gitlens:enabled && config.gitlens.menus.scmRepositoryInline.graph && gitlens:plus:enabled && scmProvider == git && scmProviderRootUri not in gitlens:plus:disallowedRepos",

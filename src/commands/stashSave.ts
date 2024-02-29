@@ -42,6 +42,14 @@ export class StashSaveCommand extends Command {
 		} else if (isCommandContextViewNodeHasRepoPath(context)) {
 			args = { ...args };
 			args.repoPath = context.node.repoPath;
+		} else if (context.type === 'scm') {
+			if (context.scm.rootUri != null) {
+				const repo = this.container.git.getRepository(context.scm.rootUri);
+				if (repo != null) {
+					args = { ...args };
+					args.repoPath = repo.path;
+				}
+			}
 		} else if (context.type === 'scm-states') {
 			args = { ...args };
 
