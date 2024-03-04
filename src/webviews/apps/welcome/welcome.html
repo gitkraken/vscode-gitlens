@@ -74,7 +74,30 @@
 				</div>
 			</section>
 			<section class="welcome__section">
-				<h2>Powerful Features</h2>
+				<div class="h-show-small">
+					<h2>Get Started</h2>
+					<p>
+						GitLens is <strong>powerful</strong>, <strong>feature rich</strong>, and highly
+						<strong>customizable</strong> to meet your needs. Check out our tutorial video and walkthrough
+						to get started.
+					</p>
+					<p class="button-container">
+						<span class="button-group button-group--single">
+							<gl-button appearance="secondary" full href="command:gitlens.getStarted"
+								><code-icon icon="info"></code-icon> Get Started Walkthrough</gl-button
+							>
+						</span>
+					</p>
+
+					<h2>Tutorial Video</h2>
+					<p class="button-container">
+						<span class="button-group button-group--single">
+							<video-button></video-button>
+						</span>
+					</p>
+				</div>
+
+				<h2 class="h-large-mt-0">Powerful Features</h2>
 				<div class="welcome__gates">
 					<p>All features are free to use on all repos, <strong>except</strong> for features,</p>
 					<p>
@@ -442,22 +465,24 @@
 			</section>
 
 			<section class="welcome__section welcome__section-bar">
-				<h2>Get Started</h2>
-				<p>
-					GitLens is <strong>powerful</strong>, <strong>feature rich</strong>, and highly
-					<strong>customizable</strong> to meet your needs. Check out our tutorial video and walkthrough to
-					get started.
-				</p>
+				<div class="h-show-large">
+					<h2>Get Started</h2>
+					<p>
+						GitLens is <strong>powerful</strong>, <strong>feature rich</strong>, and highly
+						<strong>customizable</strong> to meet your needs. Check out our tutorial video and walkthrough
+						to get started.
+					</p>
+					<p>
+						<gl-button appearance="secondary" full href="command:gitlens.getStarted"
+							><code-icon icon="info"></code-icon> Get Started Walkthrough</gl-button
+						>
+					</p>
 
-				<h2>Tutorial Video</h2>
-				<nav class="welcome__starting-nav" aria-label="Getting started links">
-					<video-button></video-button>
-					<span
-						><gl-button appearance="secondary" href="command:gitlens.getStarted"
-							>Get Started Walkthrough</gl-button
-						></span
-					>
-				</nav>
+					<h2>Tutorial Video</h2>
+					<nav class="welcome__starting-nav" aria-label="Getting started links">
+						<video-button></video-button>
+					</nav>
+				</div>
 
 				<div id="try-pro">
 					<h2>Try Pro ✨</h2>

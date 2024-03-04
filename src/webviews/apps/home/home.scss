@@ -314,6 +314,7 @@ ul {
 }
 
 .alert {
+	position: relative;
 	padding: 0.8rem 1.2rem;
 	line-height: 1.2;
 	margin-bottom: 1.2rem;
@@ -329,6 +330,19 @@ ul {
 	&__description {
 		font-size: 1.2rem;
 		margin: 0.4rem 0 0;
+	}
+
+	&__close {
+		position: absolute;
+		top: 0.8rem;
+		right: 0.8rem;
+		color: inherit;
+	}
+
+	&.is-collapsed &__description,
+	&.is-collapsed &__close code-icon:first-child,
+	&:not(.is-collapsed) &__close code-icon:last-child {
+		display: none;
 	}
 
 	&--info {
@@ -347,7 +361,7 @@ ul {
 	}
 }
 
-gl-button {
+gl-button.is-basic {
 	max-width: 300px;
 	width: 100%;
 
@@ -468,5 +482,41 @@ gl-button {
 
 	&__title {
 		padding: 0 2rem;
+	}
+}
+
+.button-container {
+	margin: 1rem auto 0;
+	text-align: left;
+	max-width: 30rem;
+	transition: max-width 0.2s ease-out;
+}
+
+@media (min-width: 640px) {
+	.button-container {
+		max-width: 100%;
+	}
+}
+
+.button-group {
+	display: inline-flex;
+	gap: 0.1rem;
+
+	&--single {
+		width: 100%;
+		max-width: 30rem;
+	}
+
+	gl-button {
+		margin-top: 0;
+
+		&:not(:first-child) {
+			border-top-left-radius: 0;
+			border-bottom-left-radius: 0;
+		}
+		&:not(:last-child) {
+			border-top-right-radius: 0;
+			border-bottom-right-radius: 0;
+		}
 	}
 }

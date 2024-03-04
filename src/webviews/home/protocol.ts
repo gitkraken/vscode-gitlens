@@ -1,5 +1,5 @@
 import type { WebviewState } from '../protocol';
-import { IpcNotificationType } from '../protocol';
+import { IpcCommandType, IpcNotificationType } from '../protocol';
 
 export interface State extends WebviewState {
 	repositories: DidChangeRepositoriesParams;
@@ -8,7 +8,17 @@ export interface State extends WebviewState {
 	orgSettings: {
 		drafts: boolean;
 	};
+	walkthroughCollapsed: boolean;
 }
+
+// COMMANDS
+export interface CollapseSectionParams {
+	section: string;
+	collapsed: boolean;
+}
+export const CollapseSectionCommandType = new IpcCommandType<CollapseSectionParams>('home/section/collapse');
+
+// NOTIFICATIONS
 
 export interface DidChangeRepositoriesParams {
 	count: number;
