@@ -6,9 +6,16 @@ import { isSubscriptionExpired, isSubscriptionPaid, isSubscriptionTrial } from '
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { registerCommand } from '../../system/command';
 import { getContext, onDidChangeContext } from '../../system/context';
+import type { IpcMessage } from '../protocol';
+import { onIpc } from '../protocol';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider';
-import type { DidChangeRepositoriesParams, State } from './protocol';
-import { DidChangeOrgSettingsType, DidChangeRepositoriesType, DidChangeSubscriptionType } from './protocol';
+import type { CollapseSectionParams, DidChangeRepositoriesParams, State } from './protocol';
+import {
+	CollapseSectionCommandType,
+	DidChangeOrgSettingsType,
+	DidChangeRepositoriesType,
+	DidChangeSubscriptionType,
+} from './protocol';
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {
@@ -45,12 +52,48 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this)];
 	}
 
+	onMessageReceived(e: IpcMessage) {
+		switch (e.method) {
+			case CollapseSectionCommandType.method:
+				onIpc(CollapseSectionCommandType, e, params => this.onCollapseSection(params));
+				break;
+		}
+	}
+
 	includeBootstrap(): Promise<State> {
 		return this.getState();
 	}
 
 	onReloaded() {
 		this.notifyDidChangeRepositories();
+	}
+
+	private onCollapseSection(params: CollapseSectionParams) {
+		const collapsed = this.container.storage.get('home:sections:collapsed');
+		if (collapsed == null) {
+			if (params.collapsed === true) {
+				void this.container.storage.store('home:sections:collapsed', [params.section]);
+			}
+			return;
+		}
+
+		const idx = collapsed.indexOf(params.section);
+		if (params.collapsed === true) {
+			if (idx === -1) {
+				void this.container.storage.store('home:sections:collapsed', [...collapsed, params.section]);
+			}
+
+			return;
+		}
+
+		if (idx !== -1) {
+			collapsed.splice(idx, 1);
+			void this.container.storage.store('home:sections:collapsed', collapsed);
+		}
+	}
+
+	private getWalkthroughCollapsed() {
+		return this.container.storage.get('home:sections:collapsed')?.includes('walkthrough') ?? false;
 	}
 
 	private getOrgSettings(): State['orgSettings'] {
@@ -76,6 +119,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			webroot: this.host.getWebRoot(),
 			promoStates: await this.getCanShowPromos(subscription),
 			orgSettings: this.getOrgSettings(),
+			walkthroughCollapsed: this.getWalkthroughCollapsed(),
 		};
 	}
 

@@ -867,6 +867,7 @@ export type GlobalStorage = {
 	preVersion: string;
 	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
+	'home:sections:collapsed': string[];
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {

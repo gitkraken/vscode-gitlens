@@ -2,7 +2,12 @@
 import './home.scss';
 import type { Disposable } from 'vscode';
 import type { State } from '../../home/protocol';
-import { DidChangeOrgSettingsType, DidChangeRepositoriesType, DidChangeSubscriptionType } from '../../home/protocol';
+import {
+	CollapseSectionCommandType,
+	DidChangeOrgSettingsType,
+	DidChangeRepositoriesType,
+	DidChangeSubscriptionType,
+} from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommandType, onIpc } from '../../protocol';
 import { App } from '../shared/appBase';
@@ -33,6 +38,9 @@ export class HomeApp extends App<State> {
 		disposables.push(
 			DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onDataActionClicked(e, target)),
 			DOM.on('[data-requires="repo"]', 'click', (e, target: HTMLElement) => this.onRepoFeatureClicked(e, target)),
+			DOM.on('[data-section-toggle]', 'click', (e, target: HTMLElement) =>
+				this.onSectionToggleClicked(e, target),
+			),
 		);
 
 		return disposables;
@@ -89,6 +97,19 @@ export class HomeApp extends App<State> {
 		}
 	}
 
+	private onSectionToggleClicked(_e: MouseEvent, _target: HTMLElement) {
+		// const section = target.dataset.sectionToggle;
+		// if (section === 'walkthrough') {
+		this.state.walkthroughCollapsed = !this.state.walkthroughCollapsed;
+		this.setState(this.state);
+		this.updateCollapsedSections(this.state.walkthroughCollapsed);
+		this.sendCommand(CollapseSectionCommandType, {
+			section: 'walkthrough',
+			collapsed: this.state.walkthroughCollapsed,
+		});
+		// }
+	}
+
 	private updateNoRepo() {
 		const {
 			repositories: { openCount, hasUnsafe, trusted },
@@ -129,10 +150,15 @@ export class HomeApp extends App<State> {
 		setElementVisibility('org-settings-drafts', drafts);
 	}
 
+	private updateCollapsedSections(toggle = this.state.walkthroughCollapsed) {
+		document.getElementById('section-walkthrough')!.classList.toggle('is-collapsed', toggle);
+	}
+
 	private updateState() {
 		this.updateNoRepo();
 		this.updatePromos();
 		this.updateOrgSettings();
+		this.updateCollapsedSections();
 	}
 }
 

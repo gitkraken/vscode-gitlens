@@ -94,7 +94,9 @@
 						To use GitLens, open a folder containing a git repository or clone from a URL from the Explorer.
 					</p>
 					<p class="centered">
-						<gl-button data-action="command:workbench.view.explorer">Open a Folder or Repository</gl-button>
+						<gl-button class="is-basic" data-action="command:workbench.view.explorer"
+							>Open a Folder or Repository</gl-button
+						>
 					</p>
 					<p class="mb-0">
 						If you have opened a folder with a repository, please let us know by
@@ -112,7 +114,9 @@
 						not being owned by the current user.
 					</p>
 					<p class="centered">
-						<gl-button data-action="command:workbench.view.scm">Manage in Source Control</gl-button>
+						<gl-button class="is-basic" data-action="command:workbench.view.scm"
+							>Manage in Source Control</gl-button
+						>
 					</p>
 				</div>
 			</div>
@@ -121,7 +125,9 @@
 				<div class="alert__description">
 					<p>Unable to open repositories in Restricted Mode.</p>
 					<p class="centered">
-						<gl-button data-action="command:workbench.trust.manage">Manage Workspace Trust</gl-button>
+						<gl-button class="is-basic" data-action="command:workbench.trust.manage"
+							>Manage Workspace Trust</gl-button
+						>
 					</p>
 				</div>
 			</div>
@@ -147,6 +153,39 @@
 						alt=""
 					/><br />
 					50% off GitLens Pro (plus entire GitKraken suite) all for only $4/month
+				</a>
+			</div>
+			<div id="section-walkthrough" class="alert">
+				<h1 class="alert__title">Get Started with GitLens</h1>
+				<div class="alert__description">
+					<p>Explore all of the powerful features in GitLens</p>
+					<p class="button-container">
+						<span class="button-group button-group--single">
+							<gl-button appearance="secondary" full data-action="command:gitlens.getStarted"
+								><code-icon icon="info"></code-icon> Open Walkthrough</gl-button
+							>
+							<gl-button
+								appearance="secondary"
+								density="compact"
+								href="https://www.youtube.com/watch?v=UQPb73Zz9qk"
+								title="Watch the GitLens Tutorial video"
+								aria-label="Watch the GitLens Tutorial video"
+								><code-icon icon="vm-running"></code-icon
+							></gl-button>
+						</span>
+					</p>
+				</div>
+				<a href="#" class="alert__close" data-section-toggle="walkthrough">
+					<code-icon
+						icon="chevron-down"
+						title="Collapse walkthrough section"
+						aria-label="Collapse walkthrough section"
+					></code-icon>
+					<code-icon
+						icon="chevron-right"
+						title="Expand walkthrough section"
+						aria-label="Expand walkthrough section"
+					></code-icon>
 				</a>
 			</div>
 			<nav class="nav-list">
