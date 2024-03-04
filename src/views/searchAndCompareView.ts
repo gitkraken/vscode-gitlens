@@ -375,16 +375,15 @@ export class SearchAndCompareView extends ViewBase<
 		ref2: string | StoredNamedRef,
 		options?: { reveal?: boolean },
 	): Promise<CompareResultsNode> {
-		return this.addResults(
-			new CompareResultsNode(
-				this,
-				this.ensureRoot(),
-				repoPath,
-				typeof ref1 === 'string' ? { ref: ref1 } : ref1,
-				typeof ref2 === 'string' ? { ref: ref2 } : ref2,
-				// Provide a timestamp so we won't try to add it to our storage prematurely (and end up with a duplicate)
-				Date.now(),
-			),
+		return this.addResultsNode(
+			() =>
+				new CompareResultsNode(
+					this,
+					this.ensureRoot(),
+					repoPath,
+					typeof ref1 === 'string' ? { ref: ref1 } : ref1,
+					typeof ref2 === 'string' ? { ref: ref2 } : ref2,
+				),
 			options?.reveal === false ? false : undefined,
 		);
 	}
@@ -433,7 +432,10 @@ export class SearchAndCompareView extends ViewBase<
 			return;
 		}
 
-		await this.addResults(new SearchResultsNode(this, this.root!, repoPath, search, labels, results), reveal);
+		await this.addResultsNode(
+			() => new SearchResultsNode(this, this.root!, repoPath, search, labels, results),
+			reveal,
+		);
 	}
 
 	getStoredNodes() {
@@ -502,8 +504,8 @@ export class SearchAndCompareView extends ViewBase<
 		return node;
 	}
 
-	private async addResults<T extends CompareResultsNode | SearchResultsNode>(
-		results: T,
+	private async addResultsNode<T extends CompareResultsNode | SearchResultsNode>(
+		resultsNodeFn: () => T,
 		reveal:
 			| {
 					expand?: boolean | number;
@@ -517,13 +519,16 @@ export class SearchAndCompareView extends ViewBase<
 		}
 
 		const root = this.ensureRoot();
-		root.addOrReplace(results);
+
+		// Deferred creating the results node until the view is visible (otherwise we will hit a duplicate timing issue when storing the new node, but then loading it from storage during the view's initialization)
+		const resultsNode = resultsNodeFn();
+		root.addOrReplace(resultsNode);
 
 		if (reveal !== false) {
-			queueMicrotask(() => this.reveal(results, reveal));
+			queueMicrotask(() => this.reveal(resultsNode, reveal));
 		}
 
-		return results;
+		return resultsNode;
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
