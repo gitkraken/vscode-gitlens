@@ -2,6 +2,7 @@ import type { Disposable, TreeCheckboxChangeEvent } from 'vscode';
 import { ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, window } from 'vscode';
 import { md5 } from '@env/crypto';
 import type { StoredNamedRef } from '../../constants';
+import type { Container } from '../../container';
 import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
 import { createRevisionRange, shortenRevision } from '../../git/models/reference';
@@ -285,53 +286,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		comparison: string,
 		compareWithWorkingTree: boolean,
 	): Promise<FilesQueryResults> {
-		const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
-			this.view.container.git.getDiffStatus(this.repoPath, comparison),
-			compareWithWorkingTree ? this.view.container.git.getDiffStatus(this.repoPath, 'HEAD') : undefined,
-			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
-			compareWithWorkingTree ? this.view.container.git.getChangedFilesCount(this.repoPath, 'HEAD') : undefined,
-		]);
-
-		let files = getSettledValue(filesResult) ?? [];
-		let stats: FilesQueryResults['stats'] = getSettledValue(statsResult);
-
-		if (compareWithWorkingTree) {
-			const workingFiles = getSettledValue(workingFilesResult);
-			if (workingFiles != null) {
-				if (files.length === 0) {
-					files = workingFiles ?? [];
-				} else {
-					for (const wf of workingFiles) {
-						const index = files.findIndex(f => f.path === wf.path);
-						if (index !== -1) {
-							files.splice(index, 1, wf);
-						} else {
-							files.push(wf);
-						}
-					}
-				}
-			}
-
-			const workingStats = getSettledValue(workingStatsResult);
-			if (workingStats != null) {
-				if (stats == null) {
-					stats = workingStats;
-				} else {
-					stats = {
-						additions: stats.additions + workingStats.additions,
-						deletions: stats.deletions + workingStats.deletions,
-						changedFiles: files.length,
-						approximated: true,
-					};
-				}
-			}
-		}
-
-		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
-			files: files,
-			stats: stats,
-		};
+		return getAheadBehindFilesQuery(this.view.container, this.repoPath, comparison, compareWithWorkingTree);
 	}
 
 	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
@@ -414,6 +369,61 @@ export class CompareResultsNode extends SubscribeableViewNode<
 			silent,
 		);
 	}
+}
+
+export async function getAheadBehindFilesQuery(
+	container: Container,
+	repoPath: string,
+	comparison: string,
+	compareWithWorkingTree: boolean,
+): Promise<FilesQueryResults> {
+	const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
+		container.git.getDiffStatus(repoPath, comparison),
+		compareWithWorkingTree ? container.git.getDiffStatus(repoPath, 'HEAD') : undefined,
+		container.git.getChangedFilesCount(repoPath, comparison),
+		compareWithWorkingTree ? container.git.getChangedFilesCount(repoPath, 'HEAD') : undefined,
+	]);
+
+	let files = getSettledValue(filesResult) ?? [];
+	let stats: FilesQueryResults['stats'] = getSettledValue(statsResult);
+
+	if (compareWithWorkingTree) {
+		const workingFiles = getSettledValue(workingFilesResult);
+		if (workingFiles != null) {
+			if (files.length === 0) {
+				files = workingFiles ?? [];
+			} else {
+				for (const wf of workingFiles) {
+					const index = files.findIndex(f => f.path === wf.path);
+					if (index !== -1) {
+						files.splice(index, 1, wf);
+					} else {
+						files.push(wf);
+					}
+				}
+			}
+		}
+
+		const workingStats = getSettledValue(workingStatsResult);
+		if (workingStats != null) {
+			if (stats == null) {
+				stats = workingStats;
+			} else {
+				stats = {
+					additions: stats.additions + workingStats.additions,
+					deletions: stats.deletions + workingStats.deletions,
+					changedFiles: files.length,
+					approximated: true,
+				};
+			}
+		}
+	}
+
+	return {
+		label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
+		files: files,
+		stats: stats,
+	};
 }
 
 export function getComparisonStoragePrefix(storageId: string) {
