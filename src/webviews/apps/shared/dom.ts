@@ -25,7 +25,7 @@ export namespace DOM {
 		options?: boolean | AddEventListenerOptions,
 	): Disposable;
 	export function on<T extends HTMLElement, K>(
-		elemtent: T,
+		element: T,
 		name: string,
 		listener: (e: CustomEvent<K> & { target: HTMLElement | null }, target: T) => void,
 		options?: boolean | AddEventListenerOptions,
