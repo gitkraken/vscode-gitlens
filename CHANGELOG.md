@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds the repository name as a prefix to worktree name when adding to the current workspace
 - Adds a better message when stashing only untracked files without including untracked files
+- Adds a _Stash All Changes_ command to Source Control repository toolbar (off by default)
 
 ### Changed
 
