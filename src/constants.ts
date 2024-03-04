@@ -970,6 +970,7 @@ export interface StoredRepoVisibilityInfo {
 
 export interface StoredBranchComparison {
 	ref: string;
+	label?: string;
 	notation: '..' | '...' | undefined;
 	type: Exclude<ViewShowBranchComparison, false> | undefined;
 	checkedFiles?: string[];

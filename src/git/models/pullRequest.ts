@@ -2,6 +2,7 @@ import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import type { IssueOrPullRequest, IssueOrPullRequestState as PullRequestState } from './issue';
+import { shortenRevision } from './reference';
 import type { RemoteProviderReference } from './remoteProvider';
 
 export type { PullRequestState };
@@ -201,4 +202,32 @@ export class PullRequest implements PullRequestShape {
 	formatUpdatedDateFromNow() {
 		return fromNow(this.date);
 	}
+}
+
+export interface PullRequestComparisonRefs {
+	repoPath: string;
+	base: { ref: string; label: string };
+	head: { ref: string; label: string };
+}
+
+export async function getComparisonRefsForPullRequest(
+	container: Container,
+	repoPath: string,
+	prRefs: PullRequestRefs,
+): Promise<PullRequestComparisonRefs> {
+	const refs: PullRequestComparisonRefs = {
+		repoPath: repoPath,
+		base: { ref: prRefs.base.sha, label: `${prRefs.base.branch} (${shortenRevision(prRefs.base.sha)})` },
+		head: { ref: prRefs.head.sha, label: prRefs.head.branch },
+	};
+
+	// Find the merge base to show a more accurate comparison for the PR
+	const mergeBase =
+		(await container.git.getMergeBase(refs.repoPath, refs.base.ref, refs.head.ref, { forkPoint: true })) ??
+		(await container.git.getMergeBase(refs.repoPath, refs.base.ref, refs.head.ref));
+	if (mergeBase != null) {
+		refs.base = { ref: mergeBase, label: `${prRefs.base.branch} (${shortenRevision(mergeBase)})` };
+	}
+
+	return refs;
 }

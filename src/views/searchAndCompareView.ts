@@ -1,10 +1,9 @@
-import type { ConfigurationChangeEvent, Disposable, TextDocumentShowOptions } from 'vscode';
+import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { SearchAndCompareViewConfig, ViewFilesLayout } from '../config';
 import type { StoredNamedRef, StoredSearchAndCompareItem } from '../constants';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { openAllChangesInChangesEditor } from '../git/actions/commit';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitLog } from '../git/models/log';
 import { isRevisionRange, shortenRevision, splitRevisionRange } from '../git/models/reference';
@@ -377,41 +376,16 @@ export class SearchAndCompareView extends ViewBase<
 		options?: { reveal?: boolean },
 	): Promise<CompareResultsNode> {
 		return this.addResults(
-			this.createCompareResultsNode(repoPath, ref1, ref2),
+			new CompareResultsNode(
+				this,
+				this.ensureRoot(),
+				repoPath,
+				typeof ref1 === 'string' ? { ref: ref1 } : ref1,
+				typeof ref2 === 'string' ? { ref: ref2 } : ref2,
+				// Provide a timestamp so we won't try to add it to our storage prematurely (and end up with a duplicate)
+				Date.now(),
+			),
 			options?.reveal === false ? false : undefined,
-		);
-	}
-
-	private createCompareResultsNode(
-		repoPath: string,
-		ref1: string | StoredNamedRef,
-		ref2: string | StoredNamedRef,
-	): CompareResultsNode {
-		return new CompareResultsNode(
-			this,
-			this.ensureRoot(),
-			repoPath,
-			typeof ref1 === 'string' ? { ref: ref1 } : ref1,
-			typeof ref2 === 'string' ? { ref: ref2 } : ref2,
-			// Provide a timestamp so we won't try to add it to our storage prematurely (and end up with a duplicate)
-			Date.now(),
-		);
-	}
-
-	async openComparisonChanges(
-		repoPath: string,
-		ref1: string | StoredNamedRef,
-		ref2: string | StoredNamedRef,
-		options?: TextDocumentShowOptions & { title?: string },
-	): Promise<void> {
-		// TODO@eamodio this is a total hack but works -- eventually need to extract the functionality out of the CompareResultsNode
-		const comparison = await this.createCompareResultsNode(repoPath, ref1, ref2).getFilesComparison();
-		if (!comparison?.files.length) return undefined;
-
-		await openAllChangesInChangesEditor(
-			comparison.files,
-			{ repoPath: comparison.repoPath, lhs: comparison.ref1, rhs: comparison.ref2 },
-			options,
 		);
 	}
 

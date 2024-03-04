@@ -22,6 +22,7 @@ import {
 	openAllChangesIndividually,
 	openAllChangesWithWorking,
 	openAllChangesWithWorkingIndividually,
+	openComparisonChanges,
 	openFiles,
 	openFilesAtRevision,
 	openOnlyChangedFiles,
@@ -39,6 +40,7 @@ import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
+import { getComparisonRefsForPullRequest } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -2689,14 +2691,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
-	private openPullRequestChanges(item?: GraphItemContext) {
+	private async openPullRequestChanges(item?: GraphItemContext) {
 		if (isGraphItemTypedContext(item, 'pullrequest')) {
 			const pr = item.webviewItemValue;
 			if (pr.refs?.base != null && pr.refs.head != null) {
-				return this.container.searchAndCompareView.openComparisonChanges(
-					pr.repoPath,
-					{ ref: pr.refs.head.sha, label: pr.refs.head.branch },
-					{ ref: pr.refs.base.sha, label: pr.refs.base.branch },
+				const refs = await getComparisonRefsForPullRequest(this.container, pr.repoPath, pr.refs);
+				return openComparisonChanges(
+					this.container,
+					{
+						repoPath: refs.repoPath,
+						lhs: refs.base.ref,
+						rhs: refs.head.ref,
+					},
 					{ title: `Changes in Pull Request #${pr.id}` },
 				);
 			}
@@ -2706,15 +2712,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
-	private openPullRequestComparison(item?: GraphItemContext) {
+	private async openPullRequestComparison(item?: GraphItemContext) {
 		if (isGraphItemTypedContext(item, 'pullrequest')) {
 			const pr = item.webviewItemValue;
 			if (pr.refs?.base != null && pr.refs.head != null) {
-				return this.container.searchAndCompareView.compare(
-					pr.repoPath,
-					{ ref: pr.refs.head.sha, label: pr.refs.head.branch },
-					{ ref: pr.refs.base.sha, label: pr.refs.base.branch },
-				);
+				const refs = await getComparisonRefsForPullRequest(this.container, pr.repoPath, pr.refs);
+				return this.container.searchAndCompareView.compare(refs.repoPath, refs.head, refs.base);
 			}
 		}
 

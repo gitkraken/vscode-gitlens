@@ -49,12 +49,16 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		private showComparison: ViewShowBranchComparison,
 		// Specifies that the node is shown as a root
 		public readonly root: boolean = false,
+		defaultCompareWith?: StoredBranchComparison,
 	) {
 		super('compare-branch', uri, view, parent);
 
 		this.updateContext({ branch: branch, root: root, storedComparisonId: this.getStorageId() });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.loadCompareWith();
+		if (defaultCompareWith != null) {
+			void this.setDefaultCompareWith(defaultCompareWith);
+		}
 	}
 
 	protected override etag(): number {
@@ -199,12 +203,12 @@ export class CompareBranchNode extends SubscribeableViewNode<
 				this.compareWithWorkingTree ? 'Working Tree' : this.branch.name
 			} with a branch, tag, or ref`;
 		} else {
-			label = `Compare ${this.compareWithWorkingTree ? 'Working Tree' : this.branch.name} with ${shortenRevision(
-				this._compareWith.ref,
-				{
+			label = `Compare ${this.compareWithWorkingTree ? 'Working Tree' : this.branch.name} with ${
+				this._compareWith.label ??
+				shortenRevision(this._compareWith.ref, {
 					strings: { working: 'Working Tree' },
-				},
-			)}`;
+				})
+			}`;
 			state = TreeItemCollapsibleState.Collapsed;
 		}
 
@@ -268,6 +272,13 @@ export class CompareBranchNode extends SubscribeableViewNode<
 
 		this.children = undefined;
 		this.view.triggerNodeChange(this);
+	}
+
+	@log()
+	async setDefaultCompareWith(compareWith: StoredBranchComparison) {
+		if (this._compareWith != null) return;
+
+		await this.updateCompareWith(compareWith);
 	}
 
 	private get comparisonType() {

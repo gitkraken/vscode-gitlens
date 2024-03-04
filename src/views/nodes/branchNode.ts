@@ -1,12 +1,13 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { ViewShowBranchComparison } from '../../config';
-import type { Colors } from '../../constants';
+import type { Colors, StoredBranchComparison } from '../../constants';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
+import { shortenRevision } from '../../git/models/reference';
 import { getHighlanderProviders } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
@@ -160,6 +161,18 @@ export class BranchNode
 			let pullRequest;
 			let pullRequestInsertIndex = 0;
 
+			function getPullRequestComparison(pr: PullRequest | null | undefined): StoredBranchComparison | undefined {
+				if (pr?.refs?.base == null && pr?.refs?.head == null) return undefined;
+
+				return {
+					ref: pr.refs.base.sha,
+					label: `${pr.refs.base.branch} (${shortenRevision(pr.refs.base.sha)})`,
+					notation: '...',
+					type: 'branch',
+					checkedFiles: [],
+				};
+			}
+
 			if (
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
@@ -194,6 +207,18 @@ export class BranchNode
 								0,
 								new PullRequestNode(this.view, this, pr, branch),
 							);
+
+							if (pr?.refs?.base != null && pr?.refs?.head != null) {
+								const comparisonNode = this.children.find((n): n is CompareBranchNode =>
+									n.is('compare-branch'),
+								);
+								if (comparisonNode != null) {
+									const comparison = getPullRequestComparison(pr);
+									if (comparison != null) {
+										await comparisonNode.setDefaultCompareWith(comparison);
+									}
+								}
+							}
 						}
 
 						// Refresh this node to add the pull request node or remove the spinner
@@ -319,6 +344,7 @@ export class BranchNode
 						branch,
 						this.options.showComparison,
 						this.splatted,
+						getPullRequestComparison(pullRequest),
 					),
 				);
 			}

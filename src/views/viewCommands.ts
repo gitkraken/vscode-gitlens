@@ -20,6 +20,7 @@ import * as WorktreeActions from '../git/actions/worktree';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
 import { matchContributor } from '../git/models/contributor';
+import { getComparisonRefsForPullRequest } from '../git/models/pullRequest';
 import { createReference, shortenRevision } from '../git/models/reference';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import {
@@ -623,24 +624,27 @@ export class ViewCommands {
 		if (!node.is('pullrequest')) return Promise.resolve();
 		if (node.pullRequest.refs?.base == null || node.pullRequest.refs.head == null) return Promise.resolve();
 
-		return this.container.searchAndCompareView.openComparisonChanges(
-			node.repoPath,
-			{ ref: node.pullRequest.refs.head.sha, label: node.pullRequest.refs.head.branch },
-			{ ref: node.pullRequest.refs.base.sha, label: node.pullRequest.refs.base.branch },
-			{ title: `Changes in Pull Request #${node.pullRequest.id}` },
+		const refs = await getComparisonRefsForPullRequest(this.container, node.repoPath, node.pullRequest.refs);
+		return CommitActions.openComparisonChanges(
+			this.container,
+			{
+				repoPath: refs.repoPath,
+				lhs: refs.base.ref,
+				rhs: refs.head.ref,
+			},
+			{
+				title: `Changes in Pull Request #${node.pullRequest.id}`,
+			},
 		);
 	}
 
 	@log()
-	private openPullRequestComparison(node: PullRequestNode) {
+	private async openPullRequestComparison(node: PullRequestNode) {
 		if (!node.is('pullrequest')) return Promise.resolve();
 		if (node.pullRequest.refs?.base == null || node.pullRequest.refs.head == null) return Promise.resolve();
 
-		return this.container.searchAndCompareView.compare(
-			node.repoPath,
-			{ ref: node.pullRequest.refs.head.sha, label: node.pullRequest.refs.head.branch },
-			{ ref: node.pullRequest.refs.base.sha, label: node.pullRequest.refs.base.branch },
-		);
+		const refs = await getComparisonRefsForPullRequest(this.container, node.repoPath, node.pullRequest.refs);
+		return this.container.searchAndCompareView.compare(refs.repoPath, refs.head, refs.base);
 	}
 
 	@log()

@@ -185,7 +185,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 			head: {
 				exists: pr.headRepository != null,
 				owner: pr.headRepository?.owner.login,
-				repo: pr.baseRepository?.name,
+				repo: pr.headRepository?.name,
 				sha: pr.headRefOid,
 				branch: pr.headRefName,
 				url: pr.headRepository?.url,
@@ -284,7 +284,7 @@ export function fromGitHubPullRequestDetailed(pr: GitHubDetailedPullRequest, pro
 			head: {
 				exists: pr.headRepository != null,
 				owner: pr.headRepository?.owner.login,
-				repo: pr.baseRepository?.name,
+				repo: pr.headRepository?.name,
 				sha: pr.headRefOid,
 				branch: pr.headRefName,
 				url: pr.headRepository?.url,
