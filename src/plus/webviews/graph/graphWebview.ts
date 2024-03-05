@@ -463,6 +463,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.openPullRequestComparison', this.openPullRequestComparison),
 			this.host.registerWebviewCommand('gitlens.graph.openPullRequestOnRemote', this.openPullRequestOnRemote),
 
+			this.host.registerWebviewCommand(
+				'gitlens.graph.openChangedFileDiffsWithMergeBase',
+				this.openChangedFileDiffsWithMergeBase,
+			),
+
 			this.host.registerWebviewCommand('gitlens.graph.compareWithUpstream', this.compareWithUpstream),
 			this.host.registerWebviewCommand('gitlens.graph.compareWithHead', this.compareHeadWith),
 			this.host.registerWebviewCommand('gitlens.graph.compareWithWorking', this.compareWorkingWith),
@@ -2778,6 +2783,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			ref: commonAncestor,
 			label: `${branch.ref} (${shortenRevision(commonAncestor)})`,
 		});
+	}
+
+	@debug()
+	private async openChangedFileDiffsWithMergeBase(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
+
+		const branch = await this.container.git.getBranch(ref.repoPath);
+		if (branch == null) return undefined;
+
+		const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
+		if (commonAncestor == null) return undefined;
+
+		return openComparisonChanges(
+			this.container,
+			{ repoPath: ref.repoPath, lhs: commonAncestor, rhs: ref.ref },
+			{
+				title: `Changes between ${branch.ref} (${shortenRevision(commonAncestor)}) ${
+					GlyphChars.ArrowLeftRightLong
+				} ${shortenRevision(ref.ref, { strings: { working: 'Working Tree' } })}`,
+			},
+		);
 	}
 
 	@debug()

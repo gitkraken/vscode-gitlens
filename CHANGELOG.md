@@ -9,7 +9,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds support for Anthropic's Claude 3 Opus & Sonnet models for GitLens' experimental AI features
-- Adds a _Compare with Common (Merge) Base_ command to branches in the _Commit Graph_ and views to review the changes if the selected branch were to be merged by comparing the common ancestor (merge base) with the current branch to the selected branch
+- Adds a _Compare with Common Base_ command to branches in the _Commit Graph_ and views to review the changes if the selected branch were to be merged by comparing the common ancestor (merge base) with the current branch to the selected branch
+- Adds an _Open All Changes with Common Base_ command to branches in the _Commit Graph_ and views to review the changes if the selected branch were to be merged in the multi-diff editor
 - Adds a _Stash All Changes_ command to Source Control repository toolbar (off by default)
 - Adds the repository name as a prefix to worktree name when adding to the current workspace
 - Adds a better message when stashing only untracked files without including untracked files
@@ -18,7 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Re-adds _Add to Workspace_ option when creating a worktree &mdash; closes [#3160](https://github.com/gitkraken/vscode-gitlens/issues/3160)
 - Changes _Commit Graph_ date style to default to the default date style &mdash; refs [#3153](https://github.com/gitkraken/vscode-gitlens/issues/3153)
-- Renames the _Compare Ancestry with Working Tree_ command on branches to _Compare Common (Merge) Base with Working Tree_ for better clarity
+- Renames the _Compare Ancestry with Working Tree_ command on branches to _Compare Common Base with Working Tree_ for better clarity
 - Improves _File Blame_ annotations performance and layout accuracy with certain character sets
 - Improves string formatting performance
 
@@ -28,7 +29,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3152](https://github.com/gitkraken/vscode-gitlens/issues/3152) - Fixes double encoding of redirect URLs during account sign-in which affects certain environments
 - Fixes [#3153](https://github.com/gitkraken/vscode-gitlens/issues/3153) - `gitlens.defaultDateStyle` not working in Commit Details view
 - Fixes the _Open Pull Request Changes_ & _Compare Pull Request_ commands to scope the changes only to the pull request
-- Fixes broken _Compare Common (Merge) Base with Working Tree_ (previously _Compare Ancestry with Working Tree_)
+- Fixes broken _Compare Common Base with Working Tree_ (previously _Compare Ancestry with Working Tree_)
 - Fixes issue when switching to a worktree via branch switch when there are multiple repos in the workspace
 
 ## [14.8.2] - 2024-02-16

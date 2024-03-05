@@ -6747,12 +6747,18 @@
 			},
 			{
 				"command": "gitlens.views.compareAncestryWithWorking",
-				"title": "Compare Common (Merge) Base with Working Tree",
+				"title": "Compare Common Base with Working Tree",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.compareWithMergeBase",
-				"title": "Compare with Common (Merge) Base",
+				"title": "Compare with Common Base",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.openChangedFileDiffsWithMergeBase",
+				"title": "Open All Changes with Common Base",
+				"icon": "$(diff-multiple)",
 				"category": "GitLens"
 			},
 			{
@@ -8408,12 +8414,18 @@
 			},
 			{
 				"command": "gitlens.graph.compareAncestryWithWorking",
-				"title": "Compare Common (Merge) Base with Working Tree",
+				"title": "Compare Common Base with Working Tree",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.graph.compareWithMergeBase",
-				"title": "Compare with Common (Merge) Base",
+				"title": "Compare with Common Base",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.openChangedFileDiffsWithMergeBase",
+				"title": "Open All Changes with Common Base",
+				"icon": "$(diff-multiple)",
 				"category": "GitLens"
 			},
 			{
@@ -10057,6 +10069,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.openChangedFileDiffsWithMergeBase",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.compareWithHead",
 					"when": "false"
 				},
@@ -11202,6 +11218,10 @@
 				},
 				{
 					"command": "gitlens.graph.compareWithMergeBase",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileDiffsWithMergeBase",
 					"when": "false"
 				},
 				{
@@ -12964,9 +12984,14 @@
 					"alt": "gitlens.copyRemoteBranchUrl"
 				},
 				{
+					"command": "gitlens.views.openChangedFileDiffsWithMergeBase",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "3_gitlens_explore@11"
+				},
+				{
 					"command": "gitlens.views.openDirectoryDiffWithWorking",
 					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:(branch|tag)\\b/",
-					"group": "3_gitlens_explore@11"
+					"group": "3_gitlens_explore@12"
 				},
 				{
 					"command": "gitlens.views.compareWithUpstream",
@@ -14583,6 +14608,11 @@
 					"command": "gitlens.graph.fetch",
 					"when": "webviewItem =~ /gitlens:upstreamStatus\\b/",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileDiffsWithMergeBase",
+					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "3_gitlens_explore@11"
 				},
 				{
 					"command": "gitlens.graph.compareWithUpstream",
