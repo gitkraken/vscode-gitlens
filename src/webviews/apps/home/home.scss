@@ -337,6 +337,12 @@ ul {
 		top: 0.8rem;
 		right: 0.8rem;
 		color: inherit;
+		opacity: 0.64;
+
+		&:hover {
+			color: inherit;
+			opacity: 1;
+		}
 	}
 
 	&.is-collapsed &__description,
