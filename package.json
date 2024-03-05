@@ -3324,12 +3324,16 @@
 						"enum": [
 							"claude-instant-1",
 							"claude-2",
-							"claude-2.1"
+							"claude-2.1",
+							"claude-3-opus-20240229",
+							"claude-3-sonnet-20240229"
 						],
 						"enumDescriptions": [
 							"Claude Instant 1.2",
 							"Claude 2",
-							"Claude 2.1"
+							"Claude 2.1",
+							"Claude 3 Opus",
+							"Claude 3 Sonnet"
 						],
 						"markdownDescription": "Specifies the Anthropic model to use for GitLens' experimental AI features",
 						"scope": "window",

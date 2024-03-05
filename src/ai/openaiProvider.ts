@@ -121,7 +121,7 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 
 			if (diff.length > maxCodeCharacters) {
 				void window.showWarningMessage(
-					`The diff of the staged changes had to be truncated to ${maxCodeCharacters} characters to fit within the OpenAI's limits.`,
+					`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the OpenAI's limits.`,
 				);
 			}
 
@@ -203,7 +203,7 @@ Do not make any assumptions or invent details that are not supported by the code
 
 			if (diff.length > maxCodeCharacters) {
 				void window.showWarningMessage(
-					`The diff of the commit changes had to be truncated to ${maxCodeCharacters} characters to fit within the OpenAI's limits.`,
+					`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the OpenAI's limits.`,
 				);
 			}
 

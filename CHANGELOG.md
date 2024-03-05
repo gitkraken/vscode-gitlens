@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support for Anthropic's Claude 3 Opus & Sonnet models for GitLens' experimental AI features
 - Adds a _Compare with Common (Merge) Base_ command to branches in the _Commit Graph_ and views to review the changes if the selected branch were to be merged by comparing the common ancestor (merge base) with the current branch to the selected branch
 - Adds a _Stash All Changes_ command to Source Control repository toolbar (off by default)
 - Adds the repository name as a prefix to worktree name when adding to the current workspace

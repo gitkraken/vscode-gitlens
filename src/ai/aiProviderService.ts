@@ -245,7 +245,9 @@ export function getMaxCharacters(model: OpenAIModels | AnthropicModels, outputLe
 		case 'gpt-3.5-turbo': // Will point to gpt-3.5-turbo-1106 starting Dec 11, 2023
 			tokens = 4096;
 			break;
-		case 'claude-2.1': // 200,000 tokens
+		case 'claude-3-opus-20240229': // 200,000 tokens
+		case 'claude-3-sonnet-20240229':
+		case 'claude-2.1':
 			tokens = 200000;
 			break;
 		case 'claude-2': // 100,000 tokens

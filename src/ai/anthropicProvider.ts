@@ -39,17 +39,12 @@ export class AnthropicProvider implements AIProvider<'anthropic'> {
 		const model = await this.getOrChooseModel();
 		if (model == null) return undefined;
 
-		let retries = 0;
-		let maxCodeCharacters = getMaxCharacters(model, 2600);
-		while (true) {
-			const code = diff.substring(0, maxCodeCharacters);
+		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
+		if (!customPrompt.endsWith('.')) {
+			customPrompt += '.';
+		}
 
-			let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
-			if (!customPrompt.endsWith('.')) {
-				customPrompt += '.';
-			}
-
-			const prompt = `\n\nHuman: You are an advanced AI programming assistant tasked with summarizing code changes into a concise and meaningful commit message. Compose a commit message that:
+		const systemPrompt = `You are an advanced AI programming assistant tasked with summarizing code changes into a concise and meaningful commit message. Compose a commit message that:
 - Strictly synthesizes meaningful information from the provided code diff
 - Utilizes any additional user-provided context to comprehend the rationale behind the code changes
 - Is clear and brief, with an informal yet professional tone, and without superfluous descriptions
@@ -57,62 +52,83 @@ export class AnthropicProvider implements AIProvider<'anthropic'> {
 - Avoids direct mention of specific code identifiers, names, or file names, unless they are crucial for understanding the purpose of the changes
 - Most importantly emphasizes the 'why' of the change, its benefits, or the problem it addresses rather than only the 'what' that changed
 
-Follow the user's instructions carefully, don't repeat yourself, don't include the code in the output, or make anything up!
+Follow the user's instructions carefully, don't repeat yourself, don't include the code in the output, or make anything up!`;
 
-Human: Here is the code diff to use to generate the commit message:
+		try {
+			let result: string;
+			let maxCodeCharacters: number;
 
-${code}
-
-${
-	options?.context
-		? `Human: Here is additional context which should be taken into account when generating the commit message:\n\n${options.context}`
-		: ''
-}
-
-Human: ${customPrompt}
-
-Assistant:`;
-
-			const request: AnthropicCompletionRequest = {
-				model: model,
-				prompt: prompt,
-				stream: false,
-				max_tokens_to_sample: 5000,
-			};
-			const rsp = await this.fetch(apiKey, request);
-			if (!rsp.ok) {
-				let json;
-				try {
-					json = (await rsp.json()) as { error?: { type: string; message: string } } | undefined;
-				} catch {}
-
-				debugger;
-
-				if (
-					retries++ < 2 &&
-					json?.error?.type === 'invalid_request_error' &&
-					json?.error?.message?.includes('prompt is too long')
-				) {
-					maxCodeCharacters -= 500 * retries;
-					continue;
-				}
-
-				throw new Error(
-					`Unable to generate commit message: (${this.name}:${rsp.status}) ${
-						json?.error?.message || rsp.statusText
-					})`,
+			if (model === 'claude-instant-1' || model === 'claude-2') {
+				[result, maxCodeCharacters] = await this.makeLegacyRequest(
+					model,
+					apiKey,
+					max => {
+						const code = diff.substring(0, max);
+						let prompt = `\n\nHuman: ${systemPrompt}\n\nHuman: Here is the code diff to use to generate the commit message:\n\n${code}\n`;
+						if (options?.context) {
+							prompt += `\nHuman: Here is additional context which should be taken into account when generating the commit message:\n\n${options.context}\n`;
+						}
+						if (customPrompt) {
+							prompt += `\nHuman: ${customPrompt}\n`;
+						}
+						prompt += '\nAssistant:';
+						return prompt;
+					},
+					4096,
+				);
+			} else {
+				[result, maxCodeCharacters] = await this.makeRequest(
+					model,
+					apiKey,
+					systemPrompt,
+					max => {
+						const code = diff.substring(0, max);
+						const message: Message = {
+							role: 'user',
+							content: [
+								{
+									type: 'text',
+									text: 'Here is the code diff to use to generate the commit message:',
+								},
+								{
+									type: 'text',
+									text: code,
+								},
+							],
+						};
+						if (options?.context) {
+							message.content.push(
+								{
+									type: 'text',
+									text: 'Here is additional context which should be taken into account when generating the commit message:',
+								},
+								{
+									type: 'text',
+									text: options.context,
+								},
+							);
+						}
+						if (customPrompt) {
+							message.content.push({
+								type: 'text',
+								text: customPrompt,
+							});
+						}
+						return [message];
+					},
+					4096,
 				);
 			}
 
 			if (diff.length > maxCodeCharacters) {
 				void window.showWarningMessage(
-					`The diff of the staged changes had to be truncated to ${maxCodeCharacters} characters to fit within the Anthropic's limits.`,
+					`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the Anthropic's limits.`,
 				);
 			}
 
-			const data: AnthropicCompletionResponse = await rsp.json();
-			const message = data.completion.trim();
-			return message;
+			return result;
+		} catch (ex) {
+			throw new Error(`Unable to generate commit message: ${ex.message}`);
 		}
 	}
 
@@ -123,20 +139,24 @@ Assistant:`;
 		const model = await this.getOrChooseModel();
 		if (model == null) return undefined;
 
-		let retries = 0;
-		let maxCodeCharacters = getMaxCharacters(model, 3000);
-		while (true) {
-			const code = diff.substring(0, maxCodeCharacters);
-
-			// FYI, only Claude 2.1 support system prompts
-			const prompt = `${
-				model !== 'claude-2.1' ? '\n\nHuman: ' : ''
-			}You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
+		const systemPrompt = `You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
 - Concisely synthesizes meaningful information from the provided code diff
 - Incorporates any additional context provided by the user to understand the rationale behind the code changes
 - Places the emphasis on the 'why' of the change, clarifying its benefits or addressing the problem that necessitated the change, beyond just detailing the 'what' has changed
 
-Do not make any assumptions or invent details that are not supported by the code diff or the user-provided context.
+Do not make any assumptions or invent details that are not supported by the code diff or the user-provided context.`;
+
+		try {
+			let result: string;
+			let maxCodeCharacters: number;
+
+			if (model === 'claude-instant-1' || model === 'claude-2') {
+				[result, maxCodeCharacters] = await this.makeLegacyRequest(
+					model,
+					apiKey,
+					max => {
+						const code = diff.substring(0, max);
+						return `\n\nHuman: ${systemPrompt}
 
 Human: Here is additional context provided by the author of the changes, which should provide some explanation to why these changes where made. Please strongly consider this information when generating your explanation:
 
@@ -146,22 +166,85 @@ Human: Now, kindly explain the following code diff in a way that would be clear 
 
 ${code}
 
-Human: Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase.
-
+Human: Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase. And please don't explain how you arrived at the explanation, just provide the explanation.
 Assistant:`;
+					},
+					4096,
+				);
+			} else {
+				[result, maxCodeCharacters] = await this.makeRequest(
+					model,
+					apiKey,
+					systemPrompt,
+					max => {
+						const code = diff.substring(0, max);
+						return [
+							{
+								role: 'user',
+								content: [
+									{
+										type: 'text',
+										text: 'Here is additional context provided by the author of the changes, which should provide some explanation to why these changes where made. Please strongly consider this information when generating your explanation:',
+									},
+									{
+										type: 'text',
+										text: message,
+									},
+									{
+										type: 'text',
+										text: 'Now, kindly explain the following code diff in a way that would be clear to someone reviewing or trying to understand these changes:',
+									},
+									{
+										type: 'text',
+										text: code,
+									},
+									{
+										type: 'text',
+										text: `Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase. And please don't explain how you arrived at the explanation, just provide the explanation`,
+									},
+								],
+							},
+						];
+					},
+					4096,
+				);
+			}
 
-			const request: AnthropicCompletionRequest = {
+			if (diff.length > maxCodeCharacters) {
+				void window.showWarningMessage(
+					`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the Anthropic's limits.`,
+				);
+			}
+
+			return result;
+		} catch (ex) {
+			throw new Error(`Unable to explain changes: ${ex.message}`);
+		}
+	}
+
+	private async makeRequest(
+		model: Exclude<AnthropicModels, 'claude-instant-1' | 'claude-2'>,
+		apiKey: string,
+		system: string,
+		messages: (maxCodeCharacters: number) => Message[],
+		maxTokens: number,
+	): Promise<[result: string, maxCodeCharacters: number]> {
+		let retries = 0;
+		let maxCodeCharacters = getMaxCharacters(model, 2600);
+
+		while (true) {
+			const request: AnthropicMessageRequest = {
 				model: model,
-				prompt: prompt,
+				messages: messages(maxCodeCharacters),
+				system: system,
 				stream: false,
-				max_tokens_to_sample: 5000,
+				max_tokens: maxTokens,
 			};
-
 			const rsp = await this.fetch(apiKey, request);
 			if (!rsp.ok) {
 				let json;
 				try {
-					json = (await rsp.json()) as { error?: { type: string; message: string } } | undefined;
+					json = (await rsp.json()) as AnthropicError | undefined;
 				} catch {}
 
 				debugger;
@@ -175,24 +258,76 @@ Assistant:`;
 					continue;
 				}
 
-				throw new Error(
-					`Unable to explain commit: (${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText})`,
-				);
+				throw new Error(`(${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText})`);
 			}
 
-			if (diff.length > maxCodeCharacters) {
-				void window.showWarningMessage(
-					`The diff of the commit changes had to be truncated to ${maxCodeCharacters} characters to fit within the OpenAI's limits.`,
-				);
-			}
-
-			const data: AnthropicCompletionResponse = await rsp.json();
-			const summary = data.completion.trim();
-			return summary;
+			const data: AnthropicMessageResponse = await rsp.json();
+			const result = data.content
+				.map(c => c.text)
+				.join('\n')
+				.trim();
+			return [result, maxCodeCharacters];
 		}
 	}
 
-	private fetch(apiKey: string, request: AnthropicCompletionRequest) {
+	private fetch(apiKey: string, request: AnthropicMessageRequest) {
+		return fetch('https://api.anthropic.com/v1/messages', {
+			headers: {
+				Accept: 'application/json',
+				Authorization: `Bearer ${apiKey}`,
+				'Content-Type': 'application/json',
+				'X-API-Key': apiKey,
+				'anthropic-version': '2023-06-01',
+			},
+			method: 'POST',
+			body: JSON.stringify(request),
+		});
+	}
+
+	private async makeLegacyRequest(
+		model: Extract<AnthropicModels, 'claude-instant-1' | 'claude-2'>,
+		apiKey: string,
+		prompt: (maxCodeCharacters: number) => string,
+		maxTokens: number,
+	): Promise<[result: string, maxCodeCharacters: number]> {
+		let retries = 0;
+		let maxCodeCharacters = getMaxCharacters(model, 2600);
+
+		while (true) {
+			const request: AnthropicCompletionRequest = {
+				model: model,
+				prompt: prompt(maxCodeCharacters),
+				stream: false,
+				max_tokens_to_sample: maxTokens,
+			};
+			const rsp = await this.fetchLegacy(apiKey, request);
+			if (!rsp.ok) {
+				let json;
+				try {
+					json = (await rsp.json()) as AnthropicError | undefined;
+				} catch {}
+
+				debugger;
+
+				if (
+					retries++ < 2 &&
+					json?.error?.type === 'invalid_request_error' &&
+					json?.error?.message?.includes('prompt is too long')
+				) {
+					maxCodeCharacters -= 500 * retries;
+					continue;
+				}
+
+				throw new Error(`(${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText})`);
+			}
+
+			const data: AnthropicCompletionResponse = await rsp.json();
+			const result = data.completion.trim();
+			return [result, maxCodeCharacters];
+		}
+	}
+
+	private fetchLegacy(apiKey: string, request: AnthropicCompletionRequest) {
 		return fetch('https://api.anthropic.com/v1/complete', {
 			headers: {
 				Accept: 'application/json',
@@ -270,10 +405,30 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 	return apiKey;
 }
 
-export type AnthropicModels = 'claude-instant-1' | 'claude-2' | 'claude-2.1';
+export type AnthropicModels =
+	| 'claude-instant-1'
+	| 'claude-2'
+	| 'claude-2.1'
+	| 'claude-3-opus-20240229'
+	| 'claude-3-sonnet-20240229';
+
+interface AnthropicError {
+	type: 'error';
+	error: {
+		type:
+			| 'invalid_request_error'
+			| 'authentication_error'
+			| 'permission_error'
+			| 'not_found_error'
+			| 'rate_limit_error'
+			| 'api_error'
+			| 'overloaded_error';
+		message: string;
+	};
+}
 
 interface AnthropicCompletionRequest {
-	model: string;
+	model: Extract<AnthropicModels, 'claude-instant-1' | 'claude-2'>;
 	prompt: string;
 	stream: boolean;
 
@@ -293,4 +448,47 @@ interface AnthropicCompletionResponse {
 	truncated: boolean;
 	exception: string | null;
 	log_id: string;
+}
+
+interface Message {
+	role: 'user' | 'assistant';
+	content: (
+		| { type: 'text'; text: string }
+		| {
+				type: 'image';
+				source: {
+					type: 'base64';
+					media_type: `image/${'jpeg' | 'png' | 'gif' | 'webp'}`;
+					data: string;
+				};
+		  }
+	)[];
+}
+
+interface AnthropicMessageRequest {
+	model: Exclude<AnthropicModels, 'claude-instant-1' | 'claude-2'>;
+	messages: Message[];
+	system?: string;
+
+	max_tokens: number;
+	metadata?: object;
+	stop_sequences?: string[];
+	stream?: boolean;
+	temperature?: number;
+	top_p?: number;
+	top_k?: number;
+}
+
+interface AnthropicMessageResponse {
+	id: string;
+	type: 'message';
+	role: 'assistant';
+	content: { type: 'text'; text: string }[];
+	model: string;
+	stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence';
+	stop_sequence: string | null;
+	usage: {
+		input_tokens: number;
+		output_tokens: number;
+	};
 }

@@ -23,6 +23,13 @@ export async function showAIModelPicker(provider?: AIProviders): Promise<ModelQu
 		{ label: 'OpenAI', description: 'GPT-4 32k', provider: 'openai', model: 'gpt-4-32k' },
 		{ label: 'OpenAI', description: 'GPT-3.5 Turbo', provider: 'openai', model: 'gpt-3.5-turbo-1106' },
 		{ label: 'Anthropic', kind: QuickPickItemKind.Separator },
+		{ label: 'Anthropic', description: 'Claude 3 Opus', provider: 'anthropic', model: 'claude-3-opus-20240229' },
+		{
+			label: 'Anthropic',
+			description: 'Claude 3 Sonnet',
+			provider: 'anthropic',
+			model: 'claude-3-sonnet-20240229',
+		},
 		{ label: 'Anthropic', description: 'Claude 2.1', provider: 'anthropic', model: 'claude-2.1' },
 		{ label: 'Anthropic', description: 'Claude 2.0', provider: 'anthropic', model: 'claude-2' },
 		{ label: 'Anthropic', description: 'Claude Instant', provider: 'anthropic', model: 'claude-instant-1' },
