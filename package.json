@@ -6743,7 +6743,12 @@
 			},
 			{
 				"command": "gitlens.views.compareAncestryWithWorking",
-				"title": "Compare Ancestry with Working Tree",
+				"title": "Compare Common (Merge) Base with Working Tree",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.compareWithMergeBase",
+				"title": "Compare with Common (Merge) Base",
 				"category": "GitLens"
 			},
 			{
@@ -8399,7 +8404,12 @@
 			},
 			{
 				"command": "gitlens.graph.compareAncestryWithWorking",
-				"title": "Compare Ancestry with Working Tree",
+				"title": "Compare Common (Merge) Base with Working Tree",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.compareWithMergeBase",
+				"title": "Compare with Common (Merge) Base",
 				"category": "GitLens"
 			},
 			{
@@ -10039,6 +10049,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.compareWithMergeBase",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.compareWithHead",
 					"when": "false"
 				},
@@ -11180,6 +11194,10 @@
 				},
 				{
 					"command": "gitlens.graph.compareAncestryWithWorking",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.compareWithMergeBase",
 					"when": "false"
 				},
 				{
@@ -12962,9 +12980,14 @@
 					"group": "4_gitlens_compare@3"
 				},
 				{
-					"command": "gitlens.views.compareAncestryWithWorking",
+					"command": "gitlens.views.compareWithMergeBase",
 					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
 					"group": "4_gitlens_compare@4"
+				},
+				{
+					"command": "gitlens.views.compareAncestryWithWorking",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "4_gitlens_compare@5"
 				},
 				{
 					"command": "gitlens.views.compareWithSelected",
@@ -14573,9 +14596,14 @@
 					"group": "4_gitlens_compare@3"
 				},
 				{
-					"command": "gitlens.graph.compareAncestryWithWorking",
+					"command": "gitlens.graph.compareWithMergeBase",
 					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
 					"group": "4_gitlens_compare@4"
+				},
+				{
+					"command": "gitlens.graph.compareAncestryWithWorking",
+					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "4_gitlens_compare@5"
 				},
 				{
 					"command": "gitlens.graph.addAuthor",

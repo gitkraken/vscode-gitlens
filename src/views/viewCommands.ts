@@ -255,6 +255,7 @@ export class ViewCommands {
 
 		registerViewCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
 		registerViewCommand('gitlens.views.compareWithHead', this.compareHeadWith, this);
+		registerViewCommand('gitlens.views.compareWithMergeBase', this.compareWithMergeBase, this);
 		registerViewCommand('gitlens.views.compareWithUpstream', this.compareWithUpstream, this);
 		registerViewCommand('gitlens.views.compareWithSelected', this.compareWithSelected, this);
 		registerViewCommand('gitlens.views.selectForCompare', this.selectForCompare, this);
@@ -931,6 +932,22 @@ export class ViewCommands {
 	}
 
 	@log()
+	private async compareWithMergeBase(node: BranchNode) {
+		if (!node.is('branch')) return Promise.resolve();
+
+		const branch = await this.container.git.getBranch(node.repoPath);
+		if (branch == null) return undefined;
+
+		const commonAncestor = await this.container.git.getMergeBase(node.repoPath, branch.ref, node.ref.ref);
+		if (commonAncestor == null) return undefined;
+
+		return this.container.searchAndCompareView.compare(node.repoPath, node.ref.ref, {
+			ref: commonAncestor,
+			label: `${branch.ref} (${shortenRevision(commonAncestor)})`,
+		});
+	}
+
+	@log()
 	private compareWithUpstream(node: BranchNode) {
 		if (!node.is('branch') || node.branch.upstream == null) return Promise.resolve();
 
@@ -958,14 +975,10 @@ export class ViewCommands {
 		const commonAncestor = await this.container.git.getMergeBase(node.repoPath, branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
-		return this.container.searchAndCompareView.compare(
-			node.repoPath,
-			{
-				ref: commonAncestor,
-				label: `ancestry with ${node.ref.ref} (${shortenRevision(commonAncestor)})`,
-			},
-			'',
-		);
+		return this.container.searchAndCompareView.compare(node.repoPath, '', {
+			ref: commonAncestor,
+			label: `${branch.ref} (${shortenRevision(commonAncestor)})`,
+		});
 	}
 
 	@log()
