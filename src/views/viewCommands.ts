@@ -6,7 +6,7 @@ import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';
 import type { DiffWithWorkingCommandArgs } from '../commands/diffWithWorking';
 import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevision';
 import type { ViewShowBranchComparison } from '../config';
-import { Commands } from '../constants';
+import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { browseAtRevision } from '../git/actions';
 import * as BranchActions from '../git/actions/branch';
@@ -252,6 +252,12 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.stageFile', this.stageFile, this);
 		registerViewCommand('gitlens.views.unstageDirectory', this.unstageDirectory, this);
 		registerViewCommand('gitlens.views.unstageFile', this.unstageFile, this);
+
+		registerViewCommand(
+			'gitlens.views.openChangedFileDiffsWithMergeBase',
+			this.openChangedFileDiffsWithMergeBase,
+			this,
+		);
 
 		registerViewCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
 		registerViewCommand('gitlens.views.compareWithHead', this.compareHeadWith, this);
@@ -945,6 +951,27 @@ export class ViewCommands {
 			ref: commonAncestor,
 			label: `${branch.ref} (${shortenRevision(commonAncestor)})`,
 		});
+	}
+
+	@log()
+	private async openChangedFileDiffsWithMergeBase(node: BranchNode) {
+		if (!node.is('branch')) return Promise.resolve();
+
+		const branch = await this.container.git.getBranch(node.repoPath);
+		if (branch == null) return undefined;
+
+		const commonAncestor = await this.container.git.getMergeBase(node.repoPath, branch.ref, node.ref.ref);
+		if (commonAncestor == null) return undefined;
+
+		return CommitActions.openComparisonChanges(
+			this.container,
+			{ repoPath: node.repoPath, lhs: commonAncestor, rhs: node.ref.ref },
+			{
+				title: `Changes between ${branch.ref} (${shortenRevision(commonAncestor)}) ${
+					GlyphChars.ArrowLeftRightLong
+				} ${shortenRevision(node.ref.ref, { strings: { working: 'Working Tree' } })}`,
+			},
+		);
 	}
 
 	@log()
