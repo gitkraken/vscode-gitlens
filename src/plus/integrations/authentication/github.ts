@@ -50,7 +50,7 @@ export class GitHubEnterpriseAuthenticationProvider implements IntegrationAuthen
 
 				input.password = true;
 				input.title = `GitHub Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`;
-				input.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
+				input.placeholder = `Requires a classic token with ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
 				input.prompt = supportedInVSCodeVersion('input-prompt-links')
 					? `Paste your [GitHub Personal Access Token](https://${
 							descriptor?.domain ?? 'github.com'
