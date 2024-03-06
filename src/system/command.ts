@@ -22,7 +22,17 @@ export function registerCommand(command: string, callback: CommandCallback, this
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {
-			Container.instance.telemetry.sendEvent('command', { command: command });
+			let context: any;
+			if (command === Commands.GitCommands) {
+				const arg = args?.[0];
+				if (arg?.command != null) {
+					context = { mode: args[0].command };
+					if (arg?.state?.subcommand != null) {
+						context.submode = arg.state.subcommand;
+					}
+				}
+			}
+			Container.instance.telemetry.sendEvent('command', { command: command, context: context });
 			callback.call(this, ...args);
 		},
 		thisArg,
