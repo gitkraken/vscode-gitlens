@@ -193,8 +193,8 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 							keys: ['right', 'alt+right', 'ctrl+right'],
 							onDidPressKey: async (key, item) => {
 								await openFileAtRevision(item.item.file!, item.item, {
-									annotationType: args!.annotationType,
-									line: args!.line,
+									annotationType: args.annotationType,
+									line: args.line,
 									preserveFocus: true,
 									preview: true,
 								});

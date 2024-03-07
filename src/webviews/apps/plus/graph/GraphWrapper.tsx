@@ -847,7 +847,7 @@ export function GraphWrapper({
 		}
 
 		if (id != null) {
-			queueMicrotask(() => graphRef.current?.selectCommits([id!], false, true));
+			queueMicrotask(() => graphRef.current?.selectCommits([id], false, true));
 		}
 	};
 

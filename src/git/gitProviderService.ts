@@ -1364,7 +1364,7 @@ export class GitProviderService implements Disposable {
 				location: ProgressLocation.Notification,
 				title: `Fetching ${repositories.length} repositories`,
 			},
-			() => Promise.all(repositories!.map(r => r.fetch({ progress: false, ...options }))),
+			() => Promise.all(repositories.map(r => r.fetch({ progress: false, ...options }))),
 		);
 	}
 
@@ -1399,7 +1399,7 @@ export class GitProviderService implements Disposable {
 				location: ProgressLocation.Notification,
 				title: `Pulling ${repositories.length} repositories`,
 			},
-			() => Promise.all(repositories!.map(r => r.pull({ progress: false, ...options }))),
+			() => Promise.all(repositories.map(r => r.pull({ progress: false, ...options }))),
 		);
 	}
 
@@ -1441,7 +1441,7 @@ export class GitProviderService implements Disposable {
 				location: ProgressLocation.Notification,
 				title: `Pushing ${repositories.length} repositories`,
 			},
-			() => Promise.all(repositories!.map(r => r.push({ progress: false, ...options }))),
+			() => Promise.all(repositories.map(r => r.push({ progress: false, ...options }))),
 		);
 	}
 

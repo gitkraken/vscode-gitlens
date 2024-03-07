@@ -29,7 +29,7 @@ export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Par
 				return result;
 			}
 
-			result = fn!.apply(this, args);
+			result = fn.apply(this, args);
 			Object.defineProperty(this, prop, {
 				configurable: false,
 				enumerable: false,

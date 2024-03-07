@@ -145,7 +145,7 @@ export function getRemoteProviderMatcher(
 	}
 
 	return (url: string, domain: string, path: string) =>
-		createBestRemoteProvider(container, providers!, url, domain, path);
+		createBestRemoteProvider(container, providers, url, domain, path);
 }
 
 function createBestRemoteProvider(

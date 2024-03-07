@@ -179,7 +179,7 @@ export function getSubscriptionFromCheckIn(
 	if (organizationId != null) {
 		activeOrganization = organizations.find(organization => organization.id === organizationId);
 	} else if (effective?.organizationId != null) {
-		activeOrganization = organizations.find(organization => organization.id === effective!.organizationId);
+		activeOrganization = organizations.find(organization => organization.id === effective.organizationId);
 	} else if (organizationsWithNoLicense.length > 0) {
 		activeOrganization = organizationsWithNoLicense[0];
 	}
