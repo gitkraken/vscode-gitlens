@@ -188,13 +188,13 @@ export class ActionRunners implements Disposable {
 		const runnersMap = this._actionRunners;
 
 		const registeredRunner = new RegisteredActionRunner(type, runner, function (this: RegisteredActionRunner) {
-			if (runners!.length === 1) {
+			if (runners.length === 1) {
 				runnersMap.delete(action);
 				onChanged(action);
 			} else {
-				const index = runners!.indexOf(this);
+				const index = runners.indexOf(this);
 				if (index !== -1) {
-					runners!.splice(index, 1);
+					runners.splice(index, 1);
 				}
 			}
 		});

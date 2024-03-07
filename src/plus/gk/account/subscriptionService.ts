@@ -128,7 +128,7 @@ export class SubscriptionService implements Disposable {
 			session = await this._sessionPromise;
 		}
 
-		if (session != null && e.removed?.some(s => s.id === session!.id)) {
+		if (session != null && e.removed?.some(s => s.id === session.id)) {
 			this._session = undefined;
 			this._sessionPromise = undefined;
 			void this.logout();

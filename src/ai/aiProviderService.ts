@@ -132,7 +132,7 @@ export class AIProviderService implements Disposable {
 
 		if (options?.progress != null) {
 			return window.withProgress(options.progress, async () =>
-				provider.explainChanges(commit!.message!, diff.contents),
+				provider.explainChanges(commit.message, diff.contents),
 			);
 		}
 		return provider.explainChanges(commit.message, diff.contents);

@@ -249,8 +249,8 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 		case 'date:asc':
 			return branches.sort(
 				(a, b) =>
-					(options!.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
-					(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
+					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 					(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()),
@@ -258,8 +258,8 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 		case 'name:asc':
 			return branches.sort(
 				(a, b) =>
-					(options!.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
-					(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
+					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
 					(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
@@ -270,8 +270,8 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 		case 'name:desc':
 			return branches.sort(
 				(a, b) =>
-					(options!.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
-					(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
+					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
 					(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
@@ -283,8 +283,8 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 		default:
 			return branches.sort(
 				(a, b) =>
-					(options!.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
-					(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
+					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 					(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()),

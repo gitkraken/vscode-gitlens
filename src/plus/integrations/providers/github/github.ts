@@ -2619,7 +2619,7 @@ export class GitHubApi implements Disposable {
 			}
 
 			const rsp = await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
-				fetch(url!, { method: 'GET', headers: { Authorization: `Bearer ${token}` } }),
+				fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${token}` } }),
 			);
 
 			if (rsp.ok) {

@@ -62,10 +62,10 @@ export class WebviewCommandRegistrar implements Disposable {
 
 		return {
 			dispose: () => {
-				registration!.handlers.delete(key);
-				if (registration!.handlers.size === 0) {
+				registration.handlers.delete(key);
+				if (registration.handlers.size === 0) {
 					this._commandRegistrations.delete(command);
-					registration!.subscription.dispose();
+					registration.subscription.dispose();
 				}
 			},
 		};

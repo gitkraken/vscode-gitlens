@@ -260,6 +260,6 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 		if (results.filtered == null) {
 			results.filtered = new Map();
 		}
-		results.filtered.set(filter, filterTo == null ? [] : results.files!.filter(f => filterTo!.has(f.path)));
+		results.filtered.set(filter, filterTo == null ? [] : results.files!.filter(f => filterTo.has(f.path)));
 	}
 }

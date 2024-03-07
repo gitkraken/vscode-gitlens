@@ -104,7 +104,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 
 		descriptor[fnKey] = function (this: any, ...args: Parameters<T>) {
 			if ((!debugging && !Logger.enabled(logLevel)) || (ifFn != null && !ifFn.apply(this, args))) {
-				return fn!.apply(this, args);
+				return fn.apply(this, args);
 			}
 
 			const scopeId = logScopeIdGenerator.next();
@@ -216,7 +216,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 
 				let result;
 				try {
-					result = fn!.apply(this, args);
+					result = fn.apply(this, args);
 				} catch (ex) {
 					logError(ex);
 					throw ex;
@@ -290,7 +290,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 				return result;
 			}
 
-			return fn!.apply(this, args);
+			return fn.apply(this, args);
 		};
 	};
 }

@@ -71,8 +71,8 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 								await openFileAtRevision(
 									this.container.git.getRevisionUri(item.ref, gitUri.fsPath, gitUri.repoPath!),
 									{
-										annotationType: args!.annotationType,
-										line: args!.line,
+										annotationType: args.annotationType,
+										line: args.line,
 										preserveFocus: true,
 										preview: true,
 									},
