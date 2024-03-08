@@ -55,6 +55,7 @@ export type ProviderKeyById<T extends SupportedIntegrationIds> = T extends Suppo
 export type ResourceDescriptor = { key: string } & Record<string, unknown>;
 export type IntegrationType = 'issues' | 'hosting';
 export type Integration = IssueIntegration | HostingIntegration;
+
 export function isHostingIntegration(integration: Integration): integration is HostingIntegration {
 	return integration.type === 'hosting';
 }
@@ -62,7 +63,7 @@ export function isIssueIntegration(integration: Integration): integration is Iss
 	return integration.type === 'issues';
 }
 
-export abstract class BaseIntegration<ID extends SupportedIntegrationIds = SupportedIntegrationIds> {
+abstract class IntegrationBase<ID extends SupportedIntegrationIds = SupportedIntegrationIds> {
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
@@ -315,8 +316,9 @@ export abstract class BaseIntegration<ID extends SupportedIntegrationIds = Suppo
 export abstract class IssueIntegration<
 	ID extends SupportedIntegrationIds = SupportedIntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
-> extends BaseIntegration<ID> {
+> extends IntegrationBase<ID> {
 	readonly type: IntegrationType = 'issues';
+
 	@gate()
 	@debug()
 	async getAccountForResource(resource: T): Promise<Account | undefined> {
@@ -400,8 +402,9 @@ export abstract class IssueIntegration<
 export abstract class HostingIntegration<
 	ID extends SupportedIntegrationIds = SupportedIntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
-> extends BaseIntegration<ID> {
+> extends IntegrationBase<ID> {
 	readonly type: IntegrationType = 'hosting';
+
 	@gate()
 	@debug()
 	async getAccountForEmail(
