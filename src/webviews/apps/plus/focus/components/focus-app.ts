@@ -30,9 +30,9 @@ export class GlFocusApp extends LitElement {
 	static override styles = [themeProperties];
 	private readonly tabFilters = ['prs', 'issues', 'snoozed'];
 	private readonly tabFilterOptions = [
-		{ label: 'All', value: '' },
-		{ label: 'PRs', value: 'prs' },
+		{ label: 'Pull Requests', value: 'prs' },
 		{ label: 'Issues', value: 'issues' },
+		{ label: 'All', value: '' },
 		{ label: 'Snoozed', value: 'snoozed' },
 	];
 	private readonly mineFilters = ['authored', 'assigned', 'review-requested', 'mentioned'];
@@ -53,7 +53,7 @@ export class GlFocusApp extends LitElement {
 	private subScriptionBadgeEl!: FeatureGateBadge;
 
 	@state()
-	private selectedTabFilter?: string;
+	private selectedTabFilter?: string = 'prs';
 
 	@state()
 	private selectedMineFilter?: string;
