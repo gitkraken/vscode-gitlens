@@ -4,6 +4,7 @@ import { md5 } from '@env/crypto';
 import { executeGitCommand } from '../../git/actions';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
+import type { CommitsQueryResults } from '../../git/queryResults';
 import type { SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search';
 import { gate } from '../../system/decorators/gate';
@@ -12,7 +13,6 @@ import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
 import type { PageableViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
-import type { CommitsQueryResults } from './resultsCommitsNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 
 let instanceId = 0;

@@ -1,8 +1,8 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
-import type { GitDiffShortStat } from '../../git/models/diff';
 import type { GitFile } from '../../git/models/file';
+import type { FilesQueryResults } from '../../git/queryResults';
 import { makeHierarchical } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
@@ -25,15 +25,14 @@ export enum FilesQueryFilter {
 	Right = 1,
 }
 
-export interface FilesQueryResults {
-	label: string;
-	files: GitFile[] | undefined;
-	stats?: (GitDiffShortStat & { approximated?: boolean }) | undefined;
-
-	filtered?: Map<FilesQueryFilter, GitFile[]>;
+interface Options {
+	expand: boolean;
+	timeout: false | number;
 }
 
 export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits, State> {
+	private readonly _options: Options;
+
 	constructor(
 		view: ViewsWithCommits,
 		protected override parent: ViewNode,
@@ -42,9 +41,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 		public readonly ref2: string,
 		private readonly _filesQuery: () => Promise<FilesQueryResults>,
 		private readonly direction: 'ahead' | 'behind' | undefined,
-		private readonly _options: {
-			expand?: boolean;
-		} = undefined!,
+		options?: Partial<Options>,
 	) {
 		super('results-files', GitUri.fromRepoPath(repoPath), view, parent);
 
@@ -52,7 +49,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 			this.updateContext({ branchStatusUpstreamType: this.direction });
 		}
 		this._uniqueId = getViewNodeId(this.type, this.context);
-		this._options = { expand: true, ..._options };
+		this._options = { expand: true, timeout: 100, ...options };
 	}
 
 	override get id(): string {
@@ -135,7 +132,10 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 
 		const filter = this.filter;
 		try {
-			const results = await cancellable(this.getFilesQueryResults(), 100);
+			const results = await cancellable(
+				this.getFilesQueryResults(),
+				this._options.timeout === false ? undefined : this._options.timeout,
+			);
 			label = results.label;
 			if (filter == null && results.stats != null) {
 				description = `${pluralize('addition', results.stats.additions)} (+), ${pluralize(

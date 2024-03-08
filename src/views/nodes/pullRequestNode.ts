@@ -4,11 +4,19 @@ import { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
+import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
+import { createRevisionRange } from '../../git/models/reference';
+import { getAheadBehindFilesQuery, getCommitsQuery } from '../../git/queryResults';
+import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
-import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ResultsCommitsNode } from './resultsCommitsNode';
+import { ResultsFilesNode } from './resultsFilesNode';
 
-export class PullRequestNode extends ViewNode<'pullrequest', ViewsWithCommits> {
+export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', ViewsWithCommits> {
 	readonly repoPath: string;
 
 	constructor(
@@ -36,6 +44,7 @@ export class PullRequestNode extends ViewNode<'pullrequest', ViewsWithCommits> {
 			}
 		}
 
+		this.updateContext({ pullRequest: pullRequest });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.repoPath = repoPath;
 	}
@@ -74,12 +83,73 @@ export class PullRequestNode extends ViewNode<'pullrequest', ViewsWithCommits> {
 		return undefined;
 	}
 
-	getChildren(): ViewNode[] {
-		return [];
+	async getChildren(): Promise<ViewNode[]> {
+		if (this.children == null) {
+			const refs = await getComparisonRefsForPullRequest(
+				this.view.container,
+				this.repoPath,
+				this.pullRequest.refs!,
+			);
+
+			const comparison = {
+				ref1: refs.base.ref,
+				ref2: refs.head.ref,
+			};
+
+			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(this.repoPath, [
+				createRevisionRange(comparison.ref2, comparison.ref1, '...'),
+			]);
+
+			const children = [
+				new ResultsCommitsNode(
+					this.view,
+					this,
+					this.repoPath,
+					'Commits',
+					{
+						query: getCommitsQuery(
+							this.view.container,
+							this.repoPath,
+							createRevisionRange(comparison.ref1, comparison.ref2, '..'),
+						),
+						comparison: comparison,
+					},
+					{
+						autolinks: false,
+						expand: false,
+						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
+					},
+				),
+				new ResultsFilesNode(
+					this.view,
+					this,
+					this.repoPath,
+					comparison.ref1,
+					comparison.ref2,
+					() =>
+						getAheadBehindFilesQuery(
+							this.view.container,
+							this.repoPath,
+							createRevisionRange(comparison.ref1, comparison.ref2, '...'),
+							false,
+						),
+					undefined,
+					{ expand: true, timeout: false },
+				),
+			];
+
+			this.children = children;
+		}
+		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem(`#${this.pullRequest.id}: ${this.pullRequest.title}`, TreeItemCollapsibleState.None);
+		const hasRefs = this.pullRequest.refs?.base != null && this.pullRequest.refs.head != null;
+
+		const item = new TreeItem(
+			`#${this.pullRequest.id}: ${this.pullRequest.title}`,
+			hasRefs ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None,
+		);
 		item.id = this.id;
 		item.contextValue = ContextValues.PullRequest;
 		if (this.pullRequest.refs?.base != null && this.pullRequest.refs.head != null) {

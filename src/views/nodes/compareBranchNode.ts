@@ -7,6 +7,8 @@ import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import { createRevisionRange, shortenRevision } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
+import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
+import { getCommitsQuery, getFilesQuery } from '../../git/queryResults';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
 import { debug, log } from '../../system/decorators/log';
@@ -24,9 +26,7 @@ import {
 	resetComparisonCheckedFiles,
 	restoreComparisonCheckedFiles,
 } from './compareResultsNode';
-import type { CommitsQueryResults } from './resultsCommitsNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
-import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 
 type State = {
@@ -383,50 +383,21 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	}
 
 	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
-		const repoPath = this.repoPath;
-		return async (limit: number | undefined) => {
-			const log = await this.view.container.git.getLog(repoPath, {
-				limit: limit,
-				ref: range,
-				authors: this.filterByAuthors,
-			});
-
-			const results: Mutable<Partial<CommitsQueryResults>> = {
-				log: log,
-				hasMore: log?.hasMore ?? true,
-			};
-			if (results.hasMore) {
-				results.more = async (limit: number | undefined) => {
-					results.log = (await results.log?.more?.(limit)) ?? results.log;
-					results.hasMore = results.log?.hasMore ?? true;
-				};
-			}
-
-			return results as CommitsQueryResults;
-		};
+		return getCommitsQuery(this.view.container, this.repoPath, range, this.filterByAuthors);
 	}
 
-	private async getFilesQuery(): Promise<FilesQueryResults> {
-		let comparison;
-		if (!this._compareWith?.ref) {
-			comparison = this.branch.ref;
+	private getFilesQuery(): Promise<FilesQueryResults> {
+		let ref1 = this.branch.ref;
+		let ref2 = this._compareWith?.ref;
+
+		if (!ref2) {
+			ref2 = ref1;
+			ref1 = '';
 		} else if (this.compareWithWorkingTree) {
-			comparison = this._compareWith.ref;
-		} else {
-			comparison = `${this._compareWith.ref}..${this.branch.ref}`;
+			ref1 = '';
 		}
 
-		const [filesResult, statsResult] = await Promise.allSettled([
-			this.view.container.git.getDiffStatus(this.repoPath, comparison),
-			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
-		]);
-
-		const files = getSettledValue(filesResult) ?? [];
-		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
-			files: files,
-			stats: getSettledValue(statsResult),
-		};
+		return getFilesQuery(this.view.container, this.repoPath, ref1, ref2);
 	}
 
 	private getStorageId() {

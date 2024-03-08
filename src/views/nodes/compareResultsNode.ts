@@ -2,24 +2,22 @@ import type { Disposable, TreeCheckboxChangeEvent } from 'vscode';
 import { ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, window } from 'vscode';
 import { md5 } from '@env/crypto';
 import type { StoredNamedRef } from '../../constants';
-import type { Container } from '../../container';
 import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
 import { createRevisionRange, shortenRevision } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
+import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
+import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
-import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
 import type { View } from '../viewBase';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import type { CommitsQueryResults } from './resultsCommitsNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
-import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 
 let instanceId = 0;
@@ -269,72 +267,29 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	}
 
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
-		return this.getAheadBehindFilesQuery(
+		return getAheadBehindFilesQuery(
+			this.view.container,
+			this.repoPath,
 			createRevisionRange(this._compareWith?.ref || 'HEAD', this._ref.ref || 'HEAD', '...'),
 			this._ref.ref === '',
 		);
 	}
 
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
-		return this.getAheadBehindFilesQuery(
+		return getAheadBehindFilesQuery(
+			this.view.container,
+			this.repoPath,
 			createRevisionRange(this._ref.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
 			false,
 		);
 	}
 
-	private async getAheadBehindFilesQuery(
-		comparison: string,
-		compareWithWorkingTree: boolean,
-	): Promise<FilesQueryResults> {
-		return getAheadBehindFilesQuery(this.view.container, this.repoPath, comparison, compareWithWorkingTree);
-	}
-
 	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
-		const repoPath = this.repoPath;
-		return async (limit: number | undefined) => {
-			const log = await this.view.container.git.getLog(repoPath, {
-				limit: limit,
-				ref: range,
-				authors: this.filterByAuthors,
-			});
-
-			const results: Mutable<Partial<CommitsQueryResults>> = {
-				log: log,
-				hasMore: log?.hasMore ?? true,
-			};
-			if (results.hasMore) {
-				results.more = async (limit: number | undefined) => {
-					results.log = (await results.log?.more?.(limit)) ?? results.log;
-					results.hasMore = results.log?.hasMore ?? true;
-				};
-			}
-
-			return results as CommitsQueryResults;
-		};
+		return getCommitsQuery(this.view.container, this.repoPath, range, this.filterByAuthors);
 	}
 
-	private async getFilesQuery(): Promise<FilesQueryResults> {
-		let comparison;
-		if (this._compareWith.ref === '') {
-			debugger;
-			throw new Error('Cannot get files for comparisons of a ref with working tree');
-		} else if (this._ref.ref === '') {
-			comparison = this._compareWith.ref;
-		} else {
-			comparison = `${this._compareWith.ref}..${this._ref.ref}`;
-		}
-
-		const [filesResult, statsResult] = await Promise.allSettled([
-			this.view.container.git.getDiffStatus(this.repoPath, comparison),
-			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
-		]);
-
-		const files = getSettledValue(filesResult) ?? [];
-		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
-			files: files,
-			stats: getSettledValue(statsResult),
-		};
+	private getFilesQuery(): Promise<FilesQueryResults> {
+		return getFilesQuery(this.view.container, this.repoPath, this._ref.ref, this._compareWith.ref);
 	}
 
 	private getStorageId() {
@@ -369,61 +324,6 @@ export class CompareResultsNode extends SubscribeableViewNode<
 			silent,
 		);
 	}
-}
-
-export async function getAheadBehindFilesQuery(
-	container: Container,
-	repoPath: string,
-	comparison: string,
-	compareWithWorkingTree: boolean,
-): Promise<FilesQueryResults> {
-	const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
-		container.git.getDiffStatus(repoPath, comparison),
-		compareWithWorkingTree ? container.git.getDiffStatus(repoPath, 'HEAD') : undefined,
-		container.git.getChangedFilesCount(repoPath, comparison),
-		compareWithWorkingTree ? container.git.getChangedFilesCount(repoPath, 'HEAD') : undefined,
-	]);
-
-	let files = getSettledValue(filesResult) ?? [];
-	let stats: FilesQueryResults['stats'] = getSettledValue(statsResult);
-
-	if (compareWithWorkingTree) {
-		const workingFiles = getSettledValue(workingFilesResult);
-		if (workingFiles != null) {
-			if (files.length === 0) {
-				files = workingFiles ?? [];
-			} else {
-				for (const wf of workingFiles) {
-					const index = files.findIndex(f => f.path === wf.path);
-					if (index !== -1) {
-						files.splice(index, 1, wf);
-					} else {
-						files.push(wf);
-					}
-				}
-			}
-		}
-
-		const workingStats = getSettledValue(workingStatsResult);
-		if (workingStats != null) {
-			if (stats == null) {
-				stats = workingStats;
-			} else {
-				stats = {
-					additions: stats.additions + workingStats.additions,
-					deletions: stats.deletions + workingStats.deletions,
-					changedFiles: files.length,
-					approximated: true,
-				};
-			}
-		}
-	}
-
-	return {
-		label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
-		files: files,
-		stats: stats,
-	};
 }
 
 export function getComparisonStoragePrefix(storageId: string) {

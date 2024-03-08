@@ -5,6 +5,7 @@ import type { GitBranch } from '../../../git/models/branch';
 import type { GitCommit } from '../../../git/models/commit';
 import type { GitContributor } from '../../../git/models/contributor';
 import type { GitFile } from '../../../git/models/file';
+import type { PullRequest } from '../../../git/models/pullRequest';
 import type { GitReflogRecord } from '../../../git/models/reflog';
 import type { GitRemote } from '../../../git/models/remote';
 import type { Repository } from '../../../git/models/repository';
@@ -125,6 +126,7 @@ export interface AmbientContext {
 	readonly contributor?: GitContributor;
 	readonly draft?: Draft;
 	readonly file?: GitFile;
+	readonly pullRequest?: PullRequest;
 	readonly reflog?: GitReflogRecord;
 	readonly remote?: GitRemote;
 	readonly repository?: Repository;
@@ -169,6 +171,9 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 	}
 	if (context.branchStatusUpstreamType != null) {
 		uniqueness += `/branch-status-direction/${context.branchStatusUpstreamType}`;
+	}
+	if (context.pullRequest != null) {
+		uniqueness += `/pr/${context.pullRequest.id}`;
 	}
 	if (context.status != null) {
 		uniqueness += `/status/${context.status}`;
