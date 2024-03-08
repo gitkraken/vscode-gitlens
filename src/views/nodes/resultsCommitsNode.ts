@@ -1,7 +1,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { isStash } from '../../git/models/commit';
-import type { GitLog } from '../../git/models/log';
+import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
@@ -15,15 +15,13 @@ import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { StashNode } from './stashNode';
 
-export interface CommitsQueryResults {
-	readonly label: string;
-	readonly log: GitLog | undefined;
-	readonly hasMore: boolean;
-	more?(limit: number | undefined): Promise<void>;
+interface Options {
+	autolinks: boolean;
+	expand: boolean;
+	description?: string;
 }
 
 export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits>
@@ -31,6 +29,8 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	implements PageableViewNode
 {
 	limit: number | undefined;
+
+	private readonly _options: Options;
 
 	constructor(
 		view: View,
@@ -48,7 +48,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 				query: () => Promise<FilesQueryResults>;
 			};
 		},
-		private readonly _options: { description?: string; expand?: boolean } = undefined!,
+		options?: Partial<Options>,
 		splatted?: boolean,
 	) {
 		super('results-commits', GitUri.fromRepoPath(repoPath), view, parent);
@@ -59,7 +59,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 
-		this._options = { expand: true, ..._options };
+		this._options = { autolinks: true, expand: true, ...options };
 		if (splatted != null) {
 			this.splatted = splatted;
 		}
@@ -94,9 +94,10 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
 		]);
 
-		const children: ViewNode[] = [
-			new AutolinkedItemsNode(this.view, this, this.uri.repoPath!, log, this._expandAutolinks),
-		];
+		const children: ViewNode[] = [];
+		if (this._options.autolinks) {
+			children.push(new AutolinkedItemsNode(this.view, this, this.uri.repoPath!, log, this._expandAutolinks));
+		}
 		this._expandAutolinks = false;
 
 		const { files } = this._results;
@@ -111,9 +112,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 					files.ref2,
 					files.query,
 					this._results.direction,
-					{
-						expand: false,
-					},
+					{ expand: false },
 				),
 			);
 		}
@@ -229,7 +228,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	private _expandAutolinks: boolean = false;
 	async loadMore(limit?: number, context?: Record<string, unknown>): Promise<void> {
 		const results = await this.getCommitsQueryResults();
-		if (results == null || !results.hasMore) return;
+		if (!results?.hasMore) return;
 
 		if (context != null && 'expandAutolinks' in context) {
 			this._expandAutolinks = Boolean(context.expandAutolinks);

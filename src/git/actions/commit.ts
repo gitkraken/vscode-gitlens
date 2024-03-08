@@ -16,7 +16,6 @@ import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
 import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/utils';
-import { getAheadBehindFilesQuery } from '../../views/nodes/compareResultsNode';
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
@@ -32,6 +31,7 @@ import {
 	isUncommittedStaged,
 	shortenRevision,
 } from '../models/reference';
+import { getAheadBehindFilesQuery } from '../queryResults';
 
 export type Ref = { repoPath: string; ref: string };
 export type RefRange = { repoPath: string; rhs: string; lhs: string };
