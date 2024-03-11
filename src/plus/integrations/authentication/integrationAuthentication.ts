@@ -3,12 +3,14 @@ import { authentication } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { Container } from '../../../container';
 import { debug } from '../../../system/decorators/log';
+import type { ServerConnection } from '../../gk/serverConnection';
 import type { IntegrationId } from '../providers/models';
-import { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
+import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 import { AzureDevOpsAuthenticationProvider } from './azureDevOps';
 import { BitbucketAuthenticationProvider } from './bitbucket';
 import { GitHubEnterpriseAuthenticationProvider } from './github';
 import { GitLabAuthenticationProvider } from './gitlab';
+import { JiraAuthenticationProvider } from './jira';
 import type { ProviderAuthenticationSession } from './models';
 
 interface StoredSession {
@@ -44,7 +46,10 @@ export interface IntegrationAuthenticationProvider {
 export class IntegrationAuthenticationService implements Disposable {
 	private readonly providers = new Map<IntegrationId, IntegrationAuthenticationProvider>();
 
-	constructor(private readonly container: Container) {}
+	constructor(
+		private readonly container: Container,
+		private readonly connection: ServerConnection,
+	) {}
 
 	dispose() {
 		this.providers.clear();
@@ -136,6 +141,7 @@ export class IntegrationAuthenticationService implements Disposable {
 			case SelfHostedIntegrationId.GitHubEnterprise:
 			case HostingIntegrationId.GitLab:
 			case SelfHostedIntegrationId.GitLabSelfHosted:
+			case IssueIntegrationId.Jira:
 				return true;
 			default:
 				return false;
@@ -162,6 +168,9 @@ export class IntegrationAuthenticationService implements Disposable {
 				case HostingIntegrationId.GitLab:
 				case SelfHostedIntegrationId.GitLabSelfHosted:
 					provider = new GitLabAuthenticationProvider();
+					break;
+				case IssueIntegrationId.Jira:
+					provider = new JiraAuthenticationProvider(this.connection);
 					break;
 				default:
 					throw new Error(`Provider '${providerId}' is not supported`);

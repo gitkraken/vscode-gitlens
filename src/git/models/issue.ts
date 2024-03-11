@@ -19,14 +19,14 @@ export interface IssueOrPullRequest {
 }
 
 export interface IssueLabel {
-	color: string;
+	color?: string;
 	name: string;
 }
 
 export interface IssueMember {
 	name: string;
-	avatarUrl: string;
-	url: string;
+	avatarUrl?: string;
+	url?: string;
 }
 
 export interface IssueRepository {
@@ -38,7 +38,7 @@ export interface IssueShape extends IssueOrPullRequest {
 	updatedDate: Date;
 	author: IssueMember;
 	assignees: IssueMember[];
-	repository: IssueRepository;
+	repository?: IssueRepository;
 	labels?: IssueLabel[];
 	commentsCount?: number;
 	thumbsUpCount?: number;
@@ -198,10 +198,13 @@ export function serializeIssue(value: IssueShape): IssueShape {
 			avatarUrl: value.author.avatarUrl,
 			url: value.author.url,
 		},
-		repository: {
-			owner: value.repository.owner,
-			repo: value.repository.repo,
-		},
+		repository:
+			value.repository == null
+				? undefined
+				: {
+						owner: value.repository.owner,
+						repo: value.repository.repo,
+				  },
 		assignees: value.assignees.map(assignee => ({
 			name: assignee.name,
 			avatarUrl: assignee.avatarUrl,

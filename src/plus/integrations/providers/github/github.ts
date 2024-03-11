@@ -243,6 +243,7 @@ export class GitHubApi implements Disposable {
 										name: string | null;
 										email: string | null;
 										avatarUrl: string;
+										login: string | null;
 									};
 							  }
 							| null
@@ -266,6 +267,7 @@ export class GitHubApi implements Disposable {
 					name
 					email
 					avatarUrl(size: $avatarSize)
+					login
 				}
 			}
 		}
@@ -305,6 +307,7 @@ export class GitHubApi implements Disposable {
 									options.avatarSize,
 						    )
 						  : undefined,
+				username: author.login ?? undefined,
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
@@ -335,6 +338,7 @@ export class GitHubApi implements Disposable {
 									name: string | null;
 									email: string | null;
 									avatarUrl: string;
+									login: string | null;
 							  }[]
 							| null
 							| undefined;
@@ -354,6 +358,7 @@ export class GitHubApi implements Disposable {
 				name
 				email
 				avatarUrl(size: $avatarSize)
+				login
 			}
 		}
 	}
@@ -392,6 +397,7 @@ export class GitHubApi implements Disposable {
 									options.avatarSize,
 						    )
 						  : undefined,
+				username: author.login ?? undefined,
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;

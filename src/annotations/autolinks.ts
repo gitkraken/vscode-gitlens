@@ -32,6 +32,16 @@ export interface Autolink {
 	description?: string;
 
 	descriptor?: ResourceDescriptor;
+	tokenize?:
+		| ((
+				text: string,
+				outputFormat: 'html' | 'markdown' | 'plaintext',
+				tokenMapping: Map<string, string>,
+				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
+				prs?: Set<string>,
+				footnotes?: Map<number, string>,
+		  ) => string)
+		| null;
 }
 
 export type EnrichedAutolink = [
@@ -139,23 +149,59 @@ export class Autolinks implements Disposable {
 		}
 	}
 
-	getAutolinks(message: string, remote?: GitRemote): Map<string, Autolink>;
-	// eslint-disable-next-line @typescript-eslint/unified-signatures
-	getAutolinks(message: string, remote: GitRemote, options?: { excludeCustom?: boolean }): Map<string, Autolink>;
+	async getAutolinks(message: string, remote?: GitRemote): Promise<Map<string, Autolink>>;
+	async getAutolinks(
+		message: string,
+		remote: GitRemote,
+		// eslint-disable-next-line @typescript-eslint/unified-signatures
+		options?: { excludeCustom?: boolean },
+	): Promise<Map<string, Autolink>>;
 	@debug<Autolinks['getAutolinks']>({
 		args: {
 			0: '<message>',
 			1: false,
 		},
 	})
-	getAutolinks(message: string, remote?: GitRemote, options?: { excludeCustom?: boolean }): Map<string, Autolink> {
+	async getAutolinks(
+		message: string,
+		remote?: GitRemote,
+		options?: { excludeCustom?: boolean },
+	): Promise<Map<string, Autolink>> {
 		const refsets: [
 			ProviderReference | undefined,
 			(AutolinkReference | DynamicAutolinkReference)[] | CacheableAutolinkReference[],
 		][] = [];
-		if (remote?.provider?.autolinks?.length) {
-			refsets.push([remote.provider, remote.provider.autolinks]);
+		const connectedIssueIntegrations = this.container.integrations.getConnected('issues');
+		// Connected issue integration autolinks
+		if (connectedIssueIntegrations.length) {
+			await Promise.all(
+				connectedIssueIntegrations.map(async integration => {
+					const autoLinks = await integration.autolinks();
+					if (autoLinks.length) {
+						refsets.push([integration, autoLinks]);
+					}
+				}),
+			);
 		}
+
+		// Remote-specific autolinks and remote integration autolinks
+		if (remote?.provider != null) {
+			const autoLinks = [];
+			const integration = remote.getIntegration();
+			const integrationAutolinks = await integration?.autolinks();
+			if (integrationAutolinks?.length) {
+				autoLinks.push(...integrationAutolinks);
+			}
+			if (remote?.provider?.autolinks.length) {
+				autoLinks.push(...remote.provider.autolinks);
+			}
+
+			if (autoLinks.length) {
+				refsets.push([remote.provider, autoLinks]);
+			}
+		}
+
+		// Custom-configured autolinks
 		if (this._references.length && (remote?.provider == null || !options?.excludeCustom)) {
 			refsets.push([undefined, this._references]);
 		}
@@ -219,7 +265,7 @@ export class Autolinks implements Disposable {
 		remote: GitRemote | undefined,
 	): Promise<Map<string, EnrichedAutolink> | undefined> {
 		if (typeof messageOrAutolinks === 'string') {
-			messageOrAutolinks = this.getAutolinks(messageOrAutolinks, remote);
+			messageOrAutolinks = await this.getAutolinks(messageOrAutolinks, remote);
 		}
 		if (messageOrAutolinks.size === 0) return undefined;
 
@@ -274,27 +320,44 @@ export class Autolinks implements Disposable {
 
 		const tokenMapping = new Map<string, string>();
 
-		for (const ref of this._references) {
-			if (this.ensureAutolinkCached(ref)) {
-				if (ref.tokenize != null) {
-					text = ref.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
+		if (enrichedAutolinks != null && enrichedAutolinks.size > 0) {
+			for (const [, [, link]] of enrichedAutolinks) {
+				if (this.ensureAutolinkCached(link)) {
+					if (link.tokenize != null) {
+						text = link.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
+					}
 				}
 			}
-		}
+		} else {
+			for (const ref of this._references) {
+				if (this.ensureAutolinkCached(ref)) {
+					if (ref.tokenize != null) {
+						text = ref.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
+					}
+				}
+			}
 
-		if (remotes != null && remotes.length !== 0) {
-			remotes = [...remotes].sort((a, b) => {
-				const aConnected = a.maybeIntegrationConnected;
-				const bConnected = b.maybeIntegrationConnected;
-				return aConnected !== bConnected ? (aConnected ? -1 : bConnected ? 1 : 0) : 0;
-			});
-			for (const r of remotes) {
-				if (r.provider == null) continue;
+			if (remotes != null && remotes.length !== 0) {
+				remotes = [...remotes].sort((a, b) => {
+					const aConnected = a.maybeIntegrationConnected;
+					const bConnected = b.maybeIntegrationConnected;
+					return aConnected !== bConnected ? (aConnected ? -1 : bConnected ? 1 : 0) : 0;
+				});
+				for (const r of remotes) {
+					if (r.provider == null) continue;
 
-				for (const ref of r.provider.autolinks) {
-					if (this.ensureAutolinkCached(ref)) {
-						if (ref.tokenize != null) {
-							text = ref.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
+					for (const ref of r.provider.autolinks) {
+						if (this.ensureAutolinkCached(ref)) {
+							if (ref.tokenize != null) {
+								text = ref.tokenize(
+									text,
+									outputFormat,
+									tokenMapping,
+									enrichedAutolinks,
+									prs,
+									footnotes,
+								);
+							}
 						}
 					}
 				}
@@ -317,8 +380,8 @@ export class Autolinks implements Disposable {
 	}
 
 	private ensureAutolinkCached(
-		ref: CacheableAutolinkReference | DynamicAutolinkReference,
-	): ref is CacheableAutolinkReference | DynamicAutolinkReference {
+		ref: CacheableAutolinkReference | DynamicAutolinkReference | Autolink,
+	): ref is CacheableAutolinkReference | DynamicAutolinkReference | Autolink {
 		if (isDynamic(ref)) return true;
 		if (!ref.prefix || !ref.url) return false;
 		if (ref.tokenize !== undefined || ref.tokenize === null) return true;

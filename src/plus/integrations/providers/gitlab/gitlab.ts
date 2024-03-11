@@ -139,6 +139,7 @@ export class GitLabApi implements Disposable {
 				name: user.name || undefined,
 				email: commit.author_email || undefined,
 				avatarUrl: user.avatarUrl || undefined,
+				username: user.username || undefined,
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
@@ -170,6 +171,7 @@ export class GitLabApi implements Disposable {
 				name: user.name || undefined,
 				email: user.publicEmail || undefined,
 				avatarUrl: user.avatarUrl || undefined,
+				username: user.username || undefined,
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
