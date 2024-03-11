@@ -243,7 +243,9 @@ export class GitHubApi implements Disposable {
 										name: string | null;
 										email: string | null;
 										avatarUrl: string;
-										login: string | null;
+										user: {
+											login: string | null;
+										} | null;
 									};
 							  }
 							| null
@@ -267,7 +269,9 @@ export class GitHubApi implements Disposable {
 					name
 					email
 					avatarUrl(size: $avatarSize)
-					login
+					user {
+						login
+					}
 				}
 			}
 		}
@@ -307,7 +311,7 @@ export class GitHubApi implements Disposable {
 									options.avatarSize,
 						    )
 						  : undefined,
-				username: author.login ?? undefined,
+				username: author.user?.login ?? undefined,
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
