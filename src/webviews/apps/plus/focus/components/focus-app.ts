@@ -304,14 +304,14 @@ export class GlFocusApp extends LitElement {
 						.subscription=${this.subscriptionState}
 						id="subscription-gate-badge"
 					></gk-feature-gate-badge>
-					<gk-button
+					<gl-button
 						class="feedback"
 						appearance="toolbar"
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2535"
 						title="Focus Feedback"
 						aria-label="Focus Feedback"
 						><code-icon icon="feedback"></code-icon
-					></gk-button>
+					></gl-button>
 				</div>
 
 				<div class="app__content">
