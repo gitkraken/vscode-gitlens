@@ -5,4 +5,5 @@ export interface Account {
 	name: string | undefined;
 	email: string | undefined;
 	avatarUrl: string | undefined;
+	username: string | undefined;
 }

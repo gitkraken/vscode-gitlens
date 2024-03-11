@@ -12,6 +12,7 @@ import { filterMap, flatten } from '../../system/iterable';
 import type {
 	HostingIntegration,
 	Integration,
+	IntegrationType,
 	IssueIntegration,
 	ProviderKey,
 	ResourceDescriptor,
@@ -24,7 +25,13 @@ import { AzureDevOpsIntegration } from './providers/azureDevOps';
 import { BitbucketIntegration } from './providers/bitbucket';
 import { GitHubEnterpriseIntegration, GitHubIntegration } from './providers/github';
 import { GitLabIntegration, GitLabSelfHostedIntegration } from './providers/gitlab';
-import { HostingIntegrationId, isSelfHostedIntegrationId, SelfHostedIntegrationId } from './providers/models';
+import { JiraIntegration } from './providers/jira';
+import {
+	HostingIntegrationId,
+	isSelfHostedIntegrationId,
+	IssueIntegrationId,
+	SelfHostedIntegrationId,
+} from './providers/models';
 import { ProvidersApi } from './providers/providersApi';
 
 export interface ConnectionStateChangeEvent {
@@ -122,6 +129,9 @@ export class IntegrationService implements Disposable {
 				case HostingIntegrationId.AzureDevOps:
 					provider = new AzureDevOpsIntegration(this.container, this._providersApi);
 					break;
+				case IssueIntegrationId.Jira:
+					provider = new JiraIntegration(this.container, this._providersApi);
+					break;
 				default:
 					throw new Error(`Provider '${id}' is not supported`);
 			}
@@ -153,6 +163,12 @@ export class IntegrationService implements Disposable {
 			default:
 				return undefined;
 		}
+	}
+
+	getConnected(type: 'issues'): IssueIntegration[];
+	getConnected(type: 'hosting'): HostingIntegration[];
+	getConnected(type: IntegrationType): Integration[] {
+		return [...this._integrations.values()].filter(p => p.maybeConnected && p.type === type);
 	}
 
 	async getMyIssues(

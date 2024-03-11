@@ -24,7 +24,7 @@ const template = html<IssueRow>`
 		<table-cell>
 			${x => x.issue!.title} <a href="${x => x.issue!.url}">#${x => x.issue!.id}</a><br />
 			<small>
-				<span class="tag"><code-icon icon="repo"></code-icon>${x => x.issue!.repository.repo}</span>
+				<span class="tag"><code-icon icon="repo"></code-icon>${x => x.issue!.repository?.repo}</span>
 			</small>
 		</table-cell>
 		<table-cell class="vcenter participants">

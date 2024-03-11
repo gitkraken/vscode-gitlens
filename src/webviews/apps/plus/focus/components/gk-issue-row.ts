@@ -145,7 +145,7 @@ export class GkIssueRow extends LitElement {
 					<div slot="repo">
 						<gk-tag variant="ghost" full>
 							<span slot="prefix"><code-icon icon="repo"></code-icon></span>
-							${this.issue.repository.repo}
+							${this.issue.repository?.repo}
 						</gk-tag>
 					</div>
 					<nav slot="actions" class="actions">
