@@ -997,7 +997,7 @@ export class CommitDetailsWebviewProvider
 		}
 
 		const autolinks =
-			commit.message != null ? this.container.autolinks.getAutolinks(commit.message, remote) : undefined;
+			commit.message != null ? await this.container.autolinks.getAutolinks(commit.message, remote) : undefined;
 
 		return {
 			repoPath: commit.repoPath,

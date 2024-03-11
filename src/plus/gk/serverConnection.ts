@@ -17,6 +17,7 @@ interface FetchOptions {
 interface GKFetchOptions extends FetchOptions {
 	token?: string;
 	unAuthenticated?: boolean;
+	query?: string;
 }
 
 export class ServerConnection implements Disposable {
@@ -220,6 +221,13 @@ export class ServerConnection implements Disposable {
 				headers['gk-org-id'] = organizationId;
 			}
 
+			if (options?.query != null) {
+				if (url instanceof URL) {
+					url.search = options.query;
+				} else if (typeof url === 'string') {
+					url = `${url}?${options.query}`;
+				}
+			}
 			// TODO@eamodio handle common response errors
 
 			return this.fetch(

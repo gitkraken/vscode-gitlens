@@ -567,7 +567,9 @@ export class Container {
 	private _integrationAuthentication: IntegrationAuthenticationService | undefined;
 	get integrationAuthentication() {
 		if (this._integrationAuthentication == null) {
-			this._disposables.push((this._integrationAuthentication = new IntegrationAuthenticationService(this)));
+			this._disposables.push(
+				(this._integrationAuthentication = new IntegrationAuthenticationService(this, this._connection)),
+			);
 		}
 
 		return this._integrationAuthentication;

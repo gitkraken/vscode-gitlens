@@ -872,6 +872,8 @@ export type GlobalStorage = {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
 	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;
+} & { [key in `jira:${string}:organizations`]: Stored<StoredJiraOrganization[] | undefined> } & {
+	[key in `jira:${string}:projects`]: Stored<StoredJiraProject[] | undefined>;
 };
 
 export type DeprecatedWorkspaceStorage = {
@@ -954,6 +956,21 @@ export interface StoredOrganization {
 	id: string;
 	name: string;
 	role: 'owner' | 'admin' | 'billing' | 'user';
+}
+
+export interface StoredJiraOrganization {
+	key: string;
+	id: string;
+	name: string;
+	url: string;
+	avatarUrl: string;
+}
+
+export interface StoredJiraProject {
+	key: string;
+	id: string;
+	name: string;
+	resourceId: string;
 }
 
 export interface StoredAvatar {
