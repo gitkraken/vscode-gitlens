@@ -426,11 +426,11 @@ export function toSearchedIssue(
 			nodeId: undefined,
 			title: issue.title,
 			url: issue.url,
-			date: issue.createdDate,
+			createdDate: issue.createdDate,
+			updatedDate: issue.updatedDate,
 			closedDate: issue.closedDate ?? undefined,
 			closed: issue.closedDate != null,
 			state: issue.closedDate != null ? 'closed' : 'opened',
-			updatedDate: issue.updatedDate,
 			author: {
 				name: issue.author.name ?? '',
 				avatarUrl: issue.author.avatarUrl ?? undefined,

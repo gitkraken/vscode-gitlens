@@ -272,7 +272,7 @@ export class GlCommitDetails extends GlDetailsBase {
 																url="${pr.url}"
 																key="#${pr.id}"
 																status="${pr.state}"
-																date=${pr.date}
+																date=${pr.updatedDate}
 																.dateFormat="${this.state!.preferences.dateFormat}"
 																.dateStyle="${this.state!.preferences.dateStyle}"
 															></issue-pull-request>
@@ -293,7 +293,9 @@ export class GlCommitDetails extends GlDetailsBase {
 															url="${issue.url}"
 															key="${issue.id}"
 															status="${issue.state}"
-															date="${issue.closed ? issue.closedDate : issue.date}"
+															date="${issue.closed
+																? issue.closedDate
+																: issue.createdDate}"
 															.dateFormat="${this.state!.preferences.dateFormat}"
 															.dateStyle="${this.state!.preferences.dateStyle}"
 														></issue-pull-request>

@@ -89,6 +89,7 @@ baseRepository {
 	url
 }
 checksUrl
+createdAt
 isDraft
 isCrossRepository
 isReadByViewer
@@ -114,6 +115,9 @@ mergeable
 mergedAt
 mergedBy {
 	login
+}
+reactions(content: THUMBS_UP) {
+	totalCount
 }
 repository {
 	isFork
@@ -501,6 +505,7 @@ export class GitHubApi implements Disposable {
 				closedAt
 				id
 				title
+				updatedAt
 				url
 				state
 			}
@@ -510,6 +515,7 @@ export class GitHubApi implements Disposable {
 				closedAt
 				id
 				title
+				updatedAt
 				url
 				state
 			}
@@ -538,7 +544,8 @@ export class GitHubApi implements Disposable {
 				type: issue.type,
 				id: String(number),
 				nodeId: issue.id,
-				date: new Date(issue.createdAt),
+				createdDate: new Date(issue.createdAt),
+				updatedDate: new Date(issue.updatedAt),
 				title: issue.title,
 				closed: issue.closed,
 				closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt),
@@ -601,6 +608,7 @@ export class GitHubApi implements Disposable {
 						avatarUrl(size: $avatarSize)
 						url
 					}
+					createdAt
 					permalink
 					number
 					title
@@ -722,6 +730,7 @@ export class GitHubApi implements Disposable {
 							avatarUrl(size: $avatarSize)
 							url
 						}
+						createdAt
 						permalink
 						number
 						title

@@ -52,7 +52,6 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly isDraft?: boolean;
 	readonly additions?: number;
 	readonly deletions?: number;
-	readonly comments?: number;
 	readonly mergeableState?: PullRequestMergeableState;
 	readonly reviewDecision?: PullRequestReviewDecision;
 	readonly reviewRequests?: PullRequestReviewer[];
@@ -77,7 +76,8 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		nodeId: value.nodeId,
 		title: value.title,
 		url: value.url,
-		date: value.date,
+		createdDate: value.createdDate,
+		updatedDate: value.updatedDate,
 		closedDate: value.closedDate,
 		closed: value.closed,
 		author: {
@@ -112,7 +112,8 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		isDraft: value.isDraft,
 		additions: value.additions,
 		deletions: value.deletions,
-		comments: value.comments,
+		commentsCount: value.commentsCount,
+		thumbsUpCount: value.thumbsUpCount,
 		reviewDecision: value.reviewDecision,
 		reviewRequests: value.reviewRequests,
 		assignees: value.assignees,
@@ -139,7 +140,8 @@ export class PullRequest implements PullRequestShape {
 		public readonly title: string,
 		public readonly url: string,
 		public readonly state: PullRequestState,
-		public readonly date: Date,
+		public readonly createdDate: Date,
+		public readonly updatedDate: Date,
 		public readonly closedDate?: Date,
 		public readonly mergedDate?: Date,
 		public readonly mergeableState?: PullRequestMergeableState,
@@ -147,7 +149,8 @@ export class PullRequest implements PullRequestShape {
 		public readonly isDraft?: boolean,
 		public readonly additions?: number,
 		public readonly deletions?: number,
-		public readonly comments?: number,
+		public readonly commentsCount?: number,
+		public readonly thumbsUpCount?: number,
 		public readonly reviewDecision?: PullRequestReviewDecision,
 		public readonly reviewRequests?: PullRequestReviewer[],
 		public readonly assignees?: PullRequestMember[],
@@ -165,11 +168,11 @@ export class PullRequest implements PullRequestShape {
 
 	@memoize<PullRequest['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatDate(format?: string | null) {
-		return formatDate(this.mergedDate ?? this.closedDate ?? this.date, format ?? 'MMMM Do, YYYY h:mma');
+		return formatDate(this.mergedDate ?? this.closedDate ?? this.updatedDate, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
 	formatDateFromNow() {
-		return fromNow(this.mergedDate ?? this.closedDate ?? this.date);
+		return fromNow(this.mergedDate ?? this.closedDate ?? this.updatedDate);
 	}
 
 	@memoize<PullRequest['formatClosedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
@@ -196,11 +199,11 @@ export class PullRequest implements PullRequestShape {
 
 	@memoize<PullRequest['formatUpdatedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatUpdatedDate(format?: string | null) {
-		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma') ?? '';
+		return formatDate(this.updatedDate, format ?? 'MMMM Do, YYYY h:mma') ?? '';
 	}
 
 	formatUpdatedDateFromNow() {
-		return fromNow(this.date);
+		return fromNow(this.updatedDate);
 	}
 }
 

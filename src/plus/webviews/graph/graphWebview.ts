@@ -1014,7 +1014,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						id: Number.parseInt(pr.id) || 0,
 						title: pr.title,
 						author: pr.author.name,
-						date: (pr.mergedDate ?? pr.closedDate ?? pr.date)?.getTime(),
+						date: (pr.mergedDate ?? pr.closedDate ?? pr.updatedDate)?.getTime(),
 						state: pr.state,
 						url: pr.url,
 						context: serializeWebviewItemContext<GraphItemContext>({
