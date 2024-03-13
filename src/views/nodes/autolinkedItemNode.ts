@@ -78,7 +78,7 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 			return item;
 		}
 
-		const relativeTime = fromNow(enriched.closedDate ?? enriched.date);
+		const relativeTime = fromNow(enriched.closedDate ?? enriched.updatedDate ?? enriched.createdDate);
 
 		const item = new TreeItem(`${enriched.id}: ${enriched.title}`, TreeItemCollapsibleState.None);
 		item.description = relativeTime;

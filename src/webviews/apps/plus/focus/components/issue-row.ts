@@ -208,7 +208,7 @@ export class IssueRow extends FASTElement {
 
 	@volatile
 	get lastUpdatedDate() {
-		return new Date(this.issue!.date);
+		return new Date(this.issue!.updatedDate);
 	}
 
 	@volatile

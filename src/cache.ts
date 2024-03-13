@@ -199,7 +199,7 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 			const issueOrPr = value as CacheValue<'issuesOrPrsById'>;
 			if (!issueOrPr.closed) return defaultExpiresAt;
 
-			const updatedAgo = now - (issueOrPr.closedDate ?? issueOrPr.date).getTime();
+			const updatedAgo = now - (issueOrPr.closedDate ?? issueOrPr.updatedDate).getTime();
 			return now + (updatedAgo > 14 * 24 * 60 * 60 * 1000 ? 12 : 1) * 60 * 60 * 1000;
 		}
 		case 'prByBranch':
@@ -211,7 +211,7 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 			const pr = value as CacheValue<'prsBySha'>;
 			if (pr.state === 'opened') return defaultExpiresAt;
 
-			const updatedAgo = now - (pr.closedDate ?? pr.mergedDate ?? pr.date).getTime();
+			const updatedAgo = now - (pr.closedDate ?? pr.mergedDate ?? pr.updatedDate).getTime();
 			return now + (updatedAgo > 14 * 24 * 60 * 60 * 1000 ? 12 : 1) * 60 * 60 * 1000;
 		}
 		// case 'enrichedAutolinksBySha':

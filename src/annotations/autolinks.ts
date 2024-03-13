@@ -439,7 +439,7 @@ export class Autolinks implements Disposable {
 													)} **${issueTitle}**](${url}${title}")\\\n${GlyphChars.Space.repeat(
 														5,
 													)}${linkText} ${issue.state} ${fromNow(
-														issue.closedDate ?? issue.date,
+														issue.closedDate ?? issue.createdDate,
 													)}`,
 												);
 											}
@@ -447,7 +447,7 @@ export class Autolinks implements Disposable {
 											title += `\n${GlyphChars.Dash.repeat(
 												2,
 											)}\n${issueTitleQuoteEscaped}\n${capitalize(issue.state)}, ${fromNow(
-												issue.closedDate ?? issue.date,
+												issue.closedDate ?? issue.createdDate,
 											)}`;
 										}
 									} else if (footnotes != null && !prs?.has(num)) {
@@ -511,7 +511,7 @@ export class Autolinks implements Disposable {
 													)} <b>${issueTitle}</b></a><br /><span>${GlyphChars.Space.repeat(
 														5,
 													)}${linkText} ${issue.state} ${fromNow(
-														issue.closedDate ?? issue.date,
+														issue.closedDate ?? issue.createdDate,
 													)}</span>`,
 												);
 											}
@@ -519,7 +519,7 @@ export class Autolinks implements Disposable {
 											title += `\n${GlyphChars.Dash.repeat(
 												2,
 											)}\n${issueTitleQuoteEscaped}\n${capitalize(issue.state)}, ${fromNow(
-												issue.closedDate ?? issue.date,
+												issue.closedDate ?? issue.createdDate,
 											)}`;
 										}
 									} else if (footnotes != null && !prs?.has(num)) {
@@ -560,7 +560,7 @@ export class Autolinks implements Disposable {
 												: `${issueResult.value.title}  ${GlyphChars.Dot}  ${capitalize(
 														issueResult.value.state,
 												  )}, ${fromNow(
-														issueResult.value.closedDate ?? issueResult.value.date,
+														issueResult.value.closedDate ?? issueResult.value.createdDate,
 												  )}`
 										}`,
 									);

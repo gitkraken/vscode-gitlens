@@ -712,7 +712,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				const scoreB = b.rank;
 
 				if (scoreA === scoreB) {
-					return a.pullRequest.date.getTime() - b.pullRequest.date.getTime();
+					return a.pullRequest.updatedDate.getTime() - b.pullRequest.updatedDate.getTime();
 				}
 				return (scoreB ?? 0) - (scoreA ?? 0);
 			});

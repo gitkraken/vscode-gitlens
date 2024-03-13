@@ -102,7 +102,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 													)} **${issueTitle}**](${url}${title})\\\n${GlyphChars.Space.repeat(
 														5,
 													)}${linkText} ${issue.state} ${fromNow(
-														issue.closedDate ?? issue.date,
+														issue.closedDate ?? issue.createdDate,
 													)}`,
 												);
 											}

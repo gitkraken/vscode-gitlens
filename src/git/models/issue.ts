@@ -12,10 +12,13 @@ export interface IssueOrPullRequest {
 	readonly nodeId: string | undefined;
 	readonly title: string;
 	readonly url: string;
-	readonly date: Date;
+	readonly createdDate: Date;
+	readonly updatedDate: Date;
 	readonly closedDate?: Date;
 	readonly closed: boolean;
 	readonly state: IssueOrPullRequestState;
+	readonly commentsCount?: number;
+	readonly thumbsUpCount?: number;
 }
 
 export interface IssueLabel {
@@ -35,13 +38,10 @@ export interface IssueRepository {
 }
 
 export interface IssueShape extends IssueOrPullRequest {
-	updatedDate: Date;
 	author: IssueMember;
 	assignees: IssueMember[];
 	repository?: IssueRepository;
 	labels?: IssueLabel[];
-	commentsCount?: number;
-	thumbsUpCount?: number;
 }
 
 export interface SearchedIssue {
@@ -62,7 +62,8 @@ export function serializeIssueOrPullRequest(value: IssueOrPullRequest): IssueOrP
 		nodeId: value.nodeId,
 		title: value.title,
 		url: value.url,
-		date: value.date,
+		createdDate: value.createdDate,
+		updatedDate: value.updatedDate,
 		closedDate: value.closedDate,
 		closed: value.closed,
 		state: value.state,
@@ -188,11 +189,11 @@ export function serializeIssue(value: IssueShape): IssueShape {
 		nodeId: value.nodeId,
 		title: value.title,
 		url: value.url,
-		date: value.date,
+		createdDate: value.createdDate,
+		updatedDate: value.updatedDate,
 		closedDate: value.closedDate,
 		closed: value.closed,
 		state: value.state,
-		updatedDate: value.updatedDate,
 		author: {
 			name: value.author.name,
 			avatarUrl: value.author.avatarUrl,
@@ -232,10 +233,10 @@ export class Issue implements IssueShape {
 		public readonly nodeId: string | undefined,
 		public readonly title: string,
 		public readonly url: string,
-		public readonly date: Date,
+		public readonly createdDate: Date,
+		public readonly updatedDate: Date,
 		public readonly closed: boolean,
 		public readonly state: IssueOrPullRequestState,
-		public readonly updatedDate: Date,
 		public readonly author: IssueMember,
 		public readonly repository: IssueRepository,
 		public readonly assignees: IssueMember[],

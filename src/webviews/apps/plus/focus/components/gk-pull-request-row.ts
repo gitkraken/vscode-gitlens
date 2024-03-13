@@ -75,7 +75,7 @@ export class GkPullRequestRow extends LitElement {
 	}
 
 	get lastUpdatedDate() {
-		return new Date(this.pullRequest!.date);
+		return new Date(this.pullRequest!.updatedDate);
 	}
 
 	get assignees() {
@@ -206,7 +206,7 @@ export class GkPullRequestRow extends LitElement {
 						<gk-tooltip>
 							<gk-tag variant="ghost" slot="trigger">
 								<span slot="prefix"><code-icon icon="comment-discussion"></code-icon></span>
-								${this.pullRequest.comments}
+								${this.pullRequest.commentsCount}
 							</gk-tag>
 							<span>Comments</span>
 						</gk-tooltip>

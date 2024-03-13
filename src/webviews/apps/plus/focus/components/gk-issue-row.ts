@@ -53,7 +53,7 @@ export class GkIssueRow extends LitElement {
 	}
 
 	get lastUpdatedDate() {
-		return new Date(this.issue!.date);
+		return new Date(this.issue!.updatedDate);
 	}
 
 	get dateStyle() {

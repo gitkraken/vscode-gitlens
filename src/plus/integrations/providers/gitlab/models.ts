@@ -102,6 +102,7 @@ export function fromGitLabMergeRequestREST(pr: GitLabMergeRequestREST, provider:
 		pr.title,
 		pr.web_url,
 		fromGitLabMergeRequestState(pr.state),
+		new Date(pr.created_at),
 		new Date(pr.updated_at),
 		pr.closed_at == null ? undefined : new Date(pr.closed_at),
 		pr.merged_at == null ? undefined : new Date(pr.merged_at),
