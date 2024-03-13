@@ -94,7 +94,7 @@ const template = html<PullRequestRow>`
 				html<PullRequestRow>`<git-avatars :avatars="${x => x.pullRequest!.assignees}"></git-avatars>`,
 			)}
 		</table-cell>
-		<table-cell class="vcenter">${x => x.pullRequest!.comments}</table-cell>
+		<table-cell class="vcenter">${x => x.pullRequest!.commentsCount}</table-cell>
 		<table-cell class="vcenter stats"
 			><span class="stat-added">+${x => x.pullRequest!.additions}</span>
 			<span class="stat-deleted">-${x => x.pullRequest!.deletions}</span></table-cell
@@ -295,7 +295,7 @@ export class PullRequestRow extends FASTElement {
 
 	@volatile
 	get lastUpdatedDate() {
-		return this.pullRequest ? new Date(this.pullRequest.date) : undefined;
+		return this.pullRequest ? new Date(this.pullRequest.updatedDate) : undefined;
 	}
 
 	@volatile

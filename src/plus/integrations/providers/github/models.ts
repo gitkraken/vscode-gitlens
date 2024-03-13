@@ -56,6 +56,7 @@ export interface GitHubIssueOrPullRequest {
 	type: IssueOrPullRequestType;
 	number: number;
 	createdAt: string;
+	updatedAt: string;
 	closed: boolean;
 	closedAt: string | null;
 	title: string;
@@ -87,6 +88,7 @@ export interface GitHubPullRequest {
 	id: string;
 	title: string;
 	state: GitHubPullRequestState;
+	createdAt: string;
 	updatedAt: string;
 	closedAt: string | null;
 	mergedAt: string | null;
@@ -122,8 +124,6 @@ export interface GitHubPullRequest {
 }
 
 export interface GitHubIssueDetailed extends GitHubIssueOrPullRequest {
-	date: Date;
-	updatedAt: Date;
 	author: GitHubMember;
 	assignees: { nodes: GitHubMember[] };
 	repository: {
@@ -162,6 +162,9 @@ export interface GitHubDetailedPullRequest extends GitHubPullRequest {
 	assignees: {
 		nodes: GitHubMember[];
 	};
+	reactions: {
+		totalCount: number;
+	};
 }
 
 export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider): PullRequest {
@@ -177,6 +180,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 		pr.title,
 		pr.permalink,
 		fromGitHubPullRequestState(pr.state),
+		new Date(pr.createdAt),
 		new Date(pr.updatedAt),
 		pr.closedAt == null ? undefined : new Date(pr.closedAt),
 		pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
@@ -276,6 +280,7 @@ export function fromGitHubPullRequestDetailed(pr: GitHubDetailedPullRequest, pro
 		pr.title,
 		pr.permalink,
 		fromGitHubPullRequestState(pr.state),
+		new Date(pr.createdAt),
 		new Date(pr.updatedAt),
 		pr.closedAt == null ? undefined : new Date(pr.closedAt),
 		pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
@@ -303,6 +308,7 @@ export function fromGitHubPullRequestDetailed(pr: GitHubDetailedPullRequest, pro
 		pr.additions,
 		pr.deletions,
 		pr.totalCommentsCount,
+		pr.reactions.totalCount,
 		fromGitHubPullRequestReviewDecision(pr.reviewDecision),
 		pr.reviewRequests.nodes.map(r => ({
 			isCodeOwner: r.asCodeOwner,
@@ -333,9 +339,9 @@ export function fromGitHubIssueDetailed(value: GitHubIssueDetailed, provider: Pr
 		value.title,
 		value.url,
 		new Date(value.createdAt),
+		new Date(value.updatedAt),
 		value.closed,
 		fromGitHubPullRequestState(value.state),
-		new Date(value.updatedAt),
 		{
 			name: value.author.login,
 			avatarUrl: value.author.avatarUrl,

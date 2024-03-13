@@ -322,7 +322,8 @@ export class GitLabApi implements Disposable {
 					type: 'issue',
 					id: issue.iid,
 					nodeId: undefined,
-					date: new Date(issue.createdAt),
+					createdDate: new Date(issue.createdAt),
+					updatedDate: new Date(issue.updatedAt),
 					title: issue.title,
 					closed: issue.state === 'closed',
 					closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt),
@@ -338,7 +339,8 @@ export class GitLabApi implements Disposable {
 					type: 'pullrequest',
 					id: mergeRequest.iid,
 					nodeId: undefined,
-					date: new Date(mergeRequest.createdAt),
+					createdDate: new Date(mergeRequest.createdAt),
+					updatedDate: new Date(mergeRequest.updatedAt),
 					title: mergeRequest.title,
 					closed: mergeRequest.state === 'closed',
 					// TODO@eamodio this isn't right, but GitLab doesn't seem to provide a closedAt on merge requests in GraphQL
@@ -494,6 +496,7 @@ export class GitLabApi implements Disposable {
 				pr.title,
 				pr.webUrl,
 				fromGitLabMergeRequestState(pr.state),
+				new Date(pr.createdAt),
 				new Date(pr.updatedAt),
 				// TODO@eamodio this isn't right, but GitLab doesn't seem to provide a closedAt on merge requests in GraphQL
 				pr.state !== 'closed' ? undefined : new Date(pr.updatedAt),
