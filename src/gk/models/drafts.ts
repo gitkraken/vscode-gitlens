@@ -15,7 +15,7 @@ export type DraftRole = 'owner' | 'admin' | 'editor' | 'viewer';
 
 export interface Draft {
 	readonly draftType: 'cloud';
-	readonly type: 'patch' | 'stash';
+	readonly type: 'patch' | 'stash' | 'suggested_pr_change';
 	readonly id: string;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
