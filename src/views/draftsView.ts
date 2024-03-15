@@ -32,23 +32,27 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 
 				const groups = groupByFilterMap(
 					drafts,
-					d => (d.isMine ? 'mine' : 'shared'),
+					this.calcDraftGroupKey.bind(this),
 					d => new DraftNode(this.uri, this.view, this, d),
 				);
 
 				const mine = groups.get('mine');
 				const shared = groups.get('shared');
+				const prs = groups.get('pr_suggestion');
+				const isFlat = mine?.length && !shared?.length && !prs?.length;
 
-				if (mine?.length) {
-					if (shared?.length) {
+				if (!isFlat) {
+					if (mine?.length) {
 						children.push(new GroupingNode(this.view, 'Created by Me', mine));
-					} else {
-						children.push(...mine);
 					}
-				}
-
-				if (shared?.length) {
-					children.push(new GroupingNode(this.view, 'Shared with Me', shared));
+					if (shared?.length) {
+						children.push(new GroupingNode(this.view, 'Shared with Me', shared));
+					}
+					if (prs?.length) {
+						children.push(new GroupingNode(this.view, 'Suggested Changes', prs));
+					}
+				} else {
+					children.push(...mine);
 				}
 			} catch (ex) {
 				if (!(ex instanceof AuthenticationRequiredError)) {
@@ -62,11 +66,20 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 		return this.children;
 	}
 
+	private calcDraftGroupKey(d: Draft): DraftGroupKey {
+		if (d.type === 'suggested_pr_change') {
+			return 'pr_suggestion';
+		}
+		return d.isMine ? 'mine' : 'shared';
+	}
+
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Drafts', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
+
+type DraftGroupKey = 'pr_suggestion' | 'mine' | 'shared';
 
 export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesViewConfig> {
 	protected readonly configKey = 'drafts';
