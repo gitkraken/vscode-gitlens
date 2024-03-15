@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a _Stash All Changes_ command to Source Control repository toolbar (off by default)
 - Adds the repository name as a prefix to worktree name when adding to the current workspace
 - Adds a better message when stashing only untracked files without including untracked files
+- Adds a new group of _Cloud Patches_ titled as “Suggested Changes” that includes suggestions coming from pull requests.
 
 ### Changed
 
