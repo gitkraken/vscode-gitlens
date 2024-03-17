@@ -103,7 +103,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 					    };
 
 			if (this.remote.hasIntegration()) {
-				const integration = this.view.container.integrations.getByRemote(this.remote);
+				const integration = await this.view.container.integrations.getByRemote(this.remote);
 				const connected = integration?.maybeConnected ?? (await integration?.isConnected());
 
 				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;

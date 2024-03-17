@@ -39,7 +39,7 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 			const remote = await this.container.git.getBestRemoteWithIntegration(args.repoPath);
 			if (remote == null) return;
 
-			const provider = this.container.integrations.getByRemote(remote);
+			const provider = await this.container.integrations.getByRemote(remote);
 			if (provider == null) return;
 
 			const pr = await provider.getPullRequestForCommit(remote.provider.repoDesc, args.ref);

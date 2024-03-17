@@ -89,7 +89,7 @@ export class ConnectRemoteProviderCommand extends Command {
 			if (!remote?.hasIntegration()) return false;
 		}
 
-		const integration = this.container.integrations.getByRemote(remote);
+		const integration = await this.container.integrations.getByRemote(remote);
 		if (integration == null) return false;
 
 		const connected = await integration.connect();
@@ -182,7 +182,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 			if (!remote?.hasIntegration()) return undefined;
 		}
 
-		const integration = this.container.integrations.getByRemote(remote);
+		const integration = await this.container.integrations.getByRemote(remote);
 		return integration?.disconnect();
 	}
 }

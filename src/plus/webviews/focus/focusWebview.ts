@@ -605,12 +605,12 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 				disposables.push(repo.onDidChange(this.onRepositoryChanged, this));
 
-				const provider = this.container.integrations.getByRemote(remoteWithIntegration);
+				const integration = await this.container.integrations.getByRemote(remoteWithIntegration);
 
 				repos.push({
 					repo: repo,
 					remote: remoteWithIntegration,
-					isConnected: provider?.maybeConnected ?? (await provider?.isConnected()) ?? false,
+					isConnected: integration?.maybeConnected ?? (await integration?.isConnected()) ?? false,
 					isGitHub: remoteWithIntegration.provider.id === 'github',
 				});
 			}

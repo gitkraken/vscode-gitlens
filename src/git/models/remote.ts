@@ -40,9 +40,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	get maybeIntegrationConnected(): boolean | undefined {
-		return this.provider == null || !this.container.integrations.supports(this.provider.id)
-			? false
-			: this.getIntegration()?.maybeConnected;
+		return this.container.integrations.isMaybeConnected(this);
 	}
 
 	@memoize()
@@ -71,7 +69,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return bestUrl!;
 	}
 
-	getIntegration(): HostingIntegration | undefined {
+	async getIntegration(): Promise<HostingIntegration | undefined> {
 		return this.provider != null ? this.container.integrations.getByRemote(this) : undefined;
 	}
 

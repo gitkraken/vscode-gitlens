@@ -44,19 +44,20 @@ export type SupportedIntegrationIds = IntegrationId;
 export type SupportedHostingIntegrationIds = HostingIntegrationId;
 export type SupportedIssueIntegrationIds = IssueIntegrationId;
 export type SupportedSelfHostedIntegrationIds = SelfHostedIntegrationId;
-export type ProviderKey =
+
+export type Integration = IssueIntegration | HostingIntegration;
+export type IntegrationKey =
 	| `${SupportedHostingIntegrationIds}`
 	| `${SupportedIssueIntegrationIds}`
 	| `${SupportedSelfHostedIntegrationIds}:${string}`;
-export type ProviderKeyById<T extends SupportedIntegrationIds> = T extends SupportedIssueIntegrationIds
+export type IntegrationKeyById<T extends SupportedIntegrationIds> = T extends SupportedIssueIntegrationIds
 	? `${SupportedIssueIntegrationIds}`
 	: T extends SupportedHostingIntegrationIds
 	  ? `${SupportedHostingIntegrationIds}`
 	  : `${SupportedSelfHostedIntegrationIds}:${string}`;
+export type IntegrationType = 'issues' | 'hosting';
 
 export type ResourceDescriptor = { key: string } & Record<string, unknown>;
-export type IntegrationType = 'issues' | 'hosting';
-export type Integration = IssueIntegration | HostingIntegration;
 
 export function isHostingIntegration(integration: Integration): integration is HostingIntegration {
 	return integration.type === 'hosting';
@@ -78,7 +79,7 @@ abstract class IntegrationBase<ID extends SupportedIntegrationIds = SupportedInt
 
 	abstract get authProvider(): IntegrationAuthenticationProviderDescriptor;
 	abstract get id(): ID;
-	protected abstract get key(): ProviderKeyById<ID>;
+	protected abstract get key(): IntegrationKeyById<ID>;
 	abstract get name(): string;
 	abstract get domain(): string;
 

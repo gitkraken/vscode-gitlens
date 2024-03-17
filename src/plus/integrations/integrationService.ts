@@ -5,16 +5,16 @@ import type { Container } from '../../container';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
-import type { RemoteProviderId } from '../../git/remotes/remoteProvider';
+import type { RemoteProvider, RemoteProviderId } from '../../git/remotes/remoteProvider';
 import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
 import { filterMap, flatten } from '../../system/iterable';
 import type {
 	HostingIntegration,
 	Integration,
+	IntegrationKey,
 	IntegrationType,
 	IssueIntegration,
-	ProviderKey,
 	ResourceDescriptor,
 	SupportedHostingIntegrationIds,
 	SupportedIntegrationIds,
@@ -47,7 +47,7 @@ export class IntegrationService implements Disposable {
 
 	private readonly _connectedCache = new Set<string>();
 	private readonly _disposable: Disposable;
-	private _integrations = new Map<ProviderKey, Integration>();
+	private _integrations = new Map<IntegrationKey, Integration>();
 	private _providersApi: ProvidersApi;
 
 	constructor(private readonly container: Container) {
@@ -68,9 +68,9 @@ export class IntegrationService implements Disposable {
 	}
 
 	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
-		for (const provider of this._integrations.values()) {
-			if (e.provider.id === provider.authProvider.id) {
-				provider.refresh();
+		for (const integration of this._integrations.values()) {
+			if (e.provider.id === integration.authProvider.id) {
+				integration.refresh();
 			}
 		}
 	}
@@ -98,70 +98,86 @@ export class IntegrationService implements Disposable {
 		return key == null ? this._connectedCache.size !== 0 : this._connectedCache.has(key);
 	}
 
-	get(id: SupportedHostingIntegrationIds): HostingIntegration;
-	get(id: SupportedIssueIntegrationIds): IssueIntegration;
-	get(id: SupportedSelfHostedIntegrationIds, domain: string): HostingIntegration;
-	get(
+	get(id: SupportedHostingIntegrationIds): Promise<HostingIntegration>;
+	get(id: SupportedIssueIntegrationIds): Promise<IssueIntegration>;
+	get(id: SupportedSelfHostedIntegrationIds, domain: string): Promise<HostingIntegration>;
+	async get(
 		id: SupportedHostingIntegrationIds | SupportedIssueIntegrationIds | SupportedSelfHostedIntegrationIds,
 		domain?: string,
-	): Integration {
-		const key = isSelfHostedIntegrationId(id) ? (`${id}:${domain}` as const) : id;
-		let provider = this._integrations.get(key);
-		if (provider == null) {
+	): Promise<Integration> {
+		let integration = this.getCached(id, domain);
+		if (integration == null) {
 			switch (id) {
 				case HostingIntegrationId.GitHub:
-					provider = new GitHubIntegration(this.container, this._providersApi);
+					integration = new GitHubIntegration(this.container, this._providersApi);
 					break;
 				case SelfHostedIntegrationId.GitHubEnterprise:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
-					provider = new GitHubEnterpriseIntegration(this.container, this._providersApi, domain);
+					integration = new GitHubEnterpriseIntegration(this.container, this._providersApi, domain);
 					break;
 				case HostingIntegrationId.GitLab:
-					provider = new GitLabIntegration(this.container, this._providersApi);
+					integration = new GitLabIntegration(this.container, this._providersApi);
 					break;
 				case SelfHostedIntegrationId.GitLabSelfHosted:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
-					provider = new GitLabSelfHostedIntegration(this.container, this._providersApi, domain);
+					integration = new GitLabSelfHostedIntegration(this.container, this._providersApi, domain);
 					break;
 				case HostingIntegrationId.Bitbucket:
-					provider = new BitbucketIntegration(this.container, this._providersApi);
+					integration = new BitbucketIntegration(this.container, this._providersApi);
 					break;
 				case HostingIntegrationId.AzureDevOps:
-					provider = new AzureDevOpsIntegration(this.container, this._providersApi);
+					integration = new AzureDevOpsIntegration(this.container, this._providersApi);
 					break;
 				case IssueIntegrationId.Jira:
-					provider = new JiraIntegration(this.container, this._providersApi);
+					integration = new JiraIntegration(this.container, this._providersApi);
 					break;
 				default:
-					throw new Error(`Provider '${id}' is not supported`);
+					throw new Error(`Integration with '${id}' is not supported`);
 			}
-			this._integrations.set(key, provider);
+			this._integrations.set(this.getCacheKey(id, domain), integration);
 		}
 
-		return provider;
+		return integration;
 	}
 
-	getByRemote(remote: GitRemote): HostingIntegration | undefined {
+	getByRemote(remote: GitRemote): Promise<HostingIntegration | undefined> {
+		if (remote?.provider == null) return Promise.resolve(undefined);
+
+		return this.getByRemoteCore(remote as GitRemote<RemoteProvider>, this.get);
+	}
+
+	getByRemoteCached(remote: GitRemote): HostingIntegration | undefined {
 		if (remote?.provider == null) return undefined;
+
+		return this.getByRemoteCore(remote as GitRemote<RemoteProvider>, this.getCached);
+	}
+
+	private getByRemoteCore<F extends typeof this.get | typeof this.getCached>(
+		remote: GitRemote<RemoteProvider>,
+		getOrGetCached: F,
+	): F extends typeof this.get ? Promise<HostingIntegration | undefined> : HostingIntegration | undefined {
+		type RT = F extends typeof this.get ? Promise<HostingIntegration | undefined> : HostingIntegration | undefined;
+
+		const get = getOrGetCached.bind(this);
 
 		switch (remote.provider.id) {
 			case 'azure-devops':
-				return this.get(HostingIntegrationId.AzureDevOps);
+				return get(HostingIntegrationId.AzureDevOps) as RT;
 			case 'bitbucket':
-				return this.get(HostingIntegrationId.Bitbucket);
+				return get(HostingIntegrationId.Bitbucket) as RT;
 			case 'github':
 				if (remote.provider.custom && remote.provider.domain != null) {
-					return this.get(SelfHostedIntegrationId.GitHubEnterprise, remote.provider.domain);
+					return get(SelfHostedIntegrationId.GitHubEnterprise, remote.provider.domain) as RT;
 				}
-				return this.get(HostingIntegrationId.GitHub);
+				return get(HostingIntegrationId.GitHub) as RT;
 			case 'gitlab':
 				if (remote.provider.custom && remote.provider.domain != null) {
-					return this.get(SelfHostedIntegrationId.GitLabSelfHosted, remote.provider.domain);
+					return get(SelfHostedIntegrationId.GitLabSelfHosted, remote.provider.domain) as RT;
 				}
-				return this.get(HostingIntegrationId.GitLab);
+				return get(HostingIntegrationId.GitLab) as RT;
 			case 'bitbucket-server':
 			default:
-				return undefined;
+				return (getOrGetCached === this.get ? Promise.resolve(undefined) : undefined) as RT;
 		}
 	}
 
@@ -172,30 +188,30 @@ export class IntegrationService implements Disposable {
 	}
 
 	async getMyIssues(
-		providerIds?: HostingIntegrationId[],
+		integrationIds?: HostingIntegrationId[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined> {
-		const providers: Map<Integration, ResourceDescriptor[] | undefined> = new Map();
-		for (const providerId of providerIds?.length ? providerIds : Object.values(HostingIntegrationId)) {
-			const provider = this.get(providerId);
-			if (provider == null) continue;
+		const integrations: Map<Integration, ResourceDescriptor[] | undefined> = new Map();
+		for (const integrationId of integrationIds?.length ? integrationIds : Object.values(HostingIntegrationId)) {
+			const integration = await this.get(integrationId);
+			if (integration == null) continue;
 
-			providers.set(provider, undefined);
+			integrations.set(integration, undefined);
 		}
-		if (providers.size === 0) return undefined;
+		if (integrations.size === 0) return undefined;
 
-		return this.getMyIssuesCore(providers, cancellation);
+		return this.getMyIssuesCore(integrations, cancellation);
 	}
 
 	private async getMyIssuesCore(
-		providers: Map<Integration, ResourceDescriptor[] | undefined>,
+		integrations: Map<Integration, ResourceDescriptor[] | undefined>,
 		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined> {
 		const promises: Promise<SearchedIssue[] | undefined>[] = [];
-		for (const [provider, repos] of providers) {
-			if (provider == null) continue;
+		for (const [integration, repos] of integrations) {
+			if (integration == null) continue;
 
-			promises.push(provider.searchMyIssues(repos, cancellation));
+			promises.push(integration.searchMyIssues(repos, cancellation));
 		}
 
 		const results = await Promise.allSettled(promises);
@@ -217,54 +233,54 @@ export class IntegrationService implements Disposable {
 			const [remote] = remoteOrRemotes;
 			if (remote?.provider == null) return undefined;
 
-			const provider = this.getByRemote(remote);
-			return provider?.searchMyIssues(remote.provider.repoDesc);
+			const integration = await this.getByRemote(remote);
+			return integration?.searchMyIssues(remote.provider.repoDesc);
 		}
 
-		const providers = new Map<HostingIntegration, ResourceDescriptor[]>();
+		const integrations = new Map<HostingIntegration, ResourceDescriptor[]>();
 
 		for (const remote of remoteOrRemotes) {
 			if (remote?.provider == null) continue;
 
-			const integration = remote.getIntegration();
+			const integration = await remote.getIntegration();
 			if (integration == null) continue;
 
-			let repos = providers.get(integration);
+			let repos = integrations.get(integration);
 			if (repos == null) {
 				repos = [];
-				providers.set(integration, repos);
+				integrations.set(integration, repos);
 			}
 			repos.push(remote.provider.repoDesc);
 		}
 
-		return this.getMyIssuesCore(providers);
+		return this.getMyIssuesCore(integrations);
 	}
 
 	async getMyPullRequests(
-		providerIds?: HostingIntegrationId[],
+		integrationIds?: HostingIntegrationId[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined> {
-		const providers: Map<HostingIntegration, ResourceDescriptor[] | undefined> = new Map();
-		for (const providerId of providerIds?.length ? providerIds : Object.values(HostingIntegrationId)) {
-			const provider = this.get(providerId);
-			if (provider == null) continue;
+		const integrations: Map<HostingIntegration, ResourceDescriptor[] | undefined> = new Map();
+		for (const integrationId of integrationIds?.length ? integrationIds : Object.values(HostingIntegrationId)) {
+			const integration = await this.get(integrationId);
+			if (integration == null) continue;
 
-			providers.set(provider, undefined);
+			integrations.set(integration, undefined);
 		}
-		if (providers.size === 0) return undefined;
+		if (integrations.size === 0) return undefined;
 
-		return this.getMyPullRequestsCore(providers, cancellation);
+		return this.getMyPullRequestsCore(integrations, cancellation);
 	}
 
 	private async getMyPullRequestsCore(
-		providers: Map<HostingIntegration, ResourceDescriptor[] | undefined>,
+		integrations: Map<HostingIntegration, ResourceDescriptor[] | undefined>,
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined> {
 		const promises: Promise<SearchedPullRequest[] | undefined>[] = [];
-		for (const [provider, repos] of providers) {
-			if (provider == null) continue;
+		for (const [integration, repos] of integrations) {
+			if (integration == null) continue;
 
-			promises.push(provider.searchMyPullRequests(repos, cancellation));
+			promises.push(integration.searchMyPullRequests(repos, cancellation));
 		}
 
 		const results = await Promise.allSettled(promises);
@@ -288,27 +304,34 @@ export class IntegrationService implements Disposable {
 			const [remote] = remoteOrRemotes;
 			if (remote?.provider == null) return undefined;
 
-			const provider = this.getByRemote(remote);
+			const provider = await this.getByRemote(remote);
 			return provider?.searchMyPullRequests(remote.provider.repoDesc);
 		}
 
-		const providers = new Map<HostingIntegration, ResourceDescriptor[]>();
+		const integrations = new Map<HostingIntegration, ResourceDescriptor[]>();
 
 		for (const remote of remoteOrRemotes) {
 			if (remote?.provider == null) continue;
 
-			const integration = remote.getIntegration();
+			const integration = await remote.getIntegration();
 			if (integration == null) continue;
 
-			let repos = providers.get(integration);
+			let repos = integrations.get(integration);
 			if (repos == null) {
 				repos = [];
-				providers.set(integration, repos);
+				integrations.set(integration, repos);
 			}
 			repos.push(remote.provider.repoDesc);
 		}
 
-		return this.getMyPullRequestsCore(providers);
+		return this.getMyPullRequestsCore(integrations);
+	}
+
+	isMaybeConnected(remote: GitRemote): boolean {
+		if (remote.provider?.id != null && this.supports(remote.provider.id)) {
+			return this.getByRemoteCached(remote)?.maybeConnected ?? false;
+		}
+		return false;
 	}
 
 	supports(remoteId: RemoteProviderId): boolean {
@@ -340,5 +363,26 @@ export class IntegrationService implements Disposable {
 		}
 
 		return ignoreSSLErrors;
+	}
+
+	private getCached(id: SupportedHostingIntegrationIds): HostingIntegration | undefined;
+	private getCached(id: SupportedIssueIntegrationIds): IssueIntegration | undefined;
+	private getCached(id: SupportedSelfHostedIntegrationIds, domain: string): HostingIntegration | undefined;
+	private getCached(
+		id: SupportedHostingIntegrationIds | SupportedIssueIntegrationIds | SupportedSelfHostedIntegrationIds,
+		domain?: string,
+	): Integration | undefined;
+	private getCached(
+		id: SupportedHostingIntegrationIds | SupportedIssueIntegrationIds | SupportedSelfHostedIntegrationIds,
+		domain?: string,
+	): Integration | undefined {
+		return this._integrations.get(this.getCacheKey(id, domain));
+	}
+
+	private getCacheKey(
+		id: SupportedHostingIntegrationIds | SupportedIssueIntegrationIds | SupportedSelfHostedIntegrationIds,
+		domain?: string,
+	): IntegrationKey {
+		return isSelfHostedIntegrationId(id) ? (`${id}:${domain}` as const) : id;
 	}
 }
