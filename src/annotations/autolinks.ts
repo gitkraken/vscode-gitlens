@@ -187,8 +187,7 @@ export class Autolinks implements Disposable {
 		// Remote-specific autolinks and remote integration autolinks
 		if (remote?.provider != null) {
 			const autoLinks = [];
-			const integration = remote.getIntegration();
-			const integrationAutolinks = await integration?.autolinks();
+			const integrationAutolinks = await (await remote.getIntegration())?.autolinks();
 			if (integrationAutolinks?.length) {
 				autoLinks.push(...integrationAutolinks);
 			}
@@ -269,11 +268,11 @@ export class Autolinks implements Disposable {
 		}
 		if (messageOrAutolinks.size === 0) return undefined;
 
-		let provider = remote?.getIntegration();
-		if (provider != null) {
-			const connected = provider.maybeConnected ?? (await provider.isConnected());
+		let integration = await remote?.getIntegration();
+		if (integration != null) {
+			const connected = integration.maybeConnected ?? (await integration.isConnected());
 			if (!connected) {
-				provider = undefined;
+				integration = undefined;
 			}
 		}
 
@@ -285,10 +284,10 @@ export class Autolinks implements Disposable {
 						id,
 						[
 							remote?.provider != null &&
-							provider != null &&
-							link.provider?.id === provider.id &&
-							link.provider?.domain === provider.domain
-								? provider.getIssueOrPullRequest(link.descriptor ?? remote.provider.repoDesc, id)
+							integration != null &&
+							link.provider?.id === integration.id &&
+							link.provider?.domain === integration.domain
+								? integration.getIssueOrPullRequest(link.descriptor ?? remote.provider.repoDesc, id)
 								: undefined,
 							link,
 						] satisfies EnrichedAutolink,

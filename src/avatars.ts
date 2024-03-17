@@ -222,8 +222,9 @@ async function getAvatarUriFromRemoteProvider(
 		if (typeof repoPathOrCommit !== 'string') {
 			const remote = await Container.instance.git.getBestRemoteWithIntegration(repoPathOrCommit.repoPath);
 			if (remote?.hasIntegration()) {
-				const integration = remote.getIntegration();
-				account = await integration?.getAccountForCommit(remote.provider.repoDesc, repoPathOrCommit.ref, {
+				account = await (
+					await remote.getIntegration()
+				)?.getAccountForCommit(remote.provider.repoDesc, repoPathOrCommit.ref, {
 					avatarSize: size,
 				});
 			}

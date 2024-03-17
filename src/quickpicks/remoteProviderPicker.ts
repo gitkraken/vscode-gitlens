@@ -56,7 +56,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			if (branch == null) {
 				branch = await Container.instance.git.getDefaultBranchName(this.remote.repoPath, this.remote.name);
 				if (branch == null && this.remote.hasIntegration()) {
-					const provider = Container.instance.integrations.getByRemote(this.remote);
+					const provider = await Container.instance.integrations.getByRemote(this.remote);
 					const defaultBranch = await provider?.getDefaultBranch?.(this.remote.provider.repoDesc);
 					branch = defaultBranch?.name;
 				}

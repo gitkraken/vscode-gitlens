@@ -2059,7 +2059,7 @@ export class GitProviderService implements Disposable {
 
 					// Only check remotes that have extra weighting and less than the default
 					if (weight > 0 && weight < 1000 && !originalFound) {
-						const integration = remote.getIntegration();
+						const integration = await remote.getIntegration();
 						if (
 							integration != null &&
 							(integration.maybeConnected ||
@@ -2111,7 +2111,7 @@ export class GitProviderService implements Disposable {
 		const includeDisconnected = options?.includeDisconnected ?? false;
 		for (const r of remotes) {
 			if (r.hasIntegration()) {
-				const integration = this.container.integrations.getByRemote(r);
+				const integration = await this.container.integrations.getByRemote(r);
 				if (integration != null) {
 					if (options?.filter?.(r, integration) === false) continue;
 
