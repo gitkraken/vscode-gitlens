@@ -62,9 +62,9 @@ export class MergeStatusNode extends ViewNode<'merge-status', ViewsWithCommits> 
 			  );
 
 		const markdown = new MarkdownString(
-			`${`Merging ${
+			`Merging ${
 				this.mergeStatus.incoming != null ? getReferenceLabel(this.mergeStatus.incoming, { label: false }) : ''
-			}into ${getReferenceLabel(this.mergeStatus.current, { label: false })}`}${
+			}into ${getReferenceLabel(this.mergeStatus.current, { label: false })}${
 				hasConflicts
 					? `\n\nResolve ${pluralize('conflict', this.status.conflicts.length)} before continuing`
 					: ''
