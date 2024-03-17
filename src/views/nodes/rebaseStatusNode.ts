@@ -85,11 +85,11 @@ export class RebaseStatusNode extends ViewNode<'rebase-status', ViewsWithCommits
 			  );
 
 		const markdown = new MarkdownString(
-			`${`${started ? 'Rebasing' : 'Pending rebase of'} ${
+			`${started ? 'Rebasing' : 'Pending rebase of'} ${
 				this.rebaseStatus.incoming != null
 					? getReferenceLabel(this.rebaseStatus.incoming, { label: false })
 					: ''
-			} onto ${getReferenceLabel(this.rebaseStatus.current ?? this.rebaseStatus.onto, { label: false })}`}${
+			} onto ${getReferenceLabel(this.rebaseStatus.current ?? this.rebaseStatus.onto, { label: false })}${
 				started
 					? `\n\nPaused at step ${this.rebaseStatus.steps.current.number} of ${
 							this.rebaseStatus.steps.total
