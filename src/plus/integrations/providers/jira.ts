@@ -79,7 +79,8 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		{ accessToken }: AuthenticationSession,
 		resource: JiraOrganizationDescriptor,
 	): Promise<Account | undefined> {
-		const user = await this.api.getCurrentUserForResource(this.id, resource.id, {
+		const api = await this.getProvidersApi();
+		const user = await api.getCurrentUserForResource(this.id, resource.id, {
 			accessToken: accessToken,
 		});
 
@@ -97,7 +98,8 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		const cachedResources = this._organizations.get(accessToken);
 
 		if (cachedResources == null || force) {
-			const resources = await this.api.getJiraResourcesForCurrentUser({ accessToken: accessToken });
+			const api = await this.getProvidersApi();
+			const resources = await api.getJiraResourcesForCurrentUser({ accessToken: accessToken });
 			this._organizations.set(
 				accessToken,
 				resources != null ? resources.map(r => ({ ...r, key: r.id })) : undefined,
@@ -129,7 +131,8 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		}
 
 		if (resourcesWithoutProjects.length > 0) {
-			const jiraProjectBaseDescriptors = await this.api.getJiraProjectsForResources(
+			const api = await this.getProvidersApi();
+			const jiraProjectBaseDescriptors = await api.getJiraProjectsForResources(
 				resourcesWithoutProjects.map(r => r.id),
 				{ accessToken: accessToken },
 			);
@@ -161,11 +164,13 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 	): Promise<SearchedIssue[] | undefined> {
 		let results;
 
+		const api = await this.getProvidersApi();
+
 		const getSearchedUserIssuesForFilter = async (
 			user: string,
 			filter: IssueFilter,
 		): Promise<SearchedIssue[] | undefined> => {
-			const results = await this.api.getIssuesForProject(this.id, project.name, project.resourceId, {
+			const results = await api.getIssuesForProject(this.id, project.name, project.resourceId, {
 				authorLogin: filter === IssueFilter.Author ? user : undefined,
 				assigneeLogins: filter === IssueFilter.Assignee ? [user] : undefined,
 				mentionLogin: filter === IssueFilter.Mention ? user : undefined,
@@ -203,7 +208,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 			return [...resultsById.values()];
 		}
 
-		results = await this.api.getIssuesForProject(this.id, project.name, project.resourceId, {
+		results = await api.getIssuesForProject(this.id, project.name, project.resourceId, {
 			accessToken: accessToken,
 		});
 		return results
@@ -219,10 +224,12 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		const myResources = resources ?? (await this.getProviderResourcesForUser(session));
 		if (!myResources) return undefined;
 
+		const api = await this.getProvidersApi();
+
 		const results: SearchedIssue[] = [];
 		for (const resource of myResources) {
 			const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
-			const resourceIssues = await this.api.getIssuesForResourceForCurrentUser(this.id, resource.id, {
+			const resourceIssues = await api.getIssuesForResourceForCurrentUser(this.id, resource.id, {
 				accessToken: session.accessToken,
 			});
 			const formattedIssues = resourceIssues
@@ -239,6 +246,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 	protected override async providerOnConnect(): Promise<void> {
 		this._autolinks = undefined;
 		if (this._session == null) return;
+
 		const storedOrganizations = this.container.storage.get(`jira:${this._session.accessToken}:organizations`);
 		const storedProjects = this.container.storage.get(`jira:${this._session.accessToken}:projects`);
 		let organizations = storedOrganizations?.data?.map(o => ({ ...o }));

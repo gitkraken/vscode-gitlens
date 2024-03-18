@@ -45,7 +45,9 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		if (!connected) return undefined;
 
 		try {
-			return await this.api.getReposForAzureProject(namespace, project, { cursor: options?.cursor });
+			return await (
+				await this.getProvidersApi()
+			).getReposForAzureProject(namespace, project, { cursor: options?.cursor });
 		} catch (ex) {
 			Logger.error(ex, 'getReposForAzureProject');
 			return undefined;

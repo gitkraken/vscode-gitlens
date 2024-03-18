@@ -26,6 +26,8 @@ import { SubscriptionService } from './plus/gk/account/subscriptionService';
 import { ServerConnection } from './plus/gk/serverConnection';
 import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthentication';
 import { IntegrationService } from './plus/integrations/integrationService';
+import type { GitHubApi } from './plus/integrations/providers/github/github';
+import type { GitLabApi } from './plus/integrations/providers/gitlab/gitlab';
 import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewCommands, registerFocusWebviewPanel } from './plus/webviews/focus/registration';
@@ -500,7 +502,7 @@ export class Container {
 		return this._git;
 	}
 
-	private _github: Promise<import('./plus/integrations/providers/github/github').GitHubApi | undefined> | undefined;
+	private _github: Promise<GitHubApi | undefined> | undefined;
 	get github() {
 		if (this._github == null) {
 			this._github = this._loadGitHubApi();
@@ -522,7 +524,7 @@ export class Container {
 		}
 	}
 
-	private _gitlab: Promise<import('./plus/integrations/providers/gitlab/gitlab').GitLabApi | undefined> | undefined;
+	private _gitlab: Promise<GitLabApi | undefined> | undefined;
 	get gitlab() {
 		if (this._gitlab == null) {
 			this._gitlab = this._loadGitLabApi();

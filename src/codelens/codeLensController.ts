@@ -6,11 +6,12 @@ import { setContext } from '../system/context';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
 import type { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent } from '../trackers/documentTracker';
+import type { GitCodeLensProvider } from './codeLensProvider';
 
 export class GitCodeLensController implements Disposable {
 	private _canToggle: boolean = false;
 	private _disposable: Disposable | undefined;
-	private _provider: import('./codeLensProvider').GitCodeLensProvider | undefined;
+	private _provider: GitCodeLensProvider | undefined;
 	private _providerDisposable: Disposable | undefined;
 
 	constructor(private readonly container: Container) {

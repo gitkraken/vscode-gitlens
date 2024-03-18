@@ -6,11 +6,6 @@ import { debug } from '../../../system/decorators/log';
 import type { ServerConnection } from '../../gk/serverConnection';
 import type { IntegrationId } from '../providers/models';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../providers/models';
-import { AzureDevOpsAuthenticationProvider } from './azureDevOps';
-import { BitbucketAuthenticationProvider } from './bitbucket';
-import { GitHubEnterpriseAuthenticationProvider } from './github';
-import { GitLabAuthenticationProvider } from './gitlab';
-import { JiraAuthenticationProvider } from './jira';
 import type { ProviderAuthenticationSession } from './models';
 
 interface StoredSession {
@@ -60,7 +55,7 @@ export class IntegrationAuthenticationService implements Disposable {
 		providerId: IntegrationId,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 	): Promise<AuthenticationSession | undefined> {
-		const provider = this.ensureProvider(providerId);
+		const provider = await this.ensureProvider(providerId);
 
 		const session = await provider.createSession(descriptor);
 		if (session == null) return undefined;
@@ -78,7 +73,7 @@ export class IntegrationAuthenticationService implements Disposable {
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
 		if (this.supports(providerId)) {
-			const provider = this.ensureProvider(providerId);
+			const provider = await this.ensureProvider(providerId);
 
 			const key = this.getSecretKey(providerId, provider.getSessionId(descriptor));
 
@@ -128,7 +123,7 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	@debug()
 	async deleteSession(providerId: IntegrationId, descriptor?: IntegrationAuthenticationSessionDescriptor) {
-		const provider = this.ensureProvider(providerId);
+		const provider = await this.ensureProvider(providerId);
 
 		const key = this.getSecretKey(providerId, provider.getSessionId(descriptor));
 		await this.container.storage.deleteSecret(key);
@@ -152,25 +147,35 @@ export class IntegrationAuthenticationService implements Disposable {
 		return `gitlens.integration.auth:${providerId}|${id}`;
 	}
 
-	private ensureProvider(providerId: IntegrationId): IntegrationAuthenticationProvider {
+	private async ensureProvider(providerId: IntegrationId): Promise<IntegrationAuthenticationProvider> {
 		let provider = this.providers.get(providerId);
 		if (provider == null) {
 			switch (providerId) {
 				case HostingIntegrationId.AzureDevOps:
-					provider = new AzureDevOpsAuthenticationProvider();
+					provider = new (
+						await import(/* webpackChunkName: "azdo" */ './azureDevOps')
+					).AzureDevOpsAuthenticationProvider();
 					break;
 				case HostingIntegrationId.Bitbucket:
-					provider = new BitbucketAuthenticationProvider();
+					provider = new (
+						await import(/* webpackChunkName: "bitbucket" */ './bitbucket')
+					).BitbucketAuthenticationProvider();
 					break;
 				case SelfHostedIntegrationId.GitHubEnterprise:
-					provider = new GitHubEnterpriseAuthenticationProvider();
+					provider = new (
+						await import(/* webpackChunkName: "github" */ './github')
+					).GitHubEnterpriseAuthenticationProvider();
 					break;
 				case HostingIntegrationId.GitLab:
 				case SelfHostedIntegrationId.GitLabSelfHosted:
-					provider = new GitLabAuthenticationProvider();
+					provider = new (
+						await import(/* webpackChunkName: "gitlab" */ './gitlab')
+					).GitLabAuthenticationProvider();
 					break;
 				case IssueIntegrationId.Jira:
-					provider = new JiraAuthenticationProvider(this.connection);
+					provider = new (await import(/* webpackChunkName: "jira" */ './jira')).JiraAuthenticationProvider(
+						this.connection,
+					);
 					break;
 				default:
 					throw new Error(`Provider '${providerId}' is not supported`);

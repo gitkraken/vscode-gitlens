@@ -40,10 +40,13 @@ export async function getSupportedGitProviders(container: Container): Promise<Gi
 	];
 
 	if (configuration.get('virtualRepositories.enabled')) {
-		const GitHubGitProvider = (
-			await import(/* webpackChunkName: "github" */ '../../plus/integrations/providers/github/githubGitProvider')
-		).GitHubGitProvider;
-		providers.push(new GitHubGitProvider(container));
+		providers.push(
+			new (
+				await import(
+					/* webpackChunkName: "github" */ '../../plus/integrations/providers/github/githubGitProvider'
+				)
+			).GitHubGitProvider(container),
+		);
 	}
 
 	return providers;

@@ -74,7 +74,7 @@ abstract class IntegrationBase<ID extends SupportedIntegrationIds = SupportedInt
 
 	constructor(
 		protected readonly container: Container,
-		protected readonly api: ProvidersApi,
+		protected readonly getProvidersApi: () => Promise<ProvidersApi>,
 	) {}
 
 	abstract get authProvider(): IntegrationAuthenticationProviderDescriptor;
@@ -648,9 +648,10 @@ export abstract class HostingIntegration<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
+		const api = await this.getProvidersApi();
 		if (
 			providerId !== HostingIntegrationId.GitLab &&
-			(this.api.isRepoIdsInput(reposOrRepoIds) ||
+			(api.isRepoIdsInput(reposOrRepoIds) ||
 				(providerId === HostingIntegrationId.AzureDevOps &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
@@ -678,14 +679,14 @@ export abstract class HostingIntegration<
 			const organization: string = organizations.values().next().value;
 
 			if (options?.filters != null) {
-				if (!this.api.providerSupportsIssueFilters(providerId, options.filters)) {
+				if (!api.providerSupportsIssueFilters(providerId, options.filters)) {
 					Logger.warn(`Unsupported filters for provider ${providerId}`, 'getIssuesForRepos');
 					return undefined;
 				}
 
 				let userAccount: ProviderAccount | undefined;
 				try {
-					userAccount = await this.api.getCurrentUserForInstance(providerId, organization);
+					userAccount = await api.getCurrentUserForInstance(providerId, organization);
 				} catch (ex) {
 					Logger.error(ex, 'getIssuesForRepos');
 					return undefined;
@@ -727,7 +728,7 @@ export abstract class HostingIntegration<
 				const data: ProviderIssue[] = [];
 				await Promise.all(
 					projectInputs.map(async projectInput => {
-						const results = await this.api.getIssuesForAzureProject(
+						const results = await api.getIssuesForAzureProject(
 							projectInput.namespace,
 							projectInput.project,
 							{
@@ -762,7 +763,7 @@ export abstract class HostingIntegration<
 		if (options?.filters != null) {
 			let userAccount: ProviderAccount | undefined;
 			try {
-				userAccount = await this.api.getCurrentUser(providerId);
+				userAccount = await api.getCurrentUser(providerId);
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
 				return undefined;
@@ -786,10 +787,7 @@ export abstract class HostingIntegration<
 			};
 		}
 
-		if (
-			this.api.getProviderIssuesPagingMode(providerId) === PagingMode.Repo &&
-			!this.api.isRepoIdsInput(reposOrRepoIds)
-		) {
+		if (api.getProviderIssuesPagingMode(providerId) === PagingMode.Repo && !api.isRepoIdsInput(reposOrRepoIds)) {
 			const cursorInfo = JSON.parse(options?.cursor ?? '{}');
 			const cursors: PagedRepoInput[] = cursorInfo.cursors ?? [];
 			let repoInputs: PagedRepoInput[] = reposOrRepoIds.map(repo => ({ repo: repo, cursor: undefined }));
@@ -803,7 +801,7 @@ export abstract class HostingIntegration<
 				const data: ProviderIssue[] = [];
 				await Promise.all(
 					repoInputs.map(async repoInput => {
-						const results = await this.api.getIssuesForRepo(providerId, repoInput.repo, {
+						const results = await api.getIssuesForRepo(providerId, repoInput.repo, {
 							...getIssuesOptions,
 							cursor: repoInput.cursor,
 							baseUrl: options?.customUrl,
@@ -830,7 +828,7 @@ export abstract class HostingIntegration<
 		}
 
 		try {
-			return await this.api.getIssuesForRepos(providerId, reposOrRepoIds, {
+			return await api.getIssuesForRepos(providerId, reposOrRepoIds, {
 				...getIssuesOptions,
 				cursor: options?.cursor,
 				baseUrl: options?.customUrl,
@@ -853,9 +851,10 @@ export abstract class HostingIntegration<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
+		const api = await this.getProvidersApi();
 		if (
 			providerId !== HostingIntegrationId.GitLab &&
-			(this.api.isRepoIdsInput(reposOrRepoIds) ||
+			(api.isRepoIdsInput(reposOrRepoIds) ||
 				(providerId === HostingIntegrationId.AzureDevOps &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
@@ -865,7 +864,7 @@ export abstract class HostingIntegration<
 
 		let getPullRequestsOptions: GetPullRequestsOptions | undefined;
 		if (options?.filters != null) {
-			if (!this.api.providerSupportsPullRequestFilters(providerId, options.filters)) {
+			if (!api.providerSupportsPullRequestFilters(providerId, options.filters)) {
 				Logger.warn(`Unsupported filters for provider ${providerId}`, 'getPullRequestsForRepos');
 				return undefined;
 			}
@@ -890,14 +889,14 @@ export abstract class HostingIntegration<
 
 				const organization: string = organizations.values().next().value;
 				try {
-					userAccount = await this.api.getCurrentUserForInstance(providerId, organization);
+					userAccount = await api.getCurrentUserForInstance(providerId, organization);
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
 					return undefined;
 				}
 			} else {
 				try {
-					userAccount = await this.api.getCurrentUser(providerId);
+					userAccount = await api.getCurrentUser(providerId);
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
 					return undefined;
@@ -936,8 +935,8 @@ export abstract class HostingIntegration<
 		}
 
 		if (
-			this.api.getProviderPullRequestsPagingMode(providerId) === PagingMode.Repo &&
-			!this.api.isRepoIdsInput(reposOrRepoIds)
+			api.getProviderPullRequestsPagingMode(providerId) === PagingMode.Repo &&
+			!api.isRepoIdsInput(reposOrRepoIds)
 		) {
 			const cursorInfo = JSON.parse(options?.cursor ?? '{}');
 			const cursors: PagedRepoInput[] = cursorInfo.cursors ?? [];
@@ -952,7 +951,7 @@ export abstract class HostingIntegration<
 				const data: ProviderPullRequest[] = [];
 				await Promise.all(
 					repoInputs.map(async repoInput => {
-						const results = await this.api.getPullRequestsForRepo(providerId, repoInput.repo, {
+						const results = await api.getPullRequestsForRepo(providerId, repoInput.repo, {
 							...getPullRequestsOptions,
 							cursor: repoInput.cursor,
 							baseUrl: options?.customUrl,
@@ -979,7 +978,7 @@ export abstract class HostingIntegration<
 		}
 
 		try {
-			return this.api.getPullRequestsForRepos(providerId, reposOrRepoIds, {
+			return api.getPullRequestsForRepos(providerId, reposOrRepoIds, {
 				...getPullRequestsOptions,
 				cursor: options?.cursor,
 				baseUrl: options?.customUrl,
