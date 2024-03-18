@@ -62,6 +62,10 @@ export interface PagedResult<T> {
 	readonly values: NonNullable<T>[];
 }
 
+export interface PagingOptions {
+	cursor?: string;
+}
+
 export interface NextComparisonUrisResult {
 	current: GitUri;
 	next: GitUri | undefined;
@@ -232,8 +236,8 @@ export interface GitProvider extends Disposable {
 	getBranches(
 		repoPath: string,
 		options?: {
-			cursor?: string;
 			filter?: ((b: GitBranch) => boolean) | undefined;
+			paging?: PagingOptions | undefined;
 			sort?: boolean | BranchSortOptions | undefined;
 		},
 	): Promise<PagedResult<GitBranch>>;
@@ -421,8 +425,8 @@ export interface GitProvider extends Disposable {
 	getTags(
 		repoPath: string | undefined,
 		options?: {
-			cursor?: string;
 			filter?: ((t: GitTag) => boolean) | undefined;
+			paging?: PagingOptions | undefined;
 			sort?: boolean | TagSortOptions | undefined;
 		},
 	): Promise<PagedResult<GitTag>>;
