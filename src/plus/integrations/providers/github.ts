@@ -198,10 +198,10 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHoste
 
 	constructor(
 		container: Container,
-		override readonly api: ProvidersApi,
+		getProvidersApi: () => Promise<ProvidersApi>,
 		private readonly _domain: string,
 	) {
-		super(container, api);
+		super(container, getProvidersApi);
 	}
 
 	@log()

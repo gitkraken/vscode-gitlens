@@ -21,18 +21,13 @@ import type {
 	SupportedIssueIntegrationIds,
 	SupportedSelfHostedIntegrationIds,
 } from './integration';
-import { AzureDevOpsIntegration } from './providers/azureDevOps';
-import { BitbucketIntegration } from './providers/bitbucket';
-import { GitHubEnterpriseIntegration, GitHubIntegration } from './providers/github';
-import { GitLabIntegration, GitLabSelfHostedIntegration } from './providers/gitlab';
-import { JiraIntegration } from './providers/jira';
 import {
 	HostingIntegrationId,
 	isSelfHostedIntegrationId,
 	IssueIntegrationId,
 	SelfHostedIntegrationId,
 } from './providers/models';
-import { ProvidersApi } from './providers/providersApi';
+import type { ProvidersApi } from './providers/providersApi';
 
 export interface ConnectionStateChangeEvent {
 	key: string;
@@ -48,11 +43,8 @@ export class IntegrationService implements Disposable {
 	private readonly _connectedCache = new Set<string>();
 	private readonly _disposable: Disposable;
 	private _integrations = new Map<IntegrationKey, Integration>();
-	private _providersApi: ProvidersApi;
 
 	constructor(private readonly container: Container) {
-		this._providersApi = new ProvidersApi(container);
-
 		this._disposable = Disposable.from(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'remotes')) {
@@ -109,27 +101,42 @@ export class IntegrationService implements Disposable {
 		if (integration == null) {
 			switch (id) {
 				case HostingIntegrationId.GitHub:
-					integration = new GitHubIntegration(this.container, this._providersApi);
+					integration = new (
+						await import(/* webpackChunkName: "github" */ './providers/github')
+					).GitHubIntegration(this.container, this.getProvidersApi.bind(this));
 					break;
 				case SelfHostedIntegrationId.GitHubEnterprise:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
-					integration = new GitHubEnterpriseIntegration(this.container, this._providersApi, domain);
+					integration = new (
+						await import(/* webpackChunkName: "github" */ './providers/github')
+					).GitHubEnterpriseIntegration(this.container, this.getProvidersApi.bind(this), domain);
 					break;
 				case HostingIntegrationId.GitLab:
-					integration = new GitLabIntegration(this.container, this._providersApi);
+					integration = new (
+						await import(/* webpackChunkName: "gitlab" */ './providers/gitlab')
+					).GitLabIntegration(this.container, this.getProvidersApi.bind(this));
 					break;
 				case SelfHostedIntegrationId.GitLabSelfHosted:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
-					integration = new GitLabSelfHostedIntegration(this.container, this._providersApi, domain);
+					integration = new (
+						await import(/* webpackChunkName: "gitlab" */ './providers/gitlab')
+					).GitLabSelfHostedIntegration(this.container, this.getProvidersApi.bind(this), domain);
 					break;
 				case HostingIntegrationId.Bitbucket:
-					integration = new BitbucketIntegration(this.container, this._providersApi);
+					integration = new (
+						await import(/* webpackChunkName: "bitbucket" */ './providers/bitbucket')
+					).BitbucketIntegration(this.container, this.getProvidersApi.bind(this));
 					break;
 				case HostingIntegrationId.AzureDevOps:
-					integration = new AzureDevOpsIntegration(this.container, this._providersApi);
+					integration = new (
+						await import(/* webpackChunkName: "azdo" */ './providers/azureDevOps')
+					).AzureDevOpsIntegration(this.container, this.getProvidersApi.bind(this));
 					break;
 				case IssueIntegrationId.Jira:
-					integration = new JiraIntegration(this.container, this._providersApi);
+					integration = new (await import(/* webpackChunkName: "jira" */ './providers/jira')).JiraIntegration(
+						this.container,
+						this.getProvidersApi.bind(this),
+					);
 					break;
 				default:
 					throw new Error(`Integration with '${id}' is not supported`);
@@ -138,6 +145,22 @@ export class IntegrationService implements Disposable {
 		}
 
 		return integration;
+	}
+
+	private _providersApi: Promise<ProvidersApi> | undefined;
+	private async getProvidersApi() {
+		if (this._providersApi == null) {
+			const container = this.container;
+			async function load() {
+				return new (
+					await import(/* webpackChunkName: "integrations" */ './providers/providersApi')
+				).ProvidersApi(container);
+			}
+
+			this._providersApi = load();
+		}
+
+		return this._providersApi;
 	}
 
 	getByRemote(remote: GitRemote): Promise<HostingIntegration | undefined> {
