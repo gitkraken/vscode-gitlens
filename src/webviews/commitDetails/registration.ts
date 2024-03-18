@@ -20,7 +20,7 @@ export function registerCommitDetailsWebviewView(controller: WebviewsController)
 		},
 		async (container, host) => {
 			const { CommitDetailsWebviewProvider } = await import(
-				/* webpackChunkName: "commitDetails" */ './commitDetailsWebview'
+				/* webpackChunkName: "webview-commitDetails" */ './commitDetailsWebview'
 			);
 			return new CommitDetailsWebviewProvider(container, host, { attachedTo: 'default' });
 		},
@@ -42,7 +42,7 @@ export function registerGraphDetailsWebviewView(controller: WebviewsController) 
 		},
 		async (container, host) => {
 			const { CommitDetailsWebviewProvider } = await import(
-				/* webpackChunkName: "commitDetails" */ './commitDetailsWebview'
+				/* webpackChunkName: "webview-commitDetails" */ './commitDetailsWebview'
 			);
 			return new CommitDetailsWebviewProvider(container, host, { attachedTo: 'graph' });
 		},

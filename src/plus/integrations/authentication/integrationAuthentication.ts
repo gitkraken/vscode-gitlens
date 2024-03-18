@@ -153,29 +153,29 @@ export class IntegrationAuthenticationService implements Disposable {
 			switch (providerId) {
 				case HostingIntegrationId.AzureDevOps:
 					provider = new (
-						await import(/* webpackChunkName: "azdo" */ './azureDevOps')
+						await import(/* webpackChunkName: "integrations" */ './azureDevOps')
 					).AzureDevOpsAuthenticationProvider();
 					break;
 				case HostingIntegrationId.Bitbucket:
 					provider = new (
-						await import(/* webpackChunkName: "bitbucket" */ './bitbucket')
+						await import(/* webpackChunkName: "integrations" */ './bitbucket')
 					).BitbucketAuthenticationProvider();
 					break;
 				case SelfHostedIntegrationId.GitHubEnterprise:
 					provider = new (
-						await import(/* webpackChunkName: "github" */ './github')
+						await import(/* webpackChunkName: "integrations" */ './github')
 					).GitHubEnterpriseAuthenticationProvider();
 					break;
 				case HostingIntegrationId.GitLab:
 				case SelfHostedIntegrationId.GitLabSelfHosted:
 					provider = new (
-						await import(/* webpackChunkName: "gitlab" */ './gitlab')
+						await import(/* webpackChunkName: "integrations" */ './gitlab')
 					).GitLabAuthenticationProvider();
 					break;
 				case IssueIntegrationId.Jira:
-					provider = new (await import(/* webpackChunkName: "jira" */ './jira')).JiraAuthenticationProvider(
-						this.connection,
-					);
+					provider = new (
+						await import(/* webpackChunkName: "integrations" */ './jira')
+					).JiraAuthenticationProvider(this.connection);
 					break;
 				default:
 					throw new Error(`Provider '${providerId}' is not supported`);

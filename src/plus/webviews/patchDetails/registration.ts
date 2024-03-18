@@ -34,7 +34,7 @@ export function registerPatchDetailsWebviewView(controller: WebviewsController) 
 		},
 		async (container, host) => {
 			const { PatchDetailsWebviewProvider } = await import(
-				/* webpackChunkName: "patchDetails" */ './patchDetailsWebview'
+				/* webpackChunkName: "webview-patchDetails" */ './patchDetailsWebview'
 			);
 			return new PatchDetailsWebviewProvider(container, host);
 		},
@@ -73,7 +73,7 @@ export function registerPatchDetailsWebviewPanel(controller: WebviewsController)
 		},
 		async (container, host) => {
 			const { PatchDetailsWebviewProvider } = await import(
-				/* webpackChunkName: "patchDetails" */ './patchDetailsWebview'
+				/* webpackChunkName: "webview-patchDetails" */ './patchDetailsWebview'
 			);
 			return new PatchDetailsWebviewProvider(container, host);
 		},

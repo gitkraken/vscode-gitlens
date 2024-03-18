@@ -28,7 +28,9 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 			allowMultipleInstances: configuration.get('visualHistory.allowMultiple'),
 		},
 		async (container, host) => {
-			const { TimelineWebviewProvider } = await import(/* webpackChunkName: "timeline" */ './timelineWebview');
+			const { TimelineWebviewProvider } = await import(
+				/* webpackChunkName: "webview-timeline" */ './timelineWebview'
+			);
 			return new TimelineWebviewProvider(container, host);
 		},
 	);
@@ -48,7 +50,9 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 			},
 		},
 		async (container, host) => {
-			const { TimelineWebviewProvider } = await import(/* webpackChunkName: "timeline" */ './timelineWebview');
+			const { TimelineWebviewProvider } = await import(
+				/* webpackChunkName: "webview-timeline" */ './timelineWebview'
+			);
 			return new TimelineWebviewProvider(container, host);
 		},
 	);

@@ -514,7 +514,7 @@ export class Container {
 	private async _loadGitHubApi() {
 		try {
 			const github = new (
-				await import(/* webpackChunkName: "github" */ './plus/integrations/providers/github/github')
+				await import(/* webpackChunkName: "integrations" */ './plus/integrations/providers/github/github')
 			).GitHubApi(this);
 			this._disposables.push(github);
 			return github;
@@ -536,7 +536,7 @@ export class Container {
 	private async _loadGitLabApi() {
 		try {
 			const gitlab = new (
-				await import(/* webpackChunkName: "gitlab" */ './plus/integrations/providers/gitlab/gitlab')
+				await import(/* webpackChunkName: "integrations" */ './plus/integrations/providers/gitlab/gitlab')
 			).GitLabApi(this);
 			this._disposables.push(gitlab);
 			return gitlab;

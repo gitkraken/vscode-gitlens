@@ -24,7 +24,9 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 			},
 		},
 		async (container, host) => {
-			const { SettingsWebviewProvider } = await import(/* webpackChunkName: "settings" */ './settingsWebview');
+			const { SettingsWebviewProvider } = await import(
+				/* webpackChunkName: "webview-settings" */ './settingsWebview'
+			);
 			return new SettingsWebviewProvider(container, host);
 		},
 	);

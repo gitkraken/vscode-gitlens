@@ -43,7 +43,7 @@ export async function getSupportedGitProviders(container: Container): Promise<Gi
 		providers.push(
 			new (
 				await import(
-					/* webpackChunkName: "github" */ '../../plus/integrations/providers/github/githubGitProvider'
+					/* webpackChunkName: "integrations" */ '../../plus/integrations/providers/github/githubGitProvider'
 				)
 			).GitHubGitProvider(container),
 		);

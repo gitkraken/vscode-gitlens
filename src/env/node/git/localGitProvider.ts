@@ -5856,6 +5856,6 @@ async function getEncoding(uri: Uri): Promise<string> {
 	const encoding = configuration.getCore('files.encoding', uri);
 	if (encoding == null || encoding === 'utf8') return 'utf8';
 
-	const encodingExists = (await import(/* webpackChunkName: "encoding" */ 'iconv-lite')).encodingExists;
+	const encodingExists = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).encodingExists;
 	return encodingExists(encoding) ? encoding : 'utf8';
 }

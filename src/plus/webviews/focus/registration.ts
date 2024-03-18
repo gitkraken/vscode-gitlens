@@ -24,7 +24,7 @@ export function registerFocusWebviewPanel(controller: WebviewsController) {
 			allowMultipleInstances: configuration.get('focus.allowMultiple'),
 		},
 		async (container, host) => {
-			const { FocusWebviewProvider } = await import(/* webpackChunkName: "focus" */ './focusWebview');
+			const { FocusWebviewProvider } = await import(/* webpackChunkName: "webview-focus" */ './focusWebview');
 			return new FocusWebviewProvider(container, host);
 		},
 	);

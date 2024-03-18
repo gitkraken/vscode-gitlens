@@ -252,7 +252,7 @@ export function run<T extends number | string | Buffer>(
 					stdoutDecoded = stdout.toString();
 					stderrDecoded = stderr.toString();
 				} else {
-					const decode = (await import(/* webpackChunkName: "encoding" */ 'iconv-lite')).decode;
+					const decode = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).decode;
 					stdoutDecoded = decode(Buffer.from(stdout, 'binary'), encoding);
 					stderrDecoded = decode(Buffer.from(stderr, 'binary'), encoding);
 				}
@@ -268,7 +268,7 @@ export function run<T extends number | string | Buffer>(
 			if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
 				resolve(stdout as T);
 			} else {
-				const decode = (await import(/* webpackChunkName: "encoding" */ 'iconv-lite')).decode;
+				const decode = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).decode;
 				resolve(decode(Buffer.from(stdout, 'binary'), encoding) as T);
 			}
 		});

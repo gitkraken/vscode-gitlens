@@ -21,7 +21,9 @@ export function registerWelcomeWebviewPanel(controller: WebviewsController) {
 			},
 		},
 		async (container, host) => {
-			const { WelcomeWebviewProvider } = await import(/* webpackChunkName: "welcome" */ './welcomeWebview');
+			const { WelcomeWebviewProvider } = await import(
+				/* webpackChunkName: "webview-welcome" */ './welcomeWebview'
+			);
 			return new WelcomeWebviewProvider(container, host);
 		},
 	);

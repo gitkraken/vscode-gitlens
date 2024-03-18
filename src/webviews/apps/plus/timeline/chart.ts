@@ -1,6 +1,5 @@
 /*global*/
 import type { Chart, ChartOptions, ChartTypes, DataItem } from 'billboard.js';
-import { bar, bb, bubble, zoom } from 'billboard.js';
 // import BubbleCompare from 'billboard.js/dist/plugin/billboardjs-plugin-bubblecompare';
 // import { scaleSqrt } from 'd3-scale';
 import type { Commit, State } from '../../../../plus/webviews/timeline/protocol';
@@ -166,6 +165,8 @@ export class TimelineChart implements Disposable {
 
 		// const bubbleScale = scaleSqrt([minChanges, maxChanges], [6, 100]);
 
+		const { bb, bar, bubble, zoom } = await import(/* webpackChunkName: "lib-billboard" */ 'billboard.js');
+
 		for (commit of dataset) {
 			({ author, date, additions, deletions } = commit);
 
@@ -250,7 +251,7 @@ export class TimelineChart implements Disposable {
 
 		try {
 			if (this._chart == null) {
-				const options = this.getChartOptions();
+				const options = this.getChartOptions(zoom);
 
 				if (options.axis == null) {
 					options.axis = { y: { tick: {} } };
@@ -311,7 +312,7 @@ export class TimelineChart implements Disposable {
 		}
 	}
 
-	private getChartOptions() {
+	private getChartOptions(zoom: typeof import(/* webpackChunkName: "lib-billboard" */ 'billboard.js').zoom) {
 		const config: ChartOptions = {
 			bindto: this._selector,
 			data: {

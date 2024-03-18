@@ -158,7 +158,7 @@ function getExtensionConfig(target, mode, env) {
 		target: target,
 		devtool: mode === 'production' ? false : 'source-map',
 		output: {
-			chunkFilename: 'feature-[name].js',
+			chunkFilename: '[name].js',
 			filename: 'gitlens.js',
 			libraryTarget: 'commonjs2',
 			path: target === 'webworker' ? path.join(__dirname, 'dist', 'browser') : path.join(__dirname, 'dist'),
@@ -406,7 +406,7 @@ function getWebviewsConfig(mode, env) {
 		target: 'web',
 		devtool: mode === 'production' ? false : 'source-map',
 		output: {
-			chunkFilename: 'feature-[name].js',
+			chunkFilename: '[name].js',
 			filename: '[name].js',
 			libraryTarget: 'module',
 			path: path.join(__dirname, 'dist', 'webviews'),

@@ -789,7 +789,9 @@ export class GraphMinimap extends FASTElement {
 		);
 
 		if (this._chart == null) {
-			const { bb, selection, spline, zoom } = await import(/* webpackChunkName: "billboard" */ 'billboard.js');
+			const { bb, selection, spline, zoom } = await import(
+				/* webpackChunkName: "lib-billboard" */ 'billboard.js'
+			);
 			this._chart = bb.generate({
 				bindto: this.chart,
 				data: {
