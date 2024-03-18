@@ -101,7 +101,7 @@ abstract class GitLabIntegrationBase<ID extends SupportedIntegrationIds> extends
 	): Promise<PullRequest | undefined> {
 		const { include, ...opts } = options ?? {};
 
-		const toGitLabMergeRequestState = (await import(/* webpackChunkName: "gitlab" */ './gitlab/models'))
+		const toGitLabMergeRequestState = (await import(/* webpackChunkName: "integrations" */ './gitlab/models'))
 			.toGitLabMergeRequestState;
 		return (await this.container.gitlab)?.getPullRequestForBranch(
 			this,

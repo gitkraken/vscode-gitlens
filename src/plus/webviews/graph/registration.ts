@@ -42,7 +42,7 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 			allowMultipleInstances: configuration.get('graph.allowMultiple'),
 		},
 		async (container, host) => {
-			const { GraphWebviewProvider } = await import(/* webpackChunkName: "graph" */ './graphWebview');
+			const { GraphWebviewProvider } = await import(/* webpackChunkName: "webview-graph" */ './graphWebview');
 			return new GraphWebviewProvider(container, host);
 		},
 	);
@@ -62,7 +62,7 @@ export function registerGraphWebviewView(controller: WebviewsController) {
 			},
 		},
 		async (container, host) => {
-			const { GraphWebviewProvider } = await import(/* webpackChunkName: "graph" */ './graphWebview');
+			const { GraphWebviewProvider } = await import(/* webpackChunkName: "webview-graph" */ './graphWebview');
 			return new GraphWebviewProvider(container, host);
 		},
 	);

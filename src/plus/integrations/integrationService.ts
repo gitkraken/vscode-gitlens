@@ -102,41 +102,40 @@ export class IntegrationService implements Disposable {
 			switch (id) {
 				case HostingIntegrationId.GitHub:
 					integration = new (
-						await import(/* webpackChunkName: "github" */ './providers/github')
+						await import(/* webpackChunkName: "integrations" */ './providers/github')
 					).GitHubIntegration(this.container, this.getProvidersApi.bind(this));
 					break;
 				case SelfHostedIntegrationId.GitHubEnterprise:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
 					integration = new (
-						await import(/* webpackChunkName: "github" */ './providers/github')
+						await import(/* webpackChunkName: "integrations" */ './providers/github')
 					).GitHubEnterpriseIntegration(this.container, this.getProvidersApi.bind(this), domain);
 					break;
 				case HostingIntegrationId.GitLab:
 					integration = new (
-						await import(/* webpackChunkName: "gitlab" */ './providers/gitlab')
+						await import(/* webpackChunkName: "integrations" */ './providers/gitlab')
 					).GitLabIntegration(this.container, this.getProvidersApi.bind(this));
 					break;
 				case SelfHostedIntegrationId.GitLabSelfHosted:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
 					integration = new (
-						await import(/* webpackChunkName: "gitlab" */ './providers/gitlab')
+						await import(/* webpackChunkName: "integrations" */ './providers/gitlab')
 					).GitLabSelfHostedIntegration(this.container, this.getProvidersApi.bind(this), domain);
 					break;
 				case HostingIntegrationId.Bitbucket:
 					integration = new (
-						await import(/* webpackChunkName: "bitbucket" */ './providers/bitbucket')
+						await import(/* webpackChunkName: "integrations" */ './providers/bitbucket')
 					).BitbucketIntegration(this.container, this.getProvidersApi.bind(this));
 					break;
 				case HostingIntegrationId.AzureDevOps:
 					integration = new (
-						await import(/* webpackChunkName: "azdo" */ './providers/azureDevOps')
+						await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps')
 					).AzureDevOpsIntegration(this.container, this.getProvidersApi.bind(this));
 					break;
 				case IssueIntegrationId.Jira:
-					integration = new (await import(/* webpackChunkName: "jira" */ './providers/jira')).JiraIntegration(
-						this.container,
-						this.getProvidersApi.bind(this),
-					);
+					integration = new (
+						await import(/* webpackChunkName: "integrations" */ './providers/jira')
+					).JiraIntegration(this.container, this.getProvidersApi.bind(this));
 					break;
 				default:
 					throw new Error(`Integration with '${id}' is not supported`);
@@ -153,7 +152,7 @@ export class IntegrationService implements Disposable {
 			const container = this.container;
 			async function load() {
 				return new (
-					await import(/* webpackChunkName: "integrations" */ './providers/providersApi')
+					await import(/* webpackChunkName: "integrations-api" */ './providers/providersApi')
 				).ProvidersApi(container);
 			}
 

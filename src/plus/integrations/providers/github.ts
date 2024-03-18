@@ -101,7 +101,7 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 	): Promise<PullRequest | undefined> {
 		const { include, ...opts } = options ?? {};
 
-		const toGitHubPullRequestState = (await import(/* webpackChunkName: "github" */ './github/models'))
+		const toGitHubPullRequestState = (await import(/* webpackChunkName: "integrations" */ './github/models'))
 			.toGitHubPullRequestState;
 		return (await this.container.github)?.getPullRequestForBranch(
 			this,

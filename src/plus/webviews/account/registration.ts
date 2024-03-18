@@ -15,7 +15,9 @@ export function registerAccountWebviewView(controller: WebviewsController) {
 			},
 		},
 		async (container, host) => {
-			const { AccountWebviewProvider } = await import(/* webpackChunkName: "account" */ './accountWebview');
+			const { AccountWebviewProvider } = await import(
+				/* webpackChunkName: "webview-account" */ './accountWebview'
+			);
 			return new AccountWebviewProvider(container, host);
 		},
 	);

@@ -540,21 +540,21 @@ export class FileAnnotationController implements Disposable {
 		switch (type) {
 			case 'blame': {
 				const { GutterBlameAnnotationProvider } = await import(
-					/* webpackChunkName: "annotations-blame" */ './gutterBlameAnnotationProvider'
+					/* webpackChunkName: "annotations" */ './gutterBlameAnnotationProvider'
 				);
 				provider = new GutterBlameAnnotationProvider(this.container, editor, trackedDocument);
 				break;
 			}
 			case 'changes': {
 				const { GutterChangesAnnotationProvider } = await import(
-					/* webpackChunkName: "annotations-changes" */ './gutterChangesAnnotationProvider'
+					/* webpackChunkName: "annotations" */ './gutterChangesAnnotationProvider'
 				);
 				provider = new GutterChangesAnnotationProvider(this.container, editor, trackedDocument);
 				break;
 			}
 			case 'heatmap': {
 				const { GutterHeatmapBlameAnnotationProvider } = await import(
-					/* webpackChunkName: "annotations-heatmap" */ './gutterHeatmapBlameAnnotationProvider'
+					/* webpackChunkName: "annotations" */ './gutterHeatmapBlameAnnotationProvider'
 				);
 				provider = new GutterHeatmapBlameAnnotationProvider(this.container, editor, trackedDocument);
 				break;

@@ -15,7 +15,7 @@ export function registerHomeWebviewView(controller: WebviewsController) {
 			},
 		},
 		async (container, host) => {
-			const { HomeWebviewProvider } = await import(/* webpackChunkName: "home" */ './homeWebview');
+			const { HomeWebviewProvider } = await import(/* webpackChunkName: "webview-home" */ './homeWebview');
 			return new HomeWebviewProvider(container, host);
 		},
 	);
