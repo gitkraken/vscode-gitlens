@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode } from 'vscode';
 import { getSupportedGitProviders, getSupportedRepositoryPathMappingProvider } from '@env/providers';
-import { AIProviderService } from './ai/aiProviderService';
+import type { AIProviderService } from './ai/aiProviderService';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
@@ -370,10 +370,23 @@ export class Container {
 		return this._actionRunners;
 	}
 
-	private _ai: AIProviderService | undefined;
+	private _ai: Promise<AIProviderService | undefined> | undefined;
 	get ai() {
 		if (this._ai == null) {
-			this._disposables.push((this._ai = new AIProviderService(this)));
+			async function load(this: Container) {
+				try {
+					const ai = new (
+						await import(/* webpackChunkName: "ai" */ './ai/aiProviderService')
+					).AIProviderService(this);
+					this._disposables.push(ai);
+					return ai;
+				} catch (ex) {
+					Logger.error(ex);
+					return undefined;
+				}
+			}
+
+			this._ai = load.call(this);
 		}
 		return this._ai;
 	}
@@ -505,45 +518,49 @@ export class Container {
 	private _github: Promise<GitHubApi | undefined> | undefined;
 	get github() {
 		if (this._github == null) {
-			this._github = this._loadGitHubApi();
+			async function load(this: Container) {
+				try {
+					const github = new (
+						await import(
+							/* webpackChunkName: "integrations" */ './plus/integrations/providers/github/github'
+						)
+					).GitHubApi(this);
+					this._disposables.push(github);
+					return github;
+				} catch (ex) {
+					Logger.error(ex);
+					return undefined;
+				}
+			}
+
+			this._github = load.call(this);
 		}
 
 		return this._github;
 	}
 
-	private async _loadGitHubApi() {
-		try {
-			const github = new (
-				await import(/* webpackChunkName: "integrations" */ './plus/integrations/providers/github/github')
-			).GitHubApi(this);
-			this._disposables.push(github);
-			return github;
-		} catch (ex) {
-			Logger.error(ex);
-			return undefined;
-		}
-	}
-
 	private _gitlab: Promise<GitLabApi | undefined> | undefined;
 	get gitlab() {
 		if (this._gitlab == null) {
-			this._gitlab = this._loadGitLabApi();
+			async function load(this: Container) {
+				try {
+					const gitlab = new (
+						await import(
+							/* webpackChunkName: "integrations" */ './plus/integrations/providers/gitlab/gitlab'
+						)
+					).GitLabApi(this);
+					this._disposables.push(gitlab);
+					return gitlab;
+				} catch (ex) {
+					Logger.error(ex);
+					return undefined;
+				}
+			}
+
+			this._gitlab = load.call(this);
 		}
 
 		return this._gitlab;
-	}
-
-	private async _loadGitLabApi() {
-		try {
-			const gitlab = new (
-				await import(/* webpackChunkName: "integrations" */ './plus/integrations/providers/gitlab/gitlab')
-			).GitLabApi(this);
-			this._disposables.push(gitlab);
-			return gitlab;
-		} catch (ex) {
-			Logger.error(ex);
-			return undefined;
-		}
 	}
 
 	private readonly _graphDetailsView: WebviewViewProxy<CommitDetailsWebviewShowingArgs>;
