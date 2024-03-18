@@ -174,7 +174,7 @@ export class Autolinks implements Disposable {
 		const connectedIssueIntegrations = this.container.integrations.getConnected('issues');
 		// Connected issue integration autolinks
 		if (connectedIssueIntegrations.length) {
-			await Promise.all(
+			await Promise.allSettled(
 				connectedIssueIntegrations.map(async integration => {
 					const autoLinks = await integration.autolinks();
 					if (autoLinks.length) {
@@ -319,7 +319,7 @@ export class Autolinks implements Disposable {
 
 		const tokenMapping = new Map<string, string>();
 
-		if (enrichedAutolinks != null && enrichedAutolinks.size > 0) {
+		if (enrichedAutolinks?.size) {
 			for (const [, [, link]] of enrichedAutolinks) {
 				if (this.ensureAutolinkCached(link)) {
 					if (link.tokenize != null) {
