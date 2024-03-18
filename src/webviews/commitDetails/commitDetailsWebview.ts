@@ -567,7 +567,9 @@ export class CommitDetailsWebviewProvider
 	private async explainCommit(completionId?: string) {
 		let params: DidExplainParams;
 		try {
-			const summary = await this.container.ai.explainCommit(this._context.commit!, {
+			const summary = await (
+				await this.container.ai
+			)?.explainCommit(this._context.commit!, {
 				progress: { location: { viewId: this.host.id } },
 			});
 			if (summary == null) {

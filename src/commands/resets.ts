@@ -12,8 +12,8 @@ export class ResetAIKeyCommand extends Command {
 		super(Commands.ResetAIKey);
 	}
 
-	execute() {
-		this.container.ai.reset();
+	async execute() {
+		(await this.container.ai)?.reset();
 	}
 }
 

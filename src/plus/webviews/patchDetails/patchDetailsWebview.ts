@@ -728,7 +728,9 @@ export class PatchDetailsWebviewProvider
 				throw new Error('Unable to find commit');
 			}
 
-			const summary = await this.container.ai.explainCommit(commit, {
+			const summary = await (
+				await this.container.ai
+			)?.explainCommit(commit, {
 				progress: { location: { viewId: this.host.id } },
 			});
 			if (summary == null) {
