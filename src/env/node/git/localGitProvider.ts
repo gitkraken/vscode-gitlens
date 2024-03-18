@@ -42,6 +42,7 @@ import type {
 	GitProviderDescriptor,
 	NextComparisonUrisResult,
 	PagedResult,
+	PagingOptions,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
@@ -2140,8 +2141,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getBranches(
 		repoPath: string | undefined,
 		options?: {
-			cursor?: string;
 			filter?: (b: GitBranch) => boolean;
+			paging?: PagingOptions;
 			sort?: boolean | BranchSortOptions;
 		},
 	): Promise<PagedResult<GitBranch>> {
@@ -2195,10 +2196,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			resultsPromise = load.call(this);
 
-			if (this.useCaching) {
-				if (options?.cursor == null) {
-					this._branchesCache.set(repoPath, resultsPromise);
-				}
+			if (this.useCaching && options?.paging?.cursor == null) {
+				this._branchesCache.set(repoPath, resultsPromise);
 			}
 		}
 
@@ -4833,7 +4832,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log({ args: { 1: false } })
 	async getTags(
 		repoPath: string | undefined,
-		options?: { cursor?: string; filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions },
+		options?: {
+			filter?: (t: GitTag) => boolean;
+			paging?: PagingOptions;
+			sort?: boolean | TagSortOptions;
+		},
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return emptyPagedResult;
 
@@ -4852,7 +4855,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			resultsPromise = load.call(this);
 
-			if (this.useCaching) {
+			if (this.useCaching && options?.paging?.cursor == null) {
 				this._tagsCache.set(repoPath, resultsPromise);
 			}
 		}

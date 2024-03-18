@@ -28,6 +28,7 @@ import type {
 	GitProvider,
 	NextComparisonUrisResult,
 	PagedResult,
+	PagingOptions,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
@@ -887,8 +888,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getBranches(
 		repoPath: string | undefined,
 		options?: {
-			cursor?: string;
 			filter?: (b: GitBranch) => boolean;
+			paging?: PagingOptions;
 			sort?: boolean | BranchSortOptions;
 		},
 	): Promise<PagedResult<GitBranch>> {
@@ -896,7 +897,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const scope = getLogScope();
 
-		let branchesPromise = options?.cursor ? undefined : this._branchesCache.get(repoPath);
+		let branchesPromise = options?.paging?.cursor ? undefined : this._branchesCache.get(repoPath);
 		if (branchesPromise == null) {
 			async function load(this: GitHubGitProvider): Promise<PagedResult<GitBranch>> {
 				try {
@@ -907,7 +908,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 					const branches: GitBranch[] = [];
 
-					let cursor = options?.cursor;
+					let cursor = options?.paging?.cursor;
 					const loadAll = cursor == null;
 
 					while (true) {
@@ -966,7 +967,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			}
 
 			branchesPromise = load.call(this);
-			if (options?.cursor == null) {
+			if (options?.paging?.cursor == null) {
 				this._branchesCache.set(repoPath, branchesPromise);
 			}
 		}
@@ -2641,13 +2642,17 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log({ args: { 1: false } })
 	async getTags(
 		repoPath: string | undefined,
-		options?: { cursor?: string; filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions },
+		options?: {
+			filter?: (t: GitTag) => boolean;
+			paging?: PagingOptions;
+			sort?: boolean | TagSortOptions;
+		},
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return emptyPagedResult;
 
 		const scope = getLogScope();
 
-		let tagsPromise = options?.cursor ? undefined : this._tagsCache.get(repoPath);
+		let tagsPromise = options?.paging?.cursor ? undefined : this._tagsCache.get(repoPath);
 		if (tagsPromise == null) {
 			async function load(this: GitHubGitProvider): Promise<PagedResult<GitTag>> {
 				try {
@@ -2655,7 +2660,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 					const tags: GitTag[] = [];
 
-					let cursor = options?.cursor;
+					let cursor = options?.paging?.cursor;
 					const loadAll = cursor == null;
 
 					let authoredDate;
@@ -2701,7 +2706,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			}
 
 			tagsPromise = load.call(this);
-			if (options?.cursor == null) {
+			if (options?.paging?.cursor == null) {
 				this._tagsCache.set(repoPath, tagsPromise);
 			}
 		}

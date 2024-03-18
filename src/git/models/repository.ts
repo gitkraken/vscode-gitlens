@@ -23,7 +23,7 @@ import { getLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
-import type { GitDir, GitProviderDescriptor, GitRepositoryCaches } from '../gitProvider';
+import type { GitDir, GitProviderDescriptor, GitRepositoryCaches, PagingOptions } from '../gitProvider';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { GitSearch, SearchQuery } from '../search';
 import type { BranchSortOptions, GitBranch } from './branch';
@@ -688,7 +688,7 @@ export class Repository implements Disposable {
 
 	getBranches(options?: {
 		filter?: (b: GitBranch) => boolean;
-		paging?: { cursor?: string; limit?: number };
+		paging?: PagingOptions;
 		sort?: boolean | BranchSortOptions;
 	}) {
 		return this.container.git.getBranches(this.uri, options);
@@ -793,7 +793,7 @@ export class Repository implements Disposable {
 		return tag;
 	}
 
-	getTags(options?: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions }) {
+	getTags(options?: { filter?: (t: GitTag) => boolean; paging?: PagingOptions; sort?: boolean | TagSortOptions }) {
 		return this.container.git.getTags(this.uri, options);
 	}
 
