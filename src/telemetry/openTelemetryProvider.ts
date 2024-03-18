@@ -10,7 +10,13 @@ import {
 	// ConsoleSpanExporter,
 	SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
+import {
+	SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
+	SEMRESATTRS_DEVICE_ID,
+	SEMRESATTRS_OS_TYPE,
+	SEMRESATTRS_SERVICE_NAME,
+	SEMRESATTRS_SERVICE_VERSION,
+} from '@opentelemetry/semantic-conventions';
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { TelemetryContext, TelemetryProvider } from './telemetry';
 
@@ -23,11 +29,11 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 	constructor(context: TelemetryContext, agent?: HttpsProxyAgent, debugging?: boolean) {
 		this.provider = new BasicTracerProvider({
 			resource: new Resource({
-				[SemanticResourceAttributes.SERVICE_NAME]: 'gitlens',
-				[SemanticResourceAttributes.SERVICE_VERSION]: context.extensionVersion,
-				[SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: context.env,
-				[SemanticResourceAttributes.DEVICE_ID]: context.machineId,
-				[SemanticResourceAttributes.OS_TYPE]: context.platform,
+				[SEMRESATTRS_SERVICE_NAME]: 'gitlens',
+				[SEMRESATTRS_SERVICE_VERSION]: context.extensionVersion,
+				[SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: context.env,
+				[SEMRESATTRS_DEVICE_ID]: context.machineId,
+				[SEMRESATTRS_OS_TYPE]: context.platform,
 				'extension.id': context.extensionId,
 				'session.id': context.sessionId,
 				language: context.language,
