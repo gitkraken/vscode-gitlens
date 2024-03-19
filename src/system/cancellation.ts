@@ -149,7 +149,7 @@ export async function pauseOnCancelOrTimeoutMap<Id, T>(
 	const results = await Promise.all(
 		map(source, ([id, promise]) =>
 			pauseOnCancelOrTimeout(
-				promise.catch(ex => (ignoreErrors || !(ex instanceof Error) ? undefined : ex)),
+				promise.catch((ex: unknown) => (ignoreErrors || !(ex instanceof Error) ? undefined : ex)),
 				cancellation,
 				timeout,
 			).then(result => [id, result] as const),

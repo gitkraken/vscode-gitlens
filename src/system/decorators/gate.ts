@@ -39,7 +39,7 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 							this[prop] = undefined;
 							return r;
 						})
-						.catch(ex => {
+						.catch((ex: unknown) => {
 							this[prop] = undefined;
 							throw ex;
 						});

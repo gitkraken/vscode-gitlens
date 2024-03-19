@@ -201,7 +201,7 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 		if (!current && !opened) return undefined;
 
 		let color;
-		switch (status as GitBranchStatus) {
+		switch (status) {
 			case 'ahead':
 				color = new ThemeColor('gitlens.decorations.branchAheadForegroundColor' satisfies Colors);
 				break;
