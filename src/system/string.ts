@@ -475,6 +475,7 @@ export async function interpolateAsync(template: string, context: object | undef
 			value = await value;
 		}
 
+		// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
 		result += template.slice(position, token.start) + (value ?? '');
 		position = token.end;
 	}
@@ -770,6 +771,7 @@ function _decompressLZString(length: number, resetValue: any, getNextValue: (ind
 		if (dictionary[c]) {
 			entry = dictionary[c]!;
 		} else if (c === dictSize) {
+			// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
 			entry = w + w.charAt(0);
 		} else {
 			return undefined;
@@ -778,6 +780,7 @@ function _decompressLZString(length: number, resetValue: any, getNextValue: (ind
 
 		// Add w+entry[0] to the dictionary.
 
+		// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
 		dictionary[dictSize++] = w + entry.charAt(0);
 		enlargeIn--;
 
