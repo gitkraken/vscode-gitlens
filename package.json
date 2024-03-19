@@ -665,7 +665,7 @@
 					"gitlens.views.openChangesInMultiDiffEditor": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to open multiple changes in VS Code's experimental multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
+						"markdownDescription": "Specifies whether to open multiple changes in the multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
 						"scope": "window",
 						"order": 60
 					},

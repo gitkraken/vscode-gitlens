@@ -177,7 +177,7 @@ export async function openAllChangesInChangesEditor(
 ): Promise<void> {
 	if (!configuration.getCore('multiDiffEditor.experimental.enabled')) {
 		void window.showErrorMessage(
-			`Enable the experimental multi-diff editor by setting 'multiDiffEditor.experimental.enabled' to use this command`,
+			`Enable the multi-diff editor by setting 'multiDiffEditor.experimental.enabled' to use this command`,
 		);
 		return;
 	}
