@@ -154,7 +154,7 @@ function getExtensionConfig(target, mode, env) {
  * @returns { string }
  */
 function resolveTSConfig(configFile) {
-	const result = spawnSync('yarn', ['tsc', `-p ${configFile}`, '--showConfig'], {
+	const result = spawnSync('pnpm', ['tsc', `-p ${configFile}`, '--showConfig'], {
 		cwd: __dirname,
 		encoding: 'utf8',
 		shell: true,

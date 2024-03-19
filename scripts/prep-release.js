@@ -61,10 +61,10 @@ rl.question(`Enter the new version number (format x.x.x, current is ${currentVer
 			return;
 		}
 
-		// Call 'yarn version' to commit and create the tag
-		exec(`yarn version --new-version ${version}`, err => {
+		// Call 'pnpm version' to commit and create the tag
+		exec(`pnpm version ${version} -m "Bumps to v%s"`, err => {
 			if (err) {
-				console.error(`'yarn version' failed: ${err}`);
+				console.error(`'pnpm version' failed: ${err}`);
 				return;
 			}
 
