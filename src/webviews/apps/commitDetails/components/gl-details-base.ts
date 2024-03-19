@@ -5,7 +5,6 @@ import type { TextDocumentShowOptions } from 'vscode';
 import type { HierarchicalItem } from '../../../../system/array';
 import { makeHierarchical } from '../../../../system/array';
 import type { Preferences, State } from '../../../commitDetails/protocol';
-import '../../shared/components/actions/action-item';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,
@@ -14,6 +13,9 @@ import type {
 	TreeItemSelectionDetail,
 	TreeModel,
 } from '../../shared/components/tree/base';
+import '../../shared/components/webview-pane';
+import '../../shared/components/actions/action-item';
+import '../../shared/components/actions/action-nav';
 import '../../shared/components/tree/tree-generator';
 
 type Files = Mutable<NonNullable<NonNullable<State['commit']>['files']>>;

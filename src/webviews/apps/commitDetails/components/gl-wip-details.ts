@@ -6,6 +6,7 @@ import type { State, Wip } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
+import '../../shared/components/code-icon';
 
 @customElement('gl-wip-details')
 export class GlWipDetails extends GlDetailsBase {

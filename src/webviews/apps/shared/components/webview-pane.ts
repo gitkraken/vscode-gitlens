@@ -2,7 +2,6 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { scrollableBase } from './styles/lit/base.css';
 import './code-icon';
-import './actions/action-nav';
 import './progress';
 
 export interface WebviewPaneExpandedChangeEventDetail {
