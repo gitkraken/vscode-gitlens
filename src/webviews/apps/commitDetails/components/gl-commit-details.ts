@@ -12,7 +12,14 @@ import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/
 import { uncommittedSha } from './commit-details-app';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
+import '../../shared/components/code-icon';
+import '../../shared/components/skeleton-loader';
+import '../../shared/components/webview-pane';
 import '../../shared/components/actions/action-item';
+import '../../shared/components/actions/action-nav';
+import '../../shared/components/commit/commit-identity';
+import '../../shared/components/commit/commit-stats';
+import '../../shared/components/rich/issue-pull-request';
 
 interface ExplainState {
 	cancelled?: boolean;

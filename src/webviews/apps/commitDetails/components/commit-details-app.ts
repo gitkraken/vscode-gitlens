@@ -31,22 +31,14 @@ import {
 } from '../../../commitDetails/protocol';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommandType, onIpc } from '../../../protocol';
-import '../../shared/components/button';
-import './gl-commit-details';
-import './gl-wip-details';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../../shared/components/webview-pane';
 import type { Disposable } from '../../shared/dom';
 import { DOM } from '../../shared/dom';
 import { assertsSerialized, HostIpc } from '../../shared/ipc';
 import type { GlCommitDetails } from './gl-commit-details';
 import type { FileChangeListItemDetail } from './gl-details-base';
-import '../../shared/components/actions/action-nav';
-import '../../shared/components/code-icon';
-import '../../shared/components/commit/commit-identity';
-import '../../shared/components/rich/issue-pull-request';
-import '../../shared/components/skeleton-loader';
-import '../../shared/components/commit/commit-stats';
-import '../../shared/components/webview-pane';
+import './gl-commit-details';
+import './gl-wip-details';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
 
