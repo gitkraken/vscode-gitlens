@@ -14,7 +14,8 @@ import type { GitBranch } from '../git/models/branch';
 import { isBranch } from '../git/models/branch';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
-import { GitContributor } from '../git/models/contributor';
+import type { GitContributor } from '../git/models/contributor';
+import { isContributor } from '../git/models/contributor';
 import type { GitFile } from '../git/models/file';
 import type { GitReference } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
@@ -127,7 +128,7 @@ export function isCommandContextViewNodeHasContributor(
 ): context is CommandViewNodeContext & { node: ViewNode & { contributor: GitContributor } } {
 	if (context.type !== 'viewItem') return false;
 
-	return GitContributor.is((context.node as ViewNode & { contributor: GitContributor }).contributor);
+	return isContributor((context.node as ViewNode & { contributor: GitContributor }).contributor);
 }
 
 export function isCommandContextViewNodeHasFile(

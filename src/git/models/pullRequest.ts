@@ -122,10 +122,6 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 }
 
 export class PullRequest implements PullRequestShape {
-	static is(pr: any): pr is PullRequest {
-		return pr instanceof PullRequest;
-	}
-
 	readonly type = 'pullrequest';
 
 	constructor(
@@ -205,6 +201,10 @@ export class PullRequest implements PullRequestShape {
 	formatUpdatedDateFromNow() {
 		return fromNow(this.updatedDate);
 	}
+}
+
+export function isPullRequest(pr: any): pr is PullRequest {
+	return pr instanceof PullRequest;
 }
 
 export interface PullRequestComparisonRefs {

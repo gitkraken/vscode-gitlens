@@ -32,7 +32,8 @@ import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
 import { uncommitted, uncommittedStaged } from '../models/constants';
 import { getIssueOrPullRequestMarkdownIcon } from '../models/issue';
-import { PullRequest } from '../models/pullRequest';
+import type { PullRequest } from '../models/pullRequest';
+import { isPullRequest } from '../models/pullRequest';
 import { getReferenceFromRevision, isUncommittedStaged, shortenRevision } from '../models/reference';
 import type { GitRemote } from '../models/remote';
 import { getHighlanderProviders } from '../models/remote';
@@ -157,14 +158,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	private get _pullRequestDate() {
 		const { pullRequest: pr } = this._options;
-		if (pr == null || !PullRequest.is(pr)) return '';
+		if (pr == null || !isPullRequest(pr)) return '';
 
 		return pr.formatDate(this._options.dateFormat) ?? '';
 	}
 
 	private get _pullRequestDateAgo() {
 		const { pullRequest: pr } = this._options;
-		if (pr == null || !PullRequest.is(pr)) return '';
+		if (pr == null || !isPullRequest(pr)) return '';
 
 		return pr.formatDateFromNow() ?? '';
 	}
@@ -455,7 +456,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		if (pr != null) {
-			if (PullRequest.is(pr)) {
+			if (isPullRequest(pr)) {
 				commands += `${separator}[$(git-pull-request) PR #${
 					pr.id
 				}](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
@@ -689,7 +690,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		let text;
-		if (PullRequest.is(pr)) {
+		if (isPullRequest(pr)) {
 			if (this._options.outputFormat === 'markdown') {
 				text = `PR [**#${pr.id}**](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
 					repoPath: this._item.repoPath,
@@ -752,7 +753,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	get pullRequestState(): string {
 		const { pullRequest: pr } = this._options;
 		return this._padOrTruncate(
-			pr == null || !PullRequest.is(pr) ? '' : pr.state ?? '',
+			pr == null || !isPullRequest(pr) ? '' : pr.state ?? '',
 			this._options.tokenOptions.pullRequestState,
 		);
 	}

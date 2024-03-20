@@ -13,58 +13,6 @@ export interface ContributorSortOptions {
 }
 
 export class GitContributor {
-	static is(contributor: any): contributor is GitContributor {
-		return contributor instanceof GitContributor;
-	}
-
-	static sort(contributors: GitContributor[], options?: ContributorSortOptions) {
-		options = { current: true, orderBy: configuration.get('sortContributorsBy'), ...options };
-
-		switch (options.orderBy) {
-			case 'count:asc':
-				return contributors.sort(
-					(a, b) =>
-						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
-						a.count - b.count ||
-						(a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0),
-				);
-			case 'date:desc':
-				return contributors.sort(
-					(a, b) =>
-						(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-						(b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0) ||
-						b.count - a.count,
-				);
-			case 'date:asc':
-				return contributors.sort(
-					(a, b) =>
-						(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-						(a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0) ||
-						b.count - a.count,
-				);
-			case 'name:asc':
-				return contributors.sort(
-					(a, b) =>
-						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
-						sortCompare(a.name ?? a.username!, b.name ?? b.username!),
-				);
-			case 'name:desc':
-				return contributors.sort(
-					(a, b) =>
-						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
-						sortCompare(b.name ?? b.username!, a.name ?? a.username!),
-				);
-			case 'count:desc':
-			default:
-				return contributors.sort(
-					(a, b) =>
-						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
-						b.count - a.count ||
-						(b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0),
-				);
-		}
-	}
-
 	constructor(
 		public readonly repoPath: string,
 		public readonly name: string | undefined,
@@ -108,4 +56,56 @@ export class GitContributor {
 
 export function matchContributor(c: GitContributor, user: GitUser): boolean {
 	return c.name === user.name && c.email === user.email && c.username === user.username;
+}
+
+export function isContributor(contributor: any): contributor is GitContributor {
+	return contributor instanceof GitContributor;
+}
+
+export function sortContributors(contributors: GitContributor[], options?: ContributorSortOptions) {
+	options = { current: true, orderBy: configuration.get('sortContributorsBy'), ...options };
+
+	switch (options.orderBy) {
+		case 'count:asc':
+			return contributors.sort(
+				(a, b) =>
+					(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+					a.count - b.count ||
+					(a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0),
+			);
+		case 'date:desc':
+			return contributors.sort(
+				(a, b) =>
+					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0) ||
+					b.count - a.count,
+			);
+		case 'date:asc':
+			return contributors.sort(
+				(a, b) =>
+					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0) ||
+					b.count - a.count,
+			);
+		case 'name:asc':
+			return contributors.sort(
+				(a, b) =>
+					(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+					sortCompare(a.name ?? a.username!, b.name ?? b.username!),
+			);
+		case 'name:desc':
+			return contributors.sort(
+				(a, b) =>
+					(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+					sortCompare(b.name ?? b.username!, a.name ?? a.username!),
+			);
+		case 'count:desc':
+		default:
+			return contributors.sort(
+				(a, b) =>
+					(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+					b.count - a.count ||
+					(b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0),
+			);
+	}
 }
