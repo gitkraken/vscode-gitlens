@@ -293,9 +293,9 @@ export class DraftService implements Disposable {
 
 		const user = getSettledValue(userResult);
 
-		// We need to get the branch name from the baseSha if the change is a stash.
+		// We need to get the branch name if possible, otherwise default to HEAD
 		const branchNames = getSettledValue(branchNamesResult);
-		const branchName = branchNames?.[0] ?? '';
+		const branchName = branchNames?.[0] ?? 'HEAD';
 
 		let baseSha = change.revision.from;
 		if (!isSha(baseSha)) {
