@@ -82,7 +82,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		this.collapsableWhitespace = 0;
 
 		const r = getTruncatedWidth(s, max, suffixWidth + 1);
-		if (r.truncated) return `${s.slice(0, r.index)}${options.suffix ?? ''}${r.ellipsed ? '\u2026' : ''}`;
+		if (r.truncated) return `${s.slice(0, r.index)}${r.ellipsed ? '\u2026' : ''}${options.suffix ?? ''}`;
 
 		let width = r.width;
 		if (options.suffix) {
