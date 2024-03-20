@@ -164,7 +164,7 @@ export class BlameSvg extends LitElement {
 					<text x="10" y="278">
 						<tspan dx="2" dy="2" class="codicon">&#xeb0c;</tspan>
 						<tspan dx="54" dy="-2" class="indicator-error">2mo</tspan>
-						<tspan dx="30">Labs: add AI explain panel to Commit Details</tspan>
+						<tspan dx="30">Labs: add AI explain panel to Inspect</tspan>
 						<tspan class="link">#2628</tspan>
 					</text>
 					<text x="100%" y="278" text-anchor="end">

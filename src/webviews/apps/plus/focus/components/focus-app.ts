@@ -332,7 +332,7 @@ export class GlFocusApp extends LitElement {
 						<h3>No GitHub remotes are connected</h3>
 						<p>
 							This enables access to Pull Requests and Issues as well as provide additional information
-							inside hovers and the Commit Details view, such as auto-linked issues and pull requests and
+							inside hovers and the Inspect view, such as auto-linked issues and pull requests and
 							avatars.
 						</p>
 						<gl-button appearance="alert" href="command:gitlens.connectRemoteProvider"
