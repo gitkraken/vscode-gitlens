@@ -80,6 +80,9 @@ import { getSettledValue } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
+import type { CommitDetailsSerializedState } from '../../../webviews/commitDetails/commitDetailsWebview';
+import { CommitDetailsWebviewProvider } from '../../../webviews/commitDetails/commitDetailsWebview';
+import type { CommitDetailsWebviewShowingArgs } from '../../../webviews/commitDetails/registration';
 import type { IpcMessage, IpcNotificationType } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewProvider';
@@ -249,6 +252,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private isWindowFocused: boolean = true;
 
+	private _commitDetails: CommitDetailsWebviewProvider;
+
 	constructor(
 		private readonly container: Container,
 		private readonly host: WebviewHost,
@@ -261,7 +266,34 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.description = '✨';
 		}
 
+		async function showCommitDetails(
+			this: CommitDetailsWebviewProvider,
+			loading: boolean,
+			options?: WebviewShowOptions,
+			...args: WebviewShowingArgs<CommitDetailsWebviewShowingArgs, CommitDetailsSerializedState>
+		): Promise<void> {
+			await this.onShowing(loading, options, ...args);
+		}
+
+		// create a proxy for host to override the show method
+		const hostProxy = new Proxy(host, {
+			get: (target, prop) => {
+				switch (prop) {
+					case 'show':
+						return showCommitDetails.bind(this._commitDetails);
+					case 'id':
+						return `${(target as any)[prop]}.details`;
+					default:
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+						return (target as any)[prop];
+				}
+			},
+		});
+
+		this._commitDetails = new CommitDetailsWebviewProvider(container, hostProxy as any, { attachedTo: 'graph' });
+
 		this._disposable = Disposable.from(
+			this._commitDetails,
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			this.container.git.onDidChangeRepositories(async () => {
@@ -377,6 +409,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (force) {
 			this.resetRepositoryState();
 		}
+
+		this._commitDetails.onRefresh(force);
+	}
+
+	onReloaded(): void {
+		this._commitDetails.onReloaded();
 	}
 
 	includeBootstrap(): Promise<State> {
@@ -574,6 +612,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				'gitlens.graph.copyWorkingChangesToWorktree',
 				this.copyWorkingChangesToWorktree,
 			),
+
+			...(this._commitDetails?.registerCommands() ?? []),
 		);
 
 		return commands;
@@ -585,6 +625,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	onFocusChanged(focused: boolean): void {
+		this._commitDetails.onFocusChanged(focused);
+
 		this._showActiveSelectionDetailsDebounced?.cancel();
 		void this.notifyDidChangeFocus(focused);
 
@@ -596,6 +638,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	onVisibilityChanged(visible: boolean): void {
+		this._commitDetails.onVisibilityChanged(visible);
+
 		if (!visible) {
 			this._showActiveSelectionDetailsDebounced?.cancel();
 		}
@@ -667,6 +711,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onIpc(UpdateIncludeOnlyRefsCommandType, e, params =>
 					this.updateIncludeOnlyRefs(this._graph, params.refs),
 				);
+				break;
+			default:
+				this._commitDetails.onMessageReceived(e);
 				break;
 		}
 	}

@@ -127,6 +127,8 @@ interface Context {
 	orgSettings: State['orgSettings'];
 }
 
+export type CommitDetailsSerializedState = Serialized<State>;
+
 export class CommitDetailsWebviewProvider
 	implements WebviewProvider<State, Serialized<State>, CommitDetailsWebviewShowingArgs>
 {
@@ -523,8 +525,10 @@ export class CommitDetailsWebviewProvider
 	private onCommitSelected(e: CommitSelectedEvent) {
 		if (
 			e.data == null ||
-			(this.options.attachedTo === 'graph' && e.source !== 'gitlens.views.graph') ||
-			(this.options.attachedTo === 'default' && e.source === 'gitlens.views.graph')
+			(this.options.attachedTo === 'default' && e.source === 'gitlens.views.graph') ||
+			(this.options.attachedTo === 'graph' &&
+				e.source !== 'gitlens.views.graph' &&
+				!(e.source === 'gitlens.graph' && (this.host.id as string) === 'gitlens.graph.details'))
 		) {
 			return;
 		}

@@ -891,6 +891,8 @@ button:not([disabled]),
 	--fs-2: 1.3rem;
 
 	padding: 0;
+	display: flex;
+	flex-direction: row;
 
 	&__container {
 		display: flex;

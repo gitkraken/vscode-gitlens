@@ -60,6 +60,8 @@ import { App } from '../../shared/appBase';
 import type { ThemeChangeEvent } from '../../shared/theme';
 import { GraphWrapper } from './GraphWrapper';
 import './graph.scss';
+import '../../commitDetails/commitDetails.scss';
+import '../../commitDetails/components/commit-details-app';
 
 const graphLaneThemeColors = new Map([
 	['--vscode-gitlens-graphLane1Color', '#15a0bf'],
