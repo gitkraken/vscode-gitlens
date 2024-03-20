@@ -126,9 +126,9 @@ Our views are arranged for focus and productivity, although you can easily drag 
 
 ### GitLens Inspect
 
-An x-ray or developer tools inspector into your code, focused on providing contextual information and insights to what you're actively working on.
+An x-ray or developer tools Inspect into your code, focused on providing contextual information and insights to what you're actively working on.
 
-- **Commit Details** &mdash; See rich details of a commit or stash.
+- **Inspect** &mdash; See rich details of a commit or stash.
 - **Line History** &mdash; Jump through the revision history of the selected line(s).
 - **File History** &mdash; Explore the revision history of a file, folder, or selected lines.
 - [**Visual File History ✨**](#visual-file-history-✨) &mdash; Quickly see the evolution of a file, including when changes were made, how large they were, and who made them.
@@ -251,7 +251,7 @@ Our incubator for experimentation and exploration with the community to gather e
 
 ## 🧪AI Explain Commit
 
-Use the Explain panel on the **Commit Details** view to leverage AI to help you understand the changes introduced by a commit.
+Use the Explain panel on the **Inspect** view to leverage AI to help you understand the changes introduced by a commit.
 
 ## 🧪Automatically Generate Commit Message
 

@@ -23,6 +23,121 @@ gk-menu-item {
 	}
 }
 
+.commit-action {
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	height: 21px;
+	border-radius: 0.25em;
+	color: inherit;
+	padding: 0.2rem;
+	vertical-align: text-bottom;
+	text-decoration: none;
+
+	> * {
+		pointer-events: none;
+	}
+
+	&:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+
+	&:hover {
+		color: var(--vscode-foreground);
+		text-decoration: none;
+
+		.vscode-dark & {
+			background-color: var(--color-background--lighten-15);
+		}
+		.vscode-light & {
+			background-color: var(--color-background--darken-15);
+		}
+	}
+
+	&.is-active {
+		.vscode-dark & {
+			background-color: var(--color-background--lighten-10);
+		}
+		.vscode-light & {
+			background-color: var(--color-background--darken-10);
+		}
+	}
+
+	&.is-disabled {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
+	&.is-hidden {
+		display: none;
+	}
+}
+
+.top-details {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	padding: {
+		top: 0.1rem;
+		left: var(--gitlens-gutter-width);
+		right: var(--gitlens-scrollbar-gutter-width);
+		bottom: 0.5rem;
+	}
+	background-color: var(--vscode-sideBar-background);
+
+	&__actionbar {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+
+		&-group {
+			display: flex;
+			flex: none;
+			flex-direction: row;
+			max-width: 100%;
+		}
+
+		&--highlight {
+			padding: 0 4px 2px 4px;
+			border: 1px solid var(--color-background--level-15);
+			border-radius: 0.3rem;
+			font-family: var(--vscode-editor-font-family);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		&.is-pinned {
+			background-color: var(--color-alert-warningBackground);
+			box-shadow: 0 0 0 0.1rem var(--color-alert-warningBorder);
+			border-radius: 0.3rem;
+
+			.commit-action:hover,
+			.commit-action.is-active {
+				background-color: var(--color-alert-warningHoverBackground);
+			}
+		}
+	}
+
+	&__sha {
+		margin: 0 0.5rem 0 0.25rem;
+	}
+
+	&__authors {
+		flex-basis: 100%;
+		padding-top: 0.5rem;
+	}
+
+	&__author {
+		& + & {
+			margin-top: 0.5rem;
+		}
+	}
+}
+
 .title {
 	font-size: 1.6rem;
 	font-weight: 600;
@@ -60,6 +175,10 @@ gk-menu-item {
 	> :first-child {
 		padding-top: 0;
 	}
+}
+
+.change-list {
+	margin-bottom: 1rem;
 }
 
 // TODO: these form styles should be moved to a common location

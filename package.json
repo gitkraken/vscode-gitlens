@@ -169,7 +169,7 @@
 							"Compares the current committed file with the previous commit",
 							"Reveals the commit in the Side Bar",
 							"Searches for commits within the range",
-							"Shows a commit details quick pick menu",
+							"Shows an Inspect quick pick menu",
 							"Shows a commit file details quick pick menu",
 							"Shows a file history quick pick menu",
 							"Shows a branch history quick pick menu",
@@ -221,8 +221,8 @@
 							"Toggles file changes from the commit",
 							"Compares the current committed file with the previous commit",
 							"Reveals the commit in the Side Bar",
-							"Shows the commit details",
-							"Shows a commit details quick pick menu",
+							"Shows the Inspect",
+							"Shows an Inspect quick pick menu",
 							"Shows a commit file details quick pick menu",
 							"Shows a file history quick pick menu",
 							"Shows a branch history quick pick menu",
@@ -388,8 +388,8 @@
 							"Compares the current line commit with the previous",
 							"Compares the current line commit with the working tree",
 							"Reveals the commit in the Side Bar",
-							"Shows the commit details",
-							"Shows a commit details quick pick menu",
+							"Shows the Inspect",
+							"Shows an Inspect quick pick menu",
 							"Shows a commit file details quick pick menu",
 							"Shows a file history quick pick menu",
 							"Shows a branch history quick pick menu",
@@ -821,7 +821,7 @@
 			},
 			{
 				"id": "commit-details-view",
-				"title": "Commit Details View",
+				"title": "Inspect View",
 				"order": 22,
 				"properties": {
 					"gitlens.views.commitDetails.autolinks.enabled": {
@@ -5238,7 +5238,7 @@
 			},
 			{
 				"command": "gitlens.showCommitDetailsView",
-				"title": "Show Commit Details View",
+				"title": "Show Inspect View",
 				"category": "GitLens"
 			},
 			{
@@ -5939,13 +5939,13 @@
 			},
 			{
 				"command": "gitlens.showCommitInView",
-				"title": "Open Commit Details",
+				"title": "Open Inspect",
 				"category": "GitLens",
 				"icon": "$(eye)"
 			},
 			{
 				"command": "gitlens.showLineCommitInView",
-				"title": "Open Line Commit Details",
+				"title": "Open Line Inspect",
 				"category": "GitLens",
 				"icon": "$(eye)"
 			},
@@ -9025,6 +9025,20 @@
 				"default": {
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f129"
+				}
+			},
+			"gitlens-inspect": {
+				"description": "inspect icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f12a"
+				}
+			},
+			"gitlens-repository-filled": {
+				"description": "repository-filled icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f12b"
 				}
 			}
 		},
@@ -16495,7 +16509,7 @@
 				{
 					"type": "webview",
 					"id": "gitlens.views.commitDetails",
-					"name": "Commit Details",
+					"name": "Inspect",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-commit-view)",
@@ -16715,7 +16729,7 @@
 					{
 						"id": "gitlens.welcome.labs",
 						"title": "Experiment with GitKraken Labs $(beaker)",
-						"description": "GitKraken Labs is our incubator for experimentation and exploration with the community to gather early reactions and feedback. Below are some of our current experiments.\n**Explain Commit (AI)**\nUse the Explain panel on the [Commit Details view](command:gitlens.showCommitDetailsView) to leverage AI to help you understand the changes introduced by a commit.\n**Automatically Generate Commit Message (AI)**\nUse the [Generate Commit Message](command:workbench.action.quickOpen?%22>GitLens%3A%20Generate%20Commit%20Message%22) command from the Source Control view's context menu to automatically generate a commit message for your staged changes by leveraging AI.",
+						"description": "GitKraken Labs is our incubator for experimentation and exploration with the community to gather early reactions and feedback. Below are some of our current experiments.\n**Explain Commit (AI)**\nUse the Explain panel on the [Inspect view](command:gitlens.showCommitDetailsView) to leverage AI to help you understand the changes introduced by a commit.\n**Automatically Generate Commit Message (AI)**\nUse the [Generate Commit Message](command:workbench.action.quickOpen?%22>GitLens%3A%20Generate%20Commit%20Message%22) command from the Source Control view's context menu to automatically generate a commit message for your staged changes by leveraging AI.",
 						"media": {
 							"markdown": "walkthroughs/welcome/labs.md"
 						}
