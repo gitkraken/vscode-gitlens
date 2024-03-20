@@ -2235,14 +2235,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getCommitBranches(
 		repoPath: string,
-		ref: string,
+		refs: string[],
 		branch?: string | undefined,
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]> {
 		if (branch != null) {
-			const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, ref, {
+			const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, refs, {
 				type: 'branch',
 				mode: 'contains',
 				name: branch,
@@ -2250,7 +2250,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return data ? [data?.trim()] : [];
 		}
 
-		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, ref, { type: 'branch', ...options });
+		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, refs, { type: 'branch', ...options });
 		if (!data) return [];
 
 		return filterMap(data.split('\n'), b => b.trim() || undefined);
@@ -2829,7 +2829,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		ref: string,
 		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
 	): Promise<string[]> {
-		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, ref, { type: 'tag', ...options });
+		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, [ref], { type: 'tag', ...options });
 		if (!data) return [];
 
 		return filterMap(data.split('\n'), b => b.trim() || undefined);
@@ -4056,7 +4056,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				const [branchResult, mergeBaseResult, possibleSourceBranchesResult] = await Promise.allSettled([
 					this.getBranch(repoPath),
 					this.getMergeBase(repoPath, 'MERGE_HEAD', 'HEAD'),
-					this.getCommitBranches(repoPath, 'MERGE_HEAD', undefined, { all: true, mode: 'pointsAt' }),
+					this.getCommitBranches(repoPath, ['MERGE_HEAD'], undefined, { all: true, mode: 'pointsAt' }),
 				]);
 
 				const branch = getSettledValue(branchResult);
@@ -4142,7 +4142,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				const [branchTipsResult, tagTipsResult] = await Promise.allSettled([
-					this.getCommitBranches(repoPath, onto, undefined, { all: true, mode: 'pointsAt' }),
+					this.getCommitBranches(repoPath, [onto], undefined, { all: true, mode: 'pointsAt' }),
 					this.getCommitTags(repoPath, onto, { mode: 'pointsAt' }),
 				]);
 

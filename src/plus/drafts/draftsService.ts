@@ -241,13 +241,10 @@ export class DraftService implements Disposable {
 		const [branchNamesResult, diffResult, firstShaResult, remoteResult, userResult] = await Promise.allSettled([
 			isWIP
 				? this.container.git.getBranch(change.repository.uri).then(b => (b != null ? [b.name] : undefined))
-				: this.container.git
-						.getCommitBranches(change.repository.uri, change.revision.to)
-						.then(branches =>
-							branches.length
-								? branches
-								: this.container.git.getCommitBranches(change.repository.uri, change.revision.from),
-						),
+				: this.container.git.getCommitBranches(change.repository.uri, [
+						change.revision.to,
+						change.revision.from,
+				  ]),
 			change.contents == null
 				? this.container.git.getDiff(change.repository.path, change.revision.to, change.revision.from)
 				: undefined,

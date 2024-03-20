@@ -511,7 +511,7 @@ export class Git {
 
 	branchOrTag__containsOrPointsAt(
 		repoPath: string,
-		ref: string,
+		refs: string[],
 		options?: {
 			type?: 'branch' | 'tag';
 			all?: boolean;
@@ -526,10 +526,13 @@ export class Git {
 		} else if (options?.remotes) {
 			params.push('-r');
 		}
-		params.push(
-			options?.mode === 'pointsAt' ? `--points-at=${ref}` : `--contains=${ref}`,
-			'--format=%(refname:short)',
-		);
+
+		params.push('--format=%(refname:short)');
+
+		for (const ref of refs) {
+			params.push(options?.mode === 'pointsAt' ? `--points-at=${ref}` : `--contains=${ref}`);
+		}
+
 		if (options?.name != null) {
 			params.push(options.name);
 		}

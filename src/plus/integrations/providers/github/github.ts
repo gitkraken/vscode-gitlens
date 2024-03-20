@@ -1140,7 +1140,14 @@ export class GitHubApi implements Disposable {
 	}
 
 	@debug<GitHubApi['getCommitBranches']>({ args: { 0: '<token>' } })
-	async getCommitBranches(token: string, owner: string, repo: string, ref: string, date: Date): Promise<string[]> {
+	async getCommitBranches(
+		token: string,
+		owner: string,
+		repo: string,
+		refs: string[],
+		mode: 'contains' | 'pointsAt',
+		date?: Date,
+	): Promise<string[]> {
 		const scope = getLogScope();
 
 		interface QueryResult {
@@ -1158,6 +1165,8 @@ export class GitHubApi implements Disposable {
 			};
 		}
 
+		const limit = mode === 'contains' ? 10 : 1;
+
 		try {
 			const query = `query getCommitBranches(
 	$owner: String!
@@ -1171,7 +1180,7 @@ export class GitHubApi implements Disposable {
 				name
 				target {
 					... on Commit {
-						history(first: 3, since: $since until: $until) {
+						history(first: ${limit}, since: $since until: $until) {
 							nodes { oid }
 						}
 					}
@@ -1187,8 +1196,8 @@ export class GitHubApi implements Disposable {
 				{
 					owner: owner,
 					repo: repo,
-					since: date.toISOString(),
-					until: date.toISOString(),
+					since: date?.toISOString(),
+					until: date?.toISOString(),
 				},
 				scope,
 			);
@@ -1200,7 +1209,7 @@ export class GitHubApi implements Disposable {
 
 			for (const branch of nodes) {
 				for (const commit of branch.target.history.nodes) {
-					if (commit.oid === ref) {
+					if (refs.includes(commit.oid)) {
 						branches.push(branch.name);
 						break;
 					}
@@ -1275,8 +1284,9 @@ export class GitHubApi implements Disposable {
 		owner: string,
 		repo: string,
 		branch: string,
-		ref: string,
-		date: Date,
+		refs: string[],
+		mode: 'contains' | 'pointsAt',
+		date?: Date,
 	): Promise<string[]> {
 		const scope = getLogScope();
 
@@ -1291,6 +1301,9 @@ export class GitHubApi implements Disposable {
 				};
 			};
 		}
+
+		const limit = mode === 'contains' ? 100 : 1;
+
 		try {
 			const query = `query getCommitOnBranch(
 	$owner: String!
@@ -1303,7 +1316,7 @@ export class GitHubApi implements Disposable {
 		ref(qualifiedName: $ref) {
 			target {
 				... on Commit {
-					history(first: 3, since: $since until: $until) {
+					history(first: ${limit}, since: $since until: $until) {
 						nodes { oid }
 					}
 				}
@@ -1319,8 +1332,8 @@ export class GitHubApi implements Disposable {
 					owner: owner,
 					repo: repo,
 					ref: `refs/heads/${branch}`,
-					since: date.toISOString(),
-					until: date.toISOString(),
+					since: date?.toISOString(),
+					until: date?.toISOString(),
 				},
 				scope,
 			);
@@ -1331,7 +1344,7 @@ export class GitHubApi implements Disposable {
 			const branches = [];
 
 			for (const commit of nodes) {
-				if (commit.oid === ref) {
+				if (refs.includes(commit.oid)) {
 					branches.push(branch);
 					break;
 				}

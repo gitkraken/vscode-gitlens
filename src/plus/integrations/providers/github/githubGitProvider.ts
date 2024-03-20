@@ -1059,7 +1059,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async getCommitBranches(
 		repoPath: string,
-		ref: string,
+		refs: string[],
 		branch?: string | undefined,
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
@@ -1080,7 +1080,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					metadata.repo.owner,
 					metadata.repo.name,
 					branch,
-					ref,
+					refs,
+					options?.mode ?? 'contains',
 					options?.commitDate,
 				);
 			} else {
@@ -1088,7 +1089,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
-					ref,
+					refs,
+					options?.mode ?? 'contains',
 					options?.commitDate,
 				);
 			}
