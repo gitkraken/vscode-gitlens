@@ -8,7 +8,7 @@ import {
 	getGitFileOriginalRelativePath,
 	getGitFileRelativePath,
 	getGitFileStatusText,
-	GitFileChange,
+	isGitFileChange,
 } from '../models/file';
 import type { FormatOptions } from './formatter';
 import { Formatter } from './formatter';
@@ -88,21 +88,21 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 
 	get changes(): string {
 		return this._padOrTruncate(
-			GitFileChange.is(this._item) ? this._item.formatStats() : '',
+			isGitFileChange(this._item) ? this._item.formatStats() : '',
 			this._options.tokenOptions.changes,
 		);
 	}
 
 	get changesDetail(): string {
 		return this._padOrTruncate(
-			GitFileChange.is(this._item) ? this._item.formatStats({ expand: true, separator: ', ' }) : '',
+			isGitFileChange(this._item) ? this._item.formatStats({ expand: true, separator: ', ' }) : '',
 			this._options.tokenOptions.changesDetail,
 		);
 	}
 
 	get changesShort(): string {
 		return this._padOrTruncate(
-			GitFileChange.is(this._item) ? this._item.formatStats({ compact: true, separator: '' }) : '',
+			isGitFileChange(this._item) ? this._item.formatStats({ compact: true, separator: '' }) : '',
 			this._options.tokenOptions.changesShort,
 		);
 	}

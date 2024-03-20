@@ -1,6 +1,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
-import { GitContributor } from '../../git/models/contributor';
+import type { GitContributor } from '../../git/models/contributor';
+import { sortContributors } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
 import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
@@ -64,7 +65,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 			});
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
-			GitContributor.sort(contributors);
+			sortContributors(contributors);
 			const presenceMap = this.view.container.vsls.enabled ? await this.getPresenceMap(contributors) : undefined;
 
 			this.children = contributors.map(

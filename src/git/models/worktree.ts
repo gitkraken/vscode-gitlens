@@ -10,10 +10,6 @@ import type { Repository } from './repository';
 import type { GitStatus } from './status';
 
 export class GitWorktree {
-	static is(worktree: any): worktree is GitWorktree {
-		return worktree instanceof GitWorktree;
-	}
-
 	constructor(
 		public readonly main: boolean,
 		public readonly type: 'bare' | 'branch' | 'detached',
@@ -117,4 +113,8 @@ export async function getWorktreeForBranch(
 	}
 
 	return undefined;
+}
+
+export function isWorktree(worktree: any): worktree is GitWorktree {
+	return worktree instanceof GitWorktree;
 }

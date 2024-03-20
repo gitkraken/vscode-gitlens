@@ -183,10 +183,6 @@ export interface GitFileChangeShape {
 }
 
 export class GitFileChange implements GitFileChangeShape {
-	static is(file: any): file is GitFileChange {
-		return file instanceof GitFileChange;
-	}
-
 	constructor(
 		public readonly repoPath: string,
 		public readonly path: string,
@@ -271,4 +267,8 @@ export class GitFileChange implements GitFileChangeShape {
 
 		return status;
 	}
+}
+
+export function isGitFileChange(file: any): file is GitFileChange {
+	return file instanceof GitFileChange;
 }

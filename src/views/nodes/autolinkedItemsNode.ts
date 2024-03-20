@@ -1,7 +1,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
-import { PullRequest } from '../../git/models/pullRequest';
+import { isPullRequest } from '../../git/models/pullRequest';
 import { pauseOnCancelOrTimeoutMapTuple } from '../../system/cancellation';
 import { getSettledValue } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
@@ -64,7 +64,7 @@ export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', 
 
 				if (enrichedAutolinks?.size) {
 					children = [...enrichedAutolinks.values()].map(([issueOrPullRequest, autolink]) =>
-						issueOrPullRequest != null && PullRequest.is(issueOrPullRequest?.value)
+						issueOrPullRequest != null && isPullRequest(issueOrPullRequest?.value)
 							? new PullRequestNode(this.view, this, issueOrPullRequest.value, this.log.repoPath)
 							: new AutolinkedItemNode(
 									this.view,
