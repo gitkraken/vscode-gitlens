@@ -220,30 +220,49 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 					<div class="message-input__select">
 						<span class="message-input__select-icon"><code-icon icon=${visibilityIcon}></code-icon></span>
 						<select id="visibility" class="message-input__control" @change=${this.onVisibilityChange}>
-							<option value="public" ?selected=${this.draftVisibility === 'public'}>Anyone with the link</option>
-							<option value="private" ?selected=${this.draftVisibility === 'private'}>Members of my Org with the link</option>
-							<option value="invite_only" ?selected=${this.draftVisibility === 'invite_only'}>Collaborators only</option>
+							<option value="public" ?selected=${this.draftVisibility === 'public'}>
+								Anyone with the link
+							</option>
+							<option value="private" ?selected=${this.draftVisibility === 'private'}>
+								Members of my Org with the link
+							</option>
+							<option value="invite_only" ?selected=${this.draftVisibility === 'invite_only'}>
+								Collaborators only
+							</option>
 						</select>
 						<span class="message-input__select-caret"><code-icon icon="chevron-down"></code-icon></span>
 					</div>
-					<gl-button appearance="secondary" @click=${
-						this.onInviteUsers
-					}><code-icon icon="person-add"></code-icon> Invite</gl-button>
+					<gl-button appearance="secondary" @click=${this.onInviteUsers}
+						><code-icon icon="person-add"></code-icon> Invite</gl-button
+					>
 				</div>
 				${this.renderUserSelectionList()}
 				<div class="message-input">
-					<input id="title" type="text" class="message-input__control" placeholder="Title (required)" maxlength="100" .value=${
-						this.create.title ?? ''
-					} @input=${(e: InputEvent) => this.onDebounceTitleInput(e)}></textarea>
+					<input
+						id="title"
+						type="text"
+						class="message-input__control"
+						placeholder="Title (required)"
+						maxlength="100"
+						.value=${this.create.title ?? ''}
+						@input=${(e: InputEvent) => this.onDebounceTitleInput(e)}
+					/>
 				</div>
 				<div class="message-input">
-					<textarea id="desc" class="message-input__control" placeholder="Description (optional)" maxlength="10000" .value=${
-						this.create.description ?? ''
-					}  @input=${(e: InputEvent) => this.onDebounceDescriptionInput(e)}></textarea>
+					<textarea
+						id="desc"
+						class="message-input__control"
+						placeholder="Description (optional)"
+						maxlength="10000"
+						.value=${this.create.description ?? ''}
+						@input=${(e: InputEvent) => this.onDebounceDescriptionInput(e)}
+					></textarea>
 				</div>
 				<p class="button-container">
 					<span class="button-group button-group--single">
-						<gl-button full @click=${(e: Event) => this.onDebouncedCreateAll(e)}>Create Cloud Patch</gl-button>
+						<gl-button full @click=${(e: Event) => this.onDebouncedCreateAll(e)}
+							>Create Cloud Patch</gl-button
+						>
 					</span>
 				</p>
 				${when(
@@ -280,7 +299,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 						</p>`,
 				)}
 			</div>
-			`;
+		`;
 	}
 
 	// <gl-create-details

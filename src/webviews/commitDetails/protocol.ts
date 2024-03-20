@@ -51,9 +51,25 @@ export interface WipChange {
 
 export type Mode = 'commit' | 'wip';
 
+export interface GitBranchShape {
+	name: string;
+	repoPath: string;
+	upstream?: { name: string; missing: boolean };
+	tracking?: {
+		ahead: number;
+		behind: number;
+	};
+}
+
 export interface Wip {
 	changes: WipChange | undefined;
 	repositoryCount: number;
+	branch?: GitBranchShape;
+	pullRequest?: PullRequestShape;
+	repo: {
+		name: string;
+		path: string;
+	};
 }
 
 export interface State extends WebviewState {
@@ -131,6 +147,12 @@ export interface CreatePatchFromWipParams {
 	checked: boolean | 'staged';
 }
 export const CreatePatchFromWipCommandType = new IpcCommandType<CreatePatchFromWipParams>('commit/wip/createPatch');
+
+export const FetchCommandType = new IpcCommandType<undefined>('commit/fetch');
+export const PublishCommandType = new IpcCommandType<undefined>('commit/publish');
+export const PushCommandType = new IpcCommandType<undefined>('commit/push');
+export const PullCommandType = new IpcCommandType<undefined>('commit/pull');
+export const SwitchCommandType = new IpcCommandType<undefined>('commit/switch');
 
 // NOTIFICATIONS
 

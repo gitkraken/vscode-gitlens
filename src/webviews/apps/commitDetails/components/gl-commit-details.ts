@@ -12,6 +12,7 @@ import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/
 import { uncommittedSha } from './commit-details-app';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
+import '../../shared/components/button';
 import '../../shared/components/code-icon';
 import '../../shared/components/skeleton-loader';
 import '../../shared/components/webview-pane';
@@ -103,7 +104,7 @@ export class GlCommitDetails extends GlDetailsBase {
 
 				<p class="button-container">
 					<span class="button-group button-group--single">
-						<gl-button full data-action="wip">Show Working Changes</gl-button>
+						<gl-button full data-action="wip">Show Repo Status</gl-button>
 					</span>
 				</p>
 				<p class="button-container">
@@ -123,12 +124,28 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private renderCommitMessage() {
-		if (this.state?.commit == null) return undefined;
+		const details = this.state?.commit;
+		if (details == null) return undefined;
 
-		const message = this.state.commit.message;
+		const message = details.message;
 		const index = message.indexOf(messageHeadlineSplitterToken);
 		return html`
 			<div class="section section--message">
+				${when(
+					!this.isStash,
+					() => html`
+						<commit-identity
+							class="mb-1"
+							name="${details.author.name}"
+							url="${details.author.email ? `mailto:${details.author.email}` : undefined}"
+							date=${details.author.date}
+							.dateFormat="${this.preferences?.dateFormat}"
+							.avatarUrl="${details.author.avatar ?? ''}"
+							.showAvatar="${this.preferences?.avatars ?? true}"
+							.actionLabel="${details.sha === uncommittedSha ? 'modified' : 'committed'}"
+						></commit-identity>
+					`,
+				)}
 				<div class="message-block">
 					${when(
 						index === -1,
@@ -376,143 +393,16 @@ export class GlCommitDetails extends GlDetailsBase {
 			return this.renderEmptyContent();
 		}
 
-		const details = this.state.commit;
-
-		const pinLabel = this.state.pinned
-			? 'Unpin this Commit\nRestores Automatic Following'
-			: 'Pin this Commit\nSuspends Automatic Following';
-
 		return html`
-			<div class="top-details">
-				<div class="top-details__top-menu">
-					<div class="top-details__actionbar${this.state.pinned ? ' is-pinned' : ''}">
-						<div class="top-details__actionbar-group">
-							<a
-								class="commit-action${this.state.pinned ? ' is-active' : ''}"
-								href="#"
-								data-action="pin"
-								aria-label="${pinLabel}"
-								title="${pinLabel}"
-								><code-icon
-									icon="${this.state.pinned ? 'gl-pinned-filled' : 'pin'}"
-									data-region="commit-pin"
-								></code-icon
-							></a>
-							<a
-								class="commit-action${this.navigation.back ? '' : ' is-disabled'}"
-								aria-disabled="${this.navigation.back ? nothing : 'true'}"
-								href="#"
-								data-action="back"
-								aria-label="Back"
-								title="Back"
-								><code-icon icon="arrow-left" data-region="commit-back"></code-icon
-							></a>
-							${when(
-								this.navigation.forward,
-								() => html`
-									<a
-										class="commit-action"
-										href="#"
-										data-action="forward"
-										aria-label="Forward"
-										title="Forward"
-										><code-icon icon="arrow-right" data-region="commit-forward"></code-icon
-									></a>
-								`,
-							)}
-							${when(
-								this.state.navigationStack?.hint,
-								() => html`
-									<a
-										class="commit-action commit-action--emphasis-low"
-										href="#"
-										title="View this Commit"
-										data-action="${this.state?.pinned ? 'forward' : 'back'}"
-										><code-icon icon="git-commit"></code-icon
-										><span data-region="commit-hint">${this.state!.navigationStack?.hint}</span></a
-									>
-								`,
-							)}
-						</div>
-						<div class="top-details__actionbar-group">
-							${when(
-								!this.isUncommitted,
-								() => html`
-									<a
-										class="commit-action"
-										href="#"
-										data-action="commit-actions"
-										data-action-type="sha"
-										aria-label="Copy SHA
-[⌥] Pick Commit..."
-										title="Copy SHA
-[⌥] Pick Commit..."
-									>
-										<code-icon icon="git-commit"></code-icon>
-										<span class="top-details__sha" data-region="shortsha">${this.shortSha}</span></a
-									>
-								`,
-								() => html`
-									<a
-										class="commit-action"
-										href="#"
-										data-action="commit-actions"
-										data-action-type="scm"
-										aria-label="Open SCM view"
-										title="Open SCM view"
-										><code-icon icon="source-control"></code-icon
-									></a>
-								`,
-							)}
-							<a
-								class="commit-action"
-								href="#"
-								data-action="commit-actions"
-								data-action-type="graph"
-								aria-label="Open in Commit Graph"
-								title="Open in Commit Graph"
-								><code-icon icon="gl-graph"></code-icon
-							></a>
-							${when(
-								!this.isUncommitted,
-								() => html`
-									<a
-										class="commit-action"
-										href="#"
-										data-action="commit-actions"
-										data-action-type="more"
-										aria-label="Show Commit Actions"
-										title="Show Commit Actions"
-										><code-icon icon="kebab-vertical"></code-icon
-									></a>
-								`,
-							)}
-						</div>
-					</div>
-					${when(
-						details != null && !this.isStash,
-						() => html`
-							<ul class="top-details__authors" aria-label="Authors">
-								<li class="top-details__author" data-region="author">
-									<commit-identity
-										name="${details.author.name}"
-										email="${details.author.email}"
-										date=${details.author.date}
-										dateFormat="${this.preferences?.dateFormat}"
-										dateStyle="${this.preferences?.dateStyle}"
-										avatarUrl="${details.author.avatar ?? ''}"
-										.showAvatar="${this.preferences?.avatars ?? true}"
-										actionLabel="${details.sha === uncommittedSha ? 'modified' : 'committed'}"
-									></commit-identity>
-								</li>
-							</ul>
-						`,
-					)}
-				</div>
-			</div>
-			${this.renderCommitMessage()} ${this.renderAutoLinks()}
-			${this.renderChangedFiles(this.isStash ? 'stash' : 'commit', this.renderCommitStats(details?.stats))}
-			${this.renderExplainAi()}
+			${this.renderCommitMessage()}
+			<webview-pane-group flexible>
+				${this.renderAutoLinks()}
+				${this.renderChangedFiles(
+					this.isStash ? 'stash' : 'commit',
+					this.renderCommitStats(this.state.commit.stats),
+				)}
+				${this.renderExplainAi()}
+			</webview-pane-group>
 		`;
 	}
 

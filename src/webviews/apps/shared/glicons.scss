@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?2cb9f62ddac44d3fc393ade4471fe802") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?07f033418f6676c7f48b3222efcedda3") format("woff2");
 	}
 </style>
 */
@@ -187,4 +187,10 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 }
 .glicon-cloud-patch-share:before {
 	content: '\f129';
+}
+.glicon-inspect:before {
+	content: '\f12a';
+}
+.glicon-repository-filled:before {
+	content: '\f12b';
 }

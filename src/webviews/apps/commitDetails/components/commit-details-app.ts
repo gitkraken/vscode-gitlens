@@ -1,7 +1,6 @@
 import { Badge, defineGkElement } from '@gitkraken/shared-web-components';
-import { html, LitElement } from 'lit';
+import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import type { ViewFilesLayout } from '../../../../config';
 import type { Serialized } from '../../../../system/serialize';
@@ -15,6 +14,7 @@ import {
 	DidChangeWipStateNotificationType,
 	DidExplainCommandType,
 	ExplainCommandType,
+	FetchCommandType,
 	FileActionsCommandType,
 	NavigateCommitCommandType,
 	OpenFileCommandType,
@@ -23,8 +23,12 @@ import {
 	OpenFileOnRemoteCommandType,
 	PickCommitCommandType,
 	PinCommitCommandType,
+	PublishCommandType,
+	PullCommandType,
+	PushCommandType,
 	SearchCommitCommandType,
 	StageFileCommandType,
+	SwitchCommandType,
 	SwitchModeCommandType,
 	UnstageFileCommandType,
 	UpdatePreferencesCommandType,
@@ -37,8 +41,13 @@ import { DOM } from '../../shared/dom';
 import { assertsSerialized, HostIpc } from '../../shared/ipc';
 import type { GlCommitDetails } from './gl-commit-details';
 import type { FileChangeListItemDetail } from './gl-details-base';
+import type { GlInspectNav } from './gl-inspect-nav';
+import type { GlWipDetails } from './gl-wip-details';
+import '../../shared/components/code-icon';
 import './gl-commit-details';
 import './gl-wip-details';
+import './gl-inspect-nav';
+import './gl-status-nav';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -127,16 +136,21 @@ export class GlCommitDetailsApp extends LitElement {
 			this._hostIpc.onReceiveMessage(e => this.onMessageReceived(e)),
 			this._hostIpc,
 
-			DOM.on('[data-action="commit-actions"]', 'click', e => this.onCommitActions(e)),
+			DOM.on<GlInspectNav, { action: string; alt: boolean }>('gl-inspect-nav', 'gl-commit-actions', e =>
+				this.onCommitActions(e),
+			),
+			DOM.on<GlInspectNav, { action: string; alt: boolean }>('gl-status-nav', 'gl-branch-action', e =>
+				this.onBranchAction(e.detail.action),
+			),
 			DOM.on('[data-action="pick-commit"]', 'click', e => this.onPickCommit(e)),
 			DOM.on('[data-action="wip"]', 'click', e => this.onSwitchMode(e, 'wip')),
 			DOM.on('[data-action="details"]', 'click', e => this.onSwitchMode(e, 'commit')),
 			DOM.on('[data-action="search-commit"]', 'click', e => this.onSearchCommit(e)),
 			DOM.on('[data-action="autolink-settings"]', 'click', e => this.onAutolinkSettings(e)),
 			DOM.on('[data-action="files-layout"]', 'click', e => this.onToggleFilesLayout(e)),
-			DOM.on('[data-action="pin"]', 'click', e => this.onTogglePin(e)),
-			DOM.on('[data-action="back"]', 'click', e => this.onNavigate('back', e)),
-			DOM.on('[data-action="forward"]', 'click', e => this.onNavigate('forward', e)),
+			DOM.on<GlInspectNav, undefined>('gl-inspect-nav', 'gl-pin', () => this.onTogglePin()),
+			DOM.on<GlInspectNav, undefined>('gl-inspect-nav', 'gl-back', () => this.onNavigate('back')),
+			DOM.on<GlInspectNav, undefined>('gl-inspect-nav', 'gl-forward', () => this.onNavigate('forward')),
 			DOM.on('[data-action="create-patch"]', 'click', _e => this.onCreatePatchFromWip(true)),
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="rich-pane"]',
@@ -145,7 +159,7 @@ export class GlCommitDetailsApp extends LitElement {
 			),
 			DOM.on('[data-action="explain-commit"]', 'click', e => this.onExplainCommit(e)),
 			DOM.on('[data-action="switch-ai"]', 'click', e => this.onSwitchAiModel(e)),
-			DOM.on<GlCommitDetails, { checked: boolean | 'staged' }>('gl-wip-details', 'create-patch', e =>
+			DOM.on<GlWipDetails, { checked: boolean | 'staged' }>('gl-wip-details', 'create-patch', e =>
 				this.onCreatePatchFromWip(e.detail.checked),
 			),
 
@@ -166,11 +180,14 @@ export class GlCommitDetailsApp extends LitElement {
 			DOM.on<GlCommitDetails, FileChangeListItemDetail>('gl-commit-details', 'file-more-actions', e =>
 				this.onFileMoreActions(e.detail),
 			),
-			DOM.on<GlCommitDetails, FileChangeListItemDetail>('gl-wip-details', 'file-stage', e =>
+			DOM.on<GlWipDetails, FileChangeListItemDetail>('gl-wip-details', 'file-stage', e =>
 				this.onStageFile(e.detail),
 			),
-			DOM.on<GlCommitDetails, FileChangeListItemDetail>('gl-wip-details', 'file-unstage', e =>
+			DOM.on<GlWipDetails, FileChangeListItemDetail>('gl-wip-details', 'file-unstage', e =>
 				this.onUnstageFile(e.detail),
+			),
+			DOM.on<GlWipDetails, { name: string }>('gl-wip-details', 'data-action', e =>
+				this.onBranchAction(e.detail.name),
 			),
 		];
 	}
@@ -229,40 +246,74 @@ export class GlCommitDetailsApp extends LitElement {
 		super.disconnectedCallback();
 	}
 
+	renderTopInspect() {
+		if (this.state?.commit == null) return nothing;
+
+		return html`<gl-inspect-nav
+			?uncommitted=${this.isUncommitted}
+			?pinned=${this.state?.pinned}
+			.navigation=${this.state?.navigationStack}
+			.shortSha=${this.state?.commit.shortSha ?? ''}
+			.stashNumber=${this.state?.commit.stashNumber}
+		></gl-inspect-nav>`;
+	}
+
+	renderTopWip() {
+		if (this.state?.wip == null) return nothing;
+
+		return html`<gl-status-nav .wip=${this.state.wip} .preferences=${this.state.preferences}></gl-status-nav>`;
+	}
+
+	renderTopSection() {
+		const followTooltip = this.isStash ? 'Stash' : 'Commit';
+
+		const isWip = this.state?.mode === 'wip';
+
+		const wip = this.state?.wip;
+		const wipTooltip = wip?.changes?.files.length
+			? ` - ${pluralize('change', wip.changes.files.length)} on ${
+					wip.repositoryCount > 1
+						? `${wip.changes.repository.name}:${wip.changes.branchName}`
+						: wip.changes.branchName
+			  }`
+			: '';
+
+		return html`
+			<div class="inspect-header">
+				<nav class="inspect-header__tabs">
+					<button
+						class="inspect-header__tab${!isWip ? ' is-active' : ''}"
+						data-action="details"
+						title="${followTooltip}"
+					>
+						<code-icon icon="gl-inspect"></code-icon>
+					</button>
+					<button
+						class="inspect-header__tab${isWip ? ' is-active' : ''}"
+						data-action="wip"
+						title="Repo Status${wipTooltip}"
+					>
+						<code-icon icon="gl-repository-filled"></code-icon>
+					</button>
+				</nav>
+				<div class="inspect-header__content">
+					${when(
+						this.state?.mode !== 'wip',
+						() => this.renderTopInspect(),
+						() => this.renderTopWip(),
+					)}
+				</div>
+			</div>
+		`;
+	}
+
 	override render() {
 		const wip = this.state?.wip;
 
 		return html`
 			<div class="commit-detail-panel scrollable">
+				${this.renderTopSection()}
 				<main id="main" tabindex="-1">
-					<nav class="details-tab">
-						<button
-							class="details-tab__item ${this.state?.mode === 'commit' ? ' is-active' : ''}"
-							data-action="details"
-						>
-							${this.isStash ? 'Stash' : 'Commit'}
-						</button>
-						<button
-							class="details-tab__item ${this.state?.mode === 'wip' ? ' is-active' : ''}"
-							data-action="wip"
-							title="${ifDefined(
-								this.state?.mode === 'wip' && wip?.changes?.files.length
-									? `${pluralize('change', wip.changes.files.length)} on ${
-											wip.repositoryCount > 1
-												? `${wip.changes.repository.name}:${wip.changes.branchName}`
-												: wip.changes.branchName
-									  }`
-									: undefined,
-							)}"
-						>
-							Working
-							Changes${ifDefined(
-								this.state?.mode === 'wip' && wip?.changes?.files.length
-									? html` &nbsp;<gk-badge variant="filled">${wip.changes.files.length}</gk-badge>`
-									: undefined,
-							)}
-						</button>
-					</nav>
 					${when(
 						this.state?.mode === 'commit',
 						() =>
@@ -291,6 +342,30 @@ export class GlCommitDetailsApp extends LitElement {
 
 	protected override createRenderRoot() {
 		return this;
+	}
+
+	private onBranchAction(name: string) {
+		switch (name) {
+			case 'pull':
+				this._hostIpc.sendCommand(PullCommandType, undefined);
+				break;
+			case 'push':
+				this._hostIpc.sendCommand(PushCommandType, undefined);
+				// this.onCommandClickedCore('gitlens.pushRepositories');
+				break;
+			case 'fetch':
+				this._hostIpc.sendCommand(FetchCommandType, undefined);
+				// this.onCommandClickedCore('gitlens.fetchRepositories');
+				break;
+			case 'publish-branch':
+				this._hostIpc.sendCommand(PublishCommandType, undefined);
+				// this.onCommandClickedCore('gitlens.publishRepository');
+				break;
+			case 'switch':
+				this._hostIpc.sendCommand(SwitchCommandType, undefined);
+				// this.onCommandClickedCore('gitlens.views.switchToBranch');
+				break;
+		}
 	}
 
 	private onCreatePatchFromWip(checked: boolean | 'staged' = true) {
@@ -353,13 +428,11 @@ export class GlCommitDetailsApp extends LitElement {
 		this._hostIpc.sendCommand(UpdatePreferencesCommandType, { autolinksExpanded: e.expanded });
 	}
 
-	private onNavigate(direction: 'back' | 'forward', e: Event) {
-		e.preventDefault();
+	private onNavigate(direction: 'back' | 'forward') {
 		this._hostIpc.sendCommand(NavigateCommitCommandType, { direction: direction });
 	}
 
-	private onTogglePin(e: MouseEvent) {
-		e.preventDefault();
+	private onTogglePin() {
 		this._hostIpc.sendCommand(PinCommitCommandType, { pin: !this.state!.pinned });
 	}
 
@@ -411,19 +484,14 @@ export class GlCommitDetailsApp extends LitElement {
 		this._hostIpc.sendCommand(UnstageFileCommandType, e);
 	}
 
-	private onCommitActions(e: MouseEvent) {
-		e.preventDefault();
+	private onCommitActions(e: CustomEvent<{ action: string; alt: boolean }>) {
 		if (this.state?.commit === undefined) {
-			e.stopPropagation();
 			return;
 		}
 
-		const action = (e.target as HTMLElement)?.getAttribute('data-action-type');
-		if (action == null) return;
-
 		this._hostIpc.sendCommand(CommitActionsCommandType, {
-			action: action as CommitActionsParams['action'],
-			alt: e.altKey,
+			action: e.detail.action as CommitActionsParams['action'],
+			alt: e.detail.alt,
 		});
 	}
 }

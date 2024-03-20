@@ -1696,6 +1696,12 @@ export class CodeIcon extends LitElement {
 		:host([icon='gl-cloud-patch-share']):before {
 			content: '\\f129';
 		}
+		:host([icon='gl-inspect']):before {
+			content: '\\f12a';
+		}
+		:host([icon='gl-repository-filled']):before {
+			content: '\\f12b';
+		}
 
 		@keyframes codicon-spin {
 			100% {

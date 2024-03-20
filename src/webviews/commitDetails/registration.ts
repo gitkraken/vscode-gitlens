@@ -10,7 +10,7 @@ export function registerCommitDetailsWebviewView(controller: WebviewsController)
 		{
 			id: 'gitlens.views.commitDetails',
 			fileName: 'commitDetails.html',
-			title: 'Commit Details',
+			title: 'Inspect',
 			contextKeyPrefix: `gitlens:webviewView:commitDetails`,
 			trackingFeature: 'commitDetailsView',
 			plusFeature: false,
@@ -32,7 +32,7 @@ export function registerGraphDetailsWebviewView(controller: WebviewsController) 
 		{
 			id: 'gitlens.views.graphDetails',
 			fileName: 'commitDetails.html',
-			title: 'Commit Graph Details',
+			title: 'Commit Graph Inspect',
 			contextKeyPrefix: `gitlens:webviewView:graphDetails`,
 			trackingFeature: 'graphDetailsView',
 			plusFeature: false,

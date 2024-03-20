@@ -41,5 +41,7 @@
   "confirm-checked": 61734,
   "confirm-unchecked": 61735,
   "cloud-patch": 61736,
-  "cloud-patch-share": 61737
+  "cloud-patch-share": 61737,
+  "inspect": 61738,
+  "repository-filled": 61739
 }

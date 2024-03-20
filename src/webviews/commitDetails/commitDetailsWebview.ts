@@ -15,7 +15,9 @@ import {
 	openFileOnRemote,
 	showDetailsQuickPick,
 } from '../../git/actions/commit';
+import * as RepoActions from '../../git/actions/repository';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
+import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
 import { uncommitted } from '../../git/models/constants';
@@ -33,7 +35,7 @@ import { showPatchesView } from '../../plus/drafts/actions';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import type { Change } from '../../plus/webviews/patchDetails/protocol';
 import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
-import { executeCommand, executeCoreCommand, registerCommand } from '../../system/command';
+import { executeCommand, executeCoreCommand, executeCoreGitCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { getContext, onDidChangeContext } from '../../system/context';
 import { debug } from '../../system/decorators/log';
@@ -56,8 +58,10 @@ import { isSerializedState } from '../webviewsController';
 import type {
 	CommitDetails,
 	CreatePatchFromWipParams,
+	DidChangeWipStateParams,
 	DidExplainParams,
 	FileActionParams,
+	GitBranchShape,
 	Mode,
 	Preferences,
 	State,
@@ -74,6 +78,7 @@ import {
 	DidChangeWipStateNotificationType,
 	DidExplainCommandType,
 	ExplainCommandType,
+	FetchCommandType,
 	FileActionsCommandType,
 	messageHeadlineSplitterToken,
 	NavigateCommitCommandType,
@@ -83,8 +88,12 @@ import {
 	OpenFileOnRemoteCommandType,
 	PickCommitCommandType,
 	PinCommitCommandType,
+	PublishCommandType,
+	PullCommandType,
+	PushCommandType,
 	SearchCommitCommandType,
 	StageFileCommandType,
+	SwitchCommandType,
 	SwitchModeCommandType,
 	UnstageFileCommandType,
 	UpdatePreferencesCommandType,
@@ -92,6 +101,12 @@ import {
 import type { CommitDetailsWebviewShowingArgs } from './registration';
 
 type RepositorySubscription = { repo: Repository; subscription: Disposable };
+
+interface WipContext extends Wip {
+	branch?: GitBranch;
+	pullRequest?: PullRequest;
+	repo: Repository;
+}
 
 interface Context {
 	mode: Mode;
@@ -108,7 +123,7 @@ interface Context {
 	formattedMessage: string | undefined;
 	autolinkedIssues: IssueOrPullRequest[] | undefined;
 	pullRequest: PullRequest | undefined;
-	wip: Wip | undefined;
+	wip: WipContext | undefined;
 	orgSettings: State['orgSettings'];
 }
 
@@ -352,7 +367,59 @@ export class CommitDetailsWebviewProvider
 			case CreatePatchFromWipCommandType.method:
 				onIpc(CreatePatchFromWipCommandType, e, params => this.createPatchFromWip(params));
 				break;
+			case FetchCommandType.method:
+				onIpc(FetchCommandType, e, () => this.fetch());
+				break;
+			case PublishCommandType.method:
+				onIpc(PublishCommandType, e, () => this.publish());
+				break;
+			case PushCommandType.method:
+				onIpc(PushCommandType, e, () => this.push());
+				break;
+			case PullCommandType.method:
+				onIpc(PullCommandType, e, () => this.pull());
+				break;
+			case SwitchCommandType.method:
+				onIpc(SwitchCommandType, e, () => this.switch());
+				break;
 		}
+	}
+
+	private getRepoActionPath() {
+		if (this._context.mode === 'wip') {
+			return this._context.wip?.repo.path;
+		}
+		return this._context.commit?.repoPath;
+	}
+
+	private fetch() {
+		const path = this.getRepoActionPath();
+		if (path == null) return;
+		void RepoActions.fetch(path);
+	}
+
+	private publish() {
+		const path = this.getRepoActionPath();
+		if (path == null) return;
+		void executeCoreGitCommand('git.publish', Uri.file(path));
+	}
+
+	private push() {
+		const path = this.getRepoActionPath();
+		if (path == null) return;
+		void RepoActions.push(path);
+	}
+
+	private pull() {
+		const path = this.getRepoActionPath();
+		if (path == null) return;
+		void RepoActions.pull(path);
+	}
+
+	private switch() {
+		const path = this.getRepoActionPath();
+		if (path == null) return;
+		void RepoActions.switchTo(path);
 	}
 
 	onRefresh(_force?: boolean | undefined): void {
@@ -562,6 +629,27 @@ export class CommitDetailsWebviewProvider
 		} else {
 			void this.updateWipState(repository ?? this.container.git.getBestRepositoryOrFirst());
 		}
+
+		this.updateTitle();
+	}
+
+	private updateTitle() {
+		if (this.mode === 'commit') {
+			if (this._context.commit == null) {
+				this.host.title = this.host.originalTitle;
+			} else {
+				let following = 'Commit';
+				if (this._context.commit.refType === 'stash') {
+					following = 'Stash';
+				} else if (this._context.commit.isUncommitted) {
+					following = 'Uncommitted';
+				}
+
+				this.host.title = `${this.host.originalTitle}: ${following}`;
+			}
+		} else {
+			this.host.title = `${this.host.originalTitle}: Repo Status`;
+		}
 	}
 
 	private async explainCommit(completionId?: string) {
@@ -624,7 +712,7 @@ export class CommitDetailsWebviewProvider
 			includeRichContent: current.richStateLoaded,
 			autolinkedIssues: current.autolinkedIssues?.map(serializeIssueOrPullRequest),
 			pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
-			wip: current.wip,
+			wip: serializeWipContext(current.wip),
 			orgSettings: current.orgSettings,
 		});
 		return state;
@@ -640,7 +728,7 @@ export class CommitDetailsWebviewProvider
 			}
 		}
 
-		let wip: Wip | undefined = undefined;
+		let wip: WipContext | undefined = undefined;
 
 		if (repository != null) {
 			if (this._wipSubscription == null) {
@@ -648,10 +736,24 @@ export class CommitDetailsWebviewProvider
 			}
 
 			const changes = await this.getWipChange(repository);
-			wip = { changes: changes, repositoryCount: this.container.git.openRepositoryCount };
+			wip = {
+				changes: changes,
+				repo: repository,
+				repositoryCount: this.container.git.openRepositoryCount,
+			};
+
+			if (changes != null) {
+				const branchDetails = await this.getWipBranchDetails(repository, changes.branchName);
+				if (branchDetails != null) {
+					wip.branch = branchDetails.branch;
+					wip.pullRequest = branchDetails.pullRequest;
+				}
+			}
 
 			if (this._pendingContext == null) {
-				const success = await this.host.notify(DidChangeWipStateNotificationType, { wip: wip });
+				const success = await this.host.notify(DidChangeWipStateNotificationType, {
+					wip: serializeWipContext(wip),
+				} as DidChangeWipStateParams);
 				if (success) {
 					this._context.wip = wip;
 					return;
@@ -661,6 +763,19 @@ export class CommitDetailsWebviewProvider
 
 		this.updatePendingContext({ wip: wip });
 		this.updateState(true);
+	}
+
+	private async getWipBranchDetails(
+		repository: Repository,
+		branchName: string,
+	): Promise<{ branch: GitBranch; pullRequest: PullRequest | undefined } | undefined> {
+		const branch = await repository.getBranch(branchName);
+		if (branch == null) return undefined;
+
+		return {
+			branch: branch,
+			pullRequest: await branch.getAssociatedPullRequest(),
+		};
 	}
 
 	@debug({ args: false })
@@ -787,6 +902,7 @@ export class CommitDetailsWebviewProvider
 			this.updateNavigation();
 		}
 		this.updateState(options?.immediate ?? true);
+		this.updateTitle();
 	}
 
 	private subscribeToRepositoryWip(repo: Repository) {
@@ -1194,3 +1310,33 @@ export class CommitDetailsWebviewProvider
 // 		avatar: (await commit.getAvatarUri())?.toString(true),
 // 	};
 // }
+
+function serializeBranch(branch?: GitBranch): GitBranchShape | undefined {
+	if (branch == null) return undefined;
+
+	return {
+		name: branch.name,
+		repoPath: branch.repoPath,
+		upstream: branch.upstream,
+		tracking: {
+			ahead: branch.state.ahead,
+			behind: branch.state.behind,
+		},
+	};
+}
+
+function serializeWipContext(wip?: WipContext): Wip | undefined {
+	if (wip == null) return undefined;
+
+	return {
+		changes: wip.changes,
+		repositoryCount: wip.repositoryCount,
+		branch: serializeBranch(wip.branch),
+		repo: {
+			name: wip.repo.name,
+			path: wip.repo.path,
+			// type: wip.repo.provider.name,
+		},
+		pullRequest: wip.pullRequest != null ? serializePullRequest(wip.pullRequest) : undefined,
+	};
+}
