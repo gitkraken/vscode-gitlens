@@ -1681,14 +1681,14 @@ export class GitProviderService implements Disposable {
 	@log()
 	getCommitBranches(
 		repoPath: string | Uri,
-		ref: string,
+		refs: string | string[],
 		branch?: string | undefined,
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getCommitBranches(path, ref, branch, options);
+		return provider.getCommitBranches(path, typeof refs === 'string' ? [refs] : refs, branch, options);
 	}
 
 	@log()
