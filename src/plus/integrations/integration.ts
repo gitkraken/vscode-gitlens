@@ -8,7 +8,12 @@ import type { PagedResult } from '../../git/gitProvider';
 import type { Account } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
-import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../git/models/pullRequest';
+import type {
+	PullRequest,
+	PullRequestMergeMethod,
+	PullRequestState,
+	SearchedPullRequest,
+} from '../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
 import { configuration } from '../../system/configuration';
@@ -570,6 +575,34 @@ export abstract class HostingIntegration<
 		repo: T,
 		id: string,
 	): Promise<IssueOrPullRequest | undefined>;
+
+	async mergePullRequest(
+		pr: PullRequest | { id: string; headRefSha: string },
+		options?: {
+			mergeMethod?: PullRequestMergeMethod;
+		},
+	): Promise<boolean> {
+		const scope = getLogScope();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return false;
+
+		try {
+			const result = await this.mergeProviderPullRequest(this._session!, pr, options);
+			this.resetRequestExceptionCount();
+			return result;
+		} catch (ex) {
+			return this.handleProviderException<boolean>(ex, scope, false);
+		}
+	}
+
+	protected abstract mergeProviderPullRequest(
+		session: ProviderAuthenticationSession,
+		pr: PullRequest | { id: string; headRefSha: string },
+		options?: {
+			mergeMethod?: PullRequestMergeMethod;
+		},
+	): Promise<boolean>;
 
 	@debug()
 	async getPullRequestForBranch(

@@ -3,7 +3,12 @@ import type { PagedResult } from '../../../git/gitProvider';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
-import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../../git/models/pullRequest';
+import type {
+	PullRequest,
+	PullRequestMergeMethod,
+	PullRequestState,
+	SearchedPullRequest,
+} from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { Logger } from '../../../system/logger';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
@@ -55,6 +60,16 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	}
 
 	// TODO: implement
+	protected override async mergeProviderPullRequest(
+		_session: AuthenticationSession,
+		_pr: PullRequest | { id: string; headRefSha: string },
+		_options?: {
+			mergeMethod?: PullRequestMergeMethod;
+		},
+	): Promise<boolean> {
+		return Promise.resolve(false);
+	}
+
 	protected override async getProviderAccountForCommit(
 		_session: AuthenticationSession,
 		_repo: AzureRepositoryDescriptor,

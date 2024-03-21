@@ -3,7 +3,12 @@ import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
-import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../../git/models/pullRequest';
+import type {
+	PullRequest,
+	PullRequestMergeMethod,
+	PullRequestState,
+	SearchedPullRequest,
+} from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
@@ -148,6 +153,16 @@ abstract class GitLabIntegrationBase<ID extends SupportedIntegrationIds> extends
 		_repos?: GitLabRepositoryDescriptor[],
 	): Promise<SearchedIssue[] | undefined> {
 		return Promise.resolve(undefined);
+	}
+
+	protected override async mergeProviderPullRequest(
+		_session: AuthenticationSession,
+		_pr: PullRequest | { id: string; headRefSha: string },
+		_options?: {
+			mergeMethod?: PullRequestMergeMethod;
+		},
+	): Promise<boolean> {
+		return Promise.resolve(false);
 	}
 }
 

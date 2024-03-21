@@ -3,7 +3,8 @@ import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
-import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../../git/models/pullRequest';
+import type { PullRequestMergeMethod, PullRequestState, SearchedPullRequest } from '../../../git/models/pullRequest';
+import { PullRequest } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
@@ -165,6 +166,23 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 				baseUrl: this.apiBaseUrl,
 			},
 			cancellation,
+		);
+	}
+
+	protected override async mergeProviderPullRequest(
+		{ accessToken }: AuthenticationSession,
+		pr: PullRequest | { id: string; headRefSha: string },
+		options?: {
+			mergeMethod?: PullRequestMergeMethod;
+		},
+	): Promise<boolean> {
+		const id = pr instanceof PullRequest ? pr.nodeId : pr.id;
+		const headRefSha = pr instanceof PullRequest ? pr.refs?.head?.sha : pr.headRefSha;
+		if (id == null || headRefSha == null) return false;
+		return (
+			(await this.container.github)?.mergePullRequest(this, accessToken, id, headRefSha, {
+				mergeMethod: options?.mergeMethod,
+			}) ?? false
 		);
 	}
 }

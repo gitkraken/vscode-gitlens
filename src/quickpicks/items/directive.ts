@@ -6,6 +6,7 @@ export enum Directive {
 	Cancel,
 	LoadMore,
 	Noop,
+	Reload,
 	RequiresVerification,
 
 	ExtendTrial,
@@ -19,6 +20,7 @@ export function isDirective<T>(value: Directive | T): value is Directive {
 
 export interface DirectiveQuickPickItem extends QuickPickItem {
 	directive: Directive;
+	onDidSelect?: () => void | Promise<void>;
 }
 
 export function createDirectiveQuickPickItem(
@@ -30,6 +32,7 @@ export function createDirectiveQuickPickItem(
 		detail?: string;
 		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon;
 		subscription?: Subscription;
+		onDidSelect?: () => void | Promise<void>;
 	},
 ) {
 	let label = options?.label;
@@ -47,6 +50,9 @@ export function createDirectiveQuickPickItem(
 				break;
 			case Directive.Noop:
 				label = 'Try again';
+				break;
+			case Directive.Reload:
+				label = 'Refresh';
 				break;
 			case Directive.StartPreviewTrial:
 				label = 'Preview Pro';
@@ -75,6 +81,7 @@ export function createDirectiveQuickPickItem(
 		alwaysShow: true,
 		picked: picked,
 		directive: directive,
+		onDidSelect: options?.onDidSelect,
 	};
 
 	return item;

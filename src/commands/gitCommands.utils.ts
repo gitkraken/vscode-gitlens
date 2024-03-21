@@ -1,5 +1,6 @@
 import type { RecentUsage } from '../constants';
 import type { Container } from '../container';
+import { FocusCommand } from '../plus/focus/focus';
 import { configuration } from '../system/configuration';
 import { getContext } from '../system/context';
 import { BranchGitCommand } from './git/branch';
@@ -108,7 +109,7 @@ export class PickCommandStep implements QuickPickStep<QuickCommand> {
 			}
 		}
 
-		this.hiddenItems = [];
+		this.hiddenItems = [new FocusCommand(container, args?.command === 'focus' ? args : undefined)];
 	}
 
 	private _command: QuickCommand | undefined;
