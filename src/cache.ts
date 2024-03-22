@@ -1,11 +1,12 @@
 // import type { EnrichedAutolink } from './annotations/autolinks';
 import type { Disposable } from './api/gitlens';
 import type { Container } from './container';
+import type { Account } from './git/models/author';
 import type { DefaultBranch } from './git/models/defaultBranch';
 import type { IssueOrPullRequest } from './git/models/issue';
 import type { PullRequest } from './git/models/pullRequest';
 import type { RepositoryMetadata } from './git/models/repositoryMetadata';
-import type { HostingIntegration, ResourceDescriptor } from './plus/integrations/integration';
+import type { HostingIntegration, IntegrationBase, ResourceDescriptor } from './plus/integrations/integration';
 import { isPromise } from './system/promise';
 
 type Caches = {
@@ -16,6 +17,7 @@ type Caches = {
 	prByBranch: { key: `branch:${string}:${string}`; value: PullRequest };
 	prsBySha: { key: `sha:${string}:${string}`; value: PullRequest };
 	repoMetadata: { key: `repo:${string}`; value: RepositoryMetadata };
+	currentAccount: { key: `id:${string}`; value: Account };
 };
 
 type Cache = keyof Caches;
@@ -135,6 +137,11 @@ export class CacheProvider implements Disposable {
 		return this.get('repoMetadata', `repo:${key}`, etag, cacheable);
 	}
 
+	getCurrentAccount(integration: IntegrationBase, cacheable: Cacheable<Account>): CacheResult<Account> {
+		const { key, etag } = getIntegrationKeyAndEtag(integration);
+		return this.get('currentAccount', `id:${key}`, etag, cacheable);
+	}
+
 	private set<T extends Cache>(
 		cache: T,
 		key: CacheKey<T>,
@@ -189,6 +196,7 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 	switch (cache) {
 		case 'defaultBranch':
 		case 'repoMetadata':
+		case 'currentAccount':
 			return 0; // Never expires
 		case 'issuesOrPrsById':
 		case 'issuesOrPrsByIdAndRepo': {
@@ -222,4 +230,8 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 
 function getRemoteKeyAndEtag(repo: ResourceDescriptor, integration?: HostingIntegration) {
 	return { key: repo.key, etag: `${repo.key}:${integration?.maybeConnected ?? false}` };
+}
+
+function getIntegrationKeyAndEtag(integration: IntegrationBase) {
+	return { key: integration.id, etag: `${integration.id}:${integration.maybeConnected ?? false}` };
 }

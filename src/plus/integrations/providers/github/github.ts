@@ -239,6 +239,64 @@ export class GitHubApi implements Disposable {
 		return this._proxyAgent;
 	}
 
+	async getCurrentAccount(
+		provider: Provider,
+		token: string,
+		options?: {
+			baseUrl?: string;
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const scope = getLogScope();
+
+		interface QueryResult {
+			viewer: {
+				name: string | null;
+				email: string | null;
+				login: string | null;
+				avatarUrl: string | null;
+			};
+		}
+
+		try {
+			const query = `query getCurrentAccount($avatarSize: Int) {
+	viewer {
+		name
+		email
+		login
+		avatarUrl(size: $avatarSize)
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(provider, token, query, { ...options }, scope);
+			if (rsp?.viewer == null) return undefined;
+
+			return {
+				provider: provider,
+				name: rsp.viewer.name ?? undefined,
+				email: rsp.viewer.email ?? undefined,
+				// If we are GitHub Enterprise, we may need to convert the avatar URL since it might require authentication
+				avatarUrl:
+					!rsp.viewer.avatarUrl || isGitHubDotCom(options)
+						? rsp.viewer.avatarUrl ?? undefined
+						: rsp.viewer.email && options?.baseUrl != null
+						  ? await this.createEnterpriseAvatarUrl(
+									provider,
+									token,
+									options.baseUrl,
+									rsp.viewer.email,
+									options.avatarSize,
+						    )
+						  : undefined,
+				username: rsp.viewer.login ?? undefined,
+			};
+		} catch (ex) {
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
 	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
 		provider: Provider,
