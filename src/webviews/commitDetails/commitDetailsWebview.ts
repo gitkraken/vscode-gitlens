@@ -751,9 +751,12 @@ export class CommitDetailsWebviewProvider
 			}
 
 			if (this._pendingContext == null) {
-				const success = await this.host.notify(DidChangeWipStateNotificationType, {
-					wip: serializeWipContext(wip),
-				} as DidChangeWipStateParams);
+				const success = await this.host.notify(
+					DidChangeWipStateNotificationType,
+					serialize({
+						wip: serializeWipContext(wip),
+					}) as DidChangeWipStateParams,
+				);
 				if (success) {
 					this._context.wip = wip;
 					return;
