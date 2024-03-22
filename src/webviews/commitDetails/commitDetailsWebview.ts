@@ -603,7 +603,7 @@ export class CommitDetailsWebviewProvider
 
 		if (this.mode === 'wip') {
 			const repo = this.container.git.getBestRepositoryOrFirst(e.editor);
-			void this.updateWipState(repo);
+			void this.updateWipState(repo, true);
 
 			return;
 		}
@@ -719,12 +719,14 @@ export class CommitDetailsWebviewProvider
 	}
 
 	@debug({ args: false })
-	private async updateWipState(repository: Repository | undefined): Promise<void> {
+	private async updateWipState(repository: Repository | undefined, onlyOnRepoChange = false): Promise<void> {
 		if (this._wipSubscription != null) {
 			const { repo, subscription } = this._wipSubscription;
 			if (repository?.path !== repo.path) {
 				subscription.dispose();
 				this._wipSubscription = undefined;
+			} else if (onlyOnRepoChange) {
+				return;
 			}
 		}
 
