@@ -143,6 +143,16 @@ reviewRequests(first: 10) {
 		}
 	}
 }
+latestReviews (first: 10) {
+	nodes {
+		author {
+			login
+			avatarUrl
+			url
+		}
+		state
+	}
+}
 totalCommentsCount
 commits(last: 1) {
 	nodes {
