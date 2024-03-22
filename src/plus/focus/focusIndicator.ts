@@ -162,9 +162,7 @@ export class FocusIndicator implements Disposable {
 								break;
 							case 'blocked': {
 								const action = groupByMap(items, i =>
-									i.actionableCategory === 'failed-checks' ||
-									i.actionableCategory === 'mergeable-conflicts' ||
-									i.actionableCategory === 'conflicts'
+									i.actionableCategory === 'failed-checks' || i.actionableCategory === 'conflicts'
 										? i.actionableCategory
 										: 'blocked',
 								);
@@ -176,18 +174,6 @@ export class FocusIndicator implements Disposable {
 										'pull request',
 										actionGroupItems.length,
 									)} that ${actionGroupItems.length > 1 ? 'have' : 'has'} failed CI checks.`;
-									this._statusBarFocus.tooltip.appendMarkdown(
-										`<span style="color:#FF0000;">$(circle-filled)</span> ${message}`,
-									);
-									item ??= actionGroupItems[0];
-								}
-
-								actionGroupItems = action.get('mergeable-conflicts');
-								if (actionGroupItems?.length) {
-									const message = `You have ${pluralize(
-										'pull request',
-										actionGroupItems.length,
-									)} that can be merged once conflicts are resolved.`;
 									this._statusBarFocus.tooltip.appendMarkdown(
 										`<span style="color:#FF0000;">$(circle-filled)</span> ${message}`,
 									);
@@ -229,10 +215,7 @@ export class FocusIndicator implements Disposable {
 									let label = 'is blocked';
 									if (item.actionableCategory === 'failed-checks') {
 										label = 'failed CI checks';
-									} else if (
-										item.actionableCategory === 'mergeable-conflicts' ||
-										item.actionableCategory === 'conflicts'
-									) {
+									} else if (item.actionableCategory === 'conflicts') {
 										label = 'has conflicts';
 									}
 									topItem ??= { item: item, groupLabel: label };
