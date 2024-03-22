@@ -362,6 +362,29 @@ export abstract class IntegrationBase<
 		resource: T,
 		id: string,
 	): Promise<IssueOrPullRequest | undefined>;
+
+	async getCurrentAccount(options?: { avatarSize?: number }): Promise<Account | undefined> {
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		const currentAccount = this.container.cache.getCurrentAccount(this, () => ({
+			value: (async () => {
+				try {
+					const account = await this.getProviderCurrentAccount(this._session!, options);
+					this.resetRequestExceptionCount();
+					return account;
+				} catch (ex) {
+					return this.handleProviderException<Account | undefined>(ex, undefined, undefined);
+				}
+			})(),
+		}));
+		return currentAccount;
+	}
+
+	protected abstract getProviderCurrentAccount(
+		session: ProviderAuthenticationSession,
+		options?: { avatarSize?: number },
+	): Promise<Account | undefined>;
 }
 
 export abstract class IssueIntegration<
