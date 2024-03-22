@@ -227,11 +227,11 @@ export class FocusIndicator implements Disposable {
 									`<span style="color:#FFFF00;">$(circle-filled)</span> You have ${pluralize(
 										'pull request',
 										items.length,
-									)} that ${items.length > 1 ? 'are' : 'is'} waiting for your review.`,
+									)} that ${items.length > 1 ? 'need' : 'needs'} your review.`,
 								);
 								this._statusBarFocus.tooltip.appendMarkdown('\n');
 								this._statusBarFocus.tooltip.appendMarkdown(
-									`<span>[Show all waiting for review](command:gitlens.quickFocus?${encodeURIComponent(
+									`<span>[Show all needing your review](command:gitlens.quickFocus?${encodeURIComponent(
 										JSON.stringify({ state: { initialGroup: 'needs-review' } }),
 									)})</span>`,
 								);
