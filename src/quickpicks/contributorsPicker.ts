@@ -3,13 +3,13 @@ import { window } from 'vscode';
 import { ClearQuickInputButton } from '../commands/quickCommand.buttons';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
-import type { GitContributor } from '../git/models/contributor';
+import type { ContributorQuickPickItem, GitContributor } from '../git/models/contributor';
+import { createContributorQuickPickItem, sortContributors } from '../git/models/contributor';
 import type { Repository } from '../git/models/repository';
+import { debounce } from '../system/function';
 import { defer } from '../system/promise';
 import { pad, truncate } from '../system/string';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
-import type { ContributorQuickPickItem } from './items/gitCommands';
-import { createContributorQuickPickItem } from './items/gitCommands';
 
 export async function showContributorsPicker(
 	container: Container,
@@ -34,6 +34,25 @@ export async function showContributorsPicker(
 			quickpick.onDidHide(() => deferred.fulfill(undefined)),
 			quickpick.onDidAccept(() =>
 				!quickpick.busy ? deferred.fulfill(quickpick.selectedItems.map(c => c.item)) : undefined,
+			),
+			quickpick.onDidChangeSelection(
+				debounce(e => {
+					if (!quickpick.canSelectMany || quickpick.busy) return;
+
+					let update = false;
+					for (const item of quickpick.items) {
+						const picked = e.includes(item);
+						if (item.picked !== picked || item.alwaysShow !== picked) {
+							item.alwaysShow = item.picked = picked;
+							update = true;
+						}
+					}
+
+					if (update) {
+						quickpick.items = sortContributors([...quickpick.items]);
+						quickpick.selectedItems = e;
+					}
+				}, 10),
 			),
 			quickpick.onDidTriggerButton(e => {
 				if (e === ClearQuickInputButton) {
@@ -68,7 +87,7 @@ export async function showContributorsPicker(
 
 		if (!deferred.pending) return;
 
-		quickpick.items = items;
+		quickpick.items = sortContributors(items);
 		if (quickpick.canSelectMany) {
 			quickpick.selectedItems = items.filter(i => i.picked);
 		} else {

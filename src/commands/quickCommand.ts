@@ -69,6 +69,7 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 
 	onDidAccept?(quickpick: QuickPick<DirectiveQuickPickItem | T>): boolean | Promise<boolean>;
 	onDidChangeValue?(quickpick: QuickPick<DirectiveQuickPickItem | T>): boolean | Promise<boolean>;
+	onDidChangeSelection?(quickpick: QuickPick<DirectiveQuickPickItem | T>, selection: readonly T[]): void;
 	onDidClickButton?(
 		quickpick: QuickPick<DirectiveQuickPickItem | T>,
 		button: QuickInputButton,

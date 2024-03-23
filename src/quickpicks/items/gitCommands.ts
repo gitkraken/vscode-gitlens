@@ -8,7 +8,6 @@ import { emojify } from '../../emojis';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit, GitStashCommit } from '../../git/models/commit';
 import { isStash } from '../../git/models/commit';
-import type { GitContributor } from '../../git/models/contributor';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isRevisionRange, shortenRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
@@ -241,25 +240,6 @@ export function createStashQuickPickItem(
 		iconPath: options?.icon ? new ThemeIcon('archive') : undefined,
 	};
 
-	return item;
-}
-
-export type ContributorQuickPickItem = QuickPickItemOfT<GitContributor>;
-
-export async function createContributorQuickPickItem(
-	contributor: GitContributor,
-	picked?: boolean,
-	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[] },
-): Promise<ContributorQuickPickItem> {
-	const item: ContributorQuickPickItem = {
-		label: contributor.label,
-		description: contributor.current ? 'you' : contributor.email,
-		alwaysShow: options?.alwaysShow,
-		buttons: options?.buttons,
-		picked: picked,
-		item: contributor,
-		iconPath: configuration.get('gitCommands.avatars') ? await contributor.getAvatarUri() : undefined,
-	};
 	return item;
 }
 

@@ -16,7 +16,8 @@ import type { BranchSortOptions, GitBranch } from '../git/models/branch';
 import { sortBranches } from '../git/models/branch';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import { isCommit, isStash } from '../git/models/commit';
-import type { GitContributor } from '../git/models/contributor';
+import type { ContributorQuickPickItem, GitContributor } from '../git/models/contributor';
+import { createContributorQuickPickItem, sortContributors } from '../git/models/contributor';
 import type { GitLog } from '../git/models/log';
 import type { GitBranchReference, GitReference, GitRevisionReference, GitTagReference } from '../git/models/reference';
 import {
@@ -70,11 +71,10 @@ import {
 import type { QuickPickSeparator } from '../quickpicks/items/common';
 import { CommandQuickPickItem, createQuickPickSeparator } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
-import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive';
+import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
 import type {
 	BranchQuickPickItem,
 	CommitQuickPickItem,
-	ContributorQuickPickItem,
 	RemoteQuickPickItem,
 	RepositoryQuickPickItem,
 	TagQuickPickItem,
@@ -83,7 +83,6 @@ import type {
 import {
 	createBranchQuickPickItem,
 	createCommitQuickPickItem,
-	createContributorQuickPickItem,
 	createRefQuickPickItem,
 	createRemoteQuickPickItem,
 	createRepositoryQuickPickItem,
@@ -100,6 +99,7 @@ import {
 import { filterMap, intersection, isStringArray } from '../system/array';
 import { configuration } from '../system/configuration';
 import { formatPath } from '../system/formatPath';
+import { debounce } from '../system/function';
 import { first, map } from '../system/iterable';
 import { getSettledValue } from '../system/promise';
 import { pad, pluralize, truncate } from '../system/string';
@@ -1335,7 +1335,7 @@ export function* pickContributorsStep<
 			);
 		}
 
-		return items;
+		return sortContributors(items);
 	}
 
 	const step = createPickStep<ContributorQuickPickItem>({
@@ -1350,6 +1350,25 @@ export function* pickContributorsStep<
 				void ContributorActions.reveal(item, { select: true, focus: false, expand: true });
 			}
 		},
+		onDidChangeSelection: debounce((quickpick, e) => {
+			if (!quickpick.canSelectMany || quickpick.busy) return;
+
+			let update = false;
+			for (const item of quickpick.items) {
+				if (isDirectiveQuickPickItem(item)) continue;
+
+				const picked = e.includes(item);
+				if (item.picked !== picked || item.alwaysShow !== picked) {
+					item.alwaysShow = item.picked = picked;
+					update = true;
+				}
+			}
+
+			if (update) {
+				quickpick.items = sortContributors([...quickpick.items]);
+				quickpick.selectedItems = e;
+			}
+		}, 10),
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: (_quickpick, _key, { item }) => {
 			void ContributorActions.reveal(item, {
