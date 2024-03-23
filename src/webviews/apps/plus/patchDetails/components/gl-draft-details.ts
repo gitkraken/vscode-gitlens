@@ -296,6 +296,8 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	renderUserSelection(userSelection: DraftUserSelection, role: DraftRole) {
+		if (userSelection.change === 'delete') return undefined;
+
 		const selectionRole = userSelection.pendingRole ?? userSelection.user!.role;
 		const options = new Map<string, string>([
 			['owner', 'owner'],
@@ -355,9 +357,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	renderUserSelectionList(draft: CloudDraftDetails) {
-		if (draft.userSelections == null || draft.userSelections.length === 0) {
-			return undefined;
-		}
+		if (!draft.userSelections?.length) return undefined;
 
 		return html`
 			<div class="message-input">
