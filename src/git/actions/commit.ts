@@ -24,6 +24,7 @@ import type { GitFile } from '../models/file';
 import { GitFileChange } from '../models/file';
 import type { GitRevisionReference } from '../models/reference';
 import {
+	createReference,
 	createRevisionRange,
 	getReferenceFromRevision,
 	getReferenceLabel,
@@ -623,17 +624,22 @@ export async function openFileAtRevision(
 			return;
 		}
 
-		const pickedUri = await showRevisionFilesPicker(Container.instance, gitUri, {
-			ignoreFocusOut: true,
-			title: `Open File at Revision \u2022 Unable to open '${gitUri.relativePath}'`,
-			placeholder: 'Choose a file revision to open',
-			keyboard: {
-				keys: ['right', 'alt+right', 'ctrl+right'],
-				onDidPressKey: async (key, uri) => {
-					await findOrOpenEditor(uri, { ...opts, preserveFocus: true, preview: true });
+		const pickedUri = await showRevisionFilesPicker(
+			Container.instance,
+			createReference(gitUri.sha!, gitUri.repoPath!),
+			{
+				ignoreFocusOut: true,
+				initialPath: gitUri.relativePath,
+				title: `Open File at Revision \u2022 Unable to open '${gitUri.relativePath}'`,
+				placeholder: 'Choose a file revision to open',
+				keyboard: {
+					keys: ['right', 'alt+right', 'ctrl+right'],
+					onDidPressKey: async (key, uri) => {
+						await findOrOpenEditor(uri, { ...opts, preserveFocus: true, preview: true });
+					},
 				},
 			},
-		});
+		);
 		if (pickedUri == null) return;
 
 		editor = await findOrOpenEditor(pickedUri, opts);

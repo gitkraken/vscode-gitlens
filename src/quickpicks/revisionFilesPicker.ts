@@ -2,7 +2,7 @@ import type { Disposable, Uri } from 'vscode';
 import { window } from 'vscode';
 import type { Keys } from '../constants';
 import type { Container } from '../container';
-import type { GitUri } from '../git/gitUri';
+import type { GitRevisionReference } from '../git/models/reference';
 import type { GitTreeEntry } from '../git/models/tree';
 import { filterMap } from '../system/iterable';
 import type { KeyboardScope } from '../system/keyboard';
@@ -14,7 +14,7 @@ export type RevisionQuickPickItem = QuickPickItemOfT<GitTreeEntry>;
 
 export async function showRevisionFilesPicker(
 	container: Container,
-	uri: GitUri,
+	revision: GitRevisionReference,
 	options: {
 		ignoreFocusOut?: boolean;
 		initialPath?: string;
@@ -28,8 +28,8 @@ export async function showRevisionFilesPicker(
 ): Promise<Uri | undefined> {
 	const disposables: Disposable[] = [];
 
-	const repoPath = uri.repoPath!;
-	const ref = uri.sha!;
+	const repoPath = revision.repoPath;
+	const ref = revision.ref;
 
 	function getRevisionUri(item: RevisionQuickPickItem) {
 		return container.git.getRevisionUri(ref, `${repoPath}/${item.item.path}`, repoPath);
@@ -39,7 +39,7 @@ export async function showRevisionFilesPicker(
 		const quickpick = window.createQuickPick<RevisionQuickPickItem>();
 		quickpick.ignoreFocusOut = options?.ignoreFocusOut ?? getQuickPickIgnoreFocusOut();
 
-		const value = options.initialPath ?? uri.relativePath;
+		const value = options.initialPath ?? '';
 
 		let scope: KeyboardScope | undefined;
 		if (options?.keyboard != null) {
@@ -81,7 +81,7 @@ export async function showRevisionFilesPicker(
 		quickpick.busy = true;
 		quickpick.show();
 
-		const tree = await container.git.getTreeForRevision(uri.repoPath, ref);
+		const tree = await container.git.getTreeForRevision(repoPath, ref);
 		const items: RevisionQuickPickItem[] = [
 			...filterMap(tree, file => {
 				// Exclude directories
