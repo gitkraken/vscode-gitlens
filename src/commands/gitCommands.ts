@@ -802,7 +802,7 @@ export class GitCommandsCommand extends Command {
 
 						quickpick.buttons = this.getButtons(undefined, command);
 					}),
-					quickpick.onDidChangeSelection(_e => {
+					quickpick.onDidChangeSelection(e => {
 						if (!quickpick.canSelectMany) return;
 
 						// If something is selected, keep the quick pick open on focus loss
@@ -810,6 +810,8 @@ export class GitCommandsCommand extends Command {
 							quickpick.ignoreFocusOut = true;
 							step.ignoreFocusOut = true;
 						}
+
+						step.onDidChangeSelection?.(quickpick, e);
 					}),
 					quickpick.onDidAccept(async () => {
 						let items = quickpick.selectedItems;
@@ -932,7 +934,6 @@ export class GitCommandsCommand extends Command {
 
 				if (quickpick.canSelectMany) {
 					quickpick.selectedItems = step.selectedItems ?? quickpick.items.filter(i => i.picked);
-					quickpick.activeItems = quickpick.selectedItems;
 				} else {
 					quickpick.activeItems = step.selectedItems ?? quickpick.items.filter(i => i.picked);
 				}
