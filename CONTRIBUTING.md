@@ -104,7 +104,11 @@ yarn run package
 
 1. Open the `vscode-gitlens` folder
 2. Ensure the required [dependencies](#dependencies) are installed
-3. Choose the `Watch & Run` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
+3. Choose the `Watch & Run` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`
+4. A new VS Code "Extension Development Host" window will open with the extension loaded and ready for debugging
+5. If the "Extension Development Host" window opened without a folder/workspace with a repository (required for most GitLens functionality), you will need to open one and then stop and restart the debug session
+
+In order to see any code changes reflected in the "Extension Development Host" window, you will need to restart the debug session, e.g. using the "Restart" button in the debug toolbar or by pressing `[Ctrl|Cmd]+Shift+F5`. Although, if the code changes are purely within a webview, you can refresh the webview by clicking the refresh button in the toolbar associated with the webview.
 
 _Note: If you see a pop-up with a message similar to "The task cannot be tracked. Make sure to have a problem matcher defined.", you will need to install the [TypeScript + Webpack Problem Matchers](https://marketplace.visualstudio.com/items?itemName=amodio.tsl-problem-matcher) extension._
 
@@ -112,7 +116,11 @@ _Note: If you see a pop-up with a message similar to "The task cannot be tracked
 
 1. Open the `vscode-gitlens` folder
 2. Ensure the required [dependencies](#dependencies) are installed
-3. Choose the `Watch & Run (web)` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
+3. Choose the `Watch & Run (web)` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`
+4. A new VS Code "Extension Development Host" window will open with the extension loaded and ready for debugging
+5. If the "Extension Development Host" window opened without a folder/workspace with a repository (required for most GitLens functionality), you will need to open one and then stop and restart the debug session
+
+In order to see any code changes reflected in the "Extension Development Host" window, you will need to restart the debug session, e.g. using the "Restart" button in the debug toolbar or by pressing `[Ctrl|Cmd]+Shift+F5`. Although, if the code changes are purely within a webview, you can refresh the webview by clicking the refresh button in the toolbar associated with the webview.
 
 #### Using VS Code for the Web (locally)
 
