@@ -213,6 +213,7 @@ export const enum Commands {
 	OpenWorkingFileInDiffRight = 'gitlens.openWorkingFileInDiffRight',
 	PullRepositories = 'gitlens.pullRepositories',
 	PushRepositories = 'gitlens.pushRepositories',
+	QuickFocus = 'gitlens.quickFocus',
 	GitCommands = 'gitlens.gitCommands',
 	GitCommandsBranch = 'gitlens.gitCommands.branch',
 	GitCommandsBranchCreate = 'gitlens.gitCommands.branch.create',

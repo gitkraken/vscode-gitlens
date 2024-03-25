@@ -9,6 +9,7 @@ import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders';
 import type {
 	GkRepositoryId,
 	RepositoryIdentity,
+	RepositoryIdentityDescriptor,
 	RepositoryIdentityResponse,
 } from '../../gk/models/repositoryIdentities';
 import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
@@ -25,17 +26,17 @@ export class RepositoryIdentityService implements Disposable {
 
 	getRepository(
 		id: GkRepositoryId,
-		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
+		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined>;
 	getRepository(
-		identity: RepositoryIdentity,
-		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
+		identity: RepositoryIdentityDescriptor,
+		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined>;
 
 	@log()
 	getRepository(
-		idOrIdentity: GkRepositoryId | RepositoryIdentity,
-		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
+		idOrIdentity: GkRepositoryId | RepositoryIdentityDescriptor,
+		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined> {
 		return this.locateRepository(idOrIdentity, options);
 	}
@@ -43,7 +44,7 @@ export class RepositoryIdentityService implements Disposable {
 	@log()
 	async getRepositoryOrIdentity(
 		id: GkRepositoryId,
-		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
+		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | RepositoryIdentity> {
 		const identity = await this.getRepositoryIdentity(id);
 		return (await this.locateRepository(identity, options)) ?? identity;
@@ -51,35 +52,50 @@ export class RepositoryIdentityService implements Disposable {
 
 	private async locateRepository(
 		id: GkRepositoryId,
-		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
+		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined>;
 	private async locateRepository(
-		identity: RepositoryIdentity,
-		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
+		identity: RepositoryIdentityDescriptor,
+		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined>;
 	private async locateRepository(
-		idOrIdentity: GkRepositoryId | RepositoryIdentity,
-		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
+		idOrIdentity: GkRepositoryId | RepositoryIdentityDescriptor,
+		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined>;
 	@log()
 	private async locateRepository(
-		idOrIdentity: GkRepositoryId | RepositoryIdentity,
-		options?: { openIfNeeded?: boolean; prompt?: boolean; skipRefValidation?: boolean },
+		idOrIdentity: GkRepositoryId | RepositoryIdentityDescriptor,
+		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined> {
 		const identity =
 			typeof idOrIdentity === 'string' ? await this.getRepositoryIdentity(idOrIdentity) : idOrIdentity;
 
-		const matches = await this.container.repositoryPathMapping.getLocalRepoPaths({
-			remoteUrl: identity.remote?.url,
-			repoInfo:
-				identity.provider != null
-					? {
-							provider: identity.provider.id,
-							owner: identity.provider.repoDomain,
-							repoName: identity.provider.repoName,
-					  }
-					: undefined,
-		});
+		const hasInitialCommitSha =
+			identity?.initialCommitSha != null && identity.initialCommitSha !== missingRepositoryId;
+		const hasRemoteUrl = identity?.remote?.url != null;
+		const hasProviderInfo =
+			identity?.provider?.id != null &&
+			identity.provider.repoDomain != null &&
+			identity.provider.repoName != null;
+
+		if (!hasInitialCommitSha && !hasRemoteUrl && !hasProviderInfo) {
+			return undefined;
+		}
+
+		const matches =
+			hasRemoteUrl || hasProviderInfo
+				? await this.container.repositoryPathMapping.getLocalRepoPaths({
+						remoteUrl: identity.remote?.url,
+						repoInfo:
+							identity.provider != null
+								? {
+										provider: identity.provider.id,
+										owner: identity.provider.repoDomain,
+										repoName: identity.provider.repoName,
+								  }
+								: undefined,
+				  })
+				: [];
 
 		let foundRepo: Repository | undefined;
 		if (matches.length) {
@@ -92,7 +108,9 @@ export class RepositoryIdentityService implements Disposable {
 			}
 
 			if (foundRepo == null && options?.openIfNeeded) {
-				foundRepo = await this.container.git.getOrOpenRepository(Uri.file(matches[0]), { closeOnOpen: true });
+				foundRepo = await this.container.git.getOrOpenRepository(Uri.file(matches[0]), {
+					closeOnOpen: !options?.keepOpen,
+				});
 			}
 		} else {
 			const [, remoteDomain, remotePath] =
@@ -111,11 +129,7 @@ export class RepositoryIdentityService implements Disposable {
 					}
 				}
 
-				if (
-					!options?.skipRefValidation &&
-					identity.initialCommitSha != null &&
-					identity.initialCommitSha !== missingRepositoryId
-				) {
+				if (!options?.skipRefValidation && hasInitialCommitSha) {
 					// Repo ID can be any valid SHA in the repo, though standard practice is to use the
 					// first commit SHA.
 					if (await this.container.git.validateReference(repo.uri, identity.initialCommitSha)) {
@@ -150,7 +164,7 @@ export class RepositoryIdentityService implements Disposable {
 			if (repoLocatedUri == null) return undefined;
 
 			const locatedRepo = await this.container.git.getOrOpenRepository(repoLocatedUri, {
-				closeOnOpen: true,
+				closeOnOpen: !options?.keepOpen,
 				detectNested: false,
 			});
 
@@ -200,7 +214,7 @@ export class RepositoryIdentityService implements Disposable {
 		};
 	}
 
-	private async addFoundRepositoryToMap(repo: Repository, identity?: RepositoryIdentity) {
+	private async addFoundRepositoryToMap(repo: Repository, identity?: RepositoryIdentityDescriptor) {
 		const repoPath = repo.uri.fsPath;
 
 		const remotes = await repo.getRemotes();

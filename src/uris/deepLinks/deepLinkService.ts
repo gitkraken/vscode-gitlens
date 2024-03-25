@@ -2,10 +2,14 @@ import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, wo
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
+import { executeGitCommand } from '../../git/actions';
 import { openFileAtRevision } from '../../git/actions/commit';
+import type { GitBranch } from '../../git/models/branch';
 import { getBranchNameWithoutRemote } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
+import type { GitTag } from '../../git/models/tag';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type { RepositoryIdentity } from '../../gk/models/repositoryIdentities';
 import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
@@ -109,6 +113,7 @@ export class DeepLinkService implements Disposable {
 			secondaryRemoteUrl: undefined,
 			targetType: undefined,
 			targetSha: undefined,
+			action: undefined,
 		};
 	}
 
@@ -124,6 +129,7 @@ export class DeepLinkService implements Disposable {
 			targetId: link.targetId,
 			secondaryTargetId: link.secondaryTargetId,
 			secondaryRemoteUrl: link.secondaryRemoteUrl,
+			action: link.action,
 		};
 	}
 
@@ -158,7 +164,7 @@ export class DeepLinkService implements Disposable {
 		});
 	}
 
-	private async getShaForBranch(targetId: string): Promise<string | undefined> {
+	private async getBranch(targetId: string): Promise<GitBranch | undefined> {
 		const { repo, remote, secondaryRemote } = this._context;
 		if (!repo) return undefined;
 
@@ -172,8 +178,8 @@ export class DeepLinkService implements Disposable {
 		}
 
 		let branch = await repo.getBranch(branchName);
-		if (branch?.sha != null) {
-			return branch.sha;
+		if (branch != null) {
+			return branch;
 		}
 
 		// If that fails, try matching to any existing remote using its path.
@@ -187,8 +193,8 @@ export class DeepLinkService implements Disposable {
 						if (remote.provider?.owner === owner) {
 							branchName = `${remote.name}/${branchBaseName}`;
 							branch = await repo.getBranch(branchName);
-							if (branch?.sha != null) {
-								return branch.sha;
+							if (branch != null) {
+								return branch;
 							}
 						}
 					}
@@ -197,23 +203,30 @@ export class DeepLinkService implements Disposable {
 		}
 
 		// If the above don't work, it may still exist locally.
-		branch = await repo.getBranch(targetId);
-		if (branch?.sha != null) {
-			return branch.sha;
+		return repo.getBranch(targetId);
+	}
+
+	private async getCommit(targetId: string): Promise<GitCommit | undefined> {
+		const { repo } = this._context;
+		if (!repo) return undefined;
+		if (await this.container.git.validateReference(repo.path, targetId)) {
+			return repo.getCommit(targetId);
 		}
 
 		return undefined;
 	}
 
-	private async getShaForTag(targetId: string): Promise<string | undefined> {
+	private async getTag(targetId: string): Promise<GitTag | undefined> {
 		const { repo } = this._context;
-		if (!repo) return undefined;
-		const tag = await repo.getTag(targetId);
-		if (tag?.sha != null) {
-			return tag.sha;
-		}
+		return repo?.getTag(targetId);
+	}
 
-		return undefined;
+	private async getShaForBranch(targetId: string): Promise<string | undefined> {
+		return (await this.getBranch(targetId))?.sha;
+	}
+
+	private async getShaForTag(targetId: string): Promise<string | undefined> {
+		return (await this.getTag(targetId))?.sha;
 	}
 
 	private async getShaForCommit(targetId: string): Promise<string | undefined> {
@@ -255,6 +268,22 @@ export class DeepLinkService implements Disposable {
 		if (tagSha != null) return tagSha;
 
 		return this.getShaForCommit(ref);
+	}
+
+	private async getTargetRef(ref: string): Promise<GitReference | undefined> {
+		if (ref === '') return undefined;
+		if (isSha(ref)) return this.getCommit(ref);
+
+		const normalized = ref.toLocaleLowerCase();
+		if (!normalized.startsWith('refs/tags/') && !normalized.startsWith('tags/')) {
+			const branch = await this.getBranch(ref);
+			if (branch != null) return branch;
+		}
+
+		const tag = await this.getTag(ref);
+		if (tag != null) return tag;
+
+		return this.getCommit(ref);
 	}
 
 	private async getShasForTargets(): Promise<string | string[] | undefined> {
@@ -850,7 +879,11 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (targetType === DeepLinkType.Repository) {
-						action = DeepLinkServiceAction.TargetMatchedForGraph;
+						if (this._context.action === 'switch') {
+							action = DeepLinkServiceAction.TargetMatchedForSwitch;
+						} else {
+							action = DeepLinkServiceAction.TargetMatchedForGraph;
+						}
 						break;
 					}
 
@@ -885,7 +918,11 @@ export class DeepLinkService implements Disposable {
 							action = DeepLinkServiceAction.TargetsMatchedForComparison;
 							break;
 						default:
-							action = DeepLinkServiceAction.TargetMatchedForGraph;
+							if (this._context.action === 'switch') {
+								action = DeepLinkServiceAction.TargetMatchedForSwitch;
+							} else {
+								action = DeepLinkServiceAction.TargetMatchedForGraph;
+							}
 							break;
 					}
 
@@ -1076,6 +1113,28 @@ export class DeepLinkService implements Disposable {
 						message = 'Unable to open file.';
 						break;
 					}
+				}
+				case DeepLinkServiceState.SwitchToRef: {
+					if (!repo || !targetType || !targetId) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Missing repository or target type.';
+						break;
+					}
+
+					const ref = await this.getTargetRef(targetId);
+					if (ref == null) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Unable to find link target in the repository.';
+						break;
+					}
+
+					await executeGitCommand({
+						command: 'switch',
+						state: { repos: repo, reference: ref },
+					});
+
+					action = DeepLinkServiceAction.DeepLinkResolved;
+					break;
 				}
 				default: {
 					action = DeepLinkServiceAction.DeepLinkErrored;

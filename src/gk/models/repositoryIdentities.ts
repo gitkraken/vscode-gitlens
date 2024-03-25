@@ -8,11 +8,7 @@ export type GkProviderId = Branded<
 >;
 export type GkRepositoryId = Branded<string, 'GkRepositoryId'>;
 
-export interface RepositoryIdentity {
-	readonly id: GkRepositoryId;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-
+export interface RepositoryIdentityDescriptor {
 	readonly name: string;
 
 	readonly initialCommitSha?: string;
@@ -27,6 +23,12 @@ export interface RepositoryIdentity {
 		readonly repoName?: string;
 		readonly repoOwnerDomain?: string;
 	};
+}
+
+export interface RepositoryIdentity extends RepositoryIdentityDescriptor {
+	readonly id: GkRepositoryId;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
 }
 
 type BaseRepositoryIdentityRequest = {

@@ -1,7 +1,7 @@
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
-import type { IssueOrPullRequest, IssueOrPullRequestState as PullRequestState } from './issue';
+import type { IssueOrPullRequest, IssueRepository, IssueOrPullRequestState as PullRequestState } from './issue';
 import { shortenRevision } from './reference';
 import type { ProviderReference } from './remoteProvider';
 
@@ -17,6 +17,18 @@ export const enum PullRequestMergeableState {
 	Unknown = 'Unknown',
 	Mergeable = 'Mergeable',
 	Conflicting = 'Conflicting',
+}
+
+export const enum PullRequestStatusCheckRollupState {
+	Success = 'success',
+	Pending = 'pending',
+	Failed = 'failed',
+}
+
+export const enum PullRequestMergeMethod {
+	Merge = 'merge',
+	Squash = 'squash',
+	Rebase = 'rebase',
 }
 
 export interface PullRequestRef {
@@ -135,12 +147,14 @@ export class PullRequest implements PullRequestShape {
 		public readonly nodeId: string | undefined,
 		public readonly title: string,
 		public readonly url: string,
+		public readonly repository: IssueRepository,
 		public readonly state: PullRequestState,
 		public readonly createdDate: Date,
 		public readonly updatedDate: Date,
 		public readonly closedDate?: Date,
 		public readonly mergedDate?: Date,
 		public readonly mergeableState?: PullRequestMergeableState,
+		public readonly viewerCanUpdate?: boolean,
 		public readonly refs?: PullRequestRefs,
 		public readonly isDraft?: boolean,
 		public readonly additions?: number,
@@ -150,6 +164,7 @@ export class PullRequest implements PullRequestShape {
 		public readonly reviewDecision?: PullRequestReviewDecision,
 		public readonly reviewRequests?: PullRequestReviewer[],
 		public readonly assignees?: PullRequestMember[],
+		public readonly statusCheckRollupState?: PullRequestStatusCheckRollupState,
 	) {}
 
 	get closed(): boolean {

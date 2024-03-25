@@ -65,6 +65,7 @@ export interface DeepLink {
 	targetId?: string;
 	secondaryTargetId?: string;
 	secondaryRemoteUrl?: string;
+	action?: string;
 }
 
 export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
@@ -86,6 +87,8 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				repoPath = decodeURIComponent(repoPath);
 			}
 			if (!remoteUrl && !repoPath) return undefined;
+
+			const action = urlParams.get('action') ?? undefined;
 
 			if (target == null) {
 				return {
@@ -138,6 +141,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				targetId: targetId,
 				secondaryTargetId: secondaryTargetId,
 				secondaryRemoteUrl: secondaryRemoteUrl,
+				action: action,
 			};
 		}
 		case DeepLinkType.Draft: {
@@ -185,6 +189,7 @@ export const enum DeepLinkServiceState {
 	OpenDraft,
 	OpenWorkspace,
 	OpenFile,
+	SwitchToRef,
 }
 
 export const enum DeepLinkServiceAction {
@@ -210,6 +215,7 @@ export const enum DeepLinkServiceAction {
 	RemoteAdded,
 	TargetMatchedForGraph,
 	TargetMatchedForFile,
+	TargetMatchedForSwitch,
 	TargetsMatchedForComparison,
 	TargetMatchFailed,
 	TargetFetched,
@@ -233,6 +239,7 @@ export interface DeepLinkServiceContext {
 	targetType?: DeepLinkType | undefined;
 	targetSha?: string | undefined;
 	secondaryTargetSha?: string | undefined;
+	action?: string | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
@@ -295,6 +302,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.TargetMatchedForGraph]: DeepLinkServiceState.OpenGraph,
 		[DeepLinkServiceAction.TargetsMatchedForComparison]: DeepLinkServiceState.OpenComparison,
 		[DeepLinkServiceAction.TargetMatchedForFile]: DeepLinkServiceState.OpenFile,
+		[DeepLinkServiceAction.TargetMatchedForSwitch]: DeepLinkServiceState.SwitchToRef,
 		[DeepLinkServiceAction.TargetMatchFailed]: DeepLinkServiceState.Fetch,
 	},
 	[DeepLinkServiceState.Fetch]: {
@@ -306,6 +314,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.TargetMatchedForGraph]: DeepLinkServiceState.OpenGraph,
 		[DeepLinkServiceAction.TargetsMatchedForComparison]: DeepLinkServiceState.OpenComparison,
 		[DeepLinkServiceAction.TargetMatchedForFile]: DeepLinkServiceState.OpenFile,
+		[DeepLinkServiceAction.TargetMatchedForSwitch]: DeepLinkServiceState.SwitchToRef,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpenGraph]: {
@@ -325,6 +334,10 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpenFile]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.SwitchToRef]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
@@ -354,4 +367,5 @@ export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.OpenDraft]: { message: 'Opening cloud patch...', increment: 95 },
 	[DeepLinkServiceState.OpenWorkspace]: { message: 'Opening workspace...', increment: 95 },
 	[DeepLinkServiceState.OpenFile]: { message: 'Opening file...', increment: 95 },
+	[DeepLinkServiceState.SwitchToRef]: { message: 'Switching to ref...', increment: 95 },
 };

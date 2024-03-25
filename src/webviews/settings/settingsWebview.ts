@@ -202,6 +202,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 									undefined,
 									'Supercharged',
 									'https://github.com/gitkraken/vscode-gitlens/pulls/1',
+									{ owner: 'gitkraken', repo: 'vscode-gitlens' },
 									'merged',
 									new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
 									new Date('Sat, 12 Nov 2016 19:41:00 GMT'),

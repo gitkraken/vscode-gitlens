@@ -495,6 +495,7 @@ export class GitLabApi implements Disposable {
 				undefined,
 				pr.title,
 				pr.webUrl,
+				{ owner: owner, repo: repo },
 				fromGitLabMergeRequestState(pr.state),
 				new Date(pr.createdAt),
 				new Date(pr.updatedAt),
@@ -550,7 +551,7 @@ export class GitLabApi implements Disposable {
 				);
 			}
 
-			return fromGitLabMergeRequestREST(mrs[0], provider);
+			return fromGitLabMergeRequestREST(mrs[0], provider, { owner: owner, repo: repo });
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
