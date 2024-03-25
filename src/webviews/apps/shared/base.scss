@@ -62,14 +62,14 @@ a {
 	outline: none;
 	text-decoration: none;
 
+	&:focus {
+		outline-color: var(--color-focus-border);
+	}
+
 	&:not([href], [tabindex]):focus,
 	&:not([href], [tabindex]):hover {
 		color: inherit;
 		text-decoration: none;
-	}
-
-	&:focus {
-		outline-color: var(--color-focus-border);
 	}
 }
 
@@ -143,6 +143,11 @@ input[type='checkbox'] {
 	}
 }
 
+input[type='number'] {
+	max-width: 100px;
+	text-align: center;
+}
+
 input[type='number'],
 input[type='text'],
 input:not([type]),
@@ -182,11 +187,6 @@ textarea {
 	&::placeholder {
 		color: var(--vscode-input-placeholderForeground);
 	}
-}
-
-input[type='number'] {
-	max-width: 100px;
-	text-align: center;
 }
 
 kbd {
@@ -284,10 +284,6 @@ ul {
 	list-style: none;
 	margin: 0;
 	padding: 0;
-}
-
-::-webkit-scrollbar-corner {
-	background-color: transparent !important;
 }
 
 code {

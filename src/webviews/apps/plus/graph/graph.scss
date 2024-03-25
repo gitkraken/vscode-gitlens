@@ -216,21 +216,23 @@ button:not([disabled]),
 		vertical-align: bottom;
 	}
 
-	&__icon:not(.codicon) {
-		display: inline-block;
-		width: 1.6rem;
-	}
-
 	&__icon {
 		&.is-ahead {
 			color: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
 		}
+
 		&.is-behind {
 			color: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
 		}
+
 		&.is-ahead.is-behind {
 			color: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
 		}
+	}
+
+	&__icon:not(.codicon) {
+		display: inline-block;
+		width: 1.6rem;
 	}
 
 	&__more,
@@ -377,12 +379,12 @@ button:not([disabled]),
 		flex: 1;
 		padding-top: 0.1rem;
 
-		> *:not(:first-child) {
-			margin-top: 0.75rem;
-		}
-
 		> * {
 			margin-bottom: 0;
+		}
+
+		> *:not(:first-child) {
+			margin-top: 0.75rem;
 		}
 
 		& a:not([class]) {
@@ -628,8 +630,8 @@ button:not([disabled]),
 			// codicon-git-branch
 			font-family: codicon;
 			content: '\ea68';
-			top: 0px;
-			margin: 0 0 0 0;
+			top: 0;
+			margin: 0;
 		}
 	}
 
@@ -646,8 +648,8 @@ button:not([disabled]),
 			// codicon-git-commit
 			font-family: codicon;
 			content: '\eafc';
-			top: 0px;
-			margin: 0 0 0 0;
+			top: 0;
+			margin: 0;
 		}
 	}
 
@@ -866,27 +868,27 @@ button:not([disabled]),
 	.graph-icon {
 		position: relative;
 		top: -3px;
-		color: var(--text-disabled, hsla(0, 0%, 100%, 0.4));
+		color: var(--text-disabled, hsla(0deg, 0%, 100%, 0.4));
 	}
 }
 
 .graph-container {
-	& .resizable-handle.horizontal {
+	.resizable-handle.horizontal {
 		display: none;
 	}
 
-	& .node.stash-node .graph-icon {
+	.node.stash-node .graph-icon {
 		transform: translateY(-2px);
 	}
 
-	& .graph-adjust-commit-count {
+	.graph-adjust-commit-count {
 		display: flex;
 		width: calc(100vw - var(--scrollable-scrollbar-thickness));
 		align-items: center;
 		justify-content: center;
 	}
 
-	& .changes-zone.changes-bar .changes-sub-bar.deleted {
+	.changes-zone.changes-bar .changes-sub-bar.deleted {
 		margin-left: 2px;
 	}
 }
@@ -904,7 +906,7 @@ button:not([disabled]),
 	width: 100%;
 	overflow: hidden;
 
-	& .progress-bar {
+	.progress-bar {
 		background-color: var(--vscode-progressBar-background);
 		display: none;
 		position: absolute;
@@ -917,6 +919,14 @@ button:not([disabled]),
 		display: inherit;
 	}
 
+	&.infinite .progress-bar {
+		animation-name: progress;
+		animation-duration: 4s;
+		animation-iteration-count: infinite;
+		animation-timing-function: steps(100);
+		transform: translateZ(0);
+	}
+
 	&.discrete .progress-bar {
 		left: 0;
 		transition: width 0.1s linear;
@@ -924,14 +934,6 @@ button:not([disabled]),
 
 	&.discrete.done .progress-bar {
 		width: 100%;
-	}
-
-	&.infinite .progress-bar {
-		animation-name: progress;
-		animation-duration: 4s;
-		animation-iteration-count: infinite;
-		animation-timing-function: steps(100);
-		transform: translateZ(0);
 	}
 }
 
