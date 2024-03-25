@@ -21,6 +21,7 @@ import type { Account } from '../../../../git/models/author';
 import type { DefaultBranch } from '../../../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../../../git/models/issue';
 import type { PullRequest, SearchedPullRequest } from '../../../../git/models/pullRequest';
+import { PullRequestMergeMethod } from '../../../../git/models/pullRequest';
 import { isSha } from '../../../../git/models/reference';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
@@ -112,6 +113,7 @@ deletions
 updatedAt
 closedAt
 mergeable
+viewerCanUpdate
 mergedAt
 mergedBy {
 	login
@@ -121,9 +123,11 @@ reactions(content: THUMBS_UP) {
 }
 repository {
 	isFork
+	name
 	owner {
 		login
 	}
+	viewerPermission
 }
 reviewDecision
 reviewRequests(first: 10) {
@@ -140,6 +144,16 @@ reviewRequests(first: 10) {
 	}
 }
 totalCommentsCount
+commits(last: 1) {
+	nodes {
+		commit {
+			oid
+			statusCheckRollup {
+				state
+			}
+		}
+	}
+}
 `;
 
 const issueNodeProperties = `
@@ -181,6 +195,7 @@ const issueNodeProperties = `
 		owner {
 			login
 		}
+		viewerPermission
 	}
 }
 `;
@@ -636,9 +651,11 @@ export class GitHubApi implements Disposable {
 					}
 					repository {
 						isFork
+						name
 						owner {
 							login
 						}
+						viewerPermission
 					}
 					isCrossRepository
 				}
@@ -757,10 +774,12 @@ export class GitHubApi implements Disposable {
 							url
 						}
 						repository {
+							name
 							isFork
 							owner {
 								login
 							}
+							viewerPermission
 						}
 						isCrossRepository
 					}
@@ -2868,6 +2887,71 @@ export class GitHubApi implements Disposable {
 				r => r.issue.url,
 			);
 			return results;
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	@debug<GitHubApi['mergePullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async mergePullRequest(
+		provider: Provider,
+		token: string,
+		nodeId: string,
+		expectedSourceSha: string,
+		options?: { mergeMethod?: PullRequestMergeMethod; baseUrl?: string },
+		cancellation?: CancellationToken,
+	): Promise<boolean> {
+		const scope = getLogScope();
+		interface QueryResult {
+			pullRequest: GitHubPullRequest | null | undefined;
+		}
+
+		let githubMergeStrategy;
+		switch (options?.mergeMethod) {
+			case PullRequestMergeMethod.Merge: {
+				githubMergeStrategy = 'MERGE';
+				break;
+			}
+
+			case PullRequestMergeMethod.Rebase: {
+				githubMergeStrategy = 'REBASE';
+				break;
+			}
+
+			case PullRequestMergeMethod.Squash: {
+				githubMergeStrategy = 'SQUASH';
+				break;
+			}
+		}
+
+		try {
+			const query = `mutation mergePullRequest(
+	$id: ID!
+	$expectedSourceSha: GitObjectID!
+	$mergeMethod: PullRequestMergeMethod
+) {
+	mergePullRequest(input: { pullRequestId: $id, expectedHeadOid: $expectedSourceSha, mergeMethod: $mergeMethod }) {
+		pullRequest {
+			id
+		}
+	}
+}`;
+
+			const resp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{
+					id: nodeId,
+					expectedSourceSha: expectedSourceSha,
+					mergeMethod: githubMergeStrategy,
+					baseUrl: options?.baseUrl,
+				},
+				scope,
+				cancellation,
+			);
+
+			return resp?.pullRequest?.id === nodeId;
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}

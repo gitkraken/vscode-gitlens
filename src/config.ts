@@ -84,6 +84,16 @@ export interface Config {
 	};
 	readonly focus: {
 		readonly allowMultiple: boolean;
+		readonly experimental: {
+			readonly indicators: {
+				readonly enabled: boolean;
+				readonly openQuickFocus: boolean;
+				readonly data: {
+					readonly enabled: boolean;
+					readonly refreshRate: number;
+				};
+			};
+		};
 	};
 	readonly gitCommands: {
 		readonly avatars: boolean;

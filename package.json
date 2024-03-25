@@ -2796,6 +2796,34 @@
 						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Focus_",
 						"scope": "window",
 						"order": 10
+					},
+					"gitlens.focus.experimental.indicators.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether to enable status bar indicators for _Focus_",
+						"scope": "window",
+						"order": 21
+					},
+					"gitlens.focus.experimental.indicators.openQuickFocus": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "(Experimental) Specifies whether to open _Focus_ or _Quick Focus_ when clicking on the indicators",
+						"scope": "window",
+						"order": 22
+					},
+					"gitlens.focus.experimental.indicators.data.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "(Experimental) Specifies whether the status bar indicators will fetch data for _Focus_.",
+						"scope": "window",
+						"order": 23
+					},
+					"gitlens.focus.experimental.indicators.data.refreshRate": {
+						"type": "number",
+						"default": 30,
+						"markdownDescription": "(Experimental) Specifies the rate (in minutes) at which to refresh the status bar indicators for _Focus_. Use 0 to disable automatic refreshing",
+						"scope": "window",
+						"order": 24
 					}
 				}
 			},
@@ -5262,16 +5290,28 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.quickFocus",
+				"title": "Quick Focus",
+				"category": "GitLens",
+				"icon": "$(target)"
+			},
+			{
 				"command": "gitlens.showFocusPage",
 				"title": "Show Focus",
 				"category": "GitLens",
-				"icon": "$(layers)"
+				"icon": "$(target)"
 			},
 			{
 				"command": "gitlens.focus.split",
 				"title": "Split Focus",
 				"category": "GitLens",
 				"icon": "$(split-horizontal)"
+			},
+			{
+				"command": "gitlens.focus.experimental.updateIndicators",
+				"title": "Update Focus Indicators",
+				"category": "GitLens",
+				"icon": "$(sync)"
 			},
 			{
 				"command": "gitlens.showGraph",
@@ -9161,12 +9201,20 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.quickFocus",
+					"when": "gitlens:prerelease"
+				},
+				{
 					"command": "gitlens.showFocusPage",
 					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.focus.split",
 					"when": "gitlens:enabled && config.gitlens.focus.allowMultiple"
+				},
+				{
+					"command": "gitlens.focus.experimental.updateIndicators",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.showGraph",

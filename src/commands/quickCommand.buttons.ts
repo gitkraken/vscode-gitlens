@@ -112,6 +112,35 @@ export const PickCommitToggleQuickInputButton = class extends ToggleQuickInputBu
 	}
 };
 
+export const MergeQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('merge'),
+	tooltip: 'Merge',
+};
+
+export const PinQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('pinned'),
+	tooltip: 'Pin',
+};
+
+export const UnpinQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('pin'),
+	tooltip: 'Unpin',
+};
+
+export const SnoozeQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('bell-slash'),
+	tooltip: 'Snooze',
+};
+
+export const RefreshQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('refresh'),
+	tooltip: 'Refresh',
+};
+
+export const UnsnoozeQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('bell'),
+	tooltip: 'Unsnooze',
+};
 export const OpenInNewWindowQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('empty-window'),
 	tooltip: 'Open in New Window',

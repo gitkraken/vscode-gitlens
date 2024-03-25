@@ -89,7 +89,11 @@ export interface GitLabMergeRequestREST {
 	web_url: string;
 }
 
-export function fromGitLabMergeRequestREST(pr: GitLabMergeRequestREST, provider: Provider): PullRequest {
+export function fromGitLabMergeRequestREST(
+	pr: GitLabMergeRequestREST,
+	provider: Provider,
+	repo: { owner: string; repo: string },
+): PullRequest {
 	return new PullRequest(
 		provider,
 		{
@@ -101,6 +105,7 @@ export function fromGitLabMergeRequestREST(pr: GitLabMergeRequestREST, provider:
 		undefined,
 		pr.title,
 		pr.web_url,
+		repo,
 		fromGitLabMergeRequestState(pr.state),
 		new Date(pr.created_at),
 		new Date(pr.updated_at),

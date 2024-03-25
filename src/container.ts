@@ -20,6 +20,8 @@ import { LineHoverController } from './hovers/lineHoverController';
 import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPathMappingProvider';
 import { DraftService } from './plus/drafts/draftsService';
 import { EnrichmentService } from './plus/focus/enrichmentService';
+import { FocusIndicator } from './plus/focus/focusIndicator';
+import { FocusProvider } from './plus/focus/focusProvider';
 import { AccountAuthenticationProvider } from './plus/gk/account/authenticationProvider';
 import { OrganizationService } from './plus/gk/account/organizationService';
 import { SubscriptionService } from './plus/gk/account/subscriptionService';
@@ -188,6 +190,7 @@ export class Container {
 	private _disposables: Disposable[];
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
 	private _webviews: WebviewsController;
+	private _focusIndicator: FocusIndicator | undefined;
 
 	private constructor(
 		context: ExtensionContext,
@@ -229,6 +232,7 @@ export class Container {
 		this._disposables.push((this._keyboard = new Keyboard()));
 		this._disposables.push((this._vsls = new VslsController(this)));
 		this._disposables.push((this._eventBus = new EventBus()));
+		this._disposables.push((this._focusProvider = new FocusProvider(this)));
 
 		this._disposables.push((this._fileAnnotationController = new FileAnnotationController(this)));
 		this._disposables.push((this._lineAnnotationController = new LineAnnotationController(this)));
@@ -285,17 +289,30 @@ export class Container {
 		this._disposables.push((this._homeView = registerHomeWebviewView(this._webviews)));
 		this._disposables.push((this._accountView = registerAccountWebviewView(this._webviews)));
 
+		if (configuration.get('focus.experimental.indicators.enabled')) {
+			this._disposables.push((this._focusIndicator = new FocusIndicator(this, this._focusProvider)));
+		}
+
 		if (configuration.get('terminalLinks.enabled')) {
 			this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
 		}
 
 		this._disposables.push(
 			configuration.onDidChange(e => {
-				if (!configuration.changed(e, 'terminalLinks.enabled')) return;
+				if (configuration.changed(e, 'terminalLinks.enabled')) {
+					this._terminalLinks?.dispose();
+					this._terminalLinks = undefined;
+					if (configuration.get('terminalLinks.enabled')) {
+						this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
+					}
+				}
 
-				this._terminalLinks?.dispose();
-				if (configuration.get('terminalLinks.enabled')) {
-					this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
+				if (configuration.changed(e, 'focus.experimental.indicators.enabled')) {
+					this._focusIndicator?.dispose();
+					this._focusIndicator = undefined;
+					if (configuration.get('focus.experimental.indicators.enabled')) {
+						this._disposables.push((this._focusIndicator = new FocusIndicator(this, this._focusProvider)));
+					}
 				}
 			}),
 		);
@@ -508,6 +525,11 @@ export class Container {
 	private readonly _fileHistoryView: FileHistoryView;
 	get fileHistoryView() {
 		return this._fileHistoryView;
+	}
+
+	private readonly _focusProvider: FocusProvider;
+	get focus(): FocusProvider {
+		return this._focusProvider;
 	}
 
 	private readonly _git: GitProviderService;
