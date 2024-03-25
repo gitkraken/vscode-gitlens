@@ -11,6 +11,7 @@ export const commitActionStyles = css`
 		padding: 0.2rem;
 		vertical-align: text-bottom;
 		text-decoration: none;
+		gap: 0.2rem;
 	}
 
 	.commit-action > * {

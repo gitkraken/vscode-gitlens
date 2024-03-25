@@ -22,6 +22,7 @@ export class GlStatusNav extends LitElement {
 				/* flex-wrap: wrap; */
 				align-items: center;
 				justify-content: space-between;
+				gap: 0.2rem;
 			}
 
 			.commit-action--overflowed {
