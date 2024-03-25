@@ -279,6 +279,10 @@ export class SearchAndCompareView extends ViewBase<
 		super(container, 'searchAndCompare', 'Search & Compare', 'searchAndCompareView');
 	}
 
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
 	protected getRoot() {
 		return new SearchAndCompareViewNode(this);
 	}

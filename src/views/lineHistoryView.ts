@@ -20,6 +20,10 @@ export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerN
 		void setContext('gitlens:views:lineHistory:editorFollowing', true);
 	}
 
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
 	protected override get showCollapseAll(): boolean {
 		return false;
 	}

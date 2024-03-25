@@ -1,7 +1,6 @@
 import type { Uri } from 'vscode';
 import type { WorktreeGitCommandArgs } from '../../commands/git/worktree';
 import { Container } from '../../container';
-import { ensure } from '../../system/array';
 import { defer } from '../../system/promise';
 import type { OpenWorkspaceLocation } from '../../system/utils';
 import { executeGitCommand } from '../actions';
@@ -70,10 +69,10 @@ export function open(worktree: GitWorktree, options?: { location?: OpenWorkspace
 	});
 }
 
-export function remove(repo?: string | Repository, uri?: Uri) {
+export function remove(repo?: string | Repository, uris?: Uri[]) {
 	return executeGitCommand({
 		command: 'worktree',
-		state: { subcommand: 'delete', repo: repo, uris: ensure(uri) },
+		state: { subcommand: 'delete', repo: repo, uris: uris },
 	});
 }
 

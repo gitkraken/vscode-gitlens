@@ -98,6 +98,10 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 		return this.config.reveal || !configuration.get('views.repositories.showStashes');
 	}
 
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
 	protected getRoot() {
 		return new StashesViewNode(this);
 	}

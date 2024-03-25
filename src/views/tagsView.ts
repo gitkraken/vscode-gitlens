@@ -99,6 +99,10 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 		return this.config.reveal || !configuration.get('views.repositories.showTags');
 	}
 
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
 	protected getRoot() {
 		return new TagsViewNode(this);
 	}

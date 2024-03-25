@@ -141,6 +141,10 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 		return this.config.reveal || !configuration.get('views.repositories.showContributors');
 	}
 
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
 	private readonly _state: ContributorsViewState = { hideMergeCommits: true };
 	get state(): ContributorsViewState {
 		return this._state;

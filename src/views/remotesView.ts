@@ -112,6 +112,10 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 		return this.config.reveal || !configuration.get('views.repositories.showRemotes');
 	}
 
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
 	protected getRoot() {
 		return new RemotesViewNode(this);
 	}
