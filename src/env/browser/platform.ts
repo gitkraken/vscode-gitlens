@@ -13,3 +13,7 @@ export function getPlatform(): string {
 	if (isLinux) return 'web-linux';
 	return 'web';
 }
+
+export function getTempFile(filename: string): string {
+	return filename;
+}

@@ -572,12 +572,6 @@ export interface ViewsCommonConfig {
 	readonly openChangesInMultiDiffEditor: boolean;
 	readonly pageItemLimit: number;
 	readonly showRelativeDateMarkers: boolean;
-
-	readonly experimental: {
-		readonly multiSelect: {
-			readonly enabled: boolean | null | undefined;
-		};
-	};
 }
 
 export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [

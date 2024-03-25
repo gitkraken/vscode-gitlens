@@ -30,6 +30,10 @@ export class FileHistoryView extends ViewBase<
 		void setContext('gitlens:views:fileHistory:editorFollowing', this._followEditor);
 	}
 
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
 	protected override get showCollapseAll(): boolean {
 		return false;
 	}

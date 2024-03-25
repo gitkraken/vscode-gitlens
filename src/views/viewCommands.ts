@@ -1,5 +1,6 @@
 import type { Disposable, TextDocumentShowOptions } from 'vscode';
-import { env, Uri, window } from 'vscode';
+import { env, Uri, window, workspace } from 'vscode';
+import { getTempFile } from '@env/platform';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
 import type { DiffWithCommandArgs } from '../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';
@@ -79,37 +80,37 @@ interface CompareSelectedInfo {
 	uri?: Uri;
 }
 
-const enum ViewCommandMultiSelectMode {
-	Disallowed,
-	Allowed,
-	Custom,
-}
-
 export function registerViewCommand(
 	command: string,
 	callback: (...args: any[]) => unknown,
 	thisArg?: any,
-	multiSelect: ViewCommandMultiSelectMode = ViewCommandMultiSelectMode.Allowed,
+	multiselect: boolean | 'sequential' = false,
 ): Disposable {
 	return registerCommand(
 		command,
 		(...args: any[]) => {
-			if (multiSelect !== ViewCommandMultiSelectMode.Disallowed) {
-				let [node, nodes, ...rest] = args;
-				// If there is a node followed by an array of nodes, then we want to execute the command for each
-				if (node instanceof ViewNode && Array.isArray(nodes) && nodes[0] instanceof ViewNode) {
-					nodes = nodes.filter(n => n?.constructor === node.constructor);
+			if (multiselect) {
+				const [active, selection, ...rest] = args;
 
-					if (multiSelect === ViewCommandMultiSelectMode.Custom) {
-						return callback.apply(thisArg, [node, nodes, ...rest]);
+				// If there is a node followed by an array of nodes, then check how we want to execute the command
+				if (active instanceof ViewNode && Array.isArray(selection) && selection[0] instanceof ViewNode) {
+					const nodes = selection.filter((n): n is ViewNode => n?.constructor === active.constructor);
+
+					if (multiselect === 'sequential') {
+						if (!nodes.includes(active)) {
+							nodes.splice(0, 0, active);
+						}
+
+						// Execute the command for each node sequentially
+						return sequentialize(
+							callback,
+							nodes.map<[ViewNode, ...any[]]>(n => [n, ...rest]),
+							thisArg,
+						);
 					}
 
-					return sequentialize(
-						callback,
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-						(nodes as ViewNode[]).map(n => [n, ...rest]),
-						thisArg,
-					);
+					// Delegate to the callback to handle the multi-select
+					return callback.apply(thisArg, [active, nodes, ...rest]);
 				}
 			}
 
@@ -123,8 +124,7 @@ export class ViewCommands {
 	constructor(private readonly container: Container) {
 		registerViewCommand('gitlens.views.clearComparison', n => this.clearComparison(n), this);
 		registerViewCommand('gitlens.views.clearReviewed', n => this.clearReviewed(n), this);
-		// Register independently as it already handles copying multiple nodes
-		registerCommand(
+		registerViewCommand(
 			Commands.ViewsCopy,
 			async (active: ViewNode | undefined, selection: ViewNode[]) => {
 				selection = Array.isArray(selection) ? selection : active != null ? [active] : [];
@@ -137,6 +137,7 @@ export class ViewCommands {
 				await env.clipboard.writeText(data);
 			},
 			this,
+			true,
 		);
 		registerViewCommand('gitlens.views.collapseNode', () => executeCoreCommand('list.collapseAllToFocus'), this);
 		registerViewCommand(
@@ -163,6 +164,7 @@ export class ViewCommands {
 				return n.view.refreshNode(n, reset == null ? true : reset);
 			},
 			this,
+			'sequential',
 		);
 
 		registerViewCommand(
@@ -190,7 +192,9 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.openInTerminal', this.openInTerminal, this);
 		registerViewCommand('gitlens.views.openInIntegratedTerminal', this.openInIntegratedTerminal, this);
 		registerViewCommand('gitlens.views.star', this.star, this);
+		registerViewCommand('gitlens.views.star.multi', this.star, this, 'sequential');
 		registerViewCommand('gitlens.views.unstar', this.unstar, this);
+		registerViewCommand('gitlens.views.unstar.multi', this.unstar, this, 'sequential');
 
 		registerViewCommand('gitlens.views.browseRepoAtRevision', this.browseRepoAtRevision, this);
 		registerViewCommand(
@@ -211,6 +215,30 @@ export class ViewCommands {
 
 		registerViewCommand('gitlens.views.addAuthors', this.addAuthors, this);
 		registerViewCommand('gitlens.views.addAuthor', this.addAuthor, this);
+		registerViewCommand('gitlens.views.addAuthor.multi', this.addAuthor, this, true);
+
+		registerViewCommand(
+			'gitlens.views.openBranchOnRemote',
+			n => executeCommand(Commands.OpenBranchOnRemote, n),
+			this,
+		);
+		registerViewCommand(
+			'gitlens.views.openBranchOnRemote.multi',
+			n => executeCommand(Commands.OpenBranchOnRemote, n),
+			this,
+			'sequential',
+		);
+		registerViewCommand(
+			'gitlens.views.openCommitOnRemote',
+			n => executeCommand(Commands.OpenCommitOnRemote, n),
+			this,
+		);
+		registerViewCommand(
+			'gitlens.views.openCommitOnRemote.multi',
+			n => executeCommand(Commands.OpenCommitOnRemote, n),
+			this,
+			'sequential',
+		);
 
 		registerViewCommand('gitlens.views.openChanges', this.openChanges, this);
 		registerViewCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this);
@@ -280,20 +308,24 @@ export class ViewCommands {
 			this,
 		);
 
-		registerViewCommand('gitlens.views.cherryPick', this.cherryPick, this, ViewCommandMultiSelectMode.Custom);
+		registerViewCommand('gitlens.views.cherryPick', this.cherryPick, this);
+		registerViewCommand('gitlens.views.cherryPick.multi', this.cherryPick, this, true);
 
 		registerViewCommand('gitlens.views.title.createBranch', () => this.createBranch());
 		registerViewCommand('gitlens.views.createBranch', this.createBranch, this);
 		registerViewCommand('gitlens.views.deleteBranch', this.deleteBranch, this);
+		registerViewCommand('gitlens.views.deleteBranch.multi', this.deleteBranch, this, true);
 		registerViewCommand('gitlens.views.renameBranch', this.renameBranch, this);
 
 		registerViewCommand('gitlens.views.stash.apply', this.applyStash, this);
-		registerViewCommand('gitlens.views.stash.delete', this.deleteStash, this, ViewCommandMultiSelectMode.Custom);
+		registerViewCommand('gitlens.views.stash.delete', this.deleteStash, this);
+		registerViewCommand('gitlens.views.stash.delete.multi', this.deleteStash, this, true);
 		registerViewCommand('gitlens.views.stash.rename', this.renameStash, this);
 
 		registerViewCommand('gitlens.views.title.createTag', () => this.createTag());
 		registerViewCommand('gitlens.views.createTag', this.createTag, this);
 		registerViewCommand('gitlens.views.deleteTag', this.deleteTag, this);
+		registerViewCommand('gitlens.views.deleteTag.multi', this.deleteTag, this, true);
 
 		registerViewCommand('gitlens.views.mergeBranchInto', this.merge, this);
 		registerViewCommand('gitlens.views.pushToCommit', this.pushToCommit, this);
@@ -316,13 +348,20 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.title.createWorktree', () => this.createWorktree());
 		registerViewCommand('gitlens.views.createWorktree', this.createWorktree, this);
 		registerViewCommand('gitlens.views.deleteWorktree', this.deleteWorktree, this);
+		registerViewCommand('gitlens.views.deleteWorktree.multi', this.deleteWorktree, this, true);
 		registerViewCommand('gitlens.views.openWorktree', this.openWorktree, this);
 		registerViewCommand('gitlens.views.revealRepositoryInExplorer', this.revealRepositoryInExplorer, this);
 		registerViewCommand('gitlens.views.revealWorktreeInExplorer', this.revealWorktreeInExplorer, this);
 		registerViewCommand(
 			'gitlens.views.openWorktreeInNewWindow',
-			n => this.openWorktree(n, { location: 'newWindow' }),
+			n => this.openWorktree(n, undefined, { location: 'newWindow' }),
 			this,
+		);
+		registerViewCommand(
+			'gitlens.views.openWorktreeInNewWindow.multi',
+			(n, nodes) => this.openWorktree(n, nodes, { location: 'newWindow' }),
+			this,
+			true,
 		);
 
 		registerViewCommand(
@@ -343,15 +382,14 @@ export class ViewCommands {
 	}
 
 	@log()
-	private addAuthor(node?: ContributorNode) {
-		if (node?.is('contributor')) {
-			return ContributorActions.addAuthors(
-				node.repoPath,
-				node.contributor.current ? undefined : node.contributor,
-			);
-		}
+	private addAuthor(node?: ContributorNode, nodes?: ContributorNode[]) {
+		if (!node?.is('contributor')) return Promise.resolve();
 
-		return Promise.resolve();
+		const contributors = nodes?.length ? nodes.map(n => n.contributor) : [node.contributor];
+		return ContributorActions.addAuthors(
+			node.repoPath,
+			contributors.filter(c => !c.current),
+		);
 	}
 
 	@log()
@@ -398,14 +436,8 @@ export class ViewCommands {
 	private cherryPick(node: CommitNode, nodes?: CommitNode[]) {
 		if (!node.is('commit')) return Promise.resolve();
 
-		if (nodes != null && nodes.length !== 0) {
-			return RepoActions.cherryPick(
-				node.repoPath,
-				nodes.map(n => n.ref),
-			);
-		}
-
-		return RepoActions.cherryPick(node.repoPath, node.ref);
+		const refs = nodes?.length ? nodes.map(n => n.ref) : [node.ref];
+		return RepoActions.cherryPick(node.repoPath, refs);
 	}
 
 	@log()
@@ -513,10 +545,11 @@ export class ViewCommands {
 	}
 
 	@log()
-	private deleteBranch(node: BranchNode) {
+	private deleteBranch(node: BranchNode, nodes?: BranchNode[]) {
 		if (!node.is('branch')) return Promise.resolve();
 
-		return BranchActions.remove(node.repoPath, node.branch);
+		const refs = nodes?.length ? nodes.map(n => n.branch) : [node.branch];
+		return BranchActions.remove(node.repoPath, refs);
 	}
 
 	@log()
@@ -535,17 +568,20 @@ export class ViewCommands {
 	}
 
 	@log()
-	private deleteTag(node: TagNode) {
+	private deleteTag(node: TagNode, nodes?: TagNode[]) {
 		if (!node.is('tag')) return Promise.resolve();
 
-		return TagActions.remove(node.repoPath, node.tag);
+		const refs = nodes?.length ? nodes.map(n => n.tag) : [node.tag];
+		return TagActions.remove(node.repoPath, refs);
 	}
 
 	@log()
-	private async deleteWorktree(node: WorktreeNode) {
+	private async deleteWorktree(node: WorktreeNode, nodes?: WorktreeNode[]) {
 		if (!node.is('worktree')) return undefined;
 
-		return WorktreeActions.remove(node.repoPath, node.worktree.uri);
+		const worktrees = nodes?.length ? nodes.map(n => n.worktree) : [node.worktree];
+		const uris = worktrees.filter(w => !w.main && !w.opened).map(w => w.uri);
+		return WorktreeActions.remove(node.repoPath, uris);
 	}
 
 	@log()
@@ -655,10 +691,33 @@ export class ViewCommands {
 	}
 
 	@log()
-	private openWorktree(node: WorktreeNode, options?: { location?: OpenWorkspaceLocation }) {
+	private async openWorktree(
+		node: WorktreeNode,
+		nodes?: WorktreeNode[],
+		options?: { location?: OpenWorkspaceLocation },
+	) {
 		if (!node.is('worktree')) return;
 
-		openWorkspace(node.worktree.uri, options);
+		let uri;
+		if (nodes?.length && options?.location === 'newWindow') {
+			type VSCodeWorkspace = {
+				folders: ({ name: string; path: string } | { name: string; uri: Uri })[];
+				settings: { [key: string]: unknown };
+			};
+
+			// TODO@eamodio hash the folder paths to get a unique, but re-usable workspace name?
+			const codeWorkspace: VSCodeWorkspace = {
+				folders: nodes.map(n => ({ name: n.worktree.name, path: n.worktree.uri.fsPath })),
+				settings: {},
+			};
+			uri = Uri.file(getTempFile(`worktrees-${Date.now()}.code-workspace`));
+
+			await workspace.fs.writeFile(uri, new TextEncoder().encode(JSON.stringify(codeWorkspace, null, 2)));
+		} else {
+			uri = node.worktree.uri;
+		}
+
+		openWorkspace(uri, options);
 	}
 
 	@log()

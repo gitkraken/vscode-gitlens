@@ -94,10 +94,6 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		super.dispose();
 	}
 
-	override get canSelectMany(): boolean {
-		return false;
-	}
-
 	protected getRoot() {
 		return new WorkspacesViewNode(this);
 	}

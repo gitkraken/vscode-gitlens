@@ -96,10 +96,6 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 		super.dispose();
 	}
 
-	override get canSelectMany(): boolean {
-		return false;
-	}
-
 	protected getRoot() {
 		return new DraftsViewNode(this);
 	}

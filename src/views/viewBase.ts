@@ -225,10 +225,7 @@ export abstract class ViewBase<
 	}
 
 	get canSelectMany(): boolean {
-		return (
-			this.container.prereleaseOrDebugging &&
-			configuration.get('views.experimental.multiSelect.enabled', undefined, false)
-		);
+		return false;
 	}
 
 	private _nodeState: ViewNodeState | undefined;

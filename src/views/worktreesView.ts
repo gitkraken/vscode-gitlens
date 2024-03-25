@@ -142,6 +142,10 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		return this.config.reveal || !configuration.get('views.repositories.showWorktrees');
 	}
 
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 		return super.show(options);

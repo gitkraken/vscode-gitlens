@@ -204,6 +204,10 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		return this.config.reveal || !configuration.get('views.repositories.showCommits');
 	}
 
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
 	private readonly _state: CommitsViewState = { filterCommits: new Map<string, GitUser[] | undefined>() };
 	get state(): CommitsViewState {
 		return this._state;

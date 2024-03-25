@@ -135,6 +135,10 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 		return this.config.reveal || !configuration.get('views.repositories.showBranches');
 	}
 
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
 	protected getRoot() {
 		return new BranchesViewNode(this);
 	}
