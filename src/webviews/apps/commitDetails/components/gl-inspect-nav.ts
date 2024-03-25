@@ -21,6 +21,7 @@ export class GlInspectNav extends LitElement {
 				flex-wrap: wrap;
 				align-items: center;
 				justify-content: space-between;
+				gap: 0.2rem;
 			}
 
 			:host([pinned]) {
