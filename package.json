@@ -14173,8 +14173,7 @@
 				{
 					"command": "gitlens.views.openBranchOnRemote",
 					"when": "gitlens:hasRemotes && !listMultiSelection && viewItem =~ /gitlens:status:upstream:(?!(missing|none))/",
-					"group": "2_gitlens_quickopen_remote@1",
-					"alt": "gitlens.copyRemoteBranchUrl"
+					"group": "2_gitlens_quickopen_remote@1"
 				},
 				{
 					"command": "gitlens.views.openInTerminal",
@@ -14185,6 +14184,11 @@
 					"command": "gitlens.views.openInIntegratedTerminal",
 					"when": "!gitlens:hasVirtualFolders && !listMultiSelection && viewItem =~ /gitlens:status:upstream\\b/",
 					"group": "2_gitlens_quickopen_terminal@2"
+				},
+				{
+					"command": "gitlens.copyRemoteBranchUrl",
+					"when": "gitlens:hasRemotes && !listMultiSelection && viewItem =~ /gitlens:status:upstream:(?!(missing|none))/",
+					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
 					"command": "gitlens.views.dismissNode",
@@ -14684,8 +14688,7 @@
 				{
 					"command": "gitlens.graph.openBranchOnRemote",
 					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
-					"group": "2_gitlens_quickopen@1",
-					"alt": "gitlens.copyRemoteBranchUrl"
+					"group": "2_gitlens_quickopen@1"
 				},
 				{
 					"command": "gitlens.graph.cherryPick",
@@ -15032,6 +15035,11 @@
 					"command": "gitlens.copyMessageToClipboard",
 					"when": "viewItem =~ /gitlens:(?!(commit|file|remote|repo-folder|repository|stash)\\b)/",
 					"group": "1_gitlens@3"
+				},
+				{
+					"command": "gitlens.copyRemoteBranchUrl",
+					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
+					"group": "1_gitlens@4"
 				}
 			],
 			"gitlens/share": [
