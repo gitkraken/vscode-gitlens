@@ -1,5 +1,5 @@
 import type { PropertyValueMap } from 'lit';
-import { css, LitElement } from 'lit';
+import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { elementBase } from '../styles/lit/base.css';
 
@@ -43,20 +43,21 @@ export class MenuItem extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	disabled = false;
 
+	@property({ reflect: true })
+	override role = 'option';
+
 	updateInteractiveState() {
 		this.tabIndex = this.disabled ? -1 : this.role === 'option' ? 0 : -1;
-	}
-
-	protected override firstUpdated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
-		if (!this.hasAttribute('role')) {
-			this.role = 'option';
-		}
 	}
 
 	protected override updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
 		if (changedProperties.has('disabled') || changedProperties.has('role')) {
 			this.updateInteractiveState();
 		}
+	}
+
+	override render() {
+		return html`<slot></slot>`;
 	}
 }
 
