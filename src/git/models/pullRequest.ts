@@ -31,6 +31,15 @@ export const enum PullRequestMergeMethod {
 	Rebase = 'rebase',
 }
 
+export const enum PullRequestReviewState {
+	Approved = 'APPROVED',
+	ChangesRequested = 'CHANGES_REQUESTED',
+	Commented = 'COMMENTED',
+	Dismissed = 'DISMISSED',
+	Pending = 'PENDING',
+	ReviewRequested = 'REVIEW_REQUESTED',
+}
+
 export interface PullRequestRef {
 	owner: string;
 	repo: string;
@@ -53,8 +62,9 @@ export interface PullRequestMember {
 }
 
 export interface PullRequestReviewer {
-	isCodeOwner: boolean;
+	isCodeOwner?: boolean;
 	reviewer: PullRequestMember;
+	state: PullRequestReviewState;
 }
 
 export interface PullRequestShape extends IssueOrPullRequest {
@@ -163,6 +173,7 @@ export class PullRequest implements PullRequestShape {
 		public readonly thumbsUpCount?: number,
 		public readonly reviewDecision?: PullRequestReviewDecision,
 		public readonly reviewRequests?: PullRequestReviewer[],
+		public readonly latestReviews?: PullRequestReviewer[],
 		public readonly assignees?: PullRequestMember[],
 		public readonly statusCheckRollupState?: PullRequestStatusCheckRollupState,
 	) {}

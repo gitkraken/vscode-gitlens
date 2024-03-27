@@ -7,6 +7,7 @@ import {
 	PullRequest,
 	PullRequestMergeableState,
 	PullRequestReviewDecision,
+	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
 } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
@@ -152,6 +153,7 @@ export interface GitHubIssueDetailed extends GitHubIssueOrPullRequest {
 export type GitHubPullRequestReviewDecision = 'CHANGES_REQUESTED' | 'APPROVED' | 'REVIEW_REQUIRED';
 export type GitHubPullRequestMergeableState = 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 export type GitHubPullRequestStatusCheckRollupState = 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | 'ERROR';
+export type GitHubPullRequestReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED' | 'PENDING';
 
 export interface GitHubDetailedPullRequest extends GitHubPullRequest {
 	reviewDecision: GitHubPullRequestReviewDecision;
@@ -167,6 +169,16 @@ export interface GitHubDetailedPullRequest extends GitHubPullRequest {
 		nodes: {
 			asCodeOwner: boolean;
 			requestedReviewer: GitHubMember | null;
+		}[];
+	};
+	latestReviews: {
+		nodes: {
+			author: {
+				login: string;
+				avatarUrl: string;
+				url: string;
+			};
+			state: GitHubPullRequestReviewState;
 		}[];
 	};
 	assignees: {
@@ -251,6 +263,21 @@ export function fromGitHubPullRequestReviewDecision(
 			return PullRequestReviewDecision.ChangesRequested;
 		case 'REVIEW_REQUIRED':
 			return PullRequestReviewDecision.ReviewRequired;
+	}
+}
+
+export function fromGitHubPullRequestReviewState(state: GitHubPullRequestReviewState): PullRequestReviewState {
+	switch (state) {
+		case 'APPROVED':
+			return PullRequestReviewState.Approved;
+		case 'CHANGES_REQUESTED':
+			return PullRequestReviewState.ChangesRequested;
+		case 'COMMENTED':
+			return PullRequestReviewState.Commented;
+		case 'DISMISSED':
+			return PullRequestReviewState.Dismissed;
+		case 'PENDING':
+			return PullRequestReviewState.Pending;
 	}
 }
 
@@ -369,10 +396,19 @@ export function fromGitHubPullRequestDetailed(pr: GitHubDetailedPullRequest, pro
 								avatarUrl: r.requestedReviewer.avatarUrl,
 								url: r.requestedReviewer.url,
 							},
+							state: PullRequestReviewState.ReviewRequested,
 					  }
 					: undefined,
 			)
 			.filter(<T>(r?: T): r is T => Boolean(r)),
+		pr.latestReviews.nodes.map(r => ({
+			reviewer: {
+				name: r.author.login,
+				avatarUrl: r.author.avatarUrl,
+				url: r.author.url,
+			},
+			state: fromGitHubPullRequestReviewState(r.state),
+		})),
 		pr.assignees.nodes.map(r => ({
 			name: r.login,
 			avatarUrl: r.avatarUrl,

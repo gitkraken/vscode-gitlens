@@ -4,9 +4,13 @@ import type {
 	Bitbucket,
 	EnterpriseOptions,
 	GetRepoInput,
+	GitBuildStatusState,
 	GitHub,
 	GitLab,
 	GitPullRequest,
+	GitPullRequestMergeableState,
+	GitPullRequestReviewState,
+	GitPullRequestState,
 	GitRepository,
 	Issue,
 	Jira,
@@ -14,8 +18,17 @@ import type {
 	JiraResource,
 	Trello,
 } from '@gitkraken/provider-apis';
+import { GitProviderUtils } from '@gitkraken/provider-apis';
 import type { Account as UserAccount } from '../../../git/models/author';
-import type { SearchedIssue } from '../../../git/models/issue';
+import type { IssueMember, SearchedIssue } from '../../../git/models/issue';
+import { RepositoryAccessLevel } from '../../../git/models/issue';
+import type { PullRequest, PullRequestMember, PullRequestReviewer } from '../../../git/models/pullRequest';
+import {
+	PullRequestMergeableState,
+	PullRequestReviewDecision,
+	PullRequestReviewState,
+	PullRequestStatusCheckRollupState,
+} from '../../../git/models/pullRequest';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
 
 export type ProviderAccount = Account;
@@ -476,3 +489,174 @@ export function toAccount(account: ProviderAccount, provider: ProviderReference)
 		username: account.username ?? undefined,
 	};
 }
+
+export const toProviderBuildStatusState = {
+	[PullRequestStatusCheckRollupState.Success]: 'SUCCESS' as GitBuildStatusState,
+	[PullRequestStatusCheckRollupState.Failed]: 'FAILED' as GitBuildStatusState,
+	[PullRequestStatusCheckRollupState.Pending]: 'PENDING' as GitBuildStatusState,
+};
+
+export const toProviderPullRequestReviewState = {
+	[PullRequestReviewState.Approved]: 'APPROVED' as GitPullRequestReviewState,
+	[PullRequestReviewState.ChangesRequested]: 'CHANGES_REQUESTED' as GitPullRequestReviewState,
+	[PullRequestReviewState.Commented]: 'COMMENTED' as GitPullRequestReviewState,
+	[PullRequestReviewState.ReviewRequested]: 'REVIEW_REQUESTED' as GitPullRequestReviewState,
+	[PullRequestReviewState.Dismissed]: null,
+	[PullRequestReviewState.Pending]: null,
+};
+
+export const toProviderPullRequestMergeableState = {
+	[PullRequestMergeableState.Mergeable]: 'MERGEABLE' as GitPullRequestMergeableState,
+	[PullRequestMergeableState.Conflicting]: 'CONFLICTS' as GitPullRequestMergeableState,
+	[PullRequestMergeableState.Unknown]: 'UNKNOWN' as GitPullRequestMergeableState,
+};
+
+export function toProviderReviews(reviewers: PullRequestReviewer[]): ProviderPullRequest['reviews'] {
+	return reviewers
+		.filter(r => r.state !== PullRequestReviewState.Dismissed && r.state !== PullRequestReviewState.Pending)
+		.map(reviewer => ({
+			reviewer: toProviderAccount(reviewer.reviewer),
+			state:
+				toProviderPullRequestReviewState[reviewer.state] ?? ('REVIEW_REQUESTED' as GitPullRequestReviewState),
+		}));
+}
+
+export function toProviderReviewDecision(
+	reviewDecision?: PullRequestReviewDecision,
+	reviewers?: PullRequestReviewer[],
+): GitPullRequestReviewState | null {
+	switch (reviewDecision) {
+		case PullRequestReviewDecision.Approved:
+			return 'APPROVED' as GitPullRequestReviewState;
+		case PullRequestReviewDecision.ChangesRequested:
+			return 'CHANGES_REQUESTED' as GitPullRequestReviewState;
+		case PullRequestReviewDecision.ReviewRequired:
+			return 'REVIEW_REQUESTED' as GitPullRequestReviewState;
+		default: {
+			if (reviewers?.some(r => r.state === PullRequestReviewState.ReviewRequested)) {
+				return 'REVIEW_REQUESTED' as GitPullRequestReviewState;
+			} else if (reviewers?.some(r => r.state === PullRequestReviewState.Commented)) {
+				return 'COMMENTED' as GitPullRequestReviewState;
+			}
+			return null;
+		}
+	}
+}
+
+export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
+	const prReviews = [...(pr.reviewRequests ?? []), ...(pr.latestReviews ?? [])];
+	return {
+		id: pr.id,
+		graphQLId: pr.nodeId,
+		number: Number.parseInt(pr.id, 10),
+		title: pr.title,
+		url: pr.url,
+		state:
+			pr.state === 'opened'
+				? ('OPEN' as GitPullRequestState)
+				: pr.state === 'closed'
+				  ? ('CLOSED' as GitPullRequestState)
+				  : ('MERGED' as GitPullRequestState),
+		isDraft: pr.isDraft ?? false,
+		createdDate: pr.createdDate,
+		updatedDate: pr.updatedDate,
+		closedDate: pr.closedDate ?? null,
+		mergedDate: pr.mergedDate ?? null,
+		commentCount: pr.commentsCount ?? null,
+		upvoteCount: pr.thumbsUpCount ?? null,
+		commitCount: null,
+		fileCount: null,
+		additions: pr.additions ?? null,
+		deletions: pr.deletions ?? null,
+		author: toProviderAccount(pr.author),
+		assignees: pr.assignees?.map(toProviderAccount) ?? null,
+		baseRef:
+			pr.refs?.base == null
+				? null
+				: {
+						name: pr.refs.base.branch,
+						oid: pr.refs.base.sha,
+				  },
+		headRef:
+			pr.refs?.head == null
+				? null
+				: {
+						name: pr.refs.head.branch,
+						oid: pr.refs.head.sha,
+				  },
+		reviews: toProviderReviews(prReviews),
+		reviewDecision: toProviderReviewDecision(pr.reviewDecision, prReviews),
+		repository:
+			pr.refs?.base != null
+				? {
+						id: pr.refs.base.repo,
+						name: pr.refs.base.repo,
+						owner: {
+							login: pr.refs.base.owner,
+						},
+						remoteInfo: null,
+				  }
+				: {
+						id: '',
+						name: '',
+						owner: {
+							login: '',
+						},
+						remoteInfo: null,
+				  },
+		headRepository:
+			pr.refs?.head != null
+				? {
+						id: pr.refs.head.repo,
+						name: pr.refs.head.repo,
+						owner: {
+							login: pr.refs.head.owner,
+						},
+						remoteInfo: null,
+				  }
+				: null,
+		headCommit:
+			pr.statusCheckRollupState != null
+				? {
+						buildStatuses: [
+							{
+								completedAt: null,
+								description: '',
+								name: '',
+								state: toProviderBuildStatusState[pr.statusCheckRollupState],
+								startedAt: null,
+								stage: null,
+								url: '',
+							},
+						],
+				  }
+				: null,
+		permissions: {
+			canMerge:
+				pr.viewerCanUpdate === true &&
+				pr.repository.accessLevel != null &&
+				pr.repository.accessLevel >= RepositoryAccessLevel.Write,
+			canMergeAndBypassProtections:
+				pr.viewerCanUpdate === true &&
+				pr.repository.accessLevel != null &&
+				pr.repository.accessLevel >= RepositoryAccessLevel.Admin,
+		},
+		mergeableState: pr.mergeableState
+			? toProviderPullRequestMergeableState[pr.mergeableState]
+			: ('UNKNOWN' as GitPullRequestMergeableState),
+	};
+}
+
+export function toProviderAccount(account: PullRequestMember | IssueMember): ProviderAccount {
+	return {
+		avatarUrl: account.avatarUrl ?? null,
+		name: account.name ?? null,
+		url: account.url ?? null,
+		// TODO: Implement these in our own model
+		email: '',
+		username: account.name ?? null,
+		id: account.name ?? null,
+	};
+}
+
+export const categorizePullRequests = GitProviderUtils.groupPullRequestsIntoBuckets;
