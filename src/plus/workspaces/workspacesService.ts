@@ -497,10 +497,14 @@ export class WorkspacesService implements Disposable {
 			provider = workspace.provider;
 		}
 
-		if (descriptor.id != null && descriptor.url != null && provider != null) {
+		if (
+			descriptor.id != null &&
+			(descriptor.url != null ||
+				(descriptor.provider_organization_id != null && descriptor.name != null && provider != null))
+		) {
 			await this.container.repositoryPathMapping.writeLocalRepoPath(
 				{
-					remoteUrl: descriptor.url,
+					remoteUrl: descriptor.url ?? undefined,
 					repoInfo: {
 						provider: provider,
 						owner: descriptor.provider_organization_id,
@@ -509,6 +513,9 @@ export class WorkspacesService implements Disposable {
 				},
 				repoPath,
 			);
+		}
+
+		if (descriptor.id != null) {
 			await this.updateCloudWorkspaceRepoLocalPath(workspaceId, descriptor.id, repoPath);
 		}
 	}
