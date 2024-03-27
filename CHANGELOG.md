@@ -60,6 +60,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes AI features not being displayed when signed-out of an account
 
+### Fixed
+
+- Fixes [#3090](https://github.com/gitkraken/vscode-gitlens/issues/3090) - Manually created empty bare clone repositories in a trusted directory crash worktree view since LocalGitProvider.findRepositoryUri returns just ".git" *and* Fixes [#2575](https://github.com/gitkraken/vscode-gitlens/issues/2575) - Existing worktrees recognized, but incorrectly organized &mdash; thanks to [PR #3092](https://github.com/gitkraken/vscode-gitlens/pull/3092)
+
 ## [14.8.0] - 2024-02-08
 
 ### Added
