@@ -69,6 +69,7 @@ export interface Wip {
 	branch?: GitBranchShape;
 	pullRequest?: PullRequestShape;
 	repo: {
+		uri: string;
 		name: string;
 		path: string;
 	};

@@ -64,6 +64,8 @@ export type GlPatchCreateEvents = {
 export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 	@property({ type: Object }) state?: Serialized<State>;
 
+	@property({ type: Boolean }) review = false;
+
 	// @state()
 	// patchTitle = this.create.title ?? '';
 
@@ -206,6 +208,8 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 				visibilityIcon = 'globe';
 				break;
 		}
+
+		const draftName = this.review ? 'Suggested Changes' : 'Cloud Patch';
 		return html`
 			<div class="section section--action">
 				${when(
@@ -216,27 +220,40 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 							<p class="alert__content">${this.state!.create!.creationError}</p>
 						</div>`,
 				)}
-				<div class="message-input message-input--group">
-					<div class="message-input__select">
-						<span class="message-input__select-icon"><code-icon icon=${visibilityIcon}></code-icon></span>
-						<select id="visibility" class="message-input__control" @change=${this.onVisibilityChange}>
-							<option value="public" ?selected=${this.draftVisibility === 'public'}>
-								Anyone with the link
-							</option>
-							<option value="private" ?selected=${this.draftVisibility === 'private'}>
-								Members of my Org with the link
-							</option>
-							<option value="invite_only" ?selected=${this.draftVisibility === 'invite_only'}>
-								Collaborators only
-							</option>
-						</select>
-						<span class="message-input__select-caret"><code-icon icon="chevron-down"></code-icon></span>
-					</div>
-					<gl-button appearance="secondary" @click=${this.onInviteUsers}
-						><code-icon icon="person-add"></code-icon> Invite</gl-button
-					>
-				</div>
-				${this.renderUserSelectionList()}
+				${when(
+					this.review === false,
+					() => html`
+						<div class="message-input message-input--group">
+							<div class="message-input__select">
+								<span class="message-input__select-icon"
+									><code-icon icon=${visibilityIcon}></code-icon
+								></span>
+								<select
+									id="visibility"
+									class="message-input__control"
+									@change=${this.onVisibilityChange}
+								>
+									<option value="public" ?selected=${this.draftVisibility === 'public'}>
+										Anyone with the link
+									</option>
+									<option value="private" ?selected=${this.draftVisibility === 'private'}>
+										Members of my Org with the link
+									</option>
+									<option value="invite_only" ?selected=${this.draftVisibility === 'invite_only'}>
+										Collaborators only
+									</option>
+								</select>
+								<span class="message-input__select-caret"
+									><code-icon icon="chevron-down"></code-icon
+								></span>
+							</div>
+							<gl-button appearance="secondary" @click=${this.onInviteUsers}
+								><code-icon icon="person-add"></code-icon> Invite</gl-button
+							>
+						</div>
+						${this.renderUserSelectionList()}
+					`,
+				)}
 				<div class="message-input">
 					<input
 						id="title"
@@ -261,7 +278,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full @click=${(e: Event) => this.onDebouncedCreateAll(e)}
-							>Create Cloud Patch</gl-button
+							>Create ${draftName}</gl-button
 						>
 					</span>
 				</p>
@@ -274,7 +291,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 								href="https://www.gitkraken.com/solutions/cloud-patches"
 								title="Learn more about Cloud Patches"
 								aria-label="Learn more about Cloud Patches"
-								>Cloud Patches</a
+								>${this.review ? 'Suggested Changes' : 'Cloud Patches'}</a
 							>
 							are
 							<a
@@ -293,7 +310,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 								href="https://www.gitkraken.com/solutions/cloud-patches"
 								title="Learn more about Cloud Patches"
 								aria-label="Learn more about Cloud Patches"
-								>Cloud Patch</a
+								>${draftName}</a
 							>
 							will be securely stored in your organization's self-hosted storage
 						</p>`,

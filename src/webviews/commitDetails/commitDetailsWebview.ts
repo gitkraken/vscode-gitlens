@@ -100,7 +100,10 @@ import type { CommitDetailsWebviewShowingArgs } from './registration';
 
 type RepositorySubscription = { repo: Repository; subscription: Disposable };
 
-interface WipContext extends Wip {
+// interface WipContext extends Wip
+interface WipContext {
+	changes: WipChange | undefined;
+	repositoryCount: number;
 	branch?: GitBranch;
 	pullRequest?: PullRequest;
 	repo: Repository;
@@ -1353,6 +1356,7 @@ function serializeWipContext(wip?: WipContext): Wip | undefined {
 		repositoryCount: wip.repositoryCount,
 		branch: serializeBranch(wip.branch),
 		repo: {
+			uri: wip.repo.uri.toString(),
 			name: wip.repo.name,
 			path: wip.repo.path,
 			// type: wip.repo.provider.name,
