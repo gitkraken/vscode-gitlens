@@ -26,8 +26,10 @@ jobs:
               run: yarn
             - name: Package extension
               run: yarn run package
-            - name: Publish Extension
+            - name: Publish Extension (MS)
               run: yarn vsce publish --yarn --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_VSCODE_MARKETPLACE_PAT }}
+            - name: Publish Extension (OpenVSX)
+              run: npx ovsx publish --yarn --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_OPENVSX_PAT }}
             - name: Generate Changelog
               id: changelog
               uses: mindsers/changelog-reader-action@v2
