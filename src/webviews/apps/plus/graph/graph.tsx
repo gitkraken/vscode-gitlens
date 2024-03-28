@@ -62,6 +62,7 @@ import { GraphWrapper } from './GraphWrapper';
 import './graph.scss';
 import '../../commitDetails/commitDetails.scss';
 import '../../commitDetails/components/commit-details-app';
+import '@shoelace-style/shoelace/dist/components/split-panel/split-panel.js';
 
 const graphLaneThemeColors = new Map([
 	['--vscode-gitlens-graphLane1Color', '#15a0bf'],

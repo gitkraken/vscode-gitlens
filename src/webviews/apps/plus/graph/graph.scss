@@ -1,4 +1,5 @@
 @use '../../shared/styles/theme';
+@use '../../shared/styles/shoelace/vscode-theme';
 @import '../../shared/base';
 @import '../../shared/codicons';
 @import '../../shared/glicons';
@@ -891,8 +892,6 @@ button:not([disabled]),
 	--fs-2: 1.3rem;
 
 	padding: 0;
-	display: flex;
-	flex-direction: row;
 
 	&__container {
 		display: flex;

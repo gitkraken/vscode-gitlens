@@ -24,12 +24,14 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<section style="flex: 1 1 auto; overflow: hidden">
-			<div id="root" class="graph-app__container"></div>
-		</section>
-		<section style="flex: 0 0 400px">
-			<gl-commit-details-app id="app"></gl-commit-details-app>
-		</section>
+		<sl-split-panel position="75">
+			<section slot="start">
+				<div id="root" class="graph-app__container"></div>
+			</section>
+			<section slot="end">
+				<gl-commit-details-app id="app"></gl-commit-details-app>
+			</section>
+		</sl-split-panel>
 		#{endOfBody}
 	</body>
 </html>
