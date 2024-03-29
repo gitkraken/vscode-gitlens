@@ -924,27 +924,33 @@ export class GitCommandsCommand extends Command {
 				quickpick.matchOnDescription = Boolean(step.matchOnDescription);
 				quickpick.matchOnDetail = Boolean(step.matchOnDetail);
 
+				const selectValueWhenShown = step.selectValueWhenShown ?? true;
+
+				let items;
+				let shown = false;
 				if (isPromise(step.items)) {
 					quickpick.placeholder = 'Loading...';
 
 					quickpick.busy = true;
+
+					// If we set the value before showing the quickpick, VS Code will select the entire value
+					if (step.value != null && selectValueWhenShown) {
+						quickpick.value = step.value;
+					}
+
 					quickpick.show();
 
-					quickpick.items = await step.items;
-					quickpick.placeholder =
-						typeof step.placeholder === 'function'
-							? step.placeholder(quickpick.items.length)
-							: step.placeholder;
-					quickpick.busy = false;
+					shown = true;
+					items = await step.items;
 				} else {
-					quickpick.placeholder =
-						typeof step.placeholder === 'function'
-							? step.placeholder(quickpick.items.length)
-							: step.placeholder;
-					quickpick.items = step.items;
+					items = step.items;
 				}
 
-				quickpick.canSelectMany = Boolean(step.multiselect) && quickpick.items.length > 1;
+				quickpick.canSelectMany = Boolean(step.multiselect) && items.length > 1;
+				quickpick.placeholder =
+					typeof step.placeholder === 'function' ? step.placeholder(items.length) : step.placeholder;
+				quickpick.items = items;
+				quickpick.busy = false;
 
 				if (quickpick.canSelectMany) {
 					quickpick.selectedItems = step.selectedItems ?? quickpick.items.filter(i => i.picked);
@@ -960,12 +966,14 @@ export class GitCommandsCommand extends Command {
 				// Needs to be after we reset the command
 				quickpick.buttons = this.getButtons(step, commandsStep.command);
 
-				const selectValueWhenShown = step.selectValueWhenShown ?? true;
-				if (step.value != null && selectValueWhenShown) {
-					quickpick.value = step.value;
-				}
+				if (!shown) {
+					// If we set the value before showing the quickpick, VS Code will select the entire value
+					if (step.value != null && selectValueWhenShown) {
+						quickpick.value = step.value;
+					}
 
-				quickpick.show();
+					quickpick.show();
+				}
 
 				if (step.value != null && !selectValueWhenShown) {
 					quickpick.value = step.value;
