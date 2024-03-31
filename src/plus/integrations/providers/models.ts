@@ -386,10 +386,7 @@ export function getReasonsForUserIssue(issue: ProviderIssue, userLogin: string):
 		reasons.push('authored');
 		isAuthor = true;
 	}
-	if (
-		issue.assignees != null &&
-		issue.assignees.some(assignee => assignee.username === userLogin || assignee.name === userLogin)
-	) {
+	if (issue.assignees?.some(assignee => assignee.username === userLogin || assignee.name === userLogin)) {
 		reasons.push('assigned');
 		isAssignee = true;
 	}

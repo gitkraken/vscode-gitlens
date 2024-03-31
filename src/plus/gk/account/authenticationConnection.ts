@@ -169,7 +169,7 @@ export class AuthenticationConnection implements Disposable {
 
 	private async getTokenFromCodeAndState(scopeKey: string, code: string, state: string): Promise<string> {
 		const existingStates = this._pendingStates.get(scopeKey);
-		if (existingStates == null || !existingStates.includes(state)) {
+		if (!existingStates?.includes(state)) {
 			throw new Error('Getting token failed: Invalid state');
 		}
 

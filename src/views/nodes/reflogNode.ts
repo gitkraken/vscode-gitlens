@@ -94,7 +94,7 @@ export class ReflogNode
 
 	async loadMore(limit?: number) {
 		let reflog = await this.getReflog();
-		if (reflog === undefined || !reflog.hasMore) return;
+		if (!reflog?.hasMore) return;
 
 		reflog = await reflog.more?.(limit ?? this.view.config.pageItemLimit);
 		if (this._reflog === reflog) return;
