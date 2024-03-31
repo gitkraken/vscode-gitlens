@@ -101,7 +101,7 @@ export class ReflogRecordNode extends ViewNode<'reflog-record', ViewsWithCommits
 			},
 			() => this.getLog(),
 		);
-		if (log === undefined || !log.hasMore) return;
+		if (!log?.hasMore) return;
 
 		log = await log.more?.(limit ?? this.view.config.pageItemLimit);
 		if (this._log === log) return;

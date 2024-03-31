@@ -726,7 +726,7 @@ export class Git {
 				const [, ref] = match;
 
 				// If the bad ref is trying to find a parent ref, assume we hit to the last commit, so try again using the root sha
-				if (ref === ref1 && ref != null && ref.endsWith('^')) {
+				if (ref === ref1 && ref?.endsWith('^')) {
 					return this.diff(repoPath, fileName, rootSha, ref2, options);
 				}
 			}
@@ -811,7 +811,7 @@ export class Git {
 				const [, matchedRef] = match;
 
 				// If the bad ref is trying to find a parent ref, assume we hit to the last commit, so try again using the root sha
-				if (matchedRef === ref && matchedRef != null && matchedRef.endsWith('^')) {
+				if (matchedRef === ref && matchedRef?.endsWith('^')) {
 					return this.diff__contents(repoPath, fileName, rootSha, contents, options);
 				}
 			}
