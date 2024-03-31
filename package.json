@@ -5665,28 +5665,19 @@
 				"command": "gitlens.toggleFileBlame",
 				"title": "Toggle File Blame",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-git.svg",
-					"light": "images/light/icon-git.svg"
-				}
+				"icon": "$(gitlens-gitlens)"
 			},
 			{
 				"command": "gitlens.toggleFileBlameInDiffLeft",
 				"title": "Toggle File Blame",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-git.svg",
-					"light": "images/light/icon-git.svg"
-				}
+				"icon": "$(gitlens-gitlens)"
 			},
 			{
 				"command": "gitlens.toggleFileBlameInDiffRight",
 				"title": "Toggle File Blame",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-git.svg",
-					"light": "images/light/icon-git.svg"
-				}
+				"icon": "$(gitlens-gitlens)"
 			},
 			{
 				"command": "gitlens.annotations.nextChange",
@@ -5702,64 +5693,43 @@
 				"command": "gitlens.clearFileAnnotations",
 				"title": "Clear File Annotations",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-git-orange.svg",
-					"light": "images/light/icon-git-orange.svg"
-				}
+				"icon": "$(gitlens-gitlens-filled)"
 			},
 			{
 				"command": "gitlens.computingFileAnnotations",
 				"title": "Computing File Annotations...",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-git-progress.svg",
-					"light": "images/light/icon-git-progress.svg"
-				}
+				"icon": "$(gitlens-gitlens-filled)"
 			},
 			{
 				"command": "gitlens.toggleFileHeatmap",
 				"title": "Toggle File Heatmap",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-git.svg",
-					"light": "images/light/icon-git.svg"
-				}
+				"icon": "$(gitlens-gitlens)"
 			},
 			{
 				"command": "gitlens.toggleFileHeatmapInDiffLeft",
 				"title": "Toggle File Heatmap",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-git.svg",
-					"light": "images/light/icon-git.svg"
-				}
+				"icon": "$(gitlens-gitlens)"
 			},
 			{
 				"command": "gitlens.toggleFileHeatmapInDiffRight",
 				"title": "Toggle File Heatmap",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-git.svg",
-					"light": "images/light/icon-git.svg"
-				}
+				"icon": "$(gitlens-gitlens)"
 			},
 			{
 				"command": "gitlens.toggleFileChanges",
 				"title": "Toggle File Changes",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-git.svg",
-					"light": "images/light/icon-git.svg"
-				}
+				"icon": "$(gitlens-gitlens)"
 			},
 			{
 				"command": "gitlens.toggleFileChangesOnly",
 				"title": "Toggle File Changes",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-git.svg",
-					"light": "images/light/icon-git.svg"
-				}
+				"icon": "$(gitlens-gitlens)"
 			},
 			{
 				"command": "gitlens.toggleLineBlame",
@@ -9079,6 +9049,13 @@
 				"default": {
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f12b"
+				}
+			},
+			"gitlens-gitlens-filled": {
+				"description": "gitlens-filled icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f12c"
 				}
 			}
 		},
@@ -15974,10 +15951,7 @@
 			{
 				"id": "gitlens/editor/annotations",
 				"label": "File Annotations",
-				"icon": {
-					"dark": "images/dark/icon-git.svg",
-					"light": "images/light/icon-git.svg"
-				}
+				"icon": "$(gitlens-gitlens)"
 			},
 			{
 				"id": "gitlens/editor/context/changes",

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
+    <path fill="#C5C5C5" fill-rule="evenodd" d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16Zm-1.12-2.29a1.71 1.71 0 0 0 .57-3.33V5.8l.13-.05L9.43 7.6a1.43 1.43 0 1 0 .79-.83L8.4 4.96a1.71 1.71 0 1 0-2.1.84v4.58a1.71 1.71 0 0 0 .57 3.33Z" clip-rule="evenodd">
+        <animate attributeName="fill" dur="0.8s" repeatCount="indefinite" values="#b27b70;#F05133;#b27b70"/>
+    </path>
+</svg>
