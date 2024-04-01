@@ -327,13 +327,13 @@ export class GraphApp extends App<State> {
 			e.isLightTheme ? darken(e.colors.background, 10) : lighten(e.colors.background, 10),
 		);
 
-		const color = getCssVariable('--color-graph-text-selected-row', e.computedStyle);
-		rootStyle.setProperty('--color-graph-text-dimmed-selected', opacity(color, 50));
-		rootStyle.setProperty('--color-graph-text-dimmed', opacity(e.colors.foreground, 20));
+		// const color = getCssVariable('--color-graph-text-selected-row', e.computedStyle);
+		// rootStyle.setProperty('--color-graph-text-dimmed-selected', opacity(color, 50));
+		// rootStyle.setProperty('--color-graph-text-dimmed', opacity(e.colors.foreground, 20));
 
-		rootStyle.setProperty('--color-graph-text-normal', opacity(e.colors.foreground, 85));
-		rootStyle.setProperty('--color-graph-text-secondary', opacity(e.colors.foreground, 65));
-		rootStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
+		// rootStyle.setProperty('--color-graph-text-normal', opacity(e.colors.foreground, 85));
+		// rootStyle.setProperty('--color-graph-text-secondary', opacity(e.colors.foreground, 65));
+		// rootStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
 
 		const backgroundColor = Color.from(e.colors.background);
 		const foregroundColor = Color.from(e.colors.foreground);
