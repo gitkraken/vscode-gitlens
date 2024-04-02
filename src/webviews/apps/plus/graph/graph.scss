@@ -105,6 +105,22 @@
 	--graph-column-scrollbar-thickness: 14px;
 }
 
+:root:has(.vscode-dark, .vscode-high-contrast) {
+	--graph-theme-opacity-factor: '1';
+
+	--color-graph-actionbar-background: color-mix(in srgb, #fff 5%, var(--color-background));
+	--color-graph-background: color-mix(in srgb, #fff 5%, var(--color-background));
+	--color-graph-background2: color-mix(in srgb, #fff 10%, var(--color-background));
+}
+
+:root:has(.vscode-light, .vscode-high-contrast-light) {
+	--graph-theme-opacity-factor: '0.5';
+
+	--color-graph-actionbar-background: color-mix(in srgb, #000 5%, var(--color-background));
+	--color-graph-background: color-mix(in srgb, #000 5%, var(--color-background));
+	--color-graph-background2: color-mix(in srgb, #000 10%, var(--color-background));
+}
+
 body {
 	.vertical_scrollbar,
 	.horizontal_scrollbar {
