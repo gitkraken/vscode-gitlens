@@ -66,23 +66,30 @@
 
 	--color-alert-infoBackground: var(--vscode-inputValidation-infoBackground);
 	--color-alert-infoBorder: var(--vscode-inputValidation-infoBorder);
-	// Computed variants in code
-	--color-alert-infoHoverBackground: var(--color-alert-infoBackground);
 
 	--color-alert-warningBackground: var(--vscode-inputValidation-warningBackground);
 	--color-alert-warningBorder: var(--vscode-inputValidation-warningBorder);
-	// Computed variants in code
-	--color-alert-warningHoverBackground: var(--color-alert-warningBackground);
 
 	--color-alert-errorBackground: var(--vscode-inputValidation-errorBackground);
 	--color-alert-errorBorder: var(--vscode-inputValidation-errorBorder);
-	// Computed variants in code
-	--color-alert-errorHoverBackground: var(--color-alert-errorBackground);
 
-	--color-alert-neutralBackground: var(--vscode-editor-background); // Computed in code
 	--color-alert-neutralBorder: var(--vscode-input-foreground);
-	// Computed variants in code
-	--color-alert-neutralHoverBackground: var(--color-alert-neutralBackground);
 
 	--color-alert-foreground: var(--vscode-input-foreground);
+}
+
+:root:has(.vscode-dark, .vscode-high-contrast) {
+	--color-alert-infoHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-infoBackground));
+	--color-alert-warningHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-warningBackground));
+	--color-alert-errorHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-errorBackground));
+	--color-alert-neutralBackground: color-mix(in srgb, #fff 5%, var(--color-background));
+	--color-alert-neutralHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-neutralBackground));
+}
+
+:root:has(.vscode-light, .vscode-high-contrast-light) {
+	--color-alert-infoHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-infoBackground));
+	--color-alert-warningHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-warningBackground));
+	--color-alert-errorHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-errorBackground));
+	--color-alert-neutralBackground: color-mix(in srgb, #000 5%, var(--color-background));
+	--color-alert-neutralHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-neutralBackground));
 }
