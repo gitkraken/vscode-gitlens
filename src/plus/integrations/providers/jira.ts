@@ -2,7 +2,7 @@ import type { AuthenticationSession, CancellationToken } from 'vscode';
 import type { DynamicAutolinkReference } from '../../../annotations/autolinks';
 import type { AutolinkReference } from '../../../config';
 import type { Account } from '../../../git/models/author';
-import type { SearchedIssue } from '../../../git/models/issue';
+import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
 import { filterMap, flatten } from '../../../system/iterable';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
 import type { ResourceDescriptor } from '../integration';
@@ -241,6 +241,17 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		}
 
 		return results;
+	}
+
+	protected override async getProviderIssueOrPullRequest(
+		session: AuthenticationSession,
+		resource: JiraOrganizationDescriptor,
+		id: string,
+	): Promise<IssueOrPullRequest | undefined> {
+		const api = await this.getProvidersApi();
+		const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
+		const issue = await api.getIssue(this.id, resource.id, id, { accessToken: session.accessToken });
+		return issue != null ? toSearchedIssue(issue, this, undefined, userLogin)?.issue : undefined;
 	}
 
 	protected override async providerOnConnect(): Promise<void> {

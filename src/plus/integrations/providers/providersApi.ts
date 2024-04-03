@@ -139,6 +139,7 @@ export class ProvidersApi {
 					providerApis.jira,
 				),
 				getJiraProjectsForResourcesFn: providerApis.jira.getJiraProjectsForResources.bind(providerApis.jira),
+				getIssueFn: providerApis.jira.getIssue.bind(providerApis.jira),
 				getIssuesForProjectFn: providerApis.jira.getIssuesForProject.bind(providerApis.jira),
 				getIssuesForResourceForCurrentUserFn: providerApis.jira.getIssuesForResourceForCurrentUser.bind(
 					providerApis.jira,
@@ -574,6 +575,27 @@ export class ProvidersApi {
 			return result?.data;
 		} catch (e) {
 			return this.handleProviderError<ProviderIssue[] | undefined>(providerId, token, e);
+		}
+	}
+
+	async getIssue(
+		providerId: IntegrationId,
+		resourceId: string,
+		issueId: string,
+		options?: { accessToken?: string },
+	): Promise<ProviderIssue | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			providerId,
+			'getIssueFn',
+			options?.accessToken,
+		);
+
+		try {
+			const result = await provider.getIssueFn?.({ resourceId: resourceId, number: issueId }, { token: token });
+
+			return result?.data;
+		} catch (e) {
+			return this.handleProviderError<ProviderIssue | undefined>(providerId, token, e);
 		}
 	}
 }

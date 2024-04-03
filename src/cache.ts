@@ -5,7 +5,7 @@ import type { DefaultBranch } from './git/models/defaultBranch';
 import type { IssueOrPullRequest } from './git/models/issue';
 import type { PullRequest } from './git/models/pullRequest';
 import type { RepositoryMetadata } from './git/models/repositoryMetadata';
-import type { HostingIntegration, ResourceDescriptor } from './plus/integrations/integration';
+import type { HostingIntegration, IntegrationBase, ResourceDescriptor } from './plus/integrations/integration';
 import { isPromise } from './system/promise';
 
 type Caches = {
@@ -72,16 +72,16 @@ export class CacheProvider implements Disposable {
 
 	getIssueOrPullRequest(
 		id: string,
-		repo: ResourceDescriptor,
-		integration: HostingIntegration | undefined,
+		resource: ResourceDescriptor,
+		integration: IntegrationBase | undefined,
 		cacheable: Cacheable<IssueOrPullRequest>,
 	): CacheResult<IssueOrPullRequest> {
-		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
+		const { key, etag } = getResourceKeyAndEtag(resource, integration);
 
-		if (repo == null) {
+		if (resource == null) {
 			return this.get('issuesOrPrsById', `id:${id}:${key}`, etag, cacheable);
 		}
-		return this.get('issuesOrPrsByIdAndRepo', `id:${id}:${key}:${JSON.stringify(repo)}}`, etag, cacheable);
+		return this.get('issuesOrPrsByIdAndRepo', `id:${id}:${key}:${JSON.stringify(resource)}}`, etag, cacheable);
 	}
 
 	// getEnrichedAutolinks(
@@ -100,7 +100,7 @@ export class CacheProvider implements Disposable {
 		cacheable: Cacheable<PullRequest>,
 	): CacheResult<PullRequest> {
 		const cache = 'prByBranch';
-		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
+		const { key, etag } = getResourceKeyAndEtag(repo, integration);
 		// Wrap the cacheable so we can also add the result to the issuesOrPrsById cache
 		return this.get(cache, `branch:${branch}:${key}`, etag, this.wrapPullRequestCacheable(cacheable, key, etag));
 	}
@@ -112,7 +112,7 @@ export class CacheProvider implements Disposable {
 		cacheable: Cacheable<PullRequest>,
 	): CacheResult<PullRequest> {
 		const cache = 'prsBySha';
-		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
+		const { key, etag } = getResourceKeyAndEtag(repo, integration);
 		// Wrap the cacheable so we can also add the result to the issuesOrPrsById cache
 		return this.get(cache, `sha:${sha}:${key}`, etag, this.wrapPullRequestCacheable(cacheable, key, etag));
 	}
@@ -122,7 +122,7 @@ export class CacheProvider implements Disposable {
 		integration: HostingIntegration | undefined,
 		cacheable: Cacheable<DefaultBranch>,
 	): CacheResult<DefaultBranch> {
-		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
+		const { key, etag } = getResourceKeyAndEtag(repo, integration);
 		return this.get('defaultBranch', `repo:${key}`, etag, cacheable);
 	}
 
@@ -131,7 +131,7 @@ export class CacheProvider implements Disposable {
 		integration: HostingIntegration | undefined,
 		cacheable: Cacheable<RepositoryMetadata>,
 	): CacheResult<RepositoryMetadata> {
-		const { key, etag } = getRemoteKeyAndEtag(repo, integration);
+		const { key, etag } = getResourceKeyAndEtag(repo, integration);
 		return this.get('repoMetadata', `repo:${key}`, etag, cacheable);
 	}
 
@@ -220,6 +220,6 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 	}
 }
 
-function getRemoteKeyAndEtag(repo: ResourceDescriptor, integration?: HostingIntegration) {
-	return { key: repo.key, etag: `${repo.key}:${integration?.maybeConnected ?? false}` };
+function getResourceKeyAndEtag(resource: ResourceDescriptor, integration?: HostingIntegration | IntegrationBase) {
+	return { key: resource.key, etag: `${resource.key}:${integration?.maybeConnected ?? false}` };
 }
