@@ -8,6 +8,8 @@ import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from
 import type { GitRemote } from '../git/models/remote';
 import type { ProviderReference } from '../git/models/remoteProvider';
 import type { ResourceDescriptor } from '../plus/integrations/integration';
+import type { IntegrationId } from '../plus/integrations/providers/models';
+import { IssueIntegrationId } from '../plus/integrations/providers/models';
 import type { MaybePausedResult } from '../system/cancellation';
 import { configuration } from '../system/configuration';
 import { fromNow } from '../system/date';
@@ -70,6 +72,7 @@ export function serializeAutolink(value: Autolink): Autolink {
 		url: value.url,
 		type: value.type,
 		description: value.description,
+		descriptor: value.descriptor,
 	};
 	return serialized;
 }
@@ -145,6 +148,7 @@ export class Autolinks implements Disposable {
 						ignoreCase: a.ignoreCase,
 						type: a.type,
 						description: a.description,
+						descriptor: a.descriptor,
 					})) ?? [];
 		}
 	}
@@ -236,12 +240,22 @@ export class Autolinks implements Disposable {
 
 						type: ref.type,
 						description: ref.description?.replace(numRegex, num),
+						descriptor: ref.descriptor,
 					});
 				} while (true);
 			}
 		}
 
 		return autolinks;
+	}
+
+	getAutolinkEnrichableId(autolink: Autolink): string {
+		switch (autolink.provider?.id) {
+			case IssueIntegrationId.Jira:
+				return `${autolink.prefix}${autolink.id}`;
+			default:
+				return autolink.id;
+		}
 	}
 
 	async getEnrichedAutolinks(
@@ -276,24 +290,30 @@ export class Autolinks implements Disposable {
 			}
 		}
 
-		return new Map(
-			map(
-				messageOrAutolinks,
-				([id, link]) =>
-					[
-						id,
-						[
-							remote?.provider != null &&
-							integration != null &&
-							link.provider?.id === integration.id &&
-							link.provider?.domain === integration.domain
-								? integration.getIssueOrPullRequest(link.descriptor ?? remote.provider.repoDesc, id)
-								: undefined,
-							link,
-						] satisfies EnrichedAutolink,
-					] as const,
-			),
-		);
+		const enrichedAutolinks = new Map<string, EnrichedAutolink>();
+		for (const [id, link] of messageOrAutolinks) {
+			let linkIntegration = link.provider
+				? await this.container.integrations.get(link.provider.id as IntegrationId)
+				: undefined;
+			if (linkIntegration != null) {
+				const connected = linkIntegration.maybeConnected ?? (await linkIntegration.isConnected());
+				if (!connected) {
+					linkIntegration = undefined;
+				}
+			}
+			const issueOrPullRequestPromise =
+				remote?.provider != null &&
+				integration != null &&
+				link.provider?.id === integration.id &&
+				link.provider?.domain === integration.domain
+					? integration.getIssueOrPullRequest(link.descriptor ?? remote.provider.repoDesc, id)
+					: link.descriptor != null
+					  ? linkIntegration?.getIssueOrPullRequest(link.descriptor, this.getAutolinkEnrichableId(link))
+					  : undefined;
+			enrichedAutolinks.set(id, [issueOrPullRequestPromise, link]);
+		}
+
+		return enrichedAutolinks;
 	}
 
 	@debug<Autolinks['linkify']>({
