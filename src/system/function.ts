@@ -74,7 +74,10 @@ export function debounce<T extends (...args: any[]) => ReturnType<T>>(
 	}
 
 	function flush() {
-		return timer != null ? trailingEdge() : result;
+		if (timer == null) return result;
+
+		clearTimeout(timer);
+		return trailingEdge();
 	}
 
 	function pending(): boolean {
