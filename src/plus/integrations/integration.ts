@@ -71,7 +71,10 @@ export function isIssueIntegration(integration: Integration): integration is Iss
 	return integration.type === 'issues';
 }
 
-abstract class IntegrationBase<ID extends SupportedIntegrationIds = SupportedIntegrationIds> {
+export abstract class IntegrationBase<
+	ID extends SupportedIntegrationIds = SupportedIntegrationIds,
+	T extends ResourceDescriptor = ResourceDescriptor,
+> {
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
@@ -332,6 +335,33 @@ abstract class IntegrationBase<ID extends SupportedIntegrationIds = SupportedInt
 		resources?: ResourceDescriptor[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined>;
+
+	@debug()
+	async getIssueOrPullRequest(resource: T, id: string): Promise<IssueOrPullRequest | undefined> {
+		const scope = getLogScope();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		const issueOrPR = this.container.cache.getIssueOrPullRequest(id, resource, this, () => ({
+			value: (async () => {
+				try {
+					const result = await this.getProviderIssueOrPullRequest(this._session!, resource, id);
+					this.resetRequestExceptionCount();
+					return result;
+				} catch (ex) {
+					return this.handleProviderException<IssueOrPullRequest | undefined>(ex, scope, undefined);
+				}
+			})(),
+		}));
+		return issueOrPR;
+	}
+
+	protected abstract getProviderIssueOrPullRequest(
+		session: ProviderAuthenticationSession,
+		resource: T,
+		id: string,
+	): Promise<IssueOrPullRequest | undefined>;
 }
 
 export abstract class IssueIntegration<
@@ -548,33 +578,6 @@ export abstract class HostingIntegration<
 		session: ProviderAuthenticationSession,
 		repo: T,
 	): Promise<RepositoryMetadata | undefined>;
-
-	@debug()
-	async getIssueOrPullRequest(repo: T, id: string): Promise<IssueOrPullRequest | undefined> {
-		const scope = getLogScope();
-
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		const issueOrPR = this.container.cache.getIssueOrPullRequest(id, repo, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderIssueOrPullRequest(this._session!, repo, id);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<IssueOrPullRequest | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
-		return issueOrPR;
-	}
-
-	protected abstract getProviderIssueOrPullRequest(
-		session: ProviderAuthenticationSession,
-		repo: T,
-		id: string,
-	): Promise<IssueOrPullRequest | undefined>;
 
 	async mergePullRequest(
 		pr: PullRequest | { id: string; headRefSha: string },
