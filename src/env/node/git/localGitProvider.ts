@@ -2525,8 +2525,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							continue;
 						}
 
-						head = tip.startsWith('HEAD');
-						if (head) {
+						if (tip.startsWith('HEAD')) {
+							head = true;
 							reachableFromHEAD.add(commit.sha);
 
 							if (tip !== 'HEAD') {
