@@ -13,6 +13,20 @@ export function once<T>(event: Event<T>): Event<T> {
 	};
 }
 
+export function times<T>(event: Event<T>, count: number): Event<T> {
+	return (listener: (e: T) => unknown, thisArgs?: unknown) => {
+		let i = 0;
+		const result = event(e => {
+			if (++i >= count) {
+				result.dispose();
+			}
+			return listener.call(thisArgs, e);
+		});
+
+		return result;
+	};
+}
+
 export function promisify<T>(event: Event<T>): Promise<T> {
 	return new Promise<T>(resolve => once(event)(resolve));
 }

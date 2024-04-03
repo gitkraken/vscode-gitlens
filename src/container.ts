@@ -619,7 +619,7 @@ export class Container {
 	private _integrations: IntegrationService | undefined;
 	get integrations(): IntegrationService {
 		if (this._integrations == null) {
-			this._disposables.push((this._integrations = new IntegrationService(this)));
+			this._disposables.push((this._integrations = new IntegrationService(this, this._connection)));
 		}
 		return this._integrations;
 	}

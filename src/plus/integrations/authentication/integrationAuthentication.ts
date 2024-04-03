@@ -6,6 +6,7 @@ import { debug } from '../../../system/decorators/log';
 import type { ServerConnection } from '../../gk/serverConnection';
 import type { IntegrationId } from '../providers/models';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../providers/models';
+import type { CloudIntegrationsApi } from './cloudIntegrationsApi';
 import type { ProviderAuthenticationSession } from './models';
 
 interface StoredSession {
@@ -147,6 +148,23 @@ export class IntegrationAuthenticationService implements Disposable {
 		return `gitlens.integration.auth:${providerId}|${id}`;
 	}
 
+	private _cloudIntegrationsApi: Promise<CloudIntegrationsApi> | undefined;
+	private async getCloudIntegrationsApi() {
+		if (this._cloudIntegrationsApi == null) {
+			const container = this.container;
+			const connection = this.connection;
+			async function load() {
+				return new (
+					await import(/* webpackChunkName: "cloud-integrations-api" */ './cloudIntegrationsApi')
+				).CloudIntegrationsApi(container, connection);
+			}
+
+			this._cloudIntegrationsApi = load();
+		}
+
+		return this._cloudIntegrationsApi;
+	}
+
 	private async ensureProvider(providerId: IntegrationId): Promise<IntegrationAuthenticationProvider> {
 		let provider = this.providers.get(providerId);
 		if (provider == null) {
@@ -175,7 +193,7 @@ export class IntegrationAuthenticationService implements Disposable {
 				case IssueIntegrationId.Jira:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './jira')
-					).JiraAuthenticationProvider(this.connection);
+					).JiraAuthenticationProvider(this.container, this.getCloudIntegrationsApi.bind(this));
 					break;
 				default:
 					throw new Error(`Provider '${providerId}' is not supported`);
