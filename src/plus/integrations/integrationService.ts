@@ -93,6 +93,7 @@ export class IntegrationService implements Disposable {
 	get(id: SupportedHostingIntegrationIds): Promise<HostingIntegration>;
 	get(id: SupportedIssueIntegrationIds): Promise<IssueIntegration>;
 	get(id: SupportedSelfHostedIntegrationIds, domain: string): Promise<HostingIntegration>;
+	get(id: SupportedIntegrationIds, domain?: string): Promise<Integration>;
 	async get(
 		id: SupportedHostingIntegrationIds | SupportedIssueIntegrationIds | SupportedSelfHostedIntegrationIds,
 		domain?: string,

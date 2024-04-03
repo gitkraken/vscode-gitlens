@@ -1,6 +1,7 @@
 import type { AnthropicModels } from './ai/anthropicProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
 import type { AIProviders } from './constants';
+import type { ResourceDescriptor } from './plus/integrations/integration';
 import type { DateTimeFormat } from './system/date';
 import type { LogLevel } from './system/logger.constants';
 
@@ -247,6 +248,7 @@ export interface AutolinkReference {
 
 	readonly type?: AutolinkType;
 	readonly description?: string;
+	readonly descriptor?: ResourceDescriptor;
 }
 
 export type BlameHighlightLocations = 'gutter' | 'line' | 'overview';

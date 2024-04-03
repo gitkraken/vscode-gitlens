@@ -425,8 +425,8 @@ export function toSearchedIssue(
 		issue: {
 			type: 'issue',
 			provider: provider,
-			id: issue.id,
-			nodeId: undefined,
+			id: issue.number,
+			nodeId: issue.graphQLId ?? issue.id,
 			title: issue.title,
 			url: issue.url,
 			createdDate: issue.createdDate,

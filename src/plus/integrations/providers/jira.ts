@@ -64,6 +64,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 							prefix: prefix,
 							title: `Open Issue ${prefix}<num> on ${organization.name}`,
 							description: `${organization.name} Issue ${prefix}<num>`,
+							descriptor: { ...organization },
 						});
 					}
 				}
