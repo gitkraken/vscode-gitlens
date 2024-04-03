@@ -1,5 +1,5 @@
 /*global window document MutationObserver*/
-import { darken, getCssVariable, lighten, opacity } from '../../../system/color';
+import { Color, darken, getCssVariable, lighten, opacity } from '../../../system/color';
 import type { Disposable, Event } from './events';
 import { Emitter } from './events';
 
@@ -74,6 +74,72 @@ export function computeThemeColors(mutations?: MutationRecord[]): ThemeChangeEve
 
 	color = getCssVariable('--color-alert-infoBackground', computedStyle);
 	rootStyle.setProperty('--color-alert-infoHoverBackground', isLightTheme ? darken(color, 5) : lighten(color, 5));
+
+	const backgroundColorObj = Color.from(backgroundColor);
+	const foregroundColorObj = Color.from(foregroundColor);
+
+	const backgroundLuminance = backgroundColorObj.getRelativeLuminance();
+	const foregroundLuminance = foregroundColorObj.getRelativeLuminance();
+
+	const themeLuminance = (luminance: number) => {
+		let min;
+		let max;
+		if (foregroundLuminance > backgroundLuminance) {
+			max = foregroundLuminance;
+			min = backgroundLuminance;
+		} else {
+			min = foregroundLuminance;
+			max = backgroundLuminance;
+		}
+		const percent = luminance / 1;
+		return percent * (max - min) + min;
+	};
+
+	const primaryColor = Color.fromCssVariable('--vscode-button-background', computedStyle);
+	rootStyle.setProperty(
+		'--sl-color-primary-50',
+		primaryColor.luminance(themeLuminance(isLightTheme ? 0.95 : 0.05)).toString(),
+	);
+	rootStyle.setProperty(
+		'--sl-color-primary-100',
+		primaryColor.luminance(themeLuminance(isLightTheme ? 0.9 : 0.1)).toString(),
+	);
+	rootStyle.setProperty(
+		'--sl-color-primary-200',
+		primaryColor.luminance(themeLuminance(isLightTheme ? 0.8 : 0.2)).toString(),
+	);
+	rootStyle.setProperty(
+		'--sl-color-primary-300',
+		primaryColor.luminance(themeLuminance(isLightTheme ? 0.7 : 0.3)).toString(),
+	);
+	rootStyle.setProperty(
+		'--sl-color-primary-400',
+		primaryColor.luminance(themeLuminance(isLightTheme ? 0.6 : 0.4)).toString(),
+	);
+	rootStyle.setProperty(
+		'--sl-color-primary-500',
+		primaryColor.luminance(themeLuminance(isLightTheme ? 0.5 : 0.5)).toString(),
+	);
+	rootStyle.setProperty(
+		'--sl-color-primary-600',
+		primaryColor.luminance(themeLuminance(isLightTheme ? 0.4 : 0.6)).toString(),
+	);
+	rootStyle.setProperty(
+		'--sl-color-primary-700',
+		primaryColor.luminance(themeLuminance(isLightTheme ? 0.3 : 0.7)).toString(),
+	);
+	rootStyle.setProperty(
+		'--sl-color-primary-800',
+		primaryColor.luminance(themeLuminance(isLightTheme ? 0.2 : 0.8)).toString(),
+	);
+	rootStyle.setProperty(
+		'--sl-color-primary-900',
+		primaryColor.luminance(themeLuminance(isLightTheme ? 0.1 : 0.9)).toString(),
+	);
+	rootStyle.setProperty(
+		'--sl-color-primary-950',
+		primaryColor.luminance(themeLuminance(isLightTheme ? 0.05 : 0.95)).toString(),
+	);
 
 	color = getCssVariable('--color-alert-warningBackground', computedStyle);
 	rootStyle.setProperty('--color-alert-warningHoverBackground', isLightTheme ? darken(color, 5) : lighten(color, 5));

@@ -62,7 +62,7 @@ import { createWebviewCommandLink } from '../../../../system/webview';
 import type { IpcNotificationType } from '../../../protocol';
 import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
-import { PopOver } from '../../shared/components/overlays/react';
+import { GlTooltip } from '../../shared/components/overlays/react';
 import { FeatureGate } from '../../shared/components/react/feature-gate';
 import { FeatureGateBadge } from '../../shared/components/react/feature-gate-badge';
 import { SearchBox } from '../../shared/components/search/react';
@@ -1273,15 +1273,17 @@ export function GraphWrapper({
 						</>
 					)}
 					<FeatureGateBadge subscription={subscription}></FeatureGateBadge>
-					<div className="popover">
-						<a href="command:gitlens.showFocusPage" className="action-button popover__trigger">
+					<GlTooltip>
+						<a href="command:gitlens.showFocusPage" className="action-button">
 							Try the Focus Preview
 						</a>
-						<PopOver placement="top end" className="popover__content">
-							Bring all of your GitHub pull requests and issues into a unified actionable to help to you
-							more easily juggle work in progress, pending work, reviews, and more
-						</PopOver>
-					</div>
+						<div slot="content">
+							<span style={{ whiteSpace: 'break-spaces' }}>
+								Bring all of your GitHub pull requests and issues into a unified actionable to help to
+								you more easily juggle work in progress, pending work, reviews, and more
+							</span>
+						</div>
+					</GlTooltip>
 				</div>
 				{allowed && (
 					<div className="titlebar__row">
