@@ -10,7 +10,7 @@ import type { RemoteProvider, RemoteProviderId } from '../../git/remotes/remoteP
 import { registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
-import { times } from '../../system/event';
+import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { CloudIntegrationsApi } from './authentication/cloudIntegrationsApi';
@@ -105,7 +105,7 @@ export class IntegrationService implements Disposable {
 
 	private async manageCloudIntegrations() {
 		await env.openExternal(this.connection.getGkDevAccountsUri('settings/integrations'));
-		times(
+		take(
 			window.onDidChangeWindowState,
 			2,
 		)(e => {

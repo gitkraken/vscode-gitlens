@@ -3,17 +3,10 @@ import { Disposable } from 'vscode';
 import type { Deferred } from './promise';
 
 export function once<T>(event: Event<T>): Event<T> {
-	return (listener: (e: T) => unknown, thisArgs?: unknown) => {
-		const result = event(e => {
-			result.dispose();
-			return listener.call(thisArgs, e);
-		});
-
-		return result;
-	};
+	return take<T>(event, 1);
 }
 
-export function times<T>(event: Event<T>, count: number): Event<T> {
+export function take<T>(event: Event<T>, count: number): Event<T> {
 	return (listener: (e: T) => unknown, thisArgs?: unknown) => {
 		let i = 0;
 		const result = event(e => {
@@ -31,7 +24,7 @@ export function promisify<T>(event: Event<T>): Promise<T> {
 	return new Promise<T>(resolve => once(event)(resolve));
 }
 
-export function until<T>(event: Event<T>, predicate: (e: T) => boolean): Event<T> {
+export function takeUntil<T>(event: Event<T>, predicate: (e: T) => boolean): Event<T> {
 	return (listener: (e: T) => unknown, thisArgs?: unknown) => {
 		const result = event(e => {
 			if (predicate(e)) {
