@@ -35,12 +35,15 @@ import { groupAndSortFocusItems } from './focusProvider';
 
 const actionGroupMap = new Map<FocusActionCategory, string[]>([
 	['mergeable', ['Ready to Merge', 'Ready to merge']],
-	['mergeable-conflicts', ['Resolve Conflicts', 'You need to resolve merge conflicts, before this can be merged']],
+	['unassigned-reviewers', ['Unassigned Reviewers', 'You need to assign reviewers']],
 	['failed-checks', ['Failed Checks', 'You need to resolve the failing checks']],
 	['conflicts', ['Resolve Conflicts', 'You need to resolve merge conflicts']],
-	['needs-review', ['Needs Your Review', `\${author} requested your review`]],
+	['needs-my-review', ['Needs Your Review', `\${author} requested your review`]],
 	['changes-requested', ['Changes Requested', 'Reviewers requested changes before this can be merged']],
+	['reviewer-commented', ['Reviewers Commented', 'Reviewers have commented on this pull request']],
 	['waiting-for-review', ['Waiting for Review', 'Waiting for reviewers to approve this pull request']],
+	['draft', ['Draft', 'Continue working on your draft']],
+	['other', ['Other', 'Other pull requests']],
 ]);
 
 const groupMap = new Map<FocusGroup, [string, ThemeIcon | undefined]>([
@@ -51,6 +54,8 @@ const groupMap = new Map<FocusGroup, [string, ThemeIcon | undefined]>([
 	['needs-attention', ['Needs Your Attention', new ThemeIcon('bell-dot')]], //comment-unresolved
 	['needs-review', ['Needs Your Review', new ThemeIcon('comment-draft')]], // feedback
 	['waiting-for-review', ['Waiting for Review', new ThemeIcon('gitlens-clock')]],
+	['draft', ['Draft', new ThemeIcon('comment-discussion')]],
+	['other', ['Other', new ThemeIcon('question')]],
 	['snoozed', ['Snoozed', new ThemeIcon('bell-slash')]],
 ]);
 

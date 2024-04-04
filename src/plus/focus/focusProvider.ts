@@ -3,30 +3,27 @@ import { Disposable, env, EventEmitter, Uri } from 'vscode';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import type { SearchedIssue } from '../../git/models/issue';
-import { RepositoryAccessLevel } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
-import {
-	PullRequestMergeableState,
-	PullRequestReviewDecision,
-	PullRequestStatusCheckRollupState,
-} from '../../git/models/pullRequest';
 import type { ProviderReference } from '../../git/models/remoteProvider';
 import type { GkProviderId, RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
 import { configuration } from '../../system/configuration';
 import { getSettledValue } from '../../system/promise';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkType } from '../../uris/deepLinks/deepLink';
-import { HostingIntegrationId } from '../integrations/providers/models';
+import { categorizePullRequests, HostingIntegrationId, toProviderPullRequest } from '../integrations/providers/models';
 import type { EnrichableItem, EnrichedItem } from './enrichmentService';
 
 export const focusActionCategories = [
 	'mergeable',
-	'mergeable-conflicts',
+	'unassigned-reviewers',
 	'failed-checks',
-	'needs-review',
 	'conflicts',
+	'needs-my-review',
 	'changes-requested',
+	'reviewer-commented',
 	'waiting-for-review',
+	'draft',
+	'other',
 ] as const;
 export type FocusActionCategory = (typeof focusActionCategories)[number];
 
@@ -38,6 +35,8 @@ export const focusGroups = [
 	'needs-attention',
 	'needs-review',
 	'waiting-for-review',
+	'draft',
+	'other',
 	'snoozed',
 ] as const;
 export type FocusGroup = (typeof focusGroups)[number];
@@ -45,25 +44,44 @@ export type FocusGroup = (typeof focusGroups)[number];
 export const focusCategoryToGroupMap = new Map<FocusActionCategory, FocusGroup>([
 	// ['pinned', 'pinned'],
 	['mergeable', 'mergeable'],
-	['mergeable-conflicts', 'blocked'],
-	['failed-checks', 'blocked'],
 	['conflicts', 'blocked'],
-	['needs-review', 'needs-review'],
+	['failed-checks', 'blocked'],
+	['unassigned-reviewers', 'needs-attention'],
+	['needs-my-review', 'needs-review'],
 	['changes-requested', 'follow-up'],
+	['reviewer-commented', 'follow-up'],
 	['waiting-for-review', 'waiting-for-review'],
+	['draft', 'draft'],
+	['other', 'other'],
 	// ['snoozed', 'snoozed'],
+]);
+
+export const sharedCategoryToFocusActionCategoryMap = new Map<string, FocusActionCategory>([
+	['readyToMerge', 'mergeable'],
+	['unassignedReviewers', 'unassigned-reviewers'],
+	['failingCI', 'failed-checks'],
+	['conflicts', 'conflicts'],
+	['needsMyReview', 'needs-my-review'],
+	['changesRequested', 'changes-requested'],
+	['reviewerCommented', 'reviewer-commented'],
+	['waitingForReview', 'waiting-for-review'],
+	['draft', 'draft'],
+	['other', 'other'],
 ]);
 
 export type FocusAction = 'open' | 'merge' | 'review' | 'switch' | 'change-reviewers' | 'nudge' | 'decline-review';
 
 const prActionsMap = new Map<FocusActionCategory, FocusAction[]>([
 	['mergeable', ['merge', 'switch', 'open']],
-	['mergeable-conflicts', ['switch', 'open']],
+	['unassigned-reviewers', ['switch', 'open']],
 	['failed-checks', ['switch', 'open']],
 	['conflicts', ['switch', 'open']],
-	['needs-review', ['review', /* 'decline-review', */ 'open']],
+	['needs-my-review', ['review', /* 'decline-review', */ 'open']],
 	['changes-requested', ['switch', 'open']],
+	['reviewer-commented', ['switch', 'open']],
 	['waiting-for-review', [/* 'nudge', 'change-reviewers', */ 'switch', 'open']],
+	['draft', ['switch', 'open']],
+	['other', ['switch', 'open']],
 ]);
 
 export type FocusItem = {
@@ -171,7 +189,7 @@ export class FocusProvider implements Disposable {
 		return this._enrichedItems?.promise;
 	}
 
-	private _groupedIds: Map<string, FocusGroup> | undefined;
+	private _groupedIds: Set<string> | undefined;
 
 	refresh() {
 		this._issues = undefined;
@@ -322,6 +340,26 @@ export class FocusProvider implements Disposable {
 
 		const prs = getSettledValue(prsResult);
 		if (prs != null) {
+			const prsById = new Map(prs.map(pr => [pr.pullRequest.id, pr]));
+			const github = await this.container.integrations.get(HostingIntegrationId.GitHub);
+			const myAccount = await github.getCurrentAccount();
+			if (myAccount?.username != null) {
+				const bucketedPrs = categorizePullRequests(
+					prs.map(pr => toProviderPullRequest(pr.pullRequest)),
+					{ id: myAccount.username },
+				);
+				for (const bucket of Object.values(bucketedPrs)) {
+					const actionCategory = sharedCategoryToFocusActionCategoryMap.get(bucket.id);
+					for (const bucketedPullRequest of bucket.pullRequests) {
+						const pr = prsById.get(bucketedPullRequest.id);
+						const enrichedItem = enrichedItems.get(pr!.pullRequest.nodeId!);
+						categorized.push(this.createFocusItem(actionCategory!, pr!, enrichedItem));
+					}
+				}
+			}
+		}
+
+		/* if (prs != null) {
 			outer: for (const pr of prs) {
 				if (pr.pullRequest.isDraft) continue;
 
@@ -384,7 +422,7 @@ export class FocusProvider implements Disposable {
 					continue;
 				}
 			}
-		}
+		} */
 
 		// const issues = getSettledValue(issuesResult);
 		// if (issues != null) {
@@ -444,7 +482,7 @@ export class FocusProvider implements Disposable {
 					uniqueId: item.pullRequest.nodeId!,
 					isNew:
 						this._groupedIds != null &&
-						this._groupedIds.get(item.pullRequest.nodeId!) != focusCategoryToGroupMap.get(category),
+						!this._groupedIds.has(`${item.pullRequest.nodeId!}:${focusCategoryToGroupMap.get(category)}`),
 					title: item.pullRequest.title,
 					date: item.pullRequest.updatedDate,
 					author: item.pullRequest.author.name,
@@ -492,7 +530,7 @@ export class FocusProvider implements Disposable {
 					uniqueId: item.issue.nodeId!,
 					isNew:
 						this._groupedIds != null &&
-						this._groupedIds.get(item.issue.nodeId!) != focusCategoryToGroupMap.get(category),
+						!this._groupedIds.has(`${item.issue.nodeId!}:${focusCategoryToGroupMap.get(category)}`),
 					title: item.issue.title,
 					date: item.issue.updatedDate,
 					author: item.issue.author.name,
@@ -530,13 +568,12 @@ export class FocusProvider implements Disposable {
 	}
 
 	private updateGroupedIds(items: FocusItem[]) {
-		const groupedIds = new Map<string, FocusGroup>();
+		const groupedIds = new Set<string>();
 		for (const item of items) {
-			const group = focusCategoryToGroupMap.get(item.actionableCategory);
-			if (group == null) continue;
-
-			if (!groupedIds.has(item.uniqueId)) {
-				groupedIds.set(item.uniqueId, group);
+			const group = focusCategoryToGroupMap.get(item.actionableCategory)!;
+			const key = `${item.uniqueId}:${group}`;
+			if (!groupedIds.has(key)) {
+				groupedIds.add(key);
 			}
 		}
 
@@ -550,18 +587,21 @@ export function groupAndSortFocusItems(items?: FocusItem[]) {
 
 	sortFocusItems(items);
 
+	const pinnedGroup = grouped.get('pinned')!;
+	const snoozedGroup = grouped.get('snoozed')!;
+
 	for (const item of items) {
-		if (item.pinned) {
-			grouped.get('pinned')?.push(item);
+		if (item.pinned && !pinnedGroup.some(i => i.uniqueId === item.uniqueId)) {
+			pinnedGroup.push(item);
 		} else if (item.snoozed) {
-			grouped.get('snoozed')?.push(item);
+			if (!snoozedGroup.some(i => i.uniqueId === item.uniqueId)) {
+				snoozedGroup.push(item);
+			}
 			continue;
 		}
 
-		const group = focusCategoryToGroupMap.get(item.actionableCategory);
-		if (group == null) continue;
-
-		grouped.get(group)?.push(item);
+		const group = focusCategoryToGroupMap.get(item.actionableCategory)!;
+		grouped.get(group)!.push(item);
 	}
 
 	return grouped;
