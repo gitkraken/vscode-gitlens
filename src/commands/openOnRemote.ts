@@ -8,6 +8,7 @@ import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { showGenericErrorMessage } from '../messages';
 import { showRemoteProviderPicker } from '../quickpicks/remoteProviderPicker';
+import { ensure } from '../system/array';
 import { command } from '../system/command';
 import { Logger } from '../system/logger';
 import { pad, splitSingle } from '../system/string';
@@ -15,14 +16,14 @@ import { Command } from './base';
 
 export type OpenOnRemoteCommandArgs =
 	| {
-			resource: RemoteResource;
+			resource: RemoteResource | RemoteResource[];
 			repoPath: string;
 
 			remote?: string;
 			clipboard?: boolean;
 	  }
 	| {
-			resource: RemoteResource;
+			resource: RemoteResource | RemoteResource[];
 			remotes: GitRemote<RemoteProvider>[];
 
 			remote?: string;
@@ -51,32 +52,44 @@ export class OpenOnRemoteCommand extends Command {
 			}
 		}
 
+		async function processResource(this: OpenOnRemoteCommand, resource: RemoteResource) {
+			try {
+				if (resource.type === RemoteResourceType.Branch) {
+					// Check to see if the remote is in the branch
+					const [remoteName, branchName] = splitSingle(resource.branch, '/');
+					if (branchName != null) {
+						const remote = remotes.find(r => r.name === remoteName);
+						if (remote != null) {
+							resource.branch = branchName;
+							remotes = [remote];
+						}
+					}
+				} else if (resource.type === RemoteResourceType.Revision) {
+					const { commit, fileName } = resource;
+					if (commit != null) {
+						const file = await commit.findFile(fileName);
+						if (file?.status === 'D') {
+							// Resolve to the previous commit to that file
+							resource.sha = await this.container.git.resolveReference(
+								commit.repoPath,
+								`${commit.sha}^`,
+								fileName,
+							);
+						} else {
+							resource.sha = commit.sha;
+						}
+					}
+				}
+			} catch (ex) {
+				debugger;
+				Logger.error(ex, 'OpenOnRemoteCommand.processResource');
+			}
+		}
+
 		try {
-			if (args.resource.type === RemoteResourceType.Branch) {
-				// Check to see if the remote is in the branch
-				const [remoteName, branchName] = splitSingle(args.resource.branch, '/');
-				if (branchName != null) {
-					const remote = remotes.find(r => r.name === remoteName);
-					if (remote != null) {
-						args.resource.branch = branchName;
-						remotes = [remote];
-					}
-				}
-			} else if (args.resource.type === RemoteResourceType.Revision) {
-				const { commit, fileName } = args.resource;
-				if (commit != null) {
-					const file = await commit.findFile(fileName);
-					if (file?.status === 'D') {
-						// Resolve to the previous commit to that file
-						args.resource.sha = await this.container.git.resolveReference(
-							commit.repoPath,
-							`${commit.sha}^`,
-							fileName,
-						);
-					} else {
-						args.resource.sha = commit.sha;
-					}
-				}
+			const resources = ensure(args.resource)!;
+			for (const resource of resources) {
+				await processResource.call(this, resource);
 			}
 
 			const providers = getHighlanderProviders(remotes);
@@ -89,15 +102,23 @@ export class OpenOnRemoteCommand extends Command {
 			};
 
 			let title;
-			let placeHolder = `Choose which remote to ${args.clipboard ? 'copy the link for' : 'open on'}`;
+			let placeHolder = `Choose which remote to ${
+				args.clipboard ? `copy the link${resources.length > 1 ? 's' : ''} for` : 'open on'
+			}`;
 
 			function getTitlePrefix(type: string): string {
-				return args?.clipboard ? `Copy Link to ${type} for ${provider}` : `Open ${type} on ${provider}`;
+				return args?.clipboard
+					? `Copy ${provider} ${type} Link${resources.length > 1 ? 's' : ''}`
+					: `Open ${type} on ${provider}`;
 			}
 
-			switch (args.resource.type) {
+			const [resource] = resources;
+			switch (resource.type) {
 				case RemoteResourceType.Branch:
-					title = `${getTitlePrefix('Branch')}${pad(GlyphChars.Dot, 2, 2)}${args.resource.branch}`;
+					title = getTitlePrefix('Branch');
+					if (resources.length === 1) {
+						title += `${pad(GlyphChars.Dot, 2, 2)}${resource.branch}`;
+					}
 					break;
 
 				case RemoteResourceType.Branches:
@@ -105,40 +126,57 @@ export class OpenOnRemoteCommand extends Command {
 					break;
 
 				case RemoteResourceType.Commit:
-					title = `${getTitlePrefix('Commit')}${pad(GlyphChars.Dot, 2, 2)}${shortenRevision(
-						args.resource.sha,
-					)}`;
+					title = getTitlePrefix('Commit');
+					if (resources.length === 1) {
+						title += `${pad(GlyphChars.Dot, 2, 2)}${shortenRevision(resource.sha)}`;
+					}
 					break;
 
 				case RemoteResourceType.Comparison:
-					title = `${getTitlePrefix('Comparison')}${pad(GlyphChars.Dot, 2, 2)}${createRevisionRange(
-						args.resource.base,
-						args.resource.compare,
-						args.resource.notation ?? '...',
-					)}`;
+					title = getTitlePrefix('Comparisons');
+					if (resources.length === 1) {
+						title += `${pad(GlyphChars.Dot, 2, 2)}${createRevisionRange(
+							resource.base,
+							resource.compare,
+							resource.notation ?? '...',
+						)}`;
+					}
 					break;
 
 				case RemoteResourceType.CreatePullRequest:
 					options.autoPick = true;
 					options.setDefault = false;
 
-					title = `${
-						args.clipboard
-							? `Copy Create Pull Request Link for ${provider}`
-							: `Create Pull Request on ${provider}`
-					}${pad(GlyphChars.Dot, 2, 2)}${
-						args.resource.base?.branch
-							? createRevisionRange(args.resource.base.branch, args.resource.compare.branch, '...')
-							: args.resource.compare.branch
-					}`;
+					if (resources.length > 1) {
+						title = args.clipboard
+							? `Copy ${provider} Create Pull Request Links`
+							: `Create Pull Requests on ${provider}`;
 
-					placeHolder = `Choose which remote to ${
-						args.clipboard ? 'copy the create pull request link for' : 'create the pull request on'
-					}`;
+						placeHolder = `Choose which remote to ${
+							args.clipboard ? 'copy the create pull request links for' : 'create the pull requests on'
+						}`;
+					} else {
+						title = `${
+							args.clipboard
+								? `Copy ${provider} Create Pull Request Link`
+								: `Create Pull Request on ${provider}`
+						}${pad(GlyphChars.Dot, 2, 2)}${
+							resource.base?.branch
+								? createRevisionRange(resource.base.branch, resource.compare.branch, '...')
+								: resource.compare.branch
+						}`;
+
+						placeHolder = `Choose which remote to ${
+							args.clipboard ? 'copy the create pull request link for' : 'create the pull request on'
+						}`;
+					}
 					break;
 
 				case RemoteResourceType.File:
-					title = `${getTitlePrefix('File')}${pad(GlyphChars.Dot, 2, 2)}${args.resource.fileName}`;
+					title = getTitlePrefix('File');
+					if (resources.length === 1) {
+						title += `${pad(GlyphChars.Dot, 2, 2)}${resource.fileName}`;
+					}
 					break;
 
 				case RemoteResourceType.Repo:
@@ -146,19 +184,27 @@ export class OpenOnRemoteCommand extends Command {
 					break;
 
 				case RemoteResourceType.Revision: {
-					title = `${getTitlePrefix('File')}${pad(GlyphChars.Dot, 2, 2)}${shortenRevision(
-						args.resource.sha,
-					)}${pad(GlyphChars.Dot, 1, 1)}${args.resource.fileName}`;
+					title = getTitlePrefix('File');
+					if (resources.length === 1) {
+						title += `${pad(GlyphChars.Dot, 2, 2)}${shortenRevision(resource.sha)}${pad(
+							GlyphChars.Dot,
+							1,
+							1,
+						)}${resource.fileName}`;
+					}
 					break;
 				}
 
 				// case RemoteResourceType.Tag: {
-				// 	title = `${getTitlePrefix('Tag')}${pad(GlyphChars.Dot, 2, 2)}${args.resource.tag}`;
+				// 	title = getTitlePrefix('Tag');
+				// 	if (resources.length === 1) {
+				// 		title += `${pad(GlyphChars.Dot, 2, 2)}${args.resource.tag}`;
+				// 	}
 				// 	break;
 				// }
 			}
 
-			const pick = await showRemoteProviderPicker(title, placeHolder, args.resource, remotes, options);
+			const pick = await showRemoteProviderPicker(title, placeHolder, resources, remotes, options);
 			await pick?.execute();
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnRemoteCommand');

@@ -11,6 +11,7 @@ import { getHighlanderProviders } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
 import { getNameFromRemoteResource, RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import { filterMap } from '../system/array';
 import { getSettledValue } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';
@@ -30,7 +31,7 @@ export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQu
 export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(
 		private readonly remote: GitRemote<RemoteProvider>,
-		private readonly resource: RemoteResource,
+		private readonly resources: RemoteResource[],
 		private readonly clipboard?: boolean,
 		buttons?: QuickInputButton[],
 	) {
@@ -42,53 +43,63 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 	}
 
 	override async execute(): Promise<void> {
-		let resource = this.resource;
-		if (resource.type === RemoteResourceType.Comparison) {
-			if (getRemoteNameFromBranchName(resource.base) === this.remote.name) {
-				resource = { ...resource, base: getBranchNameWithoutRemote(resource.base) };
-			}
+		const resourcesResults = await Promise.allSettled(
+			this.resources.map(async resource => {
+				if (resource.type === RemoteResourceType.Comparison) {
+					if (getRemoteNameFromBranchName(resource.base) === this.remote.name) {
+						resource = { ...resource, base: getBranchNameWithoutRemote(resource.base) };
+					}
 
-			if (getRemoteNameFromBranchName(resource.compare) === this.remote.name) {
-				resource = { ...resource, compare: getBranchNameWithoutRemote(resource.compare) };
-			}
-		} else if (resource.type === RemoteResourceType.CreatePullRequest) {
-			let branch = resource.base.branch;
-			if (branch == null) {
-				branch = await Container.instance.git.getDefaultBranchName(this.remote.repoPath, this.remote.name);
-				if (branch == null && this.remote.hasIntegration()) {
-					const provider = await Container.instance.integrations.getByRemote(this.remote);
-					const defaultBranch = await provider?.getDefaultBranch?.(this.remote.provider.repoDesc);
-					branch = defaultBranch?.name;
+					if (getRemoteNameFromBranchName(resource.compare) === this.remote.name) {
+						resource = { ...resource, compare: getBranchNameWithoutRemote(resource.compare) };
+					}
+				} else if (resource.type === RemoteResourceType.CreatePullRequest) {
+					let branch = resource.base.branch;
+					if (branch == null) {
+						branch = await Container.instance.git.getDefaultBranchName(
+							this.remote.repoPath,
+							this.remote.name,
+						);
+						if (branch == null && this.remote.hasIntegration()) {
+							const provider = await Container.instance.integrations.getByRemote(this.remote);
+							const defaultBranch = await provider?.getDefaultBranch?.(this.remote.provider.repoDesc);
+							branch = defaultBranch?.name;
+						}
+					}
+
+					resource = {
+						...resource,
+						base: { branch: branch, remote: { path: this.remote.path, url: this.remote.url } },
+					};
+				} else if (
+					resource.type === RemoteResourceType.File &&
+					resource.branchOrTag != null &&
+					(this.remote.provider.id === 'bitbucket' || this.remote.provider.id === 'bitbucket-server')
+				) {
+					// HACK ALERT
+					// Since Bitbucket can't support branch names in the url (other than with the default branch),
+					// turn this into a `Revision` request
+					const { branchOrTag } = resource;
+					const [branches, tags] = await Promise.allSettled([
+						Container.instance.git.getBranches(this.remote.repoPath, {
+							filter: b => b.name === branchOrTag || b.getNameWithoutRemote() === branchOrTag,
+						}),
+						Container.instance.git.getTags(this.remote.repoPath, { filter: t => t.name === branchOrTag }),
+					]);
+
+					const sha = getSettledValue(branches)?.values[0]?.sha ?? getSettledValue(tags)?.values[0]?.sha;
+					if (sha) {
+						resource = { ...resource, type: RemoteResourceType.Revision, sha: sha };
+					}
 				}
-			}
 
-			resource = {
-				...resource,
-				base: { branch: branch, remote: { path: this.remote.path, url: this.remote.url } },
-			};
-		} else if (
-			resource.type === RemoteResourceType.File &&
-			resource.branchOrTag != null &&
-			(this.remote.provider.id === 'bitbucket' || this.remote.provider.id === 'bitbucket-server')
-		) {
-			// HACK ALERT
-			// Since Bitbucket can't support branch names in the url (other than with the default branch),
-			// turn this into a `Revision` request
-			const { branchOrTag } = resource;
-			const [branches, tags] = await Promise.allSettled([
-				Container.instance.git.getBranches(this.remote.repoPath, {
-					filter: b => b.name === branchOrTag || b.getNameWithoutRemote() === branchOrTag,
-				}),
-				Container.instance.git.getTags(this.remote.repoPath, { filter: t => t.name === branchOrTag }),
-			]);
+				return resource;
+			}),
+		);
 
-			const sha = getSettledValue(branches)?.values[0]?.sha ?? getSettledValue(tags)?.values[0]?.sha;
-			if (sha) {
-				resource = { ...resource, type: RemoteResourceType.Revision, sha: sha };
-			}
-		}
+		const resources = filterMap(resourcesResults, r => getSettledValue(r));
 
-		void (await (this.clipboard ? this.remote.provider.copy(resource) : this.remote.provider.open(resource)));
+		void (await (this.clipboard ? this.remote.provider.copy(resources) : this.remote.provider.open(resources)));
 	}
 
 	setAsDefault(): Promise<void> {
@@ -140,7 +151,7 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 export async function showRemoteProviderPicker(
 	title: string,
 	placeholder: string,
-	resource: RemoteResource,
+	resources: RemoteResource[],
 	remotes: GitRemote<RemoteProvider>[],
 	options?: {
 		autoPick?: 'default' | boolean;
@@ -172,7 +183,7 @@ export async function showRemoteProviderPicker(
 			r =>
 				new CopyOrOpenRemoteCommandQuickPickItem(
 					r,
-					resource,
+					resources,
 					clipboard,
 					setDefault ? [SetRemoteAsDefaultQuickInputButton] : undefined,
 				),

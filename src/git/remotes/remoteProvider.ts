@@ -6,6 +6,7 @@ import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { ResourceDescriptor } from '../../plus/integrations/integration';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
+import { getSettledValue } from '../../system/promise';
 import { openUrl } from '../../system/utils';
 import type { ProviderReference } from '../models/remoteProvider';
 import type { RemoteResource } from '../models/remoteResource';
@@ -73,13 +74,11 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	abstract get gkProviderId(): GkProviderId | undefined;
 	abstract get name(): string;
 
-	async copy(resource: RemoteResource): Promise<void> {
-		const url = this.url(resource);
-		if (url == null) {
-			return;
-		}
+	async copy(resource: RemoteResource | RemoteResource[]): Promise<void> {
+		const urls = this.getUrlsFromResources(resource);
+		if (!urls.length) return;
 
-		await env.clipboard.writeText(url);
+		await env.clipboard.writeText(urls.join('\n'));
 	}
 
 	abstract getLocalInfoFromRemoteUri(
@@ -88,8 +87,12 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		options?: { validate?: boolean },
 	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined>;
 
-	open(resource: RemoteResource): Promise<boolean | undefined> {
-		return openUrl(this.url(resource));
+	async open(resource: RemoteResource | RemoteResource[]): Promise<boolean | undefined> {
+		const urls = this.getUrlsFromResources(resource);
+		if (!urls.length) return false;
+
+		const results = await Promise.allSettled(urls.map(openUrl));
+		return results.every(r => getSettledValue(r) === true);
 	}
 
 	url(resource: RemoteResource): string | undefined {
@@ -169,5 +172,24 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	protected encodeUrl(url: string | undefined): string | undefined;
 	protected encodeUrl(url: string | undefined): string | undefined {
 		return encodeUrl(url)?.replace(/#/g, '%23');
+	}
+
+	private getUrlsFromResources(resource: RemoteResource | RemoteResource[]): string[] {
+		const urls: string[] = [];
+
+		if (Array.isArray(resource)) {
+			for (const r of resource) {
+				const url = this.url(r);
+				if (url == null) continue;
+
+				urls.push(url);
+			}
+		} else {
+			const url = this.url(resource);
+			if (url != null) {
+				urls.push(url);
+			}
+		}
+		return urls;
 	}
 }

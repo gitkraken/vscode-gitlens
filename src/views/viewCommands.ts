@@ -6,6 +6,7 @@ import type { DiffWithCommandArgs } from '../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';
 import type { DiffWithWorkingCommandArgs } from '../commands/diffWithWorking';
 import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevision';
+import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import type { ViewShowBranchComparison } from '../config';
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
@@ -23,6 +24,7 @@ import { deletedOrMissing } from '../git/models/constants';
 import { matchContributor } from '../git/models/contributor';
 import { getComparisonRefsForPullRequest } from '../git/models/pullRequest';
 import { createReference, shortenRevision } from '../git/models/reference';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import {
 	executeActionCommand,
@@ -228,16 +230,22 @@ export class ViewCommands {
 			this,
 			'sequential',
 		);
+
 		registerViewCommand(
-			'gitlens.views.openCommitOnRemote',
-			n => executeCommand(Commands.OpenCommitOnRemote, n),
+			'gitlens.views.copyRemoteCommitUrl',
+			(n, nodes) => this.openCommitOnRemote(n, nodes, true),
 			this,
 		);
 		registerViewCommand(
-			'gitlens.views.openCommitOnRemote.multi',
-			n => executeCommand(Commands.OpenCommitOnRemote, n),
+			'gitlens.views.copyRemoteCommitUrl.multi',
+			(n, nodes) => this.openCommitOnRemote(n, nodes, true),
 			this,
-			'sequential',
+		);
+		registerViewCommand('gitlens.views.openCommitOnRemote', (n, nodes) => this.openCommitOnRemote(n, nodes), this);
+		registerViewCommand(
+			'gitlens.views.openCommitOnRemote.multi',
+			(n, nodes) => this.openCommitOnRemote(n, nodes),
+			this,
 		);
 
 		registerViewCommand('gitlens.views.openChanges', this.openChanges, this);
@@ -1171,6 +1179,17 @@ export class ViewCommands {
 			node.commit,
 			options,
 		);
+	}
+
+	@log()
+	private openCommitOnRemote(node: ViewRefNode, nodes?: ViewRefNode[], clipboard?: boolean) {
+		const refs = nodes?.length ? nodes.map(n => n.ref) : [node.ref];
+
+		return executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			repoPath: refs[0].repoPath,
+			resource: refs.map(r => ({ type: RemoteResourceType.Commit, sha: r.ref })),
+			clipboard: clipboard,
+		});
 	}
 
 	@log()
