@@ -24,6 +24,7 @@ export function isWebviewContext(item: object | null | undefined): item is Webvi
 export interface WebviewItemContext<TValue = unknown> extends Partial<WebviewContext> {
 	webviewItem: string;
 	webviewItemValue: TValue;
+	webviewItemsValues?: { webviewItem: string; webviewItemValue: TValue }[];
 }
 
 export function isWebviewItemContext<TValue = unknown>(
