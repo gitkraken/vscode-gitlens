@@ -247,6 +247,8 @@ export function supportedInVSCodeVersion(feature: 'input-prompt-links') {
 	}
 }
 
+export async function openUrl(url: string): Promise<boolean>;
+export async function openUrl(url?: string): Promise<boolean | undefined>;
 export async function openUrl(url?: string): Promise<boolean | undefined> {
 	if (url == null) return undefined;
 
