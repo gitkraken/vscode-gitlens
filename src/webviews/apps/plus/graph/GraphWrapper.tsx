@@ -1,4 +1,5 @@
 import type {
+	CommitType,
 	GraphColumnMode,
 	GraphColumnSetting,
 	GraphColumnsSettings,
@@ -28,6 +29,7 @@ import type {
 	GraphComponentConfig,
 	GraphExcludedRef,
 	GraphExcludeTypes,
+	GraphItemContext,
 	GraphMinimapMarkerTypes,
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
@@ -54,6 +56,7 @@ import {
 	DidFetchNotificationType,
 	DidSearchNotificationType,
 } from '../../../../plus/webviews/graph/protocol';
+import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
 import { pluralize } from '../../../../system/string';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type { IpcNotificationType } from '../../../protocol';
@@ -178,6 +181,25 @@ const getClientPlatform = (): GraphPlatform => {
 
 const clientPlatform = getClientPlatform();
 
+interface SelectionContext {
+	listDoubleSelection?: boolean;
+	listMultiSelection?: boolean;
+	webviewItems?: string;
+	webviewItemsValues?: GraphItemContext[];
+}
+
+interface SelectionContexts {
+	contexts: Map<CommitType, SelectionContext>;
+	selectedShas: Set<string>;
+}
+
+const emptySelectionContext: SelectionContext = {
+	listDoubleSelection: false,
+	listMultiSelection: false,
+	webviewItems: undefined,
+	webviewItemsValues: undefined,
+};
+
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function GraphWrapper({
 	subscriber,
@@ -217,6 +239,7 @@ export function GraphWrapper({
 	const [selectedRows, setSelectedRows] = useState(state.selectedRows);
 	const [activeRow, setActiveRow] = useState(state.activeRow);
 	const [activeDay, setActiveDay] = useState(state.activeDay);
+	const [selectionContexts, setSelectionContexts] = useState<SelectionContexts | undefined>();
 	const [visibleDays, setVisibleDays] = useState(state.visibleDays);
 	const [graphConfig, setGraphConfig] = useState(state.config);
 	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
@@ -967,13 +990,130 @@ export function GraphWrapper({
 		onDoubleClickRow?.(row, true);
 	};
 
+	const handleRowContextMenu = (_event: React.MouseEvent<any>, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
+		if (graphZoneType === refZone) return;
+
+		// If the row is in the current selection, use the typed selection context, otherwise clear it
+		const newSelectionContext = selectionContexts?.selectedShas.has(graphRow.sha)
+			? selectionContexts.contexts.get(graphRow.type)
+			: emptySelectionContext;
+
+		setContext({
+			...context,
+			graph: {
+				...(context?.graph != null && typeof context.graph === 'string'
+					? JSON.parse(context.graph)
+					: context?.graph),
+				...newSelectionContext,
+			},
+		});
+	};
+
+	const computeSelectionContext = (active: GraphRow, rows: GraphRow[]) => {
+		if (rows.length <= 1) {
+			setSelectionContexts(undefined);
+			return;
+		}
+
+		const selectedShas = new Set<string>();
+		for (const row of rows) {
+			selectedShas.add(row.sha);
+		}
+
+		// Group the selected rows by their type and only include ones that have row context
+		const grouped = groupByFilterMap(
+			rows,
+			r => r.type,
+			r =>
+				r.contexts?.row != null
+					? ((typeof r.contexts.row === 'string'
+							? JSON.parse(r.contexts.row)
+							: r.contexts.row) as GraphItemContext)
+					: undefined,
+		);
+
+		const contexts: SelectionContexts['contexts'] = new Map<CommitType, SelectionContext>();
+
+		for (let [type, items] of grouped) {
+			let webviewItems: string | undefined;
+
+			const contextValues = new Set<string>();
+			for (const item of items) {
+				contextValues.add(item.webviewItem);
+			}
+
+			if (contextValues.size === 1) {
+				webviewItems = first(contextValues);
+			} else if (contextValues.size > 1) {
+				// If there are multiple contexts, see if they can be boiled down into a least common denominator set
+				// Contexts are of the form `gitlens:<type>+<additional-context-1>+<additional-context-2>...`, <type> can also contain multiple `:`, but assume the whole thing is the type
+
+				const itemTypes = new Map<string, Map<string, number>>();
+
+				for (const context of contextValues) {
+					const [type, ...adds] = context.split('+');
+
+					let additionalContext = itemTypes.get(type);
+					if (additionalContext == null) {
+						additionalContext ??= new Map<string, number>();
+						itemTypes.set(type, additionalContext);
+					}
+
+					// If any item has no additional context, then only the type is able to be used
+					if (adds.length === 0) {
+						additionalContext.clear();
+						break;
+					}
+
+					for (const add of adds) {
+						additionalContext.set(add, (additionalContext.get(add) ?? 0) + 1);
+					}
+				}
+
+				if (itemTypes.size === 1) {
+					let additionalContext;
+					[webviewItems, additionalContext] = first(itemTypes)!;
+
+					if (additionalContext.size > 0) {
+						const commonContexts = join(
+							filterMap(additionalContext, ([context, count]) =>
+								count === items.length ? context : undefined,
+							),
+							'+',
+						);
+
+						if (commonContexts) {
+							webviewItems += `+${commonContexts}`;
+						}
+					}
+				} else {
+					// If we have more than one type, something is wrong with our context key setup -- should NOT happen at runtime
+					debugger;
+					webviewItems = undefined;
+					items = [];
+				}
+			}
+
+			const count = items.length;
+			contexts.set(type, {
+				listDoubleSelection: count === 2,
+				listMultiSelection: count > 1,
+				webviewItems: webviewItems,
+				webviewItemsValues: count > 1 ? items : undefined,
+			});
+		}
+
+		setSelectionContexts({ contexts: contexts, selectedShas: selectedShas });
+	};
+
 	const handleSelectGraphRows = (rows: GraphRow[]) => {
-		const active = rows[0];
+		const active = rows[rows.length - 1];
 		const activeKey = active != null ? `${active.sha}|${active.date}` : undefined;
 		// HACK: Ensure the main state is updated since it doesn't come from the extension
 		state.activeRow = activeKey;
 		setActiveRow(activeKey);
 		setActiveDay(active?.date);
+		computeSelectionContext(active, rows);
 
 		onSelectionChange?.(rows);
 	};
@@ -1420,6 +1560,7 @@ export function GraphWrapper({
 							onGraphColumnsReOrdered={handleOnGraphColumnsReOrdered}
 							onGraphMouseLeave={minimap.current ? handleOnGraphMouseLeave : undefined}
 							onGraphRowHovered={minimap.current ? handleOnGraphRowHovered : undefined}
+							onRowContextMenu={handleRowContextMenu}
 							onSettingsClick={handleToggleColumnSettings}
 							onSelectGraphRows={handleSelectGraphRows}
 							onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}

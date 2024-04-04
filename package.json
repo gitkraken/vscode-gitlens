@@ -8370,6 +8370,12 @@
 				"icon": "$(copy)"
 			},
 			{
+				"command": "gitlens.graph.copyRemoteCommitUrl.multi",
+				"title": "Copy Remote Commit URLs",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.graph.showInDetailsView",
 				"title": "Open Details",
 				"category": "GitLens",
@@ -8383,6 +8389,12 @@
 			{
 				"command": "gitlens.graph.openCommitOnRemote",
 				"title": "Open Commit on Remote",
+				"category": "GitLens",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.graph.openCommitOnRemote.multi",
+				"title": "Open Commits on Remote",
 				"category": "GitLens",
 				"icon": "$(globe)"
 			},
@@ -11318,11 +11330,19 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.copyRemoteCommitUrl.multi",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.showInDetailsView",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.graph.openCommitOnRemote",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openCommitOnRemote.multi",
 					"when": "false"
 				},
 				{
@@ -14754,24 +14774,28 @@
 				},
 				{
 					"submenu": "gitlens/graph/commit/changes",
-					"when": "webviewItem =~ /gitlens:(commit|stash|wip)\\b/",
+					"when": "!listMultiSelection && webviewItem =~ /gitlens:(commit|stash|wip)\\b/",
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
 					"command": "gitlens.graph.showInDetailsView",
-					"when": "webviewItem =~ /gitlens:(commit|stash|wip)\\b/",
+					"when": "!listMultiSelection && webviewItem =~ /gitlens:(commit|stash|wip)\\b/",
 					"group": "3_gitlens_explore@0"
 				},
 				{
 					"command": "gitlens.graph.openSCM",
-					"when": "webviewItem == gitlens:wip",
+					"when": "!listMultiSelection && webviewItem == gitlens:wip",
 					"group": "3_gitlens_explore@1"
 				},
 				{
 					"command": "gitlens.graph.openCommitOnRemote",
 					"when": "!listMultiSelection && gitlens:hasRemotes && webviewItem =~ /gitlens:commit\\b/",
-					"group": "3_gitlens_explore@2",
-					"alt": "gitlens.copyRemoteCommitUrl"
+					"group": "3_gitlens_explore@2"
+				},
+				{
+					"command": "gitlens.graph.openCommitOnRemote.multi",
+					"when": "listMultiSelection && gitlens:hasRemotes && webviewItems =~ /gitlens:commit\\b/",
+					"group": "3_gitlens_explore@2"
 				},
 				{
 					"submenu": "gitlens/share",
@@ -14780,12 +14804,12 @@
 				},
 				{
 					"command": "gitlens.graph.copySha",
-					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+					"when": "!listMultiSelection && webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
 					"group": "7_gitlens_cutcopypaste@2"
 				},
 				{
 					"command": "gitlens.graph.copyMessage",
-					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+					"when": "!listMultiSelection && webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
 					"group": "7_gitlens_cutcopypaste@3"
 				},
 				{
@@ -15133,6 +15157,11 @@
 				{
 					"command": "gitlens.graph.copyRemoteCommitUrl",
 					"when": "!listMultiSelection && gitlens:hasRemotes && webviewItem =~ /gitlens:commit\\b/",
+					"group": "2_gitlens@25"
+				},
+				{
+					"command": "gitlens.graph.copyRemoteCommitUrl.multi",
+					"when": "listMultiSelection && gitlens:hasRemotes && webviewItems =~ /gitlens:commit\\b/",
 					"group": "2_gitlens@25"
 				},
 				{
