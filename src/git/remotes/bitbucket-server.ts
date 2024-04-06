@@ -51,7 +51,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 		if (this.path.startsWith('scm/')) {
 			const path = this.path.replace('scm/', '');
 			const index = path.indexOf('/');
-			return [this.path.substring(0, index), this.path.substring(index + 1)];
+			return [path.substring(0, index), path.substring(index + 1)];
 		}
 
 		return super.splitPath();

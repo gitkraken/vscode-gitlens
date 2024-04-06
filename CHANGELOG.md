@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#3180](https://github.com/gitkraken/vscode-gitlens/issues/3180) - Focus View feedback button is not working
 - Fixes [#3179](https://github.com/gitkraken/vscode-gitlens/issues/3179) - The checkmarks in cherry pick are not displayed
+- Fixes [#3218](https://github.com/gitkraken/vscode-gitlens/issues/3218) - Bitbucket Server remote provider's splitPath method splits on path with "scm/" prefix instead of transformed path without "scm/" prefix
 
 ## [14.9.0] - 2024-03-06
 
