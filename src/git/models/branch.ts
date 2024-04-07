@@ -256,7 +256,8 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-					(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()),
+					(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()) ||
+					sortCompare(a.name, b.name),
 			);
 		case 'name:asc':
 			return branches.sort(
@@ -302,7 +303,8 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-					(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()),
+					(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()) ||
+					sortCompare(b.name, a.name),
 			);
 	}
 }
