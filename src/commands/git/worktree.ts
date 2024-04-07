@@ -22,7 +22,7 @@ import {
 	isSha,
 } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
-import { GitWorktree } from '../../git/models/worktree';
+import type { GitWorktree } from '../../git/models/worktree';
 import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
@@ -33,7 +33,7 @@ import { configuration } from '../../system/configuration';
 import { basename, isDescendant } from '../../system/path';
 import type { Deferred } from '../../system/promise';
 import { pluralize, truncateLeft } from '../../system/string';
-import { openWorkspace, revealInFileExplorer } from '../../system/utils';
+import { getWorkspaceFriendlyPath, openWorkspace, revealInFileExplorer } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -548,7 +548,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					const openFolder: MessageItem = { title: 'Open Folder' };
 					void window
 						.showErrorMessage(
-							`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(
+							`Unable to create a new worktree in '${getWorkspaceFriendlyPath(
 								uri,
 							)}' because the folder already exists and is not empty.`,
 							confirm,
@@ -561,7 +561,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						});
 				} else {
 					void showGenericErrorMessage(
-						`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(uri)}.`,
+						`Unable to create a new worktree in '${getWorkspaceFriendlyPath(uri)}.`,
 					);
 				}
 			}
@@ -661,7 +661,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		}
 
 		const pickedUri = context.pickedSpecificFolder ?? context.pickedRootFolder ?? state.uri;
-		const pickedFriendlyPath = truncateLeft(GitWorktree.getFriendlyPath(pickedUri), 60);
+		const pickedFriendlyPath = truncateLeft(getWorkspaceFriendlyPath(pickedUri), 60);
 
 		let recommendedRootUri;
 
@@ -918,16 +918,14 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					label: context.title,
 					detail: `Will delete ${pluralize('worktree', state.uris.length, {
 						only: state.uris.length === 1,
-					})}${state.uris.length === 1 ? ` in $(folder) ${GitWorktree.getFriendlyPath(state.uris[0])}` : ''}`,
+					})}${state.uris.length === 1 ? ` in $(folder) ${getWorkspaceFriendlyPath(state.uris[0])}` : ''}`,
 				}),
 				createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force'], {
 					label: `Force ${context.title}`,
 					description: 'including ANY UNCOMMITTED changes',
 					detail: `Will forcibly delete ${pluralize('worktree', state.uris.length, {
 						only: state.uris.length === 1,
-					})} ${
-						state.uris.length === 1 ? ` in $(folder) ${GitWorktree.getFriendlyPath(state.uris[0])}` : ''
-					}`,
+					})} ${state.uris.length === 1 ? ` in $(folder) ${getWorkspaceFriendlyPath(state.uris[0])}` : ''}`,
 				}),
 			],
 			context,
@@ -951,6 +949,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				context.worktrees ??= await state.repo.getWorktrees();
 
 				const result = yield* pickWorktreeStep(state, context, {
+					excludeOpened: true,
 					includeStatus: true,
 					picked: state.worktree?.uri?.toString(),
 					placeholder: 'Choose worktree to open',
@@ -1012,7 +1011,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				createQuickPickSeparator(),
 				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--reveal-explorer'], {
 					label: `Reveal in File Explorer`,
-					description: `$(folder) ${truncateLeft(GitWorktree.getFriendlyPath(state.worktree.uri), 40)}`,
+					description: `$(folder) ${truncateLeft(getWorkspaceFriendlyPath(state.worktree.uri), 40)}`,
 					detail: 'Will open the worktree in the File Explorer',
 				}),
 			);

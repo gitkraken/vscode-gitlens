@@ -273,6 +273,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private readonly _stashesCache = new Map<string, GitStash | null>();
 	private readonly _tagsCache = new Map<string, Promise<PagedResult<GitTag>>>();
 	private readonly _trackedPaths = new PathTrie<PromiseOrValue<[string, string] | undefined>>();
+	private readonly _worktreesCache = new Map<string, Promise<GitWorktree[]>>();
 
 	private _disposables: Disposable[] = [];
 
@@ -285,13 +286,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		this._disposables.push(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'remotes')) {
-					this.resetCaches('remotes');
+					this.resetCaches(undefined, 'remotes');
 				}
 			}, this),
 			this.container.events.on('git:cache:reset', e =>
-				e.data.repoPath
-					? this.resetCache(e.data.repoPath, ...(e.data.caches ?? emptyArray))
-					: this.resetCaches(...(e.data.caches ?? emptyArray)),
+				this.resetCaches(e.data.repoPath, ...(e.data.caches ?? emptyArray)),
 			),
 		);
 	}
@@ -336,6 +335,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
 			this._tagsCache.delete(repo.path);
+		}
+
+		if (e.changed(RepositoryChange.Worktrees, RepositoryChangeComparisonMode.Any)) {
+			this._worktreesCache.delete(repo.path);
 		}
 
 		this._onDidChangeRepository.fire(e);
@@ -1323,71 +1326,47 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log({ singleLine: true })
-	private resetCache(
-		repoPath: string,
-		...caches: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
-	) {
-		if (caches.length === 0 || caches.includes('branches')) {
-			this._branchesCache.delete(repoPath);
+	private resetCaches(repoPath: string | undefined, ...caches: GitCaches[]) {
+		const cachesToClear = [];
+
+		if (!caches.length || caches.includes('branches')) {
+			cachesToClear.push(this._branchesCache);
 		}
 
-		if (caches.length === 0 || caches.includes('contributors')) {
-			this._contributorsCache.delete(repoPath);
+		if (!caches.length || caches.includes('contributors')) {
+			cachesToClear.push(this._contributorsCache);
 		}
 
-		if (caches.length === 0 || caches.includes('remotes')) {
-			this._remotesCache.delete(repoPath);
+		if (!caches.length || caches.includes('remotes')) {
+			cachesToClear.push(this._remotesCache);
 		}
 
-		if (caches.length === 0 || caches.includes('stashes')) {
-			this._stashesCache.delete(repoPath);
+		if (!caches.length || caches.includes('stashes')) {
+			cachesToClear.push(this._stashesCache);
 		}
 
-		if (caches.length === 0 || caches.includes('status')) {
-			this._mergeStatusCache.delete(repoPath);
-			this._rebaseStatusCache.delete(repoPath);
+		if (!caches.length || caches.includes('status')) {
+			cachesToClear.push(this._mergeStatusCache, this._rebaseStatusCache);
 		}
 
-		if (caches.length === 0 || caches.includes('tags')) {
-			this._tagsCache.delete(repoPath);
+		if (!caches.length || caches.includes('tags')) {
+			cachesToClear.push(this._tagsCache);
 		}
 
-		if (caches.length === 0) {
-			this._trackedPaths.delete(repoPath);
-			this._repoInfoCache.delete(repoPath);
-		}
-	}
-
-	@log({ singleLine: true })
-	private resetCaches(...caches: GitCaches[]) {
-		if (caches.length === 0 || caches.includes('branches')) {
-			this._branchesCache.clear();
+		if (!caches.length || caches.includes('worktrees')) {
+			cachesToClear.push(this._worktreesCache);
 		}
 
-		if (caches.length === 0 || caches.includes('contributors')) {
-			this._contributorsCache.clear();
+		if (!caches.length) {
+			cachesToClear.push(this._trackedPaths, this._repoInfoCache);
 		}
 
-		if (caches.length === 0 || caches.includes('remotes')) {
-			this._remotesCache.clear();
-		}
-
-		if (caches.length === 0 || caches.includes('stashes')) {
-			this._stashesCache.clear();
-		}
-
-		if (caches.length === 0 || caches.includes('status')) {
-			this._mergeStatusCache.clear();
-			this._rebaseStatusCache.clear();
-		}
-
-		if (caches.length === 0 || caches.includes('tags')) {
-			this._tagsCache.clear();
-		}
-
-		if (caches.length === 0) {
-			this._trackedPaths.clear();
-			this._repoInfoCache.clear();
+		for (const cache of cachesToClear) {
+			if (repoPath != null) {
+				cache.delete(repoPath);
+			} else {
+				cache.clear();
+			}
 		}
 	}
 
@@ -5703,7 +5682,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@gate()
 	@log()
 	async getWorktrees(repoPath: string): Promise<GitWorktree[]> {
 		await this.ensureGitVersion(
@@ -5712,8 +5690,31 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			' Please install a more recent version of Git and try again.',
 		);
 
-		const data = await this.git.worktree__list(repoPath);
-		return parseGitWorktrees(data, repoPath);
+		let worktrees = this.useCaching ? this._worktreesCache.get(repoPath) : undefined;
+		if (worktrees == null) {
+			async function load(this: LocalGitProvider) {
+				try {
+					const [data, branches] = await Promise.all([
+						this.git.worktree__list(repoPath),
+						this.getBranches(repoPath),
+					]);
+
+					return parseGitWorktrees(this.container, data, repoPath, branches.values);
+				} catch (ex) {
+					this._worktreesCache.delete(repoPath);
+
+					throw ex;
+				}
+			}
+
+			worktrees = load.call(this);
+
+			if (this.useCaching) {
+				this._worktreesCache.set(repoPath, worktrees);
+			}
+		}
+
+		return worktrees;
 	}
 
 	@log()

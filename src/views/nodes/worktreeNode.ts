@@ -6,12 +6,12 @@ import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import { shortenRevision } from '../../git/models/reference';
 import { getHighlanderProviderName } from '../../git/models/remote';
+import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import { Logger } from '../../system/logger';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
@@ -41,6 +41,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		view: ViewsWithWorktrees,
 		protected override readonly parent: ViewNode,
 		public readonly worktree: GitWorktree,
+		private readonly worktreeStatus: { status: GitStatus | undefined; missing: boolean } | undefined,
 	) {
 		super('worktree', uri, view, parent);
 
@@ -113,22 +114,20 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				}
 			}
 
-			const [logResult, getBranchAndTagTipsResult, statusResult, unpublishedCommitsResult] =
-				await Promise.allSettled([
-					this.getLog(),
-					this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
-					this.worktree.getStatus(),
-					branch != null && !branch.remote
-						? this.view.container.git.getBranchAheadRange(branch).then(range =>
-								range
-									? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
-											limit: 0,
-											ref: range,
-									  })
-									: undefined,
-						  )
-						: undefined,
-				]);
+			const [logResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
+				this.getLog(),
+				this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
+				branch != null && !branch.remote
+					? this.view.container.git.getBranchAheadRange(branch).then(range =>
+							range
+								? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
+										limit: 0,
+										ref: range,
+								  })
+								: undefined,
+					  )
+					: undefined,
+			]);
 			const log = getSettledValue(logResult);
 			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
@@ -176,10 +175,8 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 			}
 
-			const status = getSettledValue(statusResult);
-
-			if (status?.hasChanges) {
-				children.unshift(new UncommittedFilesNode(this.view, this, status, undefined));
+			if (this.worktreeStatus?.status?.hasChanges) {
+				children.unshift(new UncommittedFilesNode(this.view, this, this.worktreeStatus.status, undefined));
 			}
 
 			this.children = children;
@@ -208,7 +205,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				  } `
 				: '';
 
-		let missing = false;
+		const status = this.worktreeStatus?.status;
 
 		switch (this.worktree.type) {
 			case 'bare':
@@ -220,18 +217,12 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				);
 				break;
 			case 'branch': {
-				const [branchResult, statusResult] = await Promise.allSettled([
-					this.worktree.getBranch(),
-					this.worktree.getStatus(),
-				]);
-				const branch = getSettledValue(branchResult);
-				const status = getSettledValue(statusResult);
-
+				const { branch } = this.worktree;
 				this._branch = branch;
 
 				tooltip.appendMarkdown(
 					`${this.worktree.main ? '$(pass) ' : ''}Worktree for Branch $(git-branch) ${
-						branch?.getNameWithoutRemote() ?? this.worktree.branch
+						branch?.getNameWithoutRemote() ?? branch?.name
 					}${indicators}\\\n\`${this.worktree.friendlyPath}\``,
 				);
 				icon = new ThemeIcon('git-branch');
@@ -245,9 +236,6 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 							expand: true,
 						})}`,
 					);
-				} else if (statusResult.status === 'rejected') {
-					Logger.error(statusResult.reason, 'Worktree status failed');
-					missing = true;
 				}
 
 				if (branch != null) {
@@ -326,14 +314,6 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 					)}${indicators}\\\n\`${this.worktree.friendlyPath}\``,
 				);
 
-				let status;
-				try {
-					status = await this.worktree.getStatus();
-				} catch (ex) {
-					Logger.error(ex, 'Worktree status failed');
-					missing = true;
-				}
-
 				if (status != null) {
 					hasChanges = status.hasChanges;
 					tooltip.appendMarkdown(
@@ -354,6 +334,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
 		}
 
+		const missing = this.worktreeStatus?.missing ?? false;
 		if (missing) {
 			tooltip.appendMarkdown(`\n\n${GlyphChars.Warning} Unable to locate worktree path`);
 		}

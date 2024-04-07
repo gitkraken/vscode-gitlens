@@ -79,7 +79,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 						for (const wt of worktrees) {
 							if (wt.branch == null || nested.has(wt.repoPath)) return;
 
-							openWorktreeBranches!.add(wt.branch);
+							openWorktreeBranches!.add(wt.branch?.name);
 						}
 					}),
 				);
