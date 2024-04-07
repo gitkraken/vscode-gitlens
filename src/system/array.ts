@@ -33,11 +33,13 @@ export function ensure<T>(source: T | T[] | undefined): T[] | undefined {
 }
 
 export async function filterAsync<T>(source: T[], predicate: (item: T) => Promise<boolean>): Promise<T[]> {
+	const predicates = source.map<Promise<[boolean, T]>>(i => predicate(i).then(r => [r, i]));
+
 	const filtered = [];
-	for (const item of source) {
-		if (await predicate(item)) {
-			filtered.push(item);
-		}
+	for await (const [include, item] of predicates) {
+		if (!include) continue;
+
+		filtered.push(item);
 	}
 	return filtered;
 }
@@ -60,12 +62,13 @@ export async function filterMapAsync<T, TMapped>(
 	source: T[],
 	predicateMapper: (item: T) => Promise<TMapped | null | undefined>,
 ): Promise<TMapped[]> {
+	const items = source.map(predicateMapper);
+
 	const filteredAndMapped = [];
-	for (const item of source) {
-		const mapped = await predicateMapper(item);
-		if (mapped != null) {
-			filteredAndMapped.push(mapped);
-		}
+	for await (const item of items) {
+		if (item == null) continue;
+
+		filteredAndMapped.push(item);
 	}
 	return filteredAndMapped;
 }
