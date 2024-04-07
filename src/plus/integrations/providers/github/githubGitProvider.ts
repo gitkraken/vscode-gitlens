@@ -2636,7 +2636,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			[],
 			{ ahead: 0, behind: 0 },
 			revision.type === HeadType.Branch || revision.type === HeadType.RemoteBranch
-				? `origin/${revision.name}`
+				? { name: `origin/${revision.name}`, missing: false }
 				: undefined,
 		);
 	}

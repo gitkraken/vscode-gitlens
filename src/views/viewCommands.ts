@@ -818,7 +818,7 @@ export class ViewCommands {
 	private rebaseToRemote(node: BranchNode | BranchTrackingStatusNode) {
 		if (!node.isAny('branch', 'tracking-status')) return Promise.resolve();
 
-		const upstream = node.is('branch') ? node.branch.upstream?.name : node.status.upstream;
+		const upstream = node.is('branch') ? node.branch.upstream?.name : node.status.upstream?.name;
 		if (upstream == null) return Promise.resolve();
 
 		return RepoActions.rebase(
