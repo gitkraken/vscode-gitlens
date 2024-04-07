@@ -1,6 +1,5 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import type { GitTrackingState } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFileWithCommit } from '../../git/models/file';
 import type { GitLog } from '../../git/models/log';
@@ -19,14 +18,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 	constructor(
 		view: ViewsWithWorkingTree,
 		protected override readonly parent: ViewNode,
-		public readonly status:
-			| GitStatus
-			| {
-					readonly repoPath: string;
-					readonly files: GitStatusFile[];
-					readonly state: GitTrackingState;
-					readonly upstream?: string;
-			  },
+		public readonly status: GitStatus,
 		public readonly range: string | undefined,
 	) {
 		super('status-files', GitUri.fromRepoPath(status.repoPath), view, parent);
@@ -117,7 +109,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 				if (files > 0) {
 					const aheadFiles = await this.view.container.git.getDiffStatus(
 						this.repoPath,
-						`${this.status.upstream}...`,
+						`${this.status.upstream?.name}...`,
 					);
 
 					if (aheadFiles != null) {
@@ -134,7 +126,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 				} else {
 					const stats = await this.view.container.git.getChangedFilesCount(
 						this.repoPath,
-						`${this.status.upstream}...`,
+						`${this.status.upstream?.name}...`,
 					);
 					if (stats != null) {
 						files += stats.changedFiles;
