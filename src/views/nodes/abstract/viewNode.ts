@@ -169,7 +169,7 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 		uniqueness += `/branch/${context.branch.id}`;
 	}
 	if (context.branchStatus != null) {
-		uniqueness += `/branch-status/${context.branchStatus.upstream ?? '-'}`;
+		uniqueness += `/branch-status/${context.branchStatus.upstream?.name ?? '-'}`;
 	}
 	if (context.branchStatusUpstreamType != null) {
 		uniqueness += `/branch-status-direction/${context.branchStatusUpstreamType}`;
