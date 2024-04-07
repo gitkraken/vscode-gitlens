@@ -3,7 +3,10 @@ import { GlyphChars } from '../../constants';
 import { PlusFeatures } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
+import { sortWorktrees } from '../../git/models/worktree';
+import { mapAsync } from '../../system/array';
 import { debug } from '../../system/decorators/log';
+import { Logger } from '../../system/logger';
 import type { ViewsWithWorktreesNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -40,7 +43,17 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 			const worktrees = await this.repo.getWorktrees();
 			if (worktrees.length === 0) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
 
-			this.children = worktrees.map(wt => new WorktreeNode(this.uri, this.view, this, wt));
+			this.children = await mapAsync(sortWorktrees(worktrees), async w => {
+				let status;
+				let missing = false;
+				try {
+					status = await w.getStatus();
+				} catch (ex) {
+					Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
+					missing = true;
+				}
+				return new WorktreeNode(this.uri, this.view, this, w, { status: status, missing: missing });
+			});
 		}
 
 		return this.children;

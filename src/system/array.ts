@@ -204,6 +204,18 @@ export function joinUnique<T>(source: readonly T[], separator: string): string {
 	return join(new Set(source), separator);
 }
 
+export async function mapAsync<T, TMapped>(source: T[], mapper: (item: T) => Promise<TMapped>): Promise<TMapped[]> {
+	const items = source.map(mapper);
+
+	const mapped = [];
+	for await (const item of items) {
+		if (item == null) continue;
+
+		mapped.push(item);
+	}
+	return mapped;
+}
+
 export function splitAt<T>(source: T[], index: number): [T[], T[]] {
 	return index < 0 ? [source, []] : [source.slice(0, index), source.slice(index)];
 }

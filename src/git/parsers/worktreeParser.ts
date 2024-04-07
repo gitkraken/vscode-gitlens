@@ -1,7 +1,9 @@
 import { Uri } from 'vscode';
+import type { Container } from '../../container';
 import { normalizePath } from '../../system/path';
 import { maybeStopWatch } from '../../system/stopwatch';
 import { getLines } from '../../system/string';
+import type { GitBranch } from '../models/branch';
 import { GitWorktree } from '../models/worktree';
 
 interface WorktreeEntry {
@@ -14,7 +16,12 @@ interface WorktreeEntry {
 	prunable?: boolean | string;
 }
 
-export function parseGitWorktrees(data: string, repoPath: string): GitWorktree[] {
+export function parseGitWorktrees(
+	container: Container,
+	data: string,
+	repoPath: string,
+	branches: GitBranch[],
+): GitWorktree[] {
 	using sw = maybeStopWatch(`Git.parseWorktrees(${repoPath})`, { log: false, logLevel: 'debug' });
 
 	const worktrees: GitWorktree[] = [];
@@ -44,8 +51,12 @@ export function parseGitWorktrees(data: string, repoPath: string): GitWorktree[]
 		}
 
 		if (key.length === 0 && entry != null) {
+			// eslint-disable-next-line no-loop-func
+			const branch = entry.branch ? branches?.find(b => b.name === entry!.branch) : undefined;
+
 			worktrees.push(
 				new GitWorktree(
+					container,
 					main,
 					entry.bare ? 'bare' : entry.detached ? 'detached' : 'branch',
 					repoPath,
@@ -53,7 +64,7 @@ export function parseGitWorktrees(data: string, repoPath: string): GitWorktree[]
 					entry.locked ?? false,
 					entry.prunable ?? false,
 					entry.sha,
-					entry.branch,
+					branch,
 				),
 			);
 

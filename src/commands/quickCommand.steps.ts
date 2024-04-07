@@ -38,7 +38,8 @@ import type { GitStash } from '../git/models/stash';
 import type { GitStatus } from '../git/models/status';
 import type { GitTag, TagSortOptions } from '../git/models/tag';
 import { sortTags } from '../git/models/tag';
-import type { GitWorktree } from '../git/models/worktree';
+import type { GitWorktree, WorktreeQuickPickItem } from '../git/models/worktree';
+import { createWorktreeQuickPickItem, sortWorktrees } from '../git/models/worktree';
 import { remoteUrlRegex } from '../git/parsers/remoteParser';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/account/subscription';
 import {
@@ -78,7 +79,6 @@ import type {
 	RemoteQuickPickItem,
 	RepositoryQuickPickItem,
 	TagQuickPickItem,
-	WorktreeQuickPickItem,
 } from '../quickpicks/items/gitCommands';
 import {
 	createBranchQuickPickItem,
@@ -88,7 +88,6 @@ import {
 	createRepositoryQuickPickItem,
 	createStashQuickPickItem,
 	createTagQuickPickItem,
-	createWorktreeQuickPickItem,
 	GitCommandQuickPickItem,
 } from '../quickpicks/items/gitCommands';
 import type { ReferencesQuickPickItem } from '../quickpicks/referencePicker';
@@ -96,11 +95,12 @@ import {
 	CopyRemoteResourceCommandQuickPickItem,
 	OpenRemoteResourceCommandQuickPickItem,
 } from '../quickpicks/remoteProviderPicker';
-import { filterMap, intersection, isStringArray } from '../system/array';
+import { filterMap, filterMapAsync, intersection, isStringArray } from '../system/array';
 import { configuration } from '../system/configuration';
 import { formatPath } from '../system/formatPath';
 import { debounce } from '../system/function';
 import { first, map } from '../system/iterable';
+import { Logger } from '../system/logger';
 import { getSettledValue } from '../system/promise';
 import { pad, pluralize, truncate } from '../system/string';
 import { openWorkspace } from '../system/utils';
@@ -234,38 +234,35 @@ export async function getWorktrees(
 ): Promise<WorktreeQuickPickItem[]> {
 	const worktrees = repoOrWorktrees instanceof Repository ? await repoOrWorktrees.getWorktrees() : repoOrWorktrees;
 
-	const items: WorktreeQuickPickItem[] = [];
-
-	for (const w of worktrees) {
-		if (excludeOpened && w.opened) continue;
-		if (filter != null && !filter(w)) continue;
+	const items = await filterMapAsync(worktrees, async w => {
+		if ((excludeOpened && w.opened) || filter?.(w) === false) return undefined;
 
 		let missing = false;
 		let status;
 		if (includeStatus) {
 			try {
 				status = await w.getStatus();
-			} catch {
+			} catch (ex) {
+				Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
 				missing = true;
 			}
 		}
 
-		items.push(
-			createWorktreeQuickPickItem(
-				w,
-				picked != null &&
-					(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
-				missing,
-				{
-					buttons: buttons,
-					path: true,
-					status: status,
-				},
-			),
+		return createWorktreeQuickPickItem(
+			w,
+			picked != null &&
+				(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
+			missing,
+			{
+				buttons: buttons,
+				includeStatus: includeStatus,
+				path: true,
+				status: status,
+			},
 		);
-	}
+	});
 
-	return items;
+	return sortWorktrees(items);
 }
 
 export async function getBranchesAndOrTags(

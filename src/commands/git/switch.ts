@@ -196,7 +196,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 				const worktree = await this.container.git.getWorktree(
 					state.reference.repoPath,
-					w => w.branch === state.reference!.name,
+					w => w.branch?.name === state.reference!.name,
 				);
 				if (worktree != null) {
 					if (state.fastForwardTo != null) {

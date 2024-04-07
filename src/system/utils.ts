@@ -5,7 +5,7 @@ import { isGitUri } from '../git/gitUri';
 import { executeCoreCommand } from './command';
 import { configuration } from './configuration';
 import { Logger } from './logger';
-import { extname } from './path';
+import { extname, normalizePath, relative } from './path';
 import { satisfies } from './version';
 
 export function findTextDocument(uri: Uri): TextDocument | undefined {
@@ -85,6 +85,14 @@ export function getEditorIfActive(document: TextDocument): TextEditor | undefine
 
 export function getQuickPickIgnoreFocusOut() {
 	return !configuration.get('advanced.quickPick.closeOnFocusOut');
+}
+
+export function getWorkspaceFriendlyPath(uri: Uri): string {
+	const folder = workspace.getWorkspaceFolder(uri);
+	if (folder == null) return normalizePath(uri.fsPath);
+
+	const relativePath = normalizePath(relative(folder.uri.fsPath, uri.fsPath));
+	return relativePath || folder.name;
 }
 
 export function hasVisibleTextEditor(uri?: Uri): boolean {

@@ -13,9 +13,7 @@ import { createReference, isRevisionRange, shortenRevision } from '../../git/mod
 import type { GitRemote } from '../../git/models/remote';
 import { getRemoteUpstreamDescription } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
-import type { GitStatus } from '../../git/models/status';
 import type { GitTag } from '../../git/models/tag';
-import type { GitWorktree } from '../../git/models/worktree';
 import { configuration } from '../../system/configuration';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
@@ -468,73 +466,6 @@ export function createTagQuickPickItem(
 		ref: tag.name,
 		remote: false,
 		iconPath: new ThemeIcon('tag'),
-	};
-
-	return item;
-}
-
-export interface WorktreeQuickPickItem extends QuickPickItemOfT<GitWorktree> {
-	readonly opened: boolean;
-	readonly hasChanges: boolean | undefined;
-}
-
-export function createWorktreeQuickPickItem(
-	worktree: GitWorktree,
-	picked?: boolean,
-	missing?: boolean,
-	options?: {
-		alwaysShow?: boolean;
-		buttons?: QuickInputButton[];
-		checked?: boolean;
-		message?: boolean;
-		path?: boolean;
-		type?: boolean;
-		status?: GitStatus;
-	},
-) {
-	let description = '';
-	if (options?.type) {
-		description = 'worktree';
-	}
-
-	if (options?.status != null) {
-		description += options.status.hasChanges
-			? pad(`Uncommited changes (${options.status.getFormattedDiffStatus()})`, description ? 2 : 0, 0)
-			: pad('No changes', description ? 2 : 0, 0);
-	}
-
-	let iconPath;
-	let label;
-	switch (worktree.type) {
-		case 'bare':
-			label = '(bare)';
-			iconPath = new ThemeIcon('folder');
-			break;
-		case 'branch':
-			label = worktree.branch!;
-			iconPath = new ThemeIcon('git-branch');
-			break;
-		case 'detached':
-			label = shortenRevision(worktree.sha);
-			iconPath = new ThemeIcon('git-commit');
-			break;
-	}
-
-	const item: WorktreeQuickPickItem = {
-		label: options?.checked ? `${label}${pad('$(check)', 2)}` : label,
-		description: description,
-		detail: options?.path
-			? missing
-				? `${GlyphChars.Warning} Unable to locate $(folder) ${worktree.friendlyPath}`
-				: `In $(folder) ${worktree.friendlyPath}`
-			: undefined,
-		alwaysShow: options?.alwaysShow,
-		buttons: options?.buttons,
-		picked: picked,
-		item: worktree,
-		opened: worktree.opened,
-		hasChanges: options?.status?.hasChanges,
-		iconPath: iconPath,
 	};
 
 	return item;

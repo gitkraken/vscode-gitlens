@@ -25,7 +25,15 @@ import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { GitSearch, SearchQuery } from './search';
 
-export type GitCaches = 'branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags';
+export type GitCaches =
+	| 'branches'
+	| 'contributors'
+	| 'providers'
+	| 'remotes'
+	| 'stashes'
+	| 'status'
+	| 'tags'
+	| 'worktrees';
 export type GitRepositoryCaches = Extract<GitCaches, 'branches' | 'remotes'>;
 export const gitRepositoryCacheKeys = new Set<GitRepositoryCaches>(['branches', 'remotes']);
 
