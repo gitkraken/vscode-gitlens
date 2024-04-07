@@ -265,7 +265,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	private readonly _branchesCache = new Map<string, Promise<PagedResult<GitBranch>>>();
-	private readonly _contributorsCache = new Map<string, Promise<GitContributor[]>>();
+	private readonly _contributorsCache = new Map<string, Map<string, Promise<GitContributor[]>>>();
 	private readonly _mergeStatusCache = new Map<string, Promise<GitMergeStatus | undefined>>();
 	private readonly _rebaseStatusCache = new Map<string, Promise<GitRebaseStatus | undefined>>();
 	private readonly _remotesCache = new Map<string, Promise<GitRemote[]>>();
@@ -312,7 +312,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (e.changed(RepositoryChange.Heads, RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
 			this._branchesCache.delete(repo.path);
 			this._contributorsCache.delete(repo.path);
-			this._contributorsCache.delete(`stats|${repo.path}`);
 		}
 
 		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
@@ -2850,7 +2849,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
-		let key = `${repoPath}${options?.ref ? `|${options.ref}` : ''}`;
+		let key = options?.ref ?? '';
 		if (options?.all) {
 			key += ':all';
 		}
@@ -2861,7 +2860,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			key += ':stats';
 		}
 
-		let contributors = this.useCaching ? this._contributorsCache.get(key) : undefined;
+		const contributorsCache = this.useCaching ? this._contributorsCache.get(repoPath) : undefined;
+
+		let contributors = contributorsCache?.get(key);
 		if (contributors == null) {
 			async function load(this: LocalGitProvider) {
 				try {
@@ -2912,7 +2913,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 					return [...contributors.values()];
 				} catch (ex) {
-					this._contributorsCache.delete(key);
+					contributorsCache?.delete(key);
 
 					return [];
 				}
@@ -2921,7 +2922,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			contributors = load.call(this);
 
 			if (this.useCaching) {
-				this._contributorsCache.set(key, contributors);
+				if (contributorsCache == null) {
+					this._contributorsCache.set(repoPath, new Map([[key, contributors]]));
+				} else {
+					contributorsCache.set(key, contributors);
+				}
 			}
 		}
 

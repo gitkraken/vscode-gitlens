@@ -9,11 +9,6 @@ import { memoize } from '../../system/decorators/memoize';
 import { sortCompare } from '../../system/string';
 import type { GitUser } from './user';
 
-export interface ContributorSortOptions {
-	current?: true;
-	orderBy?: ContributorSorting;
-}
-
 export class GitContributor {
 	constructor(
 		public readonly repoPath: string,
@@ -85,6 +80,11 @@ export async function createContributorQuickPickItem(
 		item.alwaysShow = true;
 	}
 	return item;
+}
+
+export interface ContributorSortOptions {
+	current?: true;
+	orderBy?: ContributorSorting;
 }
 
 interface ContributorQuickPickSortOptions extends ContributorSortOptions {
