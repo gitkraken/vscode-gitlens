@@ -2468,28 +2468,28 @@ function getShowRepositoryStatusStepItems<
 		if (context.status.state.ahead === 0 && context.status.state.behind === 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
-					label: `$(git-branch) ${context.status.branch} is up to date with $(git-branch) ${context.status.upstream}`,
+					label: `$(git-branch) ${context.status.branch} is up to date with $(git-branch) ${context.status.upstream?.name}`,
 					detail: workingTreeStatus,
 				}),
 			);
 		} else if (context.status.state.ahead !== 0 && context.status.state.behind !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
-					label: `$(git-branch) ${context.status.branch} has diverged from $(git-branch) ${context.status.upstream}`,
+					label: `$(git-branch) ${context.status.branch} has diverged from $(git-branch) ${context.status.upstream?.name}`,
 					detail: workingTreeStatus,
 				}),
 			);
 		} else if (context.status.state.ahead !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
-					label: `$(git-branch) ${context.status.branch} is ahead of $(git-branch) ${context.status.upstream}`,
+					label: `$(git-branch) ${context.status.branch} is ahead of $(git-branch) ${context.status.upstream?.name}`,
 					detail: workingTreeStatus,
 				}),
 			);
 		} else if (context.status.state.behind !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
-					label: `$(git-branch) ${context.status.branch} is behind $(git-branch) ${context.status.upstream}`,
+					label: `$(git-branch) ${context.status.branch} is behind $(git-branch) ${context.status.upstream?.name}`,
 					detail: workingTreeStatus,
 				}),
 			);
@@ -2504,7 +2504,7 @@ function getShowRepositoryStatusStepItems<
 						state: {
 							repo: state.repo,
 							reference: createReference(
-								createRevisionRange(context.status.ref, context.status.upstream),
+								createRevisionRange(context.status.ref, context.status.upstream?.name),
 								state.repo.path,
 							),
 						},
@@ -2522,7 +2522,7 @@ function getShowRepositoryStatusStepItems<
 						state: {
 							repo: state.repo,
 							reference: createReference(
-								createRevisionRange(context.status.upstream, context.status.ref),
+								createRevisionRange(context.status.upstream?.name, context.status.ref),
 								state.repo.path,
 							),
 						},

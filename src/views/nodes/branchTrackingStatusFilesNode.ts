@@ -34,7 +34,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 	}
 
 	get ref2(): string {
-		return this.status.upstream;
+		return this.status.upstream?.name;
 	}
 
 	get repoPath(): string {

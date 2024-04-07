@@ -30,6 +30,7 @@ function parseStatusV1(lines: string[], repoPath: string): GitStatus {
 		behind: 0,
 	};
 	let upstream;
+	let missing = false;
 
 	let position = -1;
 	while (++position < lines.length) {
@@ -40,12 +41,17 @@ function parseStatusV1(lines: string[], repoPath: string): GitStatus {
 			[branch, upstream] = lineParts[1].split('...');
 			if (lineParts.length > 2) {
 				const upstreamStatus = lineParts.slice(2).join(' ');
+				if (upstreamStatus === '[gone]') {
+					missing = true;
+					state.ahead = 0;
+					state.behind = 0;
+				} else {
+					const aheadStatus = aheadStatusV1Regex.exec(upstreamStatus);
+					state.ahead = aheadStatus == null ? 0 : Number(aheadStatus[1]) || 0;
 
-				const aheadStatus = aheadStatusV1Regex.exec(upstreamStatus);
-				state.ahead = aheadStatus == null ? 0 : Number(aheadStatus[1]) || 0;
-
-				const behindStatus = behindStatusV1Regex.exec(upstreamStatus);
-				state.behind = behindStatus == null ? 0 : Number(behindStatus[1]) || 0;
+					const behindStatus = behindStatusV1Regex.exec(upstreamStatus);
+					state.behind = behindStatus == null ? 0 : Number(behindStatus[1]) || 0;
+				}
 			}
 		} else {
 			const rawStatus = line.substring(0, 2);
@@ -59,7 +65,14 @@ function parseStatusV1(lines: string[], repoPath: string): GitStatus {
 		}
 	}
 
-	return new GitStatus(normalizePath(repoPath), branch ?? '', '', files, state, upstream);
+	return new GitStatus(
+		normalizePath(repoPath),
+		branch ?? '',
+		'',
+		files,
+		state,
+		upstream ? { name: upstream, missing: missing } : undefined,
+	);
 }
 
 function parseStatusV2(lines: string[], repoPath: string): GitStatus {
@@ -70,6 +83,7 @@ function parseStatusV2(lines: string[], repoPath: string): GitStatus {
 		ahead: 0,
 		behind: 0,
 	};
+	let missing = true;
 	let upstream;
 
 	let position = -1;
@@ -89,6 +103,7 @@ function parseStatusV2(lines: string[], repoPath: string): GitStatus {
 					upstream = lineParts[2];
 					break;
 				case 'branch.ab':
+					missing = false;
 					state.ahead = Number(lineParts[2].substring(1));
 					state.behind = Number(lineParts[3].substring(1));
 					break;
@@ -115,7 +130,14 @@ function parseStatusV2(lines: string[], repoPath: string): GitStatus {
 		}
 	}
 
-	return new GitStatus(normalizePath(repoPath), branch ?? '', sha ?? '', files, state, upstream);
+	return new GitStatus(
+		normalizePath(repoPath),
+		branch ?? '',
+		sha ?? '',
+		files,
+		state,
+		upstream ? { name: upstream, missing: missing } : undefined,
+	);
 }
 
 function parseStatusFile(

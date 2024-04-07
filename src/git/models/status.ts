@@ -43,7 +43,7 @@ export class GitStatus {
 		public readonly sha: string,
 		public readonly files: GitStatusFile[],
 		public readonly state: GitTrackingState,
-		public readonly upstream?: string,
+		public readonly upstream?: { name: string; missing: boolean },
 		public readonly rebasing: boolean = false,
 	) {
 		this.detached = isDetachedHead(branch);
@@ -253,11 +253,11 @@ export class GitStatus {
 		const remotes = await Container.instance.git.getRemotesWithProviders(this.repoPath);
 		if (remotes.length === 0) return undefined;
 
-		const remoteName = getRemoteNameFromBranchName(this.upstream);
+		const remoteName = getRemoteNameFromBranchName(this.upstream?.name);
 		return remotes.find(r => r.name === remoteName);
 	}
 
-	getUpstreamStatus(options: {
+	getUpstreamStatus(options?: {
 		empty?: string;
 		expand?: boolean;
 		icons?: boolean;
@@ -265,11 +265,7 @@ export class GitStatus {
 		separator?: string;
 		suffix?: string;
 	}): string {
-		return getUpstreamStatus(
-			this.upstream ? { name: this.upstream, missing: false } : undefined,
-			this.state,
-			options,
-		);
+		return getUpstreamStatus(this.upstream, this.state, options);
 	}
 }
 

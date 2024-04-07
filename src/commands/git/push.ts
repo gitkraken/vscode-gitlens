@@ -356,11 +356,11 @@ export class PushGitCommand extends QuickCommand<State> {
 							[],
 							createDirectiveQuickPickItem(Directive.Cancel, true, {
 								label: 'OK',
-								detail: `No commits ahead of ${getRemoteNameFromBranchName(status.upstream)}`,
+								detail: `No commits ahead of ${getRemoteNameFromBranchName(status.upstream?.name)}`,
 							}),
 							{
 								placeholder: `Nothing to push; No commits ahead of ${getRemoteNameFromBranchName(
-									status.upstream,
+									status.upstream?.name,
 								)}`,
 							},
 						);
@@ -381,10 +381,10 @@ export class PushGitCommand extends QuickCommand<State> {
 										label: false,
 								  })}`
 								: ''
-						}${status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream)}` : ''}`;
+						}${status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''}`;
 					} else {
 						pushDetails = `${status?.state.ahead ? ` ${pluralize('commit', status.state.ahead)}` : ''}${
-							status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream)}` : ''
+							status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''
 						}`;
 					}
 
@@ -422,7 +422,7 @@ export class PushGitCommand extends QuickCommand<State> {
 									status != null && status.state.behind > 0
 										? `, overwriting ${pluralize('commit', status.state.behind)}${
 												status?.upstream
-													? ` on ${getRemoteNameFromBranchName(status.upstream)}`
+													? ` on ${getRemoteNameFromBranchName(status.upstream?.name)}`
 													: ''
 										  }`
 										: ''
@@ -433,7 +433,7 @@ export class PushGitCommand extends QuickCommand<State> {
 							? createDirectiveQuickPickItem(Directive.Cancel, true, {
 									label: `Cancel ${this.title}`,
 									detail: `Cannot push; ${getReferenceLabel(branch)} is behind${
-										status?.upstream ? ` ${getRemoteNameFromBranchName(status.upstream)}` : ''
+										status?.upstream ? ` ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''
 									} by ${pluralize('commit', status.state.behind)}`,
 							  })
 							: undefined,
