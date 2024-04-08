@@ -1,5 +1,6 @@
 import type {
 	Account,
+	ActionablePullRequest,
 	AzureDevOps,
 	Bitbucket,
 	EnterpriseOptions,
@@ -16,6 +17,7 @@ import type {
 	Jira,
 	JiraProject,
 	JiraResource,
+	PullRequestWithUniqueID,
 	Trello,
 } from '@gitkraken/provider-apis';
 import { GitProviderUtils } from '@gitkraken/provider-apis';
@@ -35,6 +37,7 @@ export type ProviderAccount = Account;
 export type ProviderReposInput = (string | number)[] | GetRepoInput[];
 export type ProviderRepoInput = GetRepoInput;
 export type ProviderPullRequest = GitPullRequest;
+export type toProviderPullRequestWithUniqueId = PullRequestWithUniqueID;
 export type ProviderRepository = GitRepository;
 export type ProviderIssue = Issue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
@@ -590,14 +593,14 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		reviews: toProviderReviews(prReviews),
 		reviewDecision: toProviderReviewDecision(pr.reviewDecision, prReviews),
 		repository:
-			pr.refs?.base != null
+			pr.repository != null
 				? {
-						id: pr.refs.base.repo,
-						name: pr.refs.base.repo,
+						id: pr.repository.repo,
+						name: pr.repository.repo,
 						owner: {
-							login: pr.refs.base.owner,
+							login: pr.repository.owner,
 						},
-						remoteInfo: null,
+						remoteInfo: null, // TODO: Add the urls to our model
 				  }
 				: {
 						id: '',
@@ -650,6 +653,13 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	};
 }
 
+export function toProviderPullRequestWithUniqueId(pr: PullRequest): PullRequestWithUniqueID {
+	return {
+		...toProviderPullRequest(pr),
+		uuid: pr.nodeId!,
+	};
+}
+
 export function toProviderAccount(account: PullRequestMember | IssueMember): ProviderAccount {
 	return {
 		avatarUrl: account.avatarUrl ?? null,
@@ -662,4 +672,6 @@ export function toProviderAccount(account: PullRequestMember | IssueMember): Pro
 	};
 }
 
-export const categorizePullRequests = GitProviderUtils.groupPullRequestsIntoBuckets;
+export type ProviderActionablePullRequest = ActionablePullRequest;
+
+export const getActionablePullRequests = GitProviderUtils.getActionablePullRequests;

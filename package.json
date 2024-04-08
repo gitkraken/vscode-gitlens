@@ -16908,7 +16908,7 @@
 	},
 	"dependencies": {
 		"@gitkraken/gitkraken-components": "10.2.13",
-		"@gitkraken/provider-apis": "0.18.1",
+		"@gitkraken/provider-apis": "0.21.0",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@lit/react": "1.0.3",
 		"@microsoft/fast-element": "1.12.0",

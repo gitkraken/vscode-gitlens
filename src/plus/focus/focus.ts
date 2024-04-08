@@ -148,7 +148,7 @@ export class FocusCommand extends QuickCommand<State> {
 					break;
 				}
 				case 'open':
-					void openUrl(state.item.url);
+					void openUrl(state.item.url!);
 					break;
 				case 'review':
 				case 'switch': {
@@ -210,8 +210,8 @@ export class FocusCommand extends QuickCommand<State> {
 							}
 
 							buttons.push(
-								i.pinned ? UnpinQuickInputButton : PinQuickInputButton,
-								i.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
+								i.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
+								i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
 							);
 
 							return {
@@ -219,11 +219,11 @@ export class FocusCommand extends QuickCommand<State> {
 								// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
 								description: `#${i.id} ${i.isNew ? '(New since last view)' : ''}`,
 								detail: `      ${actionGroupMap.get(i.actionableCategory)![0]} \u2022  ${fromNow(
-									i.date,
-								)} by @${i.author} \u2022 ${i.repoAndOwner}`,
+									i.updatedDate,
+								)} by @${i.author!.username} \u2022 ${i.repository.owner.login}/${i.repository.name}`,
 
 								buttons: buttons,
-								iconPath: i.avatarUrl != null ? Uri.parse(i.avatarUrl) : undefined,
+								iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
 								item: i,
 								picked: i.id === picked,
 							};
@@ -308,11 +308,13 @@ export class FocusCommand extends QuickCommand<State> {
 		const confirmations: (QuickPickItemOfT<FocusAction> | DirectiveQuickPickItem)[] = [
 			createDirectiveQuickPickItem(Directive.Noop, false, {
 				label: state.item.title,
-				description: `${state.item.repoAndOwner}#${state.item.id} \u2022 ${fromNow(state.item.date)}`,
+				description: `${state.item.repository.owner.login}/${state.item.repository.name}#${
+					state.item.id
+				} \u2022 ${fromNow(state.item.updatedDate)}`,
 				detail: interpolate(actionGroupMap.get(state.item.actionableCategory)![1], {
 					author: state.item.author,
 				}),
-				iconPath: state.item.avatarUrl != null ? Uri.parse(state.item.avatarUrl) : undefined,
+				iconPath: state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
 			}),
 			createQuickPickSeparator(),
 			createDirectiveQuickPickItem(Directive.Noop, false, {
@@ -402,7 +404,7 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		const step = this.createConfirmStep(
-			`Focus on ${state.item.repoAndOwner}#${state.item.id}`,
+			`Focus on ${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
 			confirmations,
 			undefined,
 			{ placeholder: 'Choose an action to perform' },
