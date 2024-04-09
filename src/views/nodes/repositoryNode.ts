@@ -90,7 +90,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					true,
 					undefined,
 					status.sha,
-					status.upstream ? { name: status.upstream, missing: false } : undefined,
+					status.upstream,
 					status.state.ahead,
 					status.state.behind,
 					status.detached,
@@ -272,13 +272,13 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 			if (status.upstream != null) {
 				tooltip += ` is ${status.getUpstreamStatus({
-					empty: `up to date with $(git-branch) ${status.upstream}${
+					empty: `up to date with $(git-branch) ${status.upstream.name}${
 						providerName ? ` on ${providerName}` : ''
 					}`,
 					expand: true,
 					icons: true,
 					separator: ', ',
-					suffix: ` $(git-branch) ${status.upstream}${providerName ? ` on ${providerName}` : ''}`,
+					suffix: ` $(git-branch) ${status.upstream.name}${providerName ? ` on ${providerName}` : ''}`,
 				})}`;
 
 				if (status.state.behind) {

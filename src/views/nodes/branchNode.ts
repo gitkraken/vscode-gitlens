@@ -300,7 +300,7 @@ export class BranchNode
 					ref: branch.ref,
 					repoPath: branch.repoPath,
 					state: branch.state,
-					upstream: branch.upstream?.name,
+					upstream: branch.upstream,
 				};
 
 				if (branch.upstream != null) {
