@@ -364,6 +364,8 @@ export abstract class IntegrationBase<
 	): Promise<IssueOrPullRequest | undefined>;
 
 	async getCurrentAccount(options?: { avatarSize?: number }): Promise<Account | undefined> {
+		const scope = getLogScope();
+
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
@@ -374,7 +376,7 @@ export abstract class IntegrationBase<
 					this.resetRequestExceptionCount();
 					return account;
 				} catch (ex) {
-					return this.handleProviderException<Account | undefined>(ex, undefined, undefined);
+					return this.handleProviderException<Account | undefined>(ex, scope, undefined);
 				}
 			})(),
 		}));
