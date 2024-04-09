@@ -74,7 +74,6 @@ import type {
 	GraphMinimapMarker,
 	GraphMinimapSearchResultMarker,
 	GraphMinimapStats,
-	GraphMinimap as GraphMinimapType,
 	StashMarker,
 } from './minimap/minimap';
 import { GraphMinimap } from './minimap/react';
@@ -257,7 +256,7 @@ export function GraphWrapper({
 	const [allowed, setAllowed] = useState(state.allowed ?? false);
 	const [subscription, setSubscription] = useState<Subscription | undefined>(state.subscription);
 	// search state
-	const searchEl = useRef<any>(null);
+	const searchEl = useRef<SearchBox>(null);
 	const [searchQuery, setSearchQuery] = useState<SearchQuery | undefined>(undefined);
 	const { results, resultsError } = getSearchResultModel(state);
 	const [searchResults, setSearchResults] = useState(results);
@@ -270,7 +269,7 @@ export function GraphWrapper({
 		state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 },
 	);
 
-	const minimap = useRef<GraphMinimapType | undefined>(undefined);
+	const minimap = useRef<GraphMinimap | undefined>(undefined);
 
 	const ensuredIds = useRef<Set<string>>(new Set());
 	const ensuredSkippedIds = useRef<Set<string>>(new Set());
