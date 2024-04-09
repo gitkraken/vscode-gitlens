@@ -278,12 +278,12 @@
 	--sl-panel-border-color: var(--vscode-menu-border);
 	--sl-panel-border-width: 1px;
 
-	--sl-tooltip-border-radius: 0;
+	--sl-tooltip-border-radius: var(--sl-border-radius-small);
 	--sl-tooltip-background-color: var(--color-hover-background);
 	--sl-tooltip-color: var(--color-hover-foreground);
 	--sl-tooltip-font-family: var(--sl-font-sans);
 	--sl-tooltip-font-weight: var(--sl-font-weight-normal);
-	--sl-tooltip-font-size: var(--sl-font-size-small);
+	--sl-tooltip-font-size: 12px; //var(--sl-font-size-small);
 	--sl-tooltip-line-height: var(--sl-line-height-dense);
 	--sl-tooltip-padding: var(--sl-spacing-2x-small) var(--sl-spacing-x-small);
 	--sl-tooltip-arrow-size: 6px;

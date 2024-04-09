@@ -12,7 +12,31 @@ export class Tooltip extends LitElement {
 		}
 
 		sl-tooltip::part(base__arrow) {
-			--arrow-color: var(--gl-tooltip-border-color);
+			border: 1px solid var(--gl-tooltip-border-color);
+			z-index: 1;
+			/* --arrow-color: var(--gl-tooltip-border-color); */
+		}
+
+		/* TODO@eamodio doesn't work if the tooltip gets repositioned */
+
+		:host([placement^='top']) sl-tooltip::part(base__arrow) {
+			border-bottom-width: 0;
+			border-right-width: 0;
+		}
+
+		:host([placement^='bottom']) sl-tooltip::part(base__arrow) {
+			border-top-width: 0;
+			border-left-width: 0;
+		}
+
+		:host([placement^='left']) sl-tooltip::part(base__arrow) {
+			border-bottom-width: 0;
+			border-left-width: 0;
+		}
+
+		:host([placement^='right']) sl-tooltip::part(base__arrow) {
+			border-top-width: 0;
+			border-right-width: 0;
 		}
 	`;
 
