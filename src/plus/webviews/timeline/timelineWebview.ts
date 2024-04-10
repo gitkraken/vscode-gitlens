@@ -19,14 +19,13 @@ import { filter } from '../../../system/iterable';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import { isViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
 import type { IpcMessage } from '../../../webviews/protocol';
-import { onIpc } from '../../../webviews/protocol';
 import { updatePendingContext } from '../../../webviews/webviewController';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewProvider';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { Commit, Period, State } from './protocol';
-import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
+import { DidChangeNotification, OpenDataPointCommand, UpdatePeriodCommand } from './protocol';
 import type { TimelineWebviewShowingArgs } from './registration';
 
 interface Context {
@@ -192,47 +191,42 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		this.updateState();
 	}
 
-	onMessageReceived(e: IpcMessage) {
-		switch (e.method) {
-			case OpenDataPointCommandType.method:
-				onIpc(OpenDataPointCommandType, e, async params => {
-					if (params.data == null || !params.data.selected || this._context.uri == null) return;
+	async onMessageReceived(e: IpcMessage) {
+		switch (true) {
+			case OpenDataPointCommand.is(e): {
+				if (e.params.data == null || !e.params.data.selected || this._context.uri == null) return;
 
-					const repository = this.container.git.getRepository(this._context.uri);
-					if (repository == null) return;
+				const repository = this.container.git.getRepository(this._context.uri);
+				if (repository == null) return;
 
-					const commit = await repository.getCommit(params.data.id);
-					if (commit == null) return;
+				const commit = await repository.getCommit(e.params.data.id);
+				if (commit == null) return;
 
-					this.container.events.fire(
-						'commit:selected',
-						{
-							commit: commit,
-							interaction: 'active',
-							preserveFocus: true,
-							preserveVisibility: false,
-						},
-						{ source: this.host.id },
-					);
+				this.container.events.fire(
+					'commit:selected',
+					{
+						commit: commit,
+						interaction: 'active',
+						preserveFocus: true,
+						preserveVisibility: false,
+					},
+					{ source: this.host.id },
+				);
 
-					if (!this.container.commitDetailsView.ready) {
-						void this.container.commitDetailsView.show({ preserveFocus: true }, {
-							commit: commit,
-							interaction: 'active',
-							preserveVisibility: false,
-						} satisfies CommitSelectedEvent['data']);
-					}
-				});
+				if (!this.container.commitDetailsView.ready) {
+					void this.container.commitDetailsView.show({ preserveFocus: true }, {
+						commit: commit,
+						interaction: 'active',
+						preserveVisibility: false,
+					} satisfies CommitSelectedEvent['data']);
+				}
 
 				break;
-
-			case UpdatePeriodCommandType.method:
-				onIpc(UpdatePeriodCommandType, e, params => {
-					if (this.updatePendingContext({ period: params.period })) {
-						this.updateState(true);
-					}
-				});
-
+			}
+			case UpdatePeriodCommand.is(e):
+				if (this.updatePendingContext({ period: e.params.period })) {
+					this.updateState(true);
+				}
 				break;
 		}
 	}
@@ -464,7 +458,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			context = this._context;
 		}
 
-		return this.host.notify(DidChangeNotificationType, {
+		return this.host.notify(DidChangeNotification, {
 			state: await this.getState(context),
 		});
 	}

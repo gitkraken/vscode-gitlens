@@ -31,7 +31,6 @@ import { getLogScope } from '../../../system/logger.scope';
 import { PageableResult } from '../../../system/paging';
 import { getSettledValue } from '../../../system/promise';
 import type { IpcMessage } from '../../../webviews/protocol';
-import { onIpc } from '../../../webviews/protocol';
 import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProvider';
 import type { EnrichableItem, EnrichedItem } from '../../focus/enrichmentService';
 import { convertRemoteProviderToEnrichProvider } from '../../focus/enrichmentService';
@@ -48,14 +47,14 @@ import type {
 	SwitchToBranchParams,
 } from './protocol';
 import {
-	DidChangeNotificationType,
-	OpenBranchCommandType,
-	OpenWorktreeCommandType,
-	PinIssueCommandType,
-	PinPrCommandType,
-	SnoozeIssueCommandType,
-	SnoozePrCommandType,
-	SwitchToBranchCommandType,
+	DidChangeNotification,
+	OpenBranchCommand,
+	OpenWorktreeCommand,
+	PinIssueCommand,
+	PinPRCommand,
+	SnoozeIssueCommand,
+	SnoozePRCommand,
+	SwitchToBranchCommand,
 } from './protocol';
 
 interface RepoWithRichRemote {
@@ -121,27 +120,33 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	onMessageReceived(e: IpcMessage) {
-		switch (e.method) {
-			case OpenBranchCommandType.method:
-				onIpc(OpenBranchCommandType, e, params => this.onOpenBranch(params));
+		switch (true) {
+			case OpenBranchCommand.is(e):
+				void this.onOpenBranch(e.params);
 				break;
-			case SwitchToBranchCommandType.method:
-				onIpc(SwitchToBranchCommandType, e, params => this.onSwitchBranch(params));
+
+			case SwitchToBranchCommand.is(e):
+				void this.onSwitchBranch(e.params);
 				break;
-			case OpenWorktreeCommandType.method:
-				onIpc(OpenWorktreeCommandType, e, params => this.onOpenWorktree(params));
+
+			case OpenWorktreeCommand.is(e):
+				void this.onOpenWorktree(e.params);
 				break;
-			case SnoozePrCommandType.method:
-				onIpc(SnoozePrCommandType, e, params => this.onSnoozePr(params));
+
+			case SnoozePRCommand.is(e):
+				void this.onSnoozePr(e.params);
 				break;
-			case PinPrCommandType.method:
-				onIpc(PinPrCommandType, e, params => this.onPinPr(params));
+
+			case PinPRCommand.is(e):
+				void this.onPinPr(e.params);
 				break;
-			case SnoozeIssueCommandType.method:
-				onIpc(SnoozeIssueCommandType, e, params => this.onSnoozeIssue(params));
+
+			case SnoozeIssueCommand.is(e):
+				void this.onSnoozeIssue(e.params);
 				break;
-			case PinIssueCommandType.method:
-				onIpc(PinIssueCommandType, e, params => this.onPinIssue(params));
+
+			case PinIssueCommand.is(e):
+				void this.onPinIssue(e.params);
 				break;
 		}
 	}
@@ -571,7 +576,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (deferState) {
 			queueMicrotask(async () => {
 				const state = await getStateCore();
-				void this.host.notify(DidChangeNotificationType, { state: state });
+				void this.host.notify(DidChangeNotification, { state: state });
 			});
 
 			return {
@@ -778,7 +783,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async notifyDidChangeState(force?: boolean, deferState?: boolean) {
-		void this.host.notify(DidChangeNotificationType, { state: await this.getState(force, deferState) });
+		void this.host.notify(DidChangeNotification, { state: await this.getState(force, deferState) });
 	}
 }
 

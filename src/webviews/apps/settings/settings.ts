@@ -2,15 +2,9 @@
 import './settings.scss';
 import type { AutolinkReference } from '../../../config';
 import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
-import {
-	DidChangeConfigurationNotificationType,
-	DidGenerateConfigurationPreviewNotificationType,
-	DidOpenAnchorNotificationType,
-	GenerateConfigurationPreviewCommandType,
-	onIpc,
-	UpdateConfigurationCommandType,
-} from '../../protocol';
+import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
 import type { State } from '../../settings/protocol';
+import { DidOpenAnchorNotification, GenerateConfigurationPreviewRequest } from '../../settings/protocol';
 import { App } from '../shared/appBase';
 import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { DOM } from '../shared/dom';
@@ -136,22 +130,18 @@ export class SettingsApp extends App<State> {
 	}
 
 	protected override onMessageReceived(msg: IpcMessage) {
-		switch (msg.method) {
-			case DidOpenAnchorNotificationType.method: {
-				onIpc(DidOpenAnchorNotificationType, msg, params => {
-					this.scrollToAnchor(params.anchor, params.scrollBehavior);
-				});
+		switch (true) {
+			case DidOpenAnchorNotification.is(msg):
+				this.scrollToAnchor(msg.params.anchor, msg.params.scrollBehavior);
 				break;
-			}
-			case DidChangeConfigurationNotificationType.method:
-				onIpc(DidChangeConfigurationNotificationType, msg, params => {
-					this.state.config = params.config;
-					this.state.customSettings = params.customSettings;
-					this.state.timestamp = Date.now();
-					this.setState(this.state);
 
-					this.updateState();
-				});
+			case DidChangeConfigurationNotification.is(msg):
+				this.state.config = msg.params.config;
+				this.state.customSettings = msg.params.customSettings;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+
+				this.updateState();
 				break;
 
 			default:
@@ -160,7 +150,7 @@ export class SettingsApp extends App<State> {
 	}
 
 	private applyChanges() {
-		this.sendCommand(UpdateConfigurationCommandType, {
+		this.sendCommand(UpdateConfigurationCommand, {
 			changes: { ...this._changes },
 			removes: Object.keys(this._changes).filter(
 				(k): k is UpdateConfigurationParams['removes'][0] => this._changes[k] === undefined,
@@ -662,15 +652,11 @@ export class SettingsApp extends App<State> {
 					return;
 				}
 
-				void this.sendCommandWithCompletion(
-					GenerateConfigurationPreviewCommandType,
-					{
-						key: el.dataset.settingPreview!,
-						type: previewType,
-						format: value,
-					},
-					DidGenerateConfigurationPreviewNotificationType,
-				).then(params => {
+				void this.sendRequest(GenerateConfigurationPreviewRequest, {
+					key: el.dataset.settingPreview!,
+					type: previewType,
+					format: value,
+				}).then(params => {
 					el.innerText = params.preview ?? '';
 				});
 

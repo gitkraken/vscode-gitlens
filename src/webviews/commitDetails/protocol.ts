@@ -7,8 +7,10 @@ import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequestShape } from '../../git/models/pullRequest';
 import type { DateTimeFormat } from '../../system/date';
 import type { Serialized } from '../../system/serialize';
-import type { WebviewState } from '../protocol';
-import { IpcCommandType, IpcNotificationType } from '../protocol';
+import type { IpcScope, WebviewState } from '../protocol';
+import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
+
+export const scope: IpcScope = 'commitDetails';
 
 export const messageHeadlineSplitterToken = '\x00\n\x00';
 
@@ -98,73 +100,61 @@ export type ShowCommitDetailsViewCommandArgs = string[];
 
 // COMMANDS
 
-export interface CommitActionsParams {
+export interface ExecuteCommitActionsParams {
 	action: 'graph' | 'more' | 'scm' | 'sha';
 	alt?: boolean;
 }
-export const CommitActionsCommandType = new IpcCommandType<CommitActionsParams>('commit/actions');
+export const ExecuteCommitActionCommand = new IpcCommand<ExecuteCommitActionsParams>(scope, 'commit/actions/execute');
 
-export interface FileActionParams extends GitFileChangeShape {
+export interface ExecuteFileActionParams extends GitFileChangeShape {
 	showOptions?: TextDocumentShowOptions;
 }
-export const FileActionsCommandType = new IpcCommandType<FileActionParams>('commit/file/actions');
-export const OpenFileCommandType = new IpcCommandType<FileActionParams>('commit/file/open');
-export const OpenFileOnRemoteCommandType = new IpcCommandType<FileActionParams>('commit/file/openOnRemote');
-export const OpenFileCompareWorkingCommandType = new IpcCommandType<FileActionParams>('commit/file/compareWorking');
-export const OpenFileComparePreviousCommandType = new IpcCommandType<FileActionParams>('commit/file/comparePrevious');
+export const ExecuteFileActionCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/actions/execute');
+export const OpenFileCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/open');
+export const OpenFileOnRemoteCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/openOnRemote');
+export const OpenFileCompareWorkingCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/compareWorking');
+export const OpenFileComparePreviousCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/comparePrevious');
 
-export const StageFileCommandType = new IpcCommandType<FileActionParams>('commit/file/stage');
-export const UnstageFileCommandType = new IpcCommandType<FileActionParams>('commit/file/unstage');
+export const StageFileCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/stage');
+export const UnstageFileCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/unstage');
 
-export const PickCommitCommandType = new IpcCommandType<undefined>('commit/pickCommit');
-export const SearchCommitCommandType = new IpcCommandType<undefined>('commit/searchCommit');
+export const PickCommitCommand = new IpcCommand(scope, 'pickCommit');
+export const SearchCommitCommand = new IpcCommand(scope, 'searchCommit');
 
 export interface SwitchModeParams {
 	repoPath?: string;
 	mode: Mode;
 }
-export const SwitchModeCommandType = new IpcCommandType<SwitchModeParams>('commit/switchMode');
+export const SwitchModeCommand = new IpcCommand<SwitchModeParams>(scope, 'switchMode');
 
-export const AutolinkSettingsCommandType = new IpcCommandType<undefined>('commit/autolinkSettings');
-
-export const ExplainCommandType = new IpcCommandType<undefined>('commit/explain');
+export const AutolinkSettingsCommand = new IpcCommand(scope, 'autolinkSettings');
 
 export interface PinParams {
 	pin: boolean;
 }
-export const PinCommitCommandType = new IpcCommandType<PinParams>('commit/pin');
+export const PinCommand = new IpcCommand<PinParams>(scope, 'pin');
 
 export interface NavigateParams {
 	direction: 'back' | 'forward';
 }
-export const NavigateCommitCommandType = new IpcCommandType<NavigateParams>('commit/navigate');
+export const NavigateCommand = new IpcCommand<NavigateParams>(scope, 'navigate');
 
 export type UpdatePreferenceParams = UpdateablePreferences;
-export const UpdatePreferencesCommandType = new IpcCommandType<UpdatePreferenceParams>('commit/preferences/update');
+export const UpdatePreferencesCommand = new IpcCommand<UpdatePreferenceParams>(scope, 'preferences/update');
 
 export interface CreatePatchFromWipParams {
 	changes: WipChange;
 	checked: boolean | 'staged';
 }
-export const CreatePatchFromWipCommandType = new IpcCommandType<CreatePatchFromWipParams>('commit/wip/createPatch');
+export const CreatePatchFromWipCommand = new IpcCommand<CreatePatchFromWipParams>(scope, 'wip/createPatch');
 
-export const FetchCommandType = new IpcCommandType<undefined>('commit/fetch');
-export const PublishCommandType = new IpcCommandType<undefined>('commit/publish');
-export const PushCommandType = new IpcCommandType<undefined>('commit/push');
-export const PullCommandType = new IpcCommandType<undefined>('commit/pull');
-export const SwitchCommandType = new IpcCommandType<undefined>('commit/switch');
+export const FetchCommand = new IpcCommand(scope, 'fetch');
+export const PublishCommand = new IpcCommand(scope, 'publish');
+export const PushCommand = new IpcCommand(scope, 'push');
+export const PullCommand = new IpcCommand(scope, 'pull');
+export const SwitchCommand = new IpcCommand(scope, 'switch');
 
-// NOTIFICATIONS
-
-export interface DidChangeParams {
-	state: Serialized<State>;
-}
-export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('commit/didChange', true);
-
-export type DidChangeWipStateParams = Pick<Serialized<State>, 'wip'>;
-export const DidChangeWipStateNotificationType = new IpcNotificationType<DidChangeWipStateParams>(
-	'commit/didChange/wip',
-);
+// REQUESTS
 
 export type DidExplainParams =
 	| {
@@ -172,9 +162,20 @@ export type DidExplainParams =
 			error?: undefined;
 	  }
 	| { error: { message: string } };
-export const DidExplainCommandType = new IpcNotificationType<DidExplainParams>('commit/didExplain');
+export const ExplainRequest = new IpcRequest<void, DidExplainParams>(scope, 'explain');
+
+// NOTIFICATIONS
+
+export interface DidChangeParams {
+	state: Serialized<State>;
+}
+export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true);
+
+export type DidChangeWipStateParams = Pick<Serialized<State>, 'wip'>;
+export const DidChangeWipStateNotification = new IpcNotification<DidChangeWipStateParams>(scope, 'didChange/wip');
 
 export type DidChangeOrgSettings = Pick<Serialized<State>, 'orgSettings'>;
-export const DidChangeOrgSettingsNotificationType = new IpcNotificationType<DidChangeOrgSettings>(
+export const DidChangeOrgSettingsNotification = new IpcNotification<DidChangeOrgSettings>(
+	scope,
 	'org/settings/didChange',
 );

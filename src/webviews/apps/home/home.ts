@@ -3,13 +3,13 @@ import './home.scss';
 import type { Disposable } from 'vscode';
 import type { State } from '../../home/protocol';
 import {
-	CollapseSectionCommandType,
-	DidChangeOrgSettingsType,
-	DidChangeRepositoriesType,
-	DidChangeSubscriptionType,
+	CollapseSectionCommand,
+	DidChangeOrgSettings,
+	DidChangeRepositories,
+	DidChangeSubscription,
 } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
-import { ExecuteCommandType, onIpc } from '../../protocol';
+import { ExecuteCommand } from '../../protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 import '../shared/components/button';
@@ -47,29 +47,26 @@ export class HomeApp extends App<State> {
 	}
 
 	protected override onMessageReceived(msg: IpcMessage) {
-		switch (msg.method) {
-			case DidChangeRepositoriesType.method:
-				onIpc(DidChangeRepositoriesType, msg, params => {
-					this.state.repositories = params;
-					this.state.timestamp = Date.now();
-					this.setState(this.state);
-					this.updateNoRepo();
-				});
+		switch (true) {
+			case DidChangeRepositories.is(msg):
+				this.state.repositories = msg.params;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.updateNoRepo();
 				break;
-			case DidChangeSubscriptionType.method:
-				onIpc(DidChangeSubscriptionType, msg, params => {
-					this.state.promoStates = params.promoStates;
-					this.setState(this.state);
-					this.updatePromos();
-				});
+
+			case DidChangeSubscription.is(msg):
+				this.state.promoStates = msg.params.promoStates;
+				this.setState(this.state);
+				this.updatePromos();
 				break;
-			case DidChangeOrgSettingsType.method:
-				onIpc(DidChangeOrgSettingsType, msg, params => {
-					this.state.orgSettings = params.orgSettings;
-					this.setState(this.state);
-					this.updateOrgSettings();
-				});
+
+			case DidChangeOrgSettings.is(msg):
+				this.state.orgSettings = msg.params.orgSettings;
+				this.setState(this.state);
+				this.updateOrgSettings();
 				break;
+
 			default:
 				super.onMessageReceived?.(msg);
 				break;
@@ -93,7 +90,7 @@ export class HomeApp extends App<State> {
 
 	private onActionClickedCore(action?: string) {
 		if (action?.startsWith('command:')) {
-			this.sendCommand(ExecuteCommandType, { command: action.slice(8) });
+			this.sendCommand(ExecuteCommand, { command: action.slice(8) });
 		}
 	}
 
@@ -103,7 +100,7 @@ export class HomeApp extends App<State> {
 		this.state.walkthroughCollapsed = !this.state.walkthroughCollapsed;
 		this.setState(this.state);
 		this.updateCollapsedSections(this.state.walkthroughCollapsed);
-		this.sendCommand(CollapseSectionCommandType, {
+		this.sendCommand(CollapseSectionCommand, {
 			section: 'walkthrough',
 			collapsed: this.state.walkthroughCollapsed,
 		});

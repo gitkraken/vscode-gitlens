@@ -3,12 +3,11 @@ import './timeline.scss';
 import { provideVSCodeDesignSystem, vsCodeDropdown, vsCodeOption } from '@vscode/webview-ui-toolkit';
 import type { Period, State } from '../../../../plus/webviews/timeline/protocol';
 import {
-	DidChangeNotificationType,
-	OpenDataPointCommandType,
-	UpdatePeriodCommandType,
+	DidChangeNotification,
+	OpenDataPointCommand,
+	UpdatePeriodCommand,
 } from '../../../../plus/webviews/timeline/protocol';
 import type { IpcMessage } from '../../../protocol';
-import { onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import type { FeatureGate } from '../../shared/components/feature-gate';
 import type { FeatureGateBadge } from '../../shared/components/feature-gate-badge';
@@ -49,13 +48,11 @@ export class TimelineApp extends App<State> {
 	}
 
 	protected override onMessageReceived(msg: IpcMessage) {
-		switch (msg.method) {
-			case DidChangeNotificationType.method:
-				onIpc(DidChangeNotificationType, msg, params => {
-					this.state = params.state;
-					this.setState(this.state);
-					this.updateState();
-				});
+		switch (true) {
+			case DidChangeNotification.is(msg):
+				this.state = msg.params.state;
+				this.setState(this.state);
+				this.updateState();
 				break;
 
 			default:
@@ -64,7 +61,7 @@ export class TimelineApp extends App<State> {
 	}
 
 	private onChartDataPointClicked(e: DataPointClickEvent) {
-		this.sendCommand(OpenDataPointCommandType, e);
+		this.sendCommand(OpenDataPointCommand, e);
 	}
 
 	private onKeyDown(e: KeyboardEvent) {
@@ -80,7 +77,7 @@ export class TimelineApp extends App<State> {
 		this.log(`onPeriodChanged(): name=${element.name}, value=${value}`);
 
 		this.updateLoading(true);
-		this.sendCommand(UpdatePeriodCommandType, { period: value });
+		this.sendCommand(UpdatePeriodCommand, { period: value });
 	}
 
 	private updateState() {

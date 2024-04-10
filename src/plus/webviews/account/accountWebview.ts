@@ -8,7 +8,7 @@ import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProv
 import type { Subscription } from '../../gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { State } from './protocol';
-import { DidChangeSubscriptionNotificationType } from './protocol';
+import { DidChangeSubscriptionNotification } from './protocol';
 
 export class AccountWebviewProvider implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
@@ -99,7 +99,7 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 	private notifyDidChangeSubscription(subscription?: Subscription) {
 		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
 			const sub = await this.getSubscription(subscription);
-			return this.host.notify(DidChangeSubscriptionNotificationType, {
+			return this.host.notify(DidChangeSubscriptionNotification, {
 				...sub,
 			});
 		});

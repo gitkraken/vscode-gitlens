@@ -7,15 +7,9 @@ import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscription
 import { registerCommand } from '../../system/command';
 import { getContext, onDidChangeContext } from '../../system/context';
 import type { IpcMessage } from '../protocol';
-import { onIpc } from '../protocol';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type { CollapseSectionParams, DidChangeRepositoriesParams, State } from './protocol';
-import {
-	CollapseSectionCommandType,
-	DidChangeOrgSettingsType,
-	DidChangeRepositoriesType,
-	DidChangeSubscriptionType,
-} from './protocol';
+import { CollapseSectionCommand, DidChangeOrgSettings, DidChangeRepositories, DidChangeSubscription } from './protocol';
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {
@@ -53,9 +47,9 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	onMessageReceived(e: IpcMessage) {
-		switch (e.method) {
-			case CollapseSectionCommandType.method:
-				onIpc(CollapseSectionCommandType, e, params => this.onCollapseSection(params));
+		switch (true) {
+			case CollapseSectionCommand.is(e):
+				this.onCollapseSection(e.params);
 				break;
 		}
 	}
@@ -150,17 +144,17 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private notifyDidChangeRepositories() {
-		void this.host.notify(DidChangeRepositoriesType, this.getRepositoriesState());
+		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
 	}
 
 	private async notifyDidChangeSubscription(subscription?: Subscription) {
-		void this.host.notify(DidChangeSubscriptionType, {
+		void this.host.notify(DidChangeSubscription, {
 			promoStates: await this.getCanShowPromos(subscription),
 		});
 	}
 
 	private notifyDidChangeOrgSettings() {
-		void this.host.notify(DidChangeOrgSettingsType, {
+		void this.host.notify(DidChangeOrgSettings, {
 			orgSettings: this.getOrgSettings(),
 		});
 	}
