@@ -1,6 +1,8 @@
 import type { Config } from '../../config';
-import type { WebviewState } from '../protocol';
-import { IpcCommandType, IpcNotificationType } from '../protocol';
+import type { IpcScope, WebviewState } from '../protocol';
+import { IpcCommand, IpcNotification } from '../protocol';
+
+export const scope: IpcScope = 'welcome';
 
 export interface State extends WebviewState {
 	version: string;
@@ -17,20 +19,22 @@ export interface State extends WebviewState {
 	};
 }
 
+// COMMANDS
+
 export interface UpdateConfigurationParams {
 	type: 'codeLens' | 'currentLine';
 	value: boolean;
 }
-export const UpdateConfigurationCommandType = new IpcCommandType<UpdateConfigurationParams>(
-	'welcome/configuration/update',
-);
+export const UpdateConfigurationCommand = new IpcCommand<UpdateConfigurationParams>(scope, 'configuration/update');
+
+// NOTIFICATIONS
 
 export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('welcome/didChange', true);
+export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true);
 
 export interface DidChangeOrgSettingsParams {
 	orgSettings: State['orgSettings'];
 }
-export const DidChangeOrgSettingsType = new IpcNotificationType<DidChangeOrgSettingsParams>('org/settings/didChange');
+export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');

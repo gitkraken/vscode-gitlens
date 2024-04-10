@@ -9,7 +9,7 @@ import type { DraftRole, DraftVisibility } from '../../../../../gk/models/drafts
 import type {
 	Change,
 	DraftUserSelection,
-	FileActionParams,
+	ExecuteFileActionParams,
 	State,
 } from '../../../../../plus/webviews/patchDetails/protocol';
 import { debounce } from '../../../../../system/function';
@@ -708,9 +708,9 @@ declare global {
 		'gl-patch-create-repo-checked': CustomEvent<CreatePatchCheckRepositoryEventDetail>;
 		'gl-patch-create-patch': CustomEvent<CreatePatchEventDetail>;
 		'gl-patch-create-update-metadata': CustomEvent<CreatePatchMetadataEventDetail>;
-		'gl-patch-file-compare-previous': CustomEvent<FileActionParams>;
-		'gl-patch-file-compare-working': CustomEvent<FileActionParams>;
-		'gl-patch-file-open': CustomEvent<FileActionParams>;
+		'gl-patch-file-compare-previous': CustomEvent<ExecuteFileActionParams>;
+		'gl-patch-file-compare-working': CustomEvent<ExecuteFileActionParams>;
+		'gl-patch-file-open': CustomEvent<ExecuteFileActionParams>;
 		'gl-patch-create-invite-users': CustomEvent<undefined>;
 		'gl-patch-create-update-selection': CustomEvent<CreatePatchUpdateSelectionEventDetail>;
 		// 'gl-patch-details-graph-show-patch': CustomEvent<{ draft: State['create'] }>;

@@ -38,8 +38,7 @@ import { basename } from '../../../system/path';
 import { defer } from '../../../system/promise';
 import type { Serialized } from '../../../system/serialize';
 import { serialize } from '../../../system/serialize';
-import type { IpcMessage } from '../../../webviews/protocol';
-import { onIpc } from '../../../webviews/protocol';
+import type { IpcCallMessageType, IpcMessage } from '../../../webviews/protocol';
 import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProvider';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { showPatchesView } from '../../drafts/actions';
@@ -54,7 +53,7 @@ import type {
 	DidExplainParams,
 	DraftPatchCheckedParams,
 	DraftUserSelection,
-	FileActionParams,
+	ExecuteFileActionParams,
 	Mode,
 	Preferences,
 	State,
@@ -66,29 +65,28 @@ import type {
 	UpdatePatchUserSelection,
 } from './protocol';
 import {
-	ApplyPatchCommandType,
-	CopyCloudLinkCommandType,
-	CreatePatchCommandType,
-	DidChangeCreateNotificationType,
-	DidChangeDraftNotificationType,
-	DidChangeNotificationType,
-	DidChangePatchRepositoryNotificationType,
-	DidChangePreferencesNotificationType,
-	DidExplainCommandType,
-	DraftPatchCheckedCommandType,
-	ExplainCommandType,
-	OpenFileCommandType,
-	OpenFileComparePreviousCommandType,
-	OpenFileCompareWorkingCommandType,
-	OpenInCommitGraphCommandType,
-	SwitchModeCommandType,
-	UpdateCreatePatchMetadataCommandType,
-	UpdateCreatePatchRepositoryCheckedStateCommandType,
-	UpdatePatchDetailsMetadataCommandType,
-	UpdatePatchDetailsPermissionsCommandType,
-	UpdatePatchUsersCommandType,
-	UpdatePatchUserSelectionCommandType,
-	UpdatePreferencesCommandType,
+	ApplyPatchCommand,
+	CopyCloudLinkCommand,
+	CreatePatchCommand,
+	DidChangeCreateNotification,
+	DidChangeDraftNotification,
+	DidChangeNotification,
+	DidChangePatchRepositoryNotification,
+	DidChangePreferencesNotification,
+	DraftPatchCheckedCommand,
+	ExplainRequest,
+	OpenFileCommand,
+	OpenFileComparePreviousCommand,
+	OpenFileCompareWorkingCommand,
+	OpenInCommitGraphCommand,
+	SwitchModeCommand,
+	UpdateCreatePatchMetadataCommand,
+	UpdateCreatePatchRepositoryCheckedStateCommand,
+	UpdatePatchDetailsMetadataCommand,
+	UpdatePatchDetailsPermissionsCommand,
+	UpdatePatchUsersCommand,
+	UpdatePatchUserSelectionCommand,
+	UpdatePreferencesCommand,
 } from './protocol';
 import type { PatchDetailsWebviewShowingArgs } from './registration';
 import type { RepositoryChangeset } from './repositoryChangeset';
@@ -212,81 +210,87 @@ export class PatchDetailsWebviewProvider
 	}
 
 	onMessageReceived(e: IpcMessage) {
-		switch (e.method) {
-			case ApplyPatchCommandType.method:
-				onIpc(ApplyPatchCommandType, e, params => this.applyPatch(params));
+		switch (true) {
+			case ApplyPatchCommand.is(e):
+				void this.applyPatch(e.params);
 				break;
-			case CopyCloudLinkCommandType.method:
-				onIpc(CopyCloudLinkCommandType, e, () => this.copyCloudLink());
+
+			case CopyCloudLinkCommand.is(e):
+				this.copyCloudLink();
 				break;
+
 			// case CreateFromLocalPatchCommandType.method:
-			// 	onIpc(CreateFromLocalPatchCommandType, e, () => this.shareLocalPatch());
+			// 	this.shareLocalPatch();
 			// 	break;
-			case CreatePatchCommandType.method:
-				onIpc(CreatePatchCommandType, e, params => this.createDraft(params));
-				break;
-			case ExplainCommandType.method:
-				onIpc(ExplainCommandType, e, () => this.explainPatch(e.completionId));
+
+			case CreatePatchCommand.is(e):
+				void this.createDraft(e.params);
 				break;
 
-			case OpenFileComparePreviousCommandType.method:
-				onIpc(
-					OpenFileComparePreviousCommandType,
-					e,
-					params => void this.openFileComparisonWithPrevious(params),
-				);
-				break;
-			case OpenFileCompareWorkingCommandType.method:
-				onIpc(OpenFileCompareWorkingCommandType, e, params => void this.openFileComparisonWithWorking(params));
-				break;
-			case OpenFileCommandType.method:
-				onIpc(OpenFileCommandType, e, params => void this.openFile(params));
+			case ExplainRequest.is(e):
+				void this.explainRequest(ExplainRequest, e);
 				break;
 
-			case OpenInCommitGraphCommandType.method:
-				onIpc(
-					OpenInCommitGraphCommandType,
-					e,
-					params =>
-						void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
-							ref: createReference(params.ref, params.repoPath, { refType: 'revision' }),
-						}),
-				);
+			case OpenFileComparePreviousCommand.is(e):
+				void this.openFileComparisonWithPrevious(e.params);
 				break;
-			// case SelectPatchBaseCommandType.method:
-			// 	onIpc(SelectPatchBaseCommandType, e, () => void this.selectPatchBase());
+
+			case OpenFileCompareWorkingCommand.is(e):
+				void this.openFileComparisonWithWorking(e.params);
+				break;
+
+			case OpenFileCommand.is(e):
+				void this.openFile(e.params);
+				break;
+
+			case OpenInCommitGraphCommand.is(e):
+				void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
+					ref: createReference(e.params.ref, e.params.repoPath, { refType: 'revision' }),
+				});
+				break;
+
+			// case SelectPatchBaseCommandType.is(e):
+			// 	void this.selectPatchBase();
 			// 	break;
-			// case SelectPatchRepoCommandType.method:
-			// 	onIpc(SelectPatchRepoCommandType, e, () => void this.selectPatchRepo());
+
+			// case SelectPatchRepoCommandType.is(e):
+			// 	void this.selectPatchRepo();
 			// 	break;
-			case SwitchModeCommandType.method:
-				onIpc(SwitchModeCommandType, e, params => this.switchMode(params));
+
+			case SwitchModeCommand.is(e):
+				this.switchMode(e.params);
 				break;
-			case UpdateCreatePatchMetadataCommandType.method:
-				onIpc(UpdateCreatePatchMetadataCommandType, e, params => this.updateCreateMetadata(params));
+
+			case UpdateCreatePatchMetadataCommand.is(e):
+				this.updateCreateMetadata(e.params);
 				break;
-			case UpdatePatchDetailsMetadataCommandType.method:
-				onIpc(UpdatePatchDetailsMetadataCommandType, e, params => this.updateDraftMetadata(params));
+
+			case UpdatePatchDetailsMetadataCommand.is(e):
+				this.updateDraftMetadata(e.params);
 				break;
-			case UpdatePatchDetailsPermissionsCommandType.method:
-				onIpc(UpdatePatchDetailsPermissionsCommandType, e, () => this.updateDraftPermissions());
+
+			case UpdatePatchDetailsPermissionsCommand.is(e):
+				void this.updateDraftPermissions();
 				break;
-			case UpdateCreatePatchRepositoryCheckedStateCommandType.method:
-				onIpc(UpdateCreatePatchRepositoryCheckedStateCommandType, e, params =>
-					this.updateCreateCheckedState(params),
-				);
+
+			case UpdateCreatePatchRepositoryCheckedStateCommand.is(e):
+				this.updateCreateCheckedState(e.params);
 				break;
-			case UpdatePreferencesCommandType.method:
-				onIpc(UpdatePreferencesCommandType, e, params => this.updatePreferences(params));
+
+			case UpdatePreferencesCommand.is(e):
+				this.updatePreferences(e.params);
 				break;
-			case DraftPatchCheckedCommandType.method:
-				onIpc(DraftPatchCheckedCommandType, e, params => this.onPatchChecked(params));
+
+			case DraftPatchCheckedCommand.is(e):
+				void this.onPatchChecked(e.params);
 				break;
-			case UpdatePatchUsersCommandType.method:
-				onIpc(UpdatePatchUsersCommandType, e, () => this.onInviteUsers());
+
+			case UpdatePatchUsersCommand.is(e):
+				void this.onInviteUsers();
 				break;
-			case UpdatePatchUserSelectionCommandType.method:
-				onIpc(UpdatePatchUserSelectionCommandType, e, params => this.onUpdatePatchUserSelection(params));
+
+			case UpdatePatchUserSelectionCommand.is(e):
+				this.onUpdatePatchUserSelection(e.params);
 				break;
 		}
 	}
@@ -711,41 +715,39 @@ export class PatchDetailsWebviewProvider
 		}
 	}
 
-	private async explainPatch(completionId?: string) {
-		if (this._context.draft?.draftType !== 'cloud') return;
+	private async explainRequest<T extends typeof ExplainRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		if (this._context.draft?.draftType !== 'cloud') {
+			void this.host.respond(requestType, msg, { error: { message: 'Unable to find patch' } });
+			return;
+		}
 
 		let params: DidExplainParams;
 
 		try {
 			// TODO@eamodio HACK -- only works for the first patch
 			const patch = await this.getDraftPatch(this._context.draft);
-			if (patch == null) {
-				throw new Error('Unable to find patch');
-			}
+			if (patch == null) throw new Error('Unable to find patch');
 
 			const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
-			if (commit == null) {
-				throw new Error('Unable to find commit');
-			}
+			if (commit == null) throw new Error('Unable to find commit');
 
 			const summary = await (
 				await this.container.ai
 			)?.explainCommit(commit, {
 				progress: { location: { viewId: this.host.id } },
 			});
-			if (summary == null) {
-				throw new Error('Error retrieving content');
-			}
+			if (summary == null) throw new Error('Error retrieving content');
+
 			params = { summary: summary };
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
 		}
 
-		void this.host.notify(DidExplainCommandType, params, completionId);
+		void this.host.respond(requestType, msg, params);
 	}
 
-	private async openPatchContents(_params: FileActionParams) {
+	private async openPatchContents(_params: ExecuteFileActionParams) {
 		// TODO@eamodio Open the patch contents for the selected repo in an untitled editor
 	}
 
@@ -772,7 +774,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private notifyPatchRepositoryUpdated(patch: DraftPatch) {
-		return this.host.notify(DidChangePatchRepositoryNotificationType, {
+		return this.host.notify(DidChangePatchRepositoryNotification, {
 			patch: serialize({
 				...patch,
 				contents: undefined,
@@ -908,7 +910,7 @@ export class PatchDetailsWebviewProvider
 
 	private async notifyDidChangeState() {
 		this._notifyDidChangeStateDebounced?.cancel();
-		return this.host.notify(DidChangeNotificationType, { state: await this.getState(this._context) });
+		return this.host.notify(DidChangeNotification, { state: await this.getState(this._context) });
 	}
 
 	private updateCreateDraftState(create: CreateDraft) {
@@ -1011,7 +1013,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async notifyDidChangeCreateDraftState() {
-		return this.host.notify(DidChangeCreateNotificationType, {
+		return this.host.notify(DidChangeCreateNotification, {
 			mode: this._context.mode,
 			create: await this.getCreateDraftState(this._context),
 		});
@@ -1142,7 +1144,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async notifyDidChangeViewDraftState() {
-		return this.host.notify(DidChangeDraftNotificationType, {
+		return this.host.notify(DidChangeDraftNotification, {
 			mode: this._context.mode,
 			draft: serialize(await this.getViewDraftState(this._context)),
 		});
@@ -1179,7 +1181,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async notifyDidChangePreferences() {
-		return this.host.notify(DidChangePreferencesNotificationType, { preferences: this._context.preferences });
+		return this.host.notify(DidChangePreferencesNotification, { preferences: this._context.preferences });
 	}
 
 	private async getDraftPatch(draft: Draft, gkRepositoryId?: GkRepositoryId): Promise<DraftPatch | undefined> {
@@ -1205,7 +1207,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async getFileCommitFromParams(
-		params: FileActionParams,
+		params: ExecuteFileActionParams,
 	): Promise<
 		| [commit: GitCommit, file: GitFileChange, revision?: Required<Omit<PatchRevisionRange, 'branchName'>>]
 		| undefined
@@ -1311,7 +1313,7 @@ export class PatchDetailsWebviewProvider
 		return patch?.commit;
 	}
 
-	private async openFile(params: FileActionParams) {
+	private async openFile(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1324,7 +1326,7 @@ export class PatchDetailsWebviewProvider
 		});
 	}
 
-	private async openFileComparisonWithPrevious(params: FileActionParams) {
+	private async openFileComparisonWithPrevious(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1345,7 +1347,7 @@ export class PatchDetailsWebviewProvider
 		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.host.id });
 	}
 
-	private async openFileComparisonWithWorking(params: FileActionParams) {
+	private async openFileComparisonWithWorking(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 

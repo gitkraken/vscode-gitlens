@@ -17,45 +17,43 @@ import type {
 	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import {
-	ChooseRepositoryCommandType,
-	DidChangeAvatarsNotificationType,
-	DidChangeColumnsNotificationType,
-	DidChangeFocusNotificationType,
-	DidChangeGraphConfigurationNotificationType,
-	DidChangeNotificationType,
-	DidChangeRefsMetadataNotificationType,
-	DidChangeRefsVisibilityNotificationType,
-	DidChangeRowsNotificationType,
-	DidChangeRowsStatsNotificationType,
-	DidChangeScrollMarkersNotificationType,
-	DidChangeSelectionNotificationType,
-	DidChangeSubscriptionNotificationType,
-	DidChangeWindowFocusNotificationType,
-	DidChangeWorkingTreeNotificationType,
-	DidEnsureRowNotificationType,
-	DidFetchNotificationType,
-	DidSearchNotificationType,
-	DimMergeCommitsCommandType,
+	ChooseRepositoryCommand,
+	DidChangeAvatarsNotification,
+	DidChangeColumnsNotification,
+	DidChangeFocusNotification,
+	DidChangeGraphConfigurationNotification,
+	DidChangeNotification,
+	DidChangeRefsMetadataNotification,
+	DidChangeRefsVisibilityNotification,
+	DidChangeRowsNotification,
+	DidChangeRowsStatsNotification,
+	DidChangeScrollMarkersNotification,
+	DidChangeSelectionNotification,
+	DidChangeSubscriptionNotification,
+	DidChangeWindowFocusNotification,
+	DidChangeWorkingTreeNotification,
+	DidFetchNotification,
+	DidSearchNotification,
 	DoubleClickedCommandType,
-	EnsureRowCommandType,
-	GetMissingAvatarsCommandType,
-	GetMissingRefsMetadataCommandType,
-	GetMoreRowsCommandType,
-	SearchCommandType,
-	SearchOpenInViewCommandType,
-	UpdateColumnsCommandType,
-	UpdateExcludeTypeCommandType,
-	UpdateGraphConfigurationCommandType,
-	UpdateIncludeOnlyRefsCommandType,
-	UpdateRefsVisibilityCommandType,
-	UpdateSelectionCommandType,
+	EnsureRowRequest,
+	GetMissingAvatarsCommand,
+	GetMissingRefsMetadataCommand,
+	GetMoreRowsCommand,
+	SearchOpenInViewCommand,
+	SearchRequest,
+	UpdateColumnsCommand,
+	UpdateDimMergeCommitsCommand,
+	UpdateExcludeTypeCommand,
+	UpdateGraphConfigurationCommand,
+	UpdateIncludeOnlyRefsCommand,
+	UpdateRefsVisibilityCommand,
+	UpdateSelectionCommand,
 } from '../../../../plus/webviews/graph/protocol';
 import { Color, darken, getCssVariable, lighten, mix, opacity } from '../../../../system/color';
 import { debug } from '../../../../system/decorators/log';
 import { debounce } from '../../../../system/function';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
-import type { IpcMessage, IpcNotificationType } from '../../../protocol';
-import { onIpc } from '../../../protocol';
+import type { IpcMessage, IpcNotification } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import type { ThemeChangeEvent } from '../../shared/theme';
 import { GraphWrapper } from './GraphWrapper';
@@ -144,198 +142,166 @@ export class GraphApp extends App<State> {
 	protected override onMessageReceived(msg: IpcMessage) {
 		const scope = getLogScope();
 
-		switch (msg.method) {
-			case DidChangeNotificationType.method:
-				onIpc(DidChangeNotificationType, msg, (params, type) => {
-					this.setState({ ...this.state, ...params.state }, type);
-				});
+		switch (true) {
+			case DidChangeNotification.is(msg):
+				this.setState({ ...this.state, ...msg.params.state }, DidChangeNotification);
 				break;
 
-			case DidFetchNotificationType.method:
-				onIpc(DidFetchNotificationType, msg, (params, type) => {
-					this.state.lastFetched = params.lastFetched;
-					this.setState(this.state, type);
-				});
+			case DidFetchNotification.is(msg):
+				this.state.lastFetched = msg.params.lastFetched;
+				this.setState(this.state, DidFetchNotification);
 				break;
 
-			case DidChangeAvatarsNotificationType.method:
-				onIpc(DidChangeAvatarsNotificationType, msg, (params, type) => {
-					this.state.avatars = params.avatars;
-					this.setState(this.state, type);
-				});
+			case DidChangeAvatarsNotification.is(msg):
+				this.state.avatars = msg.params.avatars;
+				this.setState(this.state, DidChangeAvatarsNotification);
 				break;
-			case DidChangeFocusNotificationType.method:
-				onIpc(DidChangeFocusNotificationType, msg, params => {
-					window.dispatchEvent(new CustomEvent(params.focused ? 'webview-focus' : 'webview-blur'));
-				});
+			case DidChangeFocusNotification.is(msg):
+				window.dispatchEvent(new CustomEvent(msg.params.focused ? 'webview-focus' : 'webview-blur'));
 				break;
 
-			case DidChangeWindowFocusNotificationType.method:
-				onIpc(DidChangeWindowFocusNotificationType, msg, (params, type) => {
-					this.state.windowFocused = params.focused;
-					this.setState(this.state, type);
-				});
+			case DidChangeWindowFocusNotification.is(msg):
+				this.state.windowFocused = msg.params.focused;
+				this.setState(this.state, DidChangeWindowFocusNotification);
 				break;
 
-			case DidChangeColumnsNotificationType.method:
-				onIpc(DidChangeColumnsNotificationType, msg, (params, type) => {
-					this.state.columns = params.columns;
-					this.state.context = {
-						...this.state.context,
-						header: params.context,
-						settings: params.settingsContext,
-					};
-					this.setState(this.state, type);
-				});
+			case DidChangeColumnsNotification.is(msg):
+				this.state.columns = msg.params.columns;
+				this.state.context = {
+					...this.state.context,
+					header: msg.params.context,
+					settings: msg.params.settingsContext,
+				};
+				this.setState(this.state, DidChangeColumnsNotification);
 				break;
 
-			case DidChangeRefsVisibilityNotificationType.method:
-				onIpc(DidChangeRefsVisibilityNotificationType, msg, (params, type) => {
-					this.state.excludeRefs = params.excludeRefs;
-					this.state.excludeTypes = params.excludeTypes;
-					this.state.includeOnlyRefs = params.includeOnlyRefs;
-					this.setState(this.state, type);
-				});
+			case DidChangeRefsVisibilityNotification.is(msg):
+				this.state.excludeRefs = msg.params.excludeRefs;
+				this.state.excludeTypes = msg.params.excludeTypes;
+				this.state.includeOnlyRefs = msg.params.includeOnlyRefs;
+				this.setState(this.state, DidChangeRefsVisibilityNotification);
 				break;
 
-			case DidChangeRefsMetadataNotificationType.method:
-				onIpc(DidChangeRefsMetadataNotificationType, msg, (params, type) => {
-					this.state.refsMetadata = params.metadata;
-					this.setState(this.state, type);
-				});
+			case DidChangeRefsMetadataNotification.is(msg):
+				this.state.refsMetadata = msg.params.metadata;
+				this.setState(this.state, DidChangeRefsMetadataNotification);
 				break;
 
-			case DidChangeRowsNotificationType.method:
-				onIpc(DidChangeRowsNotificationType, msg, (params, type) => {
-					let rows;
-					if (params.rows.length && params.paging?.startingCursor != null && this.state.rows != null) {
-						const previousRows = this.state.rows;
-						const lastId = previousRows[previousRows.length - 1]?.sha;
+			case DidChangeRowsNotification.is(msg): {
+				let rows;
+				if (msg.params.rows.length && msg.params.paging?.startingCursor != null && this.state.rows != null) {
+					const previousRows = this.state.rows;
+					const lastId = previousRows[previousRows.length - 1]?.sha;
 
-						let previousRowsLength = previousRows.length;
-						const newRowsLength = params.rows.length;
+					let previousRowsLength = previousRows.length;
+					const newRowsLength = msg.params.rows.length;
 
-						this.log(
-							scope,
-							`paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${params.paging.startingCursor} (last existing row: ${lastId})`,
-						);
+					this.log(
+						scope,
+						`paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${msg.params.paging.startingCursor} (last existing row: ${lastId})`,
+					);
 
-						rows = [];
-						// Preallocate the array to avoid reallocations
-						rows.length = previousRowsLength + newRowsLength;
+					rows = [];
+					// Preallocate the array to avoid reallocations
+					rows.length = previousRowsLength + newRowsLength;
 
-						if (params.paging.startingCursor !== lastId) {
-							this.log(scope, `searching for ${params.paging.startingCursor} in existing rows`);
+					if (msg.params.paging.startingCursor !== lastId) {
+						this.log(scope, `searching for ${msg.params.paging.startingCursor} in existing rows`);
 
-							let i = 0;
-							let row;
-							for (row of previousRows) {
-								rows[i++] = row;
-								if (row.sha === params.paging.startingCursor) {
-									this.log(scope, `found ${params.paging.startingCursor} in existing rows`);
+						let i = 0;
+						let row;
+						for (row of previousRows) {
+							rows[i++] = row;
+							if (row.sha === msg.params.paging.startingCursor) {
+								this.log(scope, `found ${msg.params.paging.startingCursor} in existing rows`);
 
-									previousRowsLength = i;
+								previousRowsLength = i;
 
-									if (previousRowsLength !== previousRows.length) {
-										// If we stopped before the end of the array, we need to trim it
-										rows.length = previousRowsLength + newRowsLength;
-									}
-
-									break;
+								if (previousRowsLength !== previousRows.length) {
+									// If we stopped before the end of the array, we need to trim it
+									rows.length = previousRowsLength + newRowsLength;
 								}
-							}
-						} else {
-							for (let i = 0; i < previousRowsLength; i++) {
-								rows[i] = previousRows[i];
-							}
-						}
 
-						for (let i = 0; i < newRowsLength; i++) {
-							rows[previousRowsLength + i] = params.rows[i];
+								break;
+							}
 						}
 					} else {
-						this.log(scope, `setting to ${params.rows.length} rows`);
-
-						if (params.rows.length === 0) {
-							rows = this.state.rows;
-						} else {
-							rows = params.rows;
+						for (let i = 0; i < previousRowsLength; i++) {
+							rows[i] = previousRows[i];
 						}
 					}
 
-					this.state.avatars = params.avatars;
-					this.state.downstreams = params.downstreams;
-					if (params.refsMetadata !== undefined) {
-						this.state.refsMetadata = params.refsMetadata;
+					for (let i = 0; i < newRowsLength; i++) {
+						rows[previousRowsLength + i] = msg.params.rows[i];
 					}
-					this.state.rows = rows;
-					this.state.paging = params.paging;
-					if (params.rowsStats != null) {
-						this.state.rowsStats = { ...this.state.rowsStats, ...params.rowsStats };
+				} else {
+					this.log(scope, `setting to ${msg.params.rows.length} rows`);
+
+					if (msg.params.rows.length === 0) {
+						rows = this.state.rows;
+					} else {
+						rows = msg.params.rows;
 					}
-					this.state.rowsStatsLoading = params.rowsStatsLoading;
-					if (params.selectedRows != null) {
-						this.state.selectedRows = params.selectedRows;
-					}
-					this.state.loading = false;
-					this.setState(this.state, type);
+				}
 
-					setLogScopeExit(scope, ` \u2022 rows=${this.state.rows?.length ?? 0}`);
-				});
+				this.state.avatars = msg.params.avatars;
+				this.state.downstreams = msg.params.downstreams;
+				if (msg.params.refsMetadata !== undefined) {
+					this.state.refsMetadata = msg.params.refsMetadata;
+				}
+				this.state.rows = rows;
+				this.state.paging = msg.params.paging;
+				if (msg.params.rowsStats != null) {
+					this.state.rowsStats = { ...this.state.rowsStats, ...msg.params.rowsStats };
+				}
+				this.state.rowsStatsLoading = msg.params.rowsStatsLoading;
+				if (msg.params.selectedRows != null) {
+					this.state.selectedRows = msg.params.selectedRows;
+				}
+				this.state.loading = false;
+				this.setState(this.state, DidChangeRowsNotification);
+
+				setLogScopeExit(scope, ` \u2022 rows=${this.state.rows?.length ?? 0}`);
+				break;
+			}
+			case DidChangeRowsStatsNotification.is(msg):
+				this.state.rowsStats = { ...this.state.rowsStats, ...msg.params.rowsStats };
+				this.state.rowsStatsLoading = msg.params.rowsStatsLoading;
+				this.setState(this.state, DidChangeRowsStatsNotification);
 				break;
 
-			case DidChangeRowsStatsNotificationType.method:
-				onIpc(DidChangeRowsStatsNotificationType, msg, (params, type) => {
-					this.state.rowsStats = { ...this.state.rowsStats, ...params.rowsStats };
-					this.state.rowsStatsLoading = params.rowsStatsLoading;
-					this.setState(this.state, type);
-				});
+			case DidChangeScrollMarkersNotification.is(msg):
+				this.state.context = { ...this.state.context, settings: msg.params.context };
+				this.setState(this.state, DidChangeScrollMarkersNotification);
 				break;
 
-			case DidChangeScrollMarkersNotificationType.method:
-				onIpc(DidChangeScrollMarkersNotificationType, msg, (params, type) => {
-					this.state.context = { ...this.state.context, settings: params.context };
-					this.setState(this.state, type);
-				});
+			case DidSearchNotification.is(msg):
+				this.state.searchResults = msg.params.results;
+				if (msg.params.selectedRows != null) {
+					this.state.selectedRows = msg.params.selectedRows;
+				}
+				this.setState(this.state, DidSearchNotification);
 				break;
 
-			case DidSearchNotificationType.method:
-				onIpc(DidSearchNotificationType, msg, (params, type) => {
-					this.state.searchResults = params.results;
-					if (params.selectedRows != null) {
-						this.state.selectedRows = params.selectedRows;
-					}
-					this.setState(this.state, type);
-				});
+			case DidChangeSelectionNotification.is(msg):
+				this.state.selectedRows = msg.params.selection;
+				this.setState(this.state, DidChangeSelectionNotification);
 				break;
 
-			case DidChangeSelectionNotificationType.method:
-				onIpc(DidChangeSelectionNotificationType, msg, (params, type) => {
-					this.state.selectedRows = params.selection;
-					this.setState(this.state, type);
-				});
+			case DidChangeGraphConfigurationNotification.is(msg):
+				this.state.config = msg.params.config;
+				this.setState(this.state, DidChangeGraphConfigurationNotification);
 				break;
 
-			case DidChangeGraphConfigurationNotificationType.method:
-				onIpc(DidChangeGraphConfigurationNotificationType, msg, (params, type) => {
-					this.state.config = params.config;
-					this.setState(this.state, type);
-				});
+			case DidChangeSubscriptionNotification.is(msg):
+				this.state.subscription = msg.params.subscription;
+				this.state.allowed = msg.params.allowed;
+				this.setState(this.state, DidChangeSubscriptionNotification);
 				break;
 
-			case DidChangeSubscriptionNotificationType.method:
-				onIpc(DidChangeSubscriptionNotificationType, msg, (params, type) => {
-					this.state.subscription = params.subscription;
-					this.state.allowed = params.allowed;
-					this.setState(this.state, type);
-				});
-				break;
-
-			case DidChangeWorkingTreeNotificationType.method:
-				onIpc(DidChangeWorkingTreeNotificationType, msg, (params, type) => {
-					this.state.workingTreeStats = params.stats;
-					this.setState(this.state, type);
-				});
+			case DidChangeWorkingTreeNotification.is(msg):
+				this.state.workingTreeStats = msg.params.stats;
+				this.setState(this.state, DidChangeWorkingTreeNotification);
 				break;
 
 			default:
@@ -464,7 +430,7 @@ export class GraphApp extends App<State> {
 	}
 
 	@debug({ args: false, singleLine: true })
-	protected override setState(state: State, type?: IpcNotificationType<any> | InternalNotificationType) {
+	protected override setState(state: State, type?: IpcNotification<any> | InternalNotificationType) {
 		const themingChanged = this.ensureTheming(state);
 
 		this.state = state;
@@ -573,24 +539,24 @@ export class GraphApp extends App<State> {
 	}
 
 	private onColumnsChanged(settings: GraphColumnsConfig) {
-		this.sendCommand(UpdateColumnsCommandType, {
+		this.sendCommand(UpdateColumnsCommand, {
 			config: settings,
 		});
 	}
 
 	private onRefsVisibilityChanged(refs: GraphExcludedRef[], visible: boolean) {
-		this.sendCommand(UpdateRefsVisibilityCommandType, {
+		this.sendCommand(UpdateRefsVisibilityCommand, {
 			refs: refs,
 			visible: visible,
 		});
 	}
 
 	private onChooseRepository() {
-		this.sendCommand(ChooseRepositoryCommandType, undefined);
+		this.sendCommand(ChooseRepositoryCommand, undefined);
 	}
 
 	private onDimMergeCommits(dim: boolean) {
-		this.sendCommand(DimMergeCommitsCommandType, {
+		this.sendCommand(UpdateDimMergeCommitsCommand, {
 			dim: dim,
 		});
 	}
@@ -612,70 +578,66 @@ export class GraphApp extends App<State> {
 	}
 
 	private onGetMissingAvatars(emails: GraphAvatars) {
-		this.sendCommand(GetMissingAvatarsCommandType, { emails: emails });
+		this.sendCommand(GetMissingAvatarsCommand, { emails: emails });
 	}
 
 	private onGetMissingRefsMetadata(metadata: GraphMissingRefsMetadata) {
-		this.sendCommand(GetMissingRefsMetadataCommandType, { metadata: metadata });
+		this.sendCommand(GetMissingRefsMetadataCommand, { metadata: metadata });
 	}
 
 	private onGetMoreRows(sha?: string) {
-		this.sendCommand(GetMoreRowsCommandType, { id: sha });
+		this.sendCommand(GetMoreRowsCommand, { id: sha });
 	}
 
 	private onSearch(search: SearchQuery | undefined, options?: { limit?: number }) {
 		if (search == null) {
 			this.state.searchResults = undefined;
 		}
-		this.sendCommand(SearchCommandType, { search: search, limit: options?.limit });
+		this.sendCommand(SearchRequest, { search: search, limit: options?.limit });
 	}
 
 	private async onSearchPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {
 		try {
-			return await this.sendCommandWithCompletion(
-				SearchCommandType,
-				{ search: search, limit: options?.limit, more: options?.more },
-				DidSearchNotificationType,
-			);
+			return await this.sendRequest(SearchRequest, {
+				search: search,
+				limit: options?.limit,
+				more: options?.more,
+			});
 		} catch {
 			return undefined;
 		}
 	}
 
 	private onSearchOpenInView(search: SearchQuery) {
-		this.sendCommand(SearchOpenInViewCommandType, { search: search });
+		this.sendCommand(SearchOpenInViewCommand, { search: search });
 	}
 
 	private async onEnsureRowPromise(id: string, select: boolean) {
 		try {
-			return await this.sendCommandWithCompletion(
-				EnsureRowCommandType,
-				{ id: id, select: select },
-				DidEnsureRowNotificationType,
-			);
+			return await this.sendRequest(EnsureRowRequest, { id: id, select: select });
 		} catch {
 			return undefined;
 		}
 	}
 
 	private onExcludeType(key: keyof GraphExcludeTypes, value: boolean) {
-		this.sendCommand(UpdateExcludeTypeCommandType, { key: key, value: value });
+		this.sendCommand(UpdateExcludeTypeCommand, { key: key, value: value });
 	}
 
 	private onIncludeOnlyRef(all?: boolean) {
 		this.sendCommand(
-			UpdateIncludeOnlyRefsCommandType,
+			UpdateIncludeOnlyRefsCommand,
 			all ? {} : { refs: [{ id: 'HEAD', type: 'head', name: 'HEAD' }] },
 		);
 	}
 
 	private onUpdateGraphConfiguration(changes: UpdateGraphConfigurationParams['changes']) {
-		this.sendCommand(UpdateGraphConfigurationCommandType, { changes: changes });
+		this.sendCommand(UpdateGraphConfigurationCommand, { changes: changes });
 	}
 
 	private onSelectionChanged(rows: GraphRow[]) {
 		const selection = rows.filter(r => r != null).map(r => ({ id: r.sha, type: r.type as GitGraphRowType }));
-		this.sendCommand(UpdateSelectionCommandType, {
+		this.sendCommand(UpdateSelectionCommand, {
 			selection: selection,
 		});
 	}

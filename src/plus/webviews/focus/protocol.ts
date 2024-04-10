@@ -1,9 +1,11 @@
 import type { FeatureAccess } from '../../../features';
 import type { IssueShape } from '../../../git/models/issue';
 import type { PullRequestShape } from '../../../git/models/pullRequest';
-import type { WebviewState } from '../../../webviews/protocol';
-import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
+import type { IpcScope, WebviewState } from '../../../webviews/protocol';
+import { IpcCommand, IpcNotification } from '../../../webviews/protocol';
 import type { EnrichedItem } from '../../focus/enrichmentService';
+
+export const scope: IpcScope = 'focus';
 
 export interface State extends WebviewState {
 	access: FeatureAccess;
@@ -41,52 +43,52 @@ export interface RepoWithIntegration {
 	isConnected: boolean;
 }
 
-// Commands
+// COMMANDS
 
 export interface OpenWorktreeParams {
 	pullRequest: PullRequestShape;
 }
-export const OpenWorktreeCommandType = new IpcCommandType<OpenWorktreeParams>('focus/pr/openWorktree');
+export const OpenWorktreeCommand = new IpcCommand<OpenWorktreeParams>(scope, 'pr/openWorktree');
 
 export interface OpenBranchParams {
 	pullRequest: PullRequestShape;
 }
-export const OpenBranchCommandType = new IpcCommandType<OpenBranchParams>('focus/pr/openBranch');
+export const OpenBranchCommand = new IpcCommand<OpenBranchParams>(scope, 'pr/openBranch');
 
 export interface SwitchToBranchParams {
 	pullRequest: PullRequestShape;
 }
-export const SwitchToBranchCommandType = new IpcCommandType<SwitchToBranchParams>('focus/pr/switchToBranch');
+export const SwitchToBranchCommand = new IpcCommand<SwitchToBranchParams>(scope, 'pr/switchToBranch');
 
 export interface SnoozePrParams {
 	pullRequest: PullRequestShape;
 	expiresAt?: string;
 	snooze?: string;
 }
-export const SnoozePrCommandType = new IpcCommandType<SnoozePrParams>('focus/pr/snooze');
+export const SnoozePRCommand = new IpcCommand<SnoozePrParams>(scope, 'pr/snooze');
 
 export interface PinPrParams {
 	pullRequest: PullRequestShape;
 	pin?: string;
 }
-export const PinPrCommandType = new IpcCommandType<PinPrParams>('focus/pr/pin');
+export const PinPRCommand = new IpcCommand<PinPrParams>(scope, 'pr/pin');
 
 export interface SnoozeIssueParams {
 	issue: IssueShape;
 	expiresAt?: string;
 	snooze?: string;
 }
-export const SnoozeIssueCommandType = new IpcCommandType<SnoozeIssueParams>('focus/issue/snooze');
+export const SnoozeIssueCommand = new IpcCommand<SnoozeIssueParams>(scope, 'issue/snooze');
 
 export interface PinIssueParams {
 	issue: IssueShape;
 	pin?: string;
 }
-export const PinIssueCommandType = new IpcCommandType<PinIssueParams>('focus/issue/pin');
+export const PinIssueCommand = new IpcCommand<PinIssueParams>(scope, 'issue/pin');
 
-// Notifications
+// NOTIFICATIONS
 
 export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('focus/didChange', true);
+export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true);
