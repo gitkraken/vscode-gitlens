@@ -314,7 +314,7 @@ export class GlDraftDetails extends GlTreeBase {
 				</div>
 				<div class="user-selection__info">
 					<div class="user-selection__name">
-						${userSelection.member.name ?? userSelection.member.username}
+						${userSelection.member?.name ?? userSelection.member?.username ?? userSelection.user?.userId}
 					</div>
 				</div>
 				<div class="user-selection__actions">
@@ -364,7 +364,7 @@ export class GlDraftDetails extends GlTreeBase {
 				<div class="user-selection-container scrollable">
 					${repeat(
 						draft.userSelections,
-						userSelection => userSelection.member.id,
+						userSelection => userSelection.member?.id ?? userSelection.user?.id,
 						userSelection => this.renderUserSelection(userSelection, draft.role),
 					)}
 				</div>
