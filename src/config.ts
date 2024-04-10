@@ -15,6 +15,7 @@ export interface Config {
 			readonly openai: {
 				readonly model: OpenAIModels | null;
 				readonly url: string | null;
+				readonly customModel: string | null;
 			};
 			readonly anthropic: {
 				readonly model: AnthropicModels | null;

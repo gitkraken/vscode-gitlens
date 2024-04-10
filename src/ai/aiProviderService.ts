@@ -218,7 +218,7 @@ async function confirmAIProviderToS(provider: AIProvider, storage: Storage): Pro
 	return false;
 }
 
-export function getMaxCharacters(model: OpenAIModels | AnthropicModels, outputLength: number): number {
+export function getMaxCharacters(model: OpenAIModels | AnthropicModels | string, outputLength: number): number {
 	const tokensPerCharacter = 3.1;
 
 	let tokens;

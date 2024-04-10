@@ -25,7 +25,7 @@ export class OpenAIProvider implements AIProvider<'openai'> {
 		return configuration.get('ai.experimental.openai.url') || 'https://api.openai.com/v1/chat/completions';
 	}
 
-	private async getOrChooseModel(): Promise<OpenAIModels | undefined> {
+	private async getOrChooseModel(): Promise<OpenAIModels | string | undefined> {
 		const model = this.model;
 		if (model != null) return model;
 
@@ -40,7 +40,14 @@ export class OpenAIProvider implements AIProvider<'openai'> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
-		const model = await this.getOrChooseModel();
+		let model = await this.getOrChooseModel();
+		if (model == null) return undefined;
+
+		if (model === 'custom') {
+			const customModel = configuration.get('ai.experimental.openai.customModel') || '';
+			model = customModel ? `${customModel}` : undefined;
+		}
+		// Might need to notify the user that they need to set a custom model name
 		if (model == null) return undefined;
 
 		let retries = 0;
@@ -88,6 +95,7 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 			};
 
 			const rsp = await this.fetch(apiKey, request);
+
 			if (!rsp.ok) {
 				if (rsp.status === 404) {
 					throw new Error(
@@ -135,7 +143,14 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
-		const model = await this.getOrChooseModel();
+		let model = await this.getOrChooseModel();
+		if (model == null) return undefined;
+
+		if (model === 'custom') {
+			const customModel = configuration.get('ai.experimental.openai.customModel') || '';
+			model = customModel ? `${customModel}` : undefined;
+		}
+		// Might need to notify the user that they need to set a custom model name
 		if (model == null) return undefined;
 
 		let retries = 0;
@@ -302,10 +317,11 @@ export type OpenAIModels =
 	| 'gpt-3.5-turbo-1106'
 	| 'gpt-3.5-turbo'
 	| 'gpt-3.5-turbo-16k'
-	| 'gpt-3.5-turbo-0613';
+	| 'gpt-3.5-turbo-0613'
+	| 'custom';
 
 interface OpenAIChatCompletionRequest {
-	model: OpenAIModels;
+	model: OpenAIModels | string;
 	messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
 	temperature?: number;
 	top_p?: number;
