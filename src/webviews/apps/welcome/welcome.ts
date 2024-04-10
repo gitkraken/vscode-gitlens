@@ -2,13 +2,8 @@
 import './welcome.scss';
 import type { Disposable } from 'vscode';
 import type { IpcMessage } from '../../protocol';
-import { onIpc } from '../../protocol';
 import type { State } from '../../welcome/protocol';
-import {
-	DidChangeNotificationType,
-	DidChangeOrgSettingsType,
-	UpdateConfigurationCommandType,
-} from '../../welcome/protocol';
+import { DidChangeNotification, DidChangeOrgSettings, UpdateConfigurationCommand } from '../../welcome/protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 import type { BlameSvg } from './components/svg-blame';
@@ -46,21 +41,19 @@ export class WelcomeApp extends App<State> {
 	}
 
 	protected override onMessageReceived(msg: IpcMessage) {
-		switch (msg.method) {
-			case DidChangeNotificationType.method:
-				onIpc(DidChangeNotificationType, msg, params => {
-					this.state = params.state;
-					this.setState(this.state);
-					this.updateState();
-				});
+		switch (true) {
+			case DidChangeNotification.is(msg):
+				this.state = msg.params.state;
+				this.setState(this.state);
+				this.updateState();
 				break;
-			case DidChangeOrgSettingsType.method:
-				onIpc(DidChangeOrgSettingsType, msg, params => {
-					this.state.orgSettings = params.orgSettings;
-					this.setState(this.state);
-					this.updateOrgSettings();
-				});
+
+			case DidChangeOrgSettings.is(msg):
+				this.state.orgSettings = msg.params.orgSettings;
+				this.setState(this.state);
+				this.updateOrgSettings();
 				break;
+
 			default:
 				super.onMessageReceived?.(msg);
 				break;
@@ -95,7 +88,7 @@ export class WelcomeApp extends App<State> {
 
 		const enabled = (target as HTMLInputElement).checked;
 		this.state.config[type] = enabled;
-		this.sendCommand(UpdateConfigurationCommandType, { type: type, value: enabled });
+		this.sendCommand(UpdateConfigurationCommand, { type: type, value: enabled });
 		this.updateFeatures();
 	}
 

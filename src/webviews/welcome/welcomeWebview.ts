@@ -8,10 +8,9 @@ import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscription
 import { configuration } from '../../system/configuration';
 import { getContext, onDidChangeContext } from '../../system/context';
 import type { IpcMessage } from '../protocol';
-import { onIpc } from '../protocol';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type { State, UpdateConfigurationParams } from './protocol';
-import { DidChangeNotificationType, DidChangeOrgSettingsType, UpdateConfigurationCommandType } from './protocol';
+import { DidChangeNotification, DidChangeOrgSettings, UpdateConfigurationCommand } from './protocol';
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {
@@ -73,12 +72,13 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	onMessageReceived(e: IpcMessage) {
-		switch (e.method) {
-			case UpdateConfigurationCommandType.method:
-				onIpc(UpdateConfigurationCommandType, e, params => this.updateConfiguration(params));
+		switch (true) {
+			case UpdateConfigurationCommand.is(e):
+				this.updateConfiguration(e.params);
 				break;
 		}
 	}
+
 	private async getState(subscription?: Subscription): Promise<State> {
 		return {
 			...this.host.baseWebviewState,
@@ -123,11 +123,11 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async notifyDidChange(subscription?: Subscription) {
-		void this.host.notify(DidChangeNotificationType, { state: await this.getState(subscription) });
+		void this.host.notify(DidChangeNotification, { state: await this.getState(subscription) });
 	}
 
 	private notifyDidChangeOrgSettings() {
-		void this.host.notify(DidChangeOrgSettingsType, {
+		void this.host.notify(DidChangeOrgSettings, {
 			orgSettings: this.getOrgSettings(),
 		});
 	}

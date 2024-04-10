@@ -42,24 +42,24 @@ import type {
 	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import {
-	DidChangeAvatarsNotificationType,
-	DidChangeColumnsNotificationType,
-	DidChangeGraphConfigurationNotificationType,
-	DidChangeRefsMetadataNotificationType,
-	DidChangeRefsVisibilityNotificationType,
-	DidChangeRowsNotificationType,
-	DidChangeRowsStatsNotificationType,
-	DidChangeSelectionNotificationType,
-	DidChangeSubscriptionNotificationType,
-	DidChangeWindowFocusNotificationType,
-	DidChangeWorkingTreeNotificationType,
-	DidFetchNotificationType,
-	DidSearchNotificationType,
+	DidChangeAvatarsNotification,
+	DidChangeColumnsNotification,
+	DidChangeGraphConfigurationNotification,
+	DidChangeRefsMetadataNotification,
+	DidChangeRefsVisibilityNotification,
+	DidChangeRowsNotification,
+	DidChangeRowsStatsNotification,
+	DidChangeSelectionNotification,
+	DidChangeSubscriptionNotification,
+	DidChangeWindowFocusNotification,
+	DidChangeWorkingTreeNotification,
+	DidFetchNotification,
+	DidSearchNotification,
 } from '../../../../plus/webviews/graph/protocol';
 import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
 import { pluralize } from '../../../../system/string';
 import { createWebviewCommandLink } from '../../../../system/webview';
-import type { IpcNotificationType } from '../../../protocol';
+import type { IpcNotification } from '../../../protocol';
 import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
 import { GlTooltip } from '../../shared/components/overlays/react';
@@ -276,7 +276,7 @@ export function GraphWrapper({
 
 	function updateState(
 		state: State,
-		type?: IpcNotificationType<any> | InternalNotificationType,
+		type?: IpcNotification<any> | InternalNotificationType,
 		themingChanged?: boolean,
 	) {
 		if (themingChanged) {
@@ -289,20 +289,20 @@ export function GraphWrapper({
 					setStyleProps(state.theming);
 				}
 				break;
-			case DidChangeAvatarsNotificationType:
+			case DidChangeAvatarsNotification:
 				setAvatars(state.avatars);
 				break;
-			case DidChangeWindowFocusNotificationType:
+			case DidChangeWindowFocusNotification:
 				setWindowFocused(state.windowFocused);
 				break;
-			case DidChangeRefsMetadataNotificationType:
+			case DidChangeRefsMetadataNotification:
 				setRefsMetadata(state.refsMetadata);
 				break;
-			case DidChangeColumnsNotificationType:
+			case DidChangeColumnsNotification:
 				setColumns(state.columns);
 				setContext(state.context);
 				break;
-			case DidChangeRowsNotificationType:
+			case DidChangeRowsNotification:
 				setRows(state.rows ?? []);
 				setRowsStats(state.rowsStats);
 				setRowsStatsLoading(state.rowsStatsLoading);
@@ -313,11 +313,11 @@ export function GraphWrapper({
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setIsLoading(state.loading);
 				break;
-			case DidChangeRowsStatsNotificationType:
+			case DidChangeRowsStatsNotification:
 				setRowsStats(state.rowsStats);
 				setRowsStatsLoading(state.rowsStatsLoading);
 				break;
-			case DidSearchNotificationType: {
+			case DidSearchNotification: {
 				const { results, resultsError } = getSearchResultModel(state);
 				setSearchResultsError(resultsError);
 				setSearchResults(results);
@@ -325,25 +325,25 @@ export function GraphWrapper({
 				setSearching(false);
 				break;
 			}
-			case DidChangeGraphConfigurationNotificationType:
+			case DidChangeGraphConfigurationNotification:
 				setGraphConfig(state.config);
 				break;
-			case DidChangeSelectionNotificationType:
+			case DidChangeSelectionNotification:
 				setSelectedRows(state.selectedRows);
 				break;
-			case DidChangeRefsVisibilityNotificationType:
+			case DidChangeRefsVisibilityNotification:
 				setExcludeRefsById(state.excludeRefs);
 				setExcludeTypes(state.excludeTypes);
 				setIncludeOnlyRefsById(state.includeOnlyRefs);
 				break;
-			case DidChangeSubscriptionNotificationType:
+			case DidChangeSubscriptionNotification:
 				setAllowed(state.allowed ?? false);
 				setSubscription(state.subscription);
 				break;
-			case DidChangeWorkingTreeNotificationType:
+			case DidChangeWorkingTreeNotification:
 				setWorkingTreeStats(state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 });
 				break;
-			case DidFetchNotificationType:
+			case DidFetchNotification:
 				setLastFetched(state.lastFetched);
 				break;
 			default: {

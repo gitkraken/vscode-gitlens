@@ -12,7 +12,7 @@ import type {
 	CloudDraftDetails,
 	DraftDetails,
 	DraftUserSelection,
-	FileActionParams,
+	ExecuteFileActionParams,
 	PatchDetails,
 	State,
 } from '../../../../../plus/webviews/patchDetails/protocol';
@@ -864,9 +864,9 @@ declare global {
 		'gl-patch-details-graph-show-patch': CustomEvent<{ draft: DraftDetails }>;
 		'gl-patch-details-share-local-patch': CustomEvent<{ draft: DraftDetails }>;
 		'gl-patch-details-copy-cloud-link': CustomEvent<{ draft: DraftDetails }>;
-		'gl-patch-file-compare-previous': CustomEvent<FileActionParams>;
-		'gl-patch-file-compare-working': CustomEvent<FileActionParams>;
-		'gl-patch-file-open': CustomEvent<FileActionParams>;
+		'gl-patch-file-compare-previous': CustomEvent<ExecuteFileActionParams>;
+		'gl-patch-file-compare-working': CustomEvent<ExecuteFileActionParams>;
+		'gl-patch-file-open': CustomEvent<ExecuteFileActionParams>;
 		'gl-patch-checked': CustomEvent<PatchCheckedDetail>;
 		'gl-patch-details-invite-users': CustomEvent<undefined>;
 		'gl-patch-details-update-selection': CustomEvent<PatchDetailsUpdateSelectionEventDetail>;

@@ -4,8 +4,14 @@ import { debug, logName } from '../../../system/decorators/log';
 import { getLogScope, getNewLogScope } from '../../../system/logger.scope';
 import type { Serialized } from '../../../system/serialize';
 import { maybeStopWatch } from '../../../system/stopwatch';
-import type { IpcCommandType, IpcMessage, IpcMessageParams, IpcNotificationType } from '../../protocol';
-import { onIpc } from '../../protocol';
+import type {
+	IpcCallParamsType,
+	IpcCallResponseMessageType,
+	IpcCallResponseParamsType,
+	IpcCommand,
+	IpcMessage,
+	IpcRequest,
+} from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable, Event } from './events';
 import { Emitter } from './events';
@@ -67,33 +73,36 @@ export class HostIpc implements Disposable {
 	}
 
 	@debug<HostIpc['sendCommand']>({ args: { 0: c => c.method, 1: false } })
-	sendCommand<TCommand extends IpcCommandType<any>>(command: TCommand, params: IpcMessageParams<TCommand>): void {
+	sendCommand<T extends IpcCommand<unknown>>(command: T, params: IpcCallParamsType<T>): void {
 		const id = nextIpcId();
 		// this.log(`${this.appName}.sendCommand(${id}): name=${command.method}`);
 
-		this.postMessage({ id: id, method: command.method, params: params });
+		this.postMessage({
+			id: id,
+			scope: command.scope,
+			method: command.method,
+			params: params,
+		} satisfies IpcMessage<IpcCallParamsType<T>>);
 	}
 
-	@debug<HostIpc['sendCommandWithCompletion']>({ args: { 0: c => c.method, 1: false, 2: false } })
-	async sendCommandWithCompletion<TCommand extends IpcCommandType<any>, TCompletion extends IpcNotificationType<any>>(
-		command: TCommand,
-		params: IpcMessageParams<TCommand>,
-		completion: TCompletion,
-	): Promise<IpcMessageParams<TCompletion>> {
+	@debug<HostIpc['sendRequest']>({ args: { 0: c => c.method, 1: false, 2: false } })
+	async sendRequest<T extends IpcRequest<unknown, unknown>>(
+		requestType: T,
+		params: IpcCallParamsType<T>,
+	): Promise<IpcCallResponseParamsType<T>> {
 		const id = nextIpcId();
 		// this.log(`${this.appName}.sendCommandWithCompletion(${id}): name=${command.method}`);
 
-		const promise = new Promise<IpcMessageParams<TCompletion>>((resolve, reject) => {
+		const promise = new Promise<IpcCallResponseParamsType<T>>((resolve, reject) => {
 			let timeout: ReturnType<typeof setTimeout> | undefined;
 
 			const disposables = [
-				DOM.on(window, 'message', (e: MessageEvent<IpcMessage>) => {
-					onIpc(completion, e.data, params => {
-						if (e.data.completionId === id) {
-							disposables.forEach(d => d.dispose());
-							queueMicrotask(() => resolve(params));
-						}
-					});
+				DOM.on(window, 'message', (e: MessageEvent<IpcCallResponseMessageType<T>>) => {
+					const msg = e.data;
+					if (msg.completionId === id && requestType.response.is(msg)) {
+						disposables.forEach(d => d.dispose());
+						queueMicrotask(() => resolve(msg.params));
+					}
 				}),
 				{
 					dispose: function () {
@@ -109,11 +118,17 @@ export class HostIpc implements Disposable {
 				timeout = undefined;
 				disposables.forEach(d => d.dispose());
 				debugger;
-				reject(new Error(`Timed out waiting for completion of ${completion.method}`));
+				reject(new Error(`Timed out waiting for completion of ${requestType.response.method}`));
 			}, 60000);
 		});
 
-		this.postMessage({ id: id, method: command.method, params: params, completionId: id });
+		this.postMessage({
+			id: id,
+			scope: requestType.scope,
+			method: requestType.method,
+			params: params,
+			completionId: id,
+		} satisfies IpcMessage<IpcCallParamsType<T>>);
 		return promise;
 	}
 

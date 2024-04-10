@@ -9,20 +9,16 @@ import { PullRequest } from '../../git/models/pullRequest';
 import type { ConfigPath, CoreConfigPath } from '../../system/configuration';
 import { configuration } from '../../system/configuration';
 import { map } from '../../system/iterable';
-import { Logger } from '../../system/logger';
 import type { CustomConfigPath, IpcMessage } from '../protocol';
 import {
 	assertsConfigKeyValue,
-	DidChangeConfigurationNotificationType,
-	DidGenerateConfigurationPreviewNotificationType,
-	DidOpenAnchorNotificationType,
-	GenerateConfigurationPreviewCommandType,
+	DidChangeConfigurationNotification,
 	isCustomConfigKey,
-	onIpc,
-	UpdateConfigurationCommandType,
+	UpdateConfigurationCommand,
 } from '../protocol';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type { State } from './protocol';
+import { DidOpenAnchorNotification, GenerateConfigurationPreviewRequest } from './protocol';
 import type { SettingsWebviewShowingArgs } from './registration';
 
 export class SettingsWebviewProvider implements WebviewProvider<State, State, SettingsWebviewShowingArgs> {
@@ -71,7 +67,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 			if (!loading && this.host.ready && this.host.visible) {
 				queueMicrotask(
 					() =>
-						void this.host.notify(DidOpenAnchorNotificationType, {
+						void this.host.notify(DidOpenAnchorNotification, {
 							anchor: anchor,
 							scrollBehavior: 'smooth',
 						}),
@@ -97,139 +93,129 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 			const anchor = this._pendingJumpToAnchor;
 			this._pendingJumpToAnchor = undefined;
 
-			void this.host.notify(DidOpenAnchorNotificationType, { anchor: anchor, scrollBehavior: 'auto' });
+			void this.host.notify(DidOpenAnchorNotification, { anchor: anchor, scrollBehavior: 'auto' });
 		}
 	}
 
-	onMessageReceived(e: IpcMessage): void {
+	async onMessageReceived(e: IpcMessage) {
 		if (e == null) return;
 
-		switch (e.method) {
-			case UpdateConfigurationCommandType.method:
-				Logger.debug(`Webview(${this.host.id}).onMessageReceived: method=${e.method}`);
+		switch (true) {
+			case UpdateConfigurationCommand.is(e): {
+				const { params } = e;
+				const target =
+					params.scope === 'workspace' ? ConfigurationTarget.Workspace : ConfigurationTarget.Global;
 
-				onIpc(UpdateConfigurationCommandType, e, async params => {
-					const target =
-						params.scope === 'workspace' ? ConfigurationTarget.Workspace : ConfigurationTarget.Global;
+				let key: keyof typeof params.changes;
+				for (key in params.changes) {
+					let value = params.changes[key];
 
-					let key: keyof typeof params.changes;
-					for (key in params.changes) {
-						let value = params.changes[key];
-
-						if (isCustomConfigKey(key)) {
-							const customSetting = this.customSettings.get(key);
-							if (customSetting != null) {
-								if (typeof value === 'boolean') {
-									await customSetting.update(value);
-								} else {
-									debugger;
-								}
-							}
-
-							continue;
-						}
-
-						assertsConfigKeyValue(key, value);
-
-						const inspect = configuration.inspect(key)!;
-
-						if (value != null) {
-							if (params.scope === 'workspace') {
-								if (value === inspect.workspaceValue) continue;
+					if (isCustomConfigKey(key)) {
+						const customSetting = this.customSettings.get(key);
+						if (customSetting != null) {
+							if (typeof value === 'boolean') {
+								await customSetting.update(value);
 							} else {
-								if (value === inspect.globalValue && value !== inspect.defaultValue) continue;
-
-								if (value === inspect.defaultValue) {
-									value = undefined;
-								}
+								debugger;
 							}
 						}
 
-						await configuration.update(key, value, target);
+						continue;
 					}
 
-					for (const key of params.removes) {
-						await configuration.update(key as ConfigPath, undefined, target);
+					assertsConfigKeyValue(key, value);
+
+					const inspect = configuration.inspect(key)!;
+
+					if (value != null) {
+						if (params.scope === 'workspace') {
+							if (value === inspect.workspaceValue) continue;
+						} else {
+							if (value === inspect.globalValue && value !== inspect.defaultValue) continue;
+
+							if (value === inspect.defaultValue) {
+								value = undefined;
+							}
+						}
 					}
-				});
+
+					await configuration.update(key, value, target);
+				}
+
+				for (const key of params.removes) {
+					await configuration.update(key as ConfigPath, undefined, target);
+				}
 				break;
+			}
 
-			case GenerateConfigurationPreviewCommandType.method:
-				Logger.debug(`Webview(${this.host.id}).onMessageReceived: method=${e.method}`);
-
-				onIpc(GenerateConfigurationPreviewCommandType, e, async params => {
-					switch (params.type) {
-						case 'commit':
-						case 'commit-uncommitted': {
-							const commit = new GitCommit(
-								this.container,
+			case GenerateConfigurationPreviewRequest.is(e):
+				switch (e.params.type) {
+					case 'commit':
+					case 'commit-uncommitted': {
+						const commit = new GitCommit(
+							this.container,
+							'~/code/eamodio/vscode-gitlens-demo',
+							'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
+							new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2016-11-12T20:41:00.000Z')),
+							new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2020-11-01T06:57:21.000Z')),
+							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
+							['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
+							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
+							new GitFileChange(
 								'~/code/eamodio/vscode-gitlens-demo',
-								'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
-								new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2016-11-12T20:41:00.000Z')),
-								new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2020-11-01T06:57:21.000Z')),
-								params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
-								['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
-								params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
-								new GitFileChange(
-									'~/code/eamodio/vscode-gitlens-demo',
-									'code.ts',
-									GitFileIndexStatus.Modified,
-								),
+								'code.ts',
+								GitFileIndexStatus.Modified,
+							),
+							undefined,
+							[],
+						);
+
+						let includePullRequest = false;
+						switch (e.params.key) {
+							case configuration.name('currentLine.format'):
+								includePullRequest = configuration.get('currentLine.pullRequests.enabled');
+								break;
+							case configuration.name('statusBar.format'):
+								includePullRequest = configuration.get('statusBar.pullRequests.enabled');
+								break;
+						}
+
+						let pr: PullRequest | undefined;
+						if (includePullRequest) {
+							pr = new PullRequest(
+								{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
+								{
+									name: 'Eric Amodio',
+									avatarUrl: 'https://avatars1.githubusercontent.com/u/641685?s=32&v=4',
+									url: 'https://github.com/eamodio',
+								},
+								'1',
 								undefined,
-								[],
-							);
-
-							let includePullRequest = false;
-							switch (params.key) {
-								case configuration.name('currentLine.format'):
-									includePullRequest = configuration.get('currentLine.pullRequests.enabled');
-									break;
-								case configuration.name('statusBar.format'):
-									includePullRequest = configuration.get('statusBar.pullRequests.enabled');
-									break;
-							}
-
-							let pr: PullRequest | undefined;
-							if (includePullRequest) {
-								pr = new PullRequest(
-									{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
-									{
-										name: 'Eric Amodio',
-										avatarUrl: 'https://avatars1.githubusercontent.com/u/641685?s=32&v=4',
-										url: 'https://github.com/eamodio',
-									},
-									'1',
-									undefined,
-									'Supercharged',
-									'https://github.com/gitkraken/vscode-gitlens/pulls/1',
-									{ owner: 'gitkraken', repo: 'vscode-gitlens' },
-									'merged',
-									new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
-									new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
-									undefined,
-									new Date('Sat, 12 Nov 2016 20:41:00 GMT'),
-								);
-							}
-
-							let preview;
-							try {
-								preview = CommitFormatter.fromTemplate(params.format, commit, {
-									dateFormat: configuration.get('defaultDateFormat'),
-									pullRequest: pr,
-									messageTruncateAtNewLine: true,
-								});
-							} catch {
-								preview = 'Invalid format';
-							}
-
-							await this.host.notify(
-								DidGenerateConfigurationPreviewNotificationType,
-								{ preview: preview },
-								e.completionId,
+								'Supercharged',
+								'https://github.com/gitkraken/vscode-gitlens/pulls/1',
+								{ owner: 'gitkraken', repo: 'vscode-gitlens' },
+								'merged',
+								new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
+								new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
+								undefined,
+								new Date('Sat, 12 Nov 2016 20:41:00 GMT'),
 							);
 						}
+
+						let preview;
+						try {
+							preview = CommitFormatter.fromTemplate(e.params.format, commit, {
+								dateFormat: configuration.get('defaultDateFormat'),
+								pullRequest: pr,
+								messageTruncateAtNewLine: true,
+							});
+						} catch {
+							preview = 'Invalid format';
+						}
+
+						await this.host.respond(GenerateConfigurationPreviewRequest, e, { preview: preview });
 					}
-				});
+				}
 				break;
 		}
 	}
@@ -285,7 +271,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 
 	private notifyDidChangeConfiguration() {
 		// Make sure to get the raw config, not from the container which has the modes mixed in
-		return this.host.notify(DidChangeConfigurationNotificationType, {
+		return this.host.notify(DidChangeConfigurationNotification, {
 			config: configuration.getAll(true),
 			customSettings: this.getCustomSettings(),
 		});
