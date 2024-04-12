@@ -5,13 +5,9 @@ import type {
 	Bitbucket,
 	EnterpriseOptions,
 	GetRepoInput,
-	GitBuildStatusState,
 	GitHub,
 	GitLab,
 	GitPullRequest,
-	GitPullRequestMergeableState,
-	GitPullRequestReviewState,
-	GitPullRequestState,
 	GitRepository,
 	Issue,
 	Jira,
@@ -20,7 +16,13 @@ import type {
 	PullRequestWithUniqueID,
 	Trello,
 } from '@gitkraken/provider-apis';
-import { GitProviderUtils } from '@gitkraken/provider-apis';
+import {
+	GitBuildStatusState,
+	GitProviderUtils,
+	GitPullRequestMergeableState,
+	GitPullRequestReviewState,
+	GitPullRequestState,
+} from '@gitkraken/provider-apis';
 import type { Account as UserAccount } from '../../../git/models/author';
 import type { IssueMember, SearchedIssue } from '../../../git/models/issue';
 import { RepositoryAccessLevel } from '../../../git/models/issue';
@@ -497,24 +499,24 @@ export function toAccount(account: ProviderAccount, provider: ProviderReference)
 }
 
 export const toProviderBuildStatusState = {
-	[PullRequestStatusCheckRollupState.Success]: 'SUCCESS' as GitBuildStatusState,
-	[PullRequestStatusCheckRollupState.Failed]: 'FAILED' as GitBuildStatusState,
-	[PullRequestStatusCheckRollupState.Pending]: 'PENDING' as GitBuildStatusState,
+	[PullRequestStatusCheckRollupState.Success]: GitBuildStatusState.Success,
+	[PullRequestStatusCheckRollupState.Failed]: GitBuildStatusState.Failed,
+	[PullRequestStatusCheckRollupState.Pending]: GitBuildStatusState.Pending,
 };
 
 export const toProviderPullRequestReviewState = {
-	[PullRequestReviewState.Approved]: 'APPROVED' as GitPullRequestReviewState,
-	[PullRequestReviewState.ChangesRequested]: 'CHANGES_REQUESTED' as GitPullRequestReviewState,
-	[PullRequestReviewState.Commented]: 'COMMENTED' as GitPullRequestReviewState,
-	[PullRequestReviewState.ReviewRequested]: 'REVIEW_REQUESTED' as GitPullRequestReviewState,
+	[PullRequestReviewState.Approved]: GitPullRequestReviewState.Approved,
+	[PullRequestReviewState.ChangesRequested]: GitPullRequestReviewState.ChangesRequested,
+	[PullRequestReviewState.Commented]: GitPullRequestReviewState.Commented,
+	[PullRequestReviewState.ReviewRequested]: GitPullRequestReviewState.ReviewRequested,
 	[PullRequestReviewState.Dismissed]: null,
 	[PullRequestReviewState.Pending]: null,
 };
 
 export const toProviderPullRequestMergeableState = {
-	[PullRequestMergeableState.Mergeable]: 'MERGEABLE' as GitPullRequestMergeableState,
-	[PullRequestMergeableState.Conflicting]: 'CONFLICTS' as GitPullRequestMergeableState,
-	[PullRequestMergeableState.Unknown]: 'UNKNOWN' as GitPullRequestMergeableState,
+	[PullRequestMergeableState.Mergeable]: GitPullRequestMergeableState.Mergeable,
+	[PullRequestMergeableState.Conflicting]: GitPullRequestMergeableState.Conflicts,
+	[PullRequestMergeableState.Unknown]: GitPullRequestMergeableState.Unknown,
 };
 
 export function toProviderReviews(reviewers: PullRequestReviewer[]): ProviderPullRequest['reviews'] {
@@ -522,8 +524,7 @@ export function toProviderReviews(reviewers: PullRequestReviewer[]): ProviderPul
 		.filter(r => r.state !== PullRequestReviewState.Dismissed && r.state !== PullRequestReviewState.Pending)
 		.map(reviewer => ({
 			reviewer: toProviderAccount(reviewer.reviewer),
-			state:
-				toProviderPullRequestReviewState[reviewer.state] ?? ('REVIEW_REQUESTED' as GitPullRequestReviewState),
+			state: toProviderPullRequestReviewState[reviewer.state] ?? GitPullRequestReviewState.ReviewRequested,
 		}));
 }
 
@@ -533,16 +534,16 @@ export function toProviderReviewDecision(
 ): GitPullRequestReviewState | null {
 	switch (reviewDecision) {
 		case PullRequestReviewDecision.Approved:
-			return 'APPROVED' as GitPullRequestReviewState;
+			return GitPullRequestReviewState.Approved;
 		case PullRequestReviewDecision.ChangesRequested:
-			return 'CHANGES_REQUESTED' as GitPullRequestReviewState;
+			return GitPullRequestReviewState.ChangesRequested;
 		case PullRequestReviewDecision.ReviewRequired:
-			return 'REVIEW_REQUESTED' as GitPullRequestReviewState;
+			return GitPullRequestReviewState.ReviewRequested;
 		default: {
 			if (reviewers?.some(r => r.state === PullRequestReviewState.ReviewRequested)) {
-				return 'REVIEW_REQUESTED' as GitPullRequestReviewState;
+				return GitPullRequestReviewState.ReviewRequested;
 			} else if (reviewers?.some(r => r.state === PullRequestReviewState.Commented)) {
-				return 'COMMENTED' as GitPullRequestReviewState;
+				return GitPullRequestReviewState.Commented;
 			}
 			return null;
 		}
@@ -559,10 +560,10 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		url: pr.url,
 		state:
 			pr.state === 'opened'
-				? ('OPEN' as GitPullRequestState)
+				? GitPullRequestState.Open
 				: pr.state === 'closed'
-				  ? ('CLOSED' as GitPullRequestState)
-				  : ('MERGED' as GitPullRequestState),
+				  ? GitPullRequestState.Closed
+				  : GitPullRequestState.Merged,
 		isDraft: pr.isDraft ?? false,
 		createdDate: pr.createdDate,
 		updatedDate: pr.updatedDate,
@@ -649,7 +650,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		},
 		mergeableState: pr.mergeableState
 			? toProviderPullRequestMergeableState[pr.mergeableState]
-			: ('UNKNOWN' as GitPullRequestMergeableState),
+			: GitPullRequestMergeableState.Unknown,
 	};
 }
 
