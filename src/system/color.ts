@@ -1,27 +1,5 @@
 import { CharCode } from '../constants';
 
-function adjustLight(color: number, amount: number) {
-	const cc = color + amount;
-	const c = amount < 0 ? (cc < 0 ? 0 : cc) : cc > 255 ? 255 : cc;
-
-	return Math.round(c);
-}
-
-// TODO@d13 leaving as is for now, updating to the color library breaks our existing darkened colors
-export function darken(color: string, percentage: number) {
-	return lighten(color, -percentage);
-}
-
-// TODO@d13 leaving as is for now, updating to the color library breaks our existing lightened colors
-export function lighten(color: string, percentage: number) {
-	const rgba = toRgba(color);
-	if (rgba == null) return color;
-
-	const [r, g, b, a] = rgba;
-	const amount = (255 * percentage) / 100;
-	return `rgba(${adjustLight(r, amount)}, ${adjustLight(g, amount)}, ${adjustLight(b, amount)}, ${a})`;
-}
-
 export function opacity(color: string, percentage: number) {
 	const rgba = Color.from(color);
 	if (rgba == null) return color;
