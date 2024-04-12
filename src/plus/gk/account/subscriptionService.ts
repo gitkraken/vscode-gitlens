@@ -75,6 +75,11 @@ export class SubscriptionService implements Disposable {
 		return this._onDidChange.event;
 	}
 
+	private _onDidCheckIn = new EventEmitter<void>();
+	get onDidCheckIn(): Event<void> {
+		return this._onDidCheckIn.event;
+	}
+
 	private _disposable: Disposable;
 	private _subscription!: Subscription;
 	private _getCheckInData: () => Promise<GKCheckInResponse | undefined>;
@@ -653,6 +658,8 @@ export class SubscriptionService implements Disposable {
 				this._getCheckInData = () => Promise.resolve(undefined);
 				throw new AccountValidationError('Unable to validate account', undefined, rsp.status, rsp.statusText);
 			}
+
+			this._onDidCheckIn.fire();
 
 			const data: GKCheckInResponse = await rsp.json();
 			this._getCheckInData = () => Promise.resolve(data);

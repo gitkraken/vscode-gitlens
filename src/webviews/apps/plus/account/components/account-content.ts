@@ -382,6 +382,9 @@ export class AccountContent extends LitElement {
 						<gl-button appearance="secondary" full href="command:gitlens.plus.manage"
 							>Manage Account</gl-button
 						>
+						<gl-button appearance="secondary" full href="command:gitlens.plus.cloudIntegrations.manage"
+							>Cloud Integrations</gl-button
+						>
 					</button-container>
 					<p>You have access to ✨ features on privately hosted repos and ☁️ features based on your plan.</p>
 					<p>

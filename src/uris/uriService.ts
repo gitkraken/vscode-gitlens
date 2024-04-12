@@ -2,6 +2,7 @@ import type { Disposable, Event, Uri, UriHandler } from 'vscode';
 import { EventEmitter, window } from 'vscode';
 import type { Container } from '../container';
 import { AuthenticationUriPathPrefix } from '../plus/gk/account/authenticationConnection';
+import { CloudIntegrationAuthenticationUriPathPrefix } from '../plus/integrations/authentication/models';
 import { log } from '../system/decorators/log';
 
 // This service is in charge of registering a URI handler and handling/emitting URI events received by GitLens.
@@ -11,8 +12,14 @@ export class UriService implements Disposable, UriHandler {
 	private _disposable: Disposable;
 
 	private _onDidReceiveAuthenticationUri: EventEmitter<Uri> = new EventEmitter<Uri>();
+	private _onDidReceiveCloudIntegrationAuthenticationUri: EventEmitter<Uri> = new EventEmitter<Uri>();
+
 	get onDidReceiveAuthenticationUri(): Event<Uri> {
 		return this._onDidReceiveAuthenticationUri.event;
+	}
+
+	get onDidReceiveCloudIntegrationAuthenticationUri(): Event<Uri> {
+		return this._onDidReceiveCloudIntegrationAuthenticationUri.event;
 	}
 
 	private _onDidReceiveUri: EventEmitter<Uri> = new EventEmitter<Uri>();
@@ -33,6 +40,9 @@ export class UriService implements Disposable, UriHandler {
 		const [, type] = uri.path.split('/');
 		if (type === AuthenticationUriPathPrefix) {
 			this._onDidReceiveAuthenticationUri.fire(uri);
+			return;
+		} else if (type === CloudIntegrationAuthenticationUriPathPrefix) {
+			this._onDidReceiveCloudIntegrationAuthenticationUri.fire(uri);
 			return;
 		}
 

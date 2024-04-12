@@ -5180,6 +5180,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.plus.cloudIntegrations.manage",
+				"title": "Manage Cloud Integrations...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.plus.purchase",
 				"title": "Upgrade to Pro...",
 				"category": "GitLens"
@@ -9117,6 +9122,10 @@
 				},
 				{
 					"command": "gitlens.plus.manage",
+					"when": "gitlens:plus"
+				},
+				{
+					"command": "gitlens.plus.cloudIntegrations.manage",
 					"when": "gitlens:plus"
 				},
 				{

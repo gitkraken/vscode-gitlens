@@ -253,6 +253,7 @@ export const enum Commands {
 	PlusLogin = 'gitlens.plus.login',
 	PlusLogout = 'gitlens.plus.logout',
 	PlusManage = 'gitlens.plus.manage',
+	PlusManageCloudIntegrations = 'gitlens.plus.cloudIntegrations.manage',
 	PlusPurchase = 'gitlens.plus.purchase',
 	PlusReactivateProTrial = 'gitlens.plus.reactivateProTrial',
 	PlusResendVerification = 'gitlens.plus.resendVerification',
