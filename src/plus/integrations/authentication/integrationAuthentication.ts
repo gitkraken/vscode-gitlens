@@ -155,7 +155,7 @@ export class IntegrationAuthenticationService implements Disposable {
 			const connection = this.connection;
 			async function load() {
 				return new (
-					await import(/* webpackChunkName: "cloud-integrations-api" */ './cloudIntegrationsApi')
+					await import(/* webpackChunkName: "integrations" */ './cloudIntegrationsApi')
 				).CloudIntegrationsApi(container, connection);
 			}
 
