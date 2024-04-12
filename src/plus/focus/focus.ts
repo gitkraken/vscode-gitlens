@@ -312,7 +312,7 @@ export class FocusCommand extends QuickCommand<State> {
 					state.item.id
 				} \u2022 ${fromNow(state.item.updatedDate)}`,
 				detail: interpolate(actionGroupMap.get(state.item.actionableCategory)![1], {
-					author: state.item.author,
+					author: state.item.author!.username,
 				}),
 				iconPath: state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
 			}),
