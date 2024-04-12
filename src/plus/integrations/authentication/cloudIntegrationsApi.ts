@@ -20,7 +20,7 @@ export class CloudIntegrationsApi {
 		const providersRsp = await this.connection.fetchGkDevApi(
 			'v1/provider-tokens',
 			{ method: 'GET' },
-			{ noOrgHeader: true },
+			{ organizationId: false },
 		);
 		if (!providersRsp.ok) {
 			const error = (await providersRsp.json())?.error;
@@ -37,7 +37,7 @@ export class CloudIntegrationsApi {
 		const tokenRsp = await this.connection.fetchGkDevApi(
 			`v1/provider-tokens/${id}${refresh ? '/refresh' : ''}`,
 			{ method: refresh ? 'POST' : 'GET' },
-			{ noOrgHeader: true },
+			{ organizationId: false },
 		);
 		if (!tokenRsp.ok) {
 			const error = (await tokenRsp.json())?.error;
@@ -65,7 +65,7 @@ export class CloudIntegrationsApi {
 			},
 			{
 				query: `source=gitlens&targetURL=${encodeURIComponent(callbackUri.toString(true))}`,
-				noOrgHeader: true,
+				organizationId: false,
 			},
 		);
 		if (!authorizeRsp.ok) {

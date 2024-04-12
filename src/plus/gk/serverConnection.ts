@@ -18,7 +18,7 @@ interface GKFetchOptions extends FetchOptions {
 	token?: string;
 	unAuthenticated?: boolean;
 	query?: string;
-	noOrgHeader?: boolean;
+	organizationId?: string | false;
 }
 
 export class ServerConnection implements Disposable {
@@ -217,8 +217,12 @@ export class ServerConnection implements Disposable {
 			};
 
 			// only check for cached subscription or we'll get into an infinite loop
-			const organizationId = (await this.container.subscription.getSubscription(true)).activeOrganization?.id;
-			if (organizationId != null && !options?.noOrgHeader) {
+			let organizationId = options?.organizationId;
+			if (organizationId === undefined) {
+				organizationId = (await this.container.subscription.getSubscription(true)).activeOrganization?.id;
+			}
+
+			if (organizationId) {
 				headers['gk-org-id'] = organizationId;
 			}
 
