@@ -3,30 +3,31 @@ import { Disposable, env, EventEmitter, Uri } from 'vscode';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import type { SearchedIssue } from '../../git/models/issue';
-import { RepositoryAccessLevel } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
-import {
-	PullRequestMergeableState,
-	PullRequestReviewDecision,
-	PullRequestStatusCheckRollupState,
-} from '../../git/models/pullRequest';
 import type { ProviderReference } from '../../git/models/remoteProvider';
-import type { GkProviderId, RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
 import { configuration } from '../../system/configuration';
 import { getSettledValue } from '../../system/promise';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkType } from '../../uris/deepLinks/deepLink';
-import { HostingIntegrationId } from '../integrations/providers/models';
+import type { ProviderActionablePullRequest } from '../integrations/providers/models';
+import {
+	getActionablePullRequests,
+	HostingIntegrationId,
+	toProviderPullRequestWithUniqueId,
+} from '../integrations/providers/models';
 import type { EnrichableItem, EnrichedItem } from './enrichmentService';
 
 export const focusActionCategories = [
 	'mergeable',
-	'mergeable-conflicts',
+	'unassigned-reviewers',
 	'failed-checks',
-	'needs-review',
 	'conflicts',
+	'needs-my-review',
 	'changes-requested',
+	'reviewer-commented',
 	'waiting-for-review',
+	'draft',
+	'other',
 ] as const;
 export type FocusActionCategory = (typeof focusActionCategories)[number];
 
@@ -38,6 +39,8 @@ export const focusGroups = [
 	'needs-attention',
 	'needs-review',
 	'waiting-for-review',
+	'draft',
+	'other',
 	'snoozed',
 ] as const;
 export type FocusGroup = (typeof focusGroups)[number];
@@ -45,56 +48,64 @@ export type FocusGroup = (typeof focusGroups)[number];
 export const focusCategoryToGroupMap = new Map<FocusActionCategory, FocusGroup>([
 	// ['pinned', 'pinned'],
 	['mergeable', 'mergeable'],
-	['mergeable-conflicts', 'blocked'],
-	['failed-checks', 'blocked'],
 	['conflicts', 'blocked'],
-	['needs-review', 'needs-review'],
+	['failed-checks', 'blocked'],
+	['unassigned-reviewers', 'needs-attention'],
+	['needs-my-review', 'needs-review'],
 	['changes-requested', 'follow-up'],
+	['reviewer-commented', 'follow-up'],
 	['waiting-for-review', 'waiting-for-review'],
+	['draft', 'draft'],
+	['other', 'other'],
 	// ['snoozed', 'snoozed'],
+]);
+
+export const sharedCategoryToFocusActionCategoryMap = new Map<string, FocusActionCategory>([
+	['readyToMerge', 'mergeable'],
+	['unassignedReviewers', 'unassigned-reviewers'],
+	['failingCI', 'failed-checks'],
+	['conflicts', 'conflicts'],
+	['needsMyReview', 'needs-my-review'],
+	['changesRequested', 'changes-requested'],
+	['reviewerCommented', 'reviewer-commented'],
+	['waitingForReview', 'waiting-for-review'],
+	['draft', 'draft'],
+	['other', 'other'],
 ]);
 
 export type FocusAction = 'open' | 'merge' | 'review' | 'switch' | 'change-reviewers' | 'nudge' | 'decline-review';
 
 const prActionsMap = new Map<FocusActionCategory, FocusAction[]>([
 	['mergeable', ['merge', 'switch', 'open']],
-	['mergeable-conflicts', ['switch', 'open']],
+	['unassigned-reviewers', ['switch', 'open']],
 	['failed-checks', ['switch', 'open']],
 	['conflicts', ['switch', 'open']],
-	['needs-review', ['review', /* 'decline-review', */ 'open']],
+	['needs-my-review', ['review', /* 'decline-review', */ 'open']],
 	['changes-requested', ['switch', 'open']],
+	['reviewer-commented', ['switch', 'open']],
 	['waiting-for-review', [/* 'nudge', 'change-reviewers', */ 'switch', 'open']],
+	['draft', ['switch', 'open']],
+	['other', ['switch', 'open']],
 ]);
 
-export type FocusItem = {
+export type FocusItem = ProviderActionablePullRequest & {
 	type: 'pullRequest' | 'issue';
 	provider: ProviderReference;
-	id: string;
-	uniqueId: string;
-	isNew: boolean;
-	title: string;
-	date: Date;
-	author: string;
-	avatarUrl?: string;
-	repoAndOwner?: string;
-	url: string;
-
 	enrichable: EnrichableItem;
-	enriched?: EnrichedItem;
-
+	repoIdentity: {
+		remote: {
+			url?: string;
+		};
+		name: string;
+		provider: {
+			id: string;
+			repoDomain: string;
+			repoName: string;
+		};
+	};
+	isNew: boolean;
 	actionableCategory: FocusActionCategory;
 	suggestedActions: FocusAction[];
-
-	pinned: boolean;
-	snoozed: boolean;
-	sortTime: number;
-
-	repositoryIdentity?: RepositoryIdentityDescriptor;
-	ref?: {
-		branchName: string;
-		sha: string;
-		remoteName: string;
-	};
 };
 
 type CachedFocusPromise<T> = {
@@ -171,7 +182,7 @@ export class FocusProvider implements Disposable {
 		return this._enrichedItems?.promise;
 	}
 
-	private _groupedIds: Map<string, FocusGroup> | undefined;
+	private _groupedIds: Set<string> | undefined;
 
 	refresh() {
 		this._issues = undefined;
@@ -182,7 +193,7 @@ export class FocusProvider implements Disposable {
 	}
 
 	async pin(item: FocusItem) {
-		item.pinned = true;
+		item.viewer.pinned = true;
 		this._onDidChange.fire();
 
 		await this.container.enrichments.pinItem(item.enrichable);
@@ -191,17 +202,19 @@ export class FocusProvider implements Disposable {
 	}
 
 	async unpin(item: FocusItem) {
-		item.pinned = false;
+		item.viewer.pinned = false;
 		this._onDidChange.fire();
 
-		if (item.enriched == null) return;
-		await this.container.enrichments.unpinItem(item.enriched.id);
+		if (item.viewer.enrichedItems == null) return;
+		const pinned = item.viewer.enrichedItems.find(e => e.type === 'pin');
+		if (pinned == null) return;
+		await this.container.enrichments.unpinItem(pinned.id);
 		this._enrichedItems = undefined;
 		this._onDidChange.fire();
 	}
 
 	async snooze(item: FocusItem) {
-		item.snoozed = true;
+		item.viewer.snoozed = true;
 		this._onDidChange.fire();
 
 		await this.container.enrichments.snoozeItem(item.enrichable);
@@ -210,21 +223,23 @@ export class FocusProvider implements Disposable {
 	}
 
 	async unsnooze(item: FocusItem) {
-		item.snoozed = false;
+		item.viewer.snoozed = false;
 		this._onDidChange.fire();
 
-		if (item.enriched == null) return;
-		await this.container.enrichments.unsnoozeItem(item.enriched.id);
+		if (item.viewer.enrichedItems == null) return;
+		const snoozed = item.viewer.enrichedItems.find(e => e.type === 'snooze');
+		if (snoozed == null) return;
+		await this.container.enrichments.unsnoozeItem(snoozed.id);
 		this._enrichedItems = undefined;
 		this._onDidChange.fire();
 	}
 
 	async merge(item: FocusItem): Promise<void> {
-		if (item.uniqueId == null || item.ref?.sha == null) return;
+		if (item.graphQLId == null || item.headRef?.oid == null) return;
 		// TODO: Include other providers.
 		if (item.provider.id !== 'github') return;
 		const integrations = await this.container.integrations.get(HostingIntegrationId.GitHub);
-		await integrations.mergePullRequest({ id: item.uniqueId, headRefSha: item.ref.sha });
+		await integrations.mergePullRequest({ id: item.graphQLId, headRefSha: item.headRef.oid });
 		this.refresh();
 	}
 
@@ -236,7 +251,7 @@ export class FocusProvider implements Disposable {
 	}
 
 	private async getItemBranchDeepLink(item: FocusItem): Promise<Uri | undefined> {
-		if (item.type !== 'pullRequest' || item.ref == null || item.repositoryIdentity?.remote?.url == null)
+		if (item.type !== 'pullRequest' || item.headRef == null || item.repoIdentity?.remote?.url == null)
 			return undefined;
 		const schemeOverride = configuration.get('deepLinks.schemeOverride');
 		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
@@ -247,8 +262,8 @@ export class FocusProvider implements Disposable {
 			Uri.parse(
 				`${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
 					DeepLinkType.Repository
-				}/-/${DeepLinkType.Branch}/${item.ref.branchName}?url=${encodeURIComponent(
-					ensureRemoteUrl(item.repositoryIdentity.remote.url),
+				}/-/${DeepLinkType.Branch}/${item.headRef.name}?url=${encodeURIComponent(
+					ensureRemoteUrl(item.repoIdentity.remote.url),
 				)}&action=switch`,
 			),
 		);
@@ -313,230 +328,86 @@ export class FocusProvider implements Disposable {
 		]);
 
 		if (cancellation?.isCancellationRequested) throw new CancellationError();
-
-		const enrichedItems = new Map(getSettledValue(enrichedItemsResult)?.map(i => [i.entityId, i]));
-
-		const categorized: FocusItem[] = [];
+		let categorized: FocusItem[] = [];
 
 		// TODO: Since this is all repos we probably should order by repos you are a contributor on (or even filter out one you aren't)
-
 		const prs = getSettledValue(prsResult);
-		if (prs != null) {
-			outer: for (const pr of prs) {
-				if (pr.pullRequest.isDraft) continue;
-
-				const enrichedItem = enrichedItems.get(pr.pullRequest.nodeId!);
-
-				if (pr.reasons.includes('authored')) {
-					if (pr.pullRequest.statusCheckRollupState === PullRequestStatusCheckRollupState.Failed) {
-						categorized.push(this.createFocusItem('failed-checks', pr, enrichedItem));
-						continue;
-					}
-
-					const viewerHasMergeAccess =
-						pr.pullRequest.viewerCanUpdate &&
-						pr.pullRequest.repository.accessLevel != null &&
-						pr.pullRequest.repository.accessLevel >= RepositoryAccessLevel.Write;
-
-					switch (pr.pullRequest.mergeableState) {
-						case PullRequestMergeableState.Mergeable:
-							switch (pr.pullRequest.reviewDecision) {
-								case PullRequestReviewDecision.Approved:
-									if (viewerHasMergeAccess) {
-										categorized.push(this.createFocusItem('mergeable', pr, enrichedItem));
-									} // TODO: should it be on in any group if you can't merge? maybe need to check if you are a contributor to the repo or something
-									continue outer;
-								case PullRequestReviewDecision.ChangesRequested:
-									categorized.push(this.createFocusItem('changes-requested', pr, enrichedItem));
-									continue outer;
-								case PullRequestReviewDecision.ReviewRequired:
-									categorized.push(this.createFocusItem('waiting-for-review', pr, enrichedItem));
-									continue outer;
-								case undefined:
-									if (pr.pullRequest.reviewRequests?.length) {
-										categorized.push(this.createFocusItem('waiting-for-review', pr, enrichedItem));
-										continue outer;
-									} else {
-										categorized.push(this.createFocusItem('waiting-for-review', pr, enrichedItem));
-										continue outer;
-									}
-									break;
-							}
-							break;
-						case PullRequestMergeableState.Conflicting:
-							if (
-								pr.pullRequest.reviewDecision === PullRequestReviewDecision.Approved &&
-								viewerHasMergeAccess
-							) {
-								categorized.push(this.createFocusItem('mergeable-conflicts', pr, enrichedItem));
-							} else {
-								categorized.push(this.createFocusItem('conflicts', pr, enrichedItem));
-							}
-							continue outer;
-					}
-				}
-
-				if (pr.reasons.includes('review-requested')) {
-					// Skip adding if there are failed CI checks
-					if (pr.pullRequest.statusCheckRollupState === PullRequestStatusCheckRollupState.Failed) continue;
-
-					categorized.push(this.createFocusItem('needs-review', pr, enrichedItem));
-					continue;
+		const enrichedItems = getSettledValue(enrichedItemsResult);
+		// Multiple enriched items can have the same entityId. Map by entityId to an array of enriched items.
+		const enrichedItemsByEntityId: { [id: string]: EnrichedItem[] } = {};
+		if (enrichedItems != null) {
+			for (const enrichedItem of enrichedItems) {
+				if (enrichedItem.entityId in enrichedItemsByEntityId) {
+					enrichedItemsByEntityId[enrichedItem.entityId].push(enrichedItem);
+				} else {
+					enrichedItemsByEntityId[enrichedItem.entityId] = [enrichedItem];
 				}
 			}
 		}
 
-		// const issues = getSettledValue(issuesResult);
-		// if (issues != null) {
-		// 	for (const issue of issues.splice(0, 3)) {
-		// 		let next = false;
+		if (prs != null) {
+			const github = await this.container.integrations.get(HostingIntegrationId.GitHub);
+			const myAccount = await github.getCurrentAccount();
+			const inputPrs = prs.map(pr => {
+				const providerPr = toProviderPullRequestWithUniqueId(pr.pullRequest);
+				const enrichable = {
+					type: 'pr',
+					id: providerPr.uuid,
+					url: pr.pullRequest.url,
+					provider: 'github',
+				};
+				const repoIdentity = {
+					remote: { url: pr.pullRequest.refs?.head?.url },
+					name: pr.pullRequest.repository.repo,
+					provider: {
+						id: pr.pullRequest.provider.id,
+						repoDomain: pr.pullRequest.repository.owner,
+						repoName: pr.pullRequest.repository.repo,
+					},
+				};
 
-		// 		const enrichedItem = enrichedItems.get(issue.issue.nodeId!);
-		// 		if (enrichedItem != null) {
-		// 			switch (enrichedItem.type) {
-		// 				case 'pin':
-		// 					addItemToGroup(grouped, 'Pinned', issue);
-		// 					next = true;
-		// 					break;
-		// 				case 'snooze':
-		// 					addItemToGroup(grouped, 'Snoozed', issue);
-		// 					next = true;
-		// 					break;
-		// 			}
+				return {
+					...providerPr,
+					type: 'pullRequest',
+					uuid: providerPr.uuid,
+					provider: pr.pullRequest.provider,
+					enrichable: enrichable,
+					repoIdentity: repoIdentity,
+				};
+			});
 
-		// 			if (next) continue;
-		// 		}
-
-		// 		if (issue.reasons.includes('assigned')) {
-		// 			addItemToGroup(grouped, 'In Progress', issue);
-		// 			continue;
-		// 		}
-		// 	}
-		// }
-
-		// // Sort the grouped map by the order of the Groups array
-		// const sorted = new Map<FocusActionCategory, FocusItem[]>();
-		// for (const group of actionCategories) {
-		// 	const items = categorized.get(group);
-		// 	if (items == null) continue;
-
-		// 	sorted.set(
-		// 		group,
-		// 		items.sort((a, b) => (a.pinned ? -1 : 1) - (b.pinned ? -1 : 1) || b.sortTime - a.sortTime),
-		// 	);
-		// }
+			const actionableItems = getActionablePullRequests(
+				inputPrs,
+				{ id: myAccount!.username! },
+				{ enrichedItemsByUniqueId: enrichedItemsByEntityId },
+			);
+			// Map from shared category label to local actionable category, and get suggested actions
+			categorized = actionableItems.map(item => {
+				const actionableCategory = sharedCategoryToFocusActionCategoryMap.get(item.suggestedActionCategory)!;
+				const suggestedActions = prActionsMap.get(actionableCategory)!;
+				return {
+					...item,
+					isNew:
+						this._groupedIds != null &&
+						!this._groupedIds.has(`${item.uuid}:${focusCategoryToGroupMap.get(actionableCategory)}`),
+					actionableCategory: actionableCategory,
+					suggestedActions: suggestedActions,
+				};
+			}) as FocusItem[];
+		}
 
 		this.updateGroupedIds(categorized);
 		this._onDidRefresh.fire({ items: categorized });
 		return categorized;
 	}
 
-	private createFocusItem(
-		category: FocusActionCategory,
-		item: SearchedPullRequest | SearchedIssue,
-		enriched?: EnrichedItem,
-	): FocusItem {
-		return 'pullRequest' in item
-			? {
-					type: 'pullRequest',
-					provider: item.pullRequest.provider,
-					id: item.pullRequest.id,
-					uniqueId: item.pullRequest.nodeId!,
-					isNew:
-						this._groupedIds != null &&
-						this._groupedIds.get(item.pullRequest.nodeId!) != focusCategoryToGroupMap.get(category),
-					title: item.pullRequest.title,
-					date: item.pullRequest.updatedDate,
-					author: item.pullRequest.author.name,
-					avatarUrl: item.pullRequest.author.avatarUrl,
-					repoAndOwner: `${item.pullRequest.repository.owner}/${item.pullRequest.repository.repo}`,
-					url: item.pullRequest.url,
-
-					enrichable: {
-						type: 'pr',
-						id: item.pullRequest.nodeId!,
-						url: item.pullRequest.url,
-						provider: 'github',
-					},
-					enriched: enriched,
-
-					actionableCategory: category,
-					suggestedActions: prActionsMap.get(category)!,
-
-					pinned: enriched?.type === 'pin',
-					snoozed: enriched?.type === 'snooze',
-					sortTime: item.pullRequest.updatedDate.getTime(),
-					repositoryIdentity: {
-						remote: { url: item.pullRequest.refs?.head?.url },
-						name: item.pullRequest.repository.repo,
-						provider: {
-							// TODO: fix this typing, set according to item
-							id: 'github' as GkProviderId,
-							repoDomain: item.pullRequest.repository.owner,
-							repoName: item.pullRequest.repository.repo,
-						},
-					},
-					ref:
-						item.pullRequest.refs?.head != null
-							? {
-									branchName: item.pullRequest.refs.head.branch,
-									sha: item.pullRequest.refs.head.sha,
-									remoteName: item.pullRequest.refs.head.owner,
-							  }
-							: undefined,
-			  }
-			: {
-					type: 'issue',
-					provider: item.issue.provider,
-					id: item.issue.id,
-					uniqueId: item.issue.nodeId!,
-					isNew:
-						this._groupedIds != null &&
-						this._groupedIds.get(item.issue.nodeId!) != focusCategoryToGroupMap.get(category),
-					title: item.issue.title,
-					date: item.issue.updatedDate,
-					author: item.issue.author.name,
-					avatarUrl: item.issue.author.avatarUrl,
-					repoAndOwner: `${item.issue.repository?.owner}/${item.issue.repository?.repo}`,
-					url: item.issue.url,
-
-					enrichable: {
-						type: 'issue',
-						id: item.issue.nodeId!,
-						url: item.issue.url,
-						provider: 'github',
-					},
-					enriched: enriched,
-
-					actionableCategory: category,
-					suggestedActions: [],
-
-					pinned: enriched?.type === 'pin',
-					snoozed: enriched?.type === 'snooze',
-					sortTime: item.issue.updatedDate.getTime(),
-					repositoryIdentity:
-						item.issue.repository != null
-							? {
-									name: item.issue.repository?.repo,
-									provider: {
-										// TODO: fix this typing, set according to item
-										id: 'github' as GkProviderId,
-										repoDomain: item.issue.repository?.owner,
-										repoName: item.issue.repository?.repo,
-									},
-							  }
-							: undefined,
-			  };
-	}
-
 	private updateGroupedIds(items: FocusItem[]) {
-		const groupedIds = new Map<string, FocusGroup>();
+		const groupedIds = new Set<string>();
 		for (const item of items) {
-			const group = focusCategoryToGroupMap.get(item.actionableCategory);
-			if (group == null) continue;
-
-			if (!groupedIds.has(item.uniqueId)) {
-				groupedIds.set(item.uniqueId, group);
+			const group = focusCategoryToGroupMap.get(item.actionableCategory)!;
+			const key = `${item.uuid}:${group}`;
+			if (!groupedIds.has(key)) {
+				groupedIds.add(key);
 			}
 		}
 
@@ -550,18 +421,22 @@ export function groupAndSortFocusItems(items?: FocusItem[]) {
 
 	sortFocusItems(items);
 
+	const pinnedGroup = grouped.get('pinned')!;
+	const snoozedGroup = grouped.get('snoozed')!;
+
 	for (const item of items) {
-		if (item.pinned) {
-			grouped.get('pinned')?.push(item);
-		} else if (item.snoozed) {
-			grouped.get('snoozed')?.push(item);
+		if (item.viewer.snoozed) {
+			if (!snoozedGroup.some(i => i.uuid === item.uuid)) {
+				snoozedGroup.push(item);
+			}
+
 			continue;
+		} else if (item.viewer.pinned && !pinnedGroup.some(i => i.uuid === item.uuid)) {
+			pinnedGroup.push(item);
 		}
 
-		const group = focusCategoryToGroupMap.get(item.actionableCategory);
-		if (group == null) continue;
-
-		grouped.get(group)?.push(item);
+		const group = focusCategoryToGroupMap.get(item.actionableCategory)!;
+		grouped.get(group)!.push(item);
 	}
 
 	return grouped;
@@ -570,9 +445,9 @@ export function groupAndSortFocusItems(items?: FocusItem[]) {
 export function sortFocusItems(items: FocusItem[]) {
 	return items.sort(
 		(a, b) =>
-			(a.pinned ? -1 : 1) - (b.pinned ? -1 : 1) ||
+			(a.viewer.pinned ? -1 : 1) - (b.viewer.pinned ? -1 : 1) ||
 			focusActionCategories.indexOf(b.actionableCategory) - focusActionCategories.indexOf(a.actionableCategory) ||
-			b.sortTime - a.sortTime,
+			b.updatedDate.getTime() - a.updatedDate.getTime(),
 	);
 }
 

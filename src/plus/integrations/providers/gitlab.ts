@@ -155,6 +155,13 @@ abstract class GitLabIntegrationBase<ID extends SupportedIntegrationIds> extends
 		return Promise.resolve(undefined);
 	}
 
+	protected override async getProviderCurrentAccount(
+		_session: AuthenticationSession,
+		_options?: { avatarSize?: number },
+	): Promise<Account | undefined> {
+		return Promise.resolve(undefined);
+	}
+
 	protected override async mergeProviderPullRequest(
 		_session: AuthenticationSession,
 		_pr: PullRequest | { id: string; headRefSha: string },
