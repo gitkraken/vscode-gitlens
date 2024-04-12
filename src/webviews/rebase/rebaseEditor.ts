@@ -24,7 +24,7 @@ import { join, map } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { normalizePath } from '../../system/path';
 import type { IpcMessage, WebviewFocusChangedParams } from '../protocol';
-import { onIpc, WebviewFocusChangedCommandType } from '../protocol';
+import { WebviewFocusChangedCommand } from '../protocol';
 import { replaceWebviewHtmlTokens, resetContextKeys, setContextKeys } from '../webviewController';
 import type {
 	Author,
@@ -37,16 +37,16 @@ import type {
 	UpdateSelectionParams,
 } from './protocol';
 import {
-	AbortCommandType,
-	ChangeEntryCommandType,
-	DidChangeNotificationType,
-	DisableCommandType,
-	MoveEntryCommandType,
-	ReorderCommandType,
-	SearchCommandType,
-	StartCommandType,
-	SwitchCommandType,
-	UpdateSelectionCommandType,
+	AbortCommand,
+	ChangeEntryCommand,
+	DidChangeNotification,
+	DisableCommand,
+	MoveEntryCommand,
+	ReorderCommand,
+	SearchCommand,
+	StartCommand,
+	SwitchCommand,
+	UpdateSelectionCommand,
 } from './protocol';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
@@ -271,56 +271,51 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private onMessageReceived(context: RebaseEditorContext, e: IpcMessage) {
-		switch (e.method) {
-			// case ReadyCommandType.method:
-			// 	onIpcCommand(ReadyCommandType, e, params => {
-			// 		this.parseDocumentAndSendChange(panel, document);
-			// 	});
-
+		switch (true) {
+			// case ReadyCommandType.is(e):
+			// 	this.parseDocumentAndSendChange(panel, document);
 			// 	break;
 
-			case WebviewFocusChangedCommandType.method:
-				onIpc(WebviewFocusChangedCommandType, e, params => {
-					this.onViewFocusChanged(params);
-				});
+			case WebviewFocusChangedCommand.is(e):
+				this.onViewFocusChanged(e.params);
+				break;
+
+			case AbortCommand.is(e):
+				void this.abort(context);
 
 				break;
 
-			case AbortCommandType.method:
-				onIpc(AbortCommandType, e, () => this.abort(context));
-
+			case DisableCommand.is(e):
+				void this.disable(context);
 				break;
 
-			case DisableCommandType.method:
-				onIpc(DisableCommandType, e, () => this.disable(context));
+			case SearchCommand.is(e):
+				void executeCoreCommand('editor.action.webvieweditor.showFind');
 				break;
 
-			case SearchCommandType.method:
-				onIpc(SearchCommandType, e, () => executeCoreCommand('editor.action.webvieweditor.showFind'));
+			case StartCommand.is(e):
+				void this.rebase(context);
 				break;
 
-			case StartCommandType.method:
-				onIpc(StartCommandType, e, () => this.rebase(context));
+			case SwitchCommand.is(e):
+				this.switchToText(context);
 				break;
 
-			case SwitchCommandType.method:
-				onIpc(SwitchCommandType, e, () => this.switchToText(context));
+			case ReorderCommand.is(e):
+				this.swapOrdering(e.params, context);
 				break;
 
-			case ReorderCommandType.method:
-				onIpc(ReorderCommandType, e, params => this.swapOrdering(params, context));
+			case ChangeEntryCommand.is(e):
+				void this.onEntryChanged(context, e.params);
 				break;
 
-			case ChangeEntryCommandType.method:
-				onIpc(ChangeEntryCommandType, e, params => this.onEntryChanged(context, params));
+			case MoveEntryCommand.is(e):
+				void this.onEntryMoved(context, e.params);
 				break;
 
-			case MoveEntryCommandType.method:
-				onIpc(MoveEntryCommandType, e, params => this.onEntryMoved(context, params));
+			case UpdateSelectionCommand.is(e):
+				this.onSelectionChanged(context, e.params);
 				break;
-
-			case UpdateSelectionCommandType.method:
-				onIpc(UpdateSelectionCommandType, e, params => this.onSelectionChanged(context, params));
 		}
 	}
 
@@ -511,7 +506,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		const state = await this.parseState(context);
 		void this.postMessage(context, {
 			id: `host:${ipcSequencer.next()}`,
-			method: DidChangeNotificationType.method,
+			scope: DidChangeNotification.scope,
+			method: DidChangeNotification.method,
 			params: { state: state },
 		});
 	}

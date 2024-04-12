@@ -1,5 +1,7 @@
-import type { WebviewState } from '../protocol';
-import { IpcCommandType, IpcNotificationType } from '../protocol';
+import type { IpcScope, WebviewState } from '../protocol';
+import { IpcCommand, IpcNotification } from '../protocol';
+
+export const scope: IpcScope = 'home';
 
 export interface State extends WebviewState {
 	repositories: DidChangeRepositoriesParams;
@@ -12,11 +14,12 @@ export interface State extends WebviewState {
 }
 
 // COMMANDS
+
 export interface CollapseSectionParams {
 	section: string;
 	collapsed: boolean;
 }
-export const CollapseSectionCommandType = new IpcCommandType<CollapseSectionParams>('home/section/collapse');
+export const CollapseSectionCommand = new IpcCommand<CollapseSectionParams>(scope, 'section/collapse');
 
 // NOTIFICATIONS
 
@@ -26,14 +29,14 @@ export interface DidChangeRepositoriesParams {
 	hasUnsafe: boolean;
 	trusted: boolean;
 }
-export const DidChangeRepositoriesType = new IpcNotificationType<DidChangeRepositoriesParams>('repositories/didChange');
+export const DidChangeRepositories = new IpcNotification<DidChangeRepositoriesParams>(scope, 'repositories/didChange');
 
 export interface DidChangeSubscriptionParams {
 	promoStates: Record<string, boolean>;
 }
-export const DidChangeSubscriptionType = new IpcNotificationType<DidChangeSubscriptionParams>('subscription/didChange');
+export const DidChangeSubscription = new IpcNotification<DidChangeSubscriptionParams>(scope, 'subscription/didChange');
 
 export interface DidChangeOrgSettingsParams {
 	orgSettings: State['orgSettings'];
 }
-export const DidChangeOrgSettingsType = new IpcNotificationType<DidChangeOrgSettingsParams>('org/settings/didChange');
+export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');

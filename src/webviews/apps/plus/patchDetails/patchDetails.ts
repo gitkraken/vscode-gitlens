@@ -4,38 +4,37 @@ import type { ViewFilesLayout } from '../../../../config';
 import type { DraftPatchFileChange, DraftVisibility } from '../../../../gk/models/drafts';
 import type { State, SwitchModeParams } from '../../../../plus/webviews/patchDetails/protocol';
 import {
-	ApplyPatchCommandType,
-	CopyCloudLinkCommandType,
-	CreateFromLocalPatchCommandType,
-	CreatePatchCommandType,
-	DidChangeCreateNotificationType,
-	DidChangeDraftNotificationType,
-	DidChangeNotificationType,
-	DidChangePatchRepositoryNotificationType,
-	DidChangePreferencesNotificationType,
-	DidExplainCommandType,
-	DraftPatchCheckedCommandType,
-	ExplainCommandType,
-	FileActionsCommandType,
-	OpenFileCommandType,
-	OpenFileComparePreviousCommandType,
-	OpenFileCompareWorkingCommandType,
-	OpenFileOnRemoteCommandType,
-	SelectPatchBaseCommandType,
-	SelectPatchRepoCommandType,
-	SwitchModeCommandType,
-	UpdateCreatePatchMetadataCommandType,
-	UpdateCreatePatchRepositoryCheckedStateCommandType,
-	UpdatePatchDetailsMetadataCommandType,
-	UpdatePatchDetailsPermissionsCommandType,
-	UpdatePatchUsersCommandType,
-	UpdatePatchUserSelectionCommandType,
-	UpdatePreferencesCommandType,
+	ApplyPatchCommand,
+	CopyCloudLinkCommand,
+	CreateFromLocalPatchCommand,
+	CreatePatchCommand,
+	DidChangeCreateNotification,
+	DidChangeDraftNotification,
+	DidChangeNotification,
+	DidChangePatchRepositoryNotification,
+	DidChangePreferencesNotification,
+	DraftPatchCheckedCommand,
+	ExecuteFileActionCommand,
+	ExplainRequest,
+	OpenFileCommand,
+	OpenFileComparePreviousCommand,
+	OpenFileCompareWorkingCommand,
+	OpenFileOnRemoteCommand,
+	SelectPatchBaseCommand,
+	SelectPatchRepoCommand,
+	SwitchModeCommand,
+	UpdateCreatePatchMetadataCommand,
+	UpdateCreatePatchRepositoryCheckedStateCommand,
+	UpdatePatchDetailsMetadataCommand,
+	UpdatePatchDetailsPermissionsCommand,
+	UpdatePatchUsersCommand,
+	UpdatePatchUserSelectionCommand,
+	UpdatePreferencesCommand,
 } from '../../../../plus/webviews/patchDetails/protocol';
 import { debounce } from '../../../../system/function';
 import type { Serialized } from '../../../../system/serialize';
 import type { IpcMessage } from '../../../protocol';
-import { ExecuteCommandType, onIpc } from '../../../protocol';
+import { ExecuteCommand } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import { DOM } from '../../shared/dom';
 import type {
@@ -162,7 +161,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 	}
 
 	protected override onMessageReceived(msg: IpcMessage) {
-		switch (msg.method) {
+		switch (true) {
 			// case DidChangeRichStateNotificationType.method:
 			// 	onIpc(DidChangeRichStateNotificationType, msg, params => {
 			// 		if (this.state.selected == null) return;
@@ -186,87 +185,77 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			// 		this.renderRichContent();
 			// 	});
 			// 	break;
-			case DidChangeNotificationType.method:
-				onIpc(DidChangeNotificationType, msg, params => {
-					assertsSerialized<State>(params.state);
+			case DidChangeNotification.is(msg):
+				assertsSerialized<State>(msg.params.state);
 
-					this.state = params.state;
-					this.setState(this.state);
-					this.debouncedAttachState();
-				});
+				this.state = msg.params.state;
+				this.setState(this.state);
+				this.debouncedAttachState();
 				break;
 
-			case DidChangeCreateNotificationType.method:
-				onIpc(DidChangeCreateNotificationType, msg, params => {
-					// assertsSerialized<State>(params.state);
+			case DidChangeCreateNotification.is(msg):
+				// assertsSerialized<State>(params.state);
 
-					this.state = { ...this.state, ...params };
-					this.setState(this.state);
-					this.debouncedAttachState(true);
-				});
+				this.state = { ...this.state, ...msg.params };
+				this.setState(this.state);
+				this.debouncedAttachState(true);
 				break;
 
-			case DidChangeDraftNotificationType.method:
-				onIpc(DidChangeDraftNotificationType, msg, params => {
-					// assertsSerialized<State>(params.state);
+			case DidChangeDraftNotification.is(msg):
+				// assertsSerialized<State>(params.state);
 
-					this.state = { ...this.state, ...params };
-					this.setState(this.state);
-					this.debouncedAttachState(true);
-				});
+				this.state = { ...this.state, ...msg.params };
+				this.setState(this.state);
+				this.debouncedAttachState(true);
 				break;
 
-			case DidChangePreferencesNotificationType.method:
-				onIpc(DidChangePreferencesNotificationType, msg, params => {
-					// assertsSerialized<State>(params.state);
+			case DidChangePreferencesNotification.is(msg):
+				// assertsSerialized<State>(params.state);
 
-					this.state = { ...this.state, ...params };
-					this.setState(this.state);
-					this.debouncedAttachState(true);
-				});
+				this.state = { ...this.state, ...msg.params };
+				this.setState(this.state);
+				this.debouncedAttachState(true);
 				break;
 
-			case DidChangePatchRepositoryNotificationType.method:
-				onIpc(DidChangePatchRepositoryNotificationType, msg, params => {
-					// assertsSerialized<State>(params.state);
+			case DidChangePatchRepositoryNotification.is(msg): {
+				// assertsSerialized<State>(params.state);
 
-					const draft = this.state.draft!;
-					const patches = draft.patches!;
-					const patchIndex = patches.findIndex(p => p.id === params.patch.id);
-					patches.splice(patchIndex, 1, params.patch);
+				const draft = this.state.draft!;
+				const patches = draft.patches!;
+				const patchIndex = patches.findIndex(p => p.id === msg.params.patch.id);
+				patches.splice(patchIndex, 1, msg.params.patch);
 
-					this.state = {
-						...this.state,
-						draft: draft,
-					};
-					this.setState(this.state);
-					this.debouncedAttachState(true);
-				});
+				this.state = {
+					...this.state,
+					draft: draft,
+				};
+				this.setState(this.state);
+				this.debouncedAttachState(true);
 				break;
-
+			}
 			default:
 				super.onMessageReceived?.(msg);
 		}
 	}
 
 	private onPatchChecked(e: PatchCheckedDetail) {
-		this.sendCommand(DraftPatchCheckedCommandType, e);
+		this.sendCommand(DraftPatchCheckedCommand, e);
 	}
 
 	private onCreateCheckRepo(e: CreatePatchCheckRepositoryEventDetail) {
-		this.sendCommand(UpdateCreatePatchRepositoryCheckedStateCommandType, e);
+		this.sendCommand(UpdateCreatePatchRepositoryCheckedStateCommand, e);
 	}
 
 	private onCreateUpdateMetadata(e: CreatePatchMetadataEventDetail) {
-		this.sendCommand(UpdateCreatePatchMetadataCommandType, e);
+		this.sendCommand(UpdateCreatePatchMetadataCommand, e);
 	}
 
 	private onDraftUpdateMetadata(e: { visibility: DraftVisibility }) {
-		this.sendCommand(UpdatePatchDetailsMetadataCommandType, e);
+		this.sendCommand(UpdatePatchDetailsMetadataCommand, e);
 	}
 
 	private onDraftUpdatePermissions() {
-		this.sendCommand(UpdatePatchDetailsPermissionsCommandType, undefined);
+		this.sendCommand(UpdatePatchDetailsPermissionsCommand, undefined);
 	}
 
 	private onShowPatchInGraph(_e: ShowPatchInGraphDetail) {
@@ -274,28 +263,28 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 	}
 
 	private onCreatePatch(e: CreatePatchEventDetail) {
-		this.sendCommand(CreatePatchCommandType, e);
+		this.sendCommand(CreatePatchCommand, e);
 	}
 
 	private onShareLocalPatch() {
-		this.sendCommand(CreateFromLocalPatchCommandType, undefined);
+		this.sendCommand(CreateFromLocalPatchCommand, undefined);
 	}
 
 	private onCopyCloudLink() {
-		this.sendCommand(CopyCloudLinkCommandType, undefined);
+		this.sendCommand(CopyCloudLinkCommand, undefined);
 	}
 
 	private onModeClicked(e: Event) {
 		const mode = ((e.target as HTMLElement)?.dataset.actionValue as SwitchModeParams['mode']) ?? undefined;
 		if (mode === this.state.mode) return;
 
-		this.sendCommand(SwitchModeCommandType, { mode: mode });
+		this.sendCommand(SwitchModeCommand, { mode: mode });
 	}
 
 	private onApplyPatch(e: ApplyPatchDetail) {
 		console.log('onApplyPatch', e);
 		if (e.selectedPatches == null || e.selectedPatches.length === 0) return;
-		this.sendCommand(ApplyPatchCommandType, {
+		this.sendCommand(ApplyPatchCommand, {
 			details: e.draft,
 			target: e.target ?? 'current',
 			selected: e.selectedPatches,
@@ -304,19 +293,19 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 	private onChangePatchBase(e: ChangePatchBaseDetail) {
 		console.log('onChangePatchBase', e);
-		this.sendCommand(SelectPatchBaseCommandType, undefined);
+		this.sendCommand(SelectPatchBaseCommand, undefined);
 	}
 
 	private onSelectPatchRepo(e: SelectPatchRepoDetail) {
 		console.log('onSelectPatchRepo', e);
-		this.sendCommand(SelectPatchRepoCommandType, undefined);
+		this.sendCommand(SelectPatchRepoCommand, undefined);
 	}
 
 	private onCommandClickedCore(action?: string) {
 		const command = action?.startsWith('command:') ? action.slice(8) : action;
 		if (command == null) return;
 
-		this.sendCommand(ExecuteCommandType, { command: command });
+		this.sendCommand(ExecuteCommand, { command: command });
 	}
 
 	private onSwitchAIModel(_e: MouseEvent) {
@@ -325,7 +314,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 	async onAIExplain(_e: MouseEvent) {
 		try {
-			const result = await this.sendCommandWithCompletion(ExplainCommandType, undefined, DidExplainCommandType);
+			const result = await this.sendRequest(ExplainRequest, undefined);
 
 			if (result.error) {
 				this.component.explain = { error: { message: result.error.message ?? 'Error retrieving content' } };
@@ -354,35 +343,35 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		this.state = { ...this.state, preferences: { ...this.state.preferences, files: files } };
 		this.debouncedAttachState();
 
-		this.sendCommand(UpdatePreferencesCommandType, { files: files });
+		this.sendCommand(UpdatePreferencesCommand, { files: files });
 	}
 
 	private onInviteUsers() {
-		this.sendCommand(UpdatePatchUsersCommandType, undefined);
+		this.sendCommand(UpdatePatchUsersCommand, undefined);
 	}
 
 	private onUpdateUserSelection(e: CreatePatchUpdateSelectionEventDetail | PatchDetailsUpdateSelectionEventDetail) {
-		this.sendCommand(UpdatePatchUserSelectionCommandType, e);
+		this.sendCommand(UpdatePatchUserSelectionCommand, e);
 	}
 
 	private onOpenFileOnRemote(e: FileChangeListItemDetail) {
-		this.sendCommand(OpenFileOnRemoteCommandType, e);
+		this.sendCommand(OpenFileOnRemoteCommand, e);
 	}
 
 	private onOpenFile(e: FileChangeListItemDetail) {
-		this.sendCommand(OpenFileCommandType, e);
+		this.sendCommand(OpenFileCommand, e);
 	}
 
 	private onCompareFileWithWorking(e: FileChangeListItemDetail) {
-		this.sendCommand(OpenFileCompareWorkingCommandType, e);
+		this.sendCommand(OpenFileCompareWorkingCommand, e);
 	}
 
 	private onCompareFileWithPrevious(e: FileChangeListItemDetail) {
-		this.sendCommand(OpenFileComparePreviousCommandType, e);
+		this.sendCommand(OpenFileComparePreviousCommand, e);
 	}
 
 	private onFileMoreActions(e: FileChangeListItemDetail) {
-		this.sendCommand(FileActionsCommandType, e);
+		this.sendCommand(ExecuteFileActionCommand, e);
 	}
 
 	private _component?: GlPatchDetailsApp;

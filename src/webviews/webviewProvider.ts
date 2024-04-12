@@ -1,6 +1,14 @@
 import type { Disposable, Uri, ViewBadge } from 'vscode';
 import type { WebviewContext } from '../system/webview';
-import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewState } from './protocol';
+import type {
+	IpcCallMessageType,
+	IpcCallParamsType,
+	IpcCallResponseParamsType,
+	IpcMessage,
+	IpcNotification,
+	IpcRequest,
+	WebviewState,
+} from './protocol';
 import type { WebviewCommandCallback } from './webviewCommandRegistrar';
 import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor } from './webviewsController';
 
@@ -56,8 +64,8 @@ export interface WebviewHost<
 	asWebviewUri(uri: Uri): Uri;
 
 	addPendingIpcNotification(
-		type: IpcNotificationType<any>,
-		mapping: Map<IpcNotificationType<any>, () => Promise<boolean>>,
+		type: IpcNotification<any>,
+		mapping: Map<IpcNotification<any>, () => Promise<boolean>>,
 		thisArg: any,
 	): void;
 	clearPendingIpcNotifications(): void;
@@ -66,12 +74,17 @@ export interface WebviewHost<
 	isHost(type: 'editor'): this is WebviewHost<WebviewPanelDescriptor>;
 	isHost(type: 'view'): this is WebviewHost<WebviewViewDescriptor>;
 
-	notify<T extends IpcNotificationType<any>>(
-		type: T,
-		params: IpcMessageParams<T>,
+	notify<T extends IpcNotification<unknown>>(
+		notificationType: T,
+		params: IpcCallParamsType<T>,
 		completionId?: string,
 	): Promise<boolean>;
 	refresh(force?: boolean): Promise<void>;
+	respond<T extends IpcRequest<unknown, unknown>>(
+		responseType: T,
+		msg: IpcCallMessageType<T>,
+		params: IpcCallResponseParamsType<T>,
+	): Promise<boolean>;
 	registerWebviewCommand<T extends Partial<WebviewContext>>(
 		command: string,
 		callback: WebviewCommandCallback<T>,

@@ -1,6 +1,8 @@
 import type { CustomEditorIds } from '../../constants';
-import type { WebviewState } from '../protocol';
-import { IpcCommandType, IpcNotificationType } from '../protocol';
+import type { IpcScope, WebviewState } from '../protocol';
+import { IpcCommand, IpcNotification } from '../protocol';
+
+export const scope: IpcScope = 'rebase';
 
 export interface State extends WebviewState<CustomEditorIds> {
 	branch: string;
@@ -46,38 +48,38 @@ export interface Commit {
 
 // COMMANDS
 
-export const AbortCommandType = new IpcCommandType('rebase/abort');
-export const DisableCommandType = new IpcCommandType('rebase/disable');
-export const SearchCommandType = new IpcCommandType('rebase/search');
-export const StartCommandType = new IpcCommandType('rebase/start');
-export const SwitchCommandType = new IpcCommandType('rebase/switch');
+export const AbortCommand = new IpcCommand(scope, 'abort');
+export const DisableCommand = new IpcCommand(scope, 'disable');
+export const SearchCommand = new IpcCommand(scope, 'search');
+export const StartCommand = new IpcCommand(scope, 'start');
+export const SwitchCommand = new IpcCommand(scope, 'switch');
 
 export interface ReorderParams {
 	ascending: boolean;
 }
-export const ReorderCommandType = new IpcCommandType<ReorderParams>('rebase/reorder');
+export const ReorderCommand = new IpcCommand<ReorderParams>(scope, 'reorder');
 
 export interface ChangeEntryParams {
 	sha: string;
 	action: RebaseEntryAction;
 }
-export const ChangeEntryCommandType = new IpcCommandType<ChangeEntryParams>('rebase/change/entry');
+export const ChangeEntryCommand = new IpcCommand<ChangeEntryParams>(scope, 'change/entry');
 
 export interface MoveEntryParams {
 	sha: string;
 	to: number;
 	relative: boolean;
 }
-export const MoveEntryCommandType = new IpcCommandType<MoveEntryParams>('rebase/move/entry');
+export const MoveEntryCommand = new IpcCommand<MoveEntryParams>(scope, 'move/entry');
 
 export interface UpdateSelectionParams {
 	sha: string;
 }
-export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('rebase/selection/update');
+export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
 
 // NOTIFICATIONS
 
 export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('rebase/didChange');
+export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange');

@@ -3,9 +3,9 @@ import './account.scss';
 import type { Disposable } from 'vscode';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../plus/gk/account/subscription';
 import type { State } from '../../../../plus/webviews/account/protocol';
-import { DidChangeSubscriptionNotificationType } from '../../../../plus/webviews/account/protocol';
+import { DidChangeSubscriptionNotification } from '../../../../plus/webviews/account/protocol';
 import type { IpcMessage } from '../../../protocol';
-import { ExecuteCommandType, onIpc } from '../../../protocol';
+import { ExecuteCommand } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import { DOM } from '../../shared/dom';
 import type { AccountContent } from './components/account-content';
@@ -32,16 +32,14 @@ export class AccountApp extends App<State> {
 	}
 
 	protected override onMessageReceived(msg: IpcMessage) {
-		switch (msg.method) {
-			case DidChangeSubscriptionNotificationType.method:
-				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
-					this.state.subscription = params.subscription;
-					this.state.avatar = params.avatar;
-					this.state.organizationsCount = params.organizationsCount;
-					this.state.timestamp = Date.now();
-					this.setState(this.state);
-					this.updateState();
-				});
+		switch (true) {
+			case DidChangeSubscriptionNotification.is(msg):
+				this.state.subscription = msg.params.subscription;
+				this.state.avatar = msg.params.avatar;
+				this.state.organizationsCount = msg.params.organizationsCount;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.updateState();
 				break;
 
 			default:
@@ -57,7 +55,7 @@ export class AccountApp extends App<State> {
 
 	private onActionClickedCore(action?: string) {
 		if (action?.startsWith('command:')) {
-			this.sendCommand(ExecuteCommandType, { command: action.slice(8) });
+			this.sendCommand(ExecuteCommand, { command: action.slice(8) });
 		}
 	}
 

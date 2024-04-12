@@ -4,13 +4,14 @@ import { debounce } from '../../../system/function';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
 import type {
-	IpcCommandType,
+	IpcCallParamsType,
+	IpcCallResponseParamsType,
+	IpcCommand,
 	IpcMessage,
-	IpcMessageParams,
-	IpcNotificationType,
+	IpcRequest,
 	WebviewFocusChangedParams,
 } from '../../protocol';
-import { WebviewFocusChangedCommandType, WebviewReadyCommandType } from '../../protocol';
+import { WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable } from './events';
 import type { HostIpcApi } from './ipc';
@@ -90,7 +91,7 @@ export abstract class App<
 					disposables.push(this._hostIpc.onReceiveMessage(msg => this.onMessageReceived!(msg)));
 				}
 
-				this.sendCommand(WebviewReadyCommandType, undefined);
+				this.sendCommand(WebviewReadyCommand, undefined);
 
 				this.onInitialized?.();
 			} finally {
@@ -130,7 +131,7 @@ export abstract class App<
 
 		// Reduces event jankiness when only moving focus
 		const sendWebviewFocusChangedCommand = debounce((params: WebviewFocusChangedParams) => {
-			this.sendCommand(WebviewFocusChangedCommandType, params);
+			this.sendCommand(WebviewFocusChangedCommand, params);
 		}, 150);
 
 		this.bindDisposables.push(
@@ -167,22 +168,18 @@ export abstract class App<
 		return this._api.getState() as State | undefined;
 	}
 
-	protected sendCommand<TCommand extends IpcCommandType<any>>(
+	protected sendCommand<TCommand extends IpcCommand<any>>(
 		command: TCommand,
-		params: IpcMessageParams<TCommand>,
+		params: IpcCallParamsType<TCommand>,
 	): void {
 		this._hostIpc.sendCommand(command, params);
 	}
 
-	protected sendCommandWithCompletion<
-		TCommand extends IpcCommandType<any>,
-		TCompletion extends IpcNotificationType<any>,
-	>(
-		command: TCommand,
-		params: IpcMessageParams<TCommand>,
-		completion: TCompletion,
-	): Promise<IpcMessageParams<TCompletion>> {
-		return this._hostIpc.sendCommandWithCompletion(command, params, completion);
+	protected sendRequest<T extends IpcRequest<unknown, unknown>>(
+		requestType: T,
+		params: IpcCallParamsType<T>,
+	): Promise<IpcCallResponseParamsType<T>> {
+		return this._hostIpc.sendRequest(requestType, params);
 	}
 
 	protected setState(state: Partial<State>) {

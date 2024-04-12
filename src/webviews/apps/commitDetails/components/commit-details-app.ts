@@ -5,36 +5,35 @@ import { when } from 'lit/directives/when.js';
 import type { ViewFilesLayout } from '../../../../config';
 import type { Serialized } from '../../../../system/serialize';
 import { pluralize } from '../../../../system/string';
-import type { CommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
+import type { ExecuteCommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
 import {
-	AutolinkSettingsCommandType,
-	CommitActionsCommandType,
-	CreatePatchFromWipCommandType,
-	DidChangeNotificationType,
-	DidChangeWipStateNotificationType,
-	DidExplainCommandType,
-	ExplainCommandType,
-	FetchCommandType,
-	FileActionsCommandType,
-	NavigateCommitCommandType,
-	OpenFileCommandType,
-	OpenFileComparePreviousCommandType,
-	OpenFileCompareWorkingCommandType,
-	OpenFileOnRemoteCommandType,
-	PickCommitCommandType,
-	PinCommitCommandType,
-	PublishCommandType,
-	PullCommandType,
-	PushCommandType,
-	SearchCommitCommandType,
-	StageFileCommandType,
-	SwitchCommandType,
-	SwitchModeCommandType,
-	UnstageFileCommandType,
-	UpdatePreferencesCommandType,
+	AutolinkSettingsCommand,
+	CreatePatchFromWipCommand,
+	DidChangeNotification,
+	DidChangeWipStateNotification,
+	ExecuteCommitActionCommand,
+	ExecuteFileActionCommand,
+	ExplainRequest,
+	FetchCommand,
+	NavigateCommand,
+	OpenFileCommand,
+	OpenFileComparePreviousCommand,
+	OpenFileCompareWorkingCommand,
+	OpenFileOnRemoteCommand,
+	PickCommitCommand,
+	PinCommand,
+	PublishCommand,
+	PullCommand,
+	PushCommand,
+	SearchCommitCommand,
+	StageFileCommand,
+	SwitchCommand,
+	SwitchModeCommand,
+	UnstageFileCommand,
+	UpdatePreferencesCommand,
 } from '../../../commitDetails/protocol';
 import type { IpcMessage } from '../../../protocol';
-import { ExecuteCommandType, onIpc } from '../../../protocol';
+import { ExecuteCommand } from '../../../protocol';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../../shared/components/webview-pane';
 import type { Disposable } from '../../shared/dom';
 import { DOM } from '../../shared/dom';
@@ -193,7 +192,7 @@ export class GlCommitDetailsApp extends LitElement {
 	}
 
 	private onMessageReceived(msg: IpcMessage) {
-		switch (msg.method) {
+		switch (true) {
 			// case DidChangeRichStateNotificationType.method:
 			// 	onIpc(DidChangeRichStateNotificationType, msg, params => {
 			// 		if (this.state.selected == null) return;
@@ -217,24 +216,20 @@ export class GlCommitDetailsApp extends LitElement {
 			// 		this.renderRichContent();
 			// 	});
 			// 	break;
-			case DidChangeNotificationType.method:
-				onIpc(DidChangeNotificationType, msg, params => {
-					assertsSerialized<State>(params.state);
+			case DidChangeNotification.is(msg):
+				assertsSerialized<State>(msg.params.state);
 
-					this.state = params.state;
-					this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
-					// this.setState(this.state);
-					// this.attachState();
-				});
+				this.state = msg.params.state;
+				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
+				// this.setState(this.state);
+				// this.attachState();
 				break;
 
-			case DidChangeWipStateNotificationType.method:
-				onIpc(DidChangeWipStateNotificationType, msg, params => {
-					this.state = { ...this.state, ...params } as any;
-					this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
-					// this.setState(this.state);
-					// this.attachState();
-				});
+			case DidChangeWipStateNotification.is(msg):
+				this.state = { ...this.state!, ...msg.params.wip };
+				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
+				// this.setState(this.state);
+				// this.attachState();
 				break;
 		}
 	}
@@ -347,22 +342,22 @@ export class GlCommitDetailsApp extends LitElement {
 	private onBranchAction(name: string) {
 		switch (name) {
 			case 'pull':
-				this._hostIpc.sendCommand(PullCommandType, undefined);
+				this._hostIpc.sendCommand(PullCommand, undefined);
 				break;
 			case 'push':
-				this._hostIpc.sendCommand(PushCommandType, undefined);
+				this._hostIpc.sendCommand(PushCommand, undefined);
 				// this.onCommandClickedCore('gitlens.pushRepositories');
 				break;
 			case 'fetch':
-				this._hostIpc.sendCommand(FetchCommandType, undefined);
+				this._hostIpc.sendCommand(FetchCommand, undefined);
 				// this.onCommandClickedCore('gitlens.fetchRepositories');
 				break;
 			case 'publish-branch':
-				this._hostIpc.sendCommand(PublishCommandType, undefined);
+				this._hostIpc.sendCommand(PublishCommand, undefined);
 				// this.onCommandClickedCore('gitlens.publishRepository');
 				break;
 			case 'switch':
-				this._hostIpc.sendCommand(SwitchCommandType, undefined);
+				this._hostIpc.sendCommand(SwitchCommand, undefined);
 				// this.onCommandClickedCore('gitlens.views.switchToBranch');
 				break;
 		}
@@ -370,14 +365,14 @@ export class GlCommitDetailsApp extends LitElement {
 
 	private onCreatePatchFromWip(checked: boolean | 'staged' = true) {
 		if (this.state?.wip?.changes == null) return;
-		this._hostIpc.sendCommand(CreatePatchFromWipCommandType, { changes: this.state.wip.changes, checked: checked });
+		this._hostIpc.sendCommand(CreatePatchFromWipCommand, { changes: this.state.wip.changes, checked: checked });
 	}
 
 	private onCommandClickedCore(action?: string) {
 		const command = action?.startsWith('command:') ? action.slice(8) : action;
 		if (command == null) return;
 
-		this._hostIpc.sendCommand(ExecuteCommandType, { command: command });
+		this._hostIpc.sendCommand(ExecuteCommand, { command: command });
 	}
 
 	private onSwitchAiModel(_e: MouseEvent) {
@@ -386,11 +381,7 @@ export class GlCommitDetailsApp extends LitElement {
 
 	async onExplainCommit(_e: MouseEvent) {
 		try {
-			const result = await this._hostIpc.sendCommandWithCompletion(
-				ExplainCommandType,
-				undefined,
-				DidExplainCommandType,
-			);
+			const result = await this._hostIpc.sendRequest(ExplainRequest, undefined);
 			if (result.error) {
 				this.explain = { error: { message: result.error.message ?? 'Error retrieving content' } };
 			} else if (result.summary) {
@@ -415,7 +406,7 @@ export class GlCommitDetailsApp extends LitElement {
 		this.state = { ...this.state, preferences: { ...this.state!.preferences, files: files } } as any;
 		// this.attachState();
 
-		this._hostIpc.sendCommand(UpdatePreferencesCommandType, { files: files });
+		this._hostIpc.sendCommand(UpdatePreferencesCommand, { files: files });
 	}
 
 	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail) {
@@ -425,63 +416,63 @@ export class GlCommitDetailsApp extends LitElement {
 		} as any;
 		// this.attachState();
 
-		this._hostIpc.sendCommand(UpdatePreferencesCommandType, { autolinksExpanded: e.expanded });
+		this._hostIpc.sendCommand(UpdatePreferencesCommand, { autolinksExpanded: e.expanded });
 	}
 
 	private onNavigate(direction: 'back' | 'forward') {
-		this._hostIpc.sendCommand(NavigateCommitCommandType, { direction: direction });
+		this._hostIpc.sendCommand(NavigateCommand, { direction: direction });
 	}
 
 	private onTogglePin() {
-		this._hostIpc.sendCommand(PinCommitCommandType, { pin: !this.state!.pinned });
+		this._hostIpc.sendCommand(PinCommand, { pin: !this.state!.pinned });
 	}
 
 	private onAutolinkSettings(e: MouseEvent) {
 		e.preventDefault();
-		this._hostIpc.sendCommand(AutolinkSettingsCommandType, undefined);
+		this._hostIpc.sendCommand(AutolinkSettingsCommand, undefined);
 	}
 
 	private onPickCommit(_e: MouseEvent) {
-		this._hostIpc.sendCommand(PickCommitCommandType, undefined);
+		this._hostIpc.sendCommand(PickCommitCommand, undefined);
 	}
 
 	private onSearchCommit(_e: MouseEvent) {
-		this._hostIpc.sendCommand(SearchCommitCommandType, undefined);
+		this._hostIpc.sendCommand(SearchCommitCommand, undefined);
 	}
 
 	private onSwitchMode(_e: MouseEvent, mode: Mode) {
 		this.state = { ...this.state, mode: mode } as any;
 		// this.attachState();
 
-		this._hostIpc.sendCommand(SwitchModeCommandType, { mode: mode, repoPath: this.state!.commit?.repoPath });
+		this._hostIpc.sendCommand(SwitchModeCommand, { mode: mode, repoPath: this.state!.commit?.repoPath });
 	}
 
 	private onOpenFileOnRemote(e: FileChangeListItemDetail) {
-		this._hostIpc.sendCommand(OpenFileOnRemoteCommandType, e);
+		this._hostIpc.sendCommand(OpenFileOnRemoteCommand, e);
 	}
 
 	private onOpenFile(e: FileChangeListItemDetail) {
-		this._hostIpc.sendCommand(OpenFileCommandType, e);
+		this._hostIpc.sendCommand(OpenFileCommand, e);
 	}
 
 	private onCompareFileWithWorking(e: FileChangeListItemDetail) {
-		this._hostIpc.sendCommand(OpenFileCompareWorkingCommandType, e);
+		this._hostIpc.sendCommand(OpenFileCompareWorkingCommand, e);
 	}
 
 	private onCompareFileWithPrevious(e: FileChangeListItemDetail) {
-		this._hostIpc.sendCommand(OpenFileComparePreviousCommandType, e);
+		this._hostIpc.sendCommand(OpenFileComparePreviousCommand, e);
 	}
 
 	private onFileMoreActions(e: FileChangeListItemDetail) {
-		this._hostIpc.sendCommand(FileActionsCommandType, e);
+		this._hostIpc.sendCommand(ExecuteFileActionCommand, e);
 	}
 
 	private onStageFile(e: FileChangeListItemDetail): void {
-		this._hostIpc.sendCommand(StageFileCommandType, e);
+		this._hostIpc.sendCommand(StageFileCommand, e);
 	}
 
 	private onUnstageFile(e: FileChangeListItemDetail): void {
-		this._hostIpc.sendCommand(UnstageFileCommandType, e);
+		this._hostIpc.sendCommand(UnstageFileCommand, e);
 	}
 
 	private onCommitActions(e: CustomEvent<{ action: string; alt: boolean }>) {
@@ -489,8 +480,8 @@ export class GlCommitDetailsApp extends LitElement {
 			return;
 		}
 
-		this._hostIpc.sendCommand(CommitActionsCommandType, {
-			action: e.detail.action as CommitActionsParams['action'],
+		this._hostIpc.sendCommand(ExecuteCommitActionCommand, {
+			action: e.detail.action as ExecuteCommitActionsParams['action'],
 			alt: e.detail.alt,
 		});
 	}
