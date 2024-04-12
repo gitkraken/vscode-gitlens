@@ -1,8 +1,10 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
-import { isSha, isUncommitted } from '../../git/models/reference';
+import { isSha, isUncommitted, shortenRevision } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
 import { isRepository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
+import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders';
 import type {
 	CreateDraftChange,
 	CreateDraftPatchRequestFromChange,
@@ -21,7 +23,12 @@ import type {
 	DraftUser,
 	DraftVisibility,
 } from '../../gk/models/drafts';
-import type { RepositoryIdentityRequest } from '../../gk/models/repositoryIdentities';
+import type {
+	GkRepositoryId,
+	RepositoryIdentity,
+	RepositoryIdentityRequest,
+	RepositoryIdentityResponse,
+} from '../../gk/models/repositoryIdentities';
 import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
@@ -554,7 +561,7 @@ export class DraftService implements Disposable {
 
 		const [contentsResult, repositoryResult] = await Promise.allSettled([
 			this.getPatchContentsCore(patch.secureLink),
-			this.container.repositoryIdentity.getRepositoryOrIdentity(patch.gkRepositoryId, {
+			this.getRepositoryOrIdentity(patch.draftId, patch.gkRepositoryId, {
 				openIfNeeded: true,
 				skipRefValidation: true,
 			}),
@@ -695,6 +702,51 @@ export class DraftService implements Disposable {
 
 			throw ex;
 		}
+	}
+
+	@log()
+	async getRepositoryOrIdentity(
+		draftId: Draft['id'],
+		repoId: GkRepositoryId,
+		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
+	): Promise<Repository | RepositoryIdentity> {
+		const identity = await this.getRepositoryIdentity(draftId, repoId);
+		return (await this.container.repositoryIdentity.getRepository(identity, options)) ?? identity;
+	}
+
+	@log()
+	async getRepositoryIdentity(draftId: Draft['id'], repoId: GkRepositoryId): Promise<RepositoryIdentity> {
+		type Result = { data: RepositoryIdentityResponse };
+
+		const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${draftId}/git-repositories/${repoId}`, {
+			method: 'GET',
+		});
+		const data = ((await rsp.json()) as Result).data;
+
+		let name: string;
+		if ('name' in data && typeof data.name === 'string') {
+			name = data.name;
+		} else if (data.provider?.repoName != null) {
+			name = data.provider.repoName;
+		} else if (data.remote?.url != null && data.remote?.domain != null && data.remote?.path != null) {
+			const matcher = getRemoteProviderMatcher(this.container);
+			const provider = matcher(data.remote.url, data.remote.domain, data.remote.path);
+			name = provider?.repoName ?? data.remote.path;
+		} else {
+			name =
+				data.remote?.path ??
+				`Unknown ${data.initialCommitSha ? ` (${shortenRevision(data.initialCommitSha)})` : ''}`;
+		}
+
+		return {
+			id: data.id,
+			createdAt: new Date(data.createdAt),
+			updatedAt: new Date(data.updatedAt),
+			name: name,
+			initialCommitSha: data.initialCommitSha,
+			remote: data.remote,
+			provider: data.provider,
+		};
 	}
 }
 
