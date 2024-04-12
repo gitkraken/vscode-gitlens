@@ -1,5 +1,6 @@
 import type {
 	Account,
+	ActionablePullRequest,
 	AzureDevOps,
 	Bitbucket,
 	EnterpriseOptions,
@@ -12,16 +13,33 @@ import type {
 	Jira,
 	JiraProject,
 	JiraResource,
+	PullRequestWithUniqueID,
 	Trello,
 } from '@gitkraken/provider-apis';
+import {
+	GitBuildStatusState,
+	GitProviderUtils,
+	GitPullRequestMergeableState,
+	GitPullRequestReviewState,
+	GitPullRequestState,
+} from '@gitkraken/provider-apis';
 import type { Account as UserAccount } from '../../../git/models/author';
-import type { SearchedIssue } from '../../../git/models/issue';
+import type { IssueMember, SearchedIssue } from '../../../git/models/issue';
+import { RepositoryAccessLevel } from '../../../git/models/issue';
+import type { PullRequest, PullRequestMember, PullRequestReviewer } from '../../../git/models/pullRequest';
+import {
+	PullRequestMergeableState,
+	PullRequestReviewDecision,
+	PullRequestReviewState,
+	PullRequestStatusCheckRollupState,
+} from '../../../git/models/pullRequest';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
 
 export type ProviderAccount = Account;
 export type ProviderReposInput = (string | number)[] | GetRepoInput[];
 export type ProviderRepoInput = GetRepoInput;
 export type ProviderPullRequest = GitPullRequest;
+export type toProviderPullRequestWithUniqueId = PullRequestWithUniqueID;
 export type ProviderRepository = GitRepository;
 export type ProviderIssue = Issue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
@@ -479,3 +497,182 @@ export function toAccount(account: ProviderAccount, provider: ProviderReference)
 		username: account.username ?? undefined,
 	};
 }
+
+export const toProviderBuildStatusState = {
+	[PullRequestStatusCheckRollupState.Success]: GitBuildStatusState.Success,
+	[PullRequestStatusCheckRollupState.Failed]: GitBuildStatusState.Failed,
+	[PullRequestStatusCheckRollupState.Pending]: GitBuildStatusState.Pending,
+};
+
+export const toProviderPullRequestReviewState = {
+	[PullRequestReviewState.Approved]: GitPullRequestReviewState.Approved,
+	[PullRequestReviewState.ChangesRequested]: GitPullRequestReviewState.ChangesRequested,
+	[PullRequestReviewState.Commented]: GitPullRequestReviewState.Commented,
+	[PullRequestReviewState.ReviewRequested]: GitPullRequestReviewState.ReviewRequested,
+	[PullRequestReviewState.Dismissed]: null,
+	[PullRequestReviewState.Pending]: null,
+};
+
+export const toProviderPullRequestMergeableState = {
+	[PullRequestMergeableState.Mergeable]: GitPullRequestMergeableState.Mergeable,
+	[PullRequestMergeableState.Conflicting]: GitPullRequestMergeableState.Conflicts,
+	[PullRequestMergeableState.Unknown]: GitPullRequestMergeableState.Unknown,
+};
+
+export function toProviderReviews(reviewers: PullRequestReviewer[]): ProviderPullRequest['reviews'] {
+	return reviewers
+		.filter(r => r.state !== PullRequestReviewState.Dismissed && r.state !== PullRequestReviewState.Pending)
+		.map(reviewer => ({
+			reviewer: toProviderAccount(reviewer.reviewer),
+			state: toProviderPullRequestReviewState[reviewer.state] ?? GitPullRequestReviewState.ReviewRequested,
+		}));
+}
+
+export function toProviderReviewDecision(
+	reviewDecision?: PullRequestReviewDecision,
+	reviewers?: PullRequestReviewer[],
+): GitPullRequestReviewState | null {
+	switch (reviewDecision) {
+		case PullRequestReviewDecision.Approved:
+			return GitPullRequestReviewState.Approved;
+		case PullRequestReviewDecision.ChangesRequested:
+			return GitPullRequestReviewState.ChangesRequested;
+		case PullRequestReviewDecision.ReviewRequired:
+			return GitPullRequestReviewState.ReviewRequested;
+		default: {
+			if (reviewers?.some(r => r.state === PullRequestReviewState.ReviewRequested)) {
+				return GitPullRequestReviewState.ReviewRequested;
+			} else if (reviewers?.some(r => r.state === PullRequestReviewState.Commented)) {
+				return GitPullRequestReviewState.Commented;
+			}
+			return null;
+		}
+	}
+}
+
+export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
+	const prReviews = [...(pr.reviewRequests ?? []), ...(pr.latestReviews ?? [])];
+	return {
+		id: pr.id,
+		graphQLId: pr.nodeId,
+		number: Number.parseInt(pr.id, 10),
+		title: pr.title,
+		url: pr.url,
+		state:
+			pr.state === 'opened'
+				? GitPullRequestState.Open
+				: pr.state === 'closed'
+				  ? GitPullRequestState.Closed
+				  : GitPullRequestState.Merged,
+		isDraft: pr.isDraft ?? false,
+		createdDate: pr.createdDate,
+		updatedDate: pr.updatedDate,
+		closedDate: pr.closedDate ?? null,
+		mergedDate: pr.mergedDate ?? null,
+		commentCount: pr.commentsCount ?? null,
+		upvoteCount: pr.thumbsUpCount ?? null,
+		commitCount: null,
+		fileCount: null,
+		additions: pr.additions ?? null,
+		deletions: pr.deletions ?? null,
+		author: toProviderAccount(pr.author),
+		assignees: pr.assignees?.map(toProviderAccount) ?? null,
+		baseRef:
+			pr.refs?.base == null
+				? null
+				: {
+						name: pr.refs.base.branch,
+						oid: pr.refs.base.sha,
+				  },
+		headRef:
+			pr.refs?.head == null
+				? null
+				: {
+						name: pr.refs.head.branch,
+						oid: pr.refs.head.sha,
+				  },
+		reviews: toProviderReviews(prReviews),
+		reviewDecision: toProviderReviewDecision(pr.reviewDecision, prReviews),
+		repository:
+			pr.repository != null
+				? {
+						id: pr.repository.repo,
+						name: pr.repository.repo,
+						owner: {
+							login: pr.repository.owner,
+						},
+						remoteInfo: null, // TODO: Add the urls to our model
+				  }
+				: {
+						id: '',
+						name: '',
+						owner: {
+							login: '',
+						},
+						remoteInfo: null,
+				  },
+		headRepository:
+			pr.refs?.head != null
+				? {
+						id: pr.refs.head.repo,
+						name: pr.refs.head.repo,
+						owner: {
+							login: pr.refs.head.owner,
+						},
+						remoteInfo: null,
+				  }
+				: null,
+		headCommit:
+			pr.statusCheckRollupState != null
+				? {
+						buildStatuses: [
+							{
+								completedAt: null,
+								description: '',
+								name: '',
+								state: toProviderBuildStatusState[pr.statusCheckRollupState],
+								startedAt: null,
+								stage: null,
+								url: '',
+							},
+						],
+				  }
+				: null,
+		permissions: {
+			canMerge:
+				pr.viewerCanUpdate === true &&
+				pr.repository.accessLevel != null &&
+				pr.repository.accessLevel >= RepositoryAccessLevel.Write,
+			canMergeAndBypassProtections:
+				pr.viewerCanUpdate === true &&
+				pr.repository.accessLevel != null &&
+				pr.repository.accessLevel >= RepositoryAccessLevel.Admin,
+		},
+		mergeableState: pr.mergeableState
+			? toProviderPullRequestMergeableState[pr.mergeableState]
+			: GitPullRequestMergeableState.Unknown,
+	};
+}
+
+export function toProviderPullRequestWithUniqueId(pr: PullRequest): PullRequestWithUniqueID {
+	return {
+		...toProviderPullRequest(pr),
+		uuid: pr.nodeId!,
+	};
+}
+
+export function toProviderAccount(account: PullRequestMember | IssueMember): ProviderAccount {
+	return {
+		avatarUrl: account.avatarUrl ?? null,
+		name: account.name ?? null,
+		url: account.url ?? null,
+		// TODO: Implement these in our own model
+		email: '',
+		username: account.name ?? null,
+		id: account.name ?? null,
+	};
+}
+
+export type ProviderActionablePullRequest = ActionablePullRequest;
+
+export const getActionablePullRequests = GitProviderUtils.getActionablePullRequests;

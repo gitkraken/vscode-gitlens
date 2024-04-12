@@ -185,6 +185,16 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 			}) ?? false
 		);
 	}
+
+	protected override async getProviderCurrentAccount(
+		{ accessToken }: AuthenticationSession,
+		options?: { avatarSize?: number },
+	): Promise<Account | undefined> {
+		return (await this.container.github)?.getCurrentAccount(this, accessToken, {
+			...options,
+			baseUrl: this.apiBaseUrl,
+		});
+	}
 }
 
 export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationId.GitHub> {
