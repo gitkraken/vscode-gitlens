@@ -1,6 +1,6 @@
-import type { CancellationToken, Disposable, MessageItem, ProgressOptions } from 'vscode';
-import { Uri, window } from 'vscode';
-import type { AIProviders } from '../constants';
+import type { CancellationToken, Disposable, MessageItem, ProgressOptions, QuickInputButton } from 'vscode';
+import { env, ThemeIcon, Uri, window } from 'vscode';
+import type { AIModels, AIProviders } from '../constants';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { assertsCommitHasFullDetails, isCommit } from '../git/models/commit';
@@ -11,9 +11,9 @@ import { isRepository } from '../git/models/repository';
 import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
-import type { AnthropicModels } from './anthropicProvider';
+import { supportedInVSCodeVersion } from '../system/utils';
 import { AnthropicProvider } from './anthropicProvider';
-import type { OpenAIModels } from './openaiProvider';
+import { GeminiProvider } from './geminiProvider';
 import { OpenAIProvider } from './openaiProvider';
 
 export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {
@@ -149,7 +149,7 @@ export class AIProviderService implements Disposable {
 	}
 
 	supports(provider: AIProviders | string) {
-		return provider === 'anthropic' || provider === 'openai';
+		return provider === 'anthropic' || provider === 'gemini' || provider === 'openai';
 	}
 
 	async switchProvider() {
@@ -170,13 +170,22 @@ export class AIProviderService implements Disposable {
 		if (providerId !== this._provider?.id) {
 			this._provider?.dispose();
 
-			if (providerId === 'anthropic') {
-				this._provider = new AnthropicProvider(this.container);
-			} else {
-				this._provider = new OpenAIProvider(this.container);
-				if (providerId !== 'openai') {
+			switch (providerId) {
+				case 'anthropic':
+					this._provider = new AnthropicProvider(this.container);
+					break;
+
+				case 'gemini':
+					this._provider = new GeminiProvider(this.container);
+					break;
+
+				case 'openai':
+					this._provider = new OpenAIProvider(this.container);
+					break;
+
+				default:
+					this._provider = new OpenAIProvider(this.container);
 					await configuration.updateEffective('ai.experimental.provider', 'openai');
-				}
 			}
 		}
 
@@ -218,35 +227,36 @@ async function confirmAIProviderToS(provider: AIProvider, storage: Storage): Pro
 	return false;
 }
 
-export function getMaxCharacters(model: OpenAIModels | AnthropicModels, outputLength: number): number {
+export function getMaxCharacters(model: AIModels, outputLength: number): number {
 	const tokensPerCharacter = 3.1;
 
 	let tokens;
 	switch (model) {
+		case 'gpt-4-turbo': // 128,000 tokens (4,096 max output tokens)
+		case 'gpt-4-turbo-2024-04-09':
 		case 'gpt-4-turbo-preview':
 		case 'gpt-4-0125-preview':
-		case 'gpt-4-1106-preview': // 128,000 tokens (4,096 max output tokens)
+		case 'gpt-4-1106-preview':
 			tokens = 128000;
-			break;
-		case 'gpt-4-32k': // 32,768 tokens
-		case 'gpt-4-32k-0613':
-			tokens = 32768;
 			break;
 		case 'gpt-4': // 8,192 tokens
 		case 'gpt-4-0613':
 			tokens = 8192;
 			break;
-		case 'gpt-3.5-turbo-1106': // 16,385 tokens (4,096 max output tokens)
+		case 'gpt-4-32k': // 32,768 tokens
+		case 'gpt-4-32k-0613':
+			tokens = 32768;
+			break;
+		case 'gpt-3.5-turbo': // 16,385 tokens (4,096 max output tokens)
+		case 'gpt-3.5-turbo-0125':
+		case 'gpt-3.5-turbo-1106':
+		case 'gpt-3.5-turbo-16k': // (Legacy)
 			tokens = 16385;
 			break;
-		case 'gpt-3.5-turbo-16k': // 16,385 tokens; Will point to gpt-3.5-turbo-1106 starting Dec 11, 2023
-			tokens = 16385;
-			break;
-		case 'gpt-3.5-turbo': // Will point to gpt-3.5-turbo-1106 starting Dec 11, 2023
-			tokens = 4096;
-			break;
+
 		case 'claude-3-opus-20240229': // 200,000 tokens
 		case 'claude-3-sonnet-20240229':
+		case 'claude-3-haiku-20240307':
 		case 'claude-2.1':
 			tokens = 200000;
 			break;
@@ -254,6 +264,14 @@ export function getMaxCharacters(model: OpenAIModels | AnthropicModels, outputLe
 		case 'claude-instant-1':
 			tokens = 100000;
 			break;
+
+		case 'gemini-1.0-pro': // 30,720 tokens
+			tokens = 30720;
+			break;
+		case 'gemini-1.5-pro-latest': // 1,048,576 tokens
+			tokens = 1048576;
+			break;
+
 		default: // 4,096 tokens
 			tokens = 4096;
 			break;
@@ -261,4 +279,70 @@ export function getMaxCharacters(model: OpenAIModels | AnthropicModels, outputLe
 
 	const max = tokens * tokensPerCharacter - outputLength / tokensPerCharacter;
 	return Math.floor(max - max * 0.1);
+}
+
+export async function getApiKey(
+	storage: Storage,
+	provider: { id: AIProviders; name: string; validator: (value: string) => boolean; url: string },
+): Promise<string | undefined> {
+	let apiKey = await storage.getSecret(`gitlens.${provider.id}.key`);
+	if (!apiKey) {
+		const input = window.createInputBox();
+		input.ignoreFocusOut = true;
+
+		const disposables: Disposable[] = [];
+
+		try {
+			const infoButton: QuickInputButton = {
+				iconPath: new ThemeIcon(`link-external`),
+				tooltip: `Open the ${provider.name} API Key Page`,
+			};
+
+			apiKey = await new Promise<string | undefined>(resolve => {
+				disposables.push(
+					input.onDidHide(() => resolve(undefined)),
+					input.onDidChangeValue(value => {
+						if (value && !provider.validator(value)) {
+							input.validationMessage = `Please enter a valid ${provider.name} API key`;
+							return;
+						}
+						input.validationMessage = undefined;
+					}),
+					input.onDidAccept(() => {
+						const value = input.value.trim();
+						if (!value || !provider.validator(value)) {
+							input.validationMessage = `Please enter a valid ${provider.name} API key`;
+							return;
+						}
+
+						resolve(value);
+					}),
+					input.onDidTriggerButton(e => {
+						if (e === infoButton) {
+							void env.openExternal(Uri.parse(provider.url));
+						}
+					}),
+				);
+
+				input.password = true;
+				input.title = `Connect to ${provider.name}`;
+				input.placeholder = `Please enter your ${provider.name} API key to use this feature`;
+				input.prompt = supportedInVSCodeVersion('input-prompt-links')
+					? `Enter your [${provider.name} API Key](${provider.url} "Get your ${provider.name} API key")`
+					: `Enter your ${provider.name} API Key`;
+				input.buttons = [infoButton];
+
+				input.show();
+			});
+		} finally {
+			input.dispose();
+			disposables.forEach(d => void d.dispose());
+		}
+
+		if (!apiKey) return undefined;
+
+		void storage.storeSecret(`gitlens.${provider.id}.key`, apiKey);
+	}
+
+	return apiKey;
 }

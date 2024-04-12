@@ -1,13 +1,18 @@
-import type { Disposable, QuickInputButton } from 'vscode';
-import { env, ThemeIcon, Uri, window } from 'vscode';
+import { window } from 'vscode';
 import { fetch } from '@env/fetch';
 import type { Container } from '../container';
 import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
-import { supportedInVSCodeVersion } from '../system/utils';
 import type { AIProvider } from './aiProviderService';
-import { getMaxCharacters } from './aiProviderService';
+import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
+
+type LegacyModels = Extract<AnthropicModels, 'claude-instant-1' | 'claude-2'>;
+function isLegacyModel(model: AnthropicModels): model is LegacyModels {
+	return model === 'claude-instant-1' || model === 'claude-2';
+}
+
+type SupportedModels = Exclude<AnthropicModels, LegacyModels>;
 
 export class AnthropicProvider implements AIProvider<'anthropic'> {
 	readonly id = 'anthropic';
@@ -58,7 +63,7 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 			let result: string;
 			let maxCodeCharacters: number;
 
-			if (model === 'claude-instant-1' || model === 'claude-2') {
+			if (isLegacyModel(model)) {
 				[result, maxCodeCharacters] = await this.makeLegacyRequest(
 					model,
 					apiKey,
@@ -222,8 +227,28 @@ Assistant:`;
 		}
 	}
 
+	private fetch(model: SupportedModels, apiKey: string, request: AnthropicMessageRequest): ReturnType<typeof fetch>;
+	private fetch(model: LegacyModels, apiKey: string, request: AnthropicCompletionRequest): ReturnType<typeof fetch>;
+	private fetch(
+		model: AnthropicModels,
+		apiKey: string,
+		request: AnthropicMessageRequest | AnthropicCompletionRequest,
+	): ReturnType<typeof fetch> {
+		return fetch(getUrl(model), {
+			headers: {
+				Accept: 'application/json',
+				Authorization: `Bearer ${apiKey}`,
+				'Content-Type': 'application/json',
+				'X-API-Key': apiKey,
+				'anthropic-version': '2023-06-01',
+			},
+			method: 'POST',
+			body: JSON.stringify(request),
+		});
+	}
+
 	private async makeRequest(
-		model: Exclude<AnthropicModels, 'claude-instant-1' | 'claude-2'>,
+		model: SupportedModels,
 		apiKey: string,
 		system: string,
 		messages: (maxCodeCharacters: number) => Message[],
@@ -240,7 +265,7 @@ Assistant:`;
 				stream: false,
 				max_tokens: maxTokens,
 			};
-			const rsp = await this.fetch(apiKey, request);
+			const rsp = await this.fetch(model, apiKey, request);
 			if (!rsp.ok) {
 				let json;
 				try {
@@ -270,20 +295,6 @@ Assistant:`;
 		}
 	}
 
-	private fetch(apiKey: string, request: AnthropicMessageRequest) {
-		return fetch('https://api.anthropic.com/v1/messages', {
-			headers: {
-				Accept: 'application/json',
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-				'X-API-Key': apiKey,
-				'anthropic-version': '2023-06-01',
-			},
-			method: 'POST',
-			body: JSON.stringify(request),
-		});
-	}
-
 	private async makeLegacyRequest(
 		model: Extract<AnthropicModels, 'claude-instant-1' | 'claude-2'>,
 		apiKey: string,
@@ -300,7 +311,7 @@ Assistant:`;
 				stream: false,
 				max_tokens_to_sample: maxTokens,
 			};
-			const rsp = await this.fetchLegacy(apiKey, request);
+			const rsp = await this.fetch(model, apiKey, request);
 			if (!rsp.ok) {
 				let json;
 				try {
@@ -326,83 +337,19 @@ Assistant:`;
 			return [result, maxCodeCharacters];
 		}
 	}
-
-	private fetchLegacy(apiKey: string, request: AnthropicCompletionRequest) {
-		return fetch('https://api.anthropic.com/v1/complete', {
-			headers: {
-				Accept: 'application/json',
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-				'X-API-Key': apiKey,
-				'anthropic-version': '2023-06-01',
-			},
-			method: 'POST',
-			body: JSON.stringify(request),
-		});
-	}
 }
 
 async function getApiKey(storage: Storage): Promise<string | undefined> {
-	let apiKey = await storage.getSecret('gitlens.anthropic.key');
-	if (!apiKey) {
-		const input = window.createInputBox();
-		input.ignoreFocusOut = true;
+	return getApiKeyCore(storage, {
+		id: 'anthropic',
+		name: 'Anthropic',
+		validator: v => /(?:sk-)?[a-zA-Z0-9-_]{32,}/.test(v),
+		url: 'https://console.anthropic.com/account/keys',
+	});
+}
 
-		const disposables: Disposable[] = [];
-
-		try {
-			const infoButton: QuickInputButton = {
-				iconPath: new ThemeIcon(`link-external`),
-				tooltip: 'Open the Anthropic API Key Page',
-			};
-
-			apiKey = await new Promise<string | undefined>(resolve => {
-				disposables.push(
-					input.onDidHide(() => resolve(undefined)),
-					input.onDidChangeValue(value => {
-						if (value && !/(?:sk-)?[a-zA-Z0-9-_]{32,}/.test(value)) {
-							input.validationMessage = 'Please enter a valid Anthropic API key';
-							return;
-						}
-						input.validationMessage = undefined;
-					}),
-					input.onDidAccept(() => {
-						const value = input.value.trim();
-						if (!value || !/(?:sk-)?[a-zA-Z0-9-_]{32,}/.test(value)) {
-							input.validationMessage = 'Please enter a valid Anthropic API key';
-							return;
-						}
-
-						resolve(value);
-					}),
-					input.onDidTriggerButton(e => {
-						if (e === infoButton) {
-							void env.openExternal(Uri.parse('https://console.anthropic.com/account/keys'));
-						}
-					}),
-				);
-
-				input.password = true;
-				input.title = 'Connect to Anthropic';
-				input.placeholder = 'Please enter your Anthropic API key to use this feature';
-				input.prompt = supportedInVSCodeVersion('input-prompt-links')
-					? 'Enter your [Anthropic API Key](https://console.anthropic.com/account/keys "Get your Anthropic API key")'
-					: 'Enter your Anthropic API Key';
-				input.buttons = [infoButton];
-
-				input.show();
-			});
-		} finally {
-			input.dispose();
-			disposables.forEach(d => void d.dispose());
-		}
-
-		if (!apiKey) return undefined;
-
-		void storage.storeSecret('gitlens.anthropic.key', apiKey);
-	}
-
-	return apiKey;
+function getUrl(model: AnthropicModels): string {
+	return isLegacyModel(model) ? 'https://api.anthropic.com/v1/complete' : 'https://api.anthropic.com/v1/messages';
 }
 
 export type AnthropicModels =
@@ -410,7 +357,8 @@ export type AnthropicModels =
 	| 'claude-2'
 	| 'claude-2.1'
 	| 'claude-3-opus-20240229'
-	| 'claude-3-sonnet-20240229';
+	| 'claude-3-sonnet-20240229'
+	| 'claude-3-haiku-20240307';
 
 interface AnthropicError {
 	type: 'error';
@@ -466,7 +414,7 @@ interface Message {
 }
 
 interface AnthropicMessageRequest {
-	model: Exclude<AnthropicModels, 'claude-instant-1' | 'claude-2'>;
+	model: SupportedModels;
 	messages: Message[];
 	system?: string;
 
