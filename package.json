@@ -3311,30 +3311,20 @@
 						],
 						"default": null,
 						"enum": [
+							"gpt-4-turbo",
 							"gpt-4-turbo-preview",
-							"gpt-4-0125-preview",
-							"gpt-4-1106-preview",
 							"gpt-4",
-							"gpt-4-0613",
 							"gpt-4-32k",
-							"gpt-4-32k-0613",
 							"gpt-3.5-turbo",
-							"gpt-3.5-turbo-16k",
-							"gpt-3.5-turbo-0613",
-							"gpt-3.5-turbo-1106"
+							"gpt-3.5-turbo-16k"
 						],
 						"enumDescriptions": [
-							"GPT-4 Turbo (Latest)",
-							"GPT-4 Turbo (Jan 25)",
-							"GPT-4 Turbo (Nov 6)",
+							"GPT-4 Turbo with Vision",
+							"GPT-4 Turbo Preview",
 							"GPT-4",
-							"GPT-4 (June 13)",
 							"GPT-4 32k",
-							"GPT-4 32k (June 13)",
 							"GPT-3.5 Turbo",
-							"GPT-3.5 Turbo 16k",
-							"GPT-3.5 Turbo (June 13)",
-							"GPT-3.5 Turbo (Nov 6)"
+							"GPT-3.5 Turbo 16k"
 						],
 						"markdownDescription": "Specifies the OpenAI model to use for GitLens' experimental AI features",
 						"scope": "window",
@@ -3357,22 +3347,42 @@
 						],
 						"default": null,
 						"enum": [
-							"claude-instant-1",
-							"claude-2",
-							"claude-2.1",
 							"claude-3-opus-20240229",
-							"claude-3-sonnet-20240229"
+							"claude-3-sonnet-20240229",
+							"claude-3-haiku-20240307",
+							"claude-2.1",
+							"claude-2",
+							"claude-instant-1"
 						],
 						"enumDescriptions": [
-							"Claude Instant 1.2",
-							"Claude 2",
-							"Claude 2.1",
 							"Claude 3 Opus",
-							"Claude 3 Sonnet"
+							"Claude 3 Sonnet",
+							"Claude 3 Haiku",
+							"Claude 2.1",
+							"Claude 2",
+							"Claude Instant 1.2"
 						],
 						"markdownDescription": "Specifies the Anthropic model to use for GitLens' experimental AI features",
 						"scope": "window",
 						"order": 102
+					},
+					"gitlens.ai.experimental.gemini.model": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"enum": [
+							"gemini-1.5-pro-latest",
+							"gemini-1.0-pro"
+						],
+						"enumDescriptions": [
+							"Gemini 1.5 Pro (Latest)",
+							"Gemini 1.0 Pro"
+						],
+						"markdownDescription": "Specifies the Google Gemini model to use for GitLens' experimental AI features",
+						"scope": "window",
+						"order": 103
 					}
 				}
 			},
