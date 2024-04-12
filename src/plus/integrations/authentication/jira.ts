@@ -1,111 +1,70 @@
-import type { CancellationToken, Disposable } from 'vscode';
+import type { CancellationToken, Disposable, Uri } from 'vscode';
 import { CancellationTokenSource, window } from 'vscode';
-import { Logger } from '../../../system/logger';
-import { cancellable } from '../../../system/promise';
+import type { Container } from '../../../container';
+import type { DeferredEventExecutor } from '../../../system/event';
+import { promisifyDeferred } from '../../../system/event';
 import { openUrl } from '../../../system/utils';
-import type { ServerConnection } from '../../gk/serverConnection';
+import { IssueIntegrationId } from '../providers/models';
+import type { CloudIntegrationsApi } from './cloudIntegrationsApi';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from './integrationAuthentication';
 import type { ProviderAuthenticationSession } from './models';
 
-type ConnectionType = 'oauth' | 'personal_access_token';
-
-type ProviderTokenData = {
-	accessToken: string;
-	type: ConnectionType;
-	domain: string;
-	expiresIn: number;
-	scopes: string;
-};
-
-type ProviderAuthorizationData = {
-	url: string;
-};
-
-/* type ProviderRsp<T> = {
-	data: T | null;
-	error: string | null;
-}; */
-
-type providerInput = 'jira' | 'trello' | 'gitlab' | 'github' | 'bitbucket' | 'azure';
-
 export class JiraAuthenticationProvider implements IntegrationAuthenticationProvider {
-	constructor(private readonly connection: ServerConnection) {}
+	constructor(
+		private readonly container: Container,
+		private readonly getCloudIntegrationsApi: () => Promise<CloudIntegrationsApi>,
+	) {}
 
-	private readonly authProviderId = 'jira';
+	private readonly authProviderId = IssueIntegrationId.Jira;
 
 	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
 		return descriptor?.domain ?? '';
 	}
 
-	private async getTokenData(
-		provider: providerInput,
-		refresh: boolean = false,
-	): Promise<ProviderTokenData | undefined> {
-		const tokenRsp = await this.connection.fetchGkDevApi(
-			`v1/provider-tokens/${provider}${refresh ? '/refresh' : ''}`,
-			{ method: refresh ? 'POST' : 'GET' },
-		);
-		if (!tokenRsp.ok) {
-			// TODO: Handle errors
-			const error = (await tokenRsp.json())?.error;
-			if (error != null) {
-				Logger.error(`Failed to ${refresh ? 'refresh' : 'get'} ${provider} token from cloud: ${error}`);
-			}
-			return undefined;
-		}
-
-		return (await tokenRsp.json())?.data as Promise<ProviderTokenData | undefined>;
-	}
-
-	private async authorize(provider: providerInput): Promise<ProviderAuthorizationData | undefined> {
-		const authorizeRsp = await this.connection.fetchGkDevApi(
-			`v1/provider-tokens/${provider}/authorize`,
-			{
-				method: 'GET',
-			},
-			{
-				query: 'source=gitlens',
-			},
-		);
-		if (!authorizeRsp.ok) {
-			// TODO: HANDLE ERROR
-			const error = (await authorizeRsp.json())?.error;
-			if (error != null) {
-				Logger.error(`Failed to authorize with ${provider}: ${error}`);
-			}
-			return undefined;
-		}
-
-		return (await authorizeRsp.json())?.data as Promise<ProviderAuthorizationData | undefined>;
-	}
-
 	async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { authorizeIfNeeded?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
-		let tokenData = await this.getTokenData(this.authProviderId);
+		const api = await this.getCloudIntegrationsApi();
+		let tokenData = await api.getTokenData(this.authProviderId);
 
 		if (tokenData != null && tokenData.expiresIn < 60) {
-			tokenData = await this.getTokenData(this.authProviderId, true);
+			tokenData = await api.getTokenData(this.authProviderId, true);
 		}
 
-		if (!tokenData) {
-			const authorizeJiraUrl = (await this.authorize(this.authProviderId))?.url;
+		if (!tokenData && options?.authorizeIfNeeded) {
+			const authorizeJiraUrl = (await api.authorize(this.authProviderId))?.url;
 
 			if (!authorizeJiraUrl) return undefined;
 
 			void (await openUrl(authorizeJiraUrl));
 
 			const cancellation = new CancellationTokenSource();
+			const deferredCallback = promisifyDeferred(
+				this.container.uri.onDidReceiveCloudIntegrationAuthenticationUri,
+				this.getUriHandlerDeferredExecutor(),
+			);
+
 			try {
-				await cancellable(this.openCompletionInput(cancellation.token), 2 * 60 * 1000, cancellation.token);
-				tokenData = await this.getTokenData(this.authProviderId);
+				await Promise.race([
+					deferredCallback.promise,
+					this.openCompletionInput(cancellation.token),
+					new Promise<string>((_, reject) =>
+						// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+						cancellation.token.onCancellationRequested(() => reject('Cancelled')),
+					),
+					new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
+				]);
+				tokenData = await api.getTokenData(this.authProviderId);
 			} catch {
 				tokenData = undefined;
 			} finally {
+				cancellation.cancel();
 				cancellation.dispose();
+				deferredCallback.cancel();
 			}
 		}
 
@@ -149,5 +108,18 @@ export class JiraAuthenticationProvider implements IntegrationAuthenticationProv
 			input.dispose();
 			disposables.forEach(d => void d.dispose());
 		}
+	}
+
+	private getUriHandlerDeferredExecutor(): DeferredEventExecutor<Uri, string> {
+		return (uri: Uri, resolve, reject) => {
+			const queryParams: URLSearchParams = new URLSearchParams(uri.query);
+			const provider = queryParams.get('provider');
+			if (provider !== IssueIntegrationId.Jira) {
+				reject('Invalid provider');
+				return;
+			}
+
+			resolve(uri.toString(true));
+		};
 	}
 }
