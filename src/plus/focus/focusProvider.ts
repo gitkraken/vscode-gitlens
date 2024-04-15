@@ -4,12 +4,11 @@ import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
-import type { ProviderReference } from '../../git/models/remoteProvider';
 import { configuration } from '../../system/configuration';
 import { getSettledValue } from '../../system/promise';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkType } from '../../uris/deepLinks/deepLink';
-import type { ProviderActionablePullRequest } from '../integrations/providers/models';
+import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
 	getActionablePullRequests,
 	HostingIntegrationId,
@@ -88,21 +87,9 @@ const prActionsMap = new Map<FocusActionCategory, FocusAction[]>([
 	['other', ['switch', 'open']],
 ]);
 
-export type FocusItem = ProviderActionablePullRequest & {
-	type: 'pullRequest' | 'issue';
-	provider: ProviderReference;
-	enrichable: EnrichableItem;
-	repoIdentity: {
-		remote: {
-			url?: string;
-		};
-		name: string;
-		provider: {
-			id: string;
-			repoDomain: string;
-			repoName: string;
-		};
-	};
+export type FocusPullRequest = EnrichablePullRequest & ProviderActionablePullRequest;
+
+export type FocusItem = FocusPullRequest & {
 	isNew: boolean;
 	actionableCategory: FocusActionCategory;
 	suggestedActions: FocusAction[];
@@ -348,14 +335,14 @@ export class FocusProvider implements Disposable {
 		if (prs != null) {
 			const github = await this.container.integrations.get(HostingIntegrationId.GitHub);
 			const myAccount = await github.getCurrentAccount();
-			const inputPrs = prs.map(pr => {
+			const inputPrs: EnrichablePullRequest[] = prs.map(pr => {
 				const providerPr = toProviderPullRequestWithUniqueId(pr.pullRequest);
 				const enrichable = {
 					type: 'pr',
 					id: providerPr.uuid,
 					url: pr.pullRequest.url,
 					provider: 'github',
-				};
+				} satisfies EnrichableItem;
 				const repoIdentity = {
 					remote: { url: pr.pullRequest.refs?.head?.url },
 					name: pr.pullRequest.repository.repo,
@@ -374,13 +361,15 @@ export class FocusProvider implements Disposable {
 					enrichable: enrichable,
 					repoIdentity: repoIdentity,
 				};
-			});
+			}) satisfies EnrichablePullRequest[];
 
+			// Note: The expected output of this is ActionablePullRequest[], but we are passing in EnrichablePullRequest,
+			// so we need to cast the output as FocusPullRequest[].
 			const actionableItems = getActionablePullRequests(
 				inputPrs,
 				{ id: myAccount!.username! },
 				{ enrichedItemsByUniqueId: enrichedItemsByEntityId },
-			);
+			) as FocusPullRequest[];
 			// Map from shared category label to local actionable category, and get suggested actions
 			categorized = actionableItems.map(item => {
 				const actionableCategory = sharedCategoryToFocusActionCategoryMap.get(item.suggestedActionCategory)!;
@@ -393,7 +382,7 @@ export class FocusProvider implements Disposable {
 					actionableCategory: actionableCategory,
 					suggestedActions: suggestedActions,
 				};
-			}) as FocusItem[];
+			}) satisfies FocusItem[];
 		}
 
 		this.updateGroupedIds(categorized);
