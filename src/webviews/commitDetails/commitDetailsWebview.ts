@@ -1,5 +1,6 @@
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
-import { CancellationTokenSource, Disposable, Uri, window } from 'vscode';
+import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
@@ -20,7 +21,7 @@ import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
-import { uncommitted } from '../../git/models/constants';
+import { uncommitted, uncommittedStaged } from '../../git/models/constants';
 import type { GitFileChange, GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import { serializeIssueOrPullRequest } from '../../git/models/issue';
@@ -31,7 +32,10 @@ import { createReference, getReferenceFromRevision, shortenRevision } from '../.
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import type { CreateDraftChange, DraftVisibility } from '../../gk/models/drafts';
 import { showPatchesView } from '../../plus/drafts/actions';
+import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
+import { confirmDraftStorage, ensureAccount } from '../../plus/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import type { Change } from '../../plus/webviews/patchDetails/protocol';
 import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
@@ -64,6 +68,7 @@ import type {
 	Mode,
 	Preferences,
 	State,
+	SuggestChangesParams,
 	SwitchModeParams,
 	UpdateablePreferences,
 	Wip,
@@ -72,6 +77,7 @@ import type {
 import {
 	AutolinkSettingsCommand,
 	CreatePatchFromWipCommand,
+	DidChangeDraftStateNotification,
 	DidChangeNotification,
 	DidChangeWipStateNotification,
 	ExecuteCommitActionCommand,
@@ -91,6 +97,7 @@ import {
 	PushCommand,
 	SearchCommitCommand,
 	StageFileCommand,
+	SuggestChangesCommand,
 	SwitchCommand,
 	SwitchModeCommand,
 	UnstageFileCommand,
@@ -400,6 +407,108 @@ export class CommitDetailsWebviewProvider
 			case SwitchCommand.is(e):
 				this.switch();
 				break;
+			case SuggestChangesCommand.is(e):
+				void this.suggestChanges(e.params);
+				break;
+		}
+	}
+
+	private getEncodedEntityid(): string | undefined {
+		if (this._context.wip?.pullRequest == null) return undefined;
+
+		const entity = getEntityIdentifierInput(this._context.wip.pullRequest);
+		if (entity == null) return undefined;
+
+		return EntityIdentifierUtils.encode(entity);
+	}
+
+	private async suggestChanges(e: SuggestChangesParams) {
+		if (
+			!(await ensureAccount('Cloud Patches require a GitKraken account.', this.container)) ||
+			!(await confirmDraftStorage(this.container))
+		) {
+			return;
+		}
+
+		console.log('suggestChanges', e);
+
+		const createChanges: CreateDraftChange[] = [];
+
+		const changes = Object.entries(e.changesets);
+		const ignoreChecked = changes.length === 1;
+
+		for (const [_, change] of changes) {
+			if (!ignoreChecked && change.checked === false) continue;
+
+			// we only support a single repo for now
+			const repository =
+				this._context.wip!.repo.id === change.repository.path ? this._context.wip!.repo : undefined;
+			if (repository == null) continue;
+
+			const { checked } = change;
+			let changeRevision = { to: uncommitted, from: 'HEAD' };
+			if (checked === 'staged') {
+				changeRevision = { ...changeRevision, to: uncommittedStaged };
+			}
+
+			const prEntityId = this.getEncodedEntityid();
+			if (prEntityId == null) continue;
+
+			createChanges.push({
+				repository: repository,
+				revision: changeRevision,
+				prEntityId: prEntityId,
+			});
+		}
+
+		if (createChanges.length === 0) return;
+
+		try {
+			const options = {
+				description: e.description,
+				visibility: 'provider_access' as DraftVisibility,
+			};
+
+			const draft = await this.container.drafts.createDraft(
+				'suggested_pr_change',
+				e.title,
+				createChanges,
+				options,
+			);
+
+			console.log('suggestChanges draft', draft);
+
+			async function showNotification() {
+				const view = { title: 'View Code Suggestions' };
+				const copy = { title: 'Copy Link' };
+				let copied = false;
+				while (true) {
+					const result = await window.showInformationMessage(
+						`Cloud Patch successfully created${copied ? '\u2014 link copied to the clipboard' : ''}`,
+						view,
+						copy,
+					);
+
+					if (result === copy) {
+						void env.clipboard.writeText(draft.deepLinkUrl);
+						copied = true;
+						continue;
+					}
+
+					if (result === view) {
+						void showPatchesView({ mode: 'view', draft: draft });
+					}
+
+					break;
+				}
+			}
+
+			void showNotification();
+			this.notifyEndReview();
+		} catch (ex) {
+			debugger;
+
+			void window.showErrorMessage(`Unable to create draft: ${ex.message}`);
 		}
 	}
 
@@ -1071,6 +1180,10 @@ export class CommitDetailsWebviewProvider
 			},
 		});
 		this.updateState();
+	}
+
+	private notifyEndReview() {
+		void this.host.notify(DidChangeDraftStateNotification, { inReview: false });
 	}
 
 	private async notifyDidChangeState(force: boolean = false) {

@@ -562,7 +562,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		this.createPatch();
 	}
 
-	private onDebouncedCreateAll = debounce(this.onCreateAll.bind(this), 250);
+	private onDebouncedCreateAll = debounce(this.onCreateAll, 250);
 
 	private onSelectCreateOption(_e: CustomEvent<{ target: MenuItem }>) {
 		// const target = e.detail?.target;
@@ -613,27 +613,19 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 	// 	this.requestUpdate('state');
 	// }
 
-	private onTitleInput(e: InputEvent) {
-		this.create.title = (e.target as HTMLInputElement).value;
-		this.fireEvent('gl-patch-create-update-metadata', {
-			title: this.create.title,
-			description: this.create.description,
-			visibility: this.create.visibility,
-		});
+	private onTitleInput(_e: InputEvent) {
+		this.create.title = this.titleInput.value;
+		this.fireMetadataUpdate();
 	}
 
-	private onDebounceTitleInput = debounce(this.onTitleInput.bind(this), 500);
+	private onDebounceTitleInput = debounce(this.onTitleInput, 500);
 
-	private onDescriptionInput(e: InputEvent) {
-		this.create.description = (e.target as HTMLInputElement).value;
-		this.fireEvent('gl-patch-create-update-metadata', {
-			title: this.create.title!,
-			description: this.create.description,
-			visibility: this.create.visibility,
-		});
+	private onDescriptionInput(_e: InputEvent) {
+		this.create.description = this.descInput.value;
+		this.fireMetadataUpdate();
 	}
 
-	private onDebounceDescriptionInput = debounce(this.onDescriptionInput.bind(this), 500);
+	private onDebounceDescriptionInput = debounce(this.onDescriptionInput, 500);
 
 	private onInviteUsers(_e: Event) {
 		this.fireEvent('gl-patch-create-invite-users');
@@ -652,6 +644,10 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 
 	private onVisibilityChange(e: Event) {
 		this.create.visibility = (e.target as HTMLInputElement).value as DraftVisibility;
+		this.fireMetadataUpdate();
+	}
+
+	private fireMetadataUpdate() {
 		this.fireEvent('gl-patch-create-update-metadata', {
 			title: this.create.title!,
 			description: this.create.description,
