@@ -13,7 +13,6 @@ import { debug } from '../../system/decorators/log';
 import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
 import type { ServerConnection } from '../gk/serverConnection';
-import type { CloudIntegrationsApi } from './authentication/cloudIntegrationsApi';
 import { supportedCloudIntegrationIds } from './authentication/models';
 import type {
 	HostingIntegration,
@@ -78,8 +77,8 @@ export class IntegrationService implements Disposable {
 		const session = await this.container.subscription.getAuthenticationSession();
 		let connectedProviders = new Set<string>();
 		if (session != null) {
-			const api = await this.getCloudIntegrationsApi();
-			const connectedProviderData = (await api.getConnectedProvidersData()) ?? [];
+			const api = await this.container.cloudIntegrationsApi;
+			const connectedProviderData = (await api?.getConnectedProvidersData()) ?? [];
 			connectedProviders = new Set(connectedProviderData.map(p => p.provider));
 		}
 		for (const cloudIntegrationId of supportedCloudIntegrationIds) {
@@ -217,23 +216,6 @@ export class IntegrationService implements Disposable {
 		}
 
 		return this._providersApi;
-	}
-
-	private _cloudIntegrationsApi: Promise<CloudIntegrationsApi> | undefined;
-	private async getCloudIntegrationsApi() {
-		if (this._cloudIntegrationsApi == null) {
-			const container = this.container;
-			const connection = this.connection;
-			async function load() {
-				return new (
-					await import(/* webpackChunkName: "integrations" */ './authentication/cloudIntegrationsApi')
-				).CloudIntegrationsApi(container, connection);
-			}
-
-			this._cloudIntegrationsApi = load();
-		}
-
-		return this._cloudIntegrationsApi;
 	}
 
 	getByRemote(remote: GitRemote): Promise<HostingIntegration | undefined> {
