@@ -5,7 +5,7 @@ export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly expiresAt?: Date;
 }
 
-export type CloudIntegrationTokenData = {
+export type CloudIntegrationConnection = {
 	accessToken: string;
 	type: CloudIntegrationConnectionType;
 	domain: string;
@@ -13,11 +13,11 @@ export type CloudIntegrationTokenData = {
 	scopes: string;
 };
 
-export type CloudIntegrationAuthorizationData = {
+export type CloudIntegrationAuthorization = {
 	url: string;
 };
 
-export type ConnectedCloudIntegrationData = {
+export type ConnectedCloudIntegration = {
 	type: CloudIntegrationConnectionType;
 	provider: CloudIntegrationType;
 	domain: string;

@@ -15,7 +15,7 @@ import type { ProviderAuthenticationSession } from './models';
 export class JiraAuthenticationProvider implements IntegrationAuthenticationProvider {
 	constructor(
 		private readonly container: Container,
-		private readonly getCloudIntegrationsApi: () => Promise<CloudIntegrationsApi>,
+		private readonly cloudIntegrationsApi: CloudIntegrationsApi | undefined,
 	) {}
 
 	private readonly authProviderId = IssueIntegrationId.Jira;
@@ -28,15 +28,15 @@ export class JiraAuthenticationProvider implements IntegrationAuthenticationProv
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { authorizeIfNeeded?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
-		const api = await this.getCloudIntegrationsApi();
-		let tokenData = await api.getTokenData(this.authProviderId);
+		if (this.cloudIntegrationsApi == null) return undefined;
+		let tokenData = await this.cloudIntegrationsApi.getTokenData(this.authProviderId);
 
 		if (tokenData != null && tokenData.expiresIn < 60) {
-			tokenData = await api.getTokenData(this.authProviderId, true);
+			tokenData = await this.cloudIntegrationsApi.getTokenData(this.authProviderId, true);
 		}
 
 		if (!tokenData && options?.authorizeIfNeeded) {
-			const authorizeJiraUrl = (await api.authorize(this.authProviderId))?.url;
+			const authorizeJiraUrl = (await this.cloudIntegrationsApi.authorize(this.authProviderId))?.url;
 
 			if (!authorizeJiraUrl) return undefined;
 
@@ -58,7 +58,7 @@ export class JiraAuthenticationProvider implements IntegrationAuthenticationProv
 					),
 					new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
 				]);
-				tokenData = await api.getTokenData(this.authProviderId);
+				tokenData = await this.cloudIntegrationsApi.getTokenData(this.authProviderId);
 			} catch {
 				tokenData = undefined;
 			} finally {
