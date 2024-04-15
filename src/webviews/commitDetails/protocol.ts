@@ -5,6 +5,8 @@ import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/co
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequestShape } from '../../git/models/pullRequest';
+import type { DraftVisibility } from '../../gk/models/drafts';
+import type { Change, DraftUserSelection } from '../../plus/webviews/patchDetails/protocol';
 import type { DateTimeFormat } from '../../system/date';
 import type { Serialized } from '../../system/serialize';
 import type { IpcScope, WebviewState } from '../protocol';
@@ -75,6 +77,10 @@ export interface Wip {
 	};
 }
 
+export interface DraftState {
+	inReview: boolean;
+}
+
 export interface State extends WebviewState {
 	mode: Mode;
 
@@ -100,6 +106,15 @@ export interface State extends WebviewState {
 export type ShowCommitDetailsViewCommandArgs = string[];
 
 // COMMANDS
+
+export interface SuggestChangesParams {
+	title: string;
+	description?: string;
+	visibility: DraftVisibility;
+	changesets: Record<string, Change>;
+	userSelections: DraftUserSelection[] | undefined;
+}
+export const SuggestChangesCommand = new IpcCommand<SuggestChangesParams>(scope, 'commit/suggestChanges');
 
 export interface ExecuteCommitActionsParams {
 	action: 'graph' | 'more' | 'scm' | 'sha';
@@ -180,3 +195,8 @@ export const DidChangeOrgSettingsNotification = new IpcNotification<DidChangeOrg
 	scope,
 	'org/settings/didChange',
 );
+
+export interface DidChangeDraftStateParams {
+	inReview: boolean;
+}
+export const DidChangeDraftStateNotification = new IpcNotification<DidChangeDraftStateParams>(scope, 'didChange/patch');

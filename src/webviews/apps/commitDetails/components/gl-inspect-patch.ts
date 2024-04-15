@@ -16,6 +16,14 @@ export interface CreatePatchState {
 	userSelections?: DraftUserSelection[];
 }
 
+export interface CreatePatchEventDetail {
+	title: string;
+	description?: string;
+	visibility: DraftVisibility;
+	changesets: Record<string, Change>;
+	userSelections: DraftUserSelection[] | undefined;
+}
+
 @customElement('gl-inspect-patch')
 export class InspectPatch extends GlElement {
 	static override styles = [
@@ -240,6 +248,25 @@ export class InspectPatch extends GlElement {
 	}
 
 	override render() {
-		return html`<gl-patch-create .state=${this.patchCreateState} review></gl-patch-create>`;
+		return html`<gl-patch-create
+			.state=${this.patchCreateState}
+			review
+			@gl-patch-file-compare-working=${(e: CustomEvent) => {
+				console.log('gl-patch-file-compare-working', e);
+			}}
+			@gl-patch-file-compare-previous=${(e: CustomEvent) => {
+				console.log('gl-patch-file-compare-previous', e);
+			}}
+			@gl-patch-file-open=${(e: CustomEvent) => {
+				console.log('gl-patch-file-open', e);
+			}}
+			@gl-patch-create-patch=${(e: CustomEvent) => {
+				console.log('gl-patch-create-patch', e);
+				this.fireEvent('gl-patch-create-patch', e.detail);
+			}}
+			@gl-patch-create-update-metadata=${(e: CustomEvent) => {
+				console.log('gl-patch-create-update-metadata', e);
+			}}
+		></gl-patch-create>`;
 	}
 }

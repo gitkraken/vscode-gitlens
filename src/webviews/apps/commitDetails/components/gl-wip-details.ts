@@ -1,7 +1,7 @@
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { State, Wip } from '../../../commitDetails/protocol';
+import type { DraftState, State, Wip } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
@@ -21,8 +21,13 @@ export class GlWipDetails extends GlDetailsBase {
 	@property({ type: Object })
 	orgSettings?: State['orgSettings'];
 
+	@property({ type: Object })
+	draftState?: DraftState;
+
 	@state()
-	inPatchCreation = false;
+	get inReview() {
+		return this.draftState?.inReview ?? false;
+	}
 
 	get isUnpublished() {
 		const branch = this.wip?.branch;
@@ -58,6 +63,7 @@ export class GlWipDetails extends GlDetailsBase {
 				uri: wip.repo.uri,
 			},
 			files: wip.changes?.files ?? [],
+			checked: true,
 		};
 
 		return {
@@ -91,7 +97,7 @@ export class GlWipDetails extends GlDetailsBase {
 				// 	action = 'create-patch';
 				// }
 
-				if (!this.inPatchCreation) {
+				if (!this.inReview) {
 					label = `Start Review for PR #${pr.id}`;
 					action = 'start-patch-review';
 				} else {
@@ -101,13 +107,7 @@ export class GlWipDetails extends GlDetailsBase {
 
 				return html`<p class="button-container">
 					<span class="button-group button-group--single">
-						<gl-button
-							full
-							data-action="${action}"
-							@click=${() => {
-								this.inPatchCreation = !this.inPatchCreation;
-							}}
-						>
+						<gl-button full data-action="${action}" @click=${() => this.onToggleReviewMode(!this.inReview)}>
 							<code-icon icon="gl-cloud-patch-share"></code-icon> ${label}
 						</gl-button>
 						<gl-button
@@ -216,7 +216,7 @@ export class GlWipDetails extends GlDetailsBase {
 	}
 
 	renderSuggestedChanges() {
-		if (this.inPatchCreation === false || this.wip?.pullRequest == null) return nothing;
+		if (this.inReview === false || this.wip?.pullRequest == null) return nothing;
 
 		return html`
 			<webview-pane collapsable>
@@ -260,12 +260,17 @@ export class GlWipDetails extends GlDetailsBase {
 	}
 
 	renderPatchCreation() {
-		if (!this.inPatchCreation) return nothing;
+		if (!this.inReview) return nothing;
 
 		return html`<gl-inspect-patch
 			.orgSettings=${this.orgSettings}
 			.preferences=${this.preferences}
 			.createState=${this.patchCreateState}
+			@gl-patch-create-patch=${(e: CustomEvent) => {
+				// this.onDataActionClick('create-patch');
+				console.log('gl-patch-create-patch', e);
+				void this.dispatchEvent(new CustomEvent('gl-inspect-create-suggestions', { detail: e.detail }));
+			}}
 		></gl-inspect-patch>`;
 	}
 
@@ -276,9 +281,7 @@ export class GlWipDetails extends GlDetailsBase {
 			${this.renderActions()}
 			<webview-pane-group flexible>
 				${this.renderSuggestedChanges()}${this.renderIncomingOutgoing()}
-				${when(this.inPatchCreation === false, () =>
-					this.renderChangedFiles('wip'),
-				)}${this.renderPatchCreation()}
+				${when(this.inReview === false, () => this.renderChangedFiles('wip'))}${this.renderPatchCreation()}
 			</webview-pane-group>
 		`;
 	}
@@ -297,6 +300,10 @@ export class GlWipDetails extends GlDetailsBase {
 
 	onDataActionClick(name: string) {
 		void this.dispatchEvent(new CustomEvent('data-action', { detail: { name: name } }));
+	}
+
+	onToggleReviewMode(inReview: boolean) {
+		this.dispatchEvent(new CustomEvent('draft-state-changed', { detail: { inReview: inReview } }));
 	}
 }
 
