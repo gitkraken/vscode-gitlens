@@ -1,13 +1,11 @@
 import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
 import { authentication, Disposable, env, EventEmitter, window } from 'vscode';
 import { isWeb } from '@env/platform';
-import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { RemoteProvider, RemoteProviderId } from '../../git/remotes/remoteProvider';
-import { registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
 import { take } from '../../system/event';
@@ -61,16 +59,11 @@ export class IntegrationService implements Disposable {
 			}),
 			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
 			container.subscription.onDidCheckIn(this.onUserCheckedIn, this),
-			...this.registerCommands(),
 		);
 	}
 
 	dispose() {
 		this._disposable?.dispose();
-	}
-
-	private registerCommands(): Disposable[] {
-		return [registerCommand(Commands.PlusManageCloudIntegrations, () => this.manageCloudIntegrations())];
 	}
 
 	private async syncCloudIntegrations(_options?: { force?: boolean }) {
@@ -102,7 +95,7 @@ export class IntegrationService implements Disposable {
 		void this.syncCloudIntegrations();
 	}
 
-	private async manageCloudIntegrations() {
+	async manageCloudIntegrations() {
 		await env.openExternal(this.connection.getGkDevAccountsUri('settings/integrations'));
 		take(
 			window.onDidChangeWindowState,
