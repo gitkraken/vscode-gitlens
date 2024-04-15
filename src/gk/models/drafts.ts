@@ -15,7 +15,7 @@ export type DraftRole = 'owner' | 'admin' | 'editor' | 'viewer';
 
 export interface Draft {
 	readonly draftType: 'cloud';
-	readonly type: 'patch' | 'stash' | 'suggested_pr_change';
+	readonly type: DraftType;
 	readonly id: string;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
@@ -99,6 +99,7 @@ export interface CreateDraftChange {
 	revision: PatchRevisionRange;
 	contents?: string;
 	repository: Repository;
+	prEntityId?: string;
 }
 
 export interface CreateDraftPatchRequestFromChange {
@@ -110,8 +111,10 @@ export interface CreateDraftPatchRequestFromChange {
 
 export type DraftVisibility = 'public' | 'private' | 'invite_only';
 
+export type DraftType = 'patch' | 'stash' | 'suggested_pr_change';
+
 export interface CreateDraftRequest {
-	type: 'patch' | 'stash';
+	type: DraftType;
 	title: string;
 	description?: string;
 	visibility: DraftVisibility;
@@ -123,7 +126,7 @@ export interface CreateDraftResponse {
 }
 
 export interface DraftResponse {
-	readonly type: 'patch' | 'stash';
+	readonly type: DraftType;
 	readonly id: string;
 	readonly createdAt: string;
 	readonly updatedAt: string;
@@ -193,6 +196,7 @@ export interface DraftPatchCreateRequest {
 	baseCommitSha: string;
 	baseBranchName: string;
 	gitRepoData: RepositoryIdentityRequest;
+	prEntityId?: string;
 }
 
 export interface DraftPatchCreateResponse {
