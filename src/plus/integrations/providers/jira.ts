@@ -40,7 +40,9 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 	}
 
 	private _autolinks: Map<string, (AutolinkReference | DynamicAutolinkReference)[]> | undefined;
-	override autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return [];
 		if (this._session == null || this._organizations == null || this._projects == null) return [];
 
 		this._autolinks ||= new Map<string, (AutolinkReference | DynamicAutolinkReference)[]>();
