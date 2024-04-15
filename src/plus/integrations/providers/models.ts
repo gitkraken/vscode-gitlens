@@ -34,6 +34,7 @@ import {
 	PullRequestStatusCheckRollupState,
 } from '../../../git/models/pullRequest';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
+import type { EnrichableItem } from '../../focus/enrichmentService';
 
 export type ProviderAccount = Account;
 export type ProviderReposInput = (string | number)[] | GetRepoInput[];
@@ -674,5 +675,23 @@ export function toProviderAccount(account: PullRequestMember | IssueMember): Pro
 }
 
 export type ProviderActionablePullRequest = ActionablePullRequest;
+
+export type EnrichablePullRequest = ProviderPullRequest & {
+	uuid: string;
+	type: 'pullRequest';
+	provider: ProviderReference;
+	enrichable: EnrichableItem;
+	repoIdentity: {
+		remote: {
+			url?: string;
+		};
+		name: string;
+		provider: {
+			id: string;
+			repoDomain: string;
+			repoName: string;
+		};
+	};
+};
 
 export const getActionablePullRequests = GitProviderUtils.getActionablePullRequests;
