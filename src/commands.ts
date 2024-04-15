@@ -1,6 +1,7 @@
 import './commands/addAuthors';
 import './commands/browseRepoAtRevision';
 import './commands/closeUnchangedFiles';
+import './commands/cloudIntegrations';
 import './commands/compareWith';
 import './commands/copyCurrentBranch';
 import './commands/copyDeepLink';
