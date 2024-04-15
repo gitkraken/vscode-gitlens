@@ -108,6 +108,8 @@ export interface DynamicAutolinkReference {
 	parse: (text: string, autolinks: Map<string, Autolink>) => void;
 }
 
+export const supportedAutolinkIntegrations = [IssueIntegrationId.Jira];
+
 function isDynamic(ref: AutolinkReference | DynamicAutolinkReference): ref is DynamicAutolinkReference {
 	return !('prefix' in ref) && !('url' in ref);
 }
@@ -175,18 +177,16 @@ export class Autolinks implements Disposable {
 			ProviderReference | undefined,
 			(AutolinkReference | DynamicAutolinkReference)[] | CacheableAutolinkReference[],
 		][] = [];
-		const connectedIssueIntegrations = this.container.integrations.getConnected('issues');
-		// Connected issue integration autolinks
-		if (connectedIssueIntegrations.length) {
-			await Promise.allSettled(
-				connectedIssueIntegrations.map(async integration => {
-					const autoLinks = await integration.autolinks();
-					if (autoLinks.length) {
-						refsets.push([integration, autoLinks]);
-					}
-				}),
-			);
-		}
+		// Connected integration autolinks
+		await Promise.allSettled(
+			supportedAutolinkIntegrations.map(async integrationId => {
+				const integration = await this.container.integrations.get(integrationId);
+				const autoLinks = await integration.autolinks();
+				if (autoLinks.length) {
+					refsets.push([integration, autoLinks]);
+				}
+			}),
+		);
 
 		// Remote-specific autolinks and remote integration autolinks
 		if (remote?.provider != null) {
