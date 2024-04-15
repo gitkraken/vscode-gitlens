@@ -49,7 +49,7 @@ export const focusCategoryToGroupMap = new Map<FocusActionCategory, FocusGroup>(
 	['mergeable', 'mergeable'],
 	['conflicts', 'blocked'],
 	['failed-checks', 'blocked'],
-	['unassigned-reviewers', 'needs-attention'],
+	['unassigned-reviewers', 'blocked'],
 	['needs-my-review', 'needs-review'],
 	['changes-requested', 'follow-up'],
 	['reviewer-commented', 'follow-up'],
