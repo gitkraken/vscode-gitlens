@@ -54,7 +54,7 @@ const groupMap = new Map<FocusGroup, [string, ThemeIcon | undefined]>([
 	['needs-attention', ['Needs Your Attention', new ThemeIcon('bell-dot')]], //comment-unresolved
 	['needs-review', ['Needs Your Review', new ThemeIcon('comment-draft')]], // feedback
 	['waiting-for-review', ['Waiting for Review', new ThemeIcon('gitlens-clock')]],
-	['draft', ['Draft', new ThemeIcon('comment-discussion')]],
+	['draft', ['Draft', new ThemeIcon('git-pull-request-draft')]],
 	['other', ['Other', new ThemeIcon('question')]],
 	['snoozed', ['Snoozed', new ThemeIcon('bell-slash')]],
 ]);
