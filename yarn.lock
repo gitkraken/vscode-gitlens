@@ -258,10 +258,10 @@
     react-dragula "1.1.17"
     react-onclickoutside "^6.13.0"
 
-"@gitkraken/provider-apis@0.21.0":
-  version "0.21.0"
-  resolved "https://registry.yarnpkg.com/@gitkraken/provider-apis/-/provider-apis-0.21.0.tgz#8e8546796aa6648b5a73ccd9020ed3fbc59244cf"
-  integrity sha512-+r5hVqN2o4cpKVbic4C1b8DUvwixwyChxwE204yjK/THDhX+K40BmqqTkUgRjBalq0p/kaKe2WkIcylLtQNIZg==
+"@gitkraken/provider-apis@0.22.1":
+  version "0.22.1"
+  resolved "https://registry.npmjs.org/@gitkraken/provider-apis/-/provider-apis-0.22.1.tgz#a046f5cef6b7eb9a9b7c19df687a2848d98d95ab"
+  integrity sha512-TILYzN6vLBNnyJlCYuKDupzeGJoCzmbf9pGu1DgKNBd1/VtNo+y3GavUcwAmv/SA9ED+Z8sEUae6dLHzlFn1tA==
   dependencies:
     js-base64 "3.7.5"
     node-fetch "2.7.0"
@@ -4362,7 +4362,7 @@ jest-worker@^29.7.0:
 
 js-base64@3.7.5:
   version "3.7.5"
-  resolved "https://registry.yarnpkg.com/js-base64/-/js-base64-3.7.5.tgz#21e24cf6b886f76d6f5f165bfcd69cc55b9e3fca"
+  resolved "https://registry.npmjs.org/js-base64/-/js-base64-3.7.5.tgz#21e24cf6b886f76d6f5f165bfcd69cc55b9e3fca"
   integrity sha512-3MEt5DTINKqfScXKfJFrRbxkrnk2AxPWGBL/ycjz4dK8iqiSJ06UxD8jh8xuh6p10TX4t2+7FsBYVxxQbMg+qA==
 
 js-levenshtein-esm@^1.2.0:
