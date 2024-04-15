@@ -372,7 +372,7 @@ export abstract class IntegrationBase<
 		const currentAccount = this.container.cache.getCurrentAccount(this, () => ({
 			value: (async () => {
 				try {
-					const account = await this.getProviderCurrentAccount(this._session!, options);
+					const account = await this.getProviderCurrentAccount?.(this._session!, options);
 					this.resetRequestExceptionCount();
 					return account;
 				} catch (ex) {
@@ -383,7 +383,7 @@ export abstract class IntegrationBase<
 		return currentAccount;
 	}
 
-	protected abstract getProviderCurrentAccount(
+	protected getProviderCurrentAccount?(
 		session: ProviderAuthenticationSession,
 		options?: { avatarSize?: number },
 	): Promise<Account | undefined>;
