@@ -299,13 +299,6 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		}
 	}
 
-	protected override async getProviderCurrentAccount(
-		_session: AuthenticationSession,
-		_options?: { avatarSize?: number },
-	): Promise<Account | undefined> {
-		return Promise.resolve(undefined);
-	}
-
 	protected override providerOnDisconnect(): void {
 		this._organizations = undefined;
 		this._projects = undefined;
