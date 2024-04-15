@@ -437,6 +437,11 @@ export function groupAndSortFocusItems(items?: FocusItem[]) {
 
 		const group = focusCategoryToGroupMap.get(item.actionableCategory)!;
 		grouped.get(group)!.push(item);
+
+		const draftGroup = grouped.get('draft')!;
+		if (item.isDraft && !draftGroup.some(i => i.uuid === item.uuid)) {
+			draftGroup.push(item);
+		}
 	}
 
 	return grouped;
