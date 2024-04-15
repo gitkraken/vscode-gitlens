@@ -91,7 +91,7 @@ export abstract class IntegrationBase<
 	abstract get name(): string;
 	abstract get domain(): string;
 
-	protected get authProviderDescriptor(): IntegrationAuthenticationSessionDescriptor {
+	get authProviderDescriptor(): IntegrationAuthenticationSessionDescriptor {
 		return { domain: this.domain, scopes: this.authProvider.scopes };
 	}
 
