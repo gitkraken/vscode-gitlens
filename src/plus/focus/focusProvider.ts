@@ -231,28 +231,26 @@ export class FocusProvider implements Disposable {
 	}
 
 	async switchTo(item: FocusItem): Promise<void> {
-		const deepLinkUrl = await this.getItemBranchDeepLink(item);
+		const deepLinkUrl = this.getItemBranchDeepLink(item);
 		if (deepLinkUrl == null) return;
 
 		await env.openExternal(deepLinkUrl);
 	}
 
-	private async getItemBranchDeepLink(item: FocusItem): Promise<Uri | undefined> {
+	private getItemBranchDeepLink(item: FocusItem): Uri | undefined {
 		if (item.type !== 'pullRequest' || item.headRef == null || item.repoIdentity?.remote?.url == null)
 			return undefined;
 		const schemeOverride = configuration.get('deepLinks.schemeOverride');
-		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
+		const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
 
 		// TODO: Get the proper pull URL from the provider, rather than tacking .git at the end of the
 		// url from the head ref.
-		return env.asExternalUri(
-			Uri.parse(
-				`${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
-					DeepLinkType.Repository
-				}/-/${DeepLinkType.Branch}/${item.headRef.name}?url=${encodeURIComponent(
-					ensureRemoteUrl(item.repoIdentity.remote.url),
-				)}&action=${DeepLinkActionType.SwitchToPullRequest}`,
-			),
+		return Uri.parse(
+			`${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
+				DeepLinkType.Repository
+			}/-/${DeepLinkType.Branch}/${item.headRef.name}?url=${encodeURIComponent(
+				ensureRemoteUrl(item.repoIdentity.remote.url),
+			)}&action=${DeepLinkActionType.SwitchToPullRequest}`,
 		);
 	}
 
