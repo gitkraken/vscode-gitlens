@@ -2,6 +2,7 @@ import type { Uri } from 'vscode';
 import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
+import type { OpenWorkspaceLocation } from '../../system/utils';
 
 export type UriTypes = 'link';
 
@@ -14,6 +15,11 @@ export enum DeepLinkType {
 	Repository = 'r',
 	Tag = 't',
 	Workspace = 'workspace',
+}
+
+export enum DeepLinkActionType {
+	Switch = 'switch',
+	SwitchToPullRequest = 'switch-to-pr',
 }
 
 export const AccountDeepLinkTypes: DeepLinkType[] = [DeepLinkType.Draft, DeepLinkType.Workspace];
@@ -177,13 +183,16 @@ export const enum DeepLinkServiceState {
 	TypeMatch,
 	RepoMatch,
 	CloneOrAddRepo,
-	OpeningRepo,
 	AddedRepoMatch,
 	RemoteMatch,
 	AddRemote,
 	TargetMatch,
 	Fetch,
 	FetchedTargetMatch,
+	MaybeOpenRepo,
+	RepoOpening,
+	EnsureRemoteMatch,
+	GoToTarget,
 	OpenGraph,
 	OpenComparison,
 	OpenDraft,
@@ -202,23 +211,24 @@ export const enum DeepLinkServiceAction {
 	LinkIsRepoType,
 	LinkIsDraftType,
 	LinkIsWorkspaceType,
-	OpenRepo,
 	PlanCheckPassed,
 	RepoMatched,
 	RepoMatchedInLocalMapping,
 	RepoMatchFailed,
 	RepoAdded,
-	RepoOpened,
 	RemoteMatched,
 	RemoteMatchFailed,
 	RemoteMatchUnneeded,
 	RemoteAdded,
-	TargetMatchedForGraph,
-	TargetMatchedForFile,
-	TargetMatchedForSwitch,
-	TargetsMatchedForComparison,
+	TargetMatched,
 	TargetMatchFailed,
 	TargetFetched,
+	RepoOpened,
+	RepoOpening,
+	OpenGraph,
+	OpenComparison,
+	OpenFile,
+	OpenSwitch,
 }
 
 export type DeepLinkRepoOpenType = 'clone' | 'folder' | 'workspace' | 'current';
@@ -240,6 +250,8 @@ export interface DeepLinkServiceContext {
 	targetSha?: string | undefined;
 	secondaryTargetSha?: string | undefined;
 	action?: string | undefined;
+	repoOpenLocation?: OpenWorkspaceLocation | undefined;
+	repoOpenUri?: Uri | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
@@ -271,13 +283,6 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.RepoMatchFailed]: DeepLinkServiceState.CloneOrAddRepo,
 	},
 	[DeepLinkServiceState.CloneOrAddRepo]: {
-		[DeepLinkServiceAction.OpenRepo]: DeepLinkServiceState.OpeningRepo,
-		[DeepLinkServiceAction.RepoOpened]: DeepLinkServiceState.RemoteMatch,
-		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
-		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
-		[DeepLinkServiceAction.DeepLinkStored]: DeepLinkServiceState.Idle,
-	},
-	[DeepLinkServiceState.OpeningRepo]: {
 		[DeepLinkServiceAction.RepoAdded]: DeepLinkServiceState.AddedRepoMatch,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
@@ -288,6 +293,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	},
 	[DeepLinkServiceState.RemoteMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.RemoteMatched]: DeepLinkServiceState.TargetMatch,
 		[DeepLinkServiceAction.RemoteMatchFailed]: DeepLinkServiceState.AddRemote,
 		[DeepLinkServiceAction.RemoteMatchUnneeded]: DeepLinkServiceState.TargetMatch,
@@ -299,10 +305,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	},
 	[DeepLinkServiceState.TargetMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
-		[DeepLinkServiceAction.TargetMatchedForGraph]: DeepLinkServiceState.OpenGraph,
-		[DeepLinkServiceAction.TargetsMatchedForComparison]: DeepLinkServiceState.OpenComparison,
-		[DeepLinkServiceAction.TargetMatchedForFile]: DeepLinkServiceState.OpenFile,
-		[DeepLinkServiceAction.TargetMatchedForSwitch]: DeepLinkServiceState.SwitchToRef,
+		[DeepLinkServiceAction.TargetMatched]: DeepLinkServiceState.MaybeOpenRepo,
 		[DeepLinkServiceAction.TargetMatchFailed]: DeepLinkServiceState.Fetch,
 	},
 	[DeepLinkServiceState.Fetch]: {
@@ -311,11 +314,34 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.FetchedTargetMatch]: {
-		[DeepLinkServiceAction.TargetMatchedForGraph]: DeepLinkServiceState.OpenGraph,
-		[DeepLinkServiceAction.TargetsMatchedForComparison]: DeepLinkServiceState.OpenComparison,
-		[DeepLinkServiceAction.TargetMatchedForFile]: DeepLinkServiceState.OpenFile,
-		[DeepLinkServiceAction.TargetMatchedForSwitch]: DeepLinkServiceState.SwitchToRef,
+		[DeepLinkServiceAction.TargetMatched]: DeepLinkServiceState.MaybeOpenRepo,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.MaybeOpenRepo]: {
+		[DeepLinkServiceAction.RepoOpened]: DeepLinkServiceState.EnsureRemoteMatch,
+		[DeepLinkServiceAction.RepoOpening]: DeepLinkServiceState.RepoOpening,
+		[DeepLinkServiceAction.DeepLinkStored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.RepoOpening]: {
+		[DeepLinkServiceAction.RepoOpened]: DeepLinkServiceState.EnsureRemoteMatch,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.EnsureRemoteMatch]: {
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.RemoteMatched]: DeepLinkServiceState.GoToTarget,
+	},
+	[DeepLinkServiceState.GoToTarget]: {
+		[DeepLinkServiceAction.OpenGraph]: DeepLinkServiceState.OpenGraph,
+		[DeepLinkServiceAction.OpenFile]: DeepLinkServiceState.OpenFile,
+		[DeepLinkServiceAction.OpenSwitch]: DeepLinkServiceState.SwitchToRef,
+		[DeepLinkServiceAction.OpenComparison]: DeepLinkServiceState.OpenComparison,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpenGraph]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
@@ -355,17 +381,19 @@ export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.TypeMatch]: { message: 'Matching link type...', increment: 5 },
 	[DeepLinkServiceState.RepoMatch]: { message: 'Finding a matching repository...', increment: 10 },
 	[DeepLinkServiceState.CloneOrAddRepo]: { message: 'Adding repository...', increment: 20 },
-	[DeepLinkServiceState.OpeningRepo]: { message: 'Opening repository...', increment: 30 },
-	[DeepLinkServiceState.AddedRepoMatch]: { message: 'Finding a matching repository...', increment: 40 },
-	[DeepLinkServiceState.RemoteMatch]: { message: 'Finding a matching remote...', increment: 50 },
-	[DeepLinkServiceState.AddRemote]: { message: 'Adding remote...', increment: 60 },
-	[DeepLinkServiceState.TargetMatch]: { message: 'finding a matching target...', increment: 70 },
-	[DeepLinkServiceState.Fetch]: { message: 'Fetching...', increment: 80 },
-	[DeepLinkServiceState.FetchedTargetMatch]: { message: 'Finding a matching target...', increment: 90 },
-	[DeepLinkServiceState.OpenGraph]: { message: 'Opening graph...', increment: 95 },
-	[DeepLinkServiceState.OpenComparison]: { message: 'Opening comparison...', increment: 95 },
-	[DeepLinkServiceState.OpenDraft]: { message: 'Opening cloud patch...', increment: 95 },
-	[DeepLinkServiceState.OpenWorkspace]: { message: 'Opening workspace...', increment: 95 },
-	[DeepLinkServiceState.OpenFile]: { message: 'Opening file...', increment: 95 },
-	[DeepLinkServiceState.SwitchToRef]: { message: 'Switching to ref...', increment: 95 },
+	[DeepLinkServiceState.AddedRepoMatch]: { message: 'Finding a matching repository...', increment: 25 },
+	[DeepLinkServiceState.RemoteMatch]: { message: 'Finding a matching remote...', increment: 30 },
+	[DeepLinkServiceState.AddRemote]: { message: 'Adding remote...', increment: 40 },
+	[DeepLinkServiceState.TargetMatch]: { message: 'finding a matching target...', increment: 50 },
+	[DeepLinkServiceState.Fetch]: { message: 'Fetching...', increment: 60 },
+	[DeepLinkServiceState.FetchedTargetMatch]: { message: 'Finding a matching target...', increment: 65 },
+	[DeepLinkServiceState.MaybeOpenRepo]: { message: 'Opening repository...', increment: 70 },
+	[DeepLinkServiceState.RepoOpening]: { message: 'Opening repository...', increment: 75 },
+	[DeepLinkServiceState.GoToTarget]: { message: 'Opening target...', increment: 80 },
+	[DeepLinkServiceState.OpenGraph]: { message: 'Opening graph...', increment: 90 },
+	[DeepLinkServiceState.OpenComparison]: { message: 'Opening comparison...', increment: 90 },
+	[DeepLinkServiceState.OpenDraft]: { message: 'Opening cloud patch...', increment: 90 },
+	[DeepLinkServiceState.OpenWorkspace]: { message: 'Opening workspace...', increment: 90 },
+	[DeepLinkServiceState.OpenFile]: { message: 'Opening file...', increment: 90 },
+	[DeepLinkServiceState.SwitchToRef]: { message: 'Switching to ref...', increment: 90 },
 };

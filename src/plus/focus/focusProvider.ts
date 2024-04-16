@@ -7,7 +7,7 @@ import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import { configuration } from '../../system/configuration';
 import { getSettledValue } from '../../system/promise';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
-import { DeepLinkType } from '../../uris/deepLinks/deepLink';
+import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
 	getActionablePullRequests,
@@ -251,7 +251,7 @@ export class FocusProvider implements Disposable {
 					DeepLinkType.Repository
 				}/-/${DeepLinkType.Branch}/${item.headRef.name}?url=${encodeURIComponent(
 					ensureRemoteUrl(item.repoIdentity.remote.url),
-				)}&action=switch`,
+				)}&action=${DeepLinkActionType.SwitchToPullRequest}`,
 			),
 		);
 	}
