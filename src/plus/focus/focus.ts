@@ -29,7 +29,6 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import { command } from '../../system/command';
 import { fromNow } from '../../system/date';
 import { interpolate } from '../../system/string';
-import { openUrl } from '../../system/utils';
 import type { FocusAction, FocusActionCategory, FocusGroup, FocusItem } from './focusProvider';
 import { groupAndSortFocusItems } from './focusProvider';
 
@@ -144,11 +143,11 @@ export class FocusCommand extends QuickCommand<State> {
 
 			switch (state.action) {
 				case 'merge': {
-					await this.container.focus.merge(state.item);
+					void this.container.focus.merge(state.item);
 					break;
 				}
 				case 'open':
-					void openUrl(state.item.url!);
+					this.container.focus.open(state.item);
 					break;
 				case 'review':
 				case 'switch': {

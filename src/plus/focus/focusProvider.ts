@@ -6,6 +6,7 @@ import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import { configuration } from '../../system/configuration';
 import { getSettledValue } from '../../system/promise';
+import { openUrl } from '../../system/utils';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
@@ -228,6 +229,12 @@ export class FocusProvider implements Disposable {
 		const integrations = await this.container.integrations.get(HostingIntegrationId.GitHub);
 		await integrations.mergePullRequest({ id: item.graphQLId, headRefSha: item.headRef.oid });
 		this.refresh();
+	}
+
+	open(item: FocusItem): void {
+		if (item.url == null) return;
+		void openUrl(item.url);
+		this._prs = undefined;
 	}
 
 	async switchTo(item: FocusItem): Promise<void> {
