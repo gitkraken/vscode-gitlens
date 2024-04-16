@@ -18,10 +18,11 @@ export async function showAIModelPicker(provider?: AIProviders): Promise<ModelQu
 
 	let items: (ModelQuickPickItem | QuickPickSeparator)[] = [
 		{ label: 'OpenAI', kind: QuickPickItemKind.Separator },
-		{ label: 'OpenAI', description: 'GPT-4 Turbo', provider: 'openai', model: 'gpt-4-turbo-preview' },
+		{ label: 'OpenAI', description: 'GPT-4 Turbo with Vision', provider: 'openai', model: 'gpt-4-turbo' },
+		{ label: 'OpenAI', description: 'GPT-4 Turbo Preview', provider: 'openai', model: 'gpt-4-turbo-preview' },
 		{ label: 'OpenAI', description: 'GPT-4', provider: 'openai', model: 'gpt-4' },
 		{ label: 'OpenAI', description: 'GPT-4 32k', provider: 'openai', model: 'gpt-4-32k' },
-		{ label: 'OpenAI', description: 'GPT-3.5 Turbo', provider: 'openai', model: 'gpt-3.5-turbo-1106' },
+		{ label: 'OpenAI', description: 'GPT-3.5 Turbo', provider: 'openai', model: 'gpt-3.5-turbo' },
 		{ label: 'OpenAI', description: 'Custom', provider: 'openai', model: 'custom' },
 		{ label: 'Anthropic', kind: QuickPickItemKind.Separator },
 		{ label: 'Anthropic', description: 'Claude 3 Opus', provider: 'anthropic', model: 'claude-3-opus-20240229' },
@@ -31,9 +32,14 @@ export async function showAIModelPicker(provider?: AIProviders): Promise<ModelQu
 			provider: 'anthropic',
 			model: 'claude-3-sonnet-20240229',
 		},
+		{ label: 'Anthropic', description: 'Claude 3 Haiku', provider: 'anthropic', model: 'claude-3-haiku-20240307' },
 		{ label: 'Anthropic', description: 'Claude 2.1', provider: 'anthropic', model: 'claude-2.1' },
 		{ label: 'Anthropic', description: 'Claude 2.0', provider: 'anthropic', model: 'claude-2' },
 		{ label: 'Anthropic', description: 'Claude Instant', provider: 'anthropic', model: 'claude-instant-1' },
+
+		{ label: 'Gemini', kind: QuickPickItemKind.Separator },
+		{ label: 'Gemini', description: 'Gemini 1.5 Pro', provider: 'gemini', model: 'gemini-1.5-pro-latest' },
+		{ label: 'Gemini', description: 'Gemini 1.0 Pro', provider: 'gemini', model: 'gemini-1.0-pro' },
 	];
 
 	if (provider != null) {
@@ -44,7 +50,17 @@ export async function showAIModelPicker(provider?: AIProviders): Promise<ModelQu
 
 	let model = configuration.get(`ai.experimental.${provider}.model`);
 	if (model == null) {
-		model = provider === 'anthropic' ? 'claude-2.1' : 'gpt-4-turbo-preview';
+		switch (provider) {
+			case 'anthropic':
+				model = 'claude-3-haiku-20240307';
+				break;
+			case 'gemini':
+				model = 'gemini-1.5-pro-latest';
+				break;
+			case 'openai':
+				model = 'gpt-4-turbo-preview';
+				break;
+		}
 	}
 
 	for (const item of items) {

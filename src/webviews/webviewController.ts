@@ -15,13 +15,16 @@ import { isPromise } from '../system/promise';
 import { maybeStopWatch } from '../system/stopwatch';
 import type { WebviewContext } from '../system/webview';
 import type {
+	IpcCallMessageType,
+	IpcCallParamsType,
+	IpcCallResponseParamsType,
 	IpcMessage,
-	IpcMessageParams,
-	IpcNotificationType,
+	IpcNotification,
+	IpcRequest,
 	WebviewFocusChangedParams,
 	WebviewState,
 } from './protocol';
-import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
+import { ExecuteCommand, WebviewFocusChangedCommand, WebviewReadyCommand } from './protocol';
 import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
 import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor } from './webviewsController';
@@ -357,31 +360,25 @@ export class WebviewController<
 	private onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
 
-		switch (e.method) {
-			case WebviewReadyCommandType.method:
-				onIpc(WebviewReadyCommandType, e, () => {
-					this._ready = true;
-					this.sendPendingIpcNotifications();
-					this.provider.onReady?.();
-				});
+		switch (true) {
+			case WebviewReadyCommand.is(e):
+				this._ready = true;
+				this.sendPendingIpcNotifications();
+				this.provider.onReady?.();
 
 				break;
 
-			case WebviewFocusChangedCommandType.method:
-				onIpc(WebviewFocusChangedCommandType, e, params => {
-					this.onViewFocusChanged(params);
-				});
+			case WebviewFocusChangedCommand.is(e):
+				this.onViewFocusChanged(e.params);
 
 				break;
 
-			case ExecuteCommandType.method:
-				onIpc(ExecuteCommandType, e, params => {
-					if (params.args != null) {
-						void executeCommand(params.command as Commands, ...params.args);
-					} else {
-						void executeCommand(params.command as Commands);
-					}
-				});
+			case ExecuteCommand.is(e):
+				if (e.params.args != null) {
+					void executeCommand(e.params.command as Commands, ...e.params.args);
+				} else {
+					void executeCommand(e.params.command as Commands);
+				}
 				break;
 
 			default:
@@ -496,16 +493,16 @@ export class WebviewController<
 		return `host:${ipcSequencer.next()}`;
 	}
 
-	async notify<T extends IpcNotificationType<any>>(
-		type: T,
-		params: IpcMessageParams<T>,
+	async notify<T extends IpcNotification<unknown>>(
+		notificationType: T,
+		params: IpcCallParamsType<T>,
 		completionId?: string,
 	): Promise<boolean> {
 		let packed;
-		if (type.pack && params != null) {
+		if (notificationType.pack && params != null) {
 			const scope = getLogScope();
 
-			const sw = maybeStopWatch(getNewLogScope(` serializing msg=${type.method}`, scope), {
+			const sw = maybeStopWatch(getNewLogScope(` serializing msg=${notificationType.method}`, scope), {
 				log: false,
 				logLevel: 'debug',
 			});
@@ -513,9 +510,10 @@ export class WebviewController<
 			sw?.stop();
 		}
 
-		const msg: IpcMessage = {
+		const msg: IpcMessage<IpcCallParamsType<T> | Uint8Array> = {
 			id: this.nextIpcId(),
-			method: type.method,
+			scope: notificationType.scope,
+			method: notificationType.method,
 			params: packed ?? params,
 			packed: packed != null,
 			completionId: completionId,
@@ -525,9 +523,17 @@ export class WebviewController<
 		if (success) {
 			this._pendingIpcNotifications.clear();
 		} else {
-			this.addPendingIpcNotificationCore(type, msg);
+			this.addPendingIpcNotificationCore(notificationType, msg);
 		}
 		return success;
+	}
+
+	respond<T extends IpcRequest<unknown, unknown>>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+		params: IpcCallResponseParamsType<T>,
+	): Promise<boolean> {
+		return this.notify(requestType.response, params, msg.completionId);
 	}
 
 	@serialize()
@@ -581,18 +587,18 @@ export class WebviewController<
 		return success;
 	}
 
-	private _pendingIpcNotifications = new Map<IpcNotificationType, IpcMessage | (() => Promise<boolean>)>();
+	private _pendingIpcNotifications = new Map<IpcNotification, IpcMessage | (() => Promise<boolean>)>();
 
 	addPendingIpcNotification(
-		type: IpcNotificationType<any>,
-		mapping: Map<IpcNotificationType<any>, () => Promise<boolean>>,
+		type: IpcNotification<any>,
+		mapping: Map<IpcNotification<any>, () => Promise<boolean>>,
 		thisArg: any,
 	) {
 		this.addPendingIpcNotificationCore(type, mapping.get(type)?.bind(thisArg));
 	}
 
 	private addPendingIpcNotificationCore(
-		type: IpcNotificationType<any>,
+		type: IpcNotification<any>,
 		msgOrFn: IpcMessage | (() => Promise<boolean>) | undefined,
 	) {
 		if (type.reset) {

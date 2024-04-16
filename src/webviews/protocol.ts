@@ -1,70 +1,91 @@
 import type { Config } from '../config';
-import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../constants';
+import type {
+	CustomEditorIds,
+	CustomEditorTypes,
+	WebviewIds,
+	WebviewTypes,
+	WebviewViewIds,
+	WebviewViewTypes,
+} from '../constants';
 import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/configuration';
 
-export interface IpcMessage {
+export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;
+
+export interface IpcMessage<T = unknown> {
 	id: string;
+	scope: IpcScope;
 	method: string;
 	packed?: boolean;
-	params?: unknown;
+	params: T;
 	completionId?: string;
 }
 
-abstract class IpcMessageType<Params = void> {
-	_?: Params; // Required for type inferencing to work properly
+abstract class IpcCall<Params> {
+	public readonly method: string;
+
 	constructor(
-		public readonly method: string,
+		public readonly scope: IpcScope,
+		method: string,
 		public readonly reset: boolean = false,
 		public readonly pack: boolean = false,
-	) {}
+	) {
+		this.method = `${scope}/${method}`;
+	}
+
+	is(msg: IpcMessage): msg is IpcMessage<Params> {
+		return msg.method === this.method;
+	}
 }
-export type IpcMessageParams<T> = T extends IpcMessageType<infer P> ? P : never;
+
+export type IpcCallMessageType<T> = T extends IpcCall<infer P> ? IpcMessage<P> : never;
+export type IpcCallParamsType<T> = IpcCallMessageType<T>['params'];
+export type IpcCallResponseType<T> = T extends IpcRequest<infer _, infer _> ? T['response'] : never;
+export type IpcCallResponseMessageType<T> = IpcCallMessageType<IpcCallResponseType<T>>;
+export type IpcCallResponseParamsType<T> = IpcCallResponseMessageType<T>['params'];
 
 /**
  * Commands are sent from the webview to the extension
  */
-export class IpcCommandType<Params = void> extends IpcMessageType<Params> {}
+export class IpcCommand<Params = void> extends IpcCall<Params> {}
+
+/**
+ * Requests are sent from the webview to the extension and expect a response back
+ */
+export class IpcRequest<Params = void, ResponseParams = void> extends IpcCall<Params> {
+	public readonly response: IpcNotification<ResponseParams>;
+
+	constructor(scope: IpcScope, method: string, reset?: boolean, pack?: boolean) {
+		super(scope, method, reset, pack);
+
+		this.response = new IpcNotification<ResponseParams>(
+			this.scope,
+			`${this.method}/completion`,
+			this.reset,
+			this.pack,
+		);
+	}
+}
+
 /**
  * Notifications are sent from the extension to the webview
  */
-export class IpcNotificationType<Params = void> extends IpcMessageType<Params> {}
-
-export function onIpc<T extends IpcMessageType<any>>(
-	type: T,
-	msg: IpcMessage,
-	fn: (params: IpcMessageParams<T>, type: T) => unknown,
-) {
-	if (type.method !== msg.method) return;
-
-	fn(msg.params as IpcMessageParams<T>, type);
-}
+export class IpcNotification<Params = void> extends IpcCall<Params> {}
 
 // COMMANDS
 
-export const WebviewReadyCommandType = new IpcCommandType('webview/ready');
+export const WebviewReadyCommand = new IpcCommand('core', 'ready');
 
 export interface WebviewFocusChangedParams {
 	focused: boolean;
 	inputFocused: boolean;
 }
-export const WebviewFocusChangedCommandType = new IpcCommandType<WebviewFocusChangedParams>('webview/focus');
+export const WebviewFocusChangedCommand = new IpcCommand<WebviewFocusChangedParams>('core', 'focus/changed');
 
 export interface ExecuteCommandParams {
 	command: string;
 	args?: [];
 }
-export const ExecuteCommandType = new IpcCommandType<ExecuteCommandParams>('command/execute');
-
-export interface GenerateCommitPreviewParams {
-	key: string;
-	type: 'commit' | 'commit-uncommitted';
-	format: string;
-}
-
-type GenerateConfigurationPreviewParams = GenerateCommitPreviewParams;
-export const GenerateConfigurationPreviewCommandType = new IpcCommandType<GenerateConfigurationPreviewParams>(
-	'configuration/preview',
-);
+export const ExecuteCommand = new IpcCommand<ExecuteCommandParams>('core', 'command/execute');
 
 export interface UpdateConfigurationParams {
 	changes: {
@@ -74,7 +95,7 @@ export interface UpdateConfigurationParams {
 	scope?: 'user' | 'workspace';
 	uri?: string;
 }
-export const UpdateConfigurationCommandType = new IpcCommandType<UpdateConfigurationParams>('configuration/update');
+export const UpdateConfigurationCommand = new IpcCommand<UpdateConfigurationParams>('core', 'configuration/update');
 
 // NOTIFICATIONS
 
@@ -82,22 +103,10 @@ export interface DidChangeConfigurationParams {
 	config: Config;
 	customSettings: Record<string, boolean>;
 }
-export const DidChangeConfigurationNotificationType = new IpcNotificationType<DidChangeConfigurationParams>(
+export const DidChangeConfigurationNotification = new IpcNotification<DidChangeConfigurationParams>(
+	'core',
 	'configuration/didChange',
 );
-
-export interface DidGenerateConfigurationPreviewParams {
-	preview: string;
-}
-
-export const DidGenerateConfigurationPreviewNotificationType =
-	new IpcNotificationType<DidGenerateConfigurationPreviewParams>('configuration/didPreview');
-
-export interface DidOpenAnchorParams {
-	anchor: string;
-	scrollBehavior: 'auto' | 'smooth';
-}
-export const DidOpenAnchorNotificationType = new IpcNotificationType<DidOpenAnchorParams>('webview/didOpenAnchor');
 
 interface CustomConfig {
 	rebaseEditor: {

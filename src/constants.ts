@@ -1,4 +1,5 @@
 import type { AnthropicModels } from './ai/anthropicProvider';
+import type { GeminiModels } from './ai/geminiProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
 import type { ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
@@ -252,6 +253,7 @@ export const enum Commands {
 	PlusLogin = 'gitlens.plus.login',
 	PlusLogout = 'gitlens.plus.logout',
 	PlusManage = 'gitlens.plus.manage',
+	PlusManageCloudIntegrations = 'gitlens.plus.cloudIntegrations.manage',
 	PlusPurchase = 'gitlens.plus.purchase',
 	PlusReactivateProTrial = 'gitlens.plus.reactivateProTrial',
 	PlusResendVerification = 'gitlens.plus.resendVerification',
@@ -805,12 +807,14 @@ export type TelemetryEvents =
 	| 'subscription/changed'
 	| 'usage/track';
 
-export type AIProviders = 'anthropic' | 'openai';
+export type AIProviders = 'anthropic' | 'gemini' | 'openai';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'
 	? OpenAIModels
 	: Provider extends 'anthropic'
 	  ? AnthropicModels
-	  : OpenAIModels | AnthropicModels;
+	  : Provider extends 'gemini'
+	    ? GeminiModels
+	    : AnthropicModels | GeminiModels | OpenAIModels;
 
 export type SecretKeys =
 	| `gitlens.integration.auth:${string}`
@@ -1000,6 +1004,8 @@ export type StoredBranchComparisons = Record<string, string | StoredBranchCompar
 export interface StoredDeepLinkContext {
 	url?: string | undefined;
 	repoPath?: string | undefined;
+	targetSha?: string | undefined;
+	secondaryTargetSha?: string | undefined;
 }
 
 export interface StoredGraphColumn {

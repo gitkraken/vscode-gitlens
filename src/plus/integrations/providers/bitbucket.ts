@@ -38,7 +38,6 @@ export class BitbucketIntegration extends HostingIntegration<
 		return 'https://api.bitbucket.org/2.0';
 	}
 
-	// TODO: implement
 	protected override async mergeProviderPullRequest(
 		_session: AuthenticationSession,
 		_pr: PullRequest | { id: string; headRefSha: string },

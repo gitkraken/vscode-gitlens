@@ -38,11 +38,13 @@ import type { ProviderReference } from '../../../git/models/remoteProvider';
 import type { GitSearchResultData, SearchQuery } from '../../../git/search';
 import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
-import type { WebviewState } from '../../../webviews/protocol';
-import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
+import type { IpcScope, WebviewState } from '../../../webviews/protocol';
+import { IpcCommand, IpcNotification, IpcRequest } from '../../../webviews/protocol';
 import type { Subscription } from '../../gk/account/subscription';
 
 export type { GraphRefType } from '@gitkraken/gitkraken-components';
+
+export const scope: IpcScope = 'graph';
 
 export type GraphColumnsSettings = Record<GraphColumnName, GraphColumnSetting>;
 export type GraphSelectedRows = Record</*id*/ string, true>;
@@ -205,18 +207,13 @@ export type InternalNotificationType = 'didChangeTheme';
 
 export type UpdateStateCallback = (
 	state: State,
-	type?: IpcNotificationType<any> | InternalNotificationType,
+	type?: IpcNotification<any> | InternalNotificationType,
 	themingChanged?: boolean,
 ) => void;
 
-// Commands
+// COMMANDS
 
-export const ChooseRepositoryCommandType = new IpcCommandType<undefined>('graph/chooseRepository');
-
-export interface DimMergeCommitsParams {
-	dim: boolean;
-}
-export const DimMergeCommitsCommandType = new IpcCommandType<DimMergeCommitsParams>('graph/dimMergeCommits');
+export const ChooseRepositoryCommand = new IpcCommand(scope, 'chooseRepository');
 
 export type DoubleClickedParams =
 	| {
@@ -229,117 +226,137 @@ export type DoubleClickedParams =
 			row: { id: string; type: GitGraphRowType };
 			preserveFocus?: boolean;
 	  };
-export const DoubleClickedCommandType = new IpcCommandType<DoubleClickedParams>('graph/dblclick');
+export const DoubleClickedCommandType = new IpcCommand<DoubleClickedParams>(scope, 'dblclick');
+
+export interface GetMissingAvatarsParams {
+	emails: GraphAvatars;
+}
+export const GetMissingAvatarsCommand = new IpcCommand<GetMissingAvatarsParams>(scope, 'avatars/get');
+
+export interface GetMissingRefsMetadataParams {
+	metadata: GraphMissingRefsMetadata;
+}
+export const GetMissingRefsMetadataCommand = new IpcCommand<GetMissingRefsMetadataParams>(scope, 'refs/metadata/get');
+
+export interface GetMoreRowsParams {
+	id?: string;
+}
+export const GetMoreRowsCommand = new IpcCommand<GetMoreRowsParams>(scope, 'rows/get');
+
+export interface SearchOpenInViewParams {
+	search: SearchQuery;
+}
+export const SearchOpenInViewCommand = new IpcCommand<SearchOpenInViewParams>(scope, 'search/openInView');
+
+export interface UpdateColumnsParams {
+	config: GraphColumnsConfig;
+}
+export const UpdateColumnsCommand = new IpcCommand<UpdateColumnsParams>(scope, 'columns/update');
+
+export interface UpdateDimMergeCommitsParams {
+	dim: boolean;
+}
+export const UpdateDimMergeCommitsCommand = new IpcCommand<UpdateDimMergeCommitsParams>(scope, 'dimMergeCommits');
+
+export interface UpdateRefsVisibilityParams {
+	refs: GraphExcludedRef[];
+	visible: boolean;
+}
+export const UpdateRefsVisibilityCommand = new IpcCommand<UpdateRefsVisibilityParams>(scope, 'refs/update/visibility');
+
+export interface UpdateExcludeTypeParams {
+	key: keyof GraphExcludeTypes;
+	value: boolean;
+}
+export const UpdateExcludeTypeCommand = new IpcCommand<UpdateExcludeTypeParams>(scope, 'fitlers/update/excludeType');
+
+export interface UpdateGraphConfigurationParams {
+	changes: { [key in keyof GraphComponentConfig]?: GraphComponentConfig[key] };
+}
+export const UpdateGraphConfigurationCommand = new IpcCommand<UpdateGraphConfigurationParams>(
+	scope,
+	'configuration/update',
+);
+
+export interface UpdateIncludeOnlyRefsParams {
+	refs?: GraphIncludeOnlyRef[];
+}
+export const UpdateIncludeOnlyRefsCommand = new IpcCommand<UpdateIncludeOnlyRefsParams>(
+	scope,
+	'fitlers/update/includeOnlyRefs',
+);
+
+export interface UpdateSelectionParams {
+	selection: { id: string; type: GitGraphRowType }[];
+}
+export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
+
+// REQUESTS
 
 export interface EnsureRowParams {
 	id: string;
 	select?: boolean;
 }
-export const EnsureRowCommandType = new IpcCommandType<EnsureRowParams>('graph/rows/ensure');
-
-export interface GetMissingAvatarsParams {
-	emails: GraphAvatars;
+export interface DidEnsureRowParams {
+	id?: string; // `undefined` if the row was not found
+	remapped?: string;
 }
-export const GetMissingAvatarsCommandType = new IpcCommandType<GetMissingAvatarsParams>('graph/avatars/get');
-
-export interface GetMissingRefsMetadataParams {
-	metadata: GraphMissingRefsMetadata;
-}
-export const GetMissingRefsMetadataCommandType = new IpcCommandType<GetMissingRefsMetadataParams>(
-	'graph/refs/metadata/get',
-);
-
-export interface GetMoreRowsParams {
-	id?: string;
-}
-export const GetMoreRowsCommandType = new IpcCommandType<GetMoreRowsParams>('graph/rows/get');
+export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
 
 export interface SearchParams {
 	search?: SearchQuery;
 	limit?: number;
 	more?: boolean;
 }
-export const SearchCommandType = new IpcCommandType<SearchParams>('graph/search');
-
-export interface SearchOpenInViewParams {
-	search: SearchQuery;
+export interface GraphSearchResults {
+	ids?: Record<string, GitSearchResultData>;
+	count: number;
+	paging?: { hasMore: boolean };
 }
-export const SearchOpenInViewCommandType = new IpcCommandType<SearchOpenInViewParams>('graph/search/openInView');
-
-export interface UpdateColumnsParams {
-	config: GraphColumnsConfig;
+export interface GraphSearchResultsError {
+	error: string;
 }
-export const UpdateColumnsCommandType = new IpcCommandType<UpdateColumnsParams>('graph/columns/update');
-
-export interface UpdateRefsVisibilityParams {
-	refs: GraphExcludedRef[];
-	visible: boolean;
+export interface DidSearchParams {
+	results: GraphSearchResults | GraphSearchResultsError | undefined;
+	selectedRows?: GraphSelectedRows;
 }
-export const UpdateRefsVisibilityCommandType = new IpcCommandType<UpdateRefsVisibilityParams>(
-	'graph/refs/update/visibility',
-);
+export const SearchRequest = new IpcRequest<SearchParams, DidSearchParams>(scope, 'search');
 
-export interface UpdateExcludeTypeParams {
-	key: keyof GraphExcludeTypes;
-	value: boolean;
-}
-export const UpdateExcludeTypeCommandType = new IpcCommandType<UpdateExcludeTypeParams>(
-	'graph/fitlers/update/excludeType',
-);
-
-export interface UpdateGraphConfigurationParams {
-	changes: { [key in keyof GraphComponentConfig]?: GraphComponentConfig[key] };
-}
-export const UpdateGraphConfigurationCommandType = new IpcCommandType<UpdateGraphConfigurationParams>(
-	'graph/configuration/update',
-);
-
-export interface UpdateIncludeOnlyRefsParams {
-	refs?: GraphIncludeOnlyRef[];
-}
-export const UpdateIncludeOnlyRefsCommandType = new IpcCommandType<UpdateIncludeOnlyRefsParams>(
-	'graph/fitlers/update/includeOnlyRefs',
-);
-
-export interface UpdateSelectionParams {
-	selection: { id: string; type: GitGraphRowType }[];
-}
-export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('graph/selection/update');
-
-// Notifications
+// NOTIFICATIONS
 
 export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('graph/didChange', true, true);
+export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true, true);
 
 export interface DidChangeGraphConfigurationParams {
 	config: GraphComponentConfig;
 }
-export const DidChangeGraphConfigurationNotificationType = new IpcNotificationType<DidChangeGraphConfigurationParams>(
-	'graph/configuration/didChange',
+export const DidChangeGraphConfigurationNotification = new IpcNotification<DidChangeGraphConfigurationParams>(
+	scope,
+	'configuration/didChange',
 );
 
 export interface DidChangeSubscriptionParams {
 	subscription: Subscription;
 	allowed: boolean;
 }
-export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
-	'graph/subscription/didChange',
+export const DidChangeSubscriptionNotification = new IpcNotification<DidChangeSubscriptionParams>(
+	scope,
+	'subscription/didChange',
 );
 
 export interface DidChangeAvatarsParams {
 	avatars: GraphAvatars;
 }
-export const DidChangeAvatarsNotificationType = new IpcNotificationType<DidChangeAvatarsParams>(
-	'graph/avatars/didChange',
-);
+export const DidChangeAvatarsNotification = new IpcNotification<DidChangeAvatarsParams>(scope, 'avatars/didChange');
 
 export interface DidChangeRefsMetadataParams {
 	metadata: GraphRefsMetadata | null | undefined;
 }
-export const DidChangeRefsMetadataNotificationType = new IpcNotificationType<DidChangeRefsMetadataParams>(
-	'graph/refs/didChangeMetadata',
+export const DidChangeRefsMetadataNotification = new IpcNotification<DidChangeRefsMetadataParams>(
+	scope,
+	'refs/didChangeMetadata',
 );
 
 export interface DidChangeColumnsParams {
@@ -347,27 +364,27 @@ export interface DidChangeColumnsParams {
 	context?: string;
 	settingsContext?: string;
 }
-export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChangeColumnsParams>(
-	'graph/columns/didChange',
-);
+export const DidChangeColumnsNotification = new IpcNotification<DidChangeColumnsParams>(scope, 'columns/didChange');
 
 export interface DidChangeScrollMarkersParams {
 	context?: string;
 }
-export const DidChangeScrollMarkersNotificationType = new IpcNotificationType<DidChangeScrollMarkersParams>(
-	'graph/scrollMarkers/didChange',
+export const DidChangeScrollMarkersNotification = new IpcNotification<DidChangeScrollMarkersParams>(
+	scope,
+	'scrollMarkers/didChange',
 );
 
 export interface DidChangeFocusParams {
 	focused: boolean;
 }
-export const DidChangeFocusNotificationType = new IpcNotificationType<DidChangeFocusParams>('graph/focus/didChange');
+export const DidChangeFocusNotification = new IpcNotification<DidChangeFocusParams>(scope, 'focus/didChange');
 
 export interface DidChangeWindowFocusParams {
 	focused: boolean;
 }
-export const DidChangeWindowFocusNotificationType = new IpcNotificationType<DidChangeWindowFocusParams>(
-	'graph/window/focus/didChange',
+export const DidChangeWindowFocusNotification = new IpcNotification<DidChangeWindowFocusParams>(
+	scope,
+	'window/focus/didChange',
 );
 
 export interface DidChangeRefsVisibilityParams {
@@ -375,8 +392,9 @@ export interface DidChangeRefsVisibilityParams {
 	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
 }
-export const DidChangeRefsVisibilityNotificationType = new IpcNotificationType<DidChangeRefsVisibilityParams>(
-	'graph/refs/didChangeVisibility',
+export const DidChangeRefsVisibilityNotification = new IpcNotification<DidChangeRefsVisibilityParams>(
+	scope,
+	'refs/didChangeVisibility',
 );
 
 export interface DidChangeRowsParams {
@@ -389,8 +407,9 @@ export interface DidChangeRowsParams {
 	rowsStatsLoading: boolean;
 	selectedRows?: GraphSelectedRows;
 }
-export const DidChangeRowsNotificationType = new IpcNotificationType<DidChangeRowsParams>(
-	'graph/rows/didChange',
+export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams>(
+	scope,
+	'rows/didChange',
 	undefined,
 	true,
 );
@@ -399,50 +418,33 @@ export interface DidChangeRowsStatsParams {
 	rowsStats: Record<string, GraphRowStats>;
 	rowsStatsLoading: boolean;
 }
-export const DidChangeRowsStatsNotificationType = new IpcNotificationType<DidChangeRowsStatsParams>(
-	'graph/rows/stats/didChange',
+export const DidChangeRowsStatsNotification = new IpcNotification<DidChangeRowsStatsParams>(
+	scope,
+	'rows/stats/didChange',
 );
 
 export interface DidChangeSelectionParams {
 	selection: GraphSelectedRows;
 }
-export const DidChangeSelectionNotificationType = new IpcNotificationType<DidChangeSelectionParams>(
-	'graph/selection/didChange',
+export const DidChangeSelectionNotification = new IpcNotification<DidChangeSelectionParams>(
+	scope,
+	'selection/didChange',
 );
 
 export interface DidChangeWorkingTreeParams {
 	stats: WorkDirStats;
 }
-export const DidChangeWorkingTreeNotificationType = new IpcNotificationType<DidChangeWorkingTreeParams>(
-	'graph/workingTree/didChange',
+export const DidChangeWorkingTreeNotification = new IpcNotification<DidChangeWorkingTreeParams>(
+	scope,
+	'workingTree/didChange',
 );
 
-export interface DidEnsureRowParams {
-	id?: string; // `undefined` if the row was not found
-	remapped?: string;
-}
-export const DidEnsureRowNotificationType = new IpcNotificationType<DidEnsureRowParams>('graph/rows/didEnsure');
-
-export interface GraphSearchResults {
-	ids?: Record<string, GitSearchResultData>;
-	count: number;
-	paging?: { hasMore: boolean };
-}
-
-export interface GraphSearchResultsError {
-	error: string;
-}
-
-export interface DidSearchParams {
-	results: GraphSearchResults | GraphSearchResultsError | undefined;
-	selectedRows?: GraphSelectedRows;
-}
-export const DidSearchNotificationType = new IpcNotificationType<DidSearchParams>('graph/didSearch');
+export const DidSearchNotification = new IpcNotification<DidSearchParams>(scope, 'didSearch');
 
 export interface DidFetchParams {
 	lastFetched: Date;
 }
-export const DidFetchNotificationType = new IpcNotificationType<DidFetchParams>('graph/didFetch');
+export const DidFetchNotification = new IpcNotification<DidFetchParams>(scope, 'didFetch');
 
 export interface ShowInCommitGraphCommandArgs {
 	ref: GitReference;

@@ -1,13 +1,11 @@
-import type { Disposable, QuickInputButton } from 'vscode';
-import { env, ThemeIcon, Uri, window } from 'vscode';
+import { window } from 'vscode';
 import { fetch } from '@env/fetch';
 import type { Container } from '../container';
 import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
-import { supportedInVSCodeVersion } from '../system/utils';
 import type { AIProvider } from './aiProviderService';
-import { getMaxCharacters } from './aiProviderService';
+import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
 
 export class OpenAIProvider implements AIProvider<'openai'> {
 	readonly id = 'openai';
@@ -244,69 +242,17 @@ Do not make any assumptions or invent details that are not supported by the code
 }
 
 async function getApiKey(storage: Storage): Promise<string | undefined> {
-	let openaiApiKey = await storage.getSecret('gitlens.openai.key');
-	if (!openaiApiKey) {
-		const input = window.createInputBox();
-		input.ignoreFocusOut = true;
-
-		const disposables: Disposable[] = [];
-
-		try {
-			const infoButton: QuickInputButton = {
-				iconPath: new ThemeIcon(`link-external`),
-				tooltip: 'Open the OpenAI API Key Page',
-			};
-
-			openaiApiKey = await new Promise<string | undefined>(resolve => {
-				disposables.push(
-					input.onDidHide(() => resolve(undefined)),
-					input.onDidChangeValue(value => {
-						if (value && !/(?:sk-)?[a-zA-Z0-9]{32,}/.test(value)) {
-							input.validationMessage = 'Please enter a valid OpenAI API key';
-							return;
-						}
-						input.validationMessage = undefined;
-					}),
-					input.onDidAccept(() => {
-						const value = input.value.trim();
-						if (!value || !/(?:sk-)?[a-zA-Z0-9]{32,}/.test(value)) {
-							input.validationMessage = 'Please enter a valid OpenAI API key';
-							return;
-						}
-
-						resolve(value);
-					}),
-					input.onDidTriggerButton(e => {
-						if (e === infoButton) {
-							void env.openExternal(Uri.parse('https://platform.openai.com/account/api-keys'));
-						}
-					}),
-				);
-
-				input.password = true;
-				input.title = 'Connect to OpenAI';
-				input.placeholder = 'Please enter your OpenAI API key to use this feature';
-				input.prompt = supportedInVSCodeVersion('input-prompt-links')
-					? 'Enter your [OpenAI API Key](https://platform.openai.com/account/api-keys "Get your OpenAI API key")'
-					: 'Enter your OpenAI API Key';
-				input.buttons = [infoButton];
-
-				input.show();
-			});
-		} finally {
-			input.dispose();
-			disposables.forEach(d => void d.dispose());
-		}
-
-		if (!openaiApiKey) return undefined;
-
-		void storage.storeSecret('gitlens.openai.key', openaiApiKey);
-	}
-
-	return openaiApiKey;
+	return getApiKeyCore(storage, {
+		id: 'openai',
+		name: 'OpenAI',
+		validator: v => /(?:sk-)?[a-zA-Z0-9]{32,}/.test(v),
+		url: 'https://platform.openai.com/account/api-keys',
+	});
 }
 
 export type OpenAIModels =
+	| 'gpt-4-turbo'
+	| 'gpt-4-turbo-2024-04-09'
 	| 'gpt-4-turbo-preview'
 	| 'gpt-4-0125-preview'
 	| 'gpt-4-1106-preview'
@@ -314,10 +260,10 @@ export type OpenAIModels =
 	| 'gpt-4-0613'
 	| 'gpt-4-32k'
 	| 'gpt-4-32k-0613'
-	| 'gpt-3.5-turbo-1106'
 	| 'gpt-3.5-turbo'
+	| 'gpt-3.5-turbo-0125'
+	| 'gpt-3.5-turbo-1106'
 	| 'gpt-3.5-turbo-16k'
-	| 'gpt-3.5-turbo-0613'
 	| 'custom';
 
 interface OpenAIChatCompletionRequest {

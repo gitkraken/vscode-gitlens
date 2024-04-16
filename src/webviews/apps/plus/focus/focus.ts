@@ -2,17 +2,16 @@ import type { IssueShape } from '../../../../git/models/issue';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import type { State } from '../../../../plus/webviews/focus/protocol';
 import {
-	DidChangeNotificationType,
-	OpenBranchCommandType,
-	OpenWorktreeCommandType,
-	PinIssueCommandType,
-	PinPrCommandType,
-	SnoozeIssueCommandType,
-	SnoozePrCommandType,
-	SwitchToBranchCommandType,
+	DidChangeNotification,
+	OpenBranchCommand,
+	OpenWorktreeCommand,
+	PinIssueCommand,
+	PinPRCommand,
+	SnoozeIssueCommand,
+	SnoozePRCommand,
+	SwitchToBranchCommand,
 } from '../../../../plus/webviews/focus/protocol';
 import type { IpcMessage } from '../../../protocol';
-import { onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import { DOM } from '../../shared/dom';
 import type { GlFocusApp } from './components/focus-app';
@@ -86,17 +85,17 @@ export class FocusApp extends App<State> {
 
 	private onOpenBranch(e: CustomEvent<PullRequestShape>, _target: HTMLElement) {
 		if (e.detail?.refs?.head == null) return;
-		this.sendCommand(OpenBranchCommandType, { pullRequest: e.detail });
+		this.sendCommand(OpenBranchCommand, { pullRequest: e.detail });
 	}
 
 	private onSwitchBranch(e: CustomEvent<PullRequestShape>, _target: HTMLElement) {
 		if (e.detail?.refs?.head == null) return;
-		this.sendCommand(SwitchToBranchCommandType, { pullRequest: e.detail });
+		this.sendCommand(SwitchToBranchCommand, { pullRequest: e.detail });
 	}
 
 	private onOpenWorktree(e: CustomEvent<PullRequestShape>, _target: HTMLElement) {
 		if (e.detail?.refs?.head == null) return;
-		this.sendCommand(OpenWorktreeCommandType, { pullRequest: e.detail });
+		this.sendCommand(OpenWorktreeCommand, { pullRequest: e.detail });
 	}
 
 	private onSnoozeItem(
@@ -104,13 +103,13 @@ export class FocusApp extends App<State> {
 		isIssue: boolean,
 	) {
 		if (isIssue) {
-			this.sendCommand(SnoozeIssueCommandType, {
+			this.sendCommand(SnoozeIssueCommand, {
 				issue: e.detail.item as IssueShape,
 				expiresAt: e.detail.expiresAt,
 				snooze: e.detail.snooze,
 			});
 		} else {
-			this.sendCommand(SnoozePrCommandType, {
+			this.sendCommand(SnoozePRCommand, {
 				pullRequest: e.detail.item as PullRequestShape,
 				expiresAt: e.detail.expiresAt,
 				snooze: e.detail.snooze,
@@ -120,21 +119,20 @@ export class FocusApp extends App<State> {
 
 	private onPinItem(e: CustomEvent<{ item: PullRequestShape | IssueShape; pin?: string }>, isIssue: boolean) {
 		if (isIssue) {
-			this.sendCommand(PinIssueCommandType, { issue: e.detail.item as IssueShape, pin: e.detail.pin });
+			this.sendCommand(PinIssueCommand, { issue: e.detail.item as IssueShape, pin: e.detail.pin });
 		} else {
-			this.sendCommand(PinPrCommandType, { pullRequest: e.detail.item as PullRequestShape, pin: e.detail.pin });
+			this.sendCommand(PinPRCommand, { pullRequest: e.detail.item as PullRequestShape, pin: e.detail.pin });
 		}
 	}
 
 	protected override onMessageReceived(msg: IpcMessage) {
-		switch (msg.method) {
-			case DidChangeNotificationType.method:
-				onIpc(DidChangeNotificationType, msg, params => {
-					this.state = params.state;
-					this.setState(this.state);
-					this.attachState();
-				});
+		switch (true) {
+			case DidChangeNotification.is(msg):
+				this.state = msg.params.state;
+				this.setState(this.state);
+				this.attachState();
 				break;
+
 			default:
 				super.onMessageReceived?.(msg);
 		}

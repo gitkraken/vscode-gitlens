@@ -49,8 +49,7 @@ import { getSettledValue } from '../../system/promise';
 import type { Serialized } from '../../system/serialize';
 import { serialize } from '../../system/serialize';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
-import type { IpcMessage } from '../protocol';
-import { onIpc } from '../protocol';
+import type { IpcCallMessageType, IpcMessage } from '../protocol';
 import { updatePendingContext } from '../webviewController';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
@@ -60,7 +59,7 @@ import type {
 	CreatePatchFromWipParams,
 	DidChangeWipStateParams,
 	DidExplainParams,
-	FileActionParams,
+	ExecuteFileActionParams,
 	GitBranchShape,
 	Mode,
 	Preferences,
@@ -71,32 +70,31 @@ import type {
 	WipChange,
 } from './protocol';
 import {
-	AutolinkSettingsCommandType,
-	CommitActionsCommandType,
-	CreatePatchFromWipCommandType,
-	DidChangeNotificationType,
-	DidChangeWipStateNotificationType,
-	DidExplainCommandType,
-	ExplainCommandType,
-	FetchCommandType,
-	FileActionsCommandType,
+	AutolinkSettingsCommand,
+	CreatePatchFromWipCommand,
+	DidChangeNotification,
+	DidChangeWipStateNotification,
+	ExecuteCommitActionCommand,
+	ExecuteFileActionCommand,
+	ExplainRequest,
+	FetchCommand,
 	messageHeadlineSplitterToken,
-	NavigateCommitCommandType,
-	OpenFileCommandType,
-	OpenFileComparePreviousCommandType,
-	OpenFileCompareWorkingCommandType,
-	OpenFileOnRemoteCommandType,
-	PickCommitCommandType,
-	PinCommitCommandType,
-	PublishCommandType,
-	PullCommandType,
-	PushCommandType,
-	SearchCommitCommandType,
-	StageFileCommandType,
-	SwitchCommandType,
-	SwitchModeCommandType,
-	UnstageFileCommandType,
-	UpdatePreferencesCommandType,
+	NavigateCommand,
+	OpenFileCommand,
+	OpenFileComparePreviousCommand,
+	OpenFileCompareWorkingCommand,
+	OpenFileOnRemoteCommand,
+	PickCommitCommand,
+	PinCommand,
+	PublishCommand,
+	PullCommand,
+	PushCommand,
+	SearchCommitCommand,
+	StageFileCommand,
+	SwitchCommand,
+	SwitchModeCommand,
+	UnstageFileCommand,
+	UpdatePreferencesCommand,
 } from './protocol';
 import type { CommitDetailsWebviewShowingArgs } from './registration';
 
@@ -268,119 +266,136 @@ export class CommitDetailsWebviewProvider
 	}
 
 	onMessageReceived(e: IpcMessage) {
-		switch (e.method) {
-			case OpenFileOnRemoteCommandType.method:
-				onIpc(OpenFileOnRemoteCommandType, e, params => void this.openFileOnRemote(params));
+		switch (true) {
+			case OpenFileOnRemoteCommand.is(e):
+				void this.openFileOnRemote(e.params);
 				break;
-			case OpenFileCommandType.method:
-				onIpc(OpenFileCommandType, e, params => void this.openFile(params));
-				break;
-			case OpenFileCompareWorkingCommandType.method:
-				onIpc(OpenFileCompareWorkingCommandType, e, params => void this.openFileComparisonWithWorking(params));
-				break;
-			case OpenFileComparePreviousCommandType.method:
-				onIpc(
-					OpenFileComparePreviousCommandType,
-					e,
-					params => void this.openFileComparisonWithPrevious(params),
-				);
-				break;
-			case FileActionsCommandType.method:
-				onIpc(FileActionsCommandType, e, params => void this.showFileActions(params));
-				break;
-			case CommitActionsCommandType.method:
-				onIpc(CommitActionsCommandType, e, params => {
-					switch (params.action) {
-						case 'graph': {
-							let ref: GitRevisionReference | undefined;
-							if (this._context.mode === 'wip') {
-								ref =
-									this._context.wip?.changes != null
-										? createReference(uncommitted, this._context.wip.changes.repository.path, {
-												refType: 'revision',
-										  })
-										: undefined;
-							} else {
-								ref =
-									this._context.commit != null
-										? getReferenceFromRevision(this._context.commit)
-										: undefined;
-							}
-							if (ref == null) return;
 
-							void executeCommand<ShowInCommitGraphCommandArgs>(
-								this.options.attachedTo === 'graph'
-									? Commands.ShowInCommitGraphView
-									: Commands.ShowInCommitGraph,
-								{ ref: ref },
-							);
-							break;
+			case OpenFileCommand.is(e):
+				void this.openFile(e.params);
+				break;
+
+			case OpenFileCompareWorkingCommand.is(e):
+				void this.openFileComparisonWithWorking(e.params);
+				break;
+
+			case OpenFileComparePreviousCommand.is(e):
+				void this.openFileComparisonWithPrevious(e.params);
+				break;
+
+			case ExecuteFileActionCommand.is(e):
+				void this.showFileActions(e.params);
+				break;
+
+			case ExecuteCommitActionCommand.is(e):
+				switch (e.params.action) {
+					case 'graph': {
+						let ref: GitRevisionReference | undefined;
+						if (this._context.mode === 'wip') {
+							ref =
+								this._context.wip?.changes != null
+									? createReference(uncommitted, this._context.wip.changes.repository.path, {
+											refType: 'revision',
+									  })
+									: undefined;
+						} else {
+							ref =
+								this._context.commit != null
+									? getReferenceFromRevision(this._context.commit)
+									: undefined;
 						}
-						case 'more':
-							this.showCommitActions();
-							break;
-						case 'scm':
-							void executeCoreCommand('workbench.view.scm');
-							break;
-						case 'sha':
-							if (params.alt) {
-								this.showCommitPicker();
-							} else if (this._context.commit != null) {
-								void executeCommand<CopyShaToClipboardCommandArgs>(Commands.CopyShaToClipboard, {
-									sha: this._context.commit.sha,
-								});
-							}
-							break;
+						if (ref == null) return;
+
+						void executeCommand<ShowInCommitGraphCommandArgs>(
+							this.options.attachedTo === 'graph'
+								? Commands.ShowInCommitGraphView
+								: Commands.ShowInCommitGraph,
+							{ ref: ref },
+						);
+						break;
 					}
-				});
+					case 'more':
+						this.showCommitActions();
+						break;
+
+					case 'scm':
+						void executeCoreCommand('workbench.view.scm');
+						break;
+
+					case 'sha':
+						if (e.params.alt) {
+							this.showCommitPicker();
+						} else if (this._context.commit != null) {
+							void executeCommand<CopyShaToClipboardCommandArgs>(Commands.CopyShaToClipboard, {
+								sha: this._context.commit.sha,
+							});
+						}
+						break;
+				}
 				break;
-			case PickCommitCommandType.method:
-				onIpc(PickCommitCommandType, e, _params => this.showCommitPicker());
+
+			case PickCommitCommand.is(e):
+				this.showCommitPicker();
 				break;
-			case SearchCommitCommandType.method:
-				onIpc(SearchCommitCommandType, e, _params => this.showCommitSearch());
+
+			case SearchCommitCommand.is(e):
+				this.showCommitSearch();
 				break;
-			case SwitchModeCommandType.method:
-				onIpc(SwitchModeCommandType, e, params => this.switchMode(params));
+
+			case SwitchModeCommand.is(e):
+				this.switchMode(e.params);
 				break;
-			case AutolinkSettingsCommandType.method:
-				onIpc(AutolinkSettingsCommandType, e, _params => this.showAutolinkSettings());
+
+			case AutolinkSettingsCommand.is(e):
+				this.showAutolinkSettings();
 				break;
-			case PinCommitCommandType.method:
-				onIpc(PinCommitCommandType, e, params => this.updatePinned(params.pin ?? false, true));
+
+			case PinCommand.is(e):
+				this.updatePinned(e.params.pin ?? false, true);
 				break;
-			case NavigateCommitCommandType.method:
-				onIpc(NavigateCommitCommandType, e, params => this.navigateStack(params.direction));
+
+			case NavigateCommand.is(e):
+				this.navigateStack(e.params.direction);
 				break;
-			case UpdatePreferencesCommandType.method:
-				onIpc(UpdatePreferencesCommandType, e, params => this.updatePreferences(params));
+
+			case UpdatePreferencesCommand.is(e):
+				this.updatePreferences(e.params);
 				break;
-			case ExplainCommandType.method:
-				onIpc(ExplainCommandType, e, () => this.explainCommit(e.completionId));
+
+			case ExplainRequest.is(e):
+				void this.explainRequest(ExplainRequest, e);
 				break;
-			case StageFileCommandType.method:
-				onIpc(StageFileCommandType, e, params => this.stageFile(params));
+
+			case StageFileCommand.is(e):
+				void this.stageFile(e.params);
 				break;
-			case UnstageFileCommandType.method:
-				onIpc(UnstageFileCommandType, e, params => this.unstageFile(params));
+
+			case UnstageFileCommand.is(e):
+				void this.unstageFile(e.params);
 				break;
-			case CreatePatchFromWipCommandType.method:
-				onIpc(CreatePatchFromWipCommandType, e, params => this.createPatchFromWip(params));
+
+			case CreatePatchFromWipCommand.is(e):
+				this.createPatchFromWip(e.params);
 				break;
-			case FetchCommandType.method:
-				onIpc(FetchCommandType, e, () => this.fetch());
+
+			case FetchCommand.is(e):
+				this.fetch();
 				break;
-			case PublishCommandType.method:
-				onIpc(PublishCommandType, e, () => this.publish());
+
+			case PublishCommand.is(e):
+				this.publish();
 				break;
-			case PushCommandType.method:
-				onIpc(PushCommandType, e, () => this.push());
+
+			case PushCommand.is(e):
+				this.push();
 				break;
-			case PullCommandType.method:
-				onIpc(PullCommandType, e, () => this.pull());
+
+			case PullCommand.is(e):
+				this.pull();
 				break;
-			case SwitchCommandType.method:
-				onIpc(SwitchCommandType, e, () => this.switch());
+
+			case SwitchCommand.is(e):
+				this.switch();
 				break;
 		}
 	}
@@ -652,7 +667,7 @@ export class CommitDetailsWebviewProvider
 		}
 	}
 
-	private async explainCommit(completionId?: string) {
+	private async explainRequest<T extends typeof ExplainRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		let params: DidExplainParams;
 		try {
 			const summary = await (
@@ -660,15 +675,15 @@ export class CommitDetailsWebviewProvider
 			)?.explainCommit(this._context.commit!, {
 				progress: { location: { viewId: this.host.id } },
 			});
-			if (summary == null) {
-				throw new Error('Error retrieving content');
-			}
+			if (summary == null) throw new Error('Error retrieving content');
+
 			params = { summary: summary };
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
 		}
-		void this.host.notify(DidExplainCommandType, params, completionId);
+
+		void this.host.respond(requestType, msg, params);
 	}
 
 	private navigateStack(direction: 'back' | 'forward') {
@@ -754,7 +769,7 @@ export class CommitDetailsWebviewProvider
 
 			if (this._pendingContext == null) {
 				const success = await this.host.notify(
-					DidChangeWipStateNotificationType,
+					DidChangeWipStateNotification,
 					serialize({
 						wip: serializeWipContext(wip),
 					}) as DidChangeWipStateParams,
@@ -1072,7 +1087,7 @@ export class CommitDetailsWebviewProvider
 
 		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
 			try {
-				await this.host.notify(DidChangeNotificationType, {
+				await this.host.notify(DidChangeNotification, {
 					state: await this.getState(context),
 				});
 			} catch (ex) {
@@ -1159,7 +1174,7 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private async getFileCommitFromParams(
-		params: FileActionParams,
+		params: ExecuteFileActionParams,
 	): Promise<[commit: GitCommit, file: GitFileChange] | undefined> {
 		let commit: GitCommit | undefined;
 		if (this.mode === 'wip') {
@@ -1200,7 +1215,7 @@ export class CommitDetailsWebviewProvider
 		void showDetailsQuickPick(this._context.commit);
 	}
 
-	private async showFileActions(params: FileActionParams) {
+	private async showFileActions(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1227,7 +1242,7 @@ export class CommitDetailsWebviewProvider
 		this.setMode(params.mode, repo);
 	}
 
-	private async openFileComparisonWithWorking(params: FileActionParams) {
+	private async openFileComparisonWithWorking(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1241,7 +1256,7 @@ export class CommitDetailsWebviewProvider
 		});
 	}
 
-	private async openFileComparisonWithPrevious(params: FileActionParams) {
+	private async openFileComparisonWithPrevious(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1256,7 +1271,7 @@ export class CommitDetailsWebviewProvider
 		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.host.id });
 	}
 
-	private async openFile(params: FileActionParams) {
+	private async openFile(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1270,7 +1285,7 @@ export class CommitDetailsWebviewProvider
 		});
 	}
 
-	private async openFileOnRemote(params: FileActionParams) {
+	private async openFileOnRemote(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1279,7 +1294,7 @@ export class CommitDetailsWebviewProvider
 		void openFileOnRemote(file, commit);
 	}
 
-	private async stageFile(params: FileActionParams) {
+	private async stageFile(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1288,7 +1303,7 @@ export class CommitDetailsWebviewProvider
 		await this.container.git.stageFile(commit.repoPath, file.path);
 	}
 
-	private async unstageFile(params: FileActionParams) {
+	private async unstageFile(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1297,7 +1312,7 @@ export class CommitDetailsWebviewProvider
 		await this.container.git.unstageFile(commit.repoPath, file.path);
 	}
 
-	private getShowOptions(params: FileActionParams): TextDocumentShowOptions | undefined {
+	private getShowOptions(params: ExecuteFileActionParams): TextDocumentShowOptions | undefined {
 		return params.showOptions;
 
 		// return getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebase:active')

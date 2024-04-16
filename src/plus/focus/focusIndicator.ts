@@ -118,6 +118,7 @@ export class FocusIndicator implements Disposable {
 	private updateStatusBar(state: 'loading' | 'idle' | 'data', categorizedItems?: FocusItem[]) {
 		if (this._statusBarFocus == null) return;
 		this._statusBarFocus.tooltip = new MarkdownString('', true);
+		this._statusBarFocus.tooltip.appendMarkdown('Focus (PREVIEW)\n\n---\n\n');
 		this._statusBarFocus.tooltip.supportHtml = true;
 		this._statusBarFocus.tooltip.isTrusted = true;
 		if (state === 'loading') {
@@ -146,16 +147,12 @@ export class FocusIndicator implements Disposable {
 						switch (group) {
 							case 'mergeable':
 								this._statusBarFocus.tooltip.appendMarkdown(
-									`<span style="color:#00FF00;">$(circle-filled)</span> You have ${pluralize(
+									`<span style="color:#3d90fc;">$(rocket)</span> [${pluralize(
 										'pull request',
 										items.length,
-									)} that can be merged.`,
-								);
-								this._statusBarFocus.tooltip.appendMarkdown('\n');
-								this._statusBarFocus.tooltip.appendMarkdown(
-									`<span>[Show all mergeable](command:gitlens.quickFocus?${encodeURIComponent(
+									)} can be merged.](command:gitlens.quickFocus?${encodeURIComponent(
 										JSON.stringify({ state: { initialGroup: 'mergeable' } }),
-									)})</span>`,
+									)})`,
 								);
 								color = '#00FF00';
 								topItem ??= { item: items[0], groupLabel: 'can be merged' };
@@ -163,76 +160,60 @@ export class FocusIndicator implements Disposable {
 							case 'blocked': {
 								const action = groupByMap(items, i =>
 									i.actionableCategory === 'failed-checks' ||
-									i.actionableCategory === 'mergeable-conflicts' ||
-									i.actionableCategory === 'conflicts'
+									i.actionableCategory === 'conflicts' ||
+									i.actionableCategory === 'unassigned-reviewers'
 										? i.actionableCategory
 										: 'blocked',
 								);
 								let item: FocusItem | undefined;
-
-								let actionGroupItems = action.get('failed-checks');
+								let actionMessage = '';
+								let summaryMessage = '(';
+								let actionGroupItems = action.get('unassigned-reviewers');
+								const hasMultipleCategories = action.size > 1;
 								if (actionGroupItems?.length) {
-									const message = `You have ${pluralize(
-										'pull request',
-										actionGroupItems.length,
-									)} that ${actionGroupItems.length > 1 ? 'have' : 'has'} failed CI checks.`;
-									this._statusBarFocus.tooltip.appendMarkdown(
-										`<span style="color:#FF0000;">$(circle-filled)</span> ${message}`,
-									);
+									actionMessage = `${actionGroupItems.length > 1 ? 'need' : 'needs'} reviewers`;
+									summaryMessage += `${actionGroupItems.length} ${actionMessage}`;
 									item ??= actionGroupItems[0];
 								}
 
-								actionGroupItems = action.get('mergeable-conflicts');
+								actionGroupItems = action.get('failed-checks');
 								if (actionGroupItems?.length) {
-									const message = `You have ${pluralize(
-										'pull request',
-										actionGroupItems.length,
-									)} that can be merged once conflicts are resolved.`;
-									this._statusBarFocus.tooltip.appendMarkdown(
-										`<span style="color:#FF0000;">$(circle-filled)</span> ${message}`,
-									);
+									actionMessage = `failed CI checks`;
+									summaryMessage += `${hasMultipleCategories ? ', ' : ''}${
+										actionGroupItems.length
+									} ${actionMessage}`;
 									item ??= actionGroupItems[0];
 								}
 
 								actionGroupItems = action.get('conflicts');
 								if (actionGroupItems?.length) {
-									const message = `You have ${pluralize(
-										'pull request',
-										actionGroupItems.length,
-									)} that ${actionGroupItems.length > 1 ? 'have' : 'has'} conflicts.`;
-									this._statusBarFocus.tooltip.appendMarkdown(
-										`<span style="color:#FF0000;">$(circle-filled)</span> ${message}`,
-									);
+									actionMessage = `${actionGroupItems.length > 1 ? 'have' : 'has'} conflicts`;
+									summaryMessage += `${hasMultipleCategories ? ', ' : ''}${
+										actionGroupItems.length
+									} ${actionMessage}`;
 									item ??= actionGroupItems[0];
 								}
 
-								actionGroupItems = action.get('blocked');
-								if (actionGroupItems?.length) {
-									const message = `You have ${pluralize(
+								summaryMessage += ')';
+								this._statusBarFocus.tooltip.appendMarkdown(
+									`<span style="color:#FF0000;">$(error)</span> [${pluralize(
 										'pull request',
-										actionGroupItems.length,
-									)} that ${actionGroupItems.length > 1 ? 'need' : 'needs'} attention.`;
-									this._statusBarFocus.tooltip.appendMarkdown(
-										`<span style="color:#FF0000;">$(circle-filled)</span> ${message}`,
-									);
-									item ??= actionGroupItems[0];
+										items.length,
+									)} ${
+										hasMultipleCategories ? 'are blocked' : actionMessage
+									}.](command:gitlens.quickFocus?${encodeURIComponent(
+										JSON.stringify({ state: { initialGroup: 'blocked' } }),
+									)})`,
+								);
+								if (hasMultipleCategories) {
+									this._statusBarFocus.tooltip.appendMarkdown(`\\\n$(blank)${summaryMessage}`);
 								}
-
 								color ??= '#FF0000';
 								if (item != null) {
-									this._statusBarFocus.tooltip.appendMarkdown('\n');
-									this._statusBarFocus.tooltip.appendMarkdown(
-										`<span>[Show all blocked](command:gitlens.quickFocus?${encodeURIComponent(
-											JSON.stringify({ state: { initialGroup: 'blocked' } }),
-										)})</span>`,
-									);
 									let label = 'is blocked';
 									if (item.actionableCategory === 'failed-checks') {
 										label = 'failed CI checks';
-									} else if (
-										item.actionableCategory === 'mergeable-conflicts' ||
-										item.actionableCategory === 'conflicts'
-									) {
+									} else if (item.actionableCategory === 'conflicts') {
 										label = 'has conflicts';
 									}
 									topItem ??= { item: item, groupLabel: label };
@@ -241,34 +222,28 @@ export class FocusIndicator implements Disposable {
 							}
 							case 'needs-review':
 								this._statusBarFocus.tooltip.appendMarkdown(
-									`<span style="color:#FFFF00;">$(circle-filled)</span> You have ${pluralize(
+									`<span style="color:#3d90fc;">$(comment-draft)</span> [${pluralize(
 										'pull request',
 										items.length,
-									)} that ${items.length > 1 ? 'are' : 'is'} waiting for your review.`,
-								);
-								this._statusBarFocus.tooltip.appendMarkdown('\n');
-								this._statusBarFocus.tooltip.appendMarkdown(
-									`<span>[Show all waiting for review](command:gitlens.quickFocus?${encodeURIComponent(
+									)} ${
+										items.length > 1 ? 'need' : 'needs'
+									} your review.](command:gitlens.quickFocus?${encodeURIComponent(
 										JSON.stringify({ state: { initialGroup: 'needs-review' } }),
-									)})</span>`,
+									)})`,
 								);
 								color ??= '#FFFF00';
 								topItem ??= { item: items[0], groupLabel: 'needs your review' };
 								break;
 							case 'follow-up':
 								this._statusBarFocus.tooltip.appendMarkdown(
-									`<span style="color:#FFA500;">$(circle-filled)</span> You have ${pluralize(
+									`<span style="color:#3d90fc;">$(report)</span> [${pluralize(
 										'pull request',
 										items.length,
-									)} that ${items.length > 1 ? 'have' : 'has'} been reviewed and ${
+									)} ${
 										items.length > 1 ? 'require' : 'requires'
-									} follow-up.`,
-								);
-								this._statusBarFocus.tooltip.appendMarkdown('\n');
-								this._statusBarFocus.tooltip.appendMarkdown(
-									`<span>[Show all requiring follow-up](command:gitlens.quickFocus?${encodeURIComponent(
+									} follow-up.](command:gitlens.quickFocus?${encodeURIComponent(
 										JSON.stringify({ state: { initialGroup: 'follow-up' } }),
-									)})</span>`,
+									)})`,
 								);
 								color ??= '#FFA500';
 								topItem ??= { item: items[0], groupLabel: 'requires follow-up' };
@@ -278,19 +253,25 @@ export class FocusIndicator implements Disposable {
 				}
 			}
 
-			this._statusBarFocus.text = topItem ? `$(target) #${topItem.item.id} ${topItem.groupLabel}` : '$(target)';
+			this._statusBarFocus.text = topItem
+				? `$(target)${
+						topItem.item.repository != null
+							? ` ${topItem.item.repository.owner.login}/${topItem.item.repository.name}`
+							: ''
+				  } #${topItem.item.id} ${topItem.groupLabel}`
+				: '$(target)';
 			this._statusBarFocus.color = color;
 		}
 
 		this._statusBarFocus.tooltip.appendMarkdown('\n\n---\n\n');
 		this._statusBarFocus.tooltip.appendMarkdown(
 			configuration.get('focus.experimental.indicators.data.enabled')
-				? `<span>[Mute](command:gitlens.focus.experimental.updateIndicators?"mute")</span>`
-				: `<span>[Unmute](command:gitlens.focus.experimental.updateIndicators?"unmute")</span>`,
+				? `<span>$(bell-slash) [Mute](command:gitlens.focus.experimental.updateIndicators?"mute")</span>`
+				: `<span>$(bell) [Unmute](command:gitlens.focus.experimental.updateIndicators?"unmute")</span>`,
 		);
-		this._statusBarFocus.tooltip.appendMarkdown('\t\t');
+		this._statusBarFocus.tooltip.appendMarkdown('\t|\t');
 		this._statusBarFocus.tooltip.appendMarkdown(
-			`<span>[Hide](command:gitlens.focus.experimental.updateIndicators?"hide")</span>`,
+			`<span>$(circle-slash) [Hide](command:gitlens.focus.experimental.updateIndicators?"hide")</span>`,
 		);
 	}
 

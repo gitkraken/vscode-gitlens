@@ -59,7 +59,6 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		}
 	}
 
-	// TODO: implement
 	protected override async mergeProviderPullRequest(
 		_session: AuthenticationSession,
 		_pr: PullRequest | { id: string; headRefSha: string },
