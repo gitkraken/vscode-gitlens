@@ -1004,6 +1004,8 @@ export type StoredBranchComparisons = Record<string, string | StoredBranchCompar
 export interface StoredDeepLinkContext {
 	url?: string | undefined;
 	repoPath?: string | undefined;
+	targetSha?: string | undefined;
+	secondaryTargetSha?: string | undefined;
 }
 
 export interface StoredGraphColumn {
