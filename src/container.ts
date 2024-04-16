@@ -26,6 +26,7 @@ import { AccountAuthenticationProvider } from './plus/gk/account/authenticationP
 import { OrganizationService } from './plus/gk/account/organizationService';
 import { SubscriptionService } from './plus/gk/account/subscriptionService';
 import { ServerConnection } from './plus/gk/serverConnection';
+import type { CloudIntegrationsApi } from './plus/integrations/authentication/cloudIntegrationsApi';
 import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthentication';
 import { IntegrationService } from './plus/integrations/integrationService';
 import type { GitHubApi } from './plus/integrations/providers/github/github';
@@ -431,6 +432,29 @@ export class Container {
 		return this._cache;
 	}
 
+	private _cloudIntegrationsApi: Promise<CloudIntegrationsApi | undefined> | undefined;
+	get cloudIntegrationsApi() {
+		if (this._cloudIntegrationsApi == null) {
+			async function load(this: Container) {
+				try {
+					const cloudIntegrationsApi = new (
+						await import(
+							/* webpackChunkName: "integrations" */ './plus/integrations/authentication/cloudIntegrationsApi'
+						)
+					).CloudIntegrationsApi(this, this._connection);
+					return cloudIntegrationsApi;
+				} catch (ex) {
+					Logger.error(ex);
+					return undefined;
+				}
+			}
+
+			this._cloudIntegrationsApi = load.call(this);
+		}
+
+		return this._cloudIntegrationsApi;
+	}
+
 	private _drafts: DraftService | undefined;
 	get drafts() {
 		if (this._drafts == null) {
@@ -619,7 +643,7 @@ export class Container {
 	private _integrations: IntegrationService | undefined;
 	get integrations(): IntegrationService {
 		if (this._integrations == null) {
-			this._disposables.push((this._integrations = new IntegrationService(this)));
+			this._disposables.push((this._integrations = new IntegrationService(this, this._connection)));
 		}
 		return this._integrations;
 	}

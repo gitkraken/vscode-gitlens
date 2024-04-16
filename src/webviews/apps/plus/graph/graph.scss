@@ -27,15 +27,19 @@
 	--color-graph-selected-row: var(--vscode-list-activeSelectionBackground);
 	--color-graph-hover-row: var(--vscode-list-hoverBackground);
 	--color-graph-text-selected-row: var(--vscode-list-activeSelectionForeground);
-	--color-graph-text-dimmed-selected: var(--vscode-list-activeSelectionForeground);
-	--color-graph-text-dimmed: var(--vscode-list-activeSelectionForeground);
+	--color-graph-text-dimmed-selected: color-mix(
+		in srgb,
+		transparent 50%,
+		var(--vscode-list-activeSelectionForeground)
+	);
+	--color-graph-text-selected: var(--vscode-editor-foreground, var(--vscode-foreground));
+	--color-graph-text-dimmed: color-mix(in srgb, transparent 80%, var(--color-graph-text-selected));
 	--color-graph-actionbar-selectedBackground: var(--vscode-toolbar-hoverBackground);
 
 	--color-graph-text-hovered: var(--vscode-list-hoverForeground);
-	--color-graph-text-selected: var(--vscode-editor-foreground, var(--vscode-foreground));
-	--color-graph-text-normal: var(--color-graph-text-selected);
-	--color-graph-text-secondary: var(--color-graph-text-selected);
-	--color-graph-text-disabled: var(--color-graph-text-selected);
+	--color-graph-text-normal: color-mix(in srgb, transparent 15%, var(--color-graph-text-selected));
+	--color-graph-text-secondary: color-mix(in srgb, transparent 35%, var(--color-graph-text-selected));
+	--color-graph-text-disabled: color-mix(in srgb, transparent 50%, var(--color-graph-text-selected));
 
 	--color-graph-stats-added: var(--vscode-gitlens-graphChangesColumnAddedColor);
 	--color-graph-stats-deleted: var(--vscode-gitlens-graphChangesColumnDeletedColor);
@@ -99,6 +103,22 @@
 	--branch-status-both-foreground: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
 
 	--graph-column-scrollbar-thickness: 14px;
+}
+
+:root:has(.vscode-dark, .vscode-high-contrast) {
+	--graph-theme-opacity-factor: '1';
+
+	--color-graph-actionbar-background: color-mix(in srgb, #fff 5%, var(--color-background));
+	--color-graph-background: color-mix(in srgb, #fff 5%, var(--color-background));
+	--color-graph-background2: color-mix(in srgb, #fff 10%, var(--color-background));
+}
+
+:root:has(.vscode-light, .vscode-high-contrast-light) {
+	--graph-theme-opacity-factor: '0.5';
+
+	--color-graph-actionbar-background: color-mix(in srgb, #000 5%, var(--color-background));
+	--color-graph-background: color-mix(in srgb, #000 5%, var(--color-background));
+	--color-graph-background2: color-mix(in srgb, #000 10%, var(--color-background));
 }
 
 body {

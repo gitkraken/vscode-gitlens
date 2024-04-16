@@ -1,5 +1,5 @@
 import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
-import { authentication, Disposable, EventEmitter } from 'vscode';
+import { authentication, Disposable, env, EventEmitter, window } from 'vscode';
 import { isWeb } from '@env/platform';
 import type { Container } from '../../container';
 import type { SearchedIssue } from '../../git/models/issue';
@@ -8,7 +8,10 @@ import type { GitRemote } from '../../git/models/remote';
 import type { RemoteProvider, RemoteProviderId } from '../../git/remotes/remoteProvider';
 import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
+import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
+import type { ServerConnection } from '../gk/serverConnection';
+import { supportedCloudIntegrationIds } from './authentication/models';
 import type {
 	HostingIntegration,
 	Integration,
@@ -44,7 +47,10 @@ export class IntegrationService implements Disposable {
 	private readonly _disposable: Disposable;
 	private _integrations = new Map<IntegrationKey, Integration>();
 
-	constructor(private readonly container: Container) {
+	constructor(
+		private readonly container: Container,
+		private readonly connection: ServerConnection,
+	) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'remotes')) {
@@ -52,11 +58,53 @@ export class IntegrationService implements Disposable {
 				}
 			}),
 			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
+			container.subscription.onDidCheckIn(this.onUserCheckedIn, this),
 		);
 	}
 
 	dispose() {
 		this._disposable?.dispose();
+	}
+
+	private async syncCloudIntegrations(_options?: { force?: boolean }) {
+		const session = await this.container.subscription.getAuthenticationSession();
+		let connectedProviders = new Set<string>();
+		if (session != null) {
+			const api = await this.container.cloudIntegrationsApi;
+			const connectedProviderData = (await api?.getConnectedProvidersData()) ?? [];
+			connectedProviders = new Set(connectedProviderData.map(p => p.provider));
+		}
+		for (const cloudIntegrationId of supportedCloudIntegrationIds) {
+			const integration = await this.get(cloudIntegrationId);
+			const isConnected = integration.maybeConnected ?? (await integration.isConnected());
+			if (connectedProviders.has(cloudIntegrationId)) {
+				if (isConnected) {
+					continue;
+				}
+				await integration.connect();
+			} else {
+				if (!isConnected) {
+					continue;
+				}
+				await integration.disconnect({ silent: true });
+			}
+		}
+	}
+
+	private onUserCheckedIn() {
+		void this.syncCloudIntegrations();
+	}
+
+	async manageCloudIntegrations() {
+		await env.openExternal(this.connection.getGkDevAccountsUri('settings/integrations'));
+		take(
+			window.onDidChangeWindowState,
+			2,
+		)(e => {
+			if (e.focused) {
+				void this.syncCloudIntegrations();
+			}
+		});
 	}
 
 	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {

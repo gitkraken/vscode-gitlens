@@ -49,7 +49,7 @@ import {
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
 } from '../../../../plus/webviews/graph/protocol';
-import { Color, darken, getCssVariable, lighten, mix, opacity } from '../../../../system/color';
+import { Color, getCssVariable, mix, opacity } from '../../../../system/color';
 import { debug } from '../../../../system/decorators/log';
 import { debounce } from '../../../../system/function';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
@@ -311,29 +311,6 @@ export class GraphApp extends App<State> {
 
 	protected override onThemeUpdated(e: ThemeChangeEvent) {
 		const rootStyle = document.documentElement.style;
-		rootStyle.setProperty('--graph-theme-opacity-factor', e.isLightTheme ? '0.5' : '1');
-
-		rootStyle.setProperty(
-			'--color-graph-actionbar-background',
-			e.isLightTheme ? darken(e.colors.background, 5) : lighten(e.colors.background, 5),
-		);
-
-		rootStyle.setProperty(
-			'--color-graph-background',
-			e.isLightTheme ? darken(e.colors.background, 5) : lighten(e.colors.background, 5),
-		);
-		rootStyle.setProperty(
-			'--color-graph-background2',
-			e.isLightTheme ? darken(e.colors.background, 10) : lighten(e.colors.background, 10),
-		);
-
-		const color = getCssVariable('--color-graph-text-selected-row', e.computedStyle);
-		rootStyle.setProperty('--color-graph-text-dimmed-selected', opacity(color, 50));
-		rootStyle.setProperty('--color-graph-text-dimmed', opacity(e.colors.foreground, 20));
-
-		rootStyle.setProperty('--color-graph-text-normal', opacity(e.colors.foreground, 85));
-		rootStyle.setProperty('--color-graph-text-secondary', opacity(e.colors.foreground, 65));
-		rootStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
 
 		const backgroundColor = Color.from(e.colors.background);
 		const foregroundColor = Color.from(e.colors.foreground);
@@ -472,7 +449,9 @@ export class GraphApp extends App<State> {
 			i++;
 		}
 
-		const isHighContrastTheme = document.body.classList.contains('vscode-high-contrast');
+		const isHighContrastTheme =
+			document.body.classList.contains('vscode-high-contrast') ||
+			document.body.classList.contains('vscode-high-contrast-light');
 
 		return {
 			cssVariables: {

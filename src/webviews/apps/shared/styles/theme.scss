@@ -9,47 +9,51 @@
 
 	--color-background: var(--vscode-editor-background);
 	// Computed variants in code
-	--color-background--lighten-05: var(--color-background);
-	--color-background--darken-05: var(--color-background);
-	--color-background--lighten-075: var(--color-background);
-	--color-background--darken-075: var(--color-background);
-	--color-background--lighten-10: var(--color-background);
-	--color-background--darken-10: var(--color-background);
-	--color-background--lighten-15: var(--color-background);
-	--color-background--darken-15: var(--color-background);
-	--color-background--lighten-30: var(--color-background);
-	--color-background--darken-30: var(--color-background);
-	--color-background--lighten-50: var(--color-background);
-	--color-background--darken-50: var(--color-background);
+	--color-background--lighten-05: color-mix(in srgb, #fff 5%, var(--color-background));
+	--color-background--darken-05: color-mix(in srgb, #000 5%, var(--color-background));
+	--color-background--lighten-075: color-mix(in srgb, #fff 7.5%, var(--color-background));
+	--color-background--darken-075: color-mix(in srgb, #000 7.5%, var(--color-background));
+	--color-background--lighten-10: color-mix(in srgb, #fff 10%, var(--color-background));
+	--color-background--darken-10: color-mix(in srgb, #000 10%, var(--color-background));
+	--color-background--lighten-15: color-mix(in srgb, #fff 15%, var(--color-background));
+	--color-background--darken-15: color-mix(in srgb, #000 15%, var(--color-background));
+	--color-background--lighten-30: color-mix(in srgb, #fff 30%, var(--color-background));
+	--color-background--darken-30: color-mix(in srgb, #000 30%, var(--color-background));
+	--color-background--lighten-50: color-mix(in srgb, #fff 50%, var(--color-background));
+	--color-background--darken-50: color-mix(in srgb, #000 50%, var(--color-background));
 
 	--color-foreground: var(--vscode-editor-foreground, var(--vscode-foreground));
 	// Computed variants in code
-	--color-foreground--85: var(--color-foreground);
-	--color-foreground--75: var(--color-foreground);
-	--color-foreground--65: var(--color-foreground);
-	--color-foreground--50: var(--color-foreground);
+	--color-foreground--85: color-mix(in srgb, transparent 15%, var(--color-foreground));
+	--color-foreground--75: color-mix(in srgb, transparent 25%, var(--color-foreground));
+	--color-foreground--65: color-mix(in srgb, transparent 35%, var(--color-foreground));
+	--color-foreground--50: color-mix(in srgb, transparent 50%, var(--color-foreground));
 
 	--color-button-background: var(--vscode-button-background, var(--color-foreground));
 	// Computed variants in code
-	--color-button-background--darken-30: var(--color-button-background);
+	--color-button-background--darken-30: color-mix(in srgb, #000 30%, var(--color-button-background));
 	--color-button-foreground: var(--vscode-button-foreground, transparent);
 
 	--color-button-secondary-background: var(--vscode-button-secondaryBackground, transparent);
 	// Computed variants in code
-	--color-button-secondary-background--darken-30: var(--color-button-secondaryBackground);
+	--color-button-secondary-background--darken-30: color-mix(
+		in srgb,
+		#000 30%,
+		var(--color-button-secondaryBackground)
+	);
 
 	--color-highlight: var(--vscode-button-background, var(--vscode-button-border));
 	// Computed variants in code
-	--color-highlight--75: var(--color-highlight);
-	--color-highlight--50: var(--color-highlight);
-	--color-highlight--25: var(--color-highlight);
+	--color-highlight--75: color-mix(in srgb, transparent 25%, var(--color-highlight));
+	--color-highlight--50: color-mix(in srgb, transparent 50%, var(--color-highlight));
+	--color-highlight--25: color-mix(in srgb, transparent 75%, var(--color-highlight));
 
 	--color-focus-border: var(--vscode-focusBorder);
 
 	--color-link-foreground: var(--vscode-textLink-foreground);
 	// Computed variants in code
-	--color-link-foreground--darken-20: var(--color-link-foreground);
-	--color-link-foreground--lighten-20: var(--color-link-foreground);
+	--color-link-foreground--darken-20: color-mix(in srgb, #000 20%, var(--color-link-foreground));
+	--color-link-foreground--lighten-20: color-mix(in srgb, #fff 20%, var(--color-link-foreground));
 
 	--color-view-background: var(--vscode-sideBar-background, var(--color-background));
 	--color-view-foreground: var(--vscode-sideBar-foreground, var(--color-foreground));
@@ -62,23 +66,30 @@
 
 	--color-alert-infoBackground: var(--vscode-inputValidation-infoBackground);
 	--color-alert-infoBorder: var(--vscode-inputValidation-infoBorder);
-	// Computed variants in code
-	--color-alert-infoHoverBackground: var(--color-alert-infoBackground);
 
 	--color-alert-warningBackground: var(--vscode-inputValidation-warningBackground);
 	--color-alert-warningBorder: var(--vscode-inputValidation-warningBorder);
-	// Computed variants in code
-	--color-alert-warningHoverBackground: var(--color-alert-warningBackground);
 
 	--color-alert-errorBackground: var(--vscode-inputValidation-errorBackground);
 	--color-alert-errorBorder: var(--vscode-inputValidation-errorBorder);
-	// Computed variants in code
-	--color-alert-errorHoverBackground: var(--color-alert-errorBackground);
 
-	--color-alert-neutralBackground: var(--vscode-editor-background); // Computed in code
 	--color-alert-neutralBorder: var(--vscode-input-foreground);
-	// Computed variants in code
-	--color-alert-neutralHoverBackground: var(--color-alert-neutralBackground);
 
 	--color-alert-foreground: var(--vscode-input-foreground);
+}
+
+:root:has(.vscode-dark, .vscode-high-contrast) {
+	--color-alert-infoHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-infoBackground));
+	--color-alert-warningHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-warningBackground));
+	--color-alert-errorHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-errorBackground));
+	--color-alert-neutralBackground: color-mix(in srgb, #fff 5%, var(--color-background));
+	--color-alert-neutralHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-neutralBackground));
+}
+
+:root:has(.vscode-light, .vscode-high-contrast-light) {
+	--color-alert-infoHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-infoBackground));
+	--color-alert-warningHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-warningBackground));
+	--color-alert-errorHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-errorBackground));
+	--color-alert-neutralBackground: color-mix(in srgb, #000 5%, var(--color-background));
+	--color-alert-neutralHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-neutralBackground));
 }

@@ -8,7 +8,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support for Google Gemini for GitLens' experimental AI features
+  - Adds a `gitlens.ai.experimental.gemini.model` setting to specify the Gemini model
+- Adds support for the latest OpenAI and Anthropic models for GitLens' experimental AI features
 - Adds a new `gitlens.views.collapseWorktreesWhenPossible` setting to specify whether to try to collapse the opened worktrees into a single (common) repository in the views when possible
+
+### Changed
+
+- Improves performance when creating colors derived from the VS Code theme
 
 ### Fixed
 
