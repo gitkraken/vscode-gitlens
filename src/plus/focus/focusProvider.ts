@@ -109,6 +109,8 @@ export interface FocusRefreshEvent {
 	items: FocusItem[];
 }
 
+export const supportedFocusIntegrations = [HostingIntegrationId.GitHub];
+
 export class FocusProvider implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange() {
@@ -409,6 +411,17 @@ export class FocusProvider implements Disposable {
 		}
 
 		this._groupedIds = groupedIds;
+	}
+
+	async hasConnectedIntegration(): Promise<boolean> {
+		for (const integrationId of supportedFocusIntegrations) {
+			const integration = await this.container.integrations.get(integrationId);
+			if (integration.maybeConnected ?? (await integration.isConnected())) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
 

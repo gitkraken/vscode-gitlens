@@ -29,9 +29,10 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import { command } from '../../system/command';
 import { fromNow } from '../../system/date';
 import { interpolate } from '../../system/string';
-import { ProviderPullRequestReviewState } from '../integrations/providers/models';
+import type { IntegrationId } from '../integrations/providers/models';
+import { HostingIntegrationId, ProviderPullRequestReviewState } from '../integrations/providers/models';
 import type { FocusAction, FocusActionCategory, FocusGroup, FocusItem } from './focusProvider';
-import { groupAndSortFocusItems } from './focusProvider';
+import { groupAndSortFocusItems, supportedFocusIntegrations } from './focusProvider';
 
 const actionGroupMap = new Map<FocusActionCategory, string[]>([
 	['mergeable', ['Ready to Merge', 'Ready to merge']],
@@ -102,6 +103,16 @@ export class FocusCommand extends QuickCommand<State> {
 		};
 	}
 
+	private async ensureIntegrationConnected(id: IntegrationId) {
+		const integration = await this.container.integrations.get(id);
+		let connected = integration.maybeConnected ?? (await integration.isConnected());
+		if (!connected) {
+			connected = await integration.connect();
+		}
+
+		return connected;
+	}
+
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		if (this.container.git.isDiscoveringRepositories) {
 			await this.container.git.isDiscoveringRepositories;
@@ -116,7 +127,7 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		const context: Context = {
-			items: await this.container.focus.getCategorizedItems(),
+			items: [],
 			title: this.title,
 			collapsed: collapsed,
 		};
@@ -124,7 +135,16 @@ export class FocusCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
-			if (state.counter < 1 || state.item == null) {
+			if (state.counter < 1 && !(await this.container.focus.hasConnectedIntegration())) {
+				const result = yield* this.confirmIntegrationConnectStep(state, context);
+				if (result !== StepResultBreak && !(await this.ensureIntegrationConnected(result))) {
+					throw new Error('Could not connect chosen integration');
+				}
+			}
+
+			context.items = await this.container.focus.getCategorizedItems();
+
+			if (state.counter < 2 || state.item == null) {
 				const result = yield* this.pickFocusItemStep(state, context, {
 					picked: state.item?.id,
 				});
@@ -409,6 +429,41 @@ export class FocusCommand extends QuickCommand<State> {
 			confirmations,
 			undefined,
 			{ placeholder: 'Choose an action to perform' },
+		);
+
+		const selection: StepSelection<typeof step> = yield step;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
+	}
+
+	private *confirmIntegrationConnectStep(
+		state: StepState<State>,
+		_context: Context,
+	): StepResultGenerator<IntegrationId> {
+		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [];
+
+		for (const integration of supportedFocusIntegrations) {
+			switch (integration) {
+				case HostingIntegrationId.GitHub:
+					confirmations.push(
+						createQuickPickItemOfT(
+							{
+								label: 'Connect GitHub',
+								detail: 'Will connect to GitHub',
+							},
+							integration,
+						),
+					);
+					break;
+				default:
+					break;
+			}
+		}
+
+		const step = this.createConfirmStep(
+			this.title,
+			confirmations,
+			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
+			{ placeholder: 'GitHub not connected. Choose an action', ignoreFocusOut: true },
 		);
 
 		const selection: StepSelection<typeof step> = yield step;
