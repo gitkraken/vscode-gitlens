@@ -125,7 +125,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 								);
 							}
 						}
-					} else {
+					} else if (!status.detached) {
 						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'none', true));
 					}
 				}
