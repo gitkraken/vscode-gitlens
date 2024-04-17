@@ -2,6 +2,7 @@ import type { CancellationToken } from 'vscode';
 import { Disposable, env, EventEmitter, Uri } from 'vscode';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
+import type { Account } from '../../git/models/author';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import { configuration } from '../../system/configuration';
@@ -91,6 +92,7 @@ const prActionsMap = new Map<FocusActionCategory, FocusAction[]>([
 export type FocusPullRequest = EnrichablePullRequest & ProviderActionablePullRequest;
 
 export type FocusItem = FocusPullRequest & {
+	currentViewer: Account;
 	isNew: boolean;
 	actionableCategory: FocusActionCategory;
 	suggestedActions: FocusAction[];
@@ -381,6 +383,7 @@ export class FocusProvider implements Disposable {
 				const suggestedActions = prActionsMap.get(actionableCategory)!;
 				return {
 					...item,
+					currentViewer: myAccount!,
 					isNew:
 						this._groupedIds != null &&
 						!this._groupedIds.has(`${item.uuid}:${focusCategoryToGroupMap.get(actionableCategory)}`),
