@@ -29,6 +29,7 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import { command } from '../../system/command';
 import { fromNow } from '../../system/date';
 import { interpolate } from '../../system/string';
+import { ProviderPullRequestReviewState } from '../integrations/providers/models';
 import type { FocusAction, FocusActionCategory, FocusGroup, FocusItem } from './focusProvider';
 import { groupAndSortFocusItems } from './focusProvider';
 
@@ -315,6 +316,7 @@ export class FocusCommand extends QuickCommand<State> {
 				}),
 				iconPath: state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
 			}),
+			...this.getFocusItemInformationRows(state.item),
 			createQuickPickSeparator(),
 			createDirectiveQuickPickItem(Directive.Noop, false, {
 				label: '',
@@ -411,5 +413,122 @@ export class FocusCommand extends QuickCommand<State> {
 
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
+	}
+
+	private getFocusItemInformationRows(item: FocusItem): DirectiveQuickPickItem[] {
+		const information = [
+			this.getFocusItemCreatedDateInformation(item),
+			this.getFocusItemUpdatedDateInformation(item),
+		];
+		switch (item.actionableCategory) {
+			case 'mergeable':
+				information.push(
+					...this.getFocusItemStatusInformation(item),
+					...this.getFocusItemReviewInformation(item),
+				);
+				break;
+			case 'failed-checks':
+			case 'conflicts':
+				information.push(...this.getFocusItemStatusInformation(item));
+				break;
+			case 'unassigned-reviewers':
+			case 'needs-my-review':
+			case 'changes-requested':
+			case 'reviewer-commented':
+			case 'waiting-for-review':
+				information.push(...this.getFocusItemReviewInformation(item));
+				break;
+			default:
+				break;
+		}
+
+		return information;
+	}
+
+	private getFocusItemCreatedDateInformation(item: FocusItem): DirectiveQuickPickItem {
+		return createDirectiveQuickPickItem(Directive.Noop, false, {
+			label: `$(clock) Pull request was created ${fromNow(item.createdDate)}.`,
+		});
+	}
+
+	private getFocusItemUpdatedDateInformation(item: FocusItem): DirectiveQuickPickItem {
+		return createDirectiveQuickPickItem(Directive.Noop, false, {
+			label: `$(clock) Pull request was last updated ${fromNow(item.updatedDate)}.`,
+		});
+	}
+
+	private getFocusItemStatusInformation(item: FocusItem): DirectiveQuickPickItem[] {
+		return [
+			createDirectiveQuickPickItem(Directive.Noop, false, {
+				label: item.failingCI ? `$(error) CI checks are failing.` : `$(pass) CI checks passed.`,
+			}),
+			createDirectiveQuickPickItem(Directive.Noop, false, {
+				label: item.hasConflicts
+					? `$(error) Conflicts with base${item.baseRef?.name != null ? `: ${item.baseRef.name}` : ''}.`
+					: `$(pass) No conflicts with base${item.baseRef?.name != null ? `: ${item.baseRef.name}` : ''}.`,
+			}),
+		];
+	}
+
+	private getFocusItemReviewInformation(item: FocusItem): DirectiveQuickPickItem[] {
+		if (item.reviews == null || item.reviews.length === 0) {
+			return [
+				createDirectiveQuickPickItem(Directive.Noop, false, {
+					label: `$(issue-opened) No reviewers have been assigned yet to this Pull Request.`,
+				}),
+			];
+		}
+
+		const reviewInfo: DirectiveQuickPickItem[] = [];
+
+		for (const review of item.reviews) {
+			const isCurrentUser = review.reviewer.username === item.currentViewer.username;
+			switch (review.state) {
+				case ProviderPullRequestReviewState.Approved:
+					reviewInfo.push(
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: `${isCurrentUser ? 'You' : review.reviewer.username} approved this Pull Request.`,
+							iconPath:
+								review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined,
+						}),
+					);
+					break;
+				case ProviderPullRequestReviewState.ChangesRequested:
+					reviewInfo.push(
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: `${
+								isCurrentUser ? 'You' : review.reviewer.username
+							} requested changes on this Pull Request.`,
+							iconPath:
+								review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined,
+						}),
+					);
+					break;
+				case ProviderPullRequestReviewState.Commented:
+					reviewInfo.push(
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: `${
+								isCurrentUser ? 'You' : review.reviewer.username
+							} left a comment review on this Pull Request.`,
+							iconPath:
+								review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined,
+						}),
+					);
+					break;
+				case ProviderPullRequestReviewState.ReviewRequested:
+					reviewInfo.push(
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: `${
+								isCurrentUser ? 'You have' : `${review.reviewer.username} has`
+							} not yet reviewed this Pull Request.`,
+							iconPath:
+								review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined,
+						}),
+					);
+					break;
+			}
+		}
+
+		return reviewInfo;
 	}
 }
