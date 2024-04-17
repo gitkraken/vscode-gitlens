@@ -5,8 +5,10 @@ import { registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { groupByMap } from '../../system/iterable';
 import { pluralize } from '../../system/string';
+import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
+import { HostingIntegrationId } from '../integrations/providers/models';
 import type { FocusItem, FocusProvider, FocusRefreshEvent } from './focusProvider';
-import { focusGroups, groupAndSortFocusItems } from './focusProvider';
+import { focusGroups, groupAndSortFocusItems, supportedFocusIntegrations } from './focusProvider';
 
 export class FocusIndicator implements Disposable {
 	private readonly _disposable: Disposable;
@@ -22,9 +24,10 @@ export class FocusIndicator implements Disposable {
 		this._disposable = Disposable.from(
 			focus.onDidRefresh(this.onFocusRefreshed, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
+			container.integrations.onDidChangeConnectionState(this.onConnectedIntegrationsChanged, this),
 			...this.registerCommands(),
 		);
-		this.onReady();
+		void this.onReady();
 	}
 
 	dispose() {
@@ -34,7 +37,13 @@ export class FocusIndicator implements Disposable {
 		this._disposable.dispose();
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private async onConnectedIntegrationsChanged(e: ConnectionStateChangeEvent) {
+		if (supportedFocusIntegrations.includes(e.key as HostingIntegrationId)) {
+			await this.maybeLoadData();
+		}
+	}
+
+	private async onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'focus.experimental.indicators')) return;
 
 		if (configuration.changed(e, 'focus.experimental.indicators.openQuickFocus')) {
@@ -43,17 +52,25 @@ export class FocusIndicator implements Disposable {
 
 		if (configuration.changed(e, 'focus.experimental.indicators.data')) {
 			if (configuration.changed(e, 'focus.experimental.indicators.data.enabled')) {
-				if (
-					configuration.get('focus.experimental.indicators.data.enabled') &&
-					configuration.get('focus.experimental.indicators.data.refreshRate') > 0
-				) {
-					this.updateStatusBar('loading');
-				} else {
-					this.updateStatusBar('idle');
-				}
+				await this.maybeLoadData();
 			} else if (configuration.changed(e, 'focus.experimental.indicators.data.refreshRate')) {
 				this.startRefreshTimer();
 			}
+		}
+	}
+
+	private async maybeLoadData() {
+		if (
+			configuration.get('focus.experimental.indicators.data.enabled') &&
+			configuration.get('focus.experimental.indicators.data.refreshRate') > 0
+		) {
+			if (await this.focus.hasConnectedIntegration()) {
+				this.updateStatusBar('loading');
+			} else {
+				this.updateStatusBar('disconnected');
+			}
+		} else {
+			this.updateStatusBar('idle');
 		}
 	}
 
@@ -62,21 +79,14 @@ export class FocusIndicator implements Disposable {
 		this.updateStatusBar('data', e.items);
 	}
 
-	private onReady(): void {
+	private async onReady(): Promise<void> {
 		if (!configuration.get('focus.experimental.indicators.enabled')) {
 			return;
 		}
 
 		this._statusBarFocus = window.createStatusBarItem('gitlens.focus', StatusBarAlignment.Left, 10000 - 2);
 		this._statusBarFocus.name = 'GitLens Focus';
-		if (
-			configuration.get('focus.experimental.indicators.data.enabled') &&
-			configuration.get('focus.experimental.indicators.data.refreshRate') > 0
-		) {
-			this.updateStatusBar('loading');
-		} else {
-			this.updateStatusBar('idle');
-		}
+		await this.maybeLoadData();
 		this.updateStatusBarFocusCommand();
 		this._statusBarFocus.show();
 	}
@@ -115,7 +125,7 @@ export class FocusIndicator implements Disposable {
 		}
 	}
 
-	private updateStatusBar(state: 'loading' | 'idle' | 'data', categorizedItems?: FocusItem[]) {
+	private updateStatusBar(state: 'loading' | 'idle' | 'data' | 'disconnected', categorizedItems?: FocusItem[]) {
 		if (this._statusBarFocus == null) return;
 		this._statusBarFocus.tooltip = new MarkdownString('', true);
 		this._statusBarFocus.tooltip.appendMarkdown('Focus (PREVIEW)\n\n---\n\n');
@@ -130,6 +140,13 @@ export class FocusIndicator implements Disposable {
 			this.clearRefreshTimer();
 			this._statusBarFocus.text = '$(target)';
 			this._statusBarFocus.tooltip.appendMarkdown('Click to open Focus');
+			this._statusBarFocus.color = undefined;
+		} else if (state === 'disconnected') {
+			this.clearRefreshTimer();
+			this._statusBarFocus.text = '$(target) Disconnected';
+			this._statusBarFocus.tooltip.appendMarkdown(
+				`[Connect to GitHub](command:gitlens.focus.experimental.updateIndicators?"connectGitHub") to see Focus items.`,
+			);
 			this._statusBarFocus.color = undefined;
 		} else if (state === 'data') {
 			let color: string | ThemeColor | undefined = undefined;
@@ -277,7 +294,7 @@ export class FocusIndicator implements Disposable {
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand('gitlens.focus.experimental.updateIndicators', (action: string) => {
+			registerCommand('gitlens.focus.experimental.updateIndicators', async (action: string) => {
 				switch (action) {
 					case 'mute':
 						void configuration.updateEffective('focus.experimental.indicators.data.enabled', false);
@@ -288,6 +305,14 @@ export class FocusIndicator implements Disposable {
 					case 'hide':
 						this._statusBarFocus?.hide();
 						break;
+					case 'connectGitHub': {
+						const github = await this.container.integrations?.get(HostingIntegrationId.GitHub);
+						if (github == null) break;
+						if (!(github.maybeConnected ?? (await github.isConnected()))) {
+							void github.connect();
+						}
+						break;
+					}
 					default:
 						break;
 				}
