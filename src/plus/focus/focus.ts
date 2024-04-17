@@ -30,7 +30,11 @@ import { command } from '../../system/command';
 import { fromNow } from '../../system/date';
 import { interpolate } from '../../system/string';
 import type { IntegrationId } from '../integrations/providers/models';
-import { HostingIntegrationId, ProviderPullRequestReviewState } from '../integrations/providers/models';
+import {
+	HostingIntegrationId,
+	ProviderBuildStatusState,
+	ProviderPullRequestReviewState,
+} from '../integrations/providers/models';
 import type { FocusAction, FocusActionCategory, FocusGroup, FocusItem } from './focusProvider';
 import { groupAndSortFocusItems, supportedFocusIntegrations } from './focusProvider';
 
@@ -513,9 +517,25 @@ export class FocusCommand extends QuickCommand<State> {
 	}
 
 	private getFocusItemStatusInformation(item: FocusItem): DirectiveQuickPickItem[] {
+		let ciStatus = '$(question) Unknown CI status';
+		switch (item.headCommit?.buildStatuses?.[0].state) {
+			case ProviderBuildStatusState.Success:
+				ciStatus = '$(pass) CI checks passed.';
+				break;
+			case ProviderBuildStatusState.Failed:
+				ciStatus = '$(error) CI checks are failing.';
+				break;
+			case ProviderBuildStatusState.Pending:
+				ciStatus = '$(info) CI checks are pending.';
+				break;
+			case undefined:
+				ciStatus = '$(info) No CI checks found.';
+				break;
+		}
+
 		return [
 			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: item.failingCI ? `$(error) CI checks are failing.` : `$(pass) CI checks passed.`,
+				label: ciStatus,
 			}),
 			createDirectiveQuickPickItem(Directive.Noop, false, {
 				label: item.hasConflicts
@@ -529,7 +549,7 @@ export class FocusCommand extends QuickCommand<State> {
 		if (item.reviews == null || item.reviews.length === 0) {
 			return [
 				createDirectiveQuickPickItem(Directive.Noop, false, {
-					label: `$(issue-opened) No reviewers have been assigned yet to this Pull Request.`,
+					label: `$(info) No reviewers have been assigned yet to this Pull Request.`,
 				}),
 			];
 		}
