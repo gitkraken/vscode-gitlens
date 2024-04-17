@@ -47,6 +47,7 @@ export type ProviderEnterpriseOptions = EnterpriseOptions;
 export type ProviderJiraProject = JiraProject;
 export type ProviderJiraResource = JiraResource;
 export const ProviderPullRequestReviewState = GitPullRequestReviewState;
+export const ProviderBuildStatusState = GitBuildStatusState;
 
 export type IntegrationId = HostingIntegrationId | IssueIntegrationId | SelfHostedIntegrationId;
 
