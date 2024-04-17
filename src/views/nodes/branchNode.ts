@@ -325,7 +325,7 @@ export class BranchNode
 							);
 						}
 					}
-				} else {
+				} else if (!branch.detached) {
 					children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'none', this.root));
 				}
 			}
