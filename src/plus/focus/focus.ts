@@ -52,6 +52,7 @@ const actionGroupMap = new Map<FocusActionCategory, string[]>([
 ]);
 
 const groupMap = new Map<FocusGroup, [string, ThemeIcon | undefined]>([
+	['current-branch', ['Current Branch', new ThemeIcon('git-branch')]],
 	['pinned', ['Pinned', new ThemeIcon('pinned')]],
 	['mergeable', ['Ready to Merge', new ThemeIcon('rocket')]],
 	['blocked', ['Blocked', new ThemeIcon('error')]], //bracket-error
