@@ -3,8 +3,11 @@ import { Disposable, env, EventEmitter, Uri } from 'vscode';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import type { Account } from '../../git/models/author';
+import type { GitBranch } from '../../git/models/branch';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
+import type { GitRemote } from '../../git/models/remote';
+import type { Repository } from '../../git/models/repository';
 import { configuration } from '../../system/configuration';
 import { getSettledValue } from '../../system/promise';
 import { openUrl } from '../../system/utils';
@@ -33,6 +36,7 @@ export const focusActionCategories = [
 export type FocusActionCategory = (typeof focusActionCategories)[number];
 
 export const focusGroups = [
+	'current-branch',
 	'pinned',
 	'mergeable',
 	'blocked',
@@ -96,6 +100,13 @@ export type FocusItem = FocusPullRequest & {
 	isNew: boolean;
 	actionableCategory: FocusActionCategory;
 	suggestedActions: FocusAction[];
+	openRepository?: OpenRepository;
+};
+
+export type OpenRepository = {
+	repo: Repository;
+	remote: GitRemote;
+	localBranch?: GitBranch;
 };
 
 type CachedFocusPromise<T> = {
@@ -265,41 +276,37 @@ export class FocusProvider implements Disposable {
 		);
 	}
 
-	/* async locateItemRepository(
-		item: FocusItem,
-		options?: { force?: boolean; openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean },
-	): Promise<Repository | undefined> {
-		if (item.repository != null && !options?.force) return item.repository;
-		if (item.repositoryIdentity == null) return undefined;
+	async getMatchingOpenRepository(pr: EnrichablePullRequest): Promise<OpenRepository | undefined> {
+		for (const repo of this.container.git.openRepositories) {
+			const matchingRemote = (
+				await repo.getRemotes({
+					filter: r =>
+						r.matches(pr.repoIdentity.remote.url!) ||
+						r.matches(pr.repoIdentity.provider.repoDomain, pr.repoIdentity.provider.repoName),
+				})
+			)?.[0];
+			if (matchingRemote == null) continue;
 
-		return this.container.repositoryIdentity.getRepository(item.repositoryIdentity, {
-			...options,
-			skipRefValidation: true,
-		});
-	}
+			const matchingRemoteBranch = (
+				await repo.getBranches({
+					filter: b =>
+						b.remote &&
+						b.getRemoteName() === matchingRemote.name &&
+						b.getNameWithoutRemote() === pr.headRef?.name,
+				})
+			)?.values[0];
+			if (matchingRemoteBranch == null) continue;
 
-	async getItemBranchRef(item: FocusItem): Promise<GitBranchReference | undefined> {
-		if (item.ref?.remoteName == null || item.repository == null) return undefined;
-
-		const remoteName = item.ref.remoteName;
-		const remotes = await item.repository.getRemotes({ filter: r => r.provider?.owner === remoteName });
-		const matchingRemote = remotes.length > 0 ? remotes[0] : undefined;
-		let remoteBranchName = `${item.ref.remoteName}/${item.ref.branchName}`;
-		if (matchingRemote != null) {
-			remoteBranchName = `${matchingRemote.name}/${item.ref.branchName}`;
-			const matchingRemoteBranches = (
-				await item.repository.getBranches({ filter: b => b.remote && b.name === remoteBranchName })
+			const matchingLocalBranches = (
+				await repo.getBranches({ filter: b => b.upstream?.name === matchingRemoteBranch.name })
 			)?.values;
-			if (matchingRemoteBranches?.length) return matchingRemoteBranches[0];
+			const matchingLocalBranch = matchingLocalBranches?.find(b => b.current) ?? matchingLocalBranches?.[0];
+
+			return { repo: repo, remote: matchingRemote, localBranch: matchingLocalBranch };
 		}
 
-		return createReference(remoteBranchName, item.repository.path, {
-			refType: 'branch',
-			id: getBranchId(item.repository.path, true, remoteBranchName),
-			name: remoteBranchName,
-			remote: true,
-		});
-	} */
+		return undefined;
+	}
 
 	async getCategorizedItems(
 		options?: { force?: boolean; issues?: boolean; prs?: boolean },
@@ -380,19 +387,24 @@ export class FocusProvider implements Disposable {
 				{ enrichedItemsByUniqueId: enrichedItemsByEntityId },
 			) as FocusPullRequest[];
 			// Map from shared category label to local actionable category, and get suggested actions
-			categorized = actionableItems.map(item => {
-				const actionableCategory = sharedCategoryToFocusActionCategoryMap.get(item.suggestedActionCategory)!;
-				const suggestedActions = prActionsMap.get(actionableCategory)!;
-				return {
-					...item,
-					currentViewer: myAccount!,
-					isNew:
-						this._groupedIds != null &&
-						!this._groupedIds.has(`${item.uuid}:${focusCategoryToGroupMap.get(actionableCategory)}`),
-					actionableCategory: actionableCategory,
-					suggestedActions: suggestedActions,
-				};
-			}) satisfies FocusItem[];
+			categorized = (await Promise.all(
+				actionableItems.map(async item => {
+					const actionableCategory = sharedCategoryToFocusActionCategoryMap.get(
+						item.suggestedActionCategory,
+					)!;
+					const suggestedActions = prActionsMap.get(actionableCategory)!;
+					return {
+						...item,
+						currentViewer: myAccount!,
+						isNew:
+							this._groupedIds != null &&
+							!this._groupedIds.has(`${item.uuid}:${focusCategoryToGroupMap.get(actionableCategory)}`),
+						actionableCategory: actionableCategory,
+						suggestedActions: suggestedActions,
+						openRepository: await this.getMatchingOpenRepository(item),
+					};
+				}),
+			)) satisfies FocusItem[];
 		}
 
 		this.updateGroupedIds(categorized);
@@ -443,6 +455,11 @@ export function groupAndSortFocusItems(items?: FocusItem[]) {
 			continue;
 		} else if (item.viewer.pinned && !pinnedGroup.some(i => i.uuid === item.uuid)) {
 			pinnedGroup.push(item);
+		}
+
+		const currentBranchGroup = grouped.get('current-branch')!;
+		if (item.openRepository?.localBranch?.current) {
+			currentBranchGroup.push(item);
 		}
 
 		const draftGroup = grouped.get('draft')!;
