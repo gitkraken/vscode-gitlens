@@ -36,6 +36,11 @@ export interface Draft {
 	readonly deepLinkUrl: string;
 	readonly visibility: DraftVisibility;
 
+	readonly isArchived: boolean;
+	readonly archivedBy?: string;
+	readonly archivedReason?: string;
+	readonly archivedAt?: Date;
+
 	readonly latestChangesetId: string;
 	changesets?: DraftChangeset[];
 
@@ -141,6 +146,11 @@ export interface DraftResponse {
 
 	readonly title: string;
 	readonly description?: string;
+
+	readonly isArchived: boolean;
+	readonly archivedBy?: string;
+	readonly archivedReason?: string;
+	readonly archivedAt?: string;
 }
 
 export interface DraftUser {

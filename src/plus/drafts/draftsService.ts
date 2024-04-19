@@ -236,6 +236,11 @@ export class DraftService implements Disposable {
 				deepLinkUrl: createDraft.deepLink,
 				visibility: draft.visibility,
 
+				isArchived: draft.isArchived,
+				archivedBy: draft.archivedBy,
+				archivedReason: draft.archivedReason,
+				archivedAt: draft.archivedAt != null ? new Date(draft.archivedAt) : draft.archivedAt,
+
 				latestChangesetId: draft.latestChangesetId,
 				changesets: [
 					{
@@ -416,26 +421,51 @@ export class DraftService implements Disposable {
 			deepLinkUrl: draft.deepLink,
 			visibility: draft.visibility,
 
+			isArchived: draft.isArchived,
+			archivedBy: draft.archivedBy,
+			archivedReason: draft.archivedReason,
+			archivedAt: draft.archivedAt != null ? new Date(draft.archivedAt) : draft.archivedAt,
+
 			latestChangesetId: draft.latestChangesetId,
 			changesets: changesets,
 		};
 	}
 
 	@log()
-	async getDrafts(): Promise<Draft[]> {
+	async getDrafts(isArchived?: boolean): Promise<Draft[]> {
+		return this.getDraftsCore(isArchived ? { isArchived: isArchived } : undefined);
+	}
+
+	@log()
+	async getDraftsCore(options?: { isArchived?: boolean }): Promise<Draft[]> {
 		const scope = getLogScope();
 		type Result = { data: DraftResponse[] };
 
-		const rsp = await this.connection.fetchGkDevApi('/v1/drafts', { method: 'GET' });
+		const queryStrings = [];
+
+		if (options?.isArchived) {
+			queryStrings.push('archived=true');
+		}
+
+
+		const rsp = await this.connection.fetchGkDevApi(
+			'/v1/drafts',
+			{
+				method: 'GET',
+			},
+			{
+				query: queryStrings.length ? queryStrings.join('&') : undefined,
+			},
+		);
 
 		if (!rsp.ok) {
 			await handleBadDraftResponse('Unable to open drafts', rsp, scope);
 		}
 
-		const draft = ((await rsp.json()) as Result).data;
+		const drafts = ((await rsp.json()) as Result).data;
 		const { account } = await this.container.subscription.getSubscription();
 
-		return draft.map((d): Draft => {
+		return drafts.map((d): Draft => {
 			const isMine = d.createdBy === account?.id;
 			return {
 				draftType: 'cloud',
@@ -457,6 +487,11 @@ export class DraftService implements Disposable {
 
 				createdAt: new Date(d.createdAt),
 				updatedAt: new Date(d.updatedAt ?? d.createdAt),
+
+				isArchived: d.isArchived,
+				archivedBy: d.archivedBy,
+				archivedReason: d.archivedReason,
+				archivedAt: d.archivedAt != null ? new Date(d.archivedAt) : d.archivedAt,
 
 				latestChangesetId: d.latestChangesetId,
 			};
