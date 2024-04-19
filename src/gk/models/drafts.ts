@@ -246,3 +246,13 @@ export interface DraftPatchResponse {
 		readonly url: string;
 	};
 }
+
+export type CodeSuggestionCountsResponse = {
+	counts: CodeSuggestionCounts;
+};
+
+export type CodeSuggestionCounts = {
+	[entityId: string]: {
+		count: number;
+	};
+};
