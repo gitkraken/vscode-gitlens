@@ -364,6 +364,30 @@ export class DraftService implements Disposable {
 	}
 
 	@log()
+	async archiveDraft(id: string, options?: { archiveReason?: string }): Promise<void> {
+		const scope = getLogScope();
+
+		try {
+			const rsp = await this.connection.fetchGkDevApi(`v1/drafts/${id}/archive`, {
+				method: 'POST',
+				body:
+					options?.archiveReason != null
+						? JSON.stringify({ archiveReason: options.archiveReason })
+						: undefined,
+			});
+
+			if (!rsp.ok) {
+				await handleBadDraftResponse(`Unable to archive draft '${id}'`, rsp, scope);
+			}
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+
+			throw ex;
+		}
+	}
+
+	@log()
 	async getDraft(id: string): Promise<Draft> {
 		const scope = getLogScope();
 
