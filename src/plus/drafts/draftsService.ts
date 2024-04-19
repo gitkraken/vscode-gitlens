@@ -9,6 +9,8 @@ import { isRepository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders';
 import type {
+	CodeSuggestionCounts,
+	CodeSuggestionCountsResponse,
 	CreateDraftChange,
 	CreateDraftPatchRequestFromChange,
 	CreateDraftRequest,
@@ -40,7 +42,7 @@ import { getLogScope } from '../../system/logger.scope';
 import { getSettledValue } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { IntegrationId } from '../integrations/providers/models';
-import { getEntityIdentifier } from '../integrations/providers/utils';
+import { getEntityIdentifierInput } from '../integrations/providers/utils';
 
 export class DraftService implements Disposable {
 	constructor(
@@ -845,7 +847,7 @@ export class DraftService implements Disposable {
 	}
 
 	async getCodeSuggestions(pullRequest: PullRequest, repository: Repository): Promise<Draft[]> {
-		const entityIdentifier = getEntityIdentifier(pullRequest);
+		const entityIdentifier = getEntityIdentifierInput(pullRequest);
 		const prEntityId = EntityIdentifierUtils.encode(entityIdentifier);
 		const providerAuth = await this.getProviderAuthFromRepository(repository);
 
@@ -859,6 +861,45 @@ export class DraftService implements Disposable {
 			return drafts;
 		} catch (e) {
 			return [];
+		}
+	}
+
+	@log()
+	async getCodeSuggestionCounts(pullRequests: PullRequest[]): Promise<CodeSuggestionCounts> {
+		const scope = getLogScope();
+
+		type Result = { data: CodeSuggestionCountsResponse };
+
+		const prEntityIds = pullRequests.map(pr => {
+			return EntityIdentifierUtils.encode(getEntityIdentifierInput(pr));
+		});
+
+		const body = JSON.stringify({
+			prEntityIds: prEntityIds,
+		});
+
+		try {
+			const rsp = await this.connection.fetchGkDevApi(
+				'v1/drafts/counts',
+				{
+					method: 'POST',
+					body: body,
+				},
+				{
+					query: 'type=suggested_pr_change',
+				},
+			);
+
+			if (!rsp.ok) {
+				await handleBadDraftResponse('Unable to open code suggestion counts', rsp, scope);
+			}
+
+			return ((await rsp.json()) as Result).data.counts;
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+
+			throw ex;
 		}
 	}
 }
