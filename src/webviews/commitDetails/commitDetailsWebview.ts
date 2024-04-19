@@ -97,6 +97,7 @@ import {
 	PullCommand,
 	PushCommand,
 	SearchCommitCommand,
+	ShowCodeSuggestionCommand,
 	StageFileCommand,
 	SuggestChangesCommand,
 	SwitchCommand,
@@ -412,6 +413,9 @@ export class CommitDetailsWebviewProvider
 			case SuggestChangesCommand.is(e):
 				void this.suggestChanges(e.params);
 				break;
+			case ShowCodeSuggestionCommand.is(e):
+				this.showCodeSuggestion(e.params.id);
+				break;
 		}
 	}
 
@@ -725,6 +729,13 @@ export class CommitDetailsWebviewProvider
 		};
 
 		void showPatchesView({ mode: 'create', create: { changes: [change] } });
+	}
+
+	private showCodeSuggestion(id: string) {
+		const draft = this._context.wip?.codeSuggestions?.find(draft => draft.id === id);
+		if (draft == null) return;
+
+		void showPatchesView({ mode: 'view', draft: draft });
 	}
 
 	private onActiveEditorLinesChanged(e: LinesChangeEvent) {
