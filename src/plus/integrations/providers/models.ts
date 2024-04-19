@@ -17,6 +17,7 @@ import type {
 	Trello,
 } from '@gitkraken/provider-apis';
 import {
+	EntityIdentifierUtils,
 	GitBuildStatusState,
 	GitProviderUtils,
 	GitPullRequestMergeableState,
@@ -35,6 +36,7 @@ import {
 } from '../../../git/models/pullRequest';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
 import type { EnrichableItem } from '../../focus/enrichmentService';
+import { getEntityIdentifierInput } from './utils';
 
 export type ProviderAccount = Account;
 export type ProviderReposInput = (string | number)[] | GetRepoInput[];
@@ -660,7 +662,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 export function toProviderPullRequestWithUniqueId(pr: PullRequest): PullRequestWithUniqueID {
 	return {
 		...toProviderPullRequest(pr),
-		uuid: pr.nodeId!,
+		uuid: EntityIdentifierUtils.encode(getEntityIdentifierInput(pr)),
 	};
 }
 
