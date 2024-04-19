@@ -248,7 +248,11 @@ export class GlWipDetails extends GlDetailsBase {
 					this.codeSuggestions,
 					draft => draft.id,
 					draft => html`
-						<gl-tree-item .expanded=${true} .level=${1}>
+						<gl-tree-item
+							.expanded=${true}
+							.level=${1}
+							@gl-tree-item-selected=${() => this.onShowCodeSuggestion(draft.id)}
+						>
 							<gk-avatar
 								class="author-icon"
 								src="${draft.author.avatar}"
@@ -355,6 +359,10 @@ export class GlWipDetails extends GlDetailsBase {
 
 	onToggleReviewMode(inReview: boolean) {
 		this.dispatchEvent(new CustomEvent('draft-state-changed', { detail: { inReview: inReview } }));
+	}
+
+	onShowCodeSuggestion(id: string) {
+		this.dispatchEvent(new CustomEvent('gl-show-code-suggestion', { detail: { id: id } }));
 	}
 }
 

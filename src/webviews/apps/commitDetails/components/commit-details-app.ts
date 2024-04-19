@@ -27,6 +27,7 @@ import {
 	PullCommand,
 	PushCommand,
 	SearchCommitCommand,
+	ShowCodeSuggestionCommand,
 	StageFileCommand,
 	SuggestChangesCommand,
 	SwitchCommand,
@@ -197,11 +198,18 @@ export class GlCommitDetailsApp extends LitElement {
 			DOM.on<GlWipDetails, CreatePatchEventDetail>('gl-wip-details', 'gl-inspect-create-suggestions', e =>
 				this.onSuggestChanges(e.detail),
 			),
+			DOM.on<GlWipDetails, { id: string }>('gl-wip-details', 'gl-show-code-suggestion', e =>
+				this.onShowCodeSuggestion(e.detail),
+			),
 		];
 	}
 
 	private onSuggestChanges(e: CreatePatchEventDetail) {
 		this._hostIpc.sendCommand(SuggestChangesCommand, e);
+	}
+
+	private onShowCodeSuggestion(e: { id: string }) {
+		this._hostIpc.sendCommand(ShowCodeSuggestionCommand, e);
 	}
 
 	private onMessageReceived(msg: IpcMessage) {

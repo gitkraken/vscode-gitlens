@@ -165,6 +165,11 @@ export interface CreatePatchFromWipParams {
 }
 export const CreatePatchFromWipCommand = new IpcCommand<CreatePatchFromWipParams>(scope, 'wip/createPatch');
 
+export interface ShowCodeSuggestionParams {
+	id: string;
+}
+export const ShowCodeSuggestionCommand = new IpcCommand<ShowCodeSuggestionParams>(scope, 'wip/showCodeSuggestion');
+
 export const FetchCommand = new IpcCommand(scope, 'fetch');
 export const PublishCommand = new IpcCommand(scope, 'publish');
 export const PushCommand = new IpcCommand(scope, 'push');
