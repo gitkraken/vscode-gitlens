@@ -1,3 +1,4 @@
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import { Disposable, Uri, window } from 'vscode';
 import type { GHPRPullRequest } from '../../../commands/ghpr/openOrCreateWorktree';
 import { Commands } from '../../../constants';
@@ -35,6 +36,7 @@ import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProv
 import type { EnrichableItem, EnrichedItem } from '../../focus/enrichmentService';
 import { convertRemoteProviderToEnrichProvider } from '../../focus/enrichmentService';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
+import { getEntityIdentifierInput } from '../../integrations/providers/utils';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	OpenBranchParams,
@@ -163,7 +165,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		} else {
 			const focusItem: EnrichableItem = {
 				type: 'issue',
-				id: issueWithRemote.issue.nodeId!,
+				id: EntityIdentifierUtils.encode(getEntityIdentifierInput(issueWithRemote.issue)),
 				provider: convertRemoteProviderToEnrichProvider(issueWithRemote.repoAndRemote.remote.provider),
 				url: issueWithRemote.issue.url,
 			};
@@ -194,7 +196,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		} else {
 			const focusItem: EnrichableItem = {
 				type: 'issue',
-				id: issueWithRemote.issue.nodeId!,
+				id: EntityIdentifierUtils.encode(getEntityIdentifierInput(issueWithRemote.issue)),
 				provider: convertRemoteProviderToEnrichProvider(issueWithRemote.repoAndRemote.remote.provider),
 				url: issueWithRemote.issue.url,
 			};
@@ -228,7 +230,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		} else {
 			const focusItem: EnrichableItem = {
 				type: 'pr',
-				id: prWithRemote.pullRequest.nodeId!,
+				id: EntityIdentifierUtils.encode(getEntityIdentifierInput(prWithRemote.pullRequest)),
 				provider: convertRemoteProviderToEnrichProvider(prWithRemote.repoAndRemote.remote.provider),
 				url: prWithRemote.pullRequest.url,
 			};
@@ -259,7 +261,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		} else {
 			const focusItem: EnrichableItem = {
 				type: 'pr',
-				id: prWithRemote.pullRequest.nodeId!,
+				id: EntityIdentifierUtils.encode(getEntityIdentifierInput(prWithRemote.pullRequest)),
 				provider: convertRemoteProviderToEnrichProvider(prWithRemote.repoAndRemote.remote.provider),
 				url: prWithRemote.pullRequest.url,
 			};
