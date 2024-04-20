@@ -10,12 +10,16 @@ import { HostingIntegrationId } from '../integrations/providers/models';
 import type { FocusItem, FocusProvider, FocusRefreshEvent } from './focusProvider';
 import { focusGroups, groupAndSortFocusItems, supportedFocusIntegrations } from './focusProvider';
 
+type FocusIndicatorState = 'loading' | 'idle' | 'data' | 'disconnected';
+
 export class FocusIndicator implements Disposable {
 	private readonly _disposable: Disposable;
 
 	private _statusBarFocus: StatusBarItem | undefined;
 
 	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
+
+	private _state: FocusIndicatorState;
 
 	constructor(
 		private readonly container: Container,
@@ -27,6 +31,7 @@ export class FocusIndicator implements Disposable {
 			container.integrations.onDidChangeConnectionState(this.onConnectedIntegrationsChanged, this),
 			...this.registerCommands(),
 		);
+		this._state = 'idle';
 		void this.onReady();
 	}
 
@@ -127,6 +132,8 @@ export class FocusIndicator implements Disposable {
 
 	private updateStatusBar(state: 'loading' | 'idle' | 'data' | 'disconnected', categorizedItems?: FocusItem[]) {
 		if (this._statusBarFocus == null) return;
+		if (state !== 'data' && state === this._state) return;
+		this._state = state;
 		this._statusBarFocus.tooltip = new MarkdownString('', true);
 		this._statusBarFocus.tooltip.appendMarkdown('Focus (PREVIEW)\n\n---\n\n');
 		this._statusBarFocus.tooltip.supportHtml = true;

@@ -1,4 +1,5 @@
 import { ThemeIcon, Uri } from 'vscode';
+import { getAvatarUri } from '../../avatars';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -28,14 +29,14 @@ import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import { command } from '../../system/command';
 import { fromNow } from '../../system/date';
-import { interpolate } from '../../system/string';
+import { interpolate, pluralize } from '../../system/string';
 import type { IntegrationId } from '../integrations/providers/models';
 import {
 	HostingIntegrationId,
 	ProviderBuildStatusState,
 	ProviderPullRequestReviewState,
 } from '../integrations/providers/models';
-import type { FocusAction, FocusActionCategory, FocusGroup, FocusItem } from './focusProvider';
+import type { FocusAction, FocusActionCategory, FocusGroup, FocusItem, FocusTargetAction } from './focusProvider';
 import { groupAndSortFocusItems, supportedFocusIntegrations } from './focusProvider';
 
 const actionGroupMap = new Map<FocusActionCategory, string[]>([
@@ -44,6 +45,7 @@ const actionGroupMap = new Map<FocusActionCategory, string[]>([
 	['failed-checks', ['Failed Checks', 'You need to resolve the failing checks']],
 	['conflicts', ['Resolve Conflicts', 'You need to resolve merge conflicts']],
 	['needs-my-review', ['Needs Your Review', `\${author} requested your review`]],
+	['code-suggestions', ['Code Suggestions', 'Code suggestions have been made on this pull request']],
 	['changes-requested', ['Changes Requested', 'Reviewers requested changes before this can be merged']],
 	['reviewer-commented', ['Reviewers Commented', 'Reviewers have commented on this pull request']],
 	['waiting-for-review', ['Waiting for Review', 'Waiting for reviewers to approve this pull request']],
@@ -75,7 +77,7 @@ interface Context {
 
 interface State {
 	item?: FocusItem;
-	action?: FocusAction;
+	action?: FocusAction | FocusTargetAction;
 	initialGroup?: FocusGroup;
 }
 
@@ -161,34 +163,44 @@ export class FocusCommand extends QuickCommand<State> {
 			assertsFocusStepState(state);
 
 			if (this.confirm(state.confirm)) {
+				await this.container.focus.ensureFocusItemCodeSuggestions(state.item);
 				const result = yield* this.confirmStep(state, context);
 				if (result === StepResultBreak) continue;
 
 				state.action = result;
 			}
 
-			switch (state.action) {
-				case 'merge': {
-					void this.container.focus.merge(state.item);
-					break;
+			if (typeof state.action === 'string') {
+				switch (state.action) {
+					case 'merge': {
+						void this.container.focus.merge(state.item);
+						break;
+					}
+					case 'open':
+						this.container.focus.open(state.item);
+						break;
+					case 'review':
+					case 'switch': {
+						void this.container.focus.switchTo(state.item);
+						break;
+					}
+					// case 'change-reviewers':
+					// 	await this.container.focus.changeReviewers(state.item);
+					// 	break;
+					// case 'decline-review':
+					// 	await this.container.focus.declineReview(state.item);
+					// 	break;
+					// case 'nudge':
+					// 	await this.container.focus.nudge(state.item);
+					// 	break;
 				}
-				case 'open':
-					this.container.focus.open(state.item);
-					break;
-				case 'review':
-				case 'switch': {
-					void this.container.focus.switchTo(state.item);
-					break;
+			} else {
+				switch (state.action?.action) {
+					case 'open-suggestion': {
+						this.container.focus.openCodeSuggestion(state.item, state.action.target);
+						break;
+					}
 				}
-				// case 'change-reviewers':
-				// 	await this.container.focus.changeReviewers(state.item);
-				// 	break;
-				// case 'decline-review':
-				// 	await this.container.focus.declineReview(state.item);
-				// 	break;
-				// case 'nudge':
-				// 	await this.container.focus.nudge(state.item);
-				// 	break;
 			}
 
 			endSteps(state);
@@ -242,7 +254,11 @@ export class FocusCommand extends QuickCommand<State> {
 							return {
 								label: i.title,
 								// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
-								description: `#${i.id} ${i.isNew ? '(New since last view)' : ''}`,
+								description: `#${i.id} ${i.isNew ? '(New since last view)' : ''} ${
+									i.codeSuggestionsCount > 0
+										? ` $(git-pull-request-draft) ${i.codeSuggestionsCount}`
+										: ''
+								}`,
 								detail: `      ${actionGroupMap.get(i.actionableCategory)![0]} \u2022  ${fromNow(
 									i.updatedDate,
 								)} by @${i.author!.username} \u2022 ${i.repository.owner.login}/${i.repository.name}`,
@@ -329,8 +345,15 @@ export class FocusCommand extends QuickCommand<State> {
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
-	private *confirmStep(state: FocusStepState, _context: Context): StepResultGenerator<FocusAction> {
-		const confirmations: (QuickPickItemOfT<FocusAction> | DirectiveQuickPickItem)[] = [
+	private *confirmStep(
+		state: FocusStepState,
+		_context: Context,
+	): StepResultGenerator<FocusAction | FocusTargetAction> {
+		const confirmations: (
+			| QuickPickItemOfT<FocusAction>
+			| QuickPickItemOfT<FocusTargetAction>
+			| DirectiveQuickPickItem
+		)[] = [
 			createDirectiveQuickPickItem(Directive.Noop, false, {
 				label: state.item.title,
 				description: `${state.item.repository.owner.login}/${state.item.repository.name}#${
@@ -475,8 +498,10 @@ export class FocusCommand extends QuickCommand<State> {
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
-	private getFocusItemInformationRows(item: FocusItem): DirectiveQuickPickItem[] {
-		const information = [
+	private getFocusItemInformationRows(
+		item: FocusItem,
+	): (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] {
+		const information: (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] = [
 			this.getFocusItemCreatedDateInformation(item),
 			this.getFocusItemUpdatedDateInformation(item),
 		];
@@ -493,6 +518,7 @@ export class FocusCommand extends QuickCommand<State> {
 				break;
 			case 'unassigned-reviewers':
 			case 'needs-my-review':
+			case 'code-suggestions':
 			case 'changes-requested':
 			case 'reviewer-commented':
 			case 'waiting-for-review':
@@ -501,6 +527,8 @@ export class FocusCommand extends QuickCommand<State> {
 			default:
 				break;
 		}
+
+		information.push(...this.getFocusItemCodeSuggestionInformation(item));
 
 		return information;
 	}
@@ -606,5 +634,46 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		return reviewInfo;
+	}
+
+	private getFocusItemCodeSuggestionInformation(
+		item: FocusItem,
+	): (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] {
+		if (item.codeSuggestions == null || item.codeSuggestions.length === 0) {
+			return [];
+		}
+
+		const codeSuggestionInfo: (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] = [
+			createDirectiveQuickPickItem(Directive.Noop, false, {
+				label: `$(git-pull-request-draft) ${pluralize(
+					'code suggestion',
+					item.codeSuggestions.length,
+				)} for this Pull Request:`,
+			}),
+		];
+
+		for (const suggestion of item.codeSuggestions) {
+			codeSuggestionInfo.push(
+				createQuickPickItemOfT(
+					{
+						label: `    ${suggestion.author.name} suggested a code change ${fromNow(
+							suggestion.createdAt,
+						)}: "${suggestion.title}"`,
+						iconPath:
+							suggestion.author.avatar != null
+								? Uri.parse(suggestion.author.avatar)
+								: suggestion.author.email != null
+								  ? getAvatarUri(suggestion.author.email)
+								  : undefined,
+					},
+					{
+						action: 'open-suggestion',
+						target: suggestion.id,
+					},
+				),
+			);
+		}
+
+		return codeSuggestionInfo;
 	}
 }

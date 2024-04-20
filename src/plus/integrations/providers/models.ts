@@ -42,7 +42,6 @@ export type ProviderAccount = Account;
 export type ProviderReposInput = (string | number)[] | GetRepoInput[];
 export type ProviderRepoInput = GetRepoInput;
 export type ProviderPullRequest = GitPullRequest;
-export type toProviderPullRequestWithUniqueId = PullRequestWithUniqueID;
 export type ProviderRepository = GitRepository;
 export type ProviderIssue = Issue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
@@ -682,7 +681,7 @@ export type ProviderActionablePullRequest = ActionablePullRequest;
 
 export type EnrichablePullRequest = ProviderPullRequest & {
 	uuid: string;
-	type: 'pullRequest';
+	type: 'pullrequest';
 	provider: ProviderReference;
 	enrichable: EnrichableItem;
 	repoIdentity: {

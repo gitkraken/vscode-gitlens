@@ -40,8 +40,10 @@ import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 import { getSettledValue } from '../../system/promise';
+import type { FocusItem } from '../focus/focusProvider';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { IntegrationId } from '../integrations/providers/models';
+import { providersMetadata } from '../integrations/providers/models';
 import { getEntityIdentifierInput } from '../integrations/providers/utils';
 
 export class DraftService implements Disposable {
@@ -846,10 +848,34 @@ export class DraftService implements Disposable {
 		};
 	}
 
-	async getCodeSuggestions(pullRequest: PullRequest, repository: Repository): Promise<Draft[]> {
-		const entityIdentifier = getEntityIdentifierInput(pullRequest);
+	async getProviderAuthForIntegration(
+		integrationId: IntegrationId,
+	): Promise<{ provider: IntegrationId; token: string } | undefined> {
+		const metadata = providersMetadata[integrationId];
+		if (metadata == null) return undefined;
+		const session = await this.container.integrationAuthentication.getSession(integrationId, {
+			domain: metadata.domain,
+			scopes: metadata.scopes,
+		});
+		if (session == null) return undefined;
+
+		return {
+			provider: integrationId,
+			token: session.accessToken,
+		};
+	}
+
+	async getCodeSuggestions(pullRequest: PullRequest, repository: Repository): Promise<Draft[]>;
+	async getCodeSuggestions(focusItem: FocusItem, integrationId: IntegrationId): Promise<Draft[]>;
+	async getCodeSuggestions(
+		item: PullRequest | FocusItem,
+		repositoryOrIntegrationId: Repository | IntegrationId,
+	): Promise<Draft[]> {
+		const entityIdentifier = getEntityIdentifierInput(item);
 		const prEntityId = EntityIdentifierUtils.encode(entityIdentifier);
-		const providerAuth = await this.getProviderAuthFromRepository(repository);
+		const providerAuth = isRepository(repositoryOrIntegrationId)
+			? await this.getProviderAuthFromRepository(repositoryOrIntegrationId)
+			: await this.getProviderAuthForIntegration(repositoryOrIntegrationId);
 
 		// swallowing this error as we don't need to fail here
 		try {
