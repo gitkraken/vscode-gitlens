@@ -2,22 +2,27 @@ import type { AnyEntityIdentifierInput } from '@gitkraken/provider-apis';
 import { EntityIdentifierProviderType, EntityType, EntityVersion } from '@gitkraken/provider-apis';
 import type { IssueOrPullRequest } from '../../../git/models/issue';
 import { equalsIgnoreCase } from '../../../system/string';
+import type { FocusItem } from '../../focus/focusProvider';
 
 function isGitHubDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'github.com');
 }
 
-export function getEntityIdentifierInput(issueOrPullRequest: IssueOrPullRequest): AnyEntityIdentifierInput {
+function isFocusItem(item: IssueOrPullRequest | FocusItem): item is FocusItem {
+	return (item as FocusItem).uuid !== undefined;
+}
+
+export function getEntityIdentifierInput(entity: IssueOrPullRequest | FocusItem): AnyEntityIdentifierInput {
 	let entityType = EntityType.Issue;
-	if (issueOrPullRequest.type === 'pullrequest') {
+	if (entity.type === 'pullrequest') {
 		entityType = EntityType.PullRequest;
 	}
 
 	let provider = EntityIdentifierProviderType.Github;
 	let domain = undefined;
-	if (!isGitHubDotCom(issueOrPullRequest.provider.domain)) {
+	if (!isGitHubDotCom(entity.provider.domain)) {
 		provider = EntityIdentifierProviderType.GithubEnterprise;
-		domain = issueOrPullRequest.provider.domain;
+		domain = entity.provider.domain;
 	}
 
 	return {
@@ -25,6 +30,6 @@ export function getEntityIdentifierInput(issueOrPullRequest: IssueOrPullRequest)
 		entityType: entityType,
 		version: EntityVersion.One,
 		domain: domain,
-		entityId: issueOrPullRequest.nodeId!,
+		entityId: isFocusItem(entity) ? entity.graphQLId! : entity.nodeId!,
 	};
 }

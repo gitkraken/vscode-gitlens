@@ -1097,18 +1097,20 @@ export class PatchDetailsWebviewProvider
 				title: draft.title,
 				description: draft.description,
 				visibility: draft.visibility,
-				patches: serialize(
-					draft.changesets![0].patches.map(p => ({
-						...p,
-						contents: undefined,
-						commit: undefined,
-						repository: {
-							id: p.gkRepositoryId,
-							name: p.repository?.name ?? '',
-							located: p.repository != null && isRepository(p.repository),
-						},
-					})),
-				),
+				patches: draft.changesets?.length
+					? serialize(
+							draft.changesets[0].patches.map(p => ({
+								...p,
+								contents: undefined,
+								commit: undefined,
+								repository: {
+									id: p.gkRepositoryId,
+									name: p.repository?.name ?? '',
+									located: p.repository != null && isRepository(p.repository),
+								},
+							})),
+					  )
+					: undefined,
 				users: draftUserState.users,
 				userSelections: draftUserState.selections,
 			};
