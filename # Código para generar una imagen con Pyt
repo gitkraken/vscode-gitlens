@@ -1,0 +1,37 @@
+# Código para generar una imagen con Python
+import matplotlib.pyplot as plt
+import numpy as np
+# Crear datos para la imagen
+x = np.linspace(0, 2 * np.pi, 100)
+y = np.sin(x)
+# Crear la figura y el gráfico
+plt.figure(figsize=(8, 4))
+plt.plot(x, y, label='Función seno', color='blue')
+plt.title('Gráfico de la función seno')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.grid(True)
+plt.legend()
+# Guardar la imagen
+plt.savefig('grafico_seno.png')
+# Mostrar la imagen
+plt.show()# Código para generar una imagen con Python
+import matplotlib.pyplot as plt
+import numpy as np
+# Crear datos para la imagen
+x = np.linspace(0, 2 * np.pi, 100)
+y = np.sin(x)
+# Crear la figura y el gráfico
+plt.figure(figsize=(8, 4))
+plt.plot(x, y, label='Función seno', color='blue')
+plt.title('Gráfico de la función seno')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.grid(True)
+plt.legend()
+# Guardar la imagen
+
+plt.savefig('grafico_seno.png')
+# Mostrar la imagen
+
+plt.show()
