@@ -148,16 +148,7 @@ export class OrganizationService implements Disposable {
 		options?: { force?: boolean },
 	): Promise<FullOrganization | undefined> {
 		if (!this._fullOrganizations?.has(id) || options?.force === true) {
-			const session = await this.container.subscription.getAuthenticationSession();
-
-			const rsp = await this.connection.fetchApi(
-				`organization/${id}`,
-				{
-					method: 'GET',
-				},
-				{ token: session?.accessToken },
-			);
-
+			const rsp = await this.connection.fetchApi(`organization/${id}`, { method: 'GET' });
 			if (!rsp.ok) {
 				Logger.error(
 					'',
@@ -206,16 +197,7 @@ export class OrganizationService implements Disposable {
 		if (id == null) return undefined;
 
 		if (!this._organizationSettings?.has(id) || options?.force === true) {
-			const session = await this.container.subscription.getAuthenticationSession();
-
-			const rsp = await this.connection.fetchApi(
-				`v1/organizations/settings`,
-				{
-					method: 'GET',
-				},
-				{ token: session?.accessToken },
-			);
-
+			const rsp = await this.connection.fetchApi(`v1/organizations/settings`, { method: 'GET' });
 			if (!rsp.ok) {
 				Logger.error(
 					'',
