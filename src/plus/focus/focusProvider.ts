@@ -188,9 +188,16 @@ export class FocusProvider implements Disposable {
 	}
 
 	private async fetchPullRequestsWithSuggestionCounts(cancellation?: CancellationToken) {
-		const prs = await this.container.integrations.getMyPullRequests([HostingIntegrationId.GitHub], cancellation);
+		const [prsResult, subscriptionResult] = await Promise.allSettled([
+			this.container.integrations.getMyPullRequests([HostingIntegrationId.GitHub], cancellation),
+			this.container.subscription.getSubscription(true),
+		]);
+
+		const prs = getSettledValue(prsResult);
+		const subscription = getSettledValue(subscriptionResult);
+
 		const suggestionCounts =
-			prs != null && prs.length > 0
+			prs?.length && subscription?.account != null
 				? await this.container.drafts.getCodeSuggestionCounts(prs.map(pr => pr.pullRequest))
 				: undefined;
 
