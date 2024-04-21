@@ -67,25 +67,25 @@ export class IntegrationService implements Disposable {
 	}
 
 	private async syncCloudIntegrations(_options?: { force?: boolean }) {
-		const session = await this.container.subscription.getAuthenticationSession();
 		let connectedProviders = new Set<string>();
+
+		const session = await this.container.subscription.getAuthenticationSession();
 		if (session != null) {
-			const api = await this.container.cloudIntegrationsApi;
-			const connectedProviderData = (await api?.getConnectedProvidersData()) ?? [];
-			connectedProviders = new Set(connectedProviderData.map(p => p.provider));
+			const cloudIntegrations = await this.container.cloudIntegrations;
+			const connections = (await cloudIntegrations?.getConnections()) ?? [];
+			connectedProviders = new Set(connections.map(p => p.provider));
 		}
+
 		for (const cloudIntegrationId of supportedCloudIntegrationIds) {
 			const integration = await this.get(cloudIntegrationId);
 			const isConnected = integration.maybeConnected ?? (await integration.isConnected());
 			if (connectedProviders.has(cloudIntegrationId)) {
-				if (isConnected) {
-					continue;
-				}
+				if (isConnected) continue;
+
 				await integration.connect();
 			} else {
-				if (!isConnected) {
-					continue;
-				}
+				if (!isConnected) continue;
+
 				await integration.disconnect({ silent: true });
 			}
 		}

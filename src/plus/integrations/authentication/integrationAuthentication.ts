@@ -175,7 +175,7 @@ export class IntegrationAuthenticationService implements Disposable {
 				case IssueIntegrationId.Jira:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './jira')
-					).JiraAuthenticationProvider(this.container, await this.container.cloudIntegrationsApi);
+					).JiraAuthenticationProvider(this.container);
 					break;
 				default:
 					throw new Error(`Provider '${providerId}' is not supported`);
