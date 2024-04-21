@@ -5,7 +5,6 @@ import type { DeferredEventExecutor } from '../../../system/event';
 import { promisifyDeferred } from '../../../system/event';
 import { openUrl } from '../../../system/utils';
 import { IssueIntegrationId } from '../providers/models';
-import type { CloudIntegrationsApi } from './cloudIntegrationsApi';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
@@ -13,10 +12,7 @@ import type {
 import type { ProviderAuthenticationSession } from './models';
 
 export class JiraAuthenticationProvider implements IntegrationAuthenticationProvider {
-	constructor(
-		private readonly container: Container,
-		private readonly cloudIntegrationsApi: CloudIntegrationsApi | undefined,
-	) {}
+	constructor(private readonly container: Container) {}
 
 	private readonly authProviderId = IssueIntegrationId.Jira;
 
@@ -28,15 +24,17 @@ export class JiraAuthenticationProvider implements IntegrationAuthenticationProv
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { authorizeIfNeeded?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
-		if (this.cloudIntegrationsApi == null) return undefined;
-		let tokenData = await this.cloudIntegrationsApi.getTokenData(this.authProviderId);
+		const cloudIntegrations = await this.container.cloudIntegrations;
+		if (cloudIntegrations == null) return undefined;
 
-		if (tokenData != null && tokenData.expiresIn < 60) {
-			tokenData = await this.cloudIntegrationsApi.getTokenData(this.authProviderId, true);
+		let session = await cloudIntegrations.getConnectionSession(this.authProviderId);
+
+		if (session != null && session.expiresIn < 60) {
+			session = await cloudIntegrations.getConnectionSession(this.authProviderId, true);
 		}
 
-		if (!tokenData && options?.authorizeIfNeeded) {
-			const authorizeJiraUrl = (await this.cloudIntegrationsApi.authorize(this.authProviderId))?.url;
+		if (!session && options?.authorizeIfNeeded) {
+			const authorizeJiraUrl = (await cloudIntegrations.authorize(this.authProviderId))?.url;
 
 			if (!authorizeJiraUrl) return undefined;
 
@@ -58,9 +56,9 @@ export class JiraAuthenticationProvider implements IntegrationAuthenticationProv
 					),
 					new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
 				]);
-				tokenData = await this.cloudIntegrationsApi.getTokenData(this.authProviderId);
+				session = await cloudIntegrations.getConnectionSession(this.authProviderId);
 			} catch {
-				tokenData = undefined;
+				session = undefined;
 			} finally {
 				cancellation.cancel();
 				cancellation.dispose();
@@ -68,17 +66,17 @@ export class JiraAuthenticationProvider implements IntegrationAuthenticationProv
 			}
 		}
 
-		if (!tokenData) return undefined;
+		if (!session) return undefined;
 
 		return {
 			id: this.getSessionId(descriptor),
-			accessToken: tokenData.accessToken,
+			accessToken: session.accessToken,
 			scopes: descriptor?.scopes ?? [],
 			account: {
 				id: '',
 				label: '',
 			},
-			expiresAt: new Date(tokenData.expiresIn * 1000 + Date.now()),
+			expiresAt: new Date(session.expiresIn * 1000 + Date.now()),
 		};
 	}
 
