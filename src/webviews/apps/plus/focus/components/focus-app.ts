@@ -308,8 +308,8 @@ export class GlFocusApp extends LitElement {
 						class="feedback"
 						appearance="toolbar"
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2535"
-						title="Focus Feedback"
-						aria-label="Focus Feedback"
+						title="Launchpad Feedback"
+						aria-label="Launchpad Feedback"
 						><code-icon icon="feedback"></code-icon
 					></gl-button>
 				</div>
@@ -322,7 +322,7 @@ export class GlFocusApp extends LitElement {
 						class="scrollable"
 						><p slot="feature">
 							<a href="https://help.gitkraken.com/gitlens/gitlens-features/#focus-view-%e2%9c%a8"
-								>Focus View</a
+								>Launchpad</a
 							>
 							&mdash; effortlessly view all of your GitHub pull requests and issues in a unified,
 							actionable view.
