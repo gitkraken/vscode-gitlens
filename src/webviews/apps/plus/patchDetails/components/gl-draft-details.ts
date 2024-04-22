@@ -417,26 +417,38 @@ export class GlDraftDetails extends GlTreeBase {
 					break;
 			}
 			return html`
-				<div class="message-input message-input--group">
-					<div class="message-input__select">
-						<span class="message-input__select-icon"><code-icon icon=${visibilityIcon}></code-icon></span>
-						<select id="visibility" class="message-input__control" @change=${this.onVisibilityChange}>
-							<option value="public" ?selected=${draft.visibility === 'public'}>
-								Anyone with the link
-							</option>
-							<option value="private" ?selected=${draft.visibility === 'private'}>
-								Members of my Org with the link
-							</option>
-							<option value="invite_only" ?selected=${draft.visibility === 'invite_only'}>
-								Collaborators only
-							</option>
-						</select>
-						<span class="message-input__select-caret"><code-icon icon="chevron-down"></code-icon></span>
-					</div>
-					<gl-button appearance="secondary" @click=${this.onInviteUsers}
-						><code-icon icon="person-add"></code-icon> Invite</gl-button
-					>
-				</div>
+				${when(
+					this.isCodeSuggestion !== true,
+					() =>
+						html` <div class="message-input message-input--group">
+							<div class="message-input__select">
+								<span class="message-input__select-icon"
+									><code-icon icon=${visibilityIcon}></code-icon
+								></span>
+								<select
+									id="visibility"
+									class="message-input__control"
+									@change=${this.onVisibilityChange}
+								>
+									<option value="public" ?selected=${draft.visibility === 'public'}>
+										Anyone with the link
+									</option>
+									<option value="private" ?selected=${draft.visibility === 'private'}>
+										Members of my Org with the link
+									</option>
+									<option value="invite_only" ?selected=${draft.visibility === 'invite_only'}>
+										Collaborators only
+									</option>
+								</select>
+								<span class="message-input__select-caret"
+									><code-icon icon="chevron-down"></code-icon
+								></span>
+							</div>
+							<gl-button appearance="secondary" @click=${this.onInviteUsers}
+								><code-icon icon="person-add"></code-icon> Invite</gl-button
+							>
+						</div>`,
+				)}
 				${this.renderUserSelectionList(draft)}
 				${when(
 					hasChanges,
@@ -454,22 +466,26 @@ export class GlDraftDetails extends GlTreeBase {
 		}
 
 		return html`
-			<div class="message-input">
-				<div class="message-input__control message-input__control--text">
-					${when(
-						draft.visibility === 'public',
-						() => html`<code-icon icon="globe"></code-icon> Anyone with the link`,
-					)}
-					${when(
-						draft.visibility === 'private',
-						() => html`<code-icon icon="organization"></code-icon> Members of my Org with the link`,
-					)}
-					${when(
-						draft.visibility === 'invite_only',
-						() => html`<code-icon icon="lock"></code-icon> Collaborators only`,
-					)}
-				</div>
-			</div>
+			${when(
+				this.isCodeSuggestion !== true,
+				() =>
+					html` <div class="message-input">
+						<div class="message-input__control message-input__control--text">
+							${when(
+								draft.visibility === 'public',
+								() => html`<code-icon icon="globe"></code-icon> Anyone with the link`,
+							)}
+							${when(
+								draft.visibility === 'private',
+								() => html`<code-icon icon="organization"></code-icon> Members of my Org with the link`,
+							)}
+							${when(
+								draft.visibility === 'invite_only',
+								() => html`<code-icon icon="lock"></code-icon> Collaborators only`,
+							)}
+						</div>
+					</div>`,
+			)}
 			${this.renderUserSelectionList(draft, true)}
 		`;
 	}
