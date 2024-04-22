@@ -44,5 +44,6 @@
   "cloud-patch-share": 61737,
   "inspect": 61738,
   "repository-filled": 61739,
-  "gitlens-filled": 61740
+  "gitlens-filled": 61740,
+  "code-suggestion": 61741
 }
