@@ -114,7 +114,7 @@ export interface CreateDraftPatchRequestFromChange {
 	user: GitUser | undefined;
 }
 
-export type DraftVisibility = 'public' | 'private' | 'invite_only';
+export type DraftVisibility = 'public' | 'private' | 'invite_only' | 'provider_access';
 
 export type DraftType = 'patch' | 'stash' | 'suggested_pr_change';
 
