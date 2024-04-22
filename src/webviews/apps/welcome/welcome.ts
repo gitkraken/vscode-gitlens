@@ -101,6 +101,7 @@ export class WelcomeApp extends App<State> {
 		this.updateAccountState();
 		this.updatePromo();
 		this.updateOrgSettings();
+		this.updateWorkshopBanner();
 	}
 
 	private updateOrgSettings() {
@@ -146,6 +147,17 @@ export class WelcomeApp extends App<State> {
 			(el as HTMLElement).hidden = isTrialOrPaid ?? false;
 		}
 		// document.getElementById('try-pro')!.hidden = isTrialOrPaid ?? false;
+	}
+
+	private updateWorkshopBanner() {
+		const today = Date.now();
+		const cutoffDate = Date.parse('30 Apr 2024 10:00:00 PDT');
+
+		const bannerElement = document.getElementById('workshop-banner');
+
+		if (bannerElement && today > cutoffDate) {
+			bannerElement.hidden = true;
+		}
 	}
 }
 
