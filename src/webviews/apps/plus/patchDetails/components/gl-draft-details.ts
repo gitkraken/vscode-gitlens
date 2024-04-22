@@ -7,7 +7,12 @@ import { repeat } from 'lit/directives/repeat.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
-import type { DraftPatchFileChange, DraftRole, DraftVisibility } from '../../../../../gk/models/drafts';
+import type {
+	DraftArchiveReason,
+	DraftPatchFileChange,
+	DraftRole,
+	DraftVisibility,
+} from '../../../../../gk/models/drafts';
 import type {
 	CloudDraftDetails,
 	DraftDetails,
@@ -78,6 +83,10 @@ export interface PatchDetailsUpdateSelectionEventDetail {
 	role: Exclude<DraftRole, 'owner'> | 'remove';
 }
 
+export interface DraftReasonEventDetail {
+	reason: Exclude<DraftArchiveReason, 'committed'>;
+}
+
 @customElement('gl-draft-details')
 export class GlDraftDetails extends GlTreeBase {
 	@property({ type: Object })
@@ -97,6 +106,18 @@ export class GlDraftDetails extends GlTreeBase {
 
 	@state()
 	private _copiedLink: boolean = false;
+
+	get cloudDraft() {
+		if (this.state.draft?.draftType !== 'cloud') {
+			return undefined;
+		}
+
+		return this.state.draft;
+	}
+
+	get isCodeSuggestion() {
+		return this.cloudDraft?.type === 'suggested_pr_change';
+	}
 
 	get canSubmit() {
 		return this.selectedPatches.length > 0;
@@ -154,7 +175,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 	private renderPatchMessage() {
 		if (this.state?.draft?.title == null) return undefined;
-		let description = this.state.draft.draftType === 'cloud' ? this.state.draft.description : undefined;
+		let description = this.cloudDraft?.description;
 		if (description == null) return undefined;
 
 		description = description.trim();
@@ -356,14 +377,19 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
-	renderUserSelectionList(draft: CloudDraftDetails) {
+	renderUserSelectionList(draft: CloudDraftDetails, includeOwner = false) {
 		if (!draft.userSelections?.length) return undefined;
+
+		let userSelections = draft.userSelections;
+		if (includeOwner === false) {
+			userSelections = userSelections.filter(u => u.user?.role !== 'owner');
+		}
 
 		return html`
 			<div class="message-input">
 				<div class="user-selection-container scrollable">
 					${repeat(
-						draft.userSelections,
+						userSelections,
 						userSelection => userSelection.member?.id ?? userSelection.user?.id,
 						userSelection => this.renderUserSelection(userSelection, draft.role),
 					)}
@@ -373,7 +399,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	renderPatchPermissions() {
-		const draft = this.state.draft!.draftType === 'cloud' ? this.state.draft! : undefined;
+		const draft = this.cloudDraft;
 		if (draft == null) return undefined;
 
 		if (draft.role === 'admin' || draft.role === 'owner') {
@@ -444,7 +470,21 @@ export class GlDraftDetails extends GlTreeBase {
 					)}
 				</div>
 			</div>
-			${this.renderUserSelectionList(draft)}
+			${this.renderUserSelectionList(draft, true)}
+		`;
+	}
+
+	renderCodeSuggectionActions() {
+		if (!this.isCodeSuggestion || this.cloudDraft == null || this.cloudDraft.isArchived) return undefined;
+
+		return html`
+			<p>Mark as:</p>
+			<p class="button-container">
+				<span class="button-group button-group--single">
+					<gl-button full @click=${() => this.onArchiveDraft('accepted')}>Accept</gl-button>
+					<gl-button full @click=${() => this.onArchiveDraft('rejected')}>Reject</gl-button>
+				</span>
+			</p>
 		`;
 	}
 
@@ -499,7 +539,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 		return html`
 			<div class="section section--action">
-				${this.renderPatchPermissions()}
+				${this.renderPatchPermissions()}${this.renderCodeSuggectionActions()}
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
@@ -728,6 +768,10 @@ export class GlDraftDetails extends GlTreeBase {
 			target: target,
 			selectedPatches: this.selectedPatches,
 		});
+	}
+
+	onArchiveDraft(reason: DraftReasonEventDetail['reason']) {
+		this.fireEvent('gl-draft-archive', { reason: reason });
 	}
 
 	onSelectApplyOption(e: CustomEvent<{ target: MenuItem }>) {

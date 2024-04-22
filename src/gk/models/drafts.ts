@@ -13,6 +13,8 @@ export interface LocalDraft {
 
 export type DraftRole = 'owner' | 'admin' | 'editor' | 'viewer';
 
+export type DraftArchiveReason = 'committed' | 'rejected' | 'accepted';
+
 export interface Draft {
 	readonly draftType: 'cloud';
 	readonly type: DraftType;
@@ -38,7 +40,7 @@ export interface Draft {
 
 	readonly isArchived: boolean;
 	readonly archivedBy?: string;
-	readonly archivedReason?: string;
+	readonly archivedReason?: DraftArchiveReason;
 	readonly archivedAt?: Date;
 
 	readonly latestChangesetId: string;
@@ -149,7 +151,7 @@ export interface DraftResponse {
 
 	readonly isArchived: boolean;
 	readonly archivedBy?: string;
-	readonly archivedReason?: string;
+	readonly archivedReason?: DraftArchiveReason;
 	readonly archivedAt?: string;
 }
 
