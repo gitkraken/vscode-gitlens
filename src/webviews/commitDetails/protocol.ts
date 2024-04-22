@@ -5,7 +5,7 @@ import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/co
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequestShape } from '../../git/models/pullRequest';
-import type { DraftVisibility } from '../../gk/models/drafts';
+import type { Draft, DraftVisibility } from '../../gk/models/drafts';
 import type { Change, DraftUserSelection } from '../../plus/webviews/patchDetails/protocol';
 import type { DateTimeFormat } from '../../system/date';
 import type { Serialized } from '../../system/serialize';
@@ -70,6 +70,7 @@ export interface Wip {
 	repositoryCount: number;
 	branch?: GitBranchShape;
 	pullRequest?: PullRequestShape;
+	codeSuggestions?: Serialized<Draft>[];
 	repo: {
 		uri: string;
 		name: string;

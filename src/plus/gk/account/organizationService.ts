@@ -178,6 +178,10 @@ export class OrganizationService implements Disposable {
 		return [];
 	}
 
+	async getOrganizationMembersById(ids: string[], orgId: string): Promise<OrganizationMember[]> {
+		return (await this.getOrganizationMembers(orgId)).filter(member => ids.includes(member.id));
+	}
+
 	private async getActiveOrganizationId(cached = true): Promise<string | undefined> {
 		const subscription = await this.container.subscription.getSubscription(cached);
 		return subscription?.activeOrganization?.id;
