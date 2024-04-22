@@ -3,6 +3,7 @@ import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptio
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import { serializeAutolink } from '../../annotations/autolinks';
+import { getAvatarUri } from '../../avatars';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
 import type { ContextKeys } from '../../constants';
 import { Commands } from '../../constants';
@@ -32,7 +33,7 @@ import { createReference, getReferenceFromRevision, shortenRevision } from '../.
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import type { CreateDraftChange, DraftVisibility } from '../../gk/models/drafts';
+import type { CreateDraftChange, Draft, DraftVisibility } from '../../gk/models/drafts';
 import { showPatchesView } from '../../plus/drafts/actions';
 import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
 import { confirmDraftStorage, ensureAccount } from '../../plus/utils';
@@ -114,6 +115,7 @@ interface WipContext {
 	branch?: GitBranch;
 	pullRequest?: PullRequest;
 	repo: Repository;
+	codeSuggestions?: Draft[];
 }
 
 interface Context {
@@ -413,10 +415,10 @@ export class CommitDetailsWebviewProvider
 		}
 	}
 
-	private getEncodedEntityid(): string | undefined {
-		if (this._context.wip?.pullRequest == null) return undefined;
+	private getEncodedEntityid(pullRequest = this._context.wip?.pullRequest): string | undefined {
+		if (pullRequest == null) return undefined;
 
-		const entity = getEntityIdentifierInput(this._context.wip.pullRequest);
+		const entity = getEntityIdentifierInput(pullRequest);
 		if (entity == null) return undefined;
 
 		return EntityIdentifierUtils.encode(entity);
@@ -876,6 +878,7 @@ export class CommitDetailsWebviewProvider
 				if (branchDetails != null) {
 					wip.branch = branchDetails.branch;
 					wip.pullRequest = branchDetails.pullRequest;
+					wip.codeSuggestions = branchDetails.codeSuggestions;
 				}
 			}
 
@@ -900,13 +903,39 @@ export class CommitDetailsWebviewProvider
 	private async getWipBranchDetails(
 		repository: Repository,
 		branchName: string,
-	): Promise<{ branch: GitBranch; pullRequest: PullRequest | undefined } | undefined> {
+	): Promise<{ branch: GitBranch; pullRequest: PullRequest | undefined; codeSuggestions: Draft[] } | undefined> {
 		const branch = await repository.getBranch(branchName);
 		if (branch == null) return undefined;
 
+		const pullRequest = await branch.getAssociatedPullRequest();
+
+		const codeSuggestions: Draft[] = [];
+		if (pullRequest != null) {
+			const results = await this.container.drafts.getCodeSuggestions(pullRequest, repository);
+			if (results.length) {
+				for (const draft of results) {
+					if (draft.author.avatar != null || draft.organizationId == null) continue;
+					let email = draft.author.email;
+					if (email == null) {
+						const user = (
+							await this.container.organizations.getOrganizationMembersById(
+								[draft.author.id],
+								draft.organizationId,
+							)
+						)[0];
+						email = user?.email;
+					}
+					if (email == null) continue;
+					draft.author.avatar = getAvatarUri(email).toString();
+				}
+				codeSuggestions.push(...results);
+			}
+		}
+
 		return {
 			branch: branch,
-			pullRequest: await branch.getAssociatedPullRequest(),
+			pullRequest: pullRequest,
+			codeSuggestions: codeSuggestions,
 		};
 	}
 
@@ -1475,5 +1504,10 @@ function serializeWipContext(wip?: WipContext): Wip | undefined {
 			// type: wip.repo.provider.name,
 		},
 		pullRequest: wip.pullRequest != null ? serializePullRequest(wip.pullRequest) : undefined,
+		codeSuggestions: wip.codeSuggestions?.map(draft => serializeDraft(draft)),
 	};
+}
+
+function serializeDraft(draft: Draft): Serialized<Draft> {
+	return serialize<Draft>(draft);
 }

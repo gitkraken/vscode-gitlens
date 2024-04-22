@@ -1,5 +1,7 @@
-import { html, nothing } from 'lit';
+import { Avatar, defineGkElement } from '@gitkraken/shared-web-components';
+import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { DraftState, State, Wip } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
@@ -13,6 +15,13 @@ import './gl-inspect-patch';
 
 @customElement('gl-wip-details')
 export class GlWipDetails extends GlDetailsBase {
+	static override styles = [
+		css`
+			:host {
+				--gk-avatar-size: 1.6rem;
+			}
+		`,
+	];
 	override readonly tab = 'wip';
 
 	@property({ type: Object })
@@ -76,6 +85,16 @@ export class GlWipDetails extends GlDetailsBase {
 			visibility: 'public',
 			userSelections: undefined,
 		};
+	}
+
+	get codeSuggestions() {
+		return this.wip?.codeSuggestions ?? [];
+	}
+
+	constructor() {
+		super();
+
+		defineGkElement(Avatar);
 	}
 
 	override get filesChangedPaneLabel() {
@@ -216,11 +235,42 @@ export class GlWipDetails extends GlDetailsBase {
 	}
 
 	renderSuggestedChanges() {
-		if (this.inReview === false || this.wip?.pullRequest == null) return nothing;
+		if (this.codeSuggestions.length === 0) return nothing;
+		// src="${this.issue!.author.avatarUrl}"
+		// title="${this.issue!.author.name} (author)"
+		return html`
+			<gl-tree>
+				<gl-tree-item branch .expanded=${true} .level=${0}>
+					<code-icon slot="icon" icon="cloud"></code-icon>
+					Code Suggestions
+				</gl-tree-item>
+				${repeat(
+					this.codeSuggestions,
+					draft => draft.id,
+					draft => html`
+						<gl-tree-item .expanded=${true} .level=${1}>
+							<gk-avatar
+								class="author-icon"
+								src="${draft.author.avatar}"
+								title="${draft.author.name} (author)"
+							></gk-avatar>
+							${draft.title}
+							<span slot="description"
+								><formatted-date .date=${new Date(draft.updatedAt)}></formatted-date
+							></span>
+						</gl-tree-item>
+					`,
+				)}
+			</gl-tree>
+		`;
+	}
+
+	renderPullRequest() {
+		if (this.wip?.pullRequest == null) return nothing;
 
 		return html`
 			<webview-pane collapsable>
-				<span slot="title">#${this.wip?.pullRequest?.id} Suggested Changes</span>
+				<span slot="title">Pull Request #${this.wip?.pullRequest?.id}</span>
 				<div class="section">
 					<issue-pull-request
 						type="pr"
@@ -233,6 +283,7 @@ export class GlWipDetails extends GlDetailsBase {
 						.dateStyle="${this.preferences?.dateStyle}"
 					></issue-pull-request>
 				</div>
+				${this.renderSuggestedChanges()}
 			</webview-pane>
 		`;
 	}
@@ -280,7 +331,7 @@ export class GlWipDetails extends GlDetailsBase {
 		return html`
 			${this.renderActions()}
 			<webview-pane-group flexible>
-				${this.renderSuggestedChanges()}${this.renderIncomingOutgoing()}
+				${this.renderPullRequest()}
 				${when(this.inReview === false, () => this.renderChangedFiles('wip'))}${this.renderPatchCreation()}
 			</webview-pane-group>
 		`;
