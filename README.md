@@ -45,7 +45,7 @@ Quickly glimpse into when, why, and by whom a line or code block was changed. Ze
 - [**Revision Navigation**](#revision-navigation) &mdash; Explore the history of a file to see how the code evolved over time.
 - [**Side Bar Views**](#side-bar-views) &mdash; Powerful views into Git that don't come in the box.
 - [**Commit Graph ✨**](#commit-graph-✨) &mdash; Visualize your repository and keep track of all work in progress.
-- [**GitKraken Workspaces ☁️ and Focus ✨**](#gitkraken-workspaces-☁️-and-focus-✨) &mdash; Easily group and manage multiple repositories and bring pull requests and issues into a unified view.
+- [**GitKraken Workspaces ☁️ and Launchpad ✨**](#gitkraken-workspaces-☁️-and-focus-✨) &mdash; Easily group and manage multiple repositories and bring pull requests and issues into a unified view.
 - [**Visual File History ✨**](#visual-file-history-✨) &mdash; Identify the most impactful changes to a file and by whom.
 - [**Worktrees ✨**](#worktrees-✨) &mdash; Simultaneously work on different branches of a repository.
 - [**Interactive Rebase Editor**](#interactive-rebase-editor) &mdash; Visualize and configure interactive rebase operations with a user-friendly editor.
@@ -175,14 +175,14 @@ Use the rich commit search to find exactly what you're looking for. Its powerful
 
 💡Maximize the Graph via the `Toggle Maximized Commit Graph` command.
 
-## GitKraken Workspaces ☁️ and Focus ✨
+## GitKraken Workspaces ☁️ and Launchpad ✨
 
 GitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow. Create workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.
 
-Focus brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more. Quickly see if anything requires your attention while keeping you focused.
+Launchpad brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more. Quickly see if anything requires your attention while keeping you focused.
 
 <figure align="center">
-  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/focus-view.png" alt="Focus view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/focus-view.png" alt="Launchpad" />
 </figure>
 
 ## Visual File History ✨

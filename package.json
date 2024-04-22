@@ -2787,41 +2787,41 @@
 			},
 			{
 				"id": "focus",
-				"title": "Focus (Preview)",
+				"title": "Launchpad (Preview)",
 				"order": 400,
 				"properties": {
 					"gitlens.focus.allowMultiple": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Focus_",
+						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Launchpad_",
 						"scope": "window",
 						"order": 10
 					},
 					"gitlens.focus.experimental.indicators.enabled": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "(Experimental) Specifies whether to enable status bar indicators for _Focus_",
+						"markdownDescription": "(Experimental) Specifies whether to enable status bar indicators for _Launchpad_",
 						"scope": "window",
 						"order": 21
 					},
 					"gitlens.focus.experimental.indicators.openQuickFocus": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "(Experimental) Specifies whether to open _Focus_ or _Quick Focus_ when clicking on the indicators",
+						"markdownDescription": "(Experimental) Specifies whether to open _Launchpad_ or _Quick Launch_ when clicking on the indicators",
 						"scope": "window",
 						"order": 22
 					},
 					"gitlens.focus.experimental.indicators.data.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "(Experimental) Specifies whether the status bar indicators will fetch data for _Focus_.",
+						"markdownDescription": "(Experimental) Specifies whether the status bar indicators will fetch data for _Launchpad_.",
 						"scope": "window",
 						"order": 23
 					},
 					"gitlens.focus.experimental.indicators.data.refreshRate": {
 						"type": "number",
 						"default": 30,
-						"markdownDescription": "(Experimental) Specifies the rate (in minutes) at which to refresh the status bar indicators for _Focus_. Use 0 to disable automatic refreshing",
+						"markdownDescription": "(Experimental) Specifies the rate (in minutes) at which to refresh the status bar indicators for _Launchpad_. Use 0 to disable automatic refreshing",
 						"scope": "window",
 						"order": 24
 					}
@@ -5306,25 +5306,25 @@
 			},
 			{
 				"command": "gitlens.quickFocus",
-				"title": "Quick Focus",
+				"title": "Quick Launch",
 				"category": "GitLens",
-				"icon": "$(target)"
+				"icon": "$(rocket)"
 			},
 			{
 				"command": "gitlens.showFocusPage",
-				"title": "Show Focus",
+				"title": "Show Launchpad",
 				"category": "GitLens",
-				"icon": "$(target)"
+				"icon": "$(rocket)"
 			},
 			{
 				"command": "gitlens.focus.split",
-				"title": "Split Focus",
+				"title": "Split Launchpad",
 				"category": "GitLens",
 				"icon": "$(split-horizontal)"
 			},
 			{
 				"command": "gitlens.focus.experimental.updateIndicators",
-				"title": "Update Focus Indicators",
+				"title": "Update Launchpad Indicators",
 				"category": "GitLens",
 				"icon": "$(sync)"
 			},
@@ -16821,10 +16821,10 @@
 					},
 					{
 						"id": "gitlens.welcome.workspaces",
-						"title": "Work smarter with Focus ✨ and GitKraken Workspaces ☁️",
-						"description": "Focus brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Focus](command:gitlens.showFocusPage)\n\nGitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)",
+						"title": "Work smarter with Launchpad ✨ and GitKraken Workspaces ☁️",
+						"description": "Launchpad brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Launchpad](command:gitlens.showFocusPage)\n\nGitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)",
 						"media": {
-							"altText": "Illustrations of Focus and Workspaces view",
+							"altText": "Illustrations of Launchpad and Workspaces view",
 							"svg": "walkthroughs/welcome/workspaces-focus.svg"
 						}
 					},
