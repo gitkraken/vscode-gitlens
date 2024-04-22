@@ -99,7 +99,7 @@ function assertsFocusStepState(state: StepState<State>): asserts state is FocusS
 @command()
 export class FocusCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: FocusCommandArgs) {
-		super(container, 'focus', 'focus', 'Focus', { description: 'focus on a pull request or issue' });
+		super(container, 'focus', 'focus', 'Launchpad', { description: 'focus on a pull request or issue' });
 
 		const counter = 0;
 

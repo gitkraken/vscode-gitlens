@@ -90,7 +90,7 @@ export class FocusIndicator implements Disposable {
 		}
 
 		this._statusBarFocus = window.createStatusBarItem('gitlens.focus', StatusBarAlignment.Left, 10000 - 2);
-		this._statusBarFocus.name = 'GitLens Focus';
+		this._statusBarFocus.name = 'GitLens Launchpad';
 		await this.maybeLoadData();
 		this.updateStatusBarFocusCommand();
 		this._statusBarFocus.show();
@@ -135,7 +135,7 @@ export class FocusIndicator implements Disposable {
 		if (state !== 'data' && state === this._state) return;
 		this._state = state;
 		this._statusBarFocus.tooltip = new MarkdownString('', true);
-		this._statusBarFocus.tooltip.appendMarkdown('Focus (PREVIEW)\n\n---\n\n');
+		this._statusBarFocus.tooltip.appendMarkdown('Launchpad (PREVIEW)\n\n---\n\n');
 		this._statusBarFocus.tooltip.supportHtml = true;
 		this._statusBarFocus.tooltip.isTrusted = true;
 		if (state === 'loading') {
@@ -145,12 +145,12 @@ export class FocusIndicator implements Disposable {
 			setTimeout(() => this.startRefreshTimer(true), 5000);
 		} else if (state === 'idle') {
 			this.clearRefreshTimer();
-			this._statusBarFocus.text = '$(target)';
+			this._statusBarFocus.text = '$(rocket)';
 			this._statusBarFocus.tooltip.appendMarkdown('Click to open Focus');
 			this._statusBarFocus.color = undefined;
 		} else if (state === 'disconnected') {
 			this.clearRefreshTimer();
-			this._statusBarFocus.text = '$(target) Disconnected';
+			this._statusBarFocus.text = '$(rocket) Disconnected';
 			this._statusBarFocus.tooltip.appendMarkdown(
 				`[Connect to GitHub](command:gitlens.focus.experimental.updateIndicators?"connectGitHub") to see Focus items.`,
 			);
@@ -278,12 +278,12 @@ export class FocusIndicator implements Disposable {
 			}
 
 			this._statusBarFocus.text = topItem
-				? `$(target)${
+				? `$(rocket)${
 						topItem.item.repository != null
 							? ` ${topItem.item.repository.owner.login}/${topItem.item.repository.name}`
 							: ''
 				  } #${topItem.item.id} ${topItem.groupLabel}`
-				: '$(target)';
+				: '$(rocket)';
 			this._statusBarFocus.color = color;
 		}
 
