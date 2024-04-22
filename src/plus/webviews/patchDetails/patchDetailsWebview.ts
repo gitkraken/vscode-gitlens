@@ -17,6 +17,7 @@ import { isRepository } from '../../../git/models/repository';
 import type {
 	CreateDraftChange,
 	Draft,
+	DraftArchiveReason,
 	DraftPatch,
 	DraftPatchFileChange,
 	DraftPendingUser,
@@ -66,6 +67,7 @@ import type {
 } from './protocol';
 import {
 	ApplyPatchCommand,
+	ArchiveDraftCommand,
 	CopyCloudLinkCommand,
 	CreatePatchCommand,
 	DidChangeCreateNotification,
@@ -291,6 +293,10 @@ export class PatchDetailsWebviewProvider
 
 			case UpdatePatchUserSelectionCommand.is(e):
 				this.onUpdatePatchUserSelection(e.params);
+				break;
+
+			case ArchiveDraftCommand.is(e):
+				void this.archiveDraft(e.params.reason);
 				break;
 		}
 	}
@@ -715,6 +721,54 @@ export class PatchDetailsWebviewProvider
 		}
 	}
 
+	private async archiveDraft(reason?: Exclude<DraftArchiveReason, 'committed'>) {
+		if (this._context.draft?.draftType !== 'cloud') return;
+
+		const isCodeSuggestion = this._context.draft.type === 'suggested_pr_change';
+		let label = 'Cloud Patch';
+		if (isCodeSuggestion) {
+			label = 'Code Suggestion';
+		}
+
+		try {
+			await this.container.drafts.archiveDraft(this._context.draft, { archiveReason: reason });
+			this._context.draft = {
+				...this._context.draft,
+				isArchived: true,
+				archivedReason: reason,
+			};
+
+			let action = 'archived';
+			if (isCodeSuggestion) {
+				switch (reason) {
+					case 'accepted':
+						action = 'accepted';
+						break;
+					case 'rejected':
+						action = 'declined';
+						break;
+				}
+			}
+
+			void window.showInformationMessage(`${label} successfully ${action}`);
+			void this.notifyDidChangeViewDraftState();
+		} catch (ex) {
+			let action = 'archive';
+			if (isCodeSuggestion) {
+				switch (reason) {
+					case 'accepted':
+						action = 'accept';
+						break;
+					case 'rejected':
+						action = 'decline';
+						break;
+				}
+			}
+
+			void window.showErrorMessage(`Unable to ${action} ${label}: ${ex.message}`);
+		}
+	}
+
 	private async explainRequest<T extends typeof ExplainRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		if (this._context.draft?.draftType !== 'cloud') {
 			void this.host.respond(requestType, msg, { error: { message: 'Unable to find patch' } });
@@ -1090,12 +1144,15 @@ export class PatchDetailsWebviewProvider
 			return {
 				draftType: 'cloud',
 				id: draft.id,
+				type: draft.type,
 				createdAt: draft.createdAt.getTime(),
 				updatedAt: draft.updatedAt.getTime(),
 				author: draft.author,
 				role: draft.role,
 				title: draft.title,
 				description: draft.description,
+				isArchived: draft.isArchived,
+				archivedReason: draft.archivedReason,
 				visibility: draft.visibility,
 				patches: draft.changesets?.length
 					? serialize(

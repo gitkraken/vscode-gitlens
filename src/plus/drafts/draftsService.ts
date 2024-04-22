@@ -4,8 +4,7 @@ import type { HeadersInit } from '@env/fetch';
 import type { Container } from '../../container';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { isSha, isUncommitted, shortenRevision } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { isRepository } from '../../git/models/repository';
+import { isRepository, Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders';
 import type {
@@ -45,6 +44,11 @@ import type { ServerConnection } from '../gk/serverConnection';
 import type { IntegrationId } from '../integrations/providers/models';
 import { providersMetadata } from '../integrations/providers/models';
 import { getEntityIdentifierInput } from '../integrations/providers/utils';
+
+interface ProviderAuth {
+	provider: IntegrationId;
+	token: string;
+}
 
 export class DraftService implements Disposable {
 	constructor(
@@ -364,20 +368,68 @@ export class DraftService implements Disposable {
 	}
 
 	@log()
-	async archiveDraft(id: string, options?: { archiveReason?: string }): Promise<void> {
+	async archiveDraft(draft: Draft, options?: { providerAuth?: ProviderAuth; archiveReason?: string }): Promise<void> {
 		const scope = getLogScope();
 
 		try {
-			const rsp = await this.connection.fetchGkDevApi(`v1/drafts/${id}/archive`, {
+			let providerAuthHeader;
+			if (draft.visibility === 'provider_access') {
+				if (draft.changesets == null || draft.changesets.length === 0) {
+					throw new Error('No provider information found');
+				}
+
+				let patch: DraftPatch | undefined;
+				for (const changeset of draft.changesets) {
+					const changesetPatch = changeset.patches?.find(patch => patch.repository ?? patch.gkRepositoryId);
+					if (changesetPatch != null) {
+						patch = changesetPatch;
+					}
+				}
+
+				if (patch == null) {
+					throw new Error('No provider information found');
+				}
+
+				let repo: Repository | undefined;
+				// avoid calling getRepositoryOrIdentity if possible
+				if (patch.repository != null) {
+					if (patch.repository instanceof Repository) {
+						repo = patch.repository;
+					} else {
+						repo = await this.container.repositoryIdentity.getRepository(patch.repository);
+					}
+				}
+
+				if (repo == null) {
+					const repositoryOrIdentity = await this.getRepositoryOrIdentity(draft.id, patch.gkRepositoryId);
+					if (!(repositoryOrIdentity instanceof Repository)) {
+						throw new Error('No provider information found');
+					}
+
+					repo = repositoryOrIdentity;
+				}
+
+				const providerAuth = await this.getProviderAuthFromRepository(repo);
+				if (providerAuth == null) {
+					throw new Error('No provider integration found');
+				}
+
+				providerAuthHeader = {
+					'Provider-Auth': Buffer.from(JSON.stringify(providerAuth)).toString('base64'),
+				};
+			}
+
+			const rsp = await this.connection.fetchGkDevApi(`v1/drafts/${draft.id}/archive`, {
 				method: 'POST',
 				body:
 					options?.archiveReason != null
 						? JSON.stringify({ archiveReason: options.archiveReason })
 						: undefined,
+				headers: providerAuthHeader,
 			});
 
 			if (!rsp.ok) {
-				await handleBadDraftResponse(`Unable to archive draft '${id}'`, rsp, scope);
+				await handleBadDraftResponse(`Unable to archive draft '${draft.id}'`, rsp, scope);
 			}
 		} catch (ex) {
 			debugger;
@@ -468,7 +520,11 @@ export class DraftService implements Disposable {
 	}
 
 	@log()
-	async getDraftsCore(options?: { prEntityId?: string; providerAuth?: any; isArchived?: boolean }): Promise<Draft[]> {
+	async getDraftsCore(options?: {
+		prEntityId?: string;
+		providerAuth?: ProviderAuth;
+		isArchived?: boolean;
+	}): Promise<Draft[]> {
 		const scope = getLogScope();
 		type Result = { data: DraftResponse[] };
 
@@ -851,9 +907,7 @@ export class DraftService implements Disposable {
 		};
 	}
 
-	async getProviderAuthFromRepository(
-		repository: Repository,
-	): Promise<{ provider: IntegrationId; token: string } | undefined> {
+	async getProviderAuthFromRepository(repository: Repository): Promise<ProviderAuth | undefined> {
 		const remoteProvider = await repository.getBestRemoteWithIntegration();
 		if (remoteProvider == null) return undefined;
 
@@ -872,9 +926,7 @@ export class DraftService implements Disposable {
 		};
 	}
 
-	async getProviderAuthForIntegration(
-		integrationId: IntegrationId,
-	): Promise<{ provider: IntegrationId; token: string } | undefined> {
+	async getProviderAuthForIntegration(integrationId: IntegrationId): Promise<ProviderAuth | undefined> {
 		const metadata = providersMetadata[integrationId];
 		if (metadata == null) return undefined;
 		const session = await this.container.integrationAuthentication.getSession(integrationId, {

@@ -5,10 +5,12 @@ import type { PatchRevisionRange } from '../../../git/models/patch';
 import type { Repository } from '../../../git/models/repository';
 import type {
 	Draft,
+	DraftArchiveReason,
 	DraftPatch,
 	DraftPatchFileChange,
 	DraftPendingUser,
 	DraftRole,
+	DraftType,
 	DraftUser,
 	DraftVisibility,
 	LocalDraft,
@@ -67,6 +69,7 @@ export interface CloudDraftDetails {
 	draftType: 'cloud';
 
 	id: string;
+	type: DraftType;
 	createdAt: number;
 	updatedAt: number;
 	author: {
@@ -81,6 +84,9 @@ export interface CloudDraftDetails {
 
 	title: string;
 	description?: string;
+
+	isArchived: boolean;
+	archivedReason?: DraftArchiveReason;
 
 	patches?: PatchDetails[];
 
@@ -166,6 +172,11 @@ export interface ApplyPatchParams {
 	selected: PatchDetails['id'][];
 }
 export const ApplyPatchCommand = new IpcCommand<ApplyPatchParams>(scope, 'apply');
+
+export interface ArchiveDraftParams {
+	reason?: Exclude<DraftArchiveReason, 'committed'>;
+}
+export const ArchiveDraftCommand = new IpcCommand<ArchiveDraftParams>(scope, 'archive');
 
 export interface CreatePatchParams {
 	title: string;
