@@ -1,5 +1,6 @@
 import type { AuthenticationSession } from 'vscode';
-import { IssueIntegrationId } from '../providers/models';
+import type { IntegrationId } from '../providers/models';
+import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 
 export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly expiresAt?: Date;
@@ -23,12 +24,30 @@ export interface CloudIntegrationConnection {
 	domain: string;
 }
 
-// TODO@axosoft-ramint these constants don't match [IntegrationId](https://github.com/gitkraken/vscode-gitlens/blob/c3a5cf55d92ab4ca090f6f7d047be50414daa824/src/plus/integrations/providers/models.ts#L53)
 export type CloudIntegrationType = 'jira' | 'trello' | 'gitlab' | 'github' | 'bitbucket' | 'azure';
 
-// TODO@axosoft-ramint these constants don't match the docs
-export type CloudIntegrationAuthType = 'oauth' | 'personal_access_token';
+export type CloudIntegrationAuthType = 'oauth' | 'pat';
 
 export const CloudIntegrationAuthenticationUriPathPrefix = 'did-authenticate-cloud-integration';
 
 export const supportedCloudIntegrationIds = [IssueIntegrationId.Jira];
+
+export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationId } = {
+	jira: IssueIntegrationId.Jira,
+	trello: IssueIntegrationId.Trello,
+	gitlab: HostingIntegrationId.GitLab,
+	github: HostingIntegrationId.GitHub,
+	bitbucket: HostingIntegrationId.Bitbucket,
+	azure: HostingIntegrationId.AzureDevOps,
+};
+
+export const toCloudIntegrationType: { [key in IntegrationId]: CloudIntegrationType | undefined } = {
+	[IssueIntegrationId.Jira]: 'jira',
+	[IssueIntegrationId.Trello]: 'trello',
+	[HostingIntegrationId.GitLab]: 'gitlab',
+	[HostingIntegrationId.GitHub]: 'github',
+	[HostingIntegrationId.Bitbucket]: 'bitbucket',
+	[HostingIntegrationId.AzureDevOps]: 'azure',
+	[SelfHostedIntegrationId.GitHubEnterprise]: undefined,
+	[SelfHostedIntegrationId.GitLabSelfHosted]: undefined,
+};

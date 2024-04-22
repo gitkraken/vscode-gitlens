@@ -11,7 +11,7 @@ import { debug } from '../../system/decorators/log';
 import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
 import type { ServerConnection } from '../gk/serverConnection';
-import { supportedCloudIntegrationIds } from './authentication/models';
+import { supportedCloudIntegrationIds, toIntegrationId } from './authentication/models';
 import type {
 	HostingIntegration,
 	Integration,
@@ -24,6 +24,7 @@ import type {
 	SupportedIssueIntegrationIds,
 	SupportedSelfHostedIntegrationIds,
 } from './integration';
+import type { IntegrationId } from './providers/models';
 import {
 	HostingIntegrationId,
 	isSelfHostedIntegrationId,
@@ -67,13 +68,13 @@ export class IntegrationService implements Disposable {
 	}
 
 	private async syncCloudIntegrations(_options?: { force?: boolean }) {
-		let connectedProviders = new Set<string>();
+		let connectedProviders = new Set<IntegrationId>();
 
 		const session = await this.container.subscription.getAuthenticationSession();
 		if (session != null) {
 			const cloudIntegrations = await this.container.cloudIntegrations;
 			const connections = (await cloudIntegrations?.getConnections()) ?? [];
-			connectedProviders = new Set(connections.map(p => p.provider));
+			connectedProviders = new Set(connections.map(p => toIntegrationId[p.provider]));
 		}
 
 		for (const cloudIntegrationId of supportedCloudIntegrationIds) {
