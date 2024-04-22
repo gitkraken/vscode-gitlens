@@ -8,7 +8,7 @@ import type {
 	CloudIntegrationAuthorization,
 	CloudIntegrationConnection,
 } from './models';
-import { CloudIntegrationAuthenticationUriPathPrefix } from './models';
+import { CloudIntegrationAuthenticationUriPathPrefix, toCloudIntegrationType } from './models';
 
 export class CloudIntegrationService {
 	constructor(
@@ -37,8 +37,14 @@ export class CloudIntegrationService {
 		id: IntegrationId,
 		refresh: boolean = false,
 	): Promise<CloudIntegrationAuthenticationSession | undefined> {
+		const cloudIntegrationType = toCloudIntegrationType[id];
+		if (cloudIntegrationType == null) {
+			Logger.error(`Unsupported cloud integration type: ${id}`);
+			return undefined;
+		}
+
 		const tokenRsp = await this.connection.fetchGkDevApi(
-			`v1/provider-tokens/${id}${refresh ? '/refresh' : ''}`,
+			`v1/provider-tokens/${cloudIntegrationType}${refresh ? '/refresh' : ''}`,
 			{ method: refresh ? 'POST' : 'GET' },
 			{ organizationId: false },
 		);
@@ -54,6 +60,12 @@ export class CloudIntegrationService {
 	}
 
 	async authorize(id: IntegrationId): Promise<CloudIntegrationAuthorization | undefined> {
+		const cloudIntegrationType = toCloudIntegrationType[id];
+		if (cloudIntegrationType == null) {
+			Logger.error(`Unsupported cloud integration type: ${id}`);
+			return undefined;
+		}
+
 		// attach the callback to the url
 		const callbackUri = await env.asExternalUri(
 			Uri.parse(
@@ -62,7 +74,7 @@ export class CloudIntegrationService {
 		);
 
 		const authorizeRsp = await this.connection.fetchGkDevApi(
-			`v1/provider-tokens/${id}/authorize`,
+			`v1/provider-tokens/${cloudIntegrationType}/authorize`,
 			{
 				method: 'GET',
 			},
