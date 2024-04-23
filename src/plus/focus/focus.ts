@@ -256,7 +256,7 @@ export class FocusCommand extends QuickCommand<State> {
 								// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
 								description: `#${i.id} ${i.isNew ? '(New since last view)' : ''} ${
 									i.codeSuggestionsCount > 0
-										? ` $(git-pull-request-draft) ${i.codeSuggestionsCount}`
+										? ` $(gitlens-code-suggestion) ${i.codeSuggestionsCount}`
 										: ''
 								}`,
 								detail: `      ${actionGroupMap.get(i.actionableCategory)![0]} \u2022  ${fromNow(
@@ -645,7 +645,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 		const codeSuggestionInfo: (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] = [
 			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: `$(git-pull-request-draft) ${pluralize(
+				label: `$(gitlens-code-suggestion) ${pluralize(
 					'code suggestion',
 					item.codeSuggestions.length,
 				)} for this Pull Request:`,
