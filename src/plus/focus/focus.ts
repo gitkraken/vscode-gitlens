@@ -286,7 +286,6 @@ export class FocusCommand extends QuickCommand<State> {
 			title: context.title,
 			placeholder: !items.length ? 'All done! Take a vacation' : 'Choose an item to focus on',
 			matchOnDetail: true,
-			ignoreFocusOut: true,
 			items: !items.length ? [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })] : items,
 			buttons: [RefreshQuickInputButton],
 			// onDidChangeValue: async (quickpick, value) => {},
@@ -460,7 +459,7 @@ export class FocusCommand extends QuickCommand<State> {
 			`Focus on ${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
 			confirmations,
 			undefined,
-			{ placeholder: 'Choose an action to perform' },
+			{ placeholder: 'Choose an action to perform', ignoreFocusOut: false },
 		);
 
 		const selection: StepSelection<typeof step> = yield step;
@@ -495,7 +494,7 @@ export class FocusCommand extends QuickCommand<State> {
 			this.title,
 			confirmations,
 			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
-			{ placeholder: 'GitHub not connected. Choose an action', ignoreFocusOut: true },
+			{ placeholder: 'GitHub not connected. Choose an action', ignoreFocusOut: false },
 		);
 
 		const selection: StepSelection<typeof step> = yield step;
