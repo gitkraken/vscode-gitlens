@@ -346,10 +346,12 @@ export class GlFocusApp extends LitElement {
 								<nav class="tab-filter" id="filter-focus-items">
 									${map(
 										this.tabFilterOptionsWithCounts,
-										({ label, value, count }, i) => html`
+										({ label, value, count }) => html`
 											<button
 												class="tab-filter__tab ${(
-													this.selectedTabFilter ? value === this.selectedTabFilter : i === 0
+													this.selectedTabFilter
+														? value === this.selectedTabFilter
+														: value === ''
 												)
 													? 'is-active'
 													: ''}"
