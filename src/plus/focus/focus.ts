@@ -125,7 +125,11 @@ export class FocusCommand extends QuickCommand<State> {
 			await this.container.git.isDiscoveringRepositories;
 		}
 
-		const collapsed = new Map<FocusGroup, boolean>([['snoozed', true]]);
+		const collapsed = new Map<FocusGroup, boolean>([
+			['draft', true],
+			['other', true],
+			['snoozed', true],
+		]);
 		if (state.initialGroup != null) {
 			// set all to true except the initial group
 			for (const [group] of groupMap) {
