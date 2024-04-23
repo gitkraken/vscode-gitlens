@@ -9096,6 +9096,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f12c"
 				}
+			},
+			"gitlens-code-suggestion": {
+				"description": "code-suggestion icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f12d"
+				}
 			}
 		},
 		"menus": {
