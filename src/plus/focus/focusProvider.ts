@@ -319,6 +319,7 @@ export class FocusProvider implements Disposable {
 		const deepLinkUrl = this.getItemBranchDeepLink(item);
 		if (deepLinkUrl == null) return;
 
+		this._codeSuggestions?.delete(item.uuid);
 		await env.openExternal(deepLinkUrl);
 	}
 
