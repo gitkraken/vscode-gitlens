@@ -44,6 +44,7 @@ import type { StatusFileNode } from '../statusFileNode';
 import type { TagNode } from '../tagNode';
 import type { UncommittedFileNode } from '../UncommittedFileNode';
 import type { RepositoryFolderNode } from './repositoryFolderNode';
+import type { ResultsSuggestedChangesNode } from '../resultsSuggestedChangesNode';
 
 export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
@@ -412,21 +413,23 @@ type TreeViewNodesByType = {
 		                        ? ResultsFileNode
 		                        : T extends 'results-files'
 		                          ? ResultsFilesNode
-		                          : T extends 'stash'
-		                            ? StashNode
-		                            : T extends 'stash-file'
-		                              ? StashFileNode
-		                              : T extends 'status-file'
-		                                ? StatusFileNode
-		                                : T extends 'tag'
-		                                  ? TagNode
-		                                  : T extends 'tracking-status'
-		                                    ? BranchTrackingStatusNode
-		                                    : T extends 'tracking-status-files'
-		                                      ? BranchTrackingStatusFilesNode
-		                                      : T extends 'uncommitted-file'
-		                                        ? UncommittedFileNode
-		                                        : ViewNode<T>;
+		                          : T extends 'results-suggested-changes'
+		                            ? ResultsSuggestedChangesNode
+		                            : T extends 'stash'
+		                              ? StashNode
+		                              : T extends 'stash-file'
+		                                ? StashFileNode
+		                                : T extends 'status-file'
+		                                  ? StatusFileNode
+		                                  : T extends 'tag'
+		                                    ? TagNode
+		                                    : T extends 'tracking-status'
+		                                      ? BranchTrackingStatusNode
+		                                      : T extends 'tracking-status-files'
+		                                        ? BranchTrackingStatusFilesNode
+		                                        : T extends 'uncommitted-file'
+		                                          ? UncommittedFileNode
+		                                          : ViewNode<T>;
 };
 
 export function isViewNode(node: unknown): node is ViewNode;

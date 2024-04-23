@@ -1,4 +1,5 @@
 import type { Container } from '../container';
+import type { Draft } from '../gk/models/drafts';
 import { getSettledValue } from '../system/promise';
 import { pluralize } from '../system/string';
 import type { FilesQueryFilter } from '../views/nodes/resultsFilesNode';
@@ -74,6 +75,18 @@ export async function getAheadBehindFilesQuery(
 		label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
 		files: files,
 		stats: stats,
+	};
+}
+
+export interface SuggestedChangesQueryResults {
+	drafts: Draft[] | undefined;
+}
+
+export function getSuggestedChangesQuery(): () => Promise<SuggestedChangesQueryResults> {
+	return async () => {
+		return await Promise.resolve({
+			drafts: [],
+		});
 	};
 }
 

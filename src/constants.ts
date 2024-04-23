@@ -617,6 +617,7 @@ export type TreeViewNodeTypes =
 	| 'remotes'
 	| 'results-commits'
 	| 'results-files'
+	| 'results-suggested-changes'
 	| 'search-compare'
 	| 'stashes'
 	| 'status-files'
