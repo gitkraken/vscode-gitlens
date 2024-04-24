@@ -65,7 +65,7 @@ import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
 import { GlTooltip } from '../../shared/components/overlays/react';
 import { FeatureGate } from '../../shared/components/react/feature-gate';
 import { FeatureGateBadge } from '../../shared/components/react/feature-gate-badge';
-import { SearchBox } from '../../shared/components/search/react';
+import { GlSearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
@@ -256,7 +256,7 @@ export function GraphWrapper({
 	const [allowed, setAllowed] = useState(state.allowed ?? false);
 	const [subscription, setSubscription] = useState<Subscription | undefined>(state.subscription);
 	// search state
-	const searchEl = useRef<SearchBox>(null);
+	const searchEl = useRef<GlSearchBox>(null);
 	const [searchQuery, setSearchQuery] = useState<SearchQuery | undefined>(undefined);
 	const { results, resultsError } = getSearchResultModel(state);
 	const [searchResults, setSearchResults] = useState(results);
@@ -1161,50 +1161,50 @@ export function GraphWrapper({
 			<div className="titlebar__group">
 				{(isBehind || isAhead) && (
 					<GlTooltip placement="bottom">
-					<a
-						href={createWebviewCommandLink(
-							`gitlens.graph.${action}`,
-							state.webviewId,
-							state.webviewInstanceId,
-						)}
-						className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
+						<a
+							href={createWebviewCommandLink(
+								`gitlens.graph.${action}`,
+								state.webviewId,
+								state.webviewInstanceId,
+							)}
+							className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
 							title=" "
-					>
-						<span className={`codicon codicon-${icon} action-button__icon`}></span>
-						{label}
-						{(isAhead || isBehind) && (
-							<span>
-								<span className="pill action-button__pill">
-									{isAhead && (
-										<span>
-											{branchState!.ahead} <span className="codicon codicon-arrow-up"></span>
-										</span>
-									)}
-									{isBehind && (
-										<span>
+						>
+							<span className={`codicon codicon-${icon} action-button__icon`}></span>
+							{label}
+							{(isAhead || isBehind) && (
+								<span>
+									<span className="pill action-button__pill">
+										{isAhead && (
+											<span>
+												{branchState!.ahead} <span className="codicon codicon-arrow-up"></span>
+											</span>
+										)}
+										{isBehind && (
+											<span>
 												{branchState!.behind}{' '}
 												<span className="codicon codicon-arrow-down"></span>
-										</span>
-									)}
+											</span>
+										)}
+									</span>
 								</span>
-							</span>
-						)}
-					</a>
+							)}
+						</a>
 						<div slot="content" style={{ whiteSpace: 'break-spaces' }}>
 							{tooltip}
 						</div>
 					</GlTooltip>
 				)}
 				<GlTooltip placement="bottom">
-				<a
-					href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
-					className="action-button"
+					<a
+						href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
+						className="action-button"
 						title=" "
-				>
-					<span className="codicon codicon-sync action-button__icon"></span>
-					Fetch
-					{fetchedText && <span className="action-button__small">({fetchedText})</span>}
-				</a>
+					>
+						<span className="codicon codicon-sync action-button__icon"></span>
+						Fetch
+						{fetchedText && <span className="action-button__small">({fetchedText})</span>}
+					</a>
 					<span slot="content" style={{ whiteSpace: 'break-spaces' }}>
 						{fetchTooltip}
 					</span>
@@ -1223,43 +1223,43 @@ export function GraphWrapper({
 				>
 					{repo && branchState?.provider?.url && (
 						<GlTooltip placement="bottom">
-						<a
-							href={branchState.provider.url}
-							className="action-button"
-							style={{ marginRight: '-0.5rem' }}
+							<a
+								href={branchState.provider.url}
+								className="action-button"
+								style={{ marginRight: '-0.5rem' }}
 								title=" "
-							aria-label={`Open Repository on ${branchState.provider.name}`}
-						>
-							<span
-								className={
-									branchState.provider.icon === 'cloud'
-										? 'codicon codicon-cloud action-button__icon'
-										: `glicon glicon-provider-${branchState.provider.icon} action-button__icon`
-								}
-								aria-hidden="true"
-							></span>
-						</a>
+								aria-label={`Open Repository on ${branchState.provider.name}`}
+							>
+								<span
+									className={
+										branchState.provider.icon === 'cloud'
+											? 'codicon codicon-cloud action-button__icon'
+											: `glicon glicon-provider-${branchState.provider.icon} action-button__icon`
+									}
+									aria-hidden="true"
+								></span>
+							</a>
 							<span slot="content">Open Repository on {branchState.provider.name}</span>
 						</GlTooltip>
 					)}
 					<GlTooltip placement="bottom">
-					<button
-						type="button"
-						className="action-button"
-						slot="trigger"
+						<button
+							type="button"
+							className="action-button"
+							slot="trigger"
 							title=" "
-						aria-label="Switch to Another Repository..."
-						disabled={repos.length < 2}
-						onClick={() => handleChooseRepository()}
-					>
-						{repo?.formattedName ?? 'none selected'}
-						{repos.length > 1 && (
-							<span
-								className="codicon codicon-chevron-down action-button__more"
-								aria-hidden="true"
-							></span>
-						)}
-					</button>
+							aria-label="Switch to Another Repository..."
+							disabled={repos.length < 2}
+							onClick={() => handleChooseRepository()}
+						>
+							{repo?.formattedName ?? 'none selected'}
+							{repos.length > 1 && (
+								<span
+									className="codicon codicon-chevron-down action-button__more"
+									aria-hidden="true"
+								></span>
+							)}
+						</button>
 						<span slot="content">Switch to Another Repository...</span>
 					</GlTooltip>
 					{allowed && repo && (
@@ -1268,28 +1268,29 @@ export function GraphWrapper({
 								<span className="codicon codicon-chevron-right"></span>
 							</span>
 							<GlTooltip placement="bottom">
-							<a
-								href={createWebviewCommandLink(
-									'gitlens.graph.switchToAnotherBranch',
-									state.webviewId,
-									state.webviewInstanceId,
-								)}
-								className="action-button"
+								<a
+									href={createWebviewCommandLink(
+										'gitlens.graph.switchToAnotherBranch',
+										state.webviewId,
+										state.webviewInstanceId,
+									)}
+									className="action-button"
 									title=" "
-								aria-label="Switch to Another Branch..."
-							>
+									aria-label="Switch to Another Branch..."
+								>
 									<span className="codicon codicon-git-branch" aria-hidden="true"></span>
-								{branchName}
-								<span
-									className="codicon codicon-chevron-down action-button__more"
-									aria-hidden="true"
-								></span>
-							</a>
+									{branchName}
+									<span
+										className="codicon codicon-chevron-down action-button__more"
+										aria-hidden="true"
+									></span>
+								</a>
 								<div slot="content">
-									<span>Switch to Another Branch...</span>
-									<br />
-									<br />
-									<span className="codicon codicon-git-branch" aria-hidden="true"></span> {branchName}
+									<span style={{ whiteSpace: 'preserve' }}>
+										Switch to Another Branch...{'\n\n'}
+										<span className="codicon codicon-git-branch" aria-hidden="true"></span>{' '}
+										{branchName}
+									</span>
 								</div>
 							</GlTooltip>
 							<span>
@@ -1315,91 +1316,91 @@ export function GraphWrapper({
 					<div className="titlebar__row">
 						<div className="titlebar__group">
 							<GlTooltip placement="top">
-							<PopMenu>
+								<PopMenu>
 									<button type="button" className="action-button" slot="trigger">
-									<span className={`codicon codicon-filter${hasFilters ? '-filled' : ''}`}></span>
-									{hasSpecialFilters && <span className="action-button__indicator"></span>}
-									<span
-										className="codicon codicon-chevron-down action-button__more"
-										aria-hidden="true"
-									></span>
-								</button>
-								<MenuList slot="content">
-									<MenuLabel>Filter options</MenuLabel>
-									<MenuItem role="none">
-										<VSCodeRadioGroup
-											orientation="vertical"
-											value={
-												isAllBranches && repo?.isVirtual !== true
-													? 'branch-all'
-													: 'branch-current'
-											}
-											readOnly={repo?.isVirtual === true}
-										>
-											{repo?.isVirtual !== true && (
-												<VSCodeRadio
-													name="branching-toggle"
-													value="branch-all"
-													onChange={handleLocalBranchFiltering}
-												>
-													Show All Branches
+										<span className={`codicon codicon-filter${hasFilters ? '-filled' : ''}`}></span>
+										{hasSpecialFilters && <span className="action-button__indicator"></span>}
+										<span
+											className="codicon codicon-chevron-down action-button__more"
+											aria-hidden="true"
+										></span>
+									</button>
+									<MenuList slot="content">
+										<MenuLabel>Filter options</MenuLabel>
+										<MenuItem role="none">
+											<VSCodeRadioGroup
+												orientation="vertical"
+												value={
+													isAllBranches && repo?.isVirtual !== true
+														? 'branch-all'
+														: 'branch-current'
+												}
+												readOnly={repo?.isVirtual === true}
+											>
+												{repo?.isVirtual !== true && (
+													<VSCodeRadio
+														name="branching-toggle"
+														value="branch-all"
+														onChange={handleLocalBranchFiltering}
+													>
+														Show All Branches
+													</VSCodeRadio>
+												)}
+												<VSCodeRadio name="branching-toggle" value="branch-current">
+													Show Current Branch Only
 												</VSCodeRadio>
-											)}
-											<VSCodeRadio name="branching-toggle" value="branch-current">
-												Show Current Branch Only
-											</VSCodeRadio>
-										</VSCodeRadioGroup>
-									</MenuItem>
-									<MenuDivider></MenuDivider>
-									{repo?.isVirtual !== true && (
-										<>
-											<MenuItem role="none">
-												<VSCodeCheckbox
-													value="remotes"
-													onChange={handleExcludeTypeChange}
-													defaultChecked={excludeTypes?.remotes ?? false}
-												>
-													Hide Remote-only Branches
-												</VSCodeCheckbox>
-											</MenuItem>
-											<MenuItem role="none">
-												<VSCodeCheckbox
-													value="stashes"
-													onChange={handleExcludeTypeChange}
-													defaultChecked={excludeTypes?.stashes ?? false}
-												>
-													Hide Stashes
-												</VSCodeCheckbox>
-											</MenuItem>
-										</>
-									)}
-									<MenuItem role="none">
-										<VSCodeCheckbox
-											value="tags"
-											onChange={handleExcludeTypeChange}
-											defaultChecked={excludeTypes?.tags ?? false}
-										>
-											Hide Tags
-										</VSCodeCheckbox>
-									</MenuItem>
-									<MenuDivider></MenuDivider>
-									<MenuItem role="none">
-										<VSCodeCheckbox
-											value="mergeCommits"
-											onChange={handleExcludeTypeChange}
-											defaultChecked={graphConfig?.dimMergeCommits ?? false}
-										>
-											Dim Merge Commit Rows
-										</VSCodeCheckbox>
-									</MenuItem>
-								</MenuList>
-							</PopMenu>
+											</VSCodeRadioGroup>
+										</MenuItem>
+										<MenuDivider></MenuDivider>
+										{repo?.isVirtual !== true && (
+											<>
+												<MenuItem role="none">
+													<VSCodeCheckbox
+														value="remotes"
+														onChange={handleExcludeTypeChange}
+														defaultChecked={excludeTypes?.remotes ?? false}
+													>
+														Hide Remote-only Branches
+													</VSCodeCheckbox>
+												</MenuItem>
+												<MenuItem role="none">
+													<VSCodeCheckbox
+														value="stashes"
+														onChange={handleExcludeTypeChange}
+														defaultChecked={excludeTypes?.stashes ?? false}
+													>
+														Hide Stashes
+													</VSCodeCheckbox>
+												</MenuItem>
+											</>
+										)}
+										<MenuItem role="none">
+											<VSCodeCheckbox
+												value="tags"
+												onChange={handleExcludeTypeChange}
+												defaultChecked={excludeTypes?.tags ?? false}
+											>
+												Hide Tags
+											</VSCodeCheckbox>
+										</MenuItem>
+										<MenuDivider></MenuDivider>
+										<MenuItem role="none">
+											<VSCodeCheckbox
+												value="mergeCommits"
+												onChange={handleExcludeTypeChange}
+												defaultChecked={graphConfig?.dimMergeCommits ?? false}
+											>
+												Dim Merge Commit Rows
+											</VSCodeCheckbox>
+										</MenuItem>
+									</MenuList>
+								</PopMenu>
 								<span slot="content">Filter Graph</span>
 							</GlTooltip>
 							<span>
 								<span className="action-divider"></span>
 							</span>
-							<SearchBox
+							<GlSearchBox
 								ref={searchEl}
 								label="Search Commits"
 								step={searchPosition}
@@ -1420,113 +1421,113 @@ export function GraphWrapper({
 							</span>
 							<span className="button-group">
 								<GlTooltip placement="bottom">
-								<button
-									type="button"
-									role="checkbox"
-									className="action-button"
-									aria-label="Toggle Minimap"
-									aria-checked={graphConfig?.minimap ?? false}
-									onClick={handleOnMinimapToggle}
-								>
-									<span className="codicon codicon-graph-line action-button__icon"></span>
-								</button>
+									<button
+										type="button"
+										role="checkbox"
+										className="action-button"
+										aria-label="Toggle Minimap"
+										aria-checked={graphConfig?.minimap ?? false}
+										onClick={handleOnMinimapToggle}
+									>
+										<span className="codicon codicon-graph-line action-button__icon"></span>
+									</button>
 									<span slot="content">Toggle Minimap</span>
 								</GlTooltip>
 								<GlTooltip placement="top" distance={7}>
-								<PopMenu position="right">
-									<button
-										type="button"
-										className="action-button"
-										slot="trigger"
+									<PopMenu position="right">
+										<button
+											type="button"
+											className="action-button"
+											slot="trigger"
 											aria-label="Minimap Options"
-									>
-										<span
-											className="codicon codicon-chevron-down action-button__more"
-											aria-hidden="true"
-										></span>
-									</button>
-									<MenuList slot="content">
-										<MenuLabel>Chart</MenuLabel>
-										<MenuItem role="none">
-											<VSCodeRadioGroup
-												orientation="vertical"
-												value={graphConfig?.minimapDataType ?? 'commits'}
-											>
-												<VSCodeRadio
-													name="minimap-datatype"
-													value="commits"
-													onChange={handleOnMinimapDataTypeChange}
+										>
+											<span
+												className="codicon codicon-chevron-down action-button__more"
+												aria-hidden="true"
+											></span>
+										</button>
+										<MenuList slot="content">
+											<MenuLabel>Chart</MenuLabel>
+											<MenuItem role="none">
+												<VSCodeRadioGroup
+													orientation="vertical"
+													value={graphConfig?.minimapDataType ?? 'commits'}
 												>
-													Commits
-												</VSCodeRadio>
-												<VSCodeRadio name="minimap-datatype" value="lines">
-													Lines Changed
-												</VSCodeRadio>
-											</VSCodeRadioGroup>
-										</MenuItem>
-										<MenuDivider></MenuDivider>
-										<MenuLabel>Markers</MenuLabel>
-										<MenuItem role="none">
-											<VSCodeCheckbox
-												value="localBranches"
-												onChange={handleOnMinimapAdditionalTypesChange}
-												defaultChecked={
+													<VSCodeRadio
+														name="minimap-datatype"
+														value="commits"
+														onChange={handleOnMinimapDataTypeChange}
+													>
+														Commits
+													</VSCodeRadio>
+													<VSCodeRadio name="minimap-datatype" value="lines">
+														Lines Changed
+													</VSCodeRadio>
+												</VSCodeRadioGroup>
+											</MenuItem>
+											<MenuDivider></MenuDivider>
+											<MenuLabel>Markers</MenuLabel>
+											<MenuItem role="none">
+												<VSCodeCheckbox
+													value="localBranches"
+													onChange={handleOnMinimapAdditionalTypesChange}
+													defaultChecked={
 														graphConfig?.minimapMarkerTypes?.includes('localBranches') ??
 														false
-												}
-											>
-												<span
-													className="minimap-marker-swatch"
-													data-marker="localBranches"
-												></span>
-												Local Branches
-											</VSCodeCheckbox>
-										</MenuItem>
-										<MenuItem role="none">
-											<VSCodeCheckbox
-												value="remoteBranches"
-												onChange={handleOnMinimapAdditionalTypesChange}
-												defaultChecked={
+													}
+												>
+													<span
+														className="minimap-marker-swatch"
+														data-marker="localBranches"
+													></span>
+													Local Branches
+												</VSCodeCheckbox>
+											</MenuItem>
+											<MenuItem role="none">
+												<VSCodeCheckbox
+													value="remoteBranches"
+													onChange={handleOnMinimapAdditionalTypesChange}
+													defaultChecked={
 														graphConfig?.minimapMarkerTypes?.includes('remoteBranches') ??
 														true
-												}
-											>
-												<span
-													className="minimap-marker-swatch"
-													data-marker="remoteBranches"
-												></span>
-												Remote Branches
-											</VSCodeCheckbox>
-										</MenuItem>
-										<MenuItem role="none">
-											<VSCodeCheckbox
-												value="stashes"
-												onChange={handleOnMinimapAdditionalTypesChange}
-												defaultChecked={
-													graphConfig?.minimapMarkerTypes?.includes('stashes') ?? false
-												}
-											>
+													}
+												>
+													<span
+														className="minimap-marker-swatch"
+														data-marker="remoteBranches"
+													></span>
+													Remote Branches
+												</VSCodeCheckbox>
+											</MenuItem>
+											<MenuItem role="none">
+												<VSCodeCheckbox
+													value="stashes"
+													onChange={handleOnMinimapAdditionalTypesChange}
+													defaultChecked={
+														graphConfig?.minimapMarkerTypes?.includes('stashes') ?? false
+													}
+												>
 													<span
 														className="minimap-marker-swatch"
 														data-marker="stashes"
 													></span>
-												Stashes
-											</VSCodeCheckbox>
-										</MenuItem>
-										<MenuItem role="none">
-											<VSCodeCheckbox
-												value="tags"
-												onChange={handleOnMinimapAdditionalTypesChange}
-												defaultChecked={
-													graphConfig?.minimapMarkerTypes?.includes('tags') ?? true
-												}
-											>
-												<span className="minimap-marker-swatch" data-marker="tags"></span>
-												Tags
-											</VSCodeCheckbox>
-										</MenuItem>
-									</MenuList>
-								</PopMenu>
+													Stashes
+												</VSCodeCheckbox>
+											</MenuItem>
+											<MenuItem role="none">
+												<VSCodeCheckbox
+													value="tags"
+													onChange={handleOnMinimapAdditionalTypesChange}
+													defaultChecked={
+														graphConfig?.minimapMarkerTypes?.includes('tags') ?? true
+													}
+												>
+													<span className="minimap-marker-swatch" data-marker="tags"></span>
+													Tags
+												</VSCodeCheckbox>
+											</MenuItem>
+										</MenuList>
+									</PopMenu>
 									<span slot="content">Minimap Options</span>
 								</GlTooltip>
 							</span>
