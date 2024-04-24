@@ -5,6 +5,7 @@ import { render, unmountComponentAtNode } from 'react-dom';
 import type { GitGraphRowType } from '../../../../git/models/graph';
 import type { SearchQuery } from '../../../../git/search';
 import type {
+	DidSearchParams,
 	GraphAvatars,
 	GraphColumnsConfig,
 	GraphExcludedRef,
@@ -276,11 +277,7 @@ export class GraphApp extends App<State> {
 				break;
 
 			case DidSearchNotification.is(msg):
-				this.state.searchResults = msg.params.results;
-				if (msg.params.selectedRows != null) {
-					this.state.selectedRows = msg.params.selectedRows;
-				}
-				this.setState(this.state, DidSearchNotification);
+				this.updateSearchResultState(msg.params);
 				break;
 
 			case DidChangeSelectionNotification.is(msg):
@@ -568,20 +565,27 @@ export class GraphApp extends App<State> {
 		this.sendCommand(GetMoreRowsCommand, { id: sha });
 	}
 
-	private onSearch(search: SearchQuery | undefined, options?: { limit?: number }) {
+	private async onSearch(search: SearchQuery | undefined, options?: { limit?: number }) {
 		if (search == null) {
 			this.state.searchResults = undefined;
 		}
-		this.sendCommand(SearchRequest, { search: search, limit: options?.limit });
+		try {
+			const rsp = await this.sendRequest(SearchRequest, { search: search, limit: options?.limit });
+			this.updateSearchResultState(rsp);
+		} catch {
+			this.state.searchResults = undefined;
+		}
 	}
 
 	private async onSearchPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {
 		try {
-			return await this.sendRequest(SearchRequest, {
+			const rsp = await this.sendRequest(SearchRequest, {
 				search: search,
 				limit: options?.limit,
 				more: options?.more,
 			});
+			this.updateSearchResultState(rsp);
+			return rsp;
 		} catch {
 			return undefined;
 		}
@@ -627,6 +631,14 @@ export class GraphApp extends App<State> {
 		return () => {
 			this.updateStateCallback = undefined;
 		};
+	}
+
+	private updateSearchResultState(params: DidSearchParams) {
+		this.state.searchResults = params.results;
+		if (params.selectedRows != null) {
+			this.state.selectedRows = params.selectedRows;
+		}
+		this.setState(this.state, DidSearchNotification);
 	}
 }
 
