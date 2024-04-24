@@ -16,18 +16,20 @@ import {
 } from '../../commands/quickCommand';
 import {
 	MergeQuickInputButton,
+	OpenLaunchpadInEditorQuickInputButton,
 	PinQuickInputButton,
 	RefreshQuickInputButton,
 	SnoozeQuickInputButton,
 	UnpinQuickInputButton,
 	UnsnoozeQuickInputButton,
 } from '../../commands/quickCommand.buttons';
+import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
-import { command } from '../../system/command';
+import { command, executeCommand } from '../../system/command';
 import { fromNow } from '../../system/date';
 import { interpolate, pluralize } from '../../system/string';
 import type { IntegrationId } from '../integrations/providers/models';
@@ -99,7 +101,9 @@ function assertsFocusStepState(state: StepState<State>): asserts state is FocusS
 @command()
 export class FocusCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: FocusCommandArgs) {
-		super(container, 'focus', 'focus', 'Launchpad', { description: 'focus on a pull request or issue' });
+		super(container, 'focus', 'focus', 'GitLens Launchpad (PRO preview)', {
+			description: 'focus on a pull request or issue',
+		});
 
 		const counter = 0;
 
@@ -287,10 +291,12 @@ export class FocusCommand extends QuickCommand<State> {
 			placeholder: !items.length ? 'All done! Take a vacation' : 'Choose an item to focus on',
 			matchOnDetail: true,
 			items: !items.length ? [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })] : items,
-			buttons: [RefreshQuickInputButton],
+			buttons: [OpenLaunchpadInEditorQuickInputButton, RefreshQuickInputButton],
 			// onDidChangeValue: async (quickpick, value) => {},
 			onDidClickButton: async (quickpick, button) => {
-				if (button === RefreshQuickInputButton) {
+				if (button === OpenLaunchpadInEditorQuickInputButton) {
+					void executeCommand(Commands.ShowFocusPage);
+				} else if (button === RefreshQuickInputButton) {
 					quickpick.busy = true;
 
 					try {
