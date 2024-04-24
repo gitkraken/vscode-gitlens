@@ -9,6 +9,7 @@ import { App } from '../shared/appBase';
 import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { DOM } from '../shared/dom';
 // import { Snow } from '../shared/snow';
+import '../shared/components/feature-badge';
 import '../welcome/components/gitlens-logo';
 
 const topOffset = 83;

@@ -9,8 +9,8 @@ import {
 } from '../../../../plus/webviews/timeline/protocol';
 import type { IpcMessage } from '../../../protocol';
 import { App } from '../../shared/appBase';
-import type { FeatureGate } from '../../shared/components/feature-gate';
-import type { FeatureGateBadge } from '../../shared/components/feature-gate-badge';
+import type { GlFeatureBadge } from '../../shared/components/feature-badge';
+import type { GlFeatureGate } from '../../shared/components/feature-gate';
 import { DOM } from '../../shared/dom';
 import type { DataPointClickEvent } from './chart';
 import { TimelineChart } from './chart';
@@ -18,7 +18,7 @@ import '../../shared/components/code-icon';
 import '../../shared/components/progress';
 import '../../shared/components/button';
 import '../../shared/components/feature-gate';
-import '../../shared/components/feature-gate-badge';
+import '../../shared/components/feature-badge';
 
 export class TimelineApp extends App<State> {
 	private _chart: TimelineChart | undefined;
@@ -81,13 +81,13 @@ export class TimelineApp extends App<State> {
 	}
 
 	private updateState() {
-		const $gate = document.getElementById('subscription-gate')! as FeatureGate;
+		const $gate = document.getElementById('subscription-gate')! as GlFeatureGate;
 		if ($gate != null) {
 			$gate.state = this.state.access.subscription.current.state;
 			$gate.visible = this.state.access.allowed !== true && this.state.uri != null;
 		}
 
-		const $badge = document.getElementById('subscription-gate-badge')! as FeatureGateBadge;
+		const $badge = document.getElementById('subscription-gate-badge')! as GlFeatureBadge;
 		$badge.subscription = this.state.access.subscription.current;
 		$badge.placement = this.placement === 'view' ? 'top-start' : 'top-end';
 

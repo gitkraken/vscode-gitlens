@@ -185,6 +185,7 @@ li {
 
 .h {
 	&-space-half {
+		margin-top: 1.6rem;
 		margin-bottom: 0.65rem;
 	}
 
@@ -340,12 +341,11 @@ gk-card p {
 		container-type: inline-size;
 		display: flex;
 		flex-direction: column;
-		gap: 1.6rem;
 	}
 
 	&__views-nav {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
 		gap: 0.64rem 2rem;
 		// width: min-content;
 		margin: 0 1rem 1.3rem;
@@ -540,4 +540,33 @@ body {
 		background-color: var(--color-alert-errorBackground);
 		border-left-color: var(--color-alert-errorBorder);
 	}
+}
+
+.sticky {
+	background-color: var(--color-background);
+	position: -webkit-sticky;
+	position: sticky;
+	top: -1px;
+	z-index: 2;
+	padding-top: 1px;
+	padding-bottom: 1px;
+}
+
+.t-eyebrow.sticky {
+	top: 2.4rem;
+	z-index: 1;
+}
+
+gl-feature-badge {
+	display: inline-block;
+}
+
+gl-feature-badge.super {
+	vertical-align: super;
+	margin-left: 0.2rem;
+}
+
+gl-feature-badge.super.small {
+	--gl-feature-badge-font-size: 7px;
+	margin-left: 0.4rem;
 }

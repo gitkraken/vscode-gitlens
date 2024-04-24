@@ -63,8 +63,8 @@ import type { IpcNotification } from '../../../protocol';
 import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
 import { GlTooltip } from '../../shared/components/overlays/react';
-import { FeatureGate } from '../../shared/components/react/feature-gate';
-import { FeatureGateBadge } from '../../shared/components/react/feature-gate-badge';
+import { GlFeatureBadge } from '../../shared/components/react/feature-badge';
+import { GlFeatureGate } from '../../shared/components/react/feature-gate';
 import { GlSearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
@@ -1151,12 +1151,6 @@ export function GraphWrapper({
 			fetchTooltip += ` ${remote}`;
 		}
 
-		if (fetchedText != null) {
-			const lastFetchedText = `\n\nLast fetched ${fetchedText}`;
-			tooltip += lastFetchedText;
-			fetchTooltip += lastFetchedText;
-		}
-
 		return (
 			<div className="titlebar__group">
 				{(isBehind || isAhead) && (
@@ -1192,6 +1186,11 @@ export function GraphWrapper({
 						</a>
 						<div slot="content" style={{ whiteSpace: 'break-spaces' }}>
 							{tooltip}
+							{fetchedText && (
+								<>
+									<hr /> Last fetched {fetchedText}
+								</>
+							)}
 						</div>
 					</GlTooltip>
 				)}
@@ -1207,6 +1206,11 @@ export function GraphWrapper({
 					</a>
 					<span slot="content" style={{ whiteSpace: 'break-spaces' }}>
 						{fetchTooltip}
+						{fetchedText && (
+							<>
+								<hr /> Last fetched {fetchedText}
+							</>
+						)}
 					</span>
 				</GlTooltip>
 			</div>
@@ -1287,7 +1291,8 @@ export function GraphWrapper({
 								</a>
 								<div slot="content">
 									<span style={{ whiteSpace: 'preserve' }}>
-										Switch to Another Branch...{'\n\n'}
+										Switch to Another Branch...
+										<hr />
 										<span className="codicon codicon-git-branch" aria-hidden="true"></span>{' '}
 										{branchName}
 									</span>
@@ -1299,18 +1304,20 @@ export function GraphWrapper({
 							{renderFetchAction()}
 						</>
 					)}
-					<FeatureGateBadge subscription={subscription}></FeatureGateBadge>
-					<GlTooltip>
+					<GlTooltip placement="bottom">
 						<a href="command:gitlens.showFocusPage" className="action-button">
-							Try the Focus Preview
+							<span className="codicon codicon-rocket"></span>
+							Launchpad
 						</a>
-						<div slot="content">
+						<span slot="content">
 							<span style={{ whiteSpace: 'break-spaces' }}>
-								Bring all of your GitHub pull requests and issues into a unified actionable to help to
-								you more easily juggle work in progress, pending work, reviews, and more
+								Try Launchpad &mdash; bring all of your GitHub pull requests and issues into a unified
+								actionable to help to you more easily juggle work in progress, pending work, reviews,
+								and more
 							</span>
-						</div>
+						</span>
 					</GlTooltip>
+					<GlFeatureBadge subscription={subscription}></GlFeatureBadge>
 				</div>
 				{allowed && (
 					<div className="titlebar__row">
@@ -1541,7 +1548,12 @@ export function GraphWrapper({
 					<div className="progress-bar"></div>
 				</div>
 			</header>
-			<FeatureGate className="graph-app__gate" appearance="alert" state={subscription?.state} visible={!allowed}>
+			<GlFeatureGate
+				className="graph-app__gate"
+				appearance="alert"
+				state={subscription?.state}
+				visible={!allowed}
+			>
 				<p slot="feature">
 					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#commit-graph-%e2%9c%a8">
 						Commit Graph
@@ -1550,7 +1562,7 @@ export function GraphWrapper({
 					search to find a specific commit, message, author, a changed file or files, or even a specific code
 					change.
 				</p>
-			</FeatureGate>
+			</GlFeatureGate>
 			{graphConfig?.minimap && (
 				<GraphMinimap
 					ref={minimap as any}

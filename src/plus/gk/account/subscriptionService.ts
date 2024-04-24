@@ -446,7 +446,7 @@ export class SubscriptionService implements Disposable {
 				const confirm: MessageItem = { title: 'Start Pro Trial', isCloseAffordance: true };
 				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days.\n\n✨ A trial or paid plan is required to use Pro features on privately hosted repos.',
+					'Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days of all Pro features.\n\nA trial or paid plan is required to use Pro features on privately hosted repos.',
 					{ modal: true },
 					confirm,
 					cancel,
@@ -1133,7 +1133,7 @@ export class SubscriptionService implements Disposable {
 			})}
 			in your **${effective.name}** trial.`
 						: `You have ${pluralize('day', remaining ?? 0)} remaining in your **${effective.name}** trial.`
-				} Once your trial ends, you'll need a paid plan to continue using ✨ features.\n\nTry our
+				} Once your trial ends, you'll need a paid plan to continue using Pro features.\n\nTry our
 			[other developer tools](https://www.gitkraken.com/suite) also included in your trial.`,
 				true,
 			);

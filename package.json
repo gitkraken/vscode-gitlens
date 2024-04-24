@@ -16557,22 +16557,22 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview Pro for 3 days, or [sign up](command:gitlens.plus.signUp) to start a full 7-day GitLens Pro trial.",
+				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview local Pro features for 3 days, or [sign up](command:gitlens.plus.signUp) to start a free 7-day GitLens Pro trial of all Pro features.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Try Pro](command:gitlens.plus.signUp)\n\nYour 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days, or [sign in](command:gitlens.plus.login).",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nYour 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days of all Pro features, or [sign in](command:gitlens.plus.login).",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Get GitLens Pro](command:gitlens.plus.purchase)\n\nYour GitLens Pro trial has ended. Please upgrade to continue to use this on privately hosted repos.",
+				"contents": "[Upgrade to Pro](command:gitlens.plus.purchase)\n\nYour GitLens Pro trial has ended. Please upgrade to continue to use Pro features.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Try Pro](command:gitlens.plus.reactivateProTrial)\n\nYou're eligible to reactivate your GitLens Pro trial and experience all the new Pro features — free for another 7 days!",
+				"contents": "[Reactivate Pro Trial](command:gitlens.plus.reactivateProTrial)\n\nYou're eligible to reactivate your GitLens Pro trial and experience all the new Pro features — free for another 7 days!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 5"
 			}
 		],
@@ -16598,7 +16598,7 @@
 				},
 				{
 					"id": "gitlens.views.workspaces",
-					"name": "GitKraken Workspaces",
+					"name": "GK Workspaces",
 					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-workspaces-view)",
@@ -16812,7 +16812,7 @@
 					},
 					{
 						"id": "gitlens.welcome.commitGraph",
-						"title": "Visualize with the Commit Graph ✨",
+						"title": "Visualize with the Commit Graph",
 						"description": "Easily visualize your repository and keep track of all work in progress.\nUse the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.\n\n[Open Commit Graph](command:gitlens.showGraph)\n\n💡Quickly toggle the Graph via the [Toggle Commit Graph](command:gitlens.toggleGraph) command.\n💡Maximize the Graph via the [Toggle Maximized Commit Graph](command:gitlens.toggleMaximizedGraph) command.",
 						"media": {
 							"altText": "Illustrations of the Commit Graph view",
@@ -16821,7 +16821,7 @@
 					},
 					{
 						"id": "gitlens.welcome.workspaces",
-						"title": "Work smarter with Launchpad ✨ and GitKraken Workspaces ☁️",
+						"title": "Work smarter with Launchpad and GitKraken Workspaces",
 						"description": "Launchpad brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Launchpad](command:gitlens.showFocusPage)\n\nGitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)",
 						"media": {
 							"altText": "Illustrations of Launchpad and Workspaces view",
@@ -16831,7 +16831,7 @@
 					{
 						"id": "gitlens.welcome.hostingServiceIntegrations",
 						"title": "Integrate with Git hosting services",
-						"description": "Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise ✨, GitLab, GitLab self-managed ✨, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.\n\nAll integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.\n\n**Define your own autolinks**\nUse autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.\n\n[Configure Autolinks](command:gitlens.showSettingsPage!autolinks)",
+						"description": "Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise, GitLab, GitLab self-managed, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.\n\nAll integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.\n\n**Define your own autolinks**\nUse autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.\n\n[Configure Autolinks](command:gitlens.showSettingsPage!autolinks)",
 						"media": {
 							"markdown": "walkthroughs/welcome/integrations.md"
 						}
@@ -16847,7 +16847,7 @@
 					{
 						"id": "gitlens.welcome.preview",
 						"title": "Previewing GitLens Pro",
-						"description": "During your preview, you have access to ✨ features on privately hosted repos. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Start Free Pro Trial](command:gitlens.plus.signUp)\n\nStart a free Pro trial to get an additional 7 days.",
+						"description": "During your preview, you have access to local Pro features; cloud-based Pro features require an account. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Start Free Pro Trial](command:gitlens.plus.signUp)\n\nStart a free Pro trial to get an additional 7 days.",
 						"media": {
 							"markdown": "walkthroughs/welcome/preview.md"
 						},
@@ -16856,7 +16856,7 @@
 					{
 						"id": "gitlens.welcome.trial",
 						"title": "Trialing GitLens Pro",
-						"description": "During your trial, you have access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
+						"description": "During your trial, you have access to all Pro features. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
 						"media": {
 							"markdown": "walkthroughs/welcome/trial.md"
 						},

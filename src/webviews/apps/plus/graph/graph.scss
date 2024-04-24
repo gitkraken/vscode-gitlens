@@ -889,6 +889,10 @@ button:not([disabled]),
 			display: inline-block;
 		}
 	}
+
+	gl-feature-badge {
+		color: var(--color-foreground);
+	}
 }
 
 .graph-app {
@@ -1183,4 +1187,9 @@ button:not([disabled]),
 	&[data-marker='tags'] {
 		background-color: var(--color-graph-minimap-marker-tags);
 	}
+}
+
+hr {
+	border: none;
+	border-top: 1px solid var(--color-foreground--25);
 }

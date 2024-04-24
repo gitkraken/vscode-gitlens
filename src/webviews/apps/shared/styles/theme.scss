@@ -30,6 +30,7 @@
 	--color-foreground--75: color-mix(in srgb, transparent 25%, var(--color-foreground));
 	--color-foreground--65: color-mix(in srgb, transparent 35%, var(--color-foreground));
 	--color-foreground--50: color-mix(in srgb, transparent 50%, var(--color-foreground));
+	--color-foreground--25: color-mix(in srgb, transparent 75%, var(--color-foreground));
 
 	--color-button-background: var(--vscode-button-background, var(--color-foreground));
 	// Computed variants in code

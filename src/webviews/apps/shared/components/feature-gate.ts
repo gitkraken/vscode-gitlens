@@ -4,8 +4,8 @@ import type { SubscriptionState } from '../../../../plus/gk/account/subscription
 import { isSubscriptionStatePaidOrTrial } from '../../../../plus/gk/account/subscription';
 import '../../plus/shared/components/feature-gate-plus-state';
 
-@customElement('gk-feature-gate')
-export class FeatureGate extends LitElement {
+@customElement('gl-feature-gate')
+export class GlFeatureGate extends LitElement {
 	static override styles = css`
 		:host {
 			--background: var(--vscode-sideBar-background);
@@ -106,7 +106,7 @@ export class FeatureGate extends LitElement {
 			<section>
 				<slot></slot>
 				<slot name="feature"></slot>
-				<gk-feature-gate-plus-state appearance=${appearance} .state=${this.state}></gk-feature-gate-plus-state>
+				<gl-feature-gate-plus-state appearance=${appearance} .state=${this.state}></gl-feature-gate-plus-state>
 			</section>
 		`;
 	}

@@ -50,6 +50,9 @@ export class GlTooltip extends LitElement {
 		}
 	`;
 
+	@property()
+	content?: string;
+
 	@property({ reflect: true })
 	placement?: SlTooltip['placement'] = 'top';
 
@@ -92,11 +95,11 @@ export class GlTooltip extends LitElement {
 		return html`<sl-tooltip
 			.placement=${this.placement}
 			?disabled=${this.disabled}
-			.distance="${this.distance ?? nothing}"
+			.distance=${this.distance ?? nothing}
 		>
 			<slot></slot>
 			<div slot="content">
-				<slot name="content" class="content"></slot>
+				<slot name="content">${this.content}</slot>
 			</div>
 		</sl-tooltip>`;
 	}
