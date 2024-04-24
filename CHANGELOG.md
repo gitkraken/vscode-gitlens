@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [14.9.1] - 2024-04-24
+
 ### Added
 
 - Adds workshop registration to welcome page &mdash; resolves [#3241](https://github.com/gitkraken/vscode-gitlens/pull/3241)
@@ -5260,7 +5262,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.9.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.9.1...HEAD
+[14.9.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.9.0...gitkraken:v14.9.1
 [14.9.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.8.2...gitkraken:v14.9.0
 [14.8.2]: https://github.com/gitkraken/vscode-gitlens/compare/v14.8.1...gitkraken:v14.8.2
 [14.8.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.8.0...gitkraken:v14.8.1
