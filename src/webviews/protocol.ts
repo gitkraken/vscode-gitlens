@@ -57,12 +57,7 @@ export class IpcRequest<Params = void, ResponseParams = void> extends IpcCall<Pa
 	constructor(scope: IpcScope, method: string, reset?: boolean, pack?: boolean) {
 		super(scope, method, reset, pack);
 
-		this.response = new IpcNotification<ResponseParams>(
-			this.scope,
-			`${this.method}/completion`,
-			this.reset,
-			this.pack,
-		);
+		this.response = new IpcNotification<ResponseParams>(this.scope, `${method}/completion`, this.reset, this.pack);
 	}
 }
 

@@ -4,14 +4,7 @@ import { debug, logName } from '../../../system/decorators/log';
 import { getLogScope, getNewLogScope } from '../../../system/logger.scope';
 import type { Serialized } from '../../../system/serialize';
 import { maybeStopWatch } from '../../../system/stopwatch';
-import type {
-	IpcCallParamsType,
-	IpcCallResponseMessageType,
-	IpcCallResponseParamsType,
-	IpcCommand,
-	IpcMessage,
-	IpcRequest,
-} from '../../protocol';
+import type { IpcCallParamsType, IpcCallResponseParamsType, IpcCommand, IpcMessage, IpcRequest } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable, Event } from './events';
 import { Emitter } from './events';
@@ -34,6 +27,8 @@ function nextIpcId() {
 	return `webview:${ipcSequencer.next()}`;
 }
 
+type PendingHandler = (msg: IpcMessage) => void;
+
 @logName<HostIpc>((c, name) => `${c.appName}(${name})`)
 export class HostIpc implements Disposable {
 	private _onReceiveMessage = new Emitter<IpcMessage>();
@@ -43,6 +38,7 @@ export class HostIpc implements Disposable {
 
 	private readonly _api: HostIpcApi;
 	private readonly _disposable: Disposable;
+	private _pendingHandlers = new Map<string, PendingHandler>();
 	private _textDecoder: TextDecoder | undefined;
 
 	constructor(private readonly appName: string) {
@@ -67,6 +63,14 @@ export class HostIpc implements Disposable {
 			this._textDecoder ??= new TextDecoder();
 			msg.params = JSON.parse(this._textDecoder.decode(msg.params));
 			sw?.stop();
+		}
+
+		// If we have a completionId, then this is a response to a request and it should be handled directly
+		if (msg.completionId != null) {
+			const queueKey = getQueueKey(msg.method, msg.completionId);
+			this._pendingHandlers.get(queueKey)?.(msg);
+
+			return;
 		}
 
 		this._onReceiveMessage.fire(msg);
@@ -94,32 +98,25 @@ export class HostIpc implements Disposable {
 		// this.log(`${this.appName}.sendCommandWithCompletion(${id}): name=${command.method}`);
 
 		const promise = new Promise<IpcCallResponseParamsType<T>>((resolve, reject) => {
+			const queueKey = getQueueKey(requestType.response.method, id);
 			let timeout: ReturnType<typeof setTimeout> | undefined;
 
-			const disposables = [
-				DOM.on(window, 'message', (e: MessageEvent<IpcCallResponseMessageType<T>>) => {
-					const msg = e.data;
-					if (msg.completionId === id && requestType.response.is(msg)) {
-						disposables.forEach(d => d.dispose());
-						queueMicrotask(() => resolve(msg.params));
-					}
-				}),
-				{
-					dispose: function () {
-						if (timeout != null) {
-							clearTimeout(timeout);
-							timeout = undefined;
-						}
-					},
-				},
-			];
+			function dispose(this: HostIpc) {
+				clearTimeout(timeout);
+				timeout = undefined;
+				this._pendingHandlers.delete(queueKey);
+			}
 
 			timeout = setTimeout(() => {
-				timeout = undefined;
-				disposables.forEach(d => d.dispose());
+				dispose.call(this);
 				debugger;
-				reject(new Error(`Timed out waiting for completion of ${requestType.response.method}`));
+				reject(new Error(`Timed out waiting for completion of ${queueKey}`));
 			}, 60000);
+
+			this._pendingHandlers.set(queueKey, msg => {
+				dispose.call(this);
+				queueMicrotask(() => resolve(msg.params));
+			});
 		});
 
 		this.postMessage({
@@ -143,3 +140,7 @@ export class HostIpc implements Disposable {
 }
 
 export function assertsSerialized<T>(obj: unknown): asserts obj is Serialized<T> {}
+
+function getQueueKey(method: string, id: string) {
+	return `${method}|${id}`;
+}
