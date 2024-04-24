@@ -137,7 +137,16 @@ export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', Vi
 					undefined,
 					{ expand: true, timeout: false },
 				),
-				new ResultsSuggestedChangesNode(this.view, this, this.repoPath, getSuggestedChangesQuery()),
+				new ResultsSuggestedChangesNode(
+					this.view,
+					this,
+					this.repoPath,
+					getSuggestedChangesQuery(
+						this.view.container.drafts,
+						this.pullRequest,
+						this.view.container.git.getRepository(this.repoPath),
+					),
+				),
 			];
 
 			this.children = children;

@@ -1,5 +1,6 @@
 import type { Container } from '../container';
 import type { Draft } from '../gk/models/drafts';
+import type { DraftService } from '../plus/drafts/draftsService';
 import { getSettledValue } from '../system/promise';
 import { pluralize } from '../system/string';
 import type { FilesQueryFilter } from '../views/nodes/resultsFilesNode';
@@ -7,6 +8,8 @@ import type { GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitLog } from './models/log';
 import type { GitUser } from './models/user';
+import type { PullRequest } from './models/pullRequest';
+import type { Repository } from './models/repository';
 
 export interface CommitsQueryResults {
 	readonly label: string;
@@ -82,7 +85,11 @@ export interface SuggestedChangesQueryResults {
 	drafts: Draft[] | undefined;
 }
 
-export function getSuggestedChangesQuery(): () => Promise<SuggestedChangesQueryResults> {
+export function getSuggestedChangesQuery(
+	draftService: DraftService,
+	pullRequest: PullRequest,
+	repository: Repository | undefined,
+): () => Promise<SuggestedChangesQueryResults> {
 	return async () => {
 		return await Promise.resolve({
 			drafts: [],

@@ -618,6 +618,7 @@ export type TreeViewNodeTypes =
 	| 'results-commits'
 	| 'results-files'
 	| 'results-suggested-changes'
+	| 'results-suggested-change'
 	| 'search-compare'
 	| 'stashes'
 	| 'status-files'

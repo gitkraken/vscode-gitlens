@@ -7,6 +7,7 @@ import { cancellable, PromiseCancelledError } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { Draft } from '../../gk/models/drafts';
+import { ResultsSuggestedChangeNode } from './resultsSuggestedChangeNode';
 
 interface Options {
 	expand: boolean;
@@ -36,7 +37,7 @@ export class ResultsSuggestedChangesNode extends ViewNode<'results-suggested-cha
 	async getChildren(): Promise<ViewNode[]> {
 		const results = await this.getSuggestedChangesQueryResults();
 		const drafts = results.drafts;
-		return [];
+		return drafts?.map(d => new ResultsSuggestedChangeNode(this.view, this, this.repoPath, d)) || [];
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -45,7 +46,7 @@ export class ResultsSuggestedChangesNode extends ViewNode<'results-suggested-cha
 		let drafts: Draft[] | undefined;
 		let state;
 		let tooltip;
-		let label = 'Suggested changes';
+		const label = 'Suggested changes';
 
 		try {
 			const results = await cancellable(
@@ -74,7 +75,7 @@ export class ResultsSuggestedChangesNode extends ViewNode<'results-suggested-cha
 			state = TreeItemCollapsibleState.Collapsed;
 		}
 
-		const item = new TreeItem(`${label}`, state);
+		const item = new TreeItem(label, state);
 		item.description = description;
 		item.id = this.id;
 		item.iconPath = icon;
