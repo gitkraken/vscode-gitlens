@@ -1,4 +1,4 @@
-import { ThemeIcon, Uri } from 'vscode';
+import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
 	PartialStepState,
@@ -55,18 +55,18 @@ const actionGroupMap = new Map<FocusActionCategory, string[]>([
 	['other', ['Other', 'Other pull requests']],
 ]);
 
-const groupMap = new Map<FocusGroup, [string, ThemeIcon | undefined]>([
-	['current-branch', ['Current Branch', new ThemeIcon('git-branch')]],
-	['pinned', ['Pinned', new ThemeIcon('pinned')]],
-	['mergeable', ['Ready to Merge', new ThemeIcon('rocket')]],
-	['blocked', ['Blocked', new ThemeIcon('error')]], //bracket-error
-	['follow-up', ['Requires Follow-up', new ThemeIcon('report')]],
-	['needs-attention', ['Needs Your Attention', new ThemeIcon('bell-dot')]], //comment-unresolved
-	['needs-review', ['Needs Your Review', new ThemeIcon('comment-draft')]], // feedback
-	['waiting-for-review', ['Waiting for Review', new ThemeIcon('gitlens-clock')]],
-	['draft', ['Draft', new ThemeIcon('git-pull-request-draft')]],
-	['other', ['Other', new ThemeIcon('question')]],
-	['snoozed', ['Snoozed', new ThemeIcon('bell-slash')]],
+const groupMap = new Map<FocusGroup, [string, string | undefined]>([
+	['current-branch', ['Current Branch', 'git-branch']],
+	['pinned', ['Pinned', 'pinned']],
+	['mergeable', ['Ready to Merge', 'rocket']],
+	['blocked', ['Blocked', 'error']], //bracket-error
+	['follow-up', ['Requires Follow-up', 'report']],
+	['needs-attention', ['Needs Your Attention', 'bell-dot']], //comment-unresolved
+	['needs-review', ['Needs Your Review', 'comment-draft']], // feedback
+	['waiting-for-review', ['Waiting for Review', 'gitlens-clock']],
+	['draft', ['Draft', 'git-pull-request-draft']],
+	['other', ['Other', 'question']],
+	['snoozed', ['Snoozed', 'bell-slash']],
 ]);
 
 export interface FocusItemQuickPickItem extends QuickPickItemOfT<FocusItem> {}
@@ -233,11 +233,10 @@ export class FocusCommand extends QuickCommand<State> {
 					items.push(
 						createQuickPickSeparator(groupItems.length ? groupItems.length.toString() : undefined),
 						createDirectiveQuickPickItem(Directive.Reload, false, {
-							label: `${groupMap.get(ui)![0]?.toUpperCase()}\u00a0$(${
-								context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
-							})`, //'\u00a0',
+							label: `$(${context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'})\u00a0\u00a0$(${
+								groupMap.get(ui)![1]
+							})\u00a0\u00a0${groupMap.get(ui)![0]?.toUpperCase()}`, //'\u00a0',
 							//detail: groupMap.get(group)?.[0].toUpperCase(),
-							iconPath: groupMap.get(ui)![1],
 							onDidSelect: () => {
 								context.collapsed.set(ui, !context.collapsed.get(ui));
 							},
