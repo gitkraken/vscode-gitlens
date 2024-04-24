@@ -62,7 +62,7 @@ import { createWebviewCommandLink } from '../../../../system/webview';
 import type { IpcNotification } from '../../../protocol';
 import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
-import { PopOver } from '../../shared/components/overlays/react';
+import { GlTooltip } from '../../shared/components/overlays/react';
 import { FeatureGate } from '../../shared/components/react/feature-gate';
 import { FeatureGateBadge } from '../../shared/components/react/feature-gate-badge';
 import { SearchBox } from '../../shared/components/search/react';
@@ -1140,19 +1140,19 @@ export function GraphWrapper({
 				action = 'pull';
 				icon = 'arrow-down';
 				label = 'Pull';
-				tooltip = `Pull from ${remote}\n${branchPrefix} ${pluralize('commit', branchState.behind)} behind of`;
+				tooltip = `Pull from ${remote}\n\n${branchPrefix} ${pluralize('commit', branchState.behind)} behind of`;
 			} else if (isAhead) {
 				action = 'push';
 				icon = 'arrow-up';
 				label = 'Push';
-				tooltip = `Push to ${remote}\n${branchPrefix} ${pluralize('commit', branchState.ahead)} ahead of`;
+				tooltip = `Push to ${remote}\n\n${branchPrefix} ${pluralize('commit', branchState.ahead)} ahead of`;
 			}
 			tooltip += ` ${remote}`;
 			fetchTooltip += ` ${remote}`;
 		}
 
 		if (fetchedText != null) {
-			const lastFetchedText = `\nLast fetched ${fetchedText}`;
+			const lastFetchedText = `\n\nLast fetched ${fetchedText}`;
 			tooltip += lastFetchedText;
 			fetchTooltip += lastFetchedText;
 		}
@@ -1160,6 +1160,7 @@ export function GraphWrapper({
 		return (
 			<div className="titlebar__group">
 				{(isBehind || isAhead) && (
+					<GlTooltip placement="bottom">
 					<a
 						href={createWebviewCommandLink(
 							`gitlens.graph.${action}`,
@@ -1167,7 +1168,7 @@ export function GraphWrapper({
 							state.webviewInstanceId,
 						)}
 						className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
-						title={tooltip}
+							title=" "
 					>
 						<span className={`codicon codicon-${icon} action-button__icon`}></span>
 						{label}
@@ -1181,23 +1182,33 @@ export function GraphWrapper({
 									)}
 									{isBehind && (
 										<span>
-											{branchState!.behind} <span className="codicon codicon-arrow-down"></span>
+												{branchState!.behind}{' '}
+												<span className="codicon codicon-arrow-down"></span>
 										</span>
 									)}
 								</span>
 							</span>
 						)}
 					</a>
+						<div slot="content" style={{ whiteSpace: 'break-spaces' }}>
+							{tooltip}
+						</div>
+					</GlTooltip>
 				)}
+				<GlTooltip placement="bottom">
 				<a
 					href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
 					className="action-button"
-					title={fetchTooltip}
+						title=" "
 				>
 					<span className="codicon codicon-sync action-button__icon"></span>
 					Fetch
 					{fetchedText && <span className="action-button__small">({fetchedText})</span>}
 				</a>
+					<span slot="content" style={{ whiteSpace: 'break-spaces' }}>
+						{fetchTooltip}
+					</span>
+				</GlTooltip>
 			</div>
 		);
 	};
@@ -1211,11 +1222,12 @@ export function GraphWrapper({
 					}`}
 				>
 					{repo && branchState?.provider?.url && (
+						<GlTooltip placement="bottom">
 						<a
 							href={branchState.provider.url}
 							className="action-button"
 							style={{ marginRight: '-0.5rem' }}
-							title={`Open Repository on ${branchState.provider.name}`}
+								title=" "
 							aria-label={`Open Repository on ${branchState.provider.name}`}
 						>
 							<span
@@ -1227,12 +1239,15 @@ export function GraphWrapper({
 								aria-hidden="true"
 							></span>
 						</a>
+							<span slot="content">Open Repository on {branchState.provider.name}</span>
+						</GlTooltip>
 					)}
+					<GlTooltip placement="bottom">
 					<button
 						type="button"
 						className="action-button"
 						slot="trigger"
-						title="Switch to Another Repository..."
+							title=" "
 						aria-label="Switch to Another Repository..."
 						disabled={repos.length < 2}
 						onClick={() => handleChooseRepository()}
@@ -1245,11 +1260,14 @@ export function GraphWrapper({
 							></span>
 						)}
 					</button>
+						<span slot="content">Switch to Another Repository...</span>
+					</GlTooltip>
 					{allowed && repo && (
 						<>
 							<span>
 								<span className="codicon codicon-chevron-right"></span>
 							</span>
+							<GlTooltip placement="bottom">
 							<a
 								href={createWebviewCommandLink(
 									'gitlens.graph.switchToAnotherBranch',
@@ -1257,15 +1275,23 @@ export function GraphWrapper({
 									state.webviewInstanceId,
 								)}
 								className="action-button"
-								title="Switch to Another Branch..."
+									title=" "
 								aria-label="Switch to Another Branch..."
 							>
+									<span className="codicon codicon-git-branch" aria-hidden="true"></span>
 								{branchName}
 								<span
 									className="codicon codicon-chevron-down action-button__more"
 									aria-hidden="true"
 								></span>
 							</a>
+								<div slot="content">
+									<span>Switch to Another Branch...</span>
+									<br />
+									<br />
+									<span className="codicon codicon-git-branch" aria-hidden="true"></span> {branchName}
+								</div>
+							</GlTooltip>
 							<span>
 								<span className="codicon codicon-chevron-right"></span>
 							</span>
@@ -1273,21 +1299,24 @@ export function GraphWrapper({
 						</>
 					)}
 					<FeatureGateBadge subscription={subscription}></FeatureGateBadge>
-					<div className="popover">
-						<a href="command:gitlens.showFocusPage" className="action-button popover__trigger">
+					<GlTooltip>
+						<a href="command:gitlens.showFocusPage" className="action-button">
 							Try the Focus Preview
 						</a>
-						<PopOver placement="top end" className="popover__content">
-							Bring all of your GitHub pull requests and issues into a unified actionable to help to you
-							more easily juggle work in progress, pending work, reviews, and more
-						</PopOver>
-					</div>
+						<div slot="content">
+							<span style={{ whiteSpace: 'break-spaces' }}>
+								Bring all of your GitHub pull requests and issues into a unified actionable to help to
+								you more easily juggle work in progress, pending work, reviews, and more
+							</span>
+						</div>
+					</GlTooltip>
 				</div>
 				{allowed && (
 					<div className="titlebar__row">
 						<div className="titlebar__group">
+							<GlTooltip placement="top">
 							<PopMenu>
-								<button type="button" className="action-button" slot="trigger" title="Filter Graph">
+									<button type="button" className="action-button" slot="trigger">
 									<span className={`codicon codicon-filter${hasFilters ? '-filled' : ''}`}></span>
 									{hasSpecialFilters && <span className="action-button__indicator"></span>}
 									<span
@@ -1365,6 +1394,8 @@ export function GraphWrapper({
 									</MenuItem>
 								</MenuList>
 							</PopMenu>
+								<span slot="content">Filter Graph</span>
+							</GlTooltip>
 							<span>
 								<span className="action-divider"></span>
 							</span>
@@ -1388,23 +1419,26 @@ export function GraphWrapper({
 								<span className="action-divider"></span>
 							</span>
 							<span className="button-group">
+								<GlTooltip placement="bottom">
 								<button
 									type="button"
 									role="checkbox"
 									className="action-button"
-									title="Toggle Minimap"
 									aria-label="Toggle Minimap"
 									aria-checked={graphConfig?.minimap ?? false}
 									onClick={handleOnMinimapToggle}
 								>
 									<span className="codicon codicon-graph-line action-button__icon"></span>
 								</button>
+									<span slot="content">Toggle Minimap</span>
+								</GlTooltip>
+								<GlTooltip placement="top" distance={7}>
 								<PopMenu position="right">
 									<button
 										type="button"
 										className="action-button"
 										slot="trigger"
-										title="Minimap Options"
+											aria-label="Minimap Options"
 									>
 										<span
 											className="codicon codicon-chevron-down action-button__more"
@@ -1437,7 +1471,8 @@ export function GraphWrapper({
 												value="localBranches"
 												onChange={handleOnMinimapAdditionalTypesChange}
 												defaultChecked={
-													graphConfig?.minimapMarkerTypes?.includes('localBranches') ?? false
+														graphConfig?.minimapMarkerTypes?.includes('localBranches') ??
+														false
 												}
 											>
 												<span
@@ -1452,7 +1487,8 @@ export function GraphWrapper({
 												value="remoteBranches"
 												onChange={handleOnMinimapAdditionalTypesChange}
 												defaultChecked={
-													graphConfig?.minimapMarkerTypes?.includes('remoteBranches') ?? true
+														graphConfig?.minimapMarkerTypes?.includes('remoteBranches') ??
+														true
 												}
 											>
 												<span
@@ -1470,7 +1506,10 @@ export function GraphWrapper({
 													graphConfig?.minimapMarkerTypes?.includes('stashes') ?? false
 												}
 											>
-												<span className="minimap-marker-swatch" data-marker="stashes"></span>
+													<span
+														className="minimap-marker-swatch"
+														data-marker="stashes"
+													></span>
 												Stashes
 											</VSCodeCheckbox>
 										</MenuItem>
@@ -1488,6 +1527,8 @@ export function GraphWrapper({
 										</MenuItem>
 									</MenuList>
 								</PopMenu>
+									<span slot="content">Minimap Options</span>
+								</GlTooltip>
 							</span>
 						</div>
 					</div>

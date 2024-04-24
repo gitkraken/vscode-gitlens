@@ -11,23 +11,24 @@ This project incorporates components from the projects listed below.
 6. @opentelemetry/api version 1.8.0 (https://github.com/open-telemetry/opentelemetry-js)
 7. @opentelemetry/exporter-trace-otlp-http version 0.50.0 (https://github.com/open-telemetry/opentelemetry-js)
 8. @opentelemetry/sdk-trace-base version 1.23.0 (https://github.com/open-telemetry/opentelemetry-js)
-9. @vscode/codicons version 0.0.35 (https://github.com/microsoft/vscode-codicons)
-10. @vscode/webview-ui-toolkit version 1.4.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
-11. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
-12. billboard.js version 3.11.3 (https://github.com/naver/billboard.js)
-13. fast-string-truncated-width version 1.1.0 (https://github.com/fabiospampinato/fast-string-truncated-width)
-14. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
-15. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-16. lit version 3.1.3 (https://github.com/lit/lit)
-17. microsoft/vscode (https://github.com/microsoft/vscode)
-18. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
-19. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-20. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-21. react-dom version 16.8.4 (https://github.com/facebook/react)
-22. react version 16.8.4 (https://github.com/facebook/react)
-23. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
-24. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
-25. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
+9. @shoelace-style/shoelace version 2.15.0 (https://github.com/shoelace-style/shoelace)
+10. @vscode/codicons version 0.0.35 (https://github.com/microsoft/vscode-codicons)
+11. @vscode/webview-ui-toolkit version 1.4.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
+12. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
+13. billboard.js version 3.11.3 (https://github.com/naver/billboard.js)
+14. fast-string-truncated-width version 1.1.0 (https://github.com/fabiospampinato/fast-string-truncated-width)
+15. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+16. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
+17. lit version 3.1.3 (https://github.com/lit/lit)
+18. microsoft/vscode (https://github.com/microsoft/vscode)
+19. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
+20. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+21. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+22. react-dom version 16.8.4 (https://github.com/facebook/react)
+23. react version 16.8.4 (https://github.com/facebook/react)
+24. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
+25. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
+26. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
 
 %% @lit/react NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -816,6 +817,19 @@ END OF  @opentelemetry/exporter-trace-otlp-http NOTICES AND INFORMATION
 
 =========================================
 END OF  @opentelemetry/sdk-trace-base NOTICES AND INFORMATION
+
+%% @shoelace-style/shoelace NOTICES AND INFORMATION BEGIN HERE
+=========================================
+Copyright (c) 2020 A Beautiful Site, LLC
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+=========================================
+END OF  @shoelace-style/shoelace NOTICES AND INFORMATION
 
 %% @vscode/codicons NOTICES AND INFORMATION BEGIN HERE
 =========================================
