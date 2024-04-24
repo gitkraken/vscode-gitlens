@@ -5336,7 +5336,7 @@
 			},
 			{
 				"command": "gitlens.showGraphPage",
-				"title": "Show Commit Graph in Editor Area",
+				"title": "Show Commit Graph in Editor",
 				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
 			},
@@ -7549,7 +7549,7 @@
 			},
 			{
 				"command": "gitlens.views.graph.openInTab",
-				"title": "Open in Editor Area",
+				"title": "Open in Editor",
 				"category": "GitLens",
 				"icon": "$(link-external)"
 			},
@@ -8203,7 +8203,7 @@
 			},
 			{
 				"command": "gitlens.graph.switchToEditorLayout",
-				"title": "Prefer Commit Graph in Editor Area",
+				"title": "Prefer Commit Graph in Editor",
 				"category": "GitLens",
 				"enablement": "config.gitlens.graph.layout != editor"
 			},

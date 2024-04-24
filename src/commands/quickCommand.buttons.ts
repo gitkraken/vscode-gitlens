@@ -117,6 +117,11 @@ export const MergeQuickInputButton: QuickInputButton = {
 	tooltip: 'Merge',
 };
 
+export const OpenLaunchpadInEditorQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('link-external'),
+	tooltip: 'Open Launchpad in Editor',
+};
+
 export const PinQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('pinned'),
 	tooltip: 'Pin',
