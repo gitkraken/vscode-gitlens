@@ -135,7 +135,6 @@ export class FocusIndicator implements Disposable {
 		if (state !== 'data' && state === this._state) return;
 		this._state = state;
 		this._statusBarFocus.tooltip = new MarkdownString('', true);
-		this._statusBarFocus.tooltip.appendMarkdown('Launchpad (PREVIEW)\n\n---\n\n');
 		this._statusBarFocus.tooltip.supportHtml = true;
 		this._statusBarFocus.tooltip.isTrusted = true;
 		if (state === 'loading') {
@@ -287,15 +286,21 @@ export class FocusIndicator implements Disposable {
 			this._statusBarFocus.color = color;
 		}
 
-		this._statusBarFocus.tooltip.appendMarkdown('\n\n---\n\n');
+		if (this._statusBarFocus.tooltip.value.length) {
+			this._statusBarFocus.tooltip.appendMarkdown('\n\n---\n\n');
+		}
+		this._statusBarFocus.tooltip.appendMarkdown(
+			'GitLens Launchpad (PRO preview)\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0',
+		);
+
 		this._statusBarFocus.tooltip.appendMarkdown(
 			configuration.get('focus.experimental.indicators.data.enabled')
-				? `<span>$(bell-slash) [Mute](command:gitlens.focus.experimental.updateIndicators?"mute")</span>`
-				: `<span>$(bell) [Unmute](command:gitlens.focus.experimental.updateIndicators?"unmute")</span>`,
+				? `<span>[$(bell-slash) Mute](command:gitlens.focus.experimental.updateIndicators?"mute" "Mute")</span>`
+				: `<span>[$(bell) Unmute](command:gitlens.focus.experimental.updateIndicators?"unmute" "Unmute")</span>`,
 		);
-		this._statusBarFocus.tooltip.appendMarkdown('\t|\t');
+		this._statusBarFocus.tooltip.appendMarkdown('\u00a0\u00a0\u00a0|\u00a0\u00a0\u00a0');
 		this._statusBarFocus.tooltip.appendMarkdown(
-			`<span>$(circle-slash) [Hide](command:gitlens.focus.experimental.updateIndicators?"hide")</span>`,
+			`<span>[$(circle-slash) Hide](command:gitlens.focus.experimental.updateIndicators?"hide" "Hide")</span>`,
 		);
 	}
 
