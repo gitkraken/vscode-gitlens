@@ -278,55 +278,12 @@ gk-card p {
 		grid-template-columns: 1fr;
 		grid-template-rows: min-content;
 		gap: 1.6rem 3rem;
-
-		.workshop-banner {
-			border: thin solid #c64eff;
-			border-radius: 3px;
-			display: flex;
-			flex-direction: row;
-			margin: 1rem;
-			align-items: center;
-			justify-content: space-between;
-			padding: 1rem 2rem;
-			gap: 1rem;
-			margin-right: 6rem;
-
-			&__date {
-				margin-bottom: 0;
-			}
-
-			&__content {
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				justify-content: center;
-				gap: 0.5rem;
-				margin-bottom: 0;
-			}
-
-			&__register-button {
-				--button-foreground: white;
-				--button-background: #c64eff;
-				--button-hover-background: #d98ffb;
-				font-weight: bold;
-				border-radius: 2px;
-				padding: 0.5rem 2rem;
-			}
-
-			@media screen and (width < 1000px) {
-				flex-direction: column;
-				margin-right: 0;
-				text-align: center;
-				padding: 1rem 1rem;
-			}
-		}
 	}
 
 	&__section {
 		& + & {
 			// border-top: 1px solid var(--vscode-editorWidget-border);
 			padding-top: 0.5rem;
-			max-width: 692px;
 		}
 
 		> *:last-child {
@@ -439,6 +396,7 @@ gk-card p {
 		}
 		&__section {
 			grid-column: 1;
+			max-width: 692px;
 
 			&:nth-child(3) {
 				grid-column: 2;
@@ -581,5 +539,48 @@ body {
 	&--danger {
 		background-color: var(--color-alert-errorBackground);
 		border-left-color: var(--color-alert-errorBorder);
+	}
+}
+
+.workshop-banner {
+	border: thin solid #c64eff;
+	border-radius: 3px;
+	display: flex;
+	flex-direction: row;
+	margin: 1rem;
+	align-items: center;
+	justify-content: space-between;
+	padding: 1rem 2rem;
+	gap: 1rem;
+	text-align: center;
+
+	&__date {
+		flex: none;
+		margin-bottom: 0;
+	}
+
+	&__content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		margin-bottom: 0;
+	}
+
+	&__register-button {
+		flex: none;
+		--button-foreground: white;
+		--button-background: #c64eff;
+		--button-hover-background: #d98ffb;
+		font-weight: bold;
+		border-radius: 2px;
+		padding: 0.5rem 2rem;
+	}
+
+	@media screen and (width < 1000px) {
+		flex-direction: column;
+		text-align: center;
+		padding-inline: 1rem;
 	}
 }
