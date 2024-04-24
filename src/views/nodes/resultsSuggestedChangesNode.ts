@@ -47,7 +47,7 @@ export class ResultsSuggestedChangesNode extends ViewNode<'results-suggested-cha
 		let drafts: Draft[] | undefined;
 		let state;
 		let tooltip;
-		const label = 'Suggested changes';
+		const label = 'Code Suggestions';
 
 		try {
 			const results = await cancellable(
