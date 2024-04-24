@@ -1,4 +1,4 @@
-import { css, html, LitElement, nothing } from 'lit';
+import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import {
@@ -8,11 +8,10 @@ import {
 	isSubscriptionStateTrial,
 	SubscriptionState,
 } from '../../../../plus/gk/account/subscription';
-import '../../plus/shared/components/feature-gate-plus-state';
 import { pluralize } from '../../../../system/string';
 import { focusOutline } from './styles/lit/a11y.css';
 import { elementBase } from './styles/lit/base.css';
-import './overlays/pop-over';
+import './overlays/tooltip';
 
 @customElement('gk-feature-gate-badge')
 export class FeatureGateBadge extends LitElement {
@@ -24,11 +23,12 @@ export class FeatureGateBadge extends LitElement {
 			}
 
 			:host(:focus) {
-				${focusOutline}
+				${unsafeCSS(focusOutline)}
 			}
 
-			.badge-container {
-				position: relative;
+			.badge-headline {
+				display: block;
+				font-weight: 600;
 			}
 
 			.badge {
@@ -37,12 +37,6 @@ export class FeatureGateBadge extends LitElement {
 
 			.badge.inactive {
 				filter: grayscale(100%);
-			}
-
-			.badge-popover {
-				width: max-content;
-				top: 100%;
-				text-align: left;
 			}
 
 			.badge-footnote {
@@ -62,23 +56,12 @@ export class FeatureGateBadge extends LitElement {
 				opacity: 0.6;
 				margin-left: 1rem;
 			}
-
-			.badge:not(:hover) ~ .badge-popover {
-				display: none;
-			}
-
-			:host(:not([placement~='end'])) .badge-popover {
-				left: 0;
-			}
-
-			:host([placement~='end']) .badge-popover {
-				right: 0;
-			}
 		`,
 	];
 
 	@property({ reflect: true })
-	placement?: `${'top' | 'bottom'} ${'start' | 'end'}` = 'top end';
+	placement?: `${'top' | 'bottom' | 'left' | 'right'}-${'start' | 'end'}` | 'top' | 'bottom' | 'left' | 'right' =
+		'top';
 
 	@property({ attribute: false })
 	subscription?: Subscription;
@@ -88,20 +71,20 @@ export class FeatureGateBadge extends LitElement {
 		const trial = isSubscriptionStateTrial(this.subscription?.state);
 
 		return html`
-			<span class="badge-container">
+			<gl-tooltip .placement=${this.placement}>
 				<span class="badge ${paidOrTrial ? 'active' : 'inactive'}"
 					>${trial ? html`<span class="badge-trial">Trial</span>` : ''}✨</span
 				>
-				<pop-over .placement=${this.placement} class="badge-popover">
-					<span slot="heading"
+				<div slot="content">
+					<span class="badge-headline"
 						>${getSubscriptionStatePlanName(
 							this.subscription?.state,
 							this.subscription?.plan.effective.id,
 						)}${this.trialHtml}</span
 					>
 					${this.footnoteHtml}
-				</pop-over>
-			</span>
+				</div>
+			</gl-tooltip>
 		`;
 	}
 

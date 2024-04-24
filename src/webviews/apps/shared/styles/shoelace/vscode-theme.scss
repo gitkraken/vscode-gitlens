@@ -1,0 +1,331 @@
+// raw dark color tokens, only referenced in this file
+:root:has(.vscode-dark, .vscode-high-contrast) {
+	// color-scheme: dark;
+
+	--sl-color-red-50: hsl(0 56% 23.9%);
+	--sl-color-red-100: hsl(0.6 60% 33.9%);
+	--sl-color-red-200: hsl(0.9 67.2% 37.1%);
+	--sl-color-red-300: hsl(1.1 71.3% 43.7%);
+	--sl-color-red-400: hsl(1 76% 52.5%);
+	--sl-color-red-500: hsl(0.7 89.6% 57.2%);
+	--sl-color-red-600: hsl(0 98.6% 67.9%);
+	--sl-color-red-700: hsl(0 100% 72.3%);
+	--sl-color-red-800: hsl(0 100% 85.6%);
+	--sl-color-red-900: hsl(0 100% 90.3%);
+	--sl-color-red-950: hsl(0 100% 95.9%);
+
+	--sl-color-amber-50: hsl(21.9 66.3% 21.1%);
+	--sl-color-amber-100: hsl(21.5 73.6% 29.7%);
+	--sl-color-amber-200: hsl(22.3 77.6% 33.3%);
+	--sl-color-amber-300: hsl(25.4 84.2% 39.6%);
+	--sl-color-amber-400: hsl(31.4 87.4% 46.7%);
+	--sl-color-amber-500: hsl(37 96.6% 48.3%);
+	--sl-color-amber-600: hsl(43.3 100% 53.4%);
+	--sl-color-amber-700: hsl(46.5 100% 61.1%);
+	--sl-color-amber-800: hsl(49.3 100% 73%);
+	--sl-color-amber-900: hsl(51.8 100% 85%);
+	--sl-color-amber-950: hsl(60 100% 94.6%);
+
+	--sl-color-green-50: hsl(144.3 53.6% 16%);
+	--sl-color-green-100: hsl(143.2 55.4% 23.5%);
+	--sl-color-green-200: hsl(141.5 58.2% 26.3%);
+	--sl-color-green-300: hsl(140.8 64.2% 31.8%);
+	--sl-color-green-400: hsl(140.3 68% 39.2%);
+	--sl-color-green-500: hsl(141.1 64.9% 43%);
+	--sl-color-green-600: hsl(141.6 72.4% 55.2%);
+	--sl-color-green-700: hsl(141.7 82.7% 70.1%);
+	--sl-color-green-800: hsl(141 90.9% 82.1%);
+	--sl-color-green-900: hsl(142 100% 89.1%);
+	--sl-color-green-950: hsl(144 100% 95.5%);
+}
+
+// raw light color tokens, only referenced in this file
+:root:has(.vscode-light, .vscode-high-contrast-light) {
+	// color-scheme: light;
+
+	--sl-color-red-50: hsl(0 85.7% 97.3%);
+	--sl-color-red-100: hsl(0 93.3% 94.1%);
+	--sl-color-red-200: hsl(0 96.3% 89.4%);
+	--sl-color-red-300: hsl(0 93.5% 81.8%);
+	--sl-color-red-400: hsl(0 90.6% 70.8%);
+	--sl-color-red-500: hsl(0 84.2% 60.2%);
+	--sl-color-red-600: hsl(0 72.2% 50.6%);
+	--sl-color-red-700: hsl(0 73.7% 41.8%);
+	--sl-color-red-800: hsl(0 70% 35.3%);
+	--sl-color-red-900: hsl(0 62.8% 30.6%);
+	--sl-color-red-950: hsl(0 60% 19.6%);
+
+	--sl-color-amber-50: hsl(48 100% 96.1%);
+	--sl-color-amber-100: hsl(48 96.5% 88.8%);
+	--sl-color-amber-200: hsl(48 96.6% 76.7%);
+	--sl-color-amber-300: hsl(45.9 96.7% 64.5%);
+	--sl-color-amber-400: hsl(43.3 96.4% 56.3%);
+	--sl-color-amber-500: hsl(37.7 92.1% 50.2%);
+	--sl-color-amber-600: hsl(32.1 94.6% 43.7%);
+	--sl-color-amber-700: hsl(26 90.5% 37.1%);
+	--sl-color-amber-800: hsl(22.7 82.5% 31.4%);
+	--sl-color-amber-900: hsl(21.7 77.8% 26.5%);
+	--sl-color-amber-950: hsl(22.9 74.1% 16.7%);
+
+	--sl-color-green-50: hsl(138.5 76.5% 96.7%);
+	--sl-color-green-100: hsl(140.6 84.2% 92.5%);
+	--sl-color-green-200: hsl(141 78.9% 85.1%);
+	--sl-color-green-300: hsl(141.7 76.6% 73.1%);
+	--sl-color-green-400: hsl(141.9 69.2% 58%);
+	--sl-color-green-500: hsl(142.1 70.6% 45.3%);
+	--sl-color-green-600: hsl(142.1 76.2% 36.3%);
+	--sl-color-green-700: hsl(142.4 71.8% 29.2%);
+	--sl-color-green-800: hsl(142.8 64.2% 24.1%);
+	--sl-color-green-900: hsl(143.8 61.2% 20.2%);
+	--sl-color-green-950: hsl(144.3 60.7% 12%);
+}
+
+// generic semantic tokens
+:root {
+	--sl-color-success-50: var(--sl-color-green-50);
+	--sl-color-success-100: var(--sl-color-green-100);
+	--sl-color-success-200: var(--sl-color-green-200);
+	--sl-color-success-300: var(--sl-color-green-300);
+	--sl-color-success-400: var(--sl-color-green-400);
+	--sl-color-success-500: var(--sl-color-green-500);
+	--sl-color-success-600: var(--sl-color-green-600);
+	--sl-color-success-700: var(--sl-color-green-700);
+	--sl-color-success-800: var(--sl-color-green-800);
+	--sl-color-success-900: var(--sl-color-green-900);
+	--sl-color-success-950: var(--sl-color-green-950);
+
+	--sl-color-warning-50: var(--sl-color-amber-50);
+	--sl-color-warning-100: var(--sl-color-amber-100);
+	--sl-color-warning-200: var(--sl-color-amber-200);
+	--sl-color-warning-300: var(--sl-color-amber-300);
+	--sl-color-warning-400: var(--sl-color-amber-400);
+	--sl-color-warning-500: var(--sl-color-amber-500);
+	--sl-color-warning-600: var(--sl-color-amber-600);
+	--sl-color-warning-700: var(--sl-color-amber-700);
+	--sl-color-warning-800: var(--sl-color-amber-800);
+	--sl-color-warning-900: var(--sl-color-amber-900);
+	--sl-color-warning-950: var(--sl-color-amber-950);
+
+	--sl-color-danger-50: var(--sl-color-red-50);
+	--sl-color-danger-100: var(--sl-color-red-100);
+	--sl-color-danger-200: var(--sl-color-red-200);
+	--sl-color-danger-300: var(--sl-color-red-300);
+	--sl-color-danger-400: var(--sl-color-red-400);
+	--sl-color-danger-500: var(--sl-color-red-500);
+	--sl-color-danger-600: var(--sl-color-red-600);
+	--sl-color-danger-700: var(--sl-color-red-700);
+	--sl-color-danger-800: var(--sl-color-red-800);
+	--sl-color-danger-900: var(--sl-color-red-900);
+	--sl-color-danger-950: var(--sl-color-red-950);
+
+	--sl-color-neutral-50: color-mix(in srgb, var(--vscode-foreground) 5%, var(--vscode-editor-background));
+	--sl-color-neutral-100: color-mix(in srgb, var(--vscode-foreground) 10%, var(--vscode-editor-background));
+	--sl-color-neutral-200: color-mix(in srgb, var(--vscode-foreground) 20%, var(--vscode-editor-background));
+	--sl-color-neutral-300: color-mix(in srgb, var(--vscode-foreground) 30%, var(--vscode-editor-background));
+	--sl-color-neutral-400: color-mix(in srgb, var(--vscode-foreground) 40%, var(--vscode-editor-background));
+	--sl-color-neutral-500: color-mix(in srgb, var(--vscode-foreground) 50%, var(--vscode-editor-background));
+	--sl-color-neutral-600: color-mix(in srgb, var(--vscode-foreground) 60%, var(--vscode-editor-background));
+	--sl-color-neutral-700: color-mix(in srgb, var(--vscode-foreground) 70%, var(--vscode-editor-background));
+	--sl-color-neutral-800: color-mix(in srgb, var(--vscode-foreground) 80%, var(--vscode-editor-background));
+	--sl-color-neutral-900: color-mix(in srgb, var(--vscode-foreground) 90%, var(--vscode-editor-background));
+	--sl-color-neutral-950: color-mix(in srgb, var(--vscode-foreground) 95%, var(--vscode-editor-background));
+
+	--sl-color-neutral-0: var(--vscode-editor-background);
+	--sl-color-neutral-1000: var(--vscode-foreground);
+
+	--sl-border-radius-small: 0.3rem; // 0.1875rem;
+	--sl-border-radius-medium: 0.4rem; // 0.25rem;
+	--sl-border-radius-large: 0.8rem; // 0.5rem;
+	--sl-border-radius-x-large: 1.6rem; // 1rem;
+
+	--sl-border-radius-circle: 50%;
+	--sl-border-radius-pill: 9999px;
+
+	--sl-shadow-x-small: 0 1px 2px var(--vscode-widget-shadow);
+	--sl-shadow-small: 0 1px 2px var(--vscode-widget-shadow);
+	--sl-shadow-medium: 0 2px 4px var(--vscode-widget-shadow);
+	--sl-shadow-large: 0 2px 8px var(--vscode-widget-shadow);
+	--sl-shadow-x-large: 0 4px 16px var(--vscode-widget-shadow);
+
+	--sl-spacing-3x-small: 0.2rem; // 0.125rem;
+	--sl-spacing-2x-small: 0.4rem; // 0.25rem;
+	--sl-spacing-x-small: 0.8rem; // 0.5rem;
+	--sl-spacing-small: 1.2rem; // 0.75rem;
+	--sl-spacing-medium: 1.6rem; // 1rem;
+	--sl-spacing-large: 2rem; // 1.25rem;
+	--sl-spacing-x-large: 2.8rem; // 1.75rem;
+	--sl-spacing-2x-large: 3.6rem; // 2.25rem;
+	--sl-spacing-3x-large: 4.8rem; // 3rem;
+	--sl-spacing-4x-large: 4.5rem; // 4.5rem;
+
+	--sl-transition-x-slow: 1000ms;
+	--sl-transition-slow: 500ms;
+	--sl-transition-medium: 250ms;
+	--sl-transition-fast: 150ms;
+	--sl-transition-x-fast: 50ms;
+
+	--sl-font-mono: var(--vscode-editor-font-family);
+	--sl-font-sans: var(--vscode-font-family);
+	--sl-font-serif: Georgia, 'Times New Roman', serif;
+
+	--sl-font-size-2x-small: calc(var(--vscode-font-size) * 0.625);
+	--sl-font-size-x-small: calc(var(--vscode-font-size) * 0.75);
+	--sl-font-size-small: calc(var(--vscode-font-size) * 0.875);
+	--sl-font-size-medium: calc(var(--vscode-font-size) * 1);
+	--sl-font-size-large: calc(var(--vscode-font-size) * 1.25);
+	--sl-font-size-x-large: calc(var(--vscode-font-size) * 1.5);
+	--sl-font-size-2x-large: calc(var(--vscode-font-size) * 2.25);
+	--sl-font-size-3x-large: calc(var(--vscode-font-size) * 3);
+	--sl-font-size-4x-large: calc(var(--vscode-font-size) * 4.5);
+
+	--sl-font-weight-light: 300;
+	--sl-font-weight-normal: 400;
+	--sl-font-weight-semibold: 500;
+	--sl-font-weight-bold: 700;
+
+	--sl-letter-spacing-denser: -0.03em;
+	--sl-letter-spacing-dense: -0.015em;
+	--sl-letter-spacing-normal: normal;
+	--sl-letter-spacing-loose: 0.075em;
+	--sl-letter-spacing-looser: 0.15em;
+
+	--sl-line-height-denser: 1;
+	--sl-line-height-dense: 1.4;
+	--sl-line-height-normal: 1.8;
+	--sl-line-height-loose: 2.2;
+	--sl-line-height-looser: 2.6;
+
+	--sl-focus-ring-color: var(--vscode-focusBorder);
+	--sl-focus-ring-style: solid;
+	--sl-focus-ring-width: 3px;
+	--sl-focus-ring: var(--sl-focus-ring-style) var(--sl-focus-ring-width) var(--sl-focus-ring-color);
+	--sl-focus-ring-offset: 1px;
+
+	--sl-button-font-size-small: var(--sl-font-size-x-small);
+	--sl-button-font-size-medium: var(--sl-font-size-small);
+	--sl-button-font-size-large: var(--sl-font-size-medium);
+
+	--sl-input-height-small: 1.875rem;
+	--sl-input-height-medium: 2.5rem;
+	--sl-input-height-large: 3.125rem;
+
+	--sl-input-background-color: var(--sl-color-neutral-0);
+	--sl-input-background-color-hover: var(--sl-input-background-color);
+	--sl-input-background-color-focus: var(--sl-input-background-color);
+	--sl-input-background-color-disabled: var(--sl-color-neutral-100);
+	--sl-input-border-color: var(--sl-color-neutral-300);
+	--sl-input-border-color-hover: var(--sl-color-neutral-400);
+	--sl-input-border-color-focus: var(--sl-color-primary-500);
+	--sl-input-border-color-disabled: var(--sl-color-neutral-300);
+	--sl-input-border-width: 1px;
+	--sl-input-required-content: '*';
+	--sl-input-required-content-offset: -2px;
+	--sl-input-required-content-color: var(--sl-input-label-color);
+
+	--sl-input-border-radius-small: var(--sl-border-radius-medium);
+	--sl-input-border-radius-medium: var(--sl-border-radius-medium);
+	--sl-input-border-radius-large: var(--sl-border-radius-medium);
+
+	--sl-input-font-family: var(--sl-font-sans);
+	--sl-input-font-weight: var(--sl-font-weight-normal);
+	--sl-input-font-size-small: var(--sl-font-size-small);
+	--sl-input-font-size-medium: var(--sl-font-size-medium);
+	--sl-input-font-size-large: var(--sl-font-size-large);
+	--sl-input-letter-spacing: var(--sl-letter-spacing-normal);
+
+	--sl-input-color: var(--sl-color-neutral-700);
+	--sl-input-color-hover: var(--sl-color-neutral-700);
+	--sl-input-color-focus: var(--sl-color-neutral-700);
+	--sl-input-color-disabled: var(--sl-color-neutral-900);
+	--sl-input-icon-color: var(--sl-color-neutral-500);
+	--sl-input-icon-color-hover: var(--sl-color-neutral-600);
+	--sl-input-icon-color-focus: var(--sl-color-neutral-600);
+	--sl-input-placeholder-color: var(--sl-color-neutral-500);
+	--sl-input-placeholder-color-disabled: var(--sl-color-neutral-600);
+	--sl-input-spacing-small: var(--sl-spacing-small);
+	--sl-input-spacing-medium: var(--sl-spacing-medium);
+	--sl-input-spacing-large: var(--sl-spacing-large);
+
+	--sl-input-focus-ring-color: var(--vscode-focusBorder);
+	--sl-input-focus-ring-offset: 0;
+
+	--sl-input-filled-background-color: var(--sl-color-neutral-100);
+	--sl-input-filled-background-color-hover: var(--sl-color-neutral-100);
+	--sl-input-filled-background-color-focus: var(--sl-color-neutral-100);
+	--sl-input-filled-background-color-disabled: var(--sl-color-neutral-100);
+	--sl-input-filled-color: var(--sl-color-neutral-800);
+	--sl-input-filled-color-hover: var(--sl-color-neutral-800);
+	--sl-input-filled-color-focus: var(--sl-color-neutral-700);
+	--sl-input-filled-color-disabled: var(--sl-color-neutral-800);
+
+	--sl-input-label-font-size-small: var(--sl-font-size-small);
+	--sl-input-label-font-size-medium: var(--sl-font-size-medium);
+	--sl-input-label-font-size-large: var(--sl-font-size-large);
+	--sl-input-label-color: inherit;
+
+	--sl-input-help-text-font-size-small: var(--sl-font-size-x-small);
+	--sl-input-help-text-font-size-medium: var(--sl-font-size-small);
+	--sl-input-help-text-font-size-large: var(--sl-font-size-medium);
+	--sl-input-help-text-color: var(--sl-color-neutral-500);
+
+	--sl-toggle-size-small: 0.875rem;
+	--sl-toggle-size-medium: 1.125rem;
+	--sl-toggle-size-large: 1.375rem;
+
+	--sl-overlay-background-color: var(--vscode-widget-shadow);
+
+	--sl-panel-background-color: var(--vscode-menu-background);
+	--sl-panel-border-color: var(--vscode-menu-border);
+	--sl-panel-border-width: 1px;
+
+	--sl-tooltip-border-radius: var(--sl-border-radius-small);
+	--sl-tooltip-background-color: var(--color-hover-background);
+	--sl-tooltip-color: var(--color-hover-foreground);
+	--sl-tooltip-font-family: var(--sl-font-sans);
+	--sl-tooltip-font-weight: var(--sl-font-weight-normal);
+	--sl-tooltip-font-size: 12px; //var(--sl-font-size-small);
+	--sl-tooltip-line-height: var(--sl-line-height-dense);
+	--sl-tooltip-padding: var(--sl-spacing-2x-small) var(--sl-spacing-x-small);
+	--sl-tooltip-arrow-size: 6px;
+	--gl-tooltip-border-color: var(--color-hover-border);
+	--gl-tooltip-shadow: var(--vscode-widget-shadow);
+
+	--sl-z-index-drawer: 700;
+	--sl-z-index-dialog: 800;
+	--sl-z-index-dropdown: 900;
+	--sl-z-index-toast: 950;
+	--sl-z-index-tooltip: 1000;
+}
+
+@supports (scrollbar-gutter: stable) {
+	.sl-scroll-lock {
+		scrollbar-gutter: stable !important;
+		overflow: hidden !important;
+	}
+}
+
+@supports not (scrollbar-gutter: stable) {
+	.sl-scroll-lock body {
+		padding-right: var(--sl-scroll-lock-size) !important;
+		overflow: hidden !important;
+	}
+}
+
+.sl-toast-stack {
+	position: fixed;
+	top: 0;
+	inset-inline-end: 0;
+	z-index: var(--sl-z-index-toast);
+	width: 28rem;
+	max-width: 100%;
+	max-height: 100%;
+	overflow: auto;
+}
+
+.sl-toast-stack sl-alert {
+	margin: var(--sl-spacing-medium);
+}
+
+.sl-toast-stack sl-alert::part(base) {
+	box-shadow: var(--sl-shadow-large);
+}
