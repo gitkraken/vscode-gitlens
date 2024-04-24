@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds workshop registration to welcome page &mdash; resolves [#3241](https://github.com/gitkraken/vscode-gitlens/pull/3241)
+
 ## [14.9.0] - 2024-03-06
 
 ### Added
