@@ -10,6 +10,8 @@ import type { BlameSvg } from './components/svg-blame';
 // import { Snow } from '../shared/snow';
 import '../shared/components/code-icon';
 import '../shared/components/button';
+import '../shared/components/feature-badge';
+import '../shared/components/overlays/tooltip';
 import './components/card';
 import './components/gitlens-logo';
 import './components/svg-annotations';
@@ -140,7 +142,10 @@ export class WelcomeApp extends App<State> {
 
 	private updateAccountState() {
 		const { isTrialOrPaid } = this.state;
-		document.getElementById('try-pro')!.hidden = isTrialOrPaid ?? false;
+		for (const el of document.querySelectorAll('[data-visible="try-pro"]')) {
+			(el as HTMLElement).hidden = isTrialOrPaid ?? false;
+		}
+		// document.getElementById('try-pro')!.hidden = isTrialOrPaid ?? false;
 	}
 }
 

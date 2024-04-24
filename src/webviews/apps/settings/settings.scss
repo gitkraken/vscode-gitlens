@@ -851,6 +851,13 @@ section {
 	.button {
 		font-size: 0.9rem;
 	}
+
+	li {
+		display: flex;
+		flex-wrap: nowrap;
+		flex-direction: row;
+		gap: 0.6rem;
+	}
 }
 
 .sidebar__jump-link {

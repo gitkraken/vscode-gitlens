@@ -182,7 +182,7 @@ export function getSubscriptionStatePlanName(state: SubscriptionState | undefine
 		case SubscriptionState.FreePreviewTrialExpired:
 		case null:
 		default:
-			return 'GitKraken';
+			return '';
 	}
 }
 

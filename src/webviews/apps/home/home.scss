@@ -346,8 +346,8 @@ ul {
 	}
 
 	&.is-collapsed &__description,
-	&.is-collapsed &__close code-icon:first-child,
-	&:not(.is-collapsed) &__close code-icon:last-child {
+	&.is-collapsed &__close gl-tooltip:first-child,
+	&:not(.is-collapsed) &__close gl-tooltip:last-child {
 		display: none;
 	}
 
@@ -465,11 +465,19 @@ gl-button.is-basic {
 		position: relative;
 		left: 1.5rem;
 		filter: grayscale(1);
+		font-size: x-small;
 		opacity: 0.4;
 		white-space: nowrap;
 
 		&--preview {
 			font-variant: all-small-caps;
+		}
+
+		&--pro {
+			font-variant: all-small-caps;
+			border: var(--color-foreground--50) 1px solid;
+			border-radius: 1rem;
+			padding: 0 0.8rem 0.2rem 0.8rem;
 		}
 	}
 
@@ -525,4 +533,18 @@ gl-button.is-basic {
 			border-bottom-right-radius: 0;
 		}
 	}
+}
+
+.sticky {
+	background-color: var(--color-view-background);
+	position: -webkit-sticky;
+	position: sticky;
+	top: -1px;
+	z-index: 2;
+	padding-top: 1px;
+	padding-bottom: 1px;
+}
+
+.t-eyebrow.sticky {
+	top: -8px;
 }

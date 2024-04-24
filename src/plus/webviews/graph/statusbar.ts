@@ -48,7 +48,7 @@ export class GraphStatusBarController implements Disposable {
 				this._statusBarItem.name = 'GitLens Commit Graph';
 				this._statusBarItem.command = Commands.ShowGraph;
 				this._statusBarItem.text = '$(gitlens-graph)';
-				this._statusBarItem.tooltip = new MarkdownString('Visualize commits on the Commit Graph ✨');
+				this._statusBarItem.tooltip = new MarkdownString('Visualize commits on the Commit Graph');
 				this._statusBarItem.accessibilityInformation = {
 					label: `Show the GitLens Commit Graph`,
 				};

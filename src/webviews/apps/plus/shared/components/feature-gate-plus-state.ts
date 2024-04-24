@@ -5,7 +5,7 @@ import { SubscriptionState } from '../../../../../plus/gk/account/subscription';
 import { linkStyles } from './vscode.css';
 import '../../../shared/components/button';
 
-@customElement('gk-feature-gate-plus-state')
+@customElement('gl-feature-gate-plus-state')
 export class FeatureGatePlusState extends LitElement {
 	static override styles = [
 		linkStyles,
@@ -78,15 +78,15 @@ export class FeatureGatePlusState extends LitElement {
 						>Preview Pro</gl-button
 					>
 					<p>
-						Preview Pro for 3 days, or
+						Preview local Pro features for 3 days, or
 						<a href="command:gitlens.plus.signUp">sign up</a> to start a full 7-day GitLens Pro trial.
 					</p>
-					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>
+					<p>A trial or paid plan is required to use this on privately hosted repos.</p>
 				`;
 
 			case SubscriptionState.FreePreviewTrialExpired:
 				return html`
-					<gl-button appearance="${appearance}" href="command:gitlens.plus.signUp">Try Pro</gl-button>
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.signUp">Start Pro Trial</gl-button>
 					<p>
 						Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days, or
 						<a href="command:gitlens.plus.login">sign in</a>.
@@ -96,7 +96,7 @@ export class FeatureGatePlusState extends LitElement {
 			case SubscriptionState.FreePlusTrialExpired:
 				return html`
 					<gl-button appearance="${appearance}" href="command:gitlens.plus.purchase"
-						>Get GitLens Pro</gl-button
+						>Upgrade to Pro</gl-button
 					>
 					<p>
 						Your GitLens Pro trial has ended. Please upgrade to continue to use this on privately hosted
@@ -121,7 +121,7 @@ export class FeatureGatePlusState extends LitElement {
 			case SubscriptionState.FreePlusTrialReactivationEligible:
 				return html`
 					<gl-button appearance="${appearance}" href="command:gitlens.plus.reactivateProTrial"
-						>Try Pro</gl-button
+						>Reactivate Pro Trial</gl-button
 					>
 					<p>
 						You're eligible to reactivate your GitLens Pro trial and experience all the new Pro features —
