@@ -37,7 +37,8 @@ export class ResultsSuggestedChangesNode extends ViewNode<'results-suggested-cha
 	async getChildren(): Promise<ViewNode[]> {
 		const results = await this.getSuggestedChangesQueryResults();
 		const drafts = results.drafts;
-		return drafts?.map(d => new ResultsSuggestedChangeNode(this.view, this, this.repoPath, d)) || [];
+		const views = drafts?.map(d => new ResultsSuggestedChangeNode(this.view, this, this.repoPath, d)) || [];
+		return views;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {

@@ -91,9 +91,8 @@ export function getSuggestedChangesQuery(
 	repository: Repository | undefined,
 ): () => Promise<SuggestedChangesQueryResults> {
 	return async () => {
-		return await Promise.resolve({
-			drafts: [],
-		});
+		const drafts = !repository ? [] : await draftService.getCodeSuggestions(pullRequest, repository);
+		return { drafts: drafts };
 	};
 }
 
