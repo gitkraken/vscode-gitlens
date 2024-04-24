@@ -1,0 +1,70 @@
+<section id="views" class="section--settings section--collapsible" tabindex="-1">
+	<div class="section__header">
+		<h2>Sorting</h2>
+	</div>
+
+	<div class="section__collapsible">
+		<div class="section__group">
+			<div class="section__content">
+				<div class="setting">
+					<div class="setting__input">
+						<label for="sortRepositoriesBy">Sort repositories</label>
+						<div class="select-container">
+							<select id="sortRepositoriesBy" name="sortRepositoriesBy" data-setting>
+								<option value="dcovered">by discovery or workspace order</option>
+								<option value="lastFetched:desc">by last fetched date, descending</option>
+								<option value="lastFetched:asc">by last fetched date, ascending</option>
+								<option value="name:asc">by name, ascending</option>
+								<option value="name:desc">by name, descending</option>
+							</select>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting">
+					<div class="setting__input">
+						<label for="sortBranchesBy">Sort branches</label>
+						<div class="select-container">
+							<select id="sortBranchesBy" name="sortBranchesBy" data-setting>
+								<option value="date:desc">by recent commit date, descending</option>
+								<option value="date:asc">by recent commit date, ascending</option>
+								<option value="name:asc">by name, ascending</option>
+								<option value="name:desc">by name, descending</option>
+							</select>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting">
+					<div class="setting__input">
+						<label for="sortTagsBy">Sort tags</label>
+						<div class="select-container">
+							<select id="sortTagsBy" name="sortTagsBy" data-setting>
+								<option value="date:desc">by recent commit date, descending</option>
+								<option value="date:asc">by recent commit date, ascending</option>
+								<option value="name:asc">by name, ascending</option>
+								<option value="name:desc">by name, descending</option>
+							</select>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting">
+					<div class="setting__input">
+						<label for="sortContributorsBy">Sort contributors</label>
+						<div class="select-container">
+							<select id="sortContributorsBy" name="sortContributorsBy" data-setting>
+								<option value="count:desc">by commit count, descending</option>
+								<option value="count:asc">by commit count, ascending</option>
+								<option value="date:desc">by recent commit date, descending</option>
+								<option value="date:asc">by recent commit date, ascending</option>
+								<option value="name:asc">by name, ascending</option>
+								<option value="name:desc">by name, descending</option>
+							</select>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>

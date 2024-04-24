@@ -3,34 +3,32 @@ import { GlyphChars } from '../../constants';
 import { PlusFeatures } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
-import { gate } from '../../system/decorators/gate';
+import { sortWorktrees } from '../../git/models/worktree';
+import { mapAsync } from '../../system/array';
 import { debug } from '../../system/decorators/log';
-import type { RepositoriesView } from '../repositoriesView';
-import type { WorktreesView } from '../worktreesView';
+import { Logger } from '../../system/logger';
+import type { ViewsWithWorktreesNode } from '../viewBase';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { MessageNode } from './common';
-import { RepositoryNode } from './repositoryNode';
-import { ContextValues, ViewNode } from './viewNode';
 import { WorktreeNode } from './worktreeNode';
 
-export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
-	static key = ':worktrees';
-	static getId(repoPath: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}`;
-	}
-
-	private _children: WorktreeNode[] | undefined;
-
+export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsWithWorktreesNode, WorktreeNode> {
 	constructor(
 		uri: GitUri,
-		view: WorktreesView | RepositoriesView,
-		parent: ViewNode,
+		view: ViewsWithWorktreesNode,
+		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
-		super(uri, view, parent);
+		super('worktrees', uri, view, parent);
+
+		this.updateContext({ repository: repo });
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {
-		return WorktreesNode.getId(this.repo.path);
+		return this._uniqueId;
 	}
 
 	get repoPath(): string {
@@ -38,17 +36,27 @@ export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const access = await this.repo.access(PlusFeatures.Worktrees);
 			if (!access.allowed) return [];
 
 			const worktrees = await this.repo.getWorktrees();
 			if (worktrees.length === 0) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
 
-			this._children = worktrees.map(c => new WorktreeNode(this.uri, this.view, this, c));
+			this.children = await mapAsync(sortWorktrees(worktrees), async w => {
+				let status;
+				let missing = false;
+				try {
+					status = await w.getStatus();
+				} catch (ex) {
+					Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
+					missing = true;
+				}
+				return new WorktreeNode(this.uri, this.view, this, w, { status: status, missing: missing });
+			});
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -62,15 +70,14 @@ export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
 		item.contextValue = ContextValues.Worktrees;
 		item.description = access.allowed
 			? undefined
-			: ` ${GlyphChars.Warning}  GitLens+ feature which requires an account`;
+			: ` ${GlyphChars.Warning}  Requires a trial or paid plan for use on privately hosted repos`;
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh() {
-		this._children = undefined;
+		super.refresh(true);
 	}
 }

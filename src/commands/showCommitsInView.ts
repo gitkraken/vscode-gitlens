@@ -1,33 +1,43 @@
 import type { TextEditor, Uri } from 'vscode';
-import { executeGitCommand } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { executeGitCommand } from '../git/actions';
+import { showDetailsView } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { SearchPattern } from '../git/search';
-import { Logger } from '../logger';
+import type { GitRevisionReference } from '../git/models/reference';
+import { createReference, getReferenceFromRevision } from '../git/models/reference';
+import { createSearchQueryForCommits } from '../git/search';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { filterMap } from '../system/iterable';
+import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
 
 export interface ShowCommitsInViewCommandArgs {
+	ref?: GitRevisionReference;
 	refs?: string[];
 	repoPath?: string;
 }
 
 @command()
 export class ShowCommitsInViewCommand extends ActiveEditorCommand {
+	static getMarkdownCommandArgs(sha: string, repoPath: string): string;
+	static getMarkdownCommandArgs(args: ShowCommitsInViewCommandArgs): string;
+	static getMarkdownCommandArgs(argsOrSha: ShowCommitsInViewCommandArgs | string, repoPath?: string): string {
+		const args = typeof argsOrSha === 'string' ? { refs: [argsOrSha], repoPath: repoPath } : argsOrSha;
+		return super.getMarkdownCommandArgsCore<ShowCommitsInViewCommandArgs>(Commands.ShowCommitInView, args);
+	}
+
 	constructor(private readonly container: Container) {
-		super([Commands.ShowCommitInView, Commands.ShowCommitsInView]);
+		super([Commands.ShowCommitInView, Commands.ShowInDetailsView, Commands.ShowCommitsInView]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ShowCommitsInViewCommandArgs) {
 		if (context.type === 'viewItem') {
 			args = { ...args };
 			if (isCommandContextViewNodeHasCommit(context)) {
-				args.refs = [context.node.commit.sha];
-				args.repoPath = context.node.commit.repoPath;
+				args.ref = getReferenceFromRevision(context.node.commit);
 			}
 		}
 
@@ -36,6 +46,8 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: ShowCommitsInViewCommandArgs) {
 		args = { ...args };
+
+		if (args.ref != null) return showDetailsView(args.ref);
 
 		if (args.refs === undefined) {
 			uri = getCommandUri(uri, editor);
@@ -72,16 +84,14 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 		}
 
 		if (args.refs.length === 1) {
-			return this.container.commitDetailsView.show({
-				commit: { ref: args.refs[0], refType: 'revision', repoPath: args.repoPath!, name: '' },
-			});
+			return showDetailsView(createReference(args.refs[0], args.repoPath!, { refType: 'revision' }));
 		}
 
 		return executeGitCommand({
 			command: 'search',
 			state: {
 				repo: args?.repoPath,
-				pattern: SearchPattern.fromCommits(args.refs),
+				query: createSearchQueryForCommits(args.refs),
 				showResultsInSideBar: true,
 			},
 		});

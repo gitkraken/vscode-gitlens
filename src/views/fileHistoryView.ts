@@ -1,11 +1,11 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
-import type { FileHistoryViewConfig } from '../configuration';
-import { configuration } from '../configuration';
-import { Commands, ContextKeys } from '../constants';
+import type { FileHistoryViewConfig } from '../config';
+import { Commands } from '../constants';
 import type { Container } from '../container';
-import { setContext } from '../context';
 import type { GitUri } from '../git/gitUri';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
+import { setContext } from '../system/context';
 import { FileHistoryTrackerNode } from './nodes/fileHistoryTrackerNode';
 import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
@@ -13,17 +13,25 @@ import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
 
-export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHistoryTrackerNode, FileHistoryViewConfig> {
+export class FileHistoryView extends ViewBase<
+	'fileHistory',
+	FileHistoryTrackerNode | LineHistoryTrackerNode,
+	FileHistoryViewConfig
+> {
 	protected readonly configKey = 'fileHistory';
 
 	private _followCursor: boolean = false;
 	private _followEditor: boolean = true;
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.fileHistory', 'File History', 'fileHistoryView');
+		super(container, 'fileHistory', 'File History', 'fileHistoryView');
 
-		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, this._followCursor);
-		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, this._followEditor);
+		void setContext('gitlens:views:fileHistory:cursorFollowing', this._followCursor);
+		void setContext('gitlens:views:fileHistory:editorFollowing', this._followEditor);
+	}
+
+	override get canSelectMany(): boolean {
+		return true;
 	}
 
 	protected override get showCollapseAll(): boolean {
@@ -85,6 +93,16 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 				() => this.setShowAllBranches(false),
 				this,
 			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowMergeCommitsOn'),
+				() => this.setShowMergeCommits(true),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowMergeCommitsOff'),
+				() => this.setShowMergeCommits(false),
+				this,
+			),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 		];
@@ -102,7 +120,8 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'advanced.fileHistoryFollowsRenames') &&
-			!configuration.changed(e, 'advanced.fileHistoryShowAllBranches')
+			!configuration.changed(e, 'advanced.fileHistoryShowAllBranches') &&
+			!configuration.changed(e, 'advanced.fileHistoryShowMergeCommits')
 		) {
 			return false;
 		}
@@ -132,7 +151,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		const uri = !this._followEditor && this.root?.hasUri ? this.root.uri : undefined;
 
 		this._followCursor = enabled;
-		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, enabled);
+		void setContext('gitlens:views:fileHistory:cursorFollowing', enabled);
 
 		this.title = this._followCursor ? 'Line History' : 'File History';
 
@@ -150,7 +169,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		if (!root.hasUri) return;
 
 		this._followEditor = enabled;
-		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, enabled);
+		void setContext('gitlens:views:fileHistory:editorFollowing', enabled);
 
 		root.setEditorFollowing(enabled);
 
@@ -174,6 +193,10 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 
 	private setShowAllBranches(enabled: boolean) {
 		return configuration.updateEffective('advanced.fileHistoryShowAllBranches', enabled);
+	}
+
+	private setShowMergeCommits(enabled: boolean) {
+		return configuration.updateEffective('advanced.fileHistoryShowMergeCommits', enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {

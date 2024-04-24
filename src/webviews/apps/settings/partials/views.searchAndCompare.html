@@ -1,11 +1,11 @@
-<section id="search-compare-view" class="section--settings section--collapsible">
+<section id="search-compare-view" class="section--settings section--collapsible" tabindex="-1">
 	<div class="section__header">
 		<h2>
 			Search &amp; Compare view
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/gitkraken/vscode-gitlens/#search--compare-view-"
+				href="https://help.gitkraken.com/gitlens/side-bar/#search-compare-view"
 			>
 				<i class="icon icon__info"></i>
 			</a>
@@ -87,6 +87,22 @@
 
 					<div class="setting">
 						<div class="setting__input">
+							<label for="views.searchAndCompare.files.icon">File icons</label>
+							<div class="select-container">
+								<select
+									id="views.searchAndCompare.files.icon"
+									name="views.searchAndCompare.files.icon"
+									data-setting
+								>
+									<option value="type">show file type (default)</option>
+									<option value="status">show file status</option>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
 							<input
 								id="views.searchAndCompare.files.compact"
 								name="views.searchAndCompare.files.compact"
@@ -125,12 +141,12 @@
 
 		<div class="section__group">
 			<p class="section__hint">
-				<i class="icon icon__info"></i> For more options, open
+				<i class="icon icon__info"></i> For more options, open the
 				<a
-					class="command"
-					title="Open Settings"
+					class="secondary"
+					title="Open Settings UI"
 					href="command:workbench.action.openSettings?%22gitlens.views.searchAndCompare%22"
-					>Settings</a
+					>Settings UI</a
 				>
 				and search for <b><i>gitlens.views.searchAndCompare</i></b> or <b><i>gitlens.views</i></b>
 			</p>

@@ -2,13 +2,12 @@ import type { TextEditor, TextEditorEdit, Uri } from 'vscode';
 import { window } from 'vscode';
 import type { AnnotationContext } from '../annotations/annotationProvider';
 import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';
-import { UriComparer } from '../comparers';
-import { FileAnnotationType } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
+import { UriComparer } from '../system/comparers';
+import { Logger } from '../system/logger';
 import { isTextEditor } from '../system/utils';
 import { ActiveEditorCommand, EditorCommand } from './base';
 
@@ -39,19 +38,19 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 }
 
 export interface ToggleFileBlameAnnotationCommandArgs {
-	type: FileAnnotationType.Blame;
+	type: 'blame';
 	context?: AnnotationContext;
 	on?: boolean;
 }
 
 export interface ToggleFileChangesAnnotationCommandArgs {
-	type: FileAnnotationType.Changes;
+	type: 'changes';
 	context?: ChangesAnnotationContext;
 	on?: boolean;
 }
 
 export interface ToggleFileHeatmapAnnotationCommandArgs {
-	type: FileAnnotationType.Heatmap;
+	type: 'heatmap';
 	context?: AnnotationContext;
 	on?: boolean;
 }
@@ -70,7 +69,7 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameAnnotationCommandArgs): Promise<void> {
 		return toggleFileAnnotations<ToggleFileBlameAnnotationCommandArgs>(this.container, editor, uri, {
 			...args,
-			type: FileAnnotationType.Blame,
+			type: 'blame',
 		});
 	}
 }
@@ -84,7 +83,7 @@ export class ToggleFileChangesCommand extends ActiveEditorCommand {
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileChangesAnnotationCommandArgs): Promise<void> {
 		return toggleFileAnnotations<ToggleFileChangesAnnotationCommandArgs>(this.container, editor, uri, {
 			...args,
-			type: FileAnnotationType.Changes,
+			type: 'changes',
 		});
 	}
 }
@@ -102,7 +101,7 @@ export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileHeatmapAnnotationCommandArgs): Promise<void> {
 		return toggleFileAnnotations<ToggleFileHeatmapAnnotationCommandArgs>(this.container, editor, uri, {
 			...args,
-			type: FileAnnotationType.Heatmap,
+			type: 'heatmap',
 		});
 	}
 }
@@ -124,7 +123,7 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 	}
 
 	try {
-		args = { type: FileAnnotationType.Blame, ...(args as any) };
+		args = { type: 'blame', ...(args as any) };
 
 		void (await container.fileAnnotations.toggle(
 			editor,
@@ -137,8 +136,6 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 		));
 	} catch (ex) {
 		Logger.error(ex, 'ToggleFileAnnotationsCommand');
-		void window.showErrorMessage(
-			`Unable to toggle file ${args.type} annotations. See output channel for more details`,
-		);
+		void showGenericErrorMessage(`Unable to toggle file ${args.type} annotations`);
 	}
 }

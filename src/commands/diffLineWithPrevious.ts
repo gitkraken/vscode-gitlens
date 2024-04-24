@@ -3,9 +3,10 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
-import { Logger } from '../logger';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
+import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
 
@@ -20,6 +21,14 @@ export interface DiffLineWithPreviousCommandArgs {
 export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super(Commands.DiffLineWithPrevious);
+	}
+
+	protected override preExecute(context: CommandContext, args?: DiffLineWithPreviousCommandArgs): Promise<any> {
+		if (context.type === 'editorLine') {
+			args = { ...args, line: context.line };
+		}
+
+		return this.execute(context.editor, context.uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffLineWithPreviousCommandArgs): Promise<any> {
@@ -41,7 +50,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 				gitUri.sha,
 			);
 
-			if (diffUris == null || diffUris.previous == null) {
+			if (diffUris?.previous == null) {
 				void showCommitHasNoPreviousCommitWarningMessage();
 
 				return;

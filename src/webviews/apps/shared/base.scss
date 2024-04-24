@@ -7,10 +7,50 @@ html {
 body {
 	background-color: var(--color-background);
 	color: var(--color-foreground);
-	font-family: var(--font-family);
 	height: 100%;
 	line-height: 1.4;
-	font-size: 100% !important;
+
+	&.scrollable,
+	.scrollable {
+		border-color: transparent;
+		transition: border-color 1s linear;
+	}
+
+	&:hover,
+	&:focus-within {
+		&.scrollable,
+		.scrollable {
+			border-color: var(--vscode-scrollbarSlider-background);
+			transition: none;
+		}
+	}
+
+	&.preload {
+		&.scrollable,
+		.scrollable {
+			transition: none;
+		}
+	}
+}
+
+::-webkit-scrollbar-corner {
+	background-color: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: transparent;
+	border-color: inherit;
+	border-right-style: inset;
+	border-right-width: calc(100vw + 100vh);
+	border-radius: unset !important;
+
+	&:hover {
+		border-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+
+	&:active {
+		border-color: var(--vscode-scrollbarSlider-activeBackground);
+	}
 }
 
 a {
@@ -87,17 +127,23 @@ input[type='checkbox'] {
 	cursor: pointer;
 	margin: 0;
 	padding: 0 10px;
-	mix-blend-mode: luminosity;
+	accent-color: var(--color-background--lighten-30);
 
 	&:focus {
 		background: rgba(0, 0, 0, 0.1);
 		border-radius: 5px;
-		outline: none;
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
 	}
 
 	&[disabled] {
 		color: var(--color-foreground--75);
 		cursor: default;
+	}
+
+	.vscode-high-contrast-light &,
+	.vscode-light & {
+		accent-color: var(--color-background--darken-50);
 	}
 }
 
@@ -144,6 +190,7 @@ textarea {
 
 input[type='number'] {
 	max-width: 100px;
+	text-align: center;
 }
 
 kbd {
@@ -251,6 +298,5 @@ code {
 	background: rgba(255, 255, 255, 0.05);
 	color: var(--color-foreground--75);
 	border-radius: 3px;
-	padding: 2px 4px;
-	vertical-align: middle;
+	padding: 0px 4px 2px 4px;
 }

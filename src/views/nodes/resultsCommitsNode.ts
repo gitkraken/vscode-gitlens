@@ -1,32 +1,37 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { configuration } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import type { GitLog } from '../../git/models/log';
+import { isStash } from '../../git/models/commit';
+import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
+import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import { cancellable, PromiseCancelledError } from '../../system/promise';
+import type { Deferred } from '../../system/promise';
+import { cancellable, defer, PromiseCancelledError } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
+import type { PageableViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
-import type { PageableViewNode } from './viewNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { StashNode } from './stashNode';
 
-export interface CommitsQueryResults {
-	readonly label: string;
-	readonly log: GitLog | undefined;
-	readonly hasMore: boolean;
-	more?(limit: number | undefined): Promise<void>;
+interface Options {
+	autolinks: boolean;
+	expand: boolean;
+	description?: string;
 }
 
 export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits>
-	extends ViewNode<View>
+	extends ViewNode<'results-commits', View>
 	implements PageableViewNode
 {
+	limit: number | undefined;
+
+	private readonly _options: Options;
+
 	constructor(
 		view: View,
 		protected override readonly parent: ViewNode,
@@ -43,19 +48,25 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 				query: () => Promise<FilesQueryResults>;
 			};
 		},
-		private readonly _options: {
-			id?: string;
-			description?: string;
-			expand?: boolean;
-		} = {},
+		options?: Partial<Options>,
 		splatted?: boolean,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('results-commits', GitUri.fromRepoPath(repoPath), view, parent);
 
+		if (_results.direction != null) {
+			this.updateContext({ branchStatusUpstreamType: _results.direction });
+		}
+		this._uniqueId = getViewNodeId(this.type, this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
+
+		this._options = { autolinks: true, expand: true, ...options };
 		if (splatted != null) {
 			this.splatted = splatted;
 		}
-		this._options = { expand: true, ..._options };
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	get ref1(): string | undefined {
@@ -66,11 +77,16 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		return this._results.comparison?.ref2;
 	}
 
-	override get id(): string {
-		return `${this.parent.id}:results:commits${this._options.id ? `:${this._options.id}` : ''}`;
+	private get isComparisonFiltered(): boolean | undefined {
+		return this.context.comparisonFiltered;
 	}
 
+	private _onChildrenCompleted: Deferred<void> | undefined;
+
 	async getChildren(): Promise<ViewNode[]> {
+		this._onChildrenCompleted?.cancel();
+		this._onChildrenCompleted = defer<void>();
+
 		const { log } = await this.getCommitsQueryResults();
 		if (log == null) return [];
 
@@ -78,13 +94,15 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
 		]);
 
-		const children: ViewNode[] = [
-			new AutolinkedItemsNode(this.view, this, this.uri.repoPath!, log, this._expandAutolinks),
-		];
+		const children: ViewNode[] = [];
+		if (this._options.autolinks) {
+			children.push(new AutolinkedItemsNode(this.view, this, this.uri.repoPath!, log, this._expandAutolinks));
+		}
 		this._expandAutolinks = false;
 
 		const { files } = this._results;
-		if (files != null) {
+		// Can't support showing files when commits are filtered
+		if (files != null && !this.isComparisonFiltered) {
 			children.push(
 				new ResultsFilesNode(
 					this.view,
@@ -94,9 +112,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 					files.ref2,
 					files.query,
 					this._results.direction,
-					{
-						expand: false,
-					},
+					{ expand: false },
 				),
 			);
 		}
@@ -105,9 +121,10 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 
 		children.push(
 			...insertDateMarkers(
-				map(
-					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, options),
+				map(log.commits.values(), c =>
+					isStash(c)
+						? new StashNode(this.view, this, c, { icon: true })
+						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, options),
 				),
 				this,
 				undefined,
@@ -119,6 +136,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 		}
 
+		this._onChildrenCompleted.fulfill();
 		return children;
 	}
 
@@ -137,11 +155,18 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 					log == null || log.count === 0
 						? TreeItemCollapsibleState.None
 						: this._options.expand || log.count === 1
-						? TreeItemCollapsibleState.Expanded
-						: TreeItemCollapsibleState.Collapsed;
+						  ? TreeItemCollapsibleState.Expanded
+						  : TreeItemCollapsibleState.Collapsed;
 			} catch (ex) {
 				if (ex instanceof PromiseCancelledError) {
-					ex.promise.then(() => this.triggerChange(false));
+					setTimeout(async () => {
+						void (await ex.promise);
+						try {
+							await this._onChildrenCompleted?.promise;
+						} catch {}
+
+						setTimeout(() => void this.triggerChange(false), 1);
+					}, 1);
 				}
 
 				// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
@@ -164,24 +189,34 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	override refresh(reset: boolean = false) {
 		if (reset) {
 			this._commitsQueryResults = undefined;
+			this._commitsQueryResultsPromise = undefined;
 			void this.getCommitsQueryResults();
 		}
 	}
 
-	private _commitsQueryResults: Promise<CommitsQueryResults> | undefined;
+	private _commitsQueryResultsPromise: Promise<CommitsQueryResults> | undefined;
 	private async getCommitsQueryResults() {
-		if (this._commitsQueryResults == null) {
-			this._commitsQueryResults = this._results.query(this.limit ?? configuration.get('advanced.maxSearchItems'));
-			const results = await this._commitsQueryResults;
+		if (this._commitsQueryResultsPromise == null) {
+			this._commitsQueryResultsPromise = this._results.query(
+				this.limit ?? configuration.get('advanced.maxSearchItems'),
+			);
+			const results = await this._commitsQueryResultsPromise;
+			this._commitsQueryResults = results;
+
 			this._hasMore = results.hasMore;
 
 			if (this._results.deferred) {
 				this._results.deferred = false;
 
-				void this.triggerChange(false);
+				void this.parent.triggerChange(false);
 			}
 		}
 
+		return this._commitsQueryResultsPromise;
+	}
+
+	private _commitsQueryResults: CommitsQueryResults | undefined;
+	private maybeGetCommitsQueryResults(): CommitsQueryResults | undefined {
 		return this._commitsQueryResults;
 	}
 
@@ -191,10 +226,9 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	}
 
 	private _expandAutolinks: boolean = false;
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async loadMore(limit?: number, context?: Record<string, unknown>): Promise<void> {
 		const results = await this.getCommitsQueryResults();
-		if (results == null || !results.hasMore) return;
+		if (!results?.hasMore) return;
 
 		if (context != null && 'expandAutolinks' in context) {
 			this._expandAutolinks = Boolean(context.expandAutolinks);

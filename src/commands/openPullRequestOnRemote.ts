@@ -1,6 +1,7 @@
-import { env, Uri } from 'vscode';
+import { env, Uri, window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { shortenRevision } from '../git/models/reference';
 import { command } from '../system/command';
 import { PullRequestNode } from '../views/nodes/pullRequestNode';
 import type { CommandContext } from './base';
@@ -35,11 +36,17 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		if (args?.pr == null) {
 			if (args?.repoPath == null || args?.ref == null) return;
 
-			const remote = await this.container.git.getBestRemoteWithRichProvider(args.repoPath);
-			if (remote?.provider == null) return;
+			const remote = await this.container.git.getBestRemoteWithIntegration(args.repoPath);
+			if (remote == null) return;
 
-			const pr = await this.container.git.getPullRequestForCommit(args.ref, remote.provider);
-			if (pr == null) return;
+			const provider = await this.container.integrations.getByRemote(remote);
+			if (provider == null) return;
+
+			const pr = await provider.getPullRequestForCommit(remote.provider.repoDesc, args.ref);
+			if (pr == null) {
+				void window.showInformationMessage(`No pull request associated with '${shortenRevision(args.ref)}'`);
+				return;
+			}
 
 			args = { ...args };
 			args.pr = pr;

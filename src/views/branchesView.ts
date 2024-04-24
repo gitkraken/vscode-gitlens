@@ -1,24 +1,24 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { BranchesViewConfig } from '../configuration';
-import { configuration, ViewBranchesLayout, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
+import type { BranchesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
-import { GitReference } from '../git/models/reference';
-import type { RepositoryChangeEvent } from '../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { getReferenceLabel } from '../git/models/reference';
+import type { Repository, RepositoryChangeEvent } from '../git/models/repository';
+import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
+import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
+import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
-import { RepositoryNode } from './nodes/repositoryNode';
-import type { ViewNode } from './nodes/viewNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
@@ -48,14 +48,45 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView, BranchesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = this.view.container.git.openRepositories;
+			let grouped: Map<Repository, Map<string, Repository>> | undefined;
+
+			let repositories = this.view.container.git.openRepositories;
+			if (configuration.get('views.collapseWorktreesWhenPossible')) {
+				grouped = await groupRepositories(repositories);
+				repositories = [...grouped.keys()];
+			}
+
 			if (repositories.length === 0) {
-				this.view.message = 'No branches could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading branches...'
+					: 'No branches could be found.';
 
 				return [];
 			}
 
 			this.view.message = undefined;
+
+			let openWorktreeBranches: Set<string> | undefined;
+			if (grouped?.size) {
+				// Get all the opened worktree branches to pass along downstream, e.g. in the BranchNode to display an indicator
+				openWorktreeBranches = new Set<string>();
+
+				await Promise.allSettled(
+					[...grouped].map(async ([r, nested]) => {
+						if (!nested.size) return;
+
+						const worktrees = await r.getWorktrees();
+						for (const wt of worktrees) {
+							if (wt.branch == null || nested.has(wt.repoPath)) return;
+
+							openWorktreeBranches!.add(wt.branch?.name);
+						}
+					}),
+				);
+			}
+			this.updateContext({
+				openWorktreeBranches: openWorktreeBranches?.size ? openWorktreeBranches : undefined,
+			});
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
@@ -93,15 +124,19 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 	}
 }
 
-export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig> {
+export class BranchesView extends ViewBase<'branches', BranchesViewNode, BranchesViewConfig> {
 	protected readonly configKey = 'branches';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.branches', 'Branches', 'branchesView');
+		super(container, 'branches', 'Branches', 'branchesView');
 	}
 
 	override get canReveal(): boolean {
 		return this.config.reveal || !configuration.get('views.repositories.showBranches');
+	}
+
+	override get canSelectMany(): boolean {
+		return true;
 	}
 
 	protected getRoot() {
@@ -125,29 +160,21 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 				},
 				this,
 			),
-			registerViewCommand(
-				this.getQualifiedCommand('setLayoutToList'),
-				() => this.setLayout(ViewBranchesLayout.List),
-				this,
-			),
-			registerViewCommand(
-				this.getQualifiedCommand('setLayoutToTree'),
-				() => this.setLayout(ViewBranchesLayout.Tree),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
+			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
-				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				() => this.setFilesLayout('auto'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
-				() => this.setFilesLayout(ViewFilesLayout.List),
+				() => this.setFilesLayout('list'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
-				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				() => this.setFilesLayout('tree'),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
@@ -186,7 +213,9 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'sortBranchesBy')
+			!configuration.changed(e, 'sortBranchesBy') &&
+			!configuration.changed(e, 'sortRepositoriesBy') &&
+			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
 		) {
 			return false;
 		}
@@ -197,7 +226,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 	findBranch(branch: GitBranchReference, token?: CancellationToken) {
 		if (branch.remote) return undefined;
 
-		const repoNodeId = RepositoryNode.getId(branch.repoPath);
+		const { repoPath } = branch;
 
 		return this.findNode((n: any) => n.branch?.ref === branch.ref, {
 			allowPaging: true,
@@ -206,7 +235,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 				if (n instanceof BranchesViewNode) return true;
 
 				if (n instanceof BranchesRepositoryNode || n instanceof BranchOrTagFolderNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
 				return false;
@@ -216,12 +245,13 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 	}
 
 	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(commit.repoPath);
+		const { repoPath } = commit;
 
 		// Get all the branches the commit is on
 		const branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
+			undefined,
 			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
 		);
 		if (branches.length === 0) return undefined;
@@ -233,10 +263,10 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 				if (n instanceof BranchesViewNode) return true;
 
 				if (n instanceof BranchesRepositoryNode || n instanceof BranchOrTagFolderNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
-				if (n instanceof BranchNode && branches.includes(n.branch.name)) {
+				if (n instanceof BranchNode && n.repoPath === repoPath && branches.includes(n.branch.name)) {
 					await n.loadMore({ until: commit.ref });
 					return true;
 				}
@@ -259,7 +289,10 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(branch, { icon: false, quoted: true })} in the side bar...`,
+				title: `Revealing ${getReferenceLabel(branch, {
+					icon: false,
+					quoted: true,
+				})} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -285,7 +318,10 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false, quoted: true })} in the side bar...`,
+				title: `Revealing ${getReferenceLabel(commit, {
+					icon: false,
+					quoted: true,
+				})} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -304,7 +340,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof BranchesViewNode || n instanceof RepositoryFolderNode,
 		});
@@ -331,7 +367,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 	private setShowBranchComparison(enabled: boolean) {
 		return configuration.updateEffective(
 			`views.${this.configKey}.showBranchComparison` as const,
-			enabled ? ViewShowBranchComparison.Branch : false,
+			enabled ? 'branch' : false,
 		);
 	}
 

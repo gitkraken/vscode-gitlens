@@ -3,9 +3,9 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
@@ -52,7 +52,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 				args.inDiffLeftEditor ? 1 : 0,
 			);
 
-			if (diffUris == null || diffUris.next == null) return;
+			if (diffUris?.next == null) return;
 
 			void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 				repoPath: diffUris.current.repoPath,

@@ -1,25 +1,21 @@
-import type {
-	CancellationToken,
-	DecorationOptions,
-	Disposable,
-	TextDocument,
-	TextEditor,
-	TextEditorDecorationType,
-} from 'vscode';
+import type { CancellationToken, DecorationOptions, Disposable, TextDocument, TextEditor } from 'vscode';
 import { Hover, languages, Position, Range, Selection, TextEditorRevealType } from 'vscode';
-import { configuration, FileAnnotationType } from '../configuration';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
-import type { GitDiff } from '../git/models/diff';
-import { Hovers } from '../hovers/hovers';
-import { getLogScope, log } from '../system/decorators/log';
-import { Stopwatch } from '../system/stopwatch';
-import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
-import type { AnnotationContext } from './annotationProvider';
+import type { GitDiffFile } from '../git/models/diff';
+import { localChangesMessage } from '../hovers/hovers';
+import { configuration } from '../system/configuration';
+import { log } from '../system/decorators/log';
+import { getLogScope } from '../system/logger.scope';
+import { getSettledValue } from '../system/promise';
+import { maybeStopWatch } from '../system/stopwatch';
+import type { TrackedGitDocument } from '../trackers/trackedDocument';
+import type { AnnotationContext, AnnotationState } from './annotationProvider';
 import { AnnotationProviderBase } from './annotationProvider';
+import type { Decoration } from './annotations';
 import { Decorations } from './fileAnnotationController';
 
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 export interface ChangesAnnotationContext extends AnnotationContext {
 	sha?: string;
@@ -27,19 +23,16 @@ export interface ChangesAnnotationContext extends AnnotationContext {
 }
 
 export class GutterChangesAnnotationProvider extends AnnotationProviderBase<ChangesAnnotationContext> {
-	private state: { commit: GitCommit | undefined; diffs: GitDiff[] } | undefined;
 	private hoverProviderDisposable: Disposable | undefined;
+	private sortedHunkStarts: number[] | undefined;
+	private state: { commit: GitCommit | undefined; diffs: GitDiffFile[] } | undefined;
 
-	constructor(
-		editor: TextEditor,
-		trackedDocument: TrackedDocument<GitDocumentState>,
-		private readonly container: Container,
-	) {
-		super(FileAnnotationType.Changes, editor, trackedDocument);
+	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedGitDocument) {
+		super(container, 'changes', editor, trackedDocument);
 	}
 
-	override mustReopen(context?: ChangesAnnotationContext): boolean {
-		return this.annotationContext?.sha !== context?.sha || this.annotationContext?.only !== context?.only;
+	override canReuse(context?: ChangesAnnotationContext): boolean {
+		return !(this.annotationContext?.sha !== context?.sha || this.annotationContext?.only !== context?.only);
 	}
 
 	override clear() {
@@ -51,23 +44,58 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		super.clear();
 	}
 
-	selection(_selection?: AnnotationContext['selection']): Promise<void> {
-		return Promise.resolve();
+	override nextChange() {
+		if (this.sortedHunkStarts == null) return;
+
+		let nextLine = -1;
+		const currentLine = this.editor.selection.active.line;
+		for (const line of this.sortedHunkStarts) {
+			if (line > currentLine) {
+				nextLine = line;
+				break;
+			}
+		}
+
+		if (nextLine === -1) {
+			nextLine = this.sortedHunkStarts[0];
+		}
+
+		if (nextLine > 0) {
+			this.editor.selection = new Selection(nextLine, 0, nextLine, 0);
+			this.editor.revealRange(
+				new Range(nextLine, 0, nextLine, 0),
+				TextEditorRevealType.InCenterIfOutsideViewport,
+			);
+		}
 	}
 
-	validate(): Promise<boolean> {
-		return Promise.resolve(true);
+	override previousChange() {
+		if (this.sortedHunkStarts == null) return;
+
+		let previousLine = -1;
+		const currentLine = this.editor.selection.active.line;
+		for (const line of this.sortedHunkStarts) {
+			if (line >= currentLine) break;
+
+			previousLine = line;
+		}
+
+		if (previousLine === -1) {
+			previousLine = this.sortedHunkStarts[this.sortedHunkStarts.length - 1];
+		}
+
+		if (previousLine > 0) {
+			this.editor.selection = new Selection(previousLine, 0, previousLine, 0);
+			this.editor.revealRange(
+				new Range(previousLine, 0, previousLine, 0),
+				TextEditorRevealType.InCenterIfOutsideViewport,
+			);
+		}
 	}
 
 	@log()
-	async onProvideAnnotation(context?: ChangesAnnotationContext): Promise<boolean> {
+	override async onProvideAnnotation(context?: ChangesAnnotationContext, state?: AnnotationState): Promise<boolean> {
 		const scope = getLogScope();
-
-		if (this.mustReopen(context)) {
-			this.clear();
-		}
-
-		this.annotationContext = context;
 
 		let ref1 = this.trackedDocument.uri.sha;
 		let ref2 = context?.sha != null && context.sha !== ref1 ? `${context.sha}^` : undefined;
@@ -128,18 +156,19 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					ref: ref2 ?? ref1,
 				},
 			);
-			if (commit == null) return false;
 
-			if (ref2 != null) {
-				ref2 = commit.ref;
-			} else {
-				ref1 = `${commit.ref}^`;
-				ref2 = commit.ref;
+			if (commit != null) {
+				if (ref2 != null) {
+					ref2 = commit.ref;
+				} else {
+					ref1 = `${commit.ref}^`;
+					ref2 = commit.ref;
+				}
 			}
 		}
 
 		const diffs = (
-			await Promise.all(
+			await Promise.allSettled(
 				ref2 == null && this.editor.document.isDirty
 					? [
 							this.container.git.getDiffForFileContents(
@@ -151,15 +180,14 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					  ]
 					: [this.container.git.getDiffForFile(this.trackedDocument.uri, ref1, ref2)],
 			)
-		).filter(<T>(d?: T): d is T => Boolean(d));
+		)
+			.map(d => getSettledValue(d))
+			.filter(<T>(d?: T): d is T => Boolean(d));
 		if (!diffs?.length) return false;
 
-		const sw = new Stopwatch(scope);
+		using sw = maybeStopWatch(scope);
 
-		const decorationsMap = new Map<
-			string,
-			{ decorationType: TextEditorDecorationType; rangesOrOptions: DecorationOptions[] }
-		>();
+		const decorationsMap = new Map<string, Decoration<DecorationOptions[]>>();
 
 		// If we want to only show changes from the specified sha, get the blame so we can compare with "visible" shas
 		const blame =
@@ -168,6 +196,8 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 				: undefined;
 
 		let selection: Selection | undefined;
+
+		this.sortedHunkStarts = [];
 
 		for (const diff of diffs) {
 			for (const hunk of diff.hunks) {
@@ -185,14 +215,8 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					if (skip) continue;
 				}
 
-				// Subtract 2 because editor lines are 0-based and we will be adding 1 in the first iteration of the loop
-				let count = Math.max(hunk.current.position.start - 2, -1);
-				let index = -1;
-				for (const hunkLine of hunk.lines) {
-					index++;
-					count++;
-
-					if (hunkLine.current?.state === 'unchanged') continue;
+				for (const [line, hunkLine] of hunk.lines) {
+					if (hunkLine.state === 'unchanged') continue;
 
 					// Uncomment this if we want to only show "visible" lines, rather than just visible hunks
 					// if (blame != null && blame.lines[count].sha !== context!.sha) {
@@ -200,56 +224,26 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					// }
 
 					const range = this.editor.document.validateRange(
-						new Range(new Position(count, 0), new Position(count, maxSmallIntegerV8)),
+						new Range(new Position(line - 1, 0), new Position(line - 1, maxSmallIntegerV8)),
 					);
+
+					this.sortedHunkStarts.push(range.start.line);
+
 					if (selection == null) {
 						selection = new Selection(range.start, range.end);
 					}
 
-					let state;
-					if (hunkLine.current == null) {
-						const previous = hunk.lines[index - 1];
-						if (hunkLine.previous != null && (previous == null || previous.current != null)) {
-							// Check if there are more deleted lines than added lines show a deleted indicator
-							if (hunk.previous.count > hunk.current.count) {
-								state = 'removed';
-							} else {
-								count--;
-								continue;
-							}
-						} else {
-							count--;
-							continue;
-						}
-					} else if (hunkLine.current?.state === 'added') {
-						if (hunkLine.previous?.state === 'removed') {
-							state = 'changed';
-						} else {
-							state = 'added';
-						}
-					} else if (hunkLine?.current.state === 'removed') {
-						// Check if there are more deleted lines than added lines show a deleted indicator
-						if (hunk.previous.count > hunk.current.count) {
-							state = 'removed';
-						} else {
-							count--;
-							continue;
-						}
-					} else {
-						state = 'changed';
-					}
-
-					let decoration = decorationsMap.get(state);
+					let decoration = decorationsMap.get(hunkLine.state);
 					if (decoration == null) {
 						decoration = {
-							decorationType: (state === 'added'
+							decorationType: (hunkLine.state === 'added'
 								? Decorations.changesLineAddedAnnotation
-								: state === 'removed'
-								? Decorations.changesLineDeletedAnnotation
-								: Decorations.changesLineChangedAnnotation)!,
+								: hunkLine.state === 'removed'
+								  ? Decorations.changesLineDeletedAnnotation
+								  : Decorations.changesLineChangedAnnotation)!,
 							rangesOrOptions: [{ range: range }],
 						};
-						decorationsMap.set(state, decoration);
+						decorationsMap.set(hunkLine.state, decoration);
 					} else {
 						decoration.rangesOrOptions.push({ range: range });
 					}
@@ -257,14 +251,16 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 			}
 		}
 
-		sw.restart({ suffix: ' to compute recent changes annotations' });
+		this.sortedHunkStarts.sort((a, b) => a - b);
+
+		sw?.restart({ suffix: ' to compute recent changes annotations' });
 
 		if (decorationsMap.size) {
 			this.setDecorations([...decorationsMap.values()]);
 
-			sw.stop({ suffix: ' to apply all recent changes annotations' });
+			sw?.stop({ suffix: ' to apply all recent changes annotations' });
 
-			if (selection != null && context?.selection !== false) {
+			if (selection != null && context?.selection !== false && !state?.restoring) {
 				this.editor.selection = selection;
 				this.editor.revealRange(selection, TextEditorRevealType.InCenterIfOutsideViewport);
 			}
@@ -279,8 +275,9 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		const cfg = configuration.get('hovers');
 		if (!cfg.enabled || !cfg.annotations.enabled) return;
 
+		this.hoverProviderDisposable?.dispose();
 		this.hoverProviderDisposable = languages.registerHoverProvider(
-			{ pattern: this.document.uri.fsPath },
+			{ pattern: this.editor.document.uri.fsPath },
 			{
 				provideHover: (document: TextDocument, position: Position, token: CancellationToken) =>
 					this.provideHover(document, position, token),
@@ -301,17 +298,12 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		for (const diff of diffs) {
 			for (const hunk of diff.hunks) {
 				// If we have a "mixed" diff hunk, check if we have more deleted lines than added, to include a trailing line for the deleted indicator
-				const hasMoreDeletedLines = hunk.state === 'changed' && hunk.previous.count > hunk.current.count;
+				const hasMoreDeletedLines = /*hunk.state === 'changed' &&*/ hunk.previous.count > hunk.current.count;
 				if (
 					position.line >= hunk.current.position.start - 1 &&
 					position.line <= hunk.current.position.end - (hasMoreDeletedLines ? 0 : 1)
 				) {
-					const markdown = await Hovers.localChangesMessage(
-						commit,
-						this.trackedDocument.uri,
-						position.line,
-						hunk,
-					);
+					const markdown = await localChangesMessage(commit, this.trackedDocument.uri, position.line, hunk);
 					if (markdown == null) return undefined;
 
 					return new Hover(

@@ -3,10 +3,10 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
-import { GitRevision } from '../git/models/reference';
-import { Logger } from '../logger';
+import { deletedOrMissing } from '../git/models/constants';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
 import { findOrOpenEditor } from '../system/utils';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
@@ -88,7 +88,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				args.inDiffRightEditor ? 1 : 0,
 			);
 
-			if (diffUris == null || diffUris.previous == null) {
+			if (diffUris?.previous == null) {
 				if (diffUris == null) {
 					void showCommitHasNoPreviousCommitWarningMessage();
 
@@ -112,7 +112,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				diffUris.previous = GitUri.fromFile(
 					diffUris.current.fileName,
 					diffUris.current.repoPath!,
-					GitRevision.deletedOrMissing,
+					deletedOrMissing,
 				);
 			}
 

@@ -1,10 +1,21 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?79130123c9d3674a686cf03962523e8a') format('truetype');
+			}
+		</style>
 	</head>
 
-	<body class="preload">
+	<body
+		class="scrollable preload"
+		data-placement="#{placement}"
+		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
+	>
 		<div class="container">
 			<header>
 				<h2>GitLens Interactive Rebase</h2>
@@ -25,43 +36,41 @@
 					<!-- should have an <div aria-live="polite" /> to notify order change -->
 				</div>
 			</header>
-			<ul id="entries" class="entries"></ul>
-			<div class="shortcuts">
-				<span class="shortcut"><kbd>p</kbd><span>Pick</span></span>
-				<span class="shortcut"><kbd>r</kbd><span>Reword</span></span>
-				<span class="shortcut"><kbd>e</kbd><span>Edit</span></span>
-				<span class="shortcut"><kbd>s</kbd><span>Squash</span></span>
-				<span class="shortcut"><kbd>d</kbd><span>Drop</span></span>
-				<span class="shortcut"><kbd>alt ↑</kbd><span>Move Up</span></span>
-				<span class="shortcut"><kbd>alt ↓</kbd><span>Move Down</span></span>
-				<span class="shortcut"><kbd>/</kbd><span>Search</span></span>
+			<div class="entries-container scrollable">
+				<ul id="entries" class="entries scrollable"></ul>
 			</div>
-			<div class="actions">
-				<div class="actions--left">
-					<button name="disable" class="button button--flat-subtle" data-action="disable" tabindex="-1">
-						Disable Rebase Editor<span class="shortcut">Will Abort Rebase</span>
-					</button>
-					<button name="switch" class="button button--flat-subtle" data-action="switch" tabindex="-1">
-						Switch to Text
-					</button>
+			<footer>
+				<div class="shortcuts">
+					<span class="shortcut"><kbd>p</kbd><span>Pick</span></span>
+					<span class="shortcut"><kbd>r</kbd><span>Reword</span></span>
+					<span class="shortcut"><kbd>e</kbd><span>Edit</span></span>
+					<span class="shortcut"><kbd>s</kbd><span>Squash</span></span>
+					<span class="shortcut"><kbd>f</kbd><span>Fixup</span></span>
+					<span class="shortcut"><kbd>d</kbd><span>Drop</span></span>
+					<span class="shortcut"><kbd>alt ↑</kbd><span>Move&nbsp;Up</span></span>
+					<span class="shortcut"><kbd>alt ↓</kbd><span>Move&nbsp;Down</span></span>
+					<span class="shortcut"><kbd>/</kbd><span>Search</span></span>
 				</div>
-				<div class="actions--right">
-					<button name="start" class="button button--flat-primary" data-action="start">
-						Start Rebase <span class="shortcut">Ctrl+Enter</span>
-					</button>
-					<button name="abort" class="button button--flat-secondary" data-action="abort">
-						Abort <span class="shortcut">Ctrl+A</span>
-					</button>
+				<div class="actions">
+					<div class="actions--left">
+						<button name="disable" class="button button--flat-subtle" data-action="disable" tabindex="-1">
+							Disable Rebase Editor<span class="shortcut">Will Abort Rebase</span>
+						</button>
+						<button name="switch" class="button button--flat-subtle" data-action="switch" tabindex="-1">
+							Switch to Text
+						</button>
+					</div>
+					<div class="actions--right">
+						<button name="start" class="button button--flat-primary" data-action="start">
+							Start Rebase <span class="shortcut">Ctrl+Enter</span>
+						</button>
+						<button name="abort" class="button button--flat-secondary" data-action="abort">
+							Abort <span class="shortcut">Ctrl+A</span>
+						</button>
+					</div>
 				</div>
-			</div>
+			</footer>
 		</div>
 		#{endOfBody}
-		<style nonce="#{cspNonce}">
-			@font-face {
-				font-family: 'codicon';
-				font-display: block;
-				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
-			}
-		</style>
 	</body>
 </html>

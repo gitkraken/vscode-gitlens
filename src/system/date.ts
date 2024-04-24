@@ -22,9 +22,11 @@ let defaultLocales: string[] | undefined;
 let defaultRelativeTimeFormat: InstanceType<typeof Intl.RelativeTimeFormat> | undefined;
 let defaultShortRelativeTimeFormat: InstanceType<typeof Intl.RelativeTimeFormat> | undefined;
 
+const numberFormatCache = new Map<string | undefined, Intl.NumberFormat>();
+
 export function setDefaultDateLocales(locales: string | string[] | null | undefined) {
 	if (typeof locales === 'string') {
-		if (locales === 'system') {
+		if (locales === 'system' || locales.trim().length === 0) {
 			defaultLocales = undefined;
 		} else {
 			defaultLocales = [locales];
@@ -32,9 +34,13 @@ export function setDefaultDateLocales(locales: string | string[] | null | undefi
 	} else {
 		defaultLocales = locales ?? undefined;
 	}
+
 	defaultRelativeTimeFormat = undefined;
 	defaultShortRelativeTimeFormat = undefined;
 	dateTimeFormatCache.clear();
+
+	numberFormatCache.clear();
+
 	locale = undefined;
 }
 
@@ -72,8 +78,8 @@ export function createFromDateDelta(
 	return d;
 }
 
-export function fromNow(date: Date, short?: boolean): string {
-	const elapsed = date.getTime() - new Date().getTime();
+export function fromNow(date: Date | number, short?: boolean): string {
+	const elapsed = (typeof date === 'number' ? date : date.getTime()) - new Date().getTime();
 
 	for (const [unit, threshold, divisor, shortUnit] of relativeUnitThresholds) {
 		const elapsedABS = Math.abs(elapsed);
@@ -204,8 +210,7 @@ export function formatDate(
 		) => {
 			if (literal != null) return (literal as string).substring(1, literal.length - 1);
 
-			for (const key in groups) {
-				const value = groups[key];
+			for (const [key, value] of Object.entries(groups)) {
 				if (value == null) continue;
 
 				const part = parts.find(p => p.type === key);
@@ -231,19 +236,21 @@ export function getDateDifference(
 	first: Date | number,
 	second: Date | number,
 	unit?: 'days' | 'hours' | 'minutes' | 'seconds',
+	roundFn?: (value: number) => number,
 ): number {
 	const diff =
 		(typeof second === 'number' ? second : second.getTime()) -
 		(typeof first === 'number' ? first : first.getTime());
+	const round = roundFn ?? Math.floor;
 	switch (unit) {
 		case 'days':
-			return Math.floor(diff / (1000 * 60 * 60 * 24));
+			return round(diff / (1000 * 60 * 60 * 24));
 		case 'hours':
-			return Math.floor(diff / (1000 * 60 * 60));
+			return round(diff / (1000 * 60 * 60));
 		case 'minutes':
-			return Math.floor(diff / (1000 * 60));
+			return round(diff / (1000 * 60));
 		case 'seconds':
-			return Math.floor(diff / 1000);
+			return round(diff / 1000);
 		default:
 			return diff;
 	}
@@ -269,8 +276,7 @@ function getDateTimeFormatOptionsFromFormatString(
 	for (const { groups } of format.matchAll(customDateTimeFormatParserRegex)) {
 		if (groups == null) continue;
 
-		for (const key in groups) {
-			const value = groups[key];
+		for (const [key, value] of Object.entries(groups)) {
 			if (value == null) continue;
 
 			switch (key) {
@@ -345,4 +351,35 @@ const ordinals = ['th', 'st', 'nd', 'rd'];
 function formatWithOrdinal(n: number): string {
 	const v = n % 100;
 	return `${n}${ordinals[(v - 20) % 10] ?? ordinals[v] ?? ordinals[0]}`;
+}
+
+export function formatNumeric(
+	value: number,
+	style?: 'decimal' | 'currency' | 'percent' | 'unit' | null | undefined,
+	locale?: string,
+): string {
+	if (style == null) {
+		style = 'decimal';
+	}
+
+	const key = `${locale ?? ''}:${style}`;
+
+	let formatter = numberFormatCache.get(key);
+	if (formatter == null) {
+		const options: Intl.NumberFormatOptions = { localeMatcher: 'best fit', style: style };
+
+		let locales;
+		if (locale == null) {
+			locales = defaultLocales;
+		} else if (locale === 'system') {
+			locales = undefined;
+		} else {
+			locales = [locale];
+		}
+
+		formatter = new Intl.NumberFormat(locales, options);
+		numberFormatCache.set(key, formatter);
+	}
+
+	return formatter.format(value);
 }

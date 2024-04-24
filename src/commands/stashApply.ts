@@ -1,6 +1,6 @@
-import { GitActions } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { apply, pop } from '../git/actions/stash';
 import type { GitStashCommit } from '../git/models/commit';
 import type { GitStashReference } from '../git/models/reference';
 import type { CommandQuickPickItem } from '../quickpicks/items/common';
@@ -37,9 +37,9 @@ export class StashApplyCommand extends Command {
 
 	async execute(args?: StashApplyCommandArgs) {
 		if (args?.deleteAfter) {
-			return GitActions.Stash.pop(args?.repoPath ?? args?.stashItem?.repoPath, args?.stashItem);
+			return pop(args?.repoPath ?? args?.stashItem?.repoPath, args?.stashItem);
 		}
 
-		return GitActions.Stash.apply(args?.repoPath ?? args?.stashItem?.repoPath, args?.stashItem);
+		return apply(args?.repoPath ?? args?.stashItem?.repoPath, args?.stashItem);
 	}
 }

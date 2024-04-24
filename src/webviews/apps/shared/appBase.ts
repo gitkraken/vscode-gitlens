@@ -1,129 +1,188 @@
 /*global window document*/
-import type { IpcCommandType, IpcMessage, IpcMessageParams, IpcNotificationType } from '../../protocol';
-import { onIpc, WebviewReadyCommandType } from '../../protocol';
+import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants';
+import { debounce } from '../../../system/function';
+import { Logger } from '../../../system/logger';
+import type { LogScope } from '../../../system/logger.scope';
+import type {
+	IpcCallParamsType,
+	IpcCallResponseParamsType,
+	IpcCommand,
+	IpcMessage,
+	IpcRequest,
+	WebviewFocusChangedParams,
+} from '../../protocol';
+import { WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable } from './events';
-import { initializeAndWatchThemeColors } from './theme';
+import type { HostIpcApi } from './ipc';
+import { getHostIpcApi, HostIpc } from './ipc';
+import type { ThemeChangeEvent } from './theme';
+import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme';
 
-interface VsCodeApi {
-	postMessage(msg: unknown): void;
-	setState(state: unknown): void;
-	getState(): unknown;
-}
+declare const DEBUG: boolean;
 
-declare function acquireVsCodeApi(): VsCodeApi;
+export abstract class App<
+	State extends { webviewId: CustomEditorIds | WebviewIds | WebviewViewIds; timestamp: number } = {
+		webviewId: CustomEditorIds | WebviewIds | WebviewViewIds;
+		timestamp: number;
+	},
+> {
+	private readonly _api: HostIpcApi;
+	private readonly _hostIpc: HostIpc;
 
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
-
-let ipcSequence = 0;
-function nextIpcId() {
-	if (ipcSequence === maxSmallIntegerV8) {
-		ipcSequence = 1;
-	} else {
-		ipcSequence++;
-	}
-
-	return `webview:${ipcSequence}`;
-}
-
-export abstract class App<State = undefined> {
-	private readonly _api: VsCodeApi;
 	protected state: State;
+	protected readonly placement: 'editor' | 'view';
 
 	constructor(protected readonly appName: string) {
+		const disposables: Disposable[] = [];
+
+		const themeEvent = computeThemeColors();
+		if (this.onThemeUpdated != null) {
+			this.onThemeUpdated(themeEvent);
+			disposables.push(onDidChangeTheme(this.onThemeUpdated, this));
+		}
+
 		this.state = (window as any).bootstrap;
 		(window as any).bootstrap = undefined;
 
-		this.log(`${this.appName}()`);
-		// this.log(`${this.appName}(${this.state ? JSON.stringify(this.state) : ''})`);
+		this.placement = (document.body.getAttribute('data-placement') ?? 'editor') as 'editor' | 'view';
 
-		this._api = acquireVsCodeApi();
-		initializeAndWatchThemeColors(this.onThemeUpdated?.bind(this));
+		Logger.configure(
+			{
+				name: appName,
+				createChannel: function (name: string) {
+					return {
+						name: name,
+						appendLine: function (value: string) {
+							console.log(`[${name}] ${value}`);
+						},
+					};
+				},
+			},
+			DEBUG ? 'debug' : 'off',
+		);
+
+		this.log(`${appName}()`);
+		// this.log(`ctor(${this.state ? JSON.stringify(this.state) : ''})`);
+
+		this._api = getHostIpcApi();
+		this._hostIpc = new HostIpc(this.appName);
+		disposables.push(this._hostIpc);
+
+		if (this.state != null) {
+			const state = this.getState();
+			if (this.state.timestamp >= (state?.timestamp ?? 0)) {
+				this._api.setState(this.state);
+			} else {
+				this.state = state!;
+			}
+		}
+
+		disposables.push(watchThemeColors());
 
 		requestAnimationFrame(() => {
-			this.log(`${this.appName}.initializing`);
+			this.log(`${appName}(): initializing...`);
 
 			try {
 				this.onInitialize?.();
 				this.bind();
 
 				if (this.onMessageReceived != null) {
-					window.addEventListener('message', this.onMessageReceived.bind(this));
+					disposables.push(this._hostIpc.onReceiveMessage(msg => this.onMessageReceived!(msg)));
 				}
 
-				this.sendCommand(WebviewReadyCommandType, undefined);
+				this.sendCommand(WebviewReadyCommand, undefined);
 
 				this.onInitialized?.();
 			} finally {
-				setTimeout(() => {
-					document.body.classList.remove('preload');
-				}, 500);
+				if (document.body.classList.contains('preload')) {
+					setTimeout(() => {
+						document.body.classList.remove('preload');
+					}, 500);
+				}
 			}
 		});
+
+		disposables.push(
+			DOM.on(window, 'pagehide', () => {
+				disposables?.forEach(d => d.dispose());
+				this.bindDisposables?.forEach(d => d.dispose());
+				this.bindDisposables = undefined;
+			}),
+		);
 	}
 
 	protected onInitialize?(): void;
 	protected onBind?(): Disposable[];
 	protected onInitialized?(): void;
-	protected onMessageReceived?(e: MessageEvent): void;
-	protected onThemeUpdated?(): void;
+	protected onMessageReceived?(msg: IpcMessage): void;
+	protected onThemeUpdated?(e: ThemeChangeEvent): void;
+
+	private _focused?: boolean;
+	private _inputFocused?: boolean;
 
 	private bindDisposables: Disposable[] | undefined;
 	protected bind() {
 		this.bindDisposables?.forEach(d => d.dispose());
 		this.bindDisposables = this.onBind?.();
-	}
+		if (this.bindDisposables == null) {
+			this.bindDisposables = [];
+		}
 
-	protected log(message: string, ...optionalParams: any[]) {
-		console.log(message, ...optionalParams);
-	}
+		// Reduces event jankiness when only moving focus
+		const sendWebviewFocusChangedCommand = debounce((params: WebviewFocusChangedParams) => {
+			this.sendCommand(WebviewFocusChangedCommand, params);
+		}, 150);
 
-	protected getState(): State {
-		return this._api.getState() as State;
-	}
+		this.bindDisposables.push(
+			DOM.on(document, 'focusin', e => {
+				const inputFocused = e.composedPath().some(el => (el as HTMLElement).tagName === 'INPUT');
 
-	protected sendCommand<TCommand extends IpcCommandType<any>>(
-		command: TCommand,
-		params: IpcMessageParams<TCommand>,
-	): void {
-		const id = nextIpcId();
-		this.log(`${this.appName}.sendCommand(${id}): name=${command.method}`);
-
-		return this.postMessage({ id: id, method: command.method, params: params });
-	}
-
-	protected sendCommandWithCompletion<
-		TCommand extends IpcCommandType<any>,
-		TCompletion extends IpcNotificationType<{ completionId: string }>,
-	>(
-		command: TCommand,
-		params: IpcMessageParams<TCommand>,
-		completion: TCompletion,
-		callback: (params: IpcMessageParams<TCompletion>) => void,
-	): void {
-		const id = nextIpcId();
-		this.log(`${this.appName}.sendCommandWithCompletion(${id}): name=${command.method}`);
-
-		const disposable = DOM.on(window, 'message', e => {
-			onIpc(completion, e.data as IpcMessage, params => {
-				if (params.completionId === id) {
-					disposable.dispose();
-					callback(params);
+				if (this._focused !== true || this._inputFocused !== inputFocused) {
+					this._focused = true;
+					this._inputFocused = inputFocused;
+					sendWebviewFocusChangedCommand({ focused: true, inputFocused: inputFocused });
 				}
-			});
-		});
-
-		return this.postMessage({ id: id, method: command.method, params: params });
+			}),
+			DOM.on(document, 'focusout', () => {
+				if (this._focused !== false || this._inputFocused !== false) {
+					this._focused = false;
+					this._inputFocused = false;
+					sendWebviewFocusChangedCommand({ focused: false, inputFocused: false });
+				}
+			}),
+		);
 	}
 
-	protected setState(state: State) {
-		this.state = state;
-		if (state == null) return;
+	protected log(message: string, ...optionalParams: any[]): void;
+	protected log(scope: LogScope | undefined, message: string, ...optionalParams: any[]): void;
+	protected log(scopeOrMessage: LogScope | string | undefined, ...optionalParams: any[]): void {
+		if (typeof scopeOrMessage === 'string') {
+			Logger.log(scopeOrMessage, ...optionalParams);
+		} else {
+			Logger.log(scopeOrMessage, optionalParams.shift(), ...optionalParams);
+		}
+	}
 
+	protected getState(): State | undefined {
+		return this._api.getState() as State | undefined;
+	}
+
+	protected sendCommand<TCommand extends IpcCommand<any>>(
+		command: TCommand,
+		params: IpcCallParamsType<TCommand>,
+	): void {
+		this._hostIpc.sendCommand(command, params);
+	}
+
+	protected sendRequest<T extends IpcRequest<unknown, unknown>>(
+		requestType: T,
+		params: IpcCallParamsType<T>,
+	): Promise<IpcCallResponseParamsType<T>> {
+		return this._hostIpc.sendRequest(requestType, params);
+	}
+
+	protected setState(state: Partial<State>) {
 		this._api.setState(state);
-	}
-
-	private postMessage(e: IpcMessage) {
-		this._api.postMessage(e);
 	}
 }

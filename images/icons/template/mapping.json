@@ -29,5 +29,21 @@
   "list-auto": 61722,
   "arrow-up-force": 61723,
   "pinned-filled": 61724,
-  "clock": 61725
+  "clock": 61725,
+  "provider-azdo": 61726,
+  "provider-bitbucket": 61727,
+  "provider-gerrit": 61728,
+  "provider-gitea": 61729,
+  "provider-github": 61730,
+  "provider-gitlab": 61731,
+  "gitlens-inspect": 61732,
+  "workspaces-view": 61733,
+  "confirm-checked": 61734,
+  "confirm-unchecked": 61735,
+  "cloud-patch": 61736,
+  "cloud-patch-share": 61737,
+  "inspect": 61738,
+  "repository-filled": 61739,
+  "gitlens-filled": 61740,
+  "code-suggestion": 61741
 }

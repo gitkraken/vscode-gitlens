@@ -1,12 +1,12 @@
+import type { ChildProcess } from 'child_process';
 import { FileType, Uri, workspace } from 'vscode';
 import { Schemes } from '../../../constants';
 import { Container } from '../../../container';
-import type { GitCommandOptions } from '../../../git/commandOptions';
+import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import type { GitProviderDescriptor } from '../../../git/gitProvider';
-import { GitProviderId } from '../../../git/gitProvider';
 import type { Repository } from '../../../git/models/repository';
-import { Logger } from '../../../logger';
-import { getLogScope } from '../../../system/decorators/log';
+import { Logger } from '../../../system/logger';
+import { getLogScope } from '../../../system/logger.scope';
 import { addVslsPrefixIfNeeded } from '../../../system/path';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
@@ -31,15 +31,37 @@ export class VslsGit extends Git {
 
 		return guest.git<TOut>(options, ...args);
 	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	override async gitSpawn(_options: GitSpawnOptions, ..._args: any[]): Promise<ChildProcess> {
+		debugger;
+		throw new Error('Git spawn not supported in Live Share');
+	}
+
+	override async logStreamTo(
+		repoPath: string,
+		sha: string,
+		limit: number,
+		options?: { configs?: readonly string[]; stdin?: string },
+		...args: string[]
+	): Promise<[data: string[], count: number]> {
+		const guest = await Container.instance.vsls.guest();
+		if (guest == null) {
+			debugger;
+			throw new Error('No guest');
+		}
+
+		return guest.gitLogStreamTo(repoPath, sha, limit, options, ...args);
+	}
 }
 
 export class VslsGitProvider extends LocalGitProvider {
 	override readonly descriptor: GitProviderDescriptor = {
-		id: GitProviderId.Vsls,
+		id: 'vsls',
 		name: 'Live Share',
 		virtual: false,
 	};
-	override readonly supportedSchemes: Set<string> = new Set([Schemes.Vsls, Schemes.VslsScc]);
+	override readonly supportedSchemes = new Set<string>([Schemes.Vsls, Schemes.VslsScc]);
 
 	override async discoverRepositories(uri: Uri): Promise<Repository[]> {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];
@@ -64,7 +86,8 @@ export class VslsGitProvider extends LocalGitProvider {
 
 	override canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined {
 		// TODO@eamodio To support virtual repositories, we need to verify that the path is local here (by converting the shared path to a local path)
-		return super.canHandlePathOrUri(scheme, pathOrUri);
+		const path = super.canHandlePathOrUri(scheme, pathOrUri);
+		return path != null ? `${scheme}:${path}` : undefined;
 	}
 
 	override getAbsoluteUri(pathOrUri: string | Uri, base: string | Uri): Uri {
@@ -93,7 +116,13 @@ export class VslsGitProvider extends LocalGitProvider {
 				uri = Uri.joinPath(uri, '..');
 			}
 
-			repoPath = await this.git.rev_parse__show_toplevel(uri.fsPath);
+			let safe;
+			[safe, repoPath] = await this.git.rev_parse__show_toplevel(uri.fsPath);
+			if (safe) {
+				this.unsafePaths.delete(uri.fsPath);
+			} else {
+				this.unsafePaths.add(uri.fsPath);
+			}
 			if (!repoPath) return undefined;
 
 			return repoPath ? Uri.parse(repoPath, true) : undefined;

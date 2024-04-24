@@ -1,8 +1,10 @@
 import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
-import { GitRevision } from '../models/reference';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
+import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/\+(.+)$/i;
@@ -42,7 +44,7 @@ export class GerritRemote extends RemoteProvider {
 					title: `Open Change #<num> on ${this.name}`,
 					alphanumeric: true,
 
-					description: `Change #<num> on ${this.name}`,
+					description: `${this.name} Change #<num>`,
 				},
 			];
 		}
@@ -53,8 +55,12 @@ export class GerritRemote extends RemoteProvider {
 		return 'gerrit';
 	}
 
-	get id() {
+	get id(): RemoteProviderId {
 		return 'gerrit';
+	}
+
+	get gkProviderId(): GkProviderId | undefined {
+		return undefined; // TODO@eamodio DRAFTS add this when supported by backend
 	}
 
 	get name() {
@@ -97,7 +103,7 @@ export class GerritRemote extends RemoteProvider {
 		let index = path.indexOf('/', 1);
 		if (index !== -1) {
 			const sha = path.substring(1, index);
-			if (GitRevision.isSha(sha) || sha == 'HEAD') {
+			if (isSha(sha) || sha == 'HEAD') {
 				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine };
 			}

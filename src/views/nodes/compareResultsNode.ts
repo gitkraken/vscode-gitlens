@@ -1,44 +1,73 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { Disposable, TreeCheckboxChangeEvent } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, window } from 'vscode';
+import { md5 } from '@env/crypto';
+import type { StoredNamedRef } from '../../constants';
+import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
-import { GitRevision } from '../../git/models/reference';
-import type { StoredNamedRef } from '../../storage';
+import { createRevisionRange, shortenRevision } from '../../git/models/reference';
+import type { GitUser } from '../../git/models/user';
+import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
+import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
-import { getSettledValue } from '../../system/promise';
-import { md5, pluralize } from '../../system/string';
+import { weakEvent } from '../../system/event';
+import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
-import { RepositoryNode } from './repositoryNode';
-import type { CommitsQueryResults } from './resultsCommitsNode';
+import type { View } from '../viewBase';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
-import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
-import { ContextValues, ViewNode } from './viewNode';
 
 let instanceId = 0;
 
-export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
-	static key = ':compare-results';
-	static getId(repoPath: string, ref1: string, ref2: string, instanceId: number): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref1}|${ref2}):${instanceId}`;
-	}
+type State = {
+	filterCommits: GitUser[] | undefined;
+};
 
-	static getPinnableId(repoPath: string, ref1: string, ref2: string) {
-		return md5(`${repoPath}|${ref1}|${ref2}`);
-	}
-
-	private _children: ViewNode[] | undefined;
+export class CompareResultsNode extends SubscribeableViewNode<
+	'compare-results',
+	SearchAndCompareView,
+	ViewNode,
+	State
+> {
 	private _instanceId: number;
 
 	constructor(
 		view: SearchAndCompareView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
 		private _ref: StoredNamedRef,
 		private _compareWith: StoredNamedRef,
-		private _pinned: number = 0,
+		private _storedAt: number = 0,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('compare-results', GitUri.fromRepoPath(repoPath), view, parent);
+
 		this._instanceId = instanceId++;
+		this.updateContext({
+			comparisonId: `${_ref.ref}+${_compareWith.ref}+${this._instanceId}`,
+			storedComparisonId: this.getStorageId(),
+		});
+		this._uniqueId = getViewNodeId(this.type, this.context);
+
+		// If this is a new comparison, save it
+		if (this._storedAt === 0) {
+			this._storedAt = Date.now();
+			void this.store(true);
+		}
+	}
+
+	override get id(): string {
+		return this._uniqueId;
+	}
+
+	protected override etag(): number {
+		return this._storedAt;
+	}
+
+	get order(): number {
+		return this._storedAt;
 	}
 
 	get ahead(): { readonly ref1: string; readonly ref2: string } {
@@ -55,44 +84,66 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		};
 	}
 
-	override get id(): string {
-		return CompareResultsNode.getId(this.repoPath, this._ref.ref, this._compareWith.ref, this._instanceId);
+	get compareRef(): StoredNamedRef {
+		return this._ref;
 	}
 
-	get canDismiss(): boolean {
-		return !this.pinned;
+	get compareWithRef(): StoredNamedRef {
+		return this._compareWith;
 	}
 
-	private readonly _order: number = Date.now();
-	get order(): number {
-		return this._pinned || this._order;
+	private _isFiltered: boolean | undefined;
+	private get filterByAuthors(): GitUser[] | undefined {
+		const authors = this.getState('filterCommits');
+
+		const isFiltered = Boolean(authors?.length);
+		if (this._isFiltered != null && this._isFiltered !== isFiltered) {
+			this.updateContext({ comparisonFiltered: isFiltered });
+		}
+		this._isFiltered = isFiltered;
+
+		return authors;
 	}
 
-	get pinned(): boolean {
-		return this._pinned !== 0;
+	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
+		return weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this);
+	}
+
+	private onNodesCheckedStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
+		const prefix = getComparisonStoragePrefix(this.getStorageId());
+		if (e.items.some(([n]) => n.id?.startsWith(prefix))) {
+			void this.store(true);
+		}
+	}
+
+	dismiss() {
+		void this.remove(true);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const ahead = this.ahead;
 			const behind = this.behind;
 
-			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(this.repoPath, [
-				GitRevision.createRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
-			]);
+			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(
+				this.repoPath,
+				[createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...')],
+				{ authors: this.filterByAuthors },
+			);
+
 			const mergeBase =
 				(await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
 					forkPoint: true,
 				})) ?? (await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
 
-			this._children = [
+			const children: ViewNode[] = [
 				new ResultsCommitsNode(
 					this.view,
 					this,
 					this.repoPath,
 					'Behind',
 					{
-						query: this.getCommitsQuery(GitRevision.createRange(behind.ref1, behind.ref2, '..')),
+						query: this.getCommitsQuery(createRevisionRange(behind.ref1, behind.ref2, '..')),
 						comparison: behind,
 						direction: 'behind',
 						files: {
@@ -102,7 +153,6 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 						},
 					},
 					{
-						id: 'behind',
 						description: pluralize('commit', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
@@ -113,7 +163,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					this.repoPath,
 					'Ahead',
 					{
-						query: this.getCommitsQuery(GitRevision.createRange(ahead.ref1, ahead.ref2, '..')),
+						query: this.getCommitsQuery(createRevisionRange(ahead.ref1, ahead.ref2, '..')),
 						comparison: ahead,
 						direction: 'ahead',
 						files: {
@@ -123,26 +173,31 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 						},
 					},
 					{
-						id: 'ahead',
 						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
 						expand: false,
 					},
 				),
-				new ResultsFilesNode(
-					this.view,
-					this,
-					this.repoPath,
-					this._compareWith.ref,
-					this._ref.ref,
-					this.getFilesQuery.bind(this),
-					undefined,
-					{
-						expand: false,
-					},
-				),
 			];
+
+			// Can't support showing files when commits are filtered
+			if (!this.filterByAuthors?.length) {
+				children.push(
+					new ResultsFilesNode(
+						this.view,
+						this,
+						this.repoPath,
+						this._compareWith.ref,
+						this._ref.ref,
+						this.getFilesQuery.bind(this),
+						undefined,
+						{ expand: false },
+					),
+				);
+			}
+
+			this.children = children;
 		}
-		return this._children;
+		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -154,21 +209,19 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 
 		const item = new TreeItem(
 			`Comparing ${
-				this._ref.label ?? GitRevision.shorten(this._ref.ref, { strings: { working: 'Working Tree' } })
+				this._ref.label ?? shortenRevision(this._ref.ref, { strings: { working: 'Working Tree' } })
 			} with ${
 				this._compareWith.label ??
-				GitRevision.shorten(this._compareWith.ref, { strings: { working: 'Working Tree' } })
+				shortenRevision(this._compareWith.ref, { strings: { working: 'Working Tree' } })
 			}`,
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
-		item.contextValue = `${ContextValues.CompareResults}${this._pinned ? '+pinned' : ''}${
-			this._ref.ref === '' ? '+working' : ''
+		item.contextValue = `${ContextValues.CompareResults}${this._ref.ref === '' ? '+working' : ''}${
+			this.filterByAuthors?.length ? '+filtered' : ''
 		}`;
 		item.description = description;
-		if (this._pinned) {
-			item.iconPath = new ThemeIcon('pinned');
-		}
+		item.iconPath = new ThemeIcon('compare-changes');
 
 		return item;
 	}
@@ -179,22 +232,16 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		return Promise.resolve<[string, string]>([this._compareWith.ref, this._ref.ref]);
 	}
 
-	@log()
-	async pin() {
-		if (this.pinned) return;
-
-		this._pinned = Date.now();
-		await this.updatePinned();
-
-		queueMicrotask(() => this.view.reveal(this, { focus: true, select: true }));
+	async getFilesComparison(): Promise<FilesComparison | undefined> {
+		const children = await this.getChildren();
+		const node = children.find(c => c.is('results-files')) as ResultsFilesNode | undefined;
+		return node?.getFilesComparison();
 	}
 
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (!reset) return;
-
-		this._children = undefined;
+	@log()
+	clearReviewed() {
+		resetComparisonCheckedFiles(this.view, this.getStorageId());
+		void this.store();
 	}
 
 	@log()
@@ -205,158 +252,104 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		}
 
 		// Save the current id so we can update it later
-		const currentId = this.getPinnableId();
+		const currentId = this.getStorageId();
 
 		const ref1 = this._ref;
 		this._ref = this._compareWith;
 		this._compareWith = ref1;
 
-		// If we were pinned, remove the existing pin and save a new one
-		if (this.pinned) {
-			await this.view.updatePinned(currentId);
-			await this.updatePinned();
-		}
+		// Remove the existing stored item and save a new one
+		await this.replace(currentId, true);
 
-		this._children = undefined;
+		this.children = undefined;
 		this.view.triggerNodeChange(this.parent);
 		queueMicrotask(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
 	}
 
-	@log()
-	async unpin() {
-		if (!this.pinned) return;
-
-		this._pinned = 0;
-		await this.view.updatePinned(this.getPinnableId());
-
-		queueMicrotask(() => this.view.reveal(this, { focus: true, select: true }));
-	}
-
-	private getPinnableId() {
-		return CompareResultsNode.getPinnableId(this.repoPath, this._ref.ref, this._compareWith.ref);
-	}
-
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
-		return this.getAheadBehindFilesQuery(
-			GitRevision.createRange(this._compareWith?.ref || 'HEAD', this._ref.ref || 'HEAD', '...'),
+		return getAheadBehindFilesQuery(
+			this.view.container,
+			this.repoPath,
+			createRevisionRange(this._compareWith?.ref || 'HEAD', this._ref.ref || 'HEAD', '...'),
 			this._ref.ref === '',
 		);
 	}
 
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
-		return this.getAheadBehindFilesQuery(
-			GitRevision.createRange(this._ref.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
+		return getAheadBehindFilesQuery(
+			this.view.container,
+			this.repoPath,
+			createRevisionRange(this._ref.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
 			false,
 		);
 	}
 
-	private async getAheadBehindFilesQuery(
-		comparison: string,
-		compareWithWorkingTree: boolean,
-	): Promise<FilesQueryResults> {
-		const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
-			this.view.container.git.getDiffStatus(this.repoPath, comparison),
-			compareWithWorkingTree ? this.view.container.git.getDiffStatus(this.repoPath, 'HEAD') : undefined,
-			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
-			compareWithWorkingTree ? this.view.container.git.getChangedFilesCount(this.repoPath, 'HEAD') : undefined,
-		]);
-
-		let files = getSettledValue(filesResult) ?? [];
-		let stats: FilesQueryResults['stats'] = getSettledValue(statsResult);
-
-		if (compareWithWorkingTree) {
-			const workingFiles = getSettledValue(workingFilesResult);
-			if (workingFiles != null) {
-				if (files.length === 0) {
-					files = workingFiles ?? [];
-				} else {
-					for (const wf of workingFiles) {
-						const index = files.findIndex(f => f.path === wf.path);
-						if (index !== -1) {
-							files.splice(index, 1, wf);
-						} else {
-							files.push(wf);
-						}
-					}
-				}
-			}
-
-			const workingStats = getSettledValue(workingStatsResult);
-			if (workingStats != null) {
-				if (stats == null) {
-					stats = workingStats;
-				} else {
-					stats = {
-						additions: stats.additions + workingStats.additions,
-						deletions: stats.deletions + workingStats.deletions,
-						changedFiles: files.length,
-						approximated: true,
-					};
-				}
-			}
-		}
-
-		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
-			files: files,
-			stats: stats,
-		};
-	}
-
 	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
-		const repoPath = this.repoPath;
-		return async (limit: number | undefined) => {
-			const log = await this.view.container.git.getLog(repoPath, {
-				limit: limit,
-				ref: range,
-			});
-
-			const results: Mutable<Partial<CommitsQueryResults>> = {
-				log: log,
-				hasMore: log?.hasMore ?? true,
-			};
-			if (results.hasMore) {
-				results.more = async (limit: number | undefined) => {
-					results.log = (await results.log?.more?.(limit)) ?? results.log;
-					results.hasMore = results.log?.hasMore ?? true;
-				};
-			}
-
-			return results as CommitsQueryResults;
-		};
+		return getCommitsQuery(this.view.container, this.repoPath, range, this.filterByAuthors);
 	}
 
-	private async getFilesQuery(): Promise<FilesQueryResults> {
-		let comparison;
-		if (this._compareWith.ref === '') {
-			debugger;
-			throw new Error('Cannot get files for comparisons of a ref with working tree');
-		} else if (this._ref.ref === '') {
-			comparison = this._compareWith.ref;
-		} else {
-			comparison = `${this._compareWith.ref}..${this._ref.ref}`;
+	private getFilesQuery(): Promise<FilesQueryResults> {
+		return getFilesQuery(this.view.container, this.repoPath, this._ref.ref, this._compareWith.ref);
+	}
+
+	private getStorageId() {
+		return md5(`${this.repoPath}|${this._ref.ref}|${this._compareWith.ref}`, 'base64');
+	}
+
+	private remove(silent: boolean = false) {
+		resetComparisonCheckedFiles(this.view, this.getStorageId());
+		return this.view.updateStorage(this.getStorageId(), undefined, silent);
+	}
+
+	private async replace(id: string, silent: boolean = false) {
+		resetComparisonCheckedFiles(this.view, id);
+		await this.view.updateStorage(id, undefined, silent);
+		return this.store(silent);
+	}
+
+	store(silent = false) {
+		const storageId = this.getStorageId();
+		const checkedFiles = getComparisonCheckedFiles(this.view, storageId);
+
+		return this.view.updateStorage(
+			storageId,
+			{
+				type: 'comparison',
+				timestamp: this._storedAt,
+				path: this.repoPath,
+				ref1: { label: this._ref.label, ref: this._ref.ref },
+				ref2: { label: this._compareWith.label, ref: this._compareWith.ref },
+				checkedFiles: checkedFiles.length > 0 ? checkedFiles : undefined,
+			},
+			silent,
+		);
+	}
+}
+
+export function getComparisonStoragePrefix(storageId: string) {
+	return `${storageId}|`;
+}
+
+export function getComparisonCheckedFiles(view: View, storageId: string) {
+	const checkedFiles = [];
+
+	const checked = view.nodeState.get<TreeItemCheckboxState>(getComparisonStoragePrefix(storageId), 'checked');
+	for (const [key, value] of checked) {
+		if (value === TreeItemCheckboxState.Checked) {
+			checkedFiles.push(key);
 		}
-
-		const [filesResult, statsResult] = await Promise.allSettled([
-			this.view.container.git.getDiffStatus(this.repoPath, comparison),
-			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
-		]);
-
-		const files = getSettledValue(filesResult) ?? [];
-		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
-			files: files,
-			stats: getSettledValue(statsResult),
-		};
 	}
+	return checkedFiles;
+}
 
-	private updatePinned() {
-		return this.view.updatePinned(this.getPinnableId(), {
-			type: 'comparison',
-			timestamp: this._pinned,
-			path: this.repoPath,
-			ref1: { label: this._ref.label, ref: this._ref.ref },
-			ref2: { label: this._compareWith.label, ref: this._compareWith.ref },
-		});
+export function resetComparisonCheckedFiles(view: View, storageId: string) {
+	view.nodeState.delete(getComparisonStoragePrefix(storageId), 'checked');
+}
+
+export function restoreComparisonCheckedFiles(view: View, checkedFiles: string[] | undefined) {
+	if (checkedFiles?.length) {
+		for (const id of checkedFiles) {
+			view.nodeState.storeState(id, 'checked', TreeItemCheckboxState.Checked, true);
+		}
 	}
 }

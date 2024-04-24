@@ -1,7 +1,7 @@
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import '../formatted-date';
-import '../codicon';
+import '../code-icon';
 
 @customElement('issue-pull-request')
 export class IssuePullRequest extends LitElement {
@@ -50,28 +50,63 @@ export class IssuePullRequest extends LitElement {
 	date = '';
 
 	@property()
-	status = 'merged';
+	dateFormat?: string;
 
 	@property()
-	key = '#1999';
+	dateStyle?: string;
+
+	@property()
+	status: 'opened' | 'closed' | 'merged' = 'merged';
+
+	@property()
+	type: 'autolink' | 'issue' | 'pr' = 'autolink';
+
+	@property()
+	key = '';
+
+	renderDate() {
+		if (this.date === '') {
+			return nothing;
+		}
+		return html`<formatted-date
+			date="${this.date}"
+			.format=${this.dateFormat}
+			.dateStyle=${this.dateStyle}
+		></formatted-date>`;
+	}
 
 	override render() {
-		const icon =
-			this.status.toLowerCase() === 'merged'
-				? 'git-merge'
-				: this.status.toLowerCase() === 'closed'
-				? 'pass'
-				: 'issues';
+		let icon;
+		switch (this.type) {
+			case 'issue':
+				icon = this.status === 'closed' ? 'pass' : 'issues';
+				break;
+			case 'pr':
+				switch (this.status) {
+					case 'merged':
+						icon = 'git-merge';
+						break;
+					case 'closed':
+						icon = 'git-pull-request-closed';
+						break;
+					case 'opened':
+					default:
+						icon = 'git-pull-request';
+						break;
+				}
+				break;
+			case 'autolink':
+			default:
+				icon = 'link';
+				break;
+		}
 
 		return html`
 			<span class="icon"><code-icon icon=${icon}></code-icon></span>
 			<p class="title">
 				<a href="${this.url}">${this.name}</a>
 			</p>
-			<p class="date">
-				${this.key} ${this.status}
-				<formatted-date date="${this.date}"></formatted-date>
-			</p>
+			<p class="date">${this.key} ${this.status ? this.status : nothing} ${this.renderDate()}</p>
 		`;
 	}
 }

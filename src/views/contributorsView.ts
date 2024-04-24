@@ -1,29 +1,32 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { Avatars } from '../avatars';
-import type { ContributorsViewConfig } from '../configuration';
-import { configuration, ViewFilesLayout } from '../configuration';
+import { onDidFetchAvatar } from '../avatars';
+import type { ContributorsViewConfig, ViewFilesLayout } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitContributor } from '../git/models/contributor';
 import type { RepositoryChangeEvent } from '../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
+import { setContext } from '../system/context';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
+import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
+import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { ContributorNode } from './nodes/contributorNode';
 import { ContributorsNode } from './nodes/contributorsNode';
-import { RepositoryNode } from './nodes/repositoryNode';
-import type { ViewNode } from './nodes/viewNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
-			this.child = new ContributorsNode(this.uri, this.view, this, this.repo);
+			this.child = new ContributorsNode(this.uri, this.view, this, this.repo, {
+				showMergeCommits: !this.view.state.hideMergeCommits,
+			});
 		}
 
 		return this.child.getChildren();
@@ -33,7 +36,7 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 	protected override async subscribe() {
 		return Disposable.from(
 			await super.subscribe(),
-			Avatars.onDidFetch(e => this.child?.updateAvatar(e.email)),
+			onDidFetchAvatar(e => this.child?.updateAvatar(e.email)),
 		);
 	}
 
@@ -51,9 +54,19 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 export class ContributorsViewNode extends RepositoriesSubscribeableNode<ContributorsView, ContributorsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = this.view.container.git.openRepositories;
+			let repositories = this.view.container.git.openRepositories;
+			if (
+				configuration.get('views.collapseWorktreesWhenPossible') &&
+				configuration.get('views.contributors.showAllBranches')
+			) {
+				const grouped = await groupRepositories(repositories);
+				repositories = [...grouped.keys()];
+			}
+
 			if (repositories.length === 0) {
-				this.view.message = 'No contributors could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading contributors...'
+					: 'No contributors could be found.';
 
 				return [];
 			}
@@ -111,15 +124,30 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 	}
 }
 
-export class ContributorsView extends ViewBase<ContributorsViewNode, ContributorsViewConfig> {
+interface ContributorsViewState {
+	hideMergeCommits?: boolean;
+}
+
+export class ContributorsView extends ViewBase<'contributors', ContributorsViewNode, ContributorsViewConfig> {
 	protected readonly configKey = 'contributors';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.contributors', 'Contributors', 'contributorsView');
+		super(container, 'contributors', 'Contributors', 'contributorsView');
+
+		void setContext('gitlens:views:contributors:hideMergeCommits', true);
 	}
 
 	override get canReveal(): boolean {
 		return this.config.reveal || !configuration.get('views.repositories.showContributors');
+	}
+
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
+	private readonly _state: ContributorsViewState = { hideMergeCommits: true };
+	get state(): ContributorsViewState {
+		return this._state;
 	}
 
 	protected getRoot() {
@@ -145,17 +173,17 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
-				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				() => this.setFilesLayout('auto'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
-				() => this.setFilesLayout(ViewFilesLayout.List),
+				() => this.setFilesLayout('list'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
-				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				() => this.setFilesLayout('tree'),
 				this,
 			),
 
@@ -167,6 +195,17 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 			registerViewCommand(
 				this.getQualifiedCommand('setShowAllBranchesOff'),
 				() => this.setShowAllBranches(false),
+				this,
+			),
+
+			registerViewCommand(
+				this.getQualifiedCommand('setShowMergeCommitsOn'),
+				() => this.setShowMergeCommits(true),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowMergeCommitsOff'),
+				() => this.setShowMergeCommits(false),
 				this,
 			),
 
@@ -197,7 +236,9 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'sortContributorsBy')
+			!configuration.changed(e, 'sortContributorsBy') &&
+			!configuration.changed(e, 'sortRepositoriesBy') &&
+			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
 		) {
 			return false;
 		}
@@ -206,17 +247,21 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 	}
 
 	findContributor(contributor: GitContributor, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(contributor.repoPath);
+		const { repoPath, username, email, name } = contributor;
 
 		return this.findNode(
-			ContributorNode.getId(contributor.repoPath, contributor.name, contributor.email, contributor.username),
+			n =>
+				n instanceof ContributorNode &&
+				n.contributor.username === username &&
+				n.contributor.email === email &&
+				n.contributor.name === name,
 			{
 				maxDepth: 2,
 				canTraverse: n => {
 					if (n instanceof ContributorsViewNode) return true;
 
 					if (n instanceof ContributorsRepositoryNode) {
-						return n.id.startsWith(repoNodeId);
+						return n.repoPath === repoPath;
 					}
 
 					return false;
@@ -231,7 +276,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof ContributorsViewNode || n instanceof RepositoryFolderNode,
 		});
@@ -275,6 +320,12 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 
 	private setShowAllBranches(enabled: boolean) {
 		return configuration.updateEffective(`views.${this.configKey}.showAllBranches` as const, enabled);
+	}
+
+	private setShowMergeCommits(on: boolean) {
+		void setContext('gitlens:views:contributors:hideMergeCommits', !on);
+		this.state.hideMergeCommits = !on;
+		void this.refresh(true);
 	}
 
 	private setShowAvatars(enabled: boolean) {

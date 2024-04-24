@@ -1,8 +1,8 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout } from '../../configuration';
+import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
-import type { GitDiffShortStat } from '../../git/models/diff';
 import type { GitFile } from '../../git/models/file';
+import type { FilesQueryResults } from '../../git/queryResults';
 import { makeHierarchical } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
@@ -11,53 +11,58 @@ import { joinPaths, normalizePath } from '../../system/path';
 import { cancellable, PromiseCancelledError } from '../../system/promise';
 import { pluralize, sortCompare } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
-import { ContextValues, ViewNode } from './viewNode';
+
+type State = {
+	filter: FilesQueryFilter | undefined;
+};
 
 export enum FilesQueryFilter {
 	Left = 0,
 	Right = 1,
 }
 
-export interface FilesQueryResults {
-	label: string;
-	files: GitFile[] | undefined;
-	stats?: (GitDiffShortStat & { approximated?: boolean }) | undefined;
-
-	filtered?: Map<FilesQueryFilter, GitFile[]>;
+interface Options {
+	expand: boolean;
+	timeout: false | number;
 }
 
-export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
+export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits, State> {
+	private readonly _options: Options;
+
 	constructor(
 		view: ViewsWithCommits,
-		protected override readonly parent: ViewNode,
+		protected override parent: ViewNode,
 		public readonly repoPath: string,
 		public readonly ref1: string,
 		public readonly ref2: string,
 		private readonly _filesQuery: () => Promise<FilesQueryResults>,
 		private readonly direction: 'ahead' | 'behind' | undefined,
-		private readonly _options: {
-			expand?: boolean;
-		} = {},
+		options?: Partial<Options>,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('results-files', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._options = { expand: true, ..._options };
+		if (this.direction != null) {
+			this.updateContext({ branchStatusUpstreamType: this.direction });
+		}
+		this._uniqueId = getViewNodeId(this.type, this.context);
+		this._options = { expand: true, timeout: 100, ...options };
 	}
 
 	override get id(): string {
-		return `${this.parent.id}:results:files`;
+		return this._uniqueId;
 	}
 
 	get filter(): FilesQueryFilter | undefined {
-		return this.view.nodeState.getState<FilesQueryFilter>(this.id, 'filter');
+		return this.getState('filter');
 	}
 	set filter(value: FilesQueryFilter | undefined) {
 		if (this.filter === value) return;
 
-		this.view.nodeState.storeState(this.id, 'filter', value);
+		this.storeState('filter', value, true);
 		this._filterResults = undefined;
 
 		void this.triggerChange(false);
@@ -65,6 +70,16 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 
 	get filterable(): boolean {
 		return this.filter != null || (this.ref1 !== this.ref2 && this.direction === undefined);
+	}
+
+	async getFilesComparison(): Promise<FilesComparison> {
+		const { files } = await this.getFilesQueryResults();
+		return {
+			files: files ?? [],
+			repoPath: this.repoPath,
+			ref1: this.ref1,
+			ref2: this.ref2,
+		};
 	}
 
 	private getFilterContextValue(): string {
@@ -90,7 +105,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 			),
 		];
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
+		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
@@ -98,7 +113,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 				this.view.config.files.compact,
 			);
 
-			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
+			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort((a, b) => a.priority - b.priority || sortCompare(a.label!, b.label!));
@@ -117,7 +132,10 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 
 		const filter = this.filter;
 		try {
-			const results = await cancellable(this.getFilesQueryResults(), 100);
+			const results = await cancellable(
+				this.getFilesQueryResults(),
+				this._options.timeout === false ? undefined : this._options.timeout,
+			);
 			label = results.label;
 			if (filter == null && results.stats != null) {
 				description = `${pluralize('addition', results.stats.additions)} (+), ${pluralize(
@@ -149,8 +167,8 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 					files == null || files.length === 0
 						? TreeItemCollapsibleState.None
 						: this._options.expand
-						? TreeItemCollapsibleState.Expanded
-						: TreeItemCollapsibleState.Collapsed;
+						  ? TreeItemCollapsibleState.Expanded
+						  : TreeItemCollapsibleState.Collapsed;
 			}
 		} catch (ex) {
 			if (ex instanceof PromiseCancelledError) {
@@ -184,7 +202,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 	override refresh(reset: boolean = false) {
 		if (!reset) return;
 
-		this.view.nodeState.deleteState(this.id, 'filter');
+		this.deleteState('filter');
 
 		this._filterResults = undefined;
 		this._filesQueryResults = this._filesQuery();
@@ -193,7 +211,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 	private _filesQueryResults: Promise<FilesQueryResults> | undefined;
 	private _filterResults: Promise<void> | undefined;
 
-	async getFilesQueryResults() {
+	private async getFilesQueryResults() {
 		if (this._filesQueryResults === undefined) {
 			this._filesQueryResults = this._filesQuery();
 		}
@@ -242,6 +260,6 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 		if (results.filtered == null) {
 			results.filtered = new Map();
 		}
-		results.filtered.set(filter, filterTo == null ? [] : results.files!.filter(f => filterTo!.has(f.path)));
+		results.filtered.set(filter, filterTo == null ? [] : results.files!.filter(f => filterTo.has(f.path)));
 	}
 }

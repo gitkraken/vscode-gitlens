@@ -1,5 +1,6 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import type { GraphWebviewShowingArgs } from '../plus/webviews/graph/registration';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
 import { Command } from './base';
@@ -12,7 +13,11 @@ export class ShowViewCommand extends Command {
 			Commands.ShowCommitDetailsView,
 			Commands.ShowCommitsView,
 			Commands.ShowContributorsView,
+			Commands.ShowDraftsView,
 			Commands.ShowFileHistoryView,
+			Commands.ShowGraphView,
+			Commands.ShowHomeView,
+			Commands.ShowAccountView,
 			Commands.ShowLineHistoryView,
 			Commands.ShowRemotesView,
 			Commands.ShowRepositoriesView,
@@ -21,15 +26,16 @@ export class ShowViewCommand extends Command {
 			Commands.ShowTagsView,
 			Commands.ShowTimelineView,
 			Commands.ShowWorktreesView,
-			Commands.ShowHomeView,
+			Commands.ShowWorkspacesView,
 		]);
 	}
 
-	protected override preExecute(context: CommandContext) {
-		return this.execute(context.command as Commands);
+	protected override preExecute(context: CommandContext, ...args: unknown[]) {
+		return this.execute(context, ...args);
 	}
 
-	async execute(command: Commands) {
+	async execute(context: CommandContext, ...args: unknown[]) {
+		const command = context.command as Commands;
 		switch (command) {
 			case Commands.ShowBranchesView:
 				return this.container.branchesView.show();
@@ -39,10 +45,16 @@ export class ShowViewCommand extends Command {
 				return this.container.commitsView.show();
 			case Commands.ShowContributorsView:
 				return this.container.contributorsView.show();
+			case Commands.ShowDraftsView:
+				return this.container.draftsView.show();
 			case Commands.ShowFileHistoryView:
 				return this.container.fileHistoryView.show();
 			case Commands.ShowHomeView:
 				return this.container.homeView.show();
+			case Commands.ShowAccountView:
+				return this.container.accountView.show();
+			case Commands.ShowGraphView:
+				return this.container.graphView.show(undefined, ...(args as GraphWebviewShowingArgs));
 			case Commands.ShowLineHistoryView:
 				return this.container.lineHistoryView.show();
 			case Commands.ShowRemotesView:
@@ -59,6 +71,8 @@ export class ShowViewCommand extends Command {
 				return this.container.timelineView.show();
 			case Commands.ShowWorktreesView:
 				return this.container.worktreesView.show();
+			case Commands.ShowWorkspacesView:
+				return this.container.workspacesView.show();
 		}
 
 		return Promise.resolve(undefined);

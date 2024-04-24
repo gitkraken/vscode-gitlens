@@ -1,6 +1,6 @@
-import { executeGitCommand } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { executeGitCommand } from '../git/actions';
 import { command } from '../system/command';
 import { Command } from './base';
 

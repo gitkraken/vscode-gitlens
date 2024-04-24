@@ -35,6 +35,7 @@ export class CreatePullRequestOnRemoteCommand extends Command {
 		const providerId = compareRemote.provider.id;
 		const remotes = (await repo.getRemotes({
 			filter: r => r.provider?.id === providerId,
+			sort: true,
 		})) as GitRemote<RemoteProvider>[];
 
 		const resource: RemoteResource = {

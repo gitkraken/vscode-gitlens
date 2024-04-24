@@ -1,22 +1,21 @@
-import type { CancellationToken, ConfigurationChangeEvent, Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { WorktreesViewConfig } from '../configuration';
-import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
-import { Commands } from '../constants';
+import type { ViewFilesLayout, WorktreesViewConfig } from '../config';
+import type { Colors } from '../constants';
+import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
-import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
-import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
-import { pluralize } from '../system/string';
-import { RepositoryNode } from './nodes/repositoryNode';
-import type { ViewNode } from './nodes/viewNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
+import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
@@ -44,12 +43,19 @@ export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView,
 export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesView, WorktreesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		const access = await this.view.container.git.access(PlusFeatures.Worktrees);
-		if (!access.allowed) return [];
+		if (access.allowed === false) return [];
 
 		if (this.children == null) {
-			const repositories = this.view.container.git.openRepositories;
+			let repositories = this.view.container.git.openRepositories;
+			if (configuration.get('views.collapseWorktreesWhenPossible')) {
+				const grouped = await groupRepositories(repositories);
+				repositories = [...grouped.keys()];
+			}
+
 			if (repositories.length === 0) {
-				this.view.message = 'No worktrees could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading worktrees...'
+					: 'No worktrees could be found.';
 
 				return [];
 			}
@@ -92,79 +98,57 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 	}
 }
 
-export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConfig> {
+export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, WorktreesViewConfig> {
 	protected readonly configKey = 'worktrees';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.worktrees', 'Worktrees', 'workspaceView');
+		super(container, 'worktrees', 'Worktrees', 'worktreesView');
 
 		this.disposables.push(
 			window.registerFileDecorationProvider({
 				provideFileDecoration: (uri, _token) => {
-					if (
-						uri.scheme !== 'gitlens-view' ||
-						uri.authority !== 'worktree' ||
-						!uri.path.includes('/changes')
-					) {
-						return undefined;
-					}
+					if (uri.scheme !== 'gitlens-view' || uri.authority !== 'worktree') return undefined;
 
-					return {
-						badge: '●',
-						color: new ThemeColor('gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColoSr'),
-						tooltip: 'Has Uncommitted Changes',
-					};
+					const [, status] = uri.path.split('/');
+					switch (status) {
+						case 'changes':
+							return {
+								badge: '●',
+								color: new ThemeColor(
+									'gitlens.decorations.worktreeHasUncommittedChangesForegroundColor' as Colors,
+								),
+								tooltip: 'Has Uncommitted Changes',
+							};
+
+						case 'missing':
+							return {
+								badge: GlyphChars.Warning,
+								color: new ThemeColor(
+									'gitlens.decorations.worktreeMissingForegroundColor' satisfies Colors,
+								),
+								tooltip: '',
+							};
+
+						default:
+							return undefined;
+					}
 				},
 			}),
 		);
+		this.description = 'PRO';
 	}
 
 	override get canReveal(): boolean {
 		return this.config.reveal || !configuration.get('views.repositories.showWorktrees');
 	}
 
+	override get canSelectMany(): boolean {
+		return true;
+	}
+
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 		return super.show(options);
-	}
-
-	private _visibleDisposable: Disposable | undefined;
-	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
-		if (e.visible) {
-			void this.updateDescription();
-			this._visibleDisposable?.dispose();
-			this._visibleDisposable = this.container.subscription.onDidChange(() => void this.updateDescription());
-		} else {
-			this._visibleDisposable?.dispose();
-			this._visibleDisposable = undefined;
-		}
-
-		super.onVisibilityChanged(e);
-	}
-
-	private async updateDescription() {
-		const subscription = await this.container.subscription.getSubscription();
-
-		switch (subscription.state) {
-			case SubscriptionState.Free:
-			case SubscriptionState.FreePreviewExpired:
-			case SubscriptionState.VerificationRequired:
-				this.description = '✨ GitLens+ feature';
-				break;
-			case SubscriptionState.FreeInPreview: {
-				const days = getSubscriptionTimeRemaining(subscription, 'days')!;
-				this.description = `✨⏳ ${pluralize('more day', days)} to try worktrees on public and private repos`;
-				break;
-			}
-			case SubscriptionState.FreePlusInTrial: {
-				const days = getSubscriptionTimeRemaining(subscription, 'days')!;
-				this.description = `✨⏳ ${pluralize('more day', days)} to try worktrees on private repos`;
-				break;
-			}
-			case SubscriptionState.FreePlusTrialExpired:
-			case SubscriptionState.Paid:
-				this.description = undefined;
-		}
 	}
 
 	protected getRoot() {
@@ -183,24 +167,24 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
-					// this.container.git.resetCaches('worktrees');
+					this.container.git.resetCaches('worktrees');
 					return this.refresh(true);
 				},
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
-				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				() => this.setFilesLayout('auto'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
-				() => this.setFilesLayout(ViewFilesLayout.List),
+				() => this.setFilesLayout('list'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
-				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				() => this.setFilesLayout('tree'),
 				this,
 			),
 
@@ -239,7 +223,9 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'defaultTimeFormat')
+			!configuration.changed(e, 'defaultTimeFormat') &&
+			!configuration.changed(e, 'sortRepositoriesBy') &&
+			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
 			// !configuration.changed(e, 'sortWorktreesBy')
 		) {
 			return false;
@@ -249,15 +235,16 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 	}
 
 	findWorktree(worktree: GitWorktree, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(worktree.repoPath);
+		const { repoPath, uri } = worktree;
+		const url = uri.toString();
 
-		return this.findNode(WorktreeNode.getId(worktree.repoPath, worktree.uri), {
+		return this.findNode(n => n instanceof WorktreeNode && worktree.uri.toString() === url, {
 			maxDepth: 2,
 			canTraverse: n => {
 				if (n instanceof WorktreesViewNode) return true;
 
 				if (n instanceof WorktreesRepositoryNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
 				return false;
@@ -271,7 +258,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof WorktreesViewNode || n instanceof RepositoryFolderNode,
 		});
@@ -320,7 +307,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 	private setShowBranchComparison(enabled: boolean) {
 		return configuration.updateEffective(
 			`views.${this.configKey}.showBranchComparison` as const,
-			enabled ? ViewShowBranchComparison.Branch : false,
+			enabled ? 'branch' : false,
 		);
 	}
 

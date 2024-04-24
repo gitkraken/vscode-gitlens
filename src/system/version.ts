@@ -49,7 +49,10 @@ export function fromString(version: string): Version {
 	return from(major, minor, patch, pre);
 }
 
-export function satisfies(v: string | Version | null | undefined, requirement: string): boolean {
+export function satisfies(
+	v: string | Version | null | undefined,
+	requirement: `${'=' | '>' | '>=' | '<' | '<='} ${string}`,
+): boolean {
 	if (v == null) return false;
 
 	const [op, version] = requirement.split(' ');

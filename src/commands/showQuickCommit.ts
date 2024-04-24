@@ -1,10 +1,11 @@
 import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { executeGitCommand } from '../git/actions';
+import { reveal } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
-import { Logger } from '../logger';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,
@@ -12,9 +13,9 @@ import {
 	showLineUncommittedWarningMessage,
 } from '../messages';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
-import { executeGitCommand, GitActions } from './gitCommands.actions';
 
 export interface ShowQuickCommitCommandArgs {
 	repoPath?: string;
@@ -67,7 +68,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				if (uri == null) return;
 
 				gitUri = await GitUri.fromUri(uri);
-				repoPath = gitUri.repoPath;
+				repoPath = gitUri.repoPath!;
 			}
 		} else {
 			if (args.sha == null) {
@@ -127,7 +128,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				}
 
 				if (args.repoLog == null) {
-					args.commit = await this.container.git.getCommit(repoPath!, args.sha);
+					args.commit = await this.container.git.getCommit(repoPath, args.sha);
 				}
 			}
 
@@ -138,7 +139,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			}
 
 			if (args.revealInView) {
-				void (await GitActions.Commit.reveal(args.commit, {
+				void (await reveal(args.commit, {
 					select: true,
 					focus: true,
 					expand: true,

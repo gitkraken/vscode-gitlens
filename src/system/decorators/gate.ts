@@ -29,7 +29,7 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 			if (promise === undefined) {
 				let result;
 				try {
-					result = fn!.apply(this, args);
+					result = fn.apply(this, args);
 					if (result == null || !isPromise(result)) {
 						return result;
 					}
@@ -39,7 +39,7 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 							this[prop] = undefined;
 							return r;
 						})
-						.catch(ex => {
+						.catch((ex: unknown) => {
 							this[prop] = undefined;
 							throw ex;
 						});

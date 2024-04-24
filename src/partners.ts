@@ -1,8 +1,8 @@
 import type { CancellationTokenSource, Extension, ExtensionContext, Uri } from 'vscode';
 import { extensions } from 'vscode';
 import type { ActionContext, HoverCommandsActionContext } from './api/gitlens';
-import type { InviteToLiveShareCommandArgs } from './commands';
-import { Commands, CoreCommands } from './constants';
+import type { InviteToLiveShareCommandArgs } from './commands/inviteToLiveShare';
+import { Commands } from './constants';
 import { Container } from './container';
 import { executeCommand, executeCoreCommand } from './system/command';
 import type { ContactPresence } from './vsls/vsls';
@@ -36,7 +36,7 @@ export async function installExtension<T>(
 			});
 		});
 
-		await executeCoreCommand(CoreCommands.InstallExtension, vsix ?? extensionId);
+		await executeCoreCommand('workbench.extensions.installExtension', vsix ?? extensionId);
 		// Wait for extension activation until timeout expires
 		timer = setTimeout(() => {
 			timer = undefined;

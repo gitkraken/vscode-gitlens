@@ -1,15 +1,15 @@
 import type { CancellationToken, ConfigurationChangeEvent, Position, TextDocument, TextEditor, Uri } from 'vscode';
 import { Disposable, Hover, languages, Range, window } from 'vscode';
-import { UriComparer } from '../comparers';
-import { configuration, FileAnnotationType } from '../configuration';
 import type { Container } from '../container';
-import { Logger } from '../logger';
+import { UriComparer } from '../system/comparers';
+import { configuration } from '../system/configuration';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
-import type { LinesChangeEvent } from '../trackers/gitLineTracker';
-import { Hovers } from './hovers';
+import { Logger } from '../system/logger';
+import type { LinesChangeEvent } from '../trackers/lineTracker';
+import { changesMessage, detailsMessage } from './hovers';
 
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 export class LineHoverController implements Disposable {
 	private readonly _disposable: Disposable;
@@ -85,7 +85,7 @@ export class LineHoverController implements Disposable {
 	async provideDetailsHover(
 		document: TextDocument,
 		position: Position,
-		_token: CancellationToken,
+		token: CancellationToken,
 	): Promise<Hover | undefined> {
 		if (!this.container.lineTracker.includes(position.line)) return undefined;
 
@@ -98,7 +98,7 @@ export class LineHoverController implements Disposable {
 		// Avoid double annotations if we are showing the whole-file hover blame annotations
 		if (cfg.annotations.details) {
 			const fileAnnotations = await this.container.fileAnnotations.getAnnotationType(window.activeTextEditor);
-			if (fileAnnotations === FileAnnotationType.Blame) return undefined;
+			if (fileAnnotations === 'blame') return undefined;
 		}
 
 		const wholeLine = cfg.currentLine.over === 'line';
@@ -120,22 +120,18 @@ export class LineHoverController implements Disposable {
 		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 		editorLine = commitLine.originalLine - 1;
 
-		const trackedDocument = await this.container.tracker.get(document);
-		if (trackedDocument == null) return undefined;
+		const trackedDocument = await this.container.documentTracker.get(document);
+		if (trackedDocument == null || token.isCancellationRequested) return undefined;
 
-		const message = await Hovers.detailsMessage(
-			commit,
-			trackedDocument.uri,
-			editorLine,
-			cfg.detailsMarkdownFormat,
-			configuration.get('defaultDateFormat'),
-			{
+		const message =
+			(await detailsMessage(this.container, commit, trackedDocument.uri, editorLine, {
 				autolinks: cfg.autolinks.enabled,
-				pullRequests: {
-					enabled: cfg.pullRequests.enabled,
-				},
-			},
-		);
+				cancellation: token,
+				dateFormat: configuration.get('defaultDateFormat'),
+				format: cfg.detailsMarkdownFormat,
+				pullRequests: cfg.pullRequests.enabled,
+				timeout: 250,
+			})) ?? 'Cancelled';
 		return new Hover(message, range);
 	}
 
@@ -162,7 +158,7 @@ export class LineHoverController implements Disposable {
 		// Avoid double annotations if we are showing the whole-file hover blame annotations
 		if (cfg.annotations.changes) {
 			const fileAnnotations = await this.container.fileAnnotations.getAnnotationType(window.activeTextEditor);
-			if (fileAnnotations === FileAnnotationType.Blame) return undefined;
+			if (fileAnnotations === 'blame') return undefined;
 		}
 
 		const wholeLine = cfg.currentLine.over === 'line';
@@ -179,10 +175,11 @@ export class LineHoverController implements Disposable {
 		);
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
-		const trackedDocument = await this.container.tracker.get(document);
+		const trackedDocument = await this.container.documentTracker.get(document);
 		if (trackedDocument == null) return undefined;
 
-		const message = await Hovers.changesMessage(
+		const message = await changesMessage(
+			this.container,
 			commit,
 			trackedDocument.uri,
 			position.line,

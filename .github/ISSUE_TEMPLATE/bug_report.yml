@@ -1,6 +1,6 @@
 name: Bug report
 description: Create a report to help GitLens improve
-labels: ['potential-bug', 'triage']
+labels: ['bug', 'triage']
 body:
     - type: textarea
       attributes:

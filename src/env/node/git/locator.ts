@@ -1,9 +1,8 @@
 import { join as joinPaths } from 'path';
 import * as process from 'process';
 import { GlyphChars } from '../../../constants';
-import { LogLevel } from '../../../logger';
 import { any } from '../../../system/promise';
-import { Stopwatch } from '../../../system/stopwatch';
+import { maybeStopWatch } from '../../../system/stopwatch';
 import { findExecutable, run } from './shell';
 
 export class UnableToFindGitError extends Error {
@@ -28,13 +27,13 @@ export interface GitLocation {
 }
 
 async function findSpecificGit(path: string): Promise<GitLocation> {
-	const sw = new Stopwatch(`findSpecificGit(${path})`, { logLevel: LogLevel.Debug });
+	const sw = maybeStopWatch(`findSpecificGit(${path})`, { logLevel: 'debug' });
 
 	let version;
 	try {
 		version = await run<string>(path, ['--version'], 'utf8');
 	} catch (ex) {
-		sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
+		sw?.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
 
 		if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
 		throw ex;
@@ -48,7 +47,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 		try {
 			version = await run<string>(foundPath, ['--version'], 'utf8');
 		} catch (ex) {
-			sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
+			sw?.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
 
 			if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
 			throw ex;
@@ -62,7 +61,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 		.replace(/^git version /, '')
 		.trim();
 
-	sw.stop({ message: ` ${GlyphChars.Dot} Found ${parsed} in ${path}; ${version}` });
+	sw?.stop({ message: ` ${GlyphChars.Dot} Found ${parsed} in ${path}; ${version}` });
 
 	return {
 		path: path,

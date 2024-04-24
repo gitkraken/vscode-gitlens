@@ -1,19 +1,22 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { Uri } from 'vscode';
-import { FileAnnotationType } from '../configuration';
+import type { FileAnnotationType } from '../config';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
+import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models/reference';
-import { Logger } from '../logger';
+import { shortenRevision } from '../git/models/reference';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
-import { CommitPicker } from '../quickpicks/commitPicker';
+import { showCommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
+import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
+import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
+import { splitPath } from '../system/path';
 import { pad } from '../system/string';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { GitActions } from './gitCommands.actions';
 import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
 export interface OpenFileAtRevisionCommandArgs {
@@ -55,7 +58,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 	protected override async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs) {
 		if (context.command === Commands.OpenBlamePriorToChange) {
-			args = { ...args, annotationType: FileAnnotationType.Blame };
+			args = { ...args, annotationType: 'blame' };
 			if (args.revisionUri == null && context.editor != null) {
 				const editorLine = context.editor.selection.active.line;
 				if (editorLine >= 0) {
@@ -119,45 +122,101 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 							: undefined),
 				);
 
-				const title = `Open ${
-					args.annotationType === FileAnnotationType.Blame ? 'Blame' : 'File'
-				} at Revision${pad(GlyphChars.Dot, 2, 2)}`;
-				const pick = await CommitPicker.show(
+				const title = `Open ${args.annotationType === 'blame' ? 'Blame' : 'File'} at Revision${pad(
+					GlyphChars.Dot,
+					2,
+					2,
+				)}`;
+				const titleWithContext = `${title}${gitUri.getFormattedFileName({
+					suffix: gitUri.sha ? `:${shortenRevision(gitUri.sha)}` : undefined,
+					truncateTo: quickPickTitleMaxChars - title.length,
+				})}`;
+				const pick = await showCommitPicker(
 					log,
-					`${title}${gitUri.getFormattedFileName({
-						suffix: gitUri.sha ? `:${GitRevision.shorten(gitUri.sha)}` : undefined,
-						truncateTo: quickPickTitleMaxChars - title.length,
-					})}`,
-					`Choose a commit to ${
-						args.annotationType === FileAnnotationType.Blame ? 'blame' : 'open'
-					} the file revision from`,
+					titleWithContext,
+					`Choose a commit to ${args.annotationType === 'blame' ? 'blame' : 'open'} the file revision from`,
 					{
+						empty: !gitUri.sha
+							? {
+									getState: async () => {
+										const items: (CommandQuickPickItem | DirectiveQuickPickItem)[] = [];
+
+										const status = await this.container.git.getStatusForRepo(gitUri.repoPath);
+										if (status != null) {
+											for (const f of status.files) {
+												if (f.workingTreeStatus === '?' || f.workingTreeStatus === '!') {
+													continue;
+												}
+
+												const [label, description] = splitPath(f.path, undefined, true);
+
+												items.push(
+													new CommandQuickPickItem<[Uri]>(
+														{
+															label: label,
+															description: description,
+														},
+														undefined,
+														Commands.OpenFileAtRevision,
+														[this.container.git.getAbsoluteUri(f.path, gitUri.repoPath)],
+													),
+												);
+											}
+										}
+
+										let newPlaceholder;
+										let newTitle;
+
+										if (items.length) {
+											newPlaceholder = `${gitUri.getFormattedFileName()} is likely untracked, choose a different file?`;
+											newTitle = `${titleWithContext} (Untracked?)`;
+										} else {
+											newPlaceholder = 'No commits found';
+										}
+
+										items.push(
+											createDirectiveQuickPickItem(Directive.Cancel, undefined, {
+												label: items.length ? 'Cancel' : 'OK',
+											}),
+										);
+
+										return {
+											items: items,
+											placeholder: newPlaceholder,
+											title: newTitle,
+										};
+									},
+							  }
+							: undefined,
 						picked: gitUri.sha,
-						keys: ['right', 'alt+right', 'ctrl+right'],
-						onDidPressKey: async (key, item) => {
-							await GitActions.Commit.openFileAtRevision(item.item.file!, item.item, {
-								annotationType: args!.annotationType,
-								line: args!.line,
-								preserveFocus: true,
-								preview: false,
-							});
+						keyboard: {
+							keys: ['right', 'alt+right', 'ctrl+right'],
+							onDidPressKey: async (key, item) => {
+								await openFileAtRevision(item.item.file!, item.item, {
+									annotationType: args.annotationType,
+									line: args.line,
+									preserveFocus: true,
+									preview: true,
+								});
+							},
 						},
 						showOtherReferences: [
-							CommandQuickPickItem.fromCommand(
+							CommandQuickPickItem.fromCommand<[Uri]>(
 								'Choose a Branch or Tag...',
 								Commands.OpenFileAtRevisionFrom,
+								[uri],
 							),
-							CommandQuickPickItem.fromCommand<OpenFileAtRevisionFromCommandArgs>(
+							CommandQuickPickItem.fromCommand<[Uri, OpenFileAtRevisionFromCommandArgs]>(
 								'Choose a Stash...',
 								Commands.OpenFileAtRevisionFrom,
-								{ stash: true },
+								[uri, { stash: true }],
 							),
 						],
 					},
 				);
 				if (pick?.file == null) return;
 
-				await GitActions.Commit.openFileAtRevision(pick.file, pick, {
+				await openFileAtRevision(pick.file, pick, {
 					annotationType: args.annotationType,
 					line: args.line,
 					...args.showOptions,
@@ -166,7 +225,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 				return;
 			}
 
-			await GitActions.Commit.openFileAtRevision(args.revisionUri, {
+			await openFileAtRevision(args.revisionUri, {
 				annotationType: args.annotationType,
 				line: args.line,
 				...args.showOptions,

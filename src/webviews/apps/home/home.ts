@@ -1,184 +1,180 @@
 /*global*/
 import './home.scss';
-import { provideVSCodeDesignSystem, vsCodeButton } from '@vscode/webview-ui-toolkit';
 import type { Disposable } from 'vscode';
-import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../subscription';
 import type { State } from '../../home/protocol';
-import { CompletedActions, DidChangeSubscriptionNotificationType } from '../../home/protocol';
+import {
+	CollapseSectionCommand,
+	DidChangeOrgSettings,
+	DidChangeRepositories,
+	DidChangeSubscription,
+} from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
-import { ExecuteCommandType, onIpc } from '../../protocol';
+import { ExecuteCommand } from '../../protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
+import '../shared/components/button';
+import '../shared/components/code-icon';
+import '../shared/components/feature-badge';
 
 export class HomeApp extends App<State> {
-	private $slots!: HTMLElement[];
-	private $footer!: HTMLElement;
-
 	constructor() {
 		super('HomeApp');
 	}
 
+	private get blockRepoFeatures() {
+		const {
+			repositories: { openCount, hasUnsafe, trusted },
+		} = this.state;
+		return !trusted || openCount === 0 || hasUnsafe;
+	}
+
 	protected override onInitialize() {
-		provideVSCodeDesignSystem().register(vsCodeButton());
-
-		this.$slots = [
-			document.getElementById('slot1') as HTMLDivElement,
-			document.getElementById('slot2') as HTMLDivElement,
-			document.getElementById('slot3') as HTMLDivElement,
-		];
-		this.$footer = document.getElementById('slot-footer') as HTMLDivElement;
-
+		this.state = this.getState() ?? this.state;
 		this.updateState();
 	}
 
 	protected override onBind(): Disposable[] {
 		const disposables = super.onBind?.() ?? [];
 
-		disposables.push(DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onActionClicked(e, target)));
+		disposables.push(
+			DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onDataActionClicked(e, target)),
+			DOM.on('[data-requires="repo"]', 'click', (e, target: HTMLElement) => this.onRepoFeatureClicked(e, target)),
+			DOM.on('[data-section-toggle]', 'click', (e, target: HTMLElement) =>
+				this.onSectionToggleClicked(e, target),
+			),
+		);
 
 		return disposables;
 	}
 
-	protected override onMessageReceived(e: MessageEvent) {
-		const msg = e.data as IpcMessage;
+	protected override onMessageReceived(msg: IpcMessage) {
+		switch (true) {
+			case DidChangeRepositories.is(msg):
+				this.state.repositories = msg.params;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.updateNoRepo();
+				break;
 
-		switch (msg.method) {
-			case DidChangeSubscriptionNotificationType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+			case DidChangeSubscription.is(msg):
+				this.state.promoStates = msg.params.promoStates;
+				this.setState(this.state);
+				this.updatePromos();
+				break;
 
-				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
-					this.state = params;
-					this.updateState();
-				});
+			case DidChangeOrgSettings.is(msg):
+				this.state.orgSettings = msg.params.orgSettings;
+				this.setState(this.state);
+				this.updateOrgSettings();
 				break;
 
 			default:
-				super.onMessageReceived?.(e);
+				super.onMessageReceived?.(msg);
 				break;
 		}
 	}
 
-	private onActionClicked(e: MouseEvent, target: HTMLElement) {
+	private onRepoFeatureClicked(e: MouseEvent, _target: HTMLElement) {
+		if (this.blockRepoFeatures) {
+			e.preventDefault();
+			e.stopPropagation();
+			return false;
+		}
+
+		return true;
+	}
+
+	private onDataActionClicked(_e: MouseEvent, target: HTMLElement) {
 		const action = target.dataset.action;
+		this.onActionClickedCore(action);
+	}
+
+	private onActionClickedCore(action?: string) {
 		if (action?.startsWith('command:')) {
-			this.sendCommand(ExecuteCommandType, { command: action.slice(8) });
+			this.sendCommand(ExecuteCommand, { command: action.slice(8) });
 		}
 	}
 
+	private onSectionToggleClicked(_e: MouseEvent, _target: HTMLElement) {
+		// const section = target.dataset.sectionToggle;
+		// if (section === 'walkthrough') {
+		this.state.walkthroughCollapsed = !this.state.walkthroughCollapsed;
+		this.setState(this.state);
+		this.updateCollapsedSections(this.state.walkthroughCollapsed);
+		this.sendCommand(CollapseSectionCommand, {
+			section: 'walkthrough',
+			collapsed: this.state.walkthroughCollapsed,
+		});
+		// }
+	}
+
+	private updateNoRepo() {
+		const {
+			repositories: { openCount, hasUnsafe, trusted },
+		} = this.state;
+
+		const header = document.getElementById('header')!;
+		if (!trusted) {
+			header.hidden = false;
+			setElementVisibility('untrusted-alert', true);
+			setElementVisibility('no-repo-alert', false);
+			setElementVisibility('unsafe-repo-alert', false);
+
+			return;
+		}
+
+		setElementVisibility('untrusted-alert', false);
+
+		const noRepos = openCount === 0;
+		setElementVisibility('no-repo-alert', noRepos && !hasUnsafe);
+		setElementVisibility('unsafe-repo-alert', hasUnsafe);
+		header.hidden = !noRepos && !hasUnsafe;
+	}
+
+	private updatePromos() {
+		const {
+			promoStates: { hs2023, pro50 },
+		} = this.state;
+
+		setElementVisibility('promo-hs2023', hs2023);
+		setElementVisibility('promo-pro50', pro50);
+	}
+
+	private updateOrgSettings() {
+		const {
+			orgSettings: { drafts },
+		} = this.state;
+
+		setElementVisibility('org-settings-drafts', drafts);
+	}
+
+	private updateCollapsedSections(toggle = this.state.walkthroughCollapsed) {
+		document.getElementById('section-walkthrough')!.classList.toggle('is-collapsed', toggle);
+	}
+
 	private updateState() {
-		const { subscription, completedActions } = this.state;
+		this.updateNoRepo();
+		this.updatePromos();
+		this.updateOrgSettings();
+		this.updateCollapsedSections();
+	}
+}
 
-		const viewsVisible = !completedActions.includes(CompletedActions.OpenedSCM);
-		const welcomeVisible = !completedActions.includes(CompletedActions.DismissedWelcome);
+function setElementVisibility(elementOrId: string | HTMLElement | null | undefined, visible: boolean) {
+	let el;
+	if (typeof elementOrId === 'string') {
+		el = document.getElementById(elementOrId);
+	} else {
+		el = elementOrId;
+	}
+	if (el == null) return;
 
-		let index = 0;
-
-		if (subscription.account?.verified === false) {
-			DOM.insertTemplate('state:verify-email', this.$slots[index++]);
-			DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slots[index++]);
-		} else {
-			switch (subscription.state) {
-				case SubscriptionState.Free:
-					if (welcomeVisible) {
-						DOM.insertTemplate('welcome', this.$slots[index++]);
-						DOM.resetSlot(this.$footer);
-					} else {
-						DOM.insertTemplate('links', this.$footer);
-					}
-
-					if (viewsVisible) {
-						DOM.insertTemplate('views', this.$slots[index++]);
-					}
-
-					DOM.insertTemplate('state:free', this.$slots[index++]);
-
-					break;
-				case SubscriptionState.FreeInPreview: {
-					if (viewsVisible) {
-						DOM.insertTemplate('views', this.$slots[index++]);
-					}
-
-					const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
-					DOM.insertTemplate('state:free-preview', this.$slots[index++], {
-						bindings: {
-							previewDays: `${
-								remaining < 1
-									? 'less than one day'
-									: remaining === 1
-									? `${remaining} day`
-									: `${remaining} days`
-							}`,
-						},
-					});
-
-					break;
-				}
-				case SubscriptionState.FreePreviewExpired:
-					if (viewsVisible) {
-						DOM.insertTemplate('views', this.$slots[index++]);
-					}
-
-					DOM.insertTemplate('state:free-preview-expired', this.$slots[index++]);
-
-					break;
-				case SubscriptionState.FreePlusInTrial: {
-					if (viewsVisible) {
-						DOM.insertTemplate('views', this.$slots[index++]);
-					}
-
-					const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
-					DOM.insertTemplate('state:plus-trial', this.$slots[index++], {
-						bindings: {
-							plan: subscription.plan.effective.name,
-							trialDays: `${
-								remaining < 1
-									? 'less than one day'
-									: remaining === 1
-									? `${remaining} day`
-									: `${remaining} days`
-							}`,
-						},
-					});
-
-					break;
-				}
-				case SubscriptionState.FreePlusTrialExpired:
-					if (viewsVisible) {
-						DOM.insertTemplate('views', this.$slots[index++]);
-					}
-
-					DOM.insertTemplate('state:plus-trial-expired', this.$slots[index++]);
-
-					break;
-				case SubscriptionState.Paid:
-					if (viewsVisible) {
-						DOM.insertTemplate('views', this.$slots[index++]);
-					}
-
-					DOM.insertTemplate('state:paid', this.$slots[index++], {
-						bindings: { plan: subscription.plan.effective.name },
-					});
-
-					break;
-			}
-
-			if (subscription.state !== SubscriptionState.Free) {
-				if (welcomeVisible) {
-					DOM.insertTemplate('welcome', this.$slots[index++]);
-					DOM.resetSlot(this.$footer);
-				} else {
-					DOM.insertTemplate('links', this.$footer);
-				}
-			}
-		}
-
-		for (let i = 1; i < index; i++) {
-			this.$slots[i].classList.add('divider');
-		}
-
-		for (let i = index; i < this.$slots.length; i++) {
-			DOM.resetSlot(this.$slots[i]);
-		}
+	if (visible) {
+		el.removeAttribute('aria-hidden');
+		el.removeAttribute('hidden');
+	} else {
+		el.setAttribute('aria-hidden', '');
+		el?.setAttribute('hidden', '');
 	}
 }
 

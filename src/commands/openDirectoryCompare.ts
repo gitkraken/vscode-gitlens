@@ -1,12 +1,12 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GitActions } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { Logger } from '../logger';
+import { openDirectoryCompare } from '../git/actions/commit';
 import { showGenericErrorMessage } from '../messages';
-import { ReferencePicker } from '../quickpicks/referencePicker';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { showReferencePicker } from '../quickpicks/referencePicker';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import { CompareResultsNode } from '../views/nodes/compareResultsNode';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRef } from './base';
@@ -59,19 +59,17 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 		args = { ...args };
 
 		try {
-			const repoPath = (
-				await RepositoryPicker.getBestRepositoryOrShow(uri, editor, 'Directory Compare Working Tree With')
-			)?.path;
+			const repoPath = (await getBestRepositoryOrShowPicker(uri, editor, 'Directory Compare Working Tree With'))
+				?.path;
 			if (!repoPath) return;
 
 			if (!args.ref1) {
-				const pick = await ReferencePicker.show(
+				const pick = await showReferencePicker(
 					repoPath,
 					'Directory Compare Working Tree with',
 					'Choose a branch or tag to compare with',
 					{
-						allowEnteringRefs: true,
-						// checkmarks: false,
+						allowRevisions: true,
 					},
 				);
 				if (pick == null) return;
@@ -80,7 +78,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 				if (args.ref1 == null) return;
 			}
 
-			void GitActions.Commit.openDirectoryCompare(repoPath, args.ref1, args.ref2);
+			void openDirectoryCompare(repoPath, args.ref1, args.ref2);
 		} catch (ex) {
 			Logger.error(ex, 'OpenDirectoryCompareCommand');
 			void showGenericErrorMessage('Unable to open directory compare');

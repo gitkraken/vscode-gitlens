@@ -1,99 +1,100 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout } from '../../configuration';
+import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitFileWithCommit } from '../../git/models/file';
-import { GitRevision } from '../../git/models/reference';
-import { groupBy, makeHierarchical } from '../../system/array';
-import { filter, flatMap, map } from '../../system/iterable';
+import { createRevisionRange } from '../../git/models/reference';
+import { makeHierarchical } from '../../system/array';
+import { filter, flatMap, groupByMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
-import { BranchNode } from './branchNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { BranchTrackingStatus } from './branchTrackingStatusNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
-import { ContextValues, ViewNode } from './viewNode';
 
-export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
-	static key = ':status-branch:files';
-	static getId(repoPath: string, name: string, root: boolean, upstream: string, direction: string): string {
-		return `${BranchNode.getId(repoPath, name, root)}${this.key}(${upstream}|${direction})`;
-	}
-
-	readonly repoPath: string;
-
+export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-files', ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly status: Required<BranchTrackingStatus>,
 		public readonly direction: 'ahead' | 'behind',
-		// Specifies that the node is shown as a root
-		private readonly root: boolean = false,
 	) {
-		super(GitUri.fromRepoPath(status.repoPath), view, parent);
-		this.repoPath = status.repoPath;
+		super('tracking-status-files', GitUri.fromRepoPath(status.repoPath), view, parent);
+
+		this.updateContext({ branch: branch, branchStatus: status, branchStatusUpstreamType: direction });
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override get id(): string {
-		return BranchTrackingStatusFilesNode.getId(
-			this.status.repoPath,
-			this.status.ref,
-			this.root,
-			this.status.upstream,
-			this.direction,
-		);
+	get ref1(): string {
+		return this.branch.ref;
 	}
 
-	async getChildren(): Promise<ViewNode[]> {
+	get ref2(): string {
+		return this.status.upstream?.name;
+	}
+
+	get repoPath(): string {
+		return this.status.repoPath;
+	}
+
+	async getFilesComparison(): Promise<FilesComparison> {
+		const grouped = await this.getGroupedFiles();
+		return {
+			files: [...map(grouped, ([, files]) => files[files.length - 1])],
+			repoPath: this.repoPath,
+			ref1: this.ref1,
+			ref2: this.ref2,
+			title: this.direction === 'ahead' ? `Changes to push to ${this.ref2}` : `Changes to pull from ${this.ref2}`,
+		};
+	}
+
+	private async getGroupedFiles(): Promise<Map<string, GitFileWithCommit[]>> {
 		const log = await this.view.container.git.getLog(this.repoPath, {
 			limit: 0,
-			ref: GitRevision.createRange(
-				this.status.upstream,
-				this.branch.ref,
-				this.direction === 'behind' ? '...' : '..',
-			),
+			ref: createRevisionRange(this.ref2, this.ref1, this.direction === 'behind' ? '...' : '..'),
 		});
+		if (log == null) return new Map();
 
-		let files: GitFileWithCommit[];
+		await Promise.allSettled(
+			map(
+				filter(log.commits.values(), c => c.files == null),
+				c => c.ensureFullDetails(),
+			),
+		);
 
-		if (log != null) {
-			await Promise.allSettled(
-				map(
-					filter(log.commits.values(), c => c.files == null),
-					c => c.ensureFullDetails(),
-				),
-			);
-
-			files = [
-				...flatMap(
-					log.commits.values(),
-					c => c.files?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? [],
-				),
-			];
-		} else {
-			files = [];
-		}
+		const files = [
+			...flatMap(log.commits.values(), c => c.files?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? []),
+		];
 
 		files.sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime());
 
-		const groups = groupBy(files, s => s.path);
+		const groups = groupByMap(files, s => s.path);
+		return groups;
+	}
 
-		let children: FileNode[] = Object.values(groups).map(
-			files =>
-				new StatusFileNode(
-					this.view,
-					this,
-					this.repoPath,
-					files[files.length - 1],
-					files.map(s => s.commit),
-					this.direction,
-				),
-		);
+	async getChildren(): Promise<ViewNode[]> {
+		const files = await this.getGroupedFiles();
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
+		let children: FileNode[] = [
+			...map(
+				files.values(),
+				files =>
+					new StatusFileNode(
+						this.view,
+						this,
+						files[files.length - 1],
+						this.repoPath,
+						files.map(s => s.commit),
+						this.direction,
+					),
+			),
+		];
+
+		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
@@ -101,7 +102,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 				this.view.config.files.compact,
 			);
 
-			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy, false);
+			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined, false);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort((a, b) => a.priority - b.priority || sortCompare(a.label!, b.label!));
@@ -113,7 +114,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 	async getTreeItem(): Promise<TreeItem> {
 		const stats = await this.view.container.git.getChangedFilesCount(
 			this.repoPath,
-			`${this.status.upstream}${this.direction === 'behind' ? '..' : '...'}`,
+			this.direction === 'behind' ? `${this.ref1}...${this.ref2}` : `${this.ref2}...`,
 		);
 		const files = stats?.changedFiles ?? 0;
 

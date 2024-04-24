@@ -1,20 +1,24 @@
-'use strict';
 /*global*/
 import './timeline.scss';
-import { provideVSCodeDesignSystem, vsCodeButton, vsCodeDropdown, vsCodeOption } from '@vscode/webview-ui-toolkit';
-import type { State } from '../../../../plus/webviews/timeline/protocol';
+import { provideVSCodeDesignSystem, vsCodeDropdown, vsCodeOption } from '@vscode/webview-ui-toolkit';
+import type { Period, State } from '../../../../plus/webviews/timeline/protocol';
 import {
-	DidChangeNotificationType,
-	OpenDataPointCommandType,
-	UpdatePeriodCommandType,
+	DidChangeNotification,
+	OpenDataPointCommand,
+	UpdatePeriodCommand,
 } from '../../../../plus/webviews/timeline/protocol';
-import { SubscriptionPlanId, SubscriptionState } from '../../../../subscription';
 import type { IpcMessage } from '../../../protocol';
-import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
+import type { GlFeatureBadge } from '../../shared/components/feature-badge';
+import type { GlFeatureGate } from '../../shared/components/feature-gate';
 import { DOM } from '../../shared/dom';
 import type { DataPointClickEvent } from './chart';
 import { TimelineChart } from './chart';
+import '../../shared/components/code-icon';
+import '../../shared/components/progress';
+import '../../shared/components/button';
+import '../../shared/components/feature-gate';
+import '../../shared/components/feature-badge';
 
 export class TimelineApp extends App<State> {
 	private _chart: TimelineChart | undefined;
@@ -24,7 +28,7 @@ export class TimelineApp extends App<State> {
 	}
 
 	protected override onInitialize() {
-		provideVSCodeDesignSystem().register(vsCodeButton(), vsCodeDropdown(), vsCodeOption());
+		provideVSCodeDesignSystem().register(vsCodeDropdown(), vsCodeOption());
 
 		this.updateState();
 	}
@@ -33,43 +37,31 @@ export class TimelineApp extends App<State> {
 		const disposables = super.onBind?.() ?? [];
 
 		disposables.push(
-			DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onActionClicked(e, target)),
 			DOM.on(document, 'keydown', (e: KeyboardEvent) => this.onKeyDown(e)),
 			DOM.on(document.getElementById('periods')! as HTMLSelectElement, 'change', (e, target) =>
 				this.onPeriodChanged(e, target),
 			),
+			{ dispose: () => this._chart?.dispose() },
 		);
 
 		return disposables;
 	}
 
-	protected override onMessageReceived(e: MessageEvent) {
-		const msg = e.data as IpcMessage;
-
-		switch (msg.method) {
-			case DidChangeNotificationType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
-
-				onIpc(DidChangeNotificationType, msg, params => {
-					this.state = params.state;
-					this.updateState();
-				});
+	protected override onMessageReceived(msg: IpcMessage) {
+		switch (true) {
+			case DidChangeNotification.is(msg):
+				this.state = msg.params.state;
+				this.setState(this.state);
+				this.updateState();
 				break;
 
 			default:
-				super.onMessageReceived?.(e);
-		}
-	}
-
-	private onActionClicked(e: MouseEvent, target: HTMLElement) {
-		const action = target.dataset.action;
-		if (action?.startsWith('command:')) {
-			this.sendCommand(ExecuteCommandType, { command: action.slice(8) });
+				super.onMessageReceived?.(msg);
 		}
 	}
 
 	private onChartDataPointClicked(e: DataPointClickEvent) {
-		this.sendCommand(OpenDataPointCommandType, e);
+		this.sendCommand(OpenDataPointCommand, e);
 	}
 
 	private onKeyDown(e: KeyboardEvent) {
@@ -78,92 +70,95 @@ export class TimelineApp extends App<State> {
 		}
 	}
 
-	private onPeriodChanged(e: Event, element: HTMLSelectElement) {
+	private onPeriodChanged(_e: Event, element: HTMLSelectElement) {
 		const value = element.options[element.selectedIndex].value;
 		assertPeriod(value);
 
-		this.log(`${this.appName}.onPeriodChanged: name=${element.name}, value=${value}`);
+		this.log(`onPeriodChanged(): name=${element.name}, value=${value}`);
 
-		this.sendCommand(UpdatePeriodCommandType, { period: value });
+		this.updateLoading(true);
+		this.sendCommand(UpdatePeriodCommand, { period: value });
 	}
 
-	private updateState(): void {
-		const $overlay = document.getElementById('overlay') as HTMLDivElement;
-		$overlay.classList.toggle('hidden', this.state.access.allowed);
-
-		const $slot = document.getElementById('overlay-slot') as HTMLDivElement;
-
-		if (!this.state.access.allowed) {
-			const { current: subscription, required } = this.state.access.subscription;
-
-			const requiresPublic = required === SubscriptionPlanId.FreePlus;
-			const options = { visible: { public: requiresPublic, private: !requiresPublic } };
-
-			if (subscription.account?.verified === false) {
-				DOM.insertTemplate('state:verify-email', $slot, options);
-				return;
-			}
-
-			switch (subscription.state) {
-				case SubscriptionState.Free:
-					DOM.insertTemplate('state:free', $slot, options);
-					break;
-				case SubscriptionState.FreePreviewExpired:
-					DOM.insertTemplate('state:free-preview-expired', $slot, options);
-					break;
-				case SubscriptionState.FreePlusTrialExpired:
-					DOM.insertTemplate('state:plus-trial-expired', $slot, options);
-					break;
-			}
-
-			if (this.state.dataset == null) return;
-		} else {
-			$slot.innerHTML = '';
+	private updateState() {
+		const $gate = document.getElementById('subscription-gate')! as GlFeatureGate;
+		if ($gate != null) {
+			$gate.state = this.state.access.subscription.current.state;
+			$gate.visible = this.state.access.allowed !== true && this.state.uri != null;
 		}
 
+		const $badge = document.getElementById('subscription-gate-badge')! as GlFeatureBadge;
+		$badge.subscription = this.state.access.subscription.current;
+		$badge.placement = this.placement === 'view' ? 'top-start' : 'top-end';
+
 		if (this._chart == null) {
-			this._chart = new TimelineChart('#chart');
+			this._chart = new TimelineChart('#chart', this.placement);
 			this._chart.onDidClickDataPoint(this.onChartDataPointClicked, this);
 		}
 
-		let { title } = this.state;
-
-		const empty = this.state.dataset == null || this.state.dataset.length === 0;
-		if (empty) {
-			title = '';
-		}
+		let { title, sha } = this.state;
 
 		let description = '';
-		const index = title.lastIndexOf('/');
-		if (index >= 0) {
-			const name = title.substring(index + 1);
-			description = title.substring(0, index);
-			title = name;
+		if (title != null) {
+			const index = title.lastIndexOf('/');
+			if (index >= 0) {
+				const name = title.substring(index + 1);
+				description = title.substring(0, index);
+				title = name;
+			}
+		} else if (this.placement === 'editor' && this.state.dataset == null && !this.state.access.allowed) {
+			title = 'index.ts';
+			description = 'src/app';
 		}
 
-		for (const [key, value] of Object.entries({ title: title, description: description })) {
+		function updateBoundData(key: string, value: string | undefined, options?: { html?: boolean }) {
 			const $el = document.querySelector(`[data-bind="${key}"]`);
 			if ($el != null) {
-				$el.textContent = String(value);
-			}
-		}
-
-		const $periods = document.getElementById('periods') as HTMLSelectElement;
-		if ($periods != null) {
-			const period = this.state?.period;
-			for (let i = 0, len = $periods.options.length; i < len; ++i) {
-				if ($periods.options[i].value === period) {
-					$periods.selectedIndex = i;
-					break;
+				if (options?.html) {
+					$el.innerHTML = value ?? '';
+				} else {
+					$el.textContent = value ?? '';
 				}
 			}
 		}
 
-		this._chart.updateChart(this.state);
+		updateBoundData('title', title);
+		updateBoundData('description', description);
+		updateBoundData(
+			'sha',
+			sha
+				? /*html*/ `<code-icon icon="git-commit" size="16"></code-icon><span class="sha">${sha}</span>`
+				: undefined,
+			{
+				html: true,
+			},
+		);
+
+		const $periods = document.getElementById('periods') as HTMLSelectElement;
+		if ($periods != null) {
+			const period = this.state?.period;
+
+			const $periodOptions = $periods.getElementsByTagName('vscode-option');
+			for (const $option of $periodOptions) {
+				if (period === $option.getAttribute('value')) {
+					$option.setAttribute('selected', '');
+				} else {
+					$option.removeAttribute('selected');
+				}
+			}
+		}
+
+		void this._chart.updateChart(this.state).finally(() => this.updateLoading(false));
+	}
+
+	private updateLoading(loading: boolean) {
+		document.getElementById('spinner')?.setAttribute('active', loading ? 'true' : 'false');
 	}
 }
 
-function assertPeriod(period: string): asserts period is `${number}|${'D' | 'M' | 'Y'}` {
+function assertPeriod(period: string): asserts period is Period {
+	if (period === 'all') return;
+
 	const [value, unit] = period.split('|');
 	if (isNaN(Number(value)) || (unit !== 'D' && unit !== 'M' && unit !== 'Y')) {
 		throw new Error(`Invalid period: ${period}`);

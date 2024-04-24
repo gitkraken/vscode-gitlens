@@ -1,7 +1,9 @@
 import type { Uri } from 'vscode';
+// eslint-disable-next-line no-restricted-imports
+import { CancellationError as _CancellationError } from 'vscode';
 import type { Response } from '@env/fetch';
-import type { RequiredSubscriptionPlans, Subscription } from './subscription';
-import { isSubscriptionPaidPlan } from './subscription';
+import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/account/subscription';
+import { isSubscriptionPaidPlan } from './plus/gk/account/subscription';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;
@@ -12,9 +14,9 @@ export class AccessDeniedError extends Error {
 		if (subscription.account?.verified === false) {
 			message = 'Email verification required';
 		} else if (required != null && isSubscriptionPaidPlan(required)) {
-			message = 'Paid subscription required';
+			message = 'Paid plan required';
 		} else {
-			message = 'Subscription required';
+			message = 'Plan required';
 		}
 
 		super(message);
@@ -85,8 +87,27 @@ export class AuthenticationError extends Error {
 	}
 }
 
+export class AuthenticationRequiredError extends Error {
+	constructor() {
+		super('Authentication required');
+
+		Error.captureStackTrace?.(this, AuthenticationRequiredError);
+	}
+}
+
+export class CancellationError extends _CancellationError {
+	constructor(public readonly original?: Error) {
+		super();
+
+		Error.captureStackTrace?.(this, CancellationError);
+	}
+}
+
 export class ExtensionNotFoundError extends Error {
-	constructor(public readonly extensionId: string, public readonly extensionName: string) {
+	constructor(
+		public readonly extensionId: string,
+		public readonly extensionName: string,
+	) {
 		super(
 			`Unable to find the ${extensionName} extension (${extensionId}). Please ensure it is installed and enabled.`,
 		);
@@ -158,7 +179,11 @@ export class ProviderFetchError extends Error {
 		return this.response.statusText;
 	}
 
-	constructor(provider: string, public readonly response: Response, errors?: { message: string }[]) {
+	constructor(
+		provider: string,
+		public readonly response: Response,
+		errors?: { message: string }[],
+	) {
 		super(
 			`${provider} request failed: ${!response.ok ? `(${response.status}) ${response.statusText}. ` : ''}${
 				errors?.length ? errors[0].message : ''
@@ -176,8 +201,8 @@ export class ProviderNotFoundError extends Error {
 				pathOrUri == null
 					? String(pathOrUri)
 					: typeof pathOrUri === 'string'
-					? pathOrUri
-					: pathOrUri.toString(true)
+					  ? pathOrUri
+					  : pathOrUri.toString(true)
 			}'`,
 		);
 

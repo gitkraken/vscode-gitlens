@@ -1,38 +1,61 @@
 import { Uri } from 'vscode';
+import { isContainer } from '../../container';
+import { isBranch } from '../../git/models/branch';
+import { isCommit } from '../../git/models/commit';
+import { isTag } from '../../git/models/tag';
+import { isViewNode } from '../../views/nodes/abstract/viewNode';
 
 function replacer(key: string, value: any): any {
-	if (key === '') return value;
+	if (key === '' || value == null || typeof value !== 'object') return value;
 
-	if (value == null) return value;
 	if (value instanceof Error) return String(value);
 	if (value instanceof Uri) {
-		if ('sha' in (value as any) && (value as any).sha) {
-			return `${(value as any).sha}:${value.toString()}`;
+		if ('sha' in value && typeof value.sha === 'string' && value.sha) {
+			return `${value.sha}:${value.toString()}`;
 		}
 		return value.toString();
 	}
+	if (isBranch(value) || isCommit(value) || isTag(value) || isViewNode(value)) {
+		return value.toString();
+	}
+	if (isContainer(value)) return '<container>';
 
 	return value;
 }
 
 export function defaultResolver(...args: any[]): string {
 	if (args.length === 0) return '';
-	if (args.length !== 1) {
-		return JSON.stringify(args, replacer);
-	}
+	if (args.length > 1) return JSON.stringify(args, replacer);
 
-	const arg0 = args[0];
-	if (arg0 == null) return '';
-	if (typeof arg0 === 'string') return arg0;
-	if (typeof arg0 === 'number' || typeof arg0 === 'boolean' || arg0 instanceof Error) return String(arg0);
-	if (arg0 instanceof Uri) {
-		if ('sha' in (arg0 as any) && (arg0 as any).sha) {
-			return `${(arg0 as any).sha}:${arg0.toString()}`;
-		}
-		return arg0.toString();
-	}
+	const [arg] = args;
+	if (arg == null) return '';
 
-	return JSON.stringify(arg0, replacer);
+	switch (typeof arg) {
+		case 'string':
+			return arg;
+
+		case 'number':
+		case 'boolean':
+		case 'undefined':
+		case 'symbol':
+		case 'bigint':
+			return String(arg);
+
+		default:
+			if (arg instanceof Error) return String(arg);
+			if (arg instanceof Uri) {
+				if ('sha' in arg && typeof arg.sha === 'string' && arg.sha) {
+					return `${arg.sha}:${arg.toString()}`;
+				}
+				return arg.toString();
+			}
+			if (isBranch(arg) || isCommit(arg) || isTag(arg) || isViewNode(arg)) {
+				return arg.toString();
+			}
+			if (isContainer(arg)) return '<container>';
+
+			return JSON.stringify(arg, replacer);
+	}
 }
 
 export type Resolver<T extends (...arg: any) => any> = (...args: Parameters<T>) => string;

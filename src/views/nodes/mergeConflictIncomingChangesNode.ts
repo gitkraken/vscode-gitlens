@@ -1,27 +1,43 @@
-import type { Command } from 'vscode';
+import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { DiffWithCommandArgs } from '../../commands';
-import { configuration } from '../../configuration';
-import { Commands, CoreCommands, GlyphChars } from '../../constants';
-import { CommitFormatter } from '../../git/formatters/commitFormatter';
+import type { DiffWithCommandArgs } from '../../commands/diffWith';
+import { Commands, GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
+import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
-import { GitReference } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference';
+import { createCommand, createCoreCommand } from '../../system/command';
+import { configuration } from '../../system/configuration';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './abstract/viewNode';
+import { getFileRevisionAsCommitTooltip } from './fileRevisionAsCommitNode';
 
-export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
+export class MergeConflictIncomingChangesNode extends ViewNode<
+	'conflict-incoming-changes',
+	ViewsWithCommits | FileHistoryView | LineHistoryView
+> {
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly status: GitMergeStatus | GitRebaseStatus,
 		private readonly file: GitFile,
 	) {
-		super(GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent);
+		super('conflict-incoming-changes', GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent);
+	}
+
+	private _commit: Promise<GitCommit | undefined> | undefined;
+	private async getCommit(): Promise<GitCommit | undefined> {
+		if (this._commit == null) {
+			const ref = this.status.type === 'rebase' ? this.status.steps.current.commit?.ref : this.status.HEAD.ref;
+			if (ref == null) return undefined;
+
+			this._commit = this.view.container.git.getCommit(this.status.repoPath, ref);
+		}
+		return this._commit;
 	}
 
 	getChildren(): ViewNode[] {
@@ -29,54 +45,22 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const commit = await this.view.container.git.getCommit(
-			this.status.repoPath,
-			this.status.type === 'rebase' ? this.status.steps.current.commit.ref : this.status.HEAD.ref,
-		);
+		const commit = await this.getCommit();
 
 		const item = new TreeItem('Incoming changes', TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.MergeConflictIncomingChanges;
-		item.description = `${GitReference.toString(this.status.incoming, { expand: false, icon: false })}${
+		item.description = `${getReferenceLabel(this.status.incoming, { expand: false, icon: false })}${
 			this.status.type === 'rebase'
-				? ` (${GitReference.toString(this.status.steps.current.commit, { expand: false, icon: false })})`
-				: ` (${GitReference.toString(this.status.HEAD, { expand: false, icon: false })})`
+				? ` (${getReferenceLabel(this.status.steps.current.commit, {
+						expand: false,
+						icon: false,
+				  })})`
+				: ` (${getReferenceLabel(this.status.HEAD, { expand: false, icon: false })})`
 		}`;
 		item.iconPath = this.view.config.avatars
 			? (await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
 			  new ThemeIcon('diff')
 			: new ThemeIcon('diff');
-
-		const markdown = new MarkdownString(
-			`Incoming changes to $(file)${GlyphChars.Space}${this.file.path}${
-				this.status.incoming != null
-					? ` from ${GitReference.toString(this.status.incoming)}${
-							commit != null
-								? `\n\n${await CommitFormatter.fromTemplateAsync(
-										`\${avatar}&nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\n\n\${link}\${' via 'pullRequest}`,
-										commit,
-										{
-											avatarSize: 16,
-											dateFormat: configuration.get('defaultDateFormat'),
-											markdown: true,
-											// messageAutolinks: true,
-											messageIndent: 4,
-										},
-								  )}`
-								: this.status.type === 'rebase'
-								? `\n\n${GitReference.toString(this.status.steps.current.commit, {
-										capitalize: true,
-										label: false,
-								  })}`
-								: `\n\n${GitReference.toString(this.status.HEAD, { capitalize: true, label: false })}`
-					  }`
-					: ''
-			}`,
-			true,
-		);
-		markdown.supportHtml = true;
-		markdown.isTrusted = true;
-
-		item.tooltip = markdown;
 		item.command = this.getCommand();
 
 		return item;
@@ -84,16 +68,14 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 
 	override getCommand(): Command | undefined {
 		if (this.status.mergeBase == null) {
-			return {
-				title: 'Open Revision',
-				command: CoreCommands.Open,
-				arguments: [
-					this.view.container.git.getRevisionUri(this.status.HEAD.ref, this.file.path, this.status.repoPath),
-				],
-			};
+			return createCoreCommand(
+				'vscode.open',
+				'Open Revision',
+				this.view.container.git.getRevisionUri(this.status.HEAD.ref, this.file.path, this.status.repoPath),
+			);
 		}
 
-		const commandArgs: DiffWithCommandArgs = {
+		return createCommand<[DiffWithCommandArgs]>(Commands.DiffWith, 'Open Changes', {
 			lhs: {
 				sha: this.status.mergeBase,
 				uri: GitUri.fromFile(this.file, this.status.repoPath, undefined, true),
@@ -104,7 +86,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 				uri: GitUri.fromFile(this.file, this.status.repoPath),
 				title: `${this.file.path} (${
 					this.status.incoming != null
-						? GitReference.toString(this.status.incoming, { expand: false, icon: false })
+						? getReferenceLabel(this.status.incoming, { expand: false, icon: false })
 						: 'incoming'
 				})`,
 			},
@@ -114,11 +96,53 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 				preserveFocus: true,
 				preview: true,
 			},
-		};
-		return {
-			title: 'Open Changes',
-			command: Commands.DiffWith,
-			arguments: [commandArgs],
-		};
+		});
+	}
+
+	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
+		if (item.tooltip == null) {
+			item.tooltip = await this.getTooltip(token);
+		}
+		return item;
+	}
+
+	private async getTooltip(cancellation: CancellationToken) {
+		const commit = await this.getCommit();
+		if (cancellation.isCancellationRequested) return undefined;
+
+		const markdown = new MarkdownString(
+			`Incoming changes from ${getReferenceLabel(this.status.incoming, { label: false })}\\\n$(file)${
+				GlyphChars.Space
+			}${this.file.path}`,
+			true,
+		);
+
+		if (commit == null) {
+			markdown.appendMarkdown(
+				this.status.type === 'rebase'
+					? `\n\n${getReferenceLabel(this.status.steps.current.commit, {
+							capitalize: true,
+							label: false,
+					  })}`
+					: `\n\n${getReferenceLabel(this.status.HEAD, {
+							capitalize: true,
+							label: false,
+					  })}`,
+			);
+			return markdown;
+		}
+
+		const tooltip = await getFileRevisionAsCommitTooltip(
+			this.view.container,
+			commit,
+			this.file,
+			this.view.config.formats.commits.tooltipWithStatus,
+			{ cancellation: cancellation },
+		);
+
+		markdown.appendMarkdown(`\n\n${tooltip}`);
+		markdown.isTrusted = true;
+
+		return markdown;
 	}
 }

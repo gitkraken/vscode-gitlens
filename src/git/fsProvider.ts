@@ -3,12 +3,12 @@ import { Disposable, EventEmitter, FileSystemError, FileType, workspace } from '
 import { isLinux } from '@env/platform';
 import { Schemes } from '../constants';
 import type { Container } from '../container';
-import { GitUri, isGitUri } from '../git/gitUri';
 import { debug } from '../system/decorators/log';
 import { map } from '../system/iterable';
 import { normalizePath, relative } from '../system/path';
 import { TernarySearchTree } from '../system/searchTree';
-import { GitRevision } from './models/reference';
+import { GitUri, isGitUri } from './gitUri';
+import { deletedOrMissing } from './models/constants';
 import type { GitTreeEntry } from './models/tree';
 
 const emptyArray = new Uint8Array(0);
@@ -70,7 +70,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	async readFile(uri: Uri): Promise<Uint8Array> {
 		const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
-		if (ref === GitRevision.deletedOrMissing) return emptyArray;
+		if (ref === deletedOrMissing) return emptyArray;
 
 		const data = await this.container.git.getRevisionContent(repoPath, path, ref);
 		return data != null ? data : emptyArray;
@@ -84,7 +84,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	async stat(uri: Uri): Promise<FileStat> {
 		const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
-		if (ref === GitRevision.deletedOrMissing) {
+		if (ref === deletedOrMissing) {
 			return {
 				type: FileType.File,
 				size: 0,
@@ -96,13 +96,13 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		let treeItem;
 
 		const searchTree = this._searchTreeMap.get(ref);
-		if (searchTree !== undefined) {
+		if (searchTree != null) {
 			// Add the fake root folder to the path
 			treeItem = (await searchTree).get(`/~/${path}`);
 		} else {
 			if (path == null || path.length === 0) {
 				const tree = await this.getTree(path, ref, repoPath);
-				if (tree === undefined) throw FileSystemError.FileNotFound(uri);
+				if (tree == null) throw FileSystemError.FileNotFound(uri);
 
 				return {
 					type: FileType.Directory,
@@ -115,9 +115,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 			treeItem = await this.container.git.getTreeEntryForRevision(repoPath, path, ref);
 		}
 
-		if (treeItem === undefined) {
-			throw FileSystemError.FileNotFound(uri);
-		}
+		if (treeItem == null) throw FileSystemError.FileNotFound(uri);
 
 		return {
 			type: typeToFileType(treeItem.type),
@@ -144,7 +142,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		const trees = await this.container.git.getTreeForRevision(repoPath, ref);
 
 		// Add a fake root folder so that searches will work
-		searchTree.set('~', { commitSha: '', path: '~', size: 0, type: 'tree' });
+		searchTree.set('~', { ref: '', oid: '', path: '~', size: 0, type: 'tree' });
 		for (const item of trees) {
 			searchTree.set(`~/${item.path}`, item);
 		}

@@ -17,6 +17,24 @@ export interface GitCommandResponse {
 
 export const GitCommandRequestType = new RequestType<GitCommandRequest, GitCommandResponse>('git');
 
+export interface GitLogStreamToCommandRequest {
+	repoPath: string;
+	sha: string;
+	limit: number;
+	options?: { configs?: readonly string[]; stdin?: string };
+	args: string[];
+}
+
+export interface GitLogStreamToCommandResponse {
+	data: string[];
+	count: number;
+}
+
+export const GitLogStreamToCommandRequestType = new RequestType<
+	GitLogStreamToCommandRequest,
+	GitLogStreamToCommandResponse
+>('git/logStreamTo');
+
 export interface RepositoryProxy {
 	folderUri: string;
 	/** @deprecated */

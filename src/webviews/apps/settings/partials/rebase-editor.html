@@ -1,4 +1,4 @@
-<section id="rebase-editor" class="section--settings section--collapsible">
+<section id="rebase-editor" class="section--settings section--collapsible" tabindex="-1">
 	<div class="section__header">
 		<div class="setting__input setting__input--big">
 			<input
@@ -12,7 +12,7 @@
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/gitkraken/vscode-gitlens/#interactive-rebase-editor-"
+				href="https://help.gitkraken.com/gitlens/gitlens-features/#interactive-rebase-editor"
 			>
 				<i class="icon icon__info"></i>
 			</a>
@@ -25,7 +25,48 @@
 
 	<div class="section__collapsible">
 		<div class="section__group">
-			<div class="section__content"></div>
+			<div class="section__content">
+				<div class="settings settings--fixed ml-1">
+					<div class="setting" data-enablement="rebaseEditor.enabled" disabled>
+						<div class="setting__input setting__input--inner-select">
+							<label for="rebaseEditor.ordering">Show</label>
+							<div class="select-container">
+								<select id="rebaseEditor.ordering" name="rebaseEditor.ordering" data-setting>
+									<option value="asc">oldest commit first</option>
+									<option value="desc">newest commit first (default)</option>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="rebaseEditor.enabled" disabled>
+						<div class="setting__input setting__input--inner-select">
+							<input
+								id="rebaseEditor.showDetailsView"
+								name="rebaseEditor.showDetailsView"
+								type="checkbox"
+								value="selection"
+								data-setting
+								data-enablement="rebaseEditor.enabled"
+								disabled
+							/>
+							<label for="rebaseEditor.showDetailsView">Show Inspect view</label>
+							<div class="select-container">
+								<select
+									id="rebaseEditor.showDetailsView"
+									name="rebaseEditor.showDetailsView"
+									data-setting
+									data-enablement="rebaseEditor.enabled &amp; rebaseEditor.showDetailsView !false"
+									disabled
+								>
+									<option value="open">only when opening</option>
+									<option value="selection">when selection changes (default)</option>
+								</select>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
 
 			<div class="section__preview">
 				<img
@@ -33,8 +74,8 @@
 					src="#{webroot}/media/rebase-editor.webp"
 					data-visibility="rebaseEditor.enabled"
 					loading="lazy"
-					width="645"
-					height="441"
+					width="600"
+					height="291"
 				/>
 			</div>
 		</div>

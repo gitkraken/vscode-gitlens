@@ -1,35 +1,36 @@
 import type { Command } from 'vscode';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { DiffWithCommandArgs } from '../../commands';
+import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
-import { GitFile } from '../../git/models/file';
+import type { GitFile } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/models/file';
 import { joinPaths, relativeDir } from '../../system/path';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
+import { ViewFileNode } from './abstract/viewFileNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import type { FileNode } from './folderNode';
-import { ContextValues, ViewNode } from './viewNode';
 
-export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNode {
+export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits> implements FileNode {
 	public readonly commits: GitCommit[];
-	public readonly file: GitFile;
-	public readonly repoPath: string;
 
-	private readonly _direction: 'ahead' | 'behind';
 	private readonly _hasStagedChanges: boolean;
 	private readonly _hasUnstagedChanges: boolean;
+	private readonly _type: 'ahead' | 'behind' | 'working';
 
 	constructor(
 		view: ViewsWithCommits,
 		parent: ViewNode,
-		repoPath: string,
 		file: GitFile,
+		repoPath: string,
 		commits: GitCommit[],
-		direction: 'ahead' | 'behind' = 'ahead',
+		type: 'ahead' | 'behind' | 'working',
 	) {
 		let hasStagedChanges = false;
 		let hasUnstagedChanges = false;
@@ -55,13 +56,11 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 			}
 		}
 
-		super(GitUri.fromFile(file, repoPath, ref), view, parent);
+		super('status-file', GitUri.fromFile(file, repoPath, ref), view, parent, file);
 
-		this.repoPath = repoPath;
-		this.file = file;
 		this.commits = commits;
 
-		this._direction = direction;
+		this._type = type;
 		this._hasStagedChanges = hasStagedChanges;
 		this._hasUnstagedChanges = hasUnstagedChanges;
 	}
@@ -121,7 +120,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 			} else {
 				item.contextValue = ContextValues.StatusFileCommits;
 
-				const icon = GitFile.getStatusIcon(this.file.status);
+				const icon = getGitFileStatusIcon(this.file.status);
 				item.iconPath = {
 					dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
 					light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
@@ -253,24 +252,63 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 			};
 		}
 
-		const commit = this._direction === 'behind' ? this.commits[0] : this.commits[this.commits.length - 1];
-		const file = commit.files?.find(f => f.path === this.file.path) ?? this.file;
-		const commandArgs: DiffWithCommandArgs = {
-			lhs: {
-				sha: this._direction === 'behind' ? commit.sha : `${commit.sha}^`,
-				uri: GitUri.fromFile(file, this.repoPath, undefined, true),
-			},
-			rhs: {
-				sha: '',
-				uri: GitUri.fromFile(this.file, this.repoPath),
-			},
-			repoPath: this.repoPath,
-			line: 0,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
-			},
-		};
+		let commandArgs: DiffWithCommandArgs;
+		switch (this._type) {
+			case 'ahead':
+			case 'behind': {
+				const lhs = this.commits[this.commits.length - 1];
+				const rhs = this.commits[0];
+
+				commandArgs = {
+					lhs: {
+						sha: `${lhs.sha}^`,
+						uri: GitUri.fromFile(
+							lhs.files?.find(f => f.path === this.file.path) ?? this.file.path,
+							this.repoPath,
+							`${lhs.sha}^`,
+							true,
+						),
+					},
+					rhs: {
+						sha: rhs.sha,
+						uri: GitUri.fromFile(
+							rhs.files?.find(f => f.path === this.file.path) ?? this.file.path,
+							this.repoPath,
+							rhs.sha,
+						),
+					},
+					repoPath: this.repoPath,
+					line: 0,
+					showOptions: {
+						preserveFocus: true,
+						preview: true,
+					},
+				};
+				break;
+			}
+			default: {
+				const commit = this.commits[this.commits.length - 1];
+				const file = commit.files?.find(f => f.path === this.file.path) ?? this.file;
+				commandArgs = {
+					lhs: {
+						sha: `${commit.sha}^`,
+						uri: GitUri.fromFile(file, this.repoPath, undefined, true),
+					},
+					rhs: {
+						sha: '',
+						uri: GitUri.fromFile(this.file, this.repoPath),
+					},
+					repoPath: this.repoPath,
+					line: 0,
+					showOptions: {
+						preserveFocus: true,
+						preview: true,
+					},
+				};
+				break;
+			}
+		}
+
 		return {
 			title: 'Open Changes',
 			command: Commands.DiffWith,

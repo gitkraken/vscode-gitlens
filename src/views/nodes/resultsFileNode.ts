@@ -1,29 +1,45 @@
 import type { Command } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { DiffWithCommandArgs } from '../../commands';
+import { TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState } from 'vscode';
+import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitFile } from '../../git/models/file';
+import type { GitFile } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
-import { GitReference } from '../../git/models/reference';
+import { createReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
 import type { View } from '../viewBase';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ViewRefFileNode } from './abstract/viewRefNode';
+import { getComparisonStoragePrefix } from './compareResultsNode';
 import type { FileNode } from './folderNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, ViewRefFileNode } from './viewNode';
 
-export class ResultsFileNode extends ViewRefFileNode implements FileNode {
+type State = {
+	checked: TreeItemCheckboxState;
+};
+
+export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State> implements FileNode {
 	constructor(
 		view: View,
 		parent: ViewNode,
 		repoPath: string,
-		public readonly file: GitFile,
+		file: GitFile,
 		public readonly ref1: string,
 		public readonly ref2: string,
 		private readonly direction: 'ahead' | 'behind' | undefined,
 	) {
-		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent);
+		super('results-file', GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent, file);
+
+		this.updateContext({ file: file });
+		if (this.context.storedComparisonId != null) {
+			this._uniqueId = `${getComparisonStoragePrefix(this.context.storedComparisonId)}${this.direction}|${
+				file.path
+			}`;
+		} else {
+			this._uniqueId = getViewNodeId(this.type, this.context);
+		}
 	}
 
 	override toClipboard(): string {
@@ -31,7 +47,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	}
 
 	get ref(): GitRevisionReference {
-		return GitReference.create(this.ref1 || this.ref2, this.uri.repoPath!);
+		return createReference(this.ref1 || this.ref2, this.uri.repoPath!);
 	}
 
 	getChildren(): ViewNode[] {
@@ -47,13 +63,19 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 			this.file,
 		);
 
-		const statusIcon = GitFile.getStatusIcon(this.file.status);
+		const statusIcon = getGitFileStatusIcon(this.file.status);
 		item.iconPath = {
 			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', statusIcon)),
 			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', statusIcon)),
 		};
 
 		item.command = this.getCommand();
+
+		item.checkboxState = {
+			state: this.getState('checked') ?? TreeItemCheckboxState.Unchecked,
+			tooltip: 'Mark as Reviewed',
+		};
+
 		return item;
 	}
 

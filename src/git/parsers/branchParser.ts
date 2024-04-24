@@ -1,4 +1,5 @@
-import { debug } from '../../system/decorators/log';
+import type { Container } from '../../container';
+import { maybeStopWatch } from '../../system/stopwatch';
 import { GitBranch } from '../models/branch';
 
 const branchWithTrackingRegex =
@@ -8,72 +9,72 @@ const branchWithTrackingRegex =
 const lb = '%3c'; // `%${'<'.charCodeAt(0).toString(16)}`;
 const rb = '%3e'; // `%${'>'.charCodeAt(0).toString(16)}`;
 
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
-export class GitBranchParser {
-	static defaultFormat = [
-		`${lb}h${rb}%(HEAD)`, // HEAD indicator
-		`${lb}n${rb}%(refname)`, // branch name
-		`${lb}u${rb}%(upstream:short)`, // branch upstream
-		`${lb}t${rb}%(upstream:track)`, // branch upstream tracking state
-		`${lb}r${rb}%(objectname)`, // ref
-		`${lb}d${rb}%(committerdate:iso8601)`, // committer date
-	].join('');
+export const parseGitBranchesDefaultFormat = [
+	`${lb}h${rb}%(HEAD)`, // HEAD indicator
+	`${lb}n${rb}%(refname)`, // branch name
+	`${lb}u${rb}%(upstream:short)`, // branch upstream
+	`${lb}t${rb}%(upstream:track)`, // branch upstream tracking state
+	`${lb}r${rb}%(objectname)`, // ref
+	`${lb}d${rb}%(committerdate:iso8601)`, // committer date
+].join('');
 
-	@debug({ args: false, singleLine: true })
-	static parse(data: string, repoPath: string): GitBranch[] {
-		const branches: GitBranch[] = [];
+export function parseGitBranches(container: Container, data: string, repoPath: string): GitBranch[] {
+	using sw = maybeStopWatch(`Git.parseBranches(${repoPath})`, { log: false, logLevel: 'debug' });
 
-		if (!data) return branches;
+	const branches: GitBranch[] = [];
+	if (!data) return branches;
 
-		let current;
-		let name;
-		let upstream;
-		let ahead;
-		let behind;
-		let missing;
-		let ref;
-		let date;
+	let current;
+	let name;
+	let upstream;
+	let ahead;
+	let behind;
+	let missing;
+	let ref;
+	let date;
 
-		let remote;
+	let remote;
 
-		let match;
-		do {
-			match = branchWithTrackingRegex.exec(data);
-			if (match == null) break;
+	let match;
+	do {
+		match = branchWithTrackingRegex.exec(data);
+		if (match == null) break;
 
-			[, current, name, upstream, ahead, behind, missing, ref, date] = match;
+		[, current, name, upstream, ahead, behind, missing, ref, date] = match;
 
-			if (name.startsWith('refs/remotes/')) {
-				// Strip off refs/remotes/
-				name = name.substr(13);
-				if (name.endsWith('/HEAD')) continue;
+		if (name.startsWith('refs/remotes/')) {
+			// Strip off refs/remotes/
+			name = name.substr(13);
+			if (name.endsWith('/HEAD')) continue;
 
-				remote = true;
-			} else {
-				// Strip off refs/heads/
-				name = name.substr(11);
-				remote = false;
-			}
+			remote = true;
+		} else {
+			// Strip off refs/heads/
+			name = name.substr(11);
+			remote = false;
+		}
 
-			branches.push(
-				new GitBranch(
-					repoPath,
-					name,
-					remote,
-					current.charCodeAt(0) === 42, // '*',
-					date ? new Date(date) : undefined,
-					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-					ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
-					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-					upstream == null || upstream.length === 0
-						? undefined
-						: { name: ` ${upstream}`.substr(1), missing: Boolean(missing) },
-					Number(ahead) || 0,
-					Number(behind) || 0,
-				),
-			);
-		} while (true);
+		branches.push(
+			new GitBranch(
+				container,
+				repoPath,
+				name,
+				remote,
+				current.charCodeAt(0) === 42, // '*',
+				date ? new Date(date) : undefined,
+				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+				ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
+				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+				upstream == null || upstream.length === 0
+					? undefined
+					: { name: ` ${upstream}`.substr(1), missing: Boolean(missing) },
+				Number(ahead) || 0,
+				Number(behind) || 0,
+			),
+		);
+	} while (true);
 
-		return branches;
-	}
+	sw?.stop({ suffix: ` parsed ${branches.length} branches` });
+
+	return branches;
 }

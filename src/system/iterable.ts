@@ -38,19 +38,18 @@ export function* chunkByStringLength(source: string[], maxLength: number): Itera
 	}
 }
 
-export function count<T>(source: IterableIterator<T>, predicate?: (item: T) => boolean): number {
+export function count<T>(
+	source: Iterable<T> | IterableIterator<T> | undefined,
+	predicate?: (item: T) => boolean,
+): number {
+	if (source == null) return 0;
+
 	let count = 0;
-	let next: IteratorResult<T>;
-
-	while (true) {
-		next = source.next();
-		if (next.done) break;
-
-		if (predicate === undefined || predicate(next.value)) {
+	for (const item of source) {
+		if (predicate == null || predicate(item)) {
 			count++;
 		}
 	}
-
 	return count;
 }
 
@@ -100,24 +99,116 @@ export function forEach<T>(source: Iterable<T> | IterableIterator<T>, fn: (item:
 	}
 }
 
-export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): T | null {
+export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): T | undefined {
 	for (const item of source) {
 		if (predicate(item)) return item;
 	}
-	return null;
+	return undefined;
+}
+
+export function findIndex<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): number {
+	let i = 0;
+	for (const item of source) {
+		if (predicate(item)) return i;
+		i++;
+	}
+	return -1;
 }
 
 export function first<T>(source: Iterable<T> | IterableIterator<T>): T | undefined {
 	return source[Symbol.iterator]().next().value as T | undefined;
 }
 
+export function flatCount<T>(
+	source: Iterable<T> | IterableIterator<T> | undefined,
+	accumulator: (item: T) => number,
+): number {
+	if (source == null) return 0;
+
+	let count = 0;
+	for (const item of source) {
+		count += accumulator(item);
+	}
+	return count;
+}
+
 export function* flatMap<T, TMapped>(
 	source: Iterable<T> | IterableIterator<T>,
 	mapper: (item: T) => Iterable<TMapped>,
-): Iterable<TMapped> {
+): IterableIterator<TMapped> {
 	for (const item of source) {
 		yield* mapper(item);
 	}
+}
+
+export function flatten<T>(source: Iterable<Iterable<T>> | IterableIterator<IterableIterator<T>>): IterableIterator<T> {
+	return flatMap(source, i => i);
+}
+
+export function groupBy<T>(
+	source: Iterable<T> | IterableIterator<T>,
+	groupingKey: (item: T) => string,
+): Record<string, T[]> {
+	const groupings: Record<string, T[]> = Object.create(null);
+
+	for (const current of source) {
+		const value = groupingKey(current);
+		const group = groupings[value];
+		if (group === undefined) {
+			groupings[value] = [current];
+		} else {
+			group.push(current);
+		}
+	}
+
+	return groupings;
+}
+
+export function groupByMap<TKey, TValue>(
+	source: Iterable<TValue> | IterableIterator<TValue>,
+	groupingKey: (item: TValue) => TKey,
+	options?: { filterNullGroups?: boolean },
+): Map<TKey, TValue[]> {
+	const groupings = new Map<TKey, TValue[]>();
+
+	const filterNullGroups = options?.filterNullGroups ?? false;
+
+	for (const current of source) {
+		const value = groupingKey(current);
+		if (value == null && filterNullGroups) continue;
+
+		const group = groupings.get(value);
+		if (group === undefined) {
+			groupings.set(value, [current]);
+		} else {
+			group.push(current);
+		}
+	}
+
+	return groupings;
+}
+
+export function groupByFilterMap<TKey, TValue, TMapped>(
+	source: Iterable<TValue> | IterableIterator<TValue>,
+	groupingKey: (item: TValue) => TKey,
+	predicateMapper: (item: TValue) => TMapped | null | undefined,
+): Map<TKey, TMapped[]> {
+	const groupings = new Map<TKey, TMapped[]>();
+
+	for (const current of source) {
+		const mapped = predicateMapper(current);
+		if (mapped == null) continue;
+
+		const value = groupingKey(current);
+		const group = groupings.get(value);
+		if (group === undefined) {
+			groupings.set(value, [mapped]);
+		} else {
+			group.push(mapped);
+		}
+	}
+
+	return groupings;
 }
 
 export function has<T>(source: Iterable<T> | IterableIterator<T>, item: T): boolean {
@@ -129,25 +220,19 @@ export function isIterable(source: Iterable<any>): boolean {
 }
 
 export function join(source: Iterable<any>, separator: string): string {
-	let value = '';
-
 	const iterator = source[Symbol.iterator]();
 	let next = iterator.next();
-	if (next.done) return value;
+	if (next.done) return '';
 
+	let result = String(next.value);
 	while (true) {
-		const s = next.value.toString();
-
 		next = iterator.next();
-		if (next.done) {
-			value += s;
-			break;
-		}
+		if (next.done) break;
 
-		value += `${s}${separator}`;
+		result += `${separator}${next.value}`;
 	}
 
-	return value;
+	return result;
 }
 
 export function last<T>(source: Iterable<T>): T | undefined {
@@ -165,6 +250,48 @@ export function* map<T, TMapped>(
 	for (const item of source) {
 		yield mapper(item);
 	}
+}
+
+export function max(source: Iterable<number> | IterableIterator<number>): number;
+export function max<T>(source: Iterable<T> | IterableIterator<T>, selector: (item: T) => number): number;
+export function max<T>(source: Iterable<T> | IterableIterator<T>, selector?: (item: T) => number): number {
+	let max = Number.NEGATIVE_INFINITY;
+	if (selector == null) {
+		for (const item of source as Iterable<number> | IterableIterator<number>) {
+			if (item > max) {
+				max = item;
+			}
+		}
+	} else {
+		for (const item of source) {
+			const value = selector(item);
+			if (value > max) {
+				max = value;
+			}
+		}
+	}
+	return max;
+}
+
+export function min(source: Iterable<number> | IterableIterator<number>): number;
+export function min<T>(source: Iterable<T> | IterableIterator<T>, selector: (item: T) => number): number;
+export function min<T>(source: Iterable<T> | IterableIterator<T>, selector?: (item: T) => number): number {
+	let min = Number.POSITIVE_INFINITY;
+	if (selector == null) {
+		for (const item of source as Iterable<number> | IterableIterator<number>) {
+			if (item < min) {
+				min = item;
+			}
+		}
+	} else {
+		for (const item of source) {
+			const value = selector(item);
+			if (value < min) {
+				min = value;
+			}
+		}
+	}
+	return min;
 }
 
 export function next<T>(source: IterableIterator<T>): T {
@@ -197,8 +324,10 @@ export function* take<T>(source: Iterable<T> | IterableIterator<T>, count: numbe
 	}
 }
 
-export function* union<T>(...sources: (Iterable<T> | IterableIterator<T>)[]): Iterable<T> {
+export function* union<T>(...sources: (Iterable<T> | IterableIterator<T> | undefined)[]): Iterable<T> {
 	for (const source of sources) {
+		if (source == null) continue;
+
 		for (const item of source) {
 			yield item;
 		}

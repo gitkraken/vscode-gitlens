@@ -1,9 +1,9 @@
 import type { SourceControl } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { executeGitCommand } from '../git/actions';
 import { command } from '../system/command';
 import { Command } from './base';
-import { executeGitCommand } from './gitCommands.actions';
 
 @command()
 export class AddAuthorsCommand extends Command {

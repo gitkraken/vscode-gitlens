@@ -2,21 +2,26 @@
 	"extends": "../../../tsconfig.base.json",
 	"compilerOptions": {
 		"jsx": "react",
-		"lib": ["dom", "dom.iterable", "es2020"],
+		"lib": ["dom", "dom.iterable", "es2022", "esnext.disposable"],
 		"outDir": "../../",
 		"paths": {
 			"@env/*": ["src/env/browser/*"]
 		},
-		"useDefineForClassFields": false
+		"useDefineForClassFields": false // Needed for lit decorators https://github.com/lit/lit/issues/3278 https://lit.dev/docs/tools/publishing/#publishing-modern-javascript
 	},
 	"include": [
 		"**/*",
+		"../../plus/gk/**/*",
+		"../../plus/webviews/**/*",
 		"../../@types/**/*",
 		"../protocol.ts",
+		"../**/protocol.ts",
 		"../../config.ts",
+		"../../constants.ts",
 		"../../features.ts",
 		"../../subscription.ts",
-		"../../system/date.ts"
+		"../../system/**/*",
+		"../../env/browser/**/*"
 	],
 	"exclude": ["node_modules", "test"]
 }

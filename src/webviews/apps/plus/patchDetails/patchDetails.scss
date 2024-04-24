@@ -1,0 +1,406 @@
+@use '../../shared/styles/details-base';
+
+body {
+	--gk-menu-border-color: var(--vscode-menu-border);
+	--gk-menu-background-color: var(--vscode-menu-background);
+	--gk-menu-item-background-color-hover: var(--vscode-menu-selectionBackground);
+	--gk-menu-item-background-color-active: var(--vscode-menu-background);
+	--gk-focus-border-color: var(--focus-color);
+	--gk-tooltip-padding: 0.4rem 0.8rem;
+	--gk-divider-color: var(--color-background--level-05);
+	--gk-button-ghost-color: var(--color-foreground--50);
+}
+
+gk-menu {
+	color: var(--vscode-menu-foreground);
+}
+
+gk-menu-item {
+	color: var(--vscode-menu-foreground);
+
+	&:hover {
+		color: var(--vscode-menu-selectionForeground);
+	}
+}
+
+.commit-action {
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	height: 21px;
+	border-radius: 0.25em;
+	color: inherit;
+	padding: 0.2rem;
+	vertical-align: text-bottom;
+	text-decoration: none;
+
+	> * {
+		pointer-events: none;
+	}
+
+	&:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+
+	&:hover {
+		color: var(--vscode-foreground);
+		text-decoration: none;
+
+		.vscode-dark & {
+			background-color: var(--color-background--lighten-15);
+		}
+		.vscode-light & {
+			background-color: var(--color-background--darken-15);
+		}
+	}
+
+	&.is-active {
+		.vscode-dark & {
+			background-color: var(--color-background--lighten-10);
+		}
+		.vscode-light & {
+			background-color: var(--color-background--darken-10);
+		}
+	}
+
+	&.is-disabled {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
+	&.is-hidden {
+		display: none;
+	}
+}
+
+.top-details {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	padding: {
+		top: 0.1rem;
+		left: var(--gitlens-gutter-width);
+		right: var(--gitlens-scrollbar-gutter-width);
+		bottom: 0.5rem;
+	}
+	background-color: var(--vscode-sideBar-background);
+
+	&__actionbar {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+
+		&-group {
+			display: flex;
+			flex: none;
+			flex-direction: row;
+			max-width: 100%;
+		}
+
+		&--highlight {
+			padding: 0 4px 2px 4px;
+			border: 1px solid var(--color-background--level-15);
+			border-radius: 0.3rem;
+			font-family: var(--vscode-editor-font-family);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		&.is-pinned {
+			background-color: var(--color-alert-warningBackground);
+			box-shadow: 0 0 0 0.1rem var(--color-alert-warningBorder);
+			border-radius: 0.3rem;
+
+			.commit-action:hover,
+			.commit-action.is-active {
+				background-color: var(--color-alert-warningHoverBackground);
+			}
+		}
+	}
+
+	&__sha {
+		margin: 0 0.5rem 0 0.25rem;
+	}
+
+	&__authors {
+		flex-basis: 100%;
+		padding-top: 0.5rem;
+	}
+
+	&__author {
+		& + & {
+			margin-top: 0.5rem;
+		}
+	}
+}
+
+.title {
+	font-size: 1.6rem;
+	font-weight: 600;
+	margin: 0.2rem 0 0.8rem;
+}
+
+.message-block__text strong:not(:only-child) {
+	display: inline-block;
+	margin-bottom: 0.52rem;
+}
+
+.patch-base {
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 0.4rem;
+	padding: {
+		top: 0.1rem;
+		bottom: 0.1rem;
+	}
+
+	:first-child {
+		margin-right: auto;
+	}
+}
+
+.section--action {
+	border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+	padding: {
+		top: 1.5rem;
+		bottom: 1.5rem;
+	}
+
+	> :first-child {
+		padding-top: 0;
+	}
+}
+
+.change-list {
+	margin-bottom: 1rem;
+}
+
+// TODO: these form styles should be moved to a common location
+.message-input {
+	padding-top: 0.8rem;
+
+	&__control {
+		flex: 1;
+		border: 1px solid var(--vscode-input-border);
+		background: var(--vscode-input-background);
+		padding: 0.5rem;
+		font-size: 1.3rem;
+		line-height: 1.4;
+		width: 100%;
+		border-radius: 0.2rem;
+		color: var(--vscode-input-foreground);
+		font-family: inherit;
+
+		&::placeholder {
+			color: var(--vscode-input-placeholderForeground);
+		}
+
+		&:invalid {
+			border-color: var(--vscode-inputValidation-errorBorder);
+			background-color: var(--vscode-inputValidation-errorBackground);
+		}
+
+		&:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+
+		&--text {
+			overflow: hidden;
+			white-space: nowrap;
+			opacity: 0.7;
+		}
+	}
+
+	&__action {
+		flex: none;
+	}
+
+	&__select {
+		flex: 1;
+		position: relative;
+		display: flex;
+		align-items: stretch;
+
+		&-icon {
+			position: absolute;
+			left: 0;
+			top: 0;
+			display: flex;
+			width: 2.4rem;
+			height: 100%;
+			align-items: center;
+			justify-content: center;
+			pointer-events: none;
+			color: var(--vscode-foreground);
+		}
+		&-caret {
+			position: absolute;
+			right: 0;
+			top: 0;
+			display: flex;
+			width: 2.4rem;
+			height: 100%;
+			align-items: center;
+			justify-content: center;
+			pointer-events: none;
+			color: var(--vscode-foreground);
+		}
+	}
+
+	&__select &__control {
+		box-sizing: border-box;
+		appearance: none;
+		padding-left: 2.4rem;
+		padding-right: 2.4rem;
+	}
+
+	&--group {
+		display: flex;
+		flex-direction: row;
+		align-items: stretch;
+		gap: 0.6rem;
+	}
+}
+
+textarea.message-input__control {
+	resize: vertical;
+	min-height: 4rem;
+	max-height: 40rem;
+}
+
+.user-selection-container {
+	max-height: (2.4rem * 4);
+	overflow: auto;
+}
+
+.user-selection {
+	--gk-avatar-size: 2rem;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 0.4rem;
+	height: 2.4rem;
+
+	&__avatar {
+		flex: none;
+	}
+
+	&__info {
+		flex: 1;
+		min-width: 0;
+		white-space: nowrap;
+	}
+
+	&__name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	&__actions {
+		flex: none;
+		color: var(--gk-button-ghost-color);
+
+		gk-button::part(base) {
+			padding-right: 0;
+			padding-block: 0.4rem;
+		}
+
+		gk-button code-icon {
+			pointer-events: none;
+		}
+	}
+
+	&__check:not(.is-active) {
+		opacity: 0;
+	}
+}
+
+.h {
+	&-spacing {
+		margin-bottom: 1.5rem;
+	}
+	&-deemphasize {
+		margin: 0.8rem 0 0.4rem;
+		opacity: 0.7;
+	}
+	&-no-border {
+		--vscode-sideBarSectionHeader-border: transparent;
+	}
+}
+
+.alert {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	padding: 0.8rem 1.2rem;
+	line-height: 1.2;
+	background-color: var(--color-alert-errorBackground);
+	border-left: 0.3rem solid var(--color-alert-errorBorder);
+	color: var(--color-alert-foreground);
+
+	code-icon {
+		margin-right: 0.4rem;
+		vertical-align: baseline;
+	}
+
+	&__content {
+		font-size: 1.2rem;
+		line-height: 1.2;
+		text-align: left;
+		margin: 0;
+	}
+}
+
+.commit-detail-panel {
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+main {
+	flex: 1 1 auto;
+	overflow: hidden;
+}
+
+gl-patch-create {
+	display: contents;
+}
+
+.pane-groups {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+
+	&__group {
+		min-height: 0;
+		flex: 1 1 auto;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+
+		webview-pane {
+			flex: none;
+
+			&[expanded] {
+				min-height: 0;
+				flex: 1;
+			}
+		}
+	}
+
+	&__group-fixed {
+		flex: none;
+
+		webview-pane::part(content) {
+			overflow: visible;
+		}
+	}
+}

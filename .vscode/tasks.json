@@ -55,12 +55,6 @@
 		},
 		{
 			"label": "Run (vscode.dev)",
-			"group": "test",
-			"dependsOn": ["npm: web:serve", "npm: web:tunnel"],
-			"dependsOrder": "parallel",
-			"problemMatcher": []
-		},
-		{
 			"type": "npm",
 			"script": "web:serve",
 			"group": "test",
@@ -68,17 +62,6 @@
 			"presentation": {
 				"group": "web",
 				"reveal": "never"
-			},
-			"problemMatcher": []
-		},
-		{
-			"type": "npm",
-			"script": "web:tunnel",
-			"group": "test",
-			"isBackground": true,
-			"presentation": {
-				"group": "web",
-				"reveal": "always"
 			},
 			"problemMatcher": []
 		},

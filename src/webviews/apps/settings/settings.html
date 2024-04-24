@@ -1,10 +1,21 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?79130123c9d3674a686cf03962523e8a') format('truetype');
+			}
+		</style>
 	</head>
 
-	<body class="preload">
+	<body
+		class="scrollable preload"
+		data-placement="#{placement}"
+		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
+	>
 		<!-- <canvas class="snow"></canvas>
 		<img
 			class="snow__trigger snow__trigger--fixed-right snow__trigger--flipped"
@@ -15,19 +26,24 @@
 
 		<div class="container">
 			<header>
-				<a
-					class="header__link"
-					title="Learn more about GitLens"
-					href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
-				>
-					<div class="header__logo">
-						<img class="image__logo" src="#{root}/images/gitlens-icon.png" />
-						<div>
-							<h1 class="header__title">Git<span class="header__title--highlight">Lens</span></h1>
-							<p class="header__subtitle">Git supercharged</p>
-						</div>
-					</div>
-				</a>
+				<h1 class="brand"><gitlens-logo></gitlens-logo> <small>Git Supercharged</small></h1>
+				<p class="release">
+					<span
+						>Version
+						<a
+							id="version"
+							href="https://github.com/gitkraken/vscode-gitlens/blob/main/CHANGELOG.md"
+							title="Open CHANGELOG"
+							aria-label="Open CHANGELOG"
+						></a
+					></span>
+					<a
+						href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current"
+						title="Open Release Notes"
+						aria-label="Open Release Notes"
+						>Release notes</a
+					>
+				</p>
 			</header>
 
 			<div class="hero__area hero__area--sticky">
@@ -49,12 +65,13 @@
 				<p class="hero__subtitle">
 					For advanced customizations, refer to the
 					<a
+						class="secondary"
 						title="See the GitLens settings docs"
-						href="https://github.com/gitkraken/vscode-gitlens/#gitlens-settings-"
+						href="https://help.gitkraken.com/gitlens/gitlens-settings/"
 						>GitLens docs</a
 					>
 					and edit your
-					<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
+					<a class="secondary" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
 						>User Settings</a
 					>
 				</p>
@@ -66,8 +83,13 @@
 				<%= require('html-loader?{"esModule":false}!./partials/code-lens.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/status-bar.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/hovers.html') %>
-				<%= require('html-loader?{"esModule":false}!./partials/views.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/file-annotations.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/blame.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/changes.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/heatmap.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/commit-graph.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.commits.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.commitDetails.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.repositories.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.file-history.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.line-history.html') %>
@@ -78,12 +100,11 @@
 				<%= require('html-loader?{"esModule":false}!./partials/views.worktrees.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.contributors.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.searchAndCompare.html') %>
-				<%= require('html-loader?{"esModule":false}!./partials/blame.html') %>
-				<%= require('html-loader?{"esModule":false}!./partials/changes.html') %>
-				<%= require('html-loader?{"esModule":false}!./partials/heatmap.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/rebase-editor.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/autolinks.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/terminal-links.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/dates.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/sorting.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/menus.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/shortcuts.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/modes.html') %>
@@ -98,8 +119,8 @@
 								class="sidebar__jump-link"
 								data-action="jump"
 								href="#current-line"
-								title="Jump to Current Line Blame settings"
-								>Current Line Blame</a
+								title="Jump to Inline Blame settings"
+								>Inline Blame</a
 							>
 						</li>
 						<li>
@@ -134,18 +155,66 @@
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
-								href="#views"
-								title="Jump to Views settings"
-								>Views</a
+								href="#file-annotations"
+								title="Jump to File Annotations settings"
+								>File Annotations</a
 							>
 						</li>
 						<li>
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
+								href="#blame"
+								title="Jump to File Blame settings"
+								>File Blame</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#changes"
+								title="Jump to File Changes settings"
+								>File Changes</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#heatmap"
+								title="Jump to File Heatmap settings"
+								>File Heatmap</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#commit-graph"
+								title="Jump to Commit Graph settings"
+								>Commit Graph</a
+							>
+							<gl-feature-badge></gl-feature-badge>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
 								href="#commits-view"
 								title="Jump to Commits view settings"
 								>Commits view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#commit-details-view"
+								title="Jump to Inspect view settings"
+								>Inspect view</a
 							>
 						</li>
 						<li>
@@ -217,8 +286,9 @@
 								data-action="jump"
 								href="#worktrees-view"
 								title="Jump to Worktrees view settings"
-								>Worktrees view</a
-							>
+								>Worktrees view
+							</a>
+							<gl-feature-badge></gl-feature-badge>
 						</li>
 						<li>
 							<a
@@ -243,34 +313,6 @@
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
-								href="#blame"
-								title="Jump to File Blame settings"
-								>File Blame</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#changes"
-								title="Jump to File Changes settings"
-								>File Changes</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#heatmap"
-								title="Jump to File Heatmap settings"
-								>File Heatmap</a
-							>
-						</li>
-
-						<li class="mt-1">
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
 								href="#rebase-editor"
 								title="Jump to Interactive Rebase Editor settings"
 								>Interactive Rebase Editor</a
@@ -286,9 +328,28 @@
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
+								href="#terminal-links"
+								title="Jump to Terminal Links"
+								>Terminal Links</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
 								href="#dates"
 								title="Jump to Dates & Times settings"
 								>Dates & Times</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#views"
+								title="Jump to Sorting settings"
+								>Sorting</a
 							>
 						</li>
 						<li>
@@ -324,18 +385,11 @@
 		</div>
 
 		#{endOfBody}
-		<style nonce="#{cspNonce}">
-			@font-face {
-				font-family: 'codicon';
-				font-display: block;
-				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
-			}
-		</style>
 	</body>
 
 	<template id="token-popup">
 		<h3 class="token-popup__title">Available Tokens</h3>
-		<div class="token-popup__scroller">
+		<div class="token-popup__scroller scrollable">
 			<table class="token-popup__table">
 				<tbody>
 					<tr>

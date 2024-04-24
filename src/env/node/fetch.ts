@@ -2,11 +2,11 @@ import * as process from 'process';
 import * as url from 'url';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import fetch from 'node-fetch';
-import { configuration } from '../../configuration';
-import { Logger } from '../../logger';
+import { configuration } from '../../system/configuration';
+import { Logger } from '../../system/logger';
 
 export { fetch };
-export type { BodyInit, RequestInit, Response } from 'node-fetch';
+export type { BodyInit, HeadersInit, RequestInfo, RequestInit, Response } from 'node-fetch';
 
 export function getProxyAgent(strictSSL?: boolean): HttpsProxyAgent | undefined {
 	let proxyUrl: string | undefined;
@@ -16,17 +16,13 @@ export function getProxyAgent(strictSSL?: boolean): HttpsProxyAgent | undefined 
 		proxyUrl = proxy.url ?? undefined;
 		strictSSL = strictSSL ?? proxy.strictSSL;
 	} else {
-		const proxySupport = configuration.getAny<'off' | 'on' | 'override' | 'fallback'>(
-			'http.proxySupport',
-			undefined,
-			'override',
-		);
+		const proxySupport = configuration.getCore('http.proxySupport', undefined, 'override');
 
 		if (proxySupport === 'off') {
 			strictSSL = strictSSL ?? true;
 		} else {
-			strictSSL = strictSSL ?? configuration.getAny<boolean>('http.proxyStrictSSL', undefined, true);
-			proxyUrl = configuration.getAny<string>('http.proxy') || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+			strictSSL = strictSSL ?? configuration.getCore('http.proxyStrictSSL', undefined, true);
+			proxyUrl = configuration.getCore('http.proxy') || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
 		}
 	}
 

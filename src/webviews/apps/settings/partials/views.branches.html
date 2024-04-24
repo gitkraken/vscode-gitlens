@@ -1,11 +1,11 @@
-<section id="branches-view" class="section--settings section--collapsible">
+<section id="branches-view" class="section--settings section--collapsible" tabindex="-1">
 	<div class="section__header">
 		<h2>
 			Branches view
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/gitkraken/vscode-gitlens/#branches-view-"
+				href="https://help.gitkraken.com/gitlens/side-bar/#branches-view"
 			>
 				<i class="icon icon__info"></i>
 			</a>
@@ -112,20 +112,6 @@
 
 					<div class="setting">
 						<div class="setting__input">
-							<label for="sortBranchesBy">Sort branches</label>
-							<div class="select-container">
-								<select id="sortBranchesBy" name="sortBranchesBy" data-setting>
-									<option value="date:desc">by recent commit date, descending</option>
-									<option value="date:asc">by recent commit date, ascending</option>
-									<option value="name:asc">by name, ascending</option>
-									<option value="name:desc">by name, descending</option>
-								</select>
-							</div>
-						</div>
-					</div>
-
-					<div class="setting">
-						<div class="setting__input">
 							<label for="views.branches.files.layout">Layout files</label>
 							<div class="select-container">
 								<select
@@ -142,6 +128,18 @@
 						<p class="setting__hint" data-visibility="views.branches.files.layout =auto">
 							Chooses the best layout based on the number of files at each nesting level
 						</p>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<label for="views.branches.files.icon">File icons</label>
+							<div class="select-container">
+								<select id="views.branches.files.icon" name="views.branches.files.icon" data-setting>
+									<option value="type">show file type (default)</option>
+									<option value="status">show file status</option>
+								</select>
+							</div>
+						</div>
 					</div>
 
 					<div class="setting">
@@ -225,12 +223,12 @@
 
 		<div class="section__group">
 			<p class="section__hint">
-				<i class="icon icon__info"></i> For more options, open
+				<i class="icon icon__info"></i> For more options, open the
 				<a
-					class="command"
-					title="Open Settings"
+					class="secondary"
+					title="Open Settings UI"
 					href="command:workbench.action.openSettings?%22gitlens.views.branches%22"
-					>Settings</a
+					>Settings UI</a
 				>
 				and search for <b><i>gitlens.views.branches</i></b> or
 				<b><i>gitlens.views</i></b>

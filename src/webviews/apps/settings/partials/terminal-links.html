@@ -1,0 +1,40 @@
+<section id="terminal-links" class="section--settings section--collapsible" tabindex="-1">
+	<div class="section__header">
+		<div class="setting__input setting__input--big">
+			<input id="terminalLinks.enabled" name="terminalLinks.enabled" type="checkbox" data-setting />
+			<label for="terminalLinks.enabled">Terminal Links</label>
+			<a
+				class="link__learn-more"
+				title="Learn more"
+				href="https://help.gitkraken.com/gitlens/gitlens-features/#terminal-links"
+			>
+				<i class="icon icon__info"></i>
+			</a>
+		</div>
+
+		<p class="section__header-hint">
+			Adds autolinks for branches, tags, commits, and commit ranges in the integrated terminal
+		</p>
+	</div>
+
+	<div class="section__group">
+		<div class="section__content">
+			<div class="settings settings--fixed ml-1">
+				<div class="setting" data-enablement="terminalLinks.enabled" disabled>
+					<div class="setting__input">
+						<input
+							id="terminalLinks.showDetailsView"
+							name="terminalLinks.showDetailsView"
+							type="checkbox"
+							data-setting
+							disabled
+						/>
+						<label for="terminalLinks.showDetailsView">Show Inspect view for commit links</label>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="section__preview"></div>
+	</div>
+</section>

@@ -10,7 +10,10 @@ canvas.snow {
 	width: 28px; //36px;
 	opacity: 0.6;
 	transform: rotate(-7deg);
-	transition: filter 250ms, opacity 250ms, transform 250ms;
+	transition:
+		filter 250ms,
+		opacity 250ms,
+		transform 250ms;
 
 	body:not(.snowing) & {
 		filter: grayscale(100%);

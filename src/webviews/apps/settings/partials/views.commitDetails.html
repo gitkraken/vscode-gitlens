@@ -1,0 +1,160 @@
+<section id="commit-details-view" class="section--settings section--collapsible" tabindex="-1">
+	<div class="section__header">
+		<h2>
+			Inspect view
+			<a
+				class="link__learn-more"
+				title="Learn more"
+				href="https://help.gitkraken.com/gitlens/gitlens-features/#commit-details-view"
+			>
+				<i class="icon icon__info"></i>
+			</a>
+		</h2>
+
+		<p class="section__header-hint">
+			Adds a
+			<a
+				class="command command--show-view"
+				title="Show View in Side Bar"
+				href="command:gitlens.showCommitDetailsView"
+				>Inspect view</a
+			>
+			to see rich details for a commit
+		</p>
+	</div>
+
+	<div class="section__collapsible">
+		<div class="section__group">
+			<div class="section__content">
+				<div class="settings settings--fixed ml-1">
+					<div class="section__group">
+						<div class="section__content">
+							<div class="settings settings--fixed">
+								<div class="setting">
+									<div class="setting__input">
+										<input
+											id="views.commitDetails.autolinks.enabled"
+											name="views.commitDetails.autolinks.enabled"
+											type="checkbox"
+											data-setting
+										/>
+										<label for="views.commitDetails.autolinks.enabled"
+											>Show autolinks in commit messages</label
+										>
+									</div>
+								</div>
+
+								<div class="settings settings--fixed ml-2">
+									<div class="setting">
+										<div
+											class="setting__input"
+											data-enablement="views.commitDetails.autolinks.enabled"
+										>
+											<input
+												id="views.commitDetails.autolinks.enhanced"
+												name="views.commitDetails.autolinks.enhanced"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.commitDetails.autolinks.enhanced"
+												>Enhance autolinks with remote details</label
+											>
+										</div>
+										<p class="setting__hint">
+											Requires a connection to a supported remote service (e.g. GitHub)
+										</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<input
+								id="views.commitDetails.pullRequests.enabled"
+								name="views.commitDetails.pullRequests.enabled"
+								type="checkbox"
+								data-setting
+							/>
+							<label for="views.commitDetails.pullRequests.enabled"
+								>Show the Pull Request (if any) that introduced the commit</label
+							>
+						</div>
+						<p class="setting__hint">Requires a connection to a supported remote service (e.g. GitHub)</p>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<label for="views.commitDetails.files.layout">Layout files</label>
+							<div class="select-container">
+								<select
+									id="views.commitDetails.files.layout"
+									name="views.commitDetails.files.layout"
+									data-setting
+								>
+									<option value="auto">automatically</option>
+									<option value="list">as a list</option>
+									<option value="tree">as a tree</option>
+								</select>
+							</div>
+						</div>
+						<p class="setting__hint" data-visibility="views.commitDetails.files.layout =auto">
+							Chooses the best layout based on the number of files at each nesting level
+						</p>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<input
+								id="views.commitDetails.files.compact"
+								name="views.commitDetails.files.compact"
+								type="checkbox"
+								data-setting
+							/>
+							<label for="views.commitDetails.files.compact">Use compact file layout</label>
+						</div>
+						<p class="setting__hint">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<input
+								id="views.commitDetails.avatars"
+								name="views.commitDetails.avatars"
+								type="checkbox"
+								data-setting
+							/>
+							<label for="views.commitDetails.avatars">Use author avatars</label>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="section__preview">
+				<img
+					class="image__preview image__preview--fit"
+					src="#{webroot}/media/commit-details.webp"
+					loading="lazy"
+					width="524"
+					height="445"
+				/>
+			</div>
+		</div>
+
+		<div class="section__group">
+			<p class="section__hint">
+				<i class="icon icon__info"></i> For more options, open the
+				<a
+					class="secondary"
+					title="Open Settings UI"
+					href="command:workbench.action.openSettings?%22gitlens.views.commitDetails%22"
+					>Settings UI</a
+				>
+				and search for <b><i>gitlens.views.commitDetails</i></b> or
+				<b><i>gitlens.views</i></b>
+			</p>
+		</div>
+	</div>
+</section>

@@ -1,14 +1,14 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import type { FileAnnotationType } from '../configuration';
+import type { FileAnnotationType } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models/reference';
-import { Logger } from '../logger';
+import { deletedOrMissing } from '../git/models/constants';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { GitActions } from './gitCommands.actions';
 
 export interface OpenRevisionFileCommandArgs {
 	revisionUri?: Uri;
@@ -43,7 +43,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 					args.revisionUri =
 						commit?.file?.status === 'D'
 							? this.container.git.getRevisionUri(
-									(await commit.getPreviousSha()) ?? GitRevision.deletedOrMissing,
+									(await commit.getPreviousSha()) ?? deletedOrMissing,
 									commit.file,
 									commit.repoPath,
 							  )
@@ -53,7 +53,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 				}
 			}
 
-			await GitActions.Commit.openFileAtRevision(args.revisionUri, {
+			await openFileAtRevision(args.revisionUri, {
 				annotationType: args.annotationType,
 				line: args.line,
 				...args.showOptions,

@@ -4,6 +4,7 @@ export interface Disposable {
 	dispose: () => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace DOM {
 	export function on<K extends keyof WindowEventMap>(
 		window: Window,
@@ -20,19 +21,25 @@ export namespace DOM {
 	export function on<T extends HTMLElement, K extends keyof DocumentEventMap>(
 		element: T,
 		name: K,
-		listener: (e: DocumentEventMap[K], target: T) => void,
+		listener: (e: DocumentEventMap[K] & { target: HTMLElement | null }, target: T) => void,
+		options?: boolean | AddEventListenerOptions,
+	): Disposable;
+	export function on<T extends HTMLElement, K>(
+		element: T,
+		name: string,
+		listener: (e: CustomEvent<K> & { target: HTMLElement | null }, target: T) => void,
 		options?: boolean | AddEventListenerOptions,
 	): Disposable;
 	export function on<T extends Element, K extends keyof DocumentEventMap>(
 		selector: string,
 		name: K,
-		listener: (e: DocumentEventMap[K], target: T) => void,
+		listener: (e: DocumentEventMap[K] & { target: HTMLElement | null }, target: T) => void,
 		options?: boolean | AddEventListenerOptions,
 	): Disposable;
 	export function on<T extends HTMLElement, K>(
 		selector: string,
 		name: string,
-		listener: (e: CustomEvent<K>, target: T) => void,
+		listener: (e: CustomEvent<K> & { target: HTMLElement | null }, target: T) => void,
 		options?: boolean | AddEventListenerOptions,
 	): Disposable;
 	export function on<K extends keyof (DocumentEventMap | WindowEventMap), T extends Document | Element | Window>(
@@ -45,10 +52,10 @@ export namespace DOM {
 
 		if (typeof sourceOrSelector === 'string') {
 			const filteredListener = function (this: T, e: (DocumentEventMap | WindowEventMap)[K]) {
-				const target = e?.target as HTMLElement;
-				if (!target?.matches(sourceOrSelector)) return;
+				const target = (e?.target as HTMLElement)?.closest(sourceOrSelector) as unknown as T | null | undefined;
+				if (target == null) return;
 
-				listener(e, target as unknown as T);
+				listener(e, target);
 			};
 			document.addEventListener(name, filteredListener as EventListener, options ?? true);
 

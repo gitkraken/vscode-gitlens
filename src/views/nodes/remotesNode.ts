@@ -1,29 +1,29 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import type { RemotesView } from '../remotesView';
-import type { RepositoriesView } from '../repositoriesView';
+import type { ViewsWithRemotesNode } from '../viewBase';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';
-import { RepositoryNode } from './repositoryNode';
-import { ContextValues, ViewNode } from './viewNode';
 
-export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
-	static key = ':remotes';
-	static getId(repoPath: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}`;
-	}
+export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithRemotesNode> {
+	constructor(
+		uri: GitUri,
+		view: ViewsWithRemotesNode,
+		protected override readonly parent: ViewNode,
+		public readonly repo: Repository,
+	) {
+		super('remotes', uri, view, parent);
 
-	private _children: ViewNode[] | undefined;
-
-	constructor(uri: GitUri, view: RemotesView | RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
-		super(uri, view, parent);
+		this.updateContext({ repository: repo });
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {
-		return RemotesNode.getId(this.repo.path);
+		return this._uniqueId;
 	}
 
 	get repoPath(): string {
@@ -31,16 +31,16 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const remotes = await this.repo.getRemotes({ sort: true });
 			if (remotes.length === 0) {
 				return [new MessageNode(this.view, this, 'No remotes could be found')];
 			}
 
-			this._children = remotes.map(r => new RemoteNode(this.uri, this.view, this, r, this.repo));
+			this.children = remotes.map(r => new RemoteNode(this.uri, this.view, this, this.repo, r));
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -52,9 +52,8 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh() {
-		this._children = undefined;
+		super.refresh(true);
 	}
 }

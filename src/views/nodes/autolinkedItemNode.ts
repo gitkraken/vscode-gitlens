@@ -1,28 +1,32 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { Autolink } from '../../annotations/autolinks';
-import { AutolinkType } from '../../config';
 import { GitUri } from '../../git/gitUri';
-import { IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models/issue';
+import type { IssueOrPullRequest } from '../../git/models/issue';
+import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/models/issue';
 import { fromNow } from '../../system/date';
+import { isPromise } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
-export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
+export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
-		public readonly item: Autolink | IssueOrPullRequest,
+		public readonly item: Autolink,
+		private enrichedItem: Promise<IssueOrPullRequest | undefined> | IssueOrPullRequest | undefined,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('autolink', GitUri.fromRepoPath(repoPath), view, parent);
+
+		this._uniqueId = getViewNodeId(`${this.type}+${item.id}`, this.context);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.item.url;
-	}
-
-	override get id(): string {
-		return `${this.parent.id}:item(${this.item.id})`;
 	}
 
 	getChildren(): ViewNode[] {
@@ -30,53 +34,65 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	getTreeItem(): TreeItem {
-		if (!isIssueOrPullRequest(this.item)) {
-			const { provider } = this.item;
+		const enriched = this.enrichedItem;
+		const pending = isPromise(enriched);
+		if (pending) {
+			void enriched.then(item => {
+				this.enrichedItem = item;
+				this.view.triggerNodeChange(this);
+			});
+		}
 
-			const item = new TreeItem(`${this.item.prefix}${this.item.id}`, TreeItemCollapsibleState.None);
+		if (pending || enriched == null) {
+			const autolink = this.item;
+			const { provider } = autolink;
+
+			const item = new TreeItem(
+				autolink.description ?? `Autolink ${autolink.prefix}${autolink.id}`,
+				TreeItemCollapsibleState.None,
+			);
 			item.description = provider?.name ?? 'Custom';
 			item.iconPath = new ThemeIcon(
-				this.item.type == null
-					? 'link'
-					: this.item.type === AutolinkType.PullRequest
-					? 'git-pull-request'
-					: 'issues',
+				pending
+					? 'loading~spin'
+					: autolink.type == null
+					  ? 'link'
+					  : autolink.type === 'pullrequest'
+					    ? 'git-pull-request'
+					    : 'issues',
 			);
 			item.contextValue = ContextValues.AutolinkedItem;
 			item.tooltip = new MarkdownString(
 				`${
-					this.item.description
-						? `Autolinked ${this.item.description}`
+					autolink.description
+						? `Autolinked ${autolink.description}`
 						: `${
-								this.item.type == null
+								autolink.type == null
 									? 'Autolinked'
-									: this.item.type === AutolinkType.PullRequest
-									? 'Autolinked Pull Request'
-									: 'Autolinked Issue'
-						  } ${this.item.prefix}${this.item.id}`
-				} \\\n[${this.item.url}](${this.item.url}${this.item.title != null ? ` "${this.item.title}"` : ''})`,
+									: autolink.type === 'pullrequest'
+									  ? 'Autolinked Pull Request'
+									  : 'Autolinked Issue'
+						  } ${autolink.prefix}${autolink.id}`
+				} \\\n[${autolink.url}](${autolink.url}${autolink.title != null ? ` "${autolink.title}"` : ''})`,
 			);
 			return item;
 		}
 
-		const relativeTime = fromNow(this.item.closedDate ?? this.item.date);
+		const relativeTime = fromNow(enriched.closedDate ?? enriched.updatedDate ?? enriched.createdDate);
 
-		const item = new TreeItem(`${this.item.id}: ${this.item.title}`, TreeItemCollapsibleState.None);
+		const item = new TreeItem(`${enriched.id}: ${enriched.title}`, TreeItemCollapsibleState.None);
 		item.description = relativeTime;
-		item.iconPath = IssueOrPullRequest.getThemeIcon(this.item);
-		item.contextValue =
-			this.item.type === IssueOrPullRequestType.PullRequest
-				? ContextValues.PullRequest
-				: ContextValues.AutolinkedIssue;
+		item.iconPath = getIssueOrPullRequestThemeIcon(enriched);
+		item.contextValue = enriched.type === 'pullrequest' ? ContextValues.PullRequest : ContextValues.AutolinkedIssue;
 
-		const linkTitle = ` "Open ${
-			this.item.type === IssueOrPullRequestType.PullRequest ? 'Pull Request' : 'Issue'
-		} \\#${this.item.id} on ${this.item.provider.name}"`;
+		const linkTitle = ` "Open ${enriched.type === 'pullrequest' ? 'Pull Request' : 'Issue'} \\#${enriched.id} on ${
+			enriched.provider.name
+		}"`;
 		const tooltip = new MarkdownString(
-			`${IssueOrPullRequest.getMarkdownIcon(this.item)} [**${this.item.title.trim()}**](${
-				this.item.url
-			}${linkTitle}) \\\n[#${this.item.id}](${this.item.url}${linkTitle}) was ${
-				this.item.closed ? 'closed' : 'opened'
+			`${getIssueOrPullRequestMarkdownIcon(enriched)} [**${enriched.title.trim()}**](${
+				enriched.url
+			}${linkTitle}) \\\n[#${enriched.id}](${enriched.url}${linkTitle}) was ${
+				enriched.closed ? 'closed' : 'opened'
 			} ${relativeTime}`,
 			true,
 		);
@@ -89,6 +105,6 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 	}
 }
 
-function isIssueOrPullRequest(item: Autolink | IssueOrPullRequest): item is IssueOrPullRequest {
-	return 'closed' in item && typeof item.closed === 'boolean';
-}
+// function isIssueOrPullRequest(item: Autolink | IssueOrPullRequest): item is IssueOrPullRequest {
+// 	return 'closed' in item && typeof item.closed === 'boolean';
+// }

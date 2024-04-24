@@ -1,11 +1,11 @@
-<section id="contributors-view" class="section--settings section--collapsible">
+<section id="contributors-view" class="section--settings section--collapsible" tabindex="-1">
 	<div class="section__header">
 		<h2>
 			Contributors view
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/gitkraken/vscode-gitlens/#contributors-view-"
+				href="https://help.gitkraken.com/gitlens/side-bar/#contributors-view"
 			>
 				<i class="icon icon__info"></i>
 			</a>
@@ -80,22 +80,6 @@
 
 					<div class="setting">
 						<div class="setting__input">
-							<label for="sortContributorsBy">Sort contributors</label>
-							<div class="select-container">
-								<select id="sortContributorsBy" name="sortContributorsBy" data-setting>
-									<option value="count:desc">by commit count, descending</option>
-									<option value="count:asc">by commit count, ascending</option>
-									<option value="date:desc">by recent commit date, descending</option>
-									<option value="date:asc">by recent commit date, ascending</option>
-									<option value="name:asc">by name, ascending</option>
-									<option value="name:desc">by name, descending</option>
-								</select>
-							</div>
-						</div>
-					</div>
-
-					<div class="setting">
-						<div class="setting__input">
 							<label for="views.contributors.files.layout">Layout files</label>
 							<div class="select-container">
 								<select
@@ -112,6 +96,22 @@
 						<p class="setting__hint" data-visibility="views.contributors.files.layout =auto">
 							Chooses the best layout based on the number of files at each nesting level
 						</p>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<label for="views.contributors.files.icon">File icons</label>
+							<div class="select-container">
+								<select
+									id="views.contributors.files.icon"
+									name="views.contributors.files.icon"
+									data-setting
+								>
+									<option value="type">show file type (default)</option>
+									<option value="status">show file status</option>
+								</select>
+							</div>
+						</div>
 					</div>
 
 					<div class="setting">
@@ -154,12 +154,12 @@
 
 		<div class="section__group">
 			<p class="section__hint">
-				<i class="icon icon__info"></i> For more options, open
+				<i class="icon icon__info"></i> For more options, open the
 				<a
-					class="command"
-					title="Open Settings"
+					class="secondary"
+					title="Open Settings UI"
 					href="command:workbench.action.openSettings?%22gitlens.views.contributors%22"
-					>Settings</a
+					>Settings UI</a
 				>
 				and search for <b><i>gitlens.views.contributors</i></b> or
 				<b><i>gitlens.views</i></b>

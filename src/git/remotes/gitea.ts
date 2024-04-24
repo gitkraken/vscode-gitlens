@@ -1,9 +1,10 @@
 import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
-import { AutolinkType } from '../../config';
-import { GitRevision } from '../models/reference';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
+import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
@@ -23,8 +24,8 @@ export class GiteaRemote extends RemoteProvider {
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
 
-					type: AutolinkType.Issue,
-					description: `Issue #<num> on ${this.name}`,
+					type: 'issue',
+					description: `${this.name} Issue #<num>`,
 				},
 			];
 		}
@@ -35,8 +36,12 @@ export class GiteaRemote extends RemoteProvider {
 		return 'gitea';
 	}
 
-	get id() {
+	get id(): RemoteProviderId {
 		return 'gitea';
+	}
+
+	get gkProviderId(): GkProviderId | undefined {
+		return undefined; // TODO@eamodio DRAFTS add this when supported by backend
 	}
 
 	get name() {
@@ -79,7 +84,7 @@ export class GiteaRemote extends RemoteProvider {
 			index = path.indexOf('/', offset);
 			if (index !== -1) {
 				const sha = path.substring(offset, index);
-				if (GitRevision.isSha(sha)) {
+				if (isSha(sha)) {
 					const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
 					if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 				}
@@ -144,9 +149,9 @@ export class GiteaRemote extends RemoteProvider {
 			line = '';
 		}
 
-		if (sha) return this.encodeUrl(`${this.baseUrl}/src/commit/${sha}/${fileName}${line}`);
-		if (branch) return this.encodeUrl(`${this.baseUrl}/src/branch/${branch}/${fileName}${line}`);
+		if (sha) return `${this.encodeUrl(`${this.baseUrl}/src/commit/${sha}/${fileName}`)}${line}`;
+		if (branch) return `${this.encodeUrl(`${this.baseUrl}/src/branch/${branch}/${fileName}`)}${line}`;
 		// this route is deprecated but there is no alternative
-		return this.encodeUrl(`${this.baseUrl}/src/${fileName}${line}`);
+		return `${this.encodeUrl(`${this.baseUrl}/src/${fileName}`)}${line}`;
 	}
 }

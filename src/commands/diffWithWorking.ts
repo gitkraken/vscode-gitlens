@@ -3,10 +3,13 @@ import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models/reference';
-import { Logger } from '../logger';
+import { deletedOrMissing, uncommittedStaged } from '../git/models/constants';
+import { createReference } from '../git/models/reference';
 import { showGenericErrorMessage } from '../messages';
+import { showRevisionFilesPicker } from '../quickpicks/revisionFilesPicker';
 import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
+import { findOrOpenEditor } from '../system/utils';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
 
@@ -15,6 +18,7 @@ export interface DiffWithWorkingCommandArgs {
 	uri?: Uri;
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
+	lhsTitle?: string;
 }
 
 @command()
@@ -64,7 +68,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 			return;
 		}
-		if (gitUri.sha === GitRevision.deletedOrMissing) {
+		if (gitUri.sha === deletedOrMissing) {
 			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
 
 			return;
@@ -77,7 +81,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 				void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 					repoPath: gitUri.repoPath,
 					lhs: {
-						sha: GitRevision.uncommittedStaged,
+						sha: uncommittedStaged,
 						uri: gitUri.documentUri(),
 					},
 					rhs: {
@@ -94,11 +98,23 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		uri = gitUri.toFileUri();
 
-		const workingUri = await this.container.git.getWorkingUri(gitUri.repoPath!, uri);
+		let workingUri = await this.container.git.getWorkingUri(gitUri.repoPath!, uri);
 		if (workingUri == null) {
-			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+			const pickedUri = await showRevisionFilesPicker(this.container, createReference('HEAD', gitUri.repoPath!), {
+				ignoreFocusOut: true,
+				initialPath: gitUri.relativePath,
+				title: `Open File \u2022 Unable to open '${gitUri.relativePath}'`,
+				placeholder: 'Choose another working file to open',
+				keyboard: {
+					keys: ['right', 'alt+right', 'ctrl+right'],
+					onDidPressKey: async (key, uri) => {
+						await findOrOpenEditor(uri, { ...args.showOptions, preserveFocus: true, preview: true });
+					},
+				},
+			});
+			if (pickedUri == null) return;
 
-			return;
+			workingUri = pickedUri;
 		}
 
 		void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
@@ -106,6 +122,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			lhs: {
 				sha: gitUri.sha,
 				uri: uri,
+				title: args?.lhsTitle,
 			},
 			rhs: {
 				sha: '',

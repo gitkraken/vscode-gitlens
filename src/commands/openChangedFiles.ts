@@ -2,11 +2,11 @@ import type { Uri } from 'vscode';
 import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { filterMap } from '../system/array';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import { findOrOpenEditors } from '../system/utils';
 import { Command } from './base';
 
@@ -25,7 +25,7 @@ export class OpenChangedFilesCommand extends Command {
 
 		try {
 			if (args.uris == null) {
-				const repository = await RepositoryPicker.getRepositoryOrShow('Open All Changed Files');
+				const repository = await getRepositoryOrShowPicker('Open All Changed Files');
 				if (repository == null) return;
 
 				const status = await this.container.git.getStatusForRepo(repository.uri);

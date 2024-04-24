@@ -1,10 +1,10 @@
 import { Uri } from 'vscode';
 import { decodeUtf8Hex, encodeUtf8Hex } from '@env/hex';
-import { UriComparer } from '../comparers';
+import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { Schemes } from '../constants';
 import { Container } from '../container';
-import { Logger } from '../logger';
 import type { GitHubAuthorityMetadata } from '../plus/remotehub';
+import { UriComparer } from '../system/comparers';
 import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
 import { formatPath } from '../system/formatPath';
@@ -12,8 +12,9 @@ import { basename, getBestPath, normalizePath, relativeDir, splitPath } from '..
 // import { CharCode } from '../system/string';
 import { isVirtualUri } from '../system/utils';
 import type { RevisionUriData } from './gitProvider';
+import { uncommittedStaged } from './models/constants';
 import type { GitFile } from './models/file';
-import { GitRevision } from './models/reference';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from './models/reference';
 
 const slash = 47; //CharCode.Slash;
 
@@ -35,6 +36,7 @@ interface UriEx {
 	new (): Uri;
 	new (scheme: string, authority: string, path: string, query: string, fragment: string): Uri;
 	// Use this ctor, because vscode doesn't validate it
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	new (components: UriComponents): Uri;
 }
 
@@ -43,7 +45,9 @@ export class GitUri extends (Uri as any as UriEx) {
 	readonly sha?: string;
 
 	constructor(uri?: Uri);
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	constructor(uri: Uri, commit: GitCommitish);
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	constructor(uri: Uri, repoPath: string | undefined);
 	constructor(uri?: Uri, commitOrRepoPath?: GitCommitish | string) {
 		if (uri == null) {
@@ -53,15 +57,21 @@ export class GitUri extends (Uri as any as UriEx) {
 		}
 
 		if (uri.scheme === Schemes.GitLens) {
+			let path = uri.path;
+
+			const metadata = decodeGitLensRevisionUriAuthority<RevisionUriData>(uri.authority);
+			if (metadata.uncPath != null && !path.startsWith(metadata.uncPath)) {
+				path = `${metadata.uncPath}${uri.path}`;
+			}
+
 			super({
 				scheme: uri.scheme,
 				authority: uri.authority,
-				path: uri.path,
+				path: path,
 				query: uri.query,
 				fragment: uri.fragment,
 			});
 
-			const metadata = decodeGitLensRevisionUriAuthority<RevisionUriData>(uri.authority);
 			this.repoPath = metadata.repoPath;
 
 			let ref = metadata.ref;
@@ -69,7 +79,7 @@ export class GitUri extends (Uri as any as UriEx) {
 				ref = commitOrRepoPath.sha;
 			}
 
-			if (GitRevision.isUncommittedStaged(ref) || !GitRevision.isUncommitted(ref)) {
+			if (!isUncommitted(ref) || isUncommittedStaged(ref)) {
 				this.sha = ref;
 			}
 
@@ -89,7 +99,7 @@ export class GitUri extends (Uri as any as UriEx) {
 				ref = commitOrRepoPath.sha;
 			}
 
-			if (ref && (GitRevision.isUncommittedStaged(ref) || !GitRevision.isUncommitted(ref))) {
+			if (ref && (!isUncommitted(ref) || isUncommittedStaged(ref))) {
 				this.sha = ref;
 			}
 
@@ -154,7 +164,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			fragment: uri.fragment,
 		});
 		this.repoPath = commitOrRepoPath.repoPath;
-		if (GitRevision.isUncommittedStaged(commitOrRepoPath.sha) || !GitRevision.isUncommitted(commitOrRepoPath.sha)) {
+		if (!isUncommitted(commitOrRepoPath.sha) || isUncommittedStaged(commitOrRepoPath.sha)) {
 			this.sha = commitOrRepoPath.sha;
 		}
 	}
@@ -171,12 +181,12 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	@memoize()
 	get isUncommitted(): boolean {
-		return GitRevision.isUncommitted(this.sha);
+		return isUncommitted(this.sha);
 	}
 
 	@memoize()
 	get isUncommittedStaged(): boolean {
-		return GitRevision.isUncommittedStaged(this.sha);
+		return isUncommittedStaged(this.sha);
 	}
 
 	@memoize()
@@ -186,7 +196,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	@memoize()
 	get shortSha(): string {
-		return GitRevision.shorten(this.sha);
+		return shortenRevision(this.sha);
 	}
 
 	@memoize()
@@ -242,9 +252,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		return new GitUri(uri);
 	}
 
-	@debug({
-		exit: uri => `returned ${Logger.toLoggable(uri)}`,
-	})
+	@debug({ exit: true })
 	static async fromUri(uri: Uri): Promise<GitUri> {
 		if (isGitUri(uri)) return uri;
 		if (!Container.instance.git.isTrackable(uri)) return new GitUri(uri);
@@ -252,11 +260,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 		// If this is a git uri, find its repoPath
 		if (uri.scheme === Schemes.Git) {
-			let data: { path: string; ref: string } | undefined;
-			try {
-				data = JSON.parse(uri.query);
-			} catch {}
-
+			const data = getQueryDataFromScmGitUri(uri);
 			if (data?.path) {
 				const repository = await Container.instance.git.getOrOpenRepository(Uri.file(data.path));
 				if (repository == null) {
@@ -268,7 +272,7 @@ export class GitUri extends (Uri as any as UriEx) {
 				switch (data.ref) {
 					case '':
 					case '~':
-						ref = GitRevision.uncommittedStaged;
+						ref = uncommittedStaged;
 						break;
 
 					case null:
@@ -282,7 +286,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 				const commitish: GitCommitish = {
 					fileName: data.path,
-					repoPath: repository?.path,
+					repoPath: repository.path,
 					sha: ref,
 				};
 				return new GitUri(uri, commitish);
@@ -306,26 +310,15 @@ export class GitUri extends (Uri as any as UriEx) {
 			} catch {}
 
 			if (data?.fileName) {
-				const repository = await Container.instance.git.getOrOpenRepository(Uri.file(data.fileName));
+				const repository = await Container.instance.git.getOrOpenRepository(uri);
 				if (repository == null) {
 					debugger;
 					throw new Error(`Unable to find repository for uri=${Uri.file(data.fileName).toString(true)}`);
 				}
 
-				let repoPath: string | undefined = normalizePath(uri.fsPath);
-				if (repoPath.endsWith(data.fileName)) {
-					repoPath = repoPath.substr(0, repoPath.length - data.fileName.length - 1);
-				} else {
-					repoPath = (await Container.instance.git.getOrOpenRepository(uri))?.path;
-					if (!repoPath) {
-						debugger;
-						throw new Error(`Unable to find repository for uri=${uri.toString(true)}`);
-					}
-				}
-
 				const commitish: GitCommitish = {
 					fileName: data.fileName,
-					repoPath: repoPath,
+					repoPath: repository.path,
 					sha: data.isBase ? data.baseCommit : data.headCommit,
 				};
 				return new GitUri(uri, commitish);

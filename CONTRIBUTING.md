@@ -19,8 +19,8 @@ git clone https://github.com/gitkraken/vscode-gitlens.git
 Prerequisites
 
 - [Git](https://git-scm.com/), `>= 2.7.2`
-- [NodeJS](https://nodejs.org/), `>= 14.16.0`
-- [yarn](https://yarnpkg.com/), `>= 1.22.5`
+- [NodeJS](https://nodejs.org/), `>= 16.14.2`
+- [yarn](https://yarnpkg.com/), `>= 1.22.19`
 
 ### Dependencies
 
@@ -104,13 +104,23 @@ yarn run package
 
 1. Open the `vscode-gitlens` folder
 2. Ensure the required [dependencies](#dependencies) are installed
-3. Choose the `Watch & Run` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
+3. Choose the `Watch & Run` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`
+4. A new VS Code "Extension Development Host" window will open with the extension loaded and ready for debugging
+   1. If the "Extension Development Host" window opened without a folder/workspace with a repository (required for most GitLens functionality), you will need to open one and then stop and restart the debug session
+
+In order to see any code changes reflected in the "Extension Development Host" window, you will need to restart the debug session, e.g. using the "Restart" button in the debug toolbar or by pressing `[Ctrl|Cmd]+Shift+F5`. Although, if the code changes are purely within a webview, you can refresh the webview by clicking the refresh button in the toolbar associated with the webview.
+
+_Note: If you see a pop-up with a message similar to "The task cannot be tracked. Make sure to have a problem matcher defined.", you will need to install the [TypeScript + Webpack Problem Matchers](https://marketplace.visualstudio.com/items?itemName=amodio.tsl-problem-matcher) extension._
 
 #### Using VS Code (desktop webworker)
 
 1. Open the `vscode-gitlens` folder
 2. Ensure the required [dependencies](#dependencies) are installed
-3. Choose the `Watch & Run (web)` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
+3. Choose the `Watch & Run (web)` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`
+4. A new VS Code "Extension Development Host" window will open with the extension loaded and ready for debugging
+   1. If the "Extension Development Host" window opened without a folder/workspace with a repository (required for most GitLens functionality), you will need to open one and then stop and restart the debug session
+
+In order to see any code changes reflected in the "Extension Development Host" window, you will need to restart the debug session, e.g. using the "Restart" button in the debug toolbar or by pressing `[Ctrl|Cmd]+Shift+F5`. Although, if the code changes are purely within a webview, you can refresh the webview by clicking the refresh button in the toolbar associated with the webview.
 
 #### Using VS Code for the Web (locally)
 
@@ -123,7 +133,7 @@ See https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-
 
 #### Using VS Code for the Web (vscode.dev)
 
-See https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-web-extension-in-on-vscode.dev
+See https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-web-extension-in-vscode.dev
 
 1. Open the `vscode-gitlens` folder
 2. Ensure the required [dependencies](#dependencies) are installed
@@ -142,15 +152,23 @@ If a pull request is submitted which contains changes to files in or under any d
 
 ### Update the CHANGELOG
 
-The [Change Log](CHANGELOG.md) is updated manually and an entry should be added for each change. Changes are grouped in lists by `added`, `changed` or `fixed`.
+The [Change Log](CHANGELOG.md) is updated manually and an entry should be added for each change. Changes are grouped in lists by `added`, `changed`, `removed`, or `fixed`.
 
 Entries should be written in future tense:
 
-> - Adds [Gravatar](https://en.gravatar.com/) support to gutter and hover blame annotations
+- Be sure to give yourself much deserved credit by adding your name and user in the entry
 
-Be sure to give yourself much deserved credit by adding your name and user in the entry:
-
-> - Adds `gitlens.statusBar.alignment` settings to control the alignment of the status bar &mdash; thanks to [PR #72](https://github.com/gitkraken/vscode-gitlens/pull/72) by Zack Schuster ([@zackschuster](https://github.com/zackschuster))!
+> Added
+>
+> - Adds awesome feature &mdash; closes [#\<issue\>](https://github.com/gitkraken/vscode-gitlens/issues/<issue>) thanks to [PR #\<pr\>](https://github.com/gitkraken/vscode-gitlens/issues/<pr>) by Your Name ([@\<your-github-username\>](https://github.com/<your-github-username>))
+>
+> Changed
+>
+> - Changes or improves an existing feature &mdash; closes [#\<issue\>](https://github.com/gitkraken/vscode-gitlens/issues/<issue>) thanks to [PR #\<pr\>](https://github.com/gitkraken/vscode-gitlens/issues/<pr>) by Your Name ([@\<your-github-username\>](https://github.com/<your-github-username>))
+>
+> Fixed
+>
+> - Fixes [#\<issue\>](https://github.com/gitkraken/vscode-gitlens/issues/<issue>) a bug or regression &mdash; thanks to [PR #\<pr\>](https://github.com/gitkraken/vscode-gitlens/issues/<pr>) by Your Name ([@\<your-github-username\>](https://github.com/<your-github-username>))
 
 ### Update the README
 
@@ -160,7 +178,9 @@ If this is your first contribution to GitLens, please give yourself credit by ad
 
 ## Publishing
 
-### Versioning
+### Stable Releases
+
+#### Versioning
 
 GitLens version changes are bucketed into two types:
 
@@ -169,36 +189,50 @@ GitLens version changes are bucketed into two types:
 
 <small>Note: `major` version bumps are only considered for more special circumstances.</small>
 
-#### Updating the CHANGELOG
+#### Preparing a Normal Release
 
-All recent changes are listed under `## [Unreleased]`. This title and corresponding link at the bottom of the page will need to be updated.
+Use the [prep-release](scripts/prep-release.js) script to prepare a new release. The script updates the [package.json](package.json) and [CHANGELOG.md](CHANGELOG.md) appropriately, commits the changes as `Bumps to v{major}.{minor}.{patch}`, and creates a `v{major}.{minor}.{patch}` tag which when pushed will trigger the CI to publish a release.
 
-The title should be updated to the upcoming version and the release date (YYYY-MM-DD):
+1. Ensure you are on the `main` branch and have a clean working tree
+2. Ensure the [CHANGELOG.md](CHANGELOG.md) has been updated with the release notes
+3. Run `yarn run prep-release` and enter the desired `{major}.{minor}.{patch}` version when prompted
+4. Review the `Bumps to v{major}.{minor}.{patch}` commit
+5. Run `git push --follow-tags` to push the commit and tag
 
-```markdown
-<!-- from: -->
+Pushing the `v{major}.{minor}.{patch}` tag will trigger the [Publish Stable workflow](.github/workflows/cd-stable.yml) to automatically package the extension, create a [GitHub release](https://github.com/gitkraken/vscode-gitlens/releases/latest), and deploy it to the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens).
 
-## [Unreleased]
+If the action fails and retries are unsuccessful, the VSIX can be built locally with `yarn package` and uploaded manually to the marketplace. A GitHub release can also be [created manually](https://github.com/gitkraken/vscode-gitlens/releases/new) using `v{major}.{minor}.{patch}` as the title and the notes from the [CHANGELOG.md](CHANGELOG.md) with the VSIX attached.
 
-<!-- to: -->
+#### Preparing a Patch Release
 
-## [12.1.0] - 2022-06-14
-```
+1. Create, if needed, a `release/{major}.{minor}` branch from the latest `v{major}.{minor}.{patch}` tag
+2. Cherry-pick the desired commits from `main` into the `release/{major}.{minor}` branch
+3. Follow steps 2-5 in [Preparing a Normal Release](#preparing-a-normal-release) above
+4. Manually update the [CHANGELOG.md](CHANGELOG.md) on `main` with the patch release notes
 
-Stage this file so it will be included with the version commit.
+Note: All patch releases for the same `{major}.{minor}` version use the same `release/{major}.{minor}` branch
 
-#### Version Commit
+### Pre-releases
 
-Run `yarn version` and enter the upcoming version when prompted.
+The [Publish Pre-release workflow](.github/workflows/cd-pre.yml) is automatically run every AM unless no new changes have been committed to `main`.
 
-Once the commit is completed, run `git push --follow-tags` to push the version commit and the newly generated tags.
+### Insiders (deprecated use pre-release instead)
 
-### GitHub Actions and Deployment
+The Publish Insiders workflow is no longer available and was replaced with the pre-release edition.
 
-After the version commit and new tags are pushed to GitHub, the [Publish Stable workflow](.github/workflows/cd-stable.yml) will be triggered, which will automatically package the extension and deploy it to the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens). The [release notes](https://github.com/gitkraken/vscode-gitlens/releases/latest) _should_ be generated during the action, but if not, this can be done manually using the notes from the [Change Log](CHANGELOG.md).
+## Updating GL Icons
 
-If the action fails, the VSIX will need to be built locally with `yarn package` and uploaded manually in the marketplace.
+To add new icons to the GL Icons font follow the steps below:
 
-### Insiders release
+- Add new SVG icons to the `images/icons` folder
+- Append entries for the new icons to the end of the `images/icons/template/mapping.json` file
+  - Entries should be in the format of `<icon-file-name-without-extension>: <increment-last-number>`
+- Optimize and build the icons by running the following from a terminal:
 
-The [Publish Insiders workflow](.github/workflows/cd-insiders.yml) is automatically run every AM unless no new changes have been committed to `main`.
+  ```
+  yarn run icons:svgo
+  yarn run build:icons
+
+  ```
+
+Once you've finshed copy the new `glicons.woff2?<uuid>` URL from `src/webviews/apps/shared/glicons.scss` and search and replace the old references with the new one.

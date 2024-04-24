@@ -1,11 +1,11 @@
-<section id="worktrees-view" class="section--settings section--collapsible">
+<section id="worktrees-view" class="section--settings section--collapsible" tabindex="-1">
 	<div class="section__header">
 		<h2>
-			Worktrees view
+			Worktrees view&nbsp;<gl-feature-badge></gl-feature-badge>
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/gitkraken/vscode-gitlens/#worktrees-view-"
+				href="https://help.gitkraken.com/gitlens/gitlens-plus/#worktrees"
 			>
 				<i class="icon icon__info"></i>
 			</a>
@@ -145,6 +145,18 @@
 
 					<div class="setting">
 						<div class="setting__input">
+							<label for="views.worktrees.files.icon">File icons</label>
+							<div class="select-container">
+								<select id="views.worktrees.files.icon" name="views.worktrees.files.icon" data-setting>
+									<option value="type">show file type (default)</option>
+									<option value="status">show file status</option>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
 							<input
 								id="views.worktrees.files.compact"
 								name="views.worktrees.files.compact"
@@ -224,12 +236,12 @@
 
 		<div class="section__group">
 			<p class="section__hint">
-				<i class="icon icon__info"></i> For more options, open
+				<i class="icon icon__info"></i> For more options, open the
 				<a
-					class="command"
-					title="Open Settings"
+					class="secondary"
+					title="Open Settings UI"
 					href="command:workbench.action.openSettings?%22gitlens.views.worktrees%22"
-					>Settings</a
+					>Settings UI</a
 				>
 				and search for <b><i>gitlens.views.worktrees</i></b> or
 				<b><i>gitlens.views</i></b>

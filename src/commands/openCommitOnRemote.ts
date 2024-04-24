@@ -1,13 +1,13 @@
 import type { TextEditor, Uri } from 'vscode';
-import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models/reference';
+import { deletedOrMissing } from '../git/models/constants';
 import { RemoteResourceType } from '../git/models/remoteResource';
-import { Logger } from '../logger';
-import { showFileNotUnderSourceControlWarningMessage } from '../messages';
+import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
@@ -19,6 +19,7 @@ import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenCommitOnRemoteCommandArgs {
 	clipboard?: boolean;
+	line?: number;
 	sha?: string;
 }
 
@@ -37,6 +38,10 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 	protected override preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs) {
 		let uri = context.uri;
+
+		if (context.type === 'editorLine') {
+			args = { ...args, line: context.line };
+		}
 
 		if (isCommandContextViewNodeHasCommit(context)) {
 			if (context.node.commit.isUncommitted) return Promise.resolve(undefined);
@@ -59,19 +64,30 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: OpenCommitOnRemoteCommandArgs) {
 		uri = getCommandUri(uri, editor);
-		if (uri == null) return;
 
-		const gitUri = await GitUri.fromUri(uri);
-		if (!gitUri.repoPath) return;
+		let gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
+
+		const repoPath = (
+			await getBestRepositoryOrShowPicker(
+				gitUri,
+				editor,
+				args?.clipboard ? 'Copy Remote Commit URL' : 'Open Commit On Remote',
+			)
+		)?.path;
+		if (!repoPath) return;
+
+		if (gitUri == null) {
+			gitUri = GitUri.fromRepoPath(repoPath);
+		}
 
 		args = { ...args };
 
 		try {
 			if (args.sha == null) {
-				const blameline = editor == null ? 0 : editor.selection.active.line;
-				if (blameline < 0) return;
+				const blameLine = args.line ?? editor?.selection.active.line;
+				if (blameLine == null) return;
 
-				const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
+				const blame = await this.container.git.getBlameForLine(gitUri, blameLine, editor?.document);
 				if (blame == null) {
 					void showFileNotUnderSourceControlWarningMessage('Unable to open commit on remote provider');
 
@@ -80,7 +96,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 				// If the line is uncommitted, use previous commit
 				args.sha = blame.commit.isUncommitted
-					? (await blame.commit.getPreviousSha()) ?? GitRevision.deletedOrMissing
+					? (await blame.commit.getPreviousSha()) ?? deletedOrMissing
 					: blame.commit.sha;
 			}
 
@@ -89,14 +105,12 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 					type: RemoteResourceType.Commit,
 					sha: args.sha,
 				},
-				repoPath: gitUri.repoPath,
+				repoPath: repoPath,
 				clipboard: args.clipboard,
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenCommitOnRemoteCommand');
-			void window.showErrorMessage(
-				'Unable to open commit on remote provider. See output channel for more details',
-			);
+			void showGenericErrorMessage('Unable to open commit on remote provider');
 		}
 	}
 }

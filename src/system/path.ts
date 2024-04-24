@@ -101,7 +101,7 @@ export function isChild(pathOrUri: string | Uri, base: string | Uri): boolean {
 		}
 
 		return (
-			isDescendent(pathOrUri, base) &&
+			isDescendant(pathOrUri, base) &&
 			(typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.path)
 				.substr(base.length + (base.charCodeAt(base.length - 1) === slash ? 0 : 1))
 				.split('/').length === 1
@@ -109,17 +109,17 @@ export function isChild(pathOrUri: string | Uri, base: string | Uri): boolean {
 	}
 
 	return (
-		isDescendent(pathOrUri, base) &&
+		isDescendant(pathOrUri, base) &&
 		(typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.path)
 			.substr(base.path.length + (base.path.charCodeAt(base.path.length - 1) === slash ? 0 : 1))
 			.split('/').length === 1
 	);
 }
 
-export function isDescendent(path: string, base: string | Uri): boolean;
-export function isDescendent(uri: Uri, base: string | Uri): boolean;
-export function isDescendent(pathOrUri: string | Uri, base: string | Uri): boolean;
-export function isDescendent(pathOrUri: string | Uri, base: string | Uri): boolean {
+export function isDescendant(path: string, base: string | Uri): boolean;
+export function isDescendant(uri: Uri, base: string | Uri): boolean;
+export function isDescendant(pathOrUri: string | Uri, base: string | Uri): boolean;
+export function isDescendant(pathOrUri: string | Uri, base: string | Uri): boolean {
 	if (typeof base === 'string') {
 		base = normalizePath(base);
 		if (base.charCodeAt(0) !== slash) {
@@ -191,6 +191,14 @@ export function normalizePath(path: string): string {
 	return path;
 }
 
+export function pathEquals(a: string, b: string, ignoreCase?: boolean): boolean {
+	if (ignoreCase || (ignoreCase == null && !isLinux)) {
+		a = a.toLowerCase();
+		b = b.toLowerCase();
+	}
+	return normalizePath(a) === normalizePath(b);
+}
+
 export function relative(from: string, to: string, ignoreCase?: boolean): string {
 	from = hasSchemeRegex.test(from) ? Uri.parse(from, true).path : normalizePath(from);
 	to = hasSchemeRegex.test(to) ? Uri.parse(to, true).path : normalizePath(to);
@@ -210,36 +218,36 @@ export function relativeDir(relativePath: string, relativeTo?: string): string {
 
 export function splitPath(
 	pathOrUri: string | Uri,
-	repoPath: string | undefined,
+	root: string | undefined,
 	splitOnBaseIfMissing: boolean = false,
 	ignoreCase?: boolean,
-): [string, string] {
+): [path: string, root: string] {
 	pathOrUri = getBestPath(pathOrUri);
 
-	if (repoPath) {
+	if (root) {
 		let repoUri;
-		if (hasSchemeRegex.test(repoPath)) {
-			repoUri = Uri.parse(repoPath, true);
-			repoPath = getBestPath(repoUri);
+		if (hasSchemeRegex.test(root)) {
+			repoUri = Uri.parse(root, true);
+			root = getBestPath(repoUri);
 		} else {
-			repoPath = normalizePath(repoPath);
+			root = normalizePath(root);
 		}
 
-		const index = commonBaseIndex(`${repoPath}/`, `${pathOrUri}/`, '/', ignoreCase);
+		const index = commonBaseIndex(`${root}/`, `${pathOrUri}/`, '/', ignoreCase);
 		if (index > 0) {
-			repoPath = pathOrUri.substring(0, index);
+			root = pathOrUri.substring(0, index);
 			pathOrUri = pathOrUri.substring(index + 1);
 		} else if (pathOrUri.charCodeAt(0) === slash) {
 			pathOrUri = pathOrUri.slice(1);
 		}
 
 		if (repoUri != null) {
-			repoPath = repoUri.with({ path: repoPath }).toString();
+			root = repoUri.with({ path: root }).toString();
 		}
 	} else {
-		repoPath = normalizePath(splitOnBaseIfMissing ? dirname(pathOrUri) : '');
+		root = normalizePath(splitOnBaseIfMissing ? dirname(pathOrUri) : '');
 		pathOrUri = splitOnBaseIfMissing ? basename(pathOrUri) : pathOrUri;
 	}
 
-	return [pathOrUri, repoPath];
+	return [pathOrUri, root];
 }

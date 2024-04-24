@@ -1,11 +1,11 @@
-<section id="repositories-view" class="section--settings section--collapsible">
+<section id="repositories-view" class="section--settings section--collapsible" tabindex="-1">
 	<div class="section__header">
 		<h2>
 			Repositories view
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/gitkraken/vscode-gitlens/#repositories-view-"
+				href="https://help.gitkraken.com/gitlens/side-bar/#repositories-view"
 			>
 				<i class="icon icon__info"></i>
 			</a>
@@ -220,7 +220,7 @@
 									data-setting
 								/>
 								<label for="views.repositories.showIncomingActivity"
-									>Incoming Activity (experimental)</label
+									>Incoming Activity (Experimental)</label
 								>
 							</div>
 						</div>
@@ -304,6 +304,22 @@
 
 					<div class="setting">
 						<div class="setting__input">
+							<label for="views.repositories.files.icon">File icons</label>
+							<div class="select-container">
+								<select
+									id="views.repositories.files.icon"
+									name="views.repositories.files.icon"
+									data-setting
+								>
+									<option value="type">show file type (default)</option>
+									<option value="status">show file status</option>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
 							<input
 								id="views.repositories.files.compact"
 								name="views.repositories.files.compact"
@@ -313,50 +329,6 @@
 							<label for="views.repositories.files.compact">Use compact file layout</label>
 						</div>
 						<p class="setting__hint">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
-					</div>
-
-					<div class="setting">
-						<div class="setting__input">
-							<label for="sortBranchesBy">Sort branches</label>
-							<div class="select-container">
-								<select id="sortBranchesBy" name="sortBranchesBy" data-setting>
-									<option value="date:desc">by recent commit date, descending</option>
-									<option value="date:asc">by recent commit date, ascending</option>
-									<option value="name:asc">by name, ascending</option>
-									<option value="name:desc">by name, descending</option>
-								</select>
-							</div>
-						</div>
-					</div>
-
-					<div class="setting">
-						<div class="setting__input">
-							<label for="sortContributorsBy">Sort contributors</label>
-							<div class="select-container">
-								<select id="sortContributorsBy" name="sortContributorsBy" data-setting>
-									<option value="count:desc">by commit count, descending</option>
-									<option value="count:asc">by commit count, ascending</option>
-									<option value="date:desc">by recent commit date, descending</option>
-									<option value="date:asc">by recent commit date, ascending</option>
-									<option value="name:asc">by name, ascending</option>
-									<option value="name:desc">by name, descending</option>
-								</select>
-							</div>
-						</div>
-					</div>
-
-					<div class="setting">
-						<div class="setting__input">
-							<label for="sortTagsBy">Sort tags</label>
-							<div class="select-container">
-								<select id="sortTagsBy" name="sortTagsBy" data-setting>
-									<option value="date:desc">by recent commit date, descending</option>
-									<option value="date:asc">by recent commit date, ascending</option>
-									<option value="name:asc">by name, ascending</option>
-									<option value="name:desc">by name, descending</option>
-								</select>
-							</div>
-						</div>
 					</div>
 				</div>
 			</div>
@@ -374,12 +346,12 @@
 
 		<div class="section__group">
 			<p class="section__hint">
-				<i class="icon icon__info"></i> For more options, open
+				<i class="icon icon__info"></i> For more options, open the
 				<a
-					class="command"
-					title="Open Settings"
+					class="secondary"
+					title="Open Settings UI"
 					href="command:workbench.action.openSettings?%22gitlens.views.repositories%22"
-					>Settings</a
+					>Settings UI</a
 				>
 				and search for <b><i>gitlens.views.repositories</i></b> or
 				<b><i>gitlens.views</i></b>

@@ -6,6 +6,7 @@
 export const enum ForcePushMode {
 	Force,
 	ForceWithLease,
+	ForceWithLeaseIfIncludes,
 }
 
 export const enum RefType {
@@ -26,6 +27,8 @@ export const enum Status {
 	UNTRACKED,
 	IGNORED,
 	INTENT_TO_ADD,
+	INTENT_TO_RENAME,
+	TYPE_CHANGED,
 
 	ADDED_BY_US,
 	ADDED_BY_THEM,
@@ -48,6 +51,8 @@ export const enum GitErrorCodes {
 	StashConflict = 'StashConflict',
 	UnmergedChanges = 'UnmergedChanges',
 	PushRejected = 'PushRejected',
+	ForcePushWithLeaseRejected = 'ForcePushWithLeaseRejected',
+	ForcePushWithLeaseIfIncludesRejected = 'ForcePushWithLeaseIfIncludesRejected',
 	RemoteConnectionError = 'RemoteConnectionError',
 	DirtyWorkTree = 'DirtyWorkTree',
 	CantOpenResource = 'CantOpenResource',
@@ -73,4 +78,7 @@ export const enum GitErrorCodes {
 	NoPathFound = 'NoPathFound',
 	UnknownPath = 'UnknownPath',
 	EmptyCommitMessage = 'EmptyCommitMessage',
+	BranchFastForwardRejected = 'BranchFastForwardRejected',
+	BranchNotYetBorn = 'BranchNotYetBorn',
+	TagConflict = 'TagConflict',
 }

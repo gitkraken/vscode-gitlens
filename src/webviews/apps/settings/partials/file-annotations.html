@@ -1,0 +1,111 @@
+<section id="file-annotations" class="section--settings section--collapsible" tabindex="-1">
+	<div class="section__header">
+		<h2>
+			File Annotations
+			<a
+				class="link__learn-more"
+				title="Learn more"
+				href="https://help.gitkraken.com/gitlens/gitlens-features/#file-annotations"
+			>
+				<i class="icon icon__info"></i>
+			</a>
+		</h2>
+
+		<p class="section__header-hint">
+			Customize on-demand blame, changes, or heatmap annotations for the whole file
+		</p>
+	</div>
+
+	<div class="section__collapsible">
+		<div class="section__group">
+			<div class="section__content">
+				<div class="setting">
+					<div class="setting__input">
+						<input
+							id="fileAnnotations.dismissOnEscape"
+							name="fileAnnotations.dismissOnEscape"
+							type="checkbox"
+							data-setting
+						/>
+						<label for="fileAnnotations.dismissOnEscape">
+							Use <kbd>Esc</kbd> key to dismiss the active file annotations
+						</label>
+					</div>
+					<p class="setting__hint"></p>
+				</div>
+
+				<div class="setting">
+					<div class="setting__input">
+						<input
+							id="fileAnnotations.preserveWhileEditing"
+							name="fileAnnotations.preserveWhileEditing"
+							type="checkbox"
+							data-setting
+						/>
+						<label for="fileAnnotations.preserveWhileEditing">
+							Preserve file annotations while editing
+						</label>
+					</div>
+					<p class="setting__hint" data-visibility="fileAnnotations.preserveWhileEditing =true">
+						Annotations will be shown from the last saved version
+					</p>
+				</div>
+
+				<div class="setting">
+					<div class="setting__input">
+						<label for="advanced.blame.delayAfterEdit"
+							>After unsaved changes, pause recomputing annotations for
+						</label>
+						<input
+							id="advanced.blame.delayAfterEdit"
+							name="advanced.blame.delayAfterEdit"
+							type="number"
+							placeholder="5000"
+							data-setting
+							data-default-value="5000"
+						/>
+						<label for="advanced.blame.delayAfterEdit"> ms</label>
+					</div>
+					<p class="setting__hint">
+						Smaller delays will provide a better experience but will have a greater performance impact<br />Also
+						applies to inline blame annotations
+					</p>
+				</div>
+
+				<div class="setting">
+					<div class="setting__input">
+						<label for="advanced.blame.sizeThresholdAfterEdit"
+							>After unsaved changes, don't recompute annotations on files with more than
+						</label>
+						<input
+							id="advanced.blame.sizeThresholdAfterEdit"
+							name="advanced.blame.sizeThresholdAfterEdit"
+							type="number"
+							placeholder="5000"
+							data-setting
+							data-default-value="5000"
+						/>
+						<label for="advanced.blame.sizeThresholdAfterEdit"> lines</label>
+					</div>
+					<p class="setting__hint">
+						Files larger than the threshold will only be recomputed when saved<br />Also applies to inline
+						blame annotations
+					</p>
+				</div>
+			</div>
+		</div>
+
+		<div class="section__group">
+			<p class="section__hint">
+				<i class="icon icon__info"></i> For more options, open the
+				<a
+					class="secondary"
+					title="Open Settings UI"
+					href="command:workbench.action.openSettings?%22gitlens.fileAnnotations%22"
+					>Settings UI</a
+				>
+				and search for <b><i>gitlens.fileAnnotations</i></b>
+			</p>
+		</div>
+	</div>
+</section>

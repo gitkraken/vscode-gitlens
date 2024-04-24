@@ -1,8 +1,10 @@
 import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
-import { AutolinkType } from '../../config';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { Brand, Unbrand } from '../../system/brand';
 import type { Repository } from '../models/repository';
+import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const gitRegex = /\/_git\/?/i;
@@ -53,17 +55,17 @@ export class AzureDevOpsRemote extends RemoteProvider {
 					url: `${workUrl}/_workitems/edit/<num>`,
 					title: `Open Work Item #<num> on ${this.name}`,
 
-					type: AutolinkType.Issue,
-					description: `Work Item #<num> on ${this.name}`,
+					type: 'issue',
+					description: `${this.name} Work Item #<num>`,
 				},
 				{
 					// Default Pull request message when merging a PR in ADO. Will not catch commits & pushes following a different pattern.
-					prefix: 'Merged PR ',
+					prefix: 'PR ',
 					url: `${this.baseUrl}/pullrequest/<num>`,
 					title: `Open Pull Request #<num> on ${this.name}`,
 
-					type: AutolinkType.PullRequest,
-					description: `Pull Request #<num> on ${this.name}`,
+					type: 'pullrequest',
+					description: `${this.name} Pull Request #<num>`,
 				},
 			];
 		}
@@ -71,11 +73,15 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	override get icon() {
-		return 'vsts';
+		return 'azdo';
 	}
 
-	get id() {
+	get id(): RemoteProviderId {
 		return 'azure-devops';
+	}
+
+	get gkProviderId(): GkProviderId {
+		return 'azureDevops' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
 	get name() {

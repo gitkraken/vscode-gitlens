@@ -1,37 +1,38 @@
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout } from '../../config';
-import { configuration } from '../../configuration';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
 import { makeHierarchical } from '../../system/array';
+import { configuration } from '../../system/configuration';
 import { joinPaths, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
-import type { RepositoriesView } from '../repositoriesView';
-import type { StashesView } from '../stashesView';
+import type { ViewsWithStashes } from '../viewBase';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ViewRefNode } from './abstract/viewRefNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
-import { RepositoryNode } from './repositoryNode';
 import { StashFileNode } from './stashFileNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, ViewRefNode } from './viewNode';
 
-export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitStashReference> {
-	static key = ':stash';
-	static getId(repoPath: string, ref: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref})`;
+export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashReference> {
+	constructor(
+		view: ViewsWithStashes,
+		protected override parent: ViewNode,
+		public readonly commit: GitStashCommit,
+		private readonly options?: { icon?: boolean },
+	) {
+		super('stash', commit.getGitUri(), view, parent);
+
+		this.updateContext({ commit: commit });
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	constructor(view: StashesView | RepositoriesView, parent: ViewNode, public readonly commit: GitStashCommit) {
-		super(commit.getGitUri(), view, parent);
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.commit.stashName;
-	}
-
-	override get id(): string {
-		return StashNode.getId(this.commit.repoPath, this.commit.sha);
 	}
 
 	get ref(): GitStashReference {
@@ -43,7 +44,7 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 		const commits = await this.commit.getCommitsForFiles();
 		let children: FileNode[] = commits.map(c => new StashFileNode(this.view, this, c.file!, c as GitStashCommit));
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
+		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
@@ -51,7 +52,7 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 				this.view.config.files.compact,
 			);
 
-			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
+			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort((a, b) => sortCompare(a.label!, b.label!));
@@ -73,6 +74,9 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 			dateFormat: configuration.get('defaultDateFormat'),
 		});
 		item.contextValue = ContextValues.Stash;
+		if (this.options?.icon) {
+			item.iconPath = new ThemeIcon('archive');
+		}
 		item.tooltip = CommitFormatter.fromTemplate(
 			`\${'On 'stashOnRef\n}\${ago} (\${date})\n\n\${message}`,
 			this.commit,

@@ -1,10 +1,11 @@
 import { ConfigurationTarget } from 'vscode';
-import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { ModePicker } from '../quickpicks/modePicker';
+import { showModePicker } from '../quickpicks/modePicker';
 import { command } from '../system/command';
-import { getLogScope, log } from '../system/decorators/log';
+import { configuration } from '../system/configuration';
+import { log } from '../system/decorators/log';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { Command } from './base';
 
 @command()
@@ -17,12 +18,10 @@ export class SwitchModeCommand extends Command {
 	async execute() {
 		const scope = getLogScope();
 
-		const pick = await ModePicker.show();
+		const pick = await showModePicker();
 		if (pick === undefined) return;
 
-		if (scope != null) {
-			scope.exitDetails = ` \u2014 mode=${pick.key ?? ''}`;
-		}
+		setLogScopeExit(scope, ` \u2022 mode=${pick.key ?? ''}`);
 
 		const active = configuration.get('mode.active');
 		if (active === pick.key) return;

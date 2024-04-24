@@ -1,24 +1,21 @@
 import type { Command } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { DiffWithPreviousCommandArgs } from '../../commands';
+import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitFile } from '../../git/models/file';
+import type { GitFile } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/models/file';
 import { dirname, joinPaths } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
+import { ViewFileNode } from './abstract/viewFileNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import type { FileNode } from './folderNode';
-import { ContextValues, ViewNode } from './viewNode';
 
-export class UncommittedFileNode extends ViewNode<ViewsWithCommits> implements FileNode {
-	public readonly file: GitFile;
-	public readonly repoPath: string;
-
+export class UncommittedFileNode extends ViewFileNode<'uncommitted-file', ViewsWithCommits> implements FileNode {
 	constructor(view: ViewsWithCommits, parent: ViewNode, repoPath: string, file: GitFile) {
-		super(GitUri.fromFile(file, repoPath), view, parent);
-
-		this.repoPath = repoPath;
-		this.file = file;
+		super('uncommitted-file', GitUri.fromFile(file, repoPath), view, parent, file);
 	}
 
 	override toClipboard(): string {
@@ -40,7 +37,7 @@ export class UncommittedFileNode extends ViewNode<ViewsWithCommits> implements F
 		// Use the file icon and decorations
 		item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);
 
-		const icon = GitFile.getStatusIcon(this.file.status);
+		const icon = getGitFileStatusIcon(this.file.status);
 		item.iconPath = {
 			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
 			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),

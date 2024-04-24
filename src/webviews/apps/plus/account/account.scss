@@ -1,0 +1,112 @@
+@use '../../shared/styles/properties';
+@use '../../shared/styles/theme';
+
+:root {
+	--gitlens-z-inline: 1000;
+	--gitlens-z-sticky: 1100;
+	--gitlens-z-popover: 1200;
+	--gitlens-z-cover: 1300;
+	--gitlens-z-dialog: 1400;
+	--gitlens-z-modal: 1500;
+	--gitlens-brand-color: #914db3;
+	--gitlens-brand-color-2: #a16dc4;
+}
+
+.vscode-high-contrast,
+.vscode-dark {
+	--progress-bar-color: var(--color-background--lighten-15);
+	--card-background: var(--color-background--lighten-075);
+	--card-hover-background: var(--color-background--lighten-10);
+	--popover-bg: var(--color-background--lighten-15);
+}
+
+.vscode-high-contrast-light,
+.vscode-light {
+	--progress-bar-color: var(--color-background--darken-15);
+	--card-background: var(--color-background--darken-075);
+	--card-hover-background: var(--color-background--darken-10);
+	--popover-bg: var(--color-background--darken-15);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+// avoids FOUC for elements not yet called with `define()`
+:not(:defined) {
+	visibility: hidden;
+}
+
+[hidden] {
+	display: none !important;
+}
+
+html {
+	height: 100%;
+	font-size: 62.5%;
+	text-size-adjust: 100%;
+}
+
+body {
+	background-color: var(--color-view-background);
+	color: var(--color-view-foreground);
+	font-family: var(--font-family);
+	min-height: 100%;
+	line-height: 1.4;
+	font-size: var(--vscode-font-size);
+
+	&.scrollable,
+	.scrollable {
+		border-color: transparent;
+		transition: border-color 1s linear;
+	}
+
+	&:hover,
+	&:focus-within {
+		&.scrollable,
+		.scrollable {
+			border-color: var(--vscode-scrollbarSlider-background);
+			transition: none;
+		}
+	}
+
+	&.preload {
+		&.scrollable,
+		.scrollable {
+			transition: none;
+		}
+	}
+}
+
+::-webkit-scrollbar-corner {
+	background-color: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: transparent;
+	border-color: inherit;
+	border-right-style: inset;
+	border-right-width: calc(100vw + 100vh);
+	border-radius: unset !important;
+
+	&:hover {
+		border-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+
+	&:active {
+		border-color: var(--vscode-scrollbarSlider-activeBackground);
+	}
+}
+
+:focus {
+	outline-color: var(--vscode-focusBorder);
+}
+
+account-content {
+	margin-top: 0.3rem;
+	margin-bottom: 1.3rem;
+}
+
+.account {
+	height: 100%;
+}

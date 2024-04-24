@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?2e51fe40df2abdf6a27fbae6c29587b1") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?f7c781e2202a6007faf0ccfc8a78f375") format("woff2");
 	}
 </style>
 */
@@ -151,4 +151,52 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 }
 .glicon-clock:before {
 	content: '\f11d';
+}
+.glicon-provider-azdo:before {
+	content: '\f11e';
+}
+.glicon-provider-bitbucket:before {
+	content: '\f11f';
+}
+.glicon-provider-gerrit:before {
+	content: '\f120';
+}
+.glicon-provider-gitea:before {
+	content: '\f121';
+}
+.glicon-provider-github:before {
+	content: '\f122';
+}
+.glicon-provider-gitlab:before {
+	content: '\f123';
+}
+.glicon-gitlens-inspect:before {
+	content: '\f124';
+}
+.glicon-workspaces-view:before {
+	content: '\f125';
+}
+.glicon-confirm-checked:before {
+	content: '\f126';
+}
+.glicon-confirm-unchecked:before {
+	content: '\f127';
+}
+.glicon-cloud-patch:before {
+	content: '\f128';
+}
+.glicon-cloud-patch-share:before {
+	content: '\f129';
+}
+.glicon-inspect:before {
+	content: '\f12a';
+}
+.glicon-repository-filled:before {
+	content: '\f12b';
+}
+.glicon-gitlens-filled:before {
+	content: '\f12c';
+}
+.glicon-code-suggestion:before {
+	content: '\f12d';
 }

@@ -3,11 +3,12 @@ import { window } from 'vscode';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
 import type { Container } from '../container';
 import type { GitCommandOptions } from '../git/commandOptions';
-import { Logger } from '../logger';
-import { debug, getLogScope, log } from '../system/decorators/log';
+import { debug, log } from '../system/decorators/log';
+import { Logger } from '../system/logger';
+import { getLogScope } from '../system/logger.scope';
 import { VslsHostService } from './host';
 import type { RepositoryProxy, RequestType } from './protocol';
-import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol';
+import { GetRepositoriesForUriRequestType, GitCommandRequestType, GitLogStreamToCommandRequestType } from './protocol';
 
 export class VslsGuestService implements Disposable {
 	@log()
@@ -55,8 +56,12 @@ export class VslsGuestService implements Disposable {
 	}
 
 	@log()
-	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]) {
-		const response = await this.sendRequest(GitCommandRequestType, { options: options, args: args });
+	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+		const response = await this.sendRequest(GitCommandRequestType, {
+			__type: 'gitlens',
+			options: options,
+			args: args,
+		});
 
 		if (response.isBuffer) {
 			return Buffer.from(response.data, 'binary') as TOut;
@@ -65,8 +70,29 @@ export class VslsGuestService implements Disposable {
 	}
 
 	@log()
+	async gitLogStreamTo(
+		repoPath: string,
+		sha: string,
+		limit: number,
+		options?: { configs?: readonly string[]; stdin?: string },
+		...args: string[]
+	): Promise<[data: string[], count: number]> {
+		const response = await this.sendRequest(GitLogStreamToCommandRequestType, {
+			__type: 'gitlens',
+			repoPath: repoPath,
+			sha: sha,
+			limit: limit,
+			options: options,
+			args: args,
+		});
+
+		return [response.data, response.count];
+	}
+
+	@log()
 	async getRepositoriesForUri(uri: Uri): Promise<RepositoryProxy[]> {
 		const response = await this.sendRequest(GetRepositoriesForUriRequestType, {
+			__type: 'gitlens',
 			folderUri: uri.toString(),
 		});
 
@@ -76,10 +102,9 @@ export class VslsGuestService implements Disposable {
 	@debug()
 	private sendRequest<TRequest, TResponse>(
 		requestType: RequestType<TRequest, TResponse>,
-		request: TRequest,
-		_cancellation?: CancellationToken,
+		request: TRequest & { __type: string },
+		cancellation?: CancellationToken,
 	): Promise<TResponse> {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-		return this._service.request(requestType.name, [request]);
+		return this._service.request<TResponse>(requestType.name, [request], cancellation);
 	}
 }

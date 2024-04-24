@@ -1,18 +1,19 @@
 import type { TreeItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
-import { executeGitCommand } from '../../commands/gitCommands.actions';
+import { md5 } from '@env/crypto';
+import { executeGitCommand } from '../../git/actions';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
-import { SearchPattern } from '../../git/search';
+import type { CommitsQueryResults } from '../../git/queryResults';
+import type { SearchQuery } from '../../git/search';
+import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search';
 import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
-import { md5, pluralize } from '../../system/string';
+import { debug } from '../../system/decorators/log';
+import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
-import { RepositoryNode } from './repositoryNode';
-import type { CommitsQueryResults } from './resultsCommitsNode';
+import type { PageableViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
-import type { PageableViewNode } from './viewNode';
-import { ContextValues, ViewNode } from './viewNode';
 
 let instanceId = 0;
 
@@ -23,24 +24,14 @@ interface SearchQueryResults {
 	more?(limit: number | undefined): Promise<void>;
 }
 
-export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements PageableViewNode {
-	static key = ':search-results';
-	static getId(repoPath: string, search: SearchPattern | undefined, instanceId: number): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${
-			search == null ? '?' : SearchPattern.toKey(search)
-		}):${instanceId}`;
-	}
-
-	static getPinnableId(repoPath: string, search: SearchPattern) {
-		return md5(`${repoPath}|${SearchPattern.toKey(search)}`);
-	}
-
+export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompareView> implements PageableViewNode {
 	private _instanceId: number;
+
 	constructor(
 		view: SearchAndCompareView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
-		search: SearchPattern,
+		private _search: SearchQuery,
 		private _labels: {
 			label: string;
 			queryLabel:
@@ -56,35 +47,39 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 			| Promise<GitLog | undefined>
 			| GitLog
 			| undefined,
-		private _pinned: number = 0,
+		private _storedAt: number = 0,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('search-results', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._search = search;
 		this._instanceId = instanceId++;
-		this._order = Date.now();
+		this.updateContext({ searchId: `${getSearchQueryComparisonKey(this._search)}+${this._instanceId}` });
+		this._uniqueId = getViewNodeId(this.type, this.context);
+
+		// If this is a new search, save it
+		if (this._storedAt === 0) {
+			this._storedAt = Date.now();
+			void this.store(true);
+		}
 	}
 
 	override get id(): string {
-		return SearchResultsNode.getId(this.repoPath, this.search, this._instanceId);
+		return this._uniqueId;
 	}
 
-	get canDismiss(): boolean {
-		return !this.pinned;
+	override toClipboard(): string {
+		return this.search.query;
 	}
 
-	private readonly _order: number = Date.now();
 	get order(): number {
-		return this._pinned || this._order;
+		return this._storedAt;
 	}
 
-	get pinned(): boolean {
-		return this._pinned !== 0;
-	}
-
-	private _search: SearchPattern;
-	get search(): SearchPattern {
+	get search(): SearchQuery {
 		return this._search;
+	}
+
+	dismiss() {
+		void this.remove(true);
 	}
 
 	private _resultsNode: ResultsCommitsNode | undefined;
@@ -115,7 +110,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 					deferred: deferred,
 				},
 				{
-					expand: !this.pinned,
+					expand: false,
 				},
 				true,
 			);
@@ -131,14 +126,12 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 	async getTreeItem(): Promise<TreeItem> {
 		const item = await this.ensureResults().getTreeItem();
 		item.id = this.id;
-		item.contextValue = `${ContextValues.SearchResults}${this._pinned ? '+pinned' : ''}`;
+		item.contextValue = ContextValues.SearchResults;
 		if (this.view.container.git.repositoryCount > 1) {
 			const repo = this.view.container.git.getRepository(this.repoPath);
 			item.description = repo?.formattedName ?? this.repoPath;
 		}
-		if (this._pinned) {
-			item.iconPath = new ThemeIcon('pinned');
-		}
+		item.iconPath = new ThemeIcon('search');
 
 		return item;
 	}
@@ -152,7 +145,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 	}
 
 	async edit(search?: {
-		pattern: SearchPattern;
+		pattern: SearchQuery;
 		labels: {
 			label: string;
 			queryLabel:
@@ -180,18 +173,15 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		}
 
 		// Save the current id so we can update it later
-		const currentId = this.getPinnableId();
+		const currentId = this.getStorageId();
 
 		this._search = search.pattern;
 		this._labels = search.labels;
 		this._searchQueryOrLog = search.log;
 		this._resultsNode = undefined;
 
-		// If we were pinned, remove the existing pin and save a new one
-		if (this.pinned) {
-			await this.view.updatePinned(currentId);
-			await this.updatePinned();
-		}
+		// Remove the existing stored item and save a new one
+		await this.replace(currentId, true);
 
 		void this.triggerChange(false);
 		queueMicrotask(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
@@ -201,30 +191,6 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 	@debug()
 	override refresh(reset: boolean = false) {
 		this._resultsNode?.refresh(reset);
-	}
-
-	@log()
-	async pin() {
-		if (this.pinned) return;
-
-		this._pinned = Date.now();
-		await this.updatePinned();
-
-		queueMicrotask(() => this.view.reveal(this, { focus: true, select: true }));
-	}
-
-	@log()
-	async unpin() {
-		if (!this.pinned) return;
-
-		this._pinned = 0;
-		await this.view.updatePinned(this.getPinnableId());
-
-		queueMicrotask(() => this.view.reveal(this, { focus: true, select: true }));
-	}
-
-	private getPinnableId() {
-		return SearchResultsNode.getPinnableId(this.repoPath, this.search);
 	}
 
 	private getSearchLabel(
@@ -241,7 +207,9 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		const count = log?.count ?? 0;
 
 		const resultsType =
-			label.resultsType === undefined ? { singular: 'result', plural: 'results' } : label.resultsType;
+			label.resultsType === undefined
+				? { singular: 'search result', plural: 'search results' }
+				: label.resultsType;
 
 		return `${pluralize(resultsType.singular, count, {
 			format: c => (log?.hasMore ? `${c}+` : undefined),
@@ -264,9 +232,9 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		let useCacheOnce = true;
 
 		return async (limit: number | undefined) => {
-			log = await (log ?? this.view.container.git.getLogForSearch(this.repoPath, this.search));
+			log = await (log ?? this.view.container.git.richSearchCommits(this.repoPath, this.search));
 
-			if (!useCacheOnce && log != null && log.query != null) {
+			if (!useCacheOnce && log?.query != null) {
 				log = await log.query(limit);
 			}
 			useCacheOnce = false;
@@ -289,13 +257,30 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		};
 	}
 
-	private updatePinned() {
-		return this.view.updatePinned(this.getPinnableId(), {
-			type: 'search',
-			timestamp: this._pinned,
-			path: this.repoPath,
-			labels: this._labels,
-			search: this.search,
-		});
+	private getStorageId() {
+		return md5(`${this.repoPath}|${getSearchQueryComparisonKey(this.search)}`, 'base64');
+	}
+
+	private remove(silent: boolean = false) {
+		return this.view.updateStorage(this.getStorageId(), undefined, silent);
+	}
+
+	private async replace(id: string, silent: boolean = false) {
+		await this.view.updateStorage(id, undefined, silent);
+		return this.store(silent);
+	}
+
+	private store(silent: boolean = false) {
+		return this.view.updateStorage(
+			this.getStorageId(),
+			{
+				type: 'search',
+				timestamp: this._storedAt,
+				path: this.repoPath,
+				labels: this._labels,
+				search: getStoredSearchQuery(this.search),
+			},
+			silent,
+		);
 	}
 }

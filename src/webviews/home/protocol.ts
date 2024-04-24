@@ -1,20 +1,42 @@
-import type { Subscription } from '../../subscription';
-import { IpcNotificationType } from '../protocol';
+import type { IpcScope, WebviewState } from '../protocol';
+import { IpcCommand, IpcNotification } from '../protocol';
 
-export const enum CompletedActions {
-	DismissedWelcome = 'dismissed:welcome',
-	OpenedSCM = 'opened:scm',
+export const scope: IpcScope = 'home';
+
+export interface State extends WebviewState {
+	repositories: DidChangeRepositoriesParams;
+	webroot?: string;
+	promoStates: Record<string, boolean>;
+	orgSettings: {
+		drafts: boolean;
+	};
+	walkthroughCollapsed: boolean;
 }
 
-export interface State {
-	subscription: Subscription;
-	completedActions: CompletedActions[];
+// COMMANDS
+
+export interface CollapseSectionParams {
+	section: string;
+	collapsed: boolean;
 }
+export const CollapseSectionCommand = new IpcCommand<CollapseSectionParams>(scope, 'section/collapse');
+
+// NOTIFICATIONS
+
+export interface DidChangeRepositoriesParams {
+	count: number;
+	openCount: number;
+	hasUnsafe: boolean;
+	trusted: boolean;
+}
+export const DidChangeRepositories = new IpcNotification<DidChangeRepositoriesParams>(scope, 'repositories/didChange');
 
 export interface DidChangeSubscriptionParams {
-	subscription: Subscription;
-	completedActions: CompletedActions[];
+	promoStates: Record<string, boolean>;
 }
-export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
-	'subscription/didChange',
-);
+export const DidChangeSubscription = new IpcNotification<DidChangeSubscriptionParams>(scope, 'subscription/didChange');
+
+export interface DidChangeOrgSettingsParams {
+	orgSettings: State['orgSettings'];
+}
+export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');

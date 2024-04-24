@@ -1,10 +1,14 @@
 import type { FeatureAccess } from '../../../features';
-import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
+import type { IpcScope, WebviewState } from '../../../webviews/protocol';
+import { IpcCommand, IpcNotification } from '../../../webviews/protocol';
 
-export interface State {
+export const scope: IpcScope = 'timeline';
+
+export interface State extends WebviewState {
 	dataset?: Commit[];
 	period: Period;
-	title: string;
+	title?: string;
+	sha?: string;
 	uri?: string;
 
 	dateFormat: string;
@@ -24,12 +28,9 @@ export interface Commit {
 	sort: number;
 }
 
-export type Period = `${number}|${'D' | 'M' | 'Y'}`;
+export type Period = `${number}|${'D' | 'M' | 'Y'}` | 'all';
 
-export interface DidChangeParams {
-	state: State;
-}
-export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('timeline/didChange');
+// COMMANDS
 
 export interface OpenDataPointParams {
 	data?: {
@@ -37,9 +38,16 @@ export interface OpenDataPointParams {
 		selected: boolean;
 	};
 }
-export const OpenDataPointCommandType = new IpcCommandType<OpenDataPointParams>('timeline/point/open');
+export const OpenDataPointCommand = new IpcCommand<OpenDataPointParams>(scope, 'point/open');
 
 export interface UpdatePeriodParams {
 	period: Period;
 }
-export const UpdatePeriodCommandType = new IpcCommandType<UpdatePeriodParams>('timeline/period/update');
+export const UpdatePeriodCommand = new IpcCommand<UpdatePeriodParams>(scope, 'period/update');
+
+// NOTIFICATIONS
+
+export interface DidChangeParams {
+	state: State;
+}
+export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange');

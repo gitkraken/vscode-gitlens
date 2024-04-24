@@ -1,27 +1,30 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-	</head>
-
-	<body class="graph-app preload">
-		<div id="root" class="graph-app__container">
-			<p>A repository must be selected.</p>
-		</div>
-		#{endOfBody}
 		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';
 				font-display: block;
-				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
+				src: url('#{webroot}/codicon.ttf?79130123c9d3674a686cf03962523e8a') format('truetype');
 			}
-		</style>
-		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'glicons';
 				font-display: block;
-				src: url('#{root}/dist/glicons.woff2?2e51fe40df2abdf6a27fbae6c29587b1') format('woff2');
+				src: url('#{root}/dist/glicons.woff2?f7c781e2202a6007faf0ccfc8a78f375') format('woff2');
 			}
 		</style>
+		<script type="application/javascript" nonce="#{cspNonce}">
+			window.webpackResourceBasePath = '#{webroot}/';
+		</script>
+	</head>
+
+	<body
+		class="graph-app scrollable"
+		data-placement="#{placement}"
+		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
+	>
+		<div id="root" class="graph-app__container"></div>
+		#{endOfBody}
 	</body>
 </html>

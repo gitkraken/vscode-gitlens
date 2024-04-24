@@ -1,16 +1,20 @@
-import type { Disposable, Event } from 'vscode';
+import type { Event } from 'vscode';
+import { Disposable } from 'vscode';
 import type { Deferred } from './promise';
 
 export function once<T>(event: Event<T>): Event<T> {
-	return (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: Disposable[]) => {
-		const result = event(
-			e => {
+	return take<T>(event, 1);
+}
+
+export function take<T>(event: Event<T>, count: number): Event<T> {
+	return (listener: (e: T) => unknown, thisArgs?: unknown) => {
+		let i = 0;
+		const result = event(e => {
+			if (++i >= count) {
 				result.dispose();
-				return listener.call(thisArgs, e);
-			},
-			null,
-			disposables,
-		);
+			}
+			return listener.call(thisArgs, e);
+		});
 
 		return result;
 	};
@@ -20,18 +24,14 @@ export function promisify<T>(event: Event<T>): Promise<T> {
 	return new Promise<T>(resolve => once(event)(resolve));
 }
 
-export function until<T>(event: Event<T>, predicate: (e: T) => boolean): Event<T> {
-	return (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: Disposable[]) => {
-		const result = event(
-			e => {
-				if (predicate(e)) {
-					result.dispose();
-				}
-				return listener.call(thisArgs, e);
-			},
-			null,
-			disposables,
-		);
+export function takeUntil<T>(event: Event<T>, predicate: (e: T) => boolean): Event<T> {
+	return (listener: (e: T) => unknown, thisArgs?: unknown) => {
+		const result = event(e => {
+			if (predicate(e)) {
+				result.dispose();
+			}
+			return listener.call(thisArgs, e);
+		});
 
 		return result;
 	};
@@ -39,9 +39,11 @@ export function until<T>(event: Event<T>, predicate: (e: T) => boolean): Event<T
 
 export type DeferredEvent<T> = Omit<Deferred<T>, 'fulfill'>;
 
-export interface DeferredEventExecutor<T, U> {
-	(value: T, resolve: (value: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
-}
+export type DeferredEventExecutor<T, U> = (
+	value: T,
+	resolve: (value: U | PromiseLike<U>) => void,
+	reject: (reason: any) => void,
+) => any;
 
 const resolveExecutor = (value: any, resolve: (value?: any) => void) => resolve(value);
 
@@ -65,8 +67,10 @@ export function promisifyDeferred<T, U>(
 	let cancel: ((reason?: any) => void) | undefined;
 	let disposable: Disposable;
 
+	let pending = true;
 	const promise = new Promise<U>((resolve, reject) => {
 		cancel = () => {
+			pending = false;
 			cancel = undefined;
 			reject();
 		};
@@ -74,7 +78,10 @@ export function promisifyDeferred<T, U>(
 		disposable = event(async (value: T) => {
 			try {
 				await executor(value, resolve, reject);
+				pending = false;
 			} catch (ex) {
+				pending = false;
+				// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
 				reject(ex);
 			}
 		});
@@ -90,7 +97,37 @@ export function promisifyDeferred<T, U>(
 	);
 
 	return {
+		get pending() {
+			return pending;
+		},
 		promise: promise,
 		cancel: () => cancel?.(),
 	};
+}
+
+export function weakEvent<T, U extends object>(
+	event: Event<T>,
+	listener: (e: T) => any,
+	thisArg: U,
+	alsoDisposeOnReleaseOrDispose?: Disposable[],
+): Disposable {
+	const ref = new WeakRef<U>(thisArg);
+
+	let disposable: Disposable;
+
+	const d = event((e: T) => {
+		const obj = ref.deref();
+		if (obj != null) {
+			listener.call(obj, e);
+		} else {
+			disposable.dispose();
+		}
+	});
+
+	if (alsoDisposeOnReleaseOrDispose == null) {
+		disposable = d;
+	} else {
+		disposable = Disposable.from(d, ...alsoDisposeOnReleaseOrDispose);
+	}
+	return disposable;
 }
