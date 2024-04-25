@@ -491,7 +491,14 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	renderCodeSuggectionActions() {
-		if (!this.isCodeSuggestion || this.cloudDraft == null || this.cloudDraft.isArchived) return undefined;
+		if (
+			!this.isCodeSuggestion ||
+			this.cloudDraft == null ||
+			this.cloudDraft.isArchived ||
+			this.cloudDraft.role === 'viewer'
+		) {
+			return undefined;
+		}
 
 		return html`
 			<p>Mark as:</p>
