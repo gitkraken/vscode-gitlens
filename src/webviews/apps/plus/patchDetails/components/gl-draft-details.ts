@@ -501,11 +501,14 @@ export class GlDraftDetails extends GlTreeBase {
 		}
 
 		return html`
-			<p>Mark as:</p>
 			<p class="button-container">
 				<span class="button-group button-group--single">
-					<gl-button full @click=${() => this.onArchiveDraft('accepted')}>Accept</gl-button>
-					<gl-button full @click=${() => this.onArchiveDraft('rejected')}>Reject</gl-button>
+					<gl-button appearance="secondary" full @click=${() => this.onArchiveDraft('accepted')}
+						>Accept</gl-button
+					>
+					<gl-button appearance="secondary" full @click=${() => this.onArchiveDraft('rejected')}
+						>Reject</gl-button
+					>
 				</span>
 			</p>
 		`;
@@ -562,7 +565,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 		return html`
 			<div class="section section--action">
-				${this.renderPatchPermissions()}${this.renderCodeSuggectionActions()}
+				${this.renderPatchPermissions()}
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
@@ -581,6 +584,7 @@ export class GlDraftDetails extends GlTreeBase {
 						</gk-popover>
 					</span>
 				</p>
+				${this.renderCodeSuggectionActions()}
 			</div>
 		`;
 	}
