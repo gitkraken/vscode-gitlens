@@ -348,6 +348,7 @@ export const enum Commands {
 	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 	ToggleFileHeatmapInDiffLeft = 'gitlens.toggleFileHeatmapInDiffLeft',
 	ToggleFileHeatmapInDiffRight = 'gitlens.toggleFileHeatmapInDiffRight',
+	ToggleFocusIndicators = 'gitlens.toggleFocusIndicators',
 	ToggleGraph = 'gitlens.toggleGraph',
 	ToggleMaximizedGraph = 'gitlens.toggleMaximizedGraph',
 	ToggleLineBlame = 'gitlens.toggleLineBlame',

@@ -10,7 +10,7 @@ import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
-import { executeCommand } from '../../system/command';
+import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { getSettledValue } from '../../system/promise';
 import { openUrl } from '../../system/utils';
@@ -83,24 +83,24 @@ export const sharedCategoryToFocusActionCategoryMap = new Map<string, FocusActio
 	['other', 'other'],
 ]);
 
-export type FocusAction = 'open' | 'merge' | 'review' | 'switch' | 'change-reviewers' | 'nudge' | 'decline-review';
+export type FocusAction = 'open' | 'merge' | 'switch' /*| 'review' | 'change-reviewers' | 'nudge' | 'decline-review'*/;
 export type FocusTargetAction = {
 	action: 'open-suggestion';
 	target: string;
 };
 
 const prActionsMap = new Map<FocusActionCategory, FocusAction[]>([
-	['mergeable', ['merge', 'switch', 'open']],
+	['mergeable', ['merge', 'switch']],
 	['unassigned-reviewers', ['switch', 'open']],
 	['failed-checks', ['switch', 'open']],
 	['conflicts', ['switch', 'open']],
-	['needs-my-review', ['review', /* 'decline-review', */ 'open']],
-	['code-suggestions', ['switch', 'open']],
+	['needs-my-review', [/*'review', 'decline-review', */ 'switch', 'open']],
+	['code-suggestions', ['switch']],
 	['changes-requested', ['switch', 'open']],
 	['reviewer-commented', ['switch', 'open']],
 	['waiting-for-review', [/* 'nudge', 'change-reviewers', */ 'switch', 'open']],
 	['draft', ['switch', 'open']],
-	['other', ['switch', 'open']],
+	['other', ['switch']],
 ]);
 
 export type FocusPullRequest = EnrichablePullRequest & ProviderActionablePullRequest;
@@ -153,10 +153,10 @@ export class FocusProvider implements Disposable {
 	private readonly _disposable: Disposable;
 
 	constructor(private readonly container: Container) {
-		this._disposable = Disposable
-			.from
+		this._disposable = Disposable.from(
 			// configuration.onDidChange(this.onConfigurationChanged, this),
-			();
+			...this.registerCommands(),
+		);
 	}
 
 	dispose() {
@@ -457,7 +457,7 @@ export class FocusProvider implements Disposable {
 				actionableItems.map(async item => {
 					const codeSuggestionsCount = suggestionCounts?.[item.uuid]?.count ?? 0;
 					const actionableCategory =
-						codeSuggestionsCount > 0
+						codeSuggestionsCount > 0 && item.viewer.isAuthor
 							? 'code-suggestions'
 							: sharedCategoryToFocusActionCategoryMap.get(item.suggestedActionCategory)!;
 					const suggestedActions = prActionsMap.get(actionableCategory)!;
@@ -508,6 +508,15 @@ export class FocusProvider implements Disposable {
 	async ensureFocusItemCodeSuggestions(item: FocusItem, options?: { force?: boolean }): Promise<Draft[] | undefined> {
 		item.codeSuggestions ??= await this.getCodeSuggestions(item, options);
 		return item.codeSuggestions;
+	}
+
+	private registerCommands(): Disposable[] {
+		return [
+			registerCommand('gitlens.toggleFocusIndicators', () => {
+				const enabled = configuration.get('focus.experimental.indicators.enabled') ?? false;
+				void configuration.updateEffective('focus.experimental.indicators.enabled', !enabled);
+			}),
+		];
 	}
 }
 
