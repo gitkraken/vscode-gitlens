@@ -83,7 +83,11 @@ export const sharedCategoryToFocusActionCategoryMap = new Map<string, FocusActio
 	['other', 'other'],
 ]);
 
-export type FocusAction = 'open' | 'merge' | 'switch' /*| 'review' | 'change-reviewers' | 'nudge' | 'decline-review'*/;
+export type FocusAction =
+	| 'open'
+	| 'merge'
+	| 'switch'
+	| 'soft-open' /*| 'review' | 'change-reviewers' | 'nudge' | 'decline-review'*/;
 export type FocusTargetAction = {
 	action: 'open-suggestion';
 	target: string;
