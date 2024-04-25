@@ -1,5 +1,5 @@
 import { Avatar, Button, defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
-import { html } from 'lit';
+import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { map } from 'lit/directives/map.js';
@@ -33,6 +33,7 @@ import type {
 import { GlTreeBase } from './gl-tree-base';
 import '../../../shared/components/actions/action-item';
 import '../../../shared/components/actions/action-nav';
+import '../../../shared/components/badges/badge';
 import '../../../shared/components/button-container';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
@@ -624,6 +625,21 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
+	renderDraftInfo() {
+		if (this.state.draft?.title == null) return nothing;
+
+		let badge = undefined;
+		if (this.cloudDraft?.isArchived) {
+			const label = this.cloudDraft.archivedReason ?? 'archived';
+			badge = html`<gl-badge class="title__badge">${label}</gl-badge>`;
+		}
+
+		return html`
+			<h1 class="title">${this.state.draft?.title} ${badge}</h1>
+			${this.renderPatchMessage()}
+		`;
+	}
+
 	override render() {
 		if (this.state?.draft == null) {
 			return html` <div class="commit-detail-panel scrollable">${this.renderEmptyContent()}</div>`;
@@ -632,16 +648,7 @@ export class GlDraftDetails extends GlTreeBase {
 		return html`
 			<div class="pane-groups">
 				<div class="pane-groups__group-fixed">
-					<div class="section">
-						${this.renderActionbar()}
-						${when(
-							this.state.draft?.title != null,
-							() => html`
-								<h1 class="title">${this.state.draft?.title}</h1>
-								${this.renderPatchMessage()}
-							`,
-						)}
-					</div>
+					<div class="section">${this.renderActionbar()}${this.renderDraftInfo()}</div>
 				</div>
 				<div class="pane-groups__group">${this.renderChangedFiles()}</div>
 				<div class="pane-groups__group-fixed pane-groups__group--bottom">
