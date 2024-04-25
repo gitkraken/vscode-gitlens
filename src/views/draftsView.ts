@@ -88,7 +88,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 	constructor(container: Container) {
 		super(container, 'drafts', 'Cloud Patches', 'draftsView');
 
-		this.description = 'PRO preview';
+		this.description = 'ᴘʀᴇᴠɪᴇᴡ';
 	}
 
 	override dispose() {

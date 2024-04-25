@@ -135,7 +135,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				},
 			}),
 		);
-		this.description = 'PRO';
+		this.description = 'ᴘʀᴏ';
 	}
 
 	override get canReveal(): boolean {

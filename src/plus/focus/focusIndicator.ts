@@ -290,7 +290,7 @@ export class FocusIndicator implements Disposable {
 			this._statusBarFocus.tooltip.appendMarkdown('\n\n---\n\n');
 		}
 		this._statusBarFocus.tooltip.appendMarkdown(
-			'GitLens Launchpad (PRO preview)\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0',
+			'GitLens Launchpad ᴘʀᴇᴠɪᴇᴡ\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0',
 		);
 
 		this._statusBarFocus.tooltip.appendMarkdown(
