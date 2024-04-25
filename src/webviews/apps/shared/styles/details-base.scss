@@ -3,6 +3,7 @@
 :root {
 	--gitlens-gutter-width: 20px;
 	--gitlens-scrollbar-gutter-width: 10px;
+	--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 }
 
 .vscode-high-contrast,
