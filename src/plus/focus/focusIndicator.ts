@@ -175,7 +175,7 @@ export class FocusIndicator implements Disposable {
 										items.length,
 									)} can be merged.](command:gitlens.quickFocus?${encodeURIComponent(
 										JSON.stringify({ state: { initialGroup: 'mergeable' } }),
-									)})`,
+									)} "Open Ready to Merge in Launchpad")`,
 								);
 								color = '#00FF00';
 								topItem ??= { item: items[0], groupLabel: 'can be merged' };
@@ -226,7 +226,7 @@ export class FocusIndicator implements Disposable {
 										hasMultipleCategories ? 'are blocked' : actionMessage
 									}.](command:gitlens.quickFocus?${encodeURIComponent(
 										JSON.stringify({ state: { initialGroup: 'blocked' } }),
-									)})`,
+									)} "Open Blocked in Launchpad")`,
 								);
 								if (hasMultipleCategories) {
 									this._statusBarFocus.tooltip.appendMarkdown(`\\\n$(blank)${summaryMessage}`);
@@ -252,7 +252,7 @@ export class FocusIndicator implements Disposable {
 										items.length > 1 ? 'need' : 'needs'
 									} your review.](command:gitlens.quickFocus?${encodeURIComponent(
 										JSON.stringify({ state: { initialGroup: 'needs-review' } }),
-									)})`,
+									)} "Open Needs Your Review in Launchpad")`,
 								);
 								color ??= '#FFFF00';
 								topItem ??= { item: items[0], groupLabel: 'needs your review' };
@@ -266,7 +266,7 @@ export class FocusIndicator implements Disposable {
 										items.length > 1 ? 'require' : 'requires'
 									} follow-up.](command:gitlens.quickFocus?${encodeURIComponent(
 										JSON.stringify({ state: { initialGroup: 'follow-up' } }),
-									)})`,
+									)} "Open Follow-Up in Launchpad")`,
 								);
 								color ??= '#FFA500';
 								topItem ??= { item: items[0], groupLabel: 'requires follow-up' };
@@ -314,9 +314,17 @@ export class FocusIndicator implements Disposable {
 					case 'unmute':
 						void configuration.updateEffective('focus.experimental.indicators.data.enabled', true);
 						break;
-					case 'hide':
-						this._statusBarFocus?.hide();
+					case 'hide': {
+						const action = await window.showInformationMessage(
+							'Would you like to hide the Launchpad status bar icon? You can re-enable it at any time using the "GitLens: Toggle Launchpad Status Bar Icon" command.',
+							{ modal: true },
+							'Hide',
+						);
+						if (action === 'Hide') {
+							void configuration.updateEffective('focus.experimental.indicators.enabled', false);
+						}
 						break;
+					}
 					case 'connectGitHub': {
 						const github = await this.container.integrations?.get(HostingIntegrationId.GitHub);
 						if (github == null) break;

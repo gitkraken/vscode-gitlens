@@ -2793,7 +2793,7 @@
 					"gitlens.focus.allowMultiple": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Launchpad_",
+						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Launchpad_ as an editor tab",
 						"scope": "window",
 						"order": 10
 					},
@@ -2807,7 +2807,7 @@
 					"gitlens.focus.experimental.indicators.openQuickFocus": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "(Experimental) Specifies whether to open _Launchpad_ or _Quick Launch_ when clicking on the indicators",
+						"markdownDescription": "(Experimental) Specifies whether to open _Launchpad_ as an editor tab or quickpick command when clicking on the indicators",
 						"scope": "window",
 						"order": 22
 					},
@@ -5306,19 +5306,19 @@
 			},
 			{
 				"command": "gitlens.quickFocus",
-				"title": "Quick Launch",
+				"title": "Open Launchpad",
 				"category": "GitLens",
 				"icon": "$(rocket)"
 			},
 			{
 				"command": "gitlens.showFocusPage",
-				"title": "Show Launchpad",
+				"title": "Open Launchpad in Editor",
 				"category": "GitLens",
 				"icon": "$(rocket)"
 			},
 			{
 				"command": "gitlens.focus.split",
-				"title": "Split Launchpad",
+				"title": "Split Launchpad in Editor",
 				"category": "GitLens",
 				"icon": "$(split-horizontal)"
 			},
@@ -5326,7 +5326,13 @@
 				"command": "gitlens.focus.experimental.updateIndicators",
 				"title": "Update Launchpad Indicators",
 				"category": "GitLens",
-				"icon": "$(sync)"
+				"icon": "$(rocket)"
+			},
+			{
+				"command": "gitlens.toggleFocusIndicators",
+				"title": "Toggle Launchpad Status Bar Icon",
+				"category": "GitLens",
+				"icon": "$(rocket)"
 			},
 			{
 				"command": "gitlens.showGraph",
@@ -9242,6 +9248,10 @@
 				{
 					"command": "gitlens.focus.experimental.updateIndicators",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.toggleFocusIndicators",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showGraph",
