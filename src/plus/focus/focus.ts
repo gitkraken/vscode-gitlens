@@ -17,6 +17,7 @@ import {
 import {
 	MergeQuickInputButton,
 	OpenLaunchpadInEditorQuickInputButton,
+	OpenOnGitHubQuickInputButton,
 	PinQuickInputButton,
 	RefreshQuickInputButton,
 	SnoozeQuickInputButton,
@@ -372,6 +373,7 @@ export class FocusCommand extends QuickCommand<State> {
 						author: state.item.author!.username,
 					}),
 					iconPath: state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
+					buttons: [OpenOnGitHubQuickInputButton],
 				},
 				'open',
 			),
@@ -467,7 +469,16 @@ export class FocusCommand extends QuickCommand<State> {
 			`Focus on ${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
 			confirmations,
 			undefined,
-			{ placeholder: 'Choose an action to perform' },
+			{
+				placeholder: 'Choose an action to perform',
+				onDidClickItemButton: (_quickpick, button) => {
+					switch (button) {
+						case OpenOnGitHubQuickInputButton:
+							this.container.focus.open(state.item);
+							break;
+					}
+				},
+			},
 		);
 
 		const selection: StepSelection<typeof step> = yield step;
@@ -543,29 +554,22 @@ export class FocusCommand extends QuickCommand<State> {
 	}
 
 	private getFocusItemStatusInformation(item: FocusItem): QuickPickItemOfT<FocusAction> {
-		let ciStatus = '$(question) Unknown CI status';
-		switch (item.headCommit?.buildStatuses?.[0].state) {
-			case ProviderBuildStatusState.Success:
-				ciStatus = '$(pass) CI checks passed.';
-				break;
-			case ProviderBuildStatusState.Failed:
-				ciStatus = '$(error) CI checks are failing.';
-				break;
-			case ProviderBuildStatusState.Pending:
-				ciStatus = '$(info) CI checks are pending.';
-				break;
-			case undefined:
-				ciStatus = '$(info) No CI checks found.';
-				break;
+		let status: string | undefined;
+		const base = item.baseRef?.name != null ? `: ${item.baseRef.name}` : '';
+		const ciStatus = item.headCommit?.buildStatuses?.[0].state;
+		if (ciStatus === ProviderBuildStatusState.Success) {
+			status = `$(pass) CI checks passed${!item.hasConflicts ? `, and no conflicts with base${base}` : ''}.`;
+		} else if (ciStatus === ProviderBuildStatusState.Failed) {
+			status = `$(error) CI checks are failing${item.hasConflicts ? `, and conflicts with base${base}` : ''}.`;
+		} else if (item.hasConflicts) {
+			status = `$(error) Conflicts with base${base}.`;
+		} else {
+			status = `$(pass) No conflicts with base${base}.`;
 		}
-
-		const conflictStatus = item.hasConflicts
-			? `$(error) Conflicts with base${item.baseRef?.name != null ? `: ${item.baseRef.name}` : ''}.`
-			: `$(pass) No conflicts with base${item.baseRef?.name != null ? `: ${item.baseRef.name}` : ''}.`;
 
 		return createQuickPickItemOfT(
 			{
-				label: `${ciStatus} \u2022 ${conflictStatus}`,
+				label: status,
 			},
 			'open',
 		);
