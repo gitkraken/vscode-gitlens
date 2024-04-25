@@ -7,12 +7,8 @@ import { treeItemStyles } from './tree.css';
 import '../actions/action-nav';
 import '../code-icon';
 
-export type GlTreeItemEvents = {
-	[K in Extract<keyof WindowEventMap, `gl-tree-item-${string}`>]: WindowEventMap[K];
-};
-
 @customElement('gl-tree-item')
-export class GlTreeItem extends GlElement<GlTreeItemEvents> {
+export class GlTreeItem extends GlElement {
 	static override styles = treeItemStyles;
 
 	// node properties
@@ -192,7 +188,7 @@ export class GlTreeItem extends GlElement<GlTreeItemEvents> {
 		modifiers?: { dblClick: boolean; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean },
 		quiet = false,
 	) {
-		this.fireEvent('gl-tree-item-select');
+		this.emit('gl-tree-item-select');
 		if (this.branch) {
 			this.expanded = !this.expanded;
 		}
@@ -200,7 +196,7 @@ export class GlTreeItem extends GlElement<GlTreeItemEvents> {
 
 		if (!quiet) {
 			window.requestAnimationFrame(() => {
-				this.fireEvent('gl-tree-item-selected', {
+				this.emit('gl-tree-item-selected', {
 					node: this,
 					dblClick: modifiers?.dblClick ?? false,
 					altKey: modifiers?.altKey ?? false,
@@ -254,7 +250,7 @@ export class GlTreeItem extends GlElement<GlTreeItemEvents> {
 		e.stopPropagation();
 		this.checked = (e.target as HTMLInputElement).checked;
 
-		this.fireEvent('gl-tree-item-checked', { node: this, checked: this.checked });
+		this.emit('gl-tree-item-checked', { node: this, checked: this.checked });
 	}
 }
 
@@ -263,7 +259,7 @@ declare global {
 		'gl-tree-item': GlTreeItem;
 	}
 
-	interface WindowEventMap {
+	interface GlobalEventHandlersEventMap {
 		'gl-tree-item-select': CustomEvent<undefined>;
 		'gl-tree-item-selected': CustomEvent<TreeItemSelectionDetail>;
 		'gl-tree-item-checked': CustomEvent<TreeItemCheckedDetail>;

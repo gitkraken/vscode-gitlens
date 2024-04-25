@@ -37,12 +37,8 @@ export interface ShowPatchInGraphDetail {
 	// [key: string]: unknown;
 }
 
-export type GlPatchDetailsAppEvents = {
-	[K in Extract<keyof WindowEventMap, `gl-patch-details-${string}`>]: WindowEventMap[K];
-};
-
 @customElement('gl-patch-details-app')
-export class GlPatchDetailsApp extends GlElement<GlPatchDetailsAppEvents> {
+export class GlPatchDetailsApp extends GlElement {
 	@property({ type: Object })
 	state!: State;
 
@@ -144,7 +140,7 @@ declare global {
 		'gl-patch-details-app': GlPatchDetailsApp;
 	}
 
-	// interface WindowEventMap {
+	// interface GlobalEventHandlersEventMap {
 	// 	'gl-patch-details-graph-show-patch': CustomEvent<ShowPatchInGraphDetail>;
 	// 	'gl-patch-details-share-local-patch': CustomEvent<undefined>;
 	// 	'gl-patch-details-copy-cloud-link': CustomEvent<undefined>;

@@ -12,7 +12,8 @@ export class GlTooltip extends LitElement {
 	static override styles = css`
 		sl-tooltip {
 			--max-width: 320px;
-			--show-delay: 500;
+			--hide-delay: 0ms;
+			--show-delay: 500ms;
 		}
 
 		sl-tooltip::part(base__popup) {
@@ -86,8 +87,6 @@ export class GlTooltip extends LitElement {
 	}
 
 	override disconnectedCallback() {
-		super.disconnectedCallback();
-
 		this.observer?.disconnect();
 	}
 
