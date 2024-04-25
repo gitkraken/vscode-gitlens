@@ -187,6 +187,9 @@ export class FocusCommand extends QuickCommand<State> {
 					}
 					case 'open':
 						this.container.focus.open(state.item);
+						break;
+					case 'soft-open':
+						this.container.focus.open(state.item);
 						state.counter = 2;
 						continue;
 					case 'switch': {
@@ -374,7 +377,7 @@ export class FocusCommand extends QuickCommand<State> {
 					iconPath: state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
 					buttons: [OpenOnGitHubQuickInputButton],
 				},
-				'open',
+				'soft-open',
 			),
 			createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }),
 			...this.getFocusItemInformationRows(state.item),
@@ -576,7 +579,7 @@ export class FocusCommand extends QuickCommand<State> {
 			{
 				label: status,
 			},
-			'open',
+			'soft-open',
 		);
 	}
 
@@ -587,7 +590,7 @@ export class FocusCommand extends QuickCommand<State> {
 					{
 						label: `$(info) No reviewers have been assigned yet to this Pull Request.`,
 					},
-					'open',
+					'soft-open',
 				),
 			];
 		}
@@ -626,7 +629,7 @@ export class FocusCommand extends QuickCommand<State> {
 							label: reviewLabel,
 							iconPath: iconPath,
 						},
-						'open',
+						'soft-open',
 					),
 				);
 			}
