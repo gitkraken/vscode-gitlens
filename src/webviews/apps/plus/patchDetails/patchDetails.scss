@@ -142,6 +142,10 @@ gk-menu-item {
 	font-size: 1.6rem;
 	font-weight: 600;
 	margin: 0.2rem 0 0.8rem;
+
+	&__badge {
+		float: right;
+	}
 }
 
 .message-block__text strong:not(:only-child) {
