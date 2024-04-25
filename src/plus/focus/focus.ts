@@ -363,12 +363,11 @@ export class FocusCommand extends QuickCommand<State> {
 			| QuickPickItemOfT<FocusTargetAction>
 			| DirectiveQuickPickItem
 		)[] = [
+			createQuickPickSeparator(fromNow(state.item.updatedDate)),
 			createQuickPickItemOfT(
 				{
 					label: state.item.title,
-					description: `${state.item.repository.owner.login}/${state.item.repository.name}#${
-						state.item.id
-					} \u2022 ${fromNow(state.item.updatedDate)}`,
+					description: `${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
 					detail: interpolate(actionGroupMap.get(state.item.actionableCategory)![1], {
 						author: state.item.author!.username,
 					}),
@@ -377,11 +376,10 @@ export class FocusCommand extends QuickCommand<State> {
 				},
 				'open',
 			),
+			createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }),
 			...this.getFocusItemInformationRows(state.item),
-			createQuickPickSeparator(),
-			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: '',
-			}),
+			createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }),
+			createQuickPickSeparator('Actions'),
 		];
 
 		for (const action of state.item.suggestedActions) {
@@ -530,21 +528,28 @@ export class FocusCommand extends QuickCommand<State> {
 		)[] = [];
 		switch (item.actionableCategory) {
 			case 'mergeable':
-				information.push(this.getFocusItemStatusInformation(item), ...this.getFocusItemReviewInformation(item));
+				information.push(
+					createQuickPickSeparator('Status'),
+					this.getFocusItemStatusInformation(item),
+					...this.getFocusItemReviewInformation(item),
+				);
 				break;
 			case 'failed-checks':
 			case 'conflicts':
-				information.push(this.getFocusItemStatusInformation(item));
+				information.push(createQuickPickSeparator('Status'), this.getFocusItemStatusInformation(item));
 				break;
 			case 'unassigned-reviewers':
 			case 'needs-my-review':
 			case 'changes-requested':
 			case 'reviewer-commented':
 			case 'waiting-for-review':
-				information.push(...this.getFocusItemReviewInformation(item));
+				information.push(createQuickPickSeparator('Reviewers'), ...this.getFocusItemReviewInformation(item));
 				break;
 			case 'code-suggestions':
-				information.push(...this.getFocusItemCodeSuggestionInformation(item));
+				information.push(
+					createQuickPickSeparator('Suggestions'),
+					...this.getFocusItemCodeSuggestionInformation(item),
+				);
 				break;
 			default:
 				break;
