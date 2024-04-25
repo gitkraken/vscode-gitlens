@@ -44,18 +44,14 @@ declare global {
 		'gl-search-input': GlSearchInput;
 	}
 
-	interface WindowEventMap {
+	interface GlobalEventHandlersEventMap {
 		'gl-search-inputchange': CustomEvent<SearchQuery>;
 		'gl-search-navigate': CustomEvent<SearchNavigationEventDetail>;
 	}
 }
 
-export type GlSearchInputEvents = {
-	[K in Extract<keyof WindowEventMap, `gl-search-${string}`>]: WindowEventMap[K];
-};
-
 @customElement('gl-search-input')
-export class GlSearchInput extends GlElement<GlSearchInputEvents> {
+export class GlSearchInput extends GlElement {
 	static override styles = css`
 		* {
 			box-sizing: border-box;
@@ -399,7 +395,7 @@ export class GlSearchInput extends GlElement<GlSearchInputEvents> {
 
 		e.preventDefault();
 		if (e.key === 'Enter') {
-			this.fireEvent('gl-search-navigate', { direction: e.shiftKey ? 'previous' : 'next' });
+			this.emit('gl-search-navigate', { direction: e.shiftKey ? 'previous' : 'next' });
 		} else if (this.searchHistory.length !== 0) {
 			const direction = e.key === 'ArrowDown' ? 1 : -1;
 			const nextPos = this.searchHistoryPos + direction;
@@ -436,7 +432,7 @@ export class GlSearchInput extends GlElement<GlSearchInputEvents> {
 			matchCase: this.matchCase,
 			matchRegex: this.matchRegex,
 		};
-		this.fireEvent('gl-search-inputchange', search);
+		this.emit('gl-search-inputchange', search);
 	}
 	private debouncedOnSearchChanged = debounce(this.onSearchChanged.bind(this), 250);
 

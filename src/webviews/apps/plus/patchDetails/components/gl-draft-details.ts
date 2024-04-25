@@ -663,7 +663,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	private onInviteUsers(_e: Event) {
-		this.fireEvent('gl-patch-details-invite-users');
+		this.emit('gl-patch-details-invite-users');
 	}
 
 	private onChangeSelectionRole(
@@ -671,7 +671,7 @@ export class GlDraftDetails extends GlTreeBase {
 		selection: DraftUserSelection,
 		role: PatchDetailsUpdateSelectionEventDetail['role'],
 	) {
-		this.fireEvent('gl-patch-details-update-selection', { selection: selection, role: role });
+		this.emit('gl-patch-details-update-selection', { selection: selection, role: role });
 
 		const popoverEl: Popover | null = (e.target as HTMLElement)?.closest('gk-popover');
 		popoverEl?.hidePopover();
@@ -680,13 +680,11 @@ export class GlDraftDetails extends GlTreeBase {
 	private onVisibilityChange(e: Event) {
 		const draft = this.state.draft as CloudDraftDetails;
 		draft.visibility = (e.target as HTMLInputElement).value as DraftVisibility;
-		this.fireEvent('gl-patch-details-update-metadata', {
-			visibility: draft.visibility,
-		});
+		this.emit('gl-patch-details-update-metadata', { visibility: draft.visibility });
 	}
 
 	private onUpdatePatch(_e: Event) {
-		this.fireEvent('gl-patch-details-update-permissions');
+		this.emit('gl-patch-details-update-permissions');
 	}
 
 	onExplainChanges(e: MouseEvent | KeyboardEvent) {
@@ -735,7 +733,7 @@ export class GlDraftDetails extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		this.fireEvent('gl-patch-file-compare-working', {
+		this.emit('gl-patch-file-compare-working', {
 			...file,
 			showOptions: {
 				preview: false,
@@ -748,7 +746,7 @@ export class GlDraftDetails extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		this.fireEvent('gl-patch-file-open', {
+		this.emit('gl-patch-file-open', {
 			...file,
 			showOptions: {
 				preview: false,
@@ -786,7 +784,7 @@ export class GlDraftDetails extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		this.fireEvent('gl-patch-file-compare-previous', { ...file });
+		this.emit('gl-patch-file-compare-previous', { ...file });
 	}
 
 	onApplyPatch(e?: MouseEvent | KeyboardEvent, target: 'current' | 'branch' | 'worktree' = 'current') {
@@ -797,7 +795,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 		this.validityMessage = undefined;
 
-		this.fireEvent('gl-patch-apply-patch', {
+		this.emit('gl-patch-apply-patch', {
 			draft: this.state.draft!,
 			target: target,
 			selectedPatches: this.selectedPatches,
@@ -805,7 +803,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	onArchiveDraft(reason: DraftReasonEventDetail['reason']) {
-		this.fireEvent('gl-draft-archive', { reason: reason });
+		this.emit('gl-draft-archive', { reason: reason });
 	}
 
 	onSelectApplyOption(e: CustomEvent<{ target: MenuItem }>) {
@@ -839,17 +837,17 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	onShowInGraph(_e?: MouseEvent | KeyboardEvent) {
-		this.fireEvent('gl-patch-details-graph-show-patch', { draft: this.state.draft! });
+		this.emit('gl-patch-details-graph-show-patch', { draft: this.state.draft! });
 	}
 
 	onCopyCloudLink() {
-		this.fireEvent('gl-patch-details-copy-cloud-link', { draft: this.state.draft! });
+		this.emit('gl-patch-details-copy-cloud-link', { draft: this.state.draft! });
 		this._copiedLink = true;
 		setTimeout(() => (this._copiedLink = false), 1000);
 	}
 
 	onShareLocalPatch() {
-		this.fireEvent('gl-patch-details-share-local-patch', { draft: this.state.draft! });
+		this.emit('gl-patch-details-share-local-patch', { draft: this.state.draft! });
 	}
 
 	draftPatchToTreeModel(
@@ -937,7 +935,8 @@ declare global {
 		'gl-draft-details': GlDraftDetails;
 	}
 
-	interface WindowEventMap {
+	interface GlobalEventHandlersEventMap {
+		'gl-draft-archive': CustomEvent<DraftReasonEventDetail>;
 		'gl-patch-apply-patch': CustomEvent<ApplyPatchDetail>;
 		'gl-patch-details-graph-show-patch': CustomEvent<{ draft: DraftDetails }>;
 		'gl-patch-details-share-local-patch': CustomEvent<{ draft: DraftDetails }>;
