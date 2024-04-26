@@ -274,11 +274,13 @@ export class DraftService implements Disposable {
 					path: remote.path,
 				},
 				provider:
-					remote.provider.gkProviderId != null
+					remote.provider.gkProviderId != null &&
+					remote.provider.owner != null &&
+					remote.provider.repoName != null
 						? {
 								id: remote.provider.gkProviderId,
-								repoDomain: remote.provider.domain,
-								repoName: remote.provider.path,
+								repoDomain: remote.provider.owner,
+								repoName: remote.provider.repoName,
 								// repoOwnerDomain: ??
 						  }
 						: undefined,
