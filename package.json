@@ -2834,7 +2834,7 @@
 					"gitlens.launchpad.indicator.polling.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether the status bar indicator will fetch and display pull request data for _Launchpad_.",
+						"markdownDescription": "Specifies whether the status bar indicator will fetch and display pull request data for _Launchpad_",
 						"scope": "window",
 						"order": 23
 					},
@@ -2845,19 +2845,37 @@
 						"scope": "window",
 						"order": 24
 					},
-					"gitlens.launchpad.indicator.showTopItem": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the top _Launchpad_ item in the status bar indicator text",
+					"gitlens.launchpad.indicator.icon": {
+						"type": "string",
+						"enum": [
+							"default",
+							"group"
+						],
+						"default": "default",
+						"markdownDescription": "Specifies the style of the  _Launchpad_ status bar indicator icon",
 						"scope": "window",
 						"order": 25
+					},
+					"gitlens.launchpad.indicator.label": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"item"
+						],
+						"default": "item",
+						"markdownDescription": "Specifies the display of the  _Launchpad_ status bar indicator text",
+						"scope": "window",
+						"order": 26
 					},
 					"gitlens.launchpad.indicator.useColors": {
 						"type": "boolean",
 						"default": false,
 						"markdownDescription": "Specifies whether to use colors in the _Launchpad_ status bar indicator text",
 						"scope": "window",
-						"order": 26
+						"order": 27
 					},
 					"gitlens.launchpad.indicator.groups": {
 						"type": "array",
@@ -2886,7 +2904,7 @@
 						"uniqueItems": true,
 						"markdownDescription": "Specifies the groups of pull requests to show in the _Launchpad_ status bar indicator hover details",
 						"scope": "window",
-						"order": 27
+						"order": 28
 					}
 				}
 			},

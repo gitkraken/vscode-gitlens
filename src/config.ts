@@ -94,7 +94,8 @@ export interface Config {
 		readonly indicator: {
 			readonly enabled: boolean;
 			readonly openInEditor: boolean;
-			readonly showTopItem: boolean;
+			readonly icon: 'default' | 'group';
+			readonly label: false | 'item';
 			readonly useColors: boolean;
 			readonly groups: ('mergeable' | 'blocked' | 'needs-review' | 'follow-up')[];
 			readonly polling: {

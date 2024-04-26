@@ -72,7 +72,8 @@ export class FocusIndicator implements Disposable {
 
 		if (
 			(!reloaded && configuration.changed(e, 'launchpad.indicator.useColors')) ||
-			configuration.changed(e, 'launchpad.indicator.showTopItem') ||
+			configuration.changed(e, 'launchpad.indicator.icon') ||
+			configuration.changed(e, 'launchpad.indicator.label') ||
 			configuration.changed(e, 'launchpad.indicator.groups')
 		) {
 			await this.maybeLoadData();
@@ -196,9 +197,11 @@ export class FocusIndicator implements Disposable {
 			this._lastDataUpdate = new Date();
 			const useColors = configuration.get('launchpad.indicator.useColors');
 			const groups = configuration.get('launchpad.indicator.groups') satisfies FocusGroup[];
-			const showTopItem = configuration.get('launchpad.indicator.showTopItem');
+			const labelText = configuration.get('launchpad.indicator.label') ?? 'item';
+			const iconType = configuration.get('launchpad.indicator.icon') ?? 'default';
 			let color: string | ThemeColor | undefined = undefined;
 			let topItem: { item: FocusItem; groupLabel: string } | undefined;
+			let topIcon: string | undefined;
 			const groupedItems = groupAndSortFocusItems(categorizedItems);
 			if (!groupedItems?.size) {
 				this._statusBarFocus.tooltip.appendMarkdown('You are all caught up!');
@@ -211,6 +214,7 @@ export class FocusIndicator implements Disposable {
 						}
 						switch (group) {
 							case 'mergeable':
+								topIcon ??= 'rocket';
 								this._statusBarFocus.tooltip.appendMarkdown(
 									`<span style="color:#3d90fc;">$(rocket)</span> [${pluralize(
 										'pull request',
@@ -260,6 +264,7 @@ export class FocusIndicator implements Disposable {
 								}
 
 								summaryMessage += ')';
+								topIcon ??= 'error';
 								this._statusBarFocus.tooltip.appendMarkdown(
 									`<span style="color:#FF0000;">$(error)</span> [${pluralize(
 										'pull request',
@@ -286,6 +291,7 @@ export class FocusIndicator implements Disposable {
 								break;
 							}
 							case 'needs-review':
+								topIcon ??= 'comment-draft';
 								this._statusBarFocus.tooltip.appendMarkdown(
 									`<span style="color:#3d90fc;">$(comment-draft)</span> [${pluralize(
 										'pull request',
@@ -300,6 +306,7 @@ export class FocusIndicator implements Disposable {
 								topItem ??= { item: items[0], groupLabel: 'needs your review' };
 								break;
 							case 'follow-up':
+								topIcon ??= 'report';
 								this._statusBarFocus.tooltip.appendMarkdown(
 									`<span style="color:#3d90fc;">$(report)</span> [${pluralize(
 										'pull request',
@@ -318,14 +325,17 @@ export class FocusIndicator implements Disposable {
 				}
 			}
 
-			this._statusBarFocus.text =
-				topItem != null && showTopItem
-					? `$(rocket)${
+			const iconSegment = topIcon != null && iconType === 'group' ? `$(${topIcon})` : '$(rocket)';
+			const labelSegment =
+				topItem != null && labelText === 'item'
+					? `${
 							topItem.item.repository != null
 								? ` ${topItem.item.repository.owner.login}/${topItem.item.repository.name}`
 								: ''
 					  } #${topItem.item.id} ${topItem.groupLabel}`
-					: '$(rocket)';
+					: '';
+
+			this._statusBarFocus.text = `${iconSegment}${labelSegment}`;
 			this._statusBarFocus.color = useColors ? color : undefined;
 		}
 
