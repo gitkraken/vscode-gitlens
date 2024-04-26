@@ -179,11 +179,11 @@ export class WorkspacesService implements Disposable {
 					this.container,
 					workspace.localId,
 					workspace.name,
-					workspace.repositories.map(repositoryPath => ({
+					workspace.repositories?.map(repositoryPath => ({
 						localPath: repositoryPath.localPath,
 						name: repositoryPath.localPath.split(/[\\/]/).pop() ?? 'unknown',
 						workspaceId: workspace.localId,
-					})),
+					})) ?? [],
 					this._currentWorkspaceId != null && this._currentWorkspaceId === workspace.localId,
 				),
 			);
