@@ -56,12 +56,8 @@ export interface CreatePatchUpdateSelectionEventDetail {
 // Can only import types from 'vscode'
 const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
-export type GlPatchCreateEvents = {
-	[K in Extract<keyof WindowEventMap, `gl-patch-${string}` | `gl-patch-create-${string}`>]: WindowEventMap[K];
-};
-
 @customElement('gl-patch-create')
-export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
+export class GlPatchCreate extends GlTreeBase {
 	@property({ type: Object }) state?: Serialized<State>;
 
 	@property({ type: Boolean }) review = false;
@@ -394,7 +390,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		change.checked = checked;
 		this.requestUpdate('state');
 
-		this.fireEvent('gl-patch-create-repo-checked', {
+		this.emit('gl-patch-create-repo-checked', {
 			repoUri: repoUri,
 			checked: checked,
 		});
@@ -404,7 +400,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		this.fireEvent('gl-patch-file-compare-previous', { ...file });
+		this.emit('gl-patch-file-compare-previous', { ...file });
 	}
 
 	private renderTreeViewWithModel() {
@@ -550,7 +546,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 			visibility: this.create.visibility,
 			userSelections: this.create.userSelections,
 		};
-		this.fireEvent('gl-patch-create-patch', patch);
+		this.emit('gl-patch-create-patch', patch);
 	}
 
 	private onCreateAll(_e: Event) {
@@ -628,7 +624,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 	private onDebounceDescriptionInput = debounce(this.onDescriptionInput, 500);
 
 	private onInviteUsers(_e: Event) {
-		this.fireEvent('gl-patch-create-invite-users');
+		this.emit('gl-patch-create-invite-users');
 	}
 
 	private onChangeSelectionRole(
@@ -636,7 +632,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		selection: DraftUserSelection,
 		role: CreatePatchUpdateSelectionEventDetail['role'],
 	) {
-		this.fireEvent('gl-patch-create-update-selection', { selection: selection, role: role });
+		this.emit('gl-patch-create-update-selection', { selection: selection, role: role });
 
 		const popoverEl: Popover | null = (e.target as HTMLElement)?.closest('gk-popover');
 		popoverEl?.hidePopover();
@@ -648,7 +644,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 	}
 
 	private fireMetadataUpdate() {
-		this.fireEvent('gl-patch-create-update-metadata', {
+		this.emit('gl-patch-create-update-metadata', {
 			title: this.create.title!,
 			description: this.create.description,
 			visibility: this.create.visibility,
@@ -678,7 +674,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		this.fireEvent('gl-patch-file-open', {
+		this.emit('gl-patch-file-open', {
 			...file,
 			showOptions: {
 				preview: false,
@@ -688,7 +684,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 	}
 
 	onShowInGraph(_e: CustomEvent<TreeItemActionDetail>) {
-		// this.fireEvent('gl-patch-details-graph-show-patch', { draft: this.state!.create! });
+		// this.emit('gl-patch-details-graph-show-patch', { draft: this.state!.create! });
 	}
 
 	override getFileActions(_file: GitFileChangeShape, _options?: Partial<TreeItemBase>) {
@@ -717,7 +713,7 @@ declare global {
 		'gl-patch-create': GlPatchCreate;
 	}
 
-	interface WindowEventMap {
+	interface GlobalEventHandlersEventMap {
 		'gl-patch-create-repo-checked': CustomEvent<CreatePatchCheckRepositoryEventDetail>;
 		'gl-patch-create-patch': CustomEvent<CreatePatchEventDetail>;
 		'gl-patch-create-update-metadata': CustomEvent<CreatePatchMetadataEventDetail>;

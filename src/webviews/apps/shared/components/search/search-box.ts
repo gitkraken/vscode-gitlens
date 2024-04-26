@@ -20,19 +20,13 @@ declare global {
 		'gl-search-box': GlSearchBox;
 	}
 
-	interface WindowEventMap {
-		// 'gl-search-inputchange': CustomEvent<SearchQuery>;
-		// 'gl-search-navigate': CustomEvent<SearchNavigationEventDetail>;
+	interface GlobalEventHandlersEventMap {
 		'gl-search-openinview': CustomEvent;
 	}
 }
 
-export type GlSearchBoxEvents = {
-	[K in Extract<keyof WindowEventMap, `gl-search-${string}`>]: WindowEventMap[K];
-};
-
 @customElement('gl-search-box')
-export class GlSearchBox extends GlElement<GlSearchBoxEvents> {
+export class GlSearchBox extends GlElement {
 	static override styles = css`
 		:host {
 			display: inline-flex;
@@ -187,7 +181,7 @@ export class GlSearchBox extends GlElement<GlSearchBoxEvents> {
 	}
 
 	navigate(direction: SearchNavigationEventDetail['direction']) {
-		this.fireEvent('gl-search-navigate', { direction: direction });
+		this.emit('gl-search-navigate', { direction: direction });
 	}
 
 	logSearch(query: SearchQuery) {
@@ -226,7 +220,7 @@ export class GlSearchBox extends GlElement<GlSearchBoxEvents> {
 
 	handleOpenInView(e: Event) {
 		e.stopImmediatePropagation();
-		this.fireEvent('gl-search-openinview');
+		this.emit('gl-search-openinview');
 	}
 
 	private get resultsHtml() {
@@ -276,10 +270,6 @@ export class GlSearchBox extends GlElement<GlSearchBoxEvents> {
 				.matchCase="${this.matchCase}"
 				.matchRegex="${this.matchRegex}"
 				.value="${this.value}"
-				@gl-search-inputchange="${(e: CustomEvent<SearchQuery>) => {
-					e.stopImmediatePropagation();
-					this.fireEvent('gl-search-inputchange', e.detail);
-				}}"
 				@gl-search-navigate="${(e: CustomEvent<SearchNavigationEventDetail>) => {
 					e.stopImmediatePropagation();
 					this.navigate(e.detail.direction);

@@ -1,4 +1,4 @@
-import { ThemeIcon, Uri } from 'vscode';
+import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
 	PartialStepState,
@@ -17,6 +17,7 @@ import {
 import {
 	MergeQuickInputButton,
 	OpenLaunchpadInEditorQuickInputButton,
+	OpenOnGitHubQuickInputButton,
 	PinQuickInputButton,
 	RefreshQuickInputButton,
 	SnoozeQuickInputButton,
@@ -55,18 +56,18 @@ const actionGroupMap = new Map<FocusActionCategory, string[]>([
 	['other', ['Other', 'Other pull requests']],
 ]);
 
-const groupMap = new Map<FocusGroup, [string, ThemeIcon | undefined]>([
-	['current-branch', ['Current Branch', new ThemeIcon('git-branch')]],
-	['pinned', ['Pinned', new ThemeIcon('pinned')]],
-	['mergeable', ['Ready to Merge', new ThemeIcon('rocket')]],
-	['blocked', ['Blocked', new ThemeIcon('error')]], //bracket-error
-	['follow-up', ['Requires Follow-up', new ThemeIcon('report')]],
-	['needs-attention', ['Needs Your Attention', new ThemeIcon('bell-dot')]], //comment-unresolved
-	['needs-review', ['Needs Your Review', new ThemeIcon('comment-draft')]], // feedback
-	['waiting-for-review', ['Waiting for Review', new ThemeIcon('gitlens-clock')]],
-	['draft', ['Draft', new ThemeIcon('git-pull-request-draft')]],
-	['other', ['Other', new ThemeIcon('question')]],
-	['snoozed', ['Snoozed', new ThemeIcon('bell-slash')]],
+const groupMap = new Map<FocusGroup, [string, string | undefined]>([
+	['current-branch', ['Current Branch', 'git-branch']],
+	['pinned', ['Pinned', 'pinned']],
+	['mergeable', ['Ready to Merge', 'rocket']],
+	['blocked', ['Blocked', 'error']], //bracket-error
+	['follow-up', ['Requires Follow-up', 'report']],
+	['needs-attention', ['Needs Your Attention', 'bell-dot']], //comment-unresolved
+	['needs-review', ['Needs Your Review', 'comment-draft']], // feedback
+	['waiting-for-review', ['Waiting for Review', 'gitlens-clock']],
+	['draft', ['Draft', 'git-pull-request-draft']],
+	['other', ['Other', 'ellipsis']],
+	['snoozed', ['Snoozed', 'bell-slash']],
 ]);
 
 export interface FocusItemQuickPickItem extends QuickPickItemOfT<FocusItem> {}
@@ -101,7 +102,7 @@ function assertsFocusStepState(state: StepState<State>): asserts state is FocusS
 @command()
 export class FocusCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: FocusCommandArgs) {
-		super(container, 'focus', 'focus', 'GitLens Launchpad (PRO preview)', {
+		super(container, 'focus', 'focus', 'GitLens Launchpad\u00a0\u00a0ᴘʀᴇᴠɪᴇᴡ', {
 			description: 'focus on a pull request or issue',
 		});
 
@@ -187,7 +188,10 @@ export class FocusCommand extends QuickCommand<State> {
 					case 'open':
 						this.container.focus.open(state.item);
 						break;
-					case 'review':
+					case 'soft-open':
+						this.container.focus.open(state.item);
+						state.counter = 2;
+						continue;
 					case 'switch': {
 						void this.container.focus.switchTo(state.item);
 						break;
@@ -233,11 +237,10 @@ export class FocusCommand extends QuickCommand<State> {
 					items.push(
 						createQuickPickSeparator(groupItems.length ? groupItems.length.toString() : undefined),
 						createDirectiveQuickPickItem(Directive.Reload, false, {
-							label: `${groupMap.get(ui)![0]?.toUpperCase()}\u00a0$(${
-								context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
-							})`, //'\u00a0',
+							label: `$(${context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'})\u00a0\u00a0$(${
+								groupMap.get(ui)![1]
+							})\u00a0\u00a0${groupMap.get(ui)![0]?.toUpperCase()}`, //'\u00a0',
 							//detail: groupMap.get(group)?.[0].toUpperCase(),
-							iconPath: groupMap.get(ui)![1],
 							onDidSelect: () => {
 								context.collapsed.set(ui, !context.collapsed.get(ui));
 							},
@@ -262,14 +265,14 @@ export class FocusCommand extends QuickCommand<State> {
 							return {
 								label: i.title,
 								// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
-								description: `#${i.id} ${i.isNew ? '(New since last view)' : ''} ${
+								description: `\u00a0 ${i.repository.owner.login}/${i.repository.name} #${i.id} \u00a0 ${
 									i.codeSuggestionsCount > 0
 										? ` $(gitlens-code-suggestion) ${i.codeSuggestionsCount}`
 										: ''
-								}`,
+								} \u00a0 ${i.isNew ? '(New since last view)' : ''}`,
 								detail: `      ${actionGroupMap.get(i.actionableCategory)![0]} \u2022  ${fromNow(
 									i.updatedDate,
-								)} by @${i.author!.username} \u2022 ${i.repository.owner.login}/${i.repository.name}`,
+								)} by @${i.author!.username}`,
 
 								buttons: buttons,
 								iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
@@ -363,21 +366,23 @@ export class FocusCommand extends QuickCommand<State> {
 			| QuickPickItemOfT<FocusTargetAction>
 			| DirectiveQuickPickItem
 		)[] = [
-			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: state.item.title,
-				description: `${state.item.repository.owner.login}/${state.item.repository.name}#${
-					state.item.id
-				} \u2022 ${fromNow(state.item.updatedDate)}`,
-				detail: interpolate(actionGroupMap.get(state.item.actionableCategory)![1], {
-					author: state.item.author!.username,
-				}),
-				iconPath: state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
-			}),
+			createQuickPickSeparator(fromNow(state.item.updatedDate)),
+			createQuickPickItemOfT(
+				{
+					label: state.item.title,
+					description: `${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
+					detail: interpolate(actionGroupMap.get(state.item.actionableCategory)![1], {
+						author: state.item.author!.username,
+					}),
+					iconPath: state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
+					buttons: [OpenOnGitHubQuickInputButton],
+				},
+				'soft-open',
+			),
+			createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }),
 			...this.getFocusItemInformationRows(state.item),
-			createQuickPickSeparator(),
-			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: '',
-			}),
+			createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }),
+			createQuickPickSeparator('Actions'),
 		];
 
 		for (const action of state.item.suggestedActions) {
@@ -397,13 +402,13 @@ export class FocusCommand extends QuickCommand<State> {
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: 'Open on GitHub',
+								label: `${this.getOpenActionLabel(state.item.actionableCategory)} on GitHub`,
 							},
 							action,
 						),
 					);
 					break;
-				case 'review':
+				/* case 'review':
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
@@ -413,7 +418,7 @@ export class FocusCommand extends QuickCommand<State> {
 							action,
 						),
 					);
-					break;
+					break; */
 				case 'switch':
 					confirmations.push(
 						createQuickPickItemOfT(
@@ -425,7 +430,7 @@ export class FocusCommand extends QuickCommand<State> {
 						),
 					);
 					break;
-				case 'change-reviewers':
+				/* case 'change-reviewers':
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
@@ -457,7 +462,7 @@ export class FocusCommand extends QuickCommand<State> {
 							action,
 						),
 					);
-					break;
+					break; */
 			}
 		}
 
@@ -465,7 +470,16 @@ export class FocusCommand extends QuickCommand<State> {
 			`Focus on ${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
 			confirmations,
 			undefined,
-			{ placeholder: 'Choose an action to perform', ignoreFocusOut: false },
+			{
+				placeholder: 'Choose an action to perform',
+				onDidClickItemButton: (_quickpick, button) => {
+					switch (button) {
+						case OpenOnGitHubQuickInputButton:
+							this.container.focus.open(state.item);
+							break;
+					}
+				},
+			},
 		);
 
 		const selection: StepSelection<typeof step> = yield step;
@@ -509,136 +523,115 @@ export class FocusCommand extends QuickCommand<State> {
 
 	private getFocusItemInformationRows(
 		item: FocusItem,
-	): (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] {
-		const information: (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] = [
-			this.getFocusItemCreatedDateInformation(item),
-			this.getFocusItemUpdatedDateInformation(item),
-		];
+	): (QuickPickItemOfT<FocusAction> | QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] {
+		const information: (
+			| QuickPickItemOfT<FocusAction>
+			| QuickPickItemOfT<FocusTargetAction>
+			| DirectiveQuickPickItem
+		)[] = [];
 		switch (item.actionableCategory) {
 			case 'mergeable':
 				information.push(
-					...this.getFocusItemStatusInformation(item),
+					createQuickPickSeparator('Status'),
+					this.getFocusItemStatusInformation(item),
 					...this.getFocusItemReviewInformation(item),
 				);
 				break;
 			case 'failed-checks':
 			case 'conflicts':
-				information.push(...this.getFocusItemStatusInformation(item));
+				information.push(createQuickPickSeparator('Status'), this.getFocusItemStatusInformation(item));
 				break;
 			case 'unassigned-reviewers':
 			case 'needs-my-review':
-			case 'code-suggestions':
 			case 'changes-requested':
 			case 'reviewer-commented':
 			case 'waiting-for-review':
-				information.push(...this.getFocusItemReviewInformation(item));
+				information.push(createQuickPickSeparator('Reviewers'), ...this.getFocusItemReviewInformation(item));
+				break;
+			case 'code-suggestions':
+				information.push(
+					createQuickPickSeparator('Suggestions'),
+					...this.getFocusItemCodeSuggestionInformation(item),
+				);
 				break;
 			default:
 				break;
 		}
 
-		information.push(...this.getFocusItemCodeSuggestionInformation(item));
-
 		return information;
 	}
 
-	private getFocusItemCreatedDateInformation(item: FocusItem): DirectiveQuickPickItem {
-		return createDirectiveQuickPickItem(Directive.Noop, false, {
-			label: `$(clock) Pull request was created ${fromNow(item.createdDate)}.`,
-		});
-	}
-
-	private getFocusItemUpdatedDateInformation(item: FocusItem): DirectiveQuickPickItem {
-		return createDirectiveQuickPickItem(Directive.Noop, false, {
-			label: `$(clock) Pull request was last updated ${fromNow(item.updatedDate)}.`,
-		});
-	}
-
-	private getFocusItemStatusInformation(item: FocusItem): DirectiveQuickPickItem[] {
-		let ciStatus = '$(question) Unknown CI status';
-		switch (item.headCommit?.buildStatuses?.[0].state) {
-			case ProviderBuildStatusState.Success:
-				ciStatus = '$(pass) CI checks passed.';
-				break;
-			case ProviderBuildStatusState.Failed:
-				ciStatus = '$(error) CI checks are failing.';
-				break;
-			case ProviderBuildStatusState.Pending:
-				ciStatus = '$(info) CI checks are pending.';
-				break;
-			case undefined:
-				ciStatus = '$(info) No CI checks found.';
-				break;
+	private getFocusItemStatusInformation(item: FocusItem): QuickPickItemOfT<FocusAction> {
+		let status: string | undefined;
+		const base = item.baseRef?.name != null ? `: ${item.baseRef.name}` : '';
+		const ciStatus = item.headCommit?.buildStatuses?.[0].state;
+		if (ciStatus === ProviderBuildStatusState.Success) {
+			status = `$(pass) CI checks passed${!item.hasConflicts ? `, and no conflicts with base${base}` : ''}.`;
+		} else if (ciStatus === ProviderBuildStatusState.Failed) {
+			status = `$(error) CI checks are failing${item.hasConflicts ? `, and conflicts with base${base}` : ''}.`;
+		} else if (item.hasConflicts) {
+			status = `$(error) Conflicts with base${base}.`;
+		} else {
+			status = `$(pass) No conflicts with base${base}.`;
 		}
 
-		return [
-			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: ciStatus,
-			}),
-			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: item.hasConflicts
-					? `$(error) Conflicts with base${item.baseRef?.name != null ? `: ${item.baseRef.name}` : ''}.`
-					: `$(pass) No conflicts with base${item.baseRef?.name != null ? `: ${item.baseRef.name}` : ''}.`,
-			}),
-		];
+		return createQuickPickItemOfT(
+			{
+				label: status,
+			},
+			'soft-open',
+		);
 	}
 
-	private getFocusItemReviewInformation(item: FocusItem): DirectiveQuickPickItem[] {
+	private getFocusItemReviewInformation(item: FocusItem): QuickPickItemOfT<FocusAction>[] {
 		if (item.reviews == null || item.reviews.length === 0) {
 			return [
-				createDirectiveQuickPickItem(Directive.Noop, false, {
-					label: `$(info) No reviewers have been assigned yet to this Pull Request.`,
-				}),
+				createQuickPickItemOfT(
+					{
+						label: `$(info) No reviewers have been assigned yet to this Pull Request.`,
+					},
+					'soft-open',
+				),
 			];
 		}
 
-		const reviewInfo: DirectiveQuickPickItem[] = [];
+		const reviewInfo: QuickPickItemOfT<FocusAction>[] = [];
 
 		for (const review of item.reviews) {
 			const isCurrentUser = review.reviewer.username === item.currentViewer.username;
+			let reviewLabel: string | undefined;
+			const iconPath = review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined;
 			switch (review.state) {
 				case ProviderPullRequestReviewState.Approved:
-					reviewInfo.push(
-						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: `${isCurrentUser ? 'You' : review.reviewer.username} approved this Pull Request.`,
-							iconPath:
-								review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined,
-						}),
-					);
+					reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} approved this Pull Request.`;
 					break;
 				case ProviderPullRequestReviewState.ChangesRequested:
-					reviewInfo.push(
-						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: `${
-								isCurrentUser ? 'You' : review.reviewer.username
-							} requested changes on this Pull Request.`,
-							iconPath:
-								review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined,
-						}),
-					);
+					reviewLabel = `${
+						isCurrentUser ? 'You' : review.reviewer.username
+					} requested changes on this Pull Request.`;
 					break;
 				case ProviderPullRequestReviewState.Commented:
-					reviewInfo.push(
-						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: `${
-								isCurrentUser ? 'You' : review.reviewer.username
-							} left a comment review on this Pull Request.`,
-							iconPath:
-								review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined,
-						}),
-					);
+					reviewLabel = `${
+						isCurrentUser ? 'You' : review.reviewer.username
+					} left a comment review on this Pull Request.`;
 					break;
 				case ProviderPullRequestReviewState.ReviewRequested:
-					reviewInfo.push(
-						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: `${
-								isCurrentUser ? 'You have' : `${review.reviewer.username} has`
-							} not yet reviewed this Pull Request.`,
-							iconPath:
-								review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined,
-						}),
-					);
+					reviewLabel = `${
+						isCurrentUser ? 'You have' : `${review.reviewer.username} has`
+					} not yet reviewed this Pull Request.`;
 					break;
+			}
+
+			if (reviewLabel != null) {
+				reviewInfo.push(
+					createQuickPickItemOfT(
+						{
+							label: reviewLabel,
+							iconPath: iconPath,
+						},
+						'soft-open',
+					),
+				);
 			}
 		}
 
@@ -684,5 +677,27 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		return codeSuggestionInfo;
+	}
+
+	private getOpenActionLabel(actionCategory: string) {
+		switch (actionCategory) {
+			case 'unassigned-reviewers':
+				return 'Assign Reviewers';
+			case 'failed-checks':
+				return 'Resolve Failing Checks';
+			case 'conflicts':
+				return 'Resolve Conflicts';
+			case 'needs-my-review':
+				return 'Start Reviewing';
+			case 'changes-requested':
+			case 'reviewer-commented':
+				return 'Respond to Reviewers';
+			case 'waiting-for-review':
+				return 'Check In with Reviewers';
+			case 'draft':
+				return 'View draft';
+			default:
+				return 'Open';
+		}
 	}
 }

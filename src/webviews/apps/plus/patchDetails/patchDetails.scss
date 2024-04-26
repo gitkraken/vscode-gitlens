@@ -9,6 +9,7 @@ body {
 	--gk-tooltip-padding: 0.4rem 0.8rem;
 	--gk-divider-color: var(--color-background--level-05);
 	--gk-button-ghost-color: var(--color-foreground--50);
+	--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 }
 
 gk-menu {
@@ -142,6 +143,10 @@ gk-menu-item {
 	font-size: 1.6rem;
 	font-weight: 600;
 	margin: 0.2rem 0 0.8rem;
+
+	&__badge {
+		float: right;
+	}
 }
 
 .message-block__text strong:not(:only-child) {

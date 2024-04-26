@@ -1,5 +1,5 @@
 import { Avatar, Button, defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
-import { html } from 'lit';
+import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { map } from 'lit/directives/map.js';
@@ -33,6 +33,7 @@ import type {
 import { GlTreeBase } from './gl-tree-base';
 import '../../../shared/components/actions/action-item';
 import '../../../shared/components/actions/action-nav';
+import '../../../shared/components/badges/badge';
 import '../../../shared/components/button-container';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
@@ -491,14 +492,24 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	renderCodeSuggectionActions() {
-		if (!this.isCodeSuggestion || this.cloudDraft == null || this.cloudDraft.isArchived) return undefined;
+		if (
+			!this.isCodeSuggestion ||
+			this.cloudDraft == null ||
+			this.cloudDraft.isArchived ||
+			this.cloudDraft.role === 'viewer'
+		) {
+			return undefined;
+		}
 
 		return html`
-			<p>Mark as:</p>
 			<p class="button-container">
 				<span class="button-group button-group--single">
-					<gl-button full @click=${() => this.onArchiveDraft('accepted')}>Accept</gl-button>
-					<gl-button full @click=${() => this.onArchiveDraft('rejected')}>Reject</gl-button>
+					<gl-button appearance="secondary" full @click=${() => this.onArchiveDraft('accepted')}
+						>Accept</gl-button
+					>
+					<gl-button appearance="secondary" full @click=${() => this.onArchiveDraft('rejected')}
+						>Reject</gl-button
+					>
 				</span>
 			</p>
 		`;
@@ -555,7 +566,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 		return html`
 			<div class="section section--action">
-				${this.renderPatchPermissions()}${this.renderCodeSuggectionActions()}
+				${this.renderPatchPermissions()}
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
@@ -574,6 +585,7 @@ export class GlDraftDetails extends GlTreeBase {
 						</gk-popover>
 					</span>
 				</p>
+				${this.renderCodeSuggectionActions()}
 			</div>
 		`;
 	}
@@ -613,6 +625,21 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
+	renderDraftInfo() {
+		if (this.state.draft?.title == null) return nothing;
+
+		let badge = undefined;
+		if (this.cloudDraft?.isArchived) {
+			const label = this.cloudDraft.archivedReason ?? 'archived';
+			badge = html`<gl-badge class="title__badge">${label}</gl-badge>`;
+		}
+
+		return html`
+			<h1 class="title">${this.state.draft?.title} ${badge}</h1>
+			${this.renderPatchMessage()}
+		`;
+	}
+
 	override render() {
 		if (this.state?.draft == null) {
 			return html` <div class="commit-detail-panel scrollable">${this.renderEmptyContent()}</div>`;
@@ -621,16 +648,7 @@ export class GlDraftDetails extends GlTreeBase {
 		return html`
 			<div class="pane-groups">
 				<div class="pane-groups__group-fixed">
-					<div class="section">
-						${this.renderActionbar()}
-						${when(
-							this.state.draft?.title != null,
-							() => html`
-								<h1 class="title">${this.state.draft?.title}</h1>
-								${this.renderPatchMessage()}
-							`,
-						)}
-					</div>
+					<div class="section">${this.renderActionbar()}${this.renderDraftInfo()}</div>
 				</div>
 				<div class="pane-groups__group">${this.renderChangedFiles()}</div>
 				<div class="pane-groups__group-fixed pane-groups__group--bottom">
@@ -645,7 +663,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	private onInviteUsers(_e: Event) {
-		this.fireEvent('gl-patch-details-invite-users');
+		this.emit('gl-patch-details-invite-users');
 	}
 
 	private onChangeSelectionRole(
@@ -653,7 +671,7 @@ export class GlDraftDetails extends GlTreeBase {
 		selection: DraftUserSelection,
 		role: PatchDetailsUpdateSelectionEventDetail['role'],
 	) {
-		this.fireEvent('gl-patch-details-update-selection', { selection: selection, role: role });
+		this.emit('gl-patch-details-update-selection', { selection: selection, role: role });
 
 		const popoverEl: Popover | null = (e.target as HTMLElement)?.closest('gk-popover');
 		popoverEl?.hidePopover();
@@ -662,13 +680,11 @@ export class GlDraftDetails extends GlTreeBase {
 	private onVisibilityChange(e: Event) {
 		const draft = this.state.draft as CloudDraftDetails;
 		draft.visibility = (e.target as HTMLInputElement).value as DraftVisibility;
-		this.fireEvent('gl-patch-details-update-metadata', {
-			visibility: draft.visibility,
-		});
+		this.emit('gl-patch-details-update-metadata', { visibility: draft.visibility });
 	}
 
 	private onUpdatePatch(_e: Event) {
-		this.fireEvent('gl-patch-details-update-permissions');
+		this.emit('gl-patch-details-update-permissions');
 	}
 
 	onExplainChanges(e: MouseEvent | KeyboardEvent) {
@@ -717,7 +733,7 @@ export class GlDraftDetails extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		this.fireEvent('gl-patch-file-compare-working', {
+		this.emit('gl-patch-file-compare-working', {
 			...file,
 			showOptions: {
 				preview: false,
@@ -730,7 +746,7 @@ export class GlDraftDetails extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		this.fireEvent('gl-patch-file-open', {
+		this.emit('gl-patch-file-open', {
 			...file,
 			showOptions: {
 				preview: false,
@@ -768,7 +784,7 @@ export class GlDraftDetails extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		this.fireEvent('gl-patch-file-compare-previous', { ...file });
+		this.emit('gl-patch-file-compare-previous', { ...file });
 	}
 
 	onApplyPatch(e?: MouseEvent | KeyboardEvent, target: 'current' | 'branch' | 'worktree' = 'current') {
@@ -779,7 +795,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 		this.validityMessage = undefined;
 
-		this.fireEvent('gl-patch-apply-patch', {
+		this.emit('gl-patch-apply-patch', {
 			draft: this.state.draft!,
 			target: target,
 			selectedPatches: this.selectedPatches,
@@ -787,7 +803,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	onArchiveDraft(reason: DraftReasonEventDetail['reason']) {
-		this.fireEvent('gl-draft-archive', { reason: reason });
+		this.emit('gl-draft-archive', { reason: reason });
 	}
 
 	onSelectApplyOption(e: CustomEvent<{ target: MenuItem }>) {
@@ -821,17 +837,17 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	onShowInGraph(_e?: MouseEvent | KeyboardEvent) {
-		this.fireEvent('gl-patch-details-graph-show-patch', { draft: this.state.draft! });
+		this.emit('gl-patch-details-graph-show-patch', { draft: this.state.draft! });
 	}
 
 	onCopyCloudLink() {
-		this.fireEvent('gl-patch-details-copy-cloud-link', { draft: this.state.draft! });
+		this.emit('gl-patch-details-copy-cloud-link', { draft: this.state.draft! });
 		this._copiedLink = true;
 		setTimeout(() => (this._copiedLink = false), 1000);
 	}
 
 	onShareLocalPatch() {
-		this.fireEvent('gl-patch-details-share-local-patch', { draft: this.state.draft! });
+		this.emit('gl-patch-details-share-local-patch', { draft: this.state.draft! });
 	}
 
 	draftPatchToTreeModel(
@@ -919,7 +935,8 @@ declare global {
 		'gl-draft-details': GlDraftDetails;
 	}
 
-	interface WindowEventMap {
+	interface GlobalEventHandlersEventMap {
+		'gl-draft-archive': CustomEvent<DraftReasonEventDetail>;
 		'gl-patch-apply-patch': CustomEvent<ApplyPatchDetail>;
 		'gl-patch-details-graph-show-patch': CustomEvent<{ draft: DraftDetails }>;
 		'gl-patch-details-share-local-patch': CustomEvent<{ draft: DraftDetails }>;

@@ -17,12 +17,8 @@ import '../code-icon';
 import './tree';
 import './tree-item';
 
-export type GlTreeGeneratorEvents = {
-	[K in Extract<keyof WindowEventMap, `gl-tree-generated-item-${string}`>]: WindowEventMap[K];
-};
-
 @customElement('gl-tree-generator')
-export class GlTreeGenerator extends GlElement<GlTreeGeneratorEvents> {
+export class GlTreeGenerator extends GlElement {
 	static override styles = css`
 		:host {
 			display: contents;
@@ -146,7 +142,7 @@ export class GlTreeGenerator extends GlElement<GlTreeGeneratorEvents> {
 
 	private onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>, model: TreeModelFlat) {
 		e.stopPropagation();
-		this.fireEvent('gl-tree-generated-item-selected', {
+		this.emit('gl-tree-generated-item-selected', {
 			...e.detail,
 			node: model,
 			context: model.context,
@@ -155,7 +151,7 @@ export class GlTreeGenerator extends GlElement<GlTreeGeneratorEvents> {
 
 	private onTreeItemChecked(e: CustomEvent<TreeItemCheckedDetail>, model: TreeModelFlat) {
 		e.stopPropagation();
-		this.fireEvent('gl-tree-generated-item-checked', {
+		this.emit('gl-tree-generated-item-checked', {
 			...e.detail,
 			node: model,
 			context: model.context,
@@ -164,7 +160,7 @@ export class GlTreeGenerator extends GlElement<GlTreeGeneratorEvents> {
 
 	private onTreeItemActionClicked(e: MouseEvent, model: TreeModelFlat, action: TreeItemAction) {
 		e.stopPropagation();
-		this.fireEvent('gl-tree-generated-item-action-clicked', {
+		this.emit('gl-tree-generated-item-action-clicked', {
 			node: model,
 			context: model.context,
 			action: action,
@@ -217,7 +213,7 @@ declare global {
 		'gl-tree-generator': GlTreeGenerator;
 	}
 
-	interface WindowEventMap {
+	interface GlobalEventHandlersEventMap {
 		'gl-tree-generated-item-action-clicked': CustomEvent<TreeItemActionDetail>;
 		'gl-tree-generated-item-selected': CustomEvent<TreeItemSelectionDetail>;
 		'gl-tree-generated-item-checked': CustomEvent<TreeItemCheckedDetail>;
