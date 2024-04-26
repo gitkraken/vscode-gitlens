@@ -174,6 +174,7 @@ export class WorkspacesService implements Disposable {
 		const workspaceFileData: LocalWorkspaceData =
 			(await this._workspacesPathProvider.getLocalWorkspaceData())?.workspaces || {};
 		for (const workspace of Object.values(workspaceFileData)) {
+			if (workspace.localId == null || workspace.name == null) continue;
 			localWorkspaces.push(
 				new LocalWorkspace(
 					this.container,
