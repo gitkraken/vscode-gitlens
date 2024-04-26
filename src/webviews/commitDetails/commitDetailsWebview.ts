@@ -490,7 +490,7 @@ export class CommitDetailsWebviewProvider
 				let copied = false;
 				while (true) {
 					const result = await window.showInformationMessage(
-						`Cloud Patch successfully created${copied ? '\u2014 link copied to the clipboard' : ''}`,
+						`Code Suggestion successfully created${copied ? '\u2014 link copied to the clipboard' : ''}`,
 						view,
 						copy,
 					);
