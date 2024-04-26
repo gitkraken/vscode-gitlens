@@ -35,6 +35,8 @@ import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { CreateDraftChange, Draft, DraftVisibility } from '../../gk/models/drafts';
 import { showPatchesView } from '../../plus/drafts/actions';
+import { isSubscriptionPaid } from '../../plus/gk/account/subscription';
+import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
 import { confirmDraftStorage, ensureAccount } from '../../plus/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
@@ -177,6 +179,7 @@ export class CommitDetailsWebviewProvider
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 		);
 	}
 
@@ -623,6 +626,10 @@ export class CommitDetailsWebviewProvider
 		}
 	}
 
+	private onSubscriptionChanged(_e: SubscriptionChangeEvent) {
+		void this.updateCodeSuggestions();
+	}
+
 	private getPreferences(): Preferences {
 		return {
 			autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded') ?? true,
@@ -916,26 +923,11 @@ export class CommitDetailsWebviewProvider
 
 		const pullRequest = await branch.getAssociatedPullRequest();
 
-		const codeSuggestions: Draft[] = [];
+		let codeSuggestions: Draft[] = [];
 		if (pullRequest != null) {
-			const results = await this.container.drafts.getCodeSuggestions(pullRequest, repository);
+			const results = await this.getCodeSuggestions(pullRequest, repository);
 			if (results.length) {
-				for (const draft of results) {
-					if (draft.author.avatar != null || draft.organizationId == null) continue;
-					let email = draft.author.email;
-					if (email == null) {
-						const user = (
-							await this.container.organizations.getOrganizationMembersById(
-								[draft.author.id],
-								draft.organizationId,
-							)
-						)[0];
-						email = user?.email;
-					}
-					if (email == null) continue;
-					draft.author.avatar = getAvatarUri(email).toString();
-				}
-				codeSuggestions.push(...results);
+				codeSuggestions = results;
 			}
 		}
 
@@ -944,6 +936,66 @@ export class CommitDetailsWebviewProvider
 			pullRequest: pullRequest,
 			codeSuggestions: codeSuggestions,
 		};
+	}
+
+	private async canAccessDrafts(): Promise<boolean> {
+		const subscription = await this.container.subscription.getSubscription();
+		if (!isSubscriptionPaid(subscription)) {
+			return false;
+		}
+
+		return getContext<boolean>('gitlens:gk:organization:drafts:enabled', false);
+	}
+
+	private async getCodeSuggestions(pullRequest: PullRequest, repository: Repository): Promise<Draft[]> {
+		if (!(await this.canAccessDrafts())) return [];
+
+		const results = await this.container.drafts.getCodeSuggestions(pullRequest, repository);
+
+		for (const draft of results) {
+			if (draft.author.avatar != null || draft.organizationId == null) continue;
+			let email = draft.author.email;
+			if (email == null) {
+				const user = (
+					await this.container.organizations.getOrganizationMembersById(
+						[draft.author.id],
+						draft.organizationId,
+					)
+				)[0];
+				email = user?.email;
+			}
+			if (email == null) continue;
+			draft.author.avatar = getAvatarUri(email).toString();
+		}
+
+		return results;
+	}
+
+	private async updateCodeSuggestions() {
+		if (this.mode !== 'wip' || this._context.wip?.pullRequest == null) {
+			return;
+		}
+
+		const wip = this._context.wip;
+		const { pullRequest, repo } = wip;
+
+		wip.codeSuggestions = await this.getCodeSuggestions(pullRequest!, repo);
+
+		if (this._pendingContext == null) {
+			const success = await this.host.notify(
+				DidChangeWipStateNotification,
+				serialize({
+					wip: serializeWipContext(wip),
+				}) as DidChangeWipStateParams,
+			);
+			if (success) {
+				this._context.wip = wip;
+				return;
+			}
+		}
+
+		this.updatePendingContext({ wip: wip });
+		this.updateState(true);
 	}
 
 	@debug({ args: false })
