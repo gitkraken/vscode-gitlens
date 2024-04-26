@@ -595,7 +595,7 @@ export class SubscriptionService implements Disposable {
 	@debug<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account?.label } })
 	private async checkInAndValidate(
 		session: AuthenticationSession,
-		options?: { force?: boolean; showSlowProgress?: boolean },
+		options?: { force?: boolean; showSlowProgress?: boolean; organizationId?: string },
 	): Promise<GKCheckInResponse | undefined> {
 		const scope = getLogScope();
 
@@ -610,7 +610,7 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		const validating = this.checkInAndValidateCore(session);
+		const validating = this.checkInAndValidateCore(session, options?.organizationId);
 		if (!options?.showSlowProgress) return validating;
 
 		// Show progress if we are waiting too long
@@ -627,7 +627,10 @@ export class SubscriptionService implements Disposable {
 
 	@gate<SubscriptionService['checkInAndValidateCore']>(s => s.account.id)
 	@debug<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account?.label } })
-	private async checkInAndValidateCore(session: AuthenticationSession): Promise<GKCheckInResponse | undefined> {
+	private async checkInAndValidateCore(
+		session: AuthenticationSession,
+		organizationId?: string,
+	): Promise<GKCheckInResponse | undefined> {
 		const scope = getLogScope();
 		this._lastValidatedDate = undefined;
 
@@ -651,7 +654,7 @@ export class SubscriptionService implements Disposable {
 					method: 'POST',
 					body: JSON.stringify(checkInData),
 				},
-				{ token: session.accessToken },
+				{ token: session.accessToken, organizationId: organizationId },
 			);
 
 			if (!rsp.ok) {
@@ -1144,9 +1147,7 @@ export class SubscriptionService implements Disposable {
 
 	async switchOrganization(): Promise<void> {
 		const scope = getLogScope();
-
-		const checkInData = await this._getCheckInData();
-		if (checkInData == null) return;
+		if (this._session == null) return;
 
 		let organizations;
 		try {
@@ -1178,6 +1179,10 @@ export class SubscriptionService implements Disposable {
 		if (currentActiveOrganization != null && pick.org.id === currentActiveOrganization.id) {
 			return;
 		}
+
+		await this.checkInAndValidate(this._session, { force: true, organizationId: pick.org.id });
+		const checkInData = await this._getCheckInData();
+		if (checkInData == null) return;
 
 		const organizationSubscription = getSubscriptionFromCheckIn(checkInData, organizations, pick.org.id);
 
