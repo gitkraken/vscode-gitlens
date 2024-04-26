@@ -10,6 +10,7 @@ import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
+import { getPathFromProviderIdentity } from '../../gk/models/repositoryIdentities';
 import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { getSettledValue } from '../../system/promise';
@@ -350,7 +351,10 @@ export class FocusProvider implements Disposable {
 				await repo.getRemotes({
 					filter: r =>
 						r.matches(pr.repoIdentity.remote.url!) ||
-						r.matches(pr.repoIdentity.provider.repoDomain, pr.repoIdentity.provider.repoName),
+						r.matches(
+							pr.repoIdentity.provider.domain,
+							getPathFromProviderIdentity(pr.repoIdentity.provider),
+						),
 				})
 			)?.[0];
 			if (matchingRemote == null) continue;
@@ -430,10 +434,14 @@ export class FocusProvider implements Disposable {
 					provider: 'github',
 				} satisfies EnrichableItem;
 				const repoIdentity = {
-					remote: { url: pr.pullRequest.refs?.head?.url },
+					remote: {
+						url: pr.pullRequest.refs?.head?.url,
+						domain: pr.pullRequest.provider.domain,
+					},
 					name: pr.pullRequest.repository.repo,
 					provider: {
 						id: pr.pullRequest.provider.id,
+						domain: pr.pullRequest.provider.domain,
 						repoDomain: pr.pullRequest.repository.owner,
 						repoName: pr.pullRequest.repository.repo,
 					},

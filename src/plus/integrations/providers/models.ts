@@ -35,6 +35,7 @@ import {
 	PullRequestStatusCheckRollupState,
 } from '../../../git/models/pullRequest';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
+import type { RepositoryIdentityDescriptor } from '../../../gk/models/repositoryIdentities';
 import type { EnrichableItem } from '../../focus/enrichmentService';
 import { getEntityIdentifierInput } from './utils';
 
@@ -684,17 +685,11 @@ export type EnrichablePullRequest = ProviderPullRequest & {
 	type: 'pullrequest';
 	provider: ProviderReference;
 	enrichable: EnrichableItem;
-	repoIdentity: {
-		remote: {
-			url?: string;
-		};
-		name: string;
-		provider: {
-			id: string;
-			repoDomain: string;
-			repoName: string;
-		};
-	};
+	repoIdentity: RequireSomeWithProps<
+		RequireSome<RepositoryIdentityDescriptor<string>, 'remote' | 'provider'>,
+		'provider',
+		'id' | 'domain' | 'repoDomain' | 'repoName'
+	>;
 };
 
 export const getActionablePullRequests = GitProviderUtils.getActionablePullRequests;
