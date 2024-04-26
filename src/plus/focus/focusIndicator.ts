@@ -21,11 +21,16 @@ export class FocusIndicator implements Disposable {
 
 	private _state: FocusIndicatorState;
 
+	private _lastDataUpdate: Date | undefined;
+
+	private _lastRefreshPaused: Date | undefined;
+
 	constructor(
 		private readonly container: Container,
 		private readonly focus: FocusProvider,
 	) {
 		this._disposable = Disposable.from(
+			window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			focus.onDidRefresh(this.onFocusRefreshed, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChangeConnectionState(this.onConnectedIntegrationsChanged, this),
@@ -104,23 +109,28 @@ export class FocusIndicator implements Disposable {
 			: 'gitlens.showFocusPage';
 	}
 
-	private startRefreshTimer(immediate: boolean = false) {
+	private startRefreshTimer(firstDelay?: number) {
 		if (this._refreshTimer != null) {
 			clearInterval(this._refreshTimer);
 		}
 
-		if (!configuration.get('focus.experimental.indicators.data.enabled')) return;
+		if (!configuration.get('focus.experimental.indicators.data.enabled') || this._state === 'disconnected') return;
 
 		const refreshInterval = configuration.get('focus.experimental.indicators.data.refreshRate') * 1000 * 60;
 		if (refreshInterval <= 0) return;
 
-		if (immediate) {
-			void this.focus.getCategorizedItems({ force: true });
+		if (firstDelay != null) {
+			this._refreshTimer = setTimeout(() => {
+				void this.focus.getCategorizedItems({ force: true });
+				this._refreshTimer = setInterval(() => {
+					void this.focus.getCategorizedItems({ force: true });
+				}, refreshInterval);
+			}, firstDelay);
+		} else {
+			this._refreshTimer = setInterval(() => {
+				void this.focus.getCategorizedItems({ force: true });
+			}, refreshInterval);
 		}
-
-		this._refreshTimer = setInterval(() => {
-			void this.focus.getCategorizedItems({ force: true });
-		}, refreshInterval);
 	}
 
 	private clearRefreshTimer() {
@@ -130,7 +140,25 @@ export class FocusIndicator implements Disposable {
 		}
 	}
 
-	private updateStatusBar(state: 'loading' | 'idle' | 'data' | 'disconnected', categorizedItems?: FocusItem[]) {
+	private onWindowStateChanged(e: { focused: boolean }) {
+		if (!e.focused) {
+			this.clearRefreshTimer();
+			this._lastRefreshPaused = new Date();
+		} else if (this._lastRefreshPaused != null) {
+			const now = new Date();
+			const timeSinceLastUpdate =
+				this._lastDataUpdate != null ? now.getTime() - this._lastDataUpdate.getTime() : undefined;
+			const timeSinceLastUnfocused = now.getTime() - this._lastRefreshPaused.getTime();
+			this._lastRefreshPaused = undefined;
+			const refreshInterval = configuration.get('focus.experimental.indicators.data.refreshRate') * 1000 * 60;
+			let timeToNextPoll = timeSinceLastUpdate != null ? refreshInterval - timeSinceLastUpdate : refreshInterval;
+			if (timeToNextPoll < 0) timeToNextPoll = 0;
+			const diff = timeToNextPoll - timeSinceLastUnfocused;
+			this.startRefreshTimer(diff < 0 ? 0 : diff);
+		}
+	}
+
+	private updateStatusBar(state: FocusIndicatorState, categorizedItems?: FocusItem[]) {
 		if (this._statusBarFocus == null) return;
 		if (state !== 'data' && state === this._state) return;
 		this._state = state;
@@ -141,7 +169,7 @@ export class FocusIndicator implements Disposable {
 			this._statusBarFocus.text = '$(loading~spin)';
 			this._statusBarFocus.tooltip.appendMarkdown('Loading...');
 			this._statusBarFocus.color = undefined;
-			setTimeout(() => this.startRefreshTimer(true), 5000);
+			this.startRefreshTimer(5000);
 		} else if (state === 'idle') {
 			this.clearRefreshTimer();
 			this._statusBarFocus.text = '$(rocket)';
@@ -155,6 +183,7 @@ export class FocusIndicator implements Disposable {
 			);
 			this._statusBarFocus.color = undefined;
 		} else if (state === 'data') {
+			this._lastDataUpdate = new Date();
 			let color: string | ThemeColor | undefined = undefined;
 			let topItem: { item: FocusItem; groupLabel: string } | undefined;
 			const groupedItems = groupAndSortFocusItems(categorizedItems);
