@@ -2819,7 +2819,7 @@
 					},
 					"gitlens.launchpad.indicator.enabled": {
 						"type": "boolean",
-						"default": false,
+						"default": true,
 						"markdownDescription": "Specifies whether to enable status bar indicator for _Launchpad_",
 						"scope": "window",
 						"order": 21
@@ -2854,7 +2854,7 @@
 					},
 					"gitlens.launchpad.indicator.useColors": {
 						"type": "boolean",
-						"default": true,
+						"default": false,
 						"markdownDescription": "Specifies whether to use colors in the _Launchpad_ status bar indicator text",
 						"scope": "window",
 						"order": 26
