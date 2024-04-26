@@ -430,13 +430,11 @@ export class CommitDetailsWebviewProvider
 
 	private async suggestChanges(e: SuggestChangesParams) {
 		if (
-			!(await ensureAccount('Cloud Patches require a GitKraken account.', this.container)) ||
+			!(await ensureAccount('Code Suggestions require a GitKraken account.', this.container)) ||
 			!(await confirmDraftStorage(this.container))
 		) {
 			return;
 		}
-
-		console.log('suggestChanges', e);
 
 		const createChanges: CreateDraftChange[] = [];
 
@@ -481,8 +479,6 @@ export class CommitDetailsWebviewProvider
 				createChanges,
 				options,
 			);
-
-			console.log('suggestChanges draft', draft);
 
 			async function showNotification() {
 				const view = { title: 'View Code Suggestions' };
