@@ -1626,6 +1626,7 @@ export function GraphWrapper({
 							rowsStats={rowsStats}
 							rowsStatsLoading={rowsStatsLoading}
 							shaLength={graphConfig?.idLength}
+							shiftSelectMode="simple"
 							themeOpacityFactor={styleProps?.themeOpacityFactor}
 							useAuthorInitialsForAvatars={!graphConfig?.avatars}
 							workDirStats={workingTreeStats}
