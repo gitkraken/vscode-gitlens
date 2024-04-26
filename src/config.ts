@@ -87,16 +87,19 @@ export interface Config {
 		readonly command: string | null;
 		readonly dismissOnEscape: boolean;
 	};
-	readonly focus: {
+	readonly launchpad: {
 		readonly allowMultiple: boolean;
-		readonly experimental: {
-			readonly indicators: {
-				readonly enabled: boolean;
-				readonly openQuickFocus: boolean;
-				readonly data: {
-					readonly enabled: boolean;
-					readonly refreshRate: number;
-				};
+		readonly ignoredRepositories: string[];
+		readonly staleThreshold: number | null;
+		readonly indicator: {
+			readonly enabled: boolean;
+			readonly openInEditor: boolean;
+			readonly showTopItem: boolean;
+			readonly useColors: boolean;
+			readonly groups: ('mergeable' | 'blocked' | 'needs-review' | 'follow-up')[];
+			readonly polling: {
+				enabled: boolean;
+				interval: number;
 			};
 		};
 	};

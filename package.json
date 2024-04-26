@@ -2790,40 +2790,103 @@
 				"title": "Launchpad (Preview)",
 				"order": 400,
 				"properties": {
-					"gitlens.focus.allowMultiple": {
+					"gitlens.launchpad.allowMultiple": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Launchpad_ as an editor tab",
 						"scope": "window",
 						"order": 10
 					},
-					"gitlens.focus.experimental.indicators.enabled": {
+					"gitlens.launchpad.ignoredRepositories": {
+						"type": "array",
+						"default": [],
+						"items": {
+							"type": "string"
+						},
+						"markdownDescription": "Specifies the repositories to ignore in the _Launchpad_",
+						"scope": "window",
+						"order": 19
+					},
+					"gitlens.launchpad.staleThreshold": {
+						"type": [
+							"number",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies the number of days after which a pull request is considered stale and moved to Other in the _Launchpad_",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.launchpad.indicator.enabled": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "(Experimental) Specifies whether to enable status bar indicators for _Launchpad_",
+						"markdownDescription": "Specifies whether to enable status bar indicator for _Launchpad_",
 						"scope": "window",
 						"order": 21
 					},
-					"gitlens.focus.experimental.indicators.openQuickFocus": {
+					"gitlens.launchpad.indicator.openInEditor": {
 						"type": "boolean",
-						"default": true,
-						"markdownDescription": "(Experimental) Specifies whether to open _Launchpad_ as an editor tab or quickpick command when clicking on the indicators",
+						"default": false,
+						"markdownDescription": "Specifies whether to open _Launchpad_ as an editor tab when clicking on the status bar indicator",
 						"scope": "window",
 						"order": 22
 					},
-					"gitlens.focus.experimental.indicators.data.enabled": {
+					"gitlens.launchpad.indicator.polling.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "(Experimental) Specifies whether the status bar indicators will fetch data for _Launchpad_.",
+						"markdownDescription": "Specifies whether the status bar indicator will fetch and display pull request data for _Launchpad_.",
 						"scope": "window",
 						"order": 23
 					},
-					"gitlens.focus.experimental.indicators.data.refreshRate": {
+					"gitlens.launchpad.indicator.polling.interval": {
 						"type": "number",
 						"default": 30,
-						"markdownDescription": "(Experimental) Specifies the rate (in minutes) at which to refresh the status bar indicators for _Launchpad_. Use 0 to disable automatic refreshing",
+						"markdownDescription": "Specifies the rate (in minutes) at which the status bar indicator will fetch pull request data for _Launchpad_. Use 0 to disable automatic polling",
 						"scope": "window",
 						"order": 24
+					},
+					"gitlens.launchpad.indicator.showTopItem": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the top _Launchpad_ item in the status bar indicator text",
+						"scope": "window",
+						"order": 25
+					},
+					"gitlens.launchpad.indicator.useColors": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to use colors in the _Launchpad_ status bar indicator text",
+						"scope": "window",
+						"order": 26
+					},
+					"gitlens.launchpad.indicator.groups": {
+						"type": "array",
+						"default": [
+							"mergeable",
+							"blocked",
+							"needs-review",
+							"follow-up"
+						],
+						"items": {
+							"type": "string",
+							"enum": [
+								"mergeable",
+								"blocked",
+								"needs-review",
+								"follow-up"
+							],
+							"enumDescriptions": [
+								"Shows mergeable pull requests",
+								"Shows blocked pull requests",
+								"Shows pull requests needing your review",
+								"Shows pull requests needing follow-up"
+							]
+						},
+						"minItems": 1,
+						"uniqueItems": true,
+						"markdownDescription": "Specifies the groups of pull requests to show in the _Launchpad_ status bar indicator hover details",
+						"scope": "window",
+						"order": 27
 					}
 				}
 			},
@@ -5317,19 +5380,19 @@
 				"icon": "$(rocket)"
 			},
 			{
-				"command": "gitlens.focus.split",
+				"command": "gitlens.launchpad.split",
 				"title": "Split Launchpad in Editor",
 				"category": "GitLens",
 				"icon": "$(split-horizontal)"
 			},
 			{
-				"command": "gitlens.focus.experimental.updateIndicators",
-				"title": "Update Launchpad Indicators",
+				"command": "gitlens.launchpad.indicator.update",
+				"title": "Update Launchpad Indicator",
 				"category": "GitLens",
 				"icon": "$(rocket)"
 			},
 			{
-				"command": "gitlens.toggleFocusIndicators",
+				"command": "gitlens.launchpad.indicator.toggle",
 				"title": "Toggle Launchpad Status Bar Icon",
 				"category": "GitLens",
 				"icon": "$(rocket)"
@@ -8202,7 +8265,7 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.focus.refresh",
+				"command": "gitlens.launchpad.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
 				"icon": "$(refresh)"
@@ -9242,15 +9305,15 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.focus.split",
-					"when": "gitlens:enabled && config.gitlens.focus.allowMultiple"
+					"command": "gitlens.launchpad.split",
+					"when": "gitlens:enabled && config.gitlens.launchpad.allowMultiple"
 				},
 				{
-					"command": "gitlens.focus.experimental.updateIndicators",
+					"command": "gitlens.launchpad.indicator.update",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.toggleFocusIndicators",
+					"command": "gitlens.launchpad.indicator.toggle",
 					"when": "gitlens:enabled"
 				},
 				{
@@ -11286,7 +11349,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.focus.refresh",
+					"command": "gitlens.launchpad.refresh",
 					"when": "false"
 				},
 				{
@@ -11884,13 +11947,13 @@
 					"group": "navigation@-98"
 				},
 				{
-					"command": "gitlens.focus.refresh",
+					"command": "gitlens.launchpad.refresh",
 					"when": "activeWebviewPanelId === gitlens.focus",
 					"group": "navigation@-98"
 				},
 				{
-					"command": "gitlens.focus.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.focus.allowMultiple",
+					"command": "gitlens.launchpad.split",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.launchpad.allowMultiple",
 					"group": "navigation@-97"
 				},
 				{
@@ -11936,8 +11999,8 @@
 					"group": "2_a_gitlens_open_file@1"
 				},
 				{
-					"command": "gitlens.focus.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.focus.allowMultiple",
+					"command": "gitlens.launchpad.split",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.launchpad.allowMultiple",
 					"group": "6_split_in_group_gitlens@2"
 				},
 				{
