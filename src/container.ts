@@ -290,7 +290,7 @@ export class Container {
 		this._disposables.push((this._homeView = registerHomeWebviewView(this._webviews)));
 		this._disposables.push((this._accountView = registerAccountWebviewView(this._webviews)));
 
-		if (configuration.get('focus.experimental.indicators.enabled')) {
+		if (configuration.get('launchpad.indicator.enabled')) {
 			this._disposables.push((this._focusIndicator = new FocusIndicator(this, this._focusProvider)));
 		}
 
@@ -308,10 +308,10 @@ export class Container {
 					}
 				}
 
-				if (configuration.changed(e, 'focus.experimental.indicators.enabled')) {
+				if (configuration.changed(e, 'launchpad.indicator.enabled')) {
 					this._focusIndicator?.dispose();
 					this._focusIndicator = undefined;
-					if (configuration.get('focus.experimental.indicators.enabled')) {
+					if (configuration.get('launchpad.indicator.enabled')) {
 						this._disposables.push((this._focusIndicator = new FocusIndicator(this, this._focusProvider)));
 					}
 				}

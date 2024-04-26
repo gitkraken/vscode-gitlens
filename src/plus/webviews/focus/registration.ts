@@ -21,7 +21,7 @@ export function registerFocusWebviewPanel(controller: WebviewsController) {
 				retainContextWhenHidden: true,
 				enableFindWidget: true,
 			},
-			allowMultipleInstances: configuration.get('focus.allowMultiple'),
+			allowMultipleInstances: configuration.get('launchpad.allowMultiple'),
 		},
 		async (container, host) => {
 			const { FocusWebviewProvider } = await import(/* webpackChunkName: "webview-focus" */ './focusWebview');

@@ -1,4 +1,4 @@
-import type { CancellationToken } from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, Uri } from 'vscode';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
@@ -159,7 +159,7 @@ export class FocusProvider implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
-			// configuration.onDidChange(this.onConfigurationChanged, this),
+			configuration.onDidChange(this.onConfigurationChanged, this),
 			...this.registerCommands(),
 		);
 	}
@@ -384,6 +384,17 @@ export class FocusProvider implements Disposable {
 		options?: { force?: boolean; issues?: boolean; prs?: boolean },
 		cancellation?: CancellationToken,
 	): Promise<FocusItem[]> {
+		const ignoredRepositories = new Set(
+			(configuration.get('launchpad.ignoredRepositories') ?? []).map(r => r.toLowerCase()),
+		);
+		const staleThreshold = configuration.get('launchpad.staleThreshold');
+		let staleDate: Date | undefined;
+		if (staleThreshold != null) {
+			staleDate = new Date();
+			// Subtract the number of days from the current date
+			staleDate.setDate(staleDate.getDate() - staleThreshold);
+		}
+
 		const enrichedItemsPromise = this.getEnrichedItems({ force: options?.force, cancellation: cancellation });
 
 		if (this.container.git.isDiscoveringRepositories) {
@@ -423,9 +434,18 @@ export class FocusProvider implements Disposable {
 		if (prsWithSuggestionCounts != null) {
 			const { prs, suggestionCounts } = prsWithSuggestionCounts;
 			if (prs == null) return categorized;
+			const filteredPrs = !ignoredRepositories.size
+				? prs
+				: prs.filter(
+						pr =>
+							!ignoredRepositories.has(
+								`${pr.pullRequest.repository.owner.toLowerCase()}/${pr.pullRequest.repository.repo.toLowerCase()}`,
+							),
+				  );
+
 			const github = await this.container.integrations.get(HostingIntegrationId.GitHub);
 			const myAccount = await github.getCurrentAccount();
-			const inputPrs: EnrichablePullRequest[] = prs.map(pr => {
+			const inputPrs: EnrichablePullRequest[] = filteredPrs.map(pr => {
 				const providerPr = toProviderPullRequestWithUniqueId(pr.pullRequest);
 				const enrichable = {
 					type: 'pr',
@@ -468,10 +488,13 @@ export class FocusProvider implements Disposable {
 			categorized = (await Promise.all(
 				actionableItems.map(async item => {
 					const codeSuggestionsCount = suggestionCounts?.[item.uuid]?.count ?? 0;
-					const actionableCategory =
-						codeSuggestionsCount > 0 && item.viewer.isAuthor
-							? 'code-suggestions'
-							: sharedCategoryToFocusActionCategoryMap.get(item.suggestedActionCategory)!;
+					let actionableCategory = sharedCategoryToFocusActionCategoryMap.get(item.suggestedActionCategory)!;
+					// category overrides
+					if (staleDate != null && item.updatedDate.getTime() < staleDate.getTime()) {
+						actionableCategory = 'other';
+					} else if (codeSuggestionsCount > 0 && item.viewer.isAuthor) {
+						actionableCategory = 'code-suggestions';
+					}
 					const suggestedActions = prActionsMap.get(actionableCategory)!;
 					return {
 						...item,
@@ -524,11 +547,23 @@ export class FocusProvider implements Disposable {
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand('gitlens.toggleFocusIndicators', () => {
-				const enabled = configuration.get('focus.experimental.indicators.enabled') ?? false;
-				void configuration.updateEffective('focus.experimental.indicators.enabled', !enabled);
+			registerCommand(Commands.ToggleLaunchpadIndicator, () => {
+				const enabled = configuration.get('launchpad.indicator.enabled') ?? false;
+				void configuration.updateEffective('launchpad.indicator.enabled', !enabled);
 			}),
 		];
+	}
+
+	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (!configuration.changed(e, 'launchpad')) return;
+
+		if (
+			configuration.changed(e, 'launchpad.ignoredRepositories') ||
+			configuration.changed(e, 'launchpad.staleThreshold')
+		) {
+			this.refresh();
+			void this.getCategorizedItems({ force: true });
+		}
 	}
 }
 
