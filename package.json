@@ -3397,7 +3397,8 @@
 							"gpt-4",
 							"gpt-4-32k",
 							"gpt-3.5-turbo",
-							"gpt-3.5-turbo-16k"
+							"gpt-3.5-turbo-16k",
+							"custom"
 						],
 						"enumDescriptions": [
 							"GPT-4 Turbo with Vision",
@@ -3405,7 +3406,8 @@
 							"GPT-4",
 							"GPT-4 32k",
 							"GPT-3.5 Turbo",
-							"GPT-3.5 Turbo 16k"
+							"GPT-3.5 Turbo 16k",
+							"Custom"
 						],
 						"markdownDescription": "Specifies the OpenAI model to use for GitLens' experimental AI features",
 						"scope": "window",
@@ -3417,7 +3419,17 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies a custom URL to use for access to an OpenAI model via Azure. Azure URLs should be in the following format: https://{your-resource-name}.openai.azure.com/openai/deployments/{deployment-id}/chat/completions?api-version={api-version}",
+						"markdownDescription": "Specifies a custom URL to use for access to an OpenAI-compatible API. URLs could be in any format as long as the API responds in the same way as OpenAI. eg: https://{serverHost}/v1/chat/completions \n\nAzure URLs should be in the following format: https://{your-resource-name}.openai.azure.com/openai/deployments/{deployment-id}/chat/completions?api-version={api-version}",
+						"scope": "window",
+						"order": 102
+					},
+					"gitlens.ai.experimental.openai.customModel": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies a custom model to use with an OpenAI-compatible API. Only used when the OpenAI model is set to 'Custom'.",
 						"scope": "window",
 						"order": 102
 					},
