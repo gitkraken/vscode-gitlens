@@ -1,6 +1,7 @@
 import type { QuickPickItem } from 'vscode';
 import { QuickPickItemKind, window } from 'vscode';
 import type { AIModels, AIProviders } from '../constants';
+import type { Container } from '../container';
 import { configuration } from '../system/configuration';
 
 export interface ModelQuickPickItem<
@@ -11,66 +12,47 @@ export interface ModelQuickPickItem<
 	model: Model;
 }
 
-export async function showAIModelPicker(): Promise<ModelQuickPickItem | undefined>;
-export async function showAIModelPicker<T extends AIProviders>(provider: T): Promise<ModelQuickPickItem<T> | undefined>;
-export async function showAIModelPicker(provider?: AIProviders): Promise<ModelQuickPickItem | undefined> {
-	type QuickPickSeparator = { label: string; kind: QuickPickItemKind.Separator };
+export async function showAIModelPicker(container: Container): Promise<ModelQuickPickItem | undefined>;
+export async function showAIModelPicker<T extends AIProviders>(
+	container: Container,
+	provider: T,
+): Promise<ModelQuickPickItem<T> | undefined>;
+export async function showAIModelPicker(
+	container: Container,
+	provider?: AIProviders,
+): Promise<ModelQuickPickItem | undefined> {
+	const models = (await (await container.ai)?.getModels()) ?? [];
 
-	let items: (ModelQuickPickItem | QuickPickSeparator)[] = [
-		{ label: 'OpenAI', kind: QuickPickItemKind.Separator },
-		{ label: 'OpenAI', description: 'GPT-4 Turbo with Vision', provider: 'openai', model: 'gpt-4-turbo' },
-		{ label: 'OpenAI', description: 'GPT-4 Turbo Preview', provider: 'openai', model: 'gpt-4-turbo-preview' },
-		{ label: 'OpenAI', description: 'GPT-4', provider: 'openai', model: 'gpt-4' },
-		{ label: 'OpenAI', description: 'GPT-4 32k', provider: 'openai', model: 'gpt-4-32k' },
-		{ label: 'OpenAI', description: 'GPT-3.5 Turbo', provider: 'openai', model: 'gpt-3.5-turbo' },
-
-		{ label: 'Anthropic', kind: QuickPickItemKind.Separator },
-		{ label: 'Anthropic', description: 'Claude 3 Opus', provider: 'anthropic', model: 'claude-3-opus-20240229' },
-		{
-			label: 'Anthropic',
-			description: 'Claude 3 Sonnet',
-			provider: 'anthropic',
-			model: 'claude-3-sonnet-20240229',
-		},
-		{ label: 'Anthropic', description: 'Claude 3 Haiku', provider: 'anthropic', model: 'claude-3-haiku-20240307' },
-		{ label: 'Anthropic', description: 'Claude 2.1', provider: 'anthropic', model: 'claude-2.1' },
-		{ label: 'Anthropic', description: 'Claude 2.0', provider: 'anthropic', model: 'claude-2' },
-		{ label: 'Anthropic', description: 'Claude Instant', provider: 'anthropic', model: 'claude-instant-1' },
-
-		{ label: 'Gemini', kind: QuickPickItemKind.Separator },
-		{ label: 'Gemini', description: 'Gemini 1.5 Pro', provider: 'gemini', model: 'gemini-1.5-pro-latest' },
-		{ label: 'Gemini', description: 'Gemini 1.0 Pro', provider: 'gemini', model: 'gemini-1.0-pro' },
-	];
-
+	let filterByProvider;
 	if (provider != null) {
-		items = items.filter(i => i.kind !== QuickPickItemKind.Separator && i.provider === provider);
+		filterByProvider = provider;
 	} else {
 		provider = configuration.get('ai.experimental.provider') ?? 'openai';
 	}
 
-	let model = configuration.get(`ai.experimental.${provider}.model`);
-	if (model == null) {
-		switch (provider) {
-			case 'anthropic':
-				model = 'claude-3-haiku-20240307';
-				break;
-			case 'gemini':
-				model = 'gemini-1.5-pro-latest';
-				break;
-			case 'openai':
-				model = 'gpt-4-turbo-preview';
-				break;
-		}
-	}
+	const model = configuration.get(`ai.experimental.${provider}.model`);
 
-	for (const item of items) {
-		if (item.kind === QuickPickItemKind.Separator) continue;
+	type QuickPickSeparator = { label: string; kind: QuickPickItemKind.Separator };
+	const items: (ModelQuickPickItem | QuickPickSeparator)[] = [];
 
-		if (item.model === model) {
-			item.description = `${item.description}  \u2713`;
-			item.picked = true;
-			break;
+	let lastProvider: AIProviders | undefined;
+	for (const m of models) {
+		if (m.hidden || (filterByProvider != null && m.provider.id === filterByProvider)) continue;
+
+		if (lastProvider !== m.provider.id) {
+			lastProvider = m.provider.id;
+			items.push({ label: m.provider.name, kind: QuickPickItemKind.Separator });
 		}
+
+		const current = m.provider.id === provider && (m.id === model || (model == null && m.default));
+
+		items.push({
+			label: m.provider.name,
+			description: current ? `${m.name}  \u2713` : m.name,
+			provider: m.provider.id,
+			model: m.id,
+			picked: current,
+		});
 	}
 
 	const pick = (await window.showQuickPick(items, {

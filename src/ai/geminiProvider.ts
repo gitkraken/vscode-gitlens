@@ -1,36 +1,66 @@
+import type { CancellationToken } from 'vscode';
 import { window } from 'vscode';
 import { fetch } from '@env/fetch';
 import type { Container } from '../container';
+import { CancellationError } from '../errors';
 import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
-import type { AIProvider } from './aiProviderService';
+import type { AIModel, AIProvider } from './aiProviderService';
 import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
 
-export class GeminiProvider implements AIProvider<'gemini'> {
-	readonly id = 'gemini';
-	readonly name = 'Gemini';
+const provider = { id: 'gemini', name: 'Google' } as const;
+
+export type GeminiModels = 'gemini-1.0-pro' | 'gemini-1.5-pro-latest';
+type GeminiModel = AIModel<typeof provider.id>;
+const models: GeminiModel[] = [
+	{
+		id: 'gemini-1.5-pro-latest',
+		name: 'Gemini 1.5 Pro',
+		maxTokens: 1048576,
+		provider: provider,
+		default: true,
+	},
+	{
+		id: 'gemini-1.0-pro',
+		name: 'Gemini 1.0 Pro',
+		maxTokens: 30720,
+		provider: provider,
+	},
+];
+
+export class GeminiProvider implements AIProvider<typeof provider.id> {
+	readonly id = provider.id;
+	readonly name = provider.name;
 
 	constructor(private readonly container: Container) {}
 
 	dispose() {}
 
+	getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
+		return Promise.resolve(models);
+	}
+
 	private get model(): GeminiModels | null {
 		return configuration.get('ai.experimental.gemini.model') || null;
 	}
 
-	private async getOrChooseModel(): Promise<GeminiModels | undefined> {
-		const model = this.model;
-		if (model != null) return model;
+	private async getOrChooseModel(): Promise<GeminiModel | undefined> {
+		let model = this.model;
+		if (model == null) {
+			const pick = await showAIModelPicker(this.container, this.id);
+			if (pick == null) return undefined;
 
-		const pick = await showAIModelPicker(this.id);
-		if (pick == null) return undefined;
-
-		await configuration.updateEffective(`ai.experimental.${pick.provider}.model`, pick.model);
-		return pick.model;
+			await configuration.updateEffective(`ai.experimental.${pick.provider}.model`, pick.model);
+			model = pick.model;
+		}
+		return models.find(m => m.id === model);
 	}
 
-	async generateCommitMessage(diff: string, options?: { context?: string }): Promise<string | undefined> {
+	async generateCommitMessage(
+		diff: string,
+		options?: { cancellation?: CancellationToken; context?: string },
+	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
@@ -85,7 +115,7 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 				],
 			};
 
-			const rsp = await this.fetch(model, apiKey, request);
+			const rsp = await this.fetch(model.id, apiKey, request, options?.cancellation);
 			if (!rsp.ok) {
 				let json;
 				try {
@@ -118,7 +148,11 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 		}
 	}
 
-	async explainChanges(message: string, diff: string): Promise<string | undefined> {
+	async explainChanges(
+		message: string,
+		diff: string,
+		options?: { cancellation?: CancellationToken },
+	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
@@ -161,7 +195,7 @@ Do not make any assumptions or invent details that are not supported by the code
 				],
 			};
 
-			const rsp = await this.fetch(model, apiKey, request);
+			const rsp = await this.fetch(model.id, apiKey, request, options?.cancellation);
 			if (!rsp.ok) {
 				let json;
 				try {
@@ -192,23 +226,41 @@ Do not make any assumptions or invent details that are not supported by the code
 		}
 	}
 
-	private fetch(model: GeminiModels, apiKey: string, request: GenerateContentRequest) {
-		return fetch(getUrl(model), {
-			headers: {
-				Accept: 'application/json',
-				'Content-Type': 'application/json',
-				'x-goog-api-key': apiKey,
-			},
-			method: 'POST',
-			body: JSON.stringify(request),
-		});
+	private async fetch(
+		model: GeminiModels,
+		apiKey: string,
+		request: GenerateContentRequest,
+		cancellation: CancellationToken | undefined,
+	) {
+		let aborter: AbortController | undefined;
+		if (cancellation != null) {
+			aborter = new AbortController();
+			cancellation.onCancellationRequested(() => aborter?.abort());
+		}
+
+		try {
+			return await fetch(getUrl(model), {
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json',
+					'x-goog-api-key': apiKey,
+				},
+				method: 'POST',
+				body: JSON.stringify(request),
+				signal: aborter?.signal,
+			});
+		} catch (ex) {
+			if (ex.name === 'AbortError') throw new CancellationError(ex);
+
+			throw ex;
+		}
 	}
 }
 
 async function getApiKey(storage: Storage): Promise<string | undefined> {
 	return getApiKeyCore(storage, {
-		id: 'gemini',
-		name: 'Google (Gemini)',
+		id: provider.id,
+		name: provider.name,
 		validator: () => true,
 		url: 'https://aistudio.google.com/app/apikey',
 	});
@@ -217,8 +269,6 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 function getUrl(model: GeminiModels): string {
 	return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 }
-
-export type GeminiModels = 'gemini-1.0-pro' | 'gemini-1.5-pro-latest';
 
 interface Content {
 	parts: Part[];

@@ -1,43 +1,100 @@
+import type { CancellationToken } from 'vscode';
 import { window } from 'vscode';
 import { fetch } from '@env/fetch';
 import type { Container } from '../container';
+import { CancellationError } from '../errors';
 import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
-import type { AIProvider } from './aiProviderService';
+import type { AIModel, AIProvider } from './aiProviderService';
 import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
 
+const provider = { id: 'anthropic', name: 'Anthropic' } as const;
 type LegacyModels = Extract<AnthropicModels, 'claude-instant-1' | 'claude-2'>;
-function isLegacyModel(model: AnthropicModels): model is LegacyModels {
-	return model === 'claude-instant-1' || model === 'claude-2';
+type SupportedModels = Exclude<AnthropicModels, LegacyModels>;
+type LegacyModel = AIModel<typeof provider.id, LegacyModels>;
+type SupportedModel = AIModel<typeof provider.id, SupportedModels>;
+
+function isLegacyModel(model: AnthropicModel): model is LegacyModel {
+	return model.id === 'claude-instant-1' || model.id === 'claude-2';
 }
 
-type SupportedModels = Exclude<AnthropicModels, LegacyModels>;
+function isSupportedModel(model: AnthropicModel): model is SupportedModel {
+	return !isLegacyModel(model);
+}
 
-export class AnthropicProvider implements AIProvider<'anthropic'> {
-	readonly id = 'anthropic';
-	readonly name = 'Anthropic';
+export type AnthropicModels =
+	| 'claude-instant-1'
+	| 'claude-2'
+	| 'claude-2.1'
+	| 'claude-3-opus-20240229'
+	| 'claude-3-sonnet-20240229'
+	| 'claude-3-haiku-20240307';
+
+type AnthropicModel = AIModel<typeof provider.id>;
+
+const models: AnthropicModel[] = [
+	{
+		id: 'claude-3-opus-20240229',
+		name: 'Claude 3 Opus',
+		maxTokens: 200000,
+		provider: provider,
+	},
+	{
+		id: 'claude-3-sonnet-20240229',
+		name: 'Claude 3 Sonnet',
+		maxTokens: 200000,
+		provider: provider,
+	},
+	{
+		id: 'claude-3-haiku-20240307',
+		name: 'Claude 3 Haiku',
+		maxTokens: 200000,
+		provider: provider,
+		default: true,
+	},
+	{ id: 'claude-2.1', name: 'Claude 2.1', maxTokens: 200000, provider: provider },
+	{ id: 'claude-2', name: 'Claude 2.0', maxTokens: 100000, provider: provider },
+	{
+		id: 'claude-instant-1',
+		name: 'Claude Instant',
+		maxTokens: 100000,
+		provider: provider,
+	},
+];
+
+export class AnthropicProvider implements AIProvider<typeof provider.id> {
+	readonly id = provider.id;
+	readonly name = provider.name;
 
 	constructor(private readonly container: Container) {}
 
 	dispose() {}
 
+	getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
+		return Promise.resolve(models);
+	}
+
 	private get model(): AnthropicModels | null {
 		return configuration.get('ai.experimental.anthropic.model') || null;
 	}
 
-	private async getOrChooseModel(): Promise<AnthropicModels | undefined> {
-		const model = this.model;
-		if (model != null) return model;
+	private async getOrChooseModel(): Promise<AnthropicModel | undefined> {
+		let model = this.model;
+		if (model == null) {
+			const pick = await showAIModelPicker(this.container, this.id);
+			if (pick == null) return undefined;
 
-		const pick = await showAIModelPicker(this.id);
-		if (pick == null) return undefined;
-
-		await configuration.updateEffective(`ai.experimental.${pick.provider}.model`, pick.model);
-		return pick.model;
+			await configuration.updateEffective(`ai.experimental.${pick.provider}.model`, pick.model);
+			model = pick.model;
+		}
+		return models.find(m => m.id === model);
 	}
 
-	async generateCommitMessage(diff: string, options?: { context?: string }): Promise<string | undefined> {
+	async generateCommitMessage(
+		diff: string,
+		options?: { cancellation?: CancellationToken; context?: string },
+	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
@@ -63,9 +120,9 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 			let result: string;
 			let maxCodeCharacters: number;
 
-			if (isLegacyModel(model)) {
+			if (!isSupportedModel(model)) {
 				[result, maxCodeCharacters] = await this.makeLegacyRequest(
-					model,
+					model as LegacyModel,
 					apiKey,
 					max => {
 						const code = diff.substring(0, max);
@@ -80,6 +137,7 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 						return prompt;
 					},
 					4096,
+					options?.cancellation,
 				);
 			} else {
 				[result, maxCodeCharacters] = await this.makeRequest(
@@ -122,6 +180,7 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 						return [message];
 					},
 					4096,
+					options?.cancellation,
 				);
 			}
 
@@ -137,7 +196,11 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 		}
 	}
 
-	async explainChanges(message: string, diff: string): Promise<string | undefined> {
+	async explainChanges(
+		message: string,
+		diff: string,
+		options?: { cancellation?: CancellationToken },
+	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
@@ -155,9 +218,9 @@ Do not make any assumptions or invent details that are not supported by the code
 			let result: string;
 			let maxCodeCharacters: number;
 
-			if (model === 'claude-instant-1' || model === 'claude-2') {
+			if (!isSupportedModel(model)) {
 				[result, maxCodeCharacters] = await this.makeLegacyRequest(
-					model,
+					model as LegacyModel,
 					apiKey,
 					max => {
 						const code = diff.substring(0, max);
@@ -175,6 +238,7 @@ Human: Remember to frame your explanation in a way that is suitable for a review
 Assistant:`;
 					},
 					4096,
+					options?.cancellation,
 				);
 			} else {
 				[result, maxCodeCharacters] = await this.makeRequest(
@@ -212,6 +276,7 @@ Assistant:`;
 						];
 					},
 					4096,
+					options?.cancellation,
 				);
 			}
 
@@ -227,45 +292,68 @@ Assistant:`;
 		}
 	}
 
-	private fetch(model: SupportedModels, apiKey: string, request: AnthropicMessageRequest): ReturnType<typeof fetch>;
-	private fetch(model: LegacyModels, apiKey: string, request: AnthropicCompletionRequest): ReturnType<typeof fetch>;
 	private fetch(
-		model: AnthropicModels,
+		model: SupportedModel,
+		apiKey: string,
+		request: AnthropicMessageRequest,
+		cancellation: CancellationToken | undefined,
+	): ReturnType<typeof fetch>;
+	private fetch(
+		model: LegacyModel,
+		apiKey: string,
+		request: AnthropicCompletionRequest,
+		cancellation: CancellationToken | undefined,
+	): ReturnType<typeof fetch>;
+	private async fetch(
+		model: AnthropicModel,
 		apiKey: string,
 		request: AnthropicMessageRequest | AnthropicCompletionRequest,
+		cancellation: CancellationToken | undefined,
 	): ReturnType<typeof fetch> {
-		return fetch(getUrl(model), {
-			headers: {
-				Accept: 'application/json',
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-				'X-API-Key': apiKey,
-				'anthropic-version': '2023-06-01',
-			},
-			method: 'POST',
-			body: JSON.stringify(request),
-		});
+		let aborter: AbortController | undefined;
+		if (cancellation != null) {
+			aborter = new AbortController();
+			cancellation.onCancellationRequested(() => aborter?.abort());
+		}
+
+		try {
+			return await fetch(getUrl(model), {
+				headers: {
+					Accept: 'application/json',
+					Authorization: `Bearer ${apiKey}`,
+					'Content-Type': 'application/json',
+					'X-API-Key': apiKey,
+					'anthropic-version': '2023-06-01',
+				},
+				method: 'POST',
+				body: JSON.stringify(request),
+			});
+		} catch (ex) {
+			if (ex.name === 'AbortError') throw new CancellationError(ex);
+			throw ex;
+		}
 	}
 
 	private async makeRequest(
-		model: SupportedModels,
+		model: SupportedModel,
 		apiKey: string,
 		system: string,
 		messages: (maxCodeCharacters: number) => Message[],
 		maxTokens: number,
+		cancellation: CancellationToken | undefined,
 	): Promise<[result: string, maxCodeCharacters: number]> {
 		let retries = 0;
 		let maxCodeCharacters = getMaxCharacters(model, 2600);
 
 		while (true) {
 			const request: AnthropicMessageRequest = {
-				model: model,
+				model: model.id,
 				messages: messages(maxCodeCharacters),
 				system: system,
 				stream: false,
 				max_tokens: maxTokens,
 			};
-			const rsp = await this.fetch(model, apiKey, request);
+			const rsp = await this.fetch(model, apiKey, request, cancellation);
 			if (!rsp.ok) {
 				let json;
 				try {
@@ -296,22 +384,23 @@ Assistant:`;
 	}
 
 	private async makeLegacyRequest(
-		model: Extract<AnthropicModels, 'claude-instant-1' | 'claude-2'>,
+		model: LegacyModel,
 		apiKey: string,
 		prompt: (maxCodeCharacters: number) => string,
 		maxTokens: number,
+		cancellation: CancellationToken | undefined,
 	): Promise<[result: string, maxCodeCharacters: number]> {
 		let retries = 0;
 		let maxCodeCharacters = getMaxCharacters(model, 2600);
 
 		while (true) {
 			const request: AnthropicCompletionRequest = {
-				model: model,
+				model: model.id,
 				prompt: prompt(maxCodeCharacters),
 				stream: false,
 				max_tokens_to_sample: maxTokens,
 			};
-			const rsp = await this.fetch(model, apiKey, request);
+			const rsp = await this.fetch(model, apiKey, request, cancellation);
 			if (!rsp.ok) {
 				let json;
 				try {
@@ -341,24 +430,16 @@ Assistant:`;
 
 async function getApiKey(storage: Storage): Promise<string | undefined> {
 	return getApiKeyCore(storage, {
-		id: 'anthropic',
-		name: 'Anthropic',
+		id: provider.id,
+		name: provider.name,
 		validator: v => /(?:sk-)?[a-zA-Z0-9-_]{32,}/.test(v),
 		url: 'https://console.anthropic.com/account/keys',
 	});
 }
 
-function getUrl(model: AnthropicModels): string {
+function getUrl(model: AnthropicModel): string {
 	return isLegacyModel(model) ? 'https://api.anthropic.com/v1/complete' : 'https://api.anthropic.com/v1/messages';
 }
-
-export type AnthropicModels =
-	| 'claude-instant-1'
-	| 'claude-2'
-	| 'claude-2.1'
-	| 'claude-3-opus-20240229'
-	| 'claude-3-sonnet-20240229'
-	| 'claude-3-haiku-20240307';
 
 interface AnthropicError {
 	type: 'error';
