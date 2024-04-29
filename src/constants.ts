@@ -1,4 +1,5 @@
 import type { AnthropicModels } from './ai/anthropicProvider';
+import type { CopilotModels } from './ai/copilotProvider';
 import type { GeminiModels } from './ai/geminiProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
 import type { ViewShowBranchComparison } from './config';
@@ -808,14 +809,16 @@ export type TelemetryEvents =
 	| 'subscription/changed'
 	| 'usage/track';
 
-export type AIProviders = 'anthropic' | 'gemini' | 'openai';
+export type AIProviders = 'anthropic' | 'copilot' | 'gemini' | 'openai';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'
 	? OpenAIModels
 	: Provider extends 'anthropic'
 	  ? AnthropicModels
 	  : Provider extends 'gemini'
 	    ? GeminiModels
-	    : AnthropicModels | GeminiModels | OpenAIModels;
+	    : Provider extends 'copilot'
+	      ? CopilotModels
+	      : AnthropicModels | CopilotModels | GeminiModels | OpenAIModels;
 
 export type SecretKeys =
 	| `gitlens.integration.auth:${string}`

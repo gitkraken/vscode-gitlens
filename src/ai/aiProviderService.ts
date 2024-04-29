@@ -14,6 +14,7 @@ import { getSettledValue } from '../system/promise';
 import type { Storage } from '../system/storage';
 import { supportedInVSCodeVersion } from '../system/utils';
 import { AnthropicProvider } from './anthropicProvider';
+import { CopilotProvider } from './copilotProvider';
 import { GeminiProvider } from './geminiProvider';
 import { OpenAIProvider } from './openaiProvider';
 
@@ -41,6 +42,7 @@ const _supportedProviderTypes = new Map<AIProviders, AIProviderConstructor>([
 	['openai', OpenAIProvider],
 	['anthropic', AnthropicProvider],
 	['gemini', GeminiProvider],
+	['copilot', CopilotProvider],
 ]);
 
 export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {

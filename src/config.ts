@@ -1,4 +1,5 @@
 import type { AnthropicModels } from './ai/anthropicProvider';
+import type { CopilotModels } from './ai/copilotProvider';
 import type { GeminiModels } from './ai/geminiProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
 import type { AIProviders } from './constants';
@@ -11,6 +12,9 @@ export interface Config {
 		readonly experimental: {
 			readonly anthropic: {
 				readonly model: AnthropicModels | null;
+			};
+			readonly copilot: {
+				readonly model: CopilotModels | null;
 			};
 			readonly gemini: {
 				readonly model: GeminiModels | null;

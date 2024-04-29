@@ -64,6 +64,9 @@
 			"supported": "limited"
 		}
 	},
+	"enabledApiProposals": [
+		"languageModels"
+	],
 	"contributes": {
 		"configuration": [
 			{
@@ -3464,6 +3467,24 @@
 						"markdownDescription": "Specifies the Google Gemini model to use for GitLens' experimental AI features",
 						"scope": "window",
 						"order": 103
+					},
+					"gitlens.ai.experimental.copilot.model": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"enum": [
+							"copilot-gpt-4",
+							"copilot-gpt-3.5-turbo"
+						],
+						"enumDescriptions": [
+							"Copilot GPT-4",
+							"Copilot GPT-3.5 Turbo"
+						],
+						"markdownDescription": "Specifies the GitHub Copilot model to use for GitLens' experimental AI features",
+						"scope": "window",
+						"order": 104
 					}
 				}
 			},
