@@ -14,6 +14,7 @@ import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 import '../shared/components/button';
 import '../shared/components/code-icon';
+import '../shared/components/feature-badge';
 
 export class HomeApp extends App<State> {
 	constructor() {

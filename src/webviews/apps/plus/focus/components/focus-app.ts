@@ -15,13 +15,13 @@ import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../../../../plus/webviews/focus/protocol';
 import { debounce } from '../../../../../system/function';
-import type { FeatureGate } from '../../../shared/components/feature-gate';
-import type { FeatureGateBadge } from '../../../shared/components/feature-gate-badge';
+import type { GlFeatureBadge } from '../../../shared/components/feature-badge';
+import type { GlFeatureGate } from '../../../shared/components/feature-gate';
 import { themeProperties } from './gk-theme.css';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/feature-gate';
-import '../../../shared/components/feature-gate-badge';
+import '../../../shared/components/feature-badge';
 import './gk-pull-request-row';
 import './gk-issue-row';
 
@@ -44,13 +44,13 @@ export class GlFocusApp extends LitElement {
 		{ label: 'Mentions Me', value: 'mentioned' },
 	];
 	@query('#subscription-gate', true)
-	private subscriptionEl!: FeatureGate;
+	private subscriptionEl!: GlFeatureGate;
 
 	@query('#connection-gate', true)
-	private connectionEl!: FeatureGate;
+	private connectionEl!: GlFeatureGate;
 
 	@query('#subscription-gate-badge', true)
-	private subScriptionBadgeEl!: FeatureGateBadge;
+	private subScriptionBadgeEl!: GlFeatureBadge;
 
 	@state()
 	private selectedTabFilter?: string = 'prs';
@@ -299,36 +299,37 @@ export class GlFocusApp extends LitElement {
 		return html`
 			<div class="app">
 				<div class="app__toolbar">
-					<span class="preview">Preview</span>
-					<gk-feature-gate-badge
-						.subscription=${this.subscriptionState}
-						id="subscription-gate-badge"
-					></gk-feature-gate-badge>
+					<span class="preview"> </span>
 					<gl-button
 						class="feedback"
 						appearance="toolbar"
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2535"
-						title="Focus Feedback"
-						aria-label="Focus Feedback"
+						title="Launchpad Feedback"
+						aria-label="Launchpad Feedback"
 						><code-icon icon="feedback"></code-icon
 					></gl-button>
+					<gl-feature-badge
+						id="subscription-gate-badge"
+						preview
+						.subscription=${this.subscriptionState}
+					></gl-feature-badge>
 				</div>
 
 				<div class="app__content">
-					<gk-feature-gate
+					<gl-feature-gate
 						.state=${this.subscriptionState?.state}
 						.visible=${this.showFeatureGate}
 						id="subscription-gate"
 						class="scrollable"
 						><p slot="feature">
 							<a href="https://help.gitkraken.com/gitlens/gitlens-features/#focus-view-%e2%9c%a8"
-								>Focus View</a
+								>Launchpad</a
 							>
 							&mdash; effortlessly view all of your GitHub pull requests and issues in a unified,
 							actionable view.
-						</p></gk-feature-gate
+						</p></gl-feature-gate
 					>
-					<gk-feature-gate .visible=${this.showConnectionGate} id="connection-gate" class="scrollable">
+					<gl-feature-gate .visible=${this.showConnectionGate} id="connection-gate" class="scrollable">
 						<h3>No GitHub remotes are connected</h3>
 						<p>
 							This enables access to Pull Requests and Issues as well as provide additional information
@@ -338,7 +339,7 @@ export class GlFocusApp extends LitElement {
 						<gl-button appearance="alert" href="command:gitlens.connectRemoteProvider"
 							>Connect to GitHub</gl-button
 						>
-					</gk-feature-gate>
+					</gl-feature-gate>
 
 					<div class="app__focus">
 						<header class="app__header">
@@ -346,10 +347,12 @@ export class GlFocusApp extends LitElement {
 								<nav class="tab-filter" id="filter-focus-items">
 									${map(
 										this.tabFilterOptionsWithCounts,
-										({ label, value, count }, i) => html`
+										({ label, value, count }) => html`
 											<button
 												class="tab-filter__tab ${(
-													this.selectedTabFilter ? value === this.selectedTabFilter : i === 0
+													this.selectedTabFilter
+														? value === this.selectedTabFilter
+														: value === ''
 												)
 													? 'is-active'
 													: ''}"

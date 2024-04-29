@@ -1,4 +1,5 @@
 import { reactWrapper } from '../helpers/react-wrapper';
-import { PopOver as PopOverComponent } from './pop-over';
+import { GlTooltip as GlTooltipWC } from './tooltip';
 
-export const PopOver = reactWrapper(PopOverComponent, { tagName: 'pop-over' });
+export interface GlTooltip extends GlTooltipWC {}
+export const GlTooltip = reactWrapper(GlTooltipWC, { tagName: 'gl-tooltip' });

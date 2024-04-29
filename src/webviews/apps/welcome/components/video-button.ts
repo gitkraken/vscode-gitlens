@@ -1,6 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { elementBase } from '../../shared/components/styles/lit/base.css';
+import '../../shared/components/overlays/tooltip';
 
 @customElement('video-button')
 export class VideoButton extends LitElement {
@@ -43,11 +44,11 @@ export class VideoButton extends LitElement {
 				color: inherit;
 			}
 
-			.video-button > .play {
+			.video-button .play {
 				transform: scale(1.2);
 				transition: transform ease-in-out 150ms;
 			}
-			.video-button:hover > .play {
+			.video-button:hover .play {
 				transform: scale(1.4);
 			}
 
@@ -74,6 +75,23 @@ export class VideoButton extends LitElement {
 				opacity: 0.5;
 			}
 
+			.title {
+				position: absolute;
+				align-self: center;
+				color: var(--color-foreground);
+				font-weight: 400;
+				text-shadow:
+					0 0 5px rgba(0, 0, 0, 1),
+					0 0 10px rgba(0, 0, 0, 1),
+					0 0 15px rgba(0, 0, 0, 1);
+				transform: scale(1.2);
+				transition: transform ease-in-out 150ms;
+				z-index: 1;
+			}
+			.video-button:hover .title {
+				transform: scale(1.4);
+			}
+
 			:host-context(.vscode-high-contrast-light) .background--dark,
 			:host-context(.vscode-light) .background--dark {
 				display: none;
@@ -86,13 +104,14 @@ export class VideoButton extends LitElement {
 	];
 
 	override render() {
-		return html`
-			<a
-				class="video-button"
-				href="https://www.youtube.com/watch?v=UQPb73Zz9qk?utm_source=gitlens-extension&amp;utm_medium=welcome_banner"
-				aria-label="Watch the Tutorial video"
-				title="Watch the Tutorial video"
-			>
+		return html` <a
+			class="video-button"
+			href="https://www.youtube.com/watch?v=UQPb73Zz9qk?utm_source=gitlens-extension&amp;utm_medium=welcome_banner"
+			aria-label="Watch the Tutorial video"
+			title="&nbsp;"
+		>
+			<span class="title">Tutorial Video</span>
+			<div>
 				<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
 				<!-- prettier-ignore -->
 				<svg class="background background--light" width="235" height="110" viewBox="0 0 235 110" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -167,7 +186,7 @@ export class VideoButton extends LitElement {
 						stroke="currentColor"
 					></path>
 				</svg>
-			</a>
-		`;
+			</div>
+		</a>`;
 	}
 }

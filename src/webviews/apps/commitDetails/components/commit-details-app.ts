@@ -5,10 +5,11 @@ import { when } from 'lit/directives/when.js';
 import type { ViewFilesLayout } from '../../../../config';
 import type { Serialized } from '../../../../system/serialize';
 import { pluralize } from '../../../../system/string';
-import type { ExecuteCommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
+import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
 import {
 	AutolinkSettingsCommand,
 	CreatePatchFromWipCommand,
+	DidChangeDraftStateNotification,
 	DidChangeNotification,
 	DidChangeWipStateNotification,
 	ExecuteCommitActionCommand,
@@ -26,7 +27,9 @@ import {
 	PullCommand,
 	PushCommand,
 	SearchCommitCommand,
+	ShowCodeSuggestionCommand,
 	StageFileCommand,
+	SuggestChangesCommand,
 	SwitchCommand,
 	SwitchModeCommand,
 	UnstageFileCommand,
@@ -41,6 +44,7 @@ import { assertsSerialized, HostIpc } from '../../shared/ipc';
 import type { GlCommitDetails } from './gl-commit-details';
 import type { FileChangeListItemDetail } from './gl-details-base';
 import type { GlInspectNav } from './gl-inspect-nav';
+import type { CreatePatchEventDetail } from './gl-inspect-patch';
 import type { GlWipDetails } from './gl-wip-details';
 import '../../shared/components/code-icon';
 import './gl-commit-details';
@@ -63,6 +67,9 @@ export class GlCommitDetailsApp extends LitElement {
 
 	@property({ type: Object })
 	explain?: ExplainState;
+
+	@state()
+	draftState: DraftState = { inReview: false };
 
 	@state()
 	get isUncommitted() {
@@ -188,7 +195,21 @@ export class GlCommitDetailsApp extends LitElement {
 			DOM.on<GlWipDetails, { name: string }>('gl-wip-details', 'data-action', e =>
 				this.onBranchAction(e.detail.name),
 			),
+			DOM.on<GlWipDetails, CreatePatchEventDetail>('gl-wip-details', 'gl-inspect-create-suggestions', e =>
+				this.onSuggestChanges(e.detail),
+			),
+			DOM.on<GlWipDetails, { id: string }>('gl-wip-details', 'gl-show-code-suggestion', e =>
+				this.onShowCodeSuggestion(e.detail),
+			),
 		];
+	}
+
+	private onSuggestChanges(e: CreatePatchEventDetail) {
+		this._hostIpc.sendCommand(SuggestChangesCommand, e);
+	}
+
+	private onShowCodeSuggestion(e: { id: string }) {
+		this._hostIpc.sendCommand(ShowCodeSuggestionCommand, e);
 	}
 
 	private onMessageReceived(msg: IpcMessage) {
@@ -226,10 +247,13 @@ export class GlCommitDetailsApp extends LitElement {
 				break;
 
 			case DidChangeWipStateNotification.is(msg):
-				this.state = { ...this.state!, ...msg.params.wip };
+				this.state = { ...this.state!, wip: msg.params.wip };
 				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
 				// this.setState(this.state);
 				// this.attachState();
+				break;
+			case DidChangeDraftStateNotification.is(msg):
+				this.onDraftStateChanged(msg.params.inReview);
 				break;
 		}
 	}
@@ -328,6 +352,9 @@ export class GlCommitDetailsApp extends LitElement {
 								.orgSettings=${this.state?.orgSettings}
 								.isUncommitted=${true}
 								.emptyText=${'No working changes'}
+								.draftState=${this.draftState}
+								@draft-state-changed=${(e: CustomEvent<{ inReview: boolean }>) =>
+									this.onDraftStateChanged(e.detail.inReview)}
 							></gl-wip-details>`,
 					)}
 				</main>
@@ -337,6 +364,11 @@ export class GlCommitDetailsApp extends LitElement {
 
 	protected override createRenderRoot() {
 		return this;
+	}
+
+	private onDraftStateChanged(inReview: boolean) {
+		this.draftState = { ...this.draftState, inReview: inReview };
+		this.requestUpdate('draftState');
 	}
 
 	private onBranchAction(name: string) {

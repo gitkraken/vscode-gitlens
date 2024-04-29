@@ -1,14 +1,14 @@
 import type { EventName } from '@lit/react';
-import type { SearchQuery } from '../../../../../git/search';
+import type { CustomEventType } from '../element';
 import { reactWrapper } from '../helpers/react-wrapper';
-import type { SearchNavigationEventDetail } from './search-box';
-import { SearchBox as searchBoxComponent } from './search-box';
+import { GlSearchBox as GlSearchBoxWC } from './search-box';
 
-export const SearchBox = reactWrapper(searchBoxComponent, {
-	tagName: 'search-box',
+export interface GlSearchBox extends GlSearchBoxWC {}
+export const GlSearchBox = reactWrapper(GlSearchBoxWC, {
+	tagName: 'gl-search-box',
 	events: {
-		onChange: 'change' as EventName<CustomEvent<SearchQuery>>,
-		onNavigate: 'navigate' as EventName<CustomEvent<SearchNavigationEventDetail>>,
-		onOpenInView: 'openinview',
+		onChange: 'gl-search-inputchange' as EventName<CustomEventType<'gl-search-inputchange'>>,
+		onNavigate: 'gl-search-navigate' as EventName<CustomEventType<'gl-search-navigate'>>,
+		onOpenInView: 'gl-search-openinview' as EventName<CustomEventType<'gl-search-openinview'>>,
 	},
 });

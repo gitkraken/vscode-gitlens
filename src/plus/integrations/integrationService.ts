@@ -11,7 +11,7 @@ import { debug } from '../../system/decorators/log';
 import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
 import type { ServerConnection } from '../gk/serverConnection';
-import { supportedCloudIntegrationIds } from './authentication/models';
+import { supportedCloudIntegrationIds, toIntegrationId } from './authentication/models';
 import type {
 	HostingIntegration,
 	Integration,
@@ -24,6 +24,7 @@ import type {
 	SupportedIssueIntegrationIds,
 	SupportedSelfHostedIntegrationIds,
 } from './integration';
+import type { IntegrationId } from './providers/models';
 import {
 	HostingIntegrationId,
 	isSelfHostedIntegrationId,
@@ -67,25 +68,25 @@ export class IntegrationService implements Disposable {
 	}
 
 	private async syncCloudIntegrations(_options?: { force?: boolean }) {
+		let connectedProviders = new Set<IntegrationId>();
+
 		const session = await this.container.subscription.getAuthenticationSession();
-		let connectedProviders = new Set<string>();
 		if (session != null) {
-			const api = await this.container.cloudIntegrationsApi;
-			const connectedProviderData = (await api?.getConnectedProvidersData()) ?? [];
-			connectedProviders = new Set(connectedProviderData.map(p => p.provider));
+			const cloudIntegrations = await this.container.cloudIntegrations;
+			const connections = (await cloudIntegrations?.getConnections()) ?? [];
+			connectedProviders = new Set(connections.map(p => toIntegrationId[p.provider]));
 		}
+
 		for (const cloudIntegrationId of supportedCloudIntegrationIds) {
 			const integration = await this.get(cloudIntegrationId);
 			const isConnected = integration.maybeConnected ?? (await integration.isConnected());
 			if (connectedProviders.has(cloudIntegrationId)) {
-				if (isConnected) {
-					continue;
-				}
+				if (isConnected) continue;
+
 				await integration.connect();
 			} else {
-				if (!isConnected) {
-					continue;
-				}
+				if (!isConnected) continue;
+
 				await integration.disconnect({ silent: true });
 			}
 		}

@@ -560,6 +560,7 @@ const iconMap = Object.freeze({
 	'gl-cloud-patch-share': '\\f129',
 	'gl-inspect': '\\f12a',
 	'gl-repository-filled': '\\f12b',
+	'gl-code-suggestion': '\\f12d',
 });
 
 @customElement('code-icon')

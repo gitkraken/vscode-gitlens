@@ -1,4 +1,5 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
+import { authentication } from 'vscode';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -208,6 +209,17 @@ export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationI
 
 	protected override get apiBaseUrl(): string {
 		return 'https://api.github.com';
+	}
+
+	// TODO: This is a special case for GitHub because we use VSCode's GitHub session, and it can be disconnected
+	// outside of the extension. Remove this once we use our own GitHub auth provider.
+	override async refresh() {
+		const session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes);
+		if (session == null && this.maybeConnected) {
+			void this.disconnect();
+		} else {
+			super.refresh();
+		}
 	}
 }
 

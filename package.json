@@ -2787,43 +2787,124 @@
 			},
 			{
 				"id": "focus",
-				"title": "Focus (Preview)",
+				"title": "Launchpad (Preview)",
 				"order": 400,
 				"properties": {
-					"gitlens.focus.allowMultiple": {
+					"gitlens.launchpad.allowMultiple": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Focus_",
+						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Launchpad_ as an editor tab",
 						"scope": "window",
 						"order": 10
 					},
-					"gitlens.focus.experimental.indicators.enabled": {
+					"gitlens.launchpad.ignoredRepositories": {
+						"type": "array",
+						"default": [],
+						"items": {
+							"type": "string"
+						},
+						"markdownDescription": "Specifies the repositories to ignore in the _Launchpad_",
+						"scope": "window",
+						"order": 19
+					},
+					"gitlens.launchpad.staleThreshold": {
+						"type": [
+							"number",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies the number of days after which a pull request is considered stale and moved to Other in the _Launchpad_",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.launchpad.indicator.enabled": {
 						"type": "boolean",
-						"default": false,
-						"markdownDescription": "(Experimental) Specifies whether to enable status bar indicators for _Focus_",
+						"default": true,
+						"markdownDescription": "Specifies whether to enable status bar indicator for _Launchpad_",
 						"scope": "window",
 						"order": 21
 					},
-					"gitlens.focus.experimental.indicators.openQuickFocus": {
+					"gitlens.launchpad.indicator.openInEditor": {
 						"type": "boolean",
-						"default": true,
-						"markdownDescription": "(Experimental) Specifies whether to open _Focus_ or _Quick Focus_ when clicking on the indicators",
+						"default": false,
+						"markdownDescription": "Specifies whether to open _Launchpad_ as an editor tab when clicking on the status bar indicator",
 						"scope": "window",
 						"order": 22
 					},
-					"gitlens.focus.experimental.indicators.data.enabled": {
+					"gitlens.launchpad.indicator.polling.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "(Experimental) Specifies whether the status bar indicators will fetch data for _Focus_.",
+						"markdownDescription": "Specifies whether the status bar indicator will fetch and display pull request data for _Launchpad_",
 						"scope": "window",
 						"order": 23
 					},
-					"gitlens.focus.experimental.indicators.data.refreshRate": {
+					"gitlens.launchpad.indicator.polling.interval": {
 						"type": "number",
 						"default": 30,
-						"markdownDescription": "(Experimental) Specifies the rate (in minutes) at which to refresh the status bar indicators for _Focus_. Use 0 to disable automatic refreshing",
+						"markdownDescription": "Specifies the rate (in minutes) at which the status bar indicator will fetch pull request data for _Launchpad_. Use 0 to disable automatic polling",
 						"scope": "window",
 						"order": 24
+					},
+					"gitlens.launchpad.indicator.icon": {
+						"type": "string",
+						"enum": [
+							"default",
+							"group"
+						],
+						"default": "default",
+						"markdownDescription": "Specifies the style of the  _Launchpad_ status bar indicator icon",
+						"scope": "window",
+						"order": 25
+					},
+					"gitlens.launchpad.indicator.label": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"item"
+						],
+						"default": "item",
+						"markdownDescription": "Specifies the display of the  _Launchpad_ status bar indicator text",
+						"scope": "window",
+						"order": 26
+					},
+					"gitlens.launchpad.indicator.useColors": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to use colors in the _Launchpad_ status bar indicator text",
+						"scope": "window",
+						"order": 27
+					},
+					"gitlens.launchpad.indicator.groups": {
+						"type": "array",
+						"default": [
+							"mergeable",
+							"blocked",
+							"needs-review",
+							"follow-up"
+						],
+						"items": {
+							"type": "string",
+							"enum": [
+								"mergeable",
+								"blocked",
+								"needs-review",
+								"follow-up"
+							],
+							"enumDescriptions": [
+								"Shows mergeable pull requests",
+								"Shows blocked pull requests",
+								"Shows pull requests needing your review",
+								"Shows pull requests needing follow-up"
+							]
+						},
+						"minItems": 1,
+						"uniqueItems": true,
+						"markdownDescription": "Specifies the groups of pull requests to show in the _Launchpad_ status bar indicator hover details",
+						"scope": "window",
+						"order": 28
 					}
 				}
 			},
@@ -5306,27 +5387,33 @@
 			},
 			{
 				"command": "gitlens.quickFocus",
-				"title": "Quick Focus",
+				"title": "Open Launchpad",
 				"category": "GitLens",
-				"icon": "$(target)"
+				"icon": "$(rocket)"
 			},
 			{
 				"command": "gitlens.showFocusPage",
-				"title": "Show Focus",
+				"title": "Open Launchpad in Editor",
 				"category": "GitLens",
-				"icon": "$(target)"
+				"icon": "$(rocket)"
 			},
 			{
-				"command": "gitlens.focus.split",
-				"title": "Split Focus",
+				"command": "gitlens.launchpad.split",
+				"title": "Split Launchpad in Editor",
 				"category": "GitLens",
 				"icon": "$(split-horizontal)"
 			},
 			{
-				"command": "gitlens.focus.experimental.updateIndicators",
-				"title": "Update Focus Indicators",
+				"command": "gitlens.launchpad.indicator.update",
+				"title": "Update Launchpad Indicator",
 				"category": "GitLens",
-				"icon": "$(sync)"
+				"icon": "$(rocket)"
+			},
+			{
+				"command": "gitlens.launchpad.indicator.toggle",
+				"title": "Toggle Launchpad Status Bar Icon",
+				"category": "GitLens",
+				"icon": "$(rocket)"
 			},
 			{
 				"command": "gitlens.showGraph",
@@ -5336,7 +5423,7 @@
 			},
 			{
 				"command": "gitlens.showGraphPage",
-				"title": "Show Commit Graph in Editor Area",
+				"title": "Show Commit Graph in Editor",
 				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
 			},
@@ -7549,7 +7636,7 @@
 			},
 			{
 				"command": "gitlens.views.graph.openInTab",
-				"title": "Open in Editor Area",
+				"title": "Open in Editor",
 				"category": "GitLens",
 				"icon": "$(link-external)"
 			},
@@ -8196,14 +8283,14 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.focus.refresh",
+				"command": "gitlens.launchpad.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
 				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.graph.switchToEditorLayout",
-				"title": "Prefer Commit Graph in Editor Area",
+				"title": "Prefer Commit Graph in Editor",
 				"category": "GitLens",
 				"enablement": "config.gitlens.graph.layout != editor"
 			},
@@ -9096,6 +9183,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f12c"
 				}
+			},
+			"gitlens-code-suggestion": {
+				"description": "code-suggestion icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f12d"
+				}
 			}
 		},
 		"menus": {
@@ -9229,12 +9323,16 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.focus.split",
-					"when": "gitlens:enabled && config.gitlens.focus.allowMultiple"
+					"command": "gitlens.launchpad.split",
+					"when": "gitlens:enabled && config.gitlens.launchpad.allowMultiple"
 				},
 				{
-					"command": "gitlens.focus.experimental.updateIndicators",
+					"command": "gitlens.launchpad.indicator.update",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.launchpad.indicator.toggle",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showGraph",
@@ -11269,7 +11367,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.focus.refresh",
+					"command": "gitlens.launchpad.refresh",
 					"when": "false"
 				},
 				{
@@ -11867,13 +11965,13 @@
 					"group": "navigation@-98"
 				},
 				{
-					"command": "gitlens.focus.refresh",
+					"command": "gitlens.launchpad.refresh",
 					"when": "activeWebviewPanelId === gitlens.focus",
 					"group": "navigation@-98"
 				},
 				{
-					"command": "gitlens.focus.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.focus.allowMultiple",
+					"command": "gitlens.launchpad.split",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.launchpad.allowMultiple",
 					"group": "navigation@-97"
 				},
 				{
@@ -11919,8 +12017,8 @@
 					"group": "2_a_gitlens_open_file@1"
 				},
 				{
-					"command": "gitlens.focus.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.focus.allowMultiple",
+					"command": "gitlens.launchpad.split",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.launchpad.allowMultiple",
 					"group": "6_split_in_group_gitlens@2"
 				},
 				{
@@ -16550,22 +16648,22 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview Pro for 3 days, or [sign up](command:gitlens.plus.signUp) to start a full 7-day GitLens Pro trial.",
+				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview local Pro features for 3 days, or [sign up](command:gitlens.plus.signUp) to start a free 7-day GitLens Pro trial of all Pro features.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Try Pro](command:gitlens.plus.signUp)\n\nYour 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days, or [sign in](command:gitlens.plus.login).",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nYour 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days of all Pro features, or [sign in](command:gitlens.plus.login).",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Get GitLens Pro](command:gitlens.plus.purchase)\n\nYour GitLens Pro trial has ended. Please upgrade to continue to use this on privately hosted repos.",
+				"contents": "[Upgrade to Pro](command:gitlens.plus.purchase)\n\nYour GitLens Pro trial has ended. Please upgrade to continue to use Pro features.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Try Pro](command:gitlens.plus.reactivateProTrial)\n\nYou're eligible to reactivate your GitLens Pro trial and experience all the new Pro features — free for another 7 days!",
+				"contents": "[Reactivate Pro Trial](command:gitlens.plus.reactivateProTrial)\n\nYou're eligible to reactivate your GitLens Pro trial and experience all the new Pro features — free for another 7 days!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 5"
 			}
 		],
@@ -16591,7 +16689,7 @@
 				},
 				{
 					"id": "gitlens.views.workspaces",
-					"name": "GitKraken Workspaces",
+					"name": "GK Workspaces",
 					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-workspaces-view)",
@@ -16805,7 +16903,7 @@
 					},
 					{
 						"id": "gitlens.welcome.commitGraph",
-						"title": "Visualize with the Commit Graph ✨",
+						"title": "Visualize with the Commit Graph",
 						"description": "Easily visualize your repository and keep track of all work in progress.\nUse the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.\n\n[Open Commit Graph](command:gitlens.showGraph)\n\n💡Quickly toggle the Graph via the [Toggle Commit Graph](command:gitlens.toggleGraph) command.\n💡Maximize the Graph via the [Toggle Maximized Commit Graph](command:gitlens.toggleMaximizedGraph) command.",
 						"media": {
 							"altText": "Illustrations of the Commit Graph view",
@@ -16814,17 +16912,17 @@
 					},
 					{
 						"id": "gitlens.welcome.workspaces",
-						"title": "Work smarter with Focus ✨ and GitKraken Workspaces ☁️",
-						"description": "Focus brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Focus](command:gitlens.showFocusPage)\n\nGitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)",
+						"title": "Work smarter with Launchpad and GitKraken Workspaces",
+						"description": "Launchpad brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Launchpad](command:gitlens.showFocusPage)\n\nGitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)",
 						"media": {
-							"altText": "Illustrations of Focus and Workspaces view",
+							"altText": "Illustrations of Launchpad and Workspaces view",
 							"svg": "walkthroughs/welcome/workspaces-focus.svg"
 						}
 					},
 					{
 						"id": "gitlens.welcome.hostingServiceIntegrations",
 						"title": "Integrate with Git hosting services",
-						"description": "Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise ✨, GitLab, GitLab self-managed ✨, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.\n\nAll integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.\n\n**Define your own autolinks**\nUse autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.\n\n[Configure Autolinks](command:gitlens.showSettingsPage!autolinks)",
+						"description": "Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise, GitLab, GitLab self-managed, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.\n\nAll integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.\n\n**Define your own autolinks**\nUse autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.\n\n[Configure Autolinks](command:gitlens.showSettingsPage!autolinks)",
 						"media": {
 							"markdown": "walkthroughs/welcome/integrations.md"
 						}
@@ -16840,7 +16938,7 @@
 					{
 						"id": "gitlens.welcome.preview",
 						"title": "Previewing GitLens Pro",
-						"description": "During your preview, you have access to ✨ features on privately hosted repos. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Start Free Pro Trial](command:gitlens.plus.signUp)\n\nStart a free Pro trial to get an additional 7 days.",
+						"description": "During your preview, you have access to local Pro features; cloud-based Pro features require an account. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Start Free Pro Trial](command:gitlens.plus.signUp)\n\nStart a free Pro trial to get an additional 7 days.",
 						"media": {
 							"markdown": "walkthroughs/welcome/preview.md"
 						},
@@ -16849,7 +16947,7 @@
 					{
 						"id": "gitlens.welcome.trial",
 						"title": "Trialing GitLens Pro",
-						"description": "During your trial, you have access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
+						"description": "During your trial, you have access to all Pro features. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
 						"media": {
 							"markdown": "walkthroughs/welcome/trial.md"
 						},
@@ -16897,8 +16995,8 @@
 		"graph:unlink:main": "yarn graph:unlink && pushd \"../GitKrakenComponents\" && yarn unlink && popd",
 		"icons:apply": "node ./scripts/applyIconsContribution.mjs",
 		"icons:svgo": "svgo -q -f ./images/icons/ --config svgo.config.js",
-		"lint": "eslint --cache --cache-location .eslintcache/ --cache-strategy content \"src/**/*.ts?(x)\"",
-		"lint:webviews": "eslint --cache --cache-location .eslintcache/webviews/ --cache-strategy content \"src/webviews/apps/**/*.ts?(x)\"",
+		"lint": "yarn run lint:clear-cache && eslint \"src/**/*.ts?(x)\"",
+		"lint:webviews": "yarn run lint:clear-cache && eslint \"src/webviews/apps/**/*.ts?(x)\"",
 		"lint:clear-cache": "npx rimraf .eslintcache",
 		"package": "vsce package --yarn",
 		"package-pre": "yarn run patch-pre && yarn run package --pre-release",
@@ -16926,16 +17024,18 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "10.2.13",
-		"@gitkraken/provider-apis": "0.21.0",
+		"@gitkraken/gitkraken-components": "10.3.0",
+		"@gitkraken/provider-apis": "0.22.1",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
-		"@lit/react": "1.0.3",
-		"@microsoft/fast-element": "1.12.0",
-		"@octokit/graphql": "8.0.1",
-		"@octokit/request": "9.0.1",
+		"@lit/react": "1.0.4",
+		"@microsoft/fast-element": "1.13.0",
+		"@octokit/graphql": "8.1.1",
+		"@octokit/request": "9.1.1",
+		"@octokit/types": "13.4.1",
 		"@opentelemetry/api": "1.8.0",
 		"@opentelemetry/exporter-trace-otlp-http": "0.50.0",
 		"@opentelemetry/sdk-trace-base": "1.23.0",
+		"@shoelace-style/shoelace": "2.15.0",
 		"@vscode/codicons": "0.0.35",
 		"@vscode/webview-ui-toolkit": "1.4.0",
 		"ansi-regex": "6.0.1",
@@ -16943,7 +17043,7 @@
 		"fast-string-truncated-width": "1.1.0",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
-		"lit": "3.1.2",
+		"lit": "3.1.3",
 		"node-fetch": "2.7.0",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
@@ -16953,7 +17053,7 @@
 	},
 	"devDependencies": {
 		"@eamodio/eslint-lite-webpack-plugin": "0.0.8",
-		"@swc/core": "1.4.12",
+		"@swc/core": "1.5.0",
 		"@twbs/fantasticon": "3.0.0",
 		"@types/mocha": "10.0.6",
 		"@types/node": "18.15.0",
@@ -16961,17 +17061,17 @@
 		"@types/react-dom": "17.0.21",
 		"@types/sortablejs": "1.15.8",
 		"@types/vscode": "1.82.0",
-		"@typescript-eslint/eslint-plugin": "7.5.0",
-		"@typescript-eslint/parser": "7.5.0",
+		"@typescript-eslint/eslint-plugin": "7.7.1",
+		"@typescript-eslint/parser": "7.7.1",
 		"@vscode/test-electron": "2.3.9",
 		"@vscode/test-web": "0.0.53",
-		"@vscode/vsce": "2.24.0",
+		"@vscode/vsce": "2.26.0",
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
 		"concurrently": "8.2.2",
 		"copy-webpack-plugin": "12.0.2",
 		"csp-html-webpack-plugin": "5.1.0",
-		"css-loader": "7.0.0",
+		"css-loader": "7.1.1",
 		"css-minimizer-webpack-plugin": "6.0.0",
 		"cssnano-preset-advanced": "6.1.2",
 		"esbuild": "0.20.2",
@@ -16983,7 +17083,7 @@
 		"eslint-plugin-anti-trojan-source": "1.1.1",
 		"eslint-plugin-import": "2.29.1",
 		"eslint-plugin-lit": "1.11.0",
-		"eslint-plugin-wc": "2.0.4",
+		"eslint-plugin-wc": "2.1.0",
 		"fork-ts-checker-webpack-plugin": "6.5.3",
 		"glob": "10.3.12",
 		"html-loader": "5.0.0",
@@ -16994,17 +17094,17 @@
 		"mini-css-extract-plugin": "2.8.1",
 		"mocha": "10.4.0",
 		"prettier": "3.1.0",
-		"sass": "1.74.1",
-		"sass-loader": "14.1.1",
+		"sass": "1.75.0",
+		"sass-loader": "14.2.1",
 		"schema-utils": "4.2.0",
 		"sharp": "0.32.6",
 		"svgo": "3.2.0",
 		"terser-webpack-plugin": "5.3.10",
 		"ts-loader": "9.5.1",
 		"tsc-alias": "1.8.8",
-		"typescript": "5.4.4",
+		"typescript": "5.4.5",
 		"webpack": "5.91.0",
-		"webpack-bundle-analyzer": "4.10.1",
+		"webpack-bundle-analyzer": "4.10.2",
 		"webpack-cli": "5.1.4",
 		"webpack-node-externals": "3.0.0",
 		"webpack-require-from": "1.8.6"

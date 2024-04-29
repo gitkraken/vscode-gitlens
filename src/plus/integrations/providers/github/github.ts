@@ -694,6 +694,7 @@ export class GitHubApi implements Disposable {
 					createdAt
 					permalink
 					number
+					id
 					title
 					state
 					updatedAt
@@ -818,6 +819,7 @@ export class GitHubApi implements Disposable {
 						createdAt
 						permalink
 						number
+						id
 						title
 						state
 						updatedAt
@@ -2537,7 +2539,7 @@ export class GitHubApi implements Disposable {
 			return await wrapForForcedInsecureSSL(
 				provider?.getIgnoreSSLErrors() ?? false,
 				() =>
-					this.getDefaults(token, request)<R>(route, options) as unknown as Promise<
+					this.getDefaults(token, request)<R>(route as R, options) as unknown as Promise<
 						R extends keyof Endpoints ? Endpoints[R]['response'] : OctokitResponse<any>
 					>,
 			);

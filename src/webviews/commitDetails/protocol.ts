@@ -5,6 +5,8 @@ import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/co
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequestShape } from '../../git/models/pullRequest';
+import type { Draft, DraftVisibility } from '../../gk/models/drafts';
+import type { Change, DraftUserSelection } from '../../plus/webviews/patchDetails/protocol';
 import type { DateTimeFormat } from '../../system/date';
 import type { Serialized } from '../../system/serialize';
 import type { IpcScope, WebviewState } from '../protocol';
@@ -68,10 +70,16 @@ export interface Wip {
 	repositoryCount: number;
 	branch?: GitBranchShape;
 	pullRequest?: PullRequestShape;
+	codeSuggestions?: Serialized<Draft>[];
 	repo: {
+		uri: string;
 		name: string;
 		path: string;
 	};
+}
+
+export interface DraftState {
+	inReview: boolean;
 }
 
 export interface State extends WebviewState {
@@ -99,6 +107,15 @@ export interface State extends WebviewState {
 export type ShowCommitDetailsViewCommandArgs = string[];
 
 // COMMANDS
+
+export interface SuggestChangesParams {
+	title: string;
+	description?: string;
+	visibility: DraftVisibility;
+	changesets: Record<string, Change>;
+	userSelections: DraftUserSelection[] | undefined;
+}
+export const SuggestChangesCommand = new IpcCommand<SuggestChangesParams>(scope, 'commit/suggestChanges');
 
 export interface ExecuteCommitActionsParams {
 	action: 'graph' | 'more' | 'scm' | 'sha';
@@ -148,6 +165,11 @@ export interface CreatePatchFromWipParams {
 }
 export const CreatePatchFromWipCommand = new IpcCommand<CreatePatchFromWipParams>(scope, 'wip/createPatch');
 
+export interface ShowCodeSuggestionParams {
+	id: string;
+}
+export const ShowCodeSuggestionCommand = new IpcCommand<ShowCodeSuggestionParams>(scope, 'wip/showCodeSuggestion');
+
 export const FetchCommand = new IpcCommand(scope, 'fetch');
 export const PublishCommand = new IpcCommand(scope, 'publish');
 export const PushCommand = new IpcCommand(scope, 'push');
@@ -179,3 +201,8 @@ export const DidChangeOrgSettingsNotification = new IpcNotification<DidChangeOrg
 	scope,
 	'org/settings/didChange',
 );
+
+export interface DidChangeDraftStateParams {
+	inReview: boolean;
+}
+export const DidChangeDraftStateNotification = new IpcNotification<DidChangeDraftStateParams>(scope, 'didChange/patch');

@@ -17,6 +17,7 @@ import type {
 	Trello,
 } from '@gitkraken/provider-apis';
 import {
+	EntityIdentifierUtils,
 	GitBuildStatusState,
 	GitProviderUtils,
 	GitPullRequestMergeableState,
@@ -34,18 +35,21 @@ import {
 	PullRequestStatusCheckRollupState,
 } from '../../../git/models/pullRequest';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
+import type { RepositoryIdentityDescriptor } from '../../../gk/models/repositoryIdentities';
 import type { EnrichableItem } from '../../focus/enrichmentService';
+import { getEntityIdentifierInput } from './utils';
 
 export type ProviderAccount = Account;
 export type ProviderReposInput = (string | number)[] | GetRepoInput[];
 export type ProviderRepoInput = GetRepoInput;
 export type ProviderPullRequest = GitPullRequest;
-export type toProviderPullRequestWithUniqueId = PullRequestWithUniqueID;
 export type ProviderRepository = GitRepository;
 export type ProviderIssue = Issue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
 export type ProviderJiraProject = JiraProject;
 export type ProviderJiraResource = JiraResource;
+export const ProviderPullRequestReviewState = GitPullRequestReviewState;
+export const ProviderBuildStatusState = GitBuildStatusState;
 
 export type IntegrationId = HostingIntegrationId | IssueIntegrationId | SelfHostedIntegrationId;
 
@@ -658,7 +662,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 export function toProviderPullRequestWithUniqueId(pr: PullRequest): PullRequestWithUniqueID {
 	return {
 		...toProviderPullRequest(pr),
-		uuid: pr.nodeId!,
+		uuid: EntityIdentifierUtils.encode(getEntityIdentifierInput(pr)),
 	};
 }
 
@@ -678,20 +682,14 @@ export type ProviderActionablePullRequest = ActionablePullRequest;
 
 export type EnrichablePullRequest = ProviderPullRequest & {
 	uuid: string;
-	type: 'pullRequest';
+	type: 'pullrequest';
 	provider: ProviderReference;
 	enrichable: EnrichableItem;
-	repoIdentity: {
-		remote: {
-			url?: string;
-		};
-		name: string;
-		provider: {
-			id: string;
-			repoDomain: string;
-			repoName: string;
-		};
-	};
+	repoIdentity: RequireSomeWithProps<
+		RequireSome<RepositoryIdentityDescriptor<string>, 'remote' | 'provider'>,
+		'provider',
+		'id' | 'domain' | 'repoDomain' | 'repoName'
+	>;
 };
 
 export const getActionablePullRequests = GitProviderUtils.getActionablePullRequests;

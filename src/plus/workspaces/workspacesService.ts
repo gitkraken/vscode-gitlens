@@ -174,16 +174,17 @@ export class WorkspacesService implements Disposable {
 		const workspaceFileData: LocalWorkspaceData =
 			(await this._workspacesPathProvider.getLocalWorkspaceData())?.workspaces || {};
 		for (const workspace of Object.values(workspaceFileData)) {
+			if (workspace.localId == null || workspace.name == null) continue;
 			localWorkspaces.push(
 				new LocalWorkspace(
 					this.container,
 					workspace.localId,
 					workspace.name,
-					workspace.repositories.map(repositoryPath => ({
+					workspace.repositories?.map(repositoryPath => ({
 						localPath: repositoryPath.localPath,
 						name: repositoryPath.localPath.split(/[\\/]/).pop() ?? 'unknown',
 						workspaceId: workspace.localId,
-					})),
+					})) ?? [],
 					this._currentWorkspaceId != null && this._currentWorkspaceId === workspace.localId,
 				),
 			);

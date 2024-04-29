@@ -1,32 +1,53 @@
 import type { AuthenticationSession } from 'vscode';
-import { IssueIntegrationId } from '../providers/models';
+import type { IntegrationId } from '../providers/models';
+import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 
 export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly expiresAt?: Date;
 }
 
-export type CloudIntegrationConnection = {
+export interface CloudIntegrationAuthenticationSession {
+	type: CloudIntegrationAuthType;
 	accessToken: string;
-	type: CloudIntegrationConnectionType;
 	domain: string;
 	expiresIn: number;
 	scopes: string;
-};
+}
 
-export type CloudIntegrationAuthorization = {
+export interface CloudIntegrationAuthorization {
 	url: string;
-};
+}
 
-export type ConnectedCloudIntegration = {
-	type: CloudIntegrationConnectionType;
+export interface CloudIntegrationConnection {
+	type: CloudIntegrationAuthType;
 	provider: CloudIntegrationType;
 	domain: string;
-};
+}
 
 export type CloudIntegrationType = 'jira' | 'trello' | 'gitlab' | 'github' | 'bitbucket' | 'azure';
 
-export type CloudIntegrationConnectionType = 'oauth' | 'personal_access_token';
+export type CloudIntegrationAuthType = 'oauth' | 'pat';
 
 export const CloudIntegrationAuthenticationUriPathPrefix = 'did-authenticate-cloud-integration';
 
 export const supportedCloudIntegrationIds = [IssueIntegrationId.Jira];
+
+export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationId } = {
+	jira: IssueIntegrationId.Jira,
+	trello: IssueIntegrationId.Trello,
+	gitlab: HostingIntegrationId.GitLab,
+	github: HostingIntegrationId.GitHub,
+	bitbucket: HostingIntegrationId.Bitbucket,
+	azure: HostingIntegrationId.AzureDevOps,
+};
+
+export const toCloudIntegrationType: { [key in IntegrationId]: CloudIntegrationType | undefined } = {
+	[IssueIntegrationId.Jira]: 'jira',
+	[IssueIntegrationId.Trello]: 'trello',
+	[HostingIntegrationId.GitLab]: 'gitlab',
+	[HostingIntegrationId.GitHub]: 'github',
+	[HostingIntegrationId.Bitbucket]: 'bitbucket',
+	[HostingIntegrationId.AzureDevOps]: 'azure',
+	[SelfHostedIntegrationId.GitHubEnterprise]: undefined,
+	[SelfHostedIntegrationId.GitLabSelfHosted]: undefined,
+};

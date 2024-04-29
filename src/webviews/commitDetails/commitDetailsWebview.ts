@@ -1,7 +1,9 @@
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
-import { CancellationTokenSource, Disposable, Uri, window } from 'vscode';
+import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import { serializeAutolink } from '../../annotations/autolinks';
+import { getAvatarUri } from '../../avatars';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
 import type { ContextKeys } from '../../constants';
 import { Commands } from '../../constants';
@@ -20,7 +22,7 @@ import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
-import { uncommitted } from '../../git/models/constants';
+import { uncommitted, uncommittedStaged } from '../../git/models/constants';
 import type { GitFileChange, GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import { serializeIssueOrPullRequest } from '../../git/models/issue';
@@ -31,7 +33,12 @@ import { createReference, getReferenceFromRevision, shortenRevision } from '../.
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import type { CreateDraftChange, Draft, DraftVisibility } from '../../gk/models/drafts';
 import { showPatchesView } from '../../plus/drafts/actions';
+import { isSubscriptionPaid } from '../../plus/gk/account/subscription';
+import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
+import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
+import { confirmDraftStorage, ensureAccount } from '../../plus/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import type { Change } from '../../plus/webviews/patchDetails/protocol';
 import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
@@ -64,6 +71,7 @@ import type {
 	Mode,
 	Preferences,
 	State,
+	SuggestChangesParams,
 	SwitchModeParams,
 	UpdateablePreferences,
 	Wip,
@@ -72,6 +80,7 @@ import type {
 import {
 	AutolinkSettingsCommand,
 	CreatePatchFromWipCommand,
+	DidChangeDraftStateNotification,
 	DidChangeNotification,
 	DidChangeWipStateNotification,
 	ExecuteCommitActionCommand,
@@ -90,7 +99,9 @@ import {
 	PullCommand,
 	PushCommand,
 	SearchCommitCommand,
+	ShowCodeSuggestionCommand,
 	StageFileCommand,
+	SuggestChangesCommand,
 	SwitchCommand,
 	SwitchModeCommand,
 	UnstageFileCommand,
@@ -100,10 +111,14 @@ import type { CommitDetailsWebviewShowingArgs } from './registration';
 
 type RepositorySubscription = { repo: Repository; subscription: Disposable };
 
-interface WipContext extends Wip {
+// interface WipContext extends Wip
+interface WipContext {
+	changes: WipChange | undefined;
+	repositoryCount: number;
 	branch?: GitBranch;
 	pullRequest?: PullRequest;
 	repo: Repository;
+	codeSuggestions?: Draft[];
 }
 
 interface Context {
@@ -164,6 +179,7 @@ export class CommitDetailsWebviewProvider
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 		);
 	}
 
@@ -397,6 +413,107 @@ export class CommitDetailsWebviewProvider
 			case SwitchCommand.is(e):
 				this.switch();
 				break;
+			case SuggestChangesCommand.is(e):
+				void this.suggestChanges(e.params);
+				break;
+			case ShowCodeSuggestionCommand.is(e):
+				this.showCodeSuggestion(e.params.id);
+				break;
+		}
+	}
+
+	private getEncodedEntityid(pullRequest = this._context.wip?.pullRequest): string | undefined {
+		if (pullRequest == null) return undefined;
+
+		const entity = getEntityIdentifierInput(pullRequest);
+		if (entity == null) return undefined;
+
+		return EntityIdentifierUtils.encode(entity);
+	}
+
+	private async suggestChanges(e: SuggestChangesParams) {
+		if (
+			!(await ensureAccount('Code Suggestions require a GitKraken account.', this.container)) ||
+			!(await confirmDraftStorage(this.container))
+		) {
+			return;
+		}
+
+		const createChanges: CreateDraftChange[] = [];
+
+		const changes = Object.entries(e.changesets);
+		const ignoreChecked = changes.length === 1;
+
+		for (const [_, change] of changes) {
+			if (!ignoreChecked && change.checked === false) continue;
+
+			// we only support a single repo for now
+			const repository =
+				this._context.wip!.repo.id === change.repository.path ? this._context.wip!.repo : undefined;
+			if (repository == null) continue;
+
+			const { checked } = change;
+			let changeRevision = { to: uncommitted, from: 'HEAD' };
+			if (checked === 'staged') {
+				changeRevision = { ...changeRevision, to: uncommittedStaged };
+			}
+
+			const prEntityId = this.getEncodedEntityid();
+			if (prEntityId == null) continue;
+
+			createChanges.push({
+				repository: repository,
+				revision: changeRevision,
+				prEntityId: prEntityId,
+			});
+		}
+
+		if (createChanges.length === 0) return;
+
+		try {
+			const options = {
+				description: e.description,
+				visibility: 'provider_access' as DraftVisibility,
+			};
+
+			const draft = await this.container.drafts.createDraft(
+				'suggested_pr_change',
+				e.title,
+				createChanges,
+				options,
+			);
+
+			async function showNotification() {
+				const view = { title: 'View Code Suggestions' };
+				const copy = { title: 'Copy Link' };
+				let copied = false;
+				while (true) {
+					const result = await window.showInformationMessage(
+						`Code Suggestion successfully created${copied ? '\u2014 link copied to the clipboard' : ''}`,
+						view,
+						copy,
+					);
+
+					if (result === copy) {
+						void env.clipboard.writeText(draft.deepLinkUrl);
+						copied = true;
+						continue;
+					}
+
+					if (result === view) {
+						void showPatchesView({ mode: 'view', draft: draft });
+					}
+
+					break;
+				}
+			}
+
+			void showNotification();
+			this.notifyEndReview();
+		} catch (ex) {
+			debugger;
+
+			void window.showErrorMessage(`Unable to create draft: ${ex.message}`);
 		}
 	}
 
@@ -509,6 +626,10 @@ export class CommitDetailsWebviewProvider
 		}
 	}
 
+	private onSubscriptionChanged(_e: SubscriptionChangeEvent) {
+		void this.updateCodeSuggestions();
+	}
+
 	private getPreferences(): Preferences {
 		return {
 			autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded') ?? true,
@@ -611,6 +732,13 @@ export class CommitDetailsWebviewProvider
 		};
 
 		void showPatchesView({ mode: 'create', create: { changes: [change] } });
+	}
+
+	private showCodeSuggestion(id: string) {
+		const draft = this._context.wip?.codeSuggestions?.find(draft => draft.id === id);
+		if (draft == null) return;
+
+		void showPatchesView({ mode: 'view', draft: draft });
 	}
 
 	private onActiveEditorLinesChanged(e: LinesChangeEvent) {
@@ -764,6 +892,7 @@ export class CommitDetailsWebviewProvider
 				if (branchDetails != null) {
 					wip.branch = branchDetails.branch;
 					wip.pullRequest = branchDetails.pullRequest;
+					wip.codeSuggestions = branchDetails.codeSuggestions;
 				}
 			}
 
@@ -788,14 +917,85 @@ export class CommitDetailsWebviewProvider
 	private async getWipBranchDetails(
 		repository: Repository,
 		branchName: string,
-	): Promise<{ branch: GitBranch; pullRequest: PullRequest | undefined } | undefined> {
+	): Promise<{ branch: GitBranch; pullRequest: PullRequest | undefined; codeSuggestions: Draft[] } | undefined> {
 		const branch = await repository.getBranch(branchName);
 		if (branch == null) return undefined;
 
+		const pullRequest = await branch.getAssociatedPullRequest();
+
+		let codeSuggestions: Draft[] = [];
+		if (pullRequest != null) {
+			const results = await this.getCodeSuggestions(pullRequest, repository);
+			if (results.length) {
+				codeSuggestions = results;
+			}
+		}
+
 		return {
 			branch: branch,
-			pullRequest: await branch.getAssociatedPullRequest(),
+			pullRequest: pullRequest,
+			codeSuggestions: codeSuggestions,
 		};
+	}
+
+	private async canAccessDrafts(): Promise<boolean> {
+		const subscription = await this.container.subscription.getSubscription();
+		if (!isSubscriptionPaid(subscription)) {
+			return false;
+		}
+
+		return getContext<boolean>('gitlens:gk:organization:drafts:enabled', false);
+	}
+
+	private async getCodeSuggestions(pullRequest: PullRequest, repository: Repository): Promise<Draft[]> {
+		if (!(await this.canAccessDrafts())) return [];
+
+		const results = await this.container.drafts.getCodeSuggestions(pullRequest, repository);
+
+		for (const draft of results) {
+			if (draft.author.avatar != null || draft.organizationId == null) continue;
+			let email = draft.author.email;
+			if (email == null) {
+				const user = (
+					await this.container.organizations.getOrganizationMembersById(
+						[draft.author.id],
+						draft.organizationId,
+					)
+				)[0];
+				email = user?.email;
+			}
+			if (email == null) continue;
+			draft.author.avatar = getAvatarUri(email).toString();
+		}
+
+		return results;
+	}
+
+	private async updateCodeSuggestions() {
+		if (this.mode !== 'wip' || this._context.wip?.pullRequest == null) {
+			return;
+		}
+
+		const wip = this._context.wip;
+		const { pullRequest, repo } = wip;
+
+		wip.codeSuggestions = await this.getCodeSuggestions(pullRequest!, repo);
+
+		if (this._pendingContext == null) {
+			const success = await this.host.notify(
+				DidChangeWipStateNotification,
+				serialize({
+					wip: serializeWipContext(wip),
+				}) as DidChangeWipStateParams,
+			);
+			if (success) {
+				this._context.wip = wip;
+				return;
+			}
+		}
+
+		this.updatePendingContext({ wip: wip });
+		this.updateState(true);
 	}
 
 	@debug({ args: false })
@@ -1068,6 +1268,10 @@ export class CommitDetailsWebviewProvider
 			},
 		});
 		this.updateState();
+	}
+
+	private notifyEndReview() {
+		void this.host.notify(DidChangeDraftStateNotification, { inReview: false });
 	}
 
 	private async notifyDidChangeState(force: boolean = false) {
@@ -1353,10 +1557,16 @@ function serializeWipContext(wip?: WipContext): Wip | undefined {
 		repositoryCount: wip.repositoryCount,
 		branch: serializeBranch(wip.branch),
 		repo: {
+			uri: wip.repo.uri.toString(),
 			name: wip.repo.name,
 			path: wip.repo.path,
 			// type: wip.repo.provider.name,
 		},
 		pullRequest: wip.pullRequest != null ? serializePullRequest(wip.pullRequest) : undefined,
+		codeSuggestions: wip.codeSuggestions?.map(draft => serializeDraft(draft)),
 	};
+}
+
+function serializeDraft(draft: Draft): Serialized<Draft> {
+	return serialize<Draft>(draft);
 }

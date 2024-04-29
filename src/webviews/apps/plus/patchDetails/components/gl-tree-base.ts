@@ -2,7 +2,6 @@ import { html, nothing } from 'lit';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { HierarchicalItem } from '../../../../../system/array';
 import { makeHierarchical } from '../../../../../system/array';
-import type { GlEvents } from '../../../shared/components/element';
 import { GlElement } from '../../../shared/components/element';
 import type {
 	TreeItemAction,
@@ -16,7 +15,7 @@ import '../../../shared/components/tree/tree-generator';
 import '../../../shared/components/skeleton-loader';
 import '../../../shared/components/actions/action-item';
 
-export class GlTreeBase<Events extends GlEvents = GlEvents> extends GlElement<Events> {
+export class GlTreeBase extends GlElement {
 	protected onTreeItemActionClicked?(_e: CustomEvent<TreeItemActionDetail>): void;
 	protected onTreeItemChecked?(_e: CustomEvent<TreeItemCheckedDetail>): void;
 	protected onTreeItemSelected?(_e: CustomEvent<TreeItemSelectionDetail>): void;

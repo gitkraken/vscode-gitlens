@@ -13,9 +13,11 @@ export interface LocalDraft {
 
 export type DraftRole = 'owner' | 'admin' | 'editor' | 'viewer';
 
+export type DraftArchiveReason = 'committed' | 'rejected' | 'accepted';
+
 export interface Draft {
 	readonly draftType: 'cloud';
-	readonly type: 'patch' | 'stash' | 'suggested_pr_change';
+	readonly type: DraftType;
 	readonly id: string;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
@@ -35,6 +37,11 @@ export interface Draft {
 
 	readonly deepLinkUrl: string;
 	readonly visibility: DraftVisibility;
+
+	readonly isArchived: boolean;
+	readonly archivedBy?: string;
+	readonly archivedReason?: DraftArchiveReason;
+	readonly archivedAt?: Date;
 
 	readonly latestChangesetId: string;
 	changesets?: DraftChangeset[];
@@ -99,6 +106,7 @@ export interface CreateDraftChange {
 	revision: PatchRevisionRange;
 	contents?: string;
 	repository: Repository;
+	prEntityId?: string;
 }
 
 export interface CreateDraftPatchRequestFromChange {
@@ -108,10 +116,12 @@ export interface CreateDraftPatchRequestFromChange {
 	user: GitUser | undefined;
 }
 
-export type DraftVisibility = 'public' | 'private' | 'invite_only';
+export type DraftVisibility = 'public' | 'private' | 'invite_only' | 'provider_access';
+
+export type DraftType = 'patch' | 'stash' | 'suggested_pr_change';
 
 export interface CreateDraftRequest {
-	type: 'patch' | 'stash';
+	type: DraftType;
 	title: string;
 	description?: string;
 	visibility: DraftVisibility;
@@ -123,7 +133,7 @@ export interface CreateDraftResponse {
 }
 
 export interface DraftResponse {
-	readonly type: 'patch' | 'stash';
+	readonly type: DraftType;
 	readonly id: string;
 	readonly createdAt: string;
 	readonly updatedAt: string;
@@ -138,6 +148,11 @@ export interface DraftResponse {
 
 	readonly title: string;
 	readonly description?: string;
+
+	readonly isArchived: boolean;
+	readonly archivedBy?: string;
+	readonly archivedReason?: DraftArchiveReason;
+	readonly archivedAt?: string;
 }
 
 export interface DraftUser {
@@ -193,6 +208,7 @@ export interface DraftPatchCreateRequest {
 	baseCommitSha: string;
 	baseBranchName: string;
 	gitRepoData: RepositoryIdentityRequest;
+	prEntityId?: string;
 }
 
 export interface DraftPatchCreateResponse {
@@ -232,3 +248,13 @@ export interface DraftPatchResponse {
 		readonly url: string;
 	};
 }
+
+export type CodeSuggestionCountsResponse = {
+	counts: CodeSuggestionCounts;
+};
+
+export type CodeSuggestionCounts = {
+	[entityId: string]: {
+		count: number;
+	};
+};

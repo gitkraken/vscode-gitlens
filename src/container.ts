@@ -26,7 +26,7 @@ import { AccountAuthenticationProvider } from './plus/gk/account/authenticationP
 import { OrganizationService } from './plus/gk/account/organizationService';
 import { SubscriptionService } from './plus/gk/account/subscriptionService';
 import { ServerConnection } from './plus/gk/serverConnection';
-import type { CloudIntegrationsApi } from './plus/integrations/authentication/cloudIntegrationsApi';
+import type { CloudIntegrationService } from './plus/integrations/authentication/cloudIntegrationService';
 import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthentication';
 import { IntegrationService } from './plus/integrations/integrationService';
 import type { GitHubApi } from './plus/integrations/providers/github/github';
@@ -290,7 +290,7 @@ export class Container {
 		this._disposables.push((this._homeView = registerHomeWebviewView(this._webviews)));
 		this._disposables.push((this._accountView = registerAccountWebviewView(this._webviews)));
 
-		if (configuration.get('focus.experimental.indicators.enabled')) {
+		if (configuration.get('launchpad.indicator.enabled')) {
 			this._disposables.push((this._focusIndicator = new FocusIndicator(this, this._focusProvider)));
 		}
 
@@ -308,10 +308,10 @@ export class Container {
 					}
 				}
 
-				if (configuration.changed(e, 'focus.experimental.indicators.enabled')) {
+				if (configuration.changed(e, 'launchpad.indicator.enabled')) {
 					this._focusIndicator?.dispose();
 					this._focusIndicator = undefined;
-					if (configuration.get('focus.experimental.indicators.enabled')) {
+					if (configuration.get('launchpad.indicator.enabled')) {
 						this._disposables.push((this._focusIndicator = new FocusIndicator(this, this._focusProvider)));
 					}
 				}
@@ -432,27 +432,27 @@ export class Container {
 		return this._cache;
 	}
 
-	private _cloudIntegrationsApi: Promise<CloudIntegrationsApi | undefined> | undefined;
-	get cloudIntegrationsApi() {
-		if (this._cloudIntegrationsApi == null) {
+	private _cloudIntegrations: Promise<CloudIntegrationService | undefined> | undefined;
+	get cloudIntegrations() {
+		if (this._cloudIntegrations == null) {
 			async function load(this: Container) {
 				try {
-					const cloudIntegrationsApi = new (
+					const cloudIntegrations = new (
 						await import(
-							/* webpackChunkName: "integrations" */ './plus/integrations/authentication/cloudIntegrationsApi'
+							/* webpackChunkName: "integrations" */ './plus/integrations/authentication/cloudIntegrationService'
 						)
-					).CloudIntegrationsApi(this, this._connection);
-					return cloudIntegrationsApi;
+					).CloudIntegrationService(this, this._connection);
+					return cloudIntegrations;
 				} catch (ex) {
 					Logger.error(ex);
 					return undefined;
 				}
 			}
 
-			this._cloudIntegrationsApi = load.call(this);
+			this._cloudIntegrations = load.call(this);
 		}
 
-		return this._cloudIntegrationsApi;
+		return this._cloudIntegrations;
 	}
 
 	private _drafts: DraftService | undefined;

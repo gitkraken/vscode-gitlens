@@ -273,7 +273,8 @@ export class AccountContent extends LitElement {
 			case SubscriptionState.FreePreviewTrialExpired:
 				return html`
 					<p>
-						Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days, or
+						Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days of all
+						Pro features, or
 						<a href="command:gitlens.plus.login">sign in</a>.
 					</p>
 					<button-container>
@@ -289,10 +290,7 @@ export class AccountContent extends LitElement {
 
 			case SubscriptionState.FreePlusTrialExpired:
 				return html`
-					<p>
-						Your GitLens Pro trial has ended. Please upgrade to continue to use ✨ features on privately
-						hosted repos.
-					</p>
+					<p>Your GitLens Pro trial has ended. Please upgrade to continue to use Pro features.</p>
 					${when(
 						inHolidayPromo,
 						() =>
@@ -308,7 +306,7 @@ export class AccountContent extends LitElement {
 							</p>`,
 					)}
 					<button-container>
-						<gl-button full href="command:gitlens.plus.purchase">Get GitLens Pro</gl-button>
+						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
 					</button-container>
 					<p>
 						A Pro account provides access to the entire
@@ -325,7 +323,7 @@ export class AccountContent extends LitElement {
 						free for another 7 days!
 					</p>
 					<button-container>
-						<gl-button full href="command:gitlens.plus.reactivateProTrial">Try Pro</gl-button>
+						<gl-button full href="command:gitlens.plus.reactivateProTrial">Reactivate Pro Trial</gl-button>
 					</button-container>
 					<p>
 						Your Pro trial provides access to the entire
@@ -349,7 +347,7 @@ export class AccountContent extends LitElement {
 									in your GitLens Pro trial.`
 							: `You have
 						${this.daysRemaining} remaining in your GitLens Pro trial.`}
-						Once your trial ends, you'll need a paid plan to continue using ✨ features.
+						Once your trial ends, you'll need a paid plan to continue using Pro features.
 					</p>
 					${when(
 						inHolidayPromo,
@@ -386,7 +384,7 @@ export class AccountContent extends LitElement {
 							>Cloud Integrations</gl-button
 						>
 					</button-container>
-					<p>You have access to ✨ features on privately hosted repos and ☁️ features based on your plan.</p>
+					<p>You have access to all Pro features based on your plan.</p>
 					<p>
 						Try our
 						<a href="https://www.gitkraken.com/suite">other developer tools</a> also included in your plan.

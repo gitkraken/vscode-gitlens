@@ -3,16 +3,20 @@ import type { Container } from '../../../container';
 import { Logger } from '../../../system/logger';
 import type { ServerConnection } from '../../gk/serverConnection';
 import type { IntegrationId } from '../providers/models';
-import type { CloudIntegrationAuthorization, CloudIntegrationConnection, ConnectedCloudIntegration } from './models';
-import { CloudIntegrationAuthenticationUriPathPrefix } from './models';
+import type {
+	CloudIntegrationAuthenticationSession,
+	CloudIntegrationAuthorization,
+	CloudIntegrationConnection,
+} from './models';
+import { CloudIntegrationAuthenticationUriPathPrefix, toCloudIntegrationType } from './models';
 
-export class CloudIntegrationsApi {
+export class CloudIntegrationService {
 	constructor(
 		private readonly container: Container,
 		private readonly connection: ServerConnection,
 	) {}
 
-	async getConnectedProvidersData(): Promise<ConnectedCloudIntegration[] | undefined> {
+	async getConnections(): Promise<CloudIntegrationConnection[] | undefined> {
 		const providersRsp = await this.connection.fetchGkDevApi(
 			'v1/provider-tokens',
 			{ method: 'GET' },
@@ -26,12 +30,21 @@ export class CloudIntegrationsApi {
 			return undefined;
 		}
 
-		return (await providersRsp.json())?.data as Promise<ConnectedCloudIntegration[] | undefined>;
+		return (await providersRsp.json())?.data as Promise<CloudIntegrationConnection[] | undefined>;
 	}
 
-	async getTokenData(id: IntegrationId, refresh: boolean = false): Promise<CloudIntegrationConnection | undefined> {
+	async getConnectionSession(
+		id: IntegrationId,
+		refresh: boolean = false,
+	): Promise<CloudIntegrationAuthenticationSession | undefined> {
+		const cloudIntegrationType = toCloudIntegrationType[id];
+		if (cloudIntegrationType == null) {
+			Logger.error(`Unsupported cloud integration type: ${id}`);
+			return undefined;
+		}
+
 		const tokenRsp = await this.connection.fetchGkDevApi(
-			`v1/provider-tokens/${id}${refresh ? '/refresh' : ''}`,
+			`v1/provider-tokens/${cloudIntegrationType}${refresh ? '/refresh' : ''}`,
 			{ method: refresh ? 'POST' : 'GET' },
 			{ organizationId: false },
 		);
@@ -43,10 +56,16 @@ export class CloudIntegrationsApi {
 			return undefined;
 		}
 
-		return (await tokenRsp.json())?.data as Promise<CloudIntegrationConnection | undefined>;
+		return (await tokenRsp.json())?.data as Promise<CloudIntegrationAuthenticationSession | undefined>;
 	}
 
 	async authorize(id: IntegrationId): Promise<CloudIntegrationAuthorization | undefined> {
+		const cloudIntegrationType = toCloudIntegrationType[id];
+		if (cloudIntegrationType == null) {
+			Logger.error(`Unsupported cloud integration type: ${id}`);
+			return undefined;
+		}
+
 		// attach the callback to the url
 		const callbackUri = await env.asExternalUri(
 			Uri.parse(
@@ -55,7 +74,7 @@ export class CloudIntegrationsApi {
 		);
 
 		const authorizeRsp = await this.connection.fetchGkDevApi(
-			`v1/provider-tokens/${id}/authorize`,
+			`v1/provider-tokens/${cloudIntegrationType}/authorize`,
 			{
 				method: 'GET',
 			},

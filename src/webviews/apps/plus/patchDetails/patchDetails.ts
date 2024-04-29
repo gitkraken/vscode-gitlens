@@ -5,6 +5,7 @@ import type { DraftPatchFileChange, DraftVisibility } from '../../../../gk/model
 import type { State, SwitchModeParams } from '../../../../plus/webviews/patchDetails/protocol';
 import {
 	ApplyPatchCommand,
+	ArchiveDraftCommand,
 	CopyCloudLinkCommand,
 	CreateFromLocalPatchCommand,
 	CreatePatchCommand,
@@ -39,6 +40,7 @@ import { App } from '../../shared/appBase';
 import { DOM } from '../../shared/dom';
 import type {
 	ApplyPatchDetail,
+	DraftReasonEventDetail,
 	GlDraftDetails,
 	PatchCheckedDetail,
 	PatchDetailsUpdateSelectionEventDetail,
@@ -82,6 +84,9 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			DOM.on('[data-action="mode"]', 'click', e => this.onModeClicked(e)),
 			DOM.on<GlDraftDetails, ApplyPatchDetail>('gl-draft-details', 'gl-patch-apply-patch', e =>
 				this.onApplyPatch(e.detail),
+			),
+			DOM.on<GlDraftDetails, DraftReasonEventDetail>('gl-draft-details', 'gl-draft-archive', e =>
+				this.onArchiveDraft(e.detail.reason),
 			),
 			DOM.on<GlPatchDetailsApp, ChangePatchBaseDetail>('gl-patch-details-app', 'change-patch-base', e =>
 				this.onChangePatchBase(e.detail),
@@ -289,6 +294,10 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			target: e.target ?? 'current',
 			selected: e.selectedPatches,
 		});
+	}
+
+	private onArchiveDraft(reason?: DraftReasonEventDetail['reason']) {
+		this.sendCommand(ArchiveDraftCommand, { reason: reason });
 	}
 
 	private onChangePatchBase(e: ChangePatchBaseDetail) {

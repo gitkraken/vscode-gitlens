@@ -1,9 +1,16 @@
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { Disposable } from 'vscode';
+import type { HeadersInit } from '@env/fetch';
 import type { Container } from '../../container';
-import { isSha, isUncommitted } from '../../git/models/reference';
-import { isRepository } from '../../git/models/repository';
+import type { GitCommit } from '../../git/models/commit';
+import type { PullRequest } from '../../git/models/pullRequest';
+import { isSha, isUncommitted, shortenRevision } from '../../git/models/reference';
+import { isRepository, Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
+import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders';
 import type {
+	CodeSuggestionCounts,
+	CodeSuggestionCountsResponse,
 	CreateDraftChange,
 	CreateDraftPatchRequestFromChange,
 	CreateDraftRequest,
@@ -15,19 +22,36 @@ import type {
 	DraftChangesetResponse,
 	DraftPatch,
 	DraftPatchDetails,
+	DraftPatchFileChange,
 	DraftPatchResponse,
 	DraftPendingUser,
 	DraftResponse,
+	DraftType,
 	DraftUser,
 	DraftVisibility,
 } from '../../gk/models/drafts';
-import type { RepositoryIdentityRequest } from '../../gk/models/repositoryIdentities';
+import type {
+	GkRepositoryId,
+	RepositoryIdentity,
+	RepositoryIdentityRequest,
+	RepositoryIdentityResponse,
+} from '../../gk/models/repositoryIdentities';
 import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 import { getSettledValue } from '../../system/promise';
+import type { FocusItem } from '../focus/focusProvider';
+import type { SubscriptionAccount } from '../gk/account/subscription';
 import type { ServerConnection } from '../gk/serverConnection';
+import type { IntegrationId } from '../integrations/providers/models';
+import { providersMetadata } from '../integrations/providers/models';
+import { getEntityIdentifierInput } from '../integrations/providers/utils';
+
+interface ProviderAuth {
+	provider: IntegrationId;
+	token: string;
+}
 
 export class DraftService implements Disposable {
 	constructor(
@@ -39,7 +63,7 @@ export class DraftService implements Disposable {
 
 	@log({ args: { 2: false } })
 	async createDraft(
-		type: 'patch' | 'stash',
+		type: DraftType,
 		title: string,
 		changes: CreateDraftChange[],
 		options?: { description?: string; visibility?: DraftVisibility },
@@ -75,6 +99,18 @@ export class DraftService implements Disposable {
 
 			type DraftResult = { data: CreateDraftResponse };
 
+			let providerAuthHeader: HeadersInit | undefined;
+			if (type === 'suggested_pr_change') {
+				const repo = patchRequests[0].repository;
+				const providerAuth = await this.getProviderAuthFromRepository(repo);
+				if (providerAuth == null) {
+					throw new Error('No provider integration found');
+				}
+				providerAuthHeader = {
+					'Provider-Auth': Buffer.from(JSON.stringify(providerAuth)).toString('base64'),
+				};
+			}
+
 			// POST v1/drafts
 			const createDraftRsp = await this.connection.fetchGkDevApi('v1/drafts', {
 				method: 'POST',
@@ -104,6 +140,7 @@ export class DraftService implements Disposable {
 					gitUserEmail: user?.email,
 					patches: patchRequests.map(p => p.patch),
 				} satisfies DraftChangesetCreateRequest),
+				headers: providerAuthHeader,
 			});
 
 			if (!createChangesetRsp.ok) {
@@ -141,35 +178,36 @@ export class DraftService implements Disposable {
 					body: contents,
 				});
 
-				patches.push({
-					type: 'cloud',
-					id: patch.id,
-					createdAt: new Date(patch.createdAt),
-					updatedAt: new Date(patch.updatedAt ?? patch.createdAt),
-					draftId: patch.draftId,
-					changesetId: patch.changesetId,
-					userId: createChangeset.userId,
+				const newPatch = this.formatPatch(
+					{
+						...patch,
+						secureDownloadData: undefined!,
+					},
+					{
+						contents: contents,
+						files: files,
+						repository: repository,
+					},
+				);
 
-					baseBranchName: patch.baseBranchName,
-					baseRef: patch.baseCommitSha,
-					gkRepositoryId: patch.gitRepositoryId,
-					secureLink: undefined!, // patch.secureDownloadData,
-
-					contents: contents,
-					files: files,
-					repository: repository,
-				});
+				patches.push(newPatch);
 			}
 
 			// POST /v1/drafts/:draftId/publish
-			const publishRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}/publish`, { method: 'POST' });
+			const publishRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}/publish`, {
+				method: 'POST',
+				headers: providerAuthHeader,
+			});
 			if (!publishRsp.ok) {
 				await handleBadDraftResponse(`Failed to publish draft '${draftId}'`, publishRsp, scope);
 			}
 
 			type Result = { data: DraftResponse };
 
-			const draftRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}`, { method: 'GET' });
+			const draftRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}`, {
+				method: 'GET',
+				headers: providerAuthHeader,
+			});
 
 			if (!draftRsp.ok) {
 				await handleBadDraftResponse(`Unable to open draft '${draftId}'`, draftRsp, scope);
@@ -177,54 +215,17 @@ export class DraftService implements Disposable {
 
 			const draft = ((await draftRsp.json()) as Result).data;
 
-			const author: Draft['author'] = {
-				id: draft.createdBy,
-				name: undefined!,
-				email: undefined,
-			};
-
 			const { account } = await this.container.subscription.getSubscription();
-			if (draft.createdBy === account?.id) {
-				author.name = `${account.name} (you)`;
-				author.email = account.email;
-			}
 
-			return {
-				draftType: 'cloud',
-				type: draft.type,
-				id: draftId,
-				createdAt: new Date(draft.createdAt),
-				updatedAt: new Date(draft.updatedAt ?? draft.createdAt),
-				author: author,
-				isMine: true,
-				organizationId: draft.organizationId || undefined,
-				role: draft.role,
-				isPublished: draft.isPublished,
+			const newDraft = this.formatDraft(draft, { account: account });
+			newDraft.changesets = [
+				{
+					...this.formatChangeset({ ...createChangeset, patches: [] }),
+					patches: patches,
+				},
+			];
 
-				title: draft.title,
-				description: draft.description,
-
-				deepLinkUrl: createDraft.deepLink,
-				visibility: draft.visibility,
-
-				latestChangesetId: draft.latestChangesetId,
-				changesets: [
-					{
-						id: createChangeset.id,
-						createdAt: new Date(createChangeset.createdAt),
-						updatedAt: new Date(createChangeset.updatedAt ?? createChangeset.createdAt),
-						draftId: createChangeset.draftId,
-						parentChangesetId: createChangeset.parentChangesetId,
-						userId: createChangeset.userId,
-
-						gitUserName: createChangeset.gitUserName,
-						gitUserEmail: createChangeset.gitUserEmail,
-						deepLinkUrl: createChangeset.deepLink,
-
-						patches: patches,
-					},
-				],
-			} satisfies Draft;
+			return newDraft;
 		} catch (ex) {
 			debugger;
 			Logger.error(ex, scope);
@@ -273,11 +274,13 @@ export class DraftService implements Disposable {
 					path: remote.path,
 				},
 				provider:
-					remote.provider.gkProviderId != null
+					remote.provider.gkProviderId != null &&
+					remote.provider.owner != null &&
+					remote.provider.repoName != null
 						? {
 								id: remote.provider.gkProviderId,
-								repoDomain: remote.provider.domain,
-								repoName: remote.provider.path,
+								repoDomain: remote.provider.owner,
+								repoName: remote.provider.repoName,
 								// repoOwnerDomain: ??
 						  }
 						: undefined,
@@ -309,6 +312,7 @@ export class DraftService implements Disposable {
 				baseCommitSha: baseSha,
 				baseBranchName: branchName,
 				gitRepoData: repoData,
+				prEntityId: change.prEntityId,
 			},
 			contents: contents,
 			repository: change.repository,
@@ -319,6 +323,78 @@ export class DraftService implements Disposable {
 	@log()
 	async deleteDraft(id: string): Promise<void> {
 		await this.connection.fetchGkDevApi(`v1/drafts/${id}`, { method: 'DELETE' });
+	}
+
+	@log()
+	async archiveDraft(draft: Draft, options?: { providerAuth?: ProviderAuth; archiveReason?: string }): Promise<void> {
+		const scope = getLogScope();
+
+		try {
+			let providerAuthHeader;
+			if (draft.visibility === 'provider_access') {
+				if (draft.changesets == null || draft.changesets.length === 0) {
+					throw new Error('No provider information found');
+				}
+
+				let patch: DraftPatch | undefined;
+				for (const changeset of draft.changesets) {
+					const changesetPatch = changeset.patches?.find(patch => patch.repository ?? patch.gkRepositoryId);
+					if (changesetPatch != null) {
+						patch = changesetPatch;
+					}
+				}
+
+				if (patch == null) {
+					throw new Error('No provider information found');
+				}
+
+				let repo: Repository | undefined;
+				// avoid calling getRepositoryOrIdentity if possible
+				if (patch.repository != null) {
+					if (patch.repository instanceof Repository) {
+						repo = patch.repository;
+					} else {
+						repo = await this.container.repositoryIdentity.getRepository(patch.repository);
+					}
+				}
+
+				if (repo == null) {
+					const repositoryOrIdentity = await this.getRepositoryOrIdentity(draft.id, patch.gkRepositoryId);
+					if (!(repositoryOrIdentity instanceof Repository)) {
+						throw new Error('No provider information found');
+					}
+
+					repo = repositoryOrIdentity;
+				}
+
+				const providerAuth = await this.getProviderAuthFromRepository(repo);
+				if (providerAuth == null) {
+					throw new Error('No provider integration found');
+				}
+
+				providerAuthHeader = {
+					'Provider-Auth': Buffer.from(JSON.stringify(providerAuth)).toString('base64'),
+				};
+			}
+
+			const rsp = await this.connection.fetchGkDevApi(`v1/drafts/${draft.id}/archive`, {
+				method: 'POST',
+				body:
+					options?.archiveReason != null
+						? JSON.stringify({ archiveReason: options.archiveReason })
+						: undefined,
+				headers: providerAuthHeader,
+			});
+
+			if (!rsp.ok) {
+				await handleBadDraftResponse(`Unable to archive draft '${draft.id}'`, rsp, scope);
+			}
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+
+			throw ex;
+		}
 	}
 
 	@log()
@@ -354,82 +430,75 @@ export class DraftService implements Disposable {
 		const draft = ((await rsp.json()) as Result).data;
 		const changesets = getSettledValue(changesetsResult)!;
 
-		const author: Draft['author'] = {
-			id: draft.createdBy,
-			name: undefined!,
-			email: undefined,
-		};
-
-		let isMine = false;
 		const { account } = await this.container.subscription.getSubscription();
-		if (draft.createdBy === account?.id) {
-			author.name = `${account.name} (you)`;
-			author.email = account.email;
-			isMine = true;
-		}
 
-		return {
-			draftType: 'cloud',
-			type: draft.type,
-			id: draft.id,
-			createdAt: new Date(draft.createdAt),
-			updatedAt: new Date(draft.updatedAt ?? draft.createdAt),
-			author: author,
-			isMine: isMine,
-			organizationId: draft.organizationId || undefined,
-			role: draft.role,
-			isPublished: draft.isPublished,
+		const newDraft = this.formatDraft(draft, {
+			account: account,
+		});
+		newDraft.changesets = changesets;
 
-			title: draft.title,
-			description: draft.description,
-
-			deepLinkUrl: draft.deepLink,
-			visibility: draft.visibility,
-
-			latestChangesetId: draft.latestChangesetId,
-			changesets: changesets,
-		};
+		return newDraft;
 	}
 
 	@log()
-	async getDrafts(): Promise<Draft[]> {
+	async getDrafts(isArchived?: boolean): Promise<Draft[]> {
+		return this.getDraftsCore(isArchived ? { isArchived: isArchived } : undefined);
+	}
+
+	@log()
+	async getDraftsCore(options?: {
+		prEntityId?: string;
+		providerAuth?: ProviderAuth;
+		isArchived?: boolean;
+	}): Promise<Draft[]> {
 		const scope = getLogScope();
 		type Result = { data: DraftResponse[] };
 
-		const rsp = await this.connection.fetchGkDevApi('/v1/drafts', { method: 'GET' });
+		const queryStrings = [];
+		let fromPrEntityId = false;
+		if (options?.prEntityId != null) {
+			if (options.providerAuth == null) {
+				throw new Error('No provider integration found');
+			}
+			fromPrEntityId = true;
+			queryStrings.push(`prEntityId=${encodeURIComponent(options.prEntityId)}`);
+		}
+
+		if (options?.isArchived) {
+			queryStrings.push('archived=true');
+		}
+
+		let headers;
+		if (options?.providerAuth) {
+			headers = {
+				'Provider-Auth': Buffer.from(JSON.stringify(options.providerAuth)).toString('base64'),
+			};
+		}
+
+		const rsp = await this.connection.fetchGkDevApi(
+			'/v1/drafts',
+			{
+				method: 'GET',
+				headers: headers,
+			},
+			{
+				query: queryStrings.length ? queryStrings.join('&') : undefined,
+			},
+		);
 
 		if (!rsp.ok) {
 			await handleBadDraftResponse('Unable to open drafts', rsp, scope);
 		}
 
-		const draft = ((await rsp.json()) as Result).data;
+		const drafts = ((await rsp.json()) as Result).data;
 		const { account } = await this.container.subscription.getSubscription();
 
-		return draft.map((d): Draft => {
-			const isMine = d.createdBy === account?.id;
-			return {
-				draftType: 'cloud',
-				type: d.type,
-				id: d.id,
-				author: isMine
-					? { id: d.createdBy, name: `${account.name} (you)`, email: account.email }
-					: { id: d.createdBy, name: 'Unknown', email: undefined },
-				isMine: isMine,
-				organizationId: d.organizationId || undefined,
-				role: d.role,
-				isPublished: d.isPublished,
-
-				title: d.title,
-				description: d.description,
-
-				deepLinkUrl: d.deepLink,
-				visibility: d.visibility,
-
-				createdAt: new Date(d.createdAt),
-				updatedAt: new Date(d.updatedAt ?? d.createdAt),
-
-				latestChangesetId: d.latestChangesetId,
-			};
+		return drafts.map((d): Draft => {
+			return this.formatDraft(d, {
+				account: account,
+				fallbackAuthorName: 'Unknown',
+				fromPrEntityId: fromPrEntityId,
+			});
 		});
 	}
 
@@ -528,20 +597,10 @@ export class DraftService implements Disposable {
 		}
 
 		const data = ((await rsp.json()) as Result).data;
-		return {
-			type: 'cloud',
-			id: data.id,
-			createdAt: new Date(data.createdAt),
-			updatedAt: new Date(data.updatedAt ?? data.createdAt),
-			draftId: data.draftId,
-			changesetId: data.changesetId,
-			userId: data.userId,
 
-			baseBranchName: data.baseBranchName,
-			baseRef: data.baseCommitSha,
-			gkRepositoryId: data.gitRepositoryId,
-			secureLink: data.secureDownloadData,
-		};
+		const newPatch = this.formatPatch(data);
+
+		return newPatch;
 	}
 
 	async getPatchDetails(id: string): Promise<DraftPatchDetails>;
@@ -554,7 +613,7 @@ export class DraftService implements Disposable {
 
 		const [contentsResult, repositoryResult] = await Promise.allSettled([
 			this.getPatchContentsCore(patch.secureLink),
-			this.container.repositoryIdentity.getRepositoryOrIdentity(patch.gkRepositoryId, {
+			this.getRepositoryOrIdentity(patch.draftId, patch.gkRepositoryId, {
 				openIfNeeded: true,
 				skipRefValidation: true,
 			}),
@@ -695,6 +754,249 @@ export class DraftService implements Disposable {
 
 			throw ex;
 		}
+	}
+
+	@log()
+	async getRepositoryOrIdentity(
+		draftId: Draft['id'],
+		repoId: GkRepositoryId,
+		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
+	): Promise<Repository | RepositoryIdentity> {
+		const identity = await this.getRepositoryIdentity(draftId, repoId);
+		return (await this.container.repositoryIdentity.getRepository(identity, options)) ?? identity;
+	}
+
+	@log()
+	async getRepositoryIdentity(draftId: Draft['id'], repoId: GkRepositoryId): Promise<RepositoryIdentity> {
+		type Result = { data: RepositoryIdentityResponse };
+
+		const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${draftId}/git-repositories/${repoId}`, {
+			method: 'GET',
+		});
+		const data = ((await rsp.json()) as Result).data;
+
+		let name: string;
+		if ('name' in data && typeof data.name === 'string') {
+			name = data.name;
+		} else if (data.provider?.repoName != null) {
+			name = data.provider.repoName;
+		} else if (data.remote?.url != null && data.remote?.domain != null && data.remote?.path != null) {
+			const matcher = getRemoteProviderMatcher(this.container);
+			const provider = matcher(data.remote.url, data.remote.domain, data.remote.path);
+			name = provider?.repoName ?? data.remote.path;
+		} else {
+			name =
+				data.remote?.path ??
+				`Unknown ${data.initialCommitSha ? ` (${shortenRevision(data.initialCommitSha)})` : ''}`;
+		}
+
+		return {
+			id: data.id,
+			createdAt: new Date(data.createdAt),
+			updatedAt: new Date(data.updatedAt),
+			name: name,
+			initialCommitSha: data.initialCommitSha,
+			remote: data.remote,
+			provider: data.provider,
+		};
+	}
+
+	async getProviderAuthFromRepository(repository: Repository): Promise<ProviderAuth | undefined> {
+		const remoteProvider = await repository.getBestRemoteWithIntegration();
+		if (remoteProvider == null) return undefined;
+
+		const integration = await remoteProvider.getIntegration();
+		if (integration == null) return undefined;
+
+		const session = await this.container.integrationAuthentication.getSession(
+			integration.id,
+			integration.authProviderDescriptor,
+		);
+		if (session == null) return undefined;
+
+		return {
+			provider: integration.authProvider.id,
+			token: session.accessToken,
+		};
+	}
+
+	async getProviderAuthForIntegration(integrationId: IntegrationId): Promise<ProviderAuth | undefined> {
+		const metadata = providersMetadata[integrationId];
+		if (metadata == null) return undefined;
+		const session = await this.container.integrationAuthentication.getSession(integrationId, {
+			domain: metadata.domain,
+			scopes: metadata.scopes,
+		});
+		if (session == null) return undefined;
+
+		return {
+			provider: integrationId,
+			token: session.accessToken,
+		};
+	}
+
+	async getCodeSuggestions(pullRequest: PullRequest, repository: Repository): Promise<Draft[]>;
+	async getCodeSuggestions(focusItem: FocusItem, integrationId: IntegrationId): Promise<Draft[]>;
+	async getCodeSuggestions(
+		item: PullRequest | FocusItem,
+		repositoryOrIntegrationId: Repository | IntegrationId,
+	): Promise<Draft[]> {
+		const entityIdentifier = getEntityIdentifierInput(item);
+		const prEntityId = EntityIdentifierUtils.encode(entityIdentifier);
+		const providerAuth = isRepository(repositoryOrIntegrationId)
+			? await this.getProviderAuthFromRepository(repositoryOrIntegrationId)
+			: await this.getProviderAuthForIntegration(repositoryOrIntegrationId);
+
+		// swallowing this error as we don't need to fail here
+		try {
+			const drafts = await this.getDraftsCore({
+				prEntityId: prEntityId,
+				providerAuth: providerAuth,
+				isArchived: true,
+			});
+			return drafts;
+		} catch (e) {
+			return [];
+		}
+	}
+
+	@log()
+	async getCodeSuggestionCounts(pullRequests: PullRequest[]): Promise<CodeSuggestionCounts> {
+		const scope = getLogScope();
+
+		type Result = { data: CodeSuggestionCountsResponse };
+
+		const prEntityIds = pullRequests.map(pr => {
+			return EntityIdentifierUtils.encode(getEntityIdentifierInput(pr));
+		});
+
+		const body = JSON.stringify({
+			prEntityIds: prEntityIds,
+		});
+
+		try {
+			const rsp = await this.connection.fetchGkDevApi(
+				'v1/drafts/counts',
+				{
+					method: 'POST',
+					body: body,
+				},
+				{
+					query: 'type=suggested_pr_change',
+				},
+			);
+
+			if (!rsp.ok) {
+				await handleBadDraftResponse('Unable to open code suggestion counts', rsp, scope);
+			}
+
+			return ((await rsp.json()) as Result).data.counts;
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+
+			throw ex;
+		}
+	}
+
+	private formatDraft(
+		draftResponse: DraftResponse,
+		options?: { account?: SubscriptionAccount; fallbackAuthorName?: string; fromPrEntityId?: boolean },
+	): Draft {
+		let isMine = false;
+		const author: Draft['author'] = {
+			id: draftResponse.createdBy,
+			name: options?.fallbackAuthorName ?? undefined!,
+			email: undefined,
+		};
+		if (draftResponse.createdBy === options?.account?.id) {
+			isMine = true;
+			author.name = `${options.account.name} (you)`;
+			author.email = options.account.email;
+		}
+
+		let role = draftResponse.role;
+		if ((role as string) === '') {
+			if (options?.fromPrEntityId === true) {
+				role = 'editor';
+			} else {
+				role = 'viewer';
+			}
+		}
+
+		return {
+			draftType: 'cloud',
+			type: draftResponse.type,
+			id: draftResponse.id,
+			createdAt: new Date(draftResponse.createdAt),
+			updatedAt: new Date(draftResponse.updatedAt ?? draftResponse.createdAt),
+			author: author,
+			isMine: isMine,
+			organizationId: draftResponse.organizationId || undefined,
+			role: role,
+			isPublished: draftResponse.isPublished,
+
+			title: draftResponse.title,
+			description: draftResponse.description,
+
+			deepLinkUrl: draftResponse.deepLink,
+			visibility: draftResponse.visibility,
+
+			isArchived: draftResponse.isArchived,
+			archivedBy: draftResponse.archivedBy,
+			archivedReason: draftResponse.archivedReason,
+			archivedAt:
+				draftResponse.archivedAt != null ? new Date(draftResponse.archivedAt) : draftResponse.archivedAt,
+
+			latestChangesetId: draftResponse.latestChangesetId,
+		};
+	}
+
+	private formatChangeset(changesetResponse: DraftChangesetResponse): DraftChangeset {
+		return {
+			id: changesetResponse.id,
+			createdAt: new Date(changesetResponse.createdAt),
+			updatedAt: new Date(changesetResponse.updatedAt ?? changesetResponse.createdAt),
+			draftId: changesetResponse.draftId,
+			parentChangesetId: changesetResponse.parentChangesetId,
+			userId: changesetResponse.userId,
+
+			gitUserName: changesetResponse.gitUserName,
+			gitUserEmail: changesetResponse.gitUserEmail,
+			deepLinkUrl: changesetResponse.deepLink,
+
+			patches: changesetResponse.patches.map((patch: DraftPatchResponse) => this.formatPatch(patch)),
+		};
+	}
+
+	private formatPatch(
+		patchResponse: DraftPatchResponse,
+		options?: {
+			commit?: GitCommit;
+			contents?: string;
+			files?: DraftPatchFileChange[];
+			repository?: Repository | RepositoryIdentity;
+		},
+	): DraftPatch {
+		return {
+			type: 'cloud',
+			id: patchResponse.id,
+			createdAt: new Date(patchResponse.createdAt),
+			updatedAt: new Date(patchResponse.updatedAt ?? patchResponse.createdAt),
+			draftId: patchResponse.draftId,
+			changesetId: patchResponse.changesetId,
+			userId: patchResponse.userId,
+
+			baseBranchName: patchResponse.baseBranchName,
+			baseRef: patchResponse.baseCommitSha,
+			gkRepositoryId: patchResponse.gitRepositoryId,
+			secureLink: patchResponse.secureDownloadData,
+
+			commit: options?.commit,
+			contents: options?.contents,
+			files: options?.files,
+			repository: options?.repository,
+		};
 	}
 }
 

@@ -12,7 +12,7 @@ export function registerFocusWebviewPanel(controller: WebviewsController) {
 			id: 'gitlens.focus',
 			fileName: 'focus.html',
 			iconPath: 'images/gitlens-icon.png',
-			title: 'Focus',
+			title: 'Launchpad',
 			contextKeyPrefix: `gitlens:webview:focus`,
 			trackingFeature: 'focusWebview',
 			plusFeature: true,
@@ -21,7 +21,7 @@ export function registerFocusWebviewPanel(controller: WebviewsController) {
 				retainContextWhenHidden: true,
 				enableFindWidget: true,
 			},
-			allowMultipleInstances: configuration.get('focus.allowMultiple'),
+			allowMultipleInstances: configuration.get('launchpad.allowMultiple'),
 		},
 		async (container, host) => {
 			const { FocusWebviewProvider } = await import(/* webpackChunkName: "webview-focus" */ './focusWebview');
