@@ -1,19 +1,133 @@
+import type { CancellationToken } from 'vscode';
 import { window } from 'vscode';
 import { fetch } from '@env/fetch';
 import type { Container } from '../container';
+import { CancellationError } from '../errors';
 import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
-import type { AIProvider } from './aiProviderService';
+import type { AIModel, AIProvider } from './aiProviderService';
 import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
 
-export class OpenAIProvider implements AIProvider<'openai'> {
-	readonly id = 'openai';
-	readonly name = 'OpenAI';
+const provider = { id: 'openai', name: 'OpenAI' } as const;
+
+export type OpenAIModels =
+	| 'gpt-4-turbo'
+	| 'gpt-4-turbo-2024-04-09'
+	| 'gpt-4-turbo-preview'
+	| 'gpt-4-0125-preview'
+	| 'gpt-4-1106-preview'
+	| 'gpt-4'
+	| 'gpt-4-0613'
+	| 'gpt-4-32k'
+	| 'gpt-4-32k-0613'
+	| 'gpt-3.5-turbo'
+	| 'gpt-3.5-turbo-0125'
+	| 'gpt-3.5-turbo-1106'
+	| 'gpt-3.5-turbo-16k';
+
+type OpenAIModel = AIModel<typeof provider.id>;
+const models: OpenAIModel[] = [
+	{
+		id: 'gpt-4-turbo',
+		name: 'GPT-4 Turbo with Vision',
+		maxTokens: 128000,
+		provider: provider,
+	},
+	{
+		id: 'gpt-4-turbo-2024-04-09',
+		name: 'GPT-4 Turbo Preview (2024-04-09)',
+		maxTokens: 128000,
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4-turbo-preview',
+		name: 'GPT-4 Turbo Preview',
+		maxTokens: 128000,
+		provider: provider,
+		default: true,
+	},
+	{
+		id: 'gpt-4-0125-preview',
+		name: 'GPT-4 0125 Preview',
+		maxTokens: 128000,
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4-1106-preview',
+		name: 'GPT-4 1106 Preview',
+		maxTokens: 128000,
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4',
+		name: 'GPT-4',
+		maxTokens: 8192,
+		provider: provider,
+	},
+	{
+		id: 'gpt-4-0613',
+		name: 'GPT-4 0613',
+		maxTokens: 8192,
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4-32k',
+		name: 'GPT-4 32k',
+		maxTokens: 32768,
+		provider: provider,
+	},
+	{
+		id: 'gpt-4-32k-0613',
+		name: 'GPT-4 32k 0613',
+		maxTokens: 32768,
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-3.5-turbo',
+		name: 'GPT-3.5 Turbo',
+		maxTokens: 16385,
+		provider: provider,
+	},
+	{
+		id: 'gpt-3.5-turbo-0125',
+		name: 'GPT-3.5 Turbo 0125',
+		maxTokens: 16385,
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-3.5-turbo-1106',
+		name: 'GPT-3.5 Turbo 1106',
+		maxTokens: 16385,
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-3.5-turbo-16k',
+		name: 'GPT-3.5 Turbo 16k',
+		maxTokens: 16385,
+		provider: provider,
+		hidden: true,
+	},
+];
+
+export class OpenAIProvider implements AIProvider<typeof provider.id> {
+	readonly id = provider.id;
+	readonly name = provider.name;
 
 	constructor(private readonly container: Container) {}
 
 	dispose() {}
+
+	getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
+		return Promise.resolve(models);
+	}
 
 	private get model(): OpenAIModels | null {
 		return configuration.get('ai.experimental.openai.model') || null;
@@ -23,18 +137,22 @@ export class OpenAIProvider implements AIProvider<'openai'> {
 		return configuration.get('ai.experimental.openai.url') || 'https://api.openai.com/v1/chat/completions';
 	}
 
-	private async getOrChooseModel(): Promise<OpenAIModels | undefined> {
-		const model = this.model;
-		if (model != null) return model;
+	private async getOrChooseModel(): Promise<OpenAIModel | undefined> {
+		let model = this.model;
+		if (model == null) {
+			const pick = await showAIModelPicker(this.container, this.id);
+			if (pick == null) return undefined;
 
-		const pick = await showAIModelPicker(this.id);
-		if (pick == null) return undefined;
-
-		await configuration.updateEffective(`ai.experimental.${pick.provider}.model`, pick.model);
-		return pick.model;
+			await configuration.updateEffective(`ai.experimental.${pick.provider}.model`, pick.model);
+			model = pick.model;
+		}
+		return models.find(m => m.id === model);
 	}
 
-	async generateCommitMessage(diff: string, options?: { context?: string }): Promise<string | undefined> {
+	async generateCommitMessage(
+		diff: string,
+		options?: { cancellation?: CancellationToken; context?: string },
+	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
@@ -52,7 +170,7 @@ export class OpenAIProvider implements AIProvider<'openai'> {
 			}
 
 			const request: OpenAIChatCompletionRequest = {
-				model: model,
+				model: model.id,
 				messages: [
 					{
 						role: 'system',
@@ -85,11 +203,11 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 				],
 			};
 
-			const rsp = await this.fetch(apiKey, request);
+			const rsp = await this.fetch(apiKey, request, options?.cancellation);
 			if (!rsp.ok) {
 				if (rsp.status === 404) {
 					throw new Error(
-						`Unable to generate commit message: Your API key doesn't seem to have access to the selected '${model}' model`,
+						`Unable to generate commit message: Your API key doesn't seem to have access to the selected '${model.id}' model`,
 					);
 				}
 				if (rsp.status === 429) {
@@ -129,7 +247,11 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 		}
 	}
 
-	async explainChanges(message: string, diff: string): Promise<string | undefined> {
+	async explainChanges(
+		message: string,
+		diff: string,
+		options?: { cancellation?: CancellationToken },
+	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
@@ -142,7 +264,7 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 			const code = diff.substring(0, maxCodeCharacters);
 
 			const request: OpenAIChatCompletionRequest = {
-				model: model,
+				model: model.id,
 				messages: [
 					{
 						role: 'system',
@@ -169,11 +291,11 @@ Do not make any assumptions or invent details that are not supported by the code
 				],
 			};
 
-			const rsp = await this.fetch(apiKey, request);
+			const rsp = await this.fetch(apiKey, request, options?.cancellation);
 			if (!rsp.ok) {
 				if (rsp.status === 404) {
 					throw new Error(
-						`Unable to explain commit: Your API key doesn't seem to have access to the selected '${model}' model`,
+						`Unable to explain commit: Your API key doesn't seem to have access to the selected '${model.id}' model`,
 					);
 				}
 				if (rsp.status === 429) {
@@ -211,44 +333,47 @@ Do not make any assumptions or invent details that are not supported by the code
 		}
 	}
 
-	private fetch(apiKey: string, request: OpenAIChatCompletionRequest) {
+	private async fetch(
+		apiKey: string,
+		request: OpenAIChatCompletionRequest,
+		cancellation: CancellationToken | undefined,
+	) {
 		const url = this.url;
 		const isAzure = url.includes('.azure.com');
-		return fetch(url, {
-			headers: {
-				Accept: 'application/json',
-				'Content-Type': 'application/json',
-				...(isAzure ? { 'api-key': apiKey } : { Authorization: `Bearer ${apiKey}` }),
-			},
-			method: 'POST',
-			body: JSON.stringify(request),
-		});
+
+		let aborter: AbortController | undefined;
+		if (cancellation != null) {
+			aborter = new AbortController();
+			cancellation.onCancellationRequested(() => aborter?.abort());
+		}
+
+		try {
+			return fetch(url, {
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json',
+					...(isAzure ? { 'api-key': apiKey } : { Authorization: `Bearer ${apiKey}` }),
+				},
+				method: 'POST',
+				body: JSON.stringify(request),
+				signal: aborter?.signal,
+			});
+		} catch (ex) {
+			if (ex.name === 'AbortError') throw new CancellationError(ex);
+
+			throw ex;
+		}
 	}
 }
 
 async function getApiKey(storage: Storage): Promise<string | undefined> {
 	return getApiKeyCore(storage, {
-		id: 'openai',
-		name: 'OpenAI',
+		id: provider.id,
+		name: provider.name,
 		validator: v => /(?:sk-)?[a-zA-Z0-9]{32,}/.test(v),
 		url: 'https://platform.openai.com/account/api-keys',
 	});
 }
-
-export type OpenAIModels =
-	| 'gpt-4-turbo'
-	| 'gpt-4-turbo-2024-04-09'
-	| 'gpt-4-turbo-preview'
-	| 'gpt-4-0125-preview'
-	| 'gpt-4-1106-preview'
-	| 'gpt-4'
-	| 'gpt-4-0613'
-	| 'gpt-4-32k'
-	| 'gpt-4-32k-0613'
-	| 'gpt-3.5-turbo'
-	| 'gpt-3.5-turbo-0125'
-	| 'gpt-3.5-turbo-1106'
-	| 'gpt-3.5-turbo-16k';
 
 interface OpenAIChatCompletionRequest {
 	model: OpenAIModels;
