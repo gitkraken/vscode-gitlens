@@ -153,7 +153,12 @@ export interface GitProvider extends Disposable {
 	applyUnreachableCommitForPatch?(
 		repoPath: string,
 		ref: string,
-		options?: { branchName?: string; createBranchIfNeeded?: boolean; createWorktreePath?: string; stash?: boolean },
+		options?: {
+			branchName?: string;
+			createBranchIfNeeded?: boolean;
+			createWorktreePath?: string;
+			stash?: boolean | 'prompt';
+		},
 	): Promise<void>;
 	checkout(
 		repoPath: string,

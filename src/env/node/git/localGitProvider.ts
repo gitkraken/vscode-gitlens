@@ -13,6 +13,7 @@ import { getCachedAvatarUri } from '../../../avatars';
 import { GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
 import { emojify } from '../../../emojis';
+import { CancellationError } from '../../../errors';
 import { Features } from '../../../features';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
@@ -1085,7 +1086,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async applyUnreachableCommitForPatch(
 		repoPath: string,
 		ref: string,
-		options?: { branchName?: string; createBranchIfNeeded?: boolean; createWorktreePath?: string; stash?: boolean },
+		options?: {
+			branchName?: string;
+			createBranchIfNeeded?: boolean;
+			createWorktreePath?: string;
+			stash?: boolean | 'prompt';
+		},
 	): Promise<void> {
 		const scope = getLogScope();
 
@@ -1093,7 +1099,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// Stash any changes first
 			const status = await this.getStatusForRepo(repoPath);
 			if (status?.files?.length) {
-				// TODO@eamodio we should probably prompt the user or provide a flag to prompt or not /cc @axosoft-ramint
+				if (options.stash === 'prompt') {
+					const confirm = { title: 'Stash Changes' };
+					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showWarningMessage(
+						'You have changes in your working tree.\nDo you want to stash them before applying the patch?',
+						{ modal: true },
+						confirm,
+						cancel,
+					);
+
+					if (result !== confirm) throw new CancellationError();
+				}
+
 				try {
 					await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
 				} catch (ex) {

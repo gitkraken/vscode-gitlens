@@ -5,6 +5,7 @@ import { ClearQuickInputButton } from '../../../commands/quickCommand.buttons';
 import type { ContextKeys } from '../../../constants';
 import { Commands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
+import { CancellationError } from '../../../errors';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
 import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../../../git/errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
@@ -12,7 +13,7 @@ import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitFileChange } from '../../../git/models/file';
 import type { PatchRevisionRange } from '../../../git/models/patch';
-import { createReference } from '../../../git/models/reference';
+import { createReference, shortenRevision } from '../../../git/models/reference';
 import { isRepository } from '../../../git/models/repository';
 import type {
 	CreateDraftChange,
@@ -28,6 +29,7 @@ import type {
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker';
 import type { QuickPickItemOfT } from '../../../quickpicks/items/common';
+import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { getContext, onDidChangeContext, setContext } from '../../../system/context';
@@ -420,11 +422,7 @@ export class PatchDetailsWebviewProvider
 			if (!params.selected.includes(patch.id)) continue;
 
 			try {
-				console.log(patch);
-				let commit = patch.commit;
-				if (!commit) {
-					commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
-				}
+				const commit = patch.commit ?? (await this.getOrCreateCommitForPatch(patch.gkRepositoryId));
 				if (!commit) {
 					// TODO: say we can't apply this patch
 					continue;
@@ -448,7 +446,7 @@ export class PatchDetailsWebviewProvider
 
 					if (branch == null) {
 						void window.showErrorMessage(
-							`Unable apply patch to '${patch.repository!.name}': No branch selected`,
+							`Unable to apply patch to '${patch.repository!.name}': No branch selected`,
 						);
 						continue;
 					}
@@ -461,11 +459,13 @@ export class PatchDetailsWebviewProvider
 				}
 
 				await this.container.git.applyUnreachableCommitForPatch(commit.repoPath, commit.ref, {
-					stash: true,
+					stash: 'prompt',
 					...options,
 				});
 				void window.showInformationMessage(`Patch applied successfully`);
 			} catch (ex) {
+				if (ex instanceof CancellationError) return;
+
 				if (ex instanceof ApplyPatchCommitError) {
 					if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
 						void window.showWarningMessage('Patch applied with conflicts');
@@ -473,7 +473,7 @@ export class PatchDetailsWebviewProvider
 						void window.showErrorMessage(ex.message);
 					}
 				} else {
-					void window.showErrorMessage(`Unable apply patch to '${patch.baseRef}': ${ex.message}`);
+					void window.showErrorMessage(`Unable to apply patch onto '${patch.baseRef}': ${ex.message}`);
 				}
 			}
 		}
@@ -1355,18 +1355,64 @@ export class PatchDetailsWebviewProvider
 				patch.repository = repo;
 			}
 
-			try {
-				const commit = await this.container.git.createUnreachableCommitForPatch(
-					patch.repository.uri,
-					patch.contents!,
-					patch.baseRef ?? 'HEAD',
-					draft.title,
-				);
-				patch.commit = commit;
-			} catch (ex) {
-				void window.showErrorMessage(`Unable preview the patch on base '${patch.baseRef}': ${ex.message}`);
-				patch.baseRef = undefined!;
-			}
+			let baseRef = patch.baseRef ?? 'HEAD';
+
+			do {
+				try {
+					const commit = await this.container.git.createUnreachableCommitForPatch(
+						patch.repository.uri,
+						patch.contents!,
+						baseRef,
+						draft.title,
+					);
+					patch.commit = commit;
+				} catch (ex) {
+					if (baseRef != null) {
+						// const head = { title: 'HEAD' };
+						const chooseBase = { title: 'Choose Base...' };
+						const cancel = { title: 'Cancel', isCloseAffordance: true };
+
+						const result = await window.showErrorMessage(
+							`Unable to apply the patch onto ${
+								baseRef === 'HEAD' ? 'HEAD' : `'${shortenRevision(baseRef)}'`
+							}.\nDo you want to try again on a different base?`,
+							{ modal: true },
+							chooseBase,
+							cancel,
+							// ...(baseRef === 'HEAD' ? [chooseBase, cancel] : [head, chooseBase, cancel]),
+						);
+
+						if (result == null || result === cancel) break;
+						// if (result === head) {
+						// 	baseRef = 'HEAD';
+						// 	continue;
+						// }
+
+						if (result === chooseBase) {
+							const ref = await showReferencePicker(
+								patch.repository.path,
+								`Choose New Base for Patch`,
+								`Choose a new base to apply the patch onto`,
+								{
+									allowRevisions: true,
+									include:
+										ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.HEAD,
+								},
+							);
+							if (ref == null) break;
+
+							baseRef = ref.ref;
+							continue;
+						}
+					} else {
+						void window.showErrorMessage(
+							`Unable to apply the patch on base '${shortenRevision(baseRef)}': ${ex.message}`,
+						);
+					}
+				}
+
+				break;
+			} while (true);
 		}
 
 		return patch?.commit;

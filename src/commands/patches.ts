@@ -4,6 +4,7 @@ import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType } from '../@types/vscode.git.resources.enums';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { CancellationError } from '../errors';
 import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../git/errors';
 import { uncommitted, uncommittedStaged } from '../git/models/constants';
 import type { GitDiff } from '../git/models/diff';
@@ -195,6 +196,8 @@ export class ApplyPatchFromClipboardCommand extends Command {
 			await this.container.git.applyUnreachableCommitForPatch(repo.uri, commit.sha, { stash: false });
 			void window.showInformationMessage(`Patch applied successfully`);
 		} catch (ex) {
+			if (ex instanceof CancellationError) return;
+
 			if (ex instanceof ApplyPatchCommitError) {
 				if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
 					void window.showWarningMessage('Patch applied with conflicts');
@@ -202,7 +205,7 @@ export class ApplyPatchFromClipboardCommand extends Command {
 					void window.showErrorMessage(ex.message);
 				}
 			} else {
-				void window.showErrorMessage(`Unable apply patch: ${ex.message}`);
+				void window.showErrorMessage(`Unable to apply patch: ${ex.message}`);
 			}
 		}
 	}

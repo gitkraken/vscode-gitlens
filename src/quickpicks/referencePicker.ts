@@ -46,7 +46,7 @@ export interface ReferencesQuickPickOptions {
 export async function showReferencePicker(
 	repoPath: string,
 	title: string,
-	placeHolder: string,
+	placeholder: string,
 	options?: ReferencesQuickPickOptions,
 ): Promise<GitReference | undefined> {
 	const quickpick = window.createQuickPick<ReferencesQuickPickItem>();
@@ -55,8 +55,8 @@ export async function showReferencePicker(
 	quickpick.title = title;
 	quickpick.placeholder =
 		options?.allowRevisions != null && options.allowRevisions !== false
-			? `${placeHolder} (or enter a revision using #)`
-			: placeHolder;
+			? `${placeholder} (or enter a revision using #)`
+			: placeholder;
 	quickpick.matchOnDescription = true;
 
 	const disposables: Disposable[] = [];

@@ -1286,7 +1286,12 @@ export class GitProviderService implements Disposable {
 	async applyUnreachableCommitForPatch(
 		repoPath: string | Uri,
 		ref: string,
-		options?: { branchName?: string; createBranchIfNeeded?: boolean; createWorktreePath?: string; stash?: boolean },
+		options?: {
+			branchName?: string;
+			createBranchIfNeeded?: boolean;
+			createWorktreePath?: string;
+			stash?: boolean | 'prompt';
+		},
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.applyUnreachableCommitForPatch?.(path, ref, options);
