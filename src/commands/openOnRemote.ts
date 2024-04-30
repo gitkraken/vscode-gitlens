@@ -102,7 +102,7 @@ export class OpenOnRemoteCommand extends Command {
 			};
 
 			let title;
-			let placeHolder = `Choose which remote to ${
+			let placeholder = `Choose which remote to ${
 				args.clipboard ? `copy the link${resources.length > 1 ? 's' : ''} for` : 'open on'
 			}`;
 
@@ -152,7 +152,7 @@ export class OpenOnRemoteCommand extends Command {
 							? `Copy ${provider} Create Pull Request Links`
 							: `Create Pull Requests on ${provider}`;
 
-						placeHolder = `Choose which remote to ${
+						placeholder = `Choose which remote to ${
 							args.clipboard ? 'copy the create pull request links for' : 'create the pull requests on'
 						}`;
 					} else {
@@ -166,7 +166,7 @@ export class OpenOnRemoteCommand extends Command {
 								: resource.compare.branch
 						}`;
 
-						placeHolder = `Choose which remote to ${
+						placeholder = `Choose which remote to ${
 							args.clipboard ? 'copy the create pull request link for' : 'create the pull request on'
 						}`;
 					}
@@ -204,7 +204,7 @@ export class OpenOnRemoteCommand extends Command {
 				// }
 			}
 
-			const pick = await showRemoteProviderPicker(title, placeHolder, resources, remotes, options);
+			const pick = await showRemoteProviderPicker(title, placeholder, resources, remotes, options);
 			await pick?.execute();
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnRemoteCommand');

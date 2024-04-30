@@ -2,6 +2,7 @@ import type { MessageItem } from 'vscode';
 import { QuickInputButtons, Uri, window, workspace } from 'vscode';
 import type { Config } from '../../config';
 import type { Container } from '../../container';
+import { CancellationError } from '../../errors';
 import { PlusFeatures } from '../../features';
 import { convertLocationToOpenFlags, convertOpenFlagsToLocation, reveal } from '../../git/actions/worktree';
 import {
@@ -1109,6 +1110,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				});
 				void window.showInformationMessage(`Changes copied successfully`);
 			} catch (ex) {
+				if (ex instanceof CancellationError) return;
+
 				if (ex instanceof ApplyPatchCommitError) {
 					if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
 						void window.showWarningMessage('Changes copied with conflicts');
