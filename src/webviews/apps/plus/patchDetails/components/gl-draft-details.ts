@@ -781,9 +781,10 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	override onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
-		if (!e.detail.context) return;
+		const { node, context } = e.detail;
+		if (node.branch === true || context == null) return;
 
-		const [file] = e.detail.context;
+		const [file] = context;
 		this.emit('gl-patch-file-compare-previous', { ...file });
 	}
 
