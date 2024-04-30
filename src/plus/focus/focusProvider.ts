@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
-import { Disposable, env, EventEmitter, Uri } from 'vscode';
+import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
@@ -299,6 +299,12 @@ export class FocusProvider implements Disposable {
 		if (item.graphQLId == null || item.headRef?.oid == null) return;
 		// TODO: Include other providers.
 		if (item.provider.id !== 'github') return;
+		const confirm = await window.showQuickPick(['Merge', 'Cancel'], {
+			placeHolder: `Are you sure you want to merge ${item.headRef?.name ?? 'this pull request'}${
+				item.baseRef?.name ? ` into ${item.baseRef.name}` : ''
+			}? This cannot be undone.`,
+		});
+		if (confirm !== 'Merge') return;
 		const integrations = await this.container.integrations.get(HostingIntegrationId.GitHub);
 		await integrations.mergePullRequest({ id: item.graphQLId, headRefSha: item.headRef.oid });
 		this.refresh();
@@ -610,7 +616,7 @@ export function sortFocusItems(items: FocusItem[]) {
 	return items.sort(
 		(a, b) =>
 			(a.viewer.pinned ? -1 : 1) - (b.viewer.pinned ? -1 : 1) ||
-			focusActionCategories.indexOf(b.actionableCategory) - focusActionCategories.indexOf(a.actionableCategory) ||
+			focusActionCategories.indexOf(a.actionableCategory) - focusActionCategories.indexOf(b.actionableCategory) ||
 			b.updatedDate.getTime() - a.updatedDate.getTime(),
 	);
 }

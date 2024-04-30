@@ -53,7 +53,7 @@ const actionGroupMap = new Map<FocusActionCategory, string[]>([
 	['reviewer-commented', ['Reviewers Commented', 'Reviewers have commented on this pull request']],
 	['waiting-for-review', ['Waiting for Review', 'Waiting for reviewers to approve this pull request']],
 	['draft', ['Draft', 'Continue working on your draft']],
-	['other', ['Other', 'Other pull requests']],
+	['other', ['Other', `Opened by \${author} on \${date}`]],
 ]);
 
 const groupMap = new Map<FocusGroup, [string, string | undefined]>([
@@ -251,7 +251,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 					items.push(
 						...groupItems.map(i => {
-							const buttons = [];
+							const buttons = [OpenOnGitHubQuickInputButton];
 
 							if (i.actionableCategory === 'mergeable') {
 								buttons.push(MergeQuickInputButton);
@@ -270,9 +270,11 @@ export class FocusCommand extends QuickCommand<State> {
 										? ` $(gitlens-code-suggestion) ${i.codeSuggestionsCount}`
 										: ''
 								} \u00a0 ${i.isNew ? '(New since last view)' : ''}`,
-								detail: `      ${actionGroupMap.get(i.actionableCategory)![0]} \u2022  ${fromNow(
-									i.updatedDate,
-								)} by @${i.author!.username}`,
+								detail: `      ${
+									i.actionableCategory === 'other'
+										? ''
+										: `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
+								}${fromNow(i.updatedDate)} by @${i.author!.username}`,
 
 								buttons: buttons,
 								iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
@@ -318,6 +320,9 @@ export class FocusCommand extends QuickCommand<State> {
 
 			onDidClickItemButton: async (quickpick, button, { item }) => {
 				switch (button) {
+					case OpenOnGitHubQuickInputButton:
+						this.container.focus.open(item);
+						break;
 					case SnoozeQuickInputButton:
 						await this.container.focus.snooze(item);
 						break;
@@ -373,6 +378,7 @@ export class FocusCommand extends QuickCommand<State> {
 					description: `${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
 					detail: interpolate(actionGroupMap.get(state.item.actionableCategory)![1], {
 						author: state.item.author!.username,
+						date: state.item.createdDate,
 					}),
 					iconPath: state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
 					buttons: [OpenOnGitHubQuickInputButton],
@@ -381,7 +387,6 @@ export class FocusCommand extends QuickCommand<State> {
 			),
 			createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }),
 			...this.getFocusItemInformationRows(state.item),
-			createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }),
 			createQuickPickSeparator('Actions'),
 		];
 
@@ -556,6 +561,10 @@ export class FocusCommand extends QuickCommand<State> {
 				break;
 			default:
 				break;
+		}
+
+		if (information.length > 0) {
+			information.push(createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }));
 		}
 
 		return information;
