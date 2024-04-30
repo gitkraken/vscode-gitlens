@@ -114,7 +114,7 @@ export const PickCommitToggleQuickInputButton = class extends ToggleQuickInputBu
 
 export const MergeQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('merge'),
-	tooltip: 'Merge',
+	tooltip: 'Merge...',
 };
 
 export const OpenOnGitHubQuickInputButton: QuickInputButton = {
