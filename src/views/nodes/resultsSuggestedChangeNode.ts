@@ -41,7 +41,7 @@ export class ResultsSuggestedChangeNode extends ViewNode<'results-suggested-chan
 			contextValue += '+mine';
 		}
 		item.contextValue = contextValue;
-		item.iconPath = new ThemeIcon('cloud');
+		item.iconPath = new ThemeIcon('gitlens-code-suggestion');
 		item.tooltip = new MarkdownString(
 			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\nCreated ${fromNow(
 				this.draft.createdAt,
