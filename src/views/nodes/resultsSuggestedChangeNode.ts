@@ -1,20 +1,26 @@
-import type { TreeItemCheckboxState } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitUri } from '../../git/gitUri';
-import type { View } from '../viewBase';
-import { ContextValues, ViewNode } from './abstract/viewNode';
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitUri } from '../../git/gitUri';
 import type { Draft } from '../../gk/models/drafts';
+import { configuration } from '../../system/configuration';
+import { formatDate, fromNow } from '../../system/date';
+import type { View } from '../viewBase';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
-type State = {
-	checked: TreeItemCheckboxState;
-};
-
-export class ResultsSuggestedChangeNode extends ViewNode<'results-suggested-change', View, State> {
-	constructor(view: View, parent: ViewNode, repoPath: string, draft: Draft) {
-		super('results-suggested-change', GitUri.fromRepoPath(repoPath), view, parent);
+export class ResultsSuggestedChangeNode extends ViewNode<'results-suggested-change'> {
+	constructor(
+		uri: GitUri,
+		view: View,
+		parent: ViewNode,
+		private readonly draft: Draft,
+	) {
+		super('results-suggested-change', uri, view, parent);
 
 		this.updateContext({ draft: draft });
-		this._uniqueId = draft.id;
+		this._uniqueId = getViewNodeId(this.type, this.context);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	getChildren(): ViewNode[] {
@@ -22,25 +28,38 @@ export class ResultsSuggestedChangeNode extends ViewNode<'results-suggested-chan
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem(this.label || 'a draft', TreeItemCollapsibleState.None);
-		item.contextValue = ContextValues.ResultsFile;
-		item.description = this.description;
+		const label = this.draft.title ?? `Draft (${this.draft.id})`;
+		const item = new TreeItem(label, TreeItemCollapsibleState.None);
+
+		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
+
+		const showUpdated = this.draft.updatedAt.getTime() - this.draft.createdAt.getTime() >= 1000;
+
+		item.id = this.id;
+		let contextValue: string = ContextValues.Draft;
+		if (this.draft.isMine) {
+			contextValue += '+mine';
+		}
+		item.contextValue = contextValue;
+		item.iconPath = new ThemeIcon('cloud');
+		item.tooltip = new MarkdownString(
+			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\nCreated ${fromNow(
+				this.draft.createdAt,
+			)} &nbsp; _(${formatDate(this.draft.createdAt, dateFormat)})_${
+				showUpdated
+					? ` \\\nLast updated ${fromNow(this.draft.updatedAt)} &nbsp; _(${formatDate(
+							this.draft.updatedAt,
+							dateFormat,
+					  )})_`
+					: ''
+			}`,
+		);
+		item.description = fromNow(this.draft.updatedAt);
+		// item.command = {
+		// 	title: 'Show Patch',
+		// 	command: this.view.getQualifiedCommand('open'),
+		// 	arguments: [this],
+		// };
 		return item;
-	}
-
-	private _description: string | undefined;
-	get description() {
-		if (this._description === undefined) {
-			this._description = this.context.draft?.description;
-		}
-		return this._description;
-	}
-
-	private _label: string | undefined;
-	get label() {
-		if (this._label === undefined) {
-			this._label = this.context.draft?.title;
-		}
-		return this._label;
 	}
 }

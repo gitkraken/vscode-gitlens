@@ -38,13 +38,13 @@ import type { RepositoryNode } from '../repositoryNode';
 import type { ResultsCommitsNode } from '../resultsCommitsNode';
 import type { ResultsFileNode } from '../resultsFileNode';
 import type { ResultsFilesNode } from '../resultsFilesNode';
+import type { ResultsSuggestedChangesNode } from '../resultsSuggestedChangesNode';
 import type { StashFileNode } from '../stashFileNode';
 import type { StashNode } from '../stashNode';
 import type { StatusFileNode } from '../statusFileNode';
 import type { TagNode } from '../tagNode';
 import type { UncommittedFileNode } from '../UncommittedFileNode';
 import type { RepositoryFolderNode } from './repositoryFolderNode';
-import type { ResultsSuggestedChangesNode } from '../resultsSuggestedChangesNode';
 
 export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',

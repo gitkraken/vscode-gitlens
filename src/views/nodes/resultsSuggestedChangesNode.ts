@@ -1,33 +1,29 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { SuggestedChangesQueryResults } from '../../git/queryResults';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { cancellable, PromiseCancelledError } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
-import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
-import type { Draft } from '../../gk/models/drafts';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { getViewNodeId } from './abstract/viewNode';
+import type { DraftNode } from './draftNode';
 import { ResultsSuggestedChangeNode } from './resultsSuggestedChangeNode';
 
-interface Options {
-	expand: boolean;
-	timeout: false | number;
-}
-
-export class ResultsSuggestedChangesNode extends ViewNode<'results-suggested-changes', ViewsWithCommits> {
-	private readonly _options: Options;
-
+export class ResultsSuggestedChangesNode extends CacheableChildrenViewNode<
+	'results-suggested-changes',
+	ViewsWithCommits,
+	DraftNode
+> {
 	constructor(
 		view: ViewsWithCommits,
 		protected override parent: ViewNode,
 		public readonly repoPath: string,
 		private readonly _suggestedChangesQuery: () => Promise<SuggestedChangesQueryResults>,
-		options?: Partial<Options>,
 	) {
 		super('results-suggested-changes', GitUri.fromRepoPath(repoPath), view, parent);
 
 		this._uniqueId = getViewNodeId(this.type, this.context);
-		this._options = { expand: true, timeout: 100, ...options };
 	}
 
 	override get id(): string {
@@ -37,52 +33,12 @@ export class ResultsSuggestedChangesNode extends ViewNode<'results-suggested-cha
 	async getChildren(): Promise<ViewNode[]> {
 		const results = await this.getSuggestedChangesQueryResults();
 		const drafts = results.drafts;
-		const views = drafts?.map(d => new ResultsSuggestedChangeNode(this.view, this, this.repoPath, d)) || [];
+		const views = drafts?.map(d => new ResultsSuggestedChangeNode(this.uri, this.view, this, d)) || [];
 		return views;
 	}
 
-	async getTreeItem(): Promise<TreeItem> {
-		let description;
-		let icon;
-		let drafts: Draft[] | undefined;
-		let state;
-		let tooltip;
-		const label = 'Code Suggestions';
-
-		try {
-			const results = await cancellable(
-				this.getSuggestedChangesQueryResults(),
-				this._options.timeout === false ? undefined : this._options.timeout,
-			);
-
-			drafts = results.drafts;
-
-			if (state === undefined) {
-				state =
-					drafts == null || drafts.length === 0
-						? TreeItemCollapsibleState.None
-						: this._options.expand
-						  ? TreeItemCollapsibleState.Expanded
-						  : TreeItemCollapsibleState.Collapsed;
-			}
-		} catch (ex) {
-			if (ex instanceof PromiseCancelledError) {
-				void ex.promise.then(() => queueMicrotask(() => this.triggerChange(false)));
-			}
-
-			icon = new ThemeIcon('ellipsis');
-			// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
-			// https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
-			state = TreeItemCollapsibleState.Collapsed;
-		}
-
-		const item = new TreeItem(label, state);
-		item.description = description;
-		item.id = this.id;
-		item.iconPath = icon;
-		item.contextValue = ContextValues.ResultsFiles;
-		item.tooltip = tooltip;
-
+	getTreeItem(): TreeItem {
+		const item = new TreeItem('Code Suggestions', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 

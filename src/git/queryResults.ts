@@ -7,9 +7,9 @@ import type { FilesQueryFilter } from '../views/nodes/resultsFilesNode';
 import type { GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitLog } from './models/log';
-import type { GitUser } from './models/user';
 import type { PullRequest } from './models/pullRequest';
 import type { Repository } from './models/repository';
+import type { GitUser } from './models/user';
 
 export interface CommitsQueryResults {
 	readonly label: string;
