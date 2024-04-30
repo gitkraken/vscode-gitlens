@@ -46,7 +46,7 @@ export const focusGroups = [
 	'mergeable',
 	'blocked',
 	'follow-up',
-	'needs-attention',
+	// 'needs-attention',
 	'needs-review',
 	'waiting-for-review',
 	'draft',

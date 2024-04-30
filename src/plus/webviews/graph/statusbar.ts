@@ -44,7 +44,7 @@ export class GraphStatusBarController implements Disposable {
 			configuration.get('graph.statusBar.enabled') && getContext('gitlens:enabled') && arePlusFeaturesEnabled();
 		if (enabled) {
 			if (this._statusBarItem == null) {
-				this._statusBarItem = window.createStatusBarItem('gitlens.graph', StatusBarAlignment.Left, 10000 - 3);
+				this._statusBarItem = window.createStatusBarItem('gitlens.graph', StatusBarAlignment.Left, 10000 - 2);
 				this._statusBarItem.name = 'GitLens Commit Graph';
 				this._statusBarItem.command = Commands.ShowGraph;
 				this._statusBarItem.text = '$(gitlens-graph)';
