@@ -45,7 +45,7 @@ export class DraftNode extends ViewNode<'draft', DraftsView> {
 			contextValue += '+mine';
 		}
 		item.contextValue = contextValue;
-		item.iconPath = new ThemeIcon('cloud');
+		item.iconPath = new ThemeIcon(this.draft.type == 'suggested_pr_change' ? 'gitlens-code-suggestion' : 'cloud');
 		item.tooltip = new MarkdownString(
 			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\nCreated ${fromNow(
 				this.draft.createdAt,
