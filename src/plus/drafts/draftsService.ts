@@ -518,51 +518,8 @@ export class DraftService implements Disposable {
 
 			const changesets: DraftChangeset[] = [];
 			for (const c of changeset) {
-				const patches: DraftPatch[] = [];
-
-				// const repoPromises = Promise.allSettled(c.patches.map(p => this.getRepositoryForGkId(p.gitRepositoryId)));
-
-				for (const p of c.patches) {
-					// const repoData = await this.getRepositoryData(p.gitRepositoryId);
-					// const repo = await this.container.git.findMatchingRepository({
-					// 	firstSha: repoData.initialCommitSha,
-					// 	remoteUrl: repoData.remote?.url,
-					// });
-
-					patches.push({
-						type: 'cloud',
-						id: p.id,
-						createdAt: new Date(p.createdAt),
-						updatedAt: new Date(p.updatedAt ?? p.createdAt),
-						draftId: p.draftId,
-						changesetId: p.changesetId,
-						userId: c.userId,
-
-						baseBranchName: p.baseBranchName,
-						baseRef: p.baseCommitSha,
-						gkRepositoryId: p.gitRepositoryId,
-						secureLink: p.secureDownloadData,
-
-						// // TODO@eamodio FIX THIS
-						// repository: repo,
-						// repoData: repoData,
-					});
-				}
-
-				changesets.push({
-					id: c.id,
-					createdAt: new Date(c.createdAt),
-					updatedAt: new Date(c.updatedAt ?? c.createdAt),
-					draftId: c.draftId,
-					parentChangesetId: c.parentChangesetId,
-					userId: c.userId,
-
-					gitUserName: c.gitUserName,
-					gitUserEmail: c.gitUserEmail,
-
-					deepLinkUrl: c.deepLink,
-					patches: patches,
-				});
+				const newChangeset = this.formatChangeset(c);
+				changesets.push(newChangeset);
 			}
 
 			return changesets;
