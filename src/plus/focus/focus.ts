@@ -1,4 +1,4 @@
-import { Uri } from 'vscode';
+import { commands, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
 	PartialStepState,
@@ -15,6 +15,7 @@ import {
 	StepResultBreak,
 } from '../../commands/quickCommand';
 import {
+	LaunchpadSettingsQuickInputButton,
 	MergeQuickInputButton,
 	OpenLaunchpadInEditorQuickInputButton,
 	OpenOnGitHubQuickInputButton,
@@ -53,7 +54,7 @@ const actionGroupMap = new Map<FocusActionCategory, string[]>([
 	['reviewer-commented', ['Reviewers Commented', 'Reviewers have commented on this pull request']],
 	['waiting-for-review', ['Waiting for Review', 'Waiting for reviewers to approve this pull request']],
 	['draft', ['Draft', 'Continue working on your draft']],
-	['other', ['Other', `Opened by \${author} on \${date}`]],
+	['other', ['Other', `Opened by \${author} \${createdDateRelative}`]],
 ]);
 
 const groupMap = new Map<FocusGroup, [string, string | undefined]>([
@@ -62,7 +63,7 @@ const groupMap = new Map<FocusGroup, [string, string | undefined]>([
 	['mergeable', ['Ready to Merge', 'rocket']],
 	['blocked', ['Blocked', 'error']], //bracket-error
 	['follow-up', ['Requires Follow-up', 'report']],
-	['needs-attention', ['Needs Your Attention', 'bell-dot']], //comment-unresolved
+	// ['needs-attention', ['Needs Your Attention', 'bell-dot']], //comment-unresolved
 	['needs-review', ['Needs Your Review', 'comment-draft']], // feedback
 	['waiting-for-review', ['Waiting for Review', 'gitlens-clock']],
 	['draft', ['Draft', 'git-pull-request-draft']],
@@ -82,6 +83,7 @@ interface State {
 	item?: FocusItem;
 	action?: FocusAction | FocusTargetAction;
 	initialGroup?: FocusGroup;
+	selectTopItem?: boolean;
 }
 
 export interface FocusCommandArgs {
@@ -163,6 +165,7 @@ export class FocusCommand extends QuickCommand<State> {
 			if (state.counter < 2 || state.item == null) {
 				const result = yield* this.pickFocusItemStep(state, context, {
 					picked: state.item?.id,
+					selectTopItem: state.selectTopItem,
 				});
 				if (result === StepResultBreak) continue;
 
@@ -224,13 +227,20 @@ export class FocusCommand extends QuickCommand<State> {
 	private *pickFocusItemStep(
 		state: StepState<State>,
 		context: Context,
-		{ picked }: { picked?: string },
+		{ picked, selectTopItem }: { picked?: string; selectTopItem?: boolean },
 	): StepResultGenerator<FocusItem> {
 		function getItems(categorizedItems: FocusItem[]) {
 			const items: (FocusItemQuickPickItem | DirectiveQuickPickItem)[] = [];
 
 			if (categorizedItems?.length) {
 				const uiGroups = groupAndSortFocusItems(categorizedItems);
+				const topItem: FocusItem | undefined =
+					!selectTopItem || picked != null
+						? undefined
+						: uiGroups.get('mergeable')?.[0] ||
+						  uiGroups.get('blocked')?.[0] ||
+						  uiGroups.get('follow-up')?.[0] ||
+						  uiGroups.get('needs-review')?.[0];
 				for (const [ui, groupItems] of uiGroups) {
 					if (!groupItems.length) continue;
 
@@ -251,7 +261,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 					items.push(
 						...groupItems.map(i => {
-							const buttons = [OpenOnGitHubQuickInputButton];
+							const buttons = [];
 
 							if (i.actionableCategory === 'mergeable') {
 								buttons.push(MergeQuickInputButton);
@@ -260,6 +270,7 @@ export class FocusCommand extends QuickCommand<State> {
 							buttons.push(
 								i.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
 								i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
+								OpenOnGitHubQuickInputButton,
 							);
 
 							return {
@@ -279,7 +290,7 @@ export class FocusCommand extends QuickCommand<State> {
 								buttons: buttons,
 								iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
 								item: i,
-								picked: i.id === picked,
+								picked: i.id === picked || i.id === topItem?.id,
 							};
 						}),
 					);
@@ -296,10 +307,16 @@ export class FocusCommand extends QuickCommand<State> {
 			placeholder: !items.length ? 'All done! Take a vacation' : 'Choose an item to focus on',
 			matchOnDetail: true,
 			items: !items.length ? [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })] : items,
-			buttons: [OpenLaunchpadInEditorQuickInputButton, RefreshQuickInputButton],
+			buttons: [
+				OpenLaunchpadInEditorQuickInputButton,
+				LaunchpadSettingsQuickInputButton,
+				RefreshQuickInputButton,
+			],
 			// onDidChangeValue: async (quickpick, value) => {},
 			onDidClickButton: async (quickpick, button) => {
-				if (button === OpenLaunchpadInEditorQuickInputButton) {
+				if (button === LaunchpadSettingsQuickInputButton) {
+					void commands.executeCommand('workbench.action.openSettings', 'gitlens.launchpad');
+				} else if (button === OpenLaunchpadInEditorQuickInputButton) {
 					void executeCommand(Commands.ShowFocusPage);
 				} else if (button === RefreshQuickInputButton) {
 					quickpick.busy = true;
@@ -378,7 +395,7 @@ export class FocusCommand extends QuickCommand<State> {
 					description: `${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
 					detail: interpolate(actionGroupMap.get(state.item.actionableCategory)![1], {
 						author: state.item.author!.username,
-						date: state.item.createdDate,
+						createdDateRelative: fromNow(state.item.createdDate),
 					}),
 					iconPath: state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
 					buttons: [OpenOnGitHubQuickInputButton],
@@ -396,8 +413,14 @@ export class FocusCommand extends QuickCommand<State> {
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: 'Merge',
-								detail: 'Will merge the pull request',
+								label: 'Merge...',
+								detail: `Will merge ${state.item.headRef?.name ?? 'this pull request'}${
+									state.item.baseRef?.name ? ` into ${state.item.baseRef.name}` : ''
+								}${
+									state.item.repository.owner
+										? ` on ${state.item.repository.owner.login}/${state.item.repository.name}`
+										: ''
+								}`,
 							},
 							action,
 						),

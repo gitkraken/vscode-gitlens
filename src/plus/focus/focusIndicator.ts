@@ -1,5 +1,6 @@
 import type { ConfigurationChangeEvent, StatusBarItem, ThemeColor } from 'vscode';
 import { Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
+import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
@@ -8,7 +9,7 @@ import { pluralize } from '../../system/string';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import { HostingIntegrationId } from '../integrations/providers/models';
 import type { FocusGroup, FocusItem, FocusProvider, FocusRefreshEvent } from './focusProvider';
-import { focusGroups, groupAndSortFocusItems, supportedFocusIntegrations } from './focusProvider';
+import { groupAndSortFocusItems, supportedFocusIntegrations } from './focusProvider';
 
 type FocusIndicatorState = 'loading' | 'idle' | 'data' | 'disconnected';
 
@@ -77,6 +78,9 @@ export class FocusIndicator implements Disposable {
 			configuration.changed(e, 'launchpad.indicator.groups')
 		) {
 			await this.maybeLoadData();
+			if (configuration.changed(e, 'launchpad.indicator.label')) {
+				this.updateStatusBarFocusCommand();
+			}
 		}
 	}
 
@@ -105,7 +109,7 @@ export class FocusIndicator implements Disposable {
 			return;
 		}
 
-		this._statusBarFocus = window.createStatusBarItem('gitlens.focus', StatusBarAlignment.Left, 10000 - 2);
+		this._statusBarFocus = window.createStatusBarItem('gitlens.focus', StatusBarAlignment.Left, 10000 - 3);
 		this._statusBarFocus.name = 'GitLens Launchpad';
 		await this.maybeLoadData();
 		this.updateStatusBarFocusCommand();
@@ -114,10 +118,15 @@ export class FocusIndicator implements Disposable {
 
 	private updateStatusBarFocusCommand() {
 		if (this._statusBarFocus == null) return;
+		const label = configuration.get('launchpad.indicator.label') ?? 'item';
 
 		this._statusBarFocus.command = configuration.get('launchpad.indicator.openInEditor')
 			? 'gitlens.showFocusPage'
-			: 'gitlens.quickFocus';
+			: {
+					title: 'Open Launchpad',
+					command: Commands.QuickFocus,
+					arguments: [{ state: { selectTopItem: label === 'item' } }],
+			  };
 	}
 
 	private startRefreshTimer(firstDelay?: number) {
@@ -176,6 +185,18 @@ export class FocusIndicator implements Disposable {
 		this._statusBarFocus.tooltip = new MarkdownString('', true);
 		this._statusBarFocus.tooltip.supportHtml = true;
 		this._statusBarFocus.tooltip.isTrusted = true;
+		this._statusBarFocus.tooltip.appendMarkdown(
+			'GitLens Launchpad ᴘʀᴇᴠɪᴇᴡ\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0',
+		);
+
+		this._statusBarFocus.tooltip.appendMarkdown(
+			`<span>[$(gear)](command:workbench.action.openSettings?%22gitlens.launchpad%22 "Settings")</span>`,
+		);
+		this._statusBarFocus.tooltip.appendMarkdown('\u00a0\u00a0\u00a0|\u00a0\u00a0\u00a0');
+		this._statusBarFocus.tooltip.appendMarkdown(
+			`<span>[$(circle-slash) Hide](command:gitlens.launchpad.indicator.update?"hide" "Hide")</span>`,
+		);
+		this._statusBarFocus.tooltip.appendMarkdown('\n\n---\n\n');
 		if (state === 'loading') {
 			this._statusBarFocus.text = '$(loading~spin)';
 			this._statusBarFocus.tooltip.appendMarkdown('Loading...');
@@ -196,17 +217,26 @@ export class FocusIndicator implements Disposable {
 		} else if (state === 'data') {
 			this._lastDataUpdate = new Date();
 			const useColors = configuration.get('launchpad.indicator.useColors');
-			const groups = configuration.get('launchpad.indicator.groups') satisfies FocusGroup[];
+			const groups = configuration.get('launchpad.indicator.groups') ?? ([] satisfies FocusGroup[]);
 			const labelText = configuration.get('launchpad.indicator.label') ?? 'item';
 			const iconType = configuration.get('launchpad.indicator.icon') ?? 'default';
 			let color: string | ThemeColor | undefined = undefined;
 			let topItem: { item: FocusItem; groupLabel: string } | undefined;
 			let topIcon: string | undefined;
 			const groupedItems = groupAndSortFocusItems(categorizedItems);
-			if (!groupedItems?.size) {
+			const totalGroupedItems = Array.from(groupedItems.values()).reduce(
+				(total, group) => total + group.length,
+				0,
+			);
+			const hasImportantGroupsWithItems = groups.some(group => groupedItems.get(group)?.length);
+			if (totalGroupedItems === 0) {
 				this._statusBarFocus.tooltip.appendMarkdown('You are all caught up!');
+			} else if (!hasImportantGroupsWithItems) {
+				this._statusBarFocus.tooltip.appendMarkdown(
+					`No pull requests need your attention.\n\n(${totalGroupedItems} other pull requests.)`,
+				);
 			} else {
-				for (const group of groups ?? focusGroups) {
+				for (const group of groups) {
 					const items = groupedItems.get(group);
 					if (items?.length) {
 						if (this._statusBarFocus.tooltip.value.length > 0) {
@@ -215,16 +245,19 @@ export class FocusIndicator implements Disposable {
 						switch (group) {
 							case 'mergeable':
 								topIcon ??= 'rocket';
+								topItem ??= { item: items[0], groupLabel: 'can be merged' };
 								this._statusBarFocus.tooltip.appendMarkdown(
-									`<span style="color:#3d90fc;">$(rocket)</span> [${pluralize(
-										'pull request',
-										items.length,
-									)} can be merged.](command:gitlens.quickFocus?${encodeURIComponent(
-										JSON.stringify({ state: { initialGroup: 'mergeable' } }),
+									`<span style="color:#3d90fc;">$(rocket)</span> [${
+										labelText === 'item' && topItem != null
+											? this.getTopItemLabel(topItem.item, items.length)
+											: pluralize('pull request', items.length)
+									} can be merged.](command:gitlens.quickFocus?${encodeURIComponent(
+										JSON.stringify({
+											state: { initialGroup: 'mergeable', selectTopItem: labelText === 'item' },
+										}),
 									)} "Open Ready to Merge in Launchpad")`,
 								);
 								color = '#00FF00';
-								topItem ??= { item: items[0], groupLabel: 'can be merged' };
 								break;
 							case 'blocked': {
 								const action = groupByMap(items, i =>
@@ -266,22 +299,28 @@ export class FocusIndicator implements Disposable {
 								summaryMessage += ')';
 								topIcon ??= 'error';
 								this._statusBarFocus.tooltip.appendMarkdown(
-									`<span style="color:#FF0000;">$(error)</span> [${pluralize(
-										'pull request',
-										items.length,
-									)} ${
+									`<span style="color:#FF0000;">$(error)</span> [${
+										labelText === 'item' && item != null && topItem == null
+											? this.getTopItemLabel(item, items.length)
+											: pluralize('pull request', items.length)
+									} ${
 										hasMultipleCategories ? 'are blocked' : actionMessage
 									}.](command:gitlens.quickFocus?${encodeURIComponent(
-										JSON.stringify({ state: { initialGroup: 'blocked' } }),
+										JSON.stringify({
+											state: { initialGroup: 'blocked', selectTopItem: labelText === 'item' },
+										}),
 									)} "Open Blocked in Launchpad")`,
 								);
 								if (hasMultipleCategories) {
 									this._statusBarFocus.tooltip.appendMarkdown(`\\\n$(blank)${summaryMessage}`);
 								}
+
 								color ??= '#FF0000';
 								if (item != null) {
 									let label = 'is blocked';
-									if (item.actionableCategory === 'failed-checks') {
+									if (item.actionableCategory === 'unassigned-reviewers') {
+										label = 'needs reviewers';
+									} else if (item.actionableCategory === 'failed-checks') {
 										label = 'failed CI checks';
 									} else if (item.actionableCategory === 'conflicts') {
 										label = 'has conflicts';
@@ -290,35 +329,44 @@ export class FocusIndicator implements Disposable {
 								}
 								break;
 							}
-							case 'needs-review':
-								topIcon ??= 'comment-draft';
-								this._statusBarFocus.tooltip.appendMarkdown(
-									`<span style="color:#3d90fc;">$(comment-draft)</span> [${pluralize(
-										'pull request',
-										items.length,
-									)} ${
-										items.length > 1 ? 'need' : 'needs'
-									} your review.](command:gitlens.quickFocus?${encodeURIComponent(
-										JSON.stringify({ state: { initialGroup: 'needs-review' } }),
-									)} "Open Needs Your Review in Launchpad")`,
-								);
-								color ??= '#FFFF00';
-								topItem ??= { item: items[0], groupLabel: 'needs your review' };
-								break;
 							case 'follow-up':
 								topIcon ??= 'report';
 								this._statusBarFocus.tooltip.appendMarkdown(
-									`<span style="color:#3d90fc;">$(report)</span> [${pluralize(
-										'pull request',
-										items.length,
-									)} ${
+									`<span style="color:#3d90fc;">$(report)</span> [${
+										labelText === 'item' && topItem == null && items.length
+											? this.getTopItemLabel(items[0], items.length)
+											: pluralize('pull request', items.length)
+									} ${
 										items.length > 1 ? 'require' : 'requires'
 									} follow-up.](command:gitlens.quickFocus?${encodeURIComponent(
-										JSON.stringify({ state: { initialGroup: 'follow-up' } }),
+										JSON.stringify({
+											state: { initialGroup: 'follow-up', selectTopItem: labelText === 'item' },
+										}),
 									)} "Open Follow-Up in Launchpad")`,
 								);
 								color ??= '#FFA500';
 								topItem ??= { item: items[0], groupLabel: 'requires follow-up' };
+								break;
+							case 'needs-review':
+								topIcon ??= 'comment-draft';
+								this._statusBarFocus.tooltip.appendMarkdown(
+									`<span style="color:#3d90fc;">$(comment-draft)</span> [${
+										labelText === 'item' && topItem == null && items.length
+											? this.getTopItemLabel(items[0], items.length)
+											: pluralize('pull request', items.length)
+									} ${
+										items.length > 1 ? 'need' : 'needs'
+									} your review.](command:gitlens.quickFocus?${encodeURIComponent(
+										JSON.stringify({
+											state: {
+												initialGroup: 'needs-review',
+												selectTopItem: labelText === 'item',
+											},
+										}),
+									)} "Open Needs Your Review in Launchpad")`,
+								);
+								color ??= '#FFFF00';
+								topItem ??= { item: items[0], groupLabel: 'needs your review' };
 								break;
 						}
 					}
@@ -327,46 +375,19 @@ export class FocusIndicator implements Disposable {
 
 			const iconSegment = topIcon != null && iconType === 'group' ? `$(${topIcon})` : '$(rocket)';
 			const labelSegment =
-				topItem != null && labelText === 'item'
-					? `${
-							topItem.item.repository != null
-								? ` ${topItem.item.repository.owner.login}/${topItem.item.repository.name}`
-								: ''
-					  } #${topItem.item.id} ${topItem.groupLabel}`
+				labelText === 'item' && topItem != null
+					? ` ${this.getTopItemLabel(topItem.item)} ${topItem.groupLabel}`
 					: '';
 
 			this._statusBarFocus.text = `${iconSegment}${labelSegment}`;
 			this._statusBarFocus.color = useColors ? color : undefined;
 		}
-
-		if (this._statusBarFocus.tooltip.value.length) {
-			this._statusBarFocus.tooltip.appendMarkdown('\n\n---\n\n');
-		}
-		this._statusBarFocus.tooltip.appendMarkdown(
-			'GitLens Launchpad ᴘʀᴇᴠɪᴇᴡ\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0',
-		);
-
-		this._statusBarFocus.tooltip.appendMarkdown(
-			configuration.get('launchpad.indicator.polling.enabled')
-				? `<span>[$(bell-slash) Mute](command:gitlens.launchpad.indicator.update?"mute" "Mute")</span>`
-				: `<span>[$(bell) Unmute](command:gitlens.launchpad.indicator.update?"unmute" "Unmute")</span>`,
-		);
-		this._statusBarFocus.tooltip.appendMarkdown('\u00a0\u00a0\u00a0|\u00a0\u00a0\u00a0');
-		this._statusBarFocus.tooltip.appendMarkdown(
-			`<span>[$(circle-slash) Hide](command:gitlens.launchpad.indicator.update?"hide" "Hide")</span>`,
-		);
 	}
 
 	private registerCommands(): Disposable[] {
 		return [
 			registerCommand('gitlens.launchpad.indicator.update', async (action: string) => {
 				switch (action) {
-					case 'mute':
-						void configuration.updateEffective('launchpad.indicator.polling.enabled', false);
-						break;
-					case 'unmute':
-						void configuration.updateEffective('launchpad.indicator.polling.enabled', true);
-						break;
 					case 'hide': {
 						const action = await window.showInformationMessage(
 							'Would you like to hide the Launchpad status bar icon? You can re-enable it at any time using the "GitLens: Toggle Launchpad Status Bar Icon" command.',
@@ -391,5 +412,13 @@ export class FocusIndicator implements Disposable {
 				}
 			}),
 		];
+	}
+
+	private getTopItemLabel(item: FocusItem, groupLength?: number) {
+		return `${item.repository != null ? `${item.repository.owner.login}/${item.repository.name} ` : ''}#${item.id}${
+			groupLength != null && groupLength > 1
+				? ` and ${pluralize('pull request', groupLength - 1, { infix: ' other ' })}`
+				: ''
+		}`;
 	}
 }

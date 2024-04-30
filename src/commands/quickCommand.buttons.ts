@@ -127,6 +127,11 @@ export const OpenLaunchpadInEditorQuickInputButton: QuickInputButton = {
 	tooltip: 'Open Launchpad in Editor',
 };
 
+export const LaunchpadSettingsQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('gear'),
+	tooltip: 'Launchpad Settings',
+};
+
 export const PinQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('pinned'),
 	tooltip: 'Pin',
