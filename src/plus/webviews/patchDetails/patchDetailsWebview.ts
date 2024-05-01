@@ -104,6 +104,7 @@ interface DraftUserState {
 interface Context {
 	mode: Mode;
 	draft: LocalDraft | Draft | undefined;
+	draftGkDevUrl: string | undefined;
 	draftVisibiltyState: DraftVisibility | undefined;
 	draftUserState: DraftUserState | undefined;
 	create:
@@ -133,6 +134,7 @@ export class PatchDetailsWebviewProvider
 		this._context = {
 			mode: 'create',
 			draft: undefined,
+			draftGkDevUrl: undefined,
 			draftUserState: undefined,
 			draftVisibiltyState: undefined,
 			create: undefined,
@@ -1072,6 +1074,7 @@ export class PatchDetailsWebviewProvider
 	private async updateViewDraftState(draft: LocalDraft | Draft | undefined) {
 		this._context.draft = draft;
 		if (draft?.draftType === 'cloud') {
+			this._context.draftGkDevUrl = this.container.drafts.generateGkDevUrl(draft).toString();
 			await this.createDraftUserState(draft, { force: true });
 		}
 		this.setMode('view', true);
@@ -1151,6 +1154,7 @@ export class PatchDetailsWebviewProvider
 				isArchived: draft.isArchived,
 				archivedReason: draft.archivedReason,
 				visibility: draft.visibility,
+				gkDevLink: this._context.draftGkDevUrl,
 				patches: draft.changesets?.length
 					? serialize(
 							draft.changesets[0].patches.map(p => ({
