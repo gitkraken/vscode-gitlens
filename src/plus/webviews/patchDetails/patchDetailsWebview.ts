@@ -14,6 +14,7 @@ import { uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitFileChange } from '../../../git/models/file';
 import type { PatchRevisionRange } from '../../../git/models/patch';
 import { createReference, shortenRevision } from '../../../git/models/reference';
+import type { Repository } from '../../../git/models/repository';
 import { isRepository } from '../../../git/models/repository';
 import type {
 	CreateDraftChange,
@@ -286,7 +287,7 @@ export class PatchDetailsWebviewProvider
 				break;
 
 			case DraftPatchCheckedCommand.is(e):
-				void this.onPatchChecked(e.params);
+				this.onPatchChecked(e.params);
 				break;
 
 			case UpdatePatchUsersCommand.is(e):
@@ -805,26 +806,15 @@ export class PatchDetailsWebviewProvider
 		// TODO@eamodio Open the patch contents for the selected repo in an untitled editor
 	}
 
-	private async onPatchChecked(params: DraftPatchCheckedParams) {
+	private onPatchChecked(params: DraftPatchCheckedParams) {
 		if (params.patch.repository.located || params.checked === false) return;
 
 		const patch = (this._context.draft as Draft)?.changesets?.[0].patches?.find(
 			p => p.gkRepositoryId === params.patch.gkRepositoryId,
 		);
-		if (patch?.repository == null || isRepository(patch.repository)) return;
+		if (patch == null) return;
 
-		const repo = await this.container.repositoryIdentity.getRepository(patch.repository, {
-			openIfNeeded: true,
-			prompt: true,
-		});
-
-		if (repo == null) {
-			void window.showErrorMessage(`Unable to locate repository '${patch.repository.name}'`);
-		} else {
-			patch.repository = repo;
-		}
-
-		void this.notifyPatchRepositoryUpdated(patch);
+		void this.getOrLocatePatchRepository(patch, { prompt: true, notifyOnLocation: true });
 	}
 
 	private notifyPatchRepositoryUpdated(patch: DraftPatch) {
@@ -836,7 +826,7 @@ export class PatchDetailsWebviewProvider
 				repository: {
 					id: patch.gkRepositoryId,
 					name: patch.repository?.name ?? '',
-					located: patch.repository != null && isRepository(patch.repository),
+					located: isRepoLocated(patch.repository),
 				},
 			}),
 		});
@@ -1132,6 +1122,7 @@ export class PatchDetailsWebviewProvider
 								patch.contents = d.value.contents;
 								patch.files = d.value.files;
 								patch.repository = d.value.repository;
+								await this.getOrLocatePatchRepository(patch);
 							}
 						}
 					}
@@ -1163,7 +1154,7 @@ export class PatchDetailsWebviewProvider
 								repository: {
 									id: p.gkRepositoryId,
 									name: p.repository?.name ?? '',
-									located: p.repository != null && isRepository(p.repository),
+									located: isRepoLocated(p.repository),
 								},
 							})),
 					  )
@@ -1342,25 +1333,15 @@ export class PatchDetailsWebviewProvider
 		if (patch?.repository == null) return undefined;
 
 		if (patch?.commit == null) {
-			if (!isRepository(patch.repository)) {
-				const repo = await this.container.repositoryIdentity.getRepository(patch.repository, {
-					openIfNeeded: true,
-					prompt: true,
-				});
-				if (repo == null) {
-					void window.showErrorMessage(`Unable to locate repository '${patch.repository.name}'`);
-					return undefined;
-				}
-
-				patch.repository = repo;
-			}
+			const repo = await this.getOrLocatePatchRepository(patch, { prompt: true });
+			if (repo == null) return undefined;
 
 			let baseRef = patch.baseRef ?? 'HEAD';
 
 			do {
 				try {
 					const commit = await this.container.git.createUnreachableCommitForPatch(
-						patch.repository.uri,
+						repo.uri,
 						patch.contents!,
 						baseRef,
 						draft.title,
@@ -1390,7 +1371,7 @@ export class PatchDetailsWebviewProvider
 
 						if (result === chooseBase) {
 							const ref = await showReferencePicker(
-								patch.repository.path,
+								repo.path,
 								`Choose New Base for Patch`,
 								`Choose a new base to apply the patch onto`,
 								{
@@ -1465,6 +1446,35 @@ export class PatchDetailsWebviewProvider
 			lhsTitle: this.mode === 'view' ? `${basename(file.path)} (Patch)` : undefined,
 		});
 	}
+
+	private async getOrLocatePatchRepository(
+		patch: DraftPatch,
+		options?: { notifyOnLocation?: boolean; prompt?: boolean },
+	): Promise<Repository | undefined> {
+		if (patch.repository == null || isRepository(patch.repository)) {
+			return patch.repository;
+		}
+
+		const repo = await this.container.repositoryIdentity.getRepository(patch.repository, {
+			openIfNeeded: true,
+			prompt: options?.prompt ?? false,
+		});
+		if (repo == null) {
+			void window.showErrorMessage(`Unable to locate repository '${patch.repository.name}'`);
+		} else {
+			patch.repository = repo;
+
+			if (options?.notifyOnLocation) {
+				void this.notifyPatchRepositoryUpdated(patch);
+			}
+		}
+
+		return repo;
+	}
+}
+
+function isRepoLocated(repo: DraftPatch['repository']): boolean {
+	return repo != null && isRepository(repo);
 }
 
 function toDraftUserSelection(
