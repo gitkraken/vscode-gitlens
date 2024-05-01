@@ -17,6 +17,7 @@ import {
 import {
 	LaunchpadSettingsQuickInputButton,
 	MergeQuickInputButton,
+	OpenCodeSuggestionBrowserQuickInputButton,
 	OpenLaunchpadInEditorQuickInputButton,
 	OpenOnGitHubQuickInputButton,
 	PinQuickInputButton,
@@ -500,10 +501,15 @@ export class FocusCommand extends QuickCommand<State> {
 			undefined,
 			{
 				placeholder: 'Choose an action to perform',
-				onDidClickItemButton: (_quickpick, button) => {
+				onDidClickItemButton: (_quickpick, button, item) => {
 					switch (button) {
 						case OpenOnGitHubQuickInputButton:
 							this.container.focus.open(state.item);
+							break;
+						case OpenCodeSuggestionBrowserQuickInputButton:
+							if (isFocusTargetActionQuickPickItem(item)) {
+								this.container.focus.openCodeSuggestionInBrowser(item.item.target);
+							}
 							break;
 					}
 				},
@@ -576,14 +582,19 @@ export class FocusCommand extends QuickCommand<State> {
 			case 'waiting-for-review':
 				information.push(createQuickPickSeparator('Reviewers'), ...this.getFocusItemReviewInformation(item));
 				break;
-			case 'code-suggestions':
-				information.push(
-					createQuickPickSeparator('Suggestions'),
-					...this.getFocusItemCodeSuggestionInformation(item),
-				);
-				break;
 			default:
 				break;
+		}
+
+		if (item.codeSuggestions != null && item.codeSuggestions.length > 0) {
+			if (information.length > 0) {
+				information.push(createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }));
+			}
+
+			information.push(
+				createQuickPickSeparator('Suggestions'),
+				...this.getFocusItemCodeSuggestionInformation(item),
+			);
 		}
 
 		if (information.length > 0) {
@@ -699,6 +710,7 @@ export class FocusCommand extends QuickCommand<State> {
 								: suggestion.author.email != null
 								  ? getAvatarUri(suggestion.author.email)
 								  : undefined,
+						buttons: [OpenCodeSuggestionBrowserQuickInputButton],
 					},
 					{
 						action: 'open-suggestion',
@@ -732,4 +744,8 @@ export class FocusCommand extends QuickCommand<State> {
 				return 'Open';
 		}
 	}
+}
+
+function isFocusTargetActionQuickPickItem(item: any): item is QuickPickItemOfT<FocusTargetAction> {
+	return item?.item?.action != null && item?.item?.target != null;
 }

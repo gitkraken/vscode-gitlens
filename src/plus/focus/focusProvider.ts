@@ -236,7 +236,9 @@ export class FocusProvider implements Disposable {
 			this._codeSuggestions.get(item.uuid)!.expiresAt < Date.now()
 		) {
 			this._codeSuggestions.set(item.uuid, {
-				promise: this.container.drafts.getCodeSuggestions(item, HostingIntegrationId.GitHub),
+				promise: this.container.drafts.getCodeSuggestions(item, HostingIntegrationId.GitHub, {
+					includeArchived: false,
+				}),
 				expiresAt: Date.now() + cacheExpiration,
 			});
 		}
@@ -324,6 +326,10 @@ export class FocusProvider implements Disposable {
 		void executeCommand(Commands.OpenCloudPatch, {
 			draft: draft,
 		});
+	}
+
+	openCodeSuggestionInBrowser(target: string) {
+		void openUrl(this.container.drafts.generateGkDevUrl(target).toString());
 	}
 
 	async switchTo(item: FocusItem): Promise<void> {

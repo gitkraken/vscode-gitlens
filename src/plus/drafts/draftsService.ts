@@ -792,11 +792,20 @@ export class DraftService implements Disposable {
 		};
 	}
 
-	async getCodeSuggestions(pullRequest: PullRequest, repository: Repository): Promise<Draft[]>;
-	async getCodeSuggestions(focusItem: FocusItem, integrationId: IntegrationId): Promise<Draft[]>;
+	async getCodeSuggestions(
+		pullRequest: PullRequest,
+		repository: Repository,
+		options?: { includeArchived?: boolean },
+	): Promise<Draft[]>;
+	async getCodeSuggestions(
+		focusItem: FocusItem,
+		integrationId: IntegrationId,
+		options?: { includeArchived?: boolean },
+	): Promise<Draft[]>;
 	async getCodeSuggestions(
 		item: PullRequest | FocusItem,
 		repositoryOrIntegrationId: Repository | IntegrationId,
+		options?: { includeArchived?: boolean },
 	): Promise<Draft[]> {
 		const entityIdentifier = getEntityIdentifierInput(item);
 		const prEntityId = EntityIdentifierUtils.encode(entityIdentifier);
@@ -809,7 +818,7 @@ export class DraftService implements Disposable {
 			const drafts = await this.getDraftsCore({
 				prEntityId: prEntityId,
 				providerAuth: providerAuth,
-				isArchived: true,
+				isArchived: options?.includeArchived != null ? options.includeArchived : true,
 			});
 			return drafts;
 		} catch (e) {
