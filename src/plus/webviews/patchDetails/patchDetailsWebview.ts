@@ -402,7 +402,13 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private setHostTitle(mode: Mode = this._context.mode) {
-		this.host.title = mode === 'create' ? 'Create Cloud Patch' : 'Cloud Patch Details';
+		if (mode === 'create') {
+			this.host.title = 'Create Cloud Patch';
+		} else if (this._context.draft?.draftType === 'cloud' && this._context.draft.type === 'suggested_pr_change') {
+			this.host.title = 'Cloud Suggestion';
+		} else {
+			this.host.title = 'Cloud Patch Details';
+		}
 	}
 
 	private async applyPatch(params: ApplyPatchParams) {
@@ -1412,11 +1418,25 @@ export class PatchDetailsWebviewProvider
 		});
 	}
 
+	private getChangesTitleNote() {
+		if (
+			this._context.mode === 'view' &&
+			this._context.draft?.draftType === 'cloud' &&
+			this._context.draft.type === 'suggested_pr_change'
+		) {
+			return 'Code Suggestion';
+		}
+
+		return 'Patch';
+	}
+
 	private async openFileComparisonWithPrevious(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
 		const [commit, file, revision] = result;
+
+		const titleNote = this.getChangesTitleNote();
 
 		void openChanges(
 			file,
@@ -1427,7 +1447,7 @@ export class PatchDetailsWebviewProvider
 				preserveFocus: true,
 				preview: true,
 				...params.showOptions,
-				rhsTitle: this.mode === 'view' ? `${basename(file.path)} (Patch)` : undefined,
+				rhsTitle: this.mode === 'view' ? `${basename(file.path)} (${titleNote})` : undefined,
 			},
 		);
 		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.host.id });
@@ -1439,11 +1459,13 @@ export class PatchDetailsWebviewProvider
 
 		const [commit, file, revision] = result;
 
+		const titleNote = this.getChangesTitleNote();
+
 		void openChangesWithWorking(file, revision != null ? { repoPath: commit.repoPath, ref: revision.to } : commit, {
 			preserveFocus: true,
 			preview: true,
 			...params.showOptions,
-			lhsTitle: this.mode === 'view' ? `${basename(file.path)} (Patch)` : undefined,
+			lhsTitle: this.mode === 'view' ? `${basename(file.path)} (${titleNote})` : undefined,
 		});
 	}
 
