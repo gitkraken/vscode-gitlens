@@ -161,10 +161,16 @@ export class FocusIndicator implements Disposable {
 	}
 
 	private onWindowStateChanged(e: { focused: boolean }) {
+		if (this._state === 'disconnected' || this._state === 'idle') return;
 		if (!e.focused) {
 			this.clearRefreshTimer();
 			this._lastRefreshPaused = new Date();
 		} else if (this._lastRefreshPaused != null) {
+			if (this._state === 'loading') {
+				this.startRefreshTimer(5000);
+				return;
+			}
+
 			const now = new Date();
 			const timeSinceLastUpdate =
 				this._lastDataUpdate != null ? now.getTime() - this._lastDataUpdate.getTime() : undefined;
