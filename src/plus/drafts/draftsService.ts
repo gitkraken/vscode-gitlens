@@ -817,6 +817,23 @@ export class DraftService implements Disposable {
 		}
 	}
 
+	generateGkDevUrl(draftId: string): URL;
+	generateGkDevUrl(draft: Draft): URL;
+	generateGkDevUrl(draftOrDraftId: Draft | string): URL {
+		let modePrefixString = '';
+		if (this.container.env === 'dev') {
+			modePrefixString = 'dev.';
+		} else if (this.container.env === 'staging') {
+			modePrefixString = 'staging.';
+		}
+
+		const id = typeof draftOrDraftId === 'string' ? draftOrDraftId : draftOrDraftId.id;
+
+		const deepLinkRedirectUrl = new URL(`https://${modePrefixString}gitkraken.dev/drafts/${id}`);
+		deepLinkRedirectUrl.searchParams.set('origin', 'gitlens');
+		return deepLinkRedirectUrl;
+	}
+
 	@log()
 	async getCodeSuggestionCounts(pullRequests: PullRequest[]): Promise<CodeSuggestionCounts> {
 		const scope = getLogScope();

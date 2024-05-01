@@ -620,6 +620,14 @@ export class GlDraftDetails extends GlTreeBase {
 						<code-icon icon="${this._copiedLink ? 'check' : 'link'}"></code-icon>
 						<span class="top-details__sha">Copy Link</span></a
 					>
+					${when(
+						this.cloudDraft?.gkDevLink != null,
+						() => html`
+							<a class="commit-action" href=${this.cloudDraft!.gkDevLink} title="Open on gitkraken.dev">
+								<code-icon icon="globe"></code-icon>
+							</a>
+						`,
+					)}
 				</div>
 			</div>
 		`;
