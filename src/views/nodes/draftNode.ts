@@ -61,8 +61,8 @@ export class DraftNode extends ViewNode<'draft', DraftsView> {
 		item.description = fromNow(this.draft.updatedAt);
 		item.command = {
 			title: 'Show Patch',
-			command: this.view.getQualifiedCommand('open'),
-			arguments: [this],
+			command: 'gitlens.views.openDraft',
+			arguments: [this.draft],
 		};
 		return item;
 	}

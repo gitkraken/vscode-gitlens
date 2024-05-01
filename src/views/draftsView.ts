@@ -6,7 +6,6 @@ import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { unknownGitUri } from '../git/gitUri';
 import type { Draft } from '../gk/models/drafts';
-import { showPatchesView } from '../plus/drafts/actions';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
@@ -154,22 +153,6 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 						await this.container.drafts.deleteDraft(node.draft.id);
 						void node.getParent()?.triggerChange(true);
 					}
-				},
-				this,
-			),
-			registerViewCommand(
-				this.getQualifiedCommand('open'),
-				async (node: DraftNode) => {
-					let draft = node.draft;
-					if (draft.changesets == null) {
-						try {
-							draft = await this.container.drafts.getDraft(node.draft.id);
-						} catch (ex) {
-							void window.showErrorMessage(`Unable to open Cloud Patch '${node.draft.id}'`);
-							return;
-						}
-					}
-					void showPatchesView({ mode: 'view', draft: draft });
 				},
 				this,
 			),

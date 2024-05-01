@@ -395,7 +395,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowMergeCommits${'On' | 'Off'}`
 			| `setShowStatistics${'On' | 'Off'}`}`
-	| `drafts.${'copy' | 'refresh' | 'create' | 'delete' | 'open'}`
+	| `drafts.${'copy' | 'refresh' | 'create' | 'delete'}`
 	| `fileHistory.${
 			| 'copy'
 			| 'refresh'

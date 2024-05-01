@@ -55,11 +55,11 @@ export class ResultsSuggestedChangeNode extends ViewNode<'results-suggested-chan
 			}`,
 		);
 		item.description = fromNow(this.draft.updatedAt);
-		// item.command = {
-		// 	title: 'Show Patch',
-		// 	command: this.view.getQualifiedCommand('open'),
-		// 	arguments: [this],
-		// };
+		item.command = {
+			title: 'Show Patch',
+			command: 'gitlens.views.openDraft',
+			arguments: [this.draft],
+		};
 		return item;
 	}
 }
