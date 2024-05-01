@@ -38,8 +38,8 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 
 				const mine = groups.get('mine');
 				const shared = groups.get('shared');
-				const prs = groups.get('pr_suggestion');
-				const isFlat = mine?.length && !shared?.length && !prs?.length;
+				//const prs = groups.get('pr_suggestion');
+				const isFlat = mine?.length && !shared?.length;
 
 				if (!isFlat) {
 					if (mine?.length) {
@@ -47,9 +47,6 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 					}
 					if (shared?.length) {
 						children.push(new GroupingNode(this.view, 'Shared with Me', shared));
-					}
-					if (prs?.length) {
-						children.push(new GroupingNode(this.view, 'Suggested Changes', prs));
 					}
 				} else {
 					children.push(...mine);
