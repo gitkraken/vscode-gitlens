@@ -32,9 +32,9 @@ export function registerFocusWebviewPanel(controller: WebviewsController) {
 
 export function registerFocusWebviewCommands(panels: WebviewPanelsProxy) {
 	return Disposable.from(
-		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
+		registerCommand(`gitlens.launchpad.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
 		registerCommand(
-			`${panels.id}.split`,
+			`gitlens.launchpad.split`,
 			() => void panels.splitActiveInstance({ preserveInstance: false, column: ViewColumn.Beside }),
 		),
 	);
