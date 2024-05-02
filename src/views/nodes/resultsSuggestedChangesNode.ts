@@ -7,6 +7,7 @@ import type { ViewsWithCommits } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
 import { getViewNodeId } from './abstract/viewNode';
+import { MessageNode } from './common';
 import type { DraftNode } from './draftNode';
 import { ResultsSuggestedChangeNode } from './resultsSuggestedChangeNode';
 
@@ -33,13 +34,13 @@ export class ResultsSuggestedChangesNode extends CacheableChildrenViewNode<
 	async getChildren(): Promise<ViewNode[]> {
 		const results = await this.getSuggestedChangesQueryResults();
 		const drafts = results.drafts;
-		const views = drafts?.map(d => new ResultsSuggestedChangeNode(this.uri, this.view, this, d)) || [];
-		return views;
+		return !drafts?.length
+			? [new MessageNode(this.view, this, 'No code suggestions')]
+			: drafts.map(d => new ResultsSuggestedChangeNode(this.uri, this.view, this, d));
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Code Suggestions', TreeItemCollapsibleState.Expanded);
-		return item;
+		return new TreeItem('Code Suggestions', TreeItemCollapsibleState.Collapsed);
 	}
 
 	@gate()
