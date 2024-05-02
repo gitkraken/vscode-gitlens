@@ -47,6 +47,8 @@ import type { GlInspectNav } from './gl-inspect-nav';
 import type { CreatePatchEventDetail } from './gl-inspect-patch';
 import type { GlWipDetails } from './gl-wip-details';
 import '../../shared/components/code-icon';
+import '../../shared/components/indicators/indicator';
+import '../../shared/components/pills/tracking';
 import './gl-commit-details';
 import './gl-wip-details';
 import './gl-inspect-nav';
@@ -79,6 +81,39 @@ export class GlCommitDetailsApp extends LitElement {
 	@state()
 	get isStash() {
 		return this.state?.commit?.stashNumber != null;
+	}
+
+	get wipStatus() {
+		const wip = this.state?.wip;
+		if (wip == null) return undefined;
+
+		const branch = wip.branch;
+		if (branch == null) return undefined;
+
+		const changes = wip.changes;
+		const working = changes?.files.length ?? 0;
+		const ahead = branch.tracking?.ahead ?? 0;
+		const behind = branch.tracking?.behind ?? 0;
+		const status =
+			behind > 0 && ahead > 0
+				? 'both'
+				: behind > 0
+				  ? 'behind'
+				  : ahead > 0
+				    ? 'ahead'
+				    : working > 0
+				      ? 'working'
+				      : undefined;
+
+		const branchName = wip.repositoryCount > 1 ? `${wip.repo.name}:${branch.name}` : branch.name;
+
+		return {
+			branch: branchName,
+			ahead: ahead,
+			behind: behind,
+			working: wip.changes?.files.length ?? 0,
+			status: status,
+		};
 	}
 
 	get navigation() {
@@ -283,19 +318,62 @@ export class GlCommitDetailsApp extends LitElement {
 		return html`<gl-status-nav .wip=${this.state.wip} .preferences=${this.state.preferences}></gl-status-nav>`;
 	}
 
+	private renderRepoStatusContent(isWip: boolean) {
+		const statusIndicator = this.wipStatus?.status;
+		return html`
+			<code-icon icon="gl-repository-filled"></code-icon>
+			${when(
+				this.wipStatus?.status != null,
+				() =>
+					html`<gl-tracking-pill
+						class="inspect-header__tab-tracking"
+						.ahead=${this.wipStatus!.ahead}
+						.behind=${this.wipStatus!.behind}
+						.working=${this.wipStatus!.working}
+						outlined
+					></gl-tracking-pill>`,
+			)}
+			${when(
+				statusIndicator != null,
+				() =>
+					html`<gl-indicator
+						class="inspect-header__tab-indicator inspect-header__tab-indicator--${statusIndicator}"
+					></gl-indicator>`,
+			)}
+			${when(
+				isWip !== true && statusIndicator != null,
+				() => html`<gl-indicator pulse class="inspect-header__tab-pulse"></gl-indicator>`,
+			)}
+		`;
+	}
+
 	renderTopSection() {
 		const followTooltip = this.isStash ? 'Stash' : 'Commit';
 
 		const isWip = this.state?.mode === 'wip';
 
-		const wip = this.state?.wip;
-		const wipTooltip = wip?.changes?.files.length
-			? ` - ${pluralize('change', wip.changes.files.length)} on ${
-					wip.repositoryCount > 1
-						? `${wip.changes.repository.name}:${wip.changes.branchName}`
-						: wip.changes.branchName
-			  }`
-			: '';
+		let wipTooltip = 'Repo Status';
+		if (this.wipStatus != null) {
+			wipTooltip += ` for ${this.wipStatus.branch}`;
+			if (this.wipStatus.working > 0) {
+				wipTooltip += `\n - ${pluralize('working change', this.wipStatus.working)}`;
+			}
+
+			switch (this.wipStatus.status) {
+				case 'both':
+					wipTooltip += `\n - Behind ${pluralize('commit', this.wipStatus.behind)} and ahead ${pluralize(
+						'commit',
+						this.wipStatus.ahead,
+					)}`;
+					break;
+				case 'behind':
+					wipTooltip += `\n - Behind ${pluralize('commit', this.wipStatus.behind)}`;
+					break;
+				case 'ahead':
+					wipTooltip += `\n - Ahead ${pluralize('commit', this.wipStatus.ahead)}`;
+					break;
+			}
+		}
 
 		return html`
 			<div class="inspect-header">
@@ -310,9 +388,9 @@ export class GlCommitDetailsApp extends LitElement {
 					<button
 						class="inspect-header__tab${isWip ? ' is-active' : ''}"
 						data-action="wip"
-						title="Repo Status${wipTooltip}"
+						title="${wipTooltip}"
 					>
-						<code-icon icon="gl-repository-filled"></code-icon>
+						${this.renderRepoStatusContent(isWip)}
 					</button>
 				</nav>
 				<div class="inspect-header__content">

@@ -79,6 +79,13 @@
 	--color-alert-neutralBorder: var(--vscode-input-foreground);
 
 	--color-alert-foreground: var(--vscode-input-foreground);
+
+	--gl-indicator-color: var(--vscode-activityBarBadge-background);
+	--gl-indicator-pulse-color: var(--vscode-activityBarBadge-background);
+
+	--gl-tracking-ahead: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
+	--gl-tracking-behind: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
+	--gl-tracking-working: var(--vscode-activityBarBadge-background);
 }
 
 :root:has(.vscode-dark, .vscode-high-contrast) {
