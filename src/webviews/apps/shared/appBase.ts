@@ -123,6 +123,12 @@ export abstract class App<
 
 	private bindDisposables: Disposable[] | undefined;
 	protected bind() {
+		document.querySelectorAll('a').forEach(a => {
+			if (a.href === a.title) {
+				a.removeAttribute('title');
+			}
+		});
+
 		this.bindDisposables?.forEach(d => d.dispose());
 		this.bindDisposables = this.onBind?.();
 		if (this.bindDisposables == null) {
