@@ -108,7 +108,6 @@ export class VideoButton extends LitElement {
 			class="video-button"
 			href="https://www.youtube.com/watch?v=UQPb73Zz9qk?utm_source=gitlens-extension&amp;utm_medium=welcome_banner"
 			aria-label="Watch the Tutorial video"
-			title="&nbsp;"
 		>
 			<span class="title">Tutorial Video</span>
 			<div>

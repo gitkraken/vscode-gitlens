@@ -1162,7 +1162,6 @@ export function GraphWrapper({
 								state.webviewInstanceId,
 							)}
 							className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
-							title="&nbsp;"
 						>
 							<span className={`codicon codicon-${icon} action-button__icon`}></span>
 							{label}
@@ -1198,7 +1197,6 @@ export function GraphWrapper({
 					<a
 						href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
 						className="action-button"
-						title="&nbsp;"
 					>
 						<span className="codicon codicon-sync action-button__icon"></span>
 						Fetch
@@ -1231,7 +1229,6 @@ export function GraphWrapper({
 								href={branchState.provider.url}
 								className="action-button"
 								style={{ marginRight: '-0.5rem' }}
-								title="&nbsp;"
 								aria-label={`Open Repository on ${branchState.provider.name}`}
 							>
 								<span
@@ -1251,7 +1248,6 @@ export function GraphWrapper({
 							type="button"
 							className="action-button"
 							slot="trigger"
-							title="&nbsp;"
 							aria-label="Switch to Another Repository..."
 							disabled={repos.length < 2}
 							onClick={() => handleChooseRepository()}
@@ -1279,7 +1275,6 @@ export function GraphWrapper({
 										state.webviewInstanceId,
 									)}
 									className="action-button"
-									title="&nbsp;"
 									aria-label="Switch to Another Branch..."
 								>
 									<span className="codicon codicon-git-branch" aria-hidden="true"></span>

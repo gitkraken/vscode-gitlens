@@ -37,7 +37,6 @@
 							class="inline-nav__link inline-nav__link--text"
 							href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
 							aria-label="What's New"
-							title="&nbsp;"
 							><code-icon icon="rocket"></code-icon><span>What's New</span></a
 						>
 						<span slot="content">What's New</span>
@@ -47,7 +46,6 @@
 							class="inline-nav__link inline-nav__link--text"
 							href="https://help.gitkraken.com/gitlens/gitlens-home/"
 							aria-label="Help Center"
-							title="&nbsp;"
 							><code-icon icon="question"></code-icon><span>Help</span></a
 						>
 						<span slot="content">Help Center</span>
@@ -57,7 +55,6 @@
 							class="inline-nav__link inline-nav__link--text"
 							href="https://github.com/gitkraken/vscode-gitlens/issues"
 							aria-label="Feedback"
-							title="&nbsp;"
 							><code-icon icon="feedback"></code-icon><span>Feedback</span></a
 						>
 						<span slot="content">Feedback</span>
@@ -69,7 +66,6 @@
 							class="inline-nav__link"
 							href="https://github.com/gitkraken/vscode-gitlens/discussions"
 							aria-label="GitHub Discussions"
-							title="&nbsp;"
 							><code-icon icon="comment-discussion"></code-icon
 						></a>
 						<span slot="content">GitHub Discussions</span>
@@ -79,17 +75,12 @@
 							class="inline-nav__link"
 							href="https://github.com/gitkraken/vscode-gitlens"
 							aria-label="GitHub Repo"
-							title="&nbsp;"
 							><code-icon icon="github"></code-icon
 						></a>
 						<span slot="content">GitHub Repo</span>
 					</gl-tooltip>
 					<gl-tooltip placement="bottom">
-						<a
-							class="inline-nav__link"
-							href="https://twitter.com/gitlens"
-							aria-label="@gitlens on Twitter"
-							title="&nbsp;"
+						<a class="inline-nav__link" href="https://twitter.com/gitlens" aria-label="@gitlens on Twitter"
 							><code-icon icon="twitter"></code-icon
 						></a>
 						<span slot="content">@gitlens on Twitter</span>
@@ -99,7 +90,6 @@
 							class="inline-nav__link"
 							href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
 							aria-label="GitLens Website"
-							title="&nbsp;"
 							><code-icon icon="globe"></code-icon
 						></a>
 						<span slot="content">GitLens Website</span>
@@ -190,7 +180,6 @@
 									appearance="secondary"
 									density="compact"
 									href="https://www.youtube.com/watch?v=UQPb73Zz9qk?utm_source=gitlens-extension&utm_medium=home_banner"
-									title="&nbsp;"
 									aria-label="Watch the GitLens Tutorial video"
 									><code-icon icon="vm-running"></code-icon
 								></gl-button>
@@ -199,7 +188,7 @@
 						</span>
 					</p>
 				</div>
-				<a href="#" title="&nbsp;" class="alert__close" data-section-toggle="walkthrough">
+				<a href="#" class="alert__close" data-section-toggle="walkthrough">
 					<gl-tooltip placement="bottom">
 						<code-icon icon="chevron-down" aria-label="Collapse walkthrough section"></code-icon>
 						<span slot="content">Collapse</span>
@@ -212,11 +201,7 @@
 			</div>
 			<nav class="nav-list">
 				<h2 class="nav-list__title t-eyebrow sticky">Configuration</h2>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showSettingsPage"
-					title="&nbsp;"
-					aria-label="Open GitLens Settings"
+				<a class="nav-list__item" href="command:gitlens.showSettingsPage" aria-label="Open GitLens Settings"
 					><code-icon class="nav-list__icon" icon="gear"></code-icon
 					><gl-tooltip class="nav-list__label" placement="bottom" content="Open GitLens Settings">
 						<span>GitLens Settings</span></gl-tooltip
@@ -228,7 +213,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showGraph"
-					title="&nbsp;"
 					aria-label="Show Commit Graph"
 					data-requires="repo"
 				>
@@ -237,7 +221,7 @@
 						<span>Commit Graph</span> </gl-tooltip
 					><gl-feature-badge placement="left" class="nav-list__access"></gl-feature-badge>
 				</a>
-				<a class="nav-list__item" href="command:gitlens.quickFocus" title="&nbsp;" aria-label="Open Launchpad"
+				<a class="nav-list__item" href="command:gitlens.quickFocus" aria-label="Open Launchpad"
 					><code-icon class="nav-list__icon" icon="rocket"></code-icon
 					><gl-tooltip class="nav-list__group" placement="bottom" content="Open Launchpad"
 						><span class="nav-list__label">Launchpad</span
@@ -247,7 +231,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showCommitsView"
-					title="&nbsp;"
 					aria-label="Show Commits view"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-commits-view"></code-icon
@@ -258,7 +241,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showCommitDetailsView"
-					title="&nbsp;"
 					aria-label="Show Inspect view"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-commit-view"></code-icon
@@ -269,7 +251,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showFileHistoryView"
-					title="&nbsp;"
 					aria-label="Show File History view"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-history-view"></code-icon
@@ -280,7 +261,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showTimelineView"
-					title="&nbsp;"
 					aria-label="Show Visual File History view"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="graph-scatter"></code-icon
@@ -291,7 +271,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showDraftsView"
-					title="&nbsp;"
 					aria-label="Show Cloud Patches view"
 					data-requires="repo"
 					id="org-settings-drafts"
@@ -304,7 +283,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showStashesView"
-					title="&nbsp;"
 					aria-label="Show Stashes view"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-stashes-view"></code-icon
@@ -315,7 +293,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showSearchAndCompareView"
-					title="&nbsp;"
 					aria-label="Show Search &amp; Compare view"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-search-view"></code-icon
@@ -326,7 +303,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showWorkspacesView"
-					title="&nbsp;"
 					aria-label="Show GitKraken Workspaces view"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-workspaces-view"></code-icon
@@ -337,7 +313,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showWorktreesView"
-					title="&nbsp;"
 					aria-label="Show Worktrees view"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-worktrees-view"></code-icon
@@ -351,7 +326,6 @@
 				<a
 					class="nav-list__item"
 					href="command:workbench.view.extension.gitlens"
-					title="&nbsp;"
 					aria-label="Show GitLens Side Bar"
 					><code-icon class="nav-list__icon" icon="gl-gitlens"></code-icon
 					><gl-tooltip class="nav-list__label" placement="bottom" content="Show GitLens Side Bar"
@@ -361,7 +335,6 @@
 				<a
 					class="nav-list__item"
 					href="command:workbench.view.extension.gitlensInspect"
-					title="&nbsp;"
 					aria-label="Show GitLens Inspect Side Bar"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-gitlens-inspect"></code-icon
@@ -372,7 +345,6 @@
 				<a
 					class="nav-list__item"
 					href="command:workbench.view.scm"
-					title="&nbsp;"
 					aria-label="Show GitLens Side Bar"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="source-control"></code-icon
@@ -386,7 +358,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.plus.cloudIntegrations.manage"
-					title="&nbsp;"
 					aria-label="Manage Cloud Integrations on GitKraken.dev"
 					><code-icon class="nav-list__icon" icon="settings"></code-icon
 					><gl-tooltip
@@ -399,7 +370,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showSettingsPage!autolinks"
-					title="&nbsp;"
 					aria-label="Open Autolinks Settings"
 					><code-icon class="nav-list__icon" icon="link"></code-icon
 					><gl-tooltip class="nav-list__label" placement="bottom" content="Open Autolinks Settings"
@@ -412,7 +382,6 @@
 				<a
 					class="nav-list__item"
 					href="command:workbench.action.quickOpen?%22>GitLens%3A%22"
-					title="&nbsp;"
 					aria-label="Show GitLens Commands"
 					><code-icon class="nav-list__icon" icon="symbol-event"></code-icon
 					><gl-tooltip class="nav-list__label" placement="bottom" content="Show GitLens Commands"
@@ -422,7 +391,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.gitCommands"
-					title="&nbsp;"
 					aria-label="Open Git Command Palette"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="symbol-color"></code-icon
@@ -433,11 +401,7 @@
 			</nav>
 			<nav class="nav-list">
 				<h2 class="nav-list__title t-eyebrow sticky">Getting Started</h2>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showWelcomePage"
-					title="&nbsp;"
-					aria-label="Open GitLens Welcome"
+				<a class="nav-list__item" href="command:gitlens.showWelcomePage" aria-label="Open GitLens Welcome"
 					><code-icon class="nav-list__icon" icon="play"></code-icon
 					><gl-tooltip class="nav-list__label" placement="bottom" content="Open GitLens Welcome"
 						><span>Welcome</span></gl-tooltip
@@ -446,7 +410,6 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.getStarted"
-					title="&nbsp;"
 					aria-label="Open GitLens Feature Walkthrough"
 					><code-icon class="nav-list__icon" icon="info"></code-icon
 					><gl-tooltip class="nav-list__label" placement="bottom" content="Open GitLens Feature Walkthrough"
@@ -456,7 +419,6 @@
 				<a
 					class="nav-list__item"
 					href="https://www.youtube.com/watch?v=UQPb73Zz9qk?utm_source=gitlens-extension&utm_medium=home_link"
-					title="&nbsp;"
 					aria-label="Watch the GitLens Tutorial video"
 					><code-icon class="nav-list__icon" icon="vm-running"></code-icon
 					><gl-tooltip class="nav-list__label" placement="bottom" content="Watch the GitLens Tutorial video"
@@ -469,7 +431,6 @@
 				<a
 					class="nav-list__item"
 					href="https://www.gitkraken.com/browser-extension"
-					title="&nbsp;"
 					aria-label="Try the GitKraken Browser Extension"
 					><code-icon class="nav-list__icon" icon="extensions"></code-icon
 					><gl-tooltip
@@ -479,17 +440,13 @@
 						><span>GitKraken Browser Extension</span></gl-tooltip
 					>
 				</a>
-				<a
-					class="nav-list__item"
-					href="https://www.gitkraken.com/cli"
-					title="&nbsp;"
-					aria-label="Try the GitKraken CLI"
+				<a class="nav-list__item" href="https://www.gitkraken.com/cli" aria-label="Try the GitKraken CLI"
 					><code-icon class="nav-list__icon" icon="terminal"></code-icon
 					><gl-tooltip class="nav-list__label" placement="bottom" content="Try the GitKraken CLI"
 						><span>GitKraken CLI</span></gl-tooltip
 					>
 				</a>
-				<a class="nav-list__item" href="https://gitkraken.dev" title="&nbsp;" aria-label="Try GitKraken.dev"
+				<a class="nav-list__item" href="https://gitkraken.dev" aria-label="Try GitKraken.dev"
 					><code-icon class="nav-list__icon" icon="globe"></code-icon
 					><gl-tooltip class="nav-list__label" placement="bottom" content="Try GitKraken.dev"
 						><span>GitKraken.dev</span></gl-tooltip
