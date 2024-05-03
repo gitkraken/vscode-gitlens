@@ -107,11 +107,13 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
+		subscription ??= await this.container.subscription.getSubscription(true);
 		return {
 			...this.host.baseWebviewState,
 			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
 			promoStates: await this.getCanShowPromos(subscription),
+			subscription: subscription,
 			orgSettings: this.getOrgSettings(),
 			walkthroughCollapsed: this.getWalkthroughCollapsed(),
 		};
@@ -148,8 +150,11 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async notifyDidChangeSubscription(subscription?: Subscription) {
+		subscription ??= await this.container.subscription.getSubscription(true);
+
 		void this.host.notify(DidChangeSubscription, {
 			promoStates: await this.getCanShowPromos(subscription),
+			subscription: subscription,
 		});
 	}
 

@@ -433,7 +433,7 @@ export class CommitDetailsWebviewProvider
 
 	private async suggestChanges(e: SuggestChangesParams) {
 		if (
-			!(await ensureAccount('Code Suggestions require a GitKraken account.', this.container)) ||
+			!(await ensureAccount('Code Suggestions are a Preview feature and require an account.', this.container)) ||
 			!(await confirmDraftStorage(this.container))
 		) {
 			return;

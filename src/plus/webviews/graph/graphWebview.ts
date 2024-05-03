@@ -140,7 +140,6 @@ import {
 	ChooseRepositoryCommand,
 	DidChangeAvatarsNotification,
 	DidChangeColumnsNotification,
-	DidChangeFocusNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
 	DidChangeRefsMetadataNotification,
@@ -150,7 +149,6 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
-	DidChangeWindowFocusNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidSearchNotification,
@@ -233,7 +231,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeSelectionNotification, this.notifyDidChangeSelection],
 		[DidChangeSubscriptionNotification, this.notifyDidChangeSubscription],
 		[DidChangeWorkingTreeNotification, this.notifyDidChangeWorkingTree],
-		[DidChangeWindowFocusNotification, this.notifyDidChangeWindowFocus],
 		[DidFetchNotification, this.notifyDidFetch],
 	]);
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
@@ -576,12 +573,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	onWindowFocusChanged(focused: boolean): void {
 		this.isWindowFocused = focused;
-		void this.notifyDidChangeWindowFocus();
 	}
 
 	onFocusChanged(focused: boolean): void {
 		this._showActiveSelectionDetailsDebounced?.cancel();
-		void this.notifyDidChangeFocus(focused);
 
 		if (!focused || this.activeSelection == null || !this.container.commitDetailsView.visible) {
 			return;
@@ -1324,27 +1319,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this._notifyDidChangeStateDebounced();
 	}
 
-	@debug()
-	private async notifyDidChangeFocus(focused: boolean): Promise<boolean> {
-		if (!this.host.ready || !this.host.visible) return false;
-
-		return this.host.notify(DidChangeFocusNotification, {
-			focused: focused,
-		});
-	}
-
-	@debug()
-	private async notifyDidChangeWindowFocus(): Promise<boolean> {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidChangeWindowFocusNotification, this._ipcNotificationMap, this);
-			return false;
-		}
-
-		return this.host.notify(DidChangeWindowFocusNotification, {
-			focused: this.isWindowFocused,
-		});
-	}
-
 	private _notifyDidChangeAvatarsDebounced: Deferrable<GraphWebviewProvider['notifyDidChangeAvatars']> | undefined =
 		undefined;
 
@@ -1909,7 +1883,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// If we don't have access, but the preview trial hasn't been started, auto-start it
 		if (access.allowed === false && access.subscription.current.previewTrial == null) {
-			await this.container.subscription.startPreviewTrial();
+			// await this.container.subscription.startPreviewTrial();
 			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
 		}
 

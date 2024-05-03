@@ -24,7 +24,13 @@ import type {
 	WebviewFocusChangedParams,
 	WebviewState,
 } from './protocol';
-import { ExecuteCommand, WebviewFocusChangedCommand, WebviewReadyCommand } from './protocol';
+import {
+	DidChangeHostWindowFocusNotification,
+	DidChangeWebviewFocusNotfication as DidChangeWebviewFocusNotification,
+	ExecuteCommand,
+	WebviewFocusChangedCommand,
+	WebviewReadyCommand,
+} from './protocol';
 import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
 import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor } from './webviewsController';
@@ -392,7 +398,7 @@ export class WebviewController<
 	})
 	onViewFocusChanged(e: WebviewFocusChangedParams): void {
 		setContextKeys(this.descriptor.contextKeyPrefix);
-		this.provider.onFocusChanged?.(e.focused);
+		this.handleFocusChanged(e.focused);
 	}
 
 	@debug()
@@ -419,7 +425,7 @@ export class WebviewController<
 			if (active != null) {
 				this.provider.onActiveChanged?.(active);
 				if (!active) {
-					this.provider.onFocusChanged?.(false);
+					this.handleFocusChanged(false);
 				}
 			}
 		} else {
@@ -428,7 +434,7 @@ export class WebviewController<
 			if (active != null) {
 				this.provider.onActiveChanged?.(false);
 			}
-			this.provider.onFocusChanged?.(false);
+			this.handleFocusChanged(false);
 		}
 
 		this.provider.onVisibilityChanged?.(visible);
@@ -437,7 +443,13 @@ export class WebviewController<
 	private onWindowStateChanged(e: WindowState) {
 		if (!this.visible) return;
 
+		void this.notify(DidChangeHostWindowFocusNotification, { focused: e.focused });
 		this.provider.onWindowFocusChanged?.(e.focused);
+	}
+
+	private handleFocusChanged(focused: boolean) {
+		void this.notify(DidChangeWebviewFocusNotification, { focused: focused });
+		this.provider.onFocusChanged?.(focused);
 	}
 
 	getRootUri() {

@@ -17,3 +17,8 @@ export const focusOutline = css`
 	outline: 1px solid var(--color-focus-border);
 	outline-offset: -1px;
 `;
+
+export const focusOutlineButton = css`
+	outline: 1px solid var(--color-focus-border);
+	outline-offset: 2px;
+`;

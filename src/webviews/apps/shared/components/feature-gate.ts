@@ -84,6 +84,9 @@ export class GlFeatureGate extends LitElement {
 	@property({ reflect: true })
 	appearance?: 'alert' | 'welcome';
 
+	@property()
+	featureWithArticleIfNeeded?: string;
+
 	@property({ attribute: false, type: Number })
 	state?: SubscriptionState;
 
@@ -106,7 +109,11 @@ export class GlFeatureGate extends LitElement {
 			<section>
 				<slot></slot>
 				<slot name="feature"></slot>
-				<gl-feature-gate-plus-state appearance=${appearance} .state=${this.state}></gl-feature-gate-plus-state>
+				<gl-feature-gate-plus-state
+					appearance=${appearance}
+					.featureWithArticleIfNeeded=${this.featureWithArticleIfNeeded}
+					.state=${this.state}
+				></gl-feature-gate-plus-state>
 			</section>
 		`;
 	}

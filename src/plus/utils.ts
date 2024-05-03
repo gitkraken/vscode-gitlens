@@ -7,7 +7,7 @@ export async function ensurePaidPlan(title: string, container: Container): Promi
 	while (true) {
 		const subscription = await container.subscription.getSubscription();
 		if (subscription.account?.verified === false) {
-			const resend = { title: 'Resend Verification' };
+			const resend = { title: 'Resend Email' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
 				`${title}\n\nYou must verify your email before you can continue.`,
@@ -32,7 +32,7 @@ export async function ensurePaidPlan(title: string, container: Container): Promi
 			const signIn = { title: 'Start Pro Trial' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nTry our developer productivity and collaboration services free for 7 days.`,
+				`${title}\n\nStart your free 7-day Pro trial to try Pro features.`,
 				{ modal: true },
 				signIn,
 				cancel,
@@ -47,7 +47,7 @@ export async function ensurePaidPlan(title: string, container: Container): Promi
 			const upgrade = { title: 'Upgrade to Pro' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nContinue to use our developer productivity and collaboration services.`,
+				`${title}\n\nPlease upgrade to use Pro features.`,
 				{ modal: true },
 				upgrade,
 				cancel,
@@ -68,7 +68,7 @@ export async function ensureAccount(title: string, container: Container): Promis
 	while (true) {
 		const subscription = await container.subscription.getSubscription();
 		if (subscription.account?.verified === false) {
-			const resend = { title: 'Resend Verification' };
+			const resend = { title: 'Resend Email' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
 				`${title}\n\nYou must verify your email before you can continue.`,
@@ -92,10 +92,10 @@ export async function ensureAccount(title: string, container: Container): Promis
 		const signUp = { title: 'Sign Up' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			`${title}\n\nGain access to our developer productivity and collaboration services.`,
+			`${title}\n\nSign up for access to Pro features and our DevEx platform, or sign in`,
 			{ modal: true },
-			signIn,
 			signUp,
+			signIn,
 			cancel,
 		);
 

@@ -6,7 +6,7 @@ import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
-import { ensureAccount, ensurePaidPlan } from '../utils';
+import { ensureAccount } from '../utils';
 
 export interface EnrichableItem {
 	type: EnrichedItemResponse['entityType'];
@@ -114,7 +114,7 @@ export class EnrichmentService implements Disposable {
 		const scope = getLogScope();
 
 		try {
-			if (!(await ensureAccount('Pinning requires a GitKraken account.', this.container))) {
+			if (!(await ensureAccount('Pinning is a Preview feature and requires an account.', this.container))) {
 				throw new Error('Unable to pin item: account required');
 			}
 
@@ -157,7 +157,7 @@ export class EnrichmentService implements Disposable {
 		const scope = getLogScope();
 
 		try {
-			if (!(await ensurePaidPlan('Snoozing requires a trial or paid plan', this.container))) {
+			if (!(await ensureAccount('Snoozing is a Preview feature and requires an acccount.', this.container))) {
 				throw new Error('Unable to snooze item: subscription required');
 			}
 

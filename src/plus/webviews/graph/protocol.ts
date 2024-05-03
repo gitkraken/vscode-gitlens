@@ -374,19 +374,6 @@ export const DidChangeScrollMarkersNotification = new IpcNotification<DidChangeS
 	'scrollMarkers/didChange',
 );
 
-export interface DidChangeFocusParams {
-	focused: boolean;
-}
-export const DidChangeFocusNotification = new IpcNotification<DidChangeFocusParams>(scope, 'focus/didChange');
-
-export interface DidChangeWindowFocusParams {
-	focused: boolean;
-}
-export const DidChangeWindowFocusNotification = new IpcNotification<DidChangeWindowFocusParams>(
-	scope,
-	'window/focus/didChange',
-);
-
 export interface DidChangeRefsVisibilityParams {
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;

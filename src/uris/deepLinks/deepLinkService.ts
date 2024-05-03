@@ -491,7 +491,9 @@ export class DeepLinkService implements Disposable {
 
 					if (
 						!(await ensureAccount(
-							`Opening ${deepLinkTypeToString(targetType)} links requires a GitKraken account.`,
+							`Opening ${deepLinkTypeToString(
+								targetType,
+							)} links is a Preview feature and requires an account.`,
 							this.container,
 						))
 					) {
@@ -516,7 +518,7 @@ export class DeepLinkService implements Disposable {
 
 					if (
 						!(await ensurePaidPlan(
-							`A paid plan is required to open ${deepLinkTypeToString(targetType)} links.`,
+							`Opening ${deepLinkTypeToString(targetType)} links is a Pro feature.`,
 							this.container,
 						))
 					) {

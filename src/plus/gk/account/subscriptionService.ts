@@ -255,6 +255,11 @@ export class SubscriptionService implements Disposable {
 				if (result === confirm) {
 					void this.resendVerification();
 				}
+			} else if (isSubscriptionPaid(this._subscription)) {
+				void window.showInformationMessage(
+					`Welcome to ${actual.name}. You can now use Pro features on privately-hosted repos.`,
+					'OK',
+				);
 			} else if (isSubscriptionTrial(this._subscription)) {
 				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
 
@@ -263,7 +268,7 @@ export class SubscriptionService implements Disposable {
 				const result = await window.showInformationMessage(
 					`Welcome to ${
 						effective.name
-					} (Trial). You can now try Pro features on privately hosted repos for ${pluralize(
+					} (Trial). You can now try Pro features on privately-hosted repos for ${pluralize(
 						'more day',
 						remaining ?? 0,
 					)}.`,
@@ -275,14 +280,9 @@ export class SubscriptionService implements Disposable {
 				if (result === learn) {
 					void this.learnAboutPreviewOrTrial();
 				}
-			} else if (isSubscriptionPaid(this._subscription)) {
-				void window.showInformationMessage(
-					`Welcome to ${actual.name}. You can now use Pro features on privately hosted repos.`,
-					'OK',
-				);
 			} else {
 				void window.showInformationMessage(
-					`Welcome to ${actual.name}. You can use Pro features on local & publicly hosted repos.`,
+					`Welcome to ${actual.name}. You can use Pro features on local & publicly-hosted repos.`,
 					'OK',
 				);
 			}
@@ -446,7 +446,7 @@ export class SubscriptionService implements Disposable {
 				const confirm: MessageItem = { title: 'Start Pro Trial', isCloseAffordance: true };
 				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days of all Pro features.\n\nA trial or paid plan is required to use Pro features on privately hosted repos.',
+					'Start your free 7-day Pro trial to try Pro features.\n\nA trial or paid plan is required to use Pro features on privately-hosted repos.',
 					{ modal: true },
 					confirm,
 					cancel,
@@ -499,7 +499,7 @@ export class SubscriptionService implements Disposable {
 					`You can now preview Pro features for ${pluralize(
 						'day',
 						days,
-					)}. After which, you can start a free GitLens Pro trial for an additional 7 days.`,
+					)}. After which, start your free 7-day Pro trial for full access to Pro features.`,
 					confirm,
 					learn,
 				);
@@ -528,7 +528,7 @@ export class SubscriptionService implements Disposable {
 		if (!rsp.ok) {
 			if (rsp.status === 409) {
 				void window.showErrorMessage(
-					'Unable to reactivate trial: User not eligible. Please try again. If this issue persists, please contact support.',
+					'You are not eligible to reactivate your trial. If you feel that this incorrect, please contact support.',
 					'OK',
 				);
 				return;
@@ -550,7 +550,7 @@ export class SubscriptionService implements Disposable {
 				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
 				const learn: MessageItem = { title: "See What's New" };
 				const result = await window.showInformationMessage(
-					`Your new trial has been activated! Enjoy access to Pro features on privately hosted repos for another ${pluralize(
+					`Your Pro trial has been reactivated! Experience all the new Pro features for another ${pluralize(
 						'day',
 						remaining ?? 0,
 					)}.`,
@@ -1118,7 +1118,7 @@ export class SubscriptionService implements Disposable {
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				trial
 					? `**Please verify your email**\n\nYou must verify your email before you can start your **${effective.name}** trial.\n\nClick for details`
-					: `**Please verify your email**\n\nYou must verify your email before you can use Pro features on privately hosted repos.\n\nClick for details`,
+					: `**Please verify your email**\n\nYou must verify your email before you can use Pro features on privately-hosted repos.\n\nClick for details`,
 				true,
 			);
 		} else {

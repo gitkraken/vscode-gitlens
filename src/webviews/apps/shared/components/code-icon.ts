@@ -567,6 +567,9 @@ const iconMap = Object.freeze({
 export class CodeIcon extends LitElement {
 	static override styles = css`
 		:host {
+			--code-icon-size: 16px;
+			--code-icon-v-align: text-bottom;
+
 			font: normal normal normal var(--code-icon-size, 16px) / 1 codicon;
 			display: inline-block;
 			text-decoration: none;
@@ -578,7 +581,7 @@ export class CodeIcon extends LitElement {
 			-webkit-user-select: none;
 			-ms-user-select: none;
 			color: inherit;
-			vertical-align: text-bottom;
+			vertical-align: var(--code-icon-v-align);
 			letter-spacing: normal;
 		}
 
@@ -630,7 +633,7 @@ export class CodeIcon extends LitElement {
 	modifier = '';
 
 	@property({ type: Number })
-	size = 16;
+	size: number | undefined = undefined;
 
 	override updated(changedProperties: Map<string, unknown>) {
 		if (changedProperties.has('size')) {

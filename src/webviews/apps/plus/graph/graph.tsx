@@ -21,7 +21,6 @@ import {
 	ChooseRepositoryCommand,
 	DidChangeAvatarsNotification,
 	DidChangeColumnsNotification,
-	DidChangeFocusNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
 	DidChangeRefsMetadataNotification,
@@ -31,7 +30,6 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
-	DidChangeWindowFocusNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidSearchNotification,
@@ -55,6 +53,7 @@ import { debug } from '../../../../system/decorators/log';
 import { debounce } from '../../../../system/function';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import type { IpcMessage, IpcNotification } from '../../../protocol';
+import { DidChangeHostWindowFocusNotification } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import type { ThemeChangeEvent } from '../../shared/theme';
 import { GraphWrapper } from './GraphWrapper';
@@ -157,13 +156,10 @@ export class GraphApp extends App<State> {
 				this.state.avatars = msg.params.avatars;
 				this.setState(this.state, DidChangeAvatarsNotification);
 				break;
-			case DidChangeFocusNotification.is(msg):
-				window.dispatchEvent(new CustomEvent(msg.params.focused ? 'webview-focus' : 'webview-blur'));
-				break;
 
-			case DidChangeWindowFocusNotification.is(msg):
+			case DidChangeHostWindowFocusNotification.is(msg):
 				this.state.windowFocused = msg.params.focused;
-				this.setState(this.state, DidChangeWindowFocusNotification);
+				this.setState(this.state, DidChangeHostWindowFocusNotification);
 				break;
 
 			case DidChangeColumnsNotification.is(msg):

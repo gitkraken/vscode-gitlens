@@ -56,11 +56,11 @@ export function createDirectiveQuickPickItem(
 				break;
 			case Directive.StartPreviewTrial:
 				label = 'Preview Pro';
-				detail = 'Preview Pro for 3-days to use this on privately hosted repos';
+				detail = 'Preview Pro for 3-days to use this on privately-hosted repos';
 				break;
 			case Directive.ExtendTrial:
 				label = 'Start Pro Trial';
-				detail = 'Continue to use this on privately hosted repos, free for an additional 7 days';
+				detail = 'Continue to use this on privately-hosted repos, free for an additional 7 days';
 				break;
 			case Directive.RequiresVerification:
 				label = 'Resend Verification Email';
@@ -68,7 +68,7 @@ export function createDirectiveQuickPickItem(
 				break;
 			case Directive.RequiresPaidSubscription:
 				label = 'Upgrade to Pro';
-				detail = 'A paid plan is required to use this on privately hosted repos';
+				detail = 'A paid plan is required to use this on privately-hosted repos';
 				break;
 		}
 	}

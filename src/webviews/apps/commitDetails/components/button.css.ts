@@ -22,4 +22,16 @@ export const buttonStyles = css`
 		width: 100%;
 		max-width: 30rem;
 	}
+
+	.button-group > *:not(:first-child),
+	.button-group > *:not(:first-child) gl-button {
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+	}
+
+	.button-group > *:not(:last-child),
+	.button-group > *:not(:last-child) gl-button {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+	}
 `;
