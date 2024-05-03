@@ -79,6 +79,7 @@ import type {
 } from './protocol';
 import {
 	AutolinkSettingsCommand,
+	ChangeReviewModeCommand,
 	CreatePatchFromWipCommand,
 	DidChangeDraftStateNotification,
 	DidChangeNotification,
@@ -137,6 +138,7 @@ interface Context {
 	autolinkedIssues: IssueOrPullRequest[] | undefined;
 	pullRequest: PullRequest | undefined;
 	wip: WipContext | undefined;
+	inReview: boolean;
 	orgSettings: State['orgSettings'];
 }
 
@@ -160,6 +162,7 @@ export class CommitDetailsWebviewProvider
 	) {
 		this._context = {
 			mode: 'commit',
+			inReview: false,
 			navigationStack: {
 				count: 0,
 				position: 0,
@@ -419,6 +422,9 @@ export class CommitDetailsWebviewProvider
 			case ShowCodeSuggestionCommand.is(e):
 				this.showCodeSuggestion(e.params.id);
 				break;
+			case ChangeReviewModeCommand.is(e):
+				void this.setInReview(e.params.inReview);
+				break;
 		}
 	}
 
@@ -509,7 +515,7 @@ export class CommitDetailsWebviewProvider
 			}
 
 			void showNotification();
-			this.notifyEndReview();
+			void this.setInReview(false);
 		} catch (ex) {
 			debugger;
 
@@ -857,6 +863,7 @@ export class CommitDetailsWebviewProvider
 			pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
 			wip: serializeWipContext(current.wip),
 			orgSettings: current.orgSettings,
+			inReview: current.inReview,
 		});
 		return state;
 	}
@@ -1270,8 +1277,18 @@ export class CommitDetailsWebviewProvider
 		this.updateState();
 	}
 
-	private notifyEndReview() {
-		void this.host.notify(DidChangeDraftStateNotification, { inReview: false });
+	private async setInReview(inReview: boolean) {
+		if (this._context.inReview === inReview) return;
+
+		if (this._pendingContext == null) {
+			const success = await this.host.notify(DidChangeDraftStateNotification, { inReview: inReview });
+			if (success) {
+				this._context.inReview = inReview;
+			}
+		}
+
+		this.updatePendingContext({ inReview: inReview });
+		this.updateState(true);
 	}
 
 	private async notifyDidChangeState(force: boolean = false) {

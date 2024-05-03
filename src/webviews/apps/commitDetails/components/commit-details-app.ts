@@ -8,6 +8,7 @@ import { pluralize } from '../../../../system/string';
 import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
 import {
 	AutolinkSettingsCommand,
+	ChangeReviewModeCommand,
 	CreatePatchFromWipCommand,
 	DidChangeDraftStateNotification,
 	DidChangeNotification,
@@ -165,6 +166,9 @@ export class GlCommitDetailsApp extends LitElement {
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		if (changedProperties.has('state')) {
 			this.updateDocumentProperties();
+			if (this.state?.inReview != null && this.state.inReview != this.draftState.inReview) {
+				this.draftState.inReview = this.state.inReview;
+			}
 		}
 	}
 
@@ -445,8 +449,10 @@ export class GlCommitDetailsApp extends LitElement {
 	}
 
 	private onDraftStateChanged(inReview: boolean) {
+		if (inReview === this.draftState.inReview) return;
 		this.draftState = { ...this.draftState, inReview: inReview };
 		this.requestUpdate('draftState');
+		this._hostIpc.sendCommand(ChangeReviewModeCommand, { inReview: inReview });
 	}
 
 	private onBranchAction(name: string) {
