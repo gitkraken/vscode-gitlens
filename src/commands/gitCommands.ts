@@ -874,20 +874,28 @@ export class GitCommandsCommand extends Command {
 										resolve(await commandsStep.command?.retry());
 										return;
 
-									case Directive.StartPreviewTrial:
-										void Container.instance.subscription.startPreviewTrial();
-										resolve(undefined);
+									case Directive.SignIn: {
+										const result = await Container.instance.subscription.loginOrSignUp(false);
+										resolve(result ? await commandsStep.command?.retry() : undefined);
+										return;
+									}
+
+									case Directive.StartPreview:
+										await Container.instance.subscription.startPreviewTrial();
+										resolve(await commandsStep.command?.retry());
 										return;
 
-									case Directive.RequiresVerification:
-										void Container.instance.subscription.resendVerification();
-										resolve(undefined);
+									case Directive.RequiresVerification: {
+										const result = await Container.instance.subscription.resendVerification();
+										resolve(result ? await commandsStep.command?.retry() : undefined);
 										return;
+									}
 
-									case Directive.ExtendTrial:
-										void Container.instance.subscription.loginOrSignUp();
-										resolve(undefined);
+									case Directive.StartProTrial: {
+										const result = await Container.instance.subscription.loginOrSignUp(true);
+										resolve(result ? await commandsStep.command?.retry() : undefined);
 										return;
+									}
 
 									case Directive.RequiresPaidSubscription:
 										void Container.instance.subscription.purchase();
@@ -946,7 +954,8 @@ export class GitCommandsCommand extends Command {
 					items = step.items;
 				}
 
-				quickpick.canSelectMany = Boolean(step.multiselect) && items.length > 1;
+				quickpick.canSelectMany =
+					Boolean(step.multiselect) && items.filter(i => !isDirectiveQuickPickItem(i)).length > 1;
 				quickpick.placeholder =
 					typeof step.placeholder === 'function' ? step.placeholder(items.length) : step.placeholder;
 				quickpick.items = items;

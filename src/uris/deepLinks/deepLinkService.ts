@@ -518,8 +518,8 @@ export class DeepLinkService implements Disposable {
 
 					if (
 						!(await ensurePaidPlan(
-							`Opening ${deepLinkTypeToString(targetType)} links is a Pro feature.`,
 							this.container,
+							`Opening ${deepLinkTypeToString(targetType)} links is a Pro feature.`,
 						))
 					) {
 						action = DeepLinkServiceAction.DeepLinkErrored;

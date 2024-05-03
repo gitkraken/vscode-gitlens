@@ -300,7 +300,7 @@ export class GlFocusApp extends LitElement {
 					></gl-button>
 					<gl-feature-badge
 						preview
-						.featureWithArticleIfNeeded="Launchpad"
+						featureWithArticleIfNeeded="Launchpad"
 						.subscription=${this.subscription}
 					></gl-feature-badge>
 				</div>
@@ -308,6 +308,7 @@ export class GlFocusApp extends LitElement {
 				<div class="app__content">
 					<gl-feature-gate
 						.state=${this.subscription?.state}
+						featureWithArticleIfNeeded="Launchpad"
 						.visible=${this.showFeatureGate}
 						id="subscription-gate"
 						class="scrollable"

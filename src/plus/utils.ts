@@ -1,9 +1,13 @@
 import type { MessageItem } from 'vscode';
 import { env, Uri, window } from 'vscode';
 import type { Container } from '../container';
-import { isSubscriptionPaidPlan } from './gk/account/subscription';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from './gk/account/subscription';
 
-export async function ensurePaidPlan(title: string, container: Container): Promise<boolean> {
+export async function ensurePaidPlan(
+	container: Container,
+	title: string,
+	options?: { allowPreview?: boolean },
+): Promise<boolean> {
 	while (true) {
 		const subscription = await container.subscription.getSubscription();
 		if (subscription.account?.verified === false) {
@@ -28,18 +32,34 @@ export async function ensurePaidPlan(title: string, container: Container): Promi
 		const plan = subscription.plan.effective.id;
 		if (isSubscriptionPaidPlan(plan)) break;
 
-		if (subscription.account == null) {
-			const signIn = { title: 'Start Pro Trial' };
+		if (options?.allowPreview && subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
+			const startTrial = { title: 'Continue' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nStart your free 7-day Pro trial to try Pro features.`,
+				`${title}\n\nDo you want to continue to get immediate access to preview local Pro features for 3 days?`,
 				{ modal: true },
+				startTrial,
+				cancel,
+			);
+
+			if (result !== startTrial) return false;
+
+			void container.subscription.startPreviewTrial();
+			break;
+		} else if (subscription.account == null) {
+			const signUp = { title: 'Start Pro Trial' };
+			const signIn = { title: 'Sign In' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showWarningMessage(
+				`${title}\n\nDo you want to start your free 7-day Pro trial for full access to Pro features?`,
+				{ modal: true },
+				signUp,
 				signIn,
 				cancel,
 			);
 
-			if (result === signIn) {
-				if (await container.subscription.loginOrSignUp()) {
+			if (result === signUp || result === signIn) {
+				if (await container.subscription.loginOrSignUp(result === signUp)) {
 					continue;
 				}
 			}
@@ -47,7 +67,7 @@ export async function ensurePaidPlan(title: string, container: Container): Promi
 			const upgrade = { title: 'Upgrade to Pro' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nPlease upgrade to use Pro features.`,
+				`${title}\n\nDo you want to upgrade for full access to Pro features?`,
 				{ modal: true },
 				upgrade,
 				cancel,
@@ -88,8 +108,8 @@ export async function ensureAccount(title: string, container: Container): Promis
 
 		if (subscription.account != null) break;
 
-		const signIn = { title: 'Sign In' };
 		const signUp = { title: 'Sign Up' };
+		const signIn = { title: 'Sign In' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
 		const result = await window.showWarningMessage(
 			`${title}\n\nSign up for access to Pro features and our DevEx platform, or sign in`,
@@ -100,7 +120,7 @@ export async function ensureAccount(title: string, container: Container): Promis
 		);
 
 		if (result === signIn) {
-			if (await container.subscription.loginOrSignUp()) {
+			if (await container.subscription.loginOrSignUp(false)) {
 				continue;
 			}
 		} else if (result === signUp) {

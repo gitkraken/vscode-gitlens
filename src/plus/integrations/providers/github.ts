@@ -8,9 +8,10 @@ import type { PullRequestMergeMethod, PullRequestState, SearchedPullRequest } fr
 import { PullRequest } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
+import { ensurePaidPlan } from '../../utils';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
 import type { SupportedIntegrationIds } from '../integration';
-import { ensurePaidPlan, HostingIntegration } from '../integration';
+import { HostingIntegration } from '../integration';
 import { HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
 import type { ProvidersApi } from './providersApi';
 
@@ -254,7 +255,7 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHoste
 
 	@log()
 	override async connect(): Promise<boolean> {
-		if (!(await ensurePaidPlan(`${this.name} instance`, this.container))) {
+		if (!(await ensurePaidPlan(this.container, `Rich integration with ${this.name} is a Pro feature.`))) {
 			return false;
 		}
 

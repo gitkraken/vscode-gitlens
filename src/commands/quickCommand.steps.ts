@@ -2583,29 +2583,46 @@ export async function* ensureAccessStep<
 	const directives: DirectiveQuickPickItem[] = [];
 	let placeholder: string;
 	if (access.subscription.current.account?.verified === false) {
-		directives.push(createDirectiveQuickPickItem(Directive.RequiresVerification, true));
+		directives.push(
+			createDirectiveQuickPickItem(Directive.RequiresVerification, true),
+			createQuickPickSeparator(),
+			createDirectiveQuickPickItem(Directive.Cancel),
+		);
 		placeholder = 'You must verify your email before you can continue';
 	} else {
 		if (access.subscription.required == null) return undefined;
 
-		placeholder = 'Requires a trial or paid plan for use on privately-hosted repos';
+		placeholder = 'Pro feature — requires a trial or paid plan for use on privately-hosted repos';
 		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
-			placeholder = 'Requires a paid plan for use on privately-hosted repos';
-			directives.push(createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, true));
+			placeholder = 'Pro feature — requires a paid plan for use on privately-hosted repos';
+			directives.push(
+				createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, true),
+				createQuickPickSeparator(),
+				createDirectiveQuickPickItem(Directive.Cancel),
+			);
 		} else if (
 			access.subscription.current.account == null &&
 			!isSubscriptionPreviewTrialExpired(access.subscription.current)
 		) {
-			directives.push(createDirectiveQuickPickItem(Directive.StartPreviewTrial, true));
+			directives.push(
+				createDirectiveQuickPickItem(Directive.StartPreview, true),
+				createQuickPickSeparator(),
+				createDirectiveQuickPickItem(Directive.Cancel),
+			);
 		} else {
-			directives.push(createDirectiveQuickPickItem(Directive.ExtendTrial));
+			directives.push(
+				createDirectiveQuickPickItem(Directive.StartProTrial, true),
+				createDirectiveQuickPickItem(Directive.SignIn),
+				createQuickPickSeparator(),
+				createDirectiveQuickPickItem(Directive.Cancel),
+			);
 		}
 	}
 
 	const step = createPickStep<DirectiveQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
 		placeholder: placeholder,
-		items: [...directives, createDirectiveQuickPickItem(Directive.Cancel)],
+		items: directives,
 	});
 
 	const selection: StepSelection<typeof step> = yield step;
