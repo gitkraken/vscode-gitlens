@@ -881,6 +881,7 @@ export class CommitDetailsWebviewProvider
 		}
 
 		let wip: WipContext | undefined = undefined;
+		let inReview = this._context.inReview;
 
 		if (repository != null) {
 			if (this._wipSubscription == null) {
@@ -903,21 +904,27 @@ export class CommitDetailsWebviewProvider
 				}
 			}
 
+			if (wip.pullRequest?.state != 'opened') {
+				inReview = false;
+			}
+
 			if (this._pendingContext == null) {
 				const success = await this.host.notify(
 					DidChangeWipStateNotification,
 					serialize({
 						wip: serializeWipContext(wip),
+						inReview: inReview,
 					}) as DidChangeWipStateParams,
 				);
 				if (success) {
 					this._context.wip = wip;
+					this._context.inReview = inReview;
 					return;
 				}
 			}
 		}
 
-		this.updatePendingContext({ wip: wip });
+		this.updatePendingContext({ wip: wip, inReview: inReview });
 		this.updateState(true);
 	}
 

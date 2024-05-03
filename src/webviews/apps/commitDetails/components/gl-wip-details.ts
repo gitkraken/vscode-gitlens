@@ -106,7 +106,7 @@ export class GlWipDetails extends GlDetailsBase {
 			let label = 'Share as Cloud Patch';
 			let action = 'create-patch';
 			const pr = this.wip?.pullRequest;
-			if (pr != null) {
+			if (pr != null && pr.state === 'opened') {
 				// const isMe = pr.author.name.endsWith('(you)');
 				// if (isMe) {
 				// 	label = 'Share with PR Participants';
