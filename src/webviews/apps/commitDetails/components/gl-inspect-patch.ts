@@ -261,10 +261,6 @@ export class InspectPatch extends GlElement {
 			@gl-patch-file-open=${(e: CustomEvent) => {
 				console.log('gl-patch-file-open', e);
 			}}
-			@gl-patch-create-patch=${(e: CustomEventType<'gl-patch-create-patch'>) => {
-				console.log('gl-patch-create-patch', e);
-				this.emit('gl-patch-create-patch', e.detail);
-			}}
 			@gl-patch-create-update-metadata=${(e: CustomEvent) => {
 				console.log('gl-patch-create-update-metadata', e);
 			}}
