@@ -1,4 +1,4 @@
-import type { AuthenticationSession } from 'vscode';
+import type { AuthenticationSession, CancellationToken } from 'vscode';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -135,10 +135,18 @@ abstract class GitLabIntegrationBase<ID extends SupportedIntegrationIds> extends
 	protected override async getProviderRepositoryMetadata(
 		{ accessToken }: AuthenticationSession,
 		repo: GitLabRepositoryDescriptor,
+		cancellation?: CancellationToken,
 	): Promise<RepositoryMetadata | undefined> {
-		return (await this.container.gitlab)?.getRepositoryMetadata(this, accessToken, repo.owner, repo.name, {
-			baseUrl: this.apiBaseUrl,
-		});
+		return (await this.container.gitlab)?.getRepositoryMetadata(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+			cancellation,
+		);
 	}
 
 	protected override searchProviderMyPullRequests(

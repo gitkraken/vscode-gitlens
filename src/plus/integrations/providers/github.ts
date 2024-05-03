@@ -132,10 +132,18 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 	protected override async getProviderRepositoryMetadata(
 		{ accessToken }: AuthenticationSession,
 		repo: GitHubRepositoryDescriptor,
+		cancellation?: CancellationToken,
 	): Promise<RepositoryMetadata | undefined> {
-		return (await this.container.github)?.getRepositoryMetadata(this, accessToken, repo.owner, repo.name, {
-			baseUrl: this.apiBaseUrl,
-		});
+		return (await this.container.github)?.getRepositoryMetadata(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+			cancellation,
+		);
 	}
 
 	protected override async searchProviderMyPullRequests(
