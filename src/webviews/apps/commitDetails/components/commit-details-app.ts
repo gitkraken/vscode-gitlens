@@ -286,7 +286,7 @@ export class GlCommitDetailsApp extends LitElement {
 				break;
 
 			case DidChangeWipStateNotification.is(msg):
-				this.state = { ...this.state!, wip: msg.params.wip };
+				this.state = { ...this.state!, wip: msg.params.wip, inReview: msg.params.inReview };
 				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
 				// this.setState(this.state);
 				// this.attachState();

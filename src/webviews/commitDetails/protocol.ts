@@ -199,7 +199,7 @@ export interface DidChangeParams {
 }
 export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true);
 
-export type DidChangeWipStateParams = Pick<Serialized<State>, 'wip'>;
+export type DidChangeWipStateParams = Pick<Serialized<State>, 'wip' | 'inReview'>;
 export const DidChangeWipStateNotification = new IpcNotification<DidChangeWipStateParams>(scope, 'didChange/wip');
 
 export type DidChangeOrgSettings = Pick<Serialized<State>, 'orgSettings'>;
