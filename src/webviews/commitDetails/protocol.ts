@@ -102,6 +102,7 @@ export interface State extends WebviewState {
 	autolinkedIssues?: IssueOrPullRequest[];
 	pullRequest?: PullRequestShape;
 	wip?: Wip;
+	inReview?: boolean;
 }
 
 export type ShowCommitDetailsViewCommandArgs = string[];
@@ -164,6 +165,11 @@ export interface CreatePatchFromWipParams {
 	checked: boolean | 'staged';
 }
 export const CreatePatchFromWipCommand = new IpcCommand<CreatePatchFromWipParams>(scope, 'wip/createPatch');
+
+export interface ChangeReviewModeParams {
+	inReview: boolean;
+}
+export const ChangeReviewModeCommand = new IpcCommand<ChangeReviewModeParams>(scope, 'wip/changeReviewMode');
 
 export interface ShowCodeSuggestionParams {
 	id: string;
