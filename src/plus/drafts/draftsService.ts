@@ -839,7 +839,7 @@ export class DraftService implements Disposable {
 		const id = typeof draftOrDraftId === 'string' ? draftOrDraftId : draftOrDraftId.id;
 
 		const deepLinkRedirectUrl = new URL(`https://${modePrefixString}gitkraken.dev/drafts/${id}`);
-		deepLinkRedirectUrl.searchParams.set('origin', 'gitlens');
+		deepLinkRedirectUrl.searchParams.set('source', 'gitlens');
 		return deepLinkRedirectUrl;
 	}
 
