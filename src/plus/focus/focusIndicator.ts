@@ -124,7 +124,7 @@ export class FocusIndicator implements Disposable {
 			? 'gitlens.showFocusPage'
 			: {
 					title: 'Open Launchpad',
-					command: Commands.QuickFocus,
+					command: Commands.ShowLaunchpad,
 					arguments: [{ state: { selectTopItem: label === 'item' } }],
 			  };
 	}
@@ -192,7 +192,7 @@ export class FocusIndicator implements Disposable {
 		this._statusBarFocus.tooltip.supportHtml = true;
 		this._statusBarFocus.tooltip.isTrusted = true;
 		this._statusBarFocus.tooltip.appendMarkdown(
-			'GitLens Launchpad ᴘʀᴇᴠɪᴇᴡ\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0',
+			'GitLens Launchpad ᴾᴿᴱⱽᴵᴱᵂ\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0',
 		);
 
 		this._statusBarFocus.tooltip.appendMarkdown(
@@ -257,7 +257,7 @@ export class FocusIndicator implements Disposable {
 										labelText === 'item' && topItem != null
 											? this.getTopItemLabel(topItem.item, items.length)
 											: pluralize('pull request', items.length)
-									} can be merged.](command:gitlens.quickFocus?${encodeURIComponent(
+									} can be merged.](command:gitlens.showLaunchpad?${encodeURIComponent(
 										JSON.stringify({
 											state: { initialGroup: 'mergeable', selectTopItem: labelText === 'item' },
 										}),
@@ -311,7 +311,7 @@ export class FocusIndicator implements Disposable {
 											: pluralize('pull request', items.length)
 									} ${
 										hasMultipleCategories ? 'are blocked' : actionMessage
-									}.](command:gitlens.quickFocus?${encodeURIComponent(
+									}.](command:gitlens.showLaunchpad?${encodeURIComponent(
 										JSON.stringify({
 											state: { initialGroup: 'blocked', selectTopItem: labelText === 'item' },
 										}),
@@ -344,7 +344,7 @@ export class FocusIndicator implements Disposable {
 											: pluralize('pull request', items.length)
 									} ${
 										items.length > 1 ? 'require' : 'requires'
-									} follow-up.](command:gitlens.quickFocus?${encodeURIComponent(
+									} follow-up.](command:gitlens.showLaunchpad?${encodeURIComponent(
 										JSON.stringify({
 											state: { initialGroup: 'follow-up', selectTopItem: labelText === 'item' },
 										}),
@@ -362,7 +362,7 @@ export class FocusIndicator implements Disposable {
 											: pluralize('pull request', items.length)
 									} ${
 										items.length > 1 ? 'need' : 'needs'
-									} your review.](command:gitlens.quickFocus?${encodeURIComponent(
+									} your review.](command:gitlens.showLaunchpad?${encodeURIComponent(
 										JSON.stringify({
 											state: {
 												initialGroup: 'needs-review',

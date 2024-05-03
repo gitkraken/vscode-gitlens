@@ -895,6 +895,12 @@ button:not([disabled]),
 	}
 }
 
+gl-feature-gate gl-feature-badge {
+	vertical-align: super;
+	margin-left: 0.4rem;
+	margin-right: 0.4rem;
+}
+
 .graph-app {
 	--fs-1: 1.1rem;
 	--fs-2: 1.3rem;
@@ -925,7 +931,8 @@ button:not([disabled]),
 	}
 
 	&__gate {
-		top: 34px; /* height of the header bar */
+		// top: 34px; /* height of the header bar */
+		padding-top: 34px;
 	}
 
 	&__header {

@@ -136,6 +136,14 @@ h4 {
 		align-items: center;
 		display: flex;
 		gap: 0.3rem;
+
+		gl-feature-badge {
+			padding-bottom: 0.4rem;
+
+			body[data-placement='editor'] & {
+				padding-left: 0.4rem;
+			}
+		}
 	}
 }
 
@@ -209,6 +217,12 @@ body:not([data-placement='editor']) {
 
 [hidden] {
 	display: none !important;
+}
+
+gl-feature-gate gl-feature-badge {
+	vertical-align: super;
+	margin-left: 0.4rem;
+	margin-right: 0.4rem;
 }
 
 @import './chart';

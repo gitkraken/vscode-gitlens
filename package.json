@@ -5386,7 +5386,7 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.quickFocus",
+				"command": "gitlens.showLaunchpad",
 				"title": "Open Launchpad",
 				"category": "GitLens",
 				"icon": "$(rocket)"
@@ -9315,7 +9315,7 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.quickFocus",
+					"command": "gitlens.showLaunchpad",
 					"when": "gitlens:prerelease"
 				},
 				{
@@ -16606,35 +16606,43 @@
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "Cloud Patches allow you to easily and securely share code with your teammates or other developers, accessible from anywhere, streamlining your workflow with better collaboration."
+				"contents": "Cloud Patches ᴾᴿᴱⱽᴵᴱᵂ — easily and securely share code with your teammates or other developers, accessible from anywhere, streamlining your workflow with better collaboration."
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "[Create Cloud Patch](command:gitlens.views.drafts.create)\n\n☁️ Access is based on your plan, e.g. Free, Pro, etc",
+				"contents": "[Create Cloud Patch](command:gitlens.views.drafts.create)",
 				"when": "gitlens:plus"
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nStart a free 7-day GitLens Pro trial to use Cloud Patches, or [sign in](command:gitlens.plus.login).\n☁️ Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nStart your free 7-day Pro trial to try Cloud Patches and other Pro features, or [sign in](command:gitlens.plus.login).",
 				"when": "!gitlens:plus"
 			},
 			{
-				"view": "gitlens.views.workspaces",
-				"contents": "Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\n\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration."
+				"view": "gitlens.views.drafts",
+				"contents": "Preview feature ☁️ — requires an account and may require a paid plan in the future."
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "[Create Cloud Workspace](command:gitlens.views.workspaces.create)\n\n☁️ Access is based on your plan, e.g. Free, Pro, etc",
+				"contents": "Workspaces ᴾᴿᴱⱽᴵᴱᵂ — group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\n\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration."
+			},
+			{
+				"view": "gitlens.views.workspaces",
+				"contents": "[Create Cloud Workspace](command:gitlens.views.workspaces.create)",
 				"when": "gitlens:plus"
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nStart a free 7-day GitLens Pro trial to use GitKraken Workspaces, or [sign in](command:gitlens.plus.login).\n☁️ Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nStart your free 7-day Pro trial to try GitKraken (GK) Workspaces and other Pro features, or [sign in](command:gitlens.plus.login).",
 				"when": "!gitlens:plus"
+			},
+			{
+				"view": "gitlens.views.workspaces",
+				"contents": "Preview feature ☁️ — requires an account and may require a paid plan in the future."
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) — minimizes context switching by allowing you to work on multiple branches simultaneously."
+				"contents": "[Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) ᴾᴿᴼ — minimize context switching by allowing you to work on multiple branches simultaneously."
 			},
 			{
 				"view": "gitlens.views.worktrees",
@@ -16643,28 +16651,32 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Resend verification email](command:gitlens.plus.resendVerification)\n\n[Refresh verification status](command:gitlens.plus.validate)\n\nYou must verify your email before you can continue.",
+				"contents": "[Resend Verification Email](command:gitlens.plus.resendVerification)\n\nYou must verify your email before you can continue or [recheck Status](command:gitlens.plus.validate).",
 				"when": "gitlens:plus:state == -1"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview local Pro features for 3 days, or [sign up](command:gitlens.plus.signUp) to start a free 7-day GitLens Pro trial of all Pro features.",
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial)\n\nYou will have 3 days to preview Workrees and other local Pro features. [Start 7-day Pro trial](command:gitlens.plus.signUp) or [sign in](command:gitlens.plus.login) for full access to Pro features.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nYour 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days of all Pro features, or [sign in](command:gitlens.plus.login).",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nStart your free 7-day Pro trial to try Worktrees and other Pro features, or [sign in](command:gitlens.plus.login).",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Upgrade to Pro](command:gitlens.plus.purchase)\n\nYour GitLens Pro trial has ended. Please upgrade to continue to use Pro features.",
+				"contents": "[Upgrade to Pro](command:gitlens.plus.purchase)\n\nYour Pro trial has ended. Please upgrade to continue to use Worktrees and other Pro features on privately-hosted repos.\nSpecial: 50% off first seat of Pro — only $4/month!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Reactivate Pro Trial](command:gitlens.plus.reactivateProTrial)\n\nYou're eligible to reactivate your GitLens Pro trial and experience all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 7 days!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 5"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Pro feature — requires a paid plan for use on privately-hosted repos."
 			}
 		],
 		"views": {

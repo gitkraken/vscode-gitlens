@@ -648,7 +648,7 @@ export class PatchDetailsWebviewProvider
 		userSelections,
 	}: CreatePatchParams): Promise<void> {
 		if (
-			!(await ensureAccount('Cloud Patches require a GitKraken account.', this.container)) ||
+			!(await ensureAccount('Cloud Patches are a Preview feature and require an account.', this.container)) ||
 			!(await confirmDraftStorage(this.container))
 		) {
 			return;

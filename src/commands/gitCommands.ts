@@ -109,7 +109,7 @@ export class GitCommandsCommand extends Command {
 			Commands.GitCommandsWorktreeOpen,
 
 			Commands.CopyWorkingChangesToWorktree,
-			Commands.QuickFocus,
+			Commands.ShowLaunchpad,
 		]);
 	}
 
@@ -216,7 +216,7 @@ export class GitCommandsCommand extends Command {
 					state: { subcommand: 'copy-changes', changes: { type: 'working-tree' } },
 				};
 				break;
-			case Commands.QuickFocus:
+			case Commands.ShowLaunchpad:
 				args = { command: 'focus', ...args };
 				break;
 		}

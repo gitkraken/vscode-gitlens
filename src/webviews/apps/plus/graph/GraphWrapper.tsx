@@ -51,7 +51,6 @@ import {
 	DidChangeRowsStatsNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
-	DidChangeWindowFocusNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidSearchNotification,
@@ -60,6 +59,7 @@ import { filterMap, first, groupByFilterMap, join } from '../../../../system/ite
 import { pluralize } from '../../../../system/string';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type { IpcNotification } from '../../../protocol';
+import { DidChangeHostWindowFocusNotification } from '../../../protocol';
 import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
 import { GlTooltip } from '../../shared/components/overlays/react';
@@ -292,7 +292,7 @@ export function GraphWrapper({
 			case DidChangeAvatarsNotification:
 				setAvatars(state.avatars);
 				break;
-			case DidChangeWindowFocusNotification:
+			case DidChangeHostWindowFocusNotification:
 				setWindowFocused(state.windowFocused);
 				break;
 			case DidChangeRefsMetadataNotification:
@@ -1300,7 +1300,7 @@ export function GraphWrapper({
 						</>
 					)}
 					<GlTooltip placement="bottom">
-						<a href="command:gitlens.showFocusPage" className="action-button">
+						<a href="command:gitlens.showLaunchpad" className="action-button">
 							<span className="codicon codicon-rocket"></span>
 							Launchpad
 						</a>
@@ -1546,16 +1546,17 @@ export function GraphWrapper({
 			<GlFeatureGate
 				className="graph-app__gate"
 				appearance="alert"
+				featureWithArticleIfNeeded="the Commit Graph"
 				state={subscription?.state}
 				visible={!allowed}
 			>
 				<p slot="feature">
 					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#commit-graph-%e2%9c%a8">
 						Commit Graph
-					</a>{' '}
-					&mdash; easily visualize your repository and keep track of all work in progress. Use the rich commit
-					search to find a specific commit, message, author, a changed file or files, or even a specific code
-					change.
+					</a>
+					<GlFeatureBadge subscription={subscription}></GlFeatureBadge> &mdash; easily visualize your
+					repository and keep track of all work in progress. Use the rich commit search to find a specific
+					commit, message, author, a changed file or files, or even a specific code change.
 				</p>
 			</GlFeatureGate>
 			{graphConfig?.minimap && (

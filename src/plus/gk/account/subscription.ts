@@ -165,27 +165,6 @@ export function getSubscriptionPlanName(id: SubscriptionPlanId) {
 	}
 }
 
-export function getSubscriptionStatePlanName(state: SubscriptionState | undefined, id: SubscriptionPlanId | undefined) {
-	switch (state) {
-		case SubscriptionState.FreePlusTrialExpired:
-		case SubscriptionState.FreePlusTrialReactivationEligible:
-			return getSubscriptionPlanName(SubscriptionPlanId.FreePlus);
-		case SubscriptionState.FreeInPreviewTrial:
-			return `${getSubscriptionPlanName(SubscriptionPlanId.Pro)} (Trial)`;
-		case SubscriptionState.FreePlusInTrial:
-			return `${getSubscriptionPlanName(id ?? SubscriptionPlanId.Pro)} (Trial)`;
-		case SubscriptionState.VerificationRequired:
-			return `GitKraken (Unverified)`;
-		case SubscriptionState.Paid:
-			return getSubscriptionPlanName(id ?? SubscriptionPlanId.Pro);
-		case SubscriptionState.Free:
-		case SubscriptionState.FreePreviewTrialExpired:
-		case null:
-		default:
-			return '';
-	}
-}
-
 const plansPriority = new Map<SubscriptionPlanId | undefined, number>([
 	[undefined, -1],
 	[SubscriptionPlanId.Free, 0],
@@ -214,7 +193,7 @@ export function getTimeRemaining(
 }
 
 export function isSubscriptionPaid(subscription: Optional<Subscription, 'state'>): boolean {
-	return isSubscriptionPaidPlan(subscription.plan.effective.id);
+	return isSubscriptionPaidPlan(subscription.plan.actual.id);
 }
 
 export function isSubscriptionPaidPlan(id: SubscriptionPlanId): id is PaidSubscriptionPlans {

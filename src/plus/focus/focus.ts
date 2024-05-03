@@ -105,7 +105,7 @@ function assertsFocusStepState(state: StepState<State>): asserts state is FocusS
 @command()
 export class FocusCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: FocusCommandArgs) {
-		super(container, 'focus', 'focus', 'GitLens Launchpad\u00a0\u00a0ᴘʀᴇᴠɪᴇᴡ', {
+		super(container, 'focus', 'focus', 'GitLens Launchpad\u00a0\u00a0ᴾᴿᴱⱽᴵᴱᵂ', {
 			description: 'focus on a pull request or issue',
 		});
 
@@ -496,7 +496,7 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		const step = this.createConfirmStep(
-			`Focus on ${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
+			`PR ${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
 			confirmations,
 			undefined,
 			{

@@ -24,11 +24,12 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<gl-feature-gate id="subscription-gate" class="scrollable"
+		<gl-feature-gate id="subscription-gate" class="scrollable" featureWithArticleIfNeeded="Visual File History"
 			><p slot="feature">
 				<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-%e2%9c%a8"
 					>Visual File History</a
 				>
+				<gl-feature-badge></gl-feature-badge>
 				&mdash; visualize the evolution of a file and quickly identify when the most impactful changes were made
 				and by whom.
 			</p></gl-feature-gate
@@ -42,7 +43,6 @@
 					<h2 data-bind="description"></h2>
 				</div>
 				<div class="toolbox">
-					<gl-feature-badge id="subscription-gate-badge"></gl-feature-badge>
 					<div class="select-container">
 						<label for="periods">Timeframe</label>
 						<vscode-dropdown id="periods" name="periods" position="below">
@@ -58,14 +58,15 @@
 						</vscode-dropdown>
 					</div>
 					<gl-button
+						appearance="toolbar"
 						data-placement-visible="view"
 						href="command:gitlens.views.timeline.openInTab"
-						title="Open in Editor"
+						tooltip="Open in Editor"
 						aria-label="Open in Editor"
-						appearance="toolbar"
 					>
 						<code-icon icon="link-external"></code-icon>
 					</gl-button>
+					<gl-feature-badge placement="bottom"></gl-feature-badge>
 				</div>
 			</section>
 			<section id="content">
