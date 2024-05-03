@@ -2074,10 +2074,9 @@ export class GitProviderService implements Disposable {
 						) {
 							if (cancellation?.isCancellationRequested) throw new CancellationError();
 
-							const repo = await integration.getRepositoryMetadata(
-								remote.provider.repoDesc,
-								cancellation,
-							);
+							const repo = await integration.getRepositoryMetadata(remote.provider.repoDesc, {
+								cancellation: cancellation,
+							});
 
 							if (cancellation?.isCancellationRequested) throw new CancellationError();
 

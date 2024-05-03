@@ -337,23 +337,33 @@ export abstract class IntegrationBase<
 	): Promise<SearchedIssue[] | undefined>;
 
 	@debug()
-	async getIssueOrPullRequest(resource: T, id: string): Promise<IssueOrPullRequest | undefined> {
+	async getIssueOrPullRequest(
+		resource: T,
+		id: string,
+		options?: { expiryOverride?: boolean | number },
+	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const issueOrPR = this.container.cache.getIssueOrPullRequest(id, resource, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderIssueOrPullRequest(this._session!, resource, id);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<IssueOrPullRequest | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const issueOrPR = this.container.cache.getIssueOrPullRequest(
+			id,
+			resource,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderIssueOrPullRequest(this._session!, resource, id);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<IssueOrPullRequest | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			options,
+		);
 		return issueOrPR;
 	}
 
@@ -363,23 +373,32 @@ export abstract class IntegrationBase<
 		id: string,
 	): Promise<IssueOrPullRequest | undefined>;
 
-	async getCurrentAccount(options?: { avatarSize?: number }): Promise<Account | undefined> {
+	async getCurrentAccount(options?: {
+		avatarSize?: number;
+		expiryOverride?: boolean | number;
+	}): Promise<Account | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const currentAccount = this.container.cache.getCurrentAccount(this, () => ({
-			value: (async () => {
-				try {
-					const account = await this.getProviderCurrentAccount?.(this._session!, options);
-					this.resetRequestExceptionCount();
-					return account;
-				} catch (ex) {
-					return this.handleProviderException<Account | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const { expiryOverride, ...opts } = options ?? {};
+
+		const currentAccount = this.container.cache.getCurrentAccount(
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const account = await this.getProviderCurrentAccount?.(this._session!, opts);
+						this.resetRequestExceptionCount();
+						return account;
+					} catch (ex) {
+						return this.handleProviderException<Account | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			{ expiryOverride: expiryOverride },
+		);
 		return currentAccount;
 	}
 
@@ -579,29 +598,42 @@ export abstract class HostingIntegration<
 	): Promise<DefaultBranch | undefined>;
 
 	@debug()
-	async getRepositoryMetadata(repo: T, _cancellation?: CancellationToken): Promise<RepositoryMetadata | undefined> {
+	async getRepositoryMetadata(
+		repo: T,
+		options?: { cancellation?: CancellationToken; expiryOverride?: boolean | number },
+	): Promise<RepositoryMetadata | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const metadata = this.container.cache.getRepositoryMetadata(repo, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderRepositoryMetadata(this._session!, repo);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<RepositoryMetadata | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const metadata = this.container.cache.getRepositoryMetadata(
+			repo,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderRepositoryMetadata(
+							this._session!,
+							repo,
+							options?.cancellation,
+						);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<RepositoryMetadata | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			{ expiryOverride: options?.expiryOverride },
+		);
 		return metadata;
 	}
 
 	protected abstract getProviderRepositoryMetadata(
 		session: ProviderAuthenticationSession,
 		repo: T,
+		cancellation?: CancellationToken,
 	): Promise<RepositoryMetadata | undefined>;
 
 	async mergePullRequest(
@@ -638,6 +670,7 @@ export abstract class HostingIntegration<
 		branch: string,
 		options?: {
 			avatarSize?: number;
+			expiryOverride?: boolean | number;
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
@@ -646,17 +679,25 @@ export abstract class HostingIntegration<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const pr = this.container.cache.getPullRequestForBranch(branch, repo, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderPullRequestForBranch(this._session!, repo, branch, options);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const { expiryOverride, ...opts } = options ?? {};
+
+		const pr = this.container.cache.getPullRequestForBranch(
+			branch,
+			repo,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderPullRequestForBranch(this._session!, repo, branch, opts);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			{ expiryOverride: expiryOverride },
+		);
 		return pr;
 	}
 
@@ -671,23 +712,33 @@ export abstract class HostingIntegration<
 	): Promise<PullRequest | undefined>;
 
 	@debug()
-	async getPullRequestForCommit(repo: T, ref: string): Promise<PullRequest | undefined> {
+	async getPullRequestForCommit(
+		repo: T,
+		ref: string,
+		options?: { expiryOverride?: boolean | number },
+	): Promise<PullRequest | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const pr = this.container.cache.getPullRequestForSha(ref, repo, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderPullRequestForCommit(this._session!, repo, ref);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const pr = this.container.cache.getPullRequestForSha(
+			ref,
+			repo,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderPullRequestForCommit(this._session!, repo, ref);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			options,
+		);
 		return pr;
 	}
 

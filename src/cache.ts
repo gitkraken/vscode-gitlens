@@ -29,11 +29,13 @@ type Cacheable<T> = () => { value: CacheResult<T>; expiresAt?: number };
 type Cached<T> =
 	| {
 			value: T | undefined;
+			cachedAt: number;
 			expiresAt?: number;
 			etag?: string;
 	  }
 	| {
 			value: Promise<T | undefined>;
+			cachedAt: number;
 			expiresAt?: never; // Don't set an expiration on promises as they will resolve to a value with the desired expiration
 			etag?: string;
 	  };
@@ -57,12 +59,24 @@ export class CacheProvider implements Disposable {
 		key: CacheKey<T>,
 		etag: string | undefined,
 		cacheable: Cacheable<CacheValue<T>>,
+		options?: { expiryOverride?: boolean | number },
 	): CacheResult<CacheValue<T>> {
 		const item = this._cache.get(`${cache}:${key}`);
 
+		// Allow the caller to override the expiry
+		let expiry;
+		if (item != null) {
+			if (typeof options?.expiryOverride === 'number' && options.expiryOverride > 0) {
+				expiry = item.cachedAt + options.expiryOverride;
+			} else {
+				expiry = item.expiresAt;
+			}
+		}
+
 		if (
 			item == null ||
-			(item.expiresAt != null && item.expiresAt > 0 && item.expiresAt < Date.now()) ||
+			options?.expiryOverride === true ||
+			(expiry != null && expiry > 0 && expiry < Date.now()) ||
 			(item.etag != null && item.etag !== etag)
 		) {
 			const { value, expiresAt } = cacheable();
@@ -77,22 +91,30 @@ export class CacheProvider implements Disposable {
 		resource: ResourceDescriptor,
 		integration: IntegrationBase | undefined,
 		cacheable: Cacheable<IssueOrPullRequest>,
+		options?: { expiryOverride?: boolean | number },
 	): CacheResult<IssueOrPullRequest> {
 		const { key, etag } = getResourceKeyAndEtag(resource, integration);
 
 		if (resource == null) {
-			return this.get('issuesOrPrsById', `id:${id}:${key}`, etag, cacheable);
+			return this.get('issuesOrPrsById', `id:${id}:${key}`, etag, cacheable, options);
 		}
-		return this.get('issuesOrPrsByIdAndRepo', `id:${id}:${key}:${JSON.stringify(resource)}}`, etag, cacheable);
+		return this.get(
+			'issuesOrPrsByIdAndRepo',
+			`id:${id}:${key}:${JSON.stringify(resource)}}`,
+			etag,
+			cacheable,
+			options,
+		);
 	}
 
 	// getEnrichedAutolinks(
 	// 	sha: string,
 	// 	remoteOrProvider: Integration,
 	// 	cacheable: Cacheable<Map<string, EnrichedAutolink>>,
+	// 	options?: { force?: boolean },
 	// ): CacheResult<Map<string, EnrichedAutolink>> {
 	// 	const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
-	// 	return this.get('enrichedAutolinksBySha', `sha:${sha}:${key}`, etag, cacheable);
+	// 	return this.get('enrichedAutolinksBySha', `sha:${sha}:${key}`, etag, cacheable, options);
 	// }
 
 	getPullRequestForBranch(
@@ -100,11 +122,18 @@ export class CacheProvider implements Disposable {
 		repo: ResourceDescriptor,
 		integration: HostingIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
+		options?: { expiryOverride?: boolean | number },
 	): CacheResult<PullRequest> {
 		const cache = 'prByBranch';
 		const { key, etag } = getResourceKeyAndEtag(repo, integration);
 		// Wrap the cacheable so we can also add the result to the issuesOrPrsById cache
-		return this.get(cache, `branch:${branch}:${key}`, etag, this.wrapPullRequestCacheable(cacheable, key, etag));
+		return this.get(
+			cache,
+			`branch:${branch}:${key}`,
+			etag,
+			this.wrapPullRequestCacheable(cacheable, key, etag),
+			options,
+		);
 	}
 
 	getPullRequestForSha(
@@ -112,34 +141,41 @@ export class CacheProvider implements Disposable {
 		repo: ResourceDescriptor,
 		integration: HostingIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
+		options?: { expiryOverride?: boolean | number },
 	): CacheResult<PullRequest> {
 		const cache = 'prsBySha';
 		const { key, etag } = getResourceKeyAndEtag(repo, integration);
 		// Wrap the cacheable so we can also add the result to the issuesOrPrsById cache
-		return this.get(cache, `sha:${sha}:${key}`, etag, this.wrapPullRequestCacheable(cacheable, key, etag));
+		return this.get(cache, `sha:${sha}:${key}`, etag, this.wrapPullRequestCacheable(cacheable, key, etag), options);
 	}
 
 	getRepositoryDefaultBranch(
 		repo: ResourceDescriptor,
 		integration: HostingIntegration | undefined,
 		cacheable: Cacheable<DefaultBranch>,
+		options?: { expiryOverride?: boolean | number },
 	): CacheResult<DefaultBranch> {
 		const { key, etag } = getResourceKeyAndEtag(repo, integration);
-		return this.get('defaultBranch', `repo:${key}`, etag, cacheable);
+		return this.get('defaultBranch', `repo:${key}`, etag, cacheable, options);
 	}
 
 	getRepositoryMetadata(
 		repo: ResourceDescriptor,
 		integration: HostingIntegration | undefined,
 		cacheable: Cacheable<RepositoryMetadata>,
+		options?: { expiryOverride?: boolean | number },
 	): CacheResult<RepositoryMetadata> {
 		const { key, etag } = getResourceKeyAndEtag(repo, integration);
-		return this.get('repoMetadata', `repo:${key}`, etag, cacheable);
+		return this.get('repoMetadata', `repo:${key}`, etag, cacheable, options);
 	}
 
-	getCurrentAccount(integration: IntegrationBase, cacheable: Cacheable<Account>): CacheResult<Account> {
+	getCurrentAccount(
+		integration: IntegrationBase,
+		cacheable: Cacheable<Account>,
+		options?: { expiryOverride?: boolean | number },
+	): CacheResult<Account> {
 		const { key, etag } = getIntegrationKeyAndEtag(integration);
-		return this.get('currentAccount', `id:${key}`, etag, cacheable);
+		return this.get('currentAccount', `id:${key}`, etag, cacheable, options);
 	}
 
 	private set<T extends Cache>(
@@ -160,9 +196,14 @@ export class CacheProvider implements Disposable {
 				},
 			);
 
-			item = { value: value, etag: etag };
+			item = { value: value, etag: etag, cachedAt: Date.now() };
 		} else {
-			item = { value: value, etag: etag, expiresAt: expiresAt ?? getExpiresAt<T>(cache, value) };
+			item = {
+				value: value,
+				etag: etag,
+				cachedAt: Date.now(),
+				expiresAt: expiresAt ?? getExpiresAt<T>(cache, value),
+			};
 		}
 
 		this._cache.set(`${cache}:${key}`, item);
@@ -216,7 +257,7 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 
 			// Open prs expire after 1 hour, but closed/merge prs expire after 12 hours unless recently updated and then expire in 1 hour
 
-			const pr = value as CacheValue<'prsBySha'>;
+			const pr = value as CacheValue<'prsBySha' | 'prByBranch'>;
 			if (pr.state === 'opened') return defaultExpiresAt;
 
 			const updatedAgo = now - (pr.closedDate ?? pr.mergedDate ?? pr.updatedDate).getTime();

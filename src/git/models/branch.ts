@@ -104,6 +104,7 @@ export class GitBranch implements GitBranchReference {
 	async getAssociatedPullRequest(options?: {
 		avatarSize?: number;
 		include?: PullRequestState[];
+		expiryOverride?: boolean | number;
 	}): Promise<PullRequest | undefined> {
 		const remote = await this.getRemote();
 		if (remote?.provider == null) return undefined;

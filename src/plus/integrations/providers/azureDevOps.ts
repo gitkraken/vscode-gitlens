@@ -1,4 +1,4 @@
-import type { AuthenticationSession } from 'vscode';
+import type { AuthenticationSession, CancellationToken } from 'vscode';
 import type { PagedResult } from '../../../git/gitProvider';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -129,6 +129,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	protected override async getProviderRepositoryMetadata(
 		_session: AuthenticationSession,
 		_repo: AzureRepositoryDescriptor,
+		_cancellation?: CancellationToken,
 	): Promise<RepositoryMetadata | undefined> {
 		return Promise.resolve(undefined);
 	}

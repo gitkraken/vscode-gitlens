@@ -419,13 +419,17 @@ export class GitCommit implements GitRevisionReference {
 		return status;
 	}
 
-	async getAssociatedPullRequest(remote?: GitRemote<RemoteProvider>): Promise<PullRequest | undefined> {
+	async getAssociatedPullRequest(
+		remote?: GitRemote<RemoteProvider>,
+		options?: { expiryOverride?: boolean | number },
+	): Promise<PullRequest | undefined> {
 		remote ??= await this.container.git.getBestRemoteWithIntegration(this.repoPath);
 		if (!remote?.hasIntegration()) return undefined;
 
 		return (await this.container.integrations.getByRemote(remote))?.getPullRequestForCommit(
 			remote.provider.repoDesc,
 			this.ref,
+			options,
 		);
 	}
 
