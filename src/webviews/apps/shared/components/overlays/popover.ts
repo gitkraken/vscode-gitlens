@@ -222,10 +222,7 @@ export class GlPopover extends GlObservableElement {
 		}
 	};
 
-	private handleTriggerClick = (e: MouseEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-
+	private handleTriggerClick = () => {
 		if (this.hasTrigger('click')) {
 			if (this.open) {
 				void this.hide();
