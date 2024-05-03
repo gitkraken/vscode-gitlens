@@ -74,7 +74,9 @@ export class FeatureGatePlusState extends LitElement {
 	state?: SubscriptionState;
 
 	protected override firstUpdated() {
-		queueMicrotask(() => this.button.focus());
+		if (this.appearance === 'alert') {
+			queueMicrotask(() => this.button.focus());
+		}
 	}
 
 	override render() {
@@ -109,12 +111,12 @@ export class FeatureGatePlusState extends LitElement {
 						>Continue</gl-button
 					>
 					<p>
-						You will have 3 days to preview
+						Continuing gives you 3 days to preview
 						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded}  and other ` : ''}local
-						Pro features. ${appearance == 'alert' ? html`<br />` : ''}
-						<a href="command:gitlens.plus.signUp">Start your free 7-day Pro trial</a> or
-						<a href="command:gitlens.plus.login" title="Sign In">sign in</a> for full access to Pro
-						features.
+						Pro features.<br />
+						${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features
+						<a href="command:gitlens.plus.signUp">start your free 7-day Pro trial</a> or
+						<a href="command:gitlens.plus.login" title="Sign In">sign in</a>.
 					</p>
 				`;
 

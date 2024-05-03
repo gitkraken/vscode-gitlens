@@ -126,7 +126,7 @@ export class GlFeatureBadge extends LitElement {
 	cloud: boolean = false;
 
 	@property({ reflect: true })
-	placement?: GlPopover['placement'] = 'bottom';
+	placement: GlPopover['placement'] = 'bottom';
 
 	@property({ type: Boolean })
 	preview: boolean = false;

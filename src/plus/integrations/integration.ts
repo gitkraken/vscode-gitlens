@@ -22,7 +22,6 @@ import { debug, log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../gk/account/subscription';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationSessionDescriptor,
@@ -1133,81 +1132,4 @@ export abstract class HostingIntegration<
 		repos?: T[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined>;
-}
-
-export async function ensurePaidPlan(providerName: string, container: Container): Promise<boolean> {
-	const title = `Connecting to a ${providerName} instance for rich integration features requires a trial or paid plan.`;
-
-	while (true) {
-		const subscription = await container.subscription.getSubscription();
-		if (subscription.account?.verified === false) {
-			const resend = { title: 'Resend Verification' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
-			const result = await window.showWarningMessage(
-				`${title}\n\nYou must verify your email before you can continue.`,
-				{ modal: true },
-				resend,
-				cancel,
-			);
-
-			if (result === resend) {
-				if (await container.subscription.resendVerification()) {
-					continue;
-				}
-			}
-
-			return false;
-		}
-
-		const plan = subscription.plan.effective.id;
-		if (isSubscriptionPaidPlan(plan)) break;
-
-		if (subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
-			const startTrial = { title: 'Preview Pro' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
-			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to preview Pro features for 3 days?`,
-				{ modal: true },
-				startTrial,
-				cancel,
-			);
-
-			if (result !== startTrial) return false;
-
-			void container.subscription.startPreviewTrial();
-			break;
-		} else if (subscription.account == null) {
-			const signIn = { title: 'Start Pro Trial' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
-			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to continue to use Pro features, free for an additional 7 days?`,
-				{ modal: true },
-				signIn,
-				cancel,
-			);
-
-			if (result === signIn) {
-				if (await container.subscription.loginOrSignUp()) {
-					continue;
-				}
-			}
-		} else {
-			const upgrade = { title: 'Upgrade to Pro' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
-			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to continue to use Pro features?`,
-				{ modal: true },
-				upgrade,
-				cancel,
-			);
-
-			if (result === upgrade) {
-				void container.subscription.purchase();
-			}
-		}
-
-		return false;
-	}
-
-	return true;
 }

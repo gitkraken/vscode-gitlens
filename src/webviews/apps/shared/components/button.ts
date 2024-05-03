@@ -149,7 +149,7 @@ export class GlButton extends LitElement {
 	disabled = false;
 
 	@property({ reflect: true })
-	density?: 'compact';
+	density?: 'compact' | 'tight';
 
 	@property({ type: Boolean, reflect: true })
 	full = false;
