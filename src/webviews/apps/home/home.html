@@ -201,257 +201,327 @@
 			</div>
 			<nav class="nav-list">
 				<h2 class="nav-list__title t-eyebrow sticky">Configuration</h2>
-				<a class="nav-list__item" href="command:gitlens.showSettingsPage" aria-label="Open GitLens Settings"
-					><code-icon class="nav-list__icon" icon="gear"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Open GitLens Settings">
-						<span>GitLens Settings</span></gl-tooltip
-					>
-				</a>
+				<div class="nav-list__item">
+					<a class="nav-list__link" href="command:gitlens.showSettingsPage" aria-label="Open GitLens Settings"
+						><code-icon class="nav-list__icon" icon="gear"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Open GitLens Settings">
+							<span>GitLens Settings</span></gl-tooltip
+						>
+					</a>
+				</div>
 			</nav>
 			<nav class="nav-list">
 				<h2 class="nav-list__title t-eyebrow sticky">Popular views</h2>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showGraph"
-					aria-label="Show Commit Graph"
-					data-requires="repo"
-				>
-					<code-icon class="nav-list__icon" icon="gl-graph"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show Commit Graph">
-						<span>Commit Graph</span> </gl-tooltip
-					><gl-feature-badge placement="left" class="nav-list__access"></gl-feature-badge>
-				</a>
-				<a class="nav-list__item" href="command:gitlens.showLaunchpad" aria-label="Open Launchpad"
-					><code-icon class="nav-list__icon" icon="rocket"></code-icon
-					><gl-tooltip class="nav-list__group" placement="bottom" content="Open Launchpad"
-						><span class="nav-list__label">Launchpad</span
-						><span class="nav-list__desc">New!</span></gl-tooltip
-					><gl-feature-badge placement="left" class="nav-list__access" preview></gl-feature-badge>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showCommitsView"
-					aria-label="Show Commits view"
-					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="gl-commits-view"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show Commits view">
-						<span>Commits</span></gl-tooltip
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showGraph"
+						aria-label="Show Commit Graph"
+						data-requires="repo"
 					>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showCommitDetailsView"
-					aria-label="Show Inspect view"
-					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="gl-commit-view"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show Inspect view">
-						<span>Inspect</span></gl-tooltip
-					>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showFileHistoryView"
-					aria-label="Show File History view"
-					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="gl-history-view"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show File History view">
-						<span>File History</span></gl-tooltip
-					>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showTimelineView"
-					aria-label="Show Visual File History view"
-					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="graph-scatter"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show Visual File History view">
-						<span>Visual File History</span></gl-tooltip
-					><gl-feature-badge placement="left" class="nav-list__access"></gl-feature-badge>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showDraftsView"
-					aria-label="Show Cloud Patches view"
-					data-requires="repo"
-					id="org-settings-drafts"
-					><code-icon class="nav-list__icon" icon="gl-cloud-patch"></code-icon
-					><gl-tooltip class="nav-list__group" placement="bottom" content="Show Cloud Patches view"
-						><span class="nav-list__label">Cloud Patches</span
-						><span class="nav-list__desc">New!</span></gl-tooltip
-					><gl-feature-badge placement="left" class="nav-list__access" cloud preview></gl-feature-badge>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showStashesView"
-					aria-label="Show Stashes view"
-					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="gl-stashes-view"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show Stashes view">
-						<span>Stashes</span></gl-tooltip
-					>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showSearchAndCompareView"
-					aria-label="Show Search &amp; Compare view"
-					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="gl-search-view"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show Search &amp; Compare view">
-						<span>Search &amp; Compare</span></gl-tooltip
-					>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showWorkspacesView"
-					aria-label="Show GitKraken Workspaces view"
-					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="gl-workspaces-view"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show GitKraken Workspaces view">
-						<span>GK Workspaces</span></gl-tooltip
-					><gl-feature-badge placement="left" class="nav-list__access" cloud preview></gl-feature-badge>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showWorktreesView"
-					aria-label="Show Worktrees view"
-					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="gl-worktrees-view"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show Worktrees view">
-						<span>Worktrees</span></gl-tooltip
-					><gl-feature-badge placement="left" class="nav-list__access"></gl-feature-badge>
-				</a>
+						<code-icon class="nav-list__icon" icon="gl-graph"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Show Commit Graph">
+							<span>Commit Graph</span>
+						</gl-tooltip>
+					</a>
+					<gl-feature-badge placement="left" class="nav-list__access"></gl-feature-badge>
+				</div>
+				<div class="nav-list__item">
+					<a class="nav-list__link" href="command:gitlens.showLaunchpad" aria-label="Open Launchpad"
+						><code-icon class="nav-list__icon" icon="rocket"></code-icon
+						><gl-tooltip class="nav-list__group" placement="bottom" content="Open Launchpad"
+							><span class="nav-list__label">Launchpad</span
+							><span class="nav-list__desc">New!</span></gl-tooltip
+						>
+					</a>
+					<gl-feature-badge placement="left" class="nav-list__access" preview></gl-feature-badge>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showCommitsView"
+						aria-label="Show Commits view"
+						data-requires="repo"
+						><code-icon class="nav-list__icon" icon="gl-commits-view"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Show Commits view">
+							<span>Commits</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showCommitDetailsView"
+						aria-label="Show Inspect view"
+						data-requires="repo"
+						><code-icon class="nav-list__icon" icon="gl-commit-view"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Show Inspect view">
+							<span>Inspect</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showFileHistoryView"
+						aria-label="Show File History view"
+						data-requires="repo"
+						><code-icon class="nav-list__icon" icon="gl-history-view"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Show File History view">
+							<span>File History</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showTimelineView"
+						aria-label="Show Visual File History view"
+						data-requires="repo"
+						><code-icon class="nav-list__icon" icon="graph-scatter"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Show Visual File History view">
+							<span>Visual File History</span></gl-tooltip
+						>
+					</a>
+					<gl-feature-badge placement="left" class="nav-list__access"></gl-feature-badge>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showDraftsView"
+						aria-label="Show Cloud Patches view"
+						data-requires="repo"
+						id="org-settings-drafts"
+						><code-icon class="nav-list__icon" icon="gl-cloud-patch"></code-icon
+						><gl-tooltip class="nav-list__group" placement="bottom" content="Show Cloud Patches view"
+							><span class="nav-list__label">Cloud Patches</span
+							><span class="nav-list__desc">New!</span></gl-tooltip
+						>
+					</a>
+					<gl-feature-badge placement="left" class="nav-list__access" cloud preview></gl-feature-badge>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showStashesView"
+						aria-label="Show Stashes view"
+						data-requires="repo"
+						><code-icon class="nav-list__icon" icon="gl-stashes-view"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Show Stashes view">
+							<span>Stashes</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showSearchAndCompareView"
+						aria-label="Show Search &amp; Compare view"
+						data-requires="repo"
+						><code-icon class="nav-list__icon" icon="gl-search-view"></code-icon
+						><gl-tooltip
+							class="nav-list__label"
+							placement="bottom"
+							content="Show Search &amp; Compare view"
+						>
+							<span>Search &amp; Compare</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showWorkspacesView"
+						aria-label="Show GitKraken Workspaces view"
+						data-requires="repo"
+						><code-icon class="nav-list__icon" icon="gl-workspaces-view"></code-icon
+						><gl-tooltip
+							class="nav-list__label"
+							placement="bottom"
+							content="Show GitKraken Workspaces view"
+						>
+							<span>GK Workspaces</span></gl-tooltip
+						>
+					</a>
+					<gl-feature-badge placement="left" class="nav-list__access" cloud preview></gl-feature-badge>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showWorktreesView"
+						aria-label="Show Worktrees view"
+						data-requires="repo"
+						><code-icon class="nav-list__icon" icon="gl-worktrees-view"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Show Worktrees view">
+							<span>Worktrees</span></gl-tooltip
+						>
+					</a>
+					<gl-feature-badge placement="left" class="nav-list__access"></gl-feature-badge>
+				</div>
 			</nav>
 			<nav class="nav-list">
 				<h2 class="nav-list__title t-eyebrow sticky">Activity Bar</h2>
-				<a
-					class="nav-list__item"
-					href="command:workbench.view.extension.gitlens"
-					aria-label="Show GitLens Side Bar"
-					><code-icon class="nav-list__icon" icon="gl-gitlens"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show GitLens Side Bar"
-						><span>GitLens</span></gl-tooltip
-					>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:workbench.view.extension.gitlensInspect"
-					aria-label="Show GitLens Inspect Side Bar"
-					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="gl-gitlens-inspect"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show GitLens Inspect Side Bar"
-						><span>GitLens Inspect</span></gl-tooltip
-					>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:workbench.view.scm"
-					aria-label="Show GitLens Side Bar"
-					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="source-control"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show Source Control Side Bar"
-						><span>Source Control</span></gl-tooltip
-					>
-				</a>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:workbench.view.extension.gitlens"
+						aria-label="Show GitLens Side Bar"
+						><code-icon class="nav-list__icon" icon="gl-gitlens"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Show GitLens Side Bar"
+							><span>GitLens</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:workbench.view.extension.gitlensInspect"
+						aria-label="Show GitLens Inspect Side Bar"
+						data-requires="repo"
+						><code-icon class="nav-list__icon" icon="gl-gitlens-inspect"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Show GitLens Inspect Side Bar"
+							><span>GitLens Inspect</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:workbench.view.scm"
+						aria-label="Show GitLens Side Bar"
+						data-requires="repo"
+						><code-icon class="nav-list__icon" icon="source-control"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Show Source Control Side Bar"
+							><span>Source Control</span></gl-tooltip
+						>
+					</a>
+				</div>
 			</nav>
 			<nav class="nav-list">
 				<h2 class="nav-list__title t-eyebrow sticky">Integrations</h2>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.plus.cloudIntegrations.manage"
-					aria-label="Manage Cloud Integrations on GitKraken.dev"
-					><code-icon class="nav-list__icon" icon="settings"></code-icon
-					><gl-tooltip
-						class="nav-list__label"
-						placement="bottom"
-						content="Manage Cloud Integrations on GitKraken.dev"
-						><span>Cloud Integrations</span></gl-tooltip
-					>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showSettingsPage!autolinks"
-					aria-label="Open Autolinks Settings"
-					><code-icon class="nav-list__icon" icon="link"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Open Autolinks Settings"
-						><span>Autolinks</span></gl-tooltip
-					>
-				</a>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.plus.cloudIntegrations.manage"
+						aria-label="Manage Cloud Integrations on GitKraken.dev"
+						><code-icon class="nav-list__icon" icon="settings"></code-icon
+						><gl-tooltip
+							class="nav-list__label"
+							placement="bottom"
+							content="Manage Cloud Integrations on GitKraken.dev"
+							><span>Cloud Integrations</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showSettingsPage!autolinks"
+						aria-label="Open Autolinks Settings"
+						><code-icon class="nav-list__icon" icon="link"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Open Autolinks Settings"
+							><span>Autolinks</span></gl-tooltip
+						>
+					</a>
+				</div>
 			</nav>
 			<nav class="nav-list">
 				<h3 class="nav-list__title t-eyebrow sticky">Commands</h3>
-				<a
-					class="nav-list__item"
-					href="command:workbench.action.quickOpen?%22>GitLens%3A%22"
-					aria-label="Show GitLens Commands"
-					><code-icon class="nav-list__icon" icon="symbol-event"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Show GitLens Commands"
-						><span>Commands</span></gl-tooltip
-					>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.gitCommands"
-					aria-label="Open Git Command Palette"
-					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="symbol-color"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Open Git Command Palette"
-						><span>Git Command Palette</span></gl-tooltip
-					>
-				</a>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:workbench.action.quickOpen?%22>GitLens%3A%22"
+						aria-label="Show GitLens Commands"
+						><code-icon class="nav-list__icon" icon="symbol-event"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Show GitLens Commands"
+							><span>Commands</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.gitCommands"
+						aria-label="Open Git Command Palette"
+						data-requires="repo"
+						><code-icon class="nav-list__icon" icon="symbol-color"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Open Git Command Palette"
+							><span>Git Command Palette</span></gl-tooltip
+						>
+					</a>
+				</div>
 			</nav>
 			<nav class="nav-list">
 				<h2 class="nav-list__title t-eyebrow sticky">Getting Started</h2>
-				<a class="nav-list__item" href="command:gitlens.showWelcomePage" aria-label="Open GitLens Welcome"
-					><code-icon class="nav-list__icon" icon="play"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Open GitLens Welcome"
-						><span>Welcome</span></gl-tooltip
-					>
-				</a>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.getStarted"
-					aria-label="Open GitLens Feature Walkthrough"
-					><code-icon class="nav-list__icon" icon="info"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Open GitLens Feature Walkthrough"
-						><span>Feature Walkthrough</span></gl-tooltip
-					>
-				</a>
-				<a
-					class="nav-list__item"
-					href="https://www.youtube.com/watch?v=UQPb73Zz9qk?utm_source=gitlens-extension&utm_medium=home_link"
-					aria-label="Watch the GitLens Tutorial video"
-					><code-icon class="nav-list__icon" icon="vm-running"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Watch the GitLens Tutorial video"
-						><span>Tutorial Video</span></gl-tooltip
-					>
-				</a>
+				<div class="nav-list__item">
+					<a class="nav-list__link" href="command:gitlens.showWelcomePage" aria-label="Open GitLens Welcome"
+						><code-icon class="nav-list__icon" icon="play"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Open GitLens Welcome"
+							><span>Welcome</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.getStarted"
+						aria-label="Open GitLens Feature Walkthrough"
+						><code-icon class="nav-list__icon" icon="info"></code-icon
+						><gl-tooltip
+							class="nav-list__label"
+							placement="bottom"
+							content="Open GitLens Feature Walkthrough"
+							><span>Feature Walkthrough</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="https://www.youtube.com/watch?v=UQPb73Zz9qk?utm_source=gitlens-extension&utm_medium=home_link"
+						aria-label="Watch the GitLens Tutorial video"
+						><code-icon class="nav-list__icon" icon="vm-running"></code-icon
+						><gl-tooltip
+							class="nav-list__label"
+							placement="bottom"
+							content="Watch the GitLens Tutorial video"
+							><span>Tutorial Video</span></gl-tooltip
+						>
+					</a>
+				</div>
 			</nav>
 			<nav class="nav-list">
 				<h2 class="nav-list__title t-eyebrow sticky">Companion Tools</h2>
-				<a
-					class="nav-list__item"
-					href="https://www.gitkraken.com/browser-extension"
-					aria-label="Try the GitKraken Browser Extension"
-					><code-icon class="nav-list__icon" icon="extensions"></code-icon
-					><gl-tooltip
-						class="nav-list__label"
-						placement="bottom"
-						content="Try the GitKraken Browser Extension"
-						><span>GitKraken Browser Extension</span></gl-tooltip
-					>
-				</a>
-				<a class="nav-list__item" href="https://www.gitkraken.com/cli" aria-label="Try the GitKraken CLI"
-					><code-icon class="nav-list__icon" icon="terminal"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Try the GitKraken CLI"
-						><span>GitKraken CLI</span></gl-tooltip
-					>
-				</a>
-				<a class="nav-list__item" href="https://gitkraken.dev" aria-label="Try GitKraken.dev"
-					><code-icon class="nav-list__icon" icon="globe"></code-icon
-					><gl-tooltip class="nav-list__label" placement="bottom" content="Try GitKraken.dev"
-						><span>GitKraken.dev</span></gl-tooltip
-					>
-				</a>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="https://www.gitkraken.com/browser-extension"
+						aria-label="Try the GitKraken Browser Extension"
+						><code-icon class="nav-list__icon" icon="extensions"></code-icon
+						><gl-tooltip
+							class="nav-list__label"
+							placement="bottom"
+							content="Try the GitKraken Browser Extension"
+							><span>GitKraken Browser Extension</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a class="nav-list__link" href="https://www.gitkraken.com/cli" aria-label="Try the GitKraken CLI"
+						><code-icon class="nav-list__icon" icon="terminal"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Try the GitKraken CLI"
+							><span>GitKraken CLI</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a class="nav-list__link" href="https://gitkraken.dev" aria-label="Try GitKraken.dev"
+						><code-icon class="nav-list__icon" icon="globe"></code-icon
+						><gl-tooltip class="nav-list__label" placement="bottom" content="Try GitKraken.dev"
+							><span>GitKraken.dev</span></gl-tooltip
+						>
+					</a>
+				</div>
 			</nav>
 		</main>
 
