@@ -330,48 +330,16 @@ export class DraftService implements Disposable {
 		const scope = getLogScope();
 
 		try {
-			let providerAuthHeader;
-			if (draft.visibility === 'provider_access') {
-				if (draft.changesets == null || draft.changesets.length === 0) {
-					throw new Error('No provider information found');
-				}
-
-				let patch: DraftPatch | undefined;
-				for (const changeset of draft.changesets) {
-					const changesetPatch = changeset.patches?.find(patch => patch.repository ?? patch.gkRepositoryId);
-					if (changesetPatch != null) {
-						patch = changesetPatch;
-					}
-				}
-
-				if (patch == null) {
-					throw new Error('No provider information found');
-				}
-
-				let repo: Repository | undefined;
-				// avoid calling getRepositoryOrIdentity if possible
-				if (patch.repository != null) {
-					if (patch.repository instanceof Repository) {
-						repo = patch.repository;
-					} else {
-						repo = await this.container.repositoryIdentity.getRepository(patch.repository);
-					}
-				}
-
-				if (repo == null) {
-					const repositoryOrIdentity = await this.getRepositoryOrIdentity(draft.id, patch.gkRepositoryId);
-					if (!(repositoryOrIdentity instanceof Repository)) {
-						throw new Error('No provider information found');
-					}
-
-					repo = repositoryOrIdentity;
-				}
-
-				const providerAuth = await this.getProviderAuthFromRepository(repo);
+			let providerAuth = options?.providerAuth;
+			if (draft.visibility === 'provider_access' && providerAuth == null) {
+				providerAuth = await this.getProviderAuthForDraft(draft);
 				if (providerAuth == null) {
 					throw new Error('No provider integration found');
 				}
+			}
 
+			let providerAuthHeader;
+			if (providerAuth != null) {
 				providerAuthHeader = {
 					'Provider-Auth': Buffer.from(JSON.stringify(providerAuth)).toString('base64'),
 				};
@@ -398,13 +366,20 @@ export class DraftService implements Disposable {
 	}
 
 	@log()
-	async getDraft(id: string): Promise<Draft> {
+	async getDraft(id: string, options?: { providerAuth?: ProviderAuth }): Promise<Draft> {
 		const scope = getLogScope();
 
 		type Result = { data: DraftResponse };
 
+		let headers;
+		if (options?.providerAuth) {
+			headers = {
+				'Provider-Auth': Buffer.from(JSON.stringify(options.providerAuth)).toString('base64'),
+			};
+		}
+
 		const [rspResult, changesetsResult] = await Promise.allSettled([
-			this.connection.fetchGkDevApi(`v1/drafts/${id}`, { method: 'GET' }),
+			this.connection.fetchGkDevApi(`v1/drafts/${id}`, { method: 'GET', headers: headers }),
 			this.getChangesets(id),
 		]);
 
@@ -792,6 +767,45 @@ export class DraftService implements Disposable {
 		};
 	}
 
+	async getProviderAuthForDraft(draft: Draft): Promise<ProviderAuth | undefined> {
+		if (draft.changesets == null || draft.changesets.length === 0) {
+			return undefined;
+		}
+
+		let patch: DraftPatch | undefined;
+		for (const changeset of draft.changesets) {
+			const changesetPatch = changeset.patches?.find(patch => patch.repository ?? patch.gkRepositoryId);
+			if (changesetPatch != null) {
+				patch = changesetPatch;
+			}
+		}
+
+		if (patch == null) {
+			return undefined;
+		}
+
+		let repo: Repository | undefined;
+		// avoid calling getRepositoryOrIdentity if possible
+		if (patch.repository != null) {
+			if (patch.repository instanceof Repository) {
+				repo = patch.repository;
+			} else {
+				repo = await this.container.repositoryIdentity.getRepository(patch.repository);
+			}
+		}
+
+		if (repo == null) {
+			const repositoryOrIdentity = await this.getRepositoryOrIdentity(draft.id, patch.gkRepositoryId);
+			if (!(repositoryOrIdentity instanceof Repository)) {
+				return undefined;
+			}
+
+			repo = repositoryOrIdentity;
+		}
+
+		return this.getProviderAuthFromRepository(repo);
+	}
+
 	async getCodeSuggestions(
 		pullRequest: PullRequest,
 		repository: Repository,
@@ -825,24 +839,6 @@ export class DraftService implements Disposable {
 			return [];
 		}
 	}
-
-	generateGkDevUrl(draftId: string): URL;
-	generateGkDevUrl(draft: Draft): URL;
-	generateGkDevUrl(draftOrDraftId: Draft | string): URL {
-		let modePrefixString = '';
-		if (this.container.env === 'dev') {
-			modePrefixString = 'dev.';
-		} else if (this.container.env === 'staging') {
-			modePrefixString = 'staging.';
-		}
-
-		const id = typeof draftOrDraftId === 'string' ? draftOrDraftId : draftOrDraftId.id;
-
-		const deepLinkRedirectUrl = new URL(`https://${modePrefixString}gitkraken.dev/drafts/${id}`);
-		deepLinkRedirectUrl.searchParams.set('source', 'gitlens');
-		return deepLinkRedirectUrl;
-	}
-
 	@log()
 	async getCodeSuggestionCounts(pullRequests: PullRequest[]): Promise<CodeSuggestionCounts> {
 		const scope = getLogScope();
@@ -880,6 +876,23 @@ export class DraftService implements Disposable {
 
 			throw ex;
 		}
+	}
+
+	generateGkDevUrl(draftId: string): URL;
+	generateGkDevUrl(draft: Draft): URL;
+	generateGkDevUrl(draftOrDraftId: Draft | string): URL {
+		let modePrefixString = '';
+		if (this.container.env === 'dev') {
+			modePrefixString = 'dev.';
+		} else if (this.container.env === 'staging') {
+			modePrefixString = 'staging.';
+		}
+
+		const id = typeof draftOrDraftId === 'string' ? draftOrDraftId : draftOrDraftId.id;
+
+		const deepLinkRedirectUrl = new URL(`https://${modePrefixString}gitkraken.dev/drafts/${id}`);
+		deepLinkRedirectUrl.searchParams.set('source', 'gitlens');
+		return deepLinkRedirectUrl;
 	}
 
 	private formatDraft(
