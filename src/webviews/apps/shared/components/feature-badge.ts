@@ -245,9 +245,7 @@ export class GlFeatureBadge extends LitElement {
 				content = html`<p>
 						Your Pro trial as ended. You can now only use Pro features on publicly-hosted repos.
 					</p>
-					${this.renderUpgradeActions(
-						html`<p>To continue use of Pro features on privately-hosted repos:</p>`,
-					)}`;
+					${this.renderUpgradeActions(html`<p>Please upgrade for full access to Pro features:</p>`)}`;
 				break;
 
 			case SubscriptionState.FreePlusTrialReactivationEligible:

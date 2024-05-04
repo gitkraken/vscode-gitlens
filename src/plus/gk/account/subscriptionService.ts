@@ -1154,7 +1154,7 @@ export class SubscriptionService implements Disposable {
 			})}
 			in your **${effective.name}** trial.`
 						: `You have ${pluralize('day', remaining ?? 0)} remaining in your **${effective.name}** trial.`
-				} Once your trial ends, you'll need a paid plan to continue using Pro features.\n\nTry our
+				} Once your trial ends, you'll need a paid plan for full access to Pro features.\n\nTry our
 			[other developer tools](https://www.gitkraken.com/suite) also included in your trial.`,
 				true,
 			);

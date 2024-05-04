@@ -16666,7 +16666,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Upgrade to Pro](command:gitlens.plus.purchase)\n\nYour Pro trial has ended. Please upgrade to continue to use Worktrees and other Pro features on privately-hosted repos.\nSpecial: 50% off first seat of Pro — only $4/month!",
+				"contents": "[Upgrade to Pro](command:gitlens.plus.purchase)\n\nYour Pro trial has ended. Please upgrade for full access to Worktrees and other Pro features.\nSpecial: 50% off first seat of Pro — only $4/month!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			},
 			{

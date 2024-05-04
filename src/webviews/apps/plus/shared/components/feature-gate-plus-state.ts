@@ -136,9 +136,9 @@ export class FeatureGatePlusState extends LitElement {
 						>Upgrade to Pro</gl-button
 					>
 					<p>
-						Your Pro trial has ended. Please upgrade to continue to use
+						Your Pro trial has ended. Please upgrade for full access to
 						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and other ` : ''}Pro
-						features on privately-hosted repos.
+						features.
 					</p>
 					<p class="special">Special: <b>50% off first seat of Pro</b> — only $4/month!<br /></p>`;
 
