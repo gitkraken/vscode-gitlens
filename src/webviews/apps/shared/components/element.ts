@@ -48,7 +48,7 @@ export abstract class GlElement extends LitElement {
 }
 
 type Observer = {
-	method: (...args: unknown[]) => void;
+	method: (changedKeys: PropertyKey[]) => void;
 	keys: PropertyKey[];
 	afterFirstUpdate?: boolean;
 };
@@ -95,10 +95,9 @@ export abstract class GlObservableElement extends GlElement {
 					continue;
 				}
 
-				if (keys.some(p => changedProperties.has(p))) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-					const oldValues = keys.map(p => changedProperties.get(p));
-					method.apply(this, oldValues);
+				const changedKeys = keys.filter(p => changedProperties.has(p));
+				if (changedKeys.length) {
+					method.call(this, changedKeys);
 				}
 			}
 		}

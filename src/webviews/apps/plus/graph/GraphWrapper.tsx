@@ -69,14 +69,8 @@ import { GlSearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
-import type {
-	GraphMinimapDaySelectedEventDetail,
-	GraphMinimapMarker,
-	GraphMinimapSearchResultMarker,
-	GraphMinimapStats,
-	StashMarker,
-} from './minimap/minimap';
-import { GraphMinimap } from './minimap/react';
+import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap';
+import { GlGraphMinimapContainer } from './minimap/minimap-container.react';
 
 export interface GraphWrapperProps {
 	nonce?: string;
@@ -269,7 +263,7 @@ export function GraphWrapper({
 		state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 },
 	);
 
-	const minimap = useRef<GraphMinimap | undefined>(undefined);
+	const minimap = useRef<GlGraphMinimapContainer | undefined>(undefined);
 
 	const ensuredIds = useRef<Set<string>>(new Set());
 	const ensuredSkippedIds = useRef<Set<string>>(new Set());
@@ -409,231 +403,6 @@ export function GraphWrapper({
 			window.removeEventListener('keydown', handleKeyDown);
 		};
 	}, [activeRow]);
-
-	const minimapData = useMemo(() => {
-		if (!graphConfig?.minimap) return undefined;
-
-		const showLinesChanged = (graphConfig?.minimapDataType ?? 'commits') === 'lines';
-		if (showLinesChanged && rowsStats == null) return undefined;
-
-		// Loops through all the rows and group them by day and aggregate the row.stats
-		const statsByDayMap = new Map<number, GraphMinimapStats>();
-		const markersByDay = new Map<number, GraphMinimapMarker[]>();
-		const enabledMinimapMarkers: GraphMinimapMarkerTypes[] = graphConfig?.minimapMarkerTypes ?? [];
-
-		let rankedShas: {
-			head: string | undefined;
-			branch: string | undefined;
-			remote: string | undefined;
-			tag: string | undefined;
-		} = {
-			head: undefined,
-			branch: undefined,
-			remote: undefined,
-			tag: undefined,
-		};
-
-		let day;
-		let prevDay;
-
-		let markers;
-		let headMarkers: GraphMinimapMarker[];
-		let remoteMarkers: GraphMinimapMarker[];
-		let stashMarker: StashMarker | undefined;
-		let tagMarkers: GraphMinimapMarker[];
-		let row: GraphRow;
-		let stat;
-		let stats;
-
-		// Iterate in reverse order so that we can track the HEAD upstream properly
-		for (let i = rows.length - 1; i >= 0; i--) {
-			row = rows[i];
-
-			day = getDay(row.date);
-			if (day !== prevDay) {
-				prevDay = day;
-				rankedShas = {
-					head: undefined,
-					branch: undefined,
-					remote: undefined,
-					tag: undefined,
-				};
-			}
-
-			if (
-				row.heads?.length &&
-				(enabledMinimapMarkers.includes('head') || enabledMinimapMarkers.includes('localBranches'))
-			) {
-				rankedShas.branch = row.sha;
-
-				headMarkers = [];
-
-				// eslint-disable-next-line no-loop-func
-				row.heads.forEach(h => {
-					if (h.isCurrentHead) {
-						rankedShas.head = row.sha;
-					}
-
-					if (
-						enabledMinimapMarkers.includes('localBranches') ||
-						(enabledMinimapMarkers.includes('head') && h.isCurrentHead)
-					) {
-						headMarkers.push({
-							type: 'branch',
-							name: h.name,
-							current: h.isCurrentHead && enabledMinimapMarkers.includes('head'),
-						});
-					}
-				});
-
-				markers = markersByDay.get(day);
-				if (markers == null) {
-					markersByDay.set(day, headMarkers);
-				} else {
-					markers.push(...headMarkers);
-				}
-			}
-
-			if (
-				row.remotes?.length &&
-				(enabledMinimapMarkers.includes('upstream') ||
-					enabledMinimapMarkers.includes('remoteBranches') ||
-					enabledMinimapMarkers.includes('localBranches'))
-			) {
-				rankedShas.remote = row.sha;
-
-				remoteMarkers = [];
-
-				// eslint-disable-next-line no-loop-func
-				row.remotes.forEach(r => {
-					let current = false;
-					const hasDownstream = downstreams?.[`${r.owner}/${r.name}`]?.length;
-					if (r.current) {
-						rankedShas.remote = row.sha;
-						current = true;
-					}
-
-					if (
-						enabledMinimapMarkers.includes('remoteBranches') ||
-						(enabledMinimapMarkers.includes('upstream') && current) ||
-						(enabledMinimapMarkers.includes('localBranches') && hasDownstream)
-					) {
-						remoteMarkers.push({
-							type: 'remote',
-							name: `${r.owner}/${r.name}`,
-							current: current && enabledMinimapMarkers.includes('upstream'),
-						});
-					}
-				});
-
-				markers = markersByDay.get(day);
-				if (markers == null) {
-					markersByDay.set(day, remoteMarkers);
-				} else {
-					markers.push(...remoteMarkers);
-				}
-			}
-
-			if (row.type === 'stash-node' && enabledMinimapMarkers.includes('stashes')) {
-				stashMarker = { type: 'stash', name: row.message };
-				markers = markersByDay.get(day);
-				if (markers == null) {
-					markersByDay.set(day, [stashMarker]);
-				} else {
-					markers.push(stashMarker);
-				}
-			}
-
-			if (row.tags?.length && enabledMinimapMarkers.includes('tags')) {
-				rankedShas.tag = row.sha;
-
-				tagMarkers = row.tags.map<GraphMinimapMarker>(t => ({
-					type: 'tag',
-					name: t.name,
-				}));
-
-				markers = markersByDay.get(day);
-				if (markers == null) {
-					markersByDay.set(day, tagMarkers);
-				} else {
-					markers.push(...tagMarkers);
-				}
-			}
-
-			stat = statsByDayMap.get(day);
-			if (stat == null) {
-				if (showLinesChanged) {
-					stats = rowsStats![row.sha];
-					if (stats != null) {
-						stat = {
-							activity: { additions: stats.additions, deletions: stats.deletions },
-							commits: 1,
-							files: stats.files,
-							sha: row.sha,
-						};
-						statsByDayMap.set(day, stat);
-					}
-				} else {
-					stat = {
-						commits: 1,
-						sha: row.sha,
-					};
-					statsByDayMap.set(day, stat);
-				}
-			} else {
-				stat.commits++;
-				stat.sha = rankedShas.head ?? rankedShas.branch ?? rankedShas.remote ?? rankedShas.tag ?? stat.sha;
-				if (showLinesChanged) {
-					stats = rowsStats![row.sha];
-					if (stats != null) {
-						if (stat.activity == null) {
-							stat.activity = { additions: stats.additions, deletions: stats.deletions };
-						} else {
-							stat.activity.additions += stats.additions;
-							stat.activity.deletions += stats.deletions;
-						}
-						stat.files = (stat.files ?? 0) + stats.files;
-					}
-				}
-			}
-		}
-
-		return { stats: statsByDayMap, markers: markersByDay };
-	}, [
-		rows,
-		rowsStats,
-		downstreams,
-		graphConfig?.minimap,
-		graphConfig?.minimapDataType,
-		graphConfig?.minimapMarkerTypes,
-	]);
-
-	const minimapSearchResults = useMemo(() => {
-		if (!graphConfig?.minimap || !graphConfig.minimapMarkerTypes?.includes('highlights')) {
-			return undefined;
-		}
-
-		const searchResultsByDay = new Map<number, GraphMinimapSearchResultMarker>();
-
-		if (searchResults?.ids != null) {
-			let day;
-			let sha;
-			let r;
-			let result;
-			for ([sha, r] of Object.entries(searchResults.ids)) {
-				day = getDay(r.date);
-
-				result = searchResultsByDay.get(day);
-				if (result == null) {
-					searchResultsByDay.set(day, { type: 'search-result', sha: sha, count: 1 });
-				} else {
-					result.count++;
-				}
-			}
-		}
-
-		return searchResultsByDay;
-	}, [searchResults, graphConfig?.minimap, graphConfig?.minimapMarkerTypes]);
 
 	const handleOnMinimapDaySelected = (e: CustomEvent<GraphMinimapDaySelectedEventDetail>) => {
 		let { sha } = e.detail;
@@ -1559,18 +1328,17 @@ export function GraphWrapper({
 					commit, message, author, a changed file or files, or even a specific code change.
 				</p>
 			</GlFeatureGate>
-			{graphConfig?.minimap && (
-				<GraphMinimap
-					ref={minimap as any}
-					activeDay={activeDay}
-					data={minimapData?.stats}
-					dataType={graphConfig?.minimapDataType ?? 'commits'}
-					markers={minimapData?.markers}
-					searchResults={minimapSearchResults}
-					visibleDays={visibleDays}
-					onSelected={e => handleOnMinimapDaySelected(e)}
-				></GraphMinimap>
-			)}
+			<GlGraphMinimapContainer
+				ref={minimap as any}
+				activeDay={activeDay}
+				disabled={!graphConfig?.minimap}
+				rows={rows}
+				rowsStats={rowsStats}
+				dataType={graphConfig?.minimapDataType ?? 'commits'}
+				searchResults={searchResults}
+				visibleDays={visibleDays}
+				onSelected={e => handleOnMinimapDaySelected(e)}
+			></GlGraphMinimapContainer>
 			<main id="main" className="graph-app__main" aria-hidden={!allowed}>
 				{repo !== undefined ? (
 					<>
@@ -1768,8 +1536,4 @@ function getSearchResultModel(state: State): {
 		}
 	}
 	return { results: results, resultsError: resultsError };
-}
-
-function getDay(date: number | Date): number {
-	return new Date(date).setHours(0, 0, 0, 0);
 }
