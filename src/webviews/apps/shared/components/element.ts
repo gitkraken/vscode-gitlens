@@ -17,36 +17,6 @@ type EventTypesWithRequiredDetail = {
 	[K in keyof GlobalEventHandlersEventMap]: RequiresDetail<GlobalEventHandlersEventMap[K]> extends never ? never : K;
 }[keyof GlobalEventHandlersEventMap];
 
-export abstract class GlElement extends LitElement {
-	emit<T extends EventTypesWithRequiredDetail>(
-		name: T,
-		detail: CustomEventDetailType<T>,
-		options?: Omit<CustomEventInit<CustomEventDetailType<T>>, 'detail'>,
-	): CustomEventType<T>;
-	emit<T extends keyof GlobalEventHandlersEventMap>(
-		name: T,
-		detail?: CustomEventDetailType<T>,
-		options?: Omit<CustomEventInit<CustomEventDetailType<T>>, 'detail'>,
-	): CustomEventType<T>;
-	emit<T extends keyof GlobalEventHandlersEventMap>(
-		name: T,
-		detail: CustomEventDetailType<T>,
-		options?: Omit<CustomEventInit<CustomEventDetailType<T>>, 'detail'>,
-	): CustomEventType<T> {
-		const event = new CustomEvent(name, {
-			bubbles: true,
-			cancelable: false,
-			composed: true,
-			...options,
-			detail: detail,
-		});
-
-		this.dispatchEvent(event);
-
-		return event as CustomEventType<T>;
-	}
-}
-
 type Observer = {
 	method: (changedKeys: PropertyKey[]) => void;
 	keys: PropertyKey[];
@@ -84,7 +54,35 @@ export function observe<T extends GlElement>(keys: keyof T | (keyof T)[], option
 // 	};
 // }
 
-export abstract class GlObservableElement extends GlElement {
+export abstract class GlElement extends LitElement {
+	emit<T extends EventTypesWithRequiredDetail>(
+		name: T,
+		detail: CustomEventDetailType<T>,
+		options?: Omit<CustomEventInit<CustomEventDetailType<T>>, 'detail'>,
+	): CustomEventType<T>;
+	emit<T extends keyof GlobalEventHandlersEventMap>(
+		name: T,
+		detail?: CustomEventDetailType<T>,
+		options?: Omit<CustomEventInit<CustomEventDetailType<T>>, 'detail'>,
+	): CustomEventType<T>;
+	emit<T extends keyof GlobalEventHandlersEventMap>(
+		name: T,
+		detail: CustomEventDetailType<T>,
+		options?: Omit<CustomEventInit<CustomEventDetailType<T>>, 'detail'>,
+	): CustomEventType<T> {
+		const event = new CustomEvent(name, {
+			bubbles: true,
+			cancelable: false,
+			composed: true,
+			...options,
+			detail: detail,
+		});
+
+		this.dispatchEvent(event);
+
+		return event as CustomEventType<T>;
+	}
+
 	override update(changedProperties: PropertyValues) {
 		// Use this line when we switch to native decorators
 		// const meta = (this.constructor as typeof GlElement)[Symbol.metadata];
