@@ -490,6 +490,16 @@ export class PatchDetailsWebviewProvider
 
 	private closeView() {
 		void setContext('gitlens:views:patchDetails:mode', undefined);
+
+		if (this._context.mode === 'create') {
+			void this.container.draftsView.show();
+		} else if (this._context.draft?.draftType === 'cloud') {
+			if (this._context.draft.type === 'suggested_pr_change') {
+				// TODO: show Inspect > Repo Status
+			} else {
+				void this.container.draftsView.revealDraft(this._context.draft);
+			}
+		}
 	}
 
 	private copyCloudLink() {
@@ -1082,7 +1092,10 @@ export class PatchDetailsWebviewProvider
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
-	private async getViewDraftState(current: Context): Promise<State['draft'] | undefined> {
+	private async getViewDraftState(
+		current: Context,
+		deferredPatchLoading = true,
+	): Promise<State['draft'] | undefined> {
 		if (current.draft == null) return undefined;
 
 		const draft = current.draft;
@@ -1107,10 +1120,11 @@ export class PatchDetailsWebviewProvider
 
 		if (draft.draftType === 'cloud') {
 			if (
-				draft.changesets == null ||
-				some(draft.changesets, cs =>
-					cs.patches.some(p => p.contents == null || p.files == null || p.repository == null),
-				)
+				deferredPatchLoading === true &&
+				(draft.changesets == null ||
+					some(draft.changesets, cs =>
+						cs.patches.some(p => p.contents == null || p.files == null || p.repository == null),
+					))
 			) {
 				setTimeout(async () => {
 					if (draft.changesets == null) {
@@ -1120,23 +1134,26 @@ export class PatchDetailsWebviewProvider
 					const patches = draft.changesets
 						.flatMap(cs => cs.patches)
 						.filter(p => p.contents == null || p.files == null || p.repository == null);
-					const patchDetails = await Promise.allSettled(
-						patches.map(p => this.container.drafts.getPatchDetails(p)),
-					);
 
-					for (const d of patchDetails) {
-						if (d.status === 'fulfilled') {
-							const patch = patches.find(p => p.id === d.value.id);
-							if (patch != null) {
-								patch.contents = d.value.contents;
-								patch.files = d.value.files;
-								patch.repository = d.value.repository;
-								await this.getOrLocatePatchRepository(patch);
+					if (patches.length > 0) {
+						const patchDetails = await Promise.allSettled(
+							patches.map(p => this.container.drafts.getPatchDetails(p)),
+						);
+
+						for (const d of patchDetails) {
+							if (d.status === 'fulfilled') {
+								const patch = patches.find(p => p.id === d.value.id);
+								if (patch != null) {
+									patch.contents = d.value.contents;
+									patch.files = d.value.files;
+									patch.repository = d.value.repository;
+									await this.getOrLocatePatchRepository(patch);
+								}
 							}
 						}
 					}
 
-					void this.notifyDidChangeViewDraftState();
+					void this.notifyDidChangeViewDraftState(false);
 				}, 0);
 			}
 
@@ -1203,10 +1220,10 @@ export class PatchDetailsWebviewProvider
 		}
 	}
 
-	private async notifyDidChangeViewDraftState() {
+	private async notifyDidChangeViewDraftState(deferredPatchLoading = true) {
 		return this.host.notify(DidChangeDraftNotification, {
 			mode: this._context.mode,
-			draft: serialize(await this.getViewDraftState(this._context)),
+			draft: serialize(await this.getViewDraftState(this._context, deferredPatchLoading)),
 		});
 	}
 
