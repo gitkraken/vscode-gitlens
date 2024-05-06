@@ -5,6 +5,12 @@ import { focusOutlineButton } from './styles/lit/a11y.css';
 import { elementBase } from './styles/lit/base.css';
 import './overlays/tooltip';
 
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-button': GlButton;
+	}
+}
+
 @customElement('gl-button')
 export class GlButton extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
@@ -173,9 +179,16 @@ export class GlButton extends LitElement {
 		}
 	}
 
-	override render() {
+	protected override render() {
 		if (this.tooltip) {
 			return html`<gl-tooltip .content=${this.tooltip}>${this.renderControl()}</gl-tooltip>`;
+		}
+
+		if (this.querySelectorAll('[slot="tooltip"]').length > 0) {
+			return html`<gl-tooltip>
+				${this.renderControl()}
+				<slot name="tooltip" slot="content"></slot>
+			</gl-tooltip>`;
 		}
 
 		return this.renderControl();
@@ -210,11 +223,5 @@ export class GlButton extends LitElement {
 
 	override click() {
 		this.control.click();
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		'gl-button': GlButton;
 	}
 }
