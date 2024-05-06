@@ -935,7 +935,9 @@ export class CommitDetailsWebviewProvider
 		const branch = await repository.getBranch(branchName);
 		if (branch == null) return undefined;
 
-		const pullRequest = await branch.getAssociatedPullRequest();
+		const pullRequest = await branch.getAssociatedPullRequest({
+			expiryOverride: 1000 * 60 * 5, // 5 minutes
+		});
 
 		let codeSuggestions: Draft[] = [];
 		if (pullRequest != null) {
