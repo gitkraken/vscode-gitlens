@@ -15,6 +15,7 @@ import {
 	StepResultBreak,
 } from '../../commands/quickCommand';
 import {
+	FeedbackQuickInputButton,
 	LaunchpadSettingsQuickInputButton,
 	MergeQuickInputButton,
 	OpenCodeSuggestionBrowserQuickInputButton,
@@ -35,6 +36,7 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import { command, executeCommand } from '../../system/command';
 import { fromNow } from '../../system/date';
 import { interpolate, pluralize } from '../../system/string';
+import { openUrl } from '../../system/utils';
 import type { IntegrationId } from '../integrations/providers/models';
 import {
 	HostingIntegrationId,
@@ -309,30 +311,38 @@ export class FocusCommand extends QuickCommand<State> {
 			matchOnDetail: true,
 			items: !items.length ? [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })] : items,
 			buttons: [
+				FeedbackQuickInputButton,
 				OpenLaunchpadInEditorQuickInputButton,
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
 			// onDidChangeValue: async (quickpick, value) => {},
 			onDidClickButton: async (quickpick, button) => {
-				if (button === LaunchpadSettingsQuickInputButton) {
-					void commands.executeCommand('workbench.action.openSettings', 'gitlens.launchpad');
-				} else if (button === OpenLaunchpadInEditorQuickInputButton) {
-					void executeCommand(Commands.ShowFocusPage);
-				} else if (button === RefreshQuickInputButton) {
-					quickpick.busy = true;
+				switch (button) {
+					case LaunchpadSettingsQuickInputButton:
+						void commands.executeCommand('workbench.action.openSettings', 'gitlens.launchpad');
+						break;
+					case FeedbackQuickInputButton:
+						void openUrl('https://github.com/gitkraken/vscode-gitlens/discussions/3268');
+						break;
+					case OpenLaunchpadInEditorQuickInputButton:
+						void executeCommand(Commands.ShowFocusPage);
+						break;
+					case RefreshQuickInputButton:
+						quickpick.busy = true;
 
-					try {
-						context.items = await this.container.focus.getCategorizedItems({ force: true });
-						const items = getItems(context.items);
+						try {
+							context.items = await this.container.focus.getCategorizedItems({ force: true });
+							const items = getItems(context.items);
 
-						quickpick.placeholder = !items.length
-							? 'All done! Take a vacation'
-							: 'Choose an item to focus on';
-						quickpick.items = items;
-					} finally {
-						quickpick.busy = false;
-					}
+							quickpick.placeholder = !items.length
+								? 'All done! Take a vacation'
+								: 'Choose an item to focus on';
+							quickpick.items = items;
+						} finally {
+							quickpick.busy = false;
+						}
+						break;
 				}
 			},
 

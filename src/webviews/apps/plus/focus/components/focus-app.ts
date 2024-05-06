@@ -294,8 +294,8 @@ export class GlFocusApp extends LitElement {
 						class="feedback"
 						appearance="toolbar"
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2535"
-						tooltip="Launchpad Feedback"
-						aria-label="Launchpad Feedback"
+						tooltip="Give Us Feedback"
+						aria-label="Give Us Feedback"
 						><code-icon icon="feedback"></code-icon
 					></gl-button>
 					<gl-feature-badge
