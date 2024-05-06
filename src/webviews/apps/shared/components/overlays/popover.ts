@@ -3,7 +3,7 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import '@shoelace-style/shoelace/dist/components/popup/popup.js';
 import { parseDuration, waitForEvent } from '../../dom';
-import { GlObservableElement, observe } from '../element';
+import { GlElement, observe } from '../element';
 
 // Adapted from shoelace tooltip
 
@@ -50,7 +50,7 @@ declare global {
 }
 
 @customElement('gl-popover')
-export class GlPopover extends GlObservableElement {
+export class GlPopover extends GlElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,

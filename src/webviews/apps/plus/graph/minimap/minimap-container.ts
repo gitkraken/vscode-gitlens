@@ -8,7 +8,7 @@ import type {
 	GraphSearchResults,
 	GraphSearchResultsError,
 } from '../../../../../plus/webviews/graph/protocol';
-import { GlObservableElement, observe } from '../../../shared/components/element';
+import { GlElement, observe } from '../../../shared/components/element';
 import type {
 	GlGraphMinimap,
 	GraphMinimapMarker,
@@ -19,7 +19,7 @@ import type {
 import './minimap';
 
 @customElement('gl-graph-minimap-container')
-export class GlGraphMinimapContainer extends GlObservableElement {
+export class GlGraphMinimapContainer extends GlElement {
 	@property({ type: Number })
 	activeDay: number | undefined;
 

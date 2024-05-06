@@ -5,7 +5,7 @@ import { debug } from '../../../../../system/decorators/log';
 import { debounce } from '../../../../../system/function';
 import { first, flatMap, groupByMap, map, union } from '../../../../../system/iterable';
 import { capitalize, pluralize } from '../../../../../system/string';
-import { GlObservableElement, observe } from '../../../shared/components/element';
+import { GlElement, observe } from '../../../shared/components/element';
 import { formatDate, formatNumeric, fromNow } from '../../../shared/date';
 
 export interface BranchMarker {
@@ -79,7 +79,7 @@ declare global {
 }
 
 @customElement('gl-graph-minimap')
-export class GlGraphMinimap extends GlObservableElement {
+export class GlGraphMinimap extends GlElement {
 	static override styles = css`
 		:host {
 			display: flex;
