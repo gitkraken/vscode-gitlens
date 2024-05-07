@@ -184,7 +184,7 @@ button:not([disabled]),
 	border-radius: 0.5rem;
 	font-size: 1rem;
 	font-weight: 500;
-	line-height: 1;
+	line-height: 1.2;
 	text-transform: uppercase;
 	color: var(--vscode-foreground);
 	background-color: var(--vscode-editorWidget-background);
@@ -1199,4 +1199,11 @@ gl-feature-gate gl-feature-badge {
 hr {
 	border: none;
 	border-top: 1px solid var(--color-foreground--25);
+}
+
+.md-code {
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 3px;
+	padding: 0px 4px 2px 4px;
+	font-family: var(--vscode-editor-font-family);
 }
