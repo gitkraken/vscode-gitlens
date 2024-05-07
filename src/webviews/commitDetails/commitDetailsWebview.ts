@@ -216,8 +216,11 @@ export class CommitDetailsWebviewProvider
 				this.updatePendingContext({ inReview: arg.inReview });
 			}
 			await this.setMode('wip', arg.repository);
+			if (shouldChangeReview && arg.inReview === true) {
+				void this.trackOpenReviewMode(arg.source);
+			}
 		} else if (shouldChangeReview) {
-			await this.setInReview(arg.inReview ?? false);
+			await this.setInReview(arg.inReview!, arg.source);
 		}
 
 		if (options?.preserveVisibility && !this.host.visible) return false;
@@ -288,6 +291,21 @@ export class CommitDetailsWebviewProvider
 
 		this._skipNextRefreshOnVisibilityChange = true;
 		return true;
+	}
+
+	async trackOpenReviewMode(source?: string) {
+		if (this._context.wip?.pullRequest == null) return;
+
+		const provider = this._context.wip.pullRequest.provider.id;
+		const repoPrivacy = await this.container.git.visibility(this._context.wip.repo.path);
+		const filesChanged = this._context.wip.changes?.files.length ?? 0;
+
+		this.container.telemetry.sendEvent('openReviewMode', {
+			provider: provider,
+			repoPrivacy: repoPrivacy,
+			source: source ?? 'commitDetails',
+			filesChanged: filesChanged,
+		});
 	}
 
 	includeBootstrap(): Promise<Serialized<State>> {
@@ -451,7 +469,7 @@ export class CommitDetailsWebviewProvider
 				this.showCodeSuggestion(e.params.id);
 				break;
 			case ChangeReviewModeCommand.is(e):
-				void this.setInReview(e.params.inReview);
+				void this.setInReview(e.params.inReview, 'repoStatus');
 				break;
 		}
 	}
@@ -1328,7 +1346,7 @@ export class CommitDetailsWebviewProvider
 		this.updateState();
 	}
 
-	private async setInReview(inReview: boolean) {
+	private async setInReview(inReview: boolean, source?: ShowWipArgs['source']) {
 		if (this._context.inReview === inReview) return;
 
 		if (this._pendingContext == null) {
@@ -1340,6 +1358,10 @@ export class CommitDetailsWebviewProvider
 
 		this.updatePendingContext({ inReview: inReview });
 		this.updateState(true);
+
+		if (inReview) {
+			void this.trackOpenReviewMode(source);
+		}
 	}
 
 	private async notifyDidChangeState(force: boolean = false) {

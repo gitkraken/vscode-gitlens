@@ -500,6 +500,7 @@ export class PatchDetailsWebviewProvider
 				void showInspectView({
 					type: 'wip',
 					repository: isRepoLocated(repositoryOrIdentity) ? (repositoryOrIdentity as Repository) : undefined,
+					source: 'patchDetails',
 				});
 			} else {
 				void this.container.draftsView.revealDraft(this._context.draft);
