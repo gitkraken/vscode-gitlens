@@ -107,6 +107,7 @@ import { openWorkspace } from '../system/utils';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
+	CrossCommandReference,
 	PartialStepState,
 	QuickPickStep,
 	StepResultGenerator,
@@ -120,6 +121,7 @@ import {
 	createInputStep,
 	createPickStep,
 	endSteps,
+	isCrossCommandReference,
 	StepResultBreak,
 } from './quickCommand';
 import {
@@ -947,7 +949,7 @@ export function* pickBranchOrTagStepMultiRepo<
 		titleContext?: string;
 		value?: string;
 	},
-): StepResultGenerator<GitReference | string> {
+): StepResultGenerator<GitReference | CrossCommandReference | string> {
 	context.showTags = state.repos.length === 1;
 
 	const showTagsButton = new ShowTagsToggleQuickInputButton(context.showTags);
@@ -957,6 +959,13 @@ export function* pickBranchOrTagStepMultiRepo<
 		iconPath: new ThemeIcon('plus'),
 		alwaysShow: true,
 		item: '',
+	};
+
+	const choosePullRequestItem: QuickPickItem & { item: CrossCommandReference } = {
+		label: 'Choose a Pull Request...',
+		iconPath: new ThemeIcon('git-pull-request'),
+		alwaysShow: true,
+		item: { command: Commands.ShowLaunchpad },
 	};
 
 	const getBranchesAndOrTagsFn = () => {
@@ -972,11 +981,11 @@ export function* pickBranchOrTagStepMultiRepo<
 		branchesAndOrTags.length === 0
 			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 			: allowCreate
-			  ? [createNewBranchItem, ...branchesAndOrTags]
-			  : branchesAndOrTags,
+			  ? [createNewBranchItem, choosePullRequestItem, ...branchesAndOrTags]
+			  : [choosePullRequestItem, ...branchesAndOrTags],
 	);
 
-	const step = createPickStep<ReferencesQuickPickItem | typeof createNewBranchItem>({
+	const step = createPickStep<ReferencesQuickPickItem | typeof createNewBranchItem | typeof choosePullRequestItem>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: count =>
 			!count
@@ -997,7 +1006,7 @@ export function* pickBranchOrTagStepMultiRepo<
 			return true;
 		},
 		onDidClickItemButton: (quickpick, button, { item }) => {
-			if (typeof item === 'string') return;
+			if (typeof item === 'string' || isCrossCommandReference(item)) return;
 
 			if (button === RevealInSideBarQuickInputButton) {
 				if (isBranchReference(item)) {
@@ -1038,7 +1047,7 @@ export function* pickBranchOrTagStepMultiRepo<
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: (_quickpick, _key, { item }) => {
-			if (typeof item === 'string') return;
+			if (typeof item === 'string' || isCrossCommandReference(item)) return;
 
 			if (isBranchReference(item)) {
 				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
