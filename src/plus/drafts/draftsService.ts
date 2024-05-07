@@ -66,7 +66,7 @@ export class DraftService implements Disposable {
 		type: DraftType,
 		title: string,
 		changes: CreateDraftChange[],
-		options?: { description?: string; visibility?: DraftVisibility },
+		options?: { description?: string; visibility?: DraftVisibility; prEntityId?: string },
 	): Promise<Draft> {
 		const scope = getLogScope();
 
@@ -100,7 +100,15 @@ export class DraftService implements Disposable {
 			type DraftResult = { data: CreateDraftResponse };
 
 			let providerAuthHeader: HeadersInit | undefined;
+			let prEntityIdBody: { prEntityId: string } | undefined;
 			if (type === 'suggested_pr_change') {
+				if (options?.prEntityId == null) {
+					throw new Error('No pull request info provided');
+				}
+				prEntityIdBody = {
+					prEntityId: options.prEntityId,
+				};
+
 				const repo = patchRequests[0].repository;
 				const providerAuth = await this.getProviderAuthFromRepository(repo);
 				if (providerAuth == null) {
@@ -197,6 +205,7 @@ export class DraftService implements Disposable {
 			const publishRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}/publish`, {
 				method: 'POST',
 				headers: providerAuthHeader,
+				body: prEntityIdBody != null ? JSON.stringify(prEntityIdBody) : undefined,
 			});
 			if (!publishRsp.ok) {
 				await handleBadDraftResponse(`Failed to publish draft '${draftId}'`, publishRsp, scope);
