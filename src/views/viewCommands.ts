@@ -25,6 +25,8 @@ import { matchContributor } from '../git/models/contributor';
 import { getComparisonRefsForPullRequest } from '../git/models/pullRequest';
 import { createReference, shortenRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import type { Draft } from '../gk/models/drafts';
+import { showPatchesView } from '../plus/drafts/actions';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import {
 	executeActionCommand,
@@ -352,6 +354,8 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.openPullRequest', this.openPullRequest, this);
 		registerViewCommand('gitlens.views.openPullRequestChanges', this.openPullRequestChanges, this);
 		registerViewCommand('gitlens.views.openPullRequestComparison', this.openPullRequestComparison, this);
+
+		registerViewCommand('gitlens.views.openDraft', this.openDraft, this);
 
 		registerViewCommand('gitlens.views.title.createWorktree', () => this.createWorktree());
 		registerViewCommand('gitlens.views.createWorktree', this.createWorktree, this);
@@ -696,6 +700,19 @@ export class ViewCommands {
 
 		const refs = await getComparisonRefsForPullRequest(this.container, node.repoPath, node.pullRequest.refs);
 		return this.container.searchAndCompareView.compare(refs.repoPath, refs.head, refs.base);
+	}
+
+	@log()
+	private async openDraft(draft: Draft) {
+		if (draft.changesets == null) {
+			try {
+				draft = await this.container.drafts.getDraft(draft.id);
+			} catch (ex) {
+				void window.showErrorMessage(`Unable to open Cloud Patch '${draft.id}'`);
+				return;
+			}
+		}
+		await showPatchesView({ mode: 'view', draft: draft });
 	}
 
 	@log()

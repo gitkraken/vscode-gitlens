@@ -3,17 +3,17 @@ import type { GitUri } from '../../git/gitUri';
 import type { Draft } from '../../gk/models/drafts';
 import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
-import type { DraftsView } from '../draftsView';
+import type { View } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
-export class DraftNode extends ViewNode<'draft', DraftsView> {
+export class ResultsSuggestedChangeNode extends ViewNode<'results-suggested-change'> {
 	constructor(
 		uri: GitUri,
-		view: DraftsView,
-		protected override parent: ViewNode,
-		public readonly draft: Draft,
+		view: View,
+		parent: ViewNode,
+		private readonly draft: Draft,
 	) {
-		super('draft', uri, view, parent);
+		super('results-suggested-change', uri, view, parent);
 
 		this.updateContext({ draft: draft });
 		this._uniqueId = getViewNodeId(this.type, this.context);
@@ -21,10 +21,6 @@ export class DraftNode extends ViewNode<'draft', DraftsView> {
 
 	override get id(): string {
 		return this._uniqueId;
-	}
-
-	override toClipboard(): string {
-		return this.draft.title ?? this.draft.description ?? '';
 	}
 
 	getChildren(): ViewNode[] {
@@ -45,7 +41,7 @@ export class DraftNode extends ViewNode<'draft', DraftsView> {
 			contextValue += '+mine';
 		}
 		item.contextValue = contextValue;
-		item.iconPath = new ThemeIcon(this.draft.type == 'suggested_pr_change' ? 'gitlens-code-suggestion' : 'cloud');
+		item.iconPath = new ThemeIcon('gitlens-code-suggestion');
 		item.tooltip = new MarkdownString(
 			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\nCreated ${fromNow(
 				this.draft.createdAt,
