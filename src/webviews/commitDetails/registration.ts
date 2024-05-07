@@ -1,9 +1,9 @@
 import type { CommitSelectedEvent } from '../../eventBus';
 import type { Serialized } from '../../system/serialize';
 import type { WebviewsController } from '../webviewsController';
-import type { State } from './protocol';
+import type { ShowWipArgs, State } from './protocol';
 
-export type CommitDetailsWebviewShowingArgs = [Partial<CommitSelectedEvent['data']>];
+export type CommitDetailsWebviewShowingArgs = [Partial<CommitSelectedEvent['data']> | ShowWipArgs];
 
 export function registerCommitDetailsWebviewView(controller: WebviewsController) {
 	return controller.registerWebviewView<State, Serialized<State>, CommitDetailsWebviewShowingArgs>(

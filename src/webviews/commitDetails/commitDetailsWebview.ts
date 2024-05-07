@@ -70,6 +70,7 @@ import type {
 	GitBranchShape,
 	Mode,
 	Preferences,
+	ShowWipArgs,
 	State,
 	SuggestChangesParams,
 	SwitchModeParams,
@@ -201,9 +202,36 @@ export class CommitDetailsWebviewProvider
 		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<CommitDetailsWebviewShowingArgs, Serialized<State>>
 	): Promise<boolean> {
+		const [arg] = args;
+		if ((arg as ShowWipArgs)?.type === 'wip') {
+			return this.onShowingWip(arg as ShowWipArgs);
+		}
+		return this.onShowingCommit(arg as Partial<CommitSelectedEvent['data']> | undefined, options);
+	}
+
+	async onShowingWip(arg: ShowWipArgs, options?: WebviewShowOptions): Promise<boolean> {
+		const shouldChangeReview = arg.inReview != null && this._context.inReview != arg.inReview;
+		if (this._context.mode != 'wip' || (arg.repository != null && this._context.wip?.repo != arg.repository)) {
+			if (shouldChangeReview) {
+				this.updatePendingContext({ inReview: arg.inReview });
+			}
+			await this.setMode('wip', arg.repository);
+		} else if (shouldChangeReview) {
+			await this.setInReview(arg.inReview ?? false);
+		}
+
+		if (options?.preserveVisibility && !this.host.visible) return false;
+
+		this._skipNextRefreshOnVisibilityChange = true;
+		return true;
+	}
+
+	async onShowingCommit(
+		arg: Partial<CommitSelectedEvent['data']> | undefined,
+		options?: WebviewShowOptions,
+	): Promise<boolean> {
 		let data: Partial<CommitSelectedEvent['data']> | undefined;
 
-		const [arg] = args;
 		if (isSerializedState<Serialized<State>>(arg)) {
 			const { commit: selected } = arg.state;
 			if (selected?.repoPath != null && selected?.sha != null) {
@@ -225,7 +253,7 @@ export class CommitDetailsWebviewProvider
 				}
 			}
 		} else if (arg != null && typeof arg === 'object') {
-			data = arg as Partial<CommitSelectedEvent['data']> | undefined;
+			data = arg;
 		} else {
 			data = undefined;
 		}
@@ -243,7 +271,7 @@ export class CommitDetailsWebviewProvider
 		}
 
 		if (commit != null && this.mode === 'wip' && data?.interaction !== 'passive') {
-			this.setMode('commit');
+			await this.setMode('commit');
 		}
 
 		if (commit == null) {
@@ -768,7 +796,7 @@ export class CommitDetailsWebviewProvider
 		return this._pendingContext?.mode ?? this._context.mode;
 	}
 
-	private setMode(mode: Mode, repository?: Repository) {
+	private async setMode(mode: Mode, repository?: Repository): Promise<void> {
 		this.updatePendingContext({ mode: mode });
 		if (mode === 'commit') {
 			this._wipSubscription?.subscription.dispose();
@@ -776,7 +804,7 @@ export class CommitDetailsWebviewProvider
 
 			this.updateState(true);
 		} else {
-			void this.updateWipState(repository ?? this.container.git.getBestRepositoryOrFirst());
+			await this.updateWipState(repository ?? this.container.git.getBestRepositoryOrFirst());
 		}
 
 		this.updateTitle();
@@ -1141,6 +1169,20 @@ export class CommitDetailsWebviewProvider
 		this.updateTitle();
 	}
 
+	private onModeReviewChange(mode?: Mode, inReview?: boolean) {
+		let pending = false;
+		if (inReview != null && this._context.inReview != inReview) {
+			pending = true;
+			this.updatePendingContext({ inReview: inReview });
+		}
+
+		if (mode != null && this._context.mode != mode) {
+			void this.setMode(mode);
+		} else if (pending) {
+			void this.host.notify(DidChangeDraftStateNotification, { inReview: inReview! });
+		}
+	}
+
 	private subscribeToRepositoryWip(repo: Repository) {
 		return Disposable.from(
 			repo.watchFileSystem(1000),
@@ -1469,7 +1511,7 @@ export class CommitDetailsWebviewProvider
 			}
 		}
 
-		this.setMode(params.mode, repo);
+		void this.setMode(params.mode, repo);
 	}
 
 	private async openFileComparisonWithWorking(params: ExecuteFileActionParams) {

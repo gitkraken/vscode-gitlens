@@ -5,6 +5,7 @@ import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/co
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequestShape } from '../../git/models/pullRequest';
+import type { Repository } from '../../git/models/repository';
 import type { Draft, DraftVisibility } from '../../gk/models/drafts';
 import type { Change, DraftUserSelection } from '../../plus/webviews/patchDetails/protocol';
 import type { DateTimeFormat } from '../../system/date';
@@ -106,6 +107,12 @@ export interface State extends WebviewState {
 }
 
 export type ShowCommitDetailsViewCommandArgs = string[];
+
+export interface ShowWipArgs {
+	type: 'wip';
+	inReview?: boolean;
+	repository?: Repository;
+}
 
 // COMMANDS
 

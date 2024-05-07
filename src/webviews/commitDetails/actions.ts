@@ -1,0 +1,26 @@
+import { Container } from '../../container';
+import type { CommitSelectedEvent } from '../../eventBus';
+import type { Repository } from '../../git/models/repository';
+import type { WebviewViewShowOptions } from '../webviewsController';
+import type { ShowWipArgs } from './protocol';
+
+export async function showInspectView(
+	data: Partial<CommitSelectedEvent['data']> | ShowWipArgs,
+	showOptions?: WebviewViewShowOptions,
+): Promise<void> {
+	return Container.instance.commitDetailsView.show(showOptions, data);
+}
+
+export async function startCodeReview(
+	repository: Repository | undefined,
+	showOptions?: WebviewViewShowOptions,
+): Promise<void> {
+	return showInspectView(
+		{
+			type: 'wip',
+			inReview: true,
+			repository: repository,
+		} satisfies ShowWipArgs,
+		showOptions,
+	);
+}

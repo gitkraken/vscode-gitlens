@@ -42,6 +42,7 @@ import { basename } from '../../../system/path';
 import { defer } from '../../../system/promise';
 import type { Serialized } from '../../../system/serialize';
 import { serialize } from '../../../system/serialize';
+import { showInspectView } from '../../../webviews/commitDetails/actions';
 import type { IpcCallMessageType, IpcMessage } from '../../../webviews/protocol';
 import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProvider';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
@@ -495,7 +496,11 @@ export class PatchDetailsWebviewProvider
 			void this.container.draftsView.show();
 		} else if (this._context.draft?.draftType === 'cloud') {
 			if (this._context.draft.type === 'suggested_pr_change') {
-				// TODO: show Inspect > Repo Status
+				const repositoryOrIdentity = this._context.draft.changesets?.[0].patches[0].repository;
+				void showInspectView({
+					type: 'wip',
+					repository: isRepoLocated(repositoryOrIdentity) ? (repositoryOrIdentity as Repository) : undefined,
+				});
 			} else {
 				void this.container.draftsView.revealDraft(this._context.draft);
 			}
