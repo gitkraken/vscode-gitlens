@@ -244,8 +244,8 @@ export class SubscriptionService implements Disposable {
 			} = this._subscription;
 
 			if (account?.verified === false) {
-				const confirm: MessageItem = { title: 'Resend Verification', isCloseAffordance: true };
-				const cancel: MessageItem = { title: 'Cancel' };
+				const confirm: MessageItem = { title: 'Resend Verification' };
+				const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
 					`You must verify your email before you can access ${effective.name}.`,
 					confirm,
@@ -256,7 +256,7 @@ export class SubscriptionService implements Disposable {
 					void this.resendVerification();
 				}
 			} else if (isSubscriptionPaid(this._subscription)) {
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+				const confirm: MessageItem = { title: 'OK' };
 				const learn: MessageItem = { title: 'Learn More' };
 				const result = await window.showInformationMessage(
 					`Welcome to ${actual.name}.\nYou now have full access to Pro features.\n\nYour plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
@@ -271,7 +271,7 @@ export class SubscriptionService implements Disposable {
 			} else if (isSubscriptionTrial(this._subscription)) {
 				const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
 
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+				const confirm: MessageItem = { title: 'OK' };
 				const learn: MessageItem = { title: 'Learn More' };
 				const result = await window.showInformationMessage(
 					`Welcome to your ${effective.name} Trial.\nYou now have full access to Pro features for ${
@@ -286,7 +286,7 @@ export class SubscriptionService implements Disposable {
 					void this.learnAboutPreviewOrTrial();
 				}
 			} else {
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+				const confirm: MessageItem = { title: 'OK' };
 				const upgrade: MessageItem = { title: 'Upgrade to Pro' };
 				const learn: MessageItem = { title: 'Learn More' };
 				const result = await window.showInformationMessage(
@@ -512,7 +512,7 @@ export class SubscriptionService implements Disposable {
 
 		if (!silent) {
 			setTimeout(async () => {
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+				const confirm: MessageItem = { title: 'OK' };
 				const learn: MessageItem = { title: 'Learn More' };
 				const result = await window.showInformationMessage(
 					`You can now preview local Pro features for ${
@@ -565,7 +565,7 @@ export class SubscriptionService implements Disposable {
 			if (isSubscriptionTrial(this._subscription)) {
 				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
 
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+				const confirm: MessageItem = { title: 'OK' };
 				const learn: MessageItem = { title: "See What's New" };
 				const result = await window.showInformationMessage(
 					`Your Pro trial has been reactivated! Experience all the new Pro features for another ${pluralize(

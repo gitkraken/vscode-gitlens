@@ -567,9 +567,14 @@ export class StashGitCommand extends QuickCommand<State> {
 						ex.reason === StashPushErrorReason.ConflictingStagedAndUnstagedLines &&
 						state.flags.includes('--staged')
 					) {
-						const confirm = { title: 'Yes' };
-						const cancel = { title: 'No', isCloseAffordance: true };
-						const result = await window.showErrorMessage(ex.message, { modal: true }, confirm, cancel);
+						const confirm = { title: 'Stash Everything' };
+						const cancel = { title: 'Cancel', isCloseAffordance: true };
+						const result = await window.showErrorMessage(
+							`Changes were stashed, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s)\n\nDo you want to try again by stashing both your staged and unstaged changes?`,
+							{ modal: true },
+							confirm,
+							cancel,
+						);
 
 						if (result === confirm) {
 							if (state.uris == null) {

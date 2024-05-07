@@ -319,8 +319,8 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			const result = await window.showInformationMessage(
 				`Unable to find a remote for '${remoteUrl}'. Would you like to add a new remote?`,
 				{ modal: true },
-				{ title: 'Yes' },
-				{ title: 'No', isCloseAffordance: true },
+				{ title: 'Add Remote' },
+				{ title: 'Cancel', isCloseAffordance: true },
 			);
 			if (result?.title !== 'Yes') return;
 

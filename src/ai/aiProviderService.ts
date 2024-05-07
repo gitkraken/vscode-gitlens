@@ -238,10 +238,10 @@ async function confirmAIProviderToS(provider: AIProvider, storage: Storage): Pro
 		storage.getWorkspace(`confirm:ai:tos:${provider.id}`, false);
 	if (confirmed) return true;
 
-	const accept: MessageItem = { title: 'Yes' };
+	const accept: MessageItem = { title: 'Continue' };
 	const acceptWorkspace: MessageItem = { title: 'Always for this Workspace' };
 	const acceptAlways: MessageItem = { title: 'Always' };
-	const decline: MessageItem = { title: 'No', isCloseAffordance: true };
+	const decline: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 	const result = await window.showInformationMessage(
 		`GitLens experimental AI features require sending a diff of the code changes to ${provider.name} for analysis. This may contain sensitive information.\n\nDo you want to continue?`,
 		{ modal: true },
