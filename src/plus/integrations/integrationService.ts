@@ -97,6 +97,9 @@ export class IntegrationService implements Disposable {
 	}
 
 	async manageCloudIntegrations() {
+		this.container.telemetry.sendEvent('cloudIntegrations/settingsOpened', {
+			userId: (await this.container.subscription.getSubscription())?.account?.id,
+		});
 		await env.openExternal(this.connection.getGkDevAccountsUri('settings/integrations'));
 		take(
 			window.onDidChangeWindowState,
