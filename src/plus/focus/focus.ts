@@ -202,6 +202,11 @@ export class FocusCommand extends QuickCommand<State> {
 						void this.container.focus.switchTo(state.item);
 						break;
 					}
+					case 'switch-and-review':
+					case 'review': {
+						void this.container.focus.switchTo(state.item, true);
+						break;
+					}
 					// case 'change-reviewers':
 					// 	await this.container.focus.changeReviewers(state.item);
 					// 	break;
@@ -458,17 +463,44 @@ export class FocusCommand extends QuickCommand<State> {
 						),
 					);
 					break; */
-				case 'switch':
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: 'Switch to Branch or Worktree',
-								detail: 'Will checkout the branch or worktree for this pull request',
-							},
-							action,
-						),
-					);
+				case 'switch': {
+					if (state.item.openRepository?.localBranch?.current) {
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: `Suggest ${state.item.viewer.isAuthor ? 'Additional ' : ''}Code Changes`,
+									detail: 'Will let you choose code changes to suggest on this pull request',
+								},
+								'review',
+							),
+						);
+						break;
+					} else {
+						if (state.item.viewer.isAuthor) {
+							confirmations.push(
+								createQuickPickItemOfT(
+									{
+										label: 'Switch to Branch or Worktree',
+										detail: 'Will checkout the branch or worktree for this pull request',
+									},
+									action,
+								),
+							);
+						}
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: state.item.viewer.isAuthor
+										? 'Suggest Additional Code Changes'
+										: 'Start Review',
+									detail: 'Will let you choose code changes to suggest on this pull request',
+								},
+								'switch-and-review',
+							),
+						);
+					}
 					break;
+				}
 				/* case 'change-reviewers':
 					confirmations.push(
 						createQuickPickItemOfT(

@@ -3,10 +3,12 @@ import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
+import { showDetailsView } from '../../git/actions/commit';
 import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
+import { createReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
@@ -17,6 +19,7 @@ import { getSettledValue } from '../../system/promise';
 import { openUrl } from '../../system/utils';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
+import { startCodeReview } from '../../webviews/commitDetails/actions';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
 	getActionablePullRequests,
@@ -88,6 +91,8 @@ export type FocusAction =
 	| 'open'
 	| 'merge'
 	| 'switch'
+	| 'switch-and-review'
+	| 'review'
 	| 'soft-open' /*| 'review' | 'change-reviewers' | 'nudge' | 'decline-review'*/;
 export type FocusTargetAction = {
 	action: 'open-suggestion';
@@ -332,15 +337,29 @@ export class FocusProvider implements Disposable {
 		void openUrl(this.container.drafts.generateGkDevUrl(target).toString());
 	}
 
-	async switchTo(item: FocusItem): Promise<void> {
-		const deepLinkUrl = this.getItemBranchDeepLink(item);
+	async switchTo(item: FocusItem, startReview: boolean = false): Promise<void> {
+		if (item.openRepository?.localBranch?.current) {
+			if (startReview) {
+				void startCodeReview(item.openRepository.repo, 'launchpad');
+			} else if (item.openRepository.localBranch.sha) {
+				const revision = createReference(
+					item.openRepository.localBranch.sha,
+					item.openRepository.repo.uri.fsPath,
+					{ refType: 'revision' },
+				);
+				void showDetailsView(revision);
+			}
+			return;
+		}
+
+		const deepLinkUrl = this.getItemBranchDeepLink(item, startReview);
 		if (deepLinkUrl == null) return;
 
 		this._codeSuggestions?.delete(item.uuid);
 		await env.openExternal(deepLinkUrl);
 	}
 
-	private getItemBranchDeepLink(item: FocusItem): Uri | undefined {
+	private getItemBranchDeepLink(item: FocusItem, startReview: boolean = false): Uri | undefined {
 		if (item.type !== 'pullrequest' || item.headRef == null || item.repoIdentity?.remote?.url == null)
 			return undefined;
 		const schemeOverride = configuration.get('deepLinks.schemeOverride');
@@ -353,7 +372,9 @@ export class FocusProvider implements Disposable {
 				DeepLinkType.Repository
 			}/-/${DeepLinkType.Branch}/${item.headRef.name}?url=${encodeURIComponent(
 				ensureRemoteUrl(item.repoIdentity.remote.url),
-			)}&action=${DeepLinkActionType.SwitchToPullRequest}`,
+			)}&action=${
+				startReview ? DeepLinkActionType.SwitchToAndReviewPullRequest : DeepLinkActionType.SwitchToPullRequest
+			}`,
 		);
 	}
 
