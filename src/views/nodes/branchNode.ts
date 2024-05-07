@@ -390,7 +390,7 @@ export class BranchNode
 
 		let tooltip: string | MarkdownString = `${
 			this.current ? 'Current branch\\\n' : this.opened ? 'Current branch in an opened worktree\\\n' : ''
-		}Branch $(git-branch) ${this.branch.getNameWithoutRemote()}${this.branch.rebasing ? ' (Rebasing)' : ''}`;
+		}\`${this.branch.getNameWithoutRemote()}\`${this.branch.rebasing ? ' (Rebasing)' : ''}`;
 
 		let contextValue: string = ContextValues.Branch;
 		if (this.current) {
@@ -463,14 +463,14 @@ export class BranchNode
 
 				tooltip += ` is ${this.branch.getTrackingStatus({
 					empty: this.branch.upstream.missing
-						? `missing upstream $(git-branch) ${this.branch.upstream.name}`
-						: `up to date with $(git-branch)  ${this.branch.upstream.name}${
+						? `missing upstream \`${this.branch.upstream.name}\``
+						: `up to date with \`${this.branch.upstream.name}\`${
 								remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 						  }`,
 					expand: true,
 					icons: true,
-					separator: ', ',
-					suffix: ` $(git-branch) ${this.branch.upstream.name}${
+					separator: ' and ',
+					suffix: ` \`${this.branch.upstream.name}\`${
 						remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 					}`,
 				})}`;
