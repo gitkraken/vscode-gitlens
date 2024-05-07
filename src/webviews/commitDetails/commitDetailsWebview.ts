@@ -483,6 +483,22 @@ export class CommitDetailsWebviewProvider
 		return EntityIdentifierUtils.encode(entity);
 	}
 
+	private async trackCreateCodeSuggestion(draft: Draft, fileCount: number) {
+		if (this._context.wip?.pullRequest == null) return;
+
+		const provider = this._context.wip.pullRequest.provider.id;
+		const repoPrivacy = await this.container.git.visibility(this._context.wip.repo.path);
+
+		this.container.telemetry.sendEvent('openReviewMode', {
+			provider: provider,
+			repoPrivacy: repoPrivacy,
+			source: 'reviewMode',
+			filesChanged: fileCount,
+			draftId: draft.id,
+			draftPrivacy: draft.visibility,
+		});
+	}
+
 	private async suggestChanges(e: SuggestChangesParams) {
 		if (
 			!(await ensureAccount('Code Suggestions are a Preview feature and require an account.', this.container)) ||
@@ -495,6 +511,7 @@ export class CommitDetailsWebviewProvider
 
 		const changes = Object.entries(e.changesets);
 		const ignoreChecked = changes.length === 1;
+		let createFileCount = 0;
 
 		for (const [_, change] of changes) {
 			if (!ignoreChecked && change.checked === false) continue;
@@ -512,6 +529,14 @@ export class CommitDetailsWebviewProvider
 
 			const prEntityId = this.getEncodedEntityid();
 			if (prEntityId == null) continue;
+
+			if (change.files && change.files.length > 0) {
+				if (checked === 'staged') {
+					createFileCount += change.files.filter(f => f.staged === true).length;
+				} else {
+					createFileCount += change.files.length;
+				}
+			}
 
 			createChanges.push({
 				repository: repository,
@@ -562,6 +587,8 @@ export class CommitDetailsWebviewProvider
 
 			void showNotification();
 			void this.setInReview(false);
+
+			void this.trackCreateCodeSuggestion(draft, createFileCount);
 		} catch (ex) {
 			debugger;
 
