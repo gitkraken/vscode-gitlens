@@ -887,38 +887,78 @@ export function GraphWrapper({
 	};
 
 	const renderFetchAction = () => {
-		const lastFetchedDate = lastFetched && new Date(lastFetched);
-		const fetchedText = lastFetchedDate && lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
-
 		let action: 'fetch' | 'pull' | 'push' = 'fetch';
-
 		let icon = 'sync';
 		let label = 'Fetch';
 		let isBehind = false;
 		let isAhead = false;
 
-		let tooltip = '';
-		let fetchTooltip = 'Fetch from';
-		let remote = 'remote';
+		const remote = branchState?.upstream ? (
+			<>
+				<span className="md-code">{branchState?.upstream}</span>
+			</>
+		) : (
+			'remote'
+		);
+
+		let tooltip;
 		if (branchState) {
-			isBehind = branchState.behind > 0;
 			isAhead = branchState.ahead > 0;
-			const branchPrefix = `Branch ${branchName} is`;
-			remote = `${branchState.upstream}${branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}`;
+			isBehind = branchState.behind > 0;
+
+			const branchPrefix = (
+				<>
+					<span className="md-code">{branchName}</span> is
+				</>
+			);
+
 			if (isBehind) {
 				action = 'pull';
 				icon = 'arrow-down';
 				label = 'Pull';
-				tooltip = `Pull from ${remote}\n\n${branchPrefix} ${pluralize('commit', branchState.behind)} behind of`;
+				tooltip = (
+					<>
+						Pull {pluralize('commit', branchState.behind)} from {remote}
+						{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
+					</>
+				);
+				if (isAhead) {
+					tooltip = (
+						<>
+							{tooltip}
+							<hr />
+							{branchPrefix} {pluralize('commit', branchState.behind)} behind and{' '}
+							{pluralize('commit', branchState.ahead)} ahead of {remote}
+							{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
+						</>
+					);
+				} else {
+					tooltip = (
+						<>
+							{tooltip}
+							<hr />
+							{branchPrefix} {pluralize('commit', branchState.behind)} behind {remote}
+							{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
+						</>
+					);
+				}
 			} else if (isAhead) {
 				action = 'push';
 				icon = 'arrow-up';
 				label = 'Push';
-				tooltip = `Push to ${remote}\n\n${branchPrefix} ${pluralize('commit', branchState.ahead)} ahead of`;
+				tooltip = (
+					<>
+						Push {pluralize('commit', branchState.ahead)} to {remote}
+						{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
+						<hr />
+						{branchPrefix} {pluralize('commit', branchState.ahead)} ahead of {remote}
+					</>
+				);
 			}
-			tooltip += ` ${remote}`;
-			fetchTooltip += ` ${remote}`;
 		}
+
+		const lastFetchedDate = lastFetched && new Date(lastFetched);
+		const fetchedText = lastFetchedDate && lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
 
 		return (
 			<div className="titlebar__group">
@@ -937,15 +977,17 @@ export function GraphWrapper({
 							{(isAhead || isBehind) && (
 								<span>
 									<span className="pill action-button__pill">
-										{isAhead && (
-											<span>
-												{branchState!.ahead} <span className="codicon codicon-arrow-up"></span>
-											</span>
-										)}
 										{isBehind && (
 											<span>
-												{branchState!.behind}{' '}
+												{branchState!.behind}
 												<span className="codicon codicon-arrow-down"></span>
+											</span>
+										)}
+										{isAhead && (
+											<span>
+												{isBehind && <>&nbsp;&nbsp;</>}
+												{branchState!.ahead}
+												<span className="codicon codicon-arrow-up"></span>
 											</span>
 										)}
 									</span>
@@ -968,11 +1010,11 @@ export function GraphWrapper({
 						className="action-button"
 					>
 						<span className="codicon codicon-sync action-button__icon"></span>
-						Fetch
-						{fetchedText && <span className="action-button__small">({fetchedText})</span>}
+						Fetch {fetchedText && <span className="action-button__small">({fetchedText})</span>}
 					</a>
 					<span slot="content" style={{ whiteSpace: 'break-spaces' }}>
-						{fetchTooltip}
+						Fetch from {remote}
+						{branchState?.provider?.name ? ` on ${branchState.provider?.name}` : ''}
 						{fetchedText && (
 							<>
 								<hr /> Last fetched {fetchedText}
