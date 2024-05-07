@@ -125,7 +125,7 @@ export class StashPushError extends Error {
 			switch (reason) {
 				case StashPushErrorReason.ConflictingStagedAndUnstagedLines:
 					message =
-						'Stash was created, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s).\n\nDo you want to try again by stashing both your staged and unstaged changes?';
+						'Changes were stashed, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s)';
 					break;
 				case StashPushErrorReason.NothingToSave:
 					message = 'No files to stash';
