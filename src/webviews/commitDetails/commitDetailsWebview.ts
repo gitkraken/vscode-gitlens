@@ -548,9 +548,13 @@ export class CommitDetailsWebviewProvider
 		if (createChanges.length === 0) return;
 
 		try {
+			const entityIdentifier = getEntityIdentifierInput(this._context.wip!.pullRequest!);
+			const prEntityId = EntityIdentifierUtils.encode(entityIdentifier);
+
 			const options = {
 				description: e.description,
 				visibility: 'provider_access' as DraftVisibility,
+				prEntityId: prEntityId,
 			};
 
 			const draft = await this.container.drafts.createDraft(
