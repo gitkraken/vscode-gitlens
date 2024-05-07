@@ -3,7 +3,6 @@ import { customElement, property } from 'lit/decorators.js';
 import type { DraftVisibility } from '../../../../gk/models/drafts';
 import type { Change, DraftUserSelection } from '../../../../plus/webviews/patchDetails/protocol';
 import type { Preferences, State } from '../../../commitDetails/protocol';
-import type { CustomEventType } from '../../shared/components/element';
 import { GlElement } from '../../shared/components/element';
 import { buttonStyles } from './button.css';
 import '../../plus/patchDetails/components/gl-patch-create';
