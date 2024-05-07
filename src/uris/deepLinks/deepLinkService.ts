@@ -21,6 +21,7 @@ import { Logger } from '../../system/logger';
 import { normalizePath } from '../../system/path';
 import type { OpenWorkspaceLocation } from '../../system/utils';
 import { findOrOpenEditor, openWorkspace } from '../../system/utils';
+import { startCodeReview } from '../../webviews/commitDetails/actions';
 import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink';
 import {
 	AccountDeepLinkTypes,
@@ -982,7 +983,8 @@ export class DeepLinkService implements Disposable {
 					if (targetType === DeepLinkType.Repository) {
 						if (
 							this._context.action === DeepLinkActionType.Switch ||
-							this._context.action === DeepLinkActionType.SwitchToPullRequest
+							this._context.action === DeepLinkActionType.SwitchToPullRequest ||
+							this._context.action === DeepLinkActionType.SwitchToAndReviewPullRequest
 						) {
 							action = DeepLinkServiceAction.OpenSwitch;
 						} else {
@@ -1001,7 +1003,8 @@ export class DeepLinkService implements Disposable {
 						default:
 							if (
 								this._context.action === DeepLinkActionType.Switch ||
-								this._context.action === DeepLinkActionType.SwitchToPullRequest
+								this._context.action === DeepLinkActionType.SwitchToPullRequest ||
+								this._context.action === DeepLinkActionType.SwitchToAndReviewPullRequest
 							) {
 								action = DeepLinkServiceAction.OpenSwitch;
 							} else {
@@ -1210,6 +1213,8 @@ export class DeepLinkService implements Disposable {
 							{ refType: 'revision' },
 						);
 						await showDetailsView(revision);
+					} else if (this._context.action === DeepLinkActionType.SwitchToAndReviewPullRequest) {
+						await startCodeReview(repo, 'deepLink');
 					}
 
 					action = DeepLinkServiceAction.DeepLinkResolved;
