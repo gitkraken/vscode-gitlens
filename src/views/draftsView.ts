@@ -184,7 +184,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 			allowPaging: false,
 			maxDepth: 2,
 			canTraverse: n => {
-				if (n instanceof DraftsViewNode) return true;
+				if (n instanceof DraftsViewNode || n instanceof GroupingNode) return true;
 
 				return false;
 			},
