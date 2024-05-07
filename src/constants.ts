@@ -811,7 +811,13 @@ export type TelemetryEvents =
 	| 'usage/track'
 	| 'openReviewMode'
 	| 'codeSuggestionCreated'
-	| 'codeSuggestionViewed';
+	| 'codeSuggestionViewed'
+	| 'launchpad/opened'
+	| 'launchpad/configurationChanged'
+	| 'launchpad/groupToggled'
+	| 'launchpad/actionTaken'
+	| 'launchpad/indicatorHidden'
+	| 'launchpad/indicatorFirstDataReceived';
 
 export type AIProviders = 'anthropic' | 'gemini' | 'openai';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'
@@ -879,6 +885,7 @@ export type GlobalStorage = {
 	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
+	'launchpad:indicator:dataReceived': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
