@@ -476,6 +476,7 @@ export interface MenuConfig {
 		| {
 				readonly authors: boolean;
 				readonly generateCommitMessage: boolean;
+				readonly patch: boolean;
 				readonly graph: boolean;
 		  };
 	readonly scmGroupInline:
@@ -488,6 +489,7 @@ export interface MenuConfig {
 		| {
 				readonly compare: boolean;
 				readonly openClose: boolean;
+				readonly patch: boolean;
 				readonly stash: boolean;
 		  };
 	readonly scmItemInline:

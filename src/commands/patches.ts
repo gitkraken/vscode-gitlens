@@ -35,7 +35,7 @@ export interface CreatePatchCommandArgs {
 
 abstract class CreatePatchCommandBase extends Command {
 	constructor(
-		private readonly container: Container,
+		protected readonly container: Container,
 		command: Commands | Commands[],
 	) {
 		super(command);
@@ -212,30 +212,9 @@ export class ApplyPatchFromClipboardCommand extends Command {
 }
 
 @command()
-export class CreateCloudPatchCommand extends Command {
-	constructor(private readonly container: Container) {
-		super([Commands.CreateCloudPatch, Commands.ShareAsCloudPatch]);
-	}
-
-	protected override preExecute(context: CommandContext, args?: CreatePatchCommandArgs) {
-		if (args == null) {
-			if (context.type === 'viewItem') {
-				if (isCommandContextViewNodeHasCommit(context)) {
-					args = {
-						repoPath: context.node.commit.repoPath,
-						to: context.node.commit.ref,
-					};
-				} else if (isCommandContextViewNodeHasComparison(context)) {
-					args = {
-						repoPath: context.node.uri.fsPath,
-						to: context.node.compareRef.ref,
-						from: context.node.compareWithRef.ref,
-					};
-				}
-			}
-		}
-
-		return this.execute(args);
+export class CreateCloudPatchCommand extends CreatePatchCommandBase {
+	constructor(container: Container) {
+		super(container, [Commands.CreateCloudPatch, Commands.ShareAsCloudPatch]);
 	}
 
 	async execute(args?: CreatePatchCommandArgs) {
