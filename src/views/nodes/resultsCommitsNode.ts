@@ -2,18 +2,19 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { isStash } from '../../git/models/commit';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
+import { pauseOnCancelOrTimeout } from '../../system/cancellation';
 import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import type { Deferred } from '../../system/promise';
-import { cancellable, defer, PromiseCancelledError } from '../../system/promise';
+import { defer } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
 import type { PageableViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
-import { LoadMoreNode } from './common';
+import { LoadMoreNode, MessageNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { StashNode } from './stashNode';
@@ -88,7 +89,10 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		this._onChildrenCompleted = defer<void>();
 
 		const { log } = await this.getCommitsQueryResults();
-		if (log == null) return [];
+		if (log == null) {
+			this._onChildrenCompleted?.fulfill();
+			return [new MessageNode(this.view, this, 'No results found')];
+		}
 
 		const [getBranchAndTagTips] = await Promise.all([
 			this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
@@ -136,7 +140,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 		}
 
-		this._onChildrenCompleted.fulfill();
+		this._onChildrenCompleted?.fulfill();
 		return children;
 	}
 
@@ -148,26 +152,28 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			label = this._label;
 			state = TreeItemCollapsibleState.Collapsed;
 		} else {
-			try {
-				let log;
-				({ label, log } = await cancellable(this.getCommitsQueryResults(), 100));
+			let log;
+
+			const result = await pauseOnCancelOrTimeout(this.getCommitsQueryResults(), undefined, 100);
+			if (!result.paused) {
+				({ label, log } = result.value);
 				state =
 					log == null || log.count === 0
 						? TreeItemCollapsibleState.None
-						: this._options.expand || log.count === 1
+						: this._options.expand //|| log.count === 1
 						  ? TreeItemCollapsibleState.Expanded
 						  : TreeItemCollapsibleState.Collapsed;
-			} catch (ex) {
-				if (ex instanceof PromiseCancelledError) {
-					setTimeout(async () => {
-						void (await ex.promise);
-						try {
-							await this._onChildrenCompleted?.promise;
-						} catch {}
+			} else {
+				queueMicrotask(async () => {
+					try {
+						await this._onChildrenCompleted?.promise;
+					} catch {
+						return;
+					}
 
-						setTimeout(() => void this.triggerChange(false), 1);
-					}, 1);
-				}
+					void (await result.value);
+					this.view.triggerNodeChange(this.parent);
+				});
 
 				// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
 				// https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
