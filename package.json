@@ -3844,6 +3844,9 @@
 													},
 													"graph": {
 														"type": "boolean"
+													},
+													"patch": {
+														"type": "boolean"
 													}
 												}
 											}
@@ -3880,6 +3883,9 @@
 														"type": "boolean"
 													},
 													"openClose": {
+														"type": "boolean"
+													},
+													"patch": {
 														"type": "boolean"
 													},
 													"stash": {
@@ -3984,6 +3990,7 @@
 							"scmRepository": {
 								"authors": true,
 								"generateCommitMessage": true,
+								"patch": true,
 								"graph": false
 							},
 							"scmGroupInline": {
@@ -3992,6 +3999,7 @@
 							"scmGroup": {
 								"compare": true,
 								"openClose": true,
+								"patch": true,
 								"stash": true
 							},
 							"scmItemInline": {
@@ -5222,7 +5230,7 @@
 		"commands": [
 			{
 				"command": "gitlens.generateCommitMessage",
-				"title": "Generate Commit Message (Experimental)...",
+				"title": "Generate Commit Message (GitLens)...",
 				"category": "GitLens"
 			},
 			{
@@ -12083,9 +12091,19 @@
 					"group": "4_gitlens@1"
 				},
 				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
+					"group": "4_gitlens@2"
+				},
+				{
+					"command": "gitlens.shareAsCloudPatch",
+					"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
+					"group": "4_gitlens@3"
+				},
+				{
 					"command": "gitlens.generateCommitMessage",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
-					"group": "4_gitlens@2"
+					"group": "4_gitlens@4"
 				}
 			],
 			"menuBar/edit/copy": [
@@ -12124,14 +12142,24 @@
 					"group": "2_z_gitlens@1"
 				},
 				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
+					"group": "2_z_gitlens@2"
+				},
+				{
+					"command": "gitlens.shareAsCloudPatch",
+					"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
+					"group": "2_z_gitlens@3"
+				},
+				{
 					"command": "gitlens.generateCommitMessage",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommitMessage.enabled && scmProvider == git && config.gitlens.menus.scmRepository.generateCommitMessage",
-					"group": "2_z_gitlens@2"
+					"group": "2_z_gitlens@4"
 				},
 				{
 					"command": "gitlens.showGraph",
 					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph && gitlens:plus:enabled && scmProvider == git && scmProviderRootUri not in gitlens:plus:disallowedRepos",
-					"group": "2_z_gitlens@3"
+					"group": "2_z_gitlens@5"
 				}
 			],
 			"scm/resourceGroup/context": [
@@ -12167,8 +12195,13 @@
 				},
 				{
 					"command": "gitlens.copyPatchToClipboard",
-					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.compare",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.patch",
 					"group": "7_cutcopypaste@97"
+				},
+				{
+					"command": "gitlens.shareAsCloudPatch",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.patch",
+					"group": "7_cutcopypaste@98"
 				}
 			],
 			"scm/resourceFolder/context": [
@@ -12179,7 +12212,7 @@
 				},
 				{
 					"command": "gitlens.copyPatchToClipboard",
-					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.compare",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.patch",
 					"group": "7_cutcopypaste@97"
 				}
 			],
@@ -12216,7 +12249,7 @@
 				},
 				{
 					"command": "gitlens.copyPatchToClipboard",
-					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmItem.compare",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmItem.patch",
 					"group": "7_cutcopypaste@97"
 				},
 				{
