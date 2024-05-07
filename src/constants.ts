@@ -809,7 +809,8 @@ export type TelemetryEvents =
 	| 'subscription'
 	| 'subscription/changed'
 	| 'usage/track'
-	| 'openReviewMode';
+	| 'openReviewMode'
+	| 'codeSuggestionCreated';
 
 export type AIProviders = 'anthropic' | 'gemini' | 'openai';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'
