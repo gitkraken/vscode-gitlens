@@ -1,10 +1,14 @@
 import type { Container } from '../container';
+import type { Draft } from '../gk/models/drafts';
+import type { DraftService } from '../plus/drafts/draftsService';
 import { getSettledValue } from '../system/promise';
 import { pluralize } from '../system/string';
 import type { FilesQueryFilter } from '../views/nodes/resultsFilesNode';
 import type { GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitLog } from './models/log';
+import type { PullRequest } from './models/pullRequest';
+import type { Repository } from './models/repository';
 import type { GitUser } from './models/user';
 
 export interface CommitsQueryResults {
@@ -74,6 +78,21 @@ export async function getAheadBehindFilesQuery(
 		label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
 		files: files,
 		stats: stats,
+	};
+}
+
+export interface SuggestedChangesQueryResults {
+	drafts: Draft[] | undefined;
+}
+
+export function getSuggestedChangesQuery(
+	draftService: DraftService,
+	pullRequest: PullRequest,
+	repository: Repository | undefined,
+): () => Promise<SuggestedChangesQueryResults> {
+	return async () => {
+		const drafts = !repository ? [] : await draftService.getCodeSuggestions(pullRequest, repository);
+		return { drafts: drafts };
 	};
 }
 

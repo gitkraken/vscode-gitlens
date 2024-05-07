@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.ai.experimental.gemini.model` setting to specify the Gemini model
 - Adds support for the latest OpenAI and Anthropic models for GitLens' experimental AI features
 - Adds a new `gitlens.views.collapseWorktreesWhenPossible` setting to specify whether to try to collapse the opened worktrees into a single (common) repository in the views when possible
+- Shows a PR’s code suggestions anywhere we currently display a PR node in our GitLens views (Commits, Branches, Remotes).
 
 ### Changed
 
