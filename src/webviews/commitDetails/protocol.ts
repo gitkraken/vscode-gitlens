@@ -112,6 +112,7 @@ export interface ShowWipArgs {
 	type: 'wip';
 	inReview?: boolean;
 	repository?: Repository;
+	source: 'commitDetails' | 'patchDetails' | 'repoStatus'; // will likely need to add more
 }
 
 // COMMANDS

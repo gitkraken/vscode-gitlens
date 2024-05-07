@@ -292,7 +292,7 @@ export class GlCommitDetailsApp extends LitElement {
 				// this.attachState();
 				break;
 			case DidChangeDraftStateNotification.is(msg):
-				this.onDraftStateChanged(msg.params.inReview);
+				this.onDraftStateChanged(msg.params.inReview, true);
 				break;
 		}
 	}
@@ -448,11 +448,14 @@ export class GlCommitDetailsApp extends LitElement {
 		return this;
 	}
 
-	private onDraftStateChanged(inReview: boolean) {
+	private onDraftStateChanged(inReview: boolean, silent = false) {
 		if (inReview === this.draftState.inReview) return;
 		this.draftState = { ...this.draftState, inReview: inReview };
 		this.requestUpdate('draftState');
-		this._hostIpc.sendCommand(ChangeReviewModeCommand, { inReview: inReview });
+
+		if (!silent) {
+			this._hostIpc.sendCommand(ChangeReviewModeCommand, { inReview: inReview });
+		}
 	}
 
 	private onBranchAction(name: string) {

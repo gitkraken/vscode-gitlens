@@ -13,6 +13,7 @@ export async function showInspectView(
 
 export async function startCodeReview(
 	repository: Repository | undefined,
+	source: ShowWipArgs['source'],
 	showOptions?: WebviewViewShowOptions,
 ): Promise<void> {
 	return showInspectView(
@@ -20,6 +21,7 @@ export async function startCodeReview(
 			type: 'wip',
 			inReview: true,
 			repository: repository,
+			source: source,
 		} satisfies ShowWipArgs,
 		showOptions,
 	);
