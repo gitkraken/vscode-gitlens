@@ -778,6 +778,9 @@ export class PatchDetailsWebviewProvider
 
 			void window.showInformationMessage(`${label} successfully ${action}`);
 			void this.notifyDidChangeViewDraftState();
+			if (isCodeSuggestion) {
+				void this.trackArchiveDraft(this._context.draft);
+			}
 		} catch (ex) {
 			let action = 'archive';
 			if (isCodeSuggestion) {
@@ -793,6 +796,24 @@ export class PatchDetailsWebviewProvider
 
 			void window.showErrorMessage(`Unable to ${action} ${label}: ${ex.message}`);
 		}
+	}
+
+	private async trackArchiveDraft(draft: Draft) {
+		draft = await this.ensureDraftContent(draft);
+		const patch = draft.changesets?.[0].patches.find(p => isRepoLocated(p.repository));
+		if (patch == null) return;
+
+		const repo = patch.repository as Repository;
+		const remote = await this.container.git.getBestRemoteWithProvider(repo.uri);
+		if (remote == null) return;
+
+		const provider = remote.provider.id;
+
+		this.container.telemetry.sendEvent('codeSuggestionArchived', {
+			provider: provider,
+			draftId: draft.id,
+			reason: draft.archivedReason!,
+		});
 	}
 
 	private async explainRequest<T extends typeof ExplainRequest>(requestType: T, msg: IpcCallMessageType<T>) {
