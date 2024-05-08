@@ -476,23 +476,17 @@ export class FocusCommand extends QuickCommand<State> {
 						);
 						break;
 					} else {
-						if (state.item.viewer.isAuthor) {
-							confirmations.push(
-								createQuickPickItemOfT(
-									{
-										label: 'Switch to Branch or Worktree',
-										detail: 'Will checkout the branch or worktree for this pull request',
-									},
-									action,
-								),
-							);
-						}
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: state.item.viewer.isAuthor
-										? 'Suggest Additional Code Changes'
-										: 'Start Review',
+									label: 'Switch to Branch or Worktree',
+									detail: 'Will checkout the branch or worktree for this pull request',
+								},
+								action,
+							),
+							createQuickPickItemOfT(
+								{
+									label: `Suggest ${state.item.viewer.isAuthor ? 'Additional ' : ''}Code Changes`,
 									detail: 'Will let you choose code changes to suggest on this pull request',
 								},
 								'switch-and-review',
