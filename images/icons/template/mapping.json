@@ -45,5 +45,10 @@
   "inspect": 61738,
   "repository-filled": 61739,
   "gitlens-filled": 61740,
-  "code-suggestion": 61741
+  "code-suggestion": 61741,
+  "diff-multiple": 61742,
+  "diff-single": 61743,
+  "repo-fetch": 61744,
+  "repo-pull": 61745,
+  "repo-push": 61746
 }

@@ -9192,6 +9192,41 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f12d"
 				}
+			},
+			"gitlens-diff-multiple": {
+				"description": "diff-multiple icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f12e"
+				}
+			},
+			"gitlens-diff-single": {
+				"description": "diff-single icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f12f"
+				}
+			},
+			"gitlens-repo-fetch": {
+				"description": "repo-fetch icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f130"
+				}
+			},
+			"gitlens-repo-pull": {
+				"description": "repo-pull icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f131"
+				}
+			},
+			"gitlens-repo-push": {
+				"description": "repo-push icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f132"
+				}
 			}
 		},
 		"menus": {
