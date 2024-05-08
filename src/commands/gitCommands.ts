@@ -218,17 +218,6 @@ export class GitCommandsCommand extends Command {
 				break;
 			case Commands.ShowLaunchpad:
 				args = { command: 'focus', ...args };
-				// TODO: Improve this. Args do not come in with a command property,
-				// but the contextual typing relies on it to recognize the other args.
-				if (args.command === 'focus') {
-					args.source ??= 'commandPalette';
-					this.container.telemetry.sendEvent('launchpad/opened', {
-						source: args.source,
-						group: args.state?.initialGroup ?? null,
-						selectTopItem: args.state?.selectTopItem ?? false,
-					});
-				}
-
 				break;
 		}
 

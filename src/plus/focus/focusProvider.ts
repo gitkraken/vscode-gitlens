@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
+import { md5 } from '@env/crypto';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
@@ -604,7 +605,7 @@ export class FocusProvider implements Disposable {
 		});
 
 		if (configuration.changed(e, 'launchpad.indicator.enabled') && !launchpadConfig.indicator.enabled) {
-			this.container.telemetry.sendEvent('launchpad/indicatorHidden');
+			this.container.telemetry.sendEvent('launchpad/indicator/hidden');
 		}
 
 		if (
@@ -623,33 +624,54 @@ export function groupAndSortFocusItems(items?: FocusItem[]) {
 
 	sortFocusItems(items);
 
-	const pinnedGroup = grouped.get('pinned')!;
-	const snoozedGroup = grouped.get('snoozed')!;
-
 	for (const item of items) {
 		if (item.viewer.snoozed) {
-			if (!snoozedGroup.some(i => i.uuid === item.uuid)) {
-				snoozedGroup.push(item);
-			}
+			grouped.get('snoozed')!.push(item);
 
 			continue;
-		} else if (item.viewer.pinned && !pinnedGroup.some(i => i.uuid === item.uuid)) {
-			pinnedGroup.push(item);
+		} else if (item.viewer.pinned) {
+			grouped.get('pinned')!.push(item);
 		}
 
-		const currentBranchGroup = grouped.get('current-branch')!;
 		if (item.openRepository?.localBranch?.current) {
-			currentBranchGroup.push(item);
+			grouped.get('current-branch')!.push(item);
 		}
 
-		const draftGroup = grouped.get('draft')!;
 		if (item.isDraft) {
-			if (!draftGroup.some(i => i.uuid === item.uuid)) {
-				draftGroup.push(item);
-			}
+			grouped.get('draft')!.push(item);
 		} else {
 			const group = focusCategoryToGroupMap.get(item.actionableCategory)!;
 			grouped.get(group)!.push(item);
+		}
+	}
+
+	return grouped;
+}
+
+export function countFocusItemGroups(items?: FocusItem[]) {
+	if (items == null || items.length === 0) return new Map<FocusGroup, number>();
+	const grouped = new Map<FocusGroup, number>(focusGroups.map(g => [g, 0]));
+
+	function incrementGroup(group: FocusGroup) {
+		grouped.set(group, (grouped.get(group) ?? 0) + 1);
+	}
+
+	for (const item of items) {
+		if (item.viewer.snoozed) {
+			incrementGroup('snoozed');
+			continue;
+		} else if (item.viewer.pinned) {
+			incrementGroup('pinned');
+		}
+
+		if (item.openRepository?.localBranch?.current) {
+			incrementGroup('current-branch');
+		}
+
+		if (item.isDraft) {
+			incrementGroup('draft');
+		} else {
+			incrementGroup(focusCategoryToGroupMap.get(item.actionableCategory)!);
 		}
 	}
 
@@ -671,4 +693,8 @@ function ensureRemoteUrl(url: string) {
 	}
 
 	return url;
+}
+
+export function getFocusItemIdHash(item: FocusItem) {
+	return md5(item.uuid);
 }

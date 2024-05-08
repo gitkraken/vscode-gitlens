@@ -15,6 +15,7 @@ import { supportedCloudIntegrationIds, toIntegrationId } from './authentication/
 import type {
 	HostingIntegration,
 	Integration,
+	IntegrationBase,
 	IntegrationKey,
 	IntegrationType,
 	IssueIntegration,
@@ -97,9 +98,10 @@ export class IntegrationService implements Disposable {
 	}
 
 	async manageCloudIntegrations() {
-		this.container.telemetry.sendEvent('cloudIntegrations/settingsOpened', {
-			userId: (await this.container.subscription.getSubscription())?.account?.id,
-		});
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('cloudIntegrations/settingsOpened');
+		}
+
 		await env.openExternal(this.connection.getGkDevAccountsUri('settings/integrations'));
 		take(
 			window.onDidChangeWindowState,
@@ -119,21 +121,65 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
-	connected(key: string): void {
+	connected(integration: IntegrationBase, key: string): void {
 		// Only fire events if the key is being connected for the first time
 		if (this._connectedCache.has(key)) return;
 
 		this._connectedCache.add(key);
-		this.container.telemetry.sendEvent('remoteProviders/connected', { 'remoteProviders.key': key });
+		if (this.container.telemetry.enabled) {
+			if (integration.type === 'hosting') {
+				if (supportedCloudIntegrationIds.includes(integration.id)) {
+					this.container.telemetry.sendEvent('cloudIntegrations/hosting/connected', {
+						'hostingProvider.provider': integration.id,
+						'hostingProvider.key': key,
+					});
+				} else {
+					this.container.telemetry.sendEvent('remoteProviders/connected', {
+						'hostingProvider.provider': integration.id,
+						'hostingProvider.key': key,
+
+						// Deprecated
+						'remoteProviders.key': key,
+					});
+				}
+			} else {
+				this.container.telemetry.sendEvent('cloudIntegrations/issue/connected', {
+					'issueProvider.provider': integration.id,
+					'issueProvider.key': key,
+				});
+			}
+		}
 
 		setTimeout(() => this._onDidChangeConnectionState.fire({ key: key, reason: 'connected' }), 250);
 	}
 
-	disconnected(key: string): void {
+	disconnected(integration: IntegrationBase, key: string): void {
 		// Probably shouldn't bother to fire the event if we don't already think we are connected, but better to be safe
 		// if (!_connectedCache.has(key)) return;
 		this._connectedCache.delete(key);
-		this.container.telemetry.sendEvent('remoteProviders/disconnected', { 'remoteProviders.key': key });
+		if (this.container.telemetry.enabled) {
+			if (integration.type === 'hosting') {
+				if (supportedCloudIntegrationIds.includes(integration.id)) {
+					this.container.telemetry.sendEvent('cloudIntegrations/hosting/disconnected', {
+						'hostingProvider.provider': integration.id,
+						'hostingProvider.key': key,
+					});
+				} else {
+					this.container.telemetry.sendEvent('remoteProviders/disconnected', {
+						'hostingProvider.provider': integration.id,
+						'hostingProvider.key': key,
+
+						// Deprecated
+						'remoteProviders.key': key,
+					});
+				}
+			} else {
+				this.container.telemetry.sendEvent('cloudIntegrations/issue/disconnected', {
+					'issueProvider.provider': integration.id,
+					'issueProvider.key': key,
+				});
+			}
+		}
 
 		setTimeout(() => this._onDidChangeConnectionState.fire({ key: key, reason: 'disconnected' }), 250);
 	}

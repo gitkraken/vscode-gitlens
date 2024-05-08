@@ -799,30 +799,37 @@ export const enum Schemes {
 export type TelemetryEvents =
 	| 'account/validation/failed'
 	| 'activate'
-	| 'cloudIntegrations/jiraFirstConnected'
+	| 'cloudIntegrations/hosting/connected'
+	| 'cloudIntegrations/hosting/disconnected'
+	| 'cloudIntegrations/issue/connected'
+	| 'cloudIntegrations/issue/disconnected'
 	| 'cloudIntegrations/settingsOpened'
+	| 'codeSuggestionCreated'
+	| 'codeSuggestionViewed'
 	| 'command'
 	| 'command/core'
-	| 'remoteProviders/connected'
-	| 'remoteProviders/disconnected'
+	| 'launchpad/action'
+	| 'launchpad/configurationChanged'
+	| 'launchpad/groupToggled'
+	| 'launchpad/open'
+	| 'launchpad/opened'
+	| 'launchpad/steps/connect'
+	| 'launchpad/steps/main'
+	| 'launchpad/steps/details'
+	| 'launchpad/indicator/hidden'
+	| 'launchpad/indicator/firstDataReceived'
+	| 'openReviewMode'
 	| 'providers/context'
 	| 'providers/registrationComplete'
+	| 'remoteProviders/connected'
+	| 'remoteProviders/disconnected'
 	| 'repositories/changed'
 	| 'repositories/visibility'
 	| 'repository/opened'
 	| 'repository/visibility'
 	| 'subscription'
 	| 'subscription/changed'
-	| 'usage/track'
-	| 'openReviewMode'
-	| 'codeSuggestionCreated'
-	| 'codeSuggestionViewed'
-	| 'launchpad/opened'
-	| 'launchpad/configurationChanged'
-	| 'launchpad/groupToggled'
-	| 'launchpad/actionTaken'
-	| 'launchpad/indicatorHidden'
-	| 'launchpad/indicatorFirstDataReceived';
+	| 'usage/track';
 
 export type AIProviders = 'anthropic' | 'gemini' | 'openai';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'
@@ -890,7 +897,6 @@ export type GlobalStorage = {
 	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
-	'cloudIntegrations:jira:firstConnect': boolean;
 	'launchpad:indicator:dataReceived': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
