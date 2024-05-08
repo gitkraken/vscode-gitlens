@@ -125,7 +125,7 @@ export class FocusIndicator implements Disposable {
 			: {
 					title: 'Open Launchpad',
 					command: Commands.ShowLaunchpad,
-					arguments: [{ state: { selectTopItem: label === 'item' } }],
+					arguments: [{ source: 'indicator', state: { selectTopItem: label === 'item' } }],
 			  };
 	}
 
@@ -221,6 +221,7 @@ export class FocusIndicator implements Disposable {
 			);
 			this._statusBarFocus.color = undefined;
 		} else if (state === 'data') {
+			void this.maybeSendFirstDataEvent();
 			this._lastDataUpdate = new Date();
 			const useColors = configuration.get('launchpad.indicator.useColors');
 			const groups = configuration.get('launchpad.indicator.groups') ?? ([] satisfies FocusGroup[]);
@@ -259,6 +260,7 @@ export class FocusIndicator implements Disposable {
 											: pluralize('pull request', items.length)
 									} can be merged.](command:gitlens.showLaunchpad?${encodeURIComponent(
 										JSON.stringify({
+											source: 'indicator',
 											state: { initialGroup: 'mergeable', selectTopItem: labelText === 'item' },
 										}),
 									)} "Open Ready to Merge in Launchpad")`,
@@ -313,6 +315,7 @@ export class FocusIndicator implements Disposable {
 										hasMultipleCategories ? 'are blocked' : actionMessage
 									}.](command:gitlens.showLaunchpad?${encodeURIComponent(
 										JSON.stringify({
+											source: 'indicator',
 											state: { initialGroup: 'blocked', selectTopItem: labelText === 'item' },
 										}),
 									)} "Open Blocked in Launchpad")`,
@@ -346,6 +349,7 @@ export class FocusIndicator implements Disposable {
 										items.length > 1 ? 'require' : 'requires'
 									} follow-up.](command:gitlens.showLaunchpad?${encodeURIComponent(
 										JSON.stringify({
+											source: 'indicator',
 											state: { initialGroup: 'follow-up', selectTopItem: labelText === 'item' },
 										}),
 									)} "Open Follow-Up in Launchpad")`,
@@ -364,6 +368,7 @@ export class FocusIndicator implements Disposable {
 										items.length > 1 ? 'need' : 'needs'
 									} your review.](command:gitlens.showLaunchpad?${encodeURIComponent(
 										JSON.stringify({
+											source: 'indicator',
 											state: {
 												initialGroup: 'needs-review',
 												selectTopItem: labelText === 'item',
@@ -426,5 +431,14 @@ export class FocusIndicator implements Disposable {
 				? ` and ${pluralize('pull request', groupLength - 1, { infix: ' other ' })}`
 				: ''
 		}`;
+	}
+
+	private async maybeSendFirstDataEvent() {
+		const firstTimeDataReceived = this.container.storage.get('launchpad:indicator:dataReceived') ?? false;
+		if (!firstTimeDataReceived) {
+			void this.container.storage.store('launchpad:indicator:dataReceived', true);
+			const userId = (await this.container.subscription.getSubscription())?.account?.id;
+			this.container.telemetry.sendEvent('launchpad/indicatorFirstDataReceived', { userId: userId });
+		}
 	}
 }

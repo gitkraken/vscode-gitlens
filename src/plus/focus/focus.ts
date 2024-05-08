@@ -1,3 +1,4 @@
+import type { QuickInputButton } from 'vscode';
 import { commands, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
@@ -74,7 +75,9 @@ const groupMap = new Map<FocusGroup, [string, string | undefined]>([
 	['snoozed', ['Snoozed', 'bell-slash']],
 ]);
 
-export interface FocusItemQuickPickItem extends QuickPickItemOfT<FocusItem> {}
+export interface FocusItemQuickPickItem extends QuickPickItemOfT<FocusItem> {
+	group: FocusGroup;
+}
 
 interface Context {
 	items: FocusItem[];
@@ -82,8 +85,12 @@ interface Context {
 	collapsed: Map<FocusGroup, boolean>;
 }
 
+interface GroupedFocusItem extends FocusItem {
+	group: FocusGroup;
+}
+
 interface State {
-	item?: FocusItem;
+	item?: GroupedFocusItem;
 	action?: FocusAction | FocusTargetAction;
 	initialGroup?: FocusGroup;
 	selectTopItem?: boolean;
@@ -92,6 +99,7 @@ interface State {
 export interface FocusCommandArgs {
 	readonly command: 'focus';
 	confirm?: boolean;
+	source?: 'indicator' | 'home' | 'commandPalette' | 'welcome';
 	state?: Partial<State>;
 }
 
@@ -166,7 +174,7 @@ export class FocusCommand extends QuickCommand<State> {
 			context.items = await this.container.focus.getCategorizedItems();
 
 			if (state.counter < 2 || state.item == null) {
-				const result = yield* this.pickFocusItemStep(state, context, {
+				const result = yield* this.pickFocusItemStep(state, context, this.container, {
 					picked: state.item?.id,
 					selectTopItem: state.selectTopItem,
 				});
@@ -179,10 +187,15 @@ export class FocusCommand extends QuickCommand<State> {
 
 			if (this.confirm(state.confirm)) {
 				await this.container.focus.ensureFocusItemCodeSuggestions(state.item);
+				this.sendItemActionTelemetry('select', state.item, state.item.group);
 				const result = yield* this.confirmStep(state, context);
 				if (result === StepResultBreak) continue;
 
 				state.action = result;
+			}
+
+			if (state.action) {
+				this.sendItemActionTelemetry(state.action, state.item, state.item.group);
 			}
 
 			if (typeof state.action === 'string') {
@@ -235,8 +248,9 @@ export class FocusCommand extends QuickCommand<State> {
 	private *pickFocusItemStep(
 		state: StepState<State>,
 		context: Context,
+		container: Container,
 		{ picked, selectTopItem }: { picked?: string; selectTopItem?: boolean },
-	): StepResultGenerator<FocusItem> {
+	): StepResultGenerator<GroupedFocusItem> {
 		function getItems(categorizedItems: FocusItem[]) {
 			const items: (FocusItemQuickPickItem | DirectiveQuickPickItem)[] = [];
 
@@ -260,7 +274,13 @@ export class FocusCommand extends QuickCommand<State> {
 							})\u00a0\u00a0${groupMap.get(ui)![0]?.toUpperCase()}`, //'\u00a0',
 							//detail: groupMap.get(group)?.[0].toUpperCase(),
 							onDidSelect: () => {
-								context.collapsed.set(ui, !context.collapsed.get(ui));
+								const collapse = !context.collapsed.get(ui);
+								context.collapsed.set(ui, collapse);
+								container.telemetry.sendEvent('launchpad/groupToggled', {
+									group: ui,
+									expanded: !collapse,
+									itemsCount: groupItems.length,
+								});
 							},
 						}),
 					);
@@ -299,6 +319,7 @@ export class FocusCommand extends QuickCommand<State> {
 								iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
 								item: i,
 								picked: i.id === picked || i.id === topItem?.id,
+								group: ui,
 							};
 						}),
 					);
@@ -351,7 +372,7 @@ export class FocusCommand extends QuickCommand<State> {
 				}
 			},
 
-			onDidClickItemButton: async (quickpick, button, { item }) => {
+			onDidClickItemButton: async (quickpick, button, { group, item }) => {
 				switch (button) {
 					case OpenOnGitHubQuickInputButton:
 						this.container.focus.open(item);
@@ -377,6 +398,7 @@ export class FocusCommand extends QuickCommand<State> {
 						break;
 				}
 
+				this.sendItemActionTelemetry(button, item, group);
 				quickpick.busy = true;
 
 				try {
@@ -392,7 +414,9 @@ export class FocusCommand extends QuickCommand<State> {
 		});
 
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
+		return canPickStepContinue(step, state, selection)
+			? { ...selection[0].item, group: selection[0].group }
+			: StepResultBreak;
 	}
 
 	private *confirmStep(
@@ -548,6 +572,8 @@ export class FocusCommand extends QuickCommand<State> {
 							}
 							break;
 					}
+
+					this.sendItemActionTelemetry(button, state.item, state.item.group);
 				},
 			},
 		);
@@ -779,6 +805,68 @@ export class FocusCommand extends QuickCommand<State> {
 			default:
 				return 'Open';
 		}
+	}
+
+	private sendItemActionTelemetry(
+		buttonOrAction: QuickInputButton | FocusAction | FocusTargetAction | 'select',
+		item: FocusItem,
+		group: FocusGroup,
+	) {
+		let action:
+			| FocusAction
+			| 'pin'
+			| 'unpin'
+			| 'snooze'
+			| 'unsnooze'
+			| 'open-suggestion'
+			| 'open-suggestion-browser'
+			| 'select'
+			| undefined;
+		if (typeof buttonOrAction !== 'string' && 'action' in buttonOrAction) {
+			action = buttonOrAction.action;
+		} else {
+			switch (buttonOrAction) {
+				case MergeQuickInputButton:
+					action = 'merge';
+					break;
+				case OpenOnGitHubQuickInputButton:
+					action = 'soft-open';
+					break;
+				case PinQuickInputButton:
+					action = 'pin';
+					break;
+				case UnpinQuickInputButton:
+					action = 'unpin';
+					break;
+				case SnoozeQuickInputButton:
+					action = 'snooze';
+					break;
+				case UnsnoozeQuickInputButton:
+					action = 'unsnooze';
+					break;
+				case OpenCodeSuggestionBrowserQuickInputButton:
+					action = 'open-suggestion-browser';
+					break;
+				case 'open':
+				case 'merge':
+				case 'soft-open':
+				case 'switch':
+				case 'select':
+					action = buttonOrAction;
+					break;
+			}
+		}
+
+		if (action == null) return;
+
+		this.container.telemetry.sendEvent('launchpad/actionTaken', {
+			action: action,
+			itemType: item.type,
+			itemProvider: item.provider.id,
+			itemActionableCategory: item.actionableCategory,
+			itemGroup: group,
+			itemCodeSuggestionCount: item.codeSuggestionsCount,
+		});
 	}
 }
 
