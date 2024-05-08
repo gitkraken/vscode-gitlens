@@ -5412,14 +5412,8 @@
 				"icon": "$(split-horizontal)"
 			},
 			{
-				"command": "gitlens.launchpad.indicator.update",
-				"title": "Update Launchpad Indicator",
-				"category": "GitLens",
-				"icon": "$(rocket)"
-			},
-			{
 				"command": "gitlens.launchpad.indicator.toggle",
-				"title": "Toggle Launchpad Status Bar Icon",
+				"title": "Toggle Launchpad Indicator",
 				"category": "GitLens",
 				"icon": "$(rocket)"
 			},
@@ -9333,10 +9327,6 @@
 				{
 					"command": "gitlens.launchpad.split",
 					"when": "gitlens:enabled && config.gitlens.launchpad.allowMultiple"
-				},
-				{
-					"command": "gitlens.launchpad.indicator.update",
-					"when": "false"
 				},
 				{
 					"command": "gitlens.launchpad.indicator.toggle",
