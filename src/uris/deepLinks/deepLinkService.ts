@@ -1,3 +1,4 @@
+import type { QuickPickItem } from 'vscode';
 import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants';
 import { Commands } from '../../constants';
@@ -14,6 +15,7 @@ import type { RepositoryIdentity } from '../../gk/models/repositoryIdentities';
 import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
 import { ensureAccount, ensurePaidPlan } from '../../plus/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
+import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { executeCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { once } from '../../system/event';
@@ -334,22 +336,23 @@ export class DeepLinkService implements Disposable {
 		customMessage?: string;
 	}): Promise<DeepLinkRepoOpenType | undefined> {
 		const openOptions: OpenQuickPickItem[] = [
-			{ label: 'Open Folder', action: 'folder' },
-			{ label: 'Open Workspace', action: 'workspace' },
+			{ label: 'Choose a Local Folder...', action: 'folder' },
+			{ label: 'Choose a Workspace File...', action: 'workspace' },
 		];
 
 		if (this._context.remoteUrl != null) {
-			openOptions.push({ label: 'Clone', action: 'clone' });
+			openOptions.push({ label: 'Clone Repository...', action: 'clone' });
 		}
 
 		if (options?.includeCurrent) {
-			openOptions.push({ label: 'Use Current Window', action: 'current' });
+			openOptions.push(createQuickPickSeparator(), { label: 'Use Current Window', action: 'current' });
 		}
 
-		openOptions.push({ label: 'Cancel' });
+		openOptions.push(createQuickPickSeparator(), { label: 'Cancel' });
 		const openTypeResult = await window.showQuickPick(openOptions, {
-			title: 'Open Repository',
-			placeHolder: options?.customMessage ?? 'No matching repository found. Please choose an option.',
+			title: 'Locating Repository',
+			placeHolder:
+				options?.customMessage ?? 'Unable to locate a matching repository, please choose how to locate it',
 		});
 
 		return openTypeResult?.action;
@@ -358,42 +361,62 @@ export class DeepLinkService implements Disposable {
 	private async showOpenLocationPrompt(openType: DeepLinkRepoOpenType): Promise<OpenWorkspaceLocation | undefined> {
 		// Only add the "add to workspace" option if openType is 'folder'
 		const openOptions: OpenLocationQuickPickItem[] = [
-			{ label: 'Open', action: 'currentWindow' },
+			{ label: 'Open in Current Window', action: 'currentWindow' },
 			{ label: 'Open in New Window', action: 'newWindow' },
 		];
 
 		if (openType !== 'workspace') {
-			openOptions.push({ label: 'Add to Workspace', action: 'addToWorkspace' });
+			openOptions.push({ label: 'Add Folder to Workspace', action: 'addToWorkspace' });
 		}
 
-		openOptions.push({ label: 'Cancel' });
+		let suffix;
+		switch (openType) {
+			case 'clone':
+				suffix = ' \u00a0\u2022\u00a0 Clone';
+				break;
+			case 'folder':
+				suffix = ' \u00a0\u2022\u00a0 Folder';
+				break;
+			case 'workspace':
+				suffix = ' \u00a0\u2022\u00a0 Workspace from File';
+				break;
+			case 'current':
+				suffix = '';
+				break;
+		}
+
+		openOptions.push(createQuickPickSeparator(), { label: 'Cancel' });
 		const openLocationResult = await window.showQuickPick(openOptions, {
-			title: 'Open Repository',
-			placeHolder: `Please choose an option to open the repository ${
+			title: `Locating Repository${suffix}`,
+			placeHolder: `Please choose where to open the repository ${
 				openType === 'clone' ? 'after cloning' : openType
-			}.`,
+			}`,
 		});
 
 		return openLocationResult?.action;
 	}
 
 	private async showFetchPrompt(): Promise<boolean> {
-		const fetchResult = await window.showQuickPick([{ label: 'Fetch', action: true }, { label: 'Cancel' }], {
-			title: 'Fetch from Remote',
-			placeHolder: "The link target(s) couldn't be found. Would you like to fetch from the remote?",
+		const fetch: QuickPickItem = { label: 'Fetch' };
+		const cancel: QuickPickItem = { label: 'Cancel' };
+		const result = await window.showQuickPick([fetch, createQuickPickSeparator<QuickPickItem>(), cancel], {
+			title: 'Locating Link Target',
+			placeHolder: 'Unable to find the link target(s), would you like to fetch from the remote?',
 		});
 
-		return fetchResult?.action || false;
+		return result === fetch;
 	}
 
 	private async showAddRemotePrompt(remoteUrl: string, existingRemoteNames: string[]): Promise<string | undefined> {
-		let remoteName = undefined;
-		const result = await window.showQuickPick([{ label: 'Yes' }, { label: 'No' }], {
-			title: 'Remote Not Found',
-			placeHolder: `Remote not found for '${remoteUrl}'. Add a new remote?`,
+		const add: QuickPickItem = { label: 'Add Remote' };
+		const cancel: QuickPickItem = { label: 'Cancel' };
+		const result = await window.showQuickPick([add, cancel], {
+			title: `Locating Remote`,
+			placeHolder: `Unable to find remote for '${remoteUrl}', would you like to a new remote?`,
 		});
-		if (result?.label !== 'Yes') return remoteName;
-		remoteName = await window.showInputBox({
+		if (result !== add) return undefined;
+
+		const remoteName = await window.showInputBox({
 			prompt: 'Enter a name for the remote',
 			value: getMaybeRemoteNameFromRemoteUrl(remoteUrl),
 			validateInput: value => {
