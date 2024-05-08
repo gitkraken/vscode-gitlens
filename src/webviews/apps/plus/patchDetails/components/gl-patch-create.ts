@@ -205,7 +205,8 @@ export class GlPatchCreate extends GlTreeBase {
 				break;
 		}
 
-		const draftName = this.review ? 'Suggested Changes' : 'Cloud Patch';
+		const draftName = this.review ? 'Code Suggestion' : 'Cloud Patch';
+		const draftNamePlural = this.review ? 'Code Suggestions' : 'Cloud Patches';
 		return html`
 			<div class="section section--action">
 				${when(
@@ -285,9 +286,9 @@ export class GlPatchCreate extends GlTreeBase {
 							<code-icon icon="lock"></code-icon>
 							<a
 								href="https://www.gitkraken.com/solutions/cloud-patches"
-								title="Learn more about Cloud Patches"
-								aria-label="Learn more about Cloud Patches"
-								>${this.review ? 'Suggested Changes' : 'Cloud Patches'}</a
+								title="Learn more about ${draftNamePlural}"
+								aria-label="Learn more about ${draftNamePlural}"
+								>${draftNamePlural}</a
 							>
 							are
 							<a
@@ -304,8 +305,8 @@ export class GlPatchCreate extends GlTreeBase {
 							Your
 							<a
 								href="https://www.gitkraken.com/solutions/cloud-patches"
-								title="Learn more about Cloud Patches"
-								aria-label="Learn more about Cloud Patches"
+								title="Learn more about ${draftNamePlural}"
+								aria-label="Learn more about ${draftNamePlural}"
 								>${draftName}</a
 							>
 							will be securely stored in your organization's self-hosted storage
