@@ -11,6 +11,10 @@ import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 export const extensionPrefix = 'gitlens';
 export const quickPickTitleMaxChars = 80;
 
+export const previewBadge = 'ᴘʀᴇᴠɪᴇᴡ';
+export const proBadge = 'ᴘʀᴏ';
+export const proBadgeSuperscript = 'ᴾᴿᴼ';
+
 export const ImageMimetypes: Record<string, string> = {
 	'.png': 'image/png',
 	'.gif': 'image/gif',

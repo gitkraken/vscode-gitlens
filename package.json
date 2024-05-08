@@ -16639,7 +16639,7 @@
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "Cloud Patches ᴾᴿᴱⱽᴵᴱᵂ — easily and securely share code with your teammates or other developers, accessible from anywhere, streamlining your workflow with better collaboration."
+				"contents": "Cloud Patches ᴘʀᴇᴠɪᴇᴡ — easily and securely share code with your teammates or other developers, accessible from anywhere, streamlining your workflow with better collaboration."
 			},
 			{
 				"view": "gitlens.views.drafts",
@@ -16657,7 +16657,7 @@
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "Workspaces ᴾᴿᴱⱽᴵᴱᵂ — group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\n\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration."
+				"contents": "Workspaces ᴘʀᴇᴠɪᴇᴡ — group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\n\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration."
 			},
 			{
 				"view": "gitlens.views.workspaces",

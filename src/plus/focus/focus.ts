@@ -28,7 +28,7 @@ import {
 	UnpinQuickInputButton,
 	UnsnoozeQuickInputButton,
 } from '../../commands/quickCommand.buttons';
-import { Commands } from '../../constants';
+import { Commands, previewBadge } from '../../constants';
 import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
@@ -115,7 +115,7 @@ function assertsFocusStepState(state: StepState<State>): asserts state is FocusS
 @command()
 export class FocusCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: FocusCommandArgs) {
-		super(container, 'focus', 'focus', 'GitLens Launchpad\u00a0\u00a0ᴾᴿᴱⱽᴵᴱᵂ', {
+		super(container, 'focus', 'focus', `GitLens Launchpad\u00a0\u00a0${previewBadge}`, {
 			description: 'focus on a pull request or issue',
 		});
 

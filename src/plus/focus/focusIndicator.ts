@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent, StatusBarItem, ThemeColor } from 'vscode';
 import { Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
-import { Commands } from '../../constants';
+import { Commands, previewBadge } from '../../constants';
 import type { Container } from '../../container';
 import { registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
@@ -192,7 +192,7 @@ export class FocusIndicator implements Disposable {
 		this._statusBarFocus.tooltip.supportHtml = true;
 		this._statusBarFocus.tooltip.isTrusted = true;
 		this._statusBarFocus.tooltip.appendMarkdown(
-			'GitLens Launchpad ᴾᴿᴱⱽᴵᴱᵂ\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0',
+			`GitLens Launchpad ${previewBadge}\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0`,
 		);
 
 		this._statusBarFocus.tooltip.appendMarkdown(

@@ -1,7 +1,7 @@
 import type { CancellationToken, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { RepositoriesViewConfig } from '../config';
-import { Commands } from '../constants';
+import { Commands, previewBadge } from '../constants';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { unknownGitUri } from '../git/gitUri';
@@ -84,7 +84,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 	constructor(container: Container) {
 		super(container, 'drafts', 'Cloud Patches', 'draftsView');
 
-		this.description = 'ᴘʀᴇᴠɪᴇᴡ';
+		this.description = previewBadge;
 	}
 
 	override dispose() {

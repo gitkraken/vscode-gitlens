@@ -3,7 +3,7 @@ import { Disposable, env, Uri, window } from 'vscode';
 import { getAvatarUri } from '../../../avatars';
 import { ClearQuickInputButton } from '../../../commands/quickCommand.buttons';
 import type { ContextKeys } from '../../../constants';
-import { Commands, GlyphChars } from '../../../constants';
+import { Commands, GlyphChars, previewBadge } from '../../../constants';
 import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
@@ -144,7 +144,7 @@ export class PatchDetailsWebviewProvider
 		};
 
 		this.setHostTitle();
-		this.host.description = 'ᴘʀᴇᴠɪᴇᴡ';
+		this.host.description = previewBadge;
 
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
