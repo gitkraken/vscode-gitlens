@@ -186,6 +186,7 @@ export class PatchDetailsWebviewProvider
 		const [arg] = args;
 		if (arg?.mode === 'view' && arg.draft != null) {
 			await this.updateViewDraftState(arg.draft);
+			void this.trackViewDraft(this._context.draft, arg.source);
 		} else {
 			if (this.container.git.isDiscoveringRepositories) {
 				await this.container.git.isDiscoveringRepositories;
@@ -1087,6 +1088,29 @@ export class PatchDetailsWebviewProvider
 		});
 	}
 
+	private async trackViewDraft(draft: Draft | LocalDraft | undefined, source?: string) {
+		if (draft?.draftType !== 'cloud' || draft.type !== 'suggested_pr_change') return;
+
+		draft = await this.ensureDraftContent(draft);
+		const patch = draft.changesets?.[0].patches.find(p => isRepoLocated(p.repository));
+		if (patch == null) return;
+
+		const repo = patch.repository as Repository;
+		const remote = await this.container.git.getBestRemoteWithProvider(repo.uri);
+		if (remote == null) return;
+
+		const provider = remote.provider.id;
+		const repoPrivacy = await this.container.git.visibility(repo.path);
+
+		this.container.telemetry.sendEvent('codeSuggestionViewed', {
+			provider: provider,
+			source: source,
+			repoPrivacy: repoPrivacy,
+			draftPrivacy: draft.visibility,
+			draftId: draft.id,
+		});
+	}
+
 	private async updateViewDraftState(draft: LocalDraft | Draft | undefined) {
 		this._context.draft = draft;
 		if (draft?.draftType === 'cloud') {
@@ -1125,39 +1149,9 @@ export class PatchDetailsWebviewProvider
 		// }
 
 		if (draft.draftType === 'cloud') {
-			if (
-				deferredPatchLoading === true &&
-				(draft.changesets == null ||
-					some(draft.changesets, cs =>
-						cs.patches.some(p => p.contents == null || p.files == null || p.repository == null),
-					))
-			) {
+			if (deferredPatchLoading === true && isDraftMissingContent(draft)) {
 				setTimeout(async () => {
-					if (draft.changesets == null) {
-						draft.changesets = await this.container.drafts.getChangesets(draft.id);
-					}
-
-					const patches = draft.changesets
-						.flatMap(cs => cs.patches)
-						.filter(p => p.contents == null || p.files == null || p.repository == null);
-
-					if (patches.length > 0) {
-						const patchDetails = await Promise.allSettled(
-							patches.map(p => this.container.drafts.getPatchDetails(p)),
-						);
-
-						for (const d of patchDetails) {
-							if (d.status === 'fulfilled') {
-								const patch = patches.find(p => p.id === d.value.id);
-								if (patch != null) {
-									patch.contents = d.value.contents;
-									patch.files = d.value.files;
-									patch.repository = d.value.repository;
-									await this.getOrLocatePatchRepository(patch);
-								}
-							}
-						}
-					}
+					await this.ensureDraftContent(draft);
 
 					void this.notifyDidChangeViewDraftState(false);
 				}, 0);
@@ -1520,6 +1514,49 @@ export class PatchDetailsWebviewProvider
 
 		return repo;
 	}
+
+	// private draftContentPromise: [Draft['id'], Promise<Draft>] | undefined;
+	private async ensureDraftContent(draft: Draft): Promise<Draft> {
+		if (!isDraftMissingContent(draft)) {
+			return draft;
+		}
+
+		if (draft.changesets == null) {
+			draft.changesets = await this.container.drafts.getChangesets(draft.id);
+		}
+
+		const patches = draft.changesets
+			.flatMap(cs => cs.patches)
+			.filter(p => p.contents == null || p.files == null || p.repository == null);
+
+		if (patches.length === 0) {
+			return draft;
+		}
+
+		const patchDetails = await Promise.allSettled(patches.map(p => this.container.drafts.getPatchDetails(p)));
+
+		for (const d of patchDetails) {
+			if (d.status === 'fulfilled') {
+				const patch = patches.find(p => p.id === d.value.id);
+				if (patch != null) {
+					patch.contents = d.value.contents;
+					patch.files = d.value.files;
+					patch.repository = d.value.repository;
+					await this.getOrLocatePatchRepository(patch);
+				}
+			}
+		}
+
+		return draft;
+	}
+}
+
+function isDraftMissingContent(draft: Draft): boolean {
+	if (draft.changesets == null) return true;
+
+	return some(draft.changesets, cs =>
+		cs.patches.some(p => p.contents == null || p.files == null || p.repository == null),
+	);
 }
 
 function isRepoLocated(repo: DraftPatch['repository']): boolean {
