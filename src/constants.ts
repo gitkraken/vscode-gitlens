@@ -795,6 +795,8 @@ export const enum Schemes {
 export type TelemetryEvents =
 	| 'account/validation/failed'
 	| 'activate'
+	| 'cloudIntegrations/jiraFirstConnected'
+	| 'cloudIntegrations/settingsOpened'
 	| 'command'
 	| 'command/core'
 	| 'remoteProviders/connected'
@@ -885,6 +887,7 @@ export type GlobalStorage = {
 	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
+	'cloudIntegrations:jira:firstConnect': boolean;
 	'launchpad:indicator:dataReceived': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
