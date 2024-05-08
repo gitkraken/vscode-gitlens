@@ -350,7 +350,7 @@ export class FocusCommand extends QuickCommand<State> {
 							return {
 								label: i.title,
 								// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
-								description: `\u00a0 ${i.repository.owner.login}/${i.repository.name} #${i.id} \u00a0 ${
+								description: `\u00a0 ${i.repository.owner.login}/${i.repository.name}#${i.id} \u00a0 ${
 									i.codeSuggestionsCount > 0
 										? ` $(gitlens-code-suggestion) ${i.codeSuggestionsCount}`
 										: ''
