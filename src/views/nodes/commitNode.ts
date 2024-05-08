@@ -94,8 +94,8 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				this.view.type !== 'tags' &&
 				!this.unpublished &&
 				getContext('gitlens:hasConnectedRemotes') &&
-				this.view.config.pullRequests.enabled &&
-				this.view.config.pullRequests.showForCommits
+				this.view.config.pullRequests?.enabled &&
+				this.view.config.pullRequests?.showForCommits
 			) {
 				pullRequest = this.getState('pullRequest');
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {

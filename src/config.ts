@@ -612,6 +612,7 @@ interface ViewsConfigs {
 	readonly fileHistory: FileHistoryViewConfig;
 	readonly lineHistory: LineHistoryViewConfig;
 	readonly patchDetails: PatchDetailsViewConfig;
+	readonly pullRequest: PullRequestViewConfig;
 	readonly remotes: RemotesViewConfig;
 	readonly repositories: RepositoriesViewConfig;
 	readonly searchAndCompare: SearchAndCompareViewConfig;
@@ -631,6 +632,7 @@ export const viewsConfigKeys: ViewsConfigKeys[] = [
 	'fileHistory',
 	'lineHistory',
 	'patchDetails',
+	'pullRequest',
 	'remotes',
 	'repositories',
 	'searchAndCompare',
@@ -685,6 +687,15 @@ export interface CommitDetailsViewConfig {
 export interface PatchDetailsViewConfig {
 	readonly avatars: boolean;
 	readonly files: ViewsFilesConfig;
+}
+
+export interface PullRequestViewConfig {
+	readonly avatars: boolean;
+	readonly branches: undefined;
+	readonly files: ViewsFilesConfig;
+	readonly pullRequests: undefined;
+	readonly reveal: undefined;
+	readonly showBranchComparison: undefined;
 }
 
 export interface ContributorsViewConfig {
