@@ -1143,7 +1143,10 @@ export class PatchDetailsWebviewProvider
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
-	private async y(current: Context, deferredPatchLoading = true): Promise<State['draft'] | undefined> {
+	private async getViewDraftState(
+		current: Context,
+		deferredPatchLoading = true,
+	): Promise<State['draft'] | undefined> {
 		if (current.draft == null) return undefined;
 
 		const draft = current.draft;
