@@ -1011,7 +1011,7 @@ export class DeepLinkService implements Disposable {
 						if (
 							this._context.action === DeepLinkActionType.Switch ||
 							this._context.action === DeepLinkActionType.SwitchToPullRequest ||
-							this._context.action === DeepLinkActionType.SwitchToAndReviewPullRequest
+							this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest
 						) {
 							action = DeepLinkServiceAction.OpenSwitch;
 						} else {
@@ -1031,7 +1031,7 @@ export class DeepLinkService implements Disposable {
 							if (
 								this._context.action === DeepLinkActionType.Switch ||
 								this._context.action === DeepLinkActionType.SwitchToPullRequest ||
-								this._context.action === DeepLinkActionType.SwitchToAndReviewPullRequest
+								this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest
 							) {
 								action = DeepLinkServiceAction.OpenSwitch;
 							} else {
@@ -1240,7 +1240,7 @@ export class DeepLinkService implements Disposable {
 							{ refType: 'revision' },
 						);
 						await showDetailsView(revision);
-					} else if (this._context.action === DeepLinkActionType.SwitchToAndReviewPullRequest) {
+					} else if (this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest) {
 						await startCodeReview(repo, 'deepLink');
 					}
 

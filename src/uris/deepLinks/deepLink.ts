@@ -20,7 +20,7 @@ export enum DeepLinkType {
 export enum DeepLinkActionType {
 	Switch = 'switch',
 	SwitchToPullRequest = 'switch-to-pr',
-	SwitchToAndReviewPullRequest = 'switch-to-and-review-pr',
+	SwitchToAndSuggestPullRequest = 'switch-to-and-suggest-pr',
 }
 
 export const AccountDeepLinkTypes: DeepLinkType[] = [DeepLinkType.Draft, DeepLinkType.Workspace];
