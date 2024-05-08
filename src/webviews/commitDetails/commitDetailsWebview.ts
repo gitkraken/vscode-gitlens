@@ -582,7 +582,7 @@ export class CommitDetailsWebviewProvider
 					}
 
 					if (result === view) {
-						void showPatchesView({ mode: 'view', draft: draft });
+						void showPatchesView({ mode: 'view', draft: draft, source: 'commitDetails' });
 					}
 
 					break;
@@ -821,7 +821,7 @@ export class CommitDetailsWebviewProvider
 		const draft = this._context.wip?.codeSuggestions?.find(draft => draft.id === id);
 		if (draft == null) return;
 
-		void showPatchesView({ mode: 'view', draft: draft });
+		void showPatchesView({ mode: 'view', draft: draft, source: 'commitDetails' });
 	}
 
 	private onActiveEditorLinesChanged(e: LinesChangeEvent) {
