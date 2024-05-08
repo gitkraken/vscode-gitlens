@@ -389,21 +389,21 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			}
 			if (isLocalBranch) {
 				confirmations.push({
-					label: `Create Worktree for Branch`,
+					label: `Create Worktree for Branch...`,
 					description: 'avoids modifying your working tree',
 					detail: `Will create a new worktree for ${getReferenceLabel(state.reference)}`,
 					item: 'switchViaWorktree',
 				});
 			} else if (!state.createBranch && context.canSwitchToLocalBranch != null) {
 				confirmations.push({
-					label: `Create Worktree for Local Branch`,
+					label: `Create Worktree for Local Branch...`,
 					description: 'avoids modifying your working tree',
 					detail: `Will create a new worktree for local ${getReferenceLabel(context.canSwitchToLocalBranch)}`,
 					item: 'switchToLocalBranchViaWorktree',
 				});
 			} else {
 				confirmations.push({
-					label: `Create Worktree for New Local Branch`,
+					label: `Create Worktree for New Local Branch...`,
 					description: 'avoids modifying your working tree',
 					detail: `Will create a new worktree for a new local branch${
 						state.createBranch ? ` named ${state.createBranch}` : ''
