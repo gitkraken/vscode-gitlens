@@ -22,6 +22,9 @@ import {
 	OpenFileComparePreviousCommand,
 	OpenFileCompareWorkingCommand,
 	OpenFileOnRemoteCommand,
+	OpenPullRequestChangesCommand,
+	OpenPullRequestComparisonCommand,
+	OpenPullRequestOnRemoteCommand,
 	PickCommitCommand,
 	PinCommand,
 	PublishCommand,
@@ -478,6 +481,15 @@ export class GlCommitDetailsApp extends LitElement {
 			case 'switch':
 				this._hostIpc.sendCommand(SwitchCommand, undefined);
 				// this.onCommandClickedCore('gitlens.views.switchToBranch');
+				break;
+			case 'open-pr-changes':
+				this._hostIpc.sendCommand(OpenPullRequestChangesCommand, undefined);
+				break;
+			case 'open-pr-compare':
+				this._hostIpc.sendCommand(OpenPullRequestComparisonCommand, undefined);
+				break;
+			case 'open-pr-remote':
+				this._hostIpc.sendCommand(OpenPullRequestOnRemoteCommand, undefined);
 				break;
 		}
 	}

@@ -190,6 +190,10 @@ export const PushCommand = new IpcCommand(scope, 'push');
 export const PullCommand = new IpcCommand(scope, 'pull');
 export const SwitchCommand = new IpcCommand(scope, 'switch');
 
+export const OpenPullRequestChangesCommand = new IpcCommand(scope, 'openPullRequestChanges');
+export const OpenPullRequestComparisonCommand = new IpcCommand(scope, 'openPullRequestComparison');
+export const OpenPullRequestOnRemoteCommand = new IpcCommand(scope, 'openPullRequestOnRemote');
+
 // REQUESTS
 
 export type DidExplainParams =

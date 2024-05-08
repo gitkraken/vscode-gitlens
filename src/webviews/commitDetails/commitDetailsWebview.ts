@@ -5,6 +5,7 @@ import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import { serializeAutolink } from '../../annotations/autolinks';
 import { getAvatarUri } from '../../avatars';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
+import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import type { ContextKeys } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
@@ -13,6 +14,7 @@ import { executeGitCommand } from '../../git/actions';
 import {
 	openChanges,
 	openChangesWithWorking,
+	openComparisonChanges,
 	openFile,
 	openFileOnRemote,
 	showDetailsQuickPick,
@@ -27,7 +29,7 @@ import type { GitFileChange, GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import { serializeIssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
-import { serializePullRequest } from '../../git/models/pullRequest';
+import { getComparisonRefsForPullRequest, serializePullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { createReference, getReferenceFromRevision, shortenRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
@@ -95,6 +97,9 @@ import {
 	OpenFileComparePreviousCommand,
 	OpenFileCompareWorkingCommand,
 	OpenFileOnRemoteCommand,
+	OpenPullRequestChangesCommand,
+	OpenPullRequestComparisonCommand,
+	OpenPullRequestOnRemoteCommand,
 	PickCommitCommand,
 	PinCommand,
 	PublishCommand,
@@ -471,6 +476,15 @@ export class CommitDetailsWebviewProvider
 			case ChangeReviewModeCommand.is(e):
 				void this.setInReview(e.params.inReview, 'repoStatus');
 				break;
+			case OpenPullRequestChangesCommand.is(e):
+				void this.openPullRequestChanges();
+				break;
+			case OpenPullRequestComparisonCommand.is(e):
+				void this.openPullRequestComparison();
+				break;
+			case OpenPullRequestOnRemoteCommand.is(e):
+				void this.openPullRequestOnRemote();
+				break;
 		}
 	}
 
@@ -635,6 +649,66 @@ export class CommitDetailsWebviewProvider
 		const path = this.getRepoActionPath();
 		if (path == null) return;
 		void RepoActions.switchTo(path);
+	}
+
+	private get pullRequestContext(): { pr: PullRequest; repoPath: string } | undefined {
+		if (this.mode === 'wip') {
+			if (this._context.wip?.pullRequest == null) return;
+
+			return {
+				repoPath: this._context.wip.repo.path,
+				pr: this._context.wip.pullRequest,
+			};
+		}
+
+		if (this._context.pullRequest == null) return;
+
+		return {
+			repoPath: this._context.commit!.repoPath,
+			pr: this._context.pullRequest,
+		};
+	}
+
+	private async openPullRequestChanges() {
+		if (this.pullRequestContext == null) return;
+
+		const { repoPath, pr } = this.pullRequestContext;
+		if (pr.refs == null) return;
+
+		const refs = await getComparisonRefsForPullRequest(this.container, repoPath, pr.refs);
+		return openComparisonChanges(
+			this.container,
+			{
+				repoPath: refs.repoPath,
+				lhs: refs.base.ref,
+				rhs: refs.head.ref,
+			},
+			{ title: `Changes in Pull Request #${pr.id}` },
+		);
+	}
+
+	private async openPullRequestComparison() {
+		if (this.pullRequestContext == null) return;
+
+		const { repoPath, pr } = this.pullRequestContext;
+		if (pr.refs == null) return;
+
+		const refs = await getComparisonRefsForPullRequest(this.container, repoPath, pr.refs);
+		return this.container.searchAndCompareView.compare(refs.repoPath, refs.head, refs.base);
+	}
+
+	private async openPullRequestOnRemote(clipboard?: boolean) {
+		if (this.pullRequestContext == null) return;
+
+		const {
+			pr: { url },
+		} = this.pullRequestContext;
+		return executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
+			pr: { url: url },
+			clipboard: clipboard,
+		});
+
+		await Promise.resolve();
 	}
 
 	onRefresh(_force?: boolean | undefined): void {

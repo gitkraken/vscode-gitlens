@@ -275,6 +275,23 @@ export class GlWipDetails extends GlDetailsBase {
 		return html`
 			<webview-pane collapsable>
 				<span slot="title">Pull Request #${this.wip?.pullRequest?.id}</span>
+				<action-nav slot="actions">
+					<action-item
+						label="Open Pull Request Changes"
+						icon="gl-diff-multiple"
+						@click=${() => this.onDataActionClick('open-pr-changes')}
+					></action-item>
+					<action-item
+						label="Compare Pull Request"
+						icon="compare-changes"
+						@click=${() => this.onDataActionClick('open-pr-compare')}
+					></action-item>
+					<action-item
+						label="Open Pull Request on Remote"
+						icon="globe"
+						@click=${() => this.onDataActionClick('open-pr-remote')}
+					></action-item>
+				</action-nav>
 				<div class="section">
 					<issue-pull-request
 						type="pr"
