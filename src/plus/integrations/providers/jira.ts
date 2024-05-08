@@ -258,13 +258,6 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 	}
 
 	protected override async providerOnConnect(): Promise<void> {
-		const firstConnected = this.container.storage.get('cloudIntegrations:jira:firstConnect') ?? false;
-		if (!firstConnected) {
-			void this.container.storage.store('cloudIntegrations:jira:firstConnect', true);
-			this.container.telemetry.sendEvent('cloudIntegrations/jiraFirstConnected', {
-				userId: (await this.container.subscription.getSubscription())?.account?.id,
-			});
-		}
 		this._autolinks = undefined;
 		if (this._session == null) return;
 

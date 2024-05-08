@@ -184,28 +184,55 @@ export class TelemetryService implements Disposable {
 	// ): void {
 	// }
 
-	setGlobalAttribute(key: string, value: AttributeValue | null | undefined): void {
+	setGlobalAttribute(key: `global.${string}`, value: AttributeValue | null | undefined): void;
+	/** @deprecated use `global.*` in the key */
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	setGlobalAttribute(key: string, value: AttributeValue | null | undefined): void;
+	setGlobalAttribute(key: `global.${string}`, value: AttributeValue | null | undefined): void {
 		if (value == null) {
 			this.globalAttributes.delete(key);
+			if (!key.startsWith('global.')) {
+				this.globalAttributes.delete(`global.${key}`);
+			}
 		} else {
 			this.globalAttributes.set(key, value);
-		}
-		this.provider?.setGlobalAttributes(this.globalAttributes);
-	}
-
-	setGlobalAttributes(attributes: Record<string, AttributeValue | null | undefined>): void {
-		for (const [key, value] of Object.entries(attributes)) {
-			if (value == null) {
-				this.globalAttributes.delete(key);
-			} else {
-				this.globalAttributes.set(key, value);
+			if (!key.startsWith('global.')) {
+				this.globalAttributes.set(`global.${key}`, value);
 			}
 		}
 		this.provider?.setGlobalAttributes(this.globalAttributes);
 	}
 
-	deleteGlobalAttribute(key: string): void {
+	setGlobalAttributes(attributes: Record<`global.${string}`, AttributeValue | null | undefined>): void;
+	/** @deprecated use `global.*` in the keys */
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	setGlobalAttributes(attributes: Record<string, AttributeValue | null | undefined>): void;
+	setGlobalAttributes(attributes: Record<`global.${string}`, AttributeValue | null | undefined>): void {
+		for (const [key, value] of Object.entries(attributes)) {
+			if (value == null) {
+				this.globalAttributes.delete(key);
+				if (!key.startsWith('global.')) {
+					this.globalAttributes.delete(`global.${key}`);
+				}
+			} else {
+				this.globalAttributes.set(key, value);
+				if (!key.startsWith('global.')) {
+					this.globalAttributes.set(`global.${key}`, value);
+				}
+			}
+		}
+		this.provider?.setGlobalAttributes(this.globalAttributes);
+	}
+
+	deleteGlobalAttribute(key: `global.${string}`): void;
+	/** @deprecated use `global.*` in the key */
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	deleteGlobalAttribute(key: string): void;
+	deleteGlobalAttribute(key: `global.${string}`): void {
 		this.globalAttributes.delete(key);
+		if (!key.startsWith('global.')) {
+			this.globalAttributes.delete(`global.${key}`);
+		}
 		this.provider?.setGlobalAttributes(this.globalAttributes);
 	}
 }

@@ -1,3 +1,4 @@
+import type { AttributeValue } from '@opentelemetry/api';
 import type { QuickInputButton } from 'vscode';
 import { commands, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
@@ -35,6 +36,7 @@ import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpic
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import { command, executeCommand } from '../../system/command';
+import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { interpolate, pluralize } from '../../system/string';
 import { openUrl } from '../../system/utils';
@@ -45,7 +47,12 @@ import {
 	ProviderPullRequestReviewState,
 } from '../integrations/providers/models';
 import type { FocusAction, FocusActionCategory, FocusGroup, FocusItem, FocusTargetAction } from './focusProvider';
-import { groupAndSortFocusItems, supportedFocusIntegrations } from './focusProvider';
+import {
+	countFocusItemGroups,
+	getFocusItemIdHash,
+	groupAndSortFocusItems,
+	supportedFocusIntegrations,
+} from './focusProvider';
 
 const actionGroupMap = new Map<FocusActionCategory, string[]>([
 	['mergeable', ['Ready to Merge', 'Ready to merge']],
@@ -83,6 +90,7 @@ interface Context {
 	items: FocusItem[];
 	title: string;
 	collapsed: Map<FocusGroup, boolean>;
+	telemetryContext: Record<string, AttributeValue | null | undefined> | undefined;
 }
 
 interface GroupedFocusItem extends FocusItem {
@@ -112,12 +120,28 @@ function assertsFocusStepState(state: StepState<State>): asserts state is FocusS
 	throw new Error('Missing item');
 }
 
+const instanceCounter = getScopedCounter();
+
 @command()
 export class FocusCommand extends QuickCommand<State> {
-	constructor(container: Container, args?: FocusCommandArgs) {
+	private readonly telemetryContext: Record<string, any> | undefined;
+
+	// TODO: Hidden is a hack for now to avoid telemetry when this gets loaded in the hidden group of the git commands
+	constructor(container: Container, args?: FocusCommandArgs, hidden: boolean = false) {
 		super(container, 'focus', 'focus', `GitLens Launchpad\u00a0\u00a0${previewBadge}`, {
 			description: 'focus on a pull request or issue',
 		});
+
+		if (this.container.telemetry.enabled && !hidden) {
+			this.telemetryContext = {
+				instance: instanceCounter.next(),
+				source: args?.source ?? 'commandPalette',
+				'initialState.group': args?.state?.initialGroup ?? null,
+				'initialState.selectTopItem': args?.state?.selectTopItem ?? false,
+			};
+
+			this.container.telemetry.sendEvent('launchpad/open', { ...this.telemetryContext });
+		}
 
 		const counter = 0;
 
@@ -159,21 +183,42 @@ export class FocusCommand extends QuickCommand<State> {
 			items: [],
 			title: this.title,
 			collapsed: collapsed,
+			telemetryContext: this.telemetryContext,
 		};
+
+		let opened = false;
 
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
 			if (state.counter < 1 && !(await this.container.focus.hasConnectedIntegration())) {
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(opened ? 'launchpad/steps/connect' : 'launchpad/opened', {
+						...context.telemetryContext,
+						connected: false,
+					});
+				}
+
+				opened = true;
+
 				const result = yield* this.confirmIntegrationConnectStep(state, context);
 				if (result !== StepResultBreak && !(await this.ensureIntegrationConnected(result))) {
 					throw new Error('Could not connect chosen integration');
 				}
 			}
 
-			context.items = await this.container.focus.getCategorizedItems();
+			await updateContextItems(this.container, context);
 
 			if (state.counter < 2 || state.item == null) {
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(opened ? 'launchpad/steps/main' : 'launchpad/opened', {
+						...context.telemetryContext,
+						connected: true,
+					});
+				}
+
+				opened = true;
+
 				const result = yield* this.pickFocusItemStep(state, context, this.container, {
 					picked: state.item?.id,
 					selectTopItem: state.selectTopItem,
@@ -187,7 +232,8 @@ export class FocusCommand extends QuickCommand<State> {
 
 			if (this.confirm(state.confirm)) {
 				await this.container.focus.ensureFocusItemCodeSuggestions(state.item);
-				this.sendItemActionTelemetry('select', state.item, state.item.group);
+				this.sendItemActionTelemetry('select', state.item, state.item.group, context);
+
 				const result = yield* this.confirmStep(state, context);
 				if (result === StepResultBreak) continue;
 
@@ -195,7 +241,7 @@ export class FocusCommand extends QuickCommand<State> {
 			}
 
 			if (state.action) {
-				this.sendItemActionTelemetry(state.action, state.item, state.item.group);
+				this.sendItemActionTelemetry(state.action, state.item, state.item.group, context);
 			}
 
 			if (typeof state.action === 'string') {
@@ -274,13 +320,17 @@ export class FocusCommand extends QuickCommand<State> {
 							})\u00a0\u00a0${groupMap.get(ui)![0]?.toUpperCase()}`, //'\u00a0',
 							//detail: groupMap.get(group)?.[0].toUpperCase(),
 							onDidSelect: () => {
-								const collapse = !context.collapsed.get(ui);
-								context.collapsed.set(ui, collapse);
-								container.telemetry.sendEvent('launchpad/groupToggled', {
-									group: ui,
-									expanded: !collapse,
-									itemsCount: groupItems.length,
-								});
+								const collapsed = !context.collapsed.get(ui);
+								context.collapsed.set(ui, collapsed);
+
+								if (container.telemetry.enabled) {
+									updateTelemetryContext(context);
+									container.telemetry.sendEvent('launchpad/groupToggled', {
+										...context.telemetryContext,
+										group: ui,
+										collapsed: collapsed,
+									});
+								}
 							},
 						}),
 					);
@@ -358,7 +408,7 @@ export class FocusCommand extends QuickCommand<State> {
 						quickpick.busy = true;
 
 						try {
-							context.items = await this.container.focus.getCategorizedItems({ force: true });
+							await updateContextItems(container, context);
 							const items = getItems(context.items);
 
 							quickpick.placeholder = !items.length
@@ -398,11 +448,11 @@ export class FocusCommand extends QuickCommand<State> {
 						break;
 				}
 
-				this.sendItemActionTelemetry(button, item, group);
+				this.sendItemActionTelemetry(button, item, group, context);
 				quickpick.busy = true;
 
 				try {
-					context.items = await this.container.focus.getCategorizedItems();
+					await updateContextItems(container, context);
 					const items = getItems(context.items);
 
 					quickpick.placeholder = !items.length ? 'All done! Take a vacation' : 'Choose an item to focus on';
@@ -421,7 +471,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 	private *confirmStep(
 		state: FocusStepState,
-		_context: Context,
+		context: Context,
 	): StepResultGenerator<FocusAction | FocusTargetAction> {
 		const confirmations: (
 			| QuickPickItemOfT<FocusAction>
@@ -573,7 +623,7 @@ export class FocusCommand extends QuickCommand<State> {
 							break;
 					}
 
-					this.sendItemActionTelemetry(button, state.item, state.item.group);
+					this.sendItemActionTelemetry(button, state.item, state.item.group, context);
 				},
 			},
 		);
@@ -792,7 +842,10 @@ export class FocusCommand extends QuickCommand<State> {
 		buttonOrAction: QuickInputButton | FocusAction | FocusTargetAction | 'select',
 		item: FocusItem,
 		group: FocusGroup,
+		context: Context,
 	) {
+		if (!this.container.telemetry.enabled) return;
+
 		let action:
 			| FocusAction
 			| 'pin'
@@ -837,17 +890,74 @@ export class FocusCommand extends QuickCommand<State> {
 					break;
 			}
 		}
-
 		if (action == null) return;
 
-		this.container.telemetry.sendEvent('launchpad/actionTaken', {
+		this.container.telemetry.sendEvent(action === 'select' ? 'launchpad/steps/details' : 'launchpad/action', {
+			...context.telemetryContext,
 			action: action,
-			itemType: item.type,
-			itemProvider: item.provider.id,
-			itemActionableCategory: item.actionableCategory,
-			itemGroup: group,
-			itemCodeSuggestionCount: item.codeSuggestionsCount,
+			'item.id': getFocusItemIdHash(item),
+			'item.type': item.type,
+			'item.provider': item.provider.id,
+			'item.actionableCategory': item.actionableCategory,
+			'item.group': group,
+			'item.assignees.count': item.assignees?.length ?? undefined,
+			'item.createdDate': item.createdDate.getTime(),
+			'item.updatedDate': item.updatedDate.getTime(),
+			'item.isNew': item.isNew,
+
+			'item.comments.count': item.commentCount,
+			'item.upvotes.count': item.upvoteCount,
+
+			'item.pr.codeSuggestionCount': item.codeSuggestionsCount,
+			'item.pr.isDraft': item.isDraft,
+			'item.pr.mergeableState': item.mergeableState,
+			'item.pr.state': item.state,
+
+			'item.pr.changes.additions': item.additions ?? undefined,
+			'item.pr.changes.deletions': item.deletions ?? undefined,
+			'item.pr.changes.commits': item.commitCount ?? undefined,
+			'item.pr.changes.files': item.fileCount ?? undefined,
+
+			'item.pr.failingCI': item.failingCI,
+			'item.pr.hasConflicts': item.hasConflicts,
+
+			'item.pr.reviews.count': item.reviews?.length ?? undefined,
+			'item.pr.reviews.decision': item.reviewDecision,
+			'item.pr.reviews.changeRequestCount': item.changeRequestReviewCount ?? undefined,
+
+			'item.viewer.isAuthor': item.viewer.isAuthor,
+			'item.viewer.isAssignee': item.viewer.isAssignee,
+			'item.viewer.pinned': item.viewer.pinned,
+			'item.viewer.snoozed': item.viewer.snoozed,
+			'item.viewer.pr.canMerge': item.viewer.canMerge,
+			'item.viewer.pr.isReviewer': item.viewer.isReviewer,
+			'item.viewer.pr.shouldAssignReviewer': item.viewer.shouldAssignReviewer,
+			'item.viewer.pr.shouldMerge': item.viewer.shouldMerge,
+			'item.viewer.pr.shouldReview': item.viewer.shouldReview,
+			'item.viewer.pr.waitingOnReviews': item.viewer.waitingOnReviews,
 		});
+	}
+}
+
+async function updateContextItems(container: Container, context: Context) {
+	context.items = await container.focus.getCategorizedItems();
+	if (container.telemetry.enabled) {
+		updateTelemetryContext(context);
+	}
+}
+
+function updateTelemetryContext(context: Context) {
+	const grouped = countFocusItemGroups(context.items);
+
+	context.telemetryContext = {
+		...context.telemetryContext,
+		'items.count': context.items.length,
+		'groups.count': grouped.size,
+	};
+
+	for (const [group, count] of grouped) {
+		context.telemetryContext[`groups.${group}.count`] = count;
+		context.telemetryContext[`groups.${group}.collapsed`] = context.collapsed.get(group);
 	}
 }
 

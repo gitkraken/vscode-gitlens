@@ -74,6 +74,8 @@ export abstract class IntegrationBase<
 	ID extends SupportedIntegrationIds = SupportedIntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
 > {
+	abstract readonly type: IntegrationType;
+
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
@@ -191,7 +193,7 @@ export abstract class IntegrationBase<
 
 			this._onDidChange.fire();
 			if (!options?.silent && !options?.currentSessionOnly) {
-				this.container.integrations.disconnected(this.key);
+				this.container.integrations.disconnected(this, this.key);
 			}
 		}
 
@@ -287,7 +289,7 @@ export abstract class IntegrationBase<
 
 			queueMicrotask(() => {
 				this._onDidChange.fire();
-				this.container.integrations.connected(this.key);
+				this.container.integrations.connected(this, this.key);
 				void this.providerOnConnect?.();
 			});
 		}

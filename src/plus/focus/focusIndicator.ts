@@ -221,7 +221,7 @@ export class FocusIndicator implements Disposable {
 			);
 			this._statusBarFocus.color = undefined;
 		} else if (state === 'data') {
-			void this.maybeSendFirstDataEvent();
+			this.sendTelemetryFirstDataEvent();
 			this._lastDataUpdate = new Date();
 			const useColors = configuration.get('launchpad.indicator.useColors');
 			const groups = configuration.get('launchpad.indicator.groups') ?? ([] satisfies FocusGroup[]);
@@ -439,12 +439,13 @@ export class FocusIndicator implements Disposable {
 		}`;
 	}
 
-	private async maybeSendFirstDataEvent() {
+	private sendTelemetryFirstDataEvent() {
+		if (!this.container.telemetry.enabled) return;
+
 		const firstTimeDataReceived = this.container.storage.get('launchpad:indicator:dataReceived') ?? false;
 		if (!firstTimeDataReceived) {
 			void this.container.storage.store('launchpad:indicator:dataReceived', true);
-			const userId = (await this.container.subscription.getSubscription())?.account?.id;
-			this.container.telemetry.sendEvent('launchpad/indicatorFirstDataReceived', { userId: userId });
+			this.container.telemetry.sendEvent('launchpad/indicator/firstDataReceived');
 		}
 	}
 }
