@@ -432,7 +432,7 @@ export class FocusIndicator implements Disposable {
 	}
 
 	private getTopItemLabel(item: FocusItem, groupLength?: number) {
-		return `${item.repository != null ? `${item.repository.owner.login}/${item.repository.name} ` : ''}#${item.id}${
+		return `${item.repository != null ? `${item.repository.owner.login}/${item.repository.name}` : ''}#${item.id}${
 			groupLength != null && groupLength > 1
 				? ` and ${pluralize('pull request', groupLength - 1, { infix: ' other ' })}`
 				: ''
