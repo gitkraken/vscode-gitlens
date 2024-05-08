@@ -704,14 +704,6 @@ export class ViewCommands {
 
 	@log()
 	private async openDraft(draft: Draft) {
-		if (draft.changesets == null) {
-			try {
-				draft = await this.container.drafts.getDraft(draft.id);
-			} catch (ex) {
-				void window.showErrorMessage(`Unable to open Cloud Patch '${draft.id}'`);
-				return;
-			}
-		}
 		await showPatchesView({ mode: 'view', draft: draft });
 	}
 
