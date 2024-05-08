@@ -256,13 +256,16 @@ export class SubscriptionService implements Disposable {
 					void this.resendVerification();
 				}
 			} else if (isSubscriptionPaid(this._subscription)) {
-				const confirm: MessageItem = { title: 'OK' };
 				const learn: MessageItem = { title: 'Learn More' };
+				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					`Welcome to ${actual.name}.\nYou now have full access to Pro features.\n\nYour plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
-					{ modal: true },
-					confirm,
+					`You are now on the ${actual.name} plan and have full access to Pro features.`,
+					{
+						modal: true,
+						detail: 'Your plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					},
 					learn,
+					confirm,
 				);
 
 				if (result === learn) {
@@ -271,13 +274,16 @@ export class SubscriptionService implements Disposable {
 			} else if (isSubscriptionTrial(this._subscription)) {
 				const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
 
-				const confirm: MessageItem = { title: 'OK' };
 				const learn: MessageItem = { title: 'Learn More' };
+				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					`Welcome to your ${effective.name} Trial.\nYou now have full access to Pro features for ${
+					`Welcome to your ${effective.name} Trial.\n\nYou now have full access to Pro features for ${
 						days < 1 ? '<1 more day' : pluralize('day', days, { infix: 'more' })
 					}.`,
-					{ modal: true },
+					{
+						modal: true,
+						detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					},
 					confirm,
 					learn,
 				);
@@ -286,15 +292,18 @@ export class SubscriptionService implements Disposable {
 					void this.learnAboutPreviewOrTrial();
 				}
 			} else {
-				const confirm: MessageItem = { title: 'OK' };
 				const upgrade: MessageItem = { title: 'Upgrade to Pro' };
 				const learn: MessageItem = { title: 'Learn More' };
+				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					`Welcome to ${actual.name}.\nYou can only use Pro features on publicly-hosted repos. For full access to Pro features, please upgrade to a paid plan.`,
-					{ modal: true },
-					confirm,
+					`You are now on the ${actual.name} plan.`,
+					{
+						modal: true,
+						detail: 'You only have access to Pro features on publicly-hosted repos. For full access to Pro features, please upgrade to a paid plan.\nA paid plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					},
 					upgrade,
 					learn,
+					confirm,
 				);
 
 				if (result === learn) {

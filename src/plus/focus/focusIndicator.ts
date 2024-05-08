@@ -200,7 +200,7 @@ export class FocusIndicator implements Disposable {
 		);
 		this._statusBarFocus.tooltip.appendMarkdown('\u00a0\u00a0\u00a0|\u00a0\u00a0\u00a0');
 		this._statusBarFocus.tooltip.appendMarkdown(
-			`<span>[$(circle-slash) Hide](command:gitlens.launchpad.indicator.update?"hide" "Hide")</span>`,
+			`<span>[$(circle-slash) Hide](command:gitlens.launchpad.indicator.action?"hide" "Hide")</span>`,
 		);
 		this._statusBarFocus.tooltip.appendMarkdown('\n\n---\n\n');
 		if (state === 'loading') {
@@ -217,7 +217,7 @@ export class FocusIndicator implements Disposable {
 			this.clearRefreshTimer();
 			this._statusBarFocus.text = '$(rocket) Disconnected';
 			this._statusBarFocus.tooltip.appendMarkdown(
-				`[Connect to GitHub](command:gitlens.launchpad.indicator.update?"connectGitHub") to see Focus items.`,
+				`[Connect to GitHub](command:gitlens.launchpad.indicator.action?"connectGitHub" "Connect to GitHub") to see Focus items.`,
 			);
 			this._statusBarFocus.color = undefined;
 		} else if (state === 'data') {
@@ -397,15 +397,21 @@ export class FocusIndicator implements Disposable {
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand('gitlens.launchpad.indicator.update', async (action: string) => {
+			registerCommand('gitlens.launchpad.indicator.action', async (action: string) => {
 				switch (action) {
 					case 'hide': {
+						const hide = { title: 'Hide Anyway' };
+						const cancel = { title: 'Cancel', isCloseAffordance: true };
 						const action = await window.showInformationMessage(
-							'Would you like to hide the Launchpad status bar icon? You can re-enable it at any time using the "GitLens: Toggle Launchpad Status Bar Icon" command.',
-							{ modal: true },
-							'Hide',
+							'GitLens Launchpad helps you focus and keep your team unblocked.\n\nAre you sure you want hide the indicator?',
+							{
+								modal: true,
+								detail: '\nYou can always access Launchpad using the "GitLens: Open Launchpad" command, and can re-enable the indicator with the "GitLens: Toggle Launchpad Indicator" command.',
+							},
+							hide,
+							cancel,
 						);
-						if (action === 'Hide') {
+						if (action === hide) {
 							void configuration.updateEffective('launchpad.indicator.enabled', false);
 						}
 						break;
