@@ -561,6 +561,11 @@ const iconMap = Object.freeze({
 	'gl-inspect': '\\f12a',
 	'gl-repository-filled': '\\f12b',
 	'gl-code-suggestion': '\\f12d',
+	'gl-diff-multiple': '\\f12e',
+	'gl-diff-single': '\\f12f',
+	'gl-repo-fetch': '\\f130',
+	'gl-repo-pull': '\\f131',
+	'gl-repo-push': '\\f132',
 });
 
 @customElement('code-icon')
