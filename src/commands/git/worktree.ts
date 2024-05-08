@@ -705,7 +705,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						[],
 						{
 							label: isRemoteBranch
-								? 'Create Worktree for Local Branch'
+								? 'Create Worktree for New Local Branch'
 								: isBranch
 								  ? 'Create Worktree for Branch'
 								  : context.title,
@@ -723,8 +723,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					['-b'],
 					{
 						label: isRemoteBranch
-							? 'Create Worktree for New Local Branch'
-							: 'Create Worktree for New Branch',
+							? 'Create Worktree for New Local Branch Named...'
+							: 'Create Worktree for New Branch Named...',
 						description: '',
 						detail: `Will create worktree in $(folder) ${recommendedNewBranchFriendlyPath}`,
 					},
