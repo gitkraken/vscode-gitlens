@@ -1,6 +1,7 @@
 import type { MessageItem } from 'vscode';
 import { QuickInputButtons, Uri, window, workspace } from 'vscode';
 import type { Config } from '../../config';
+import { proBadge, proBadgeSuperscript } from '../../constants';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import { PlusFeatures } from '../../features';
@@ -162,10 +163,10 @@ function assertStateStepRepository(
 }
 
 const subcommandToTitleMap = new Map<State['subcommand'] | undefined, string>([
-	[undefined, 'Worktrees ᴾᴿᴼ'],
-	['create', 'Create Worktree ᴾᴿᴼ'],
-	['delete', 'Delete Worktrees ᴾᴿᴼ'],
-	['open', 'Open Worktree ᴾᴿᴼ'],
+	[undefined, `Worktrees ${proBadgeSuperscript}`],
+	['create', `Create Worktree`],
+	['delete', `Delete Worktrees`],
+	['open', `Open Worktree`],
 	['copy-changes', 'Copy Changes to'],
 ]);
 function getTitle(subcommand: State['subcommand'] | undefined, suffix?: string) {
@@ -182,8 +183,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	private subcommand: State['subcommand'] | undefined;
 
 	constructor(container: Container, args?: WorktreeGitCommandArgs) {
-		super(container, 'worktree', 'worktree', 'Worktrees ᴾᴿᴼ', {
-			description: 'open, create, or delete worktrees',
+		super(container, 'worktree', 'worktree', `Worktrees ${proBadgeSuperscript}`, {
+			description: `${proBadge}\u00a0\u00a0open, create, or delete worktrees`,
 		});
 
 		let counter = 0;

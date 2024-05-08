@@ -1,7 +1,7 @@
 import type { CancellationToken, Disposable } from 'vscode';
 import { env, ProgressLocation, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
-import { Commands } from '../constants';
+import { Commands, previewBadge } from '../constants';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
@@ -85,7 +85,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 	constructor(container: Container) {
 		super(container, 'workspaces', 'Workspaces', 'workspacesView');
 
-		this.description = 'ᴘʀᴇᴠɪᴇᴡ';
+		this.description = previewBadge;
 		this.disposables.push(container.workspaces.onDidResetWorkspaces(() => void this.refresh(true)));
 	}
 
