@@ -801,7 +801,6 @@ export type TelemetryEvents =
 	| 'command/core'
 	| 'remoteProviders/connected'
 	| 'remoteProviders/disconnected'
-	| 'providers/changed'
 	| 'providers/context'
 	| 'providers/registrationComplete'
 	| 'repositories/changed'

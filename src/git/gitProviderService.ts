@@ -134,10 +134,6 @@ export class GitProviderService implements Disposable {
 				'providers.count': this._providers.size,
 				'providers.ids': join(this._providers.keys(), ','),
 			});
-			this.container.telemetry.sendEvent('providers/changed', {
-				'providers.added': added?.length ?? 0,
-				'providers.removed': removed?.length ?? 0,
-			});
 		}
 
 		this._etag = Date.now();
