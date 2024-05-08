@@ -74,6 +74,7 @@ import { ContributorsView } from './views/contributorsView';
 import { DraftsView } from './views/draftsView';
 import { FileHistoryView } from './views/fileHistoryView';
 import { LineHistoryView } from './views/lineHistoryView';
+import { PullRequestView } from './views/pullRequestView';
 import { RemotesView } from './views/remotesView';
 import { RepositoriesView } from './views/repositoriesView';
 import { SearchAndCompareView } from './views/searchAndCompareView';
@@ -275,6 +276,7 @@ export class Container {
 		this._disposables.push((this._patchDetailsView = registerPatchDetailsWebviewView(this._webviews)));
 		this._disposables.push((this._graphDetailsView = registerGraphDetailsWebviewView(this._webviews)));
 		this._disposables.push((this._commitsView = new CommitsView(this)));
+		this._disposables.push((this._pullRequestView = new PullRequestView(this)));
 		this._disposables.push((this._fileHistoryView = new FileHistoryView(this)));
 		this._disposables.push((this._lineHistoryView = new LineHistoryView(this)));
 		this._disposables.push((this._branchesView = new BranchesView(this)));
@@ -699,6 +701,11 @@ export class Container {
 	@memoize()
 	get prereleaseOrDebugging() {
 		return this._prerelease || this.debugging;
+	}
+
+	private readonly _pullRequestView: PullRequestView;
+	get pullRequestView() {
+		return this._pullRequestView;
 	}
 
 	private readonly _rebaseEditor: RebaseEditorProvider;

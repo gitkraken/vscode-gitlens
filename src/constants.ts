@@ -121,7 +121,6 @@ export const enum Commands {
 	BrowseRepoBeforeRevisionInNewWindow = 'gitlens.browseRepoBeforeRevisionInNewWindow',
 	ClearFileAnnotations = 'gitlens.clearFileAnnotations',
 	CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
-	CloseWelcomeView = 'gitlens.closeWelcomeView',
 	CompareWith = 'gitlens.compareWith',
 	CompareHeadWith = 'gitlens.compareHeadWith',
 	CompareWorkingWith = 'gitlens.compareWorkingWith',
@@ -416,6 +415,12 @@ export type TreeViewCommands = `gitlens.views.${
 			| 'changeBase'
 			| `setEditorFollowing${'On' | 'Off'}`
 			| `setShowAvatars${'On' | 'Off'}`}`
+	| `pullRequest.${
+			| 'copy'
+			| 'refresh'
+			| 'close'
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAvatars${'On' | 'Off'}`}`
 	| `remotes.${
 			| 'copy'
 			| 'refresh'
@@ -508,6 +513,7 @@ export type TreeViewTypes =
 	| 'drafts'
 	| 'fileHistory'
 	| 'lineHistory'
+	| 'pullRequest'
 	| 'remotes'
 	| 'repositories'
 	| 'searchAndCompare'
@@ -667,6 +673,7 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:views:fileHistory:editorFollowing`
 	| `${typeof extensionPrefix}:views:lineHistory:editorFollowing`
 	| `${typeof extensionPrefix}:views:patchDetails:mode`
+	| `${typeof extensionPrefix}:views:pullRequest:visible`
 	| `${typeof extensionPrefix}:views:repositories:autoRefresh`
 	| `${typeof extensionPrefix}:vsls`
 	| `${typeof extensionPrefix}:plus`

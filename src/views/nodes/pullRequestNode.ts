@@ -25,6 +25,7 @@ export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', Vi
 		protected override readonly parent: ViewNode,
 		public readonly pullRequest: PullRequest,
 		branchOrCommitOrRepoPath: GitBranch | GitCommit | string,
+		private readonly options?: { expand?: boolean },
 	) {
 		let branchOrCommit;
 		let repoPath;
@@ -121,6 +122,16 @@ export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', Vi
 						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
 					},
 				),
+				new ResultsSuggestedChangesNode(
+					this.view,
+					this,
+					this.repoPath,
+					getSuggestedChangesQuery(
+						this.view.container.drafts,
+						this.pullRequest,
+						this.view.container.git.getRepository(this.repoPath),
+					),
+				),
 				new ResultsFilesNode(
 					this.view,
 					this,
@@ -137,16 +148,6 @@ export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', Vi
 					undefined,
 					{ expand: true, timeout: false },
 				),
-				new ResultsSuggestedChangesNode(
-					this.view,
-					this,
-					this.repoPath,
-					getSuggestedChangesQuery(
-						this.view.container.drafts,
-						this.pullRequest,
-						this.view.container.git.getRepository(this.repoPath),
-					),
-				),
 			];
 
 			this.children = children;
@@ -159,7 +160,11 @@ export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', Vi
 
 		const item = new TreeItem(
 			`#${this.pullRequest.id}: ${this.pullRequest.title}`,
-			hasRefs ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None,
+			hasRefs
+				? this.options?.expand
+					? TreeItemCollapsibleState.Expanded
+					: TreeItemCollapsibleState.Collapsed
+				: TreeItemCollapsibleState.None,
 		);
 		item.id = this.id;
 		item.contextValue = ContextValues.PullRequest;

@@ -1130,6 +1130,66 @@
 				}
 			},
 			{
+				"id": "pull-request-view",
+				"title": "Pull Request View",
+				"order": 21,
+				"properties": {
+					"gitlens.views.pullRequest.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.pullRequest.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Pull Request_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.pullRequest.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Pull Request_ view. Only applies when `#gitlens.views.pullRequest.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.pullRequest.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Pull Request_ view. Only applies when `#gitlens.views.pullRequest.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.pullRequest.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Pull Request_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.pullRequest.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Pull Request_ view",
+						"scope": "window",
+						"order": 40
+					}
+				}
+			},
+			{
 				"id": "file-history-view",
 				"title": "File History View",
 				"order": 24,
@@ -7706,6 +7766,51 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.pullRequest.close",
+				"title": "Close",
+				"category": "GitLens",
+				"icon": "$(close)"
+			},
+			{
+				"command": "gitlens.views.pullRequest.copy",
+				"title": "Copy",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.pullRequest.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "gitlens.views.pullRequest.setFilesLayoutToAuto",
+				"title": "View Files as Auto",
+				"category": "GitLens",
+				"icon": "$(list-tree)"
+			},
+			{
+				"command": "gitlens.views.pullRequest.setFilesLayoutToList",
+				"title": "View Files as List",
+				"category": "GitLens",
+				"icon": "$(gitlens-list-auto)"
+			},
+			{
+				"command": "gitlens.views.pullRequest.setFilesLayoutToTree",
+				"title": "View Files as Tree",
+				"category": "GitLens",
+				"icon": "$(list-flat)"
+			},
+			{
+				"command": "gitlens.views.pullRequest.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.pullRequest.setShowAvatarsOff",
+				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.remotes.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -10944,6 +11049,38 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.pullRequest.close",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.copy",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.refresh",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToAuto",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToList",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToTree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.remotes.copy",
 					"when": "false"
 				},
@@ -12696,6 +12833,41 @@
 					"command": "gitlens.views.addRemote",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view =~ /gitlens\\.views\\.remotes/",
 					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.views.pullRequest.refresh",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/",
+					"group": "navigation@98"
+				},
+				{
+					"command": "gitlens.views.pullRequest.close",
+					"when": "view =~ /gitlens\\.views\\.pullRequest/",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/ && config.gitlens.views.pullRequest.files.layout == tree",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/ && config.gitlens.views.pullRequest.files.layout == auto",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/ && config.gitlens.views.pullRequest.files.layout == list",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/ && !config.gitlens.views.pullRequest.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/ && config.gitlens.views.pullRequest.avatars",
+					"group": "5_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.remotes.setLayoutToList",
@@ -16555,6 +16727,12 @@
 				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.lineHistory/"
 			},
 			{
+				"command": "gitlens.views.pullRequest.copy",
+				"key": "ctrl+c",
+				"mac": "cmd+c",
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.pullRequest/"
+			},
+			{
 				"command": "gitlens.views.remotes.copy",
 				"key": "ctrl+c",
 				"mac": "cmd+c",
@@ -16785,6 +16963,15 @@
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-commit-view)",
 					"initialSize": 6,
+					"visibility": "visible"
+				},
+				{
+					"id": "gitlens.views.pullRequest",
+					"name": "Pull Request",
+					"when": "!gitlens:disabled && gitlens:views:pullRequest:visible",
+					"contextualTitle": "GitLens",
+					"icon": "$(git-pull-request)",
+					"initialSize": 1,
 					"visibility": "visible"
 				},
 				{
