@@ -257,24 +257,20 @@ export class FocusCommand extends QuickCommand<State> {
 						this.container.focus.open(state.item);
 						state.counter = 2;
 						continue;
-					case 'switch': {
+					case 'switch':
+					case 'show-overview':
 						void this.container.focus.switchTo(state.item);
 						break;
-					}
-					case 'switch-and-review':
-					case 'review': {
+					case 'switch-and-code-suggest':
+					case 'code-suggest':
 						void this.container.focus.switchTo(state.item, true);
 						break;
-					}
-					// case 'change-reviewers':
-					// 	await this.container.focus.changeReviewers(state.item);
-					// 	break;
-					// case 'decline-review':
-					// 	await this.container.focus.declineReview(state.item);
-					// 	break;
-					// case 'nudge':
-					// 	await this.container.focus.nudge(state.item);
-					// 	break;
+					case 'open-changes':
+						void this.container.focus.openChanges(state.item);
+						break;
+					case 'open-in-graph':
+						void this.container.focus.openInGraph(state.item);
+						break;
 				}
 			} else {
 				switch (state.action?.action) {
@@ -504,7 +500,7 @@ export class FocusCommand extends QuickCommand<State> {
 						createQuickPickItemOfT(
 							{
 								label: 'Merge...',
-								detail: `Will merge ${state.item.headRef?.name ?? 'this pull request'}${
+								detail: `Will merge ${state.item.headRef?.name ?? 'these changes'}${
 									state.item.baseRef?.name ? ` into ${state.item.baseRef.name}` : ''
 								}${
 									state.item.repository.owner
@@ -526,82 +522,71 @@ export class FocusCommand extends QuickCommand<State> {
 						),
 					);
 					break;
-				/* case 'review':
+				case 'switch':
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: 'Start Review',
-								detail: 'Will checkout a branch or worktree to review this pull request',
-							},
-							action,
-						),
-					);
-					break; */
-				case 'switch': {
-					if (state.item.openRepository?.localBranch?.current) {
-						confirmations.push(
-							createQuickPickItemOfT(
-								{
-									label: `Suggest ${state.item.viewer.isAuthor ? 'Additional ' : ''}Code Changes`,
-									detail: 'Will let you choose code changes to suggest on this pull request',
-								},
-								'review',
-							),
-						);
-						break;
-					} else {
-						confirmations.push(
-							createQuickPickItemOfT(
-								{
-									label: 'Switch to Branch or Worktree',
-									detail: 'Will checkout the branch or worktree for this pull request',
-								},
-								action,
-							),
-							createQuickPickItemOfT(
-								{
-									label: `Suggest ${state.item.viewer.isAuthor ? 'Additional ' : ''}Code Changes`,
-									detail: 'Will let you choose code changes to suggest on this pull request',
-								},
-								'switch-and-review',
-							),
-						);
-					}
-					break;
-				}
-				/* case 'change-reviewers':
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: 'Change Reviewers',
-								detail: 'Will change the reviewers for this pull request',
+								label: 'Switch to Branch or Worktree',
+								detail: 'Will checkout the branch or worktree',
 							},
 							action,
 						),
 					);
 					break;
-				case 'decline-review':
+				case 'switch-and-code-suggest':
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: 'Decline Review',
-								detail: 'Will decline the review for this pull request',
+								label: `Switch and Suggest ${
+									state.item.viewer.isAuthor ? 'Additional ' : ''
+								}Code Changes`,
+								detail: 'Will checkout and start suggesting code changes',
 							},
 							action,
 						),
 					);
 					break;
-				case 'nudge':
+				case 'code-suggest':
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: 'Nudge',
-								detail: 'Will nudge the reviewers on this pull request',
+								label: `Suggest ${state.item.viewer.isAuthor ? 'Additional ' : ''}Code Changes`,
+								detail: 'Will start suggesting code changes',
 							},
 							action,
 						),
 					);
-					break; */
+					break;
+				case 'show-overview':
+					confirmations.push(
+						createQuickPickItemOfT(
+							{
+								label: 'Show Pull Request Overview',
+							},
+							action,
+						),
+					);
+					break;
+				case 'open-changes':
+					confirmations.push(
+						createQuickPickItemOfT(
+							{
+								label: 'Open Pull Request Changes',
+							},
+							action,
+						),
+					);
+					break;
+				case 'open-in-graph':
+					confirmations.push(
+						createQuickPickItemOfT(
+							{
+								label: 'Open in Commit Graph',
+							},
+							action,
+						),
+					);
+					break;
 			}
 		}
 
@@ -858,6 +843,8 @@ export class FocusCommand extends QuickCommand<State> {
 			| undefined;
 		if (typeof buttonOrAction !== 'string' && 'action' in buttonOrAction) {
 			action = buttonOrAction.action;
+		} else if (typeof buttonOrAction === 'string') {
+			action = buttonOrAction;
 		} else {
 			switch (buttonOrAction) {
 				case MergeQuickInputButton:
@@ -880,13 +867,6 @@ export class FocusCommand extends QuickCommand<State> {
 					break;
 				case OpenCodeSuggestionBrowserQuickInputButton:
 					action = 'open-suggestion-browser';
-					break;
-				case 'open':
-				case 'merge':
-				case 'soft-open':
-				case 'switch':
-				case 'select':
-					action = buttonOrAction;
 					break;
 			}
 		}

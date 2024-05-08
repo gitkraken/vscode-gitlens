@@ -4,12 +4,12 @@ import { md5 } from '@env/crypto';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
-import { showDetailsView } from '../../git/actions/commit';
+import { openComparisonChanges } from '../../git/actions/commit';
 import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
-import { createReference } from '../../git/models/reference';
+import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
@@ -20,7 +20,8 @@ import { getSettledValue } from '../../system/promise';
 import { openUrl } from '../../system/utils';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
-import { startCodeReview } from '../../webviews/commitDetails/actions';
+import { showInspectView } from '../../webviews/commitDetails/actions';
+import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
 	getActionablePullRequests,
@@ -89,30 +90,44 @@ export const sharedCategoryToFocusActionCategoryMap = new Map<string, FocusActio
 ]);
 
 export type FocusAction =
-	| 'open'
 	| 'merge'
+	| 'open'
+	| 'soft-open'
 	| 'switch'
-	| 'switch-and-review'
-	| 'review'
-	| 'soft-open' /*| 'review' | 'change-reviewers' | 'nudge' | 'decline-review'*/;
+	| 'switch-and-code-suggest'
+	| 'code-suggest'
+	| 'show-overview'
+	| 'open-changes'
+	| 'open-in-graph';
+
 export type FocusTargetAction = {
 	action: 'open-suggestion';
 	target: string;
 };
 
 const prActionsMap = new Map<FocusActionCategory, FocusAction[]>([
-	['mergeable', ['merge', 'switch']],
-	['unassigned-reviewers', ['switch', 'open']],
-	['failed-checks', ['switch', 'open']],
-	['conflicts', ['switch', 'open']],
-	['needs-my-review', [/*'review', 'decline-review', */ 'switch', 'open']],
-	['code-suggestions', ['switch']],
-	['changes-requested', ['switch', 'open']],
-	['reviewer-commented', ['switch', 'open']],
-	['waiting-for-review', [/* 'nudge', 'change-reviewers', */ 'switch', 'open']],
-	['draft', ['switch', 'open']],
-	['other', ['switch']],
+	['mergeable', ['merge']],
+	['unassigned-reviewers', ['open']],
+	['failed-checks', ['open']],
+	['conflicts', ['open']],
+	['needs-my-review', ['open']],
+	['code-suggestions', ['open']],
+	['changes-requested', ['open']],
+	['reviewer-commented', ['open']],
+	['waiting-for-review', ['open']],
+	['draft', ['open']],
+	['other', []],
 ]);
+
+export function getSuggestedActions(category: FocusActionCategory, isCurrentBranch: boolean): FocusAction[] {
+	const actions = [...prActionsMap.get(category)!];
+	if (isCurrentBranch) {
+		actions.push('show-overview', 'open-changes', 'open-in-graph', 'code-suggest');
+	} else {
+		actions.push('switch', 'open-in-graph', 'switch-and-code-suggest');
+	}
+	return actions;
+}
 
 export type FocusPullRequest = EnrichablePullRequest & ProviderActionablePullRequest;
 
@@ -338,44 +353,75 @@ export class FocusProvider implements Disposable {
 		void openUrl(this.container.drafts.generateGkDevUrl(target).toString());
 	}
 
-	async switchTo(item: FocusItem, startReview: boolean = false): Promise<void> {
+	async switchTo(item: FocusItem, startCodeSuggestion: boolean = false): Promise<void> {
 		if (item.openRepository?.localBranch?.current) {
-			if (startReview) {
-				void startCodeReview(item.openRepository.repo, 'launchpad');
-			} else if (item.openRepository.localBranch.sha) {
-				const revision = createReference(
-					item.openRepository.localBranch.sha,
-					item.openRepository.repo.uri.fsPath,
-					{ refType: 'revision' },
-				);
-				void showDetailsView(revision);
-			}
+			void showInspectView({
+				type: 'wip',
+				inReview: startCodeSuggestion,
+				repository: item.openRepository.repo,
+				source: 'launchpad',
+			} satisfies ShowWipArgs);
 			return;
 		}
 
-		const deepLinkUrl = this.getItemBranchDeepLink(item, startReview);
+		const deepLinkUrl = this.getItemBranchDeepLink(
+			item,
+			startCodeSuggestion
+				? DeepLinkActionType.SwitchToAndSuggestPullRequest
+				: DeepLinkActionType.SwitchToPullRequest,
+		);
 		if (deepLinkUrl == null) return;
 
 		this._codeSuggestions?.delete(item.uuid);
 		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false);
 	}
 
-	private getItemBranchDeepLink(item: FocusItem, startReview: boolean = false): Uri | undefined {
+	async openChanges(item: FocusItem) {
+		if (!item.openRepository?.localBranch?.current) return;
+		await this.switchTo(item);
+		if (item.refs != null) {
+			const refs = await getComparisonRefsForPullRequest(
+				this.container,
+				item.openRepository.repo.path,
+				item.refs,
+			);
+			await openComparisonChanges(
+				this.container,
+				{
+					repoPath: refs.repoPath,
+					lhs: refs.base.ref,
+					rhs: refs.head.ref,
+				},
+				{ title: `Changes in Pull Request #${item.id}` },
+			);
+		}
+	}
+
+	async openInGraph(item: FocusItem) {
+		const deepLinkUrl = this.getItemBranchDeepLink(item);
+		if (deepLinkUrl == null) return;
+		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false);
+	}
+
+	private getItemBranchDeepLink(item: FocusItem, action?: DeepLinkActionType): Uri | undefined {
 		if (item.type !== 'pullrequest' || item.headRef == null || item.repoIdentity?.remote?.url == null)
 			return undefined;
 		const schemeOverride = configuration.get('deepLinks.schemeOverride');
 		const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
+
+		const branchName =
+			action == null && item.openRepository?.localBranch?.current
+				? item.openRepository.localBranch.name
+				: item.headRef.name;
 
 		// TODO: Get the proper pull URL from the provider, rather than tacking .git at the end of the
 		// url from the head ref.
 		return Uri.parse(
 			`${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
 				DeepLinkType.Repository
-			}/-/${DeepLinkType.Branch}/${item.headRef.name}?url=${encodeURIComponent(
+			}/-/${DeepLinkType.Branch}/${branchName}?url=${encodeURIComponent(
 				ensureRemoteUrl(item.repoIdentity.remote.url),
-			)}&action=${
-				startReview ? DeepLinkActionType.SwitchToAndReviewPullRequest : DeepLinkActionType.SwitchToPullRequest
-			}`,
+			)}${action != null ? `&action=${action}` : ''}`,
 		);
 	}
 
@@ -508,6 +554,7 @@ export class FocusProvider implements Disposable {
 					provider: pr.pullRequest.provider,
 					enrichable: enrichable,
 					repoIdentity: repoIdentity,
+					refs: pr.pullRequest.refs,
 				};
 			}) satisfies EnrichablePullRequest[];
 
@@ -529,7 +576,12 @@ export class FocusProvider implements Disposable {
 					} else if (codeSuggestionsCount > 0 && item.viewer.isAuthor) {
 						actionableCategory = 'code-suggestions';
 					}
-					const suggestedActions = prActionsMap.get(actionableCategory)!;
+					const openRepository = await this.getMatchingOpenRepository(item);
+					const suggestedActions = getSuggestedActions(
+						actionableCategory,
+						openRepository?.localBranch?.current ?? false,
+					);
+
 					return {
 						...item,
 						currentViewer: myAccount!,
@@ -539,7 +591,7 @@ export class FocusProvider implements Disposable {
 							!this._groupedIds.has(`${item.uuid}:${focusCategoryToGroupMap.get(actionableCategory)}`),
 						actionableCategory: actionableCategory,
 						suggestedActions: suggestedActions,
-						openRepository: await this.getMatchingOpenRepository(item),
+						openRepository: openRepository,
 					};
 				}),
 			)) satisfies FocusItem[];
