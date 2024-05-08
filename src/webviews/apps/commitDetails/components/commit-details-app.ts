@@ -327,7 +327,7 @@ export class GlCommitDetailsApp extends LitElement {
 		return html`
 			<code-icon icon="gl-repository-filled"></code-icon>
 			${when(
-				this.wipStatus?.status != null,
+				this.wipStatus != null,
 				() =>
 					html`<gl-tracking-pill
 						class="inspect-header__tab-tracking"

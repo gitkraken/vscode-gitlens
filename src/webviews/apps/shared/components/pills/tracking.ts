@@ -62,7 +62,7 @@ export class GlTrackingPill extends LitElement {
 	colorized = false;
 
 	override render() {
-		if (this.ahead === 0 && this.behind === 0) return nothing;
+		if (this.ahead === 0 && this.behind === 0 && this.working === 0) return nothing;
 
 		return html`<span part="base" class="pill${this.outlined ? ' pill--outlined' : ''}"
 			>${when(
