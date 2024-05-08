@@ -56,46 +56,7 @@ export class DeepLinkService implements Disposable {
 			state: DeepLinkServiceState.Idle,
 		};
 
-		this._disposables.push(
-			container.uri.onDidReceiveUri(async (uri: Uri) => {
-				const link = parseDeepLinkUri(uri);
-				if (link == null) return;
-
-				if (this._context.state === DeepLinkServiceState.Idle) {
-					if (this.container.git.isDiscoveringRepositories) {
-						await this.container.git.isDiscoveringRepositories;
-					}
-
-					if (!link.type || (!link.mainId && !link.remoteUrl && !link.repoPath && !link.targetId)) {
-						void window.showErrorMessage('Unable to resolve link');
-						Logger.warn(`Unable to resolve link - missing basic properties: ${uri.toString()}`);
-						return;
-					}
-
-					if (!Object.values(DeepLinkType).includes(link.type)) {
-						void window.showErrorMessage('Unable to resolve link');
-						Logger.warn(`Unable to resolve link - unknown link type: ${uri.toString()}`);
-						return;
-					}
-
-					if (link.type !== DeepLinkType.Repository && link.targetId == null && link.mainId == null) {
-						void window.showErrorMessage('Unable to resolve link');
-						Logger.warn(`Unable to resolve link - no main/target id provided: ${uri.toString()}`);
-						return;
-					}
-
-					if (link.type === DeepLinkType.Comparison && link.secondaryTargetId == null) {
-						void window.showErrorMessage('Unable to resolve link');
-						Logger.warn(`Unable to resolve link - no secondary target id provided: ${uri.toString()}`);
-						return;
-					}
-
-					this.setContextFromDeepLink(link, uri.toString());
-
-					await this.processDeepLink();
-				}
-			}),
-		);
+		this._disposables.push(container.uri.onDidReceiveUri(async (uri: Uri) => this.processDeepLinkUri(uri)));
 
 		const pendingDeepLink = this.container.storage.get('deepLinks:pending');
 		if (pendingDeepLink != null) {
@@ -146,6 +107,45 @@ export class DeepLinkService implements Disposable {
 		};
 	}
 
+	async processDeepLinkUri(uri: Uri, useProgress: boolean = true) {
+		const link = parseDeepLinkUri(uri);
+		if (link == null) return;
+
+		if (this._context.state === DeepLinkServiceState.Idle) {
+			if (this.container.git.isDiscoveringRepositories) {
+				await this.container.git.isDiscoveringRepositories;
+			}
+
+			if (!link.type || (!link.mainId && !link.remoteUrl && !link.repoPath && !link.targetId)) {
+				void window.showErrorMessage('Unable to resolve link');
+				Logger.warn(`Unable to resolve link - missing basic properties: ${uri.toString()}`);
+				return;
+			}
+
+			if (!Object.values(DeepLinkType).includes(link.type)) {
+				void window.showErrorMessage('Unable to resolve link');
+				Logger.warn(`Unable to resolve link - unknown link type: ${uri.toString()}`);
+				return;
+			}
+
+			if (link.type !== DeepLinkType.Repository && link.targetId == null && link.mainId == null) {
+				void window.showErrorMessage('Unable to resolve link');
+				Logger.warn(`Unable to resolve link - no main/target id provided: ${uri.toString()}`);
+				return;
+			}
+
+			if (link.type === DeepLinkType.Comparison && link.secondaryTargetId == null) {
+				void window.showErrorMessage('Unable to resolve link');
+				Logger.warn(`Unable to resolve link - no secondary target id provided: ${uri.toString()}`);
+				return;
+			}
+
+			this.setContextFromDeepLink(link, uri.toString());
+
+			await this.processDeepLink(undefined, useProgress);
+		}
+	}
+
 	private async processPendingDeepLink(pendingDeepLink: StoredDeepLinkContext) {
 		if (pendingDeepLink.url == null) return;
 
@@ -176,7 +176,7 @@ export class DeepLinkService implements Disposable {
 		}
 
 		queueMicrotask(() => {
-			void this.processDeepLink(action);
+			void this.processDeepLink(action, pendingDeepLink.useProgress);
 		});
 	}
 
@@ -408,6 +408,7 @@ export class DeepLinkService implements Disposable {
 
 	private async processDeepLink(
 		initialAction: DeepLinkServiceAction = DeepLinkServiceAction.DeepLinkEventFired,
+		useProgress: boolean = true,
 	): Promise<void> {
 		let message = '';
 		let action = initialAction;
@@ -419,32 +420,34 @@ export class DeepLinkService implements Disposable {
 		let matchingLocalRepoPaths: string[] = [];
 		const { targetType } = this._context;
 
-		queueMicrotask(
-			() =>
-				void window.withProgress(
-					{
-						cancellable: true,
-						location: ProgressLocation.Notification,
-						title: `Opening ${deepLinkTypeToString(targetType ?? DeepLinkType.Repository)} link...`,
-					},
-					(progress, token) => {
-						progress.report({ increment: 0 });
-						return new Promise<void>(resolve => {
-							token.onCancellationRequested(() => {
-								queueMicrotask(() => this.processDeepLink(DeepLinkServiceAction.DeepLinkCancelled));
-								resolve();
-							});
-
-							this._onDeepLinkProgressUpdated.event(({ message, increment }) => {
-								progress.report({ message: message, increment: increment });
-								if (increment === 100) {
+		if (useProgress) {
+			queueMicrotask(
+				() =>
+					void window.withProgress(
+						{
+							cancellable: true,
+							location: ProgressLocation.Notification,
+							title: `Opening ${deepLinkTypeToString(targetType ?? DeepLinkType.Repository)} link...`,
+						},
+						(progress, token) => {
+							progress.report({ increment: 0 });
+							return new Promise<void>(resolve => {
+								token.onCancellationRequested(() => {
+									queueMicrotask(() => this.processDeepLink(DeepLinkServiceAction.DeepLinkCancelled));
 									resolve();
-								}
+								});
+
+								this._onDeepLinkProgressUpdated.event(({ message, increment }) => {
+									progress.report({ message: message, increment: increment });
+									if (increment === 100) {
+										resolve();
+									}
+								});
 							});
-						});
-					},
-				),
-		);
+						},
+					),
+			);
+		}
 
 		while (true) {
 			this._context.state = deepLinkStateTransitionTable[this._context.state][action];
@@ -959,6 +962,7 @@ export class DeepLinkService implements Disposable {
 								repoPath: repoOpenUri.toString(),
 								targetSha: this._context.targetSha,
 								secondaryTargetSha: this._context.secondaryTargetSha,
+								useProgress: useProgress,
 							});
 							action = DeepLinkServiceAction.DeepLinkStored;
 						}

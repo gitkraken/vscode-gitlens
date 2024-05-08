@@ -1012,6 +1012,7 @@ export interface StoredDeepLinkContext {
 	repoPath?: string | undefined;
 	targetSha?: string | undefined;
 	secondaryTargetSha?: string | undefined;
+	useProgress?: boolean | undefined;
 }
 
 export interface StoredGraphColumn {
