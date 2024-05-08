@@ -1689,5 +1689,9 @@ function serializeWipContext(wip?: WipContext): Wip | undefined {
 }
 
 function serializeDraft(draft: Draft): Serialized<Draft> {
-	return serialize<Draft>(draft);
+	// Inspect doesn't need changesets for the draft list
+	return serialize<Draft>({
+		...draft,
+		changesets: undefined,
+	});
 }
