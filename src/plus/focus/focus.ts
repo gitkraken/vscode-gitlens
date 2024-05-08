@@ -556,7 +556,7 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		const step = this.createConfirmStep(
-			`PR ${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
+			`Launchpad \u00a0\u2022\u00a0 Pull Request ${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
 			confirmations,
 			undefined,
 			{
@@ -668,36 +668,32 @@ export class FocusCommand extends QuickCommand<State> {
 
 	private getFocusItemStatusInformation(item: FocusItem): QuickPickItemOfT<FocusAction> {
 		let status: string | undefined;
-		const base = item.baseRef?.name != null ? `: ${item.baseRef.name}` : '';
+		const base = item.baseRef?.name != null ? `$(git-branch) ${item.baseRef.name}` : '';
 		const ciStatus = item.headCommit?.buildStatuses?.[0].state;
 		if (ciStatus === ProviderBuildStatusState.Success) {
-			status = `$(pass) CI checks passed${!item.hasConflicts ? `, and no conflicts with base${base}` : ''}.`;
+			if (item.hasConflicts) {
+				status = `$(error) Conflicts with ${base}, but passed CI checks`;
+			} else {
+				status = `$(pass) No conflicts, and passed CI checks`;
+			}
 		} else if (ciStatus === ProviderBuildStatusState.Failed) {
-			status = `$(error) CI checks are failing${item.hasConflicts ? `, and conflicts with base${base}` : ''}.`;
+			if (item.hasConflicts) {
+				status = `$(error) Conflicts with ${base}, and failed CI checks`;
+			} else {
+				status = `$(error) No conflicts, but failed CI checks`;
+			}
 		} else if (item.hasConflicts) {
-			status = `$(error) Conflicts with base${base}.`;
+			status = `$(error) Conflicts with ${base}`;
 		} else {
-			status = `$(pass) No conflicts with base${base}.`;
+			status = `$(pass) No conflicts`;
 		}
 
-		return createQuickPickItemOfT(
-			{
-				label: status,
-			},
-			'soft-open',
-		);
+		return createQuickPickItemOfT({ label: status }, 'soft-open');
 	}
 
 	private getFocusItemReviewInformation(item: FocusItem): QuickPickItemOfT<FocusAction>[] {
 		if (item.reviews == null || item.reviews.length === 0) {
-			return [
-				createQuickPickItemOfT(
-					{
-						label: `$(info) No reviewers have been assigned yet to this Pull Request.`,
-					},
-					'soft-open',
-				),
-			];
+			return [createQuickPickItemOfT({ label: `$(info) No reviewers have been assigned` }, 'soft-open')];
 		}
 
 		const reviewInfo: QuickPickItemOfT<FocusAction>[] = [];
@@ -708,35 +704,23 @@ export class FocusCommand extends QuickCommand<State> {
 			const iconPath = review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined;
 			switch (review.state) {
 				case ProviderPullRequestReviewState.Approved:
-					reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} approved this Pull Request.`;
+					reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} approved these changes`;
 					break;
 				case ProviderPullRequestReviewState.ChangesRequested:
-					reviewLabel = `${
-						isCurrentUser ? 'You' : review.reviewer.username
-					} requested changes on this Pull Request.`;
+					reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} requested changes`;
 					break;
 				case ProviderPullRequestReviewState.Commented:
-					reviewLabel = `${
-						isCurrentUser ? 'You' : review.reviewer.username
-					} left a comment review on this Pull Request.`;
+					reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} left a comment review`;
 					break;
 				case ProviderPullRequestReviewState.ReviewRequested:
 					reviewLabel = `${
-						isCurrentUser ? 'You have' : `${review.reviewer.username} has`
-					} not yet reviewed this Pull Request.`;
+						isCurrentUser ? `You haven't` : `${review.reviewer.username} hasn't`
+					} reviewed these changes yet`;
 					break;
 			}
 
 			if (reviewLabel != null) {
-				reviewInfo.push(
-					createQuickPickItemOfT(
-						{
-							label: reviewLabel,
-							iconPath: iconPath,
-						},
-						'soft-open',
-					),
-				);
+				reviewInfo.push(createQuickPickItemOfT({ label: reviewLabel, iconPath: iconPath }, 'soft-open'));
 			}
 		}
 
@@ -752,10 +736,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 		const codeSuggestionInfo: (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] = [
 			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: `$(gitlens-code-suggestion) ${pluralize(
-					'code suggestion',
-					item.codeSuggestions.length,
-				)} for this Pull Request:`,
+				label: `$(gitlens-code-suggestion) ${pluralize('code suggestion', item.codeSuggestions.length)}:`,
 			}),
 		];
 
