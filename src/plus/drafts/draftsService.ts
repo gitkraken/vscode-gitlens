@@ -334,7 +334,7 @@ export class DraftService implements Disposable {
 		await this.connection.fetchGkDevApi(`v1/drafts/${id}`, { method: 'DELETE' });
 	}
 
-	@log()
+	@log<DraftService['archiveDraft']>({ args: { 1: opts => JSON.stringify({ ...opts, providerAuth: undefined }) } })
 	async archiveDraft(draft: Draft, options?: { providerAuth?: ProviderAuth; archiveReason?: string }): Promise<void> {
 		const scope = getLogScope();
 
@@ -374,7 +374,7 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	@log()
+	@log<DraftService['getDraft']>({ args: { 1: opts => JSON.stringify({ ...opts, providerAuth: undefined }) } })
 	async getDraft(id: string, options?: { providerAuth?: ProviderAuth }): Promise<Draft> {
 		const scope = getLogScope();
 
@@ -429,7 +429,6 @@ export class DraftService implements Disposable {
 		return this.getDraftsCore(isArchived ? { isArchived: isArchived } : undefined);
 	}
 
-	@log()
 	async getDraftsCore(options?: {
 		prEntityId?: string;
 		providerAuth?: ProviderAuth;
@@ -645,7 +644,7 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	@log()
+	@log({ args: { 1: false } })
 	async addDraftUsers(id: string, pendingUsers: DraftPendingUser[]): Promise<DraftUser[]> {
 		const scope = getLogScope();
 
@@ -825,6 +824,7 @@ export class DraftService implements Disposable {
 		integrationId: IntegrationId,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]>;
+	@log<DraftService['getCodeSuggestions']>({ args: { 0: i => i.id, 1: r => (isRepository(r) ? r.id : r) } })
 	async getCodeSuggestions(
 		item: PullRequest | FocusItem,
 		repositoryOrIntegrationId: Repository | IntegrationId,
@@ -848,7 +848,8 @@ export class DraftService implements Disposable {
 			return [];
 		}
 	}
-	@log()
+
+	@log<DraftService['getCodeSuggestionCounts']>({ args: { 0: prs => prs.map(pr => pr.id).join(',') } })
 	async getCodeSuggestionCounts(pullRequests: PullRequest[]): Promise<CodeSuggestionCounts> {
 		const scope = getLogScope();
 
@@ -887,21 +888,11 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	generateGkDevUrl(draftId: string): URL;
-	generateGkDevUrl(draft: Draft): URL;
-	generateGkDevUrl(draftOrDraftId: Draft | string): URL {
-		let modePrefixString = '';
-		if (this.container.env === 'dev') {
-			modePrefixString = 'dev.';
-		} else if (this.container.env === 'staging') {
-			modePrefixString = 'staging.';
-		}
-
+	generateGkDevUrl(draftId: string): string;
+	generateGkDevUrl(draft: Draft): string;
+	generateGkDevUrl(draftOrDraftId: Draft | string): string {
 		const id = typeof draftOrDraftId === 'string' ? draftOrDraftId : draftOrDraftId.id;
-
-		const deepLinkRedirectUrl = new URL(`https://${modePrefixString}gitkraken.dev/drafts/${id}`);
-		deepLinkRedirectUrl.searchParams.set('source', 'gitlens');
-		return deepLinkRedirectUrl;
+		return this.connection.getGkDevUri(`/drafts/${id}`, `?source=gitlens`).toString();
 	}
 
 	private formatDraft(
