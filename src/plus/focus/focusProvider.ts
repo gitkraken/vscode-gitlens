@@ -122,9 +122,9 @@ const prActionsMap = new Map<FocusActionCategory, FocusAction[]>([
 export function getSuggestedActions(category: FocusActionCategory, isCurrentBranch: boolean): FocusAction[] {
 	const actions = [...prActionsMap.get(category)!];
 	if (isCurrentBranch) {
-		actions.push('show-overview', 'open-changes', 'open-in-graph', 'code-suggest');
+		actions.push('show-overview', 'open-changes', 'code-suggest', 'open-in-graph');
 	} else {
-		actions.push('switch', 'open-in-graph', 'switch-and-code-suggest');
+		actions.push('switch', 'switch-and-code-suggest', 'open-in-graph');
 	}
 	return actions;
 }

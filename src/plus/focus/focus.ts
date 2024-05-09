@@ -203,7 +203,16 @@ export class FocusCommand extends QuickCommand<State> {
 
 				const result = yield* this.confirmIntegrationConnectStep(state, context);
 				if (result !== StepResultBreak && !(await this.ensureIntegrationConnected(result))) {
-					throw new Error('Could not connect chosen integration');
+					let integration;
+					switch (result) {
+						case HostingIntegrationId.GitHub:
+							integration = 'GitHub';
+							break;
+						default:
+							integration = `integration (${result})`;
+							break;
+					}
+					throw new Error(`Unable to connect to ${integration}`);
 				}
 			}
 
@@ -495,23 +504,37 @@ export class FocusCommand extends QuickCommand<State> {
 
 		for (const action of state.item.suggestedActions) {
 			switch (action) {
-				case 'merge':
+				case 'merge': {
+					let from;
+					let into;
+					if (
+						state.item.headRepository?.owner != null &&
+						state.item.headRepository.owner !== state.item.repository.owner
+					) {
+						from =
+							state.item.headRef != null
+								? `${state.item.headRepository.owner.login}:${state.item.headRef.name}`
+								: 'these changes';
+						into =
+							state.item.baseRef != null
+								? ` into ${state.item.repository.owner.login}:${state.item.baseRef.name}`
+								: '';
+					} else {
+						from = state.item.headRef?.name ?? 'these changes';
+						into = state.item.baseRef?.name ? ` into ${state.item.baseRef.name}` : '';
+					}
+
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
 								label: 'Merge...',
-								detail: `Will merge ${state.item.headRef?.name ?? 'these changes'}${
-									state.item.baseRef?.name ? ` into ${state.item.baseRef.name}` : ''
-								}${
-									state.item.repository.owner
-										? ` on ${state.item.repository.owner.login}/${state.item.repository.name}`
-										: ''
-								}`,
+								detail: `Will merge ${from}${into}`,
 							},
 							action,
 						),
 					);
 					break;
+				}
 				case 'open':
 					confirmations.push(
 						createQuickPickItemOfT(
@@ -527,7 +550,7 @@ export class FocusCommand extends QuickCommand<State> {
 						createQuickPickItemOfT(
 							{
 								label: 'Switch to Branch or Worktree',
-								detail: 'Will checkout the branch or worktree',
+								detail: 'Will checkout the branch, create or open a worktree',
 							},
 							action,
 						),
@@ -537,7 +560,7 @@ export class FocusCommand extends QuickCommand<State> {
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: `Switch and Suggest ${
+								label: `Switch & Suggest ${
 									state.item.viewer.isAuthor ? 'Additional ' : ''
 								}Code Changes`,
 								detail: 'Will checkout and start suggesting code changes',
@@ -561,7 +584,8 @@ export class FocusCommand extends QuickCommand<State> {
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: 'Show Pull Request Overview',
+								label: 'Open Details',
+								detail: 'Will open the pull request details in the Side Bar',
 							},
 							action,
 						),
@@ -571,7 +595,8 @@ export class FocusCommand extends QuickCommand<State> {
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: 'Open Pull Request Changes',
+								label: 'Open Changes',
+								detail: 'Will open the pull request changes for review',
 							},
 							action,
 						),
@@ -629,8 +654,8 @@ export class FocusCommand extends QuickCommand<State> {
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: 'Connect GitHub',
-								detail: 'Will connect to GitHub',
+								label: 'Connect to GitHub...',
+								detail: 'Will connect to GitHub to provide access your pull requests and issues',
 							},
 							integration,
 						),
@@ -642,10 +667,10 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		const step = this.createConfirmStep(
-			this.title,
+			`${this.title} \u00a0\u2022\u00a0 Connect an Integration`,
 			confirmations,
 			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
-			{ placeholder: 'GitHub not connected. Choose an action', ignoreFocusOut: false },
+			{ placeholder: 'Launchpad requires a connected integration', ignoreFocusOut: false },
 		);
 
 		const selection: StepSelection<typeof step> = yield step;
