@@ -10,6 +10,7 @@ export class IssuePullRequest extends LitElement {
 			display: grid;
 			gap: 0.25rem 0.6rem;
 			justify-content: start;
+			font-size: 1.3rem;
 		}
 
 		a {
@@ -38,14 +39,12 @@ export class IssuePullRequest extends LitElement {
 			grid-column: 2;
 			grid-row: 1;
 			margin: 0;
-			font-size: 1.4rem;
 		}
 
 		.date {
 			grid-column: 2;
 			grid-row: 2;
 			margin: 0;
-			font-size: 1.3rem;
 		}
 	`;
 
