@@ -954,7 +954,7 @@ export class CommitDetailsWebviewProvider
 				this.host.title = `${this.host.originalTitle}: ${following}`;
 			}
 		} else {
-			this.host.title = `${this.host.originalTitle}: Repo Status`;
+			this.host.title = `${this.host.originalTitle}: Overview`;
 		}
 	}
 

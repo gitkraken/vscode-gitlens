@@ -359,7 +359,7 @@ export class GlCommitDetailsApp extends LitElement {
 
 		const isWip = this.state?.mode === 'wip';
 
-		let wipTooltip = 'Repo Status';
+		let wipTooltip = 'Overview';
 		if (this.wipStatus != null) {
 			wipTooltip += ` for ${this.wipStatus.branch}`;
 			if (this.wipStatus.working > 0) {
