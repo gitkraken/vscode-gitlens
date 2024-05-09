@@ -126,7 +126,7 @@ export class IntegrationService implements Disposable {
 			query += `&connect=${integrationId}`;
 		}
 
-		await env.openExternal(this.connection.getGkDevAccountsUri('settings/integrations', query));
+		await env.openExternal(this.connection.getGkDevUri('settings/integrations', query));
 		take(
 			window.onDidChangeWindowState,
 			2,
