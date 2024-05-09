@@ -215,10 +215,14 @@ export class CommitDetailsWebviewProvider
 		return this.onShowingCommit(arg as Partial<CommitSelectedEvent['data']> | undefined, options);
 	}
 
+	private get inReview(): boolean {
+		return this._pendingContext?.inReview ?? this._context.inReview;
+	}
+
 	async onShowingWip(arg: ShowWipArgs, options?: WebviewShowOptions): Promise<boolean> {
 		this.updatePendingContext({ source: arg.source });
-		const shouldChangeReview = arg.inReview != null && this._context.inReview != arg.inReview;
-		if (this._context.mode != 'wip' || (arg.repository != null && this._context.wip?.repo != arg.repository)) {
+		const shouldChangeReview = arg.inReview != null && this.inReview != arg.inReview;
+		if (this.mode != 'wip' || (arg.repository != null && this._context.wip?.repo != arg.repository)) {
 			if (shouldChangeReview) {
 				this.updatePendingContext({ inReview: arg.inReview });
 			}
@@ -1034,7 +1038,7 @@ export class CommitDetailsWebviewProvider
 		}
 
 		let wip: WipContext | undefined = undefined;
-		let inReview = this._context.inReview;
+		let inReview = this.inReview;
 
 		if (repository != null) {
 			if (this._wipSubscription == null) {
@@ -1303,20 +1307,6 @@ export class CommitDetailsWebviewProvider
 		this.updateTitle();
 	}
 
-	private onModeReviewChange(mode?: Mode, inReview?: boolean) {
-		let pending = false;
-		if (inReview != null && this._context.inReview != inReview) {
-			pending = true;
-			this.updatePendingContext({ inReview: inReview });
-		}
-
-		if (mode != null && this._context.mode != mode) {
-			void this.setMode(mode);
-		} else if (pending) {
-			void this.host.notify(DidChangeDraftStateNotification, { inReview: inReview! });
-		}
-	}
-
 	private subscribeToRepositoryWip(repo: Repository) {
 		return Disposable.from(
 			repo.watchFileSystem(1000),
@@ -1463,7 +1453,7 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private async setInReview(inReview: boolean, source?: ShowWipArgs['source']) {
-		if (this._context.inReview === inReview) return;
+		if (this.inReview === inReview) return;
 
 		if (this._pendingContext == null) {
 			const success = await this.host.notify(DidChangeDraftStateNotification, { inReview: inReview });
