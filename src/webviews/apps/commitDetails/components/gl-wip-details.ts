@@ -117,17 +117,17 @@ export class GlWipDetails extends GlDetailsBase {
 				// }
 
 				if (!this.inReview) {
-					label = `Start Review for PR #${pr.id}`;
+					label = 'Suggest Changes for PR';
 					action = 'start-patch-review';
 				} else {
-					label = `End Review for PR #${pr.id}`;
+					label = 'Close Suggestion for PR';
 					action = 'end-patch-review';
 				}
 
 				return html`<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full data-action="${action}" @click=${() => this.onToggleReviewMode(!this.inReview)}>
-							<code-icon icon="gl-cloud-patch-share"></code-icon> ${label}
+							<code-icon icon="gl-code-suggestion"></code-icon> ${label}
 						</gl-button>
 						<gl-button
 							density="compact"
@@ -170,7 +170,7 @@ export class GlWipDetails extends GlDetailsBase {
 		if (ahead === 0 && behind === 0) return undefined;
 
 		const fetchLabel = behind > 0 ? 'Pull' : ahead > 0 ? 'Push' : 'Fetch';
-		const fetchIcon = behind > 0 ? 'arrow-down' : ahead > 0 ? 'arrow-up' : 'sync';
+		const fetchIcon = behind > 0 ? 'gl-repo-pull' : ahead > 0 ? 'gl-repo-push' : 'gl-repo-fetch';
 
 		return html`<p class="button-container">
 			<span class="button-group button-group--single">
@@ -209,7 +209,7 @@ export class GlWipDetails extends GlDetailsBase {
 		if (ahead === 0 && behind === 0) return undefined;
 
 		const fetchLabel = behind > 0 ? 'Pull' : ahead > 0 ? 'Push' : 'Fetch';
-		const fetchIcon = behind > 0 ? 'arrow-down' : ahead > 0 ? 'arrow-up' : 'sync';
+		const fetchIcon = behind > 0 ? 'gl-repo-pull' : ahead > 0 ? 'gl-repo-push' : 'gl-repo-fetch';
 
 		return html`<p class="button-container">
 			<span class="button-group button-group--single">
@@ -241,7 +241,7 @@ export class GlWipDetails extends GlDetailsBase {
 		return html`
 			<gl-tree>
 				<gl-tree-item branch .expanded=${true} .level=${0}>
-					<code-icon slot="icon" icon="cloud"></code-icon>
+					<code-icon slot="icon" icon="gl-code-suggestion"></code-icon>
 					Code Suggestions
 				</gl-tree-item>
 				${repeat(
