@@ -254,12 +254,6 @@ export class InspectPatch extends GlElement {
 			@gl-patch-file-compare-working=${(e: CustomEvent) => {
 				console.log('gl-patch-file-compare-working', e);
 			}}
-			@gl-patch-file-compare-previous=${(e: CustomEvent) => {
-				console.log('gl-patch-file-compare-previous', e);
-			}}
-			@gl-patch-file-open=${(e: CustomEvent) => {
-				console.log('gl-patch-file-open', e);
-			}}
 			@gl-patch-create-update-metadata=${(e: CustomEvent) => {
 				console.log('gl-patch-create-update-metadata', e);
 			}}

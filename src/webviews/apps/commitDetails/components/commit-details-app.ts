@@ -243,6 +243,13 @@ export class GlCommitDetailsApp extends LitElement {
 			DOM.on<GlWipDetails, { id: string }>('gl-wip-details', 'gl-show-code-suggestion', e =>
 				this.onShowCodeSuggestion(e.detail),
 			),
+			DOM.on<GlWipDetails, any>('gl-wip-details', 'gl-patch-file-compare-previous', e =>
+				this.onCompareFileWithPrevious(e.detail),
+			),
+			DOM.on<GlWipDetails, any>('gl-wip-details', 'gl-patch-file-open', e => this.onOpenFile(e.detail)),
+			DOM.on<GlWipDetails, any>('gl-wip-details', 'gl-patch-create-cancelled', () =>
+				this.onDraftStateChanged(false),
+			),
 		];
 	}
 
