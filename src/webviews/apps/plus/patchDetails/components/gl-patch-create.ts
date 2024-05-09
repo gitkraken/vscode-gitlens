@@ -280,6 +280,18 @@ export class GlPatchCreate extends GlTreeBase {
 					</span>
 				</p>
 				${when(
+					this.review === true,
+					() => html`
+						<p class="button-container">
+							<span class="button-group button-group--single">
+								<gl-button appearance="secondary" full @click=${() => this.onCancel()}
+									>Cancel</gl-button
+								>
+							</span>
+						</p>
+					`,
+				)}
+				${when(
 					this.state?.orgSettings.byob === false,
 					() =>
 						html`<p class="h-deemphasize">
@@ -336,7 +348,7 @@ export class GlPatchCreate extends GlTreeBase {
 	private renderChangedFiles() {
 		return html`
 			<webview-pane class="h-no-border" expanded>
-				<span slot="title">Changes to Include</span>
+				<span slot="title">${this.review ? 'Changes to Suggest' : 'Changes to Include'}</span>
 				<action-nav slot="actions">${this.renderLayoutAction(this.fileLayout)}</action-nav>
 
 				${when(
@@ -688,6 +700,10 @@ export class GlPatchCreate extends GlTreeBase {
 		// this.emit('gl-patch-details-graph-show-patch', { draft: this.state!.create! });
 	}
 
+	onCancel() {
+		this.emit('gl-patch-create-cancelled');
+	}
+
 	override getFileActions(_file: GitFileChangeShape, _options?: Partial<TreeItemBase>) {
 		return [
 			{
@@ -723,6 +739,7 @@ declare global {
 		'gl-patch-file-open': CustomEvent<ExecuteFileActionParams>;
 		'gl-patch-create-invite-users': CustomEvent<undefined>;
 		'gl-patch-create-update-selection': CustomEvent<CreatePatchUpdateSelectionEventDetail>;
+		'gl-patch-create-cancelled': CustomEvent<undefined>;
 		// 'gl-patch-details-graph-show-patch': CustomEvent<{ draft: State['create'] }>;
 	}
 }
