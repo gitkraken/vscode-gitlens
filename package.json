@@ -5290,8 +5290,8 @@
 				"id": "gitlens.launchpadIndicatorMergeableColor",
 				"description": "Specifies the color of the _Launchpad_ indicator icon when the priority is mergeable",
 				"defaults": {
-					"light": "#3fb950",
-					"dark": "#1a7f37",
+					"light": "#42c954",
+					"dark": "#3fb950",
 					"highContrast": "#68ff79"
 				}
 			},
@@ -5299,8 +5299,8 @@
 				"id": "gitlens.launchpadIndicatorMergeableHoverColor",
 				"description": "Specifies the color of the _Launchpad_ indicator icon in the hover when the priority is mergeable",
 				"defaults": {
-					"light": "#3fb950",
-					"dark": "#1a7f37",
+					"light": "#42c954",
+					"dark": "#3fb950",
 					"highContrast": "#68ff79"
 				}
 			},
