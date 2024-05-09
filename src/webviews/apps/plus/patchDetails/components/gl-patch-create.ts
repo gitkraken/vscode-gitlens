@@ -680,6 +680,14 @@ export class GlPatchCreate extends GlTreeBase {
 			case 'file-open':
 				this.onOpenFile(e);
 				break;
+
+			case 'file-stage':
+				this.onStageFile(e);
+				break;
+
+			case 'file-unstage':
+				this.onUnstageFile(e);
+				break;
 		}
 	}
 
@@ -696,6 +704,32 @@ export class GlPatchCreate extends GlTreeBase {
 		});
 	}
 
+	onStageFile(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		this.emit('gl-patch-file-stage', {
+			...file,
+			showOptions: {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			},
+		});
+	}
+
+	onUnstageFile(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		this.emit('gl-patch-file-unstage', {
+			...file,
+			showOptions: {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			},
+		});
+	}
+
 	onShowInGraph(_e: CustomEvent<TreeItemActionDetail>) {
 		// this.emit('gl-patch-details-graph-show-patch', { draft: this.state!.create! });
 	}
@@ -704,14 +738,20 @@ export class GlPatchCreate extends GlTreeBase {
 		this.emit('gl-patch-create-cancelled');
 	}
 
-	override getFileActions(_file: GitFileChangeShape, _options?: Partial<TreeItemBase>) {
-		return [
-			{
-				icon: 'go-to-file',
-				label: 'Open file',
-				action: 'file-open',
-			},
-		];
+	override getFileActions(file: GitFileChangeShape, _options?: Partial<TreeItemBase>) {
+		const openFile = {
+			icon: 'go-to-file',
+			label: 'Open file',
+			action: 'file-open',
+		};
+
+		if (this.review) {
+			return [openFile];
+		}
+		if (file.staged === true) {
+			return [openFile, { icon: 'remove', label: 'Unstage changes', action: 'file-unstage' }];
+		}
+		return [openFile, { icon: 'plus', label: 'Stage changes', action: 'file-stage' }];
 	}
 
 	override getRepoActions(_name: string, _path: string, _options?: Partial<TreeItemBase>) {
@@ -737,6 +777,8 @@ declare global {
 		'gl-patch-file-compare-previous': CustomEvent<ExecuteFileActionParams>;
 		'gl-patch-file-compare-working': CustomEvent<ExecuteFileActionParams>;
 		'gl-patch-file-open': CustomEvent<ExecuteFileActionParams>;
+		'gl-patch-file-stage': CustomEvent<ExecuteFileActionParams>;
+		'gl-patch-file-unstage': CustomEvent<ExecuteFileActionParams>;
 		'gl-patch-create-invite-users': CustomEvent<undefined>;
 		'gl-patch-create-update-selection': CustomEvent<CreatePatchUpdateSelectionEventDetail>;
 		'gl-patch-create-cancelled': CustomEvent<undefined>;

@@ -246,8 +246,16 @@ export class GlCommitDetailsApp extends LitElement {
 			DOM.on<GlWipDetails, any>('gl-wip-details', 'gl-patch-file-compare-previous', e =>
 				this.onCompareFileWithPrevious(e.detail),
 			),
-			DOM.on<GlWipDetails, any>('gl-wip-details', 'gl-patch-file-open', e => this.onOpenFile(e.detail)),
-			DOM.on<GlWipDetails, any>('gl-wip-details', 'gl-patch-create-cancelled', () =>
+			DOM.on<GlWipDetails, FileChangeListItemDetail>('gl-wip-details', 'gl-patch-file-open', e =>
+				this.onOpenFile(e.detail),
+			),
+			DOM.on<GlWipDetails, FileChangeListItemDetail>('gl-wip-details', 'gl-patch-file-stage', e =>
+				this.onStageFile(e.detail),
+			),
+			DOM.on<GlWipDetails, FileChangeListItemDetail>('gl-wip-details', 'gl-patch-file-unstage', e =>
+				this.onUnstageFile(e.detail),
+			),
+			DOM.on<GlWipDetails, undefined>('gl-wip-details', 'gl-patch-create-cancelled', () =>
 				this.onDraftStateChanged(false),
 			),
 		];
