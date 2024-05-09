@@ -345,6 +345,7 @@ export class FocusProvider implements Disposable {
 		this._codeSuggestions?.delete(item.uuid);
 		this._prs = undefined;
 		void executeCommand(Commands.OpenCloudPatch, {
+			type: 'code_suggestion',
 			draft: draft,
 		});
 	}

@@ -1,3 +1,4 @@
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { TextEditor } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
@@ -12,6 +13,9 @@ import { isSha, shortenRevision } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
 import type { Draft, LocalDraft } from '../gk/models/drafts';
 import { showPatchesView } from '../plus/drafts/actions';
+import type { ProviderAuth } from '../plus/drafts/draftsService';
+import type { IntegrationId } from '../plus/integrations/providers/models';
+import { getProviderIdFromEntityIdentifier } from '../plus/integrations/providers/utils';
 import type { Change, CreateDraft } from '../plus/webviews/patchDetails/protocol';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
@@ -275,9 +279,11 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 }
 
 export interface OpenCloudPatchCommandArgs {
+	type: 'patch' | 'code_suggestion';
 	id: string;
 	patchId?: string;
 	draft?: Draft;
+	prEntityId?: string;
 }
 
 @command()
@@ -287,17 +293,56 @@ export class OpenCloudPatchCommand extends Command {
 	}
 
 	async execute(args?: OpenCloudPatchCommandArgs) {
+		const type = args?.type === 'code_suggestion' ? 'Code Suggestion' : 'Cloud Patch';
 		if (args?.id == null && args?.draft == null) {
-			void window.showErrorMessage('Cannot open Cloud Patch; no patch or patch id provided');
+			void window.showErrorMessage(`Cannot open ${type}; no patch or patch id provided`);
 			return;
 		}
 
+		let providerAuth: ProviderAuth | undefined;
+		if (args?.prEntityId != null && args?.type === 'code_suggestion') {
+			let providerId: IntegrationId | undefined;
+			let providerDomain: string | undefined;
+			try {
+				const identifier = EntityIdentifierUtils.decode(args.prEntityId);
+				providerId = getProviderIdFromEntityIdentifier(identifier);
+				providerDomain = identifier.domain ?? undefined;
+			} catch {
+				void window.showErrorMessage(`Cannot open ${type}; invalid provider details.`);
+				return;
+			}
+
+			if (providerId == null) {
+				void window.showErrorMessage(`Cannot open ${type}; unsupported provider.`);
+				return;
+			}
+
+			const integration = await this.container.integrations.get(providerId, providerDomain);
+			if (integration == null) {
+				void window.showErrorMessage(`Cannot open ${type}; provider not found.`);
+				return;
+			}
+
+			const session = await this.container.integrationAuthentication.getSession(
+				integration.id,
+				integration.authProviderDescriptor,
+			);
+
+			if (session == null) {
+				void window.showErrorMessage(`Cannot open ${type}; provider not connected.`);
+				return;
+			}
+
+			providerAuth = { provider: integration.id, token: session.accessToken };
+		}
+
 		try {
-			const draft = args?.draft ?? (await this.container.drafts.getDraft(args?.id));
+			const draft =
+				args?.draft ?? (await this.container.drafts.getDraft(args?.id, { providerAuth: providerAuth }));
 			void showPatchesView({ mode: 'view', draft: draft });
 		} catch (ex) {
 			Logger.error(ex, 'OpenCloudPatchCommand');
-			void window.showErrorMessage(`Unable to open Cloud Patch '${args.id}'`);
+			void window.showErrorMessage(`Unable to open ${type} '${args.id}'`);
 		}
 	}
 }
