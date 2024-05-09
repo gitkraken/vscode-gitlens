@@ -75,7 +75,7 @@ const groupMap = new Map<FocusGroup, [string, string | undefined]>([
 	['blocked', ['Blocked', 'error']], //bracket-error
 	['follow-up', ['Requires Follow-up', 'report']],
 	// ['needs-attention', ['Needs Your Attention', 'bell-dot']], //comment-unresolved
-	['needs-review', ['Needs Your Review', 'comment-draft']], // feedback
+	['needs-review', ['Needs Your Review', 'comment-unresolved']], // feedback
 	['waiting-for-review', ['Waiting for Review', 'gitlens-clock']],
 	['draft', ['Draft', 'git-pull-request-draft']],
 	['other', ['Other', 'ellipsis']],
