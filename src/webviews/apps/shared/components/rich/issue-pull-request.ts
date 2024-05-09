@@ -20,9 +20,18 @@ export class IssuePullRequest extends LitElement {
 		.icon {
 			grid-column: 1;
 			grid-row: 1 / 3;
-			color: var(--vscode-gitlens-mergedPullRequestIconColor);
 			text-align: center;
 			padding-top: 0.1rem;
+		}
+
+		.icon--opened {
+			color: var(--vscode-gitlens-openPullRequestIconColor);
+		}
+		.icon--closed {
+			color: var(--vscode-gitlens-closedPullRequestIconColor);
+		}
+		.icon--merged {
+			color: var(--vscode-gitlens-mergedPullRequestIconColor);
 		}
 
 		.title {
@@ -77,11 +86,14 @@ export class IssuePullRequest extends LitElement {
 
 	override render() {
 		let icon;
+		let status;
 		switch (this.type) {
 			case 'issue':
+				status = this.status === 'closed' ? 'merged' : 'opened';
 				icon = this.status === 'closed' ? 'pass' : 'issues';
 				break;
 			case 'pr':
+				status = this.status;
 				switch (this.status) {
 					case 'merged':
 						icon = 'git-merge';
@@ -97,12 +109,13 @@ export class IssuePullRequest extends LitElement {
 				break;
 			case 'autolink':
 			default:
+				status = 'opened';
 				icon = 'link';
 				break;
 		}
 
 		return html`
-			<span class="icon"><code-icon icon=${icon}></code-icon></span>
+			<span class="icon icon--${status}"><code-icon icon=${icon}></code-icon></span>
 			<p class="title">
 				<a href="${this.url}">${this.name}</a>
 			</p>
