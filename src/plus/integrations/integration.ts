@@ -192,7 +192,7 @@ export abstract class IntegrationBase<
 			}
 
 			this._onDidChange.fire();
-			if (!options?.silent && !options?.currentSessionOnly) {
+			if (!options?.currentSessionOnly) {
 				this.container.integrations.disconnected(this, this.key);
 			}
 		}

@@ -10,6 +10,7 @@ import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
 import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
+import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
 import type { ServerConnection } from '../gk/serverConnection';
 import { supportedCloudIntegrationIds, toIntegrationId } from './authentication/models';
 import type {
@@ -61,6 +62,7 @@ export class IntegrationService implements Disposable {
 			}),
 			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
 			container.subscription.onDidCheckIn(this.onUserCheckedIn, this),
+			container.subscription.onDidChange(this.onDidChangeSubscription, this),
 		);
 	}
 
@@ -97,12 +99,34 @@ export class IntegrationService implements Disposable {
 		void this.syncCloudIntegrations();
 	}
 
-	async manageCloudIntegrations() {
+	private onDidChangeSubscription(e: SubscriptionChangeEvent) {
+		if (e.current?.account == null) {
+			void this.syncCloudIntegrations();
+		}
+	}
+
+	async manageCloudIntegrations(
+		source: 'settings' | 'account' | 'home' | 'commandPalette',
+		integrationId?: IssueIntegrationId.Jira,
+	) {
 		if (this.container.telemetry.enabled) {
-			this.container.telemetry.sendEvent('cloudIntegrations/settingsOpened');
+			this.container.telemetry.sendEvent('cloudIntegrations/settingsOpened', {
+				integrationId: integrationId,
+				source: source,
+			});
 		}
 
-		await env.openExternal(this.connection.getGkDevAccountsUri('settings/integrations'));
+		const account = (await this.container.subscription.getSubscription()).account;
+		if (account == null) {
+			if (!(await this.container.subscription.loginOrSignUp(true))) return;
+		}
+
+		let query = 'source=gitlens';
+		if (integrationId != null) {
+			query += `&connect=${integrationId}`;
+		}
+
+		await env.openExternal(this.connection.getGkDevAccountsUri('settings/integrations', query));
 		take(
 			window.onDidChangeWindowState,
 			2,
