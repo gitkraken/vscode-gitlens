@@ -1,5 +1,6 @@
-import type { ConfigurationChangeEvent, StatusBarItem, ThemeColor } from 'vscode';
-import { Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
+import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
+import { Disposable, MarkdownString, StatusBarAlignment, ThemeColor, window } from 'vscode';
+import type { Colors } from '../../constants';
 import { Commands, previewBadge } from '../../constants';
 import type { Container } from '../../container';
 import { registerCommand } from '../../system/command';
@@ -268,8 +269,8 @@ export class FocusIndicator implements Disposable {
 		const iconType = configuration.get('launchpad.indicator.icon') ?? 'default';
 
 		let color: string | ThemeColor | undefined = undefined;
-		let topItem: { item: FocusItem; groupLabel: string } | undefined;
-		let topIcon: 'error' | 'comment-draft' | 'report' | 'rocket' | undefined;
+		let priorityIcon: 'error' | 'comment-unresolved' | 'report' | 'rocket' | undefined;
+		let priorityItem: { item: FocusItem; groupLabel: string } | undefined;
 
 		const groupedItems = groupAndSortFocusItems(categorizedItems);
 		const totalGroupedItems = Array.from(groupedItems.values()).reduce((total, group) => total + group.length, 0);
@@ -292,12 +293,13 @@ export class FocusIndicator implements Disposable {
 
 				switch (group) {
 					case 'mergeable': {
-						topIcon ??= 'rocket';
-						topItem ??= { item: items[0], groupLabel: 'can be merged' };
+						priorityIcon ??= 'rocket';
+						color = new ThemeColor('gitlens.launchpadIndicatorMergeableColor' satisfies Colors);
+						priorityItem ??= { item: items[0], groupLabel: 'can be merged' };
 						tooltip.appendMarkdown(
-							`<span style="color:#3d90fc;">$(rocket)</span> [${
-								labelType === 'item' && topItem != null
-									? this.getTopItemLabel(topItem.item, items.length)
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorMergeableHoverColor);">$(rocket)</span>$(blank) [${
+								labelType === 'item' && priorityItem != null
+									? this.getPriorityItemLabel(priorityItem.item, items.length)
 									: pluralize('pull request', items.length)
 							} can be merged](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
@@ -309,7 +311,6 @@ export class FocusIndicator implements Disposable {
 								}),
 							)} "Open Ready to Merge in Launchpad")`,
 						);
-						color = '#00FF00';
 						break;
 					}
 					case 'blocked': {
@@ -354,11 +355,12 @@ export class FocusIndicator implements Disposable {
 
 						summaryMessage += ')';
 
-						topIcon ??= 'error';
+						priorityIcon ??= 'error';
+						color ??= new ThemeColor('gitlens.launchpadIndicatorBlockedColor' satisfies Colors);
 						tooltip.appendMarkdown(
-							`<span style="color:#FF0000;">$(error)</span> [${
-								labelType === 'item' && item != null && topItem == null
-									? this.getTopItemLabel(item, items.length)
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorBlockedColor);">$(error)</span>$(blank) [${
+								labelType === 'item' && item != null && priorityItem == null
+									? this.getPriorityItemLabel(item, items.length)
 									: pluralize('pull request', items.length)
 							} ${
 								hasMultipleCategories ? 'are blocked' : actionMessage
@@ -370,10 +372,9 @@ export class FocusIndicator implements Disposable {
 							)} "Open Blocked in Launchpad")`,
 						);
 						if (hasMultipleCategories) {
-							tooltip.appendMarkdown(`\\\n$(blank) ${summaryMessage}`);
+							tooltip.appendMarkdown(`\\\n$(blank)$(blank) ${summaryMessage}`);
 						}
 
-						color ??= '#FF0000';
 						if (item != null) {
 							let label = 'is blocked';
 							if (item.actionableCategory === 'unassigned-reviewers') {
@@ -383,16 +384,17 @@ export class FocusIndicator implements Disposable {
 							} else if (item.actionableCategory === 'conflicts') {
 								label = 'has conflicts';
 							}
-							topItem ??= { item: item, groupLabel: label };
+							priorityItem ??= { item: item, groupLabel: label };
 						}
 						break;
 					}
 					case 'follow-up': {
-						topIcon ??= 'report';
+						priorityIcon ??= 'report';
+						color ??= new ThemeColor('gitlens.launchpadIndicatorAttentionColor' satisfies Colors);
 						tooltip.appendMarkdown(
-							`<span style="color:#3d90fc;">$(report)</span> [${
-								labelType === 'item' && topItem == null && items.length
-									? this.getTopItemLabel(items[0], items.length)
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);">$(report)</span>$(blank) [${
+								labelType === 'item' && priorityItem == null && items.length
+									? this.getPriorityItemLabel(items[0], items.length)
 									: pluralize('pull request', items.length)
 							} ${
 								items.length > 1 ? 'require' : 'requires'
@@ -406,16 +408,16 @@ export class FocusIndicator implements Disposable {
 								}),
 							)} "Open Follow-Up in Launchpad")`,
 						);
-						color ??= '#FFA500';
-						topItem ??= { item: items[0], groupLabel: 'requires follow-up' };
+						priorityItem ??= { item: items[0], groupLabel: 'requires follow-up' };
 						break;
 					}
 					case 'needs-review': {
-						topIcon ??= 'comment-draft';
+						priorityIcon ??= 'comment-unresolved';
+						color ??= new ThemeColor('gitlens.launchpadIndicatorAttentionColor' satisfies Colors);
 						tooltip.appendMarkdown(
-							`<span style="color:#3d90fc;">$(comment-draft)</span> [${
-								labelType === 'item' && topItem == null && items.length
-									? this.getTopItemLabel(items[0], items.length)
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);">$(comment-unresolved)</span>$(blank) [${
+								labelType === 'item' && priorityItem == null && items.length
+									? this.getPriorityItemLabel(items[0], items.length)
 									: pluralize('pull request', items.length)
 							} ${
 								items.length > 1 ? 'need' : 'needs'
@@ -429,18 +431,17 @@ export class FocusIndicator implements Disposable {
 								}),
 							)} "Open Needs Your Review in Launchpad")`,
 						);
-						color ??= '#FFFF00';
-						topItem ??= { item: items[0], groupLabel: 'needs your review' };
+						priorityItem ??= { item: items[0], groupLabel: 'needs your review' };
 						break;
 					}
 				}
 			}
 		}
 
-		const iconSegment = topIcon != null && iconType === 'group' ? `$(${topIcon})` : '$(rocket)';
+		const iconSegment = priorityIcon != null && iconType === 'group' ? `$(${priorityIcon})` : '$(rocket)';
 		const labelSegment =
-			labelType === 'item' && topItem != null
-				? ` ${this.getTopItemLabel(topItem.item)} ${topItem.groupLabel}`
+			labelType === 'item' && priorityItem != null
+				? ` ${this.getPriorityItemLabel(priorityItem.item)} ${priorityItem.groupLabel}`
 				: '';
 
 		this._statusBarFocus.text = `${iconSegment}${labelSegment}`;
@@ -484,7 +485,7 @@ export class FocusIndicator implements Disposable {
 		];
 	}
 
-	private getTopItemLabel(item: FocusItem, groupLength?: number) {
+	private getPriorityItemLabel(item: FocusItem, groupLength?: number) {
 		return `${item.repository != null ? `${item.repository.owner.login}/${item.repository.name}` : ''}#${item.id}${
 			groupLength != null && groupLength > 1
 				? ` and ${pluralize('pull request', groupLength - 1, { infix: ' other ' })}`
