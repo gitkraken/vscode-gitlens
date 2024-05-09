@@ -811,6 +811,7 @@ export type TelemetryEvents =
 	| 'cloudIntegrations/issue/connected'
 	| 'cloudIntegrations/issue/disconnected'
 	| 'cloudIntegrations/settingsOpened'
+	| 'codeSuggestionArchived'
 	| 'codeSuggestionCreated'
 	| 'codeSuggestionViewed'
 	| 'command'
@@ -824,7 +825,7 @@ export type TelemetryEvents =
 	| 'launchpad/steps/main'
 	| 'launchpad/steps/details'
 	| 'launchpad/indicator/hidden'
-	| 'launchpad/indicator/firstDataReceived'
+	| 'launchpad/indicator/firstLoad'
 	| 'openReviewMode'
 	| 'providers/context'
 	| 'providers/registrationComplete'
@@ -836,11 +837,7 @@ export type TelemetryEvents =
 	| 'repository/visibility'
 	| 'subscription'
 	| 'subscription/changed'
-	| 'usage/track'
-	| 'codeSuggestionArchived'
-	| 'launchpad/actionTaken'
-	| 'launchpad/indicatorHidden'
-	| 'launchpad/indicatorFirstDataReceived';
+	| 'usage/track';
 
 export type AIProviders = 'anthropic' | 'gemini' | 'openai';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'
@@ -908,7 +905,7 @@ export type GlobalStorage = {
 	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
-	'launchpad:indicator:dataReceived': boolean;
+	'launchpad:indicator:hasLoaded': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {

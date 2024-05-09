@@ -17168,11 +17168,11 @@
 						}
 					},
 					{
-						"id": "gitlens.welcome.workspaces",
-						"title": "Work smarter with Launchpad and GitKraken Workspaces",
-						"description": "Launchpad brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Launchpad](command:gitlens.showFocusPage)\n\nGitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)",
+						"id": "gitlens.welcome.launchpad",
+						"title": "Unblock your team with Launchpad",
+						"description": "Launchpad organizes your pull requests into actionable groups to help you focus and keep your team unblocked.\n\n[Open Launchpad](command:gitlens.showLaunchpad)",
 						"media": {
-							"altText": "Illustrations of Launchpad and Workspaces view",
+							"altText": "Illustrations of Launchpad",
 							"svg": "walkthroughs/welcome/workspaces-focus.svg"
 						}
 					},
