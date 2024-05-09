@@ -76,6 +76,18 @@ export class GlStatusNav extends LitElement {
 		const branch = this.wip.branch;
 		if (changes == null || branch == null) return nothing;
 
+		let prIcon = 'git-pull-request';
+		if (this.wip.pullRequest?.state) {
+			switch (this.wip.pullRequest?.state) {
+				case 'merged':
+					prIcon = 'git-merge';
+					break;
+				case 'closed':
+					prIcon = 'git-pull-request-closed';
+					break;
+			}
+		}
+
 		return html`
 			<div class="group">
 				${when(
@@ -83,7 +95,7 @@ export class GlStatusNav extends LitElement {
 					() =>
 						html`<gk-popover placement="bottom">
 							<a href="#" class="commit-action" slot="trigger"
-								><code-icon icon="git-pull-request" class="pr"></code-icon
+								><code-icon icon=${prIcon} class="pr pr--${this.wip!.pullRequest!.state}"></code-icon
 								><span>#${this.wip!.pullRequest!.id}</span></a
 							>
 							<div class="popover-content">

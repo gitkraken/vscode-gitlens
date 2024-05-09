@@ -55,7 +55,13 @@ export const commitActionStyles = css`
 		opacity: 0.5;
 	}
 
-	.pr {
+	.pr--opened {
+		color: var(--vscode-gitlens-openPullRequestIconColor);
+	}
+	.pr--closed {
+		color: var(--vscode-gitlens-closedPullRequestIconColor);
+	}
+	.pr--merged {
 		color: var(--vscode-gitlens-mergedPullRequestIconColor);
 	}
 `;
