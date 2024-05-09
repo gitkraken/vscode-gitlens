@@ -1,9 +1,9 @@
-import { defineGkElement, Popover } from '@gitkraken/shared-web-components';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../../commitDetails/protocol';
 import { commitActionStyles } from './commit-action.css';
+import '../../shared/components/overlays/popover';
 
 @customElement('gl-status-nav')
 export class GlStatusNav extends LitElement {
@@ -49,11 +49,6 @@ export class GlStatusNav extends LitElement {
 				min-width: 0;
 				flex: 0 1 auto;
 			}
-
-			.popover-content {
-				background-color: var(--color-background--level-15);
-				padding: 0.8rem 1.2rem;
-			}
 		`,
 	];
 
@@ -62,12 +57,6 @@ export class GlStatusNav extends LitElement {
 
 	@property({ type: Object })
 	preferences?: State['preferences'];
-
-	constructor() {
-		super();
-
-		defineGkElement(Popover);
-	}
 
 	override render() {
 		if (this.wip == null) return nothing;
@@ -93,12 +82,12 @@ export class GlStatusNav extends LitElement {
 				${when(
 					this.wip.pullRequest != null,
 					() =>
-						html`<gk-popover placement="bottom">
-							<a href="#" class="commit-action" slot="trigger"
+						html`<gl-popover placement="bottom">
+							<a href="#" class="commit-action" slot="anchor"
 								><code-icon icon=${prIcon} class="pr pr--${this.wip!.pullRequest!.state}"></code-icon
 								><span>#${this.wip!.pullRequest!.id}</span></a
 							>
-							<div class="popover-content">
+							<div slot="content">
 								<issue-pull-request
 									type="pr"
 									name="${this.wip!.pullRequest!.title}"
@@ -110,7 +99,7 @@ export class GlStatusNav extends LitElement {
 									.dateStyle="${this.preferences?.dateStyle}"
 								></issue-pull-request>
 							</div>
-						</gk-popover>`,
+						</gl-popover>`,
 				)}
 				<a
 					href="#"
