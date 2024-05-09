@@ -1117,9 +1117,8 @@ export function GraphWrapper({
 						</a>
 						<span slot="content">
 							<span style={{ whiteSpace: 'break-spaces' }}>
-								Try Launchpad &mdash; bring all of your GitHub pull requests and issues into a unified
-								actionable to help to you more easily juggle work in progress, pending work, reviews,
-								and more
+								Launchpad organizes your pull requests into actionable groups to help you focus and keep
+								your team unblocked
 							</span>
 						</span>
 					</GlTooltip>
