@@ -233,7 +233,7 @@ export class GlFeatureBadge extends LitElement {
 
 				content = html`<p>
 						You have
-						<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: 'more' })} left</strong>
+						<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: ' more ' })} left</strong>
 						in your Pro trial. Once your trial ends, you will only be able to use Pro features on
 						publicly-hosted repos.
 					</p>
@@ -265,8 +265,8 @@ export class GlFeatureBadge extends LitElement {
 
 					content = html`<p>
 							You have
-							<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: 'more' })} left</strong> to
-							preview
+							<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: ' more ' })} left</strong>
+							to preview
 							<gl-tooltip placement="bottom" content="Pro features that do not require an account"
 								><span class="hint">local</span></gl-tooltip
 							>

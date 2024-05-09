@@ -278,7 +278,7 @@ export class SubscriptionService implements Disposable {
 				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
 					`Welcome to your ${effective.name} Trial.\n\nYou now have full access to Pro features for ${
-						days < 1 ? '<1 more day' : pluralize('day', days, { infix: 'more' })
+						days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
 					}.`,
 					{
 						modal: true,
