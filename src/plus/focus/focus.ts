@@ -107,7 +107,7 @@ interface State {
 export interface FocusCommandArgs {
 	readonly command: 'focus';
 	confirm?: boolean;
-	source?: 'indicator' | 'home' | 'commandPalette' | 'welcome';
+	source?: 'indicator' | 'home' | 'commandPalette' | 'welcome' | 'walkthrough';
 	state?: Partial<State>;
 }
 

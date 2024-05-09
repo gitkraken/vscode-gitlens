@@ -17224,7 +17224,7 @@
 					{
 						"id": "gitlens.welcome.launchpad",
 						"title": "Unblock your team with Launchpad",
-						"description": "Launchpad organizes your pull requests into actionable groups to help you focus and keep your team unblocked.\n\n[Open Launchpad](command:gitlens.showLaunchpad)",
+						"description": "Launchpad organizes your pull requests into actionable groups to help you focus and keep your team unblocked.\n\n[Open Launchpad](command:gitlens.showLaunchpad?%7B%22source%22%3A%22walkthrough%22%7D)",
 						"media": {
 							"altText": "Illustrations of Launchpad",
 							"svg": "walkthroughs/welcome/workspaces-focus.svg"
