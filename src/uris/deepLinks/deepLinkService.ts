@@ -4,8 +4,9 @@ import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
-import { openFileAtRevision, showDetailsView } from '../../git/actions/commit';
-import { getBranchNameWithoutRemote, GitBranch } from '../../git/models/branch';
+import { openFileAtRevision } from '../../git/actions/commit';
+import type { GitBranch } from '../../git/models/branch';
+import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
@@ -23,7 +24,8 @@ import { Logger } from '../../system/logger';
 import { normalizePath } from '../../system/path';
 import type { OpenWorkspaceLocation } from '../../system/utils';
 import { findOrOpenEditor, openWorkspace } from '../../system/utils';
-import { startCodeReview } from '../../webviews/commitDetails/actions';
+import { showInspectView } from '../../webviews/commitDetails/actions';
+import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
 import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink';
 import {
 	AccountDeepLinkTypes,
@@ -1205,6 +1207,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
+					let skipSwitch = false;
 					if (targetType === DeepLinkType.Branch) {
 						// Check if the branch is already checked out. If so, we are done.
 						const currentBranch = await repo.getBranch();
@@ -1216,32 +1219,34 @@ export class DeepLinkService implements Disposable {
 							// Then this can be updated to just check the upstream of `currentBranch`.
 							currentBranch.getNameWithoutRemote() === targetBranch.getNameWithoutRemote()
 						) {
-							action = DeepLinkServiceAction.DeepLinkResolved;
-							break;
+							skipSwitch = true;
 						}
 					}
 
-					const ref = await this.getTargetRef(targetId);
-					if (ref == null) {
-						action = DeepLinkServiceAction.DeepLinkErrored;
-						message = 'Unable to find link target in the repository.';
-						break;
+					if (!skipSwitch) {
+						const ref = await this.getTargetRef(targetId);
+						if (ref == null) {
+							action = DeepLinkServiceAction.DeepLinkErrored;
+							message = 'Unable to find link target in the repository.';
+							break;
+						}
+
+						await executeGitCommand({
+							command: 'switch',
+							state: { repos: repo, reference: ref },
+						});
 					}
 
-					await executeGitCommand({
-						command: 'switch',
-						state: { repos: repo, reference: ref },
-					});
-
-					if (this._context.action === DeepLinkActionType.SwitchToPullRequest) {
-						const revision = createReference(
-							ref instanceof GitBranch ? ref.sha ?? ref.ref : ref.ref,
-							repoPath ?? repo.uri.fsPath,
-							{ refType: 'revision' },
-						);
-						await showDetailsView(revision);
-					} else if (this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest) {
-						await startCodeReview(repo, 'deepLink');
+					if (
+						this._context.action === DeepLinkActionType.SwitchToPullRequest ||
+						this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest
+					) {
+						await showInspectView({
+							type: 'wip',
+							inReview: this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest,
+							repository: repo,
+							source: 'launchpad',
+						} satisfies ShowWipArgs);
 					}
 
 					action = DeepLinkServiceAction.DeepLinkResolved;

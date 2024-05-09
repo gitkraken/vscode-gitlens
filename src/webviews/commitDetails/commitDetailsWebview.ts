@@ -146,6 +146,7 @@ interface Context {
 	wip: WipContext | undefined;
 	inReview: boolean;
 	orgSettings: State['orgSettings'];
+	source?: 'commitDetails' | 'patchDetails' | 'repoStatus' | 'deepLink' | 'launchpad';
 }
 
 export class CommitDetailsWebviewProvider
@@ -215,6 +216,7 @@ export class CommitDetailsWebviewProvider
 	}
 
 	async onShowingWip(arg: ShowWipArgs, options?: WebviewShowOptions): Promise<boolean> {
+		this.updatePendingContext({ source: arg.source });
 		const shouldChangeReview = arg.inReview != null && this._context.inReview != arg.inReview;
 		if (this._context.mode != 'wip' || (arg.repository != null && this._context.wip?.repo != arg.repository)) {
 			if (shouldChangeReview) {
@@ -1057,6 +1059,15 @@ export class CommitDetailsWebviewProvider
 
 			if (wip.pullRequest?.state != 'opened') {
 				inReview = false;
+			}
+
+			// TODO: Move this into the correct place. It is being called here temporarily to guarantee it gets an up-to-date PR.
+			// Once moved, we may not need the "source" property on context anymore.
+			if (
+				wip.pullRequest != null &&
+				(this._context.source === 'launchpad' || this._pendingContext?.source === 'launchpad')
+			) {
+				void this.container.pullRequestView.showPullRequest(wip.pullRequest, wip.branch ?? repository.path);
 			}
 
 			if (this._pendingContext == null) {
