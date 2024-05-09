@@ -3,7 +3,7 @@ import { Disposable, MarkdownString, StatusBarAlignment, ThemeColor, window } fr
 import type { Colors } from '../../constants';
 import { Commands, previewBadge } from '../../constants';
 import type { Container } from '../../container';
-import { registerCommand } from '../../system/command';
+import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { groupByMap } from '../../system/iterable';
 import { pluralize } from '../../system/string';
@@ -195,13 +195,20 @@ export class FocusIndicator implements Disposable {
 		tooltip.appendMarkdown(
 			`GitLens Launchpad ${previewBadge}\u00a0\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0\u00a0`,
 		);
+		tooltip.appendMarkdown(`[$(question)](command:gitlens.launchpad.indicator.action?"info" "What is this?")`);
+		tooltip.appendMarkdown('\u00a0');
 		tooltip.appendMarkdown(`[$(gear)](command:workbench.action.openSettings?%22gitlens.launchpad%22 "Settings")`);
-		tooltip.appendMarkdown('\u00a0\u00a0\u00a0|\u00a0\u00a0\u00a0');
+		tooltip.appendMarkdown('\u00a0\u00a0|\u00a0\u00a0');
 		tooltip.appendMarkdown(`[$(circle-slash) Hide](command:gitlens.launchpad.indicator.action?"hide" "Hide")`);
 		tooltip.appendMarkdown('\n\n---\n\n');
 
 		// TODO: Also add as a first-time tooltip
-		if (state === 'idle' || state === 'disconnected' || state === 'loading') {
+		if (
+			state === 'idle' ||
+			state === 'disconnected' ||
+			state === 'loading' ||
+			(state === 'load' && !this.hasInteracted())
+		) {
 			tooltip.appendMarkdown(
 				'[Launchpad](command:gitlens.getStarted?"gitlens.welcome.launchpad" "Learn about Launchpad") organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
 			);
@@ -452,7 +459,12 @@ export class FocusIndicator implements Disposable {
 	private registerCommands(): Disposable[] {
 		return [
 			registerCommand('gitlens.launchpad.indicator.action', async (action: string) => {
+				this.storeFirstInteractionIfNeeded();
 				switch (action) {
+					case 'info': {
+						void executeCommand(Commands.GetStarted, 'gitlens.welcome.launchpad');
+						break;
+					}
 					case 'hide': {
 						const hide = { title: 'Hide Anyway' };
 						const cancel = { title: 'Cancel', isCloseAffordance: true };
@@ -501,5 +513,14 @@ export class FocusIndicator implements Disposable {
 			void this.container.storage.store('launchpad:indicator:hasLoaded', true);
 			this.container.telemetry.sendEvent('launchpad/indicator/firstLoad');
 		}
+	}
+
+	private storeFirstInteractionIfNeeded() {
+		if (this.container.storage.get('launchpad:indicator:hasInteracted') != null) return;
+		void this.container.storage.store('launchpad:indicator:hasInteracted', new Date().toISOString());
+	}
+
+	private hasInteracted() {
+		return this.container.storage.get('launchpad:indicator:hasInteracted') != null;
 	}
 }

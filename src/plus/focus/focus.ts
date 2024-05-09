@@ -132,6 +132,10 @@ export class FocusCommand extends QuickCommand<State> {
 			description: 'focus on a pull request or issue',
 		});
 
+		if (args?.source === 'indicator' && container.storage.get('launchpad:indicator:hasInteracted') == null) {
+			void container.storage.store('launchpad:indicator:hasInteracted', new Date().toISOString());
+		}
+
 		if (this.container.telemetry.enabled && !hidden) {
 			this.telemetryContext = {
 				instance: instanceCounter.next(),
