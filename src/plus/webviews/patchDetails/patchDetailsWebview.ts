@@ -1,7 +1,6 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
 import { getAvatarUri } from '../../../avatars';
-import { ClearQuickInputButton } from '../../../commands/quickCommand.buttons';
 import type { ContextKeys } from '../../../constants';
 import { Commands, GlyphChars, previewBadge } from '../../../constants';
 import type { Container } from '../../../container';
@@ -29,7 +28,7 @@ import type {
 } from '../../../gk/models/drafts';
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker';
-import type { QuickPickItemOfT } from '../../../quickpicks/items/common';
+import { showOrganizationMembersPicker } from '../../../quickpicks/organizationMembersPicker';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
@@ -39,7 +38,6 @@ import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { find, some } from '../../../system/iterable';
 import { basename } from '../../../system/path';
-import { defer } from '../../../system/promise';
 import type { Serialized } from '../../../system/serialize';
 import { serialize } from '../../../system/serialize';
 import { showInspectView } from '../../../webviews/commitDetails/actions';
@@ -525,102 +523,73 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async onInviteUsers() {
-		let userIds: string[] | undefined;
+		let owner;
+		let ownerSelection;
+		let pickedMemberIds: string[] | undefined;
 		if (this.mode === 'create') {
-			userIds = this._context.create?.userSelections?.map(u => u.member.id);
+			pickedMemberIds = this._context.create?.userSelections?.map(u => u.member.id);
+			ownerSelection = this._context.create?.userSelections?.find(u => u.member.role === 'owner');
+			owner = ownerSelection?.user;
 		} else {
-			userIds = this._context.draftUserState?.selections?.map(u => u.member.id);
+			pickedMemberIds = this._context.draftUserState?.selections
+				?.filter(s => s.change !== 'delete')
+				?.map(u => u.member.id);
+			owner = this._context.draftUserState?.users.find(u => u.role === 'owner');
 		}
 
-		const initSelections: Set<DraftUser['userId']> | undefined = userIds != null ? new Set(userIds) : undefined;
-		const picks = await this.selectCollaborators(initSelections);
-		if (picks == null || picks.length === 0) return;
+		const members = await showOrganizationMembersPicker(
+			'Select Collaborators',
+			'Select the collaborators to share this patch with',
+			this.getOrganizationMembers(),
+			{
+				multiselect: true,
+				filter: m => m.id !== owner?.userId,
+				picked: m => pickedMemberIds?.includes(m.id) ?? false,
+			},
+		);
+		if (members == null) return;
 
 		if (this.mode === 'create') {
-			const userSelections = picks.map(pick => toDraftUserSelection(pick, undefined, 'editor', 'add'));
-			if (this._context.create!.userSelections == null) {
-				this._context.create!.userSelections = userSelections;
-			} else {
-				this._context.create!.userSelections.push(...userSelections);
+			const userSelections = members.map(member => toDraftUserSelection(member, undefined, 'editor', 'add'));
+			if (ownerSelection != null) {
+				userSelections.push(ownerSelection);
 			}
+			this._context.create!.userSelections = userSelections;
 			void this.notifyDidChangeCreateDraftState();
 			return;
 		}
 
 		const draftUserState = this._context.draftUserState!;
-		let added = false;
-		for (const pick of picks) {
-			const existing = draftUserState.selections.find(u => u.member.id === pick.id);
-			if (existing != null) {
+
+		const currentSelections = draftUserState.selections;
+		const preserveSelections = new Map();
+		const updatedMemberIds = new Set(members.map(member => member.id));
+		const updatedSelections: DraftUserSelection[] = [];
+
+		for (const selection of currentSelections) {
+			if (updatedMemberIds.has(selection.member.id) || selection.member.role === 'owner') {
+				preserveSelections.set(selection.member.id, selection);
 				continue;
 			}
-			added = true;
-			draftUserState.selections.push(toDraftUserSelection(pick, undefined, 'editor', 'add'));
+
+			updatedSelections.push({ ...selection, change: 'delete' });
 		}
-		if (added) {
-			void this.notifyDidChangeViewDraftState();
-		}
-	}
 
-	private async selectCollaborators(
-		initSelections?: Set<DraftUser['userId']>,
-	): Promise<OrganizationMember[] | undefined> {
-		const members = await this.getOrganizationMembers();
-		if (members.length === 0) return undefined;
+		for (const member of members) {
+			const selection = preserveSelections.get(member.id);
+			// If we have an existing selection, and it's marked for deletion, we need to undo the deletion
+			if (selection != null && selection.change === 'delete') {
+				selection.change = undefined;
+			}
 
-		type OrganizationMemberQuickPickItem = QuickPickItemOfT<OrganizationMember>;
-		const deferred = defer<OrganizationMember[] | undefined>();
-		const disposables: Disposable[] = [];
-
-		try {
-			const quickpick = window.createQuickPick<OrganizationMemberQuickPickItem>();
-			disposables.push(
-				quickpick,
-				quickpick.onDidHide(() => deferred.fulfill(undefined)),
-				quickpick.onDidAccept(() =>
-					!quickpick.busy ? deferred.fulfill(quickpick.selectedItems.map(c => c.item)) : undefined,
-				),
-				quickpick.onDidTriggerButton(e => {
-					if (e === ClearQuickInputButton) {
-						if (quickpick.canSelectMany) {
-							quickpick.selectedItems = [];
-						} else {
-							deferred.fulfill([]);
-						}
-					}
-				}),
+			updatedSelections.push(
+				selection != null ? selection : toDraftUserSelection(member, undefined, 'editor', 'add'),
 			);
+		}
 
-			quickpick.title = 'Select Collaborators';
-			quickpick.placeholder = 'Select the collaborators to share this patch with';
-			quickpick.matchOnDescription = true;
-			quickpick.matchOnDetail = true;
-			quickpick.canSelectMany = true;
-			quickpick.buttons = [ClearQuickInputButton];
-
-			quickpick.busy = true;
-			quickpick.show();
-
-			const items = members.map(member => {
-				const item: OrganizationMemberQuickPickItem = {
-					label: member.name ?? member.username,
-					description: member.email,
-					// TODO: needs to support current collaborator selections
-					picked: initSelections ? initSelections.has(member.id) : false,
-					item: member,
-					iconPath: getAvatarUri(member.email, undefined),
-				};
-
-				return item;
-			});
-			quickpick.items = items;
-
-			quickpick.busy = false;
-
-			const picks = await deferred.promise;
-			return picks;
-		} finally {
-			disposables.forEach(d => void d.dispose());
+		if (updatedSelections.length) {
+			draftUserState.selections = updatedSelections;
+			void this.notifyDidChangeViewDraftState();
 		}
 	}
 
@@ -1234,6 +1203,12 @@ export class PatchDetailsWebviewProvider
 				const member = members.find(m => m.id === user.userId)!;
 				userSelections.push(toDraftUserSelection(member, user));
 			}
+			userSelections.sort(
+				(a, b) =>
+					((a.pendingRole ?? a.member.role) === 'owner' ? -1 : 1) -
+						((b.pendingRole ?? b.member.role) === 'owner' ? -1 : 1) ||
+					a.member.name.localeCompare(b.member.name),
+			);
 
 			this._context.draftUserState = { users: users, selections: userSelections };
 		} catch (ex) {
