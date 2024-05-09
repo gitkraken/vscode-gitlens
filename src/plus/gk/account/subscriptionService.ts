@@ -33,6 +33,7 @@ import { setContext } from '../../../system/context';
 import { createFromDateDelta, fromNow } from '../../../system/date';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
+import { take } from '../../../system/event';
 import type { Deferrable } from '../../../system/function';
 import { debounce, once } from '../../../system/function';
 import { Logger } from '../../../system/logger';
@@ -384,7 +385,21 @@ export class SubscriptionService implements Disposable {
 		if (this._subscription.account == null) {
 			this.showPlans();
 		} else {
-			void env.openExternal(this.connection.getAccountsUri('subscription', 'product=gitlens&license=PRO'));
+			const activeOrgId = this._subscription.activeOrganization?.id;
+			void env.openExternal(
+				this.connection.getGkDevAccountsUri(
+					'purchase',
+					activeOrgId ? `source=gitlens&org=${activeOrgId}` : 'source=gitlens',
+				),
+			);
+			take(
+				window.onDidChangeWindowState,
+				2,
+			)(e => {
+				if (e.focused && this._session != null) {
+					void this.checkInAndValidate(this._session, { force: true });
+				}
+			});
 		}
 		await this.showAccountView();
 	}
