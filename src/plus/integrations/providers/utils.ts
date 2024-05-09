@@ -1,8 +1,10 @@
-import type { AnyEntityIdentifierInput } from '@gitkraken/provider-apis';
+import type { AnyEntityIdentifierInput, EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierProviderType, EntityType, EntityVersion } from '@gitkraken/provider-apis';
 import type { IssueOrPullRequest } from '../../../git/models/issue';
 import { equalsIgnoreCase } from '../../../system/string';
 import type { FocusItem } from '../../focus/focusProvider';
+import type { IntegrationId } from './models';
+import { HostingIntegrationId, SelfHostedIntegrationId } from './models';
 
 function isGitHubDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'github.com');
@@ -32,4 +34,15 @@ export function getEntityIdentifierInput(entity: IssueOrPullRequest | FocusItem)
 		domain: domain,
 		entityId: isFocusItem(entity) ? entity.graphQLId! : entity.nodeId!,
 	};
+}
+
+export function getProviderIdFromEntityIdentifier(entityIdentifier: EntityIdentifier): IntegrationId | undefined {
+	switch (entityIdentifier.provider) {
+		case EntityIdentifierProviderType.Github:
+			return HostingIntegrationId.GitHub;
+		case EntityIdentifierProviderType.GithubEnterprise:
+			return SelfHostedIntegrationId.GitHubEnterprise;
+		default:
+			return undefined;
+	}
 }

@@ -22,6 +22,7 @@ import { configuration } from '../../system/configuration';
 import { once } from '../../system/event';
 import { Logger } from '../../system/logger';
 import { normalizePath } from '../../system/path';
+import { fromBase64 } from '../../system/string';
 import type { OpenWorkspaceLocation } from '../../system/utils';
 import { findOrOpenEditor, openWorkspace } from '../../system/utils';
 import { showInspectView } from '../../webviews/commitDetails/actions';
@@ -92,6 +93,7 @@ export class DeepLinkService implements Disposable {
 			action: undefined,
 			repoOpenLocation: undefined,
 			repoOpenUri: undefined,
+			params: undefined,
 		};
 	}
 
@@ -108,6 +110,7 @@ export class DeepLinkService implements Disposable {
 			secondaryTargetId: link.secondaryTargetId,
 			secondaryRemoteUrl: link.secondaryRemoteUrl,
 			action: link.action,
+			params: link.params,
 		};
 	}
 
@@ -1104,9 +1107,17 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
+					const type = this._context.params?.get('type');
+					let prEntityId = this._context.params?.get('prEntityId');
+					if (prEntityId != null) {
+						prEntityId = fromBase64(prEntityId).toString();
+					}
+
 					void (await executeCommand(Commands.OpenCloudPatch, {
+						type: type === 'suggested_pr_change' ? 'code_suggestion' : 'patch',
 						id: targetId,
 						patchId: secondaryTargetId,
+						prEntityId: prEntityId,
 					}));
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;

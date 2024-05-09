@@ -48,7 +48,7 @@ import type { IntegrationId } from '../integrations/providers/models';
 import { providersMetadata } from '../integrations/providers/models';
 import { getEntityIdentifierInput } from '../integrations/providers/utils';
 
-interface ProviderAuth {
+export interface ProviderAuth {
 	provider: IntegrationId;
 	token: string;
 }
