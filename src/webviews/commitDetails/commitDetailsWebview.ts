@@ -948,9 +948,6 @@ export class CommitDetailsWebviewProvider
 	private async setMode(mode: Mode, repository?: Repository): Promise<void> {
 		this.updatePendingContext({ mode: mode });
 		if (mode === 'commit') {
-			this._wipSubscription?.subscription.dispose();
-			this._wipSubscription = undefined;
-
 			this.updateState(true);
 		} else {
 			await this.updateWipState(repository ?? this.container.git.getBestRepositoryOrFirst());
@@ -1028,6 +1025,18 @@ export class CommitDetailsWebviewProvider
 			}
 		}
 
+		const wip = current.wip;
+		if (wip == null && this._repositorySubscription) {
+			if (this._cancellationTokenSource == null) {
+				this._cancellationTokenSource = new CancellationTokenSource();
+			}
+			const cancellation = this._cancellationTokenSource.token;
+			setTimeout(() => {
+				if (cancellation.isCancellationRequested) return;
+				void this.updateWipState(this._repositorySubscription?.repo);
+			}, 100);
+		}
+
 		const state = serialize<State>({
 			...this.host.baseWebviewState,
 			mode: current.mode,
@@ -1038,7 +1047,7 @@ export class CommitDetailsWebviewProvider
 			includeRichContent: current.richStateLoaded,
 			autolinkedIssues: current.autolinkedIssues?.map(serializeIssueOrPullRequest),
 			pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
-			wip: serializeWipContext(current.wip),
+			wip: serializeWipContext(wip),
 			orgSettings: current.orgSettings,
 			inReview: current.inReview,
 		});
@@ -1081,7 +1090,7 @@ export class CommitDetailsWebviewProvider
 				}
 			}
 
-			if (wip.pullRequest?.state != 'opened') {
+			if (wip.pullRequest?.state !== 'opened') {
 				inReview = false;
 			}
 
@@ -1122,6 +1131,14 @@ export class CommitDetailsWebviewProvider
 	): Promise<{ branch: GitBranch; pullRequest: PullRequest | undefined; codeSuggestions: Draft[] } | undefined> {
 		const branch = await repository.getBranch(branchName);
 		if (branch == null) return undefined;
+
+		if (this.mode === 'commit') {
+			return {
+				branch: branch,
+				pullRequest: undefined,
+				codeSuggestions: [],
+			};
+		}
 
 		const pullRequest = await branch.getAssociatedPullRequest({
 			expiryOverride: 1000 * 60 * 5, // 5 minutes
@@ -1645,6 +1662,8 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private switchMode(params: SwitchModeParams) {
+		if (this.mode === params.mode) return;
+
 		let repo;
 		if (params.mode === 'wip') {
 			let { repoPath } = params;
