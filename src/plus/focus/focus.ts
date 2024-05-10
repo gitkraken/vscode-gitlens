@@ -811,12 +811,7 @@ export class FocusCommand extends QuickCommand<State> {
 						label: `    ${suggestion.author.name} suggested a code change ${fromNow(
 							suggestion.createdAt,
 						)}: "${suggestion.title}"`,
-						iconPath:
-							suggestion.author.avatar != null
-								? Uri.parse(suggestion.author.avatar)
-								: suggestion.author.email != null
-								  ? getAvatarUri(suggestion.author.email)
-								  : undefined,
+						iconPath: suggestion.author.avatarUri ?? getAvatarUri(suggestion.author.email),
 						buttons: [OpenOnWebQuickInputButton],
 					},
 					{

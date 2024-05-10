@@ -1149,7 +1149,12 @@ export class PatchDetailsWebviewProvider
 				type: draft.type,
 				createdAt: draft.createdAt.getTime(),
 				updatedAt: draft.updatedAt.getTime(),
-				author: draft.author,
+				author: {
+					id: draft.author.id,
+					name: draft.author.name,
+					email: draft.author.email,
+					avatar: draft.author.avatarUri?.toString(),
+				},
 				role: draft.role,
 				title: draft.title,
 				description: draft.description,

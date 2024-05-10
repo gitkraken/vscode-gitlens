@@ -1,3 +1,4 @@
+import type { Uri } from 'vscode';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { GitPatch, PatchRevisionRange } from '../../git/models/patch';
@@ -25,7 +26,7 @@ export interface Draft {
 		id: string;
 		name: string;
 		email: string | undefined;
-		avatar?: string;
+		avatarUri?: Uri;
 	};
 	readonly isMine: boolean;
 	readonly organizationId?: string;

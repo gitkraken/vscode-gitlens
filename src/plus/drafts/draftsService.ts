@@ -1,6 +1,7 @@
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { Disposable } from 'vscode';
 import type { HeadersInit } from '@env/fetch';
+import { getAvatarUri } from '../../avatars';
 import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
@@ -42,6 +43,7 @@ import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 import { getSettledValue } from '../../system/promise';
 import type { FocusItem } from '../focus/focusProvider';
+import type { OrganizationMember } from '../gk/account/organization';
 import type { SubscriptionAccount } from '../gk/account/subscription';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { IntegrationId } from '../integrations/providers/models';
@@ -186,7 +188,7 @@ export class DraftService implements Disposable {
 					body: contents,
 				});
 
-				const newPatch = this.formatPatch(
+				const newPatch = formatPatch(
 					{
 						...patch,
 						secureDownloadData: undefined!,
@@ -226,10 +228,10 @@ export class DraftService implements Disposable {
 
 			const { account } = await this.container.subscription.getSubscription();
 
-			const newDraft = this.formatDraft(draft, { account: account });
+			const newDraft = formatDraft(draft, { account: account });
 			newDraft.changesets = [
 				{
-					...this.formatChangeset({ ...createChangeset, patches: [] }),
+					...formatChangeset({ ...createChangeset, patches: [] }),
 					patches: patches,
 				},
 			];
@@ -414,10 +416,17 @@ export class DraftService implements Disposable {
 		const draft = ((await rsp.json()) as Result).data;
 		const changesets = getSettledValue(changesetsResult)!;
 
-		const { account } = await this.container.subscription.getSubscription();
+		const [subscriptionResult, membersResult] = await Promise.allSettled([
+			this.container.subscription.getSubscription(),
+			this.container.organizations.getMembers(draft.organizationId),
+		]);
 
-		const newDraft = this.formatDraft(draft, {
+		const account = getSettledValue(subscriptionResult)?.account;
+		const members = getSettledValue(membersResult);
+
+		const newDraft = formatDraft(draft, {
 			account: account,
+			members: members,
 		});
 		newDraft.changesets = changesets;
 
@@ -474,15 +483,23 @@ export class DraftService implements Disposable {
 		}
 
 		const drafts = ((await rsp.json()) as Result).data;
-		const { account } = await this.container.subscription.getSubscription();
 
-		return drafts.map((d): Draft => {
-			return this.formatDraft(d, {
-				account: account,
-				fallbackAuthorName: 'Unknown',
-				fromPrEntityId: fromPrEntityId,
-			});
-		});
+		const [subscriptionResult, membersResult] = await Promise.allSettled([
+			this.container.subscription.getSubscription(),
+			this.container.organizations.getMembers(),
+		]);
+
+		const account = getSettledValue(subscriptionResult)?.account;
+		const members = getSettledValue(membersResult);
+
+		return drafts.map(
+			(d): Draft =>
+				formatDraft(d, {
+					account: account,
+					members: members,
+					fromPrEntityId: fromPrEntityId,
+				}),
+		);
 	}
 
 	@log()
@@ -501,7 +518,7 @@ export class DraftService implements Disposable {
 
 			const changesets: DraftChangeset[] = [];
 			for (const c of changeset) {
-				const newChangeset = this.formatChangeset(c);
+				const newChangeset = formatChangeset(c);
 				changesets.push(newChangeset);
 			}
 
@@ -538,7 +555,7 @@ export class DraftService implements Disposable {
 
 		const data = ((await rsp.json()) as Result).data;
 
-		const newPatch = this.formatPatch(data);
+		const newPatch = formatPatch(data);
 
 		return newPatch;
 	}
@@ -894,106 +911,6 @@ export class DraftService implements Disposable {
 		const id = typeof draftOrDraftId === 'string' ? draftOrDraftId : draftOrDraftId.id;
 		return this.connection.getGkDevUri(`/drafts/${id}`, `?source=gitlens`).toString();
 	}
-
-	private formatDraft(
-		draftResponse: DraftResponse,
-		options?: { account?: SubscriptionAccount; fallbackAuthorName?: string; fromPrEntityId?: boolean },
-	): Draft {
-		let isMine = false;
-		const author: Draft['author'] = {
-			id: draftResponse.createdBy,
-			name: options?.fallbackAuthorName ?? undefined!,
-			email: undefined,
-		};
-		if (draftResponse.createdBy === options?.account?.id) {
-			isMine = true;
-			author.name = `${options.account.name} (you)`;
-			author.email = options.account.email;
-		}
-
-		let role = draftResponse.role;
-		if ((role as string) === '') {
-			if (options?.fromPrEntityId === true) {
-				role = 'editor';
-			} else {
-				role = 'viewer';
-			}
-		}
-
-		return {
-			draftType: 'cloud',
-			type: draftResponse.type,
-			id: draftResponse.id,
-			createdAt: new Date(draftResponse.createdAt),
-			updatedAt: new Date(draftResponse.updatedAt ?? draftResponse.createdAt),
-			author: author,
-			isMine: isMine,
-			organizationId: draftResponse.organizationId || undefined,
-			role: role,
-			isPublished: draftResponse.isPublished,
-
-			title: draftResponse.title,
-			description: draftResponse.description,
-
-			deepLinkUrl: draftResponse.deepLink,
-			visibility: draftResponse.visibility,
-
-			isArchived: draftResponse.isArchived,
-			archivedBy: draftResponse.archivedBy,
-			archivedReason: draftResponse.archivedReason,
-			archivedAt:
-				draftResponse.archivedAt != null ? new Date(draftResponse.archivedAt) : draftResponse.archivedAt,
-
-			latestChangesetId: draftResponse.latestChangesetId,
-		};
-	}
-
-	private formatChangeset(changesetResponse: DraftChangesetResponse): DraftChangeset {
-		return {
-			id: changesetResponse.id,
-			createdAt: new Date(changesetResponse.createdAt),
-			updatedAt: new Date(changesetResponse.updatedAt ?? changesetResponse.createdAt),
-			draftId: changesetResponse.draftId,
-			parentChangesetId: changesetResponse.parentChangesetId,
-			userId: changesetResponse.userId,
-
-			gitUserName: changesetResponse.gitUserName,
-			gitUserEmail: changesetResponse.gitUserEmail,
-			deepLinkUrl: changesetResponse.deepLink,
-
-			patches: changesetResponse.patches.map((patch: DraftPatchResponse) => this.formatPatch(patch)),
-		};
-	}
-
-	private formatPatch(
-		patchResponse: DraftPatchResponse,
-		options?: {
-			commit?: GitCommit;
-			contents?: string;
-			files?: DraftPatchFileChange[];
-			repository?: Repository | RepositoryIdentity;
-		},
-	): DraftPatch {
-		return {
-			type: 'cloud',
-			id: patchResponse.id,
-			createdAt: new Date(patchResponse.createdAt),
-			updatedAt: new Date(patchResponse.updatedAt ?? patchResponse.createdAt),
-			draftId: patchResponse.draftId,
-			changesetId: patchResponse.changesetId,
-			userId: patchResponse.userId,
-
-			baseBranchName: patchResponse.baseBranchName,
-			baseRef: patchResponse.baseCommitSha,
-			gkRepositoryId: patchResponse.gitRepositoryId,
-			secureLink: patchResponse.secureDownloadData,
-
-			commit: options?.commit,
-			contents: options?.contents,
-			files: options?.files,
-			repository: options?.repository,
-		};
-	}
 }
 
 async function handleBadDraftResponse(message: string, rsp?: any, scope?: LogScope) {
@@ -1005,4 +922,120 @@ async function handleBadDraftResponse(message: string, rsp?: any, scope?: LogSco
 	const errorMessage = rsp != null ? `${message}: (${rsp?.status}) ${rspErrorMessage}` : message;
 	Logger.error(undefined, scope, errorMessage);
 	throw new Error(errorMessage);
+}
+
+function formatDraft(
+	draftResponse: DraftResponse,
+	options?: {
+		account?: SubscriptionAccount;
+		members?: OrganizationMember[];
+		fromPrEntityId?: boolean;
+	},
+): Draft {
+	let author: Draft['author'];
+	let isMine = false;
+
+	if (draftResponse.createdBy === options?.account?.id) {
+		isMine = true;
+		author = {
+			id: draftResponse.createdBy,
+			name: `${options.account.name} (you)`,
+			email: options.account.email,
+			avatarUri: getAvatarUri(options.account.email),
+		};
+	} else {
+		let member;
+		if (options?.members?.length) {
+			member = options.members.find(m => m.id === draftResponse.createdBy);
+		}
+
+		author = {
+			id: draftResponse.createdBy,
+			name: member?.name ?? 'Unknown',
+			email: member?.email,
+			avatarUri: getAvatarUri(member?.email),
+		};
+	}
+
+	let role = draftResponse.role;
+	if (!role) {
+		if (options?.fromPrEntityId === true) {
+			role = 'editor';
+		} else {
+			role = 'viewer';
+		}
+	}
+
+	return {
+		draftType: 'cloud',
+		type: draftResponse.type,
+		id: draftResponse.id,
+		createdAt: new Date(draftResponse.createdAt),
+		updatedAt: new Date(draftResponse.updatedAt ?? draftResponse.createdAt),
+		author: author,
+		isMine: isMine,
+		organizationId: draftResponse.organizationId || undefined,
+		role: role,
+		isPublished: draftResponse.isPublished,
+
+		title: draftResponse.title,
+		description: draftResponse.description,
+
+		deepLinkUrl: draftResponse.deepLink,
+		visibility: draftResponse.visibility,
+
+		isArchived: draftResponse.isArchived,
+		archivedBy: draftResponse.archivedBy,
+		archivedReason: draftResponse.archivedReason,
+		archivedAt: draftResponse.archivedAt != null ? new Date(draftResponse.archivedAt) : draftResponse.archivedAt,
+
+		latestChangesetId: draftResponse.latestChangesetId,
+	};
+}
+
+function formatChangeset(changesetResponse: DraftChangesetResponse): DraftChangeset {
+	return {
+		id: changesetResponse.id,
+		createdAt: new Date(changesetResponse.createdAt),
+		updatedAt: new Date(changesetResponse.updatedAt ?? changesetResponse.createdAt),
+		draftId: changesetResponse.draftId,
+		parentChangesetId: changesetResponse.parentChangesetId,
+		userId: changesetResponse.userId,
+
+		gitUserName: changesetResponse.gitUserName,
+		gitUserEmail: changesetResponse.gitUserEmail,
+		deepLinkUrl: changesetResponse.deepLink,
+
+		patches: changesetResponse.patches.map((patch: DraftPatchResponse) => formatPatch(patch)),
+	};
+}
+
+function formatPatch(
+	patchResponse: DraftPatchResponse,
+	options?: {
+		commit?: GitCommit;
+		contents?: string;
+		files?: DraftPatchFileChange[];
+		repository?: Repository | RepositoryIdentity;
+	},
+): DraftPatch {
+	return {
+		type: 'cloud',
+		id: patchResponse.id,
+		createdAt: new Date(patchResponse.createdAt),
+		updatedAt: new Date(patchResponse.updatedAt ?? patchResponse.createdAt),
+		draftId: patchResponse.draftId,
+		changesetId: patchResponse.changesetId,
+		userId: patchResponse.userId,
+
+		baseBranchName: patchResponse.baseBranchName,
+		baseRef: patchResponse.baseCommitSha,
+		gkRepositoryId: patchResponse.gitRepositoryId,
+		secureLink: patchResponse.secureDownloadData,
+
+		commit: options?.commit,
+		contents: options?.contents,
+		files: options?.files,
+		repository: options?.repository,
+	};
 }

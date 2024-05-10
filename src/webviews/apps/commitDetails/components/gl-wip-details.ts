@@ -229,7 +229,7 @@ export class GlWipDetails extends GlDetailsBase {
 						>
 							<gk-avatar
 								class="author-icon"
-								src="${draft.author.avatar}"
+								src="${draft.author.avatarUri}"
 								title="${draft.author.name} (author)"
 							></gk-avatar>
 							${draft.title}

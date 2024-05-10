@@ -1,4 +1,6 @@
+import type { Uri } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { getAvatarUri } from '../../avatars';
 import type { GitUri } from '../../git/gitUri';
 import type { Draft } from '../../gk/models/drafts';
 import { configuration } from '../../system/configuration';
@@ -54,11 +56,18 @@ export class DraftNode extends ViewNode<'draft', ViewsWithCommits | DraftsView> 
 			arguments: [this],
 		};
 
-		item.iconPath = new ThemeIcon(this.draft.type == 'suggested_pr_change' ? 'gitlens-code-suggestion' : 'cloud');
+		let avatarUri: Uri | undefined;
+		if (this.view.config.avatars && this.draft.author != null) {
+			avatarUri = this.draft.author.avatarUri ?? getAvatarUri(this.draft.author.email);
+		}
+
+		item.iconPath =
+			avatarUri ?? new ThemeIcon(this.draft.type == 'suggested_pr_change' ? 'gitlens-code-suggestion' : 'cloud');
+
 		item.tooltip = new MarkdownString(
-			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\nCreated ${fromNow(
-				this.draft.createdAt,
-			)} &nbsp; _(${formatDate(this.draft.createdAt, dateFormat)})_${
+			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\nCreated ${
+				this.draft.author?.name ? ` by ${this.draft.author.name}` : ''
+			} ${fromNow(this.draft.createdAt)} &nbsp; _(${formatDate(this.draft.createdAt, dateFormat)})_${
 				showUpdated
 					? ` \\\nLast updated ${fromNow(this.draft.updatedAt)} &nbsp; _(${formatDate(
 							this.draft.updatedAt,

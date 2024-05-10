@@ -1142,7 +1142,7 @@ export class CommitDetailsWebviewProvider
 		const results = await this.container.drafts.getCodeSuggestions(pullRequest, repository);
 
 		for (const draft of results) {
-			if (draft.author.avatar != null || draft.organizationId == null) continue;
+			if (draft.author.avatarUri != null || draft.organizationId == null) continue;
 
 			let email = draft.author.email;
 			if (email == null) {
@@ -1151,7 +1151,7 @@ export class CommitDetailsWebviewProvider
 			}
 			if (email == null) continue;
 
-			draft.author.avatar = getAvatarUri(email).toString();
+			draft.author.avatarUri = getAvatarUri(email);
 		}
 
 		return results;
