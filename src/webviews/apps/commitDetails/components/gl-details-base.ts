@@ -103,7 +103,7 @@ export class GlDetailsBase extends LitElement {
 					></action-item>
 				</action-nav>
 				${when(
-					fileCount > 0,
+					fileCount > 0 && this.tab === 'wip',
 					() =>
 						html`<div class="section section--actions">
 							<p class="button-container">
