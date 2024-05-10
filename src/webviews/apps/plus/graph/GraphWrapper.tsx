@@ -888,7 +888,7 @@ export function GraphWrapper({
 
 	const renderFetchAction = () => {
 		let action: 'fetch' | 'pull' | 'push' = 'fetch';
-		let icon = 'sync';
+		let icon = 'repo-fetch';
 		let label = 'Fetch';
 		let isBehind = false;
 		let isAhead = false;
@@ -914,7 +914,7 @@ export function GraphWrapper({
 
 			if (isBehind) {
 				action = 'pull';
-				icon = 'arrow-down';
+				icon = 'repo-pull';
 				label = 'Pull';
 				tooltip = (
 					<>
@@ -944,7 +944,7 @@ export function GraphWrapper({
 				}
 			} else if (isAhead) {
 				action = 'push';
-				icon = 'arrow-up';
+				icon = 'repo-push';
 				label = 'Push';
 				tooltip = (
 					<>
@@ -972,7 +972,7 @@ export function GraphWrapper({
 							)}
 							className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
 						>
-							<span className={`codicon codicon-${icon} action-button__icon`}></span>
+							<span className={`glicon glicon-${icon} action-button__icon`}></span>
 							{label}
 							{(isAhead || isBehind) && (
 								<span>
@@ -1009,7 +1009,7 @@ export function GraphWrapper({
 						href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
 						className="action-button"
 					>
-						<span className="codicon codicon-sync action-button__icon"></span>
+						<span className="glicon glicon-repo-fetch action-button__icon"></span>
 						Fetch {fetchedText && <span className="action-button__small">({fetchedText})</span>}
 					</a>
 					<span slot="content" style={{ whiteSpace: 'break-spaces' }}>
@@ -1100,7 +1100,7 @@ export function GraphWrapper({
 										Switch to Another Branch...
 										<hr />
 										<span className="codicon codicon-git-branch" aria-hidden="true"></span>{' '}
-										{branchName}
+										<span className="md-code">{branchName}</span>
 									</span>
 								</div>
 							</GlTooltip>

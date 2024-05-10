@@ -545,7 +545,7 @@ const iconMap = Object.freeze({
 	'gl-switch': '\\f118',
 	'gl-expand': '\\f119',
 	'gl-list-auto': '\\f11a',
-	'gl-arrow-up-force': '\\f11b',
+	'gl-repo-force-push': '\\f11b',
 	'gl-pinned-filled': '\\f11c',
 	'gl-clock': '\\f11d',
 	'gl-provider-azdo': '\\f11e',
