@@ -1,5 +1,5 @@
 import type { CancellationToken, Disposable } from 'vscode';
-import { env, ProgressLocation, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
+import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import { Commands, previewBadge } from '../constants';
 import type { Container } from '../container';
@@ -9,7 +9,7 @@ import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
-import { openWorkspace } from '../system/utils';
+import { openUrl, openWorkspace } from '../system/utils';
 import { ViewNode } from './nodes/abstract/viewNode';
 import { MessageNode } from './nodes/common';
 import { RepositoriesNode } from './nodes/repositoriesNode';
@@ -147,8 +147,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
-				() =>
-					env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/side-bar/#workspaces-☁%ef%b8%8f')),
+				() => openUrl('https://help.gitkraken.com/gitlens/side-bar/#workspaces-☁%ef%b8%8f'),
 				this,
 			),
 			registerViewCommand(
