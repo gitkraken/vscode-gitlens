@@ -33,6 +33,7 @@ import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quick
 import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { getContext, onDidChangeContext, setContext } from '../../../system/context';
+import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
@@ -1258,10 +1259,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async getDraftPatch(draft: Draft, gkRepositoryId?: GkRepositoryId): Promise<DraftPatch | undefined> {
-		if (draft.changesets == null) {
-			const changesets = await this.container.drafts.getChangesets(draft.id);
-			draft.changesets = changesets;
-		}
+		draft.changesets = await this.ensureChangesets(draft);
 
 		const patch =
 			gkRepositoryId == null
@@ -1511,15 +1509,19 @@ export class PatchDetailsWebviewProvider
 		return repo;
 	}
 
-	// private draftContentPromise: [Draft['id'], Promise<Draft>] | undefined;
+	// Ensures that changesets arent mutated twice on the same draft
+	@gate<PatchDetailsWebviewProvider['ensureChangesets']>(d => d.id)
+	private async ensureChangesets(draft: Draft) {
+		draft.changesets ??= await this.container.drafts.getChangesets(draft.id);
+		return draft.changesets;
+	}
+
 	private async ensureDraftContent(draft: Draft): Promise<Draft> {
 		if (!isDraftMissingContent(draft)) {
 			return draft;
 		}
 
-		if (draft.changesets == null) {
-			draft.changesets = await this.container.drafts.getChangesets(draft.id);
-		}
+		draft.changesets = await this.ensureChangesets(draft);
 
 		const patches = draft.changesets
 			.flatMap(cs => cs.patches)
