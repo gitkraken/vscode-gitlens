@@ -68,7 +68,7 @@ export const FeedbackQuickInputButton: QuickInputButton = {
 };
 
 export const FetchQuickInputButton: QuickInputButton = {
-	iconPath: new ThemeIcon('sync'),
+	iconPath: new ThemeIcon('gitlens-repo-fetch'),
 	tooltip: 'Fetch',
 };
 
