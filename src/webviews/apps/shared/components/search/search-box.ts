@@ -21,7 +21,7 @@ declare global {
 	}
 
 	interface GlobalEventHandlersEventMap {
-		'gl-search-openinview': CustomEvent;
+		'gl-search-openinview': CustomEvent<void>;
 	}
 }
 

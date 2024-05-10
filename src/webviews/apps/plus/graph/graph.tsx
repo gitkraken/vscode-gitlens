@@ -38,6 +38,7 @@ import {
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
+	OpenPullRequestDetailsCommand,
 	SearchOpenInViewCommand,
 	SearchRequest,
 	UpdateColumnsCommand,
@@ -108,6 +109,7 @@ export class GraphApp extends App<State> {
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMissingRefsMetadata={(...params) => this.onGetMissingRefsMetadata(...params)}
 					onMoreRows={(...params) => this.onGetMoreRows(...params)}
+					onOpenPullRequest={(...params) => this.onOpenPullRequest(...params)}
 					onSearch={debounce<GraphApp['onSearch']>((search, options) => this.onSearch(search, options), 250)}
 					onSearchPromise={(...params) => this.onSearchPromise(...params)}
 					onSearchOpenInView={(...params) => this.onSearchOpenInView(...params)}
@@ -559,6 +561,10 @@ export class GraphApp extends App<State> {
 
 	private onGetMoreRows(sha?: string) {
 		this.sendCommand(GetMoreRowsCommand, { id: sha });
+	}
+
+	onOpenPullRequest(pr: NonNullable<NonNullable<State['branchState']>['pr']>): void {
+		this.sendCommand(OpenPullRequestDetailsCommand, { id: pr.id });
 	}
 
 	private async onSearch(search: SearchQuery | undefined, options?: { limit?: number }) {

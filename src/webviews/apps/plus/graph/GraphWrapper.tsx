@@ -62,9 +62,11 @@ import type { IpcNotification } from '../../../protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
 import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
-import { GlTooltip } from '../../shared/components/overlays/react';
+import { GlPopover } from '../../shared/components/overlays/popover.react';
+import { GlTooltip } from '../../shared/components/overlays/tooltip.react';
 import { GlFeatureBadge } from '../../shared/components/react/feature-badge';
 import { GlFeatureGate } from '../../shared/components/react/feature-gate';
+import { GlIssuePullRequest } from '../../shared/components/react/issue-pull-request';
 import { GlSearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
@@ -84,6 +86,7 @@ export interface GraphWrapperProps {
 	onMissingAvatars?: (emails: Record<string, string>) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
+	onOpenPullRequest?: (pr: NonNullable<NonNullable<State['branchState']>['pr']>) => void;
 	onRefsVisibilityChange?: (refs: GraphExcludedRef[], visible: boolean) => void;
 	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
 	onSearchPromise?: (
@@ -207,6 +210,7 @@ export function GraphWrapper({
 	onMissingAvatars,
 	onMissingRefsMetadata,
 	onMoreRows,
+	onOpenPullRequest,
 	onRefsVisibilityChange,
 	onSearch,
 	onSearchPromise,
@@ -1058,7 +1062,6 @@ export function GraphWrapper({
 						<button
 							type="button"
 							className="action-button"
-							slot="trigger"
 							aria-label="Switch to Another Repository..."
 							disabled={repos.length < 2}
 							onClick={() => handleChooseRepository()}
@@ -1078,17 +1081,51 @@ export function GraphWrapper({
 							<span>
 								<span className="codicon codicon-chevron-right"></span>
 							</span>
-							<GlTooltip placement="bottom">
+							{branchState?.pr && (
+								<GlPopover placement="bottom">
+									<button slot="anchor" type="button" className="action-button">
+										<GlIssuePullRequest
+											type="pr"
+											identifier={`#${branchState.pr.id}`}
+											status={branchState.pr.state}
+											compact
+										/>
+									</button>
+									<div slot="content">
+										<GlIssuePullRequest
+											type="pr"
+											name={branchState.pr.title}
+											url={branchState.pr.url}
+											identifier={`#${branchState.pr.id}`}
+											status={branchState.pr.state}
+											date={branchState.pr.updatedDate}
+											dateFormat={graphConfig?.dateFormat}
+											dateStyle={graphConfig?.dateStyle}
+											details
+											onOpenDetails={() =>
+												branchState.pr?.id ? onOpenPullRequest?.(branchState.pr) : undefined
+											}
+										/>
+									</div>
+								</GlPopover>
+							)}
+							<GlPopover placement="bottom">
 								<a
+									slot="anchor"
 									href={createWebviewCommandLink(
 										'gitlens.graph.switchToAnotherBranch',
 										state.webviewId,
 										state.webviewInstanceId,
 									)}
 									className="action-button"
+									style={branchState?.pr ? { marginLeft: '-0.6rem' } : {}}
 									aria-label="Switch to Another Branch..."
 								>
-									<span className="codicon codicon-git-branch" aria-hidden="true"></span>
+									{!branchState?.pr ? (
+										<span className="codicon codicon-git-branch" aria-hidden="true"></span>
+									) : (
+										''
+									)}
 									{branchName}
 									<span
 										className="codicon codicon-chevron-down action-button__more"
@@ -1096,14 +1133,14 @@ export function GraphWrapper({
 									></span>
 								</a>
 								<div slot="content">
-									<span style={{ whiteSpace: 'preserve' }}>
+									<span>
 										Switch to Another Branch...
 										<hr />
 										<span className="codicon codicon-git-branch" aria-hidden="true"></span>{' '}
 										<span className="md-code">{branchName}</span>
 									</span>
 								</div>
-							</GlTooltip>
+							</GlPopover>
 							<span>
 								<span className="codicon codicon-chevron-right"></span>
 							</span>

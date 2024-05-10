@@ -271,7 +271,7 @@ export class GlWipDetails extends GlDetailsBase {
 						type="pr"
 						name="${this.wip.pullRequest.title}"
 						url="${this.wip.pullRequest.url}"
-						key="#${this.wip.pullRequest.id}"
+						identifier="#${this.wip.pullRequest.id}"
 						status="${this.wip.pullRequest.state}"
 						.date=${this.wip.pullRequest.updatedDate}
 						.dateFormat="${this.preferences?.dateFormat}"

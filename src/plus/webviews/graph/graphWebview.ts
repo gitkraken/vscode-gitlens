@@ -41,7 +41,7 @@ import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
-import { getComparisonRefsForPullRequest } from '../../../git/models/pullRequest';
+import { getComparisonRefsForPullRequest, serializePullRequest } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -126,6 +126,7 @@ import type {
 	GraphUpstreamMetadata,
 	GraphUpstreamStatusContextValue,
 	GraphWorkingTreeStats,
+	OpenPullRequestDetailsParams,
 	SearchOpenInViewParams,
 	SearchParams,
 	State,
@@ -157,6 +158,7 @@ import {
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
+	OpenPullRequestDetailsCommand,
 	SearchOpenInViewCommand,
 	SearchRequest,
 	supportedRefMetadataTypes,
@@ -632,6 +634,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case GetMoreRowsCommand.is(e):
 				void this.onGetMoreRows(e.params);
 				break;
+			case OpenPullRequestDetailsCommand.is(e):
+				void this.onOpenPullRequestDetails(e.params);
+				break;
 			case SearchRequest.is(e):
 				void this.onSearchRequest(SearchRequest, e);
 				break;
@@ -1090,6 +1095,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		await this.updateGraphWithMoreRows(this._graph, e.id, this._search);
 		void this.notifyDidChangeRows(sendSelectedRows);
+	}
+
+	@log()
+	async onOpenPullRequestDetails(_params: OpenPullRequestDetailsParams) {
+		// TODO: a hack for now, since we aren't using the params at all right now and always opening the current branch's PR
+		const repo = this.repository;
+		if (repo == null) return undefined;
+
+		const branch = await repo.getBranch();
+		if (branch == null) return undefined;
+
+		const pr = await branch.getAssociatedPullRequest();
+		if (pr == null) return undefined;
+
+		return this.container.pullRequestView.showPullRequest(pr, branch);
 	}
 
 	@debug()
@@ -2004,13 +2024,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (branch.upstream != null) {
 				branchState.upstream = branch.upstream.name;
 
-				const remote = await branch.getRemote();
+				const [remoteResult, prResult] = await Promise.allSettled([
+					branch.getRemote(),
+					branch.getAssociatedPullRequest(),
+				]);
+
+				const remote = getSettledValue(remoteResult);
 				if (remote?.provider != null) {
 					branchState.provider = {
 						name: remote.provider.name,
 						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
 						url: remote.provider.url({ type: RemoteResourceType.Repo }),
 					};
+				}
+
+				const pr = getSettledValue(prResult);
+				if (pr != null) {
+					branchState.pr = serializePullRequest(pr);
 				}
 			}
 		}
