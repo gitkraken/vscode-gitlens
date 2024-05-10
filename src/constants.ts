@@ -217,7 +217,6 @@ export const enum Commands {
 	OpenRevisionFile = 'gitlens.openRevisionFile',
 	OpenRevisionFileInDiffLeft = 'gitlens.openRevisionFileInDiffLeft',
 	OpenRevisionFileInDiffRight = 'gitlens.openRevisionFileInDiffRight',
-	OpenWalkthrough = 'gitlens.openWalkthrough',
 	OpenWorkingFile = 'gitlens.openWorkingFile',
 	OpenWorkingFileInDiffLeft = 'gitlens.openWorkingFileInDiffLeft',
 	OpenWorkingFileInDiffRight = 'gitlens.openWorkingFileInDiffRight',

@@ -195,11 +195,11 @@ export class FocusIndicator implements Disposable {
 		tooltip.appendMarkdown(
 			`GitLens Launchpad ${previewBadge}\u00a0\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0\u00a0`,
 		);
-		tooltip.appendMarkdown(`[$(question)](command:gitlens.launchpad.indicator.action?"info" "What is this?")`);
+		tooltip.appendMarkdown(`[$(question)](command:gitlens.launchpad.indicator.action?%22info%22 "What is this?")`);
 		tooltip.appendMarkdown('\u00a0');
 		tooltip.appendMarkdown(`[$(gear)](command:workbench.action.openSettings?%22gitlens.launchpad%22 "Settings")`);
 		tooltip.appendMarkdown('\u00a0\u00a0|\u00a0\u00a0');
-		tooltip.appendMarkdown(`[$(circle-slash) Hide](command:gitlens.launchpad.indicator.action?"hide" "Hide")`);
+		tooltip.appendMarkdown(`[$(circle-slash) Hide](command:gitlens.launchpad.indicator.action?%22hide%22 "Hide")`);
 
 		// TODO: Also add as a first-time tooltip
 		if (
@@ -210,7 +210,7 @@ export class FocusIndicator implements Disposable {
 		) {
 			tooltip.appendMarkdown('\n\n---\n\n');
 			tooltip.appendMarkdown(
-				'[Launchpad](command:gitlens.getStarted?"gitlens.welcome.launchpad" "Learn about Launchpad") organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
+				'[Launchpad](command:gitlens.launchpad.indicator.action?%info%22 "Learn about Launchpad") organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
 			);
 			tooltip.appendMarkdown(
 				"\n\nIt's always accessible using the `GitLens: Open Launchpad` command from the Command Palette.",
@@ -228,7 +228,7 @@ export class FocusIndicator implements Disposable {
 			case 'disconnected':
 				this.clearRefreshTimer();
 				tooltip.appendMarkdown(
-					`\n\n---\n\n[Connect to GitHub](command:gitlens.launchpad.indicator.action?"connectGitHub" "Connect to GitHub") to get started.`,
+					`\n\n---\n\n[Connect to GitHub](command:gitlens.launchpad.indicator.action?%22connectGitHub%22 "Connect to GitHub") to get started.`,
 				);
 
 				this._statusBarFocus.text = `$(rocket)$(gitlens-unplug) Launchpad`;
@@ -464,7 +464,7 @@ export class FocusIndicator implements Disposable {
 				this.storeFirstInteractionIfNeeded();
 				switch (action) {
 					case 'info': {
-						void executeCommand(Commands.GetStarted, 'gitlens.welcome.launchpad');
+						void executeCommand(Commands.GetStarted, 'launchpad');
 						break;
 					}
 					case 'hide': {

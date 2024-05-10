@@ -220,7 +220,7 @@ export async function openWalkthrough(
 		'workbench.action.openWalkthrough',
 		{
 			category: `${extensionId}#${walkthroughId}`,
-			step: stepId ? `${extensionId}#${walkthroughId}#${stepId}` : undefined,
+			step: stepId,
 		},
 		openToSide,
 	));
