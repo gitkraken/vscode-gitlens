@@ -202,6 +202,7 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private _skipNextRefreshOnVisibilityChange = false;
+	private _shouldRefreshPullRequestDetails = false;
 
 	async onShowing(
 		_loading: boolean,
@@ -236,7 +237,11 @@ export class CommitDetailsWebviewProvider
 
 		if (options?.preserveVisibility && !this.host.visible) return false;
 
-		this._skipNextRefreshOnVisibilityChange = true;
+		if (arg.source === 'launchpad' && this.host.visible) {
+			this._shouldRefreshPullRequestDetails = true;
+			this.onRefresh();
+		}
+
 		return true;
 	}
 
@@ -1068,10 +1073,12 @@ export class CommitDetailsWebviewProvider
 			// TODO: Move this into the correct place. It is being called here temporarily to guarantee it gets an up-to-date PR.
 			// Once moved, we may not need the "source" property on context anymore.
 			if (
+				this._shouldRefreshPullRequestDetails &&
 				wip.pullRequest != null &&
 				(this._context.source === 'launchpad' || this._pendingContext?.source === 'launchpad')
 			) {
 				void this.container.pullRequestView.showPullRequest(wip.pullRequest, wip.branch ?? repository.path);
+				this._shouldRefreshPullRequestDetails = false;
 			}
 
 			if (this._pendingContext == null) {

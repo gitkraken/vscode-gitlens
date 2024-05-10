@@ -112,7 +112,7 @@ export interface ShowWipArgs {
 	type: 'wip';
 	inReview?: boolean;
 	repository?: Repository;
-	source: 'commitDetails' | 'patchDetails' | 'repoStatus' | 'deepLink' | 'launchpad'; // will likely need to add more
+	source: 'commitDetails' | 'patchDetails' | 'repoStatus' | 'launchpad'; // will likely need to add more
 }
 
 // COMMANDS
