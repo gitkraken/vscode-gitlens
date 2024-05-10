@@ -1336,7 +1336,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} finally {
 			// Delete the temporary index file
 			try {
-				await fs.rmdir(tempDir, { recursive: true });
+				await fs.rm(tempDir, { recursive: true });
 			} catch (ex) {
 				debugger;
 			}
