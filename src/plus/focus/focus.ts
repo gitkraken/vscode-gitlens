@@ -417,7 +417,7 @@ export class FocusCommand extends QuickCommand<State> {
 						quickpick.busy = true;
 
 						try {
-							await updateContextItems(container, context);
+							await updateContextItems(container, context, { force: true });
 							const items = getItems(context.items);
 
 							quickpick.placeholder = !items.length
@@ -800,7 +800,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 		const codeSuggestionInfo: (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] = [
 			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: `$(gitlens-code-suggestion) ${pluralize('code suggestion', item.codeSuggestions.length)}:`,
+				label: `$(gitlens-code-suggestion) ${pluralize('code suggestion', item.codeSuggestions.length)}`,
 			}),
 		];
 
@@ -948,8 +948,8 @@ export class FocusCommand extends QuickCommand<State> {
 	}
 }
 
-async function updateContextItems(container: Container, context: Context) {
-	context.items = await container.focus.getCategorizedItems();
+async function updateContextItems(container: Container, context: Context, options?: { force?: boolean }) {
+	context.items = await container.focus.getCategorizedItems(options);
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
 	}
