@@ -630,6 +630,18 @@ export class CodeIcon extends LitElement {
 			animation-duration: 1s !important;
 			animation-timing-function: cubic-bezier(0.53, 0.21, 0.29, 0.67) !important;
 		}
+
+		:host([flip='inline']) {
+			transform: rotateY(180deg);
+		}
+
+		:host([flip='block']) {
+			transform: rotateX(180deg);
+		}
+
+		:host([rotate='45']) {
+			transform: rotateZ(45deg);
+		}
 	`;
 	@property()
 	icon = '';
@@ -639,6 +651,12 @@ export class CodeIcon extends LitElement {
 
 	@property({ type: Number })
 	size: number | undefined = undefined;
+
+	@property()
+	flip?: 'inline' | 'block';
+
+	@property()
+	rotate?: '45';
 
 	override updated(changedProperties: Map<string, unknown>) {
 		if (changedProperties.has('size')) {
