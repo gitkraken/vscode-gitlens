@@ -26,6 +26,7 @@ import type { View } from '../../viewBase';
 import type { BranchNode } from '../branchNode';
 import type { BranchTrackingStatusFilesNode } from '../branchTrackingStatusFilesNode';
 import type { BranchTrackingStatus, BranchTrackingStatusNode } from '../branchTrackingStatusNode';
+import type { CodeSuggestionsNode } from '../codeSuggestionsNode';
 import type { CommitFileNode } from '../commitFileNode';
 import type { CommitNode } from '../commitNode';
 import type { CompareBranchNode } from '../compareBranchNode';
@@ -38,7 +39,6 @@ import type { RepositoryNode } from '../repositoryNode';
 import type { ResultsCommitsNode } from '../resultsCommitsNode';
 import type { ResultsFileNode } from '../resultsFileNode';
 import type { ResultsFilesNode } from '../resultsFilesNode';
-import type { ResultsSuggestedChangesNode } from '../resultsSuggestedChangesNode';
 import type { StashFileNode } from '../stashFileNode';
 import type { StashNode } from '../stashNode';
 import type { StatusFileNode } from '../statusFileNode';
@@ -60,6 +60,7 @@ export const enum ContextValues {
 	BranchStatusNoUpstream = 'gitlens:status-branch:upstream:none',
 	BranchStatusSameAsUpstream = 'gitlens:status-branch:upstream:same',
 	BranchStatusFiles = 'gitlens:status-branch:files',
+	CodeSuggestions = 'gitlens:drafts:code-suggestions',
 	Commit = 'gitlens:commit',
 	Commits = 'gitlens:commits',
 	Compare = 'gitlens:compare',
@@ -384,52 +385,53 @@ export function getNodeRepoPath(node?: ViewNode): string | undefined {
 	return canGetNodeRepoPath(node) ? node.repoPath : undefined;
 }
 
+// prettier-ignore
 type TreeViewNodesByType = {
 	[T in TreeViewNodeTypes]: T extends 'branch'
 		? BranchNode
 		: T extends 'commit'
-		  ? CommitNode
-		  : T extends 'commit-file'
-		    ? CommitFileNode
-		    : T extends 'compare-branch'
-		      ? CompareBranchNode
-		      : T extends 'compare-results'
-		        ? CompareResultsNode
-		        : T extends 'conflict-file'
-		          ? MergeConflictFileNode
-		          : T extends 'file-commit'
-		            ? FileRevisionAsCommitNode
-		            : T extends 'folder'
-		              ? FolderNode
-		              : T extends 'line-history-tracker'
-		                ? LineHistoryTrackerNode
-		                : T extends 'repository'
-		                  ? RepositoryNode
-		                  : T extends 'repo-folder'
-		                    ? RepositoryFolderNode
-		                    : T extends 'results-commits'
-		                      ? ResultsCommitsNode
-		                      : T extends 'results-file'
-		                        ? ResultsFileNode
-		                        : T extends 'results-files'
-		                          ? ResultsFilesNode
-		                          : T extends 'results-suggested-changes'
-		                            ? ResultsSuggestedChangesNode
-		                            : T extends 'stash'
-		                              ? StashNode
-		                              : T extends 'stash-file'
-		                                ? StashFileNode
-		                                : T extends 'status-file'
-		                                  ? StatusFileNode
-		                                  : T extends 'tag'
-		                                    ? TagNode
-		                                    : T extends 'tracking-status'
-		                                      ? BranchTrackingStatusNode
-		                                      : T extends 'tracking-status-files'
-		                                        ? BranchTrackingStatusFilesNode
-		                                        : T extends 'uncommitted-file'
-		                                          ? UncommittedFileNode
-		                                          : ViewNode<T>;
+		? CommitNode
+		: T extends 'commit-file'
+		? CommitFileNode
+		: T extends 'compare-branch'
+		? CompareBranchNode
+		: T extends 'compare-results'
+		? CompareResultsNode
+		: T extends 'conflict-file'
+		? MergeConflictFileNode
+		: T extends 'drafts-code-suggestions'
+		? CodeSuggestionsNode
+		: T extends 'file-commit'
+		? FileRevisionAsCommitNode
+		: T extends 'folder'
+		? FolderNode
+		: T extends 'line-history-tracker'
+		? LineHistoryTrackerNode
+		: T extends 'repository'
+		? RepositoryNode
+		: T extends 'repo-folder'
+		? RepositoryFolderNode
+		: T extends 'results-commits'
+		? ResultsCommitsNode
+		: T extends 'results-file'
+		? ResultsFileNode
+		: T extends 'results-files'
+		? ResultsFilesNode
+		: T extends 'stash'
+		? StashNode
+		: T extends 'stash-file'
+		? StashFileNode
+		: T extends 'status-file'
+		? StatusFileNode
+		: T extends 'tag'
+		? TagNode
+		: T extends 'tracking-status'
+		? BranchTrackingStatusNode
+		: T extends 'tracking-status-files'
+		? BranchTrackingStatusFilesNode
+		: T extends 'uncommitted-file'
+		? UncommittedFileNode
+		: ViewNode<T>;
 };
 
 export function isViewNode(node: unknown): node is ViewNode;

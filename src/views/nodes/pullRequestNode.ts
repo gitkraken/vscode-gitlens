@@ -7,15 +7,15 @@ import type { PullRequest } from '../../git/models/pullRequest';
 import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
 import { createRevisionRange } from '../../git/models/reference';
-import { getAheadBehindFilesQuery, getCommitsQuery, getSuggestedChangesQuery } from '../../git/queryResults';
+import { getAheadBehindFilesQuery, getCommitsQuery } from '../../git/queryResults';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { CodeSuggestionsNode } from './codeSuggestionsNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
-import { ResultsSuggestedChangesNode } from './resultsSuggestedChangesNode';
 
 export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', ViewsWithCommits> {
 	readonly repoPath: string;
@@ -122,16 +122,7 @@ export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', Vi
 						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
 					},
 				),
-				new ResultsSuggestedChangesNode(
-					this.view,
-					this,
-					this.repoPath,
-					getSuggestedChangesQuery(
-						this.view.container.drafts,
-						this.pullRequest,
-						this.view.container.git.getRepository(this.repoPath),
-					),
-				),
+				new CodeSuggestionsNode(this.view, this, this.repoPath, this.pullRequest),
 				new ResultsFilesNode(
 					this.view,
 					this,
