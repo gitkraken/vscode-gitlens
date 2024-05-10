@@ -20,9 +20,9 @@ import {
 	FeedbackQuickInputButton,
 	LaunchpadSettingsQuickInputButton,
 	MergeQuickInputButton,
-	OpenCodeSuggestionBrowserQuickInputButton,
-	OpenLaunchpadInEditorQuickInputButton,
+	OpenInEditorQuickInputButton,
 	OpenOnGitHubQuickInputButton,
+	OpenOnWebQuickInputButton,
 	PinQuickInputButton,
 	RefreshQuickInputButton,
 	SnoozeQuickInputButton,
@@ -397,7 +397,7 @@ export class FocusCommand extends QuickCommand<State> {
 			items: !items.length ? [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })] : items,
 			buttons: [
 				FeedbackQuickInputButton,
-				OpenLaunchpadInEditorQuickInputButton,
+				OpenInEditorQuickInputButton,
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
@@ -410,7 +410,7 @@ export class FocusCommand extends QuickCommand<State> {
 					case FeedbackQuickInputButton:
 						void openUrl('https://github.com/gitkraken/vscode-gitlens/discussions/3268');
 						break;
-					case OpenLaunchpadInEditorQuickInputButton:
+					case OpenInEditorQuickInputButton:
 						void executeCommand(Commands.ShowFocusPage);
 						break;
 					case RefreshQuickInputButton:
@@ -630,7 +630,7 @@ export class FocusCommand extends QuickCommand<State> {
 						case OpenOnGitHubQuickInputButton:
 							this.container.focus.open(state.item);
 							break;
-						case OpenCodeSuggestionBrowserQuickInputButton:
+						case OpenOnWebQuickInputButton:
 							if (isFocusTargetActionQuickPickItem(item)) {
 								this.container.focus.openCodeSuggestionInBrowser(item.item.target);
 							}
@@ -817,7 +817,7 @@ export class FocusCommand extends QuickCommand<State> {
 								: suggestion.author.email != null
 								  ? getAvatarUri(suggestion.author.email)
 								  : undefined,
-						buttons: [OpenCodeSuggestionBrowserQuickInputButton],
+						buttons: [OpenOnWebQuickInputButton],
 					},
 					{
 						action: 'open-suggestion',
@@ -894,7 +894,7 @@ export class FocusCommand extends QuickCommand<State> {
 				case UnsnoozeQuickInputButton:
 					action = 'unsnooze';
 					break;
-				case OpenCodeSuggestionBrowserQuickInputButton:
+				case OpenOnWebQuickInputButton:
 					action = 'open-suggestion-browser';
 					break;
 			}

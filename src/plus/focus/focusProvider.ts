@@ -378,7 +378,7 @@ export class FocusProvider implements Disposable {
 	}
 
 	openCodeSuggestionInBrowser(target: string) {
-		void openUrl(this.container.drafts.generateGkDevUrl(target));
+		void openUrl(this.container.drafts.generateWebUrl(target));
 	}
 
 	async switchTo(item: FocusItem, startCodeSuggestion: boolean = false): Promise<void> {
