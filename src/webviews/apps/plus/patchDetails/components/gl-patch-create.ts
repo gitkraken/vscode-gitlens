@@ -125,6 +125,12 @@ export class GlPatchCreate extends GlTreeBase {
 		defineGkElement(Avatar, Button, Menu, MenuItem, Popover);
 	}
 
+	protected override firstUpdated() {
+		window.requestAnimationFrame(() => {
+			this.titleInput.focus();
+		});
+	}
+
 	renderUserSelection(userSelection: DraftUserSelection) {
 		const role = userSelection.pendingRole!;
 		const options = new Map<string, string>([
