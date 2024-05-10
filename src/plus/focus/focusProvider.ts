@@ -1,7 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { md5 } from '@env/crypto';
-import { getAvatarUri } from '../../avatars';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
@@ -258,40 +257,14 @@ export class FocusProvider implements Disposable {
 			this._codeSuggestions.get(item.uuid)!.expiresAt < Date.now()
 		) {
 			this._codeSuggestions.set(item.uuid, {
-				promise: this.getActiveSuggestionsAndIdentifyMissingAuthors(item),
+				promise: this.container.drafts.getCodeSuggestions(item, HostingIntegrationId.GitHub, {
+					includeArchived: false,
+				}),
 				expiresAt: Date.now() + cacheExpiration,
 			});
 		}
 
 		return this._codeSuggestions.get(item.uuid)!.promise;
-	}
-
-	private async getActiveSuggestionsAndIdentifyMissingAuthors(item: FocusItem) {
-		const suggestions = await this.container.drafts.getCodeSuggestions(item, HostingIntegrationId.GitHub, {
-			includeArchived: false,
-		});
-
-		for (const suggestion of suggestions) {
-			if (suggestion.author.avatarUri != null || suggestion.organizationId == null) continue;
-
-			let email = suggestion.author.email;
-			if (email == null) {
-				const user = await this.container.organizations.getMemberById(
-					suggestion.author.id,
-					suggestion.organizationId,
-				);
-				email = user?.email;
-				if ((suggestion.author.name == null || suggestion.author.name === 'Unknown') && user?.name != null) {
-					suggestion.author.name = user.name;
-				}
-			}
-			if (email == null) continue;
-
-			suggestion.author.email = email;
-			suggestion.author.avatarUri = getAvatarUri(email);
-		}
-
-		return suggestions;
 	}
 
 	refresh() {
