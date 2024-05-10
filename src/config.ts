@@ -608,7 +608,7 @@ interface ViewsConfigs {
 	readonly commits: CommitsViewConfig;
 	readonly commitDetails: CommitDetailsViewConfig;
 	readonly contributors: ContributorsViewConfig;
-	readonly drafts: object; // TODO@eamodio add real types
+	readonly drafts: DraftsViewConfig;
 	readonly fileHistory: FileHistoryViewConfig;
 	readonly lineHistory: LineHistoryViewConfig;
 	readonly patchDetails: PatchDetailsViewConfig;
@@ -689,15 +689,6 @@ export interface PatchDetailsViewConfig {
 	readonly files: ViewsFilesConfig;
 }
 
-export interface PullRequestViewConfig {
-	readonly avatars: boolean;
-	readonly branches: undefined;
-	readonly files: ViewsFilesConfig;
-	readonly pullRequests: undefined;
-	readonly reveal: undefined;
-	readonly showBranchComparison: undefined;
-}
-
 export interface ContributorsViewConfig {
 	readonly avatars: boolean;
 	readonly files: ViewsFilesConfig;
@@ -708,6 +699,14 @@ export interface ContributorsViewConfig {
 	readonly reveal: boolean;
 	readonly showAllBranches: boolean;
 	readonly showStatistics: boolean;
+}
+
+export interface DraftsViewConfig {
+	readonly avatars: boolean;
+	readonly branches: undefined;
+	readonly files: ViewsFilesConfig;
+	readonly pullRequests: undefined;
+	readonly reveal: undefined;
 }
 
 export interface FileHistoryViewConfig {
@@ -721,6 +720,15 @@ export interface FileHistoryViewConfig {
 
 export interface LineHistoryViewConfig {
 	readonly avatars: boolean;
+}
+
+export interface PullRequestViewConfig {
+	readonly avatars: boolean;
+	readonly branches: undefined;
+	readonly files: ViewsFilesConfig;
+	readonly pullRequests: undefined;
+	readonly reveal: undefined;
+	readonly showBranchComparison: undefined;
 }
 
 export interface RemotesViewConfig {

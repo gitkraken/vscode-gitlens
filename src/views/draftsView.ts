@@ -1,6 +1,6 @@
 import type { CancellationToken, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { RepositoriesViewConfig } from '../config';
+import type { DraftsViewConfig } from '../config';
 import { Commands, previewBadge } from '../constants';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
@@ -27,7 +27,7 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 
 			try {
 				const drafts = await this.view.container.drafts.getDrafts();
-				drafts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+				drafts?.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
 				const groups = groupByFilterMap(
 					drafts,
@@ -37,7 +37,6 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 
 				const mine = groups.get('mine');
 				const shared = groups.get('shared');
-				//const prs = groups.get('pr_suggestion');
 				const isFlat = mine?.length && !shared?.length;
 
 				if (!isFlat) {
@@ -51,9 +50,7 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 					children.push(...mine);
 				}
 			} catch (ex) {
-				if (!(ex instanceof AuthenticationRequiredError)) {
-					throw ex;
-				}
+				if (!(ex instanceof AuthenticationRequiredError)) throw ex;
 			}
 
 			this.children = children;
@@ -62,22 +59,22 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 		return this.children;
 	}
 
+	getTreeItem(): TreeItem {
+		const item = new TreeItem('Drafts', TreeItemCollapsibleState.Expanded);
+		return item;
+	}
+
 	private calcDraftGroupKey(d: Draft): DraftGroupKey {
 		if (d.type === 'suggested_pr_change') {
 			return 'pr_suggestion';
 		}
 		return d.isMine ? 'mine' : 'shared';
 	}
-
-	getTreeItem(): TreeItem {
-		const item = new TreeItem('Drafts', TreeItemCollapsibleState.Expanded);
-		return item;
-	}
 }
 
 type DraftGroupKey = 'pr_suggestion' | 'mine' | 'shared';
 
-export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesViewConfig> {
+export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewConfig> {
 	protected readonly configKey = 'drafts';
 	private _disposable: Disposable | undefined;
 

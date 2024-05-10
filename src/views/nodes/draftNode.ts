@@ -4,12 +4,13 @@ import type { Draft } from '../../gk/models/drafts';
 import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import type { DraftsView } from '../draftsView';
+import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
-export class DraftNode extends ViewNode<'draft', DraftsView> {
+export class DraftNode extends ViewNode<'draft', ViewsWithCommits | DraftsView> {
 	constructor(
 		uri: GitUri,
-		view: DraftsView,
+		view: ViewsWithCommits | DraftsView,
 		protected override parent: ViewNode,
 		public readonly draft: Draft,
 	) {
@@ -24,7 +25,7 @@ export class DraftNode extends ViewNode<'draft', DraftsView> {
 	}
 
 	override toClipboard(): string {
-		return this.draft.title ?? this.draft.description ?? '';
+		return this.view.container.drafts.generateWebUrl(this.draft.id);
 	}
 
 	getChildren(): ViewNode[] {
@@ -37,7 +38,8 @@ export class DraftNode extends ViewNode<'draft', DraftsView> {
 
 		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
 
-		const showUpdated = this.draft.updatedAt.getTime() - this.draft.createdAt.getTime() >= 1000;
+		// Only show updated time if it is more than a 30s after the created time
+		const showUpdated = this.draft.updatedAt.getTime() - this.draft.createdAt.getTime() >= 30000;
 
 		item.id = this.id;
 		let contextValue: string = ContextValues.Draft;
@@ -45,6 +47,13 @@ export class DraftNode extends ViewNode<'draft', DraftsView> {
 			contextValue += '+mine';
 		}
 		item.contextValue = contextValue;
+		item.description = fromNow(this.draft.updatedAt);
+		item.command = {
+			title: 'Open',
+			command: 'gitlens.views.draft.open',
+			arguments: [this],
+		};
+
 		item.iconPath = new ThemeIcon(this.draft.type == 'suggested_pr_change' ? 'gitlens-code-suggestion' : 'cloud');
 		item.tooltip = new MarkdownString(
 			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\nCreated ${fromNow(
@@ -58,12 +67,7 @@ export class DraftNode extends ViewNode<'draft', DraftsView> {
 					: ''
 			}`,
 		);
-		item.description = fromNow(this.draft.updatedAt);
-		item.command = {
-			title: 'Show Patch',
-			command: 'gitlens.views.openDraft',
-			arguments: [this.draft],
-		};
+
 		return item;
 	}
 }
