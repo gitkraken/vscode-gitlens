@@ -24,6 +24,7 @@ import {
 	OpenFileOnRemoteCommand,
 	OpenPullRequestChangesCommand,
 	OpenPullRequestComparisonCommand,
+	OpenPullRequestDetailsCommand,
 	OpenPullRequestOnRemoteCommand,
 	PickCommitCommand,
 	PinCommand,
@@ -58,6 +59,7 @@ import './gl-commit-details';
 import './gl-wip-details';
 import './gl-inspect-nav';
 import './gl-status-nav';
+import type { IssuePullRequest } from '../../shared/components/rich/issue-pull-request';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -259,6 +261,11 @@ export class GlCommitDetailsApp extends LitElement {
 			),
 			DOM.on<GlWipDetails, undefined>('gl-wip-details', 'gl-patch-create-cancelled', () =>
 				this.onDraftStateChanged(false),
+			),
+			DOM.on<IssuePullRequest, undefined>(
+				'gl-status-nav,issue-pull-request',
+				'gl-issue-pull-request-details',
+				() => this.onBranchAction('open-pr-details'),
 			),
 		];
 	}
@@ -522,6 +529,9 @@ export class GlCommitDetailsApp extends LitElement {
 				break;
 			case 'open-pr-remote':
 				this._hostIpc.sendCommand(OpenPullRequestOnRemoteCommand, undefined);
+				break;
+			case 'open-pr-details':
+				this._hostIpc.sendCommand(OpenPullRequestDetailsCommand, undefined);
 				break;
 		}
 	}

@@ -193,6 +193,7 @@ export const SwitchCommand = new IpcCommand(scope, 'switch');
 export const OpenPullRequestChangesCommand = new IpcCommand(scope, 'openPullRequestChanges');
 export const OpenPullRequestComparisonCommand = new IpcCommand(scope, 'openPullRequestComparison');
 export const OpenPullRequestOnRemoteCommand = new IpcCommand(scope, 'openPullRequestOnRemote');
+export const OpenPullRequestDetailsCommand = new IpcCommand(scope, 'openPullRequestDetails');
 
 // REQUESTS
 

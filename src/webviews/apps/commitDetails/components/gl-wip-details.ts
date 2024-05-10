@@ -276,6 +276,7 @@ export class GlWipDetails extends GlDetailsBase {
 						.date=${this.wip.pullRequest.updatedDate}
 						.dateFormat="${this.preferences?.dateFormat}"
 						.dateStyle="${this.preferences?.dateStyle}"
+						details
 					></issue-pull-request>
 				</div>
 				${this.renderSuggestedChanges()}
