@@ -118,7 +118,7 @@ export class GlStatusNav extends LitElement {
 					class="commit-action"
 					title="Fetch"
 					@click=${(e: MouseEvent) => this.handleAction(e, 'fetch')}
-					><code-icon icon="sync"></code-icon
+					><code-icon icon="gl-repo-fetch"></code-icon
 				></a>
 			</div>
 		`;
