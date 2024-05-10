@@ -4,6 +4,7 @@ import { when } from 'lit/directives/when.js';
 import type { State } from '../../../commitDetails/protocol';
 import { commitActionStyles } from './commit-action.css';
 import '../../shared/components/overlays/popover';
+import '../../shared/components/overlays/tooltip';
 
 @customElement('gl-status-nav')
 export class GlStatusNav extends LitElement {
@@ -101,25 +102,24 @@ export class GlStatusNav extends LitElement {
 							</div>
 						</gl-popover>`,
 				)}
-				<a
-					href="#"
-					class="commit-action commit-action--overflowed"
-					@click=${(e: MouseEvent) => this.handleAction(e, 'switch')}
-				>
-					${when(this.wip.pullRequest == null, () => html`<code-icon icon="git-branch"></code-icon>`)}<span
-						class="branch"
-						>${branch.name}</span
-					><code-icon icon="chevron-down" size="10"></code-icon
-				></a>
+				<gl-tooltip placement="bottom" content="Switch to...">
+					<a
+						href="#"
+						class="commit-action commit-action--overflowed"
+						@click=${(e: MouseEvent) => this.handleAction(e, 'switch')}
+					>
+						${when(
+							this.wip.pullRequest == null,
+							() => html`<code-icon icon="git-branch"></code-icon>`,
+						)}<span class="branch">${branch.name}</span
+						><code-icon icon="chevron-down" size="10"></code-icon></a
+				></gl-tooltip>
 			</div>
 			<div class="group">
-				<a
-					href="#"
-					class="commit-action"
-					title="Fetch"
-					@click=${(e: MouseEvent) => this.handleAction(e, 'fetch')}
-					><code-icon icon="gl-repo-fetch"></code-icon
-				></a>
+				<gl-tooltip placement="bottom" content="Fetch">
+					<a href="#" class="commit-action" @click=${(e: MouseEvent) => this.handleAction(e, 'fetch')}
+						><code-icon icon="gl-repo-fetch"></code-icon></a
+				></gl-tooltip>
 			</div>
 		`;
 	}

@@ -143,6 +143,10 @@ export class GlButton extends LitElement {
 				cursor: not-allowed;
 				pointer-events: none;
 			}
+
+			gl-tooltip {
+				display: inline-flex;
+			}
 		`,
 	];
 

@@ -110,11 +110,7 @@ export class GlCommitDetails extends GlDetailsBase {
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full data-action="pick-commit">Choose Commit...</gl-button>
-						<gl-button
-							density="compact"
-							data-action="search-commit"
-							aria-label="Search for Commit"
-							title="Search for Commit"
+						<gl-button density="compact" data-action="search-commit" tooltip="Search for Commit"
 							><code-icon icon="search"></code-icon
 						></gl-button>
 					</span>
