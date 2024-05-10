@@ -48,6 +48,7 @@ export class GlButton extends LitElement {
 			.control {
 				display: inline-block;
 				padding: var(--button-padding);
+				line-height: normal;
 
 				color: inherit;
 				text-decoration: none;
