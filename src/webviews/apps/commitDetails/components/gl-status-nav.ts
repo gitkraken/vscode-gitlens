@@ -110,6 +110,7 @@ export class GlStatusNav extends LitElement {
 									.date=${this.wip!.pullRequest!.updatedDate}
 									.dateFormat="${this.preferences?.dateFormat}"
 									.dateStyle="${this.preferences?.dateStyle}"
+									details
 								></issue-pull-request>
 							</div>
 						</gl-popover>`,

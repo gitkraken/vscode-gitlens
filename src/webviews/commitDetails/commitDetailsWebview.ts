@@ -99,6 +99,7 @@ import {
 	OpenFileOnRemoteCommand,
 	OpenPullRequestChangesCommand,
 	OpenPullRequestComparisonCommand,
+	OpenPullRequestDetailsCommand,
 	OpenPullRequestOnRemoteCommand,
 	PickCommitCommand,
 	PinCommand,
@@ -496,6 +497,9 @@ export class CommitDetailsWebviewProvider
 			case OpenPullRequestOnRemoteCommand.is(e):
 				void this.openPullRequestOnRemote();
 				break;
+			case OpenPullRequestDetailsCommand.is(e):
+				void this.showPullRequestDetails();
+				break;
 		}
 	}
 
@@ -662,12 +666,15 @@ export class CommitDetailsWebviewProvider
 		void RepoActions.switchTo(path);
 	}
 
-	private get pullRequestContext(): { pr: PullRequest; repoPath: string } | undefined {
+	private get pullRequestContext():
+		| { pr: PullRequest; repoPath: string; branch?: GitBranch; commit?: GitCommit }
+		| undefined {
 		if (this.mode === 'wip') {
 			if (this._context.wip?.pullRequest == null) return;
 
 			return {
 				repoPath: this._context.wip.repo.path,
+				branch: this._context.wip.branch,
 				pr: this._context.wip.pullRequest,
 			};
 		}
@@ -676,6 +683,7 @@ export class CommitDetailsWebviewProvider
 
 		return {
 			repoPath: this._context.commit!.repoPath,
+			commit: this._context.commit!,
 			pr: this._context.pullRequest,
 		};
 	}
@@ -718,8 +726,15 @@ export class CommitDetailsWebviewProvider
 			pr: { url: url },
 			clipboard: clipboard,
 		});
+	}
 
-		await Promise.resolve();
+	private async showPullRequestDetails() {
+		if (this.pullRequestContext == null) return;
+
+		const { pr, repoPath, branch, commit } = this.pullRequestContext;
+		if (pr == null) return;
+
+		return this.container.pullRequestView.showPullRequest(pr, commit ?? branch ?? repoPath);
 	}
 
 	onRefresh(_force?: boolean | undefined): void {

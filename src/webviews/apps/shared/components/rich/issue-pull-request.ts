@@ -1,7 +1,9 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import '../formatted-date';
+import { when } from 'lit/directives/when.js';
+import '../button';
 import '../code-icon';
+import '../formatted-date';
 
 @customElement('issue-pull-request')
 export class IssuePullRequest extends LitElement {
@@ -11,6 +13,7 @@ export class IssuePullRequest extends LitElement {
 			gap: 0.25rem 0.6rem;
 			justify-content: start;
 			font-size: 1.3rem;
+			grid-template-columns: min-content 1fr min-content;
 		}
 
 		a {
@@ -46,6 +49,12 @@ export class IssuePullRequest extends LitElement {
 			grid-row: 2;
 			margin: 0;
 		}
+
+		.details {
+			grid-column: 3;
+			grid-row: 1 / 3;
+			margin: 0;
+		}
 	`;
 
 	@property()
@@ -71,6 +80,9 @@ export class IssuePullRequest extends LitElement {
 
 	@property()
 	key = '';
+
+	@property({ type: Boolean })
+	details = false;
 
 	renderDate() {
 		if (this.date === '') {
@@ -119,6 +131,26 @@ export class IssuePullRequest extends LitElement {
 				<a href="${this.url}">${this.name}</a>
 			</p>
 			<p class="date">${this.key} ${this.status ? this.status : nothing} ${this.renderDate()}</p>
+			${when(
+				this.details === true,
+				() => html`
+					<p class="details">
+						<gl-button appearance="toolbar" tooltip="View Details" @click=${() => this.onDetailsClicked()}
+							><code-icon icon="info"></code-icon
+						></gl-button>
+					</p>
+				`,
+			)}
 		`;
+	}
+
+	private onDetailsClicked() {
+		this.dispatchEvent(
+			new CustomEvent('gl-issue-pull-request-details', {
+				bubbles: true,
+				cancelable: false,
+				composed: true,
+			}),
+		);
 	}
 }
