@@ -514,12 +514,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async getOrganizationMembers() {
-		const sub = await this.container.subscription.getSubscription(true);
-		const activeOrg = sub?.activeOrganization;
-		// TODO: need messaging for no Org
-		if (activeOrg == null) return [];
-
-		return this.container.organizations.getOrganizationMembers(activeOrg.id);
+		return this.container.organizations.getMembers();
 	}
 
 	private async onInviteUsers() {

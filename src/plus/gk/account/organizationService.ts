@@ -169,17 +169,25 @@ export class OrganizationService implements Disposable {
 	}
 
 	@gate()
-	async getOrganizationMembers(id: string, options?: { force?: boolean }): Promise<OrganizationMember[]> {
-		const organization = await this.getFullOrganization(id, options);
-		if (organization != null) {
-			return organization.members;
+	async getMembers(
+		organizationId?: string | undefined,
+		options?: { force?: boolean },
+	): Promise<OrganizationMember[]> {
+		if (organizationId == null) {
+			organizationId = await this.getActiveOrganizationId();
+			if (organizationId == null) return [];
 		}
 
-		return [];
+		const organization = await this.getFullOrganization(organizationId, options);
+		return organization?.members ?? [];
 	}
 
-	async getOrganizationMembersById(ids: string[], orgId: string): Promise<OrganizationMember[]> {
-		return (await this.getOrganizationMembers(orgId)).filter(member => ids.includes(member.id));
+	async getMemberById(id: string, organizationId: string): Promise<OrganizationMember | undefined> {
+		return (await this.getMembers(organizationId)).find(m => m.id === id);
+	}
+
+	async getMembersByIds(ids: string[], organizationId: string): Promise<OrganizationMember[]> {
+		return (await this.getMembers(organizationId)).filter(m => ids.includes(m.id));
 	}
 
 	private async getActiveOrganizationId(cached = true): Promise<string | undefined> {

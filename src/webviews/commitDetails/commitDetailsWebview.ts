@@ -1143,17 +1143,14 @@ export class CommitDetailsWebviewProvider
 
 		for (const draft of results) {
 			if (draft.author.avatar != null || draft.organizationId == null) continue;
+
 			let email = draft.author.email;
 			if (email == null) {
-				const user = (
-					await this.container.organizations.getOrganizationMembersById(
-						[draft.author.id],
-						draft.organizationId,
-					)
-				)[0];
+				const user = await this.container.organizations.getMemberById(draft.author.id, draft.organizationId);
 				email = user?.email;
 			}
 			if (email == null) continue;
+
 			draft.author.avatar = getAvatarUri(email).toString();
 		}
 
