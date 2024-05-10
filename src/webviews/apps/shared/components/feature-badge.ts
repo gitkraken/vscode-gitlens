@@ -211,9 +211,15 @@ export class GlFeatureBadge extends LitElement {
 		let content;
 		switch (this.state) {
 			case SubscriptionState.Paid:
-				content = html`Your
-				${getSubscriptionPlanName(this.subscription?.plan.actual.id ?? SubscriptionPlanId.Pro)} plan provides
-				access to all Pro features.`;
+				content = html`<p>
+					Your
+					<gl-tooltip placement="bottom" content="Show Account view">
+						<a href="command:gitlens.showAccountView"
+							>${getSubscriptionPlanName(this.subscription?.plan.actual.id ?? SubscriptionPlanId.Pro)}</a
+						>
+					</gl-tooltip>
+					plan provides access to all Pro features.
+				</p>`;
 				break;
 
 			case SubscriptionState.VerificationRequired:
