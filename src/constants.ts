@@ -403,7 +403,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowMergeCommits${'On' | 'Off'}`
 			| `setShowStatistics${'On' | 'Off'}`}`
-	| `drafts.${'copy' | 'refresh' | 'create' | 'delete'}`
+	| `drafts.${'copy' | 'refresh' | 'info' | 'create' | 'delete' | `setShowAvatars${'On' | 'Off'}`}`
 	| `fileHistory.${
 			| 'copy'
 			| 'refresh'

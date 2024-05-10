@@ -8,8 +8,10 @@ import { unknownGitUri } from '../git/gitUri';
 import type { Draft } from '../gk/models/drafts';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { groupByFilterMap } from '../system/iterable';
+import { openUrl } from '../system/utils';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import { DraftNode } from './nodes/draftNode';
 import { GroupingNode } from './nodes/groupingNode';
@@ -115,11 +117,11 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 		void this.container.viewCommands;
 
 		return [
-			// registerViewCommand(
-			// 	this.getQualifiedCommand('info'),
-			// 	() => env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/side-bar/#drafts-☁%ef%b8%8f')),
-			// 	this,
-			// ),
+			registerViewCommand(
+				this.getQualifiedCommand('info'),
+				() => openUrl('https://help.gitkraken.com/gitlens/side-bar/#drafts-☁%ef%b8%8f'),
+				this,
+			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
@@ -153,6 +155,8 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 				},
 				this,
 			),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 		];
 	}
 
@@ -184,5 +188,9 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 		await this.ensureRevealNode(node, options);
 
 		return node;
+	}
+
+	private setShowAvatars(enabled: boolean) {
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 }

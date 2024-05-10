@@ -7710,6 +7710,22 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.views.drafts.info",
+				"title": "Learn about Cloud Patches...",
+				"category": "GitLens",
+				"icon": "$(info)"
+			},
+			{
+				"command": "gitlens.views.drafts.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.drafts.setShowAvatarsOff",
+				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.drafts.create",
 				"title": "Create Cloud Patch...",
 				"category": "GitLens",
@@ -8349,7 +8365,7 @@
 			},
 			{
 				"command": "gitlens.views.workspaces.info",
-				"title": "Learn more about GitKraken Workspaces...",
+				"title": "Learn about GitKraken Workspaces...",
 				"category": "GitLens",
 				"icon": "$(info)"
 			},
@@ -11049,6 +11065,18 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.drafts.info",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.drafts.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.drafts.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.drafts.create",
 					"when": "false"
 				},
@@ -12822,6 +12850,21 @@
 					"command": "gitlens.views.drafts.create",
 					"when": "view =~ /^gitlens\\.views\\.drafts/ && gitlens:plus",
 					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.views.drafts.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.drafts/ && !config.gitlens.views.drafts.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.drafts.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.drafts/ && config.gitlens.views.drafts.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.drafts.info",
+					"when": "view =~ /^gitlens\\.views\\.drafts/",
+					"group": "8_info@1"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setEditorFollowingOn",
