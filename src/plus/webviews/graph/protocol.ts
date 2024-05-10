@@ -26,7 +26,7 @@ import type { Config, DateStyle } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
-import type { PullRequestRefs } from '../../../git/models/pullRequest';
+import type { PullRequestRefs, PullRequestShape } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -131,6 +131,7 @@ export interface BranchState extends GitTrackingState {
 		icon?: string;
 		url?: string;
 	};
+	pr?: PullRequestShape;
 }
 
 export type GraphWorkingTreeStats = WorkDirStats;
@@ -242,6 +243,14 @@ export interface GetMoreRowsParams {
 	id?: string;
 }
 export const GetMoreRowsCommand = new IpcCommand<GetMoreRowsParams>(scope, 'rows/get');
+
+export interface OpenPullRequestDetailsParams {
+	id?: string;
+}
+export const OpenPullRequestDetailsCommand = new IpcCommand<OpenPullRequestDetailsParams>(
+	scope,
+	'pullRequest/openDetails',
+);
 
 export interface SearchOpenInViewParams {
 	search: SearchQuery;

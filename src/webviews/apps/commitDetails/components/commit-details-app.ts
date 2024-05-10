@@ -42,6 +42,7 @@ import {
 } from '../../../commitDetails/protocol';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommand } from '../../../protocol';
+import type { IssuePullRequest } from '../../shared/components/rich/issue-pull-request';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../../shared/components/webview-pane';
 import type { Disposable } from '../../shared/dom';
 import { DOM } from '../../shared/dom';
@@ -59,7 +60,6 @@ import './gl-commit-details';
 import './gl-wip-details';
 import './gl-inspect-nav';
 import './gl-status-nav';
-import type { IssuePullRequest } from '../../shared/components/rich/issue-pull-request';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
 

@@ -1,12 +1,23 @@
-import { css, html, LitElement, nothing } from 'lit';
+import { css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import '../button';
 import '../code-icon';
 import '../formatted-date';
+import { GlElement } from '../element';
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'issue-pull-request': IssuePullRequest;
+	}
+
+	interface GlobalEventHandlersEventMap {
+		'gl-issue-pull-request-details': CustomEvent<void>;
+	}
+}
 
 @customElement('issue-pull-request')
-export class IssuePullRequest extends LitElement {
+export class IssuePullRequest extends GlElement {
 	static override styles = css`
 		:host {
 			display: grid;
@@ -14,6 +25,10 @@ export class IssuePullRequest extends LitElement {
 			justify-content: start;
 			font-size: 1.3rem;
 			grid-template-columns: min-content 1fr min-content;
+		}
+
+		:host([compact]) {
+			grid-template-columns: min-content 1fr;
 		}
 
 		a {
@@ -64,7 +79,7 @@ export class IssuePullRequest extends LitElement {
 	name = '';
 
 	@property()
-	date = '';
+	date?: number | string | Date;
 
 	@property()
 	dateFormat?: string;
@@ -79,17 +94,19 @@ export class IssuePullRequest extends LitElement {
 	type: 'autolink' | 'issue' | 'pr' = 'autolink';
 
 	@property()
-	key = '';
+	identifier = '';
+
+	@property({ type: Boolean, reflect: true })
+	compact?: boolean;
 
 	@property({ type: Boolean })
 	details = false;
 
 	renderDate() {
-		if (this.date === '') {
-			return nothing;
-		}
+		if (!this.date) return nothing;
+
 		return html`<formatted-date
-			date="${this.date}"
+			.date=${new Date(this.date)}
 			.format=${this.dateFormat}
 			.dateStyle=${this.dateStyle}
 		></formatted-date>`;
@@ -125,18 +142,25 @@ export class IssuePullRequest extends LitElement {
 				break;
 		}
 
+		if (this.compact) {
+			return html`
+				<span class="icon icon--${status}"><code-icon icon=${icon}></code-icon></span>
+				<p class="title">${this.identifier}</p>
+			`;
+		}
+
 		return html`
 			<span class="icon icon--${status}"><code-icon icon=${icon}></code-icon></span>
 			<p class="title">
 				<a href="${this.url}">${this.name}</a>
 			</p>
-			<p class="date">${this.key} ${this.status ? this.status : nothing} ${this.renderDate()}</p>
+			<p class="date">${this.identifier} ${this.status ? this.status : nothing} ${this.renderDate()}</p>
 			${when(
 				this.details === true,
 				() => html`
 					<p class="details">
-						<gl-button appearance="toolbar" tooltip="View Details" @click=${() => this.onDetailsClicked()}
-							><code-icon icon="info"></code-icon
+						<gl-button appearance="toolbar" tooltip="Open Details" @click=${() => this.onDetailsClicked()}
+							><code-icon icon="eye"></code-icon
 						></gl-button>
 					</p>
 				`,
@@ -145,12 +169,6 @@ export class IssuePullRequest extends LitElement {
 	}
 
 	private onDetailsClicked() {
-		this.dispatchEvent(
-			new CustomEvent('gl-issue-pull-request-details', {
-				bubbles: true,
-				cancelable: false,
-				composed: true,
-			}),
-		);
+		this.emit('gl-issue-pull-request-details');
 	}
 }

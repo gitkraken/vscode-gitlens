@@ -268,7 +268,7 @@ export class GlCommitDetails extends GlDetailsBase {
 															type="autolink"
 															name="${name}"
 															url="${autolink.url}"
-															key="${autolink.prefix}${autolink.id}"
+															identifier="${autolink.prefix}${autolink.id}"
 															status=""
 														></issue-pull-request>
 													`;
@@ -289,9 +289,9 @@ export class GlCommitDetails extends GlDetailsBase {
 																type="pr"
 																name="${pr.title}"
 																url="${pr.url}"
-																key="#${pr.id}"
+																identifier="#${pr.id}"
 																status="${pr.state}"
-																date=${pr.updatedDate}
+																.date=${pr.updatedDate}
 																.dateFormat="${this.state!.preferences.dateFormat}"
 																.dateStyle="${this.state!.preferences.dateStyle}"
 															></issue-pull-request>
@@ -310,11 +310,9 @@ export class GlCommitDetails extends GlDetailsBase {
 															type="issue"
 															name="${issue.title}"
 															url="${issue.url}"
-															key="${issue.id}"
+															identifier="${issue.id}"
 															status="${issue.state}"
-															date="${issue.closed
-																? issue.closedDate
-																: issue.createdDate}"
+															.date=${issue.closed ? issue.closedDate : issue.createdDate}
 															.dateFormat="${this.state!.preferences.dateFormat}"
 															.dateStyle="${this.state!.preferences.dateStyle}"
 														></issue-pull-request>
