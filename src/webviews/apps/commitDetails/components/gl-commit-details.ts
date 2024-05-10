@@ -20,6 +20,8 @@ import '../../shared/components/actions/action-item';
 import '../../shared/components/actions/action-nav';
 import '../../shared/components/commit/commit-identity';
 import '../../shared/components/commit/commit-stats';
+import '../../shared/components/overlays/popover';
+import '../../shared/components/overlays/tooltip';
 import '../../shared/components/rich/issue-pull-request';
 
 interface ExplainState {
@@ -161,6 +163,35 @@ export class GlCommitDetails extends GlDetailsBase {
 		`;
 	}
 
+	private renderJiraLink() {
+		if (this.state == null) return 'Jira issues';
+
+		const { hasAccount, hasConnectedJira } = this.state;
+
+		let message = html`<a
+				href="command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
+					JSON.stringify({
+						source: 'commitDetails',
+						integrationId: 'jira',
+					}),
+				)}"
+				>Connect to Jira Cloud</a
+			>
+			&mdash; ${hasAccount ? '' : 'sign up and '}get access to automatic rich Jira autolinks.`;
+
+		if (hasAccount && hasConnectedJira) {
+			message = html`<i class="codicon codicon-check" style="vertical-align: text-bottom"></i> Jira connected
+				&mdash; automatic rich Jira autolinks are enabled.`;
+		}
+
+		return html`<gl-popover class="inline-popover" placement="bottom">
+			<span class="tooltip-hint" slot="anchor"
+				>Jira issues <code-icon icon="${hasConnectedJira ? 'check' : 'gl-unplug'}"></code-icon
+			></span>
+			<span slot="content">${message}</span>
+		</gl-popover>`;
+	}
+
 	private renderAutoLinks() {
 		if (this.isUncommitted) return undefined;
 
@@ -205,6 +236,13 @@ export class GlCommitDetails extends GlDetailsBase {
 			}
 		}
 
+		const jiraIntegrationLink = `command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
+			JSON.stringify({
+				source: 'commitDetails',
+				integrationId: 'jira',
+			}),
+		)}`;
+
 		return html`
 			<webview-pane
 				collapsable
@@ -219,6 +257,19 @@ export class GlCommitDetails extends GlDetailsBase {
 						? ''
 						: '…'}</span
 				>
+				<action-nav slot="actions">
+					<action-item
+						data-action="autolinks-settings"
+						label="Autolinks Settings"
+						icon="info"
+						href="command:gitlens.showSettingsPage!autolinks"
+					></action-item>
+					<action-item
+						label="Manage Jira"
+						icon="gl-provider-jira"
+						href="${jiraIntegrationLink}"
+					></action-item>
+				</action-nav>
 				${when(
 					this.state == null,
 					() => html`
@@ -240,11 +291,16 @@ export class GlCommitDetails extends GlDetailsBase {
 								<div class="section" data-region="rich-info">
 									<p>
 										<code-icon icon="info"></code-icon>&nbsp;Use
-										<a href="#" data-action="autolink-settings" title="Configure autolinks"
-											>autolinks</a
-										>
-										to linkify external references, like Jira issues or Zendesk tickets, in commit
-										messages.
+										<gl-tooltip>
+											<a
+												href="command:gitlens.showSettingsPage!autolinks"
+												data-action="autolink-settings"
+												>autolinks</a
+											>
+											<span slot="content">Configure autolinks</span>
+										</gl-tooltip>
+										to linkify external references, like ${this.renderJiraLink()} or Zendesk
+										tickets, in commit messages.
 									</p>
 								</div>
 							`;

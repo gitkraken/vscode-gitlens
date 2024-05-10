@@ -7,10 +7,11 @@ import type { Serialized } from '../../../../system/serialize';
 import { pluralize } from '../../../../system/string';
 import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
 import {
-	AutolinkSettingsCommand,
 	ChangeReviewModeCommand,
 	CreatePatchFromWipCommand,
+	DidChangeConnectedJiraNotification,
 	DidChangeDraftStateNotification,
+	DidChangeHasAccountNotification,
 	DidChangeNotification,
 	DidChangeWipStateNotification,
 	ExecuteCommitActionCommand,
@@ -198,7 +199,6 @@ export class GlCommitDetailsApp extends LitElement {
 			DOM.on('[data-action="wip"]', 'click', e => this.onSwitchMode(e, 'wip')),
 			DOM.on('[data-action="details"]', 'click', e => this.onSwitchMode(e, 'commit')),
 			DOM.on('[data-action="search-commit"]', 'click', e => this.onSearchCommit(e)),
-			DOM.on('[data-action="autolink-settings"]', 'click', e => this.onAutolinkSettings(e)),
 			DOM.on('[data-action="files-layout"]', 'click', e => this.onToggleFilesLayout(e)),
 			DOM.on<GlInspectNav, undefined>('gl-inspect-nav', 'gl-pin', () => this.onTogglePin()),
 			DOM.on<GlInspectNav, undefined>('gl-inspect-nav', 'gl-back', () => this.onNavigate('back')),
@@ -320,6 +320,14 @@ export class GlCommitDetailsApp extends LitElement {
 				break;
 			case DidChangeDraftStateNotification.is(msg):
 				this.onDraftStateChanged(msg.params.inReview, true);
+				break;
+			case DidChangeConnectedJiraNotification.is(msg):
+				this.state = { ...this.state!, hasConnectedJira: msg.params.hasConnectedJira };
+				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
+				break;
+			case DidChangeHasAccountNotification.is(msg):
+				this.state = { ...this.state!, hasAccount: msg.params.hasAccount };
+				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
 				break;
 		}
 	}
@@ -598,11 +606,6 @@ export class GlCommitDetailsApp extends LitElement {
 
 	private onTogglePin() {
 		this._hostIpc.sendCommand(PinCommand, { pin: !this.state!.pinned });
-	}
-
-	private onAutolinkSettings(e: MouseEvent) {
-		e.preventDefault();
-		this._hostIpc.sendCommand(AutolinkSettingsCommand, undefined);
 	}
 
 	private onPickCommit(_e: MouseEvent) {

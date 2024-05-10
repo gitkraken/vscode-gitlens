@@ -104,6 +104,8 @@ export interface State extends WebviewState {
 	pullRequest?: PullRequestShape;
 	wip?: Wip;
 	inReview?: boolean;
+	hasConnectedJira: boolean;
+	hasAccount: boolean;
 }
 
 export type ShowCommitDetailsViewCommandArgs = string[];
@@ -219,6 +221,22 @@ export type DidChangeOrgSettings = Pick<Serialized<State>, 'orgSettings'>;
 export const DidChangeOrgSettingsNotification = new IpcNotification<DidChangeOrgSettings>(
 	scope,
 	'org/settings/didChange',
+);
+
+export interface DidChangeConnectedJiraParams {
+	hasConnectedJira: boolean;
+}
+export const DidChangeConnectedJiraNotification = new IpcNotification<DidChangeConnectedJiraParams>(
+	scope,
+	'didChange/jira',
+);
+
+export interface DidChangeHasAccountParams {
+	hasAccount: boolean;
+}
+export const DidChangeHasAccountNotification = new IpcNotification<DidChangeHasAccountParams>(
+	scope,
+	'didChange/account',
 );
 
 export interface DidChangeDraftStateParams {

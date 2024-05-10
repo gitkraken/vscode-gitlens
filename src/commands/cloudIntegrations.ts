@@ -5,7 +5,7 @@ import { command } from '../system/command';
 import { Command } from './base';
 
 export interface ManageCloudIntegrationsCommandArgs {
-	source?: 'settings' | 'account' | 'home';
+	source?: 'settings' | 'account' | 'home' | 'commitDetails';
 	integrationId?: IssueIntegrationId.Jira;
 }
 @command()
