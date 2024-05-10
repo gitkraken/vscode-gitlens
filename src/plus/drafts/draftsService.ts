@@ -888,9 +888,9 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	generateGkDevUrl(draftId: string): string;
-	generateGkDevUrl(draft: Draft): string;
-	generateGkDevUrl(draftOrDraftId: Draft | string): string {
+	generateWebUrl(draftId: string): string;
+	generateWebUrl(draft: Draft): string;
+	generateWebUrl(draftOrDraftId: Draft | string): string {
 		const id = typeof draftOrDraftId === 'string' ? draftOrDraftId : draftOrDraftId.id;
 		return this.connection.getGkDevUri(`/drafts/${id}`, `?source=gitlens`).toString();
 	}
