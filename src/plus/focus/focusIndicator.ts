@@ -21,7 +21,7 @@ export class FocusIndicator implements Disposable {
 
 	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
 
-	private _state: FocusIndicatorState;
+	private _state?: FocusIndicatorState;
 
 	private _lastDataUpdate: Date | undefined;
 
@@ -38,7 +38,7 @@ export class FocusIndicator implements Disposable {
 			container.integrations.onDidChangeConnectionState(this.onConnectedIntegrationsChanged, this),
 			...this.registerCommands(),
 		);
-		this._state = 'idle';
+
 		void this.onReady();
 	}
 
@@ -200,7 +200,6 @@ export class FocusIndicator implements Disposable {
 		tooltip.appendMarkdown(`[$(gear)](command:workbench.action.openSettings?%22gitlens.launchpad%22 "Settings")`);
 		tooltip.appendMarkdown('\u00a0\u00a0|\u00a0\u00a0');
 		tooltip.appendMarkdown(`[$(circle-slash) Hide](command:gitlens.launchpad.indicator.action?"hide" "Hide")`);
-		tooltip.appendMarkdown('\n\n---\n\n');
 
 		// TODO: Also add as a first-time tooltip
 		if (
@@ -209,6 +208,7 @@ export class FocusIndicator implements Disposable {
 			state === 'loading' ||
 			(state === 'load' && !this.hasInteracted())
 		) {
+			tooltip.appendMarkdown('\n\n---\n\n');
 			tooltip.appendMarkdown(
 				'[Launchpad](command:gitlens.getStarted?"gitlens.welcome.launchpad" "Learn about Launchpad") organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
 			);
@@ -228,7 +228,7 @@ export class FocusIndicator implements Disposable {
 			case 'disconnected':
 				this.clearRefreshTimer();
 				tooltip.appendMarkdown(
-					`\n\n[Connect to GitHub](command:gitlens.launchpad.indicator.action?"connectGitHub" "Connect to GitHub") to get started.`,
+					`\n\n---\n\n[Connect to GitHub](command:gitlens.launchpad.indicator.action?"connectGitHub" "Connect to GitHub") to get started.`,
 				);
 
 				this._statusBarFocus.text = `$(rocket)$(gitlens-unplug) Launchpad`;
@@ -284,8 +284,10 @@ export class FocusIndicator implements Disposable {
 
 		const hasImportantGroupsWithItems = groups.some(group => groupedItems.get(group)?.length);
 		if (totalGroupedItems === 0) {
+			tooltip.appendMarkdown('\n\n---\n\n');
 			tooltip.appendMarkdown('You are all caught up!');
 		} else if (!hasImportantGroupsWithItems) {
+			tooltip.appendMarkdown('\n\n---\n\n');
 			tooltip.appendMarkdown(
 				`No pull requests need your attention\\\n(${totalGroupedItems} other pull requests)`,
 			);
