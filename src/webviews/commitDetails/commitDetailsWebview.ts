@@ -37,8 +37,10 @@ import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { CreateDraftChange, Draft, DraftVisibility } from '../../gk/models/drafts';
 import { showPatchesView } from '../../plus/drafts/actions';
-import { isSubscriptionPaid } from '../../plus/gk/account/subscription';
+import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
+import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
+import { IssueIntegrationId } from '../../plus/integrations/providers/models';
 import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
 import { confirmDraftStorage, ensureAccount } from '../../plus/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
@@ -81,10 +83,11 @@ import type {
 	WipChange,
 } from './protocol';
 import {
-	AutolinkSettingsCommand,
 	ChangeReviewModeCommand,
 	CreatePatchFromWipCommand,
+	DidChangeConnectedJiraNotification,
 	DidChangeDraftStateNotification,
+	DidChangeHasAccountNotification,
 	DidChangeNotification,
 	DidChangeWipStateNotification,
 	ExecuteCommitActionCommand,
@@ -148,6 +151,8 @@ interface Context {
 	inReview: boolean;
 	orgSettings: State['orgSettings'];
 	source?: 'commitDetails' | 'patchDetails' | 'repoStatus' | 'deepLink' | 'launchpad';
+	hasConnectedJira: boolean | undefined;
+	hasAccount: boolean | undefined;
 }
 
 export class CommitDetailsWebviewProvider
@@ -185,12 +190,15 @@ export class CommitDetailsWebviewProvider
 			pullRequest: undefined,
 			wip: undefined,
 			orgSettings: this.getOrgSettings(),
+			hasConnectedJira: undefined,
+			hasAccount: undefined,
 		};
 
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionStateChanged, this),
 		);
 	}
 
@@ -426,10 +434,6 @@ export class CommitDetailsWebviewProvider
 
 			case SwitchModeCommand.is(e):
 				this.switchMode(e.params);
-				break;
-
-			case AutolinkSettingsCommand.is(e):
-				this.showAutolinkSettings();
 				break;
 
 			case PinCommand.is(e):
@@ -809,8 +813,50 @@ export class CommitDetailsWebviewProvider
 		}
 	}
 
-	private onSubscriptionChanged(_e: SubscriptionChangeEvent) {
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		void this.updateCodeSuggestions();
+		this.updateHasAccount(e.current);
+	}
+
+	updateHasAccount(subscription: Subscription) {
+		const hasAccount = subscription.account != null;
+		if (this._context.hasAccount == hasAccount) return;
+
+		this._context.hasAccount = hasAccount;
+		void this.host.notify(DidChangeHasAccountNotification, { hasAccount: hasAccount });
+	}
+
+	onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
+		if (e.key === 'jira') {
+			const hasConnectedJira = e.reason === 'connected';
+			if (this._context.hasConnectedJira === hasConnectedJira) return;
+
+			this._context.hasConnectedJira = hasConnectedJira;
+			void this.host.notify(DidChangeConnectedJiraNotification, {
+				hasConnectedJira: this._context.hasConnectedJira,
+			});
+		}
+	}
+
+	async getHasJiraConnection(force = false): Promise<boolean> {
+		if (this._context.hasConnectedJira != null && !force) return this._context.hasConnectedJira;
+
+		const jira = await this.container.integrations.get(IssueIntegrationId.Jira);
+		if (jira == null) {
+			this._context.hasConnectedJira = false;
+		} else {
+			this._context.hasConnectedJira = jira.maybeConnected ?? (await jira.isConnected());
+		}
+
+		return this._context.hasConnectedJira;
+	}
+
+	async getHasAccount(force = false): Promise<boolean> {
+		if (this._context.hasAccount != null && !force) return this._context.hasAccount;
+
+		this._context.hasAccount = (await this.container.subscription.getSubscription())?.account != null;
+
+		return this._context.hasAccount;
 	}
 
 	private getPreferences(): Preferences {
@@ -1062,6 +1108,14 @@ export class CommitDetailsWebviewProvider
 			}, 100);
 		}
 
+		if (current.hasConnectedJira == null) {
+			current.hasConnectedJira = await this.getHasJiraConnection();
+		}
+
+		if (current.hasAccount == null) {
+			current.hasAccount = await this.getHasAccount();
+		}
+
 		const state = serialize<State>({
 			...this.host.baseWebviewState,
 			mode: current.mode,
@@ -1075,6 +1129,8 @@ export class CommitDetailsWebviewProvider
 			wip: serializeWipContext(wip),
 			orgSettings: current.orgSettings,
 			inReview: current.inReview,
+			hasConnectedJira: current.hasConnectedJira,
+			hasAccount: current.hasAccount,
 		});
 		return state;
 	}
@@ -1185,10 +1241,7 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private async canAccessDrafts(): Promise<boolean> {
-		const subscription = await this.container.subscription.getSubscription();
-		if (!isSubscriptionPaid(subscription)) {
-			return false;
-		}
+		if ((await this.getHasAccount()) === false) return false;
 
 		return getContext<boolean>('gitlens:gk:organization:drafts:enabled', false);
 	}
@@ -1649,10 +1702,6 @@ export class CommitDetailsWebviewProvider
 
 		commit = await commit?.getCommitForFile(params.path, params.staged);
 		return commit != null ? [commit, commit.file!] : undefined;
-	}
-
-	private showAutolinkSettings() {
-		void executeCommand(Commands.ShowSettingsPageAndJumpToAutolinks);
 	}
 
 	private showCommitPicker() {

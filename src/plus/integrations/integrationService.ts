@@ -106,7 +106,7 @@ export class IntegrationService implements Disposable {
 	}
 
 	async manageCloudIntegrations(
-		source: 'settings' | 'account' | 'home' | 'commandPalette',
+		source: 'settings' | 'account' | 'home' | 'commandPalette' | 'commitDetails',
 		integrationId?: IssueIntegrationId.Jira,
 	) {
 		if (this.container.telemetry.enabled) {

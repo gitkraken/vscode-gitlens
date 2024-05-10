@@ -153,3 +153,12 @@ hr {
 	padding: 0px 4px 2px 4px;
 	font-family: var(--vscode-editor-font-family);
 }
+
+.inline-popover {
+	display: inline-block;
+}
+
+.tooltip-hint {
+	white-space: nowrap;
+	border-bottom: 1px dashed currentColor;
+}

@@ -37,13 +37,17 @@ export class ActionItem extends LitElement {
 			pointer-events: none;
 			opacity: 0.5;
 		}
+
+		a {
+			color: inherit;
+		}
 	`;
 
 	@property()
 	href?: string;
 
 	@property()
-	label = '';
+	label?: string;
 
 	@property()
 	icon = '';
@@ -56,9 +60,10 @@ export class ActionItem extends LitElement {
 			<a
 				role="${!this.href ? 'button' : nothing}"
 				type="${!this.href ? 'button' : nothing}"
-				aria-label="${this.label}"
-				title="${this.label}"
+				aria-label="${this.label ?? nothing}"
+				title="${this.label ?? nothing}"
 				?disabled=${this.disabled}
+				href=${this.href ?? nothing}
 			>
 				<code-icon icon="${this.icon}"></code-icon>
 			</a>
