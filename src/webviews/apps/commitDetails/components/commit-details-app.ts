@@ -52,6 +52,7 @@ import type { CreatePatchEventDetail } from './gl-inspect-patch';
 import type { GlWipDetails } from './gl-wip-details';
 import '../../shared/components/code-icon';
 import '../../shared/components/indicators/indicator';
+import '../../shared/components/overlays/tooltip';
 import '../../shared/components/pills/tracking';
 import './gl-commit-details';
 import './gl-wip-details';
@@ -369,51 +370,57 @@ export class GlCommitDetailsApp extends LitElement {
 		`;
 	}
 
+	renderWipTooltipContent() {
+		if (this.wipStatus == null) return 'Overview';
+
+		return html`
+			Overview for ${this.wipStatus.branch}
+			${when(
+				this.wipStatus.working > 0,
+				() =>
+					html`<br />
+						- ${pluralize('working change', this.wipStatus!.working)}`,
+			)}
+			${when(
+				this.wipStatus.status === 'both',
+				() =>
+					html`<br />
+						- Behind ${pluralize('commit', this.wipStatus!.behind)} and ahead
+						${pluralize('commit', this.wipStatus!.ahead)}`,
+			)}
+			${when(
+				this.wipStatus.status === 'behind',
+				() =>
+					html`<br />
+						- Behind ${pluralize('commit', this.wipStatus!.behind)}`,
+			)}
+			${when(
+				this.wipStatus.status === 'ahead',
+				() =>
+					html`<br />
+						- Ahead ${pluralize('commit', this.wipStatus!.ahead)}`,
+			)}
+		`;
+	}
+
 	renderTopSection() {
-		const followTooltip = this.isStash ? 'Stash' : 'Commit';
-
 		const isWip = this.state?.mode === 'wip';
-
-		let wipTooltip = 'Overview';
-		if (this.wipStatus != null) {
-			wipTooltip += ` for ${this.wipStatus.branch}`;
-			if (this.wipStatus.working > 0) {
-				wipTooltip += `\n - ${pluralize('working change', this.wipStatus.working)}`;
-			}
-
-			switch (this.wipStatus.status) {
-				case 'both':
-					wipTooltip += `\n - Behind ${pluralize('commit', this.wipStatus.behind)} and ahead ${pluralize(
-						'commit',
-						this.wipStatus.ahead,
-					)}`;
-					break;
-				case 'behind':
-					wipTooltip += `\n - Behind ${pluralize('commit', this.wipStatus.behind)}`;
-					break;
-				case 'ahead':
-					wipTooltip += `\n - Ahead ${pluralize('commit', this.wipStatus.ahead)}`;
-					break;
-			}
-		}
 
 		return html`
 			<div class="inspect-header">
 				<nav class="inspect-header__tabs">
-					<button
-						class="inspect-header__tab${!isWip ? ' is-active' : ''}"
-						data-action="details"
-						title="${followTooltip}"
-					>
-						<code-icon icon="gl-inspect"></code-icon>
-					</button>
-					<button
-						class="inspect-header__tab${isWip ? ' is-active' : ''}"
-						data-action="wip"
-						title="${wipTooltip}"
-					>
-						${this.renderRepoStatusContent(isWip)}
-					</button>
+					<gl-tooltip>
+						<button class="inspect-header__tab${!isWip ? ' is-active' : ''}" data-action="details">
+							<code-icon icon="gl-inspect"></code-icon>
+						</button>
+						<span slot="content">${this.isStash ? 'Stash' : 'Commit'}</span>
+					</gl-tooltip>
+					<gl-tooltip>
+						<button class="inspect-header__tab${isWip ? ' is-active' : ''}" data-action="wip">
+							${this.renderRepoStatusContent(isWip)}
+						</button>
+						<span slot="content">${this.renderWipTooltipContent()}</span>
+					</gl-tooltip>
 				</nav>
 				<div class="inspect-header__content">
 					${when(

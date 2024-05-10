@@ -139,7 +139,7 @@ export class GlWipDetails extends GlDetailsBase {
 						appearance="secondary"
 						density="compact"
 						data-action="create-patch"
-						title="Share as Cloud Patch"
+						tooltip="Share as Cloud Patch"
 						@click=${() => this.onDataActionClick('create-patch')}
 					>
 						<code-icon icon="gl-cloud-patch-share"></code-icon>

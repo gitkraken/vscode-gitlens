@@ -109,8 +109,8 @@ export class GlInspectNav extends LitElement {
 
 	override render() {
 		const pinLabel = this.pinned
-			? 'Unpin this Commit\nRestores Automatic Following'
-			: 'Pin this Commit\nSuspends Automatic Following';
+			? html`Unpin this Commit<br />Restores Automatic Following`
+			: html`Pin this Commit<br />Suspends Automatic Following`;
 
 		let forwardLabel = 'Forward';
 		let backLabel = 'Back';
@@ -136,96 +136,91 @@ export class GlInspectNav extends LitElement {
 				${when(
 					!this.uncommitted && this.stashNumber == null,
 					() => html`
-						<a
-							class="commit-action"
-							href="#"
-							data-action="commit-actions"
-							data-action-type="sha"
-							aria-label="Copy SHA
+						<gl-tooltip
+							placement="bottom"
+							content="Copy SHA
 [⌥] Pick Commit..."
-							title="Copy SHA
-[⌥] Pick Commit..."
-							@click=${this.handleAction}
-						>
-							<code-icon icon="git-commit"></code-icon>
-							<span class="sha" data-region="shortsha">${this.shortSha}</span></a
+							><a
+								class="commit-action"
+								href="#"
+								data-action="commit-actions"
+								data-action-type="sha"
+								@click=${this.handleAction}
+							>
+								<code-icon icon="git-commit"></code-icon>
+								<span class="sha" data-region="shortsha">${this.shortSha}</span></a
+							></gl-tooltip
 						>
 					`,
 				)}
 			</div>
 			<div class="group">
-				<a
-					class="commit-action${this.pinned ? ' is-active' : ''}"
-					href="#"
-					data-action="pin"
-					aria-label="${pinLabel}"
-					title="${pinLabel}"
-					@click=${this.handleAction}
-					><code-icon icon="${this.pinned ? 'gl-pinned-filled' : 'pin'}" data-region="commit-pin"></code-icon
-				></a>
-				<a
-					class="commit-action${this.navigationState.back ? '' : ' is-disabled'}"
-					aria-disabled="${this.navigationState.back ? 'false' : 'true'}"
-					href="#"
-					data-action="back"
-					aria-label="${backLabel}"
-					title="${backLabel}"
-					@click=${this.handleAction}
-					><code-icon icon="arrow-left" data-region="commit-back"></code-icon
-				></a>
+				<gl-tooltip placement="bottom"
+					><a
+						class="commit-action${this.pinned ? ' is-active' : ''}"
+						href="#"
+						data-action="pin"
+						@click=${this.handleAction}
+						><code-icon
+							icon="${this.pinned ? 'gl-pinned-filled' : 'pin'}"
+							data-region="commit-pin"
+						></code-icon></a
+					><span slot="content">${pinLabel}</span></gl-tooltip
+				>
+				<gl-tooltip placement="bottom" content="${backLabel}"
+					><a
+						class="commit-action${this.navigationState.back ? '' : ' is-disabled'}"
+						aria-disabled="${this.navigationState.back ? 'false' : 'true'}"
+						href="#"
+						data-action="back"
+						@click=${this.handleAction}
+						><code-icon icon="arrow-left" data-region="commit-back"></code-icon></a
+				></gl-tooltip>
 				${when(
 					this.navigationState.forward,
 					() => html`
-						<a
-							class="commit-action"
-							href="#"
-							data-action="forward"
-							aria-label="${forwardLabel}"
-							title="${forwardLabel}"
-							@click=${this.handleAction}
-							><code-icon icon="arrow-right" data-region="commit-forward"></code-icon
-						></a>
+						<gl-tooltip placement="bottom" content="${forwardLabel}"
+							><a class="commit-action" href="#" data-action="forward" @click=${this.handleAction}
+								><code-icon icon="arrow-right" data-region="commit-forward"></code-icon></a
+						></gl-tooltip>
 					`,
 				)}
 				<!-- TODO: add a spacer -->
 				${when(
 					this.uncommitted,
 					() => html`
-						<a
-							class="commit-action"
-							href="#"
-							data-action="commit-actions"
-							data-action-type="scm"
-							aria-label="Open SCM view"
-							title="Open SCM view"
-							@click=${this.handleAction}
-							><code-icon icon="source-control"></code-icon
-						></a>
+						<gl-tooltip placement="bottom" content="Open SCM view"
+							><a
+								class="commit-action"
+								href="#"
+								data-action="commit-actions"
+								data-action-type="scm"
+								@click=${this.handleAction}
+								><code-icon icon="source-control"></code-icon></a
+						></gl-tooltip>
 					`,
 				)}
-				<a
-					class="commit-action"
-					href="#"
-					data-action="commit-actions"
-					data-action-type="graph"
-					aria-label="Open in Commit Graph"
-					title="Open in Commit Graph"
-					@click=${this.handleAction}
-					><code-icon icon="gl-graph"></code-icon
-				></a>
+				<gl-tooltip placement="bottom" content="Open in Commit Graph"
+					><a
+						class="commit-action"
+						href="#"
+						data-action="commit-actions"
+						data-action-type="graph"
+						@click=${this.handleAction}
+						><code-icon icon="gl-graph"></code-icon></a
+				></gl-tooltip>
 				${when(
 					!this.uncommitted,
 					() => html`
-						<a
-							class="commit-action"
-							href="#"
-							data-action="commit-actions"
-							data-action-type="more"
-							aria-label="Show Commit Actions"
-							title="Show Commit Actions"
-							@click=${this.handleAction}
-							><code-icon icon="kebab-vertical"></code-icon
-						></a>
+						<gl-tooltip placement="bottom" content="Show Commit Actions"
+							><a
+								class="commit-action"
+								href="#"
+								data-action="commit-actions"
+								data-action-type="more"
+								@click=${this.handleAction}
+								><code-icon icon="kebab-vertical"></code-icon></a
+						></gl-tooltip>
 					`,
 				)}
 			</div>
