@@ -26,8 +26,12 @@ export class GlStatusNav extends LitElement {
 				gap: 0.2rem;
 			}
 
-			.commit-action--overflowed {
+			.tooltip--overflowed {
 				min-width: 0;
+			}
+
+			.commit-action--overflowed {
+				width: 100%;
 			}
 
 			.branch {
@@ -115,7 +119,7 @@ export class GlStatusNav extends LitElement {
 							</div>
 						</gl-popover>`,
 				)}
-				<gl-tooltip placement="bottom">
+				<gl-tooltip placement="bottom" class="tooltip--overflowed">
 					<a
 						href="#"
 						class="commit-action commit-action--overflowed"
