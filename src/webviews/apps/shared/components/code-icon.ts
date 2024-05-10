@@ -566,6 +566,7 @@ const iconMap = Object.freeze({
 	'gl-repo-fetch': '\\f130',
 	'gl-repo-pull': '\\f131',
 	'gl-repo-push': '\\f132',
+	'gl-provider-jira': '\\f133',
 });
 
 @customElement('code-icon')
