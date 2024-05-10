@@ -848,6 +848,31 @@ export class CommitDetailsWebviewProvider
 			return;
 		}
 
+		if (this.options.attachedTo === 'graph' /*|| e.source === 'gitlens.graph'*/) {
+			if (e.data.commit.ref === uncommitted) {
+				if (this.mode !== 'wip') {
+					void this.setMode('wip', this.container.git.getRepository(e.data.commit.repoPath));
+				} else if (e.data.commit.repoPath !== this._context.wip?.changes?.repository.path) {
+					void this.updateWipState(this.container.git.getRepository(e.data.commit.repoPath));
+				}
+			} else {
+				if (this._pinned && e.data.interaction === 'passive') {
+					this._commitStack.insert(getReferenceFromRevision(e.data.commit));
+					this.updateNavigation();
+				}
+
+				if (this.mode !== 'commit') {
+					void this.setMode('commit', this.container.git.getRepository(e.data.commit.repoPath));
+				}
+
+				if (!this._pinned || e.data.interaction !== 'passive') {
+					void this.host.show(false, { preserveFocus: e.data.preserveFocus }, e.data);
+				}
+			}
+
+			return;
+		}
+
 		if (this.mode === 'wip') {
 			if (e.data.commit.repoPath !== this._context.wip?.changes?.repository.path) {
 				void this.updateWipState(this.container.git.getRepository(e.data.commit.repoPath));
