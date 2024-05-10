@@ -114,6 +114,7 @@ export class GlCommitDetailsApp extends LitElement {
 
 		return {
 			branch: branchName,
+			upstream: branch.upstream?.name,
 			ahead: ahead,
 			behind: behind,
 			working: wip.changes?.files.length ?? 0,
@@ -374,31 +375,38 @@ export class GlCommitDetailsApp extends LitElement {
 		if (this.wipStatus == null) return 'Overview';
 
 		return html`
-			Overview for ${this.wipStatus.branch}
-			${when(
-				this.wipStatus.working > 0,
-				() =>
-					html`<br />
-						- ${pluralize('working change', this.wipStatus!.working)}`,
-			)}
+			Overview of &nbsp;<code-icon icon="git-branch" size="12"></code-icon
+			><span class="md-code">${this.wipStatus.branch}</span>
 			${when(
 				this.wipStatus.status === 'both',
 				() =>
-					html`<br />
-						- Behind ${pluralize('commit', this.wipStatus!.behind)} and ahead
-						${pluralize('commit', this.wipStatus!.ahead)}`,
+					html`<hr />
+						<span class="md-code">${this.wipStatus!.branch}</span> is
+						${pluralize('commit', this.wipStatus!.behind)} behind and
+						${pluralize('commit', this.wipStatus!.ahead)} ahead of
+						<span class="md-code">${this.wipStatus!.upstream ?? 'origin'}</span>`,
 			)}
 			${when(
 				this.wipStatus.status === 'behind',
 				() =>
-					html`<br />
-						- Behind ${pluralize('commit', this.wipStatus!.behind)}`,
+					html`<hr />
+						<span class="md-code">${this.wipStatus!.branch}</span> is
+						${pluralize('commit', this.wipStatus!.behind)} behind
+						<span class="md-code">${this.wipStatus!.upstream ?? 'origin'}</span>`,
 			)}
 			${when(
 				this.wipStatus.status === 'ahead',
 				() =>
-					html`<br />
-						- Ahead ${pluralize('commit', this.wipStatus!.ahead)}`,
+					html`<hr />
+						<span class="md-code">${this.wipStatus!.branch}</span> is
+						${pluralize('commit', this.wipStatus!.ahead)} ahead of
+						<span class="md-code"> ${this.wipStatus!.upstream ?? 'origin'}</span>`,
+			)}
+			${when(
+				this.wipStatus.working > 0,
+				() =>
+					html`<hr />
+						${pluralize('working change', this.wipStatus!.working)}`,
 			)}
 		`;
 	}
@@ -413,7 +421,9 @@ export class GlCommitDetailsApp extends LitElement {
 						<button class="inspect-header__tab${!isWip ? ' is-active' : ''}" data-action="details">
 							<code-icon icon="gl-inspect"></code-icon>
 						</button>
-						<span slot="content">${this.isStash ? 'Stash' : 'Commit'}</span>
+						<span slot="content"
+							>${this.isStash ? 'Inspect: Stash Details' : 'Inspect: Commit Details'}</span
+						>
 					</gl-tooltip>
 					<gl-tooltip>
 						<button class="inspect-header__tab${isWip ? ' is-active' : ''}" data-action="wip">
