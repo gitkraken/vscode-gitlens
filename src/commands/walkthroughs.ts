@@ -10,13 +10,13 @@ export class GetStartedCommand extends Command {
 		super(Commands.GetStarted);
 	}
 
-	execute(walkthroughId?: string) {
+	execute(stepId?: string) {
 		const extensionId = this.container.context.extension.id;
 		// If the walkthroughId param is the same as the extension id, then this was run from the extensions view gear menu
-		if (walkthroughId === extensionId) {
-			walkthroughId = undefined;
+		if (stepId === extensionId) {
+			stepId = undefined;
 		}
 
-		void openWalkthrough(extensionId, walkthroughId ?? 'gitlens.welcome', undefined, false);
+		void openWalkthrough(extensionId, 'welcome', stepId, false);
 	}
 }
