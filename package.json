@@ -9468,6 +9468,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f132"
 				}
+			},
+			"gitlens-provider-jira": {
+				"description": "provider-jira icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f133"
+				}
 			}
 		},
 		"menus": {

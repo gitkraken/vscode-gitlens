@@ -50,5 +50,6 @@
   "diff-single": 61743,
   "repo-fetch": 61744,
   "repo-pull": 61745,
-  "repo-push": 61746
+  "repo-push": 61746,
+  "provider-jira": 61747
 }
