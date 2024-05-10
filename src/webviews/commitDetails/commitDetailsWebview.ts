@@ -949,11 +949,11 @@ export class CommitDetailsWebviewProvider
 			if (this._context.commit == null) {
 				this.host.title = this.host.originalTitle;
 			} else {
-				let following = 'Commit';
+				let following = 'Commit Details';
 				if (this._context.commit.refType === 'stash') {
-					following = 'Stash';
+					following = 'Stash Details';
 				} else if (this._context.commit.isUncommitted) {
-					following = 'Uncommitted';
+					following = 'Uncommitted Changes';
 				}
 
 				this.host.title = `${this.host.originalTitle}: ${following}`;
