@@ -125,32 +125,27 @@ export class GlInspectNav extends LitElement {
 		return html`
 			<div class="group">
 				${when(
-					this.stashNumber != null,
+					!this.uncommitted,
 					() => html`
-						<span class="commit-action">
-							<code-icon icon="gl-stashes-view"></code-icon>
-							<span class="sha" data-region="shortsha">#${this.stashNumber}</span></span
-						>
-					`,
-				)}
-				${when(
-					!this.uncommitted && this.stashNumber == null,
-					() => html`
-						<gl-tooltip
-							placement="bottom"
-							content="Copy SHA
-[⌥] Pick Commit..."
-							><a
+						<gl-tooltip hoist>
+							<a
 								class="commit-action"
 								href="#"
 								data-action="commit-actions"
 								data-action-type="sha"
 								@click=${this.handleAction}
 							>
-								<code-icon icon="git-commit"></code-icon>
-								<span class="sha" data-region="shortsha">${this.shortSha}</span></a
-							></gl-tooltip
-						>
+								<code-icon
+									icon="${this.stashNumber != null ? 'gl-stashes-view' : 'git-commit'}"
+								></code-icon>
+								<span class="sha" data-region="shortsha"
+									>${this.stashNumber != null ? `#${this.stashNumber}` : this.shortSha}</span
+								>
+							</a>
+							<span slot="content"
+								>Copy ${this.stashNumber != null ? 'Stash Name' : 'SHA'}<br />[⌥] Copy Message</span
+							>
+						</gl-tooltip>
 					`,
 				)}
 			</div>

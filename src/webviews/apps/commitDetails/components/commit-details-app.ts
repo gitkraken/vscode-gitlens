@@ -86,6 +86,10 @@ export class GlCommitDetailsApp extends LitElement {
 		return this.state?.commit?.sha === uncommittedSha;
 	}
 
+	get hasCommit() {
+		return this.state?.commit != null;
+	}
+
 	@state()
 	get isStash() {
 		return this.state?.commit?.stashNumber != null;
@@ -437,7 +441,23 @@ export class GlCommitDetailsApp extends LitElement {
 							<code-icon icon="gl-inspect"></code-icon>
 						</button>
 						<span slot="content"
-							>${this.isStash ? 'Inspect: Stash Details' : 'Inspect: Commit Details'}</span
+							>${this.state?.commit != null
+								? !this.isStash
+									? html`Inspect Commit
+											<span class="md-code"
+												><code-icon icon="git-commit"></code-icon> ${this.state.commit
+													.shortSha}</span
+											>`
+									: html`Inspect Stash
+											<span class="md-code"
+												><code-icon icon="gl-stashes-view"></code-icon> #${this.state.commit
+													.stashNumber}</span
+											>`
+								: 'Inspect'}${this.state?.pinned
+								? html`(pinned)
+										<hr />
+										Automatic following is suspended while pinned`
+								: ''}</span
 						>
 					</gl-tooltip>
 					<gl-tooltip hoist>
