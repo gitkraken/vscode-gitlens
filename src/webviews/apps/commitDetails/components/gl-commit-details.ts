@@ -177,14 +177,14 @@ export class GlCommitDetails extends GlDetailsBase {
 				)}"
 				>Connect to Jira Cloud</a
 			>
-			&mdash; ${hasAccount ? '' : 'sign up and '}get access to automatic rich Jira autolinks.`;
+			&mdash; ${hasAccount ? '' : 'sign up and '}get access to automatic rich Jira autolinks`;
 
 		if (hasAccount && hasConnectedJira) {
 			message = html`<i class="codicon codicon-check" style="vertical-align: text-bottom"></i> Jira connected
-				&mdash; automatic rich Jira autolinks are enabled.`;
+				&mdash; automatic rich Jira autolinks are enabled`;
 		}
 
-		return html`<gl-popover class="inline-popover" placement="bottom">
+		return html`<gl-popover hoist class="inline-popover">
 			<span class="tooltip-hint" slot="anchor"
 				>Jira issues <code-icon icon="${hasConnectedJira ? 'check' : 'gl-unplug'}"></code-icon
 			></span>
@@ -236,6 +236,7 @@ export class GlCommitDetails extends GlDetailsBase {
 			}
 		}
 
+		const { hasAccount, hasConnectedJira } = this.state ?? {};
 		const jiraIntegrationLink = `command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
 			JSON.stringify({
 				source: 'commitDetails',
@@ -259,15 +260,15 @@ export class GlCommitDetails extends GlDetailsBase {
 				>
 				<action-nav slot="actions">
 					<action-item
-						data-action="autolinks-settings"
-						label="Autolinks Settings"
-						icon="info"
-						href="command:gitlens.showSettingsPage!autolinks"
-					></action-item>
-					<action-item
-						label="Manage Jira"
+						label="${hasAccount && hasConnectedJira ? 'Manage Jira' : 'Connect to Jira Cloud'}"
 						icon="gl-provider-jira"
 						href="${jiraIntegrationLink}"
+					></action-item>
+					<action-item
+						data-action="autolinks-settings"
+						label="Autolinks Settings"
+						icon="gear"
+						href="command:gitlens.showSettingsPage!autolinks"
 					></action-item>
 				</action-nav>
 				${when(
