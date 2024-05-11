@@ -280,7 +280,7 @@ export class SearchAndCompareView extends ViewBase<
 	}
 
 	override get canSelectMany(): boolean {
-		return true;
+		return this.container.prereleaseOrDebugging;
 	}
 
 	protected getRoot() {

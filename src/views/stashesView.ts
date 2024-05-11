@@ -99,7 +99,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 	}
 
 	override get canSelectMany(): boolean {
-		return true;
+		return this.container.prereleaseOrDebugging;
 	}
 
 	protected getRoot() {

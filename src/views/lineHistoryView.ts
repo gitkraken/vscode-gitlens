@@ -21,7 +21,7 @@ export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerN
 	}
 
 	override get canSelectMany(): boolean {
-		return true;
+		return this.container.prereleaseOrDebugging;
 	}
 
 	protected override get showCollapseAll(): boolean {

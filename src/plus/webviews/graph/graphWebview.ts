@@ -1841,7 +1841,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
 			enabledRefMetadataTypes: this.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
-			enableMultiSelection: true,
+			enableMultiSelection: this.container.prereleaseOrDebugging,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			minimap: configuration.get('graph.minimap.enabled'),
 			minimapDataType: configuration.get('graph.minimap.dataType'),

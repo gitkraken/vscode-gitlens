@@ -100,7 +100,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	}
 
 	override get canSelectMany(): boolean {
-		return true;
+		return this.container.prereleaseOrDebugging;
 	}
 
 	protected getRoot() {

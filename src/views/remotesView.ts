@@ -113,7 +113,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 	}
 
 	override get canSelectMany(): boolean {
-		return true;
+		return this.container.prereleaseOrDebugging;
 	}
 
 	protected getRoot() {
