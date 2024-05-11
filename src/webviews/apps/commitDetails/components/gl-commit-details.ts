@@ -106,7 +106,7 @@ export class GlCommitDetails extends GlDetailsBase {
 
 				<p class="button-container">
 					<span class="button-group button-group--single">
-						<gl-button full data-action="wip">Show Overview</gl-button>
+						<gl-button full data-action="wip">Overview</gl-button>
 					</span>
 				</p>
 				<p class="button-container">
