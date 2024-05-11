@@ -25,10 +25,11 @@ export class GlButton extends LitElement {
 				--button-foreground: var(--color-button-foreground);
 				--button-background: var(--color-button-background);
 				--button-hover-background: var(--vscode-button-hoverBackground);
-				--button-padding: 0.4rem 1.1rem;
+				--button-padding: 0.4rem;
 				--button-gap: 0.6rem;
-				--button-compact-padding: 0.6rem 0.8rem;
-				--button-line-height: 1.694;
+				--button-compact-padding: 0.4rem;
+				--button-tight-padding: 0.4rem 0.8rem;
+				--button-line-height: 1.35;
 				--button-border: var(--vscode-button-border, transparent);
 
 				display: inline-block;
@@ -53,7 +54,7 @@ export class GlButton extends LitElement {
 				align-items: center;
 				gap: var(--button-gap);
 				padding: var(--button-padding);
-				line-height: normal;
+				line-height: var(--button-line-height);
 
 				color: inherit;
 				text-decoration: none;
@@ -100,8 +101,6 @@ export class GlButton extends LitElement {
 				--button-background: transparent;
 				--button-foreground: var(--vscode-foreground);
 				--button-hover-background: var(--vscode-toolbar-hoverBackground);
-				--button-padding: 0.4rem;
-				--button-line-height: 1.6;
 				--button-border: transparent;
 			}
 
@@ -133,13 +132,8 @@ export class GlButton extends LitElement {
 				padding: var(--button-compact-padding);
 			}
 
-			:host([density='tight']) {
-				line-height: 1;
-			}
-
 			:host([density='tight']) .control {
-				padding: var(--button-compact-padding);
-				line-height: 1;
+				padding: var(--button-tight-padding);
 			}
 
 			:host([density='tight']) .control ::slotted(code-icon) {
