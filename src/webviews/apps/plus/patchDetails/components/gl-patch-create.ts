@@ -251,7 +251,7 @@ export class GlPatchCreate extends GlTreeBase {
 								></span>
 							</div>
 							<gl-button appearance="secondary" @click=${this.onInviteUsers}
-								><code-icon icon="person-add"></code-icon> Invite</gl-button
+								><code-icon icon="person-add" slot="prefix"></code-icon> Invite</gl-button
 							>
 						</div>
 						${this.renderUserSelectionList()}

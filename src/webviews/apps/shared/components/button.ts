@@ -26,6 +26,7 @@ export class GlButton extends LitElement {
 				--button-background: var(--color-button-background);
 				--button-hover-background: var(--vscode-button-hoverBackground);
 				--button-padding: 0.4rem 1.1rem;
+				--button-gap: 0.6rem;
 				--button-compact-padding: 0.6rem 0.8rem;
 				--button-line-height: 1.694;
 				--button-border: var(--vscode-button-border, transparent);
@@ -46,7 +47,11 @@ export class GlButton extends LitElement {
 			}
 
 			.control {
-				display: inline-block;
+				display: inline-flex;
+				flex-direction: row;
+				justify-content: center;
+				align-items: center;
+				gap: var(--button-gap);
 				padding: var(--button-padding);
 				line-height: normal;
 
@@ -66,6 +71,10 @@ export class GlButton extends LitElement {
 
 			.control:focus {
 				outline: none;
+			}
+
+			.label {
+				display: inline-block;
 			}
 
 			:host(:hover) {
@@ -206,10 +215,12 @@ export class GlButton extends LitElement {
 				tabindex="${this.disabled === false ? 0 : -1}"
 				href=${this.href}
 				@keypress=${(e: KeyboardEvent) => this.onLinkKeypress(e)}
-				><slot></slot
+				><slot name="prefix"></slot><slot class="label"></slot><slot name="suffix"></slot
 			></a>`;
 		}
-		return html`<button class="control" ?disabled=${this.disabled}><slot></slot></button>`;
+		return html`<button class="control" ?disabled=${this.disabled}>
+			<slot name="prefix"></slot><slot class="label"></slot><slot name="suffix"></slot>
+		</button>`;
 	}
 
 	private onLinkKeypress(e: KeyboardEvent) {

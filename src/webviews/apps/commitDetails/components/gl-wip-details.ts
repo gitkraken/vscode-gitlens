@@ -133,7 +133,7 @@ export class GlWipDetails extends GlDetailsBase {
 						data-action="${action}"
 						@click=${() => this.onToggleReviewMode(!this.inReview)}
 					>
-						<code-icon icon="gl-code-suggestion"></code-icon> ${label}
+						<code-icon icon="gl-code-suggestion" slot="prefix"></code-icon>${label}
 					</gl-button>
 					<gl-button
 						appearance="secondary"
@@ -156,7 +156,7 @@ export class GlWipDetails extends GlDetailsBase {
 					data-action="${action}"
 					@click=${() => this.onDataActionClick(action)}
 				>
-					<code-icon icon="gl-cloud-patch-share"></code-icon> ${label}
+					<code-icon icon="gl-cloud-patch-share" slot="prefix"></code-icon>${label}
 				</gl-button>
 			</span>
 		</p>`;
@@ -172,7 +172,7 @@ export class GlWipDetails extends GlDetailsBase {
 						data-action="publish-branch"
 						@click=${() => this.onDataActionClick('publish-branch')}
 					>
-						<code-icon icon="cloud-upload"></code-icon> Publish Branch
+						<code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch
 					</gl-button>
 				</span>
 			</p>`;
@@ -193,8 +193,8 @@ export class GlWipDetails extends GlDetailsBase {
 					data-action="${fetchLabel.toLowerCase()}"
 					@click=${() => this.onDataActionClick(fetchLabel.toLowerCase())}
 				>
-					<code-icon icon="${fetchIcon}"></code-icon> ${fetchLabel}&nbsp;
-					<gl-tracking-pill .ahead=${ahead} .behind=${behind}></gl-tracking-pill>
+					<code-icon icon="${fetchIcon}" slot="prefix"></code-icon> ${fetchLabel}
+					<gl-tracking-pill .ahead=${ahead} .behind=${behind} slot="suffix"></gl-tracking-pill>
 				</gl-button>
 			</span>
 		</p>`;
