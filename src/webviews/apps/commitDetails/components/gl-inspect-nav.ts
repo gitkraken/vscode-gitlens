@@ -155,7 +155,7 @@ export class GlInspectNav extends LitElement {
 				)}
 			</div>
 			<div class="group">
-				<gl-tooltip placement="bottom"
+				<gl-tooltip hoist
 					><a
 						class="commit-action${this.pinned ? ' is-active' : ''}"
 						href="#"
@@ -167,7 +167,7 @@ export class GlInspectNav extends LitElement {
 						></code-icon></a
 					><span slot="content">${pinLabel}</span></gl-tooltip
 				>
-				<gl-tooltip placement="bottom" content="${backLabel}"
+				<gl-tooltip hoist content="${backLabel}"
 					><a
 						class="commit-action${this.navigationState.back ? '' : ' is-disabled'}"
 						aria-disabled="${this.navigationState.back ? 'false' : 'true'}"
@@ -179,7 +179,7 @@ export class GlInspectNav extends LitElement {
 				${when(
 					this.navigationState.forward,
 					() => html`
-						<gl-tooltip placement="bottom" content="${forwardLabel}"
+						<gl-tooltip hoist content="${forwardLabel}"
 							><a class="commit-action" href="#" data-action="forward" @click=${this.handleAction}
 								><code-icon icon="arrow-right" data-region="commit-forward"></code-icon></a
 						></gl-tooltip>
@@ -189,7 +189,7 @@ export class GlInspectNav extends LitElement {
 				${when(
 					this.uncommitted,
 					() => html`
-						<gl-tooltip placement="bottom" content="Open SCM view"
+						<gl-tooltip hoist content="Open SCM view"
 							><a
 								class="commit-action"
 								href="#"
@@ -200,7 +200,7 @@ export class GlInspectNav extends LitElement {
 						></gl-tooltip>
 					`,
 				)}
-				<gl-tooltip placement="bottom" content="Open in Commit Graph"
+				<gl-tooltip hoist content="Open in Commit Graph"
 					><a
 						class="commit-action"
 						href="#"
@@ -212,7 +212,7 @@ export class GlInspectNav extends LitElement {
 				${when(
 					!this.uncommitted,
 					() => html`
-						<gl-tooltip placement="bottom" content="Show Commit Actions"
+						<gl-tooltip hoist content="Show Commit Actions"
 							><a
 								class="commit-action"
 								href="#"

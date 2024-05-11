@@ -99,7 +99,7 @@ export class GlStatusNav extends LitElement {
 				${when(
 					this.wip.pullRequest != null,
 					() =>
-						html`<gl-popover placement="bottom">
+						html`<gl-popover hoist>
 							<a href="#" class="commit-action" slot="anchor"
 								><code-icon icon=${prIcon} class="pr pr--${this.wip!.pullRequest!.state}"></code-icon
 								><span>#${this.wip!.pullRequest!.id}</span></a
@@ -119,7 +119,7 @@ export class GlStatusNav extends LitElement {
 							</div>
 						</gl-popover>`,
 				)}
-				<gl-tooltip placement="bottom" class="tooltip--overflowed">
+				<gl-tooltip hoist class="tooltip--overflowed">
 					<a
 						href="#"
 						class="commit-action commit-action--overflowed"
@@ -138,7 +138,7 @@ export class GlStatusNav extends LitElement {
 				</gl-tooltip>
 			</div>
 			<div class="group">
-				<gl-tooltip placement="bottom" content="Fetch">
+				<gl-tooltip hoist content="Fetch">
 					<a href="#" class="commit-action" @click=${(e: MouseEvent) => this.handleAction(e, 'fetch')}
 						><code-icon icon="gl-repo-fetch"></code-icon></a
 				></gl-tooltip>

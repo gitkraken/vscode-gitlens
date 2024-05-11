@@ -291,7 +291,7 @@ export class GlCommitDetails extends GlDetailsBase {
 								<div class="section" data-region="rich-info">
 									<p>
 										<code-icon icon="info"></code-icon>&nbsp;Use
-										<gl-tooltip>
+										<gl-tooltip hoist>
 											<a
 												href="command:gitlens.showSettingsPage!autolinks"
 												data-action="autolink-settings"

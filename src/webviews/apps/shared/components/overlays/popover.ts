@@ -159,7 +159,7 @@ export class GlPopover extends GlElement {
 	popup!: SlPopup;
 
 	@property({ reflect: true })
-	placement: SlPopup['placement'] = 'top';
+	placement: SlPopup['placement'] = 'bottom';
 
 	@property({ type: Boolean, reflect: true })
 	disabled: boolean = false;
