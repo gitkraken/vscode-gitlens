@@ -4,6 +4,7 @@ import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import { serializeAutolink } from '../../annotations/autolinks';
 import { getAvatarUri } from '../../avatars';
+import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import type { ContextKeys } from '../../constants';
@@ -23,7 +24,7 @@ import * as RepoActions from '../../git/actions/repository';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
-import { isCommit } from '../../git/models/commit';
+import { isCommit, isStash } from '../../git/models/commit';
 import { uncommitted, uncommittedStaged } from '../../git/models/constants';
 import type { GitFileChange, GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
@@ -413,12 +414,21 @@ export class CommitDetailsWebviewProvider
 						break;
 
 					case 'sha':
-						if (e.params.alt) {
-							this.showCommitPicker();
-						} else if (this._context.commit != null) {
-							void executeCommand<CopyShaToClipboardCommandArgs>(Commands.CopyShaToClipboard, {
-								sha: this._context.commit.sha,
-							});
+						if (this._context.commit != null) {
+							if (e.params.alt) {
+								void executeCommand<CopyMessageToClipboardCommandArgs>(
+									Commands.CopyMessageToClipboard,
+									{
+										message: this._context.commit.message,
+									},
+								);
+							} else if (isStash(this._context.commit)) {
+								void env.clipboard.writeText(this._context.commit.stashName);
+							} else {
+								void executeCommand<CopyShaToClipboardCommandArgs>(Commands.CopyShaToClipboard, {
+									sha: this._context.commit.sha,
+								});
+							}
 						}
 						break;
 				}
