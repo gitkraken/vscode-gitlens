@@ -432,7 +432,7 @@ export class GlCommitDetailsApp extends LitElement {
 		return html`
 			<div class="inspect-header">
 				<nav class="inspect-header__tabs">
-					<gl-tooltip>
+					<gl-tooltip hoist>
 						<button class="inspect-header__tab${!isWip ? ' is-active' : ''}" data-action="details">
 							<code-icon icon="gl-inspect"></code-icon>
 						</button>
@@ -440,7 +440,7 @@ export class GlCommitDetailsApp extends LitElement {
 							>${this.isStash ? 'Inspect: Stash Details' : 'Inspect: Commit Details'}</span
 						>
 					</gl-tooltip>
-					<gl-tooltip>
+					<gl-tooltip hoist>
 						<button class="inspect-header__tab${isWip ? ' is-active' : ''}" data-action="wip">
 							${this.renderRepoStatusContent(isWip)}
 						</button>

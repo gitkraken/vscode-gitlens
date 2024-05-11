@@ -55,13 +55,16 @@ export class GlTooltip extends LitElement {
 	content?: string;
 
 	@property({ reflect: true })
-	placement?: SlTooltip['placement'] = 'top';
+	placement?: SlTooltip['placement'] = 'bottom';
 
 	@property({ type: Boolean })
 	disabled: boolean = false;
 
 	@property({ type: Number })
 	distance?: number;
+
+	@property({ type: Boolean })
+	hoist?: boolean;
 
 	private observer: MutationObserver | undefined;
 	override firstUpdated() {
@@ -95,6 +98,7 @@ export class GlTooltip extends LitElement {
 			.placement=${this.placement}
 			?disabled=${this.disabled}
 			.distance=${this.distance ?? nothing}
+			hoist
 		>
 			<slot></slot>
 			<div slot="content">
