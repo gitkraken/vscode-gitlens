@@ -111,10 +111,6 @@ ul {
 }
 
 .button--busy {
-	code-icon {
-		margin-right: 0.5rem;
-	}
-
 	&[aria-busy='true'] {
 		opacity: 0.5;
 	}

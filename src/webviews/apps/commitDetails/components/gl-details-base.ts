@@ -109,7 +109,7 @@ export class GlDetailsBase extends LitElement {
 							<p class="button-container">
 								<span class="button-group button-group--single">
 									<gl-button full href="command:workbench.view.scm"
-										>Commit via SCM <code-icon rotate="45" icon="arrow-up"></code-icon
+										>Commit via SCM <code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon
 									></gl-button>
 								</span>
 							</p>
