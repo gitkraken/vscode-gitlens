@@ -249,6 +249,7 @@ export class GlWipDetails extends GlDetailsBase {
 		return html`
 			<webview-pane
 				collapsable
+				flexible
 				?expanded=${this.preferences?.pullRequestExpanded ?? true}
 				data-region="pullrequest-pane"
 			>
