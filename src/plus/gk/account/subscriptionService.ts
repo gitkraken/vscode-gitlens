@@ -1216,7 +1216,7 @@ export class SubscriptionService implements Disposable {
 								{ infix: ' more ' },
 						  )} in your **${effective.name}** trial.`
 						: `You have ${pluralize('day', remaining ?? 0)} remaining in your **${effective.name}** trial.`
-				} Once your trial ends, you'll need a paid plan for full access to [Pro features](command:gitlens.openWalkthrough?{"source": "trial-indicator" }).\n\nYour trial also includes access to our [DevEx platform](${
+				} Once your trial ends, you'll need a paid plan for full access to [Pro features](command:gitlens.openWalkthrough?%7B%22step%22%3A%22pro-trial%22,%22source%22%3A%22prompt%22%7D).\n\nYour trial also includes access to our [DevEx platform](${
 					urls.platform
 				}), unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
 				true,
