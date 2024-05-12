@@ -1,7 +1,7 @@
 import type { CancellationToken, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
-import { Commands, previewBadge } from '../constants';
+import { Commands, previewBadge, urls } from '../constants';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
@@ -145,11 +145,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		void this.container.viewCommands;
 
 		return [
-			registerViewCommand(
-				this.getQualifiedCommand('info'),
-				() => openUrl('https://gitkraken.com/solutions/workspaces'),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('info'), () => openUrl(urls.workspaces), this),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),

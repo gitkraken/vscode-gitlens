@@ -150,7 +150,9 @@ export class HomeApp extends App<State> {
 			orgSettings: { drafts },
 		} = this.state;
 
-		setElementVisibility('org-settings-drafts', drafts);
+		for (const el of document.querySelectorAll<HTMLElement>('[data-org-requires="drafts"]')) {
+			setElementVisibility(el, drafts);
+		}
 	}
 
 	private updateSubscription() {

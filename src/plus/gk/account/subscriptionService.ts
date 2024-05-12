@@ -21,8 +21,9 @@ import {
 	window,
 } from 'vscode';
 import { getPlatform } from '@env/platform';
-import type { CoreColors } from '../../../constants';
-import { Commands } from '../../../constants';
+import type { OpenWalkthroughCommandArgs } from '../../../commands/walkthroughs';
+import type { CoreColors, TelemetrySources } from '../../../constants';
+import { Commands, urls } from '../../../constants';
 import type { Container } from '../../../container';
 import { AccountValidationError } from '../../../errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
@@ -40,7 +41,6 @@ import { Logger } from '../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
 import { flatten } from '../../../system/object';
 import { pluralize } from '../../../system/string';
-import { openWalkthrough } from '../../../system/utils';
 import { satisfies } from '../../../system/version';
 import type { GKCheckInResponse } from '../checkin';
 import { getSubscriptionFromCheckIn } from '../checkin';
@@ -209,22 +209,46 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@debug()
-	async learnAboutPreviewOrTrial() {
+	async learnAboutPro(source: TelemetrySources, detail?: string): Promise<void> {
 		const subscription = await this.getSubscription();
-		if (subscription.state === SubscriptionState.FreeInPreviewTrial) {
-			void openWalkthrough(
-				this.container.context.extension.id,
-				'gitlens.welcome',
-				'gitlens.welcome.preview',
-				false,
-			);
-		} else if (subscription.state === SubscriptionState.FreePlusInTrial) {
-			void openWalkthrough(
-				this.container.context.extension.id,
-				'gitlens.welcome',
-				'gitlens.welcome.trial',
-				false,
-			);
+		switch (subscription.state) {
+			case SubscriptionState.Free:
+			case SubscriptionState.FreeInPreviewTrial:
+			case SubscriptionState.FreePreviewTrialExpired:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					step: 'pro-features',
+					source: source,
+					detail: detail,
+				});
+				break;
+			case SubscriptionState.FreePlusInTrial:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					step: 'pro-trial',
+					source: source,
+					detail: detail,
+				});
+				break;
+			case SubscriptionState.FreePlusTrialExpired:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					step: 'pro-upgrade',
+					source: source,
+					detail: detail,
+				});
+				break;
+			case SubscriptionState.FreePlusTrialReactivationEligible:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					step: 'pro-reactivate',
+					source: source,
+					detail: detail,
+				});
+				break;
+			case SubscriptionState.Paid:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					step: 'pro-paid',
+					source: source,
+					detail: detail,
+				});
+				break;
 		}
 	}
 
@@ -245,19 +269,33 @@ export class SubscriptionService implements Disposable {
 			} = this._subscription;
 
 			if (account?.verified === false) {
-				const confirm: MessageItem = { title: 'Resend Verification' };
-				const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+				const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 7;
+
+				const verify: MessageItem = { title: 'Resend Email' };
+				const learn: MessageItem = { title: 'See Pro Features' };
+				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					`You must verify your email before you can access ${effective.name}.`,
+					`Welcome to your ${
+						effective.name
+					} Trial.\n\nYou must first verify your email. Once verified, you will have full access to Pro features for ${
+						days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
+					}.`,
+					{
+						modal: true,
+						detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					},
+					verify,
+					learn,
 					confirm,
-					cancel,
 				);
 
-				if (result === confirm) {
+				if (result === verify) {
 					void this.resendVerification();
+				} else if (result === learn) {
+					void this.learnAboutPro('prompt', 'trial-started-verify-email');
 				}
 			} else if (isSubscriptionPaid(this._subscription)) {
-				const learn: MessageItem = { title: 'Learn More' };
+				const learn: MessageItem = { title: 'See Pro Features' };
 				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
 					`You are now on the ${actual.name} plan and have full access to Pro features.`,
@@ -270,12 +308,12 @@ export class SubscriptionService implements Disposable {
 				);
 
 				if (result === learn) {
-					void env.openExternal(Uri.parse('https://www.gitkraken.com/suite'));
+					void this.learnAboutPro('prompt', 'upgraded');
 				}
 			} else if (isSubscriptionTrial(this._subscription)) {
 				const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
 
-				const learn: MessageItem = { title: 'Learn More' };
+				const learn: MessageItem = { title: 'See Pro Features' };
 				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
 					`Welcome to your ${effective.name} Trial.\n\nYou now have full access to Pro features for ${
@@ -290,11 +328,11 @@ export class SubscriptionService implements Disposable {
 				);
 
 				if (result === learn) {
-					void this.learnAboutPreviewOrTrial();
+					void this.learnAboutPro('prompt', 'trial-started');
 				}
 			} else {
 				const upgrade: MessageItem = { title: 'Upgrade to Pro' };
-				const learn: MessageItem = { title: 'Learn More' };
+				const learn: MessageItem = { title: 'See Pro Features' };
 				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
 					`You are now on the ${actual.name} plan.`,
@@ -307,10 +345,10 @@ export class SubscriptionService implements Disposable {
 					confirm,
 				);
 
-				if (result === learn) {
-					void env.openExternal(Uri.parse('https://www.gitkraken.com/suite'));
-				} else if (result === upgrade) {
+				if (result === upgrade) {
 					void this.purchase();
+				} else if (result === learn) {
+					void this.learnAboutPro('prompt', 'trial-ended');
 				}
 			}
 		}
@@ -536,8 +574,8 @@ export class SubscriptionService implements Disposable {
 
 		if (!silent) {
 			setTimeout(async () => {
-				const confirm: MessageItem = { title: 'OK' };
-				const learn: MessageItem = { title: 'Learn More' };
+				const confirm: MessageItem = { title: 'Continue' };
+				const learn: MessageItem = { title: 'See Pro Features' };
 				const result = await window.showInformationMessage(
 					`You can now preview local Pro features for ${
 						days < 1 ? '1 day' : pluralize('day', days)
@@ -547,7 +585,7 @@ export class SubscriptionService implements Disposable {
 				);
 
 				if (result === learn) {
-					void this.learnAboutPreviewOrTrial();
+					void this.learnAboutPro('notification', 'preview-started');
 				}
 			}, 1);
 		}
@@ -1172,14 +1210,15 @@ export class SubscriptionService implements Disposable {
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				`${
 					isReactivatedTrial
-						? `[See what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/) with
-			${pluralize('day', remaining ?? 0, {
-				infix: ' more ',
-			})}
-			in your **${effective.name}** trial.`
+						? `[See what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/) with ${pluralize(
+								'day',
+								remaining ?? 0,
+								{ infix: ' more ' },
+						  )} in your **${effective.name}** trial.`
 						: `You have ${pluralize('day', remaining ?? 0)} remaining in your **${effective.name}** trial.`
-				} Once your trial ends, you'll need a paid plan for full access to Pro features.\n\nTry our
-			[other developer tools](https://www.gitkraken.com/suite) also included in your trial.`,
+				} Once your trial ends, you'll need a paid plan for full access to [Pro features](command:gitlens.openWalkthrough?{"source": "trial-indicator" }).\n\nYour trial also includes access to our [DevEx platform](${
+					urls.platform
+				}), unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
 				true,
 			);
 		}

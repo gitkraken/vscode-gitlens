@@ -4,6 +4,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import { urls } from '../../../../../constants';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { DraftRole, DraftVisibility } from '../../../../../gk/models/drafts';
 import type {
@@ -303,7 +304,7 @@ export class GlPatchCreate extends GlTreeBase {
 						html`<p class="h-deemphasize">
 							<code-icon icon="lock"></code-icon>
 							<a
-								href="https://www.gitkraken.com/solutions/cloud-patches"
+								href="${urls.cloudPatches}"
 								title="Learn more about ${draftNamePlural}"
 								aria-label="Learn more about ${draftNamePlural}"
 								>${draftNamePlural}</a
@@ -322,7 +323,7 @@ export class GlPatchCreate extends GlTreeBase {
 							<code-icon icon="info"></code-icon>
 							Your
 							<a
-								href="https://www.gitkraken.com/solutions/cloud-patches"
+								href="${urls.cloudPatches}"
 								title="Learn more about ${draftNamePlural}"
 								aria-label="Learn more about ${draftNamePlural}"
 								>${draftName}</a
