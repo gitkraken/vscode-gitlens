@@ -247,7 +247,11 @@ export class GlWipDetails extends GlDetailsBase {
 		if (this.wip?.pullRequest == null) return nothing;
 
 		return html`
-			<webview-pane collapsable expanded>
+			<webview-pane
+				collapsable
+				?expanded=${this.preferences?.pullRequestExpanded ?? true}
+				data-region="pullrequest-pane"
+			>
 				<span slot="title">Pull Request #${this.wip?.pullRequest?.id}</span>
 				<action-nav slot="actions">
 					<action-item

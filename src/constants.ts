@@ -943,6 +943,7 @@ export type WorkspaceStorage = {
 	'views:repositories:autoRefresh': boolean;
 	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:commitDetails:autolinksExpanded': boolean;
+	'views:commitDetails:pullRequestExpanded': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `connected:${Integration['key']}`]: boolean;
 };
