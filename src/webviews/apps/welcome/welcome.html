@@ -57,8 +57,8 @@
 				</p>
 				<div class="promo-banner" id="promo" hidden>
 					<a
-						href="https://www.gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023"
-						aria-label="Holiday Special: 50% off GitLens Pro (plus entire GitKraken Suite) — only $4/month! Includes all Pro versions: GitLens, GitKraken Client, CLI, Browser Extension & more!"
+						href="https://gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023"
+						aria-label="Holiday Special: 50% off GitLens Pro (plus entire the GitKraken DevEx platform) — only $4/month! Includes all Pro versions: GitLens, GitKraken Client, CLI, Browser Extension & more!"
 					>
 						<img
 							class="promo-banner__media is-dark"
@@ -114,7 +114,7 @@
 							<gl-feature-badge></gl-feature-badge> features, which require a
 							<a
 								class="muted"
-								href="https://www.gitkraken.com/gitlens/pricing"
+								href="https://gitkraken.com/gitlens/pricing?utm_source=gitlens-extension&utm_medium=in-app-links"
 								title="See plans for more information"
 								>trial or paid plan</a
 							>.
@@ -355,7 +355,7 @@
 							better track work in progress, pending work, reviews, and more. Stay focused and take action
 							on the most important items to keep your team unblocked.
 							<a
-								href="https://www.gitkraken.com/solutions/launchpad"
+								href="https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links"
 								title="Learn more about Launchpad"
 								aria-label="Learn more about Launchpad"
 								>Learn&nbsp;more</a
@@ -382,7 +382,7 @@
 							suggesting changes on a Google-doc, suggest code changes from where you're already coding —
 							your IDE and on anything in your project, not just on the lines of code changed in the PR.
 							<a
-								href="https://www.gitkraken.com/solutions/code-suggest"
+								href="https://gitkraken.com/solutions/code-suggest?utm_source=gitlens-extension&utm_medium=in-app-links"
 								title="Learn more about Code Suggest"
 								aria-label="Learn more about Code Suggest"
 								>Learn&nbsp;more</a
@@ -410,7 +410,7 @@
 							to collaborate early for feedback on direction, approach, and more, to minimize rework and
 							streamline your workflow.
 							<a
-								href="https://www.gitkraken.com/solutions/cloud-patches"
+								href="https://gitkraken.com/solutions/cloud-patches?utm_source=gitlens-extension&utm_medium=in-app-links"
 								title="Learn more about Cloud Patches"
 								aria-label="Learn more about Cloud Patches"
 								>Learn&nbsp;more</a
@@ -456,7 +456,7 @@
 							from anywhere, streamlining your workflow. Create workspaces just for yourself or share
 							(coming soon in GitLens) them with your team for faster onboarding and better collaboration.
 							<a
-								href="https://www.gitkraken.com/solutions/workspaces"
+								href="https://gitkraken.com/solutions/workspaces?utm_source=gitlens-extension&utm_medium=in-app-links"
 								title="Learn more about GitKraken Workspaces"
 								aria-label="Learn more about GitKraken Workspaces"
 								>Learn&nbsp;more</a
@@ -603,7 +603,7 @@
 						</a>
 					</nav>
 					<nav class="welcome__resources-nav">
-						<h3 class="t-eyebrow sticky">Popular views</h3>
+						<h3 class="t-eyebrow sticky">Popular</h3>
 						<a href="command:gitlens.showGraph" data-requires="repo" aria-label="Show Commit Graph"
 							><code-icon icon="gl-graph"></code-icon
 							><gl-tooltip hoist content="Show Commit Graph"><span>Commit Graph</span></gl-tooltip
@@ -626,6 +626,25 @@
 							><gl-tooltip hoist content="Show Inspect view"><span>Inspect</span></gl-tooltip>
 						</a>
 						<a
+							href="command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22home%22%7D"
+							data-requires="repo"
+							data-org-requires="drafts"
+							aria-label="Open Code Suggest walkthrough"
+							><code-icon icon="gl-code-suggestion"></code-icon
+							><gl-tooltip hoist content="Open Code Suggest walkthrough"
+								><span>Code Suggest</span></gl-tooltip
+							><gl-feature-badge class="super small" preview></gl-feature-badge>
+						</a>
+						<a
+							href="command:gitlens.showDraftsView"
+							data-requires="repo"
+							data-org-requires="drafts"
+							aria-label="Show Cloud Patches view"
+							><code-icon icon="gl-cloud-patch"></code-icon>
+							<gl-tooltip hoist content="Show Cloud Patches view"><span>Cloud Patches</span></gl-tooltip
+							><gl-feature-badge class="super small" preview></gl-feature-badge>
+						</a>
+						<a
 							href="command:gitlens.showFileHistoryView"
 							data-requires="repo"
 							aria-label="Show File History view"
@@ -640,15 +659,6 @@
 							><gl-tooltip hoist content="Show Visual File History view"
 								><span>Visual File History</span></gl-tooltip
 							><gl-feature-badge class="super small"></gl-feature-badge>
-						</a>
-						<a
-							href="command:gitlens.showDraftsView"
-							data-requires="repo"
-							data-org-requires="drafts"
-							aria-label="Show Cloud Patches view"
-							><code-icon icon="gl-cloud-patch"></code-icon>
-							<gl-tooltip hoist content="Show Cloud Patches view"><span>Cloud Patches</span></gl-tooltip
-							><gl-feature-badge class="super small" preview></gl-feature-badge>
 						</a>
 						<a
 							href="command:gitlens.showWorkspacesView"
@@ -716,18 +726,22 @@
 					<p>Supercharge GitLens with our other dev tools</p>
 					<nav class="welcome__resources-nav" aria-label="Companion Tools">
 						<a
-							href="https://www.gitkraken.com/browser-extension"
+							href="https://gitkraken.com/browser-extension?utm_source=gitlens-extension&utm_medium=in-app-links"
 							aria-label="Try the GitKraken Browser Extension"
 							><code-icon class="link" icon="extensions"></code-icon
 							><gl-tooltip hoist content="Try the GitKraken Browser Extension"
 								><span>Browser Extension</span></gl-tooltip
 							>
 						</a>
-						<a href="https://www.gitkraken.com/cli" aria-label="Try the GitKraken CLI"
+						<a
+							href="https://gitkraken.com/cli?utm_source=gitlens-extension&utm_medium=in-app-links"
+							aria-label="Try the GitKraken CLI"
 							><code-icon class="link" icon="terminal"></code-icon
 							><gl-tooltip hoist content="Try the GitKraken CLI"><span>GitKraken CLI</span></gl-tooltip>
 						</a>
-						<a href="https://gitkraken.dev" aria-label="Try GitKraken.dev"
+						<a
+							href="https://gitkraken.dev?utm_source=gitlens-extension&utm_medium=in-app-links"
+							aria-label="Try GitKraken.dev"
 							><code-icon class="link" icon="globe"></code-icon
 							><gl-tooltip hoist content="Try GitKraken.dev"><span>GitKraken.dev</span></gl-tooltip>
 						</a>

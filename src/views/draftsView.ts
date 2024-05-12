@@ -1,6 +1,6 @@
 import type { CancellationToken, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { GetStartedCommandArgs } from '../commands/walkthroughs';
+import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { DraftsViewConfig } from '../config';
 import { Commands, previewBadge } from '../constants';
 import type { Container } from '../container';
@@ -119,7 +119,12 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
-				() => executeCommand<GetStartedCommandArgs>(Commands.GetStarted, 'code-collab'),
+				() =>
+					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+						step: 'code-collab',
+						source: 'cloud-patches',
+						detail: 'info',
+					}),
 				this,
 			),
 			registerViewCommand(

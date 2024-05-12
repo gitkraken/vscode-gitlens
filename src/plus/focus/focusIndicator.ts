@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
 import { Disposable, MarkdownString, StatusBarAlignment, ThemeColor, window } from 'vscode';
-import type { GetStartedCommandArgs } from '../../commands/walkthroughs';
+import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import type { Colors } from '../../constants';
 import { Commands, previewBadge } from '../../constants';
 import type { Container } from '../../container';
@@ -465,7 +465,11 @@ export class FocusIndicator implements Disposable {
 				this.storeFirstInteractionIfNeeded();
 				switch (action) {
 					case 'info': {
-						void executeCommand<GetStartedCommandArgs>(Commands.GetStarted, 'launchpad');
+						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+							step: 'launchpad',
+							source: 'launchpad-indicator',
+							detail: 'info',
+						});
 						break;
 					}
 					case 'hide': {

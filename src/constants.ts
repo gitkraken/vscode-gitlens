@@ -15,7 +15,7 @@ export const previewBadge = 'ᴘʀᴇᴠɪᴇᴡ';
 export const proBadge = 'ᴘʀᴏ';
 export const proBadgeSuperscript = 'ᴾᴿᴼ';
 
-export const ImageMimetypes: Record<string, string> = {
+export const ImageMimetypes: Record<string, string> = Object.freeze({
 	'.png': 'image/png',
 	'.gif': 'image/gif',
 	'.jpg': 'image/jpeg',
@@ -25,7 +25,21 @@ export const ImageMimetypes: Record<string, string> = {
 	'.tif': 'image/tiff',
 	'.tiff': 'image/tiff',
 	'.bmp': 'image/bmp',
-};
+});
+
+export const urls = Object.freeze({
+	codeSuggest: 'https://gitkraken.com/solutions/code-suggest?utm_source=gitlens-extension&utm_medium=in-app-links',
+	cloudPatches: 'https://gitkraken.com/solutions/cloud-patches?utm_source=gitlens-extension&utm_medium=in-app-links',
+	launchpad: 'https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links',
+	platform: 'https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links',
+	proFeatures: 'https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links',
+	security: 'https://help.gitkraken.com/gitlens/security?utm_source=gitlens-extension&utm_medium=in-app-links',
+	workspaces: 'https://gitkraken.com/solutions/workspaces?utm_source=gitlens-extension&utm_medium=in-app-links',
+	cli: 'https://gitkraken.com/cli?utm_source=gitlens-extension&utm_medium=in-app-links',
+	browserExtension: 'https://gitkraken.com/browser-extension?utm_source=gitlens-extension&utm_medium=in-app-links',
+	desktop: 'https://gitkraken.com/git-client?utm_source=gitlens-extension&utm_medium=in-app-links',
+	gkdev: 'https://gitkraken.dev?utm_source=gitlens-extension&utm_medium=in-app-links',
+});
 
 export const enum CharCode {
 	/**
@@ -217,6 +231,7 @@ export const enum Commands {
 	OpenRevisionFile = 'gitlens.openRevisionFile',
 	OpenRevisionFileInDiffLeft = 'gitlens.openRevisionFileInDiffLeft',
 	OpenRevisionFileInDiffRight = 'gitlens.openRevisionFileInDiffRight',
+	OpenWalkthrough = 'gitlens.openWalkthrough',
 	OpenWorkingFile = 'gitlens.openWorkingFile',
 	OpenWorkingFileInDiffLeft = 'gitlens.openWorkingFileInDiffLeft',
 	OpenWorkingFileInDiffRight = 'gitlens.openWorkingFileInDiffRight',
@@ -841,7 +856,20 @@ export type TelemetryEvents =
 	| 'repository/visibility'
 	| 'subscription'
 	| 'subscription/changed'
-	| 'usage/track';
+	| 'usage/track'
+	| 'walkthrough';
+
+export type TelemetrySources =
+	| 'cloud-patches'
+	| 'commandPalette'
+	| 'home'
+	| 'launchpad'
+	| 'launchpad-indicator'
+	| 'notification'
+	| 'prompt'
+	| 'trial-indicator'
+	| 'walkthrough'
+	| 'welcome';
 
 export type AIProviders = 'anthropic' | 'gemini' | 'openai';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'

@@ -150,8 +150,8 @@
 			<div class="promo-banner" id="promo-hs2023" hidden>
 				<a
 					class="promo-banner__link"
-					href="https://www.gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023"
-					aria-label="Holiday Special: 50% off GitLens Pro (plus entire GitKraken Suite) — only $4/month! Includes all Pro versions: GitLens, GitKraken Client, CLI, Browser Extension & more!"
+					href="https://gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023"
+					aria-label="Holiday Special: 50% off GitLens Pro (plus entire the GitKraken DevEx platform) — only $4/month! Includes all Pro versions: GitLens, GitKraken Client, CLI, Browser Extension & more!"
 				>
 					<img
 						class="promo-banner__media is-dark"
@@ -163,7 +163,7 @@
 						src="#{webroot}/media/holiday-2023-small-light.webp"
 						alt=""
 					/><br />
-					50% off GitLens Pro (plus entire GitKraken suite) all for only $4/month
+					50% off GitLens Pro (plus entire the GitKraken DevEx platform) all for only $4/month
 				</a>
 			</div>
 			<div id="section-walkthrough" class="alert">
@@ -211,7 +211,7 @@
 				</div>
 			</nav>
 			<nav class="nav-list">
-				<h2 class="nav-list__title t-eyebrow sticky">Popular views</h2>
+				<h2 class="nav-list__title t-eyebrow sticky">Popular</h2>
 				<div class="nav-list__item">
 					<a
 						class="nav-list__link"
@@ -266,6 +266,36 @@
 				<div class="nav-list__item">
 					<a
 						class="nav-list__link"
+						href="command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22home%22%7D"
+						data-requires="repo"
+						data-org-requires="drafts"
+						aria-label="Open Code Suggest walkthrough"
+						><code-icon class="nav-list__icon" icon="gl-code-suggestion"></code-icon
+						><gl-tooltip hoist class="nav-list__group" content="Open Code Suggest walkthrough"
+							><span class="nav-list__label">Code Suggest</span
+							><span class="nav-list__desc">New!</span></gl-tooltip
+						>
+					</a>
+					<gl-feature-badge placement="left" class="nav-list__access" preview></gl-feature-badge>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showDraftsView"
+						data-requires="repo"
+						data-org-requires="drafts"
+						aria-label="Show Cloud Patches view"
+						><code-icon class="nav-list__icon" icon="gl-cloud-patch"></code-icon
+						><gl-tooltip hoist class="nav-list__group" content="Show Cloud Patches view"
+							><span class="nav-list__label">Cloud Patches</span
+							><span class="nav-list__desc">New!</span></gl-tooltip
+						>
+					</a>
+					<gl-feature-badge placement="left" class="nav-list__access" cloud preview></gl-feature-badge>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
 						href="command:gitlens.showFileHistoryView"
 						aria-label="Show File History view"
 						data-requires="repo"
@@ -287,21 +317,6 @@
 						>
 					</a>
 					<gl-feature-badge placement="left" class="nav-list__access"></gl-feature-badge>
-				</div>
-				<div class="nav-list__item">
-					<a
-						class="nav-list__link"
-						href="command:gitlens.showDraftsView"
-						aria-label="Show Cloud Patches view"
-						data-requires="repo"
-						id="org-settings-drafts"
-						><code-icon class="nav-list__icon" icon="gl-cloud-patch"></code-icon
-						><gl-tooltip hoist class="nav-list__group" content="Show Cloud Patches view"
-							><span class="nav-list__label">Cloud Patches</span
-							><span class="nav-list__desc">New!</span></gl-tooltip
-						>
-					</a>
-					<gl-feature-badge placement="left" class="nav-list__access" cloud preview></gl-feature-badge>
 				</div>
 				<div class="nav-list__item">
 					<a
@@ -481,7 +496,7 @@
 				<div class="nav-list__item">
 					<a
 						class="nav-list__link"
-						href="https://www.gitkraken.com/browser-extension"
+						href="https://gitkraken.com/browser-extension?utm_source=gitlens-extension&utm_medium=in-app-links"
 						aria-label="Try the GitKraken Browser Extension"
 						><code-icon class="nav-list__icon" icon="extensions"></code-icon
 						><gl-tooltip hoist class="nav-list__label" content="Try the GitKraken Browser Extension"
@@ -490,7 +505,10 @@
 					</a>
 				</div>
 				<div class="nav-list__item">
-					<a class="nav-list__link" href="https://www.gitkraken.com/cli" aria-label="Try the GitKraken CLI"
+					<a
+						class="nav-list__link"
+						href="https://gitkraken.com/cli?utm_source=gitlens-extension&utm_medium=in-app-links"
+						aria-label="Try the GitKraken CLI"
 						><code-icon class="nav-list__icon" icon="terminal"></code-icon
 						><gl-tooltip hoist class="nav-list__label" content="Try the GitKraken CLI"
 							><span>GitKraken CLI</span></gl-tooltip
@@ -498,7 +516,10 @@
 					</a>
 				</div>
 				<div class="nav-list__item">
-					<a class="nav-list__link" href="https://gitkraken.dev" aria-label="Try GitKraken.dev"
+					<a
+						class="nav-list__link"
+						href="https://gitkraken.dev?utm_source=gitlens-extension&utm_medium=in-app-links"
+						aria-label="Try GitKraken.dev"
 						><code-icon class="nav-list__icon" icon="globe"></code-icon
 						><gl-tooltip hoist class="nav-list__label" content="Try GitKraken.dev"
 							><span>GitKraken.dev</span></gl-tooltip
