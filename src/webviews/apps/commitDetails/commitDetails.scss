@@ -20,7 +20,7 @@
 
 main {
 	flex: 1 1 auto;
-	// overflow: hidden;
+	overflow: hidden;
 	display: flex;
 	flex-direction: column;
 }
@@ -36,6 +36,7 @@ gl-wip-details {
 
 webview-pane-group {
 	height: 100%;
+	overflow: hidden;
 }
 
 .popover-content {
