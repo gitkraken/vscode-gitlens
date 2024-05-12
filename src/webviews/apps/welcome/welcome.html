@@ -123,13 +123,29 @@
 
 					<section>
 						<h3 class="checkbox-group sticky">
-							<label class="checkbox" for="inline-blame"
-								><input type="checkbox" id="inline-blame" data-feature="blame" checked />Inline
-								Blame</label
+							<gl-tooltip hoist placement="top">
+								<label class="checkbox" for="inline-blame"
+									><gl-indicator pulse></gl-indicator
+									><input type="checkbox" id="inline-blame" data-feature="blame" checked />Inline
+									Blame</label
+								>
+								<div slot="content">
+									Enables or disables Inline Blame
+									<hr />
+									Toggle to see it in action below
+								</div></gl-tooltip
 							><span>and</span
-							><label class="checkbox" for="codelens"
-								><input type="checkbox" id="codelens" data-feature="codelens" checked />Git
-								CodeLens</label
+							><gl-tooltip hoist placement="top"
+								><label class="checkbox" for="codelens"
+									><gl-indicator pulse></gl-indicator
+									><input type="checkbox" id="codelens" data-feature="codelens" checked />Git
+									CodeLens</label
+								>
+								<div slot="content">
+									Enables or disables Git CodeLens
+									<hr />
+									Toggle to see it in action below
+								</div></gl-tooltip
 							>
 						</h3>
 						<p>
