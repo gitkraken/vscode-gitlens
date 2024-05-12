@@ -141,7 +141,7 @@ export class GraphSvg extends LitElement {
 				<line class="lane5-foreground" opacity="0.3" x1="196" y1="246" x2="297" y2="246" stroke-width="2"/>
 				<rect class="lane5-background" opacity="0.2" x="304" y="236" width="40" height="18"/>
 				<rect class="lane5-background" x="342" y="236" width="2" height="18"/>
-				<path class="lane5-foreground" d="M239 270.74H297C301.418 270.74 305 267.158 305 262.74V247" stroke-width="2"/>
+				<path class="lane5-foreground" d="M239 270.74H297C301.418 270.74 305 267.158 305 262.74V247" fill="none" stroke-width="2"/>
 
 				<line class="lane1-foreground" x1="217" y1="38" x2="217" y2="319" stroke-width="2" stroke-dasharray="4 4"/>
 				<circle class="lane1-foreground container" cx="217" cy="29" r="8" stroke-width="2" stroke-dasharray="4 4"/>
