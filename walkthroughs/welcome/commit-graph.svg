@@ -54,7 +54,7 @@
         <line stroke="var(--vscode-gitlens-graphLane5Color)" opacity="0.3" x1="211" y1="246" x2="297" y2="246" stroke-width="2"/>
         <rect fill="var(--vscode-gitlens-graphLane5Color)" opacity="0.2" x="304" y="236" width="40" height="18"/>
         <rect fill="var(--vscode-gitlens-graphLane5Color)" x="342" y="236" width="2" height="18"/>
-        <path stroke="var(--vscode-gitlens-graphLane5Color)" d="M239 270.74H297C301.418 270.74 305 267.158 305 262.74V247" stroke-width="2"/>
+        <path stroke="var(--vscode-gitlens-graphLane5Color)" d="M239 270.74H297C301.418 270.74 305 267.158 305 262.74V247" fill="none" stroke-width="2"/>
 
         <line stroke="var(--vscode-gitlens-graphLane1Color)" x1="217" y1="38" x2="217" y2="319" stroke-width="2" stroke-dasharray="4 4"/>
         <circle stroke="var(--vscode-gitlens-graphLane1Color)" cx="217" cy="29" r="8" stroke-width="2" stroke-dasharray="4 4"/>

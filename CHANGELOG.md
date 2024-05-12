@@ -557,7 +557,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds the ability to rename stashes &mdash; closes [#2538](https://github.com/gitkraken/vscode-gitlens/issues/2538)
   - Adds a new _Rename Stash..._ command to the _Stashes_ view
 - Adds new _Commit Graph_ features and improvements
-  - Adds a _Push_ or _Pull_ toolbar button depending the current branch being ahead or behind it's upstream
+  - Adds a _Push_ or _Pull_ toolbar button depending the current branch being ahead or behind its upstream
   - Adds support for the _Commit Graph_ over [Visual Studio Live Share](https://visualstudio.microsoft.com/services/live-share/) sessions
   - Adds the ability to move all of the columns, including the ones that were previously unmovable
   - Automatically switches column headers from text to icons when the column's width is too small for the text to be useful
@@ -778,7 +778,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Adds a new _Filter Graph_ dropdown button at the start of the search bar
     - Adds ability to quickly switch between _Show All Local Branches_ and _Show Current Branch Only_ branch filtering options
       - _Show All Local Branches_ &mdash; displays all local branches (default)
-      - _Show Current Branch Only_ &mdash; displays only the current branch and it's upstream remote (if exists and _Hide Remote Branches_ isn't enabled)
+      - _Show Current Branch Only_ &mdash; displays only the current branch and its upstream remote (if exists and _Hide Remote Branches_ isn't enabled)
     - Adds ability to hide all remote branches, stashes, and tags
     - Adds the ability to dim (deemphasize) merge commits
   - Adds a new header bar to provide quick access to common actions
