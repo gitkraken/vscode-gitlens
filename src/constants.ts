@@ -1112,3 +1112,17 @@ export type StoredSearchAndCompareItem = StoredComparison | StoredSearch;
 export type StoredSearchAndCompareItems = Record<string, StoredSearchAndCompareItem>;
 export type StoredStarred = Record<string, boolean>;
 export type RecentUsage = Record<string, number>;
+
+export type WalkthroughSteps =
+	| 'get-started'
+	| 'core-features'
+	| 'pro-features'
+	| 'pro-trial'
+	| 'pro-upgrade'
+	| 'pro-reactivate'
+	| 'pro-paid'
+	| 'visualize'
+	| 'launchpad'
+	| 'code-collab'
+	| 'integrations'
+	| 'more';

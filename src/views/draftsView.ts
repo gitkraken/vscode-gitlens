@@ -1,5 +1,6 @@
 import type { CancellationToken, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { GetStartedCommandArgs } from '../commands/walkthroughs';
 import type { DraftsViewConfig } from '../config';
 import { Commands, previewBadge } from '../constants';
 import type { Container } from '../container';
@@ -11,7 +12,6 @@ import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { groupByFilterMap } from '../system/iterable';
-import { openUrl } from '../system/utils';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import { DraftNode } from './nodes/draftNode';
 import { GroupingNode } from './nodes/groupingNode';
@@ -119,7 +119,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
-				() => openUrl('https://help.gitkraken.com/gitlens/side-bar/#drafts-☁%ef%b8%8f'),
+				() => executeCommand<GetStartedCommandArgs>(Commands.GetStarted, 'code-collab'),
 				this,
 			),
 			registerViewCommand(
