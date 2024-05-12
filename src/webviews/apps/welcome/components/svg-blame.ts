@@ -6,6 +6,13 @@ export class BlameSvg extends LitElement {
 	static override styles = css`
 		:host {
 			position: relative;
+
+			--gl-svg-indicator-color: var(
+				--vscode-activityBarBadge-background,
+				dodgerblue
+			); //color-mix(in srgb, var(--vscode-activityBarBadge-background) 90%, white);
+			--gl-svg-indicator-size: 2.5;
+			--gl-svg-indicator-pulse-size: 12; // calc(var(--gl-svg-indicator-size, 3) * 4);
 		}
 
 		:host svg:last-child {
@@ -183,6 +190,9 @@ export class BlameSvg extends LitElement {
 			}
 		}
 
+		:host([hovering]) {
+			z-index: 1000;
+		}
 		:host([hovered][hovering]) .hover {
 			animation-name: fadeInHover;
 		}
@@ -200,6 +210,29 @@ export class BlameSvg extends LitElement {
 		:host(:not([codelens])) .codelens {
 			cursor: default;
 			opacity: 0;
+		}
+
+		circle.indicator {
+			fill: var(--gl-svg-indicator-color);
+			stroke: var(--gl-svg-indicator-color);
+			stroke-width: 1;
+			r: var(--gl-svg-indicator-size);
+			pointer-events: none;
+		}
+
+		circle.indicator--pulse {
+			animation: 1.05s ease 0s infinite normal none running pulse;
+		}
+
+		@keyframes pulse {
+			0% {
+				stroke-width: 1;
+				opacity: 1;
+			}
+			100% {
+				stroke-width: var(--gl-svg-indicator-pulse-size, 12);
+				opacity: 0;
+			}
 		}
 	`;
 
@@ -265,6 +298,8 @@ export class BlameSvg extends LitElement {
 				<g class="line">
 					<text y="34"><tspan x="7" class="line-number">13</tspan><tspan x="38" class="function-return">return</tspan><tspan dx="6" class="function-name">supercharged</tspan><tspan class="punctuation">(</tspan><tspan class="function-argument">git</tspan><tspan class="punctuation">)</tspan><tspan class="punctuation">;</tspan><tspan class="cursor">|</tspan><tspan dx="24" class="blame" @mouseover=${this
 				.onMouseOver} @mouseout=${this.onMouseOut}>You, 6 years ago via PR #1 • Supercharge Git</tspan></text>
+					<circle class="indicator indicator--pulse" cx="260" cy="20" />
+					<circle class="indicator" cx="260" cy="20" />
 				</g>
 				<!-- <g class="line">
 					<text y="34"><tspan x="7" class="line-number">12</tspan><tspan x="38" class="function-declaration">function</tspan><tspan dx="6" class="function-name">gitlens</tspan><tspan class="punctuation">(</tspan><tspan class="function-argument">git</tspan><tspan class="punctuation">:</tspan><tspan dx="6" class="function-argument-type">object</tspan><tspan class="punctuation">)</tspan><tspan dx="6" class="punctuation">{</tspan><tspan class="cursor">|</tspan><tspan dx="24" class="blame" data-feature-blame="on">You, 6 years ago via PR #1 • Supercharge Git</tspan></text>

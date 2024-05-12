@@ -6,6 +6,15 @@ import type { RevisionNavigationSvg } from './svg-revision-navigation';
 @customElement('gk-editor-toolbar-svg')
 export class EditorToolbarSvg extends LitElement {
 	static override styles = css`
+		:host {
+			--gl-svg-indicator-color: var(
+				--vscode-activityBarBadge-background,
+				dodgerblue
+			); //color-mix(in srgb, var(--vscode-activityBarBadge-background) 90%, white);
+			--gl-svg-indicator-size: 2.5;
+			--gl-svg-indicator-pulse-size: 12; // calc(var(--gl-svg-indicator-size, 3) * 4);
+		}
+
 		:host > svg {
 			display: block;
 			max-width: 69.2rem;
@@ -58,48 +67,35 @@ export class EditorToolbarSvg extends LitElement {
 			fill: var(--vscode-menu-background);
 		}
 
-		@keyframes wiggle {
-			0%,
-			8%,
-			100% {
-				transform: rotate(0) scale(1);
-			}
-
-			1%,
-			4% {
-				transform: rotate(0.02turn) scale(var(--wiggle-scale-1));
-			}
-
-			2%,
-			6% {
-				transform: rotate(-0.02turn) scale(var(--wiggle-scale-2));
-			}
-		}
-
-		.icon__annotations {
-			--wiggle-scale-1: 1.14;
-			--wiggle-scale-2: 1.28;
-
-			transform-origin: 60%;
-			animation: wiggle 5s ease-in-out 2s infinite;
-			animation-timing-function: steps(8);
-		}
-
-		.icon__revision {
-			--wiggle-scale-1: 1.14;
-			--wiggle-scale-2: 1.28;
-
-			transform-origin: 5%;
-			animation: wiggle 5s ease-in-out 4s infinite;
-			animation-timing-function: steps(8);
-		}
-
 		:host([revision-toggled]) .icon__revision-bg {
 			fill: var(--color-foreground);
 			opacity: 0.2;
 		}
 		:host(:not([revision-toggled])) .icon__revision-bg {
 			fill: none;
+		}
+
+		circle.indicator {
+			fill: var(--gl-svg-indicator-color);
+			stroke: var(--gl-svg-indicator-color);
+			stroke-width: 1;
+			r: var(--gl-svg-indicator-size);
+			pointer-events: none;
+		}
+
+		circle.indicator--pulse {
+			animation: 1.05s ease 0s infinite normal none running pulse;
+		}
+
+		@keyframes pulse {
+			0% {
+				stroke-width: 1;
+				opacity: 1;
+			}
+			100% {
+				stroke-width: var(--gl-svg-indicator-pulse-size, 12);
+				opacity: 0;
+			}
 		}
 	`;
 
@@ -172,20 +168,36 @@ export class EditorToolbarSvg extends LitElement {
 						fill="transparent"
 						stroke="none"
 						@click=${this.onClick}
-				  ></rect>`
+				  >
+				  	<title>${
+						this.revisionToggled
+							? 'Click to reset simulated revision navigation below\nShowing diff with revision (simulated)'
+							: 'Click to simulate revision navigation below\nShowing original (simulated)'
+					}</title>
+				  </rect>
+				  <circle class="indicator indicator--pulse" cx="16" cy="2" />
+				  <circle class="indicator" cx="16" cy="2" />`
 				: ''}
 				${this.annotations
 				? svg`<rect
 						class="interactive"
 						data-feature="annotations"
-						x="80"
+						x="75"
 						y="0"
 						width="16"
 						height="16"
 						fill="transparent"
 						stroke="none"
 						@click=${this.onClick}
-				  ></rect>`
+				  >
+				  	<title>${
+						this.annotationsToggled
+							? 'Click to simulate toggling the annotation below\nFile annotations are on (simulated)'
+							: 'Click to simulate toggling the annotation below\nFile annotations are off (simulated)'
+					}</title>
+				  </rect>
+				  <circle class="indicator indicator--pulse" cx="90" cy="2" />
+				  <circle class="indicator" cx="90" cy="2" />`
 				: ''}
 			</svg>
 		`;
