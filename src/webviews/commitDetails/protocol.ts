@@ -39,6 +39,7 @@ export interface CommitDetails extends CommitSummary {
 
 export interface Preferences {
 	autolinksExpanded: boolean;
+	pullRequestExpanded: boolean;
 	avatars: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
@@ -46,7 +47,7 @@ export interface Preferences {
 	indent: number | undefined;
 	indentGuides: 'none' | 'onHover' | 'always';
 }
-export type UpdateablePreferences = Partial<Pick<Preferences, 'autolinksExpanded' | 'files'>>;
+export type UpdateablePreferences = Partial<Pick<Preferences, 'autolinksExpanded' | 'pullRequestExpanded' | 'files'>>;
 
 export interface WipChange {
 	branchName: string;

@@ -211,7 +211,12 @@ export class GlCommitDetailsApp extends LitElement {
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="rich-pane"]',
 				'expanded-change',
-				e => this.onExpandedChange(e.detail),
+				e => this.onExpandedChange(e.detail, 'autolinks'),
+			),
+			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
+				'[data-region="pullrequest-pane"]',
+				'expanded-change',
+				e => this.onExpandedChange(e.detail, 'pullrequest'),
 			),
 			DOM.on('[data-action="explain-commit"]', 'click', e => this.onExplainCommit(e)),
 			DOM.on('[data-action="switch-ai"]', 'click', e => this.onSwitchAiModel(e)),
@@ -610,14 +615,22 @@ export class GlCommitDetailsApp extends LitElement {
 		this._hostIpc.sendCommand(UpdatePreferencesCommand, { files: files });
 	}
 
-	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail) {
+	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail, pane: string) {
+		let preferenceChange;
+		if (pane === 'autolinks') {
+			preferenceChange = { autolinksExpanded: e.expanded };
+		} else if (pane === 'pullrequest') {
+			preferenceChange = { pullRequestExpanded: e.expanded };
+		}
+		if (preferenceChange == null) return;
+
 		this.state = {
 			...this.state,
-			preferences: { ...this.state!.preferences, autolinksExpanded: e.expanded },
+			preferences: { ...this.state!.preferences, ...preferenceChange },
 		} as any;
 		// this.attachState();
 
-		this._hostIpc.sendCommand(UpdatePreferencesCommand, { autolinksExpanded: e.expanded });
+		this._hostIpc.sendCommand(UpdatePreferencesCommand, preferenceChange);
 	}
 
 	private onNavigate(direction: 'back' | 'forward') {

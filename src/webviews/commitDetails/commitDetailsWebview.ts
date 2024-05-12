@@ -872,6 +872,7 @@ export class CommitDetailsWebviewProvider
 	private getPreferences(): Preferences {
 		return {
 			autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded') ?? true,
+			pullRequestExpanded: this.container.storage.getWorkspace('views:commitDetails:pullRequestExpanded') ?? true,
 			avatars: configuration.get('views.commitDetails.avatars'),
 			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
 			dateStyle: configuration.get('defaultDateStyle') ?? 'relative',
@@ -1491,6 +1492,7 @@ export class CommitDetailsWebviewProvider
 	private updatePreferences(preferences: UpdateablePreferences) {
 		if (
 			this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded &&
+			this._context.preferences?.pullRequestExpanded === preferences.pullRequestExpanded &&
 			this._context.preferences?.files?.compact === preferences.files?.compact &&
 			this._context.preferences?.files?.icon === preferences.files?.icon &&
 			this._context.preferences?.files?.layout === preferences.files?.layout &&
@@ -1514,6 +1516,18 @@ export class CommitDetailsWebviewProvider
 			);
 
 			changes.autolinksExpanded = preferences.autolinksExpanded;
+		}
+
+		if (
+			preferences.pullRequestExpanded != null &&
+			this._context.preferences?.pullRequestExpanded !== preferences.pullRequestExpanded
+		) {
+			void this.container.storage.storeWorkspace(
+				'views:commitDetails:pullRequestExpanded',
+				preferences.pullRequestExpanded,
+			);
+
+			changes.pullRequestExpanded = preferences.pullRequestExpanded;
 		}
 
 		if (preferences.files != null) {
