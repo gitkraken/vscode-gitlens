@@ -147,7 +147,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
-				() => openUrl('https://help.gitkraken.com/gitlens/side-bar/#workspaces-☁%ef%b8%8f'),
+				() => openUrl('https://gitkraken.com/solutions/workspaces'),
 				this,
 			),
 			registerViewCommand(
