@@ -1130,6 +1130,66 @@
 				}
 			},
 			{
+				"id": "pull-request-view",
+				"title": "Pull Request View",
+				"order": 21,
+				"properties": {
+					"gitlens.views.pullRequest.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.pullRequest.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Pull Request_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.pullRequest.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Pull Request_ view. Only applies when `#gitlens.views.pullRequest.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.pullRequest.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Pull Request_ view. Only applies when `#gitlens.views.pullRequest.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.pullRequest.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Pull Request_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.pullRequest.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Pull Request_ view",
+						"scope": "window",
+						"order": 40
+					}
+				}
+			},
+			{
 				"id": "file-history-view",
 				"title": "File History View",
 				"order": 24,
@@ -1919,9 +1979,69 @@
 				}
 			},
 			{
+				"id": "cloud-patches-view",
+				"title": "Cloud Patches View",
+				"order": 33,
+				"properties": {
+					"gitlens.views.drafts.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.drafts.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Cloud Patches_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.drafts.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Cloud Patches_ view. Only applies when `#gitlens.views.drafts.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.drafts.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Cloud Patches_ view. Only applies when `#gitlens.views.drafts.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.drafts.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Cloud Patches_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.drafts.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Cloud Patches_ view",
+						"scope": "window",
+						"order": 40
+					}
+				}
+			},
+			{
 				"id": "workspaces-view",
 				"title": "GitKraken Workspaces View",
-				"order": 33,
+				"order": 34,
 				"properties": {
 					"gitlens.views.workspaces.showBranchComparison": {
 						"type": [
@@ -2132,7 +2252,7 @@
 			{
 				"id": "patch-details-view",
 				"title": "Patch Details View",
-				"order": 34,
+				"order": 35,
 				"properties": {
 					"gitlens.views.patchDetails.files.layout": {
 						"type": "string",
@@ -2790,13 +2910,6 @@
 				"title": "Launchpad (Preview)",
 				"order": 400,
 				"properties": {
-					"gitlens.launchpad.allowMultiple": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Launchpad_ as an editor tab",
-						"scope": "window",
-						"order": 10
-					},
 					"gitlens.launchpad.ignoredRepositories": {
 						"type": "array",
 						"default": [],
@@ -2805,7 +2918,7 @@
 						},
 						"markdownDescription": "Specifies the repositories to ignore in the _Launchpad_",
 						"scope": "window",
-						"order": 19
+						"order": 10
 					},
 					"gitlens.launchpad.staleThreshold": {
 						"type": [
@@ -2822,28 +2935,7 @@
 						"default": true,
 						"markdownDescription": "Specifies whether to enable status bar indicator for _Launchpad_",
 						"scope": "window",
-						"order": 21
-					},
-					"gitlens.launchpad.indicator.openInEditor": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to open _Launchpad_ as an editor tab when clicking on the status bar indicator",
-						"scope": "window",
-						"order": 22
-					},
-					"gitlens.launchpad.indicator.polling.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether the status bar indicator will fetch and display pull request data for _Launchpad_",
-						"scope": "window",
-						"order": 23
-					},
-					"gitlens.launchpad.indicator.polling.interval": {
-						"type": "number",
-						"default": 30,
-						"markdownDescription": "Specifies the rate (in minutes) at which the status bar indicator will fetch pull request data for _Launchpad_. Use 0 to disable automatic polling",
-						"scope": "window",
-						"order": 24
+						"order": 100
 					},
 					"gitlens.launchpad.indicator.icon": {
 						"type": "string",
@@ -2854,7 +2946,7 @@
 						"default": "default",
 						"markdownDescription": "Specifies the style of the  _Launchpad_ status bar indicator icon",
 						"scope": "window",
-						"order": 25
+						"order": 110
 					},
 					"gitlens.launchpad.indicator.label": {
 						"type": [
@@ -2866,16 +2958,9 @@
 							"item"
 						],
 						"default": "item",
-						"markdownDescription": "Specifies the display of the  _Launchpad_ status bar indicator text",
+						"markdownDescription": "Specifies the display of the  _Launchpad_ status bar indicator label",
 						"scope": "window",
-						"order": 26
-					},
-					"gitlens.launchpad.indicator.useColors": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to use colors in the _Launchpad_ status bar indicator text",
-						"scope": "window",
-						"order": 27
+						"order": 120
 					},
 					"gitlens.launchpad.indicator.groups": {
 						"type": "array",
@@ -2902,9 +2987,44 @@
 						},
 						"minItems": 1,
 						"uniqueItems": true,
-						"markdownDescription": "Specifies the groups of pull requests to show in the _Launchpad_ status bar indicator hover details",
+						"markdownDescription": "Specifies the groups of pull requests to show on the _Launchpad_ status bar indicator",
 						"scope": "window",
-						"order": 28
+						"order": 130
+					},
+					"gitlens.launchpad.indicator.useColors": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to use colors on the _Launchpad_ status bar indicator",
+						"scope": "window",
+						"order": 140
+					},
+					"gitlens.launchpad.indicator.polling.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether the status bar indicator will fetch and display pull request data for _Launchpad_",
+						"scope": "window",
+						"order": 150
+					},
+					"gitlens.launchpad.indicator.polling.interval": {
+						"type": "number",
+						"default": 30,
+						"markdownDescription": "Specifies the rate (in minutes) at which the status bar indicator will fetch pull request data for _Launchpad_. Use 0 to disable automatic polling",
+						"scope": "window",
+						"order": 160
+					},
+					"gitlens.launchpad.indicator.openInEditor": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to open _Launchpad_ as an editor tab when clicking on the status bar indicator",
+						"scope": "window",
+						"order": 170
+					},
+					"gitlens.launchpad.allowMultiple": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Launchpad_ as an editor tab",
+						"scope": "window",
+						"order": 1000
 					}
 				}
 			},
@@ -3844,6 +3964,9 @@
 													},
 													"graph": {
 														"type": "boolean"
+													},
+													"patch": {
+														"type": "boolean"
 													}
 												}
 											}
@@ -3880,6 +4003,9 @@
 														"type": "boolean"
 													},
 													"openClose": {
+														"type": "boolean"
+													},
+													"patch": {
 														"type": "boolean"
 													},
 													"stash": {
@@ -3984,6 +4110,7 @@
 							"scmRepository": {
 								"authors": true,
 								"generateCommitMessage": true,
+								"patch": true,
 								"graph": false
 							},
 							"scmGroupInline": {
@@ -3992,6 +4119,7 @@
 							"scmGroup": {
 								"compare": true,
 								"openClose": true,
+								"patch": true,
 								"stash": true
 							},
 							"scmItemInline": {
@@ -5217,12 +5345,66 @@
 					"dark": "#6b562e",
 					"highContrast": "#6b562e"
 				}
+			},
+			{
+				"id": "gitlens.launchpadIndicatorMergeableColor",
+				"description": "Specifies the color of the _Launchpad_ indicator icon when the priority is mergeable",
+				"defaults": {
+					"light": "#42c954",
+					"dark": "#3fb950",
+					"highContrast": "#68ff79"
+				}
+			},
+			{
+				"id": "gitlens.launchpadIndicatorMergeableHoverColor",
+				"description": "Specifies the color of the _Launchpad_ indicator icon in the hover when the priority is mergeable",
+				"defaults": {
+					"light": "#42c954",
+					"dark": "#3fb950",
+					"highContrast": "#68ff79"
+				}
+			},
+			{
+				"id": "gitlens.launchpadIndicatorBlockedColor",
+				"description": "Specifies the color of the _Launchpad_ indicator icon when the priority is blocked",
+				"defaults": {
+					"light": "#ad0707",
+					"dark": "#c74e39",
+					"highContrast": "#ff003c"
+				}
+			},
+			{
+				"id": "gitlens.launchpadIndicatorBlockedHoverColor",
+				"description": "Specifies the color of the _Launchpad_ indicator icon in the hover when the priority is blocked",
+				"defaults": {
+					"light": "#ad0707",
+					"dark": "#c74e39",
+					"highContrast": "#ff003c"
+				}
+			},
+			{
+				"id": "gitlens.launchpadIndicatorAttentionColor",
+				"description": "Specifies the color of the _Launchpad_ indicator icon when the priority is follow-up or needs review",
+				"defaults": {
+					"dark": "#D8AF1B",
+					"light": "#cc9b15",
+					"highContrast": "#D8AF1B"
+				}
+			},
+			{
+				"id": "gitlens.launchpadIndicatorAttentionHoverColor",
+				"description": "Specifies the color of the _Launchpad_ indicator icon in the hover when the priority is follow-up or needs review",
+				"defaults": {
+					"dark": "#D8AF1B",
+					"light": "#cc9b15",
+					"highContrast": "#D8AF1B"
+				}
 			}
 		],
 		"commands": [
 			{
 				"command": "gitlens.generateCommitMessage",
-				"title": "Generate Commit Message (Experimental)...",
+				"title": "Generate Commit Message (GitLens)...",
 				"category": "GitLens"
 			},
 			{
@@ -5386,7 +5568,7 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.quickFocus",
+				"command": "gitlens.showLaunchpad",
 				"title": "Open Launchpad",
 				"category": "GitLens",
 				"icon": "$(rocket)"
@@ -5404,14 +5586,8 @@
 				"icon": "$(split-horizontal)"
 			},
 			{
-				"command": "gitlens.launchpad.indicator.update",
-				"title": "Update Launchpad Indicator",
-				"category": "GitLens",
-				"icon": "$(rocket)"
-			},
-			{
 				"command": "gitlens.launchpad.indicator.toggle",
-				"title": "Toggle Launchpad Status Bar Icon",
+				"title": "Toggle Launchpad Indicator",
 				"category": "GitLens",
 				"icon": "$(rocket)"
 			},
@@ -6631,21 +6807,21 @@
 				"command": "gitlens.fetchRepositories",
 				"title": "Fetch",
 				"category": "GitLens",
-				"icon": "$(sync)",
+				"icon": "$(gitlens-repo-fetch)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.pullRepositories",
 				"title": "Pull",
 				"category": "GitLens",
-				"icon": "$(arrow-down)",
+				"icon": "$(gitlens-repo-pull)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.pushRepositories",
 				"title": "Push",
 				"category": "GitLens",
-				"icon": "$(arrow-up)",
+				"icon": "$(gitlens-repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -6715,7 +6891,7 @@
 				"command": "gitlens.views.fetch",
 				"title": "Fetch",
 				"category": "GitLens",
-				"icon": "$(sync)",
+				"icon": "$(gitlens-repo-fetch)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -6736,21 +6912,21 @@
 				"command": "gitlens.views.pull",
 				"title": "Pull",
 				"category": "GitLens",
-				"icon": "$(arrow-down)",
+				"icon": "$(gitlens-repo-pull)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.push",
 				"title": "Push",
 				"category": "GitLens",
-				"icon": "$(arrow-up)",
+				"icon": "$(gitlens-repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.pushWithForce",
 				"title": "Push (force)",
 				"category": "GitLens",
-				"icon": "$(gitlens-arrow-up-force)",
+				"icon": "$(gitlens-repo-force-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -7129,7 +7305,7 @@
 				"command": "gitlens.views.pushToCommit",
 				"title": "Push to Commit...",
 				"category": "GitLens",
-				"icon": "$(arrow-up)",
+				"icon": "$(gitlens-repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -7534,6 +7710,22 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.views.drafts.info",
+				"title": "Learn about Cloud Patches...",
+				"category": "GitLens",
+				"icon": "$(info)"
+			},
+			{
+				"command": "gitlens.views.drafts.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.drafts.setShowAvatarsOff",
+				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.drafts.create",
 				"title": "Create Cloud Patch...",
 				"category": "GitLens",
@@ -7546,10 +7738,16 @@
 				"icon": "$(trash)"
 			},
 			{
-				"command": "gitlens.views.drafts.open",
+				"command": "gitlens.views.draft.open",
 				"title": "Open",
 				"category": "GitLens",
 				"icon": "$(eye)"
+			},
+			{
+				"command": "gitlens.views.draft.openOnWeb",
+				"title": "Open on gitkraken.dev",
+				"category": "GitLens",
+				"icon": "$(globe)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.changeBase",
@@ -7700,6 +7898,51 @@
 			},
 			{
 				"command": "gitlens.views.lineHistory.setShowAvatarsOff",
+				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.pullRequest.close",
+				"title": "Close",
+				"category": "GitLens",
+				"icon": "$(close)"
+			},
+			{
+				"command": "gitlens.views.pullRequest.copy",
+				"title": "Copy",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.pullRequest.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "gitlens.views.pullRequest.setFilesLayoutToAuto",
+				"title": "View Files as Auto",
+				"category": "GitLens",
+				"icon": "$(list-tree)"
+			},
+			{
+				"command": "gitlens.views.pullRequest.setFilesLayoutToList",
+				"title": "View Files as List",
+				"category": "GitLens",
+				"icon": "$(gitlens-list-auto)"
+			},
+			{
+				"command": "gitlens.views.pullRequest.setFilesLayoutToTree",
+				"title": "View Files as Tree",
+				"category": "GitLens",
+				"icon": "$(list-flat)"
+			},
+			{
+				"command": "gitlens.views.pullRequest.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.pullRequest.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
 			},
@@ -8122,7 +8365,7 @@
 			},
 			{
 				"command": "gitlens.views.workspaces.info",
-				"title": "Learn more about GitKraken Workspaces...",
+				"title": "Learn about GitKraken Workspaces...",
 				"category": "GitLens",
 				"icon": "$(info)"
 			},
@@ -8304,21 +8547,21 @@
 				"command": "gitlens.graph.push",
 				"title": "Push",
 				"category": "GitLens",
-				"icon": "$(arrow-up)",
+				"icon": "$(gitlens-repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.pull",
 				"title": "Pull",
 				"category": "GitLens",
-				"icon": "$(arrow-down)",
+				"icon": "$(gitlens-repo-pull)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.fetch",
 				"title": "Fetch",
 				"category": "GitLens",
-				"icon": "$(sync)",
+				"icon": "$(gitlens-repo-fetch)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -9058,8 +9301,8 @@
 					"fontCharacter": "\\f11a"
 				}
 			},
-			"gitlens-arrow-up-force": {
-				"description": "arrow-up-force icon",
+			"gitlens-repo-force-push": {
+				"description": "repo-force-push icon",
 				"default": {
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f11b"
@@ -9190,6 +9433,48 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f12d"
 				}
+			},
+			"gitlens-diff-multiple": {
+				"description": "diff-multiple icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f12e"
+				}
+			},
+			"gitlens-diff-single": {
+				"description": "diff-single icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f12f"
+				}
+			},
+			"gitlens-repo-fetch": {
+				"description": "repo-fetch icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f130"
+				}
+			},
+			"gitlens-repo-pull": {
+				"description": "repo-pull icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f131"
+				}
+			},
+			"gitlens-repo-push": {
+				"description": "repo-push icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f132"
+				}
+			},
+			"gitlens-provider-jira": {
+				"description": "provider-jira icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f133"
+				}
 			}
 		},
 		"menus": {
@@ -9315,7 +9600,7 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.quickFocus",
+					"command": "gitlens.showLaunchpad",
 					"when": "gitlens:prerelease"
 				},
 				{
@@ -9325,10 +9610,6 @@
 				{
 					"command": "gitlens.launchpad.split",
 					"when": "gitlens:enabled && config.gitlens.launchpad.allowMultiple"
-				},
-				{
-					"command": "gitlens.launchpad.indicator.update",
-					"when": "false"
 				},
 				{
 					"command": "gitlens.launchpad.indicator.toggle",
@@ -10791,6 +11072,18 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.drafts.info",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.drafts.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.drafts.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.drafts.create",
 					"when": "false"
 				},
@@ -10799,7 +11092,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.drafts.open",
+					"command": "gitlens.views.draft.open",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.draft.openOnWeb",
 					"when": "false"
 				},
 				{
@@ -10908,6 +11205,38 @@
 				},
 				{
 					"command": "gitlens.views.lineHistory.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.close",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.copy",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.refresh",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToAuto",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToList",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToTree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setShowAvatarsOff",
 					"when": "false"
 				},
 				{
@@ -12083,9 +12412,19 @@
 					"group": "4_gitlens@1"
 				},
 				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
+					"group": "4_gitlens@2"
+				},
+				{
+					"command": "gitlens.shareAsCloudPatch",
+					"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
+					"group": "4_gitlens@3"
+				},
+				{
 					"command": "gitlens.generateCommitMessage",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
-					"group": "4_gitlens@2"
+					"group": "4_gitlens@4"
 				}
 			],
 			"menuBar/edit/copy": [
@@ -12124,14 +12463,24 @@
 					"group": "2_z_gitlens@1"
 				},
 				{
+					"command": "gitlens.copyPatchToClipboard",
+					"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
+					"group": "2_z_gitlens@2"
+				},
+				{
+					"command": "gitlens.shareAsCloudPatch",
+					"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
+					"group": "2_z_gitlens@3"
+				},
+				{
 					"command": "gitlens.generateCommitMessage",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommitMessage.enabled && scmProvider == git && config.gitlens.menus.scmRepository.generateCommitMessage",
-					"group": "2_z_gitlens@2"
+					"group": "2_z_gitlens@4"
 				},
 				{
 					"command": "gitlens.showGraph",
 					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph && gitlens:plus:enabled && scmProvider == git && scmProviderRootUri not in gitlens:plus:disallowedRepos",
-					"group": "2_z_gitlens@3"
+					"group": "2_z_gitlens@5"
 				}
 			],
 			"scm/resourceGroup/context": [
@@ -12167,8 +12516,13 @@
 				},
 				{
 					"command": "gitlens.copyPatchToClipboard",
-					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.compare",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.patch",
 					"group": "7_cutcopypaste@97"
+				},
+				{
+					"command": "gitlens.shareAsCloudPatch",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.patch",
+					"group": "7_cutcopypaste@98"
 				}
 			],
 			"scm/resourceFolder/context": [
@@ -12179,7 +12533,7 @@
 				},
 				{
 					"command": "gitlens.copyPatchToClipboard",
-					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.compare",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.patch",
 					"group": "7_cutcopypaste@97"
 				}
 			],
@@ -12216,7 +12570,7 @@
 				},
 				{
 					"command": "gitlens.copyPatchToClipboard",
-					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmItem.compare",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmItem.patch",
 					"group": "7_cutcopypaste@97"
 				},
 				{
@@ -12505,6 +12859,21 @@
 					"group": "navigation@1"
 				},
 				{
+					"command": "gitlens.views.drafts.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.drafts/ && !config.gitlens.views.drafts.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.drafts.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.drafts/ && config.gitlens.views.drafts.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.drafts.info",
+					"when": "view =~ /^gitlens\\.views\\.drafts/",
+					"group": "8_info@1"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setEditorFollowingOn",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && gitlens:views:fileHistory:canPin && !gitlens:views:fileHistory:editorFollowing",
 					"group": "navigation@10"
@@ -12638,6 +13007,41 @@
 					"command": "gitlens.views.addRemote",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view =~ /gitlens\\.views\\.remotes/",
 					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.views.pullRequest.refresh",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/",
+					"group": "navigation@98"
+				},
+				{
+					"command": "gitlens.views.pullRequest.close",
+					"when": "view =~ /gitlens\\.views\\.pullRequest/",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/ && config.gitlens.views.pullRequest.files.layout == tree",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/ && config.gitlens.views.pullRequest.files.layout == auto",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/ && config.gitlens.views.pullRequest.files.layout == list",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/ && !config.gitlens.views.pullRequest.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.pullRequest.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.pullRequest/ && config.gitlens.views.pullRequest.avatars",
+					"group": "5_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.remotes.setLayoutToList",
@@ -13022,9 +13426,19 @@
 					"group": "inline@1"
 				},
 				{
-					"command": "gitlens.views.drafts.open",
+					"command": "gitlens.views.draft.openOnWeb",
+					"when": "viewItem =~  /gitlens:draft\\b/ && gitlens:plus",
+					"group": "inline@99"
+				},
+				{
+					"command": "gitlens.views.draft.open",
 					"when": "viewItem =~  /gitlens:draft\\b/ && gitlens:plus",
 					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.draft.openOnWeb",
+					"when": "viewItem =~  /gitlens:draft\\b/ && gitlens:plus",
+					"group": "1_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.views.drafts.delete",
@@ -16497,6 +16911,12 @@
 				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.lineHistory/"
 			},
 			{
+				"command": "gitlens.views.pullRequest.copy",
+				"key": "ctrl+c",
+				"mac": "cmd+c",
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.pullRequest/"
+			},
+			{
 				"command": "gitlens.views.remotes.copy",
 				"key": "ctrl+c",
 				"mac": "cmd+c",
@@ -16606,35 +17026,43 @@
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "Cloud Patches allow you to easily and securely share code with your teammates or other developers, accessible from anywhere, streamlining your workflow with better collaboration."
+				"contents": "Cloud Patches ᴘʀᴇᴠɪᴇᴡ — easily and securely share code with your teammates or other developers, accessible from anywhere, streamlining your workflow with better collaboration."
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "[Create Cloud Patch](command:gitlens.views.drafts.create)\n\n☁️ Access is based on your plan, e.g. Free, Pro, etc",
+				"contents": "[Create Cloud Patch](command:gitlens.views.drafts.create)",
 				"when": "gitlens:plus"
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nStart a free 7-day GitLens Pro trial to use Cloud Patches, or [sign in](command:gitlens.plus.login).\n☁️ Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nStart your free 7-day Pro trial to try Cloud Patches and other Pro features, or [sign in](command:gitlens.plus.login).",
 				"when": "!gitlens:plus"
 			},
 			{
-				"view": "gitlens.views.workspaces",
-				"contents": "Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\n\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration."
+				"view": "gitlens.views.drafts",
+				"contents": "Preview feature ☁️ — requires an account and may require a paid plan in the future."
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "[Create Cloud Workspace](command:gitlens.views.workspaces.create)\n\n☁️ Access is based on your plan, e.g. Free, Pro, etc",
+				"contents": "Workspaces ᴘʀᴇᴠɪᴇᴡ — group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\n\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration."
+			},
+			{
+				"view": "gitlens.views.workspaces",
+				"contents": "[Create Cloud Workspace](command:gitlens.views.workspaces.create)",
 				"when": "gitlens:plus"
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nStart a free 7-day GitLens Pro trial to use GitKraken Workspaces, or [sign in](command:gitlens.plus.login).\n☁️ Requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nStart your free 7-day Pro trial to try GitKraken (GK) Workspaces and other Pro features, or [sign in](command:gitlens.plus.login).",
 				"when": "!gitlens:plus"
+			},
+			{
+				"view": "gitlens.views.workspaces",
+				"contents": "Preview feature ☁️ — requires an account and may require a paid plan in the future."
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) — minimizes context switching by allowing you to work on multiple branches simultaneously."
+				"contents": "[Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view%e2%9c%a8) ᴾᴿᴼ — minimize context switching by allowing you to work on multiple branches simultaneously."
 			},
 			{
 				"view": "gitlens.views.worktrees",
@@ -16643,28 +17071,32 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Resend verification email](command:gitlens.plus.resendVerification)\n\n[Refresh verification status](command:gitlens.plus.validate)\n\nYou must verify your email before you can continue.",
+				"contents": "[Resend Verification Email](command:gitlens.plus.resendVerification)\n\nYou must verify your email before you can continue or [recheck Status](command:gitlens.plus.validate).",
 				"when": "gitlens:plus:state == -1"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview local Pro features for 3 days, or [sign up](command:gitlens.plus.signUp) to start a free 7-day GitLens Pro trial of all Pro features.",
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial)\n\nContinuing gives you 3 days to preview Workrees and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp) or [sign in](command:gitlens.plus.login) for full access to Pro features.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nYour 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days of all Pro features, or [sign in](command:gitlens.plus.login).",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp)\n\nStart your free 7-day Pro trial to try Worktrees and other Pro features, or [sign in](command:gitlens.plus.login).",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Upgrade to Pro](command:gitlens.plus.purchase)\n\nYour GitLens Pro trial has ended. Please upgrade to continue to use Pro features.",
+				"contents": "[Upgrade to Pro](command:gitlens.plus.purchase)\n\nYour Pro trial has ended. Please upgrade for full access to Worktrees and other Pro features.\nSpecial: 50% off first seat of Pro — only $4/month!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Reactivate Pro Trial](command:gitlens.plus.reactivateProTrial)\n\nYou're eligible to reactivate your GitLens Pro trial and experience all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 7 days!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 5"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Pro feature — requires a paid plan for use on privately-hosted repos."
 			}
 		],
 		"views": {
@@ -16715,6 +17147,15 @@
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-commit-view)",
 					"initialSize": 6,
+					"visibility": "visible"
+				},
+				{
+					"id": "gitlens.views.pullRequest",
+					"name": "Pull Request",
+					"when": "!gitlens:disabled && gitlens:views:pullRequest:visible",
+					"contextualTitle": "GitLens",
+					"icon": "$(git-pull-request)",
+					"initialSize": 1,
 					"visibility": "visible"
 				},
 				{
@@ -16857,117 +17298,111 @@
 		},
 		"walkthroughs": [
 			{
-				"id": "gitlens.welcome",
+				"id": "welcome",
 				"title": "Get Started with GitLens",
 				"description": "Discover and personalize features that supercharge your Git experience",
 				"steps": [
 					{
-						"id": "gitlens.welcome.tutorial",
-						"title": "Welcome and Tutorial",
-						"description": "Open the Welcome experience to quickly get started and discover the many powerful GitLens features.\n\n[Open Welcome](command:gitlens.showWelcomePage \"Opens GitLens Welcome\")\nOr, sit back and watch the our Getting Started video.\n\n[Watch Tutorial Video](https://www.youtube.com/watch?v=UQPb73Zz9qk \"Watch the Getting Started video\")\n💡 **Want more control?** Use the interactive [GitLens Settings](command:gitlens.showSettingsPage \"Opens GitLens Settings\") editor to customize GitLens to meet your needs.",
+						"id": "get-started",
+						"title": "Welcome & Overview",
+						"description": "Quickly get started and discover the many powerful GitLens features.\n\n[Open Welcome](command:gitlens.showWelcomePage \"Opens GitLens Welcome\")\n💡 **Want more control?** Use the interactive [GitLens Settings](command:gitlens.showSettingsPage \"Opens GitLens Settings\") editor to customize GitLens to meet your needs.\nOr, sit back and watch the our Getting Started video.\n\n[Watch Tutorial Video](https://www.youtube.com/watch?v=UQPb73Zz9qk \"Watch the Getting Started video\")\n\n**Layout Overview**\n\n$(gitlens-gitlens-inspect)  **GitLens Inspect** — an x-ray into your code's history. Offers contextual insights & details focused on what you're currently working on.\n\n[Open GitLens Inspect](command:workbench.view.extension.gitlensInspect)\n\n$(gitlens-gitlens)  **GitLens** — quick access to many GitLens features. Also the home of GitKraken teams and collaboration services\n\n[Open GitLens](command:workbench.view.extension.gitlens)\n\n$(source-control) **Source Control** — packed with additional features for working with, exploring, and managing your repositories.\n\n[Open Source Control](command:workbench.view.scm)\n\n$(layout-panel)  **(Bottom) Panel** — use the powerful Commit Graph and its dedicated details view.\n\n[Open Commit Graph](command:gitlens.showGraph)\n💡 While our views are arranged for focus and productivity, you can easily drag them around to suit your needs. Use the [Reset Views Layout](command:workbench.action.quickOpen?%22>GitLens%3A%20Reset%20Views%20Layout%22) command to quickly get back to the default layout.",
 						"media": {
-							"markdown": "walkthroughs/welcome/tutorial.md"
+							"markdown": "walkthroughs/welcome/get-started.md"
 						}
 					},
 					{
-						"id": "gitlens.welcome.sidebars",
-						"title": "Discover the many powerful views",
-						"description": "Our views are arranged for focus and productivity, although you can easily drag them around to suit your needs.\n\n$(gitlens-gitlens-inspect)  **GitLens Inspect**\nAn x-ray or developer tools inspector into your code, focused on providing contextual information and insights to what you're actively working on.\n\n[Open GitLens Inspect](command:workbench.view.extension.gitlensInspect)\n\n$(gitlens-gitlens)  **GitLens**\nQuick access to many GitLens features. Also the home of GitKraken teams and collaboration services (e.g. GitKraken Workspaces), help, and support.\n\n[Open GitLens](command:workbench.view.extension.gitlens)\n\n$(source-control) **Source Control**\nShows additional views that are focused on exploring and managing your repositories.\n\n[Open Source Control](command:workbench.view.scm)\n\n$(layout-panel)  **(Bottom) Panel**\nConvenient and easy access to the Commit Graph with a dedicated details view.\n\n[Open Commit Graph](command:gitlens.showGraph)\n💡 Use the [Reset Views Layout](command:workbench.action.quickOpen?%22>GitLens%3A%20Reset%20Views%20Layout%22) command to quickly get back to the default layout.",
+						"id": "core-features",
+						"title": "Discover Core Features",
+						"description": "**Inline blame** and status bar blame provide historical context about line changes.\n**Git CodeLens** adds contextual and actionable authorship information at the top of each file and at the beginning of each block of code.\n**Hover** over blame annotations to reveal rich details and actions.\n💡 Use the [Toggle Line Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Line%20Blame%22) and [Toggle Git CodeLens](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Git%20CodeLens%22) commands.\n**File annotations**, visual indicators that augment your editor, provide insights into authorship, recent changes, or a heatmap. Annotations can be toggled on-demand for individual files or holistically.\n💡 **On an active file**, use the [Toggle File Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Blame%22), [Toggle File Changes](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Changes%22), and [Toggle File Heatmap](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Heatmap%22) commands.\n\n**Navigate revision history** with just a click of a button at the top of any file. Move through the history of any file to compare changes over time.",
 						"media": {
-							"markdown": "walkthroughs/welcome/side-bars.md"
+							"markdown": "walkthroughs/welcome/core-features.md"
 						}
 					},
 					{
-						"id": "gitlens.welcome.currentLineBlame",
-						"title": "See who made which changes at a glance",
-						"description": "**Inline blame** and status bar blame provide historical context about line changes.\n**Git CodeLens** adds contextual and actionable authorship information at the top of each file and at the beginning of each block of code.\n**Hover** over blame annotations to reveal rich details and actions.\n💡 Use the [Toggle Line Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Line%20Blame%22) and [Toggle Git CodeLens](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Git%20CodeLens%22) commands from the Command Palette to turn the annotations on and off.",
+						"id": "pro-features",
+						"title": "Power-up with Pro",
+						"description": "Unlock the full power of GitLens with [Pro features](https://gitkraken.com/gitlens/pro-features) and get access to the full [GitKraken DevEx platform](https://gitkraken.com/devex).\n\n[Start Pro Trial](command:gitlens.plus.signUp)\n\nAlready have an account? [sign in](command:gitlens.plus.login)\n\n**Pro Features**\n$(gitlens-graph)  [Commit Graph](command:getStarted?%22visualize%22) — visualize your repository and keep track of all work in progress\n$(rocket)  [Launchpad](command:getStarted?%22launchpad%22) — stay focused and keep your team unblocked\n$(gitlens-code-suggestion)  [Code Suggest](command:getStarted?%22patchesAndSuggest%22) — free your code reviews from unnecessary restrictions\n$(gitlens-cloud-patch)  [Cloud Patches](command:getStarted?%22patchesAndSuggest%22) — easily and securely share code with your teammates\n$(gitlens-worktrees-view)  [Worktrees](command:getStarted?%22worktrees%22) — work on multiple branches simultaneously\n$(gitlens-workspaces-view)  [Workspaces](command:getStarted?%22workspaces%22) — group and manage multiple repositories together\n$(graph-scatter)  [Visual File History](command:getStarted?%22workspaces%22) — visualize the evolution of a file and quickly identify when the most impactful changes were made and by whom",
 						"media": {
-							"markdown": "walkthroughs/welcome/blame.md"
+							"markdown": "walkthroughs/welcome/pro-features.md"
+						},
+						"when": "gitlens:plus:state >= 0 && gitlens:plus:state <= 2"
+					},
+					{
+						"id": "pro-trial",
+						"title": "Get Started with Pro",
+						"description": "During your trial, you have access to all [Pro features](https://gitkraken.com/gitlens/pro-features) and to the full [GitKraken DevEx platform](https://gitkraken.com/devex). Be sure to take full advantage of these powerful features.\n\n[Upgrade to Pro](command:gitlens.plus.purchase)\n\n💡Special: 50% off first seat of Pro — only $4/month!\n**Pro Features**\n$(gitlens-graph)  [Commit Graph](command:getStarted?%22visualize%22) — visualize your repository and keep track of all work in progress\n$(rocket)  [Launchpad](command:getStarted?%22launchpad%22) — stay focused and keep your team unblocked\n$(gitlens-code-suggestion)  [Code Suggest](command:getStarted?%22patchesAndSuggest%22) — free your code reviews from unnecessary restrictions\n$(gitlens-cloud-patch)  [Cloud Patches](command:getStarted?%22patchesAndSuggest%22) — easily and securely share code with your teammates\n$(gitlens-worktrees-view)  [Worktrees](command:getStarted?%22worktrees%22) — work on multiple branches simultaneously\n$(gitlens-workspaces-view)  [Workspaces](command:getStarted?%22workspaces%22) — group and manage multiple repositories together\n$(graph-scatter)  [Visual File History](command:getStarted?%22workspaces%22) — visualize the evolution of a file and quickly identify when the most impactful changes were made and by whom",
+						"media": {
+							"markdown": "walkthroughs/welcome/pro-trial.md"
+						},
+						"when": "gitlens:plus:state == 3"
+					},
+					{
+						"id": "pro-upgrade",
+						"title": "Upgrade to Pro",
+						"description": "Your Pro trial has ended. Please upgrade for full access to all [Pro features](https://gitkraken.com/gitlens/pro-features) and to the full [GitKraken DevEx platform](https://gitkraken.com/devex).\n\n[Upgrade to Pro](command:gitlens.plus.purchase)\n\n💡Special: 50% off first seat of Pro — only $4/month!\n**Pro Features**\n$(gitlens-graph)  [Commit Graph](command:getStarted?%22visualize%22) — visualize your repository and keep track of all work in progress\n$(rocket)  [Launchpad](command:getStarted?%22launchpad%22) — stay focused and keep your team unblocked\n$(gitlens-code-suggestion)  [Code Suggest](command:getStarted?%22patchesAndSuggest%22) — free your code reviews from unnecessary restrictions\n$(gitlens-cloud-patch)  [Cloud Patches](command:getStarted?%22patchesAndSuggest%22) — easily and securely share code with your teammates\n$(gitlens-worktrees-view)  [Worktrees](command:getStarted?%22worktrees%22) — work on multiple branches simultaneously\n$(gitlens-workspaces-view)  [Workspaces](command:getStarted?%22workspaces%22) — group and manage multiple repositories together\n$(graph-scatter)  [Visual File History](command:getStarted?%22workspaces%22) — visualize the evolution of a file and quickly identify when the most impactful changes were made and by whom",
+						"media": {
+							"markdown": "walkthroughs/welcome/pro-upgrade.md"
+						},
+						"when": "gitlens:plus:state == 4"
+					},
+					{
+						"id": "pro-reactivate",
+						"title": "Reactivate Pro Power-up",
+						"description": "Reactivate your Pro trial and experience all the new [Pro features](https://gitkraken.com/gitlens/pro-features) and the full [GitKraken DevEx platform](https://gitkraken.com/devex) — free for another 7 days!.\n\n[Reactivate Pro Trial](command:gitlens.plus.reactivateProTrial)\n\n**Pro Features**\n$(gitlens-graph)  [Commit Graph](command:getStarted?%22visualize%22) — visualize your repository and keep track of all work in progress\n$(rocket)  [Launchpad](command:getStarted?%22launchpad%22) — stay focused and keep your team unblocked\n$(gitlens-code-suggestion)  [Code Suggest](command:getStarted?%22patchesAndSuggest%22) — free your code reviews from unnecessary restrictions\n$(gitlens-cloud-patch)  [Cloud Patches](command:getStarted?%22patchesAndSuggest%22) — easily and securely share code with your teammates\n$(gitlens-worktrees-view)  [Worktrees](command:getStarted?%22worktrees%22) — work on multiple branches simultaneously\n$(gitlens-workspaces-view)  [Workspaces](command:getStarted?%22workspaces%22) — group and manage multiple repositories together\n$(graph-scatter)  [Visual File History](command:getStarted?%22workspaces%22) — visualize the evolution of a file and quickly identify when the most impactful changes were made and by whom",
+						"media": {
+							"markdown": "walkthroughs/welcome/pro-reactivate.md"
+						},
+						"when": "gitlens:plus:state == 5"
+					},
+					{
+						"id": "pro-paid",
+						"title": "Powered-up with Pro",
+						"description": "You have the full power of GitLens with [Pro features](https://gitkraken.com/gitlens/pro-features) and the [GitKraken DevEx platform](https://gitkraken.com/devex).\n\n**Pro Features**\n$(gitlens-graph)  [Commit Graph](command:getStarted?%22visualize%22) — visualize your repository and keep track of all work in progress\n$(rocket)  [Launchpad](command:getStarted?%22launchpad%22) — stay focused and keep your team unblocked\n$(gitlens-code-suggestion)  [Code Suggest](command:getStarted?%22patchesAndSuggest%22) — free your code reviews from unnecessary restrictions\n$(gitlens-cloud-patch)  [Cloud Patches](command:getStarted?%22patchesAndSuggest%22) — easily and securely share code with your teammates\n$(gitlens-worktrees-view)  [Worktrees](command:getStarted?%22worktrees%22) — work on multiple branches simultaneously\n$(gitlens-workspaces-view)  [Workspaces](command:getStarted?%22workspaces%22) — group and manage multiple repositories together\n$(graph-scatter)  [Visual File History](command:getStarted?%22workspaces%22) — visualize the evolution of a file and quickly identify when the most impactful changes were made and by whom",
+						"media": {
+							"markdown": "walkthroughs/welcome/pro-paid.md"
+						},
+						"when": "gitlens:plus:state == 6"
+					},
+					{
+						"id": "visualize",
+						"title": "Visualize with Commit Graph & Visual File History",
+						"description": "**Commit Graph**\nEasily visualize your repository and keep track of all work in progress.\nUse the rich commit search to find exactly what you're looking for. Its powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.\n\n[Open Commit Graph](command:gitlens.showGraph)\n\n💡Quickly toggle the Graph via the [Toggle Commit Graph](command:gitlens.toggleGraph) command or maximize it using the [Toggle Maximized Commit Graph](command:gitlens.toggleMaximizedGraph) command.\n**Visual File History**\nVisualize the evolution of a file and quickly identify when the most impactful changes were made and by whom\n\n[Open Visual File History](command:gitlens.showTimelineView)",
+						"media": {
+							"altText": "Illustrations of the Commit Graph & Visual File History",
+							"svg": "walkthroughs/welcome/visualize.svg"
 						}
 					},
 					{
-						"id": "gitlens.welcome.fileAnnotations",
-						"title": "Get more context with file annotations",
-						"description": "Toggle on-demand whole file annotations to see authorship, recent changes, and a heatmap. Annotations are rendered as visual indicators directly in the editor.\n💡 **On an active file**, use the [Toggle File Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Blame%22), [Toggle File Changes](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Changes%22), and [Toggle File Heatmap](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Heatmap%22) commands from the Command Palette to turn the annotations on and off.",
+						"id": "launchpad",
+						"title": "Unblock your team with Launchpad",
+						"description": "**Launchpad** ᴘʀᴇᴠɪᴇᴡ brings all of your GitHub pull requests into a unified, actionable list to better track work in progress, pending work, reviews, and more. Stay focused and take action on the most important items to keep your team unblocked. [Learn more](https://gitkraken.com/solutions/launchpad)\n\n[Open Launchpad](command:gitlens.showLaunchpad?%7B%22source%22%3A%22walkthrough%22%7D)",
 						"media": {
-							"markdown": "walkthroughs/welcome/file-annotations.md"
+							"altText": "Illustrations of Launchpad",
+							"svg": "walkthroughs/welcome/launchpad.svg"
 						}
 					},
 					{
-						"id": "gitlens.welcome.revisionHistory",
-						"title": "Effortlessly navigate revision history",
-						"description": "With just a click of a button, you can navigate backwards and forwards through the history of any file.\nCompare changes over time and see the revision history of the whole file or an individual line.",
+						"id": "code-collab",
+						"title": "Collaborate with Code Suggest & Cloud Patches",
+						"description": "**Code Suggest** ᴘʀᴇᴠɪᴇᴡ\n\nLiberate your code reviews from GitHub's restrictive, comment-only feedback style. Like suggesting changes on a Google-doc, suggest code changes from where you're already coding — your IDE and on anything in your project, not just on the lines of code changed in the PR. [Learn more](https://gitkraken.com/solutions/code-suggest)\n\n**Cloud Patches** ᴘʀᴇᴠɪᴇᴡ\n\nEasily and securely share code changes with your teammates or other developers by creating a Cloud Patch from your WIP, commit or stash and sharing the generated link. Use Cloud Patches to collaborate early for feedback on direction, approach, and more, to minimize rework and streamline your workflow. [Learn more](https://gitkraken.com/solutions/cloud-patches)\n\n[Open Cloud Patches](command:gitlens.showDraftsView)",
 						"media": {
-							"markdown": "walkthroughs/welcome/revision-history.md"
+							"markdown": "walkthroughs/welcome/code-collab.md"
 						}
 					},
 					{
-						"id": "gitlens.welcome.commitGraph",
-						"title": "Visualize with the Commit Graph",
-						"description": "Easily visualize your repository and keep track of all work in progress.\nUse the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.\n\n[Open Commit Graph](command:gitlens.showGraph)\n\n💡Quickly toggle the Graph via the [Toggle Commit Graph](command:gitlens.toggleGraph) command.\n💡Maximize the Graph via the [Toggle Maximized Commit Graph](command:gitlens.toggleMaximizedGraph) command.",
-						"media": {
-							"altText": "Illustrations of the Commit Graph view",
-							"svg": "walkthroughs/welcome/commit-graph.svg"
-						}
-					},
-					{
-						"id": "gitlens.welcome.workspaces",
-						"title": "Work smarter with Launchpad and GitKraken Workspaces",
-						"description": "Launchpad brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Launchpad](command:gitlens.showFocusPage)\n\nGitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)",
-						"media": {
-							"altText": "Illustrations of Launchpad and Workspaces view",
-							"svg": "walkthroughs/welcome/workspaces-focus.svg"
-						}
-					},
-					{
-						"id": "gitlens.welcome.hostingServiceIntegrations",
-						"title": "Integrate with Git hosting services",
+						"id": "integrations",
+						"title": "Integrate with Git Hosting & Issue Services",
 						"description": "Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise, GitLab, GitLab self-managed, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.\n\nAll integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.\n\n**Define your own autolinks**\nUse autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.\n\n[Configure Autolinks](command:gitlens.showSettingsPage!autolinks)",
 						"media": {
 							"markdown": "walkthroughs/welcome/integrations.md"
 						}
 					},
 					{
-						"id": "gitlens.welcome.labs",
-						"title": "Experiment with GitKraken Labs $(beaker)",
-						"description": "GitKraken Labs is our incubator for experimentation and exploration with the community to gather early reactions and feedback. Below are some of our current experiments.\n**Explain Commit (AI)**\nUse the Explain panel on the [Inspect view](command:gitlens.showCommitDetailsView) to leverage AI to help you understand the changes introduced by a commit.\n**Automatically Generate Commit Message (AI)**\nUse the [Generate Commit Message](command:workbench.action.quickOpen?%22>GitLens%3A%20Generate%20Commit%20Message%22) command from the Source Control view's context menu to automatically generate a commit message for your staged changes by leveraging AI.",
-						"media": {
-							"markdown": "walkthroughs/welcome/labs.md"
-						}
-					},
-					{
-						"id": "gitlens.welcome.preview",
-						"title": "Previewing GitLens Pro",
-						"description": "During your preview, you have access to local Pro features; cloud-based Pro features require an account. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Start Free Pro Trial](command:gitlens.plus.signUp)\n\nStart a free Pro trial to get an additional 7 days.",
-						"media": {
-							"markdown": "walkthroughs/welcome/preview.md"
-						},
-						"when": "gitlens:plus:state == 1"
-					},
-					{
-						"id": "gitlens.welcome.trial",
-						"title": "Trialing GitLens Pro",
-						"description": "During your trial, you have access to all Pro features. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
-						"media": {
-							"markdown": "walkthroughs/welcome/trial.md"
-						},
-						"when": "gitlens:plus:state == 3"
-					},
-					{
-						"id": "gitlens.welcome.services",
-						"title": "Power-up with GitKraken Cloud Services",
-						"description": "Sign up for access to our developer productivity and collaboration services, e.g. Workspaces, or [sign in](command:gitlens.plus.login).\n\n[Sign Up](command:gitlens.plus.signUp)",
-						"media": {
-							"markdown": "walkthroughs/welcome/services.md"
-						},
-						"when": "gitlens:plus:state >= 0 && gitlens:plus:state <= 2"
-					},
-					{
-						"id": "gitlens.welcome.additional",
+						"id": "more",
 						"title": "And More!",
 						"description": "**Rebase got you down?**\nEasily visualize and configure interactive rebase operations with the intuitive and user-friendly Interactive Rebase Editor\n\n**Trouble remembering Git commands?**\nNow you don't have to with the Git Command Palette — a guided, step-by-step experience to many common Git commands.\n\n[Open Git Command Palette](command:gitlens.gitCommands)\n\n**Terminal your jam?**\nQuickly jump to more details on commits, branches, tags, and more with autolinks in the Integrated Terminal.\n\n**Not sure what you are looking for?**\nOpen the Command Palette and explore the many available commands.\n\n[Open GitLens Commands](command:workbench.action.quickOpen?%22>GitLens%3A%22)",
 						"media": {
-							"markdown": "walkthroughs/welcome/additional-features.md"
+							"markdown": "walkthroughs/welcome/more-features.md"
 						}
 					}
 				]

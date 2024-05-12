@@ -1,4 +1,4 @@
-import type { AuthenticationSession } from 'vscode';
+import type { AuthenticationSession, CancellationToken } from 'vscode';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -11,9 +11,10 @@ import type {
 } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
+import { ensurePaidPlan } from '../../utils';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
 import type { SupportedIntegrationIds } from '../integration';
-import { ensurePaidPlan, HostingIntegration } from '../integration';
+import { HostingIntegration } from '../integration';
 import { HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
 import type { ProvidersApi } from './providersApi';
 
@@ -135,10 +136,18 @@ abstract class GitLabIntegrationBase<ID extends SupportedIntegrationIds> extends
 	protected override async getProviderRepositoryMetadata(
 		{ accessToken }: AuthenticationSession,
 		repo: GitLabRepositoryDescriptor,
+		cancellation?: CancellationToken,
 	): Promise<RepositoryMetadata | undefined> {
-		return (await this.container.gitlab)?.getRepositoryMetadata(this, accessToken, repo.owner, repo.name, {
-			baseUrl: this.apiBaseUrl,
-		});
+		return (await this.container.gitlab)?.getRepositoryMetadata(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+			cancellation,
+		);
 	}
 
 	protected override searchProviderMyPullRequests(
@@ -202,7 +211,7 @@ export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<SelfHoste
 
 	@log()
 	override async connect(): Promise<boolean> {
-		if (!(await ensurePaidPlan(`${this.name} instance`, this.container))) {
+		if (!(await ensurePaidPlan(this.container, `Rich integration with ${this.name} is a Pro feature.`))) {
 			return false;
 		}
 

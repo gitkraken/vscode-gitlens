@@ -1,10 +1,10 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
 import { getAvatarUri } from '../../../avatars';
-import { ClearQuickInputButton } from '../../../commands/quickCommand.buttons';
 import type { ContextKeys } from '../../../constants';
-import { Commands, GlyphChars } from '../../../constants';
+import { Commands, GlyphChars, previewBadge } from '../../../constants';
 import type { Container } from '../../../container';
+import { CancellationError } from '../../../errors';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
 import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../../../git/errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
@@ -12,7 +12,8 @@ import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitFileChange } from '../../../git/models/file';
 import type { PatchRevisionRange } from '../../../git/models/patch';
-import { createReference } from '../../../git/models/reference';
+import { createReference, shortenRevision } from '../../../git/models/reference';
+import type { Repository } from '../../../git/models/repository';
 import { isRepository } from '../../../git/models/repository';
 import type {
 	CreateDraftChange,
@@ -27,18 +28,20 @@ import type {
 } from '../../../gk/models/drafts';
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker';
-import type { QuickPickItemOfT } from '../../../quickpicks/items/common';
+import { showOrganizationMembersPicker } from '../../../quickpicks/organizationMembersPicker';
+import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { getContext, onDidChangeContext, setContext } from '../../../system/context';
+import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { find, some } from '../../../system/iterable';
 import { basename } from '../../../system/path';
-import { defer } from '../../../system/promise';
 import type { Serialized } from '../../../system/serialize';
 import { serialize } from '../../../system/serialize';
+import { showInspectView } from '../../../webviews/commitDetails/actions';
 import type { IpcCallMessageType, IpcMessage } from '../../../webviews/protocol';
 import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProvider';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
@@ -101,6 +104,7 @@ interface DraftUserState {
 interface Context {
 	mode: Mode;
 	draft: LocalDraft | Draft | undefined;
+	draftGkDevUrl: string | undefined;
 	draftVisibiltyState: DraftVisibility | undefined;
 	draftUserState: DraftUserState | undefined;
 	create:
@@ -130,6 +134,7 @@ export class PatchDetailsWebviewProvider
 		this._context = {
 			mode: 'create',
 			draft: undefined,
+			draftGkDevUrl: undefined,
 			draftUserState: undefined,
 			draftVisibiltyState: undefined,
 			create: undefined,
@@ -138,7 +143,7 @@ export class PatchDetailsWebviewProvider
 		};
 
 		this.setHostTitle();
-		this.host.description = 'ᴘʀᴇᴠɪᴇᴡ';
+		this.host.description = previewBadge;
 
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
@@ -180,6 +185,7 @@ export class PatchDetailsWebviewProvider
 		const [arg] = args;
 		if (arg?.mode === 'view' && arg.draft != null) {
 			await this.updateViewDraftState(arg.draft);
+			void this.trackViewDraft(this._context.draft, arg.source);
 		} else {
 			if (this.container.git.isDiscoveringRepositories) {
 				await this.container.git.isDiscoveringRepositories;
@@ -284,7 +290,7 @@ export class PatchDetailsWebviewProvider
 				break;
 
 			case DraftPatchCheckedCommand.is(e):
-				void this.onPatchChecked(e.params);
+				this.onPatchChecked(e.params);
 				break;
 
 			case UpdatePatchUsersCommand.is(e):
@@ -399,7 +405,13 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private setHostTitle(mode: Mode = this._context.mode) {
-		this.host.title = mode === 'create' ? 'Create Cloud Patch' : 'Cloud Patch Details';
+		if (mode === 'create') {
+			this.host.title = 'Create Cloud Patch';
+		} else if (this._context.draft?.draftType === 'cloud' && this._context.draft.type === 'suggested_pr_change') {
+			this.host.title = 'Cloud Suggestion';
+		} else {
+			this.host.title = 'Cloud Patch Details';
+		}
 	}
 
 	private async applyPatch(params: ApplyPatchParams) {
@@ -420,11 +432,7 @@ export class PatchDetailsWebviewProvider
 			if (!params.selected.includes(patch.id)) continue;
 
 			try {
-				console.log(patch);
-				let commit = patch.commit;
-				if (!commit) {
-					commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
-				}
+				const commit = patch.commit ?? (await this.getOrCreateCommitForPatch(patch.gkRepositoryId));
 				if (!commit) {
 					// TODO: say we can't apply this patch
 					continue;
@@ -448,7 +456,7 @@ export class PatchDetailsWebviewProvider
 
 					if (branch == null) {
 						void window.showErrorMessage(
-							`Unable apply patch to '${patch.repository!.name}': No branch selected`,
+							`Unable to apply patch to '${patch.repository!.name}': No branch selected`,
 						);
 						continue;
 					}
@@ -461,11 +469,13 @@ export class PatchDetailsWebviewProvider
 				}
 
 				await this.container.git.applyUnreachableCommitForPatch(commit.repoPath, commit.ref, {
-					stash: true,
+					stash: 'prompt',
 					...options,
 				});
 				void window.showInformationMessage(`Patch applied successfully`);
 			} catch (ex) {
+				if (ex instanceof CancellationError) return;
+
 				if (ex instanceof ApplyPatchCommitError) {
 					if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
 						void window.showWarningMessage('Patch applied with conflicts');
@@ -473,7 +483,7 @@ export class PatchDetailsWebviewProvider
 						void window.showErrorMessage(ex.message);
 					}
 				} else {
-					void window.showErrorMessage(`Unable apply patch to '${patch.baseRef}': ${ex.message}`);
+					void window.showErrorMessage(`Unable to apply patch onto '${patch.baseRef}': ${ex.message}`);
 				}
 			}
 		}
@@ -481,6 +491,21 @@ export class PatchDetailsWebviewProvider
 
 	private closeView() {
 		void setContext('gitlens:views:patchDetails:mode', undefined);
+
+		if (this._context.mode === 'create') {
+			void this.container.draftsView.show();
+		} else if (this._context.draft?.draftType === 'cloud') {
+			if (this._context.draft.type === 'suggested_pr_change') {
+				const repositoryOrIdentity = this._context.draft.changesets?.[0].patches[0].repository;
+				void showInspectView({
+					type: 'wip',
+					repository: isRepoLocated(repositoryOrIdentity) ? (repositoryOrIdentity as Repository) : undefined,
+					source: 'patchDetails',
+				});
+			} else {
+				void this.container.draftsView.revealDraft(this._context.draft);
+			}
+		}
 	}
 
 	private copyCloudLink() {
@@ -490,111 +515,77 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async getOrganizationMembers() {
-		const sub = await this.container.subscription.getSubscription(true);
-		const activeOrg = sub?.activeOrganization;
-		// TODO: need messaging for no Org
-		if (activeOrg == null) return [];
-
-		return this.container.organizations.getOrganizationMembers(activeOrg.id);
+		return this.container.organizations.getMembers();
 	}
 
 	private async onInviteUsers() {
-		let userIds: string[] | undefined;
+		let owner;
+		let ownerSelection;
+		let pickedMemberIds: string[] | undefined;
 		if (this.mode === 'create') {
-			userIds = this._context.create?.userSelections?.map(u => u.member.id);
+			pickedMemberIds = this._context.create?.userSelections?.map(u => u.member.id);
+			ownerSelection = this._context.create?.userSelections?.find(u => u.member.role === 'owner');
+			owner = ownerSelection?.user;
 		} else {
-			userIds = this._context.draftUserState?.selections?.map(u => u.member.id);
+			pickedMemberIds = this._context.draftUserState?.selections
+				?.filter(s => s.change !== 'delete')
+				?.map(u => u.member.id);
+			owner = this._context.draftUserState?.users.find(u => u.role === 'owner');
 		}
 
-		const initSelections: Set<DraftUser['userId']> | undefined = userIds != null ? new Set(userIds) : undefined;
-		const picks = await this.selectCollaborators(initSelections);
-		if (picks == null || picks.length === 0) return;
+		const members = await showOrganizationMembersPicker(
+			'Select Collaborators',
+			'Select the collaborators to share this patch with',
+			this.getOrganizationMembers(),
+			{
+				multiselect: true,
+				filter: m => m.id !== owner?.userId,
+				picked: m => pickedMemberIds?.includes(m.id) ?? false,
+			},
+		);
+		if (members == null) return;
 
 		if (this.mode === 'create') {
-			const userSelections = picks.map(pick => toDraftUserSelection(pick, undefined, 'editor', 'add'));
-			if (this._context.create!.userSelections == null) {
-				this._context.create!.userSelections = userSelections;
-			} else {
-				this._context.create!.userSelections.push(...userSelections);
+			const userSelections = members.map(member => toDraftUserSelection(member, undefined, 'editor', 'add'));
+			if (ownerSelection != null) {
+				userSelections.push(ownerSelection);
 			}
+			this._context.create!.userSelections = userSelections;
 			void this.notifyDidChangeCreateDraftState();
 			return;
 		}
 
 		const draftUserState = this._context.draftUserState!;
-		let added = false;
-		for (const pick of picks) {
-			const existing = draftUserState.selections.find(u => u.member.id === pick.id);
-			if (existing != null) {
+
+		const currentSelections = draftUserState.selections;
+		const preserveSelections = new Map();
+		const updatedMemberIds = new Set(members.map(member => member.id));
+		const updatedSelections: DraftUserSelection[] = [];
+
+		for (const selection of currentSelections) {
+			if (updatedMemberIds.has(selection.member.id) || selection.member.role === 'owner') {
+				preserveSelections.set(selection.member.id, selection);
 				continue;
 			}
-			added = true;
-			draftUserState.selections.push(toDraftUserSelection(pick, undefined, 'editor', 'add'));
+
+			updatedSelections.push({ ...selection, change: 'delete' });
 		}
-		if (added) {
-			void this.notifyDidChangeViewDraftState();
-		}
-	}
 
-	private async selectCollaborators(
-		initSelections?: Set<DraftUser['userId']>,
-	): Promise<OrganizationMember[] | undefined> {
-		const members = await this.getOrganizationMembers();
-		if (members.length === 0) return undefined;
+		for (const member of members) {
+			const selection = preserveSelections.get(member.id);
+			// If we have an existing selection, and it's marked for deletion, we need to undo the deletion
+			if (selection != null && selection.change === 'delete') {
+				selection.change = undefined;
+			}
 
-		type OrganizationMemberQuickPickItem = QuickPickItemOfT<OrganizationMember>;
-		const deferred = defer<OrganizationMember[] | undefined>();
-		const disposables: Disposable[] = [];
-
-		try {
-			const quickpick = window.createQuickPick<OrganizationMemberQuickPickItem>();
-			disposables.push(
-				quickpick,
-				quickpick.onDidHide(() => deferred.fulfill(undefined)),
-				quickpick.onDidAccept(() =>
-					!quickpick.busy ? deferred.fulfill(quickpick.selectedItems.map(c => c.item)) : undefined,
-				),
-				quickpick.onDidTriggerButton(e => {
-					if (e === ClearQuickInputButton) {
-						if (quickpick.canSelectMany) {
-							quickpick.selectedItems = [];
-						} else {
-							deferred.fulfill([]);
-						}
-					}
-				}),
+			updatedSelections.push(
+				selection != null ? selection : toDraftUserSelection(member, undefined, 'editor', 'add'),
 			);
+		}
 
-			quickpick.title = 'Select Collaborators';
-			quickpick.placeholder = 'Select the collaborators to share this patch with';
-			quickpick.matchOnDescription = true;
-			quickpick.matchOnDetail = true;
-			quickpick.canSelectMany = true;
-			quickpick.buttons = [ClearQuickInputButton];
-
-			quickpick.busy = true;
-			quickpick.show();
-
-			const items = members.map(member => {
-				const item: OrganizationMemberQuickPickItem = {
-					label: member.name ?? member.username,
-					description: member.email,
-					// TODO: needs to support current collaborator selections
-					picked: initSelections ? initSelections.has(member.id) : false,
-					item: member,
-					iconPath: getAvatarUri(member.email, undefined),
-				};
-
-				return item;
-			});
-			quickpick.items = items;
-
-			quickpick.busy = false;
-
-			const picks = await deferred.promise;
-			return picks;
-		} finally {
-			disposables.forEach(d => void d.dispose());
+		if (updatedSelections.length) {
+			draftUserState.selections = updatedSelections;
+			void this.notifyDidChangeViewDraftState();
 		}
 	}
 
@@ -639,7 +630,7 @@ export class PatchDetailsWebviewProvider
 		userSelections,
 	}: CreatePatchParams): Promise<void> {
 		if (
-			!(await ensureAccount('Cloud Patches require a GitKraken account.', this.container)) ||
+			!(await ensureAccount('Cloud Patches are a Preview feature and require an account.', this.container)) ||
 			!(await confirmDraftStorage(this.container))
 		) {
 			return;
@@ -752,6 +743,9 @@ export class PatchDetailsWebviewProvider
 
 			void window.showInformationMessage(`${label} successfully ${action}`);
 			void this.notifyDidChangeViewDraftState();
+			if (isCodeSuggestion) {
+				void this.trackArchiveDraft(this._context.draft);
+			}
 		} catch (ex) {
 			let action = 'archive';
 			if (isCodeSuggestion) {
@@ -767,6 +761,24 @@ export class PatchDetailsWebviewProvider
 
 			void window.showErrorMessage(`Unable to ${action} ${label}: ${ex.message}`);
 		}
+	}
+
+	private async trackArchiveDraft(draft: Draft) {
+		draft = await this.ensureDraftContent(draft);
+		const patch = draft.changesets?.[0].patches.find(p => isRepoLocated(p.repository));
+		if (patch == null) return;
+
+		const repo = patch.repository as Repository;
+		const remote = await this.container.git.getBestRemoteWithProvider(repo.uri);
+		if (remote == null) return;
+
+		const provider = remote.provider.id;
+
+		this.container.telemetry.sendEvent('codeSuggestionArchived', {
+			provider: provider,
+			draftId: draft.id,
+			reason: draft.archivedReason!,
+		});
 	}
 
 	private async explainRequest<T extends typeof ExplainRequest>(requestType: T, msg: IpcCallMessageType<T>) {
@@ -805,26 +817,15 @@ export class PatchDetailsWebviewProvider
 		// TODO@eamodio Open the patch contents for the selected repo in an untitled editor
 	}
 
-	private async onPatchChecked(params: DraftPatchCheckedParams) {
+	private onPatchChecked(params: DraftPatchCheckedParams) {
 		if (params.patch.repository.located || params.checked === false) return;
 
 		const patch = (this._context.draft as Draft)?.changesets?.[0].patches?.find(
 			p => p.gkRepositoryId === params.patch.gkRepositoryId,
 		);
-		if (patch?.repository == null || isRepository(patch.repository)) return;
+		if (patch == null) return;
 
-		const repo = await this.container.repositoryIdentity.getRepository(patch.repository, {
-			openIfNeeded: true,
-			prompt: true,
-		});
-
-		if (repo == null) {
-			void window.showErrorMessage(`Unable to locate repository '${patch.repository.name}'`);
-		} else {
-			patch.repository = repo;
-		}
-
-		void this.notifyPatchRepositoryUpdated(patch);
+		void this.getOrLocatePatchRepository(patch, { prompt: true, notifyOnLocation: true });
 	}
 
 	private notifyPatchRepositoryUpdated(patch: DraftPatch) {
@@ -836,7 +837,7 @@ export class PatchDetailsWebviewProvider
 				repository: {
 					id: patch.gkRepositoryId,
 					name: patch.repository?.name ?? '',
-					located: patch.repository != null && isRepository(patch.repository),
+					located: isRepoLocated(patch.repository),
 				},
 			}),
 		});
@@ -1073,9 +1074,33 @@ export class PatchDetailsWebviewProvider
 		});
 	}
 
+	private async trackViewDraft(draft: Draft | LocalDraft | undefined, source?: string) {
+		if (draft?.draftType !== 'cloud' || draft.type !== 'suggested_pr_change') return;
+
+		draft = await this.ensureDraftContent(draft);
+		const patch = draft.changesets?.[0].patches.find(p => isRepoLocated(p.repository));
+		if (patch == null) return;
+
+		const repo = patch.repository as Repository;
+		const remote = await this.container.git.getBestRemoteWithProvider(repo.uri);
+		if (remote == null) return;
+
+		const provider = remote.provider.id;
+		const repoPrivacy = await this.container.git.visibility(repo.path);
+
+		this.container.telemetry.sendEvent('codeSuggestionViewed', {
+			provider: provider,
+			source: source,
+			repoPrivacy: repoPrivacy,
+			draftPrivacy: draft.visibility,
+			draftId: draft.id,
+		});
+	}
+
 	private async updateViewDraftState(draft: LocalDraft | Draft | undefined) {
 		this._context.draft = draft;
 		if (draft?.draftType === 'cloud') {
+			this._context.draftGkDevUrl = this.container.drafts.generateWebUrl(draft);
 			await this.createDraftUserState(draft, { force: true });
 		}
 		this.setMode('view', true);
@@ -1083,7 +1108,10 @@ export class PatchDetailsWebviewProvider
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
-	private async getViewDraftState(current: Context): Promise<State['draft'] | undefined> {
+	private async getViewDraftState(
+		current: Context,
+		deferredPatchLoading = true,
+	): Promise<State['draft'] | undefined> {
 		if (current.draft == null) return undefined;
 
 		const draft = current.draft;
@@ -1107,36 +1135,11 @@ export class PatchDetailsWebviewProvider
 		// }
 
 		if (draft.draftType === 'cloud') {
-			if (
-				draft.changesets == null ||
-				some(draft.changesets, cs =>
-					cs.patches.some(p => p.contents == null || p.files == null || p.repository == null),
-				)
-			) {
+			if (deferredPatchLoading === true && isDraftMissingContent(draft)) {
 				setTimeout(async () => {
-					if (draft.changesets == null) {
-						draft.changesets = await this.container.drafts.getChangesets(draft.id);
-					}
+					await this.ensureDraftContent(draft);
 
-					const patches = draft.changesets
-						.flatMap(cs => cs.patches)
-						.filter(p => p.contents == null || p.files == null || p.repository == null);
-					const patchDetails = await Promise.allSettled(
-						patches.map(p => this.container.drafts.getPatchDetails(p)),
-					);
-
-					for (const d of patchDetails) {
-						if (d.status === 'fulfilled') {
-							const patch = patches.find(p => p.id === d.value.id);
-							if (patch != null) {
-								patch.contents = d.value.contents;
-								patch.files = d.value.files;
-								patch.repository = d.value.repository;
-							}
-						}
-					}
-
-					void this.notifyDidChangeViewDraftState();
+					void this.notifyDidChangeViewDraftState(false);
 				}, 0);
 			}
 
@@ -1147,13 +1150,19 @@ export class PatchDetailsWebviewProvider
 				type: draft.type,
 				createdAt: draft.createdAt.getTime(),
 				updatedAt: draft.updatedAt.getTime(),
-				author: draft.author,
+				author: {
+					id: draft.author.id,
+					name: draft.author.name,
+					email: draft.author.email,
+					avatar: draft.author.avatarUri?.toString(),
+				},
 				role: draft.role,
 				title: draft.title,
 				description: draft.description,
 				isArchived: draft.isArchived,
 				archivedReason: draft.archivedReason,
 				visibility: draft.visibility,
+				gkDevLink: this._context.draftGkDevUrl,
 				patches: draft.changesets?.length
 					? serialize(
 							draft.changesets[0].patches.map(p => ({
@@ -1163,7 +1172,7 @@ export class PatchDetailsWebviewProvider
 								repository: {
 									id: p.gkRepositoryId,
 									name: p.repository?.name ?? '',
-									located: p.repository != null && isRepository(p.repository),
+									located: isRepoLocated(p.repository),
 								},
 							})),
 					  )
@@ -1195,6 +1204,12 @@ export class PatchDetailsWebviewProvider
 				const member = members.find(m => m.id === user.userId)!;
 				userSelections.push(toDraftUserSelection(member, user));
 			}
+			userSelections.sort(
+				(a, b) =>
+					((a.pendingRole ?? a.member.role) === 'owner' ? -1 : 1) -
+						((b.pendingRole ?? b.member.role) === 'owner' ? -1 : 1) ||
+					a.member.name.localeCompare(b.member.name),
+			);
 
 			this._context.draftUserState = { users: users, selections: userSelections };
 		} catch (ex) {
@@ -1202,10 +1217,10 @@ export class PatchDetailsWebviewProvider
 		}
 	}
 
-	private async notifyDidChangeViewDraftState() {
+	private async notifyDidChangeViewDraftState(deferredPatchLoading = true) {
 		return this.host.notify(DidChangeDraftNotification, {
 			mode: this._context.mode,
-			draft: serialize(await this.getViewDraftState(this._context)),
+			draft: serialize(await this.getViewDraftState(this._context, deferredPatchLoading)),
 		});
 	}
 
@@ -1244,10 +1259,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async getDraftPatch(draft: Draft, gkRepositoryId?: GkRepositoryId): Promise<DraftPatch | undefined> {
-		if (draft.changesets == null) {
-			const changesets = await this.container.drafts.getChangesets(draft.id);
-			draft.changesets = changesets;
-		}
+		draft.changesets = await this.ensureChangesets(draft);
 
 		const patch =
 			gkRepositoryId == null
@@ -1342,31 +1354,67 @@ export class PatchDetailsWebviewProvider
 		if (patch?.repository == null) return undefined;
 
 		if (patch?.commit == null) {
-			if (!isRepository(patch.repository)) {
-				const repo = await this.container.repositoryIdentity.getRepository(patch.repository, {
-					openIfNeeded: true,
-					prompt: true,
-				});
-				if (repo == null) {
-					void window.showErrorMessage(`Unable to locate repository '${patch.repository.name}'`);
-					return undefined;
+			const repo = await this.getOrLocatePatchRepository(patch, { prompt: true });
+			if (repo == null) return undefined;
+
+			let baseRef = patch.baseRef ?? 'HEAD';
+
+			do {
+				try {
+					const commit = await this.container.git.createUnreachableCommitForPatch(
+						repo.uri,
+						patch.contents!,
+						baseRef,
+						draft.title,
+					);
+					patch.commit = commit;
+				} catch (ex) {
+					if (baseRef != null) {
+						// const head = { title: 'HEAD' };
+						const chooseBase = { title: 'Choose Base...' };
+						const cancel = { title: 'Cancel', isCloseAffordance: true };
+
+						const result = await window.showErrorMessage(
+							`Unable to apply the patch onto ${
+								baseRef === 'HEAD' ? 'HEAD' : `'${shortenRevision(baseRef)}'`
+							}.\nDo you want to try again on a different base?`,
+							{ modal: true },
+							chooseBase,
+							cancel,
+							// ...(baseRef === 'HEAD' ? [chooseBase, cancel] : [head, chooseBase, cancel]),
+						);
+
+						if (result == null || result === cancel) break;
+						// if (result === head) {
+						// 	baseRef = 'HEAD';
+						// 	continue;
+						// }
+
+						if (result === chooseBase) {
+							const ref = await showReferencePicker(
+								repo.path,
+								`Choose New Base for Patch`,
+								`Choose a new base to apply the patch onto`,
+								{
+									allowRevisions: true,
+									include:
+										ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.HEAD,
+								},
+							);
+							if (ref == null) break;
+
+							baseRef = ref.ref;
+							continue;
+						}
+					} else {
+						void window.showErrorMessage(
+							`Unable to apply the patch on base '${shortenRevision(baseRef)}': ${ex.message}`,
+						);
+					}
 				}
 
-				patch.repository = repo;
-			}
-
-			try {
-				const commit = await this.container.git.createUnreachableCommitForPatch(
-					patch.repository.uri,
-					patch.contents!,
-					patch.baseRef ?? 'HEAD',
-					draft.title,
-				);
-				patch.commit = commit;
-			} catch (ex) {
-				void window.showErrorMessage(`Unable preview the patch on base '${patch.baseRef}': ${ex.message}`);
-				patch.baseRef = undefined!;
-			}
+				break;
+			} while (true);
 		}
 
 		return patch?.commit;
@@ -1385,11 +1433,25 @@ export class PatchDetailsWebviewProvider
 		});
 	}
 
+	private getChangesTitleNote() {
+		if (
+			this._context.mode === 'view' &&
+			this._context.draft?.draftType === 'cloud' &&
+			this._context.draft.type === 'suggested_pr_change'
+		) {
+			return 'Code Suggestion';
+		}
+
+		return 'Patch';
+	}
+
 	private async openFileComparisonWithPrevious(params: ExecuteFileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
 		const [commit, file, revision] = result;
+
+		const titleNote = this.getChangesTitleNote();
 
 		void openChanges(
 			file,
@@ -1400,7 +1462,7 @@ export class PatchDetailsWebviewProvider
 				preserveFocus: true,
 				preview: true,
 				...params.showOptions,
-				rhsTitle: this.mode === 'view' ? `${basename(file.path)} (Patch)` : undefined,
+				rhsTitle: this.mode === 'view' ? `${basename(file.path)} (${titleNote})` : undefined,
 			},
 		);
 		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.host.id });
@@ -1412,13 +1474,91 @@ export class PatchDetailsWebviewProvider
 
 		const [commit, file, revision] = result;
 
+		const titleNote = this.getChangesTitleNote();
+
 		void openChangesWithWorking(file, revision != null ? { repoPath: commit.repoPath, ref: revision.to } : commit, {
 			preserveFocus: true,
 			preview: true,
 			...params.showOptions,
-			lhsTitle: this.mode === 'view' ? `${basename(file.path)} (Patch)` : undefined,
+			lhsTitle: this.mode === 'view' ? `${basename(file.path)} (${titleNote})` : undefined,
 		});
 	}
+
+	private async getOrLocatePatchRepository(
+		patch: DraftPatch,
+		options?: { notifyOnLocation?: boolean; prompt?: boolean },
+	): Promise<Repository | undefined> {
+		if (patch.repository == null || isRepository(patch.repository)) {
+			return patch.repository;
+		}
+
+		const repo = await this.container.repositoryIdentity.getRepository(patch.repository, {
+			openIfNeeded: true,
+			prompt: options?.prompt ?? false,
+		});
+		if (repo == null) {
+			void window.showErrorMessage(`Unable to locate repository '${patch.repository.name}'`);
+		} else {
+			patch.repository = repo;
+
+			if (options?.notifyOnLocation) {
+				void this.notifyPatchRepositoryUpdated(patch);
+			}
+		}
+
+		return repo;
+	}
+
+	// Ensures that changesets arent mutated twice on the same draft
+	@gate<PatchDetailsWebviewProvider['ensureChangesets']>(d => d.id)
+	private async ensureChangesets(draft: Draft) {
+		draft.changesets ??= await this.container.drafts.getChangesets(draft.id);
+		return draft.changesets;
+	}
+
+	private async ensureDraftContent(draft: Draft): Promise<Draft> {
+		if (!isDraftMissingContent(draft)) {
+			return draft;
+		}
+
+		draft.changesets = await this.ensureChangesets(draft);
+
+		const patches = draft.changesets
+			.flatMap(cs => cs.patches)
+			.filter(p => p.contents == null || p.files == null || p.repository == null);
+
+		if (patches.length === 0) {
+			return draft;
+		}
+
+		const patchDetails = await Promise.allSettled(patches.map(p => this.container.drafts.getPatchDetails(p)));
+
+		for (const d of patchDetails) {
+			if (d.status === 'fulfilled') {
+				const patch = patches.find(p => p.id === d.value.id);
+				if (patch != null) {
+					patch.contents = d.value.contents;
+					patch.files = d.value.files;
+					patch.repository = d.value.repository;
+					await this.getOrLocatePatchRepository(patch);
+				}
+			}
+		}
+
+		return draft;
+	}
+}
+
+function isDraftMissingContent(draft: Draft): boolean {
+	if (draft.changesets == null) return true;
+
+	return some(draft.changesets, cs =>
+		cs.patches.some(p => p.contents == null || p.files == null || p.repository == null),
+	);
+}
+
+function isRepoLocated(repo: DraftPatch['repository']): boolean {
+	return repo != null && isRepository(repo);
 }
 
 function toDraftUserSelection(

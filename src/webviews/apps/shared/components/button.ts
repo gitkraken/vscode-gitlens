@@ -1,8 +1,15 @@
 import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import { focusOutline } from './styles/lit/a11y.css';
+import { focusOutlineButton } from './styles/lit/a11y.css';
 import { elementBase } from './styles/lit/base.css';
+import './overlays/tooltip';
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-button': GlButton;
+	}
+}
 
 @customElement('gl-button')
 export class GlButton extends LitElement {
@@ -18,9 +25,11 @@ export class GlButton extends LitElement {
 				--button-foreground: var(--color-button-foreground);
 				--button-background: var(--color-button-background);
 				--button-hover-background: var(--vscode-button-hoverBackground);
-				--button-padding: 0.4rem 1.1rem;
-				--button-compact-padding: 0.4rem 0.4rem;
-				--button-line-height: 1.694;
+				--button-padding: 0.4rem;
+				--button-gap: 0.6rem;
+				--button-compact-padding: 0.4rem;
+				--button-tight-padding: 0.4rem 0.8rem;
+				--button-line-height: 1.35;
 				--button-border: var(--vscode-button-border, transparent);
 
 				display: inline-block;
@@ -35,17 +44,22 @@ export class GlButton extends LitElement {
 				color: var(--button-foreground);
 				cursor: pointer;
 				border: 1px solid var(--button-border);
-				border-radius: var(--gk-action-radius);
+				border-radius: var(--gk-action-radius, 0.3rem);
 			}
 
 			.control {
-				display: inline-block;
+				display: inline-flex;
+				flex-direction: row;
+				justify-content: center;
+				align-items: center;
+				gap: var(--button-gap);
 				padding: var(--button-padding);
+				line-height: var(--button-line-height);
 
 				color: inherit;
 				text-decoration: none;
 
-				width: 100%;
+				width: max-content;
 				height: 100%;
 				cursor: pointer;
 			}
@@ -60,15 +74,20 @@ export class GlButton extends LitElement {
 				outline: none;
 			}
 
+			.label {
+				display: inline-block;
+			}
+
 			:host(:hover) {
 				background: var(--button-hover-background);
 			}
 
 			:host(:focus-within) {
-				${focusOutline}
+				${focusOutlineButton}
 			}
 
-			:host([full]) {
+			:host([full]),
+			:host([full]) .control {
 				width: 100%;
 			}
 
@@ -82,8 +101,6 @@ export class GlButton extends LitElement {
 				--button-background: transparent;
 				--button-foreground: var(--vscode-foreground);
 				--button-hover-background: var(--vscode-toolbar-hoverBackground);
-				--button-padding: 0.4rem;
-				--button-line-height: 1.6;
 				--button-border: transparent;
 			}
 
@@ -115,10 +132,26 @@ export class GlButton extends LitElement {
 				padding: var(--button-compact-padding);
 			}
 
+			:host([density='tight']) .control {
+				padding: var(--button-tight-padding);
+			}
+
+			:host([density='tight']) .control ::slotted(code-icon) {
+				--code-icon-size: 11px;
+				--code-icon-v-align: unset;
+			}
+
 			:host([disabled]) {
 				opacity: 0.4;
 				cursor: not-allowed;
 				pointer-events: none;
+			}
+
+			gl-tooltip {
+				height: 100%;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
 			}
 		`,
 	];
@@ -126,14 +159,17 @@ export class GlButton extends LitElement {
 	@query('.control')
 	protected control!: HTMLElement;
 
-	@property({ type: Boolean, reflect: true })
-	full = false;
+	@property()
+	appearance?: string;
 
 	@property({ type: Boolean, reflect: true })
 	disabled = false;
 
 	@property({ reflect: true })
-	density?: 'compact';
+	density?: 'compact' | 'tight';
+
+	@property({ type: Boolean, reflect: true })
+	full = false;
 
 	@property()
 	href?: string;
@@ -144,7 +180,7 @@ export class GlButton extends LitElement {
 	}
 
 	@property()
-	appearance?: string;
+	tooltip?: string;
 
 	protected override updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
@@ -154,13 +190,40 @@ export class GlButton extends LitElement {
 		}
 	}
 
-	override render() {
+	protected override render() {
+		if (this.tooltip) {
+			return html`<gl-tooltip .content=${this.tooltip}>${this.renderControl()}</gl-tooltip>`;
+		}
+
+		if (this.querySelectorAll('[slot="tooltip"]').length > 0) {
+			return html`<gl-tooltip>
+				${this.renderControl()}
+				<slot name="tooltip" slot="content"></slot>
+			</gl-tooltip>`;
+		}
+
+		return this.renderControl();
+	}
+
+	private renderControl() {
 		if (this.href != null) {
-			return html`<a class="control" part="base" tabindex="${this.disabled === false ? -1 : 0}" href=${this.href}
-				><slot></slot
+			return html`<a
+				class="control"
+				tabindex="${this.disabled === false ? 0 : -1}"
+				href=${this.href}
+				@keypress=${(e: KeyboardEvent) => this.onLinkKeypress(e)}
+				><slot name="prefix"></slot><slot class="label"></slot><slot name="suffix"></slot
 			></a>`;
 		}
-		return html`<button class="control" part="base" ?disabled=${this.disabled}><slot></slot></button>`;
+		return html`<button class="control" ?disabled=${this.disabled}>
+			<slot name="prefix"></slot><slot class="label"></slot><slot name="suffix"></slot>
+		</button>`;
+	}
+
+	private onLinkKeypress(e: KeyboardEvent) {
+		if (e.key === ' ') {
+			this.control.click();
+		}
 	}
 
 	override focus(options?: FocusOptions) {
@@ -173,11 +236,5 @@ export class GlButton extends LitElement {
 
 	override click() {
 		this.control.click();
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		'gl-button': GlButton;
 	}
 }

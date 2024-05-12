@@ -134,10 +134,6 @@ export class GitProviderService implements Disposable {
 				'providers.count': this._providers.size,
 				'providers.ids': join(this._providers.keys(), ','),
 			});
-			this.container.telemetry.sendEvent('providers/changed', {
-				'providers.added': added?.length ?? 0,
-				'providers.removed': removed?.length ?? 0,
-			});
 		}
 
 		this._etag = Date.now();
@@ -1286,7 +1282,12 @@ export class GitProviderService implements Disposable {
 	async applyUnreachableCommitForPatch(
 		repoPath: string | Uri,
 		ref: string,
-		options?: { branchName?: string; createBranchIfNeeded?: boolean; createWorktreePath?: string; stash?: boolean },
+		options?: {
+			branchName?: string;
+			createBranchIfNeeded?: boolean;
+			createWorktreePath?: string;
+			stash?: boolean | 'prompt';
+		},
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.applyUnreachableCommitForPatch?.(path, ref, options);
@@ -2069,10 +2070,9 @@ export class GitProviderService implements Disposable {
 						) {
 							if (cancellation?.isCancellationRequested) throw new CancellationError();
 
-							const repo = await integration.getRepositoryMetadata(
-								remote.provider.repoDesc,
-								cancellation,
-							);
+							const repo = await integration.getRepositoryMetadata(remote.provider.repoDesc, {
+								cancellation: cancellation,
+							});
 
 							if (cancellation?.isCancellationRequested) throw new CancellationError();
 

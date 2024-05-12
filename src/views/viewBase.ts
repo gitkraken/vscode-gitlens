@@ -18,6 +18,7 @@ import type {
 	ContributorsViewConfig,
 	FileHistoryViewConfig,
 	LineHistoryViewConfig,
+	PullRequestViewConfig,
 	RemotesViewConfig,
 	RepositoriesViewConfig,
 	SearchAndCompareViewConfig,
@@ -47,6 +48,7 @@ import type { FileHistoryView } from './fileHistoryView';
 import type { LineHistoryView } from './lineHistoryView';
 import type { PageableViewNode, ViewNode } from './nodes/abstract/viewNode';
 import { isPageableViewNode } from './nodes/abstract/viewNode';
+import type { PullRequestView } from './pullRequestView';
 import type { RemotesView } from './remotesView';
 import type { RepositoriesView } from './repositoriesView';
 import type { SearchAndCompareView } from './searchAndCompareView';
@@ -62,6 +64,7 @@ export type View =
 	| DraftsView
 	| FileHistoryView
 	| LineHistoryView
+	| PullRequestView
 	| RemotesView
 	| RepositoriesView
 	| SearchAndCompareView
@@ -81,7 +84,7 @@ export type ViewsWithRepositories = RepositoriesView | WorkspacesView;
 export type ViewsWithRepositoriesNode = RepositoriesView | WorkspacesView;
 export type ViewsWithRepositoryFolders = Exclude<
 	View,
-	DraftsView | FileHistoryView | LineHistoryView | RepositoriesView | WorkspacesView
+	DraftsView | FileHistoryView | LineHistoryView | PullRequestView | RepositoriesView | WorkspacesView
 >;
 export type ViewsWithStashes = StashesView | ViewsWithCommits;
 export type ViewsWithStashesNode = RepositoriesView | StashesView | WorkspacesView;
@@ -104,6 +107,7 @@ export abstract class ViewBase<
 			| FileHistoryViewConfig
 			| CommitsViewConfig
 			| LineHistoryViewConfig
+			| PullRequestViewConfig
 			| RemotesViewConfig
 			| RepositoriesViewConfig
 			| SearchAndCompareViewConfig

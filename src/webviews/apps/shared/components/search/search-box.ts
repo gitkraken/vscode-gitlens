@@ -21,7 +21,7 @@ declare global {
 	}
 
 	interface GlobalEventHandlersEventMap {
-		'gl-search-openinview': CustomEvent;
+		'gl-search-openinview': CustomEvent<void>;
 	}
 }
 
@@ -225,7 +225,7 @@ export class GlSearchBox extends GlElement {
 
 	private get resultsHtml() {
 		if (this.searching) {
-			return html`<gl-tooltip placement="top" class="count"
+			return html`<gl-tooltip hoist placement="top" class="count"
 				><code-icon icon="loading" modifier="spin"></code-icon><span slot="content">Searching...</span>
 			</gl-tooltip>`;
 		}
@@ -253,6 +253,7 @@ export class GlSearchBox extends GlElement {
 		}
 
 		return html`<gl-tooltip
+			hoist
 			placement="top"
 			?disabled="${!tooltip}"
 			class="count${this.total < 1 && this.valid && this.resultsLoaded ? ' error' : ''}"
@@ -277,7 +278,7 @@ export class GlSearchBox extends GlElement {
 			></gl-search-input>
 			<div class="search-navigation" aria-label="Search navigation">
 				${this.resultsHtml}
-				<gl-tooltip placement="bottom">
+				<gl-tooltip hoist>
 					<button
 						type="button"
 						class="button"
@@ -291,7 +292,7 @@ export class GlSearchBox extends GlElement {
 					</button>
 					<span slot="content">Previous Match (Shift+Enter)<br />First Match (Shift+Click)</span>
 				</gl-tooltip>
-				<gl-tooltip placement="bottom">
+				<gl-tooltip hoist>
 					<button type="button" class="button" ?disabled="${!this.hasResults}" @click="${this.handleNext}">
 						<code-icon
 							icon="arrow-down"
@@ -300,7 +301,7 @@ export class GlSearchBox extends GlElement {
 					</button>
 					<span slot="content">Next Match (Enter)<br />Last Match (Shift+Click)</span>
 				</gl-tooltip>
-				<gl-tooltip placement="bottom">
+				<gl-tooltip hoist content="Show Results in Side Bar">
 					<button
 						type="button"
 						class="button"
@@ -309,7 +310,6 @@ export class GlSearchBox extends GlElement {
 					>
 						<code-icon icon="link-external" aria-label="Show Results in Side Bar"></code-icon>
 					</button>
-					<span slot="content">Show Results in Side Bar</span>
 				</gl-tooltip>
 			</div>
 			<progress-indicator active="${this.searching}"></progress-indicator>`;

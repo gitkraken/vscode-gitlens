@@ -41,7 +41,7 @@ import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
-import { getComparisonRefsForPullRequest } from '../../../git/models/pullRequest';
+import { getComparisonRefsForPullRequest, serializePullRequest } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -126,6 +126,7 @@ import type {
 	GraphUpstreamMetadata,
 	GraphUpstreamStatusContextValue,
 	GraphWorkingTreeStats,
+	OpenPullRequestDetailsParams,
 	SearchOpenInViewParams,
 	SearchParams,
 	State,
@@ -140,7 +141,6 @@ import {
 	ChooseRepositoryCommand,
 	DidChangeAvatarsNotification,
 	DidChangeColumnsNotification,
-	DidChangeFocusNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
 	DidChangeRefsMetadataNotification,
@@ -150,7 +150,6 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
-	DidChangeWindowFocusNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidSearchNotification,
@@ -159,6 +158,7 @@ import {
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
+	OpenPullRequestDetailsCommand,
 	SearchOpenInViewCommand,
 	SearchRequest,
 	supportedRefMetadataTypes,
@@ -233,7 +233,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeSelectionNotification, this.notifyDidChangeSelection],
 		[DidChangeSubscriptionNotification, this.notifyDidChangeSubscription],
 		[DidChangeWorkingTreeNotification, this.notifyDidChangeWorkingTree],
-		[DidChangeWindowFocusNotification, this.notifyDidChangeWindowFocus],
 		[DidFetchNotification, this.notifyDidFetch],
 	]);
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
@@ -576,12 +575,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	onWindowFocusChanged(focused: boolean): void {
 		this.isWindowFocused = focused;
-		void this.notifyDidChangeWindowFocus();
 	}
 
 	onFocusChanged(focused: boolean): void {
 		this._showActiveSelectionDetailsDebounced?.cancel();
-		void this.notifyDidChangeFocus(focused);
 
 		if (!focused || this.activeSelection == null || !this.container.commitDetailsView.visible) {
 			return;
@@ -636,6 +633,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				break;
 			case GetMoreRowsCommand.is(e):
 				void this.onGetMoreRows(e.params);
+				break;
+			case OpenPullRequestDetailsCommand.is(e):
+				void this.onOpenPullRequestDetails(e.params);
 				break;
 			case SearchRequest.is(e):
 				void this.onSearchRequest(SearchRequest, e);
@@ -1097,6 +1097,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.notifyDidChangeRows(sendSelectedRows);
 	}
 
+	@log()
+	async onOpenPullRequestDetails(_params: OpenPullRequestDetailsParams) {
+		// TODO: a hack for now, since we aren't using the params at all right now and always opening the current branch's PR
+		const repo = this.repository;
+		if (repo == null) return undefined;
+
+		const branch = await repo.getBranch();
+		if (branch == null) return undefined;
+
+		const pr = await branch.getAssociatedPullRequest();
+		if (pr == null) return undefined;
+
+		return this.container.pullRequestView.showPullRequest(pr, branch);
+	}
+
 	@debug()
 	private async onSearchRequest<T extends typeof SearchRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		try {
@@ -1322,27 +1337,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		void this._notifyDidChangeStateDebounced();
-	}
-
-	@debug()
-	private async notifyDidChangeFocus(focused: boolean): Promise<boolean> {
-		if (!this.host.ready || !this.host.visible) return false;
-
-		return this.host.notify(DidChangeFocusNotification, {
-			focused: focused,
-		});
-	}
-
-	@debug()
-	private async notifyDidChangeWindowFocus(): Promise<boolean> {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidChangeWindowFocusNotification, this._ipcNotificationMap, this);
-			return false;
-		}
-
-		return this.host.notify(DidChangeWindowFocusNotification, {
-			focused: this.isWindowFocused,
-		});
 	}
 
 	private _notifyDidChangeAvatarsDebounced: Deferrable<GraphWebviewProvider['notifyDidChangeAvatars']> | undefined =
@@ -1847,7 +1841,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
 			enabledRefMetadataTypes: this.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
-			enableMultiSelection: true,
+			enableMultiSelection: this.container.prereleaseOrDebugging,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			minimap: configuration.get('graph.minimap.enabled'),
 			minimapDataType: configuration.get('graph.minimap.dataType'),
@@ -1909,7 +1903,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// If we don't have access, but the preview trial hasn't been started, auto-start it
 		if (access.allowed === false && access.subscription.current.previewTrial == null) {
-			await this.container.subscription.startPreviewTrial();
+			// await this.container.subscription.startPreviewTrial();
 			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
 		}
 
@@ -2030,13 +2024,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (branch.upstream != null) {
 				branchState.upstream = branch.upstream.name;
 
-				const remote = await branch.getRemote();
+				const [remoteResult, prResult] = await Promise.allSettled([
+					branch.getRemote(),
+					branch.getAssociatedPullRequest(),
+				]);
+
+				const remote = getSettledValue(remoteResult);
 				if (remote?.provider != null) {
 					branchState.provider = {
 						name: remote.provider.name,
 						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
 						url: remote.provider.url({ type: RemoteResourceType.Repo }),
 					};
+				}
+
+				const pr = getSettledValue(prResult);
+				if (pr != null) {
+					branchState.pr = serializePullRequest(pr);
 				}
 			}
 		}

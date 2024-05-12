@@ -8,7 +8,7 @@ import type { GitLog } from './models/log';
 import type { GitUser } from './models/user';
 
 export interface CommitsQueryResults {
-	readonly label: string;
+	readonly label?: string;
 	readonly log: GitLog | undefined;
 	readonly hasMore: boolean;
 	more?(limit: number | undefined): Promise<void>;
@@ -90,7 +90,7 @@ export function getCommitsQuery(
 			authors: filterByAuthors,
 		});
 
-		const results: Mutable<Partial<CommitsQueryResults>> = {
+		const results: Mutable<CommitsQueryResults> = {
 			log: log,
 			hasMore: log?.hasMore ?? true,
 		};
@@ -101,7 +101,7 @@ export function getCommitsQuery(
 			};
 		}
 
-		return results as CommitsQueryResults;
+		return results satisfies CommitsQueryResults;
 	};
 }
 

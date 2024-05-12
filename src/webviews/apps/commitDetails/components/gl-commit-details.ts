@@ -20,6 +20,8 @@ import '../../shared/components/actions/action-item';
 import '../../shared/components/actions/action-nav';
 import '../../shared/components/commit/commit-identity';
 import '../../shared/components/commit/commit-stats';
+import '../../shared/components/overlays/popover';
+import '../../shared/components/overlays/tooltip';
 import '../../shared/components/rich/issue-pull-request';
 
 interface ExplainState {
@@ -104,17 +106,13 @@ export class GlCommitDetails extends GlDetailsBase {
 
 				<p class="button-container">
 					<span class="button-group button-group--single">
-						<gl-button full data-action="wip">Show Repo Status</gl-button>
+						<gl-button full data-action="wip">Overview</gl-button>
 					</span>
 				</p>
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full data-action="pick-commit">Choose Commit...</gl-button>
-						<gl-button
-							density="compact"
-							data-action="search-commit"
-							aria-label="Search for Commit"
-							title="Search for Commit"
+						<gl-button density="compact" data-action="search-commit" tooltip="Search for Commit"
 							><code-icon icon="search"></code-icon
 						></gl-button>
 					</span>
@@ -165,6 +163,35 @@ export class GlCommitDetails extends GlDetailsBase {
 		`;
 	}
 
+	private renderJiraLink() {
+		if (this.state == null) return 'Jira issues';
+
+		const { hasAccount, hasConnectedJira } = this.state;
+
+		let message = html`<a
+				href="command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
+					JSON.stringify({
+						source: 'commitDetails',
+						integrationId: 'jira',
+					}),
+				)}"
+				>Connect to Jira Cloud</a
+			>
+			&mdash; ${hasAccount ? '' : 'sign up and '}get access to automatic rich Jira autolinks`;
+
+		if (hasAccount && hasConnectedJira) {
+			message = html`<i class="codicon codicon-check" style="vertical-align: text-bottom"></i> Jira connected
+				&mdash; automatic rich Jira autolinks are enabled`;
+		}
+
+		return html`<gl-popover hoist class="inline-popover">
+			<span class="tooltip-hint" slot="anchor"
+				>Jira issues <code-icon icon="${hasConnectedJira ? 'check' : 'gl-unplug'}"></code-icon
+			></span>
+			<span slot="content">${message}</span>
+		</gl-popover>`;
+	}
+
 	private renderAutoLinks() {
 		if (this.isUncommitted) return undefined;
 
@@ -209,6 +236,14 @@ export class GlCommitDetails extends GlDetailsBase {
 			}
 		}
 
+		const { hasAccount, hasConnectedJira } = this.state ?? {};
+		const jiraIntegrationLink = `command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
+			JSON.stringify({
+				source: 'commitDetails',
+				integrationId: 'jira',
+			}),
+		)}`;
+
 		return html`
 			<webview-pane
 				collapsable
@@ -223,6 +258,19 @@ export class GlCommitDetails extends GlDetailsBase {
 						? ''
 						: '…'}</span
 				>
+				<action-nav slot="actions">
+					<action-item
+						label="${hasAccount && hasConnectedJira ? 'Manage Jira' : 'Connect to Jira Cloud'}"
+						icon="gl-provider-jira"
+						href="${jiraIntegrationLink}"
+					></action-item>
+					<action-item
+						data-action="autolinks-settings"
+						label="Autolinks Settings"
+						icon="gear"
+						href="command:gitlens.showSettingsPage!autolinks"
+					></action-item>
+				</action-nav>
 				${when(
 					this.state == null,
 					() => html`
@@ -244,11 +292,16 @@ export class GlCommitDetails extends GlDetailsBase {
 								<div class="section" data-region="rich-info">
 									<p>
 										<code-icon icon="info"></code-icon>&nbsp;Use
-										<a href="#" data-action="autolink-settings" title="Configure autolinks"
-											>autolinks</a
-										>
-										to linkify external references, like Jira issues or Zendesk tickets, in commit
-										messages.
+										<gl-tooltip hoist>
+											<a
+												href="command:gitlens.showSettingsPage!autolinks"
+												data-action="autolink-settings"
+												>autolinks</a
+											>
+											<span slot="content">Configure autolinks</span>
+										</gl-tooltip>
+										to linkify external references, like ${this.renderJiraLink()} or Zendesk
+										tickets, in commit messages.
 									</p>
 								</div>
 							`;
@@ -272,7 +325,7 @@ export class GlCommitDetails extends GlDetailsBase {
 															type="autolink"
 															name="${name}"
 															url="${autolink.url}"
-															key="${autolink.prefix}${autolink.id}"
+															identifier="${autolink.prefix}${autolink.id}"
 															status=""
 														></issue-pull-request>
 													`;
@@ -293,9 +346,9 @@ export class GlCommitDetails extends GlDetailsBase {
 																type="pr"
 																name="${pr.title}"
 																url="${pr.url}"
-																key="#${pr.id}"
+																identifier="#${pr.id}"
 																status="${pr.state}"
-																date=${pr.updatedDate}
+																.date=${pr.updatedDate}
 																.dateFormat="${this.state!.preferences.dateFormat}"
 																.dateStyle="${this.state!.preferences.dateStyle}"
 															></issue-pull-request>
@@ -314,11 +367,9 @@ export class GlCommitDetails extends GlDetailsBase {
 															type="issue"
 															name="${issue.title}"
 															url="${issue.url}"
-															key="${issue.id}"
+															identifier="${issue.id}"
 															status="${issue.state}"
-															date="${issue.closed
-																? issue.closedDate
-																: issue.createdDate}"
+															.date=${issue.closed ? issue.closedDate : issue.createdDate}
 															.dateFormat="${this.state!.preferences.dateFormat}"
 															.dateStyle="${this.state!.preferences.dateStyle}"
 														></issue-pull-request>
@@ -358,7 +409,8 @@ export class GlCommitDetails extends GlDetailsBase {
 								aria-busy="${this.explainBusy ? 'true' : nothing}"
 								@click=${this.onExplainChanges}
 								@keydown=${this.onExplainChanges}
-								><code-icon icon="loading" modifier="spin"></code-icon>Explain Changes</gl-button
+								><code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>Explain
+								Changes</gl-button
 							>
 						</span>
 					</p>

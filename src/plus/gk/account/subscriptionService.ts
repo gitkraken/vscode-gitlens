@@ -33,6 +33,7 @@ import { setContext } from '../../../system/context';
 import { createFromDateDelta, fromNow } from '../../../system/date';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
+import { take } from '../../../system/event';
 import type { Deferrable } from '../../../system/function';
 import { debounce, once } from '../../../system/function';
 import { Logger } from '../../../system/logger';
@@ -174,7 +175,7 @@ export class SubscriptionService implements Disposable {
 
 		return [
 			registerCommand(Commands.GKSwitchOrganization, () => this.switchOrganization()),
-			registerCommand(Commands.PlusLogin, () => this.loginOrSignUp()),
+			registerCommand(Commands.PlusLogin, () => this.loginOrSignUp(false)),
 			registerCommand(Commands.PlusSignUp, () => this.loginOrSignUp(true)),
 			registerCommand(Commands.PlusLogout, () => this.logout()),
 
@@ -228,7 +229,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async loginOrSignUp(signUp: boolean = false): Promise<boolean> {
+	async loginOrSignUp(signUp: boolean): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 
 		// Abort any waiting authentication to ensure we can start a new flow
@@ -244,8 +245,8 @@ export class SubscriptionService implements Disposable {
 			} = this._subscription;
 
 			if (account?.verified === false) {
-				const confirm: MessageItem = { title: 'Resend Verification', isCloseAffordance: true };
-				const cancel: MessageItem = { title: 'Cancel' };
+				const confirm: MessageItem = { title: 'Resend Verification' };
+				const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
 					`You must verify your email before you can access ${effective.name}.`,
 					confirm,
@@ -255,19 +256,35 @@ export class SubscriptionService implements Disposable {
 				if (result === confirm) {
 					void this.resendVerification();
 				}
-			} else if (isSubscriptionTrial(this._subscription)) {
-				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
-
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+			} else if (isSubscriptionPaid(this._subscription)) {
 				const learn: MessageItem = { title: 'Learn More' };
+				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					`Welcome to ${
-						effective.name
-					} (Trial). You can now try Pro features on privately hosted repos for ${pluralize(
-						'more day',
-						remaining ?? 0,
-					)}.`,
-					{ modal: true },
+					`You are now on the ${actual.name} plan and have full access to Pro features.`,
+					{
+						modal: true,
+						detail: 'Your plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					},
+					learn,
+					confirm,
+				);
+
+				if (result === learn) {
+					void env.openExternal(Uri.parse('https://www.gitkraken.com/suite'));
+				}
+			} else if (isSubscriptionTrial(this._subscription)) {
+				const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
+
+				const learn: MessageItem = { title: 'Learn More' };
+				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
+				const result = await window.showInformationMessage(
+					`Welcome to your ${effective.name} Trial.\n\nYou now have full access to Pro features for ${
+						days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
+					}.`,
+					{
+						modal: true,
+						detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					},
 					confirm,
 					learn,
 				);
@@ -275,16 +292,26 @@ export class SubscriptionService implements Disposable {
 				if (result === learn) {
 					void this.learnAboutPreviewOrTrial();
 				}
-			} else if (isSubscriptionPaid(this._subscription)) {
-				void window.showInformationMessage(
-					`Welcome to ${actual.name}. You can now use Pro features on privately hosted repos.`,
-					'OK',
-				);
 			} else {
-				void window.showInformationMessage(
-					`Welcome to ${actual.name}. You can use Pro features on local & publicly hosted repos.`,
-					'OK',
+				const upgrade: MessageItem = { title: 'Upgrade to Pro' };
+				const learn: MessageItem = { title: 'Learn More' };
+				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
+				const result = await window.showInformationMessage(
+					`You are now on the ${actual.name} plan.`,
+					{
+						modal: true,
+						detail: 'You only have access to Pro features on publicly-hosted repos. For full access to Pro features, please upgrade to a paid plan.\nA paid plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					},
+					upgrade,
+					learn,
+					confirm,
 				);
+
+				if (result === learn) {
+					void env.openExternal(Uri.parse('https://www.gitkraken.com/suite'));
+				} else if (result === upgrade) {
+					void this.purchase();
+				}
 			}
 		}
 		return loggedIn;
@@ -358,7 +385,21 @@ export class SubscriptionService implements Disposable {
 		if (this._subscription.account == null) {
 			this.showPlans();
 		} else {
-			void env.openExternal(this.connection.getAccountsUri('subscription', 'product=gitlens&license=PRO'));
+			const activeOrgId = this._subscription.activeOrganization?.id;
+			void env.openExternal(
+				this.connection.getGkDevUri(
+					'purchase',
+					activeOrgId ? `source=gitlens&org=${activeOrgId}` : 'source=gitlens',
+				),
+			);
+			take(
+				window.onDidChangeWindowState,
+				2,
+			)(e => {
+				if (e.focused && this._session != null) {
+					void this.checkInAndValidate(this._session, { force: true });
+				}
+			});
 		}
 		await this.showAccountView();
 	}
@@ -443,17 +484,19 @@ export class SubscriptionService implements Disposable {
 			void this.showAccountView();
 
 			if (!silent && plan.effective.id === SubscriptionPlanId.Free) {
-				const confirm: MessageItem = { title: 'Start Pro Trial', isCloseAffordance: true };
-				const cancel: MessageItem = { title: 'Cancel' };
+				const signUp: MessageItem = { title: 'Start Pro Trial' };
+				const signIn: MessageItem = { title: 'Sign In' };
+				const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					'Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days of all Pro features.\n\nA trial or paid plan is required to use Pro features on privately hosted repos.',
+					'Do you want to start your free 7-day Pro trial for full access to Pro features?',
 					{ modal: true },
-					confirm,
+					signUp,
+					signIn,
 					cancel,
 				);
 
-				if (result === confirm) {
-					void this.loginOrSignUp();
+				if (result === signUp || result === signIn) {
+					void this.loginOrSignUp(result === signUp);
 				}
 			}
 
@@ -493,13 +536,12 @@ export class SubscriptionService implements Disposable {
 
 		if (!silent) {
 			setTimeout(async () => {
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+				const confirm: MessageItem = { title: 'OK' };
 				const learn: MessageItem = { title: 'Learn More' };
 				const result = await window.showInformationMessage(
-					`You can now preview Pro features for ${pluralize(
-						'day',
-						days,
-					)}. After which, you can start a free GitLens Pro trial for an additional 7 days.`,
+					`You can now preview local Pro features for ${
+						days < 1 ? '1 day' : pluralize('day', days)
+					}, or [start your free 7-day Pro trial](command:gitlens.plus.signUp "Start Pro Trial") for full access to Pro features.`,
 					confirm,
 					learn,
 				);
@@ -528,7 +570,7 @@ export class SubscriptionService implements Disposable {
 		if (!rsp.ok) {
 			if (rsp.status === 409) {
 				void window.showErrorMessage(
-					'Unable to reactivate trial: User not eligible. Please try again. If this issue persists, please contact support.',
+					'You are not eligible to reactivate your Pro trial. If you feel that is an error, please contact support.',
 					'OK',
 				);
 				return;
@@ -547,10 +589,10 @@ export class SubscriptionService implements Disposable {
 			if (isSubscriptionTrial(this._subscription)) {
 				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
 
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+				const confirm: MessageItem = { title: 'OK' };
 				const learn: MessageItem = { title: "See What's New" };
 				const result = await window.showInformationMessage(
-					`Your new trial has been activated! Enjoy access to Pro features on privately hosted repos for another ${pluralize(
+					`Your Pro trial has been reactivated! Experience all the new Pro features for another ${pluralize(
 						'day',
 						remaining ?? 0,
 					)}.`,
@@ -880,7 +922,7 @@ export class SubscriptionService implements Disposable {
 							);
 
 							if (result === confirm) {
-								void this.loginOrSignUp();
+								void this.loginOrSignUp(false);
 							}
 						});
 					}
@@ -1118,7 +1160,7 @@ export class SubscriptionService implements Disposable {
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				trial
 					? `**Please verify your email**\n\nYou must verify your email before you can start your **${effective.name}** trial.\n\nClick for details`
-					: `**Please verify your email**\n\nYou must verify your email before you can use Pro features on privately hosted repos.\n\nClick for details`,
+					: `**Please verify your email**\n\nYou must verify your email before you can use Pro features on privately-hosted repos.\n\nClick for details`,
 				true,
 			);
 		} else {
@@ -1136,7 +1178,7 @@ export class SubscriptionService implements Disposable {
 			})}
 			in your **${effective.name}** trial.`
 						: `You have ${pluralize('day', remaining ?? 0)} remaining in your **${effective.name}** trial.`
-				} Once your trial ends, you'll need a paid plan to continue using Pro features.\n\nTry our
+				} Once your trial ends, you'll need a paid plan for full access to Pro features.\n\nTry our
 			[other developer tools](https://www.gitkraken.com/suite) also included in your trial.`,
 				true,
 			);

@@ -27,7 +27,12 @@ import {
 import type { Account as UserAccount } from '../../../git/models/author';
 import type { IssueMember, SearchedIssue } from '../../../git/models/issue';
 import { RepositoryAccessLevel } from '../../../git/models/issue';
-import type { PullRequest, PullRequestMember, PullRequestReviewer } from '../../../git/models/pullRequest';
+import type {
+	PullRequest,
+	PullRequestMember,
+	PullRequestRefs,
+	PullRequestReviewer,
+} from '../../../git/models/pullRequest';
 import {
 	PullRequestMergeableState,
 	PullRequestReviewDecision,
@@ -690,6 +695,7 @@ export type EnrichablePullRequest = ProviderPullRequest & {
 		'provider',
 		'id' | 'domain' | 'repoDomain' | 'repoName'
 	>;
+	refs?: PullRequestRefs;
 };
 
 export const getActionablePullRequests = GitProviderUtils.getActionablePullRequests;

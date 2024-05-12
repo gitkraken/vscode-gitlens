@@ -1,12 +1,15 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
-import { Disposable, env, EventEmitter, Uri } from 'vscode';
+import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
+import { md5 } from '@env/crypto';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
+import { openComparisonChanges } from '../../git/actions/commit';
 import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
+import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
@@ -17,6 +20,8 @@ import { getSettledValue } from '../../system/promise';
 import { openUrl } from '../../system/utils';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
+import { showInspectView } from '../../webviews/commitDetails/actions';
+import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
 	getActionablePullRequests,
@@ -46,7 +51,7 @@ export const focusGroups = [
 	'mergeable',
 	'blocked',
 	'follow-up',
-	'needs-attention',
+	// 'needs-attention',
 	'needs-review',
 	'waiting-for-review',
 	'draft',
@@ -85,28 +90,44 @@ export const sharedCategoryToFocusActionCategoryMap = new Map<string, FocusActio
 ]);
 
 export type FocusAction =
-	| 'open'
 	| 'merge'
+	| 'open'
+	| 'soft-open'
 	| 'switch'
-	| 'soft-open' /*| 'review' | 'change-reviewers' | 'nudge' | 'decline-review'*/;
+	| 'switch-and-code-suggest'
+	| 'code-suggest'
+	| 'show-overview'
+	| 'open-changes'
+	| 'open-in-graph';
+
 export type FocusTargetAction = {
 	action: 'open-suggestion';
 	target: string;
 };
 
 const prActionsMap = new Map<FocusActionCategory, FocusAction[]>([
-	['mergeable', ['merge', 'switch']],
-	['unassigned-reviewers', ['switch', 'open']],
-	['failed-checks', ['switch', 'open']],
-	['conflicts', ['switch', 'open']],
-	['needs-my-review', [/*'review', 'decline-review', */ 'switch', 'open']],
-	['code-suggestions', ['switch']],
-	['changes-requested', ['switch', 'open']],
-	['reviewer-commented', ['switch', 'open']],
-	['waiting-for-review', [/* 'nudge', 'change-reviewers', */ 'switch', 'open']],
-	['draft', ['switch', 'open']],
-	['other', ['switch']],
+	['mergeable', ['merge']],
+	['unassigned-reviewers', ['open']],
+	['failed-checks', ['open']],
+	['conflicts', ['open']],
+	['needs-my-review', ['open']],
+	['code-suggestions', ['open']],
+	['changes-requested', ['open']],
+	['reviewer-commented', ['open']],
+	['waiting-for-review', ['open']],
+	['draft', ['open']],
+	['other', []],
 ]);
+
+export function getSuggestedActions(category: FocusActionCategory, isCurrentBranch: boolean): FocusAction[] {
+	const actions = [...prActionsMap.get(category)!];
+	if (isCurrentBranch) {
+		actions.push('show-overview', 'open-changes', 'code-suggest', 'open-in-graph');
+	} else {
+		actions.push('switch', 'switch-and-code-suggest', 'open-in-graph');
+	}
+	return actions;
+}
 
 export type FocusPullRequest = EnrichablePullRequest & ProviderActionablePullRequest;
 
@@ -236,7 +257,9 @@ export class FocusProvider implements Disposable {
 			this._codeSuggestions.get(item.uuid)!.expiresAt < Date.now()
 		) {
 			this._codeSuggestions.set(item.uuid, {
-				promise: this.container.drafts.getCodeSuggestions(item, HostingIntegrationId.GitHub),
+				promise: this.container.drafts.getCodeSuggestions(item, HostingIntegrationId.GitHub, {
+					includeArchived: false,
+				}),
 				expiresAt: Date.now() + cacheExpiration,
 			});
 		}
@@ -299,6 +322,12 @@ export class FocusProvider implements Disposable {
 		if (item.graphQLId == null || item.headRef?.oid == null) return;
 		// TODO: Include other providers.
 		if (item.provider.id !== 'github') return;
+		const confirm = await window.showQuickPick(['Merge', 'Cancel'], {
+			placeHolder: `Are you sure you want to merge ${item.headRef?.name ?? 'this pull request'}${
+				item.baseRef?.name ? ` into ${item.baseRef.name}` : ''
+			}? This cannot be undone.`,
+		});
+		if (confirm !== 'Merge') return;
 		const integrations = await this.container.integrations.get(HostingIntegrationId.GitHub);
 		await integrations.mergePullRequest({ id: item.graphQLId, headRefSha: item.headRef.oid });
 		this.refresh();
@@ -316,32 +345,84 @@ export class FocusProvider implements Disposable {
 		this._codeSuggestions?.delete(item.uuid);
 		this._prs = undefined;
 		void executeCommand(Commands.OpenCloudPatch, {
+			type: 'code_suggestion',
 			draft: draft,
 		});
 	}
 
-	async switchTo(item: FocusItem): Promise<void> {
-		const deepLinkUrl = this.getItemBranchDeepLink(item);
+	openCodeSuggestionInBrowser(target: string) {
+		void openUrl(this.container.drafts.generateWebUrl(target));
+	}
+
+	async switchTo(item: FocusItem, startCodeSuggestion: boolean = false): Promise<void> {
+		if (item.openRepository?.localBranch?.current) {
+			void showInspectView({
+				type: 'wip',
+				inReview: startCodeSuggestion,
+				repository: item.openRepository.repo,
+				source: 'launchpad',
+			} satisfies ShowWipArgs);
+			return;
+		}
+
+		const deepLinkUrl = this.getItemBranchDeepLink(
+			item,
+			startCodeSuggestion
+				? DeepLinkActionType.SwitchToAndSuggestPullRequest
+				: DeepLinkActionType.SwitchToPullRequest,
+		);
 		if (deepLinkUrl == null) return;
 
 		this._codeSuggestions?.delete(item.uuid);
-		await env.openExternal(deepLinkUrl);
+		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false);
 	}
 
-	private getItemBranchDeepLink(item: FocusItem): Uri | undefined {
+	async openChanges(item: FocusItem) {
+		if (!item.openRepository?.localBranch?.current) return;
+		await this.switchTo(item);
+		if (item.refs != null) {
+			const refs = await getComparisonRefsForPullRequest(
+				this.container,
+				item.openRepository.repo.path,
+				item.refs,
+			);
+			await openComparisonChanges(
+				this.container,
+				{
+					repoPath: refs.repoPath,
+					lhs: refs.base.ref,
+					rhs: refs.head.ref,
+				},
+				{ title: `Changes in Pull Request #${item.id}` },
+			);
+		}
+	}
+
+	async openInGraph(item: FocusItem) {
+		const deepLinkUrl = this.getItemBranchDeepLink(item);
+		if (deepLinkUrl == null) return;
+		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false);
+	}
+
+	private getItemBranchDeepLink(item: FocusItem, action?: DeepLinkActionType): Uri | undefined {
 		if (item.type !== 'pullrequest' || item.headRef == null || item.repoIdentity?.remote?.url == null)
 			return undefined;
 		const schemeOverride = configuration.get('deepLinks.schemeOverride');
 		const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
+
+		const branchName =
+			action == null && item.openRepository?.localBranch?.current
+				? item.openRepository.localBranch.name
+				: item.headRef.name;
 
 		// TODO: Get the proper pull URL from the provider, rather than tacking .git at the end of the
 		// url from the head ref.
 		return Uri.parse(
 			`${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
 				DeepLinkType.Repository
-			}/-/${DeepLinkType.Branch}/${item.headRef.name}?url=${encodeURIComponent(
+			}/-/${DeepLinkType.Branch}/${branchName}?url=${encodeURIComponent(
 				ensureRemoteUrl(item.repoIdentity.remote.url),
-			)}&action=${DeepLinkActionType.SwitchToPullRequest}`,
+			)}${action != null ? `&action=${action}` : ''}`,
 		);
 	}
 
@@ -474,6 +555,7 @@ export class FocusProvider implements Disposable {
 					provider: pr.pullRequest.provider,
 					enrichable: enrichable,
 					repoIdentity: repoIdentity,
+					refs: pr.pullRequest.refs,
 				};
 			}) satisfies EnrichablePullRequest[];
 
@@ -495,7 +577,12 @@ export class FocusProvider implements Disposable {
 					} else if (codeSuggestionsCount > 0 && item.viewer.isAuthor) {
 						actionableCategory = 'code-suggestions';
 					}
-					const suggestedActions = prActionsMap.get(actionableCategory)!;
+					const openRepository = await this.getMatchingOpenRepository(item);
+					const suggestedActions = getSuggestedActions(
+						actionableCategory,
+						openRepository?.localBranch?.current ?? false,
+					);
+
 					return {
 						...item,
 						currentViewer: myAccount!,
@@ -505,7 +592,7 @@ export class FocusProvider implements Disposable {
 							!this._groupedIds.has(`${item.uuid}:${focusCategoryToGroupMap.get(actionableCategory)}`),
 						actionableCategory: actionableCategory,
 						suggestedActions: suggestedActions,
-						openRepository: await this.getMatchingOpenRepository(item),
+						openRepository: openRepository,
 					};
 				}),
 			)) satisfies FocusItem[];
@@ -556,6 +643,23 @@ export class FocusProvider implements Disposable {
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'launchpad')) return;
+		const launchpadConfig = configuration.get('launchpad');
+		this.container.telemetry.sendEvent('launchpad/configurationChanged', {
+			staleThreshold: launchpadConfig.staleThreshold,
+			ignoredRepositories: launchpadConfig.ignoredRepositories,
+			indicatorEnabled: launchpadConfig.indicator.enabled,
+			indicatorOpenInEditor: launchpadConfig.indicator.openInEditor,
+			indicatorIcon: launchpadConfig.indicator.icon,
+			indicatorLabel: launchpadConfig.indicator.label,
+			indicatorUseColors: launchpadConfig.indicator.useColors,
+			indicatorGroups: launchpadConfig.indicator.groups,
+			indicatorPollingEnabled: launchpadConfig.indicator.polling.enabled,
+			indicatorPollingInterval: launchpadConfig.indicator.polling.interval,
+		});
+
+		if (configuration.changed(e, 'launchpad.indicator.enabled') && !launchpadConfig.indicator.enabled) {
+			this.container.telemetry.sendEvent('launchpad/indicator/hidden');
+		}
 
 		if (
 			configuration.changed(e, 'launchpad.ignoredRepositories') ||
@@ -573,33 +677,54 @@ export function groupAndSortFocusItems(items?: FocusItem[]) {
 
 	sortFocusItems(items);
 
-	const pinnedGroup = grouped.get('pinned')!;
-	const snoozedGroup = grouped.get('snoozed')!;
-
 	for (const item of items) {
 		if (item.viewer.snoozed) {
-			if (!snoozedGroup.some(i => i.uuid === item.uuid)) {
-				snoozedGroup.push(item);
-			}
+			grouped.get('snoozed')!.push(item);
 
 			continue;
-		} else if (item.viewer.pinned && !pinnedGroup.some(i => i.uuid === item.uuid)) {
-			pinnedGroup.push(item);
+		} else if (item.viewer.pinned) {
+			grouped.get('pinned')!.push(item);
 		}
 
-		const currentBranchGroup = grouped.get('current-branch')!;
 		if (item.openRepository?.localBranch?.current) {
-			currentBranchGroup.push(item);
+			grouped.get('current-branch')!.push(item);
 		}
 
-		const draftGroup = grouped.get('draft')!;
 		if (item.isDraft) {
-			if (!draftGroup.some(i => i.uuid === item.uuid)) {
-				draftGroup.push(item);
-			}
+			grouped.get('draft')!.push(item);
 		} else {
 			const group = focusCategoryToGroupMap.get(item.actionableCategory)!;
 			grouped.get(group)!.push(item);
+		}
+	}
+
+	return grouped;
+}
+
+export function countFocusItemGroups(items?: FocusItem[]) {
+	if (items == null || items.length === 0) return new Map<FocusGroup, number>();
+	const grouped = new Map<FocusGroup, number>(focusGroups.map(g => [g, 0]));
+
+	function incrementGroup(group: FocusGroup) {
+		grouped.set(group, (grouped.get(group) ?? 0) + 1);
+	}
+
+	for (const item of items) {
+		if (item.viewer.snoozed) {
+			incrementGroup('snoozed');
+			continue;
+		} else if (item.viewer.pinned) {
+			incrementGroup('pinned');
+		}
+
+		if (item.openRepository?.localBranch?.current) {
+			incrementGroup('current-branch');
+		}
+
+		if (item.isDraft) {
+			incrementGroup('draft');
+		} else {
+			incrementGroup(focusCategoryToGroupMap.get(item.actionableCategory)!);
 		}
 	}
 
@@ -610,7 +735,7 @@ export function sortFocusItems(items: FocusItem[]) {
 	return items.sort(
 		(a, b) =>
 			(a.viewer.pinned ? -1 : 1) - (b.viewer.pinned ? -1 : 1) ||
-			focusActionCategories.indexOf(b.actionableCategory) - focusActionCategories.indexOf(a.actionableCategory) ||
+			focusActionCategories.indexOf(a.actionableCategory) - focusActionCategories.indexOf(b.actionableCategory) ||
 			b.updatedDate.getTime() - a.updatedDate.getTime(),
 	);
 }
@@ -621,4 +746,8 @@ function ensureRemoteUrl(url: string) {
 	}
 
 	return url;
+}
+
+export function getFocusItemIdHash(item: FocusItem) {
+	return md5(item.uuid);
 }

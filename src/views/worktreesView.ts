@@ -2,7 +2,7 @@ import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vs
 import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { ViewFilesLayout, WorktreesViewConfig } from '../config';
 import type { Colors } from '../constants';
-import { Commands, GlyphChars } from '../constants';
+import { Commands, GlyphChars, proBadge } from '../constants';
 import type { Container } from '../container';
 import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
@@ -135,7 +135,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				},
 			}),
 		);
-		this.description = 'ᴘʀᴏ';
+		this.description = proBadge;
 	}
 
 	override get canReveal(): boolean {
@@ -143,7 +143,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	}
 
 	override get canSelectMany(): boolean {
-		return true;
+		return this.container.prereleaseOrDebugging;
 	}
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {

@@ -9,14 +9,12 @@ import {
 	Popover,
 } from '@gitkraken/shared-web-components';
 import { html, LitElement } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../../../../plus/webviews/focus/protocol';
 import { debounce } from '../../../../../system/function';
-import type { GlFeatureBadge } from '../../../shared/components/feature-badge';
-import type { GlFeatureGate } from '../../../shared/components/feature-gate';
 import { themeProperties } from './gk-theme.css';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
@@ -43,14 +41,6 @@ export class GlFocusApp extends LitElement {
 		{ label: 'Needs my Review', value: 'review-requested' },
 		{ label: 'Mentions Me', value: 'mentioned' },
 	];
-	@query('#subscription-gate', true)
-	private subscriptionEl!: GlFeatureGate;
-
-	@query('#connection-gate', true)
-	private connectionEl!: GlFeatureGate;
-
-	@query('#subscription-gate-badge', true)
-	private subScriptionBadgeEl!: GlFeatureBadge;
 
 	@state()
 	private selectedTabFilter?: string = 'prs';
@@ -70,8 +60,8 @@ export class GlFocusApp extends LitElement {
 		defineGkElement(Button, Badge, Input, FocusContainer, Popover, Menu, MenuItem);
 	}
 
-	get subscriptionState() {
-		return this.state?.access.subscription.current;
+	get subscription() {
+		return this.state?.access.subscription?.current;
 	}
 
 	get showSubscriptionGate() {
@@ -304,20 +294,21 @@ export class GlFocusApp extends LitElement {
 						class="feedback"
 						appearance="toolbar"
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2535"
-						title="Launchpad Feedback"
-						aria-label="Launchpad Feedback"
+						tooltip="Give Us Feedback"
+						aria-label="Give Us Feedback"
 						><code-icon icon="feedback"></code-icon
 					></gl-button>
 					<gl-feature-badge
-						id="subscription-gate-badge"
 						preview
-						.subscription=${this.subscriptionState}
+						featureWithArticleIfNeeded="Launchpad"
+						.subscription=${this.subscription}
 					></gl-feature-badge>
 				</div>
 
 				<div class="app__content">
 					<gl-feature-gate
-						.state=${this.subscriptionState?.state}
+						.state=${this.subscription?.state}
+						featureWithArticleIfNeeded="Launchpad"
 						.visible=${this.showFeatureGate}
 						id="subscription-gate"
 						class="scrollable"
@@ -325,6 +316,7 @@ export class GlFocusApp extends LitElement {
 							<a href="https://help.gitkraken.com/gitlens/gitlens-features/#focus-view-%e2%9c%a8"
 								>Launchpad</a
 							>
+							<gl-feature-badge preview .subscription=${this.subscription}></gl-feature-badge>
 							&mdash; effortlessly view all of your GitHub pull requests and issues in a unified,
 							actionable view.
 						</p></gl-feature-gate

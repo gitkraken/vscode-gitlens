@@ -111,10 +111,6 @@ ul {
 }
 
 .button--busy {
-	code-icon {
-		margin-right: 0.5rem;
-	}
-
 	&[aria-busy='true'] {
 		opacity: 0.5;
 	}
@@ -146,6 +142,18 @@ ul {
 	&--single {
 		width: 100%;
 		max-width: 30rem;
+	}
+
+	> *:not(:first-child),
+	> *:not(:first-child) gl-button {
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+	}
+
+	> *:not(:last-child),
+	> *:not(:last-child) gl-button {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
 	}
 }
 

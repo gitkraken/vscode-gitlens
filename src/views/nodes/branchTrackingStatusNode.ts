@@ -6,7 +6,9 @@ import type { GitBranch, GitTrackingState } from '../../git/models/branch';
 import { getRemoteNameFromBranchName } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import { createRevisionRange } from '../../git/models/reference';
+import type { GitRemote } from '../../git/models/remote';
 import { getHighlanderProviders } from '../../git/models/remote';
+import { getUpstreamStatus } from '../../git/models/status';
 import { fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
@@ -180,6 +182,22 @@ export class BranchTrackingStatusNode
 			lastFetched = (await repo?.getLastFetched()) ?? 0;
 		}
 
+		function getBranchStatus(this: BranchTrackingStatusNode, remote: GitRemote | undefined) {
+			return `\`${this.branch.name}\` is ${getUpstreamStatus(this.status.upstream, this.status.state, {
+				empty: this.status.upstream!.missing
+					? `missing upstream \`${this.status.upstream!.name}\``
+					: `up to date with \`${this.status.upstream!.name}\`${
+							remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+					  }`,
+				expand: true,
+				icons: true,
+				separator: ' and ',
+				suffix: ` \`${this.status.upstream!.name}\`${
+					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+				}`,
+			})}`;
+		}
+
 		let label;
 		let description;
 		let collapsibleState;
@@ -190,19 +208,16 @@ export class BranchTrackingStatusNode
 			case 'ahead': {
 				const remote = await this.branch.getRemote();
 
-				label = `Changes to push to ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)}${
-					remote?.provider?.name ? ` on ${remote?.provider.name}` : ''
+				label = `Outgoing changes to ${
+					remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)
 				}`;
 				description = pluralize('commit', this.status.state.ahead);
-				tooltip = `Outgoing changes to push\n\nBranch $(git-branch) ${this.branch.name} is ${pluralize(
-					'commit',
-					this.status.state.ahead,
-					{
-						infix: '$(arrow-up) ',
-					},
-				)} ahead of $(git-branch) ${this.status.upstream!.name}${
-					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-				}`;
+				tooltip = `${pluralize('commit', this.status.state.ahead)} to push to \`${
+					this.status.upstream!.name
+				}\`${remote?.provider?.name ? ` on ${remote?.provider.name}` : ''}\\\n${getBranchStatus.call(
+					this,
+					remote,
+				)}`;
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root
@@ -218,19 +233,16 @@ export class BranchTrackingStatusNode
 			case 'behind': {
 				const remote = await this.branch.getRemote();
 
-				label = `Changes to pull from ${
+				label = `Incoming changes from ${
 					remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)
-				}${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
-				description = pluralize('commit', this.status.state.behind);
-				tooltip = `Incoming changes to pull\n\nBranch $(git-branch) ${this.branch.name} is ${pluralize(
-					'commit',
-					this.status.state.behind,
-					{
-						infix: '$(arrow-down) ',
-					},
-				)} behind $(git-branch) ${this.status.upstream!.name}${
-					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
+				description = pluralize('commit', this.status.state.behind);
+				tooltip = `${pluralize('commit', this.status.state.behind)} to pull from \`${
+					this.status.upstream!.name
+				}\`${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}\\\n${getBranchStatus.call(
+					this,
+					remote,
+				)}`;
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root
@@ -250,9 +262,7 @@ export class BranchTrackingStatusNode
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 				description = lastFetched ? `Last fetched ${fromNow(new Date(lastFetched))}` : '';
-				tooltip = `Branch $(git-branch) ${this.branch.name} is up to date with $(git-branch) ${
-					this.status.upstream!.name
-				}${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
+				tooltip = getBranchStatus.call(this, remote);
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root
@@ -267,9 +277,7 @@ export class BranchTrackingStatusNode
 
 				label = `Missing upstream branch${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
 				description = this.status.upstream!.name;
-				tooltip = `Branch $(git-branch) ${this.branch.name} is missing upstream $(git-branch) ${
-					this.status.upstream!.name
-				}${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
+				tooltip = getBranchStatus.call(this, remote);
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root
@@ -288,9 +296,7 @@ export class BranchTrackingStatusNode
 				const providerName = providers?.length ? providers[0].name : undefined;
 
 				label = `Publish ${this.branch.name} to ${providerName ?? 'a remote'}`;
-				tooltip = `Branch $(git-branch) ${this.branch.name} hasn't been published to ${
-					providerName ?? 'a remote'
-				}`;
+				tooltip = `\`${this.branch.name}\` hasn't been published to ${providerName ?? 'a remote'}`;
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusNoUpstream : ContextValues.BranchStatusNoUpstream;

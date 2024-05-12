@@ -11,7 +11,7 @@ import type {
 	IpcRequest,
 	WebviewFocusChangedParams,
 } from '../../protocol';
-import { WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
+import { DidChangeWebviewFocusNotfication, WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable } from './events';
 import type { HostIpcApi } from './ipc';
@@ -88,7 +88,20 @@ export abstract class App<
 				this.bind();
 
 				if (this.onMessageReceived != null) {
-					disposables.push(this._hostIpc.onReceiveMessage(msg => this.onMessageReceived!(msg)));
+					disposables.push(
+						this._hostIpc.onReceiveMessage(msg => {
+							switch (true) {
+								case DidChangeWebviewFocusNotfication.is(msg):
+									window.dispatchEvent(
+										new CustomEvent(msg.params.focused ? 'webview-focus' : 'webview-blur'),
+									);
+									break;
+
+								default:
+									this.onMessageReceived!(msg);
+							}
+						}),
+					);
 				}
 
 				this.sendCommand(WebviewReadyCommand, undefined);
@@ -123,6 +136,12 @@ export abstract class App<
 
 	private bindDisposables: Disposable[] | undefined;
 	protected bind() {
+		document.querySelectorAll('a').forEach(a => {
+			if (a.href === a.title) {
+				a.removeAttribute('title');
+			}
+		});
+
 		this.bindDisposables?.forEach(d => d.dispose());
 		this.bindDisposables = this.onBind?.();
 		if (this.bindDisposables == null) {

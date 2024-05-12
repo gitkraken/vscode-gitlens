@@ -1,5 +1,5 @@
 import type { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import type { Keys } from '../constants';
+import type { Commands, Keys } from '../constants';
 import type { Container } from '../container';
 import { createQuickPickSeparator } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
@@ -328,11 +328,6 @@ export function canStepContinue<T extends QuickInputStep | QuickPickStep | Custo
 			case Directive.Cancel:
 				endSteps(state);
 				break;
-			// case Directive.Noop:
-			// case Directive.RequiresVerification:
-			// case Directive.RequiresFreeSubscription:
-			// case Directive.RequiresProSubscription:
-			// 	break;
 		}
 		return false;
 	}
@@ -389,4 +384,12 @@ export function freezeStep(step: QuickPickStep, quickpick: QuickPick<any>): Disp
 			quickpick.show();
 		},
 	};
+}
+
+export interface CrossCommandReference {
+	command: Commands;
+}
+
+export function isCrossCommandReference(value: any): value is CrossCommandReference {
+	return value.command != null;
 }

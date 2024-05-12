@@ -10,11 +10,13 @@ import type { CreateDraft, State, ViewDraft } from './protocol';
 export type ShowCreateDraft = {
 	mode: 'create';
 	create?: CreateDraft;
+	source?: string;
 };
 
 export type ShowViewDraft = {
 	mode: 'view';
 	draft: ViewDraft;
+	source?: string;
 };
 
 export type PatchDetailsWebviewShowingArgs = [ShowCreateDraft | ShowViewDraft];

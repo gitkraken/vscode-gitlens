@@ -1,3 +1,4 @@
+import type { Subscription } from '../../plus/gk/account/subscription';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification } from '../protocol';
 
@@ -7,6 +8,7 @@ export interface State extends WebviewState {
 	repositories: DidChangeRepositoriesParams;
 	webroot?: string;
 	promoStates: Record<string, boolean>;
+	subscription: Subscription;
 	orgSettings: {
 		drafts: boolean;
 	};
@@ -33,6 +35,7 @@ export const DidChangeRepositories = new IpcNotification<DidChangeRepositoriesPa
 
 export interface DidChangeSubscriptionParams {
 	promoStates: Record<string, boolean>;
+	subscription: Subscription;
 }
 export const DidChangeSubscription = new IpcNotification<DidChangeSubscriptionParams>(scope, 'subscription/didChange');
 

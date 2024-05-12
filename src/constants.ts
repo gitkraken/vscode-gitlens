@@ -11,6 +11,10 @@ import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 export const extensionPrefix = 'gitlens';
 export const quickPickTitleMaxChars = 80;
 
+export const previewBadge = 'ᴘʀᴇᴠɪᴇᴡ';
+export const proBadge = 'ᴘʀᴏ';
+export const proBadgeSuperscript = 'ᴾᴿᴼ';
+
 export const ImageMimetypes: Record<string, string> = {
 	'.png': 'image/png',
 	'.gif': 'image/gif',
@@ -88,6 +92,12 @@ export type Colors =
 	| `${typeof extensionPrefix}.gutterBackgroundColor`
 	| `${typeof extensionPrefix}.gutterForegroundColor`
 	| `${typeof extensionPrefix}.gutterUncommittedForegroundColor`
+	| `${typeof extensionPrefix}.launchpadIndicatorMergeableColor`
+	| `${typeof extensionPrefix}.launchpadIndicatorMergeableHoverColor`
+	| `${typeof extensionPrefix}.launchpadIndicatorBlockedColor`
+	| `${typeof extensionPrefix}.launchpadIndicatorBlockedHoverColor`
+	| `${typeof extensionPrefix}.launchpadIndicatorAttentionColor`
+	| `${typeof extensionPrefix}.launchpadIndicatorAttentionHoverColor`
 	| `${typeof extensionPrefix}.lineHighlightBackgroundColor`
 	| `${typeof extensionPrefix}.lineHighlightOverviewRulerColor`
 	| `${typeof extensionPrefix}.mergedPullRequestIconColor`
@@ -117,7 +127,6 @@ export const enum Commands {
 	BrowseRepoBeforeRevisionInNewWindow = 'gitlens.browseRepoBeforeRevisionInNewWindow',
 	ClearFileAnnotations = 'gitlens.clearFileAnnotations',
 	CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
-	CloseWelcomeView = 'gitlens.closeWelcomeView',
 	CompareWith = 'gitlens.compareWith',
 	CompareHeadWith = 'gitlens.compareHeadWith',
 	CompareWorkingWith = 'gitlens.compareWorkingWith',
@@ -208,13 +217,11 @@ export const enum Commands {
 	OpenRevisionFile = 'gitlens.openRevisionFile',
 	OpenRevisionFileInDiffLeft = 'gitlens.openRevisionFileInDiffLeft',
 	OpenRevisionFileInDiffRight = 'gitlens.openRevisionFileInDiffRight',
-	OpenWalkthrough = 'gitlens.openWalkthrough',
 	OpenWorkingFile = 'gitlens.openWorkingFile',
 	OpenWorkingFileInDiffLeft = 'gitlens.openWorkingFileInDiffLeft',
 	OpenWorkingFileInDiffRight = 'gitlens.openWorkingFileInDiffRight',
 	PullRepositories = 'gitlens.pullRepositories',
 	PushRepositories = 'gitlens.pushRepositories',
-	QuickFocus = 'gitlens.quickFocus',
 	GitCommands = 'gitlens.gitCommands',
 	GitCommandsBranch = 'gitlens.gitCommands.branch',
 	GitCommandsBranchCreate = 'gitlens.gitCommands.branch.create',
@@ -294,6 +301,7 @@ export const enum Commands {
 	ShowInDetailsView = 'gitlens.showInDetailsView',
 	ShowInTimeline = 'gitlens.showInTimeline',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
+	ShowLaunchpad = 'gitlens.showLaunchpad',
 	ShowLineCommitInView = 'gitlens.showLineCommitInView',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
 	OpenOnlyChangedFiles = 'gitlens.openOnlyChangedFiles',
@@ -395,7 +403,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowMergeCommits${'On' | 'Off'}`
 			| `setShowStatistics${'On' | 'Off'}`}`
-	| `drafts.${'copy' | 'refresh' | 'create' | 'delete' | 'open'}`
+	| `drafts.${'copy' | 'refresh' | 'info' | 'create' | 'delete' | `setShowAvatars${'On' | 'Off'}`}`
 	| `fileHistory.${
 			| 'copy'
 			| 'refresh'
@@ -411,6 +419,12 @@ export type TreeViewCommands = `gitlens.views.${
 			| 'refresh'
 			| 'changeBase'
 			| `setEditorFollowing${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`}`
+	| `pullRequest.${
+			| 'copy'
+			| 'refresh'
+			| 'close'
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
 			| `setShowAvatars${'On' | 'Off'}`}`
 	| `remotes.${
 			| 'copy'
@@ -504,6 +518,7 @@ export type TreeViewTypes =
 	| 'drafts'
 	| 'fileHistory'
 	| 'lineHistory'
+	| 'pullRequest'
 	| 'remotes'
 	| 'repositories'
 	| 'searchAndCompare'
@@ -605,6 +620,7 @@ export type TreeViewNodeTypes =
 	| 'conflict-incoming-changes'
 	| 'draft'
 	| 'drafts'
+	| 'drafts-code-suggestions'
 	| 'grouping'
 	| 'merge-status'
 	| 'message'
@@ -661,6 +677,7 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:views:fileHistory:editorFollowing`
 	| `${typeof extensionPrefix}:views:lineHistory:editorFollowing`
 	| `${typeof extensionPrefix}:views:patchDetails:mode`
+	| `${typeof extensionPrefix}:views:pullRequest:visible`
 	| `${typeof extensionPrefix}:views:repositories:autoRefresh`
 	| `${typeof extensionPrefix}:vsls`
 	| `${typeof extensionPrefix}:plus`
@@ -793,13 +810,31 @@ export const enum Schemes {
 export type TelemetryEvents =
 	| 'account/validation/failed'
 	| 'activate'
+	| 'cloudIntegrations/hosting/connected'
+	| 'cloudIntegrations/hosting/disconnected'
+	| 'cloudIntegrations/issue/connected'
+	| 'cloudIntegrations/issue/disconnected'
+	| 'cloudIntegrations/settingsOpened'
+	| 'codeSuggestionArchived'
+	| 'codeSuggestionCreated'
+	| 'codeSuggestionViewed'
 	| 'command'
 	| 'command/core'
-	| 'remoteProviders/connected'
-	| 'remoteProviders/disconnected'
-	| 'providers/changed'
+	| 'launchpad/action'
+	| 'launchpad/configurationChanged'
+	| 'launchpad/groupToggled'
+	| 'launchpad/open'
+	| 'launchpad/opened'
+	| 'launchpad/steps/connect'
+	| 'launchpad/steps/main'
+	| 'launchpad/steps/details'
+	| 'launchpad/indicator/hidden'
+	| 'launchpad/indicator/firstLoad'
+	| 'openReviewMode'
 	| 'providers/context'
 	| 'providers/registrationComplete'
+	| 'remoteProviders/connected'
+	| 'remoteProviders/disconnected'
 	| 'repositories/changed'
 	| 'repositories/visibility'
 	| 'repository/opened'
@@ -874,6 +909,8 @@ export type GlobalStorage = {
 	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
+	'launchpad:indicator:hasLoaded': boolean;
+	'launchpad:indicator:hasInteracted': string;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
@@ -906,6 +943,7 @@ export type WorkspaceStorage = {
 	'views:repositories:autoRefresh': boolean;
 	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:commitDetails:autolinksExpanded': boolean;
+	'views:commitDetails:pullRequestExpanded': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `connected:${Integration['key']}`]: boolean;
 };
@@ -1007,6 +1045,7 @@ export interface StoredDeepLinkContext {
 	repoPath?: string | undefined;
 	targetSha?: string | undefined;
 	secondaryTargetSha?: string | undefined;
+	useProgress?: boolean | undefined;
 }
 
 export interface StoredGraphColumn {
@@ -1073,3 +1112,17 @@ export type StoredSearchAndCompareItem = StoredComparison | StoredSearch;
 export type StoredSearchAndCompareItems = Record<string, StoredSearchAndCompareItem>;
 export type StoredStarred = Record<string, boolean>;
 export type RecentUsage = Record<string, number>;
+
+export type WalkthroughSteps =
+	| 'get-started'
+	| 'core-features'
+	| 'pro-features'
+	| 'pro-trial'
+	| 'pro-upgrade'
+	| 'pro-reactivate'
+	| 'pro-paid'
+	| 'visualize'
+	| 'launchpad'
+	| 'code-collab'
+	| 'integrations'
+	| 'more';
