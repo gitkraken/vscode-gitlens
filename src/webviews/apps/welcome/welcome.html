@@ -83,7 +83,7 @@
 					</p>
 					<p class="button-container">
 						<span class="button-group button-group--single">
-							<gl-button appearance="secondary" full href="command:gitlens.getStarted"
+							<gl-button appearance="secondary" full href="command:gitlens.getStarted?%22welcome%22"
 								><code-icon icon="info" slot="prefix"></code-icon> Get Started Walkthrough</gl-button
 							>
 						</span>
@@ -368,7 +368,7 @@
 							<a
 								class="muted"
 								data-org-requires="drafts"
-								href="command:gitlens.getStarted?%22code-collab%22"
+								href="command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22welcome%22%7D"
 								aria-label="Learn more about Code Suggest"
 								><gl-tooltip hoist content="Learn more about Code Suggest"
 									><span>Code Suggest</span></gl-tooltip
@@ -556,7 +556,7 @@
 						to get started.
 					</p>
 					<p>
-						<gl-button appearance="secondary" full href="command:gitlens.getStarted"
+						<gl-button appearance="secondary" full href="command:gitlens.getStarted?%22welcome%22"
 							><code-icon icon="info" slot="prefix"></code-icon> Get Started Walkthrough</gl-button
 						>
 					</p>
@@ -626,7 +626,7 @@
 							><gl-tooltip hoist content="Show Inspect view"><span>Inspect</span></gl-tooltip>
 						</a>
 						<a
-							href="command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22home%22%7D"
+							href="command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22welcome%22%7D"
 							data-requires="repo"
 							data-org-requires="drafts"
 							aria-label="Open Code Suggest walkthrough"
