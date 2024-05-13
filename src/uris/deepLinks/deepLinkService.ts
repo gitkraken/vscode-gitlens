@@ -523,10 +523,18 @@ export class DeepLinkService implements Disposable {
 
 					if (
 						!(await ensureAccount(
+							this.container,
 							`Opening ${deepLinkTypeToString(
 								targetType,
 							)} links is a Preview feature and requires an account.`,
-							this.container,
+							{
+								source: 'deeplink',
+								detail: {
+									action: 'open',
+									type: targetType,
+									friendlyType: deepLinkTypeToString(targetType),
+								},
+							},
 						))
 					) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
@@ -552,6 +560,14 @@ export class DeepLinkService implements Disposable {
 						!(await ensurePaidPlan(
 							this.container,
 							`Opening ${deepLinkTypeToString(targetType)} links is a Pro feature.`,
+							{
+								source: 'deeplink',
+								detail: {
+									action: 'open',
+									type: targetType,
+									friendlyType: deepLinkTypeToString(targetType),
+								},
+							},
 						))
 					) {
 						action = DeepLinkServiceAction.DeepLinkErrored;

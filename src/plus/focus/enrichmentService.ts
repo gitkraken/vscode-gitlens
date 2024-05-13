@@ -114,7 +114,12 @@ export class EnrichmentService implements Disposable {
 		const scope = getLogScope();
 
 		try {
-			if (!(await ensureAccount('Pinning is a Preview feature and requires an account.', this.container))) {
+			if (
+				!(await ensureAccount(this.container, 'Pinning is a Preview feature and requires an account.', {
+					source: 'launchpad',
+					detail: 'pin',
+				}))
+			) {
 				throw new Error('Unable to pin item: account required');
 			}
 
@@ -157,7 +162,12 @@ export class EnrichmentService implements Disposable {
 		const scope = getLogScope();
 
 		try {
-			if (!(await ensureAccount('Snoozing is a Preview feature and requires an acccount.', this.container))) {
+			if (
+				!(await ensureAccount(this.container, 'Snoozing is a Preview feature and requires an acccount.', {
+					source: 'launchpad',
+					detail: 'snooze',
+				}))
+			) {
 				throw new Error('Unable to snooze item: subscription required');
 			}
 

@@ -875,30 +875,60 @@ export class GitCommandsCommand extends Command {
 										return;
 
 									case Directive.SignIn: {
-										const result = await Container.instance.subscription.loginOrSignUp(false);
+										const result = await Container.instance.subscription.loginOrSignUp(false, {
+											source: 'git-commands',
+											detail: {
+												action: commandsStep.command?.key,
+												'step.title': step.title,
+											},
+										});
 										resolve(result ? await commandsStep.command?.retry() : undefined);
 										return;
 									}
 
 									case Directive.StartPreview:
-										await Container.instance.subscription.startPreviewTrial();
+										await Container.instance.subscription.startPreviewTrial({
+											source: 'git-commands',
+											detail: {
+												action: commandsStep.command?.key,
+												'step.title': step.title,
+											},
+										});
 										resolve(await commandsStep.command?.retry());
 										return;
 
 									case Directive.RequiresVerification: {
-										const result = await Container.instance.subscription.resendVerification();
+										const result = await Container.instance.subscription.resendVerification({
+											source: 'git-commands',
+											detail: {
+												action: commandsStep.command?.key,
+												'step.title': step.title,
+											},
+										});
 										resolve(result ? await commandsStep.command?.retry() : undefined);
 										return;
 									}
 
 									case Directive.StartProTrial: {
-										const result = await Container.instance.subscription.loginOrSignUp(true);
+										const result = await Container.instance.subscription.loginOrSignUp(true, {
+											source: 'git-commands',
+											detail: {
+												action: commandsStep.command?.key,
+												'step.title': step.title,
+											},
+										});
 										resolve(result ? await commandsStep.command?.retry() : undefined);
 										return;
 									}
 
 									case Directive.RequiresPaidSubscription:
-										void Container.instance.subscription.purchase();
+										void Container.instance.subscription.upgrade({
+											source: 'git-commands',
+											detail: {
+												action: commandsStep.command?.key,
+												'step.title': step.title,
+											},
+										});
 										resolve(undefined);
 										return;
 								}

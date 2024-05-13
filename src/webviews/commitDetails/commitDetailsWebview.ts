@@ -7,7 +7,7 @@ import { getAvatarUri } from '../../avatars';
 import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
-import type { ContextKeys } from '../../constants';
+import type { ContextKeys, Sources } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import type { CommitSelectedEvent } from '../../eventBus';
@@ -151,7 +151,7 @@ interface Context {
 	wip: WipContext | undefined;
 	inReview: boolean;
 	orgSettings: State['orgSettings'];
-	source?: 'commitDetails' | 'patchDetails' | 'repoStatus' | 'deepLink' | 'launchpad';
+	source?: Sources;
 	hasConnectedJira: boolean | undefined;
 	hasAccount: boolean | undefined;
 }
@@ -319,7 +319,7 @@ export class CommitDetailsWebviewProvider
 		return true;
 	}
 
-	async trackOpenReviewMode(source?: string) {
+	async trackOpenReviewMode(source?: Sources) {
 		if (this._context.wip?.pullRequest == null) return;
 
 		const provider = this._context.wip.pullRequest.provider.id;
@@ -329,7 +329,7 @@ export class CommitDetailsWebviewProvider
 		this.container.telemetry.sendEvent('openReviewMode', {
 			provider: provider,
 			repoPrivacy: repoPrivacy,
-			source: source ?? 'commitDetails',
+			source: source ?? 'inspect',
 			filesChanged: filesChanged,
 		});
 	}
@@ -500,7 +500,7 @@ export class CommitDetailsWebviewProvider
 				this.showCodeSuggestion(e.params.id);
 				break;
 			case ChangeReviewModeCommand.is(e):
-				void this.setInReview(e.params.inReview, 'repoStatus');
+				void this.setInReview(e.params.inReview, 'inspect-overview');
 				break;
 			case OpenPullRequestChangesCommand.is(e):
 				void this.openPullRequestChanges();
@@ -544,7 +544,10 @@ export class CommitDetailsWebviewProvider
 
 	private async suggestChanges(e: SuggestChangesParams) {
 		if (
-			!(await ensureAccount('Code Suggestions are a Preview feature and require an account.', this.container)) ||
+			!(await ensureAccount(this.container, 'Code Suggestions are a Preview feature and require an account.', {
+				source: 'code-suggest',
+				detail: 'create',
+			})) ||
 			!(await confirmDraftStorage(this.container))
 		) {
 			return;
@@ -625,7 +628,7 @@ export class CommitDetailsWebviewProvider
 					}
 
 					if (result === view) {
-						void showPatchesView({ mode: 'view', draft: draft, source: 'commitDetails' });
+						void showPatchesView({ mode: 'view', draft: draft, source: 'notification' });
 					}
 
 					break;
@@ -1003,7 +1006,7 @@ export class CommitDetailsWebviewProvider
 		const draft = this._context.wip?.codeSuggestions?.find(draft => draft.id === id);
 		if (draft == null) return;
 
-		void showPatchesView({ mode: 'view', draft: draft, source: 'commitDetails' });
+		void showPatchesView({ mode: 'view', draft: draft, source: 'inspect' });
 	}
 
 	private onActiveEditorLinesChanged(e: LinesChangeEvent) {

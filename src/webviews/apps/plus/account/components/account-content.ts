@@ -295,7 +295,7 @@ export class AccountContent extends LitElement {
 						publicly-hosted repos.
 					</p>
 					<button-container>
-						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
+						<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
 					</button-container>
 					<p class="special">Special: <b>50% off first seat of Pro</b> — only $4/month!</p>
 					${this.renderIncludesDevEx()}
@@ -306,7 +306,7 @@ export class AccountContent extends LitElement {
 				return html`
 					<p>Your Pro trial has ended. You can now only use Pro features on publicly-hosted repos.</p>
 					<button-container>
-						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
+						<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
 					</button-container>
 					<p class="special">Special: <b>50% off first seat of Pro</b> — only $4/month!</p>
 					${this.renderIncludesDevEx()}

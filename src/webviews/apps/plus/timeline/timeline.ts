@@ -83,12 +83,14 @@ export class TimelineApp extends App<State> {
 	private updateState() {
 		const $gate = document.getElementById('subscription-gate')! as GlFeatureGate;
 		if ($gate != null) {
+			$gate.source = { source: 'timeline', detail: 'gate' };
 			$gate.state = this.state.access.subscription.current.state;
 			$gate.visible = this.state.access.allowed !== true; // && this.state.uri != null;
 		}
 
 		const els = document.querySelectorAll<GlFeatureBadge>('gl-feature-badge');
 		for (const el of els) {
+			el.source = { source: 'timeline', detail: 'badge' };
 			el.subscription = this.state.access.subscription.current;
 		}
 

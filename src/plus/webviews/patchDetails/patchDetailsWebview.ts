@@ -630,7 +630,10 @@ export class PatchDetailsWebviewProvider
 		userSelections,
 	}: CreatePatchParams): Promise<void> {
 		if (
-			!(await ensureAccount('Cloud Patches are a Preview feature and require an account.', this.container)) ||
+			!(await ensureAccount(this.container, 'Cloud Patches are a Preview feature and require an account.', {
+				source: 'cloud-patches',
+				detail: 'create',
+			})) ||
 			!(await confirmDraftStorage(this.container))
 		) {
 			return;

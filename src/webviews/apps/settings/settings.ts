@@ -1,6 +1,7 @@
 /*global document IntersectionObserver*/
 import './settings.scss';
 import type { AutolinkReference } from '../../../config';
+import type { Source } from '../../../constants';
 import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
 import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
 import type { State } from '../../settings/protocol';
@@ -805,8 +806,11 @@ export class SettingsApp extends App<State> {
 		let message = `<a href="command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
 			JSON.stringify({
 				source: 'settings',
-				integrationId: 'jira',
-			}),
+				detail: {
+					action: 'connect',
+					integration: 'jira',
+				},
+			} satisfies Source),
 		)}">Connect to Jira Cloud</a> &mdash; ${
 			hasAccount ? '' : 'sign up and '
 		}get access to automatic rich Jira autolinks.`;

@@ -1,4 +1,5 @@
 import { ViewColumn } from 'vscode';
+import type { Sources } from '../../../constants';
 import { Commands } from '../../../constants';
 import { executeCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
@@ -10,13 +11,13 @@ import type { CreateDraft, State, ViewDraft } from './protocol';
 export type ShowCreateDraft = {
 	mode: 'create';
 	create?: CreateDraft;
-	source?: string;
+	source?: Sources;
 };
 
 export type ShowViewDraft = {
 	mode: 'view';
 	draft: ViewDraft;
-	source?: string;
+	source?: Sources;
 };
 
 export type PatchDetailsWebviewShowingArgs = [ShowCreateDraft | ShowViewDraft];

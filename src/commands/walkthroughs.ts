@@ -1,4 +1,4 @@
-import type { TelemetrySources, WalkthroughSteps } from '../constants';
+import type { Source, Sources, WalkthroughSteps } from '../constants';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command } from '../system/command';
@@ -11,18 +11,16 @@ export class GetStartedCommand extends Command {
 		super(Commands.GetStarted);
 	}
 
-	execute(extensionIdOrsource?: TelemetrySources) {
+	execute(extensionIdOrsource?: Sources) {
 		// If the extensionIdOrsource is the same as the current extension, then it came from the extension content menu in the extension view, so don't pass the source
 		const source = extensionIdOrsource !== this.container.context.extension.id ? undefined : extensionIdOrsource;
 		openWalkthrough(this.container, source ? { source: source } : undefined);
 	}
 }
 
-export type OpenWalkthroughCommandArgs = {
+export interface OpenWalkthroughCommandArgs extends Source {
 	step?: WalkthroughSteps | undefined;
-	source: TelemetrySources;
-	detail?: string;
-};
+}
 
 @command()
 export class OpenWalkthroughCommand extends Command {
@@ -37,11 +35,11 @@ export class OpenWalkthroughCommand extends Command {
 
 function openWalkthrough(container: Container, args?: OpenWalkthroughCommandArgs) {
 	if (container.telemetry.enabled) {
-		container.telemetry.sendEvent('walkthrough', {
-			step: args?.step,
-			source: args?.source ?? 'commandPalette',
-			detail: args?.detail,
-		});
+		container.telemetry.sendEvent(
+			'walkthrough',
+			{ step: args?.step },
+			args?.source ? { source: args.source, detail: args?.detail } : undefined,
+		);
 	}
 
 	void openWalkthroughCore(container.context.extension.id, 'welcome', args?.step, false);
