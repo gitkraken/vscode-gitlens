@@ -422,27 +422,50 @@ gl-button.is-basic {
 		align-items: center;
 		gap: 0.8rem;
 		padding: 0.4rem 2rem;
-		color: inherit;
 
-		&:hover {
+		&:hover,
+		&:focus-within {
 			background-color: var(--vscode-list-hoverBackground);
 			color: var(--vscode-list-hoverForeground);
-			text-decoration: none;
 		}
 
-		&:active {
+		&:has(:first-child:focus) {
+			@include utils.focus();
+		}
+
+		&:has(:active) {
 			background-color: var(--vscode-list-activeSelectionBackground);
 			color: var(--vscode-list-activeSelectionForeground);
 		}
 	}
 
+	&__link {
+		flex: 1;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 0.8rem;
+		color: inherit;
+
+		&:hover,
+		&:focus {
+			color: inherit;
+			text-decoration: none;
+		}
+
+		&:focus {
+			outline: none;
+		}
+	}
+
 	&__icon {
+		flex: none;
 		opacity: 0.5;
 	}
 
 	&__label {
+		flex: 1;
 		font-weight: 600;
-		width: 100%;
 	}
 
 	&__desc {
@@ -462,23 +485,15 @@ gl-button.is-basic {
 	}
 
 	&__access {
+		flex: none;
 		position: relative;
 		left: 1.5rem;
-		filter: grayscale(1);
 		font-size: x-small;
-		opacity: 0.4;
+		outline: none;
 		white-space: nowrap;
 
-		&--preview {
-			font-variant: all-small-caps;
-		}
-
-		&--pro {
-			font-variant: all-small-caps;
-			border: var(--color-foreground--50) 1px solid;
-			border-radius: 1rem;
-			padding: 0 0.8rem 0.2rem 0.8rem;
-		}
+		--gl-feature-badge-color: color-mix(in srgb, transparent 40%, currentColor);
+		--gl-feature-badge-border-color: color-mix(in srgb, transparent 40%, var(--color-foreground--50));
 	}
 
 	&__item:hover &__label {
@@ -489,9 +504,10 @@ gl-button.is-basic {
 		color: var(--color-foreground);
 	}
 
+	&__item:focus-within &__access,
 	&__item:hover &__access {
-		filter: none;
-		opacity: 1;
+		--gl-feature-badge-color: currentColor;
+		--gl-feature-badge-border-color: var(--color-foreground--50);
 	}
 
 	&__title {

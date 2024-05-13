@@ -1,7 +1,9 @@
 import type { MessageItem } from 'vscode';
 import { QuickInputButtons, Uri, window, workspace } from 'vscode';
 import type { Config } from '../../config';
+import { proBadge, proBadgeSuperscript } from '../../constants';
 import type { Container } from '../../container';
+import { CancellationError } from '../../errors';
 import { PlusFeatures } from '../../features';
 import { convertLocationToOpenFlags, convertOpenFlagsToLocation, reveal } from '../../git/actions/worktree';
 import {
@@ -160,14 +162,15 @@ function assertStateStepRepository(
 	throw new Error('Missing repository');
 }
 
-const subcommandToTitleMap = new Map<State['subcommand'], string>([
-	['create', 'Create'],
-	['delete', 'Delete'],
-	['open', 'Open'],
+const subcommandToTitleMap = new Map<State['subcommand'] | undefined, string>([
+	[undefined, `Worktrees ${proBadgeSuperscript}`],
+	['create', `Create Worktree`],
+	['delete', `Delete Worktrees`],
+	['open', `Open Worktree`],
 	['copy-changes', 'Copy Changes to'],
 ]);
-function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
-	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
+function getTitle(subcommand: State['subcommand'] | undefined, suffix?: string) {
+	return `${subcommandToTitleMap.get(subcommand)}${suffix ?? ''}`;
 }
 
 export interface WorktreeGitCommandArgs {
@@ -180,8 +183,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	private subcommand: State['subcommand'] | undefined;
 
 	constructor(container: Container, args?: WorktreeGitCommandArgs) {
-		super(container, 'worktree', 'worktree', 'Worktree', {
-			description: 'open, create, or delete worktrees',
+		super(container, 'worktree', 'worktree', `Worktrees ${proBadgeSuperscript}`, {
+			description: `${proBadge}\u00a0\u00a0open, create, or delete worktrees`,
 		});
 
 		let counter = 0;
@@ -268,9 +271,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			this.subcommand = state.subcommand;
-			context.title =
-				state.overrides?.title ??
-				getTitle(state.subcommand === 'delete' ? 'Worktrees' : this.title, state.subcommand);
+			context.title = state.overrides?.title ?? getTitle(state.subcommand);
 
 			if (state.counter < 2 || state.repo == null || typeof state.repo === 'string') {
 				skippedStepTwo = false;
@@ -296,7 +297,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			assertStateStepRepository(state);
 
 			const result = yield* ensureAccessStep(state, context, PlusFeatures.Worktrees);
-			if (result === StepResultBreak) break;
+			if (result === StepResultBreak) continue;
 
 			switch (state.subcommand) {
 				case 'create': {
@@ -704,7 +705,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						[],
 						{
 							label: isRemoteBranch
-								? 'Create Worktree for Local Branch'
+								? 'Create Worktree for New Local Branch'
 								: isBranch
 								  ? 'Create Worktree for Branch'
 								  : context.title,
@@ -722,8 +723,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					['-b'],
 					{
 						label: isRemoteBranch
-							? 'Create Worktree for New Local Branch'
-							: 'Create Worktree for New Branch',
+							? 'Create Worktree for New Local Branch Named...'
+							: 'Create Worktree for New Branch Named...',
 						description: '',
 						detail: `Will create worktree in $(folder) ${recommendedNewBranchFriendlyPath}`,
 					},
@@ -828,7 +829,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.uris == null || state.uris.length === 0) {
-				context.title = getTitle('Worktrees', state.subcommand);
+				context.title = getTitle(state.subcommand);
 
 				const result = yield* pickWorktreesStep(state, context, {
 					filter: wt => !wt.main || !wt.opened, // Can't delete the main or opened worktree
@@ -842,7 +843,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				state.uris = result.map(w => w.uri);
 			}
 
-			context.title = getTitle(pluralize('Worktree', state.uris.length, { only: true }), state.subcommand);
+			context.title = getTitle(state.subcommand);
 
 			const result = yield* this.deleteCommandConfirmStep(state, context);
 			if (result === StepResultBreak) continue;
@@ -945,7 +946,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.worktree == null) {
-				context.title = getTitle('Worktree', state.subcommand);
+				context.title = getTitle(state.subcommand);
 				context.worktrees ??= await state.repo.getWorktrees();
 
 				const result = yield* pickWorktreeStep(state, context, {
@@ -960,7 +961,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				state.worktree = result;
 			}
 
-			context.title = getTitle(`Worktree \u2022 ${state.worktree.name}`, state.subcommand);
+			context.title = getTitle(state.subcommand, ` \u2022 ${state.worktree.name}`);
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.openCommandConfirmStep(state, context);
@@ -1034,7 +1035,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 	private async *copyChangesCommandSteps(state: CopyChangesStepState, context: Context): StepGenerator {
 		while (this.canStepsContinue(state)) {
-			context.title = state?.overrides?.title ?? getTitle('Worktree', state.subcommand);
+			context.title = state?.overrides?.title ?? getTitle(state.subcommand);
 
 			if (state.counter < 3 || state.worktree == null) {
 				context.worktrees ??= await state.repo.getWorktrees();
@@ -1109,6 +1110,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				});
 				void window.showInformationMessage(`Changes copied successfully`);
 			} catch (ex) {
+				if (ex instanceof CancellationError) return;
+
 				if (ex instanceof ApplyPatchCommitError) {
 					if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
 						void window.showWarningMessage('Changes copied with conflicts');

@@ -455,7 +455,7 @@ export class GlSearchInput extends GlElement {
 	}
 
 	override render() {
-		return html`<gl-tooltip placement="top" style="margin-left: -0.25rem;"
+		return html`<gl-tooltip hoist placement="top" style="margin-left: -0.25rem;"
 				><pop-menu>
 					<button type="button" class="action-button" slot="trigger" aria-label="${this.label}">
 						<code-icon icon="search" aria-hidden="true"></code-icon>
@@ -554,7 +554,7 @@ export class GlSearchInput extends GlElement {
 				</div>
 			</div>
 			<div class="controls">
-				<gl-tooltip placement="bottom">
+				<gl-tooltip hoist content="Clear">
 					<button
 						class="control${this.value ? '' : ' is-hidden'}"
 						type="button"
@@ -565,9 +565,8 @@ export class GlSearchInput extends GlElement {
 					>
 						<code-icon icon="close"></code-icon>
 					</button>
-					<span slot="content">Clear</span>
 				</gl-tooltip>
-				<gl-tooltip placement="bottom">
+				<gl-tooltip hoist content="Match All">
 					<button
 						class="control"
 						type="button"
@@ -579,9 +578,13 @@ export class GlSearchInput extends GlElement {
 					>
 						<code-icon icon="whole-word"></code-icon>
 					</button>
-					<span slot="content">Match All</span>
 				</gl-tooltip>
-				<gl-tooltip placement="bottom">
+				<gl-tooltip
+					hoist
+					content="Match Case${this.matchCaseOverride && !this.matchCase
+						? ' (always on without regular expressions)'
+						: ''}"
+				>
 					<button
 						class="control"
 						type="button"
@@ -596,14 +599,8 @@ export class GlSearchInput extends GlElement {
 					>
 						<code-icon icon="case-sensitive"></code-icon>
 					</button>
-					<span slot="content"
-						>Match
-						Case${this.matchCaseOverride && !this.matchCase
-							? ' (always on without regular expressions)'
-							: ''}</span
-					>
 				</gl-tooltip>
-				<gl-tooltip placement="bottom">
+				<gl-tooltip hoist content="Use Regular Expression">
 					<button
 						class="control"
 						type="button"
@@ -615,7 +612,6 @@ export class GlSearchInput extends GlElement {
 					>
 						<code-icon icon="regex"></code-icon>
 					</button>
-					<span slot="content">Use Regular Expression</span>
 				</gl-tooltip>
 			</div>`;
 	}

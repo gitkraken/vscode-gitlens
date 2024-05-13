@@ -10,6 +10,8 @@ export interface State extends WebviewState {
 	customSettings?: Record<string, boolean>;
 	scope: 'user' | 'workspace';
 	scopes: ['user' | 'workspace', string][];
+	hasAccount: boolean;
+	hasConnectedJira: boolean;
 }
 
 // REQUESTS
@@ -35,3 +37,16 @@ export interface DidOpenAnchorParams {
 	scrollBehavior: 'auto' | 'smooth';
 }
 export const DidOpenAnchorNotification = new IpcNotification<DidOpenAnchorParams>(scope, 'didOpenAnchor');
+
+export interface DidChangeAccountParams {
+	hasAccount: boolean;
+}
+export const DidChangeAccountNotification = new IpcNotification<DidChangeAccountParams>(scope, 'didChangeAccount');
+
+export interface DidChangeConnectedJiraParams {
+	hasConnectedJira: boolean;
+}
+export const DidChangeConnectedJiraNotification = new IpcNotification<DidChangeConnectedJiraParams>(
+	scope,
+	'didChangeConnectedJira',
+);

@@ -23,6 +23,7 @@ import './components/svg-revision-navigation';
 import './components/svg-timeline';
 import './components/svg-workspaces';
 import './components/video-button';
+import '../shared/components/indicators/indicator';
 
 export class WelcomeApp extends App<State> {
 	constructor() {

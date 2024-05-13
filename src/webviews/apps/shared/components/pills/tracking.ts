@@ -9,9 +9,39 @@ export class GlTrackingPill extends LitElement {
 	static override styles = [
 		baseStyles,
 		css`
+			.pill {
+				gap: 0.1rem;
+				text-transform: none;
+			}
+
+			.state {
+				-webkit-font-smoothing: antialiased;
+				-moz-osx-font-smoothing: grayscale;
+			}
+
+			.state--ahead code-icon {
+				color: var(--gl-tracking-ahead);
+			}
+
+			.state--behind code-icon {
+				color: var(--gl-tracking-behind);
+			}
+
+			.state--working .working {
+				color: var(--gl-tracking-working);
+			}
+
 			.state code-icon {
 				font-size: inherit !important;
 				line-height: inherit !important;
+			}
+
+			.working {
+				display: inline-block;
+				width: 1rem;
+				text-align: center;
+				vertical-align: text-bottom;
+				font-weight: normal;
 			}
 		`,
 	];
@@ -22,16 +52,37 @@ export class GlTrackingPill extends LitElement {
 	@property({ type: Number })
 	behind = 0;
 
-	override render() {
-		if (this.ahead === 0 && this.behind === 0) return nothing;
+	@property({ type: Number })
+	working = 0;
 
-		return html`<span class="pill"
+	@property({ type: Boolean })
+	outlined = false;
+
+	@property({ type: Boolean })
+	colorized = false;
+
+	override render() {
+		if (this.ahead === 0 && this.behind === 0 && this.working === 0) return nothing;
+
+		return html`<span part="base" class="pill${this.outlined ? ' pill--outlined' : ''}"
 			>${when(
 				this.behind > 0,
-				() => html`<span class="state">${this.behind}<code-icon icon="arrow-down"></code-icon></span>`,
+				() =>
+					html`<span class="state${this.colorized ? ' state--behind' : ''}"
+						>${this.behind}<code-icon icon="arrow-down"></code-icon
+					></span>`,
 			)}${when(
 				this.ahead > 0,
-				() => html`<span class="state">${this.ahead}<code-icon icon="arrow-up"></code-icon></span>`,
+				() =>
+					html`<span class="state${this.colorized ? ' state--ahead' : ''}"
+						>${this.ahead}<code-icon icon="arrow-up"></code-icon
+					></span>`,
+			)}${when(
+				this.working > 0,
+				() =>
+					html`<span class="state${this.colorized ? ' state--working' : ''}"
+						>${this.working}<span class="working">&#177;</span></span
+					>`,
 			)}</span
 		>`;
 	}

@@ -9,9 +9,10 @@ export enum Directive {
 	Reload,
 	RequiresVerification,
 
-	ExtendTrial,
+	SignIn,
+	StartPreview,
+	StartProTrial,
 	RequiresPaidSubscription,
-	StartPreviewTrial,
 }
 
 export function isDirective<T>(value: Directive | T): value is Directive {
@@ -54,21 +55,24 @@ export function createDirectiveQuickPickItem(
 			case Directive.Reload:
 				label = 'Refresh';
 				break;
-			case Directive.StartPreviewTrial:
-				label = 'Preview Pro';
-				detail = 'Preview Pro for 3-days to use this on privately hosted repos';
+			case Directive.SignIn:
+				label = 'Sign In';
 				break;
-			case Directive.ExtendTrial:
+			case Directive.StartPreview:
+				label = 'Continue';
+				detail = 'Continuing gives you 3 days to preview this and other local Pro features';
+				break;
+			case Directive.StartProTrial:
 				label = 'Start Pro Trial';
-				detail = 'Continue to use this on privately hosted repos, free for an additional 7 days';
+				detail = 'Start your free 7-day Pro trial for full access to Pro features';
 				break;
 			case Directive.RequiresVerification:
-				label = 'Resend Verification Email';
+				label = 'Resend Email';
 				detail = 'You must verify your email before you can continue';
 				break;
 			case Directive.RequiresPaidSubscription:
 				label = 'Upgrade to Pro';
-				detail = 'A paid plan is required to use this on privately hosted repos';
+				detail = 'Upgrading to a paid plan is required to use this Pro feature';
 				break;
 		}
 	}

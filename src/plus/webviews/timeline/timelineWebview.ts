@@ -1,6 +1,6 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, Uri, window } from 'vscode';
-import { Commands } from '../../../constants';
+import { Commands, proBadge } from '../../../constants';
 import type { Container } from '../../../container';
 import type { CommitSelectedEvent, FileSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
@@ -67,7 +67,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
 			);
 		} else {
-			this.host.description = 'ᴘʀᴏ';
+			this.host.description = proBadge;
 			this._disposable = Disposable.from(
 				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 				this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
@@ -300,7 +300,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			this.host.title =
 				gitUri == null ? this.host.originalTitle : `${this.host.originalTitle}: ${gitUri.fileName}`;
 		} else {
-			this.host.description = gitUri?.fileName ?? 'ᴘʀᴏ';
+			this.host.description = gitUri?.fileName ?? proBadge;
 		}
 
 		const access = await this.container.git.access(PlusFeatures.Timeline, repoPath);

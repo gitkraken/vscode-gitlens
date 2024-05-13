@@ -213,7 +213,8 @@ export class GlDraftDetails extends GlTreeBase {
 								aria-busy="${ifDefined(this.explainBusy ? 'true' : undefined)}"
 								@click=${this.onExplainChanges}
 								@keydown=${this.onExplainChanges}
-								><code-icon icon="loading" modifier="spin"></code-icon>Explain Changes</gl-button
+								><code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>Explain
+								Changes</gl-button
 							>
 						</span>
 					</p>
@@ -446,7 +447,7 @@ export class GlDraftDetails extends GlTreeBase {
 								></span>
 							</div>
 							<gl-button appearance="secondary" @click=${this.onInviteUsers}
-								><code-icon icon="person-add"></code-icon> Invite</gl-button
+								><code-icon icon="person-add" slot="prefix"></code-icon> Invite</gl-button
 							>
 						</div>`,
 				)}
@@ -620,6 +621,14 @@ export class GlDraftDetails extends GlTreeBase {
 						<code-icon icon="${this._copiedLink ? 'check' : 'link'}"></code-icon>
 						<span class="top-details__sha">Copy Link</span></a
 					>
+					${when(
+						this.cloudDraft?.gkDevLink != null,
+						() => html`
+							<a class="commit-action" href=${this.cloudDraft!.gkDevLink} title="Open on gitkraken.dev">
+								<code-icon icon="globe"></code-icon>
+							</a>
+						`,
+					)}
 				</div>
 			</div>
 		`;
@@ -781,9 +790,10 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	override onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
-		if (!e.detail.context) return;
+		const { node, context } = e.detail;
+		if (node.branch === true || context == null) return;
 
-		const [file] = e.detail.context;
+		const [file] = context;
 		this.emit('gl-patch-file-compare-previous', { ...file });
 	}
 

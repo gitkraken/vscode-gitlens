@@ -20,6 +20,7 @@ export enum DeepLinkType {
 export enum DeepLinkActionType {
 	Switch = 'switch',
 	SwitchToPullRequest = 'switch-to-pr',
+	SwitchToAndSuggestPullRequest = 'switch-to-and-suggest-pr',
 }
 
 export const AccountDeepLinkTypes: DeepLinkType[] = [DeepLinkType.Draft, DeepLinkType.Workspace];
@@ -72,6 +73,7 @@ export interface DeepLink {
 	secondaryTargetId?: string;
 	secondaryRemoteUrl?: string;
 	action?: string;
+	params?: URLSearchParams;
 }
 
 export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
@@ -148,6 +150,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				secondaryTargetId: secondaryTargetId,
 				secondaryRemoteUrl: secondaryRemoteUrl,
 				action: action,
+				params: urlParams,
 			};
 		}
 		case DeepLinkType.Draft: {
@@ -162,6 +165,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				type: DeepLinkType.Draft,
 				targetId: mainId,
 				secondaryTargetId: patchId,
+				params: urlParams,
 			};
 		}
 
@@ -169,6 +173,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 			return {
 				type: DeepLinkType.Workspace,
 				mainId: mainId,
+				params: urlParams,
 			};
 
 		default:
@@ -252,6 +257,7 @@ export interface DeepLinkServiceContext {
 	action?: string | undefined;
 	repoOpenLocation?: OpenWorkspaceLocation | undefined;
 	repoOpenUri?: Uri | undefined;
+	params?: URLSearchParams | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {

@@ -7,9 +7,11 @@ import type { Serialized } from '../../../../system/serialize';
 import { pluralize } from '../../../../system/string';
 import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
 import {
-	AutolinkSettingsCommand,
+	ChangeReviewModeCommand,
 	CreatePatchFromWipCommand,
+	DidChangeConnectedJiraNotification,
 	DidChangeDraftStateNotification,
+	DidChangeHasAccountNotification,
 	DidChangeNotification,
 	DidChangeWipStateNotification,
 	ExecuteCommitActionCommand,
@@ -21,6 +23,10 @@ import {
 	OpenFileComparePreviousCommand,
 	OpenFileCompareWorkingCommand,
 	OpenFileOnRemoteCommand,
+	OpenPullRequestChangesCommand,
+	OpenPullRequestComparisonCommand,
+	OpenPullRequestDetailsCommand,
+	OpenPullRequestOnRemoteCommand,
 	PickCommitCommand,
 	PinCommand,
 	PublishCommand,
@@ -37,6 +43,7 @@ import {
 } from '../../../commitDetails/protocol';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommand } from '../../../protocol';
+import type { IssuePullRequest } from '../../shared/components/rich/issue-pull-request';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../../shared/components/webview-pane';
 import type { Disposable } from '../../shared/dom';
 import { DOM } from '../../shared/dom';
@@ -47,6 +54,9 @@ import type { GlInspectNav } from './gl-inspect-nav';
 import type { CreatePatchEventDetail } from './gl-inspect-patch';
 import type { GlWipDetails } from './gl-wip-details';
 import '../../shared/components/code-icon';
+import '../../shared/components/indicators/indicator';
+import '../../shared/components/overlays/tooltip';
+import '../../shared/components/pills/tracking';
 import './gl-commit-details';
 import './gl-wip-details';
 import './gl-inspect-nav';
@@ -76,9 +86,47 @@ export class GlCommitDetailsApp extends LitElement {
 		return this.state?.commit?.sha === uncommittedSha;
 	}
 
+	get hasCommit() {
+		return this.state?.commit != null;
+	}
+
 	@state()
 	get isStash() {
 		return this.state?.commit?.stashNumber != null;
+	}
+
+	get wipStatus() {
+		const wip = this.state?.wip;
+		if (wip == null) return undefined;
+
+		const branch = wip.branch;
+		if (branch == null) return undefined;
+
+		const changes = wip.changes;
+		const working = changes?.files.length ?? 0;
+		const ahead = branch.tracking?.ahead ?? 0;
+		const behind = branch.tracking?.behind ?? 0;
+		const status =
+			behind > 0 && ahead > 0
+				? 'both'
+				: behind > 0
+				  ? 'behind'
+				  : ahead > 0
+				    ? 'ahead'
+				    : working > 0
+				      ? 'working'
+				      : undefined;
+
+		const branchName = wip.repositoryCount > 1 ? `${wip.repo.name}:${branch.name}` : branch.name;
+
+		return {
+			branch: branchName,
+			upstream: branch.upstream?.name,
+			ahead: ahead,
+			behind: behind,
+			working: wip.changes?.files.length ?? 0,
+			status: status,
+		};
 	}
 
 	get navigation() {
@@ -130,6 +178,9 @@ export class GlCommitDetailsApp extends LitElement {
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		if (changedProperties.has('state')) {
 			this.updateDocumentProperties();
+			if (this.state?.inReview != null && this.state.inReview != this.draftState.inReview) {
+				this.draftState.inReview = this.state.inReview;
+			}
 		}
 	}
 
@@ -152,7 +203,6 @@ export class GlCommitDetailsApp extends LitElement {
 			DOM.on('[data-action="wip"]', 'click', e => this.onSwitchMode(e, 'wip')),
 			DOM.on('[data-action="details"]', 'click', e => this.onSwitchMode(e, 'commit')),
 			DOM.on('[data-action="search-commit"]', 'click', e => this.onSearchCommit(e)),
-			DOM.on('[data-action="autolink-settings"]', 'click', e => this.onAutolinkSettings(e)),
 			DOM.on('[data-action="files-layout"]', 'click', e => this.onToggleFilesLayout(e)),
 			DOM.on<GlInspectNav, undefined>('gl-inspect-nav', 'gl-pin', () => this.onTogglePin()),
 			DOM.on<GlInspectNav, undefined>('gl-inspect-nav', 'gl-back', () => this.onNavigate('back')),
@@ -161,7 +211,12 @@ export class GlCommitDetailsApp extends LitElement {
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="rich-pane"]',
 				'expanded-change',
-				e => this.onExpandedChange(e.detail),
+				e => this.onExpandedChange(e.detail, 'autolinks'),
+			),
+			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
+				'[data-region="pullrequest-pane"]',
+				'expanded-change',
+				e => this.onExpandedChange(e.detail, 'pullrequest'),
 			),
 			DOM.on('[data-action="explain-commit"]', 'click', e => this.onExplainCommit(e)),
 			DOM.on('[data-action="switch-ai"]', 'click', e => this.onSwitchAiModel(e)),
@@ -200,6 +255,26 @@ export class GlCommitDetailsApp extends LitElement {
 			),
 			DOM.on<GlWipDetails, { id: string }>('gl-wip-details', 'gl-show-code-suggestion', e =>
 				this.onShowCodeSuggestion(e.detail),
+			),
+			DOM.on<GlWipDetails, any>('gl-wip-details', 'gl-patch-file-compare-previous', e =>
+				this.onCompareFileWithPrevious(e.detail),
+			),
+			DOM.on<GlWipDetails, FileChangeListItemDetail>('gl-wip-details', 'gl-patch-file-open', e =>
+				this.onOpenFile(e.detail),
+			),
+			DOM.on<GlWipDetails, FileChangeListItemDetail>('gl-wip-details', 'gl-patch-file-stage', e =>
+				this.onStageFile(e.detail),
+			),
+			DOM.on<GlWipDetails, FileChangeListItemDetail>('gl-wip-details', 'gl-patch-file-unstage', e =>
+				this.onUnstageFile(e.detail),
+			),
+			DOM.on<GlWipDetails, undefined>('gl-wip-details', 'gl-patch-create-cancelled', () =>
+				this.onDraftStateChanged(false),
+			),
+			DOM.on<IssuePullRequest, undefined>(
+				'gl-status-nav,issue-pull-request',
+				'gl-issue-pull-request-details',
+				() => this.onBranchAction('open-pr-details'),
 			),
 		];
 	}
@@ -247,13 +322,21 @@ export class GlCommitDetailsApp extends LitElement {
 				break;
 
 			case DidChangeWipStateNotification.is(msg):
-				this.state = { ...this.state!, wip: msg.params.wip };
+				this.state = { ...this.state!, wip: msg.params.wip, inReview: msg.params.inReview };
 				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
 				// this.setState(this.state);
 				// this.attachState();
 				break;
 			case DidChangeDraftStateNotification.is(msg):
-				this.onDraftStateChanged(msg.params.inReview);
+				this.onDraftStateChanged(msg.params.inReview, true);
+				break;
+			case DidChangeConnectedJiraNotification.is(msg):
+				this.state = { ...this.state!, hasConnectedJira: msg.params.hasConnectedJira };
+				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
+				break;
+			case DidChangeHasAccountNotification.is(msg):
+				this.state = { ...this.state!, hasAccount: msg.params.hasAccount };
+				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
 				break;
 		}
 	}
@@ -283,37 +366,111 @@ export class GlCommitDetailsApp extends LitElement {
 		return html`<gl-status-nav .wip=${this.state.wip} .preferences=${this.state.preferences}></gl-status-nav>`;
 	}
 
+	private renderRepoStatusContent(isWip: boolean) {
+		const statusIndicator = this.wipStatus?.status;
+		return html`
+			<code-icon icon="gl-repository-filled"></code-icon>
+			${when(
+				this.wipStatus?.status != null,
+				() =>
+					html`<gl-tracking-pill
+						class="inspect-header__tab-tracking"
+						.ahead=${this.wipStatus!.ahead}
+						.behind=${this.wipStatus!.behind}
+						.working=${this.wipStatus!.working}
+						outlined
+					></gl-tracking-pill>`,
+			)}
+			${when(
+				statusIndicator != null,
+				() =>
+					html`<gl-indicator
+						class="inspect-header__tab-indicator inspect-header__tab-indicator--${statusIndicator}"
+					></gl-indicator>`,
+			)}
+			${when(
+				isWip !== true && statusIndicator != null,
+				() => html`<gl-indicator pulse class="inspect-header__tab-pulse"></gl-indicator>`,
+			)}
+		`;
+	}
+
+	renderWipTooltipContent() {
+		if (this.wipStatus == null) return 'Overview';
+
+		return html`
+			Overview of &nbsp;<code-icon icon="git-branch" size="12"></code-icon
+			><span class="md-code">${this.wipStatus.branch}</span>
+			${when(
+				this.wipStatus.status === 'both',
+				() =>
+					html`<hr />
+						<span class="md-code">${this.wipStatus!.branch}</span> is
+						${pluralize('commit', this.wipStatus!.behind)} behind and
+						${pluralize('commit', this.wipStatus!.ahead)} ahead of
+						<span class="md-code">${this.wipStatus!.upstream ?? 'origin'}</span>`,
+			)}
+			${when(
+				this.wipStatus.status === 'behind',
+				() =>
+					html`<hr />
+						<span class="md-code">${this.wipStatus!.branch}</span> is
+						${pluralize('commit', this.wipStatus!.behind)} behind
+						<span class="md-code">${this.wipStatus!.upstream ?? 'origin'}</span>`,
+			)}
+			${when(
+				this.wipStatus.status === 'ahead',
+				() =>
+					html`<hr />
+						<span class="md-code">${this.wipStatus!.branch}</span> is
+						${pluralize('commit', this.wipStatus!.ahead)} ahead of
+						<span class="md-code"> ${this.wipStatus!.upstream ?? 'origin'}</span>`,
+			)}
+			${when(
+				this.wipStatus.working > 0,
+				() =>
+					html`<hr />
+						${pluralize('working change', this.wipStatus!.working)}`,
+			)}
+		`;
+	}
+
 	renderTopSection() {
-		const followTooltip = this.isStash ? 'Stash' : 'Commit';
-
 		const isWip = this.state?.mode === 'wip';
-
-		const wip = this.state?.wip;
-		const wipTooltip = wip?.changes?.files.length
-			? ` - ${pluralize('change', wip.changes.files.length)} on ${
-					wip.repositoryCount > 1
-						? `${wip.changes.repository.name}:${wip.changes.branchName}`
-						: wip.changes.branchName
-			  }`
-			: '';
 
 		return html`
 			<div class="inspect-header">
 				<nav class="inspect-header__tabs">
-					<button
-						class="inspect-header__tab${!isWip ? ' is-active' : ''}"
-						data-action="details"
-						title="${followTooltip}"
-					>
-						<code-icon icon="gl-inspect"></code-icon>
-					</button>
-					<button
-						class="inspect-header__tab${isWip ? ' is-active' : ''}"
-						data-action="wip"
-						title="Repo Status${wipTooltip}"
-					>
-						<code-icon icon="gl-repository-filled"></code-icon>
-					</button>
+					<gl-tooltip hoist>
+						<button class="inspect-header__tab${!isWip ? ' is-active' : ''}" data-action="details">
+							<code-icon icon="gl-inspect"></code-icon>
+						</button>
+						<span slot="content"
+							>${this.state?.commit != null
+								? !this.isStash
+									? html`Inspect Commit
+											<span class="md-code"
+												><code-icon icon="git-commit"></code-icon> ${this.state.commit
+													.shortSha}</span
+											>`
+									: html`Inspect Stash
+											<span class="md-code"
+												><code-icon icon="gl-stashes-view"></code-icon> #${this.state.commit
+													.stashNumber}</span
+											>`
+								: 'Inspect'}${this.state?.pinned
+								? html`(pinned)
+										<hr />
+										Automatic following is suspended while pinned`
+								: ''}</span
+						>
+					</gl-tooltip>
+					<gl-tooltip hoist>
+						<button class="inspect-header__tab${isWip ? ' is-active' : ''}" data-action="wip">
+							${this.renderRepoStatusContent(isWip)}
+						</button>
+						<span slot="content">${this.renderWipTooltipContent()}</span>
+					</gl-tooltip>
 				</nav>
 				<div class="inspect-header__content">
 					${when(
@@ -366,9 +523,14 @@ export class GlCommitDetailsApp extends LitElement {
 		return this;
 	}
 
-	private onDraftStateChanged(inReview: boolean) {
+	private onDraftStateChanged(inReview: boolean, silent = false) {
+		if (inReview === this.draftState.inReview) return;
 		this.draftState = { ...this.draftState, inReview: inReview };
 		this.requestUpdate('draftState');
+
+		if (!silent) {
+			this._hostIpc.sendCommand(ChangeReviewModeCommand, { inReview: inReview });
+		}
 	}
 
 	private onBranchAction(name: string) {
@@ -391,6 +553,18 @@ export class GlCommitDetailsApp extends LitElement {
 			case 'switch':
 				this._hostIpc.sendCommand(SwitchCommand, undefined);
 				// this.onCommandClickedCore('gitlens.views.switchToBranch');
+				break;
+			case 'open-pr-changes':
+				this._hostIpc.sendCommand(OpenPullRequestChangesCommand, undefined);
+				break;
+			case 'open-pr-compare':
+				this._hostIpc.sendCommand(OpenPullRequestComparisonCommand, undefined);
+				break;
+			case 'open-pr-remote':
+				this._hostIpc.sendCommand(OpenPullRequestOnRemoteCommand, undefined);
+				break;
+			case 'open-pr-details':
+				this._hostIpc.sendCommand(OpenPullRequestDetailsCommand, undefined);
 				break;
 		}
 	}
@@ -441,14 +615,22 @@ export class GlCommitDetailsApp extends LitElement {
 		this._hostIpc.sendCommand(UpdatePreferencesCommand, { files: files });
 	}
 
-	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail) {
+	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail, pane: string) {
+		let preferenceChange;
+		if (pane === 'autolinks') {
+			preferenceChange = { autolinksExpanded: e.expanded };
+		} else if (pane === 'pullrequest') {
+			preferenceChange = { pullRequestExpanded: e.expanded };
+		}
+		if (preferenceChange == null) return;
+
 		this.state = {
 			...this.state,
-			preferences: { ...this.state!.preferences, autolinksExpanded: e.expanded },
+			preferences: { ...this.state!.preferences, ...preferenceChange },
 		} as any;
 		// this.attachState();
 
-		this._hostIpc.sendCommand(UpdatePreferencesCommand, { autolinksExpanded: e.expanded });
+		this._hostIpc.sendCommand(UpdatePreferencesCommand, preferenceChange);
 	}
 
 	private onNavigate(direction: 'back' | 'forward') {
@@ -457,11 +639,6 @@ export class GlCommitDetailsApp extends LitElement {
 
 	private onTogglePin() {
 		this._hostIpc.sendCommand(PinCommand, { pin: !this.state!.pinned });
-	}
-
-	private onAutolinkSettings(e: MouseEvent) {
-		e.preventDefault();
-		this._hostIpc.sendCommand(AutolinkSettingsCommand, undefined);
 	}
 
 	private onPickCommit(_e: MouseEvent) {

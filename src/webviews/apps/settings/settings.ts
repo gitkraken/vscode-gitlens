@@ -1,10 +1,16 @@
 /*global document IntersectionObserver*/
 import './settings.scss';
 import type { AutolinkReference } from '../../../config';
+import type { Source } from '../../../constants';
 import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
 import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
 import type { State } from '../../settings/protocol';
-import { DidOpenAnchorNotification, GenerateConfigurationPreviewRequest } from '../../settings/protocol';
+import {
+	DidChangeAccountNotification,
+	DidChangeConnectedJiraNotification,
+	DidOpenAnchorNotification,
+	GenerateConfigurationPreviewRequest,
+} from '../../settings/protocol';
 import { App } from '../shared/appBase';
 import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { DOM } from '../shared/dom';
@@ -143,6 +149,18 @@ export class SettingsApp extends App<State> {
 				this.setState(this.state);
 
 				this.updateState();
+				break;
+
+			case DidChangeAccountNotification.is(msg):
+				this.state.hasAccount = msg.params.hasAccount;
+				this.setState(this.state);
+				this.renderAutolinkIntegration();
+				break;
+
+			case DidChangeConnectedJiraNotification.is(msg):
+				this.state.hasConnectedJira = msg.params.hasConnectedJira;
+				this.setState(this.state);
+				this.renderAutolinkIntegration();
 				break;
 
 			default:
@@ -500,6 +518,7 @@ export class SettingsApp extends App<State> {
 		document.getElementById('version')!.textContent = version;
 
 		const focusId = document.activeElement?.id;
+		this.renderAutolinkIntegration();
 		this.renderAutolinks();
 		if (focusId?.startsWith('autolinks.')) {
 			console.log(focusId, document.getElementById(focusId));
@@ -777,6 +796,30 @@ export class SettingsApp extends App<State> {
 		if (el != null) {
 			el.classList.toggle('active', active);
 		}
+	}
+
+	private renderAutolinkIntegration() {
+		const $root = document.querySelector('[data-component="autolink-integration"]');
+		if ($root == null) return;
+
+		const { hasAccount, hasConnectedJira } = this.state;
+		let message = `<a href="command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
+			JSON.stringify({
+				source: 'settings',
+				detail: {
+					action: 'connect',
+					integration: 'jira',
+				},
+			} satisfies Source),
+		)}">Connect to Jira Cloud</a> &mdash; ${
+			hasAccount ? '' : 'sign up and '
+		}get access to automatic rich Jira autolinks.`;
+		if (hasAccount && hasConnectedJira) {
+			message =
+				'<i class="codicon codicon-check" style="vertical-align: text-bottom"></i> Jira connected &mdash; automatic rich Jira autolinks are enabled.';
+		}
+
+		$root.innerHTML = message;
 	}
 
 	private renderAutolinks() {

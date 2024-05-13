@@ -3,7 +3,7 @@ import type { Disposable } from 'vscode';
 import { version as codeVersion, env } from 'vscode';
 import { getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
-import type { TelemetryEvents } from '../constants';
+import type { Source, TelemetryEvents } from '../constants';
 import type { Container } from '../container';
 import { configuration } from '../system/configuration';
 
@@ -132,10 +132,13 @@ export class TelemetryService implements Disposable {
 	sendEvent(
 		name: TelemetryEvents,
 		data?: Record<string, AttributeValue | null | undefined>,
+		source?: Source,
 		startTime?: TimeInput,
 		endTime?: TimeInput,
 	): void {
 		if (!this._enabled) return;
+
+		addSourceAttributes(source, data);
 
 		if (this.provider == null) {
 			this.eventQueue.push({
@@ -155,9 +158,12 @@ export class TelemetryService implements Disposable {
 	startEvent(
 		name: TelemetryEvents,
 		data?: Record<string, AttributeValue | null | undefined>,
+		source?: Source,
 		startTime?: TimeInput,
 	): Disposable | undefined {
 		if (!this._enabled) return undefined;
+
+		addSourceAttributes(source, data);
 
 		if (this.provider != null) {
 			const span = this.provider.startEvent(name, stripNullOrUndefinedAttributes(data), startTime);
@@ -168,7 +174,7 @@ export class TelemetryService implements Disposable {
 
 		startTime = startTime ?? Date.now();
 		return {
-			dispose: () => this.sendEvent(name, data, startTime, Date.now()),
+			dispose: () => this.sendEvent(name, data, source, startTime, Date.now()),
 		};
 	}
 
@@ -184,29 +190,75 @@ export class TelemetryService implements Disposable {
 	// ): void {
 	// }
 
-	setGlobalAttribute(key: string, value: AttributeValue | null | undefined): void {
+	setGlobalAttribute(key: `global.${string}`, value: AttributeValue | null | undefined): void;
+	/** @deprecated use `global.*` in the key */
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	setGlobalAttribute(key: string, value: AttributeValue | null | undefined): void;
+	setGlobalAttribute(key: `global.${string}`, value: AttributeValue | null | undefined): void {
 		if (value == null) {
 			this.globalAttributes.delete(key);
+			if (!key.startsWith('global.')) {
+				this.globalAttributes.delete(`global.${key}`);
+			}
 		} else {
 			this.globalAttributes.set(key, value);
-		}
-		this.provider?.setGlobalAttributes(this.globalAttributes);
-	}
-
-	setGlobalAttributes(attributes: Record<string, AttributeValue | null | undefined>): void {
-		for (const [key, value] of Object.entries(attributes)) {
-			if (value == null) {
-				this.globalAttributes.delete(key);
-			} else {
-				this.globalAttributes.set(key, value);
+			if (!key.startsWith('global.')) {
+				this.globalAttributes.set(`global.${key}`, value);
 			}
 		}
 		this.provider?.setGlobalAttributes(this.globalAttributes);
 	}
 
-	deleteGlobalAttribute(key: string): void {
-		this.globalAttributes.delete(key);
+	setGlobalAttributes(attributes: Record<`global.${string}`, AttributeValue | null | undefined>): void;
+	/** @deprecated use `global.*` in the keys */
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	setGlobalAttributes(attributes: Record<string, AttributeValue | null | undefined>): void;
+	setGlobalAttributes(attributes: Record<`global.${string}`, AttributeValue | null | undefined>): void {
+		for (const [key, value] of Object.entries(attributes)) {
+			if (value == null) {
+				this.globalAttributes.delete(key);
+				if (!key.startsWith('global.')) {
+					this.globalAttributes.delete(`global.${key}`);
+				}
+			} else {
+				this.globalAttributes.set(key, value);
+				if (!key.startsWith('global.')) {
+					this.globalAttributes.set(`global.${key}`, value);
+				}
+			}
+		}
 		this.provider?.setGlobalAttributes(this.globalAttributes);
+	}
+
+	deleteGlobalAttribute(key: `global.${string}`): void;
+	/** @deprecated use `global.*` in the key */
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	deleteGlobalAttribute(key: string): void;
+	deleteGlobalAttribute(key: `global.${string}`): void {
+		this.globalAttributes.delete(key);
+		if (!key.startsWith('global.')) {
+			this.globalAttributes.delete(`global.${key}`);
+		}
+		this.provider?.setGlobalAttributes(this.globalAttributes);
+	}
+}
+
+function addSourceAttributes(
+	source: Source | undefined,
+	data: Record<string, AttributeValue | null | undefined> | undefined,
+) {
+	if (source == null) return;
+
+	data ??= {};
+	data['source.name'] = source.source;
+	if (source.detail != null) {
+		if (typeof source.detail === 'string') {
+			data['source.detail'] = source.detail;
+		} else if (typeof source.detail === 'object') {
+			for (const [key, value] of Object.entries(source.detail)) {
+				data[`source.detail.${key}`] = value;
+			}
+		}
 	}
 }
 

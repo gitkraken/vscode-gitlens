@@ -184,7 +184,7 @@ button:not([disabled]),
 	border-radius: 0.5rem;
 	font-size: 1rem;
 	font-weight: 500;
-	line-height: 1;
+	line-height: 1.2;
 	text-transform: uppercase;
 	color: var(--vscode-foreground);
 	background-color: var(--vscode-editorWidget-background);
@@ -895,6 +895,12 @@ button:not([disabled]),
 	}
 }
 
+gl-feature-gate gl-feature-badge {
+	vertical-align: super;
+	margin-left: 0.4rem;
+	margin-right: 0.4rem;
+}
+
 .graph-app {
 	--fs-1: 1.1rem;
 	--fs-2: 1.3rem;
@@ -925,7 +931,8 @@ button:not([disabled]),
 	}
 
 	&__gate {
-		top: 34px; /* height of the header bar */
+		// top: 34px; /* height of the header bar */
+		padding-top: 34px;
 	}
 
 	&__header {
@@ -1192,4 +1199,11 @@ button:not([disabled]),
 hr {
 	border: none;
 	border-top: 1px solid var(--color-foreground--25);
+}
+
+.md-code {
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 3px;
+	padding: 0px 4px 2px 4px;
+	font-family: var(--vscode-editor-font-family);
 }

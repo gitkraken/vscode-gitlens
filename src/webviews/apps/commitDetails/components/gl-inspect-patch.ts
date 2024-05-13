@@ -3,7 +3,6 @@ import { customElement, property } from 'lit/decorators.js';
 import type { DraftVisibility } from '../../../../gk/models/drafts';
 import type { Change, DraftUserSelection } from '../../../../plus/webviews/patchDetails/protocol';
 import type { Preferences, State } from '../../../commitDetails/protocol';
-import type { CustomEventType } from '../../shared/components/element';
 import { GlElement } from '../../shared/components/element';
 import { buttonStyles } from './button.css';
 import '../../plus/patchDetails/components/gl-patch-create';
@@ -254,16 +253,6 @@ export class InspectPatch extends GlElement {
 			review
 			@gl-patch-file-compare-working=${(e: CustomEvent) => {
 				console.log('gl-patch-file-compare-working', e);
-			}}
-			@gl-patch-file-compare-previous=${(e: CustomEvent) => {
-				console.log('gl-patch-file-compare-previous', e);
-			}}
-			@gl-patch-file-open=${(e: CustomEvent) => {
-				console.log('gl-patch-file-open', e);
-			}}
-			@gl-patch-create-patch=${(e: CustomEventType<'gl-patch-create-patch'>) => {
-				console.log('gl-patch-create-patch', e);
-				this.emit('gl-patch-create-patch', e.detail);
 			}}
 			@gl-patch-create-update-metadata=${(e: CustomEvent) => {
 				console.log('gl-patch-create-update-metadata', e);

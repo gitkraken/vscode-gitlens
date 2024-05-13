@@ -1,13 +1,21 @@
 import type { MessageItem } from 'vscode';
-import { env, Uri, window } from 'vscode';
+import { window } from 'vscode';
+import type { Source } from '../constants';
+import { urls } from '../constants';
 import type { Container } from '../container';
-import { isSubscriptionPaidPlan } from './gk/account/subscription';
+import { openUrl } from '../system/utils';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from './gk/account/subscription';
 
-export async function ensurePaidPlan(title: string, container: Container): Promise<boolean> {
+export async function ensurePaidPlan(
+	container: Container,
+	title: string,
+	source: Source,
+	options?: { allowPreview?: boolean },
+): Promise<boolean> {
 	while (true) {
 		const subscription = await container.subscription.getSubscription();
 		if (subscription.account?.verified === false) {
-			const resend = { title: 'Resend Verification' };
+			const resend = { title: 'Resend Email' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
 				`${title}\n\nYou must verify your email before you can continue.`,
@@ -17,7 +25,7 @@ export async function ensurePaidPlan(title: string, container: Container): Promi
 			);
 
 			if (result === resend) {
-				if (await container.subscription.resendVerification()) {
+				if (await container.subscription.resendVerification(source)) {
 					continue;
 				}
 			}
@@ -28,18 +36,34 @@ export async function ensurePaidPlan(title: string, container: Container): Promi
 		const plan = subscription.plan.effective.id;
 		if (isSubscriptionPaidPlan(plan)) break;
 
-		if (subscription.account == null) {
-			const signIn = { title: 'Start Pro Trial' };
+		if (options?.allowPreview && subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
+			const startTrial = { title: 'Continue' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nTry our developer productivity and collaboration services free for 7 days.`,
+				`${title}\n\nDo you want to continue to get immediate access to preview local Pro features for 3 days?`,
 				{ modal: true },
+				startTrial,
+				cancel,
+			);
+
+			if (result !== startTrial) return false;
+
+			void container.subscription.startPreviewTrial(source);
+			break;
+		} else if (subscription.account == null) {
+			const signUp = { title: 'Start Pro Trial' };
+			const signIn = { title: 'Sign In' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showWarningMessage(
+				`${title}\n\nDo you want to start your free 7-day Pro trial for full access to Pro features?`,
+				{ modal: true },
+				signUp,
 				signIn,
 				cancel,
 			);
 
-			if (result === signIn) {
-				if (await container.subscription.loginOrSignUp()) {
+			if (result === signUp || result === signIn) {
+				if (await container.subscription.loginOrSignUp(result === signUp, source)) {
 					continue;
 				}
 			}
@@ -47,14 +71,14 @@ export async function ensurePaidPlan(title: string, container: Container): Promi
 			const upgrade = { title: 'Upgrade to Pro' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nContinue to use our developer productivity and collaboration services.`,
+				`${title}\n\nDo you want to upgrade for full access to Pro features?`,
 				{ modal: true },
 				upgrade,
 				cancel,
 			);
 
 			if (result === upgrade) {
-				void container.subscription.purchase();
+				void container.subscription.upgrade(source);
 			}
 		}
 
@@ -64,11 +88,11 @@ export async function ensurePaidPlan(title: string, container: Container): Promi
 	return true;
 }
 
-export async function ensureAccount(title: string, container: Container): Promise<boolean> {
+export async function ensureAccount(container: Container, title: string, source: Source): Promise<boolean> {
 	while (true) {
 		const subscription = await container.subscription.getSubscription();
 		if (subscription.account?.verified === false) {
-			const resend = { title: 'Resend Verification' };
+			const resend = { title: 'Resend Email' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
 				`${title}\n\nYou must verify your email before you can continue.`,
@@ -78,7 +102,7 @@ export async function ensureAccount(title: string, container: Container): Promis
 			);
 
 			if (result === resend) {
-				if (await container.subscription.resendVerification()) {
+				if (await container.subscription.resendVerification(source)) {
 					continue;
 				}
 			}
@@ -88,23 +112,23 @@ export async function ensureAccount(title: string, container: Container): Promis
 
 		if (subscription.account != null) break;
 
-		const signIn = { title: 'Sign In' };
 		const signUp = { title: 'Sign Up' };
+		const signIn = { title: 'Sign In' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			`${title}\n\nGain access to our developer productivity and collaboration services.`,
+			`${title}\n\nSign up for access to Pro features and our DevEx platform, or sign in`,
 			{ modal: true },
-			signIn,
 			signUp,
+			signIn,
 			cancel,
 		);
 
 		if (result === signIn) {
-			if (await container.subscription.loginOrSignUp()) {
+			if (await container.subscription.loginOrSignUp(false, source)) {
 				continue;
 			}
 		} else if (result === signUp) {
-			if (await container.subscription.loginOrSignUp(true)) {
+			if (await container.subscription.loginOrSignUp(true, source)) {
 				continue;
 			}
 		}
@@ -138,12 +162,12 @@ export async function confirmDraftStorage(container: Container): Promise<boolean
 		}
 
 		if (result === security) {
-			void env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/security'));
+			void openUrl(urls.security);
 			continue;
 		}
 
 		if (result === moreInfo) {
-			void env.openExternal(Uri.parse('https://www.gitkraken.com/solutions/cloud-patches'));
+			void openUrl(urls.cloudPatches);
 			continue;
 		}
 

@@ -22,7 +22,6 @@ import { debug, log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../gk/account/subscription';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationSessionDescriptor,
@@ -75,6 +74,8 @@ export abstract class IntegrationBase<
 	ID extends SupportedIntegrationIds = SupportedIntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
 > {
+	abstract readonly type: IntegrationType;
+
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
@@ -191,8 +192,8 @@ export abstract class IntegrationBase<
 			}
 
 			this._onDidChange.fire();
-			if (!options?.silent && !options?.currentSessionOnly) {
-				this.container.integrations.disconnected(this.key);
+			if (!options?.currentSessionOnly) {
+				this.container.integrations.disconnected(this, this.key);
 			}
 		}
 
@@ -288,7 +289,7 @@ export abstract class IntegrationBase<
 
 			queueMicrotask(() => {
 				this._onDidChange.fire();
-				this.container.integrations.connected(this.key);
+				this.container.integrations.connected(this, this.key);
 				void this.providerOnConnect?.();
 			});
 		}
@@ -337,23 +338,33 @@ export abstract class IntegrationBase<
 	): Promise<SearchedIssue[] | undefined>;
 
 	@debug()
-	async getIssueOrPullRequest(resource: T, id: string): Promise<IssueOrPullRequest | undefined> {
+	async getIssueOrPullRequest(
+		resource: T,
+		id: string,
+		options?: { expiryOverride?: boolean | number },
+	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const issueOrPR = this.container.cache.getIssueOrPullRequest(id, resource, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderIssueOrPullRequest(this._session!, resource, id);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<IssueOrPullRequest | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const issueOrPR = this.container.cache.getIssueOrPullRequest(
+			id,
+			resource,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderIssueOrPullRequest(this._session!, resource, id);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<IssueOrPullRequest | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			options,
+		);
 		return issueOrPR;
 	}
 
@@ -363,23 +374,32 @@ export abstract class IntegrationBase<
 		id: string,
 	): Promise<IssueOrPullRequest | undefined>;
 
-	async getCurrentAccount(options?: { avatarSize?: number }): Promise<Account | undefined> {
+	async getCurrentAccount(options?: {
+		avatarSize?: number;
+		expiryOverride?: boolean | number;
+	}): Promise<Account | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const currentAccount = this.container.cache.getCurrentAccount(this, () => ({
-			value: (async () => {
-				try {
-					const account = await this.getProviderCurrentAccount?.(this._session!, options);
-					this.resetRequestExceptionCount();
-					return account;
-				} catch (ex) {
-					return this.handleProviderException<Account | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const { expiryOverride, ...opts } = options ?? {};
+
+		const currentAccount = this.container.cache.getCurrentAccount(
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const account = await this.getProviderCurrentAccount?.(this._session!, opts);
+						this.resetRequestExceptionCount();
+						return account;
+					} catch (ex) {
+						return this.handleProviderException<Account | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			{ expiryOverride: expiryOverride },
+		);
 		return currentAccount;
 	}
 
@@ -579,29 +599,42 @@ export abstract class HostingIntegration<
 	): Promise<DefaultBranch | undefined>;
 
 	@debug()
-	async getRepositoryMetadata(repo: T, _cancellation?: CancellationToken): Promise<RepositoryMetadata | undefined> {
+	async getRepositoryMetadata(
+		repo: T,
+		options?: { cancellation?: CancellationToken; expiryOverride?: boolean | number },
+	): Promise<RepositoryMetadata | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const metadata = this.container.cache.getRepositoryMetadata(repo, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderRepositoryMetadata(this._session!, repo);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<RepositoryMetadata | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const metadata = this.container.cache.getRepositoryMetadata(
+			repo,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderRepositoryMetadata(
+							this._session!,
+							repo,
+							options?.cancellation,
+						);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<RepositoryMetadata | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			{ expiryOverride: options?.expiryOverride },
+		);
 		return metadata;
 	}
 
 	protected abstract getProviderRepositoryMetadata(
 		session: ProviderAuthenticationSession,
 		repo: T,
+		cancellation?: CancellationToken,
 	): Promise<RepositoryMetadata | undefined>;
 
 	async mergePullRequest(
@@ -638,6 +671,7 @@ export abstract class HostingIntegration<
 		branch: string,
 		options?: {
 			avatarSize?: number;
+			expiryOverride?: boolean | number;
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
@@ -646,17 +680,25 @@ export abstract class HostingIntegration<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const pr = this.container.cache.getPullRequestForBranch(branch, repo, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderPullRequestForBranch(this._session!, repo, branch, options);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const { expiryOverride, ...opts } = options ?? {};
+
+		const pr = this.container.cache.getPullRequestForBranch(
+			branch,
+			repo,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderPullRequestForBranch(this._session!, repo, branch, opts);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			{ expiryOverride: expiryOverride },
+		);
 		return pr;
 	}
 
@@ -671,23 +713,33 @@ export abstract class HostingIntegration<
 	): Promise<PullRequest | undefined>;
 
 	@debug()
-	async getPullRequestForCommit(repo: T, ref: string): Promise<PullRequest | undefined> {
+	async getPullRequestForCommit(
+		repo: T,
+		ref: string,
+		options?: { expiryOverride?: boolean | number },
+	): Promise<PullRequest | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const pr = this.container.cache.getPullRequestForSha(ref, repo, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderPullRequestForCommit(this._session!, repo, ref);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const pr = this.container.cache.getPullRequestForSha(
+			ref,
+			repo,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderPullRequestForCommit(this._session!, repo, ref);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			options,
+		);
 		return pr;
 	}
 
@@ -1082,81 +1134,4 @@ export abstract class HostingIntegration<
 		repos?: T[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined>;
-}
-
-export async function ensurePaidPlan(providerName: string, container: Container): Promise<boolean> {
-	const title = `Connecting to a ${providerName} instance for rich integration features requires a trial or paid plan.`;
-
-	while (true) {
-		const subscription = await container.subscription.getSubscription();
-		if (subscription.account?.verified === false) {
-			const resend = { title: 'Resend Verification' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
-			const result = await window.showWarningMessage(
-				`${title}\n\nYou must verify your email before you can continue.`,
-				{ modal: true },
-				resend,
-				cancel,
-			);
-
-			if (result === resend) {
-				if (await container.subscription.resendVerification()) {
-					continue;
-				}
-			}
-
-			return false;
-		}
-
-		const plan = subscription.plan.effective.id;
-		if (isSubscriptionPaidPlan(plan)) break;
-
-		if (subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
-			const startTrial = { title: 'Preview Pro' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
-			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to preview Pro features for 3 days?`,
-				{ modal: true },
-				startTrial,
-				cancel,
-			);
-
-			if (result !== startTrial) return false;
-
-			void container.subscription.startPreviewTrial();
-			break;
-		} else if (subscription.account == null) {
-			const signIn = { title: 'Start Pro Trial' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
-			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to continue to use Pro features, free for an additional 7 days?`,
-				{ modal: true },
-				signIn,
-				cancel,
-			);
-
-			if (result === signIn) {
-				if (await container.subscription.loginOrSignUp()) {
-					continue;
-				}
-			}
-		} else {
-			const upgrade = { title: 'Upgrade to Pro' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
-			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to continue to use Pro features?`,
-				{ modal: true },
-				upgrade,
-				cancel,
-			);
-
-			if (result === upgrade) {
-				void container.subscription.purchase();
-			}
-		}
-
-		return false;
-	}
-
-	return true;
 }

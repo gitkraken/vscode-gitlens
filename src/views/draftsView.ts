@@ -1,14 +1,15 @@
 import type { CancellationToken, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { RepositoriesViewConfig } from '../config';
-import { Commands } from '../constants';
+import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
+import type { DraftsViewConfig } from '../config';
+import { Commands, previewBadge } from '../constants';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { unknownGitUri } from '../git/gitUri';
 import type { Draft } from '../gk/models/drafts';
-import { showPatchesView } from '../plus/drafts/actions';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { groupByFilterMap } from '../system/iterable';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
@@ -28,7 +29,7 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 
 			try {
 				const drafts = await this.view.container.drafts.getDrafts();
-				drafts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+				drafts?.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
 				const groups = groupByFilterMap(
 					drafts,
@@ -38,8 +39,7 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 
 				const mine = groups.get('mine');
 				const shared = groups.get('shared');
-				const prs = groups.get('pr_suggestion');
-				const isFlat = mine?.length && !shared?.length && !prs?.length;
+				const isFlat = mine?.length && !shared?.length;
 
 				if (!isFlat) {
 					if (mine?.length) {
@@ -48,16 +48,11 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 					if (shared?.length) {
 						children.push(new GroupingNode(this.view, 'Shared with Me', shared));
 					}
-					if (prs?.length) {
-						children.push(new GroupingNode(this.view, 'Suggested Changes', prs));
-					}
 				} else {
 					children.push(...mine);
 				}
 			} catch (ex) {
-				if (!(ex instanceof AuthenticationRequiredError)) {
-					throw ex;
-				}
+				if (!(ex instanceof AuthenticationRequiredError)) throw ex;
 			}
 
 			this.children = children;
@@ -66,29 +61,29 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 		return this.children;
 	}
 
+	getTreeItem(): TreeItem {
+		const item = new TreeItem('Drafts', TreeItemCollapsibleState.Expanded);
+		return item;
+	}
+
 	private calcDraftGroupKey(d: Draft): DraftGroupKey {
 		if (d.type === 'suggested_pr_change') {
 			return 'pr_suggestion';
 		}
 		return d.isMine ? 'mine' : 'shared';
 	}
-
-	getTreeItem(): TreeItem {
-		const item = new TreeItem('Drafts', TreeItemCollapsibleState.Expanded);
-		return item;
-	}
 }
 
 type DraftGroupKey = 'pr_suggestion' | 'mine' | 'shared';
 
-export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesViewConfig> {
+export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewConfig> {
 	protected readonly configKey = 'drafts';
 	private _disposable: Disposable | undefined;
 
 	constructor(container: Container) {
 		super(container, 'drafts', 'Cloud Patches', 'draftsView');
 
-		this.description = 'ᴘʀᴇᴠɪᴇᴡ';
+		this.description = previewBadge;
 	}
 
 	override dispose() {
@@ -122,11 +117,16 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 		void this.container.viewCommands;
 
 		return [
-			// registerViewCommand(
-			// 	this.getQualifiedCommand('info'),
-			// 	() => env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/side-bar/#drafts-☁%ef%b8%8f')),
-			// 	this,
-			// ),
+			registerViewCommand(
+				this.getQualifiedCommand('info'),
+				() =>
+					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+						step: 'code-collab',
+						source: 'cloud-patches',
+						detail: 'info',
+					}),
+				this,
+			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
@@ -160,22 +160,8 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 				},
 				this,
 			),
-			registerViewCommand(
-				this.getQualifiedCommand('open'),
-				async (node: DraftNode) => {
-					let draft = node.draft;
-					if (draft.changesets == null) {
-						try {
-							draft = await this.container.drafts.getDraft(node.draft.id);
-						} catch (ex) {
-							void window.showErrorMessage(`Unable to open Cloud Patch '${node.draft.id}'`);
-							return;
-						}
-					}
-					void showPatchesView({ mode: 'view', draft: draft });
-				},
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 		];
 	}
 
@@ -184,7 +170,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 			allowPaging: false,
 			maxDepth: 2,
 			canTraverse: n => {
-				if (n instanceof DraftsViewNode) return true;
+				if (n instanceof DraftsViewNode || n instanceof GroupingNode) return true;
 
 				return false;
 			},
@@ -207,5 +193,9 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 		await this.ensureRevealNode(node, options);
 
 		return node;
+	}
+
+	private setShowAvatars(enabled: boolean) {
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 }

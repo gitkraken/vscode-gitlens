@@ -19,6 +19,7 @@ import React, { createElement, useEffect, useMemo, useRef, useState } from 'reac
 import { getPlatform } from '@env/platform';
 import type { DateStyle } from '../../../../config';
 import type { SearchQuery } from '../../../../git/search';
+import type { FocusCommandArgs } from '../../../../plus/focus/focus';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import type {
 	DidEnsureRowParams,
@@ -51,7 +52,6 @@ import {
 	DidChangeRowsStatsNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
-	DidChangeWindowFocusNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidSearchNotification,
@@ -60,23 +60,20 @@ import { filterMap, first, groupByFilterMap, join } from '../../../../system/ite
 import { pluralize } from '../../../../system/string';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type { IpcNotification } from '../../../protocol';
+import { DidChangeHostWindowFocusNotification } from '../../../protocol';
 import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
-import { GlTooltip } from '../../shared/components/overlays/react';
+import { GlPopover } from '../../shared/components/overlays/popover.react';
+import { GlTooltip } from '../../shared/components/overlays/tooltip.react';
 import { GlFeatureBadge } from '../../shared/components/react/feature-badge';
 import { GlFeatureGate } from '../../shared/components/react/feature-gate';
+import { GlIssuePullRequest } from '../../shared/components/react/issue-pull-request';
 import { GlSearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
-import type {
-	GraphMinimapDaySelectedEventDetail,
-	GraphMinimapMarker,
-	GraphMinimapSearchResultMarker,
-	GraphMinimapStats,
-	StashMarker,
-} from './minimap/minimap';
-import { GraphMinimap } from './minimap/react';
+import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap';
+import { GlGraphMinimapContainer } from './minimap/minimap-container.react';
 
 export interface GraphWrapperProps {
 	nonce?: string;
@@ -90,6 +87,7 @@ export interface GraphWrapperProps {
 	onMissingAvatars?: (emails: Record<string, string>) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
+	onOpenPullRequest?: (pr: NonNullable<NonNullable<State['branchState']>['pr']>) => void;
 	onRefsVisibilityChange?: (refs: GraphExcludedRef[], visible: boolean) => void;
 	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
 	onSearchPromise?: (
@@ -213,6 +211,7 @@ export function GraphWrapper({
 	onMissingAvatars,
 	onMissingRefsMetadata,
 	onMoreRows,
+	onOpenPullRequest,
 	onRefsVisibilityChange,
 	onSearch,
 	onSearchPromise,
@@ -269,7 +268,7 @@ export function GraphWrapper({
 		state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 },
 	);
 
-	const minimap = useRef<GraphMinimap | undefined>(undefined);
+	const minimap = useRef<GlGraphMinimapContainer | undefined>(undefined);
 
 	const ensuredIds = useRef<Set<string>>(new Set());
 	const ensuredSkippedIds = useRef<Set<string>>(new Set());
@@ -292,7 +291,7 @@ export function GraphWrapper({
 			case DidChangeAvatarsNotification:
 				setAvatars(state.avatars);
 				break;
-			case DidChangeWindowFocusNotification:
+			case DidChangeHostWindowFocusNotification:
 				setWindowFocused(state.windowFocused);
 				break;
 			case DidChangeRefsMetadataNotification:
@@ -409,231 +408,6 @@ export function GraphWrapper({
 			window.removeEventListener('keydown', handleKeyDown);
 		};
 	}, [activeRow]);
-
-	const minimapData = useMemo(() => {
-		if (!graphConfig?.minimap) return undefined;
-
-		const showLinesChanged = (graphConfig?.minimapDataType ?? 'commits') === 'lines';
-		if (showLinesChanged && rowsStats == null) return undefined;
-
-		// Loops through all the rows and group them by day and aggregate the row.stats
-		const statsByDayMap = new Map<number, GraphMinimapStats>();
-		const markersByDay = new Map<number, GraphMinimapMarker[]>();
-		const enabledMinimapMarkers: GraphMinimapMarkerTypes[] = graphConfig?.minimapMarkerTypes ?? [];
-
-		let rankedShas: {
-			head: string | undefined;
-			branch: string | undefined;
-			remote: string | undefined;
-			tag: string | undefined;
-		} = {
-			head: undefined,
-			branch: undefined,
-			remote: undefined,
-			tag: undefined,
-		};
-
-		let day;
-		let prevDay;
-
-		let markers;
-		let headMarkers: GraphMinimapMarker[];
-		let remoteMarkers: GraphMinimapMarker[];
-		let stashMarker: StashMarker | undefined;
-		let tagMarkers: GraphMinimapMarker[];
-		let row: GraphRow;
-		let stat;
-		let stats;
-
-		// Iterate in reverse order so that we can track the HEAD upstream properly
-		for (let i = rows.length - 1; i >= 0; i--) {
-			row = rows[i];
-
-			day = getDay(row.date);
-			if (day !== prevDay) {
-				prevDay = day;
-				rankedShas = {
-					head: undefined,
-					branch: undefined,
-					remote: undefined,
-					tag: undefined,
-				};
-			}
-
-			if (
-				row.heads?.length &&
-				(enabledMinimapMarkers.includes('head') || enabledMinimapMarkers.includes('localBranches'))
-			) {
-				rankedShas.branch = row.sha;
-
-				headMarkers = [];
-
-				// eslint-disable-next-line no-loop-func
-				row.heads.forEach(h => {
-					if (h.isCurrentHead) {
-						rankedShas.head = row.sha;
-					}
-
-					if (
-						enabledMinimapMarkers.includes('localBranches') ||
-						(enabledMinimapMarkers.includes('head') && h.isCurrentHead)
-					) {
-						headMarkers.push({
-							type: 'branch',
-							name: h.name,
-							current: h.isCurrentHead && enabledMinimapMarkers.includes('head'),
-						});
-					}
-				});
-
-				markers = markersByDay.get(day);
-				if (markers == null) {
-					markersByDay.set(day, headMarkers);
-				} else {
-					markers.push(...headMarkers);
-				}
-			}
-
-			if (
-				row.remotes?.length &&
-				(enabledMinimapMarkers.includes('upstream') ||
-					enabledMinimapMarkers.includes('remoteBranches') ||
-					enabledMinimapMarkers.includes('localBranches'))
-			) {
-				rankedShas.remote = row.sha;
-
-				remoteMarkers = [];
-
-				// eslint-disable-next-line no-loop-func
-				row.remotes.forEach(r => {
-					let current = false;
-					const hasDownstream = downstreams?.[`${r.owner}/${r.name}`]?.length;
-					if (r.current) {
-						rankedShas.remote = row.sha;
-						current = true;
-					}
-
-					if (
-						enabledMinimapMarkers.includes('remoteBranches') ||
-						(enabledMinimapMarkers.includes('upstream') && current) ||
-						(enabledMinimapMarkers.includes('localBranches') && hasDownstream)
-					) {
-						remoteMarkers.push({
-							type: 'remote',
-							name: `${r.owner}/${r.name}`,
-							current: current && enabledMinimapMarkers.includes('upstream'),
-						});
-					}
-				});
-
-				markers = markersByDay.get(day);
-				if (markers == null) {
-					markersByDay.set(day, remoteMarkers);
-				} else {
-					markers.push(...remoteMarkers);
-				}
-			}
-
-			if (row.type === 'stash-node' && enabledMinimapMarkers.includes('stashes')) {
-				stashMarker = { type: 'stash', name: row.message };
-				markers = markersByDay.get(day);
-				if (markers == null) {
-					markersByDay.set(day, [stashMarker]);
-				} else {
-					markers.push(stashMarker);
-				}
-			}
-
-			if (row.tags?.length && enabledMinimapMarkers.includes('tags')) {
-				rankedShas.tag = row.sha;
-
-				tagMarkers = row.tags.map<GraphMinimapMarker>(t => ({
-					type: 'tag',
-					name: t.name,
-				}));
-
-				markers = markersByDay.get(day);
-				if (markers == null) {
-					markersByDay.set(day, tagMarkers);
-				} else {
-					markers.push(...tagMarkers);
-				}
-			}
-
-			stat = statsByDayMap.get(day);
-			if (stat == null) {
-				if (showLinesChanged) {
-					stats = rowsStats![row.sha];
-					if (stats != null) {
-						stat = {
-							activity: { additions: stats.additions, deletions: stats.deletions },
-							commits: 1,
-							files: stats.files,
-							sha: row.sha,
-						};
-						statsByDayMap.set(day, stat);
-					}
-				} else {
-					stat = {
-						commits: 1,
-						sha: row.sha,
-					};
-					statsByDayMap.set(day, stat);
-				}
-			} else {
-				stat.commits++;
-				stat.sha = rankedShas.head ?? rankedShas.branch ?? rankedShas.remote ?? rankedShas.tag ?? stat.sha;
-				if (showLinesChanged) {
-					stats = rowsStats![row.sha];
-					if (stats != null) {
-						if (stat.activity == null) {
-							stat.activity = { additions: stats.additions, deletions: stats.deletions };
-						} else {
-							stat.activity.additions += stats.additions;
-							stat.activity.deletions += stats.deletions;
-						}
-						stat.files = (stat.files ?? 0) + stats.files;
-					}
-				}
-			}
-		}
-
-		return { stats: statsByDayMap, markers: markersByDay };
-	}, [
-		rows,
-		rowsStats,
-		downstreams,
-		graphConfig?.minimap,
-		graphConfig?.minimapDataType,
-		graphConfig?.minimapMarkerTypes,
-	]);
-
-	const minimapSearchResults = useMemo(() => {
-		if (!graphConfig?.minimap || !graphConfig.minimapMarkerTypes?.includes('highlights')) {
-			return undefined;
-		}
-
-		const searchResultsByDay = new Map<number, GraphMinimapSearchResultMarker>();
-
-		if (searchResults?.ids != null) {
-			let day;
-			let sha;
-			let r;
-			let result;
-			for ([sha, r] of Object.entries(searchResults.ids)) {
-				day = getDay(r.date);
-
-				result = searchResultsByDay.get(day);
-				if (result == null) {
-					searchResultsByDay.set(day, { type: 'search-result', sha: sha, count: 1 });
-				} else {
-					result.count++;
-				}
-			}
-		}
-
-		return searchResultsByDay;
-	}, [searchResults, graphConfig?.minimap, graphConfig?.minimapMarkerTypes]);
 
 	const handleOnMinimapDaySelected = (e: CustomEvent<GraphMinimapDaySelectedEventDetail>) => {
 		let { sha } = e.detail;
@@ -1118,38 +892,78 @@ export function GraphWrapper({
 	};
 
 	const renderFetchAction = () => {
-		const lastFetchedDate = lastFetched && new Date(lastFetched);
-		const fetchedText = lastFetchedDate && lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
-
 		let action: 'fetch' | 'pull' | 'push' = 'fetch';
-
-		let icon = 'sync';
+		let icon = 'repo-fetch';
 		let label = 'Fetch';
 		let isBehind = false;
 		let isAhead = false;
 
-		let tooltip = '';
-		let fetchTooltip = 'Fetch from';
-		let remote = 'remote';
+		const remote = branchState?.upstream ? (
+			<>
+				<span className="md-code">{branchState?.upstream}</span>
+			</>
+		) : (
+			'remote'
+		);
+
+		let tooltip;
 		if (branchState) {
-			isBehind = branchState.behind > 0;
 			isAhead = branchState.ahead > 0;
-			const branchPrefix = `Branch ${branchName} is`;
-			remote = `${branchState.upstream}${branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}`;
+			isBehind = branchState.behind > 0;
+
+			const branchPrefix = (
+				<>
+					<span className="md-code">{branchName}</span> is
+				</>
+			);
+
 			if (isBehind) {
 				action = 'pull';
-				icon = 'arrow-down';
+				icon = 'repo-pull';
 				label = 'Pull';
-				tooltip = `Pull from ${remote}\n\n${branchPrefix} ${pluralize('commit', branchState.behind)} behind of`;
+				tooltip = (
+					<>
+						Pull {pluralize('commit', branchState.behind)} from {remote}
+						{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
+					</>
+				);
+				if (isAhead) {
+					tooltip = (
+						<>
+							{tooltip}
+							<hr />
+							{branchPrefix} {pluralize('commit', branchState.behind)} behind and{' '}
+							{pluralize('commit', branchState.ahead)} ahead of {remote}
+							{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
+						</>
+					);
+				} else {
+					tooltip = (
+						<>
+							{tooltip}
+							<hr />
+							{branchPrefix} {pluralize('commit', branchState.behind)} behind {remote}
+							{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
+						</>
+					);
+				}
 			} else if (isAhead) {
 				action = 'push';
-				icon = 'arrow-up';
+				icon = 'repo-push';
 				label = 'Push';
-				tooltip = `Push to ${remote}\n\n${branchPrefix} ${pluralize('commit', branchState.ahead)} ahead of`;
+				tooltip = (
+					<>
+						Push {pluralize('commit', branchState.ahead)} to {remote}
+						{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
+						<hr />
+						{branchPrefix} {pluralize('commit', branchState.ahead)} ahead of {remote}
+					</>
+				);
 			}
-			tooltip += ` ${remote}`;
-			fetchTooltip += ` ${remote}`;
 		}
+
+		const lastFetchedDate = lastFetched && new Date(lastFetched);
+		const fetchedText = lastFetchedDate && lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
 
 		return (
 			<div className="titlebar__group">
@@ -1162,22 +976,23 @@ export function GraphWrapper({
 								state.webviewInstanceId,
 							)}
 							className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
-							title="&nbsp;"
 						>
-							<span className={`codicon codicon-${icon} action-button__icon`}></span>
+							<span className={`glicon glicon-${icon} action-button__icon`}></span>
 							{label}
 							{(isAhead || isBehind) && (
 								<span>
 									<span className="pill action-button__pill">
-										{isAhead && (
-											<span>
-												{branchState!.ahead} <span className="codicon codicon-arrow-up"></span>
-											</span>
-										)}
 										{isBehind && (
 											<span>
-												{branchState!.behind}{' '}
+												{branchState!.behind}
 												<span className="codicon codicon-arrow-down"></span>
+											</span>
+										)}
+										{isAhead && (
+											<span>
+												{isBehind && <>&nbsp;&nbsp;</>}
+												{branchState!.ahead}
+												<span className="codicon codicon-arrow-up"></span>
 											</span>
 										)}
 									</span>
@@ -1198,14 +1013,13 @@ export function GraphWrapper({
 					<a
 						href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
 						className="action-button"
-						title="&nbsp;"
 					>
-						<span className="codicon codicon-sync action-button__icon"></span>
-						Fetch
-						{fetchedText && <span className="action-button__small">({fetchedText})</span>}
+						<span className="glicon glicon-repo-fetch action-button__icon"></span>
+						Fetch {fetchedText && <span className="action-button__small">({fetchedText})</span>}
 					</a>
 					<span slot="content" style={{ whiteSpace: 'break-spaces' }}>
-						{fetchTooltip}
+						Fetch from {remote}
+						{branchState?.provider?.name ? ` on ${branchState.provider?.name}` : ''}
 						{fetchedText && (
 							<>
 								<hr /> Last fetched {fetchedText}
@@ -1231,7 +1045,6 @@ export function GraphWrapper({
 								href={branchState.provider.url}
 								className="action-button"
 								style={{ marginRight: '-0.5rem' }}
-								title="&nbsp;"
 								aria-label={`Open Repository on ${branchState.provider.name}`}
 							>
 								<span
@@ -1250,8 +1063,6 @@ export function GraphWrapper({
 						<button
 							type="button"
 							className="action-button"
-							slot="trigger"
-							title="&nbsp;"
 							aria-label="Switch to Another Repository..."
 							disabled={repos.length < 2}
 							onClick={() => handleChooseRepository()}
@@ -1271,18 +1082,51 @@ export function GraphWrapper({
 							<span>
 								<span className="codicon codicon-chevron-right"></span>
 							</span>
-							<GlTooltip placement="bottom">
+							{branchState?.pr && (
+								<GlPopover placement="bottom">
+									<button slot="anchor" type="button" className="action-button">
+										<GlIssuePullRequest
+											type="pr"
+											identifier={`#${branchState.pr.id}`}
+											status={branchState.pr.state}
+											compact
+										/>
+									</button>
+									<div slot="content">
+										<GlIssuePullRequest
+											type="pr"
+											name={branchState.pr.title}
+											url={branchState.pr.url}
+											identifier={`#${branchState.pr.id}`}
+											status={branchState.pr.state}
+											date={branchState.pr.updatedDate}
+											dateFormat={graphConfig?.dateFormat}
+											dateStyle={graphConfig?.dateStyle}
+											details
+											onOpenDetails={() =>
+												branchState.pr?.id ? onOpenPullRequest?.(branchState.pr) : undefined
+											}
+										/>
+									</div>
+								</GlPopover>
+							)}
+							<GlPopover placement="bottom">
 								<a
+									slot="anchor"
 									href={createWebviewCommandLink(
 										'gitlens.graph.switchToAnotherBranch',
 										state.webviewId,
 										state.webviewInstanceId,
 									)}
 									className="action-button"
-									title="&nbsp;"
+									style={branchState?.pr ? { marginLeft: '-0.6rem' } : {}}
 									aria-label="Switch to Another Branch..."
 								>
-									<span className="codicon codicon-git-branch" aria-hidden="true"></span>
+									{!branchState?.pr ? (
+										<span className="codicon codicon-git-branch" aria-hidden="true"></span>
+									) : (
+										''
+									)}
 									{branchName}
 									<span
 										className="codicon codicon-chevron-down action-button__more"
@@ -1290,14 +1134,14 @@ export function GraphWrapper({
 									></span>
 								</a>
 								<div slot="content">
-									<span style={{ whiteSpace: 'preserve' }}>
+									<span>
 										Switch to Another Branch...
 										<hr />
 										<span className="codicon codicon-git-branch" aria-hidden="true"></span>{' '}
-										{branchName}
+										<span className="md-code">{branchName}</span>
 									</span>
 								</div>
-							</GlTooltip>
+							</GlPopover>
 							<span>
 								<span className="codicon codicon-chevron-right"></span>
 							</span>
@@ -1305,19 +1149,28 @@ export function GraphWrapper({
 						</>
 					)}
 					<GlTooltip placement="bottom">
-						<a href="command:gitlens.showFocusPage" className="action-button">
+						<a
+							href={`command:gitlens.showLaunchpad?${encodeURIComponent(
+								JSON.stringify({
+									source: 'graph',
+								} satisfies Omit<FocusCommandArgs, 'command'>),
+							)}`}
+							className="action-button"
+						>
 							<span className="codicon codicon-rocket"></span>
 							Launchpad
 						</a>
 						<span slot="content">
 							<span style={{ whiteSpace: 'break-spaces' }}>
-								Try Launchpad &mdash; bring all of your GitHub pull requests and issues into a unified
-								actionable to help to you more easily juggle work in progress, pending work, reviews,
-								and more
+								Launchpad organizes your pull requests into actionable groups to help you focus and keep
+								your team unblocked
 							</span>
 						</span>
 					</GlTooltip>
-					<GlFeatureBadge subscription={subscription}></GlFeatureBadge>
+					<GlFeatureBadge
+						source={{ source: 'graph', detail: 'badge' }}
+						subscription={subscription}
+					></GlFeatureBadge>
 				</div>
 				{allowed && (
 					<div className="titlebar__row">
@@ -1551,30 +1404,35 @@ export function GraphWrapper({
 			<GlFeatureGate
 				className="graph-app__gate"
 				appearance="alert"
+				featureWithArticleIfNeeded="the Commit Graph"
+				source={{ source: 'graph', detail: 'gate' }}
 				state={subscription?.state}
 				visible={!allowed}
 			>
 				<p slot="feature">
 					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#commit-graph-%e2%9c%a8">
 						Commit Graph
-					</a>{' '}
+					</a>
+					<GlFeatureBadge
+						source={{ source: 'graph', detail: 'badge' }}
+						subscription={subscription}
+					></GlFeatureBadge>{' '}
 					&mdash; easily visualize your repository and keep track of all work in progress. Use the rich commit
 					search to find a specific commit, message, author, a changed file or files, or even a specific code
 					change.
 				</p>
 			</GlFeatureGate>
-			{graphConfig?.minimap && (
-				<GraphMinimap
-					ref={minimap as any}
-					activeDay={activeDay}
-					data={minimapData?.stats}
-					dataType={graphConfig?.minimapDataType ?? 'commits'}
-					markers={minimapData?.markers}
-					searchResults={minimapSearchResults}
-					visibleDays={visibleDays}
-					onSelected={e => handleOnMinimapDaySelected(e)}
-				></GraphMinimap>
-			)}
+			<GlGraphMinimapContainer
+				ref={minimap as any}
+				activeDay={activeDay}
+				disabled={!graphConfig?.minimap}
+				rows={rows}
+				rowsStats={rowsStats}
+				dataType={graphConfig?.minimapDataType ?? 'commits'}
+				searchResults={searchResults}
+				visibleDays={visibleDays}
+				onSelected={e => handleOnMinimapDaySelected(e)}
+			></GlGraphMinimapContainer>
 			<main id="main" className="graph-app__main" aria-hidden={!allowed}>
 				{repo !== undefined ? (
 					<>
@@ -1772,8 +1630,4 @@ function getSearchResultModel(state: State): {
 		}
 	}
 	return { results: results, resultsError: resultsError };
-}
-
-function getDay(date: number | Date): number {
-	return new Date(date).setHours(0, 0, 0, 0);
 }

@@ -1,9 +1,10 @@
-import { defineGkElement, Popover } from '@gitkraken/shared-web-components';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../../commitDetails/protocol';
 import { commitActionStyles } from './commit-action.css';
+import '../../shared/components/overlays/popover';
+import '../../shared/components/overlays/tooltip';
 
 @customElement('gl-status-nav')
 export class GlStatusNav extends LitElement {
@@ -25,8 +26,12 @@ export class GlStatusNav extends LitElement {
 				gap: 0.2rem;
 			}
 
-			.commit-action--overflowed {
+			.tooltip--overflowed {
 				min-width: 0;
+			}
+
+			.commit-action--overflowed {
+				width: 100%;
 			}
 
 			.branch {
@@ -50,9 +55,16 @@ export class GlStatusNav extends LitElement {
 				flex: 0 1 auto;
 			}
 
-			.popover-content {
-				background-color: var(--color-background--level-15);
-				padding: 0.8rem 1.2rem;
+			hr {
+				border: none;
+				border-top: 1px solid var(--color-foreground--25);
+			}
+
+			.md-code {
+				background: rgba(255, 255, 255, 0.05);
+				border-radius: 3px;
+				padding: 0px 4px 2px 4px;
+				font-family: var(--vscode-editor-font-family);
 			}
 		`,
 	];
@@ -63,12 +75,6 @@ export class GlStatusNav extends LitElement {
 	@property({ type: Object })
 	preferences?: State['preferences'];
 
-	constructor() {
-		super();
-
-		defineGkElement(Popover);
-	}
-
 	override render() {
 		if (this.wip == null) return nothing;
 
@@ -76,49 +82,66 @@ export class GlStatusNav extends LitElement {
 		const branch = this.wip.branch;
 		if (changes == null || branch == null) return nothing;
 
+		let prIcon = 'git-pull-request';
+		if (this.wip.pullRequest?.state) {
+			switch (this.wip.pullRequest?.state) {
+				case 'merged':
+					prIcon = 'git-merge';
+					break;
+				case 'closed':
+					prIcon = 'git-pull-request-closed';
+					break;
+			}
+		}
+
 		return html`
 			<div class="group">
 				${when(
 					this.wip.pullRequest != null,
 					() =>
-						html`<gk-popover placement="bottom">
-							<a href="#" class="commit-action" slot="trigger"
-								><code-icon icon="git-pull-request" class="pr"></code-icon
+						html`<gl-popover hoist>
+							<a href="#" class="commit-action" slot="anchor"
+								><code-icon icon=${prIcon} class="pr pr--${this.wip!.pullRequest!.state}"></code-icon
 								><span>#${this.wip!.pullRequest!.id}</span></a
 							>
-							<div class="popover-content">
+							<div slot="content">
 								<issue-pull-request
 									type="pr"
 									name="${this.wip!.pullRequest!.title}"
 									url="${this.wip!.pullRequest!.url}"
-									key="#${this.wip!.pullRequest!.id}"
+									identifier="#${this.wip!.pullRequest!.id}"
 									status="${this.wip!.pullRequest!.state}"
 									.date=${this.wip!.pullRequest!.updatedDate}
 									.dateFormat="${this.preferences?.dateFormat}"
 									.dateStyle="${this.preferences?.dateStyle}"
+									details
 								></issue-pull-request>
 							</div>
-						</gk-popover>`,
+						</gl-popover>`,
 				)}
-				<a
-					href="#"
-					class="commit-action commit-action--overflowed"
-					@click=${(e: MouseEvent) => this.handleAction(e, 'switch')}
-				>
-					${when(this.wip.pullRequest == null, () => html`<code-icon icon="git-branch"></code-icon>`)}<span
-						class="branch"
-						>${branch.name}</span
-					><code-icon icon="chevron-down" size="10"></code-icon
-				></a>
+				<gl-tooltip hoist class="tooltip--overflowed">
+					<a
+						href="#"
+						class="commit-action commit-action--overflowed"
+						@click=${(e: MouseEvent) => this.handleAction(e, 'switch')}
+					>
+						${when(
+							this.wip.pullRequest == null,
+							() => html`<code-icon icon="git-branch"></code-icon>`,
+						)}<span class="branch">${branch.name}</span><code-icon icon="chevron-down" size="10"></code-icon
+					></a>
+					<div slot="content">
+						Switch to Another Branch...
+						<hr />
+						<code-icon icon="git-branch"></code-icon><span class="md-code">${this.wip.branch?.name}</span>
+					</div>
+				</gl-tooltip>
 			</div>
 			<div class="group">
-				<a
-					href="#"
-					class="commit-action"
-					title="Fetch"
-					@click=${(e: MouseEvent) => this.handleAction(e, 'fetch')}
-					><code-icon icon="sync"></code-icon
-				></a>
+				<gl-tooltip hoist content="Fetch">
+					<a href="#" class="commit-action" @click=${(e: MouseEvent) => this.handleAction(e, 'fetch')}
+						><code-icon icon="gl-repo-fetch"></code-icon></a
+				></gl-tooltip>
 			</div>
 		`;
 	}

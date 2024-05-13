@@ -22,7 +22,7 @@ Use `Switch to Pre-Release Version` on the extension banner to live on the edge 
 
 All features are free to use on all repos, **except** for features,
 
-- marked with a ✨ require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately hosted repos
+- marked with a ✨ require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos
 - marked with a ☁️ require a GitKraken account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
 
 See the [FAQ](#is-gitlens-free-to-use 'Jump to FAQ') for more details.
@@ -259,7 +259,7 @@ Use the `Generate Commit Message` command from the Source Control view's context
 
 # Ready for GitLens Pro?
 
-When you're ready to unlock the full potential of GitLens and enjoy all the benefits on your privately hosted repos, consider upgrading to GitLens Pro. With GitLens Pro, you'll gain access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan.
+When you're ready to unlock the full potential of GitLens and enjoy all the benefits on your privately-hosted repos, consider upgrading to GitLens Pro. With GitLens Pro, you'll gain access to ✨ features on privately-hosted repos and ☁️ features based on the Pro plan.
 
 To learn more about the pricing and the additional ✨ and ☁️ features offered with GitLens Pro, visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing). Upgrade to GitLens Pro today and take your Git workflow to the next level!
 
@@ -269,16 +269,16 @@ To learn more about the pricing and the additional ✨ and ☁️ features offer
 
 Yes. All features are free to use on all repos, **except** for features,
 
-- marked with a ✨ require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately hosted repos
+- marked with a ✨ require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos
 - marked with a ☁️ require a GitKraken Account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
 
-While GitLens offers a remarkable set of free features, a subset of features tailored for professional developers and teams, marked with a ✨, require a trial or paid plan for use on privately hosted repos &mdash; use on local or publicly hosted repos is free for everyone. Additionally some features marked with a ☁️, rely on GitKraken Dev Services which requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc.
+While GitLens offers a remarkable set of free features, a subset of features tailored for professional developers and teams, marked with a ✨, require a trial or paid plan for use on privately-hosted repos &mdash; use on local or publicly-hosted repos is free for everyone. Additionally some features marked with a ☁️, rely on GitKraken Dev Services which requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc.
 
 Preview ✨ features instantly for free for 3 days without an account, or start a free GitLens Pro trial to get an additional 7 days and gain access to ☁️ features to experience the full power of GitLens.
 
 ## Are ✨ and ☁️ features free to use?
 
-✨ features are free for use on local and publicly hosted repos, while a paid plan is required for use on privately hosted repos. ☁️ feature access is based on your plan including a Free plan.
+✨ features are free for use on local and publicly-hosted repos, while a paid plan is required for use on privately-hosted repos. ☁️ feature access is based on your plan including a Free plan.
 
 ## Where can I find pricing?
 

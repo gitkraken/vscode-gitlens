@@ -27,7 +27,7 @@ export class ServerConnection implements Disposable {
 	dispose() {}
 
 	@memoize()
-	private get baseGkDevAccountsUri(): Uri {
+	private get baseGkDevUri(): Uri {
 		if (this.container.env === 'staging') {
 			return Uri.parse('https://staging.gitkraken.dev');
 		}
@@ -39,8 +39,8 @@ export class ServerConnection implements Disposable {
 		return Uri.parse('https://gitkraken.dev');
 	}
 
-	getGkDevAccountsUri(path?: string, query?: string) {
-		let uri = path != null ? Uri.joinPath(this.baseGkDevAccountsUri, path) : this.baseGkDevAccountsUri;
+	getGkDevUri(path?: string, query?: string) {
+		let uri = path != null ? Uri.joinPath(this.baseGkDevUri, path) : this.baseGkDevUri;
 		if (query != null) {
 			uri = uri.with({ query: query });
 		}
@@ -100,28 +100,6 @@ export class ServerConnection implements Disposable {
 
 	getGkDevApiUrl(...pathSegments: string[]) {
 		return Uri.joinPath(this.baseGkDevApiUri, ...pathSegments).toString();
-	}
-
-	@memoize()
-	get siteUri(): Uri {
-		const { env } = this.container;
-		if (env === 'staging') {
-			return Uri.parse('https://staging.gitkraken.com');
-		}
-
-		if (env === 'dev') {
-			return Uri.parse('https://dev.gitkraken.com');
-		}
-
-		return Uri.parse('https://gitkraken.com');
-	}
-
-	getSiteUri(path?: string, query?: string) {
-		let uri = path != null ? Uri.joinPath(this.siteUri, path) : this.siteUri;
-		if (query != null) {
-			uri = uri.with({ query: query });
-		}
-		return uri;
 	}
 
 	@memoize()

@@ -21,8 +21,9 @@ import {
 	window,
 } from 'vscode';
 import { getPlatform } from '@env/platform';
-import type { CoreColors } from '../../../constants';
-import { Commands } from '../../../constants';
+import type { OpenWalkthroughCommandArgs } from '../../../commands/walkthroughs';
+import type { CoreColors, Source } from '../../../constants';
+import { Commands, urls } from '../../../constants';
 import type { Container } from '../../../container';
 import { AccountValidationError } from '../../../errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
@@ -33,13 +34,14 @@ import { setContext } from '../../../system/context';
 import { createFromDateDelta, fromNow } from '../../../system/date';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
+import { take } from '../../../system/event';
 import type { Deferrable } from '../../../system/function';
 import { debounce, once } from '../../../system/function';
 import { Logger } from '../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
 import { flatten } from '../../../system/object';
 import { pluralize } from '../../../system/string';
-import { openWalkthrough } from '../../../system/utils';
+import { openUrl } from '../../../system/utils';
 import { satisfies } from '../../../system/version';
 import type { GKCheckInResponse } from '../checkin';
 import { getSubscriptionFromCheckIn } from '../checkin';
@@ -136,7 +138,7 @@ export class SubscriptionService implements Disposable {
 		if (session != null && e.removed?.some(s => s.id === session.id)) {
 			this._session = undefined;
 			this._sessionPromise = undefined;
-			void this.logout();
+			void this.logout(undefined, undefined);
 			return;
 		}
 
@@ -173,25 +175,26 @@ export class SubscriptionService implements Disposable {
 		void this.container.viewCommands;
 
 		return [
+			registerCommand(Commands.PlusLogin, (src?: Source) => this.loginOrSignUp(false, src)),
+			registerCommand(Commands.PlusSignUp, (src?: Source) => this.loginOrSignUp(true, src)),
+			registerCommand(Commands.PlusLogout, (src?: Source) => this.logout(undefined, src)),
 			registerCommand(Commands.GKSwitchOrganization, () => this.switchOrganization()),
-			registerCommand(Commands.PlusLogin, () => this.loginOrSignUp()),
-			registerCommand(Commands.PlusSignUp, () => this.loginOrSignUp(true)),
-			registerCommand(Commands.PlusLogout, () => this.logout()),
 
-			registerCommand(Commands.PlusStartPreviewTrial, () => this.startPreviewTrial()),
-			registerCommand(Commands.PlusReactivateProTrial, () => this.reactivateProTrial()),
-			registerCommand(Commands.PlusManage, () => this.manage()),
-			registerCommand(Commands.PlusPurchase, () => this.purchase()),
+			registerCommand(Commands.PlusManage, (src?: Source) => this.manage(src)),
+			registerCommand(Commands.PlusShowPlans, (src?: Source) => this.showPlans(src)),
+			registerCommand(Commands.PlusStartPreviewTrial, (src?: Source) => this.startPreviewTrial(src)),
+			registerCommand(Commands.PlusReactivateProTrial, (src?: Source) => this.reactivateProTrial(src)),
+			registerCommand(Commands.PlusResendVerification, (src?: Source) => this.resendVerification(src)),
+			registerCommand(Commands.PlusUpgrade, (src?: Source) => this.upgrade(src)),
 
-			registerCommand(Commands.PlusResendVerification, () => this.resendVerification()),
-			registerCommand(Commands.PlusValidate, () => this.validate({ force: true })),
+			registerCommand(Commands.PlusHide, (src?: Source) => this.setProFeaturesVisibility(false, src)),
+			registerCommand(Commands.PlusRestore, (src?: Source) => this.setProFeaturesVisibility(true, src)),
 
-			registerCommand(Commands.PlusShowPlans, () => this.showPlans()),
+			registerCommand(Commands.PlusValidate, (src?: Source) => this.validate({ force: true }, src)),
 
-			registerCommand(Commands.PlusHide, () => configuration.updateEffective('plusFeatures.enabled', false)),
-			registerCommand(Commands.PlusRestore, () => configuration.updateEffective('plusFeatures.enabled', true)),
-
-			registerCommand('gitlens.plus.reset', () => this.logout(true)),
+			...(this.container.debugging
+				? [registerCommand('gitlens.plus.reset', () => this.logout(true, undefined))]
+				: []),
 		];
 	}
 
@@ -208,28 +211,62 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@debug()
-	async learnAboutPreviewOrTrial() {
+	async learnAboutPro(source: Source, originalSource: Source | undefined): Promise<void> {
+		if (originalSource != null) {
+			source.detail = {
+				...(typeof source.detail === 'string' ? { action: source.detail } : source.detail),
+				...flatten(originalSource, { prefix: 'original' }),
+			};
+		}
+
 		const subscription = await this.getSubscription();
-		if (subscription.state === SubscriptionState.FreeInPreviewTrial) {
-			void openWalkthrough(
-				this.container.context.extension.id,
-				'gitlens.welcome',
-				'gitlens.welcome.preview',
-				false,
-			);
-		} else if (subscription.state === SubscriptionState.FreePlusInTrial) {
-			void openWalkthrough(
-				this.container.context.extension.id,
-				'gitlens.welcome',
-				'gitlens.welcome.trial',
-				false,
-			);
+		switch (subscription.state) {
+			case SubscriptionState.Free:
+			case SubscriptionState.FreeInPreviewTrial:
+			case SubscriptionState.FreePreviewTrialExpired:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					...source,
+					step: 'pro-features',
+				});
+				break;
+			case SubscriptionState.FreePlusInTrial:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					...source,
+					step: 'pro-trial',
+				});
+				break;
+			case SubscriptionState.FreePlusTrialExpired:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					...source,
+					step: 'pro-upgrade',
+				});
+				break;
+			case SubscriptionState.FreePlusTrialReactivationEligible:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					...source,
+					step: 'pro-reactivate',
+				});
+				break;
+			case SubscriptionState.Paid:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					...source,
+					step: 'pro-paid',
+				});
+				break;
 		}
 	}
 
 	@log()
-	async loginOrSignUp(signUp: boolean = false): Promise<boolean> {
+	async loginOrSignUp(signUp: boolean, source: Source | undefined): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
+
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent(
+				'subscription/action',
+				{ action: signUp ? 'sign-up' : 'sign-in' },
+				source,
+			);
+		}
 
 		// Abort any waiting authentication to ensure we can start a new flow
 		await this.container.accountAuthentication.abort();
@@ -244,54 +281,101 @@ export class SubscriptionService implements Disposable {
 			} = this._subscription;
 
 			if (account?.verified === false) {
-				const confirm: MessageItem = { title: 'Resend Verification', isCloseAffordance: true };
-				const cancel: MessageItem = { title: 'Cancel' };
+				const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 7;
+
+				const verify: MessageItem = { title: 'Resend Email' };
+				const learn: MessageItem = { title: 'See Pro Features' };
+				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					`You must verify your email before you can access ${effective.name}.`,
+					`Welcome to your ${
+						effective.name
+					} Trial.\n\nYou must first verify your email. Once verified, you will have full access to Pro features for ${
+						days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
+					}.`,
+					{
+						modal: true,
+						detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					},
+					verify,
+					learn,
 					confirm,
-					cancel,
 				);
 
-				if (result === confirm) {
-					void this.resendVerification();
+				if (result === verify) {
+					void this.resendVerification(source);
+				} else if (result === learn) {
+					void this.learnAboutPro(
+						{ source: 'prompt', detail: { action: 'trial-started-verify-email' } },
+						source,
+					);
+				}
+			} else if (isSubscriptionPaid(this._subscription)) {
+				const learn: MessageItem = { title: 'See Pro Features' };
+				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
+				const result = await window.showInformationMessage(
+					`You are now on the ${actual.name} plan and have full access to Pro features.`,
+					{
+						modal: true,
+						detail: 'Your plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					},
+					learn,
+					confirm,
+				);
+
+				if (result === learn) {
+					void this.learnAboutPro({ source: 'prompt', detail: { action: 'upgraded' } }, source);
 				}
 			} else if (isSubscriptionTrial(this._subscription)) {
-				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
+				const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
 
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
-				const learn: MessageItem = { title: 'Learn More' };
+				const learn: MessageItem = { title: 'See Pro Features' };
+				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					`Welcome to ${
-						effective.name
-					} (Trial). You can now try Pro features on privately hosted repos for ${pluralize(
-						'more day',
-						remaining ?? 0,
-					)}.`,
-					{ modal: true },
+					`Welcome to your ${effective.name} Trial.\n\nYou now have full access to Pro features for ${
+						days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
+					}.`,
+					{
+						modal: true,
+						detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					},
 					confirm,
 					learn,
 				);
 
 				if (result === learn) {
-					void this.learnAboutPreviewOrTrial();
+					void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-started' } }, source);
 				}
-			} else if (isSubscriptionPaid(this._subscription)) {
-				void window.showInformationMessage(
-					`Welcome to ${actual.name}. You can now use Pro features on privately hosted repos.`,
-					'OK',
-				);
 			} else {
-				void window.showInformationMessage(
-					`Welcome to ${actual.name}. You can use Pro features on local & publicly hosted repos.`,
-					'OK',
+				const upgrade: MessageItem = { title: 'Upgrade to Pro' };
+				const learn: MessageItem = { title: 'See Pro Features' };
+				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
+				const result = await window.showInformationMessage(
+					`You are now on the ${actual.name} plan.`,
+					{
+						modal: true,
+						detail: 'You only have access to Pro features on publicly-hosted repos. For full access to Pro features, please upgrade to a paid plan.\nA paid plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					},
+					upgrade,
+					learn,
+					confirm,
 				);
+
+				if (result === upgrade) {
+					void this.upgrade(source);
+				} else if (result === learn) {
+					void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-ended' } }, source);
+				}
 			}
 		}
 		return loggedIn;
 	}
 
 	@log()
-	async logout(reset: boolean = false): Promise<void> {
+	async logout(reset: boolean = false, source: Source | undefined): Promise<void> {
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('subscription/action', { action: 'sign-out' }, source);
+		}
+
 		return this.logoutCore(reset);
 	}
 
@@ -347,29 +431,88 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	manage(): void {
+	manage(source: Source | undefined): void {
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('subscription/action', { action: 'manage' }, source);
+		}
+
 		void env.openExternal(this.connection.getAccountsUri());
 	}
 
+	@gate(() => '')
 	@log()
-	async purchase(): Promise<void> {
+	async reactivateProTrial(source: Source | undefined): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
+		const scope = getLogScope();
 
-		if (this._subscription.account == null) {
-			this.showPlans();
-		} else {
-			void env.openExternal(this.connection.getAccountsUri('subscription', 'product=gitlens&license=PRO'));
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('subscription/action', { action: 'reactivate' }, source);
 		}
-		await this.showAccountView();
+
+		const session = await this.ensureSession(false);
+		if (session == null) return;
+
+		const rsp = await this.connection.fetchApi('user/reactivate-trial', {
+			method: 'POST',
+			body: JSON.stringify({ client: 'gitlens' }),
+		});
+
+		if (!rsp.ok) {
+			if (rsp.status === 409) {
+				void window.showErrorMessage(
+					'You are not eligible to reactivate your Pro trial. If you feel that is an error, please contact support.',
+					'OK',
+				);
+				return;
+			}
+
+			void window.showErrorMessage(
+				`Unable to reactivate trial: (${rsp.status}) ${rsp.statusText}. Please try again. If this issue persists, please contact support.`,
+				'OK',
+			);
+			return;
+		}
+
+		// Trial was reactivated. Do a check-in to update, and show a message if successful.
+		try {
+			await this.checkInAndValidate(session, { force: true });
+			if (isSubscriptionTrial(this._subscription)) {
+				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
+
+				const confirm: MessageItem = { title: 'OK' };
+				const learn: MessageItem = { title: "See What's New" };
+				const result = await window.showInformationMessage(
+					`Your Pro trial has been reactivated! Experience all the new Pro features for another ${pluralize(
+						'day',
+						remaining ?? 0,
+					)}.`,
+					{ modal: true },
+					confirm,
+					learn,
+				);
+
+				if (result === learn) {
+					void env.openExternal(
+						Uri.parse('https://help.gitkraken.com/gitlens/gitlens-release-notes-current/'),
+					);
+				}
+			}
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
+		}
 	}
 
-	@gate()
+	@gate(() => '')
 	@log()
-	async resendVerification(): Promise<boolean> {
+	async resendVerification(source: Source | undefined): Promise<boolean> {
 		if (this._subscription.account?.verified) return true;
 
 		const scope = getLogScope();
 
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('subscription/action', { action: 'resend-verification' }, source);
+		}
 		void this.showAccountView(true);
 
 		const session = await this.ensureSession(false);
@@ -407,7 +550,7 @@ export class SubscriptionService implements Disposable {
 			);
 
 			if (result === confirm) {
-				await this.validate({ force: true });
+				await this.validate({ force: true }, source);
 				return true;
 			}
 		} catch (ex) {
@@ -420,6 +563,18 @@ export class SubscriptionService implements Disposable {
 		return false;
 	}
 
+	private setProFeaturesVisibility(visible: boolean, source: Source | undefined) {
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent(
+				'subscription/action',
+				{ action: 'visibility', visible: visible },
+				source,
+			);
+		}
+
+		void configuration.updateEffective('plusFeatures.enabled', false);
+	}
+
 	@log()
 	async showAccountView(silent: boolean = false): Promise<void> {
 		if (silent && !configuration.get('plusFeatures.enabled', undefined, true)) return;
@@ -429,31 +584,41 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
-	private showPlans(): void {
-		void env.openExternal(this.connection.getSiteUri('gitlens/pricing'));
+	private showPlans(source: Source | undefined): void {
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('subscription/action', { action: 'pricing' }, source);
+		}
+
+		void openUrl(urls.pricing);
 	}
 
-	@gate()
+	@gate(() => '')
 	@log()
-	async startPreviewTrial(silent?: boolean): Promise<void> {
+	async startPreviewTrial(source: Source | undefined): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
+
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('subscription/action', { action: 'start-preview-trial' }, source);
+		}
 
 		let { plan, previewTrial } = this._subscription;
 		if (previewTrial != null) {
 			void this.showAccountView();
 
-			if (!silent && plan.effective.id === SubscriptionPlanId.Free) {
-				const confirm: MessageItem = { title: 'Start Pro Trial', isCloseAffordance: true };
-				const cancel: MessageItem = { title: 'Cancel' };
+			if (plan.effective.id === SubscriptionPlanId.Free) {
+				const signUp: MessageItem = { title: 'Start Pro Trial' };
+				const signIn: MessageItem = { title: 'Sign In' };
+				const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					'Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days of all Pro features.\n\nA trial or paid plan is required to use Pro features on privately hosted repos.',
+					'Do you want to start your free 7-day Pro trial for full access to Pro features?',
 					{ modal: true },
-					confirm,
+					signUp,
+					signIn,
 					cancel,
 				);
 
-				if (result === confirm) {
-					void this.loginOrSignUp();
+				if (result === signUp || result === signIn) {
+					void this.loginOrSignUp(result === signUp, source);
 				}
 			}
 
@@ -467,14 +632,14 @@ export class SubscriptionService implements Disposable {
 
 		let days: number;
 		let expiresOn = new Date(startedOn);
-		if (!this.container.debugging) {
+		if (this.container.debugging) {
+			expiresOn = createFromDateDelta(expiresOn, { minutes: 1 });
+			days = 0;
+		} else {
 			// Normalize the date to just before midnight on the same day
 			expiresOn.setHours(23, 59, 59, 999);
 			expiresOn = createFromDateDelta(expiresOn, { days: 3 });
 			days = 3;
-		} else {
-			expiresOn = createFromDateDelta(expiresOn, { minutes: 1 });
-			days = 0;
 		}
 
 		previewTrial = {
@@ -491,89 +656,56 @@ export class SubscriptionService implements Disposable {
 			previewTrial: previewTrial,
 		});
 
-		if (!silent) {
-			setTimeout(async () => {
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
-				const learn: MessageItem = { title: 'Learn More' };
-				const result = await window.showInformationMessage(
-					`You can now preview Pro features for ${pluralize(
-						'day',
-						days,
-					)}. After which, you can start a free GitLens Pro trial for an additional 7 days.`,
-					confirm,
-					learn,
-				);
+		setTimeout(async () => {
+			const confirm: MessageItem = { title: 'Continue' };
+			const learn: MessageItem = { title: 'See Pro Features' };
+			const result = await window.showInformationMessage(
+				`You can now preview local Pro features for ${
+					days < 1 ? '1 day' : pluralize('day', days)
+				}, or [start your free 7-day Pro trial](command:gitlens.plus.signUp "Start Pro Trial") for full access to Pro features.`,
+				confirm,
+				learn,
+			);
 
-				if (result === learn) {
-					void this.learnAboutPreviewOrTrial();
-				}
-			}, 1);
-		}
+			if (result === learn) {
+				void this.learnAboutPro({ source: 'notification', detail: { action: 'preview-started' } }, source);
+			}
+		}, 1);
 	}
 
-	@gate()
 	@log()
-	async reactivateProTrial(): Promise<void> {
+	async upgrade(source: Source | undefined): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
-		const scope = getLogScope();
 
-		const session = await this.ensureSession(false);
-		if (session == null) return;
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('subscription/action', { action: 'upgrade' }, source);
+		}
 
-		const rsp = await this.connection.fetchApi('user/reactivate-trial', {
-			method: 'POST',
-			body: JSON.stringify({ client: 'gitlens' }),
-		});
-
-		if (!rsp.ok) {
-			if (rsp.status === 409) {
-				void window.showErrorMessage(
-					'Unable to reactivate trial: User not eligible. Please try again. If this issue persists, please contact support.',
-					'OK',
-				);
-				return;
-			}
-
-			void window.showErrorMessage(
-				`Unable to reactivate trial: (${rsp.status}) ${rsp.statusText}. Please try again. If this issue persists, please contact support.`,
-				'OK',
+		if (this._subscription.account == null) {
+			this.showPlans(source);
+		} else {
+			const activeOrgId = this._subscription.activeOrganization?.id;
+			void env.openExternal(
+				this.connection.getGkDevUri(
+					'purchase',
+					activeOrgId ? `source=gitlens&org=${activeOrgId}` : 'source=gitlens',
+				),
 			);
-			return;
-		}
-
-		// Trial was reactivated. Do a check-in to update, and show a message if successful.
-		try {
-			await this.checkInAndValidate(session, { force: true });
-			if (isSubscriptionTrial(this._subscription)) {
-				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
-
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
-				const learn: MessageItem = { title: "See What's New" };
-				const result = await window.showInformationMessage(
-					`Your new trial has been activated! Enjoy access to Pro features on privately hosted repos for another ${pluralize(
-						'day',
-						remaining ?? 0,
-					)}.`,
-					{ modal: true },
-					confirm,
-					learn,
-				);
-
-				if (result === learn) {
-					void env.openExternal(
-						Uri.parse('https://help.gitkraken.com/gitlens/gitlens-release-notes-current/'),
-					);
+			take(
+				window.onDidChangeWindowState,
+				2,
+			)(e => {
+				if (e.focused && this._session != null) {
+					void this.checkInAndValidate(this._session, { force: true });
 				}
-			}
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
+			});
 		}
+		await this.showAccountView();
 	}
 
 	@gate<SubscriptionService['validate']>(o => `${o?.force ?? false}`)
 	@log()
-	async validate(options?: { force?: boolean }): Promise<void> {
+	async validate(options?: { force?: boolean }, _source?: Source | undefined): Promise<void> {
 		const scope = getLogScope();
 
 		const session = await this.ensureSession(false);
@@ -880,7 +1012,13 @@ export class SubscriptionService implements Disposable {
 							);
 
 							if (result === confirm) {
-								void this.loginOrSignUp();
+								void this.loginOrSignUp(false, {
+									source: 'subscription',
+									detail: {
+										error: 'validation-failed',
+										'error.message': ex.message,
+									},
+								});
 							}
 						});
 					}
@@ -1118,7 +1256,7 @@ export class SubscriptionService implements Disposable {
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				trial
 					? `**Please verify your email**\n\nYou must verify your email before you can start your **${effective.name}** trial.\n\nClick for details`
-					: `**Please verify your email**\n\nYou must verify your email before you can use Pro features on privately hosted repos.\n\nClick for details`,
+					: `**Please verify your email**\n\nYou must verify your email before you can use Pro features on privately-hosted repos.\n\nClick for details`,
 				true,
 			);
 		} else {
@@ -1130,14 +1268,15 @@ export class SubscriptionService implements Disposable {
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				`${
 					isReactivatedTrial
-						? `[See what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/) with
-			${pluralize('day', remaining ?? 0, {
-				infix: ' more ',
-			})}
-			in your **${effective.name}** trial.`
+						? `[See what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/) with ${pluralize(
+								'day',
+								remaining ?? 0,
+								{ infix: ' more ' },
+						  )} in your **${effective.name}** trial.`
 						: `You have ${pluralize('day', remaining ?? 0)} remaining in your **${effective.name}** trial.`
-				} Once your trial ends, you'll need a paid plan to continue using Pro features.\n\nTry our
-			[other developer tools](https://www.gitkraken.com/suite) also included in your trial.`,
+				} Once your trial ends, you'll need a paid plan for full access to [Pro features](command:gitlens.openWalkthrough?%7B%22step%22%3A%22pro-trial%22,%22source%22%3A%22prompt%22%7D).\n\nYour trial also includes access to our [DevEx platform](${
+					urls.platform
+				}), unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
 				true,
 			);
 		}

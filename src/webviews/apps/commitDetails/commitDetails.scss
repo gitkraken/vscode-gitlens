@@ -20,7 +20,7 @@
 
 main {
 	flex: 1 1 auto;
-	// overflow: hidden;
+	overflow: hidden;
 	display: flex;
 	flex-direction: column;
 }
@@ -36,6 +36,7 @@ gl-wip-details {
 
 webview-pane-group {
 	height: 100%;
+	overflow: hidden;
 }
 
 .popover-content {
@@ -60,6 +61,7 @@ webview-pane-group {
 	}
 
 	&__tab {
+		position: relative;
 		appearance: none;
 		background-color: var(--color-background--level-10);
 		color: var(--color-foreground--85);
@@ -73,12 +75,46 @@ webview-pane-group {
 		}
 
 		&.is-active {
-			position: relative;
 			z-index: 1;
 			background-color: color-mix(in srgb, var(--gl-color-background-counter) 25%, var(--color-background));
 			padding-block: 0.6rem;
 			box-shadow: 0 -2px 0 0 var(--vscode-button-hoverBackground);
 			color: var(--color-foreground);
+		}
+
+		&-tracking {
+			--gl-pill-foreground: currentColor;
+			--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
+			margin-inline: 0.2rem -0.4rem;
+		}
+
+		&-indicator {
+			--gl-indicator-size: 0.46rem;
+			position: absolute;
+			bottom: 0.825rem;
+			left: 2.1rem;
+			z-index: 1;
+
+			&--ahead {
+				--gl-indicator-color: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
+			}
+			&--behind {
+				--gl-indicator-color: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
+			}
+			&--both {
+				--gl-indicator-color: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
+			}
+		}
+
+		&.is-active &-indicator {
+			bottom: 1.025rem;
+		}
+
+		&-pulse {
+			position: absolute;
+			bottom: 0.2rem;
+			right: 0.4rem;
+			z-index: 2;
 		}
 	}
 
@@ -104,4 +140,25 @@ webview-pane-group {
 
 :root {
 	--gk-avatar-size: 1.6rem;
+}
+
+hr {
+	border: none;
+	border-top: 1px solid var(--color-foreground--25);
+}
+
+.md-code {
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 3px;
+	padding: 0px 4px 2px 4px;
+	font-family: var(--vscode-editor-font-family);
+}
+
+.inline-popover {
+	display: inline-block;
+}
+
+.tooltip-hint {
+	white-space: nowrap;
+	border-bottom: 1px dashed currentColor;
 }

@@ -4,6 +4,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import { urls } from '../../../../../constants';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { DraftRole, DraftVisibility } from '../../../../../gk/models/drafts';
 import type {
@@ -125,6 +126,12 @@ export class GlPatchCreate extends GlTreeBase {
 		defineGkElement(Avatar, Button, Menu, MenuItem, Popover);
 	}
 
+	protected override firstUpdated() {
+		window.requestAnimationFrame(() => {
+			this.titleInput.focus();
+		});
+	}
+
 	renderUserSelection(userSelection: DraftUserSelection) {
 		const role = userSelection.pendingRole!;
 		const options = new Map<string, string>([
@@ -205,7 +212,8 @@ export class GlPatchCreate extends GlTreeBase {
 				break;
 		}
 
-		const draftName = this.review ? 'Suggested Changes' : 'Cloud Patch';
+		const draftName = this.review ? 'Code Suggestion' : 'Cloud Patch';
+		const draftNamePlural = this.review ? 'Code Suggestions' : 'Cloud Patches';
 		return html`
 			<div class="section section--action">
 				${when(
@@ -244,7 +252,7 @@ export class GlPatchCreate extends GlTreeBase {
 								></span>
 							</div>
 							<gl-button appearance="secondary" @click=${this.onInviteUsers}
-								><code-icon icon="person-add"></code-icon> Invite</gl-button
+								><code-icon icon="person-add" slot="prefix"></code-icon> Invite</gl-button
 							>
 						</div>
 						${this.renderUserSelectionList()}
@@ -279,15 +287,27 @@ export class GlPatchCreate extends GlTreeBase {
 					</span>
 				</p>
 				${when(
+					this.review === true,
+					() => html`
+						<p class="button-container">
+							<span class="button-group button-group--single">
+								<gl-button appearance="secondary" full @click=${() => this.onCancel()}
+									>Cancel</gl-button
+								>
+							</span>
+						</p>
+					`,
+				)}
+				${when(
 					this.state?.orgSettings.byob === false,
 					() =>
 						html`<p class="h-deemphasize">
 							<code-icon icon="lock"></code-icon>
 							<a
-								href="https://www.gitkraken.com/solutions/cloud-patches"
-								title="Learn more about Cloud Patches"
-								aria-label="Learn more about Cloud Patches"
-								>${this.review ? 'Suggested Changes' : 'Cloud Patches'}</a
+								href="${urls.cloudPatches}"
+								title="Learn more about ${draftNamePlural}"
+								aria-label="Learn more about ${draftNamePlural}"
+								>${draftNamePlural}</a
 							>
 							are
 							<a
@@ -303,9 +323,9 @@ export class GlPatchCreate extends GlTreeBase {
 							<code-icon icon="info"></code-icon>
 							Your
 							<a
-								href="https://www.gitkraken.com/solutions/cloud-patches"
-								title="Learn more about Cloud Patches"
-								aria-label="Learn more about Cloud Patches"
+								href="${urls.cloudPatches}"
+								title="Learn more about ${draftNamePlural}"
+								aria-label="Learn more about ${draftNamePlural}"
 								>${draftName}</a
 							>
 							will be securely stored in your organization's self-hosted storage
@@ -335,7 +355,7 @@ export class GlPatchCreate extends GlTreeBase {
 	private renderChangedFiles() {
 		return html`
 			<webview-pane class="h-no-border" expanded>
-				<span slot="title">Changes to Include</span>
+				<span slot="title">${this.review ? 'Changes to Suggest' : 'Changes to Include'}</span>
 				<action-nav slot="actions">${this.renderLayoutAction(this.fileLayout)}</action-nav>
 
 				${when(
@@ -667,6 +687,14 @@ export class GlPatchCreate extends GlTreeBase {
 			case 'file-open':
 				this.onOpenFile(e);
 				break;
+
+			case 'file-stage':
+				this.onStageFile(e);
+				break;
+
+			case 'file-unstage':
+				this.onUnstageFile(e);
+				break;
 		}
 	}
 
@@ -683,18 +711,54 @@ export class GlPatchCreate extends GlTreeBase {
 		});
 	}
 
+	onStageFile(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		this.emit('gl-patch-file-stage', {
+			...file,
+			showOptions: {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			},
+		});
+	}
+
+	onUnstageFile(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		this.emit('gl-patch-file-unstage', {
+			...file,
+			showOptions: {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			},
+		});
+	}
+
 	onShowInGraph(_e: CustomEvent<TreeItemActionDetail>) {
 		// this.emit('gl-patch-details-graph-show-patch', { draft: this.state!.create! });
 	}
 
-	override getFileActions(_file: GitFileChangeShape, _options?: Partial<TreeItemBase>) {
-		return [
-			{
-				icon: 'go-to-file',
-				label: 'Open file',
-				action: 'file-open',
-			},
-		];
+	onCancel() {
+		this.emit('gl-patch-create-cancelled');
+	}
+
+	override getFileActions(file: GitFileChangeShape, _options?: Partial<TreeItemBase>) {
+		const openFile = {
+			icon: 'go-to-file',
+			label: 'Open file',
+			action: 'file-open',
+		};
+
+		if (this.review) {
+			return [openFile];
+		}
+		if (file.staged === true) {
+			return [openFile, { icon: 'remove', label: 'Unstage changes', action: 'file-unstage' }];
+		}
+		return [openFile, { icon: 'plus', label: 'Stage changes', action: 'file-stage' }];
 	}
 
 	override getRepoActions(_name: string, _path: string, _options?: Partial<TreeItemBase>) {
@@ -720,8 +784,11 @@ declare global {
 		'gl-patch-file-compare-previous': CustomEvent<ExecuteFileActionParams>;
 		'gl-patch-file-compare-working': CustomEvent<ExecuteFileActionParams>;
 		'gl-patch-file-open': CustomEvent<ExecuteFileActionParams>;
+		'gl-patch-file-stage': CustomEvent<ExecuteFileActionParams>;
+		'gl-patch-file-unstage': CustomEvent<ExecuteFileActionParams>;
 		'gl-patch-create-invite-users': CustomEvent<undefined>;
 		'gl-patch-create-update-selection': CustomEvent<CreatePatchUpdateSelectionEventDetail>;
+		'gl-patch-create-cancelled': CustomEvent<undefined>;
 		// 'gl-patch-details-graph-show-patch': CustomEvent<{ draft: State['create'] }>;
 	}
 }

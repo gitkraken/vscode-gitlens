@@ -27,7 +27,7 @@
   "switch": 61720,
   "expand": 61721,
   "list-auto": 61722,
-  "arrow-up-force": 61723,
+  "repo-force-push": 61723,
   "pinned-filled": 61724,
   "clock": 61725,
   "provider-azdo": 61726,
@@ -45,5 +45,11 @@
   "inspect": 61738,
   "repository-filled": 61739,
   "gitlens-filled": 61740,
-  "code-suggestion": 61741
+  "code-suggestion": 61741,
+  "diff-multiple": 61742,
+  "diff-single": 61743,
+  "repo-fetch": 61744,
+  "repo-pull": 61745,
+  "repo-push": 61746,
+  "provider-jira": 61747
 }

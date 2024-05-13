@@ -1,6 +1,7 @@
 import type { TemplateResult } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import type { HierarchicalItem } from '../../../../system/array';
 import { makeHierarchical } from '../../../../system/array';
@@ -101,7 +102,19 @@ export class GlDetailsBase extends LitElement {
 						icon="${icon}"
 					></action-item>
 				</action-nav>
-
+				${when(
+					fileCount > 0 && this.tab === 'wip',
+					() =>
+						html`<div class="section section--actions">
+							<p class="button-container">
+								<span class="button-group button-group--single">
+									<gl-button full href="command:workbench.view.scm"
+										>Commit via SCM <code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon
+									></gl-button>
+								</span>
+							</p>
+						</div>`,
+				)}
 				${this.renderTreeFileModel(treeModel)}
 			</webview-pane>
 		`;

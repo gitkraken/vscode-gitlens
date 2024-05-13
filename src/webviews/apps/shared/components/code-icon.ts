@@ -545,7 +545,7 @@ const iconMap = Object.freeze({
 	'gl-switch': '\\f118',
 	'gl-expand': '\\f119',
 	'gl-list-auto': '\\f11a',
-	'gl-arrow-up-force': '\\f11b',
+	'gl-repo-force-push': '\\f11b',
 	'gl-pinned-filled': '\\f11c',
 	'gl-clock': '\\f11d',
 	'gl-provider-azdo': '\\f11e',
@@ -561,12 +561,21 @@ const iconMap = Object.freeze({
 	'gl-inspect': '\\f12a',
 	'gl-repository-filled': '\\f12b',
 	'gl-code-suggestion': '\\f12d',
+	'gl-diff-multiple': '\\f12e',
+	'gl-diff-single': '\\f12f',
+	'gl-repo-fetch': '\\f130',
+	'gl-repo-pull': '\\f131',
+	'gl-repo-push': '\\f132',
+	'gl-provider-jira': '\\f133',
 });
 
 @customElement('code-icon')
 export class CodeIcon extends LitElement {
 	static override styles = css`
 		:host {
+			--code-icon-size: 16px;
+			--code-icon-v-align: text-bottom;
+
 			font: normal normal normal var(--code-icon-size, 16px) / 1 codicon;
 			display: inline-block;
 			text-decoration: none;
@@ -578,7 +587,7 @@ export class CodeIcon extends LitElement {
 			-webkit-user-select: none;
 			-ms-user-select: none;
 			color: inherit;
-			vertical-align: text-bottom;
+			vertical-align: var(--code-icon-v-align);
 			letter-spacing: normal;
 		}
 
@@ -622,6 +631,18 @@ export class CodeIcon extends LitElement {
 			animation-duration: 1s !important;
 			animation-timing-function: cubic-bezier(0.53, 0.21, 0.29, 0.67) !important;
 		}
+
+		:host([flip='inline']) {
+			transform: rotateY(180deg);
+		}
+
+		:host([flip='block']) {
+			transform: rotateX(180deg);
+		}
+
+		:host([rotate='45']) {
+			transform: rotateZ(45deg);
+		}
 	`;
 	@property()
 	icon = '';
@@ -630,7 +651,13 @@ export class CodeIcon extends LitElement {
 	modifier = '';
 
 	@property({ type: Number })
-	size = 16;
+	size: number | undefined = undefined;
+
+	@property()
+	flip?: 'inline' | 'block';
+
+	@property()
+	rotate?: '45';
 
 	override updated(changedProperties: Map<string, unknown>) {
 		if (changedProperties.has('size')) {

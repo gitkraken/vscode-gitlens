@@ -88,6 +88,8 @@ export interface CloudDraftDetails {
 	isArchived: boolean;
 	archivedReason?: DraftArchiveReason;
 
+	gkDevLink?: string;
+
 	patches?: PatchDetails[];
 
 	users?: DraftUser[];

@@ -25,6 +25,7 @@ import { matchContributor } from '../git/models/contributor';
 import { getComparisonRefsForPullRequest } from '../git/models/pullRequest';
 import { createReference, shortenRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import { showPatchesView } from '../plus/drafts/actions';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import {
 	executeActionCommand,
@@ -39,7 +40,7 @@ import { setContext } from '../system/context';
 import { log } from '../system/decorators/log';
 import { sequentialize } from '../system/function';
 import type { OpenWorkspaceLocation } from '../system/utils';
-import { openWorkspace, revealInFileExplorer } from '../system/utils';
+import { openUrl, openWorkspace, revealInFileExplorer } from '../system/utils';
 import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import {
 	canEditNode,
@@ -58,6 +59,7 @@ import type { CommitNode } from './nodes/commitNode';
 import type { PagerNode } from './nodes/common';
 import type { CompareResultsNode } from './nodes/compareResultsNode';
 import type { ContributorNode } from './nodes/contributorNode';
+import type { DraftNode } from './nodes/draftNode';
 import type { FileHistoryNode } from './nodes/fileHistoryNode';
 import type { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode';
 import type { FolderNode } from './nodes/folderNode';
@@ -352,6 +354,9 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.openPullRequest', this.openPullRequest, this);
 		registerViewCommand('gitlens.views.openPullRequestChanges', this.openPullRequestChanges, this);
 		registerViewCommand('gitlens.views.openPullRequestComparison', this.openPullRequestComparison, this);
+
+		registerViewCommand('gitlens.views.draft.open', this.openDraft, this);
+		registerViewCommand('gitlens.views.draft.openOnWeb', this.openDraftOnWeb, this);
 
 		registerViewCommand('gitlens.views.title.createWorktree', () => this.createWorktree());
 		registerViewCommand('gitlens.views.createWorktree', this.createWorktree, this);
@@ -696,6 +701,17 @@ export class ViewCommands {
 
 		const refs = await getComparisonRefsForPullRequest(this.container, node.repoPath, node.pullRequest.refs);
 		return this.container.searchAndCompareView.compare(refs.repoPath, refs.head, refs.base);
+	}
+
+	@log()
+	private async openDraft(node: DraftNode) {
+		await showPatchesView({ mode: 'view', draft: node.draft });
+	}
+
+	@log()
+	private async openDraftOnWeb(node: DraftNode) {
+		const url = this.container.drafts.generateWebUrl(node.draft);
+		await openUrl(url);
 	}
 
 	@log()

@@ -1,7 +1,15 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { hasAccountFromSubscriptionState, SubscriptionState } from '../../../../../plus/gk/account/subscription';
+import { urls } from '../../../../../constants';
+import type { Subscription } from '../../../../../plus/gk/account/subscription';
+import {
+	getSubscriptionPlanName,
+	getSubscriptionTimeRemaining,
+	hasAccountFromSubscriptionState,
+	SubscriptionPlanId,
+	SubscriptionState,
+} from '../../../../../plus/gk/account/subscription';
 import { pluralize } from '../../../../../system/string';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
 import '../../../shared/components/button';
@@ -110,38 +118,44 @@ export class AccountContent extends LitElement {
 			.repo-access:not(.is-pro) {
 				filter: grayscale(1) brightness(0.7);
 			}
+
+			.special {
+				font-size: smaller;
+				margin-top: 0.8rem;
+				opacity: 0.6;
+				text-align: center;
+			}
 		`,
 	];
 
 	@property()
 	image = '';
 
-	@property()
-	name = '';
-
-	@property()
-	organization?: string;
-
 	@property({ type: Number })
 	organizationsCount = 0;
 
-	@property({ type: Number })
-	days = 0;
+	@property({ attribute: false })
+	subscription?: Subscription;
 
-	@property({ type: Number })
-	state: SubscriptionState = SubscriptionState.Free;
+	private get daysRemaining() {
+		if (this.subscription == null) return 0;
 
-	@property()
-	plan = '';
+		return getSubscriptionTimeRemaining(this.subscription, 'days') ?? 0;
+	}
 
-	@property({ type: Number })
-	trialReactivationCount = 0;
+	get hasAccount() {
+		return hasAccountFromSubscriptionState(this.state);
+	}
 
-	get daysRemaining() {
-		if (this.days < 1) {
-			return '<1 day';
-		}
-		return pluralize('day', this.days);
+	get isReactivatedTrial() {
+		return (
+			this.state === SubscriptionState.FreePlusInTrial &&
+			(this.subscription?.plan.effective.trialReactivationCount ?? 0) > 0
+		);
+	}
+
+	private get planId() {
+		return this.subscription?.plan.actual.id ?? SubscriptionPlanId.Pro;
 	}
 
 	get planName() {
@@ -155,34 +169,22 @@ export class AccountContent extends LitElement {
 			case SubscriptionState.FreePlusInTrial:
 				return 'GitKraken Pro (Trial)';
 			case SubscriptionState.VerificationRequired:
-				return `${this.plan} (Unverified)`;
+				return `${getSubscriptionPlanName(this.planId)} (Unverified)`;
 			default:
-				return this.plan;
+				return getSubscriptionPlanName(this.planId);
 		}
 	}
 
-	get daysLeft() {
-		switch (this.state) {
-			case SubscriptionState.FreeInPreviewTrial:
-			case SubscriptionState.FreePlusInTrial:
-				return `, ${this.daysRemaining} left`;
-			default:
-				return '';
-		}
+	private get state() {
+		return this.subscription?.state;
 	}
 
-	get hasAccount() {
-		return hasAccountFromSubscriptionState(this.state);
-	}
-
-	get isReactivatedTrial() {
-		return this.state === SubscriptionState.FreePlusInTrial && this.trialReactivationCount > 0;
+	override render() {
+		return html`${this.renderAccountInfo()}${this.renderOrganization()}${this.renderAccountState()}`;
 	}
 
 	private renderAccountInfo() {
-		if (!this.hasAccount) {
-			return nothing;
-		}
+		if (!this.hasAccount) return nothing;
 
 		return html`
 			<div class="account">
@@ -192,15 +194,16 @@ export class AccountContent extends LitElement {
 						: html`<code-icon icon="account" size="34"></code-icon>`}
 				</div>
 				<div class="account__details">
-					<p class="account__title">${this.name}</p>
-					${when(
-						this.organizationsCount === 0,
-						() => html`<p class="account__access">${this.planName}${this.daysLeft}</p>`,
-					)}
+					<p class="account__title">${this.subscription?.account?.name ?? ''}</p>
+					${when(this.organizationsCount === 0, () => html`<p class="account__access">${this.planName}</p>`)}
 				</div>
 				<div class="account__signout">
-					<gl-button appearance="toolbar" href="command:gitlens.plus.logout"
-						><code-icon icon="sign-out" title="Sign Out" aria-label="Sign Out"></code-icon
+					<gl-button
+						appearance="toolbar"
+						href="command:gitlens.plus.logout"
+						tooltip="Sign Out"
+						aria-label="Sign Out"
+						><code-icon icon="sign-out"></code-icon
 					></gl-button>
 				</div>
 			</div>
@@ -208,9 +211,8 @@ export class AccountContent extends LitElement {
 	}
 
 	private renderOrganization() {
-		if (!this.hasAccount || !this.organization) {
-			return nothing;
-		}
+		const organization = this.subscription?.activeOrganization?.name ?? '';
+		if (!this.hasAccount || !organization) return nothing;
 
 		return html`
 			<div class="account account--org">
@@ -218,20 +220,20 @@ export class AccountContent extends LitElement {
 					<code-icon icon="organization" size="22"></code-icon>
 				</div>
 				<div class="account__details">
-					<p class="account__title">${this.organization}</p>
-					<p class="account__access">${this.planName}${this.daysLeft}</p>
+					<p class="account__title">${organization}</p>
+					<p class="account__access">${this.planName}</p>
 				</div>
 				${when(
 					this.organizationsCount > 1,
 					() =>
 						html`<div class="account__signout">
 							<span class="account__badge">+${this.organizationsCount - 1}</span>
-							<gl-button appearance="toolbar" href="command:gitlens.gk.switchOrganization"
-								><code-icon
-									icon="arrow-swap"
-									title="Switch Organization"
-									aria-label="Switch Organization"
-								></code-icon
+							<gl-button
+								appearance="toolbar"
+								href="command:gitlens.gk.switchOrganization"
+								tooltip="Switch Organization"
+								aria-label="Switch Organization"
+								><code-icon icon="arrow-swap"></code-icon
 							></gl-button>
 						</div>`,
 				)}
@@ -240,162 +242,108 @@ export class AccountContent extends LitElement {
 	}
 
 	private renderAccountState() {
-		const expiresTime = new Date('2023-12-31T07:59:00.000Z').getTime(); // 2023-12-30 23:59:00 PST-0800
-		const inHolidayPromo = Date.now() < expiresTime;
-
 		switch (this.state) {
-			case SubscriptionState.VerificationRequired:
-				return html`
-					<p>You must verify your email before you can continue.</p>
-					<button-container>
-						<gl-button full href="command:gitlens.plus.resendVerification"
-							>Resend verification email</gl-button
-						>
-					</button-container>
-					<button-container>
-						<gl-button full href="command:gitlens.plus.validate">Refresh verification status</gl-button>
-					</button-container>
-				`;
-
-			case SubscriptionState.Free:
-			case SubscriptionState.FreeInPreviewTrial:
-				return html`
-					<p>
-						Sign up for access to our developer productivity and collaboration services, e.g. Workspaces, or
-						<a href="command:gitlens.plus.login">sign in</a>.
-					</p>
-					<button-container>
-						<gl-button full href="command:gitlens.plus.signUp">Sign Up</gl-button>
-					</button-container>
-					<p>Signing up starts a free 7-day GitKraken trial.</p>
-				`;
-
-			case SubscriptionState.FreePreviewTrialExpired:
-				return html`
-					<p>
-						Your 3-day preview has ended. Start a free GitLens Pro trial to get an additional 7 days of all
-						Pro features, or
-						<a href="command:gitlens.plus.login">sign in</a>.
-					</p>
-					<button-container>
-						<gl-button full href="command:gitlens.plus.signUp">Start Pro Trial</gl-button>
-					</button-container>
-					<p>
-						Your Pro trial provides access to the entire
-						<a href="https://www.gitkraken.com/suite">GitKraken suite</a>, unleashing powerful Git
-						visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and
-						terminal.
-					</p>
-				`;
-
-			case SubscriptionState.FreePlusTrialExpired:
-				return html`
-					<p>Your GitLens Pro trial has ended. Please upgrade to continue to use Pro features.</p>
-					${when(
-						inHolidayPromo,
-						() =>
-							html`<p style="text-align: center;">
-								<a
-									href=${'https://www.gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023'}
-									>Holiday Special: 50% off first seat of Pro — only $4/month!</a
-								>
-							</p>`,
-						() =>
-							html`<p style="text-align: center;">
-								Special: 50% off first seat of Pro — only $4/month!
-							</p>`,
-					)}
-					<button-container>
-						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
-					</button-container>
-					<p>
-						A Pro account provides access to the entire
-						<a href="https://www.gitkraken.com/suite">GitKraken suite</a>, unleashing powerful Git
-						visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and
-						terminal.
-					</p>
-				`;
-
-			case SubscriptionState.FreePlusTrialReactivationEligible:
-				return html`
-					<p>
-						You're eligible to reactivate your GitLens Pro trial and experience all the new Pro features —
-						free for another 7 days!
-					</p>
-					<button-container>
-						<gl-button full href="command:gitlens.plus.reactivateProTrial">Reactivate Pro Trial</gl-button>
-					</button-container>
-					<p>
-						Your Pro trial provides access to the entire
-						<a href="https://www.gitkraken.com/suite">GitKraken suite</a>, unleashing powerful Git
-						visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and
-						terminal.
-					</p>
-				`;
-
-			case SubscriptionState.FreePlusInTrial:
-				return html`
-					<p>
-						${this.isReactivatedTrial
-							? html`<a href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
-										>See what's new</a
-									>
-									with
-									${pluralize('day', this.days, {
-										infix: ' more ',
-									})}
-									in your GitLens Pro trial.`
-							: `You have
-						${this.daysRemaining} remaining in your GitLens Pro trial.`}
-						Once your trial ends, you'll need a paid plan to continue using Pro features.
-					</p>
-					${when(
-						inHolidayPromo,
-						() =>
-							html`<p style="text-align: center;">
-								<a
-									href=${'https://www.gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023'}
-									>Holiday Special: 50% off first seat of Pro — only $4/month!</a
-								>
-							</p>`,
-						() =>
-							html`<p style="text-align: center;">
-								Special: <b>50% off first seat of Pro</b> — only $4/month!
-							</p>`,
-					)}
-					<button-container>
-						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
-					</button-container>
-					<p>
-						A Pro account provides access to the entire
-						<a href="https://www.gitkraken.com/suite">GitKraken suite</a>, unleashing powerful Git
-						visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and
-						terminal.
-					</p>
-				`;
-
 			case SubscriptionState.Paid:
 				return html`
 					<button-container>
 						<gl-button appearance="secondary" full href="command:gitlens.plus.manage"
 							>Manage Account</gl-button
 						>
-						<gl-button appearance="secondary" full href="command:gitlens.plus.cloudIntegrations.manage"
+						<gl-button
+							appearance="secondary"
+							full
+							href="command:gitlens.plus.cloudIntegrations.manage?%7B%22source%22%3A%22account%22%7D"
 							>Cloud Integrations</gl-button
 						>
 					</button-container>
-					<p>You have access to all Pro features based on your plan.</p>
 					<p>
-						Try our
-						<a href="https://www.gitkraken.com/suite">other developer tools</a> also included in your plan.
+						Your ${getSubscriptionPlanName(this.planId)} plan provides full access to all Pro features and
+						our <a href="${urls.platform}">DevEx platform</a>, unleashing powerful Git visualization &
+						productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.
 					</p>
 				`;
-		}
 
-		return nothing;
+			case SubscriptionState.VerificationRequired:
+				return html`
+					<p>You must verify your email before you can access Pro features.</p>
+					<button-container>
+						<gl-button full href="command:gitlens.plus.resendVerification">Resend Email</gl-button>
+						<gl-button appearance="secondary" href="command:gitlens.plus.validate"
+							><code-icon size="20" icon="refresh"></code-icon>
+						</gl-button>
+					</button-container>
+				`;
+
+			case SubscriptionState.FreePlusInTrial: {
+				const days = this.daysRemaining;
+
+				return html`
+					${this.isReactivatedTrial
+						? html`<p>
+								<code-icon icon="rocket"></code-icon>
+								See
+								<a href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
+									>what's new</a
+								>
+								in GitLens.
+						  </p>`
+						: nothing}
+					<p>
+						You have
+						<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: ' more ' })} left</strong>
+						in your Pro trial. Once your trial ends, you will only be able to use Pro features on
+						publicly-hosted repos.
+					</p>
+					<button-container>
+						<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
+					</button-container>
+					<p class="special">Special: <b>50% off first seat of Pro</b> — only $4/month!</p>
+					${this.renderIncludesDevEx()}
+				`;
+			}
+
+			case SubscriptionState.FreePlusTrialExpired:
+				return html`
+					<p>Your Pro trial has ended. You can now only use Pro features on publicly-hosted repos.</p>
+					<button-container>
+						<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
+					</button-container>
+					<p class="special">Special: <b>50% off first seat of Pro</b> — only $4/month!</p>
+					${this.renderIncludesDevEx()}
+				`;
+
+			case SubscriptionState.FreePlusTrialReactivationEligible:
+				return html`
+					<p>Reactivate your Pro trial and experience all the new Pro features — free for another 7 days!</p>
+					<button-container>
+						<gl-button full href="command:gitlens.plus.reactivateProTrial">Reactivate Pro Trial</gl-button>
+					</button-container>
+					${this.renderIncludesDevEx()}
+				`;
+
+			default:
+				return html`
+					<p>
+						Sign up for access to Pro features and our
+						<a href="${urls.platform}">DevEx platform</a>, or
+						<a href="command:gitlens.plus.login">sign in</a>.
+					</p>
+					<button-container>
+						<gl-button full href="command:gitlens.plus.signUp">Sign Up</gl-button>
+					</button-container>
+					<p>Signing up starts your free 7-day Pro trial.</p>
+					${this.renderIncludesDevEx()}
+				`;
+		}
 	}
 
-	override render() {
-		return html`${this.renderAccountInfo()}${this.renderOrganization()}${this.renderAccountState()}`;
+	private renderIncludesDevEx() {
+		return html`
+			<p>
+				Includes access to our
+				<a href="${urls.platform}">DevEx platform</a>, unleashing powerful Git visualization & productivity
+				capabilities everywhere you work: IDE, desktop, browser, and terminal.
+			</p>
+		`;
 	}
 }

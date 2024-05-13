@@ -101,103 +101,78 @@ export class GlWipDetails extends GlDetailsBase {
 		return 'Working Changes';
 	}
 
-	renderPrimaryAction() {
-		if (this.draftsEnabled) {
-			let label = 'Share as Cloud Patch';
-			let action = 'create-patch';
-			const pr = this.wip?.pullRequest;
-			if (pr != null) {
-				// const isMe = pr.author.name.endsWith('(you)');
-				// if (isMe) {
-				// 	label = 'Share with PR Participants';
-				// 	action = 'create-patch';
-				// } else {
-				// 	label = `Start Review for PR #${pr.id}`;
-				// 	action = 'create-patch';
-				// }
+	renderSecondaryAction() {
+		if (!this.draftsEnabled || this.inReview) return undefined;
 
-				if (!this.inReview) {
-					label = `Start Review for PR #${pr.id}`;
-					action = 'start-patch-review';
-				} else {
-					label = `End Review for PR #${pr.id}`;
-					action = 'end-patch-review';
-				}
+		let label = 'Share as Cloud Patch';
+		let action = 'create-patch';
+		const pr = this.wip?.pullRequest;
+		if (pr != null && pr.state === 'opened') {
+			// const isMe = pr.author.name.endsWith('(you)');
+			// if (isMe) {
+			// 	label = 'Share with PR Participants';
+			// 	action = 'create-patch';
+			// } else {
+			// 	label = `Start Review for PR #${pr.id}`;
+			// 	action = 'create-patch';
+			// }
 
-				return html`<p class="button-container">
-					<span class="button-group button-group--single">
-						<gl-button full data-action="${action}" @click=${() => this.onToggleReviewMode(!this.inReview)}>
-							<code-icon icon="gl-cloud-patch-share"></code-icon> ${label}
-						</gl-button>
-						<gl-button
-							density="compact"
-							data-action="create-patch"
-							title="Share as Cloud Patch"
-							@click=${() => this.onDataActionClick('create-patch')}
-						>
-							<code-icon icon="gl-cloud-patch-share"></code-icon>
-						</gl-button>
-					</span>
-				</p>`;
+			if (!this.inReview) {
+				label = 'Suggest Changes for PR';
+				action = 'start-patch-review';
+			} else {
+				label = 'Close Suggestion for PR';
+				action = 'end-patch-review';
 			}
 
 			return html`<p class="button-container">
 				<span class="button-group button-group--single">
-					<gl-button full data-action="${action}" @click=${() => this.onDataActionClick(action)}>
-						<code-icon icon="gl-cloud-patch-share"></code-icon> ${label}
-					</gl-button>
-				</span>
-			</p>`;
-		}
-
-		if (this.isUnpublished) {
-			return html`<p class="button-container">
-				<span class="button-group button-group--single">
 					<gl-button
+						appearance="secondary"
 						full
-						data-action="publish-branch"
-						@click=${() => this.onDataActionClick('publish-branch')}
+						data-action="${action}"
+						@click=${() => this.onToggleReviewMode(!this.inReview)}
 					>
-						<code-icon icon="cloud-upload"></code-icon> Publish Branch
+						<code-icon icon="gl-code-suggestion" slot="prefix"></code-icon>${label}
+					</gl-button>
+					<gl-button
+						appearance="secondary"
+						density="compact"
+						data-action="create-patch"
+						tooltip="Share as Cloud Patch"
+						@click=${() => this.onDataActionClick('create-patch')}
+					>
+						<code-icon icon="gl-cloud-patch-share"></code-icon>
 					</gl-button>
 				</span>
 			</p>`;
 		}
-
-		if (this.branchState == null) return undefined;
-
-		const { ahead, behind } = this.branchState;
-		if (ahead === 0 && behind === 0) return undefined;
-
-		const fetchLabel = behind > 0 ? 'Pull' : ahead > 0 ? 'Push' : 'Fetch';
-		const fetchIcon = behind > 0 ? 'arrow-down' : ahead > 0 ? 'arrow-up' : 'sync';
 
 		return html`<p class="button-container">
 			<span class="button-group button-group--single">
 				<gl-button
+					appearance="secondary"
 					full
-					data-action="${fetchLabel.toLowerCase()}"
-					@click=${() => this.onDataActionClick(fetchLabel.toLowerCase())}
+					data-action="${action}"
+					@click=${() => this.onDataActionClick(action)}
 				>
-					<code-icon icon="${fetchIcon}"></code-icon> ${fetchLabel}&nbsp;
-					<gl-tracking-pill .ahead=${ahead} .behind=${behind}></gl-tracking-pill>
+					<code-icon icon="gl-cloud-patch-share" slot="prefix"></code-icon>${label}
 				</gl-button>
 			</span>
 		</p>`;
 	}
 
-	renderSecondaryAction() {
+	renderPrimaryAction() {
 		const canShare = this.draftsEnabled;
 		if (this.isUnpublished && canShare) {
 			return html`<p class="button-container">
 				<span class="button-group button-group--single">
 					<gl-button
 						full
-						appearance="secondary"
 						data-action="publish-branch"
 						@click=${() => this.onDataActionClick('publish-branch')}
 					>
-						<code-icon icon="cloud-upload"></code-icon> Publish Branch
+						<code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch
 					</gl-button>
 				</span>
 			</p>`;
@@ -209,18 +184,17 @@ export class GlWipDetails extends GlDetailsBase {
 		if (ahead === 0 && behind === 0) return undefined;
 
 		const fetchLabel = behind > 0 ? 'Pull' : ahead > 0 ? 'Push' : 'Fetch';
-		const fetchIcon = behind > 0 ? 'arrow-down' : ahead > 0 ? 'arrow-up' : 'sync';
+		const fetchIcon = behind > 0 ? 'gl-repo-pull' : ahead > 0 ? 'gl-repo-push' : 'gl-repo-fetch';
 
 		return html`<p class="button-container">
 			<span class="button-group button-group--single">
 				<gl-button
 					full
-					appearance="secondary"
 					data-action="${fetchLabel.toLowerCase()}"
 					@click=${() => this.onDataActionClick(fetchLabel.toLowerCase())}
 				>
-					<code-icon icon="${fetchIcon}"></code-icon> ${fetchLabel}&nbsp;
-					<gl-tracking-pill .ahead=${ahead} .behind=${behind}></gl-tracking-pill>
+					<code-icon icon="${fetchIcon}" slot="prefix"></code-icon> ${fetchLabel}
+					<gl-tracking-pill .ahead=${ahead} .behind=${behind} slot="suffix"></gl-tracking-pill>
 				</gl-button>
 			</span>
 		</p>`;
@@ -241,7 +215,7 @@ export class GlWipDetails extends GlDetailsBase {
 		return html`
 			<gl-tree>
 				<gl-tree-item branch .expanded=${true} .level=${0}>
-					<code-icon slot="icon" icon="cloud"></code-icon>
+					<code-icon slot="icon" icon="gl-code-suggestion"></code-icon>
 					Code Suggestions
 				</gl-tree-item>
 				${repeat(
@@ -255,7 +229,7 @@ export class GlWipDetails extends GlDetailsBase {
 						>
 							<gk-avatar
 								class="author-icon"
-								src="${draft.author.avatar}"
+								src="${draft.author.avatarUri}"
 								title="${draft.author.name} (author)"
 							></gk-avatar>
 							${draft.title}
@@ -273,18 +247,41 @@ export class GlWipDetails extends GlDetailsBase {
 		if (this.wip?.pullRequest == null) return nothing;
 
 		return html`
-			<webview-pane collapsable>
+			<webview-pane
+				collapsable
+				flexible
+				?expanded=${this.preferences?.pullRequestExpanded ?? true}
+				data-region="pullrequest-pane"
+			>
 				<span slot="title">Pull Request #${this.wip?.pullRequest?.id}</span>
+				<action-nav slot="actions">
+					<action-item
+						label="Open Pull Request Changes"
+						icon="gl-diff-multiple"
+						@click=${() => this.onDataActionClick('open-pr-changes')}
+					></action-item>
+					<action-item
+						label="Compare Pull Request"
+						icon="compare-changes"
+						@click=${() => this.onDataActionClick('open-pr-compare')}
+					></action-item>
+					<action-item
+						label="Open Pull Request on Remote"
+						icon="globe"
+						@click=${() => this.onDataActionClick('open-pr-remote')}
+					></action-item>
+				</action-nav>
 				<div class="section">
 					<issue-pull-request
 						type="pr"
 						name="${this.wip.pullRequest.title}"
 						url="${this.wip.pullRequest.url}"
-						key="#${this.wip.pullRequest.id}"
+						identifier="#${this.wip.pullRequest.id}"
 						status="${this.wip.pullRequest.state}"
 						.date=${this.wip.pullRequest.updatedDate}
 						.dateFormat="${this.preferences?.dateFormat}"
 						.dateStyle="${this.preferences?.dateStyle}"
+						details
 					></issue-pull-request>
 				</div>
 				${this.renderSuggestedChanges()}
