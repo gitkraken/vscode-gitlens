@@ -1,6 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import { urls } from '../../../../../constants';
 import type { Subscription } from '../../../../../plus/gk/account/subscription';
 import {
 	getSubscriptionPlanName,
@@ -255,10 +256,10 @@ export class AccountContent extends LitElement {
 							>Cloud Integrations</gl-button
 						>
 					</button-container>
-					<p>Your ${getSubscriptionPlanName(this.planId)} plan provides access to all Pro features.</p>
 					<p>
-						Be sure to try our
-						<a href="https://www.gitkraken.com/suite">other developer tools</a> also included in your plan.
+						Your ${getSubscriptionPlanName(this.planId)} plan provides full access to all Pro features and
+						our <a href="${urls.platform}">DevEx platform</a>, unleashing powerful Git visualization &
+						productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.
 					</p>
 				`;
 
@@ -324,7 +325,7 @@ export class AccountContent extends LitElement {
 				return html`
 					<p>
 						Sign up for access to Pro features and our
-						<a href="https://www.gitkraken.com/suite">DevEx platform</a>, or
+						<a href="${urls.platform}">DevEx platform</a>, or
 						<a href="command:gitlens.plus.login">sign in</a>.
 					</p>
 					<button-container>
@@ -340,8 +341,8 @@ export class AccountContent extends LitElement {
 		return html`
 			<p>
 				Includes access to our
-				<a href="https://www.gitkraken.com/suite">DevEx platform</a>, unleashing powerful Git visualization &
-				productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.
+				<a href="${urls.platform}">DevEx platform</a>, unleashing powerful Git visualization & productivity
+				capabilities everywhere you work: IDE, desktop, browser, and terminal.
 			</p>
 		`;
 	}

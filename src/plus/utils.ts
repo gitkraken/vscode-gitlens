@@ -1,6 +1,8 @@
 import type { MessageItem } from 'vscode';
-import { env, Uri, window } from 'vscode';
+import { window } from 'vscode';
+import { urls } from '../constants';
 import type { Container } from '../container';
+import { openUrl } from '../system/utils';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from './gk/account/subscription';
 
 export async function ensurePaidPlan(
@@ -158,12 +160,12 @@ export async function confirmDraftStorage(container: Container): Promise<boolean
 		}
 
 		if (result === security) {
-			void env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/security'));
+			void openUrl(urls.security);
 			continue;
 		}
 
 		if (result === moreInfo) {
-			void env.openExternal(Uri.parse('https://www.gitkraken.com/solutions/cloud-patches'));
+			void openUrl(urls.cloudPatches);
 			continue;
 		}
 
