@@ -255,7 +255,12 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHoste
 
 	@log()
 	override async connect(): Promise<boolean> {
-		if (!(await ensurePaidPlan(this.container, `Rich integration with ${this.name} is a Pro feature.`))) {
+		if (
+			!(await ensurePaidPlan(this.container, `Rich integration with ${this.name} is a Pro feature.`, {
+				source: 'integrations',
+				detail: { action: 'connect', integration: this.id },
+			}))
+		) {
 			return false;
 		}
 

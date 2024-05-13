@@ -1,6 +1,7 @@
 import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
 import { authentication, Disposable, env, EventEmitter, window } from 'vscode';
 import { isWeb } from '@env/platform';
+import type { Source } from '../../constants';
 import type { Container } from '../../container';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
@@ -105,20 +106,18 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
-	async manageCloudIntegrations(
-		source: 'settings' | 'account' | 'home' | 'commandPalette' | 'commitDetails',
-		integrationId?: IssueIntegrationId.Jira,
-	) {
+	async manageCloudIntegrations(integrationId: IssueIntegrationId.Jira | undefined, source: Source | undefined) {
 		if (this.container.telemetry.enabled) {
-			this.container.telemetry.sendEvent('cloudIntegrations/settingsOpened', {
-				integrationId: integrationId,
-				source: source,
-			});
+			this.container.telemetry.sendEvent(
+				'cloudIntegrations/settingsOpened',
+				{ 'integration.id': integrationId },
+				source,
+			);
 		}
 
 		const account = (await this.container.subscription.getSubscription()).account;
 		if (account == null) {
-			if (!(await this.container.subscription.loginOrSignUp(true))) return;
+			if (!(await this.container.subscription.loginOrSignUp(true, source))) return;
 		}
 
 		let query = 'source=gitlens';

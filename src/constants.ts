@@ -1,3 +1,4 @@
+import type { AttributeValue } from '@opentelemetry/api';
 import type { AnthropicModels } from './ai/anthropicProvider';
 import type { GeminiModels } from './ai/geminiProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
@@ -32,6 +33,7 @@ export const urls = Object.freeze({
 	cloudPatches: 'https://gitkraken.com/solutions/cloud-patches?utm_source=gitlens-extension&utm_medium=in-app-links',
 	launchpad: 'https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links',
 	platform: 'https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links',
+	pricing: 'https://gitkraken.com/gitlens/pricing?utm_source=gitlens-extension&utm_medium=in-app-links',
 	proFeatures: 'https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links',
 	security: 'https://help.gitkraken.com/gitlens/security?utm_source=gitlens-extension&utm_medium=in-app-links',
 	workspaces: 'https://gitkraken.com/solutions/workspaces?utm_source=gitlens-extension&utm_medium=in-app-links',
@@ -276,13 +278,13 @@ export const enum Commands {
 	PlusLogout = 'gitlens.plus.logout',
 	PlusManage = 'gitlens.plus.manage',
 	PlusManageCloudIntegrations = 'gitlens.plus.cloudIntegrations.manage',
-	PlusPurchase = 'gitlens.plus.purchase',
 	PlusReactivateProTrial = 'gitlens.plus.reactivateProTrial',
 	PlusResendVerification = 'gitlens.plus.resendVerification',
 	PlusRestore = 'gitlens.plus.restore',
 	PlusShowPlans = 'gitlens.plus.showPlans',
 	PlusSignUp = 'gitlens.plus.signUp',
 	PlusStartPreviewTrial = 'gitlens.plus.startPreviewTrial',
+	PlusUpgrade = 'gitlens.plus.upgrade',
 	PlusValidate = 'gitlens.plus.validate',
 	QuickOpenFileHistory = 'gitlens.quickOpenFileHistory',
 	RefreshLaunchpad = 'gitlens.launchpad.refresh',
@@ -855,21 +857,39 @@ export type TelemetryEvents =
 	| 'repository/opened'
 	| 'repository/visibility'
 	| 'subscription'
+	| 'subscription/action'
 	| 'subscription/changed'
 	| 'usage/track'
 	| 'walkthrough';
 
-export type TelemetrySources =
+export type Sources =
+	| 'account'
+	| 'code-suggest'
 	| 'cloud-patches'
 	| 'commandPalette'
+	| 'deeplink'
+	| 'git-commands'
+	| 'graph'
 	| 'home'
+	| 'inspect'
+	| 'inspect-overview'
+	| 'integrations'
 	| 'launchpad'
 	| 'launchpad-indicator'
 	| 'notification'
+	| 'patchDetails'
 	| 'prompt'
+	| 'settings'
+	| 'timeline'
 	| 'trial-indicator'
+	| 'subscription'
 	| 'walkthrough'
 	| 'welcome';
+
+export interface Source {
+	source: Sources;
+	detail?: string | Record<string, AttributeValue | null | undefined>;
+}
 
 export type AIProviders = 'anthropic' | 'gemini' | 'openai';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'

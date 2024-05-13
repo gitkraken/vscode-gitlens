@@ -19,6 +19,7 @@ import React, { createElement, useEffect, useMemo, useRef, useState } from 'reac
 import { getPlatform } from '@env/platform';
 import type { DateStyle } from '../../../../config';
 import type { SearchQuery } from '../../../../git/search';
+import type { FocusCommandArgs } from '../../../../plus/focus/focus';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import type {
 	DidEnsureRowParams,
@@ -1148,7 +1149,14 @@ export function GraphWrapper({
 						</>
 					)}
 					<GlTooltip placement="bottom">
-						<a href="command:gitlens.showLaunchpad" className="action-button">
+						<a
+							href={`command:gitlens.showLaunchpad?${encodeURIComponent(
+								JSON.stringify({
+									source: 'graph',
+								} satisfies Omit<FocusCommandArgs, 'command'>),
+							)}`}
+							className="action-button"
+						>
 							<span className="codicon codicon-rocket"></span>
 							Launchpad
 						</a>
@@ -1159,7 +1167,10 @@ export function GraphWrapper({
 							</span>
 						</span>
 					</GlTooltip>
-					<GlFeatureBadge subscription={subscription}></GlFeatureBadge>
+					<GlFeatureBadge
+						source={{ source: 'graph', detail: 'badge' }}
+						subscription={subscription}
+					></GlFeatureBadge>
 				</div>
 				{allowed && (
 					<div className="titlebar__row">
@@ -1394,6 +1405,7 @@ export function GraphWrapper({
 				className="graph-app__gate"
 				appearance="alert"
 				featureWithArticleIfNeeded="the Commit Graph"
+				source={{ source: 'graph', detail: 'gate' }}
 				state={subscription?.state}
 				visible={!allowed}
 			>
@@ -1401,9 +1413,13 @@ export function GraphWrapper({
 					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#commit-graph-%e2%9c%a8">
 						Commit Graph
 					</a>
-					<GlFeatureBadge subscription={subscription}></GlFeatureBadge> &mdash; easily visualize your
-					repository and keep track of all work in progress. Use the rich commit search to find a specific
-					commit, message, author, a changed file or files, or even a specific code change.
+					<GlFeatureBadge
+						source={{ source: 'graph', detail: 'badge' }}
+						subscription={subscription}
+					></GlFeatureBadge>{' '}
+					&mdash; easily visualize your repository and keep track of all work in progress. Use the rich commit
+					search to find a specific commit, message, author, a changed file or files, or even a specific code
+					change.
 				</p>
 			</GlFeatureGate>
 			<GlGraphMinimapContainer

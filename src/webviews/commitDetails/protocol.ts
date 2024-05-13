@@ -1,6 +1,7 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import type { Autolink } from '../../annotations/autolinks';
 import type { Config, DateStyle } from '../../config';
+import type { Sources } from '../../constants';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
@@ -115,7 +116,7 @@ export interface ShowWipArgs {
 	type: 'wip';
 	inReview?: boolean;
 	repository?: Repository;
-	source: 'commitDetails' | 'patchDetails' | 'repoStatus' | 'launchpad'; // will likely need to add more
+	source: Sources;
 }
 
 // COMMANDS

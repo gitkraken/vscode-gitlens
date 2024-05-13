@@ -236,6 +236,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			'activation.mode': mode?.name,
 			...flatCfg,
 		},
+		undefined,
 		startTime,
 		endTime,
 	);

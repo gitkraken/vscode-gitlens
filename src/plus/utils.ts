@@ -1,5 +1,6 @@
 import type { MessageItem } from 'vscode';
 import { window } from 'vscode';
+import type { Source } from '../constants';
 import { urls } from '../constants';
 import type { Container } from '../container';
 import { openUrl } from '../system/utils';
@@ -8,6 +9,7 @@ import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from './gk/
 export async function ensurePaidPlan(
 	container: Container,
 	title: string,
+	source: Source,
 	options?: { allowPreview?: boolean },
 ): Promise<boolean> {
 	while (true) {
@@ -23,7 +25,7 @@ export async function ensurePaidPlan(
 			);
 
 			if (result === resend) {
-				if (await container.subscription.resendVerification()) {
+				if (await container.subscription.resendVerification(source)) {
 					continue;
 				}
 			}
@@ -46,7 +48,7 @@ export async function ensurePaidPlan(
 
 			if (result !== startTrial) return false;
 
-			void container.subscription.startPreviewTrial();
+			void container.subscription.startPreviewTrial(source);
 			break;
 		} else if (subscription.account == null) {
 			const signUp = { title: 'Start Pro Trial' };
@@ -61,7 +63,7 @@ export async function ensurePaidPlan(
 			);
 
 			if (result === signUp || result === signIn) {
-				if (await container.subscription.loginOrSignUp(result === signUp)) {
+				if (await container.subscription.loginOrSignUp(result === signUp, source)) {
 					continue;
 				}
 			}
@@ -76,7 +78,7 @@ export async function ensurePaidPlan(
 			);
 
 			if (result === upgrade) {
-				void container.subscription.purchase();
+				void container.subscription.upgrade(source);
 			}
 		}
 
@@ -86,7 +88,7 @@ export async function ensurePaidPlan(
 	return true;
 }
 
-export async function ensureAccount(title: string, container: Container): Promise<boolean> {
+export async function ensureAccount(container: Container, title: string, source: Source): Promise<boolean> {
 	while (true) {
 		const subscription = await container.subscription.getSubscription();
 		if (subscription.account?.verified === false) {
@@ -100,7 +102,7 @@ export async function ensureAccount(title: string, container: Container): Promis
 			);
 
 			if (result === resend) {
-				if (await container.subscription.resendVerification()) {
+				if (await container.subscription.resendVerification(source)) {
 					continue;
 				}
 			}
@@ -122,11 +124,11 @@ export async function ensureAccount(title: string, container: Container): Promis
 		);
 
 		if (result === signIn) {
-			if (await container.subscription.loginOrSignUp(false)) {
+			if (await container.subscription.loginOrSignUp(false, source)) {
 				continue;
 			}
 		} else if (result === signUp) {
-			if (await container.subscription.loginOrSignUp(true)) {
+			if (await container.subscription.loginOrSignUp(true, source)) {
 				continue;
 			}
 		}

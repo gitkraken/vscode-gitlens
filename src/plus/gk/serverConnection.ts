@@ -103,28 +103,6 @@ export class ServerConnection implements Disposable {
 	}
 
 	@memoize()
-	get siteUri(): Uri {
-		const { env } = this.container;
-		if (env === 'staging') {
-			return Uri.parse('https://staging.gitkraken.com');
-		}
-
-		if (env === 'dev') {
-			return Uri.parse('https://dev.gitkraken.com');
-		}
-
-		return Uri.parse('https://gitkraken.com');
-	}
-
-	getSiteUri(path?: string, query?: string) {
-		let uri = path != null ? Uri.joinPath(this.siteUri, path) : this.siteUri;
-		if (query != null) {
-			uri = uri.with({ query: query });
-		}
-		return uri;
-	}
-
-	@memoize()
 	get userAgent(): string {
 		// TODO@eamodio figure out standardized format/structure for our user agents
 		return `${this.container.debugging ? 'GitLens-Debug' : this.container.prerelease ? 'GitLens-Pre' : 'GitLens'}/${

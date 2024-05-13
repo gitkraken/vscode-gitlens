@@ -3,7 +3,7 @@ import type { Disposable } from 'vscode';
 import { version as codeVersion, env } from 'vscode';
 import { getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
-import type { TelemetryEvents } from '../constants';
+import type { Source, TelemetryEvents } from '../constants';
 import type { Container } from '../container';
 import { configuration } from '../system/configuration';
 
@@ -132,10 +132,13 @@ export class TelemetryService implements Disposable {
 	sendEvent(
 		name: TelemetryEvents,
 		data?: Record<string, AttributeValue | null | undefined>,
+		source?: Source,
 		startTime?: TimeInput,
 		endTime?: TimeInput,
 	): void {
 		if (!this._enabled) return;
+
+		addSourceAttributes(source, data);
 
 		if (this.provider == null) {
 			this.eventQueue.push({
@@ -155,9 +158,12 @@ export class TelemetryService implements Disposable {
 	startEvent(
 		name: TelemetryEvents,
 		data?: Record<string, AttributeValue | null | undefined>,
+		source?: Source,
 		startTime?: TimeInput,
 	): Disposable | undefined {
 		if (!this._enabled) return undefined;
+
+		addSourceAttributes(source, data);
 
 		if (this.provider != null) {
 			const span = this.provider.startEvent(name, stripNullOrUndefinedAttributes(data), startTime);
@@ -168,7 +174,7 @@ export class TelemetryService implements Disposable {
 
 		startTime = startTime ?? Date.now();
 		return {
-			dispose: () => this.sendEvent(name, data, startTime, Date.now()),
+			dispose: () => this.sendEvent(name, data, source, startTime, Date.now()),
 		};
 	}
 
@@ -234,6 +240,25 @@ export class TelemetryService implements Disposable {
 			this.globalAttributes.delete(`global.${key}`);
 		}
 		this.provider?.setGlobalAttributes(this.globalAttributes);
+	}
+}
+
+function addSourceAttributes(
+	source: Source | undefined,
+	data: Record<string, AttributeValue | null | undefined> | undefined,
+) {
+	if (source == null) return;
+
+	data ??= {};
+	data['source.name'] = source.source;
+	if (source.detail != null) {
+		if (typeof source.detail === 'string') {
+			data['source.detail'] = source.detail;
+		} else if (typeof source.detail === 'object') {
+			for (const [key, value] of Object.entries(source.detail)) {
+				data[`source.detail.${key}`] = value;
+			}
+		}
 	}
 }
 

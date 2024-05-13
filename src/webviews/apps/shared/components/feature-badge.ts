@@ -1,6 +1,8 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { Source } from '../../../../constants';
+import { Commands } from '../../../../constants';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import {
 	getSubscriptionPlanName,
@@ -16,6 +18,14 @@ import { focusOutline } from './styles/lit/a11y.css';
 import { elementBase, linkBase } from './styles/lit/base.css';
 import './overlays/popover';
 import './overlays/tooltip';
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-feature-badge': GlFeatureBadge;
+	}
+
+	interface GlobalEventHandlersEventMap {}
+}
 
 @customElement('gl-feature-badge')
 export class GlFeatureBadge extends LitElement {
@@ -131,6 +141,9 @@ export class GlFeatureBadge extends LitElement {
 	@property({ type: Boolean })
 	preview: boolean = false;
 
+	@property({ type: Object })
+	source?: Source;
+
 	@property({ attribute: false })
 	subscription?: Subscription;
 
@@ -214,7 +227,7 @@ export class GlFeatureBadge extends LitElement {
 				content = html`<p>
 					Your
 					<gl-tooltip hoist content="Show Account view">
-						<a href="command:gitlens.showAccountView"
+						<a href="${generateCommandLink(Commands.ShowAccountView, undefined)}"
 							>${getSubscriptionPlanName(this.subscription?.plan.actual.id ?? SubscriptionPlanId.Pro)}</a
 						>
 					</gl-tooltip>
@@ -225,10 +238,16 @@ export class GlFeatureBadge extends LitElement {
 			case SubscriptionState.VerificationRequired:
 				content = html`<p>You must verify your email before you can access Pro features.</p>
 					<div class="actions">
-						<gl-button appearance="primary" density="tight" href="command:gitlens.plus.resendVerification"
+						<gl-button
+							appearance="primary"
+							density="tight"
+							href="${generateCommandLink(Commands.PlusResendVerification, this.source)}"
 							>Resend Email</gl-button
 						>
-						<gl-button appearance="secondary" density="tight" href="command:gitlens.plus.validate"
+						<gl-button
+							appearance="secondary"
+							density="tight"
+							href="${generateCommandLink(Commands.PlusValidate, this.source)}"
 							><code-icon icon="refresh"></code-icon
 						></gl-button>
 					</div>`;
@@ -259,7 +278,10 @@ export class GlFeatureBadge extends LitElement {
 						Reactivate your Pro trial and experience all the new Pro features — free for another 7 days!
 					</p>
 					<div class="actions center">
-						<gl-button appearance="primary" density="tight" href="command:gitlens.plus.reactivateProTrial"
+						<gl-button
+							appearance="primary"
+							density="tight"
+							href="${generateCommandLink(Commands.PlusReactivateProTrial, this.source)}"
 							>Reactivate Pro Trial</gl-button
 						>
 					</div>`;
@@ -299,20 +321,30 @@ export class GlFeatureBadge extends LitElement {
 	private renderStartTrialActions() {
 		return html`<div class="actions">
 			<p>For access to all Pro features:</p>
-			<gl-button appearance="primary" density="tight" href="command:gitlens.plus.signUp"
+			<gl-button
+				appearance="primary"
+				density="tight"
+				href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
 				>Start 7-day Pro Trial</gl-button
 			>
-			&nbsp;or <a href="command:gitlens.plus.login" title="Sign In">sign in</a>
+			&nbsp;or <a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>
 		</div>`;
 	}
 
 	private renderUpgradeActions(leadin?: TemplateResult) {
 		return html`<div class="actions">
 			${leadin ?? nothing}
-			<gl-button appearance="primary" density="tight" href="command:gitlens.plus.purchase"
+			<gl-button
+				appearance="primary"
+				density="tight"
+				href="${generateCommandLink(Commands.PlusUpgrade, this.source)}"
 				>Upgrade to Pro</gl-button
 			>
 			<p class="special">Special: <b>50% off first seat of Pro</b> — only $4/month!<br /></p>
 		</div>`;
 	}
+}
+
+function generateCommandLink(command: Commands, source: Source | undefined) {
+	return `command:${command}${source ? `?${encodeURIComponent(JSON.stringify(source))}` : ''}`;
 }

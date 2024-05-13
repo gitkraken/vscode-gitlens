@@ -1,8 +1,17 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { Source } from '../../../../constants';
 import type { SubscriptionState } from '../../../../plus/gk/account/subscription';
 import { isSubscriptionStatePaidOrTrial } from '../../../../plus/gk/account/subscription';
 import '../../plus/shared/components/feature-gate-plus-state';
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-feature-gate': GlFeatureGate;
+	}
+
+	interface GlobalEventHandlersEventMap {}
+}
 
 @customElement('gl-feature-gate')
 export class GlFeatureGate extends LitElement {
@@ -87,6 +96,9 @@ export class GlFeatureGate extends LitElement {
 	@property()
 	featureWithArticleIfNeeded?: string;
 
+	@property({ type: Object })
+	source?: Source;
+
 	@property({ attribute: false, type: Number })
 	state?: SubscriptionState;
 
@@ -112,6 +124,7 @@ export class GlFeatureGate extends LitElement {
 				<gl-feature-gate-plus-state
 					appearance=${appearance}
 					.featureWithArticleIfNeeded=${this.featureWithArticleIfNeeded}
+					.source=${this.source}
 					.state=${this.state}
 				></gl-feature-gate-plus-state>
 			</section>

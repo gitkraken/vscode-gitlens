@@ -10,6 +10,7 @@ import { groupByMap } from '../../system/iterable';
 import { pluralize } from '../../system/string';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import { HostingIntegrationId } from '../integrations/providers/models';
+import type { FocusCommandArgs } from './focus';
 import type { FocusGroup, FocusItem, FocusProvider, FocusRefreshEvent } from './focusProvider';
 import { groupAndSortFocusItems, supportedFocusIntegrations } from './focusProvider';
 
@@ -261,7 +262,12 @@ export class FocusIndicator implements Disposable {
 			: {
 					title: 'Open Launchpad',
 					command: Commands.ShowLaunchpad,
-					arguments: [{ source: 'indicator', state: { selectTopItem: labelType === 'item' } }],
+					arguments: [
+						{
+							source: 'launchpad-indicator',
+							state: { selectTopItem: labelType === 'item' },
+						} satisfies Omit<FocusCommandArgs, 'command'>,
+					],
 			  };
 	}
 
@@ -313,12 +319,12 @@ export class FocusIndicator implements Disposable {
 									: pluralize('pull request', items.length)
 							} can be merged](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
-									source: 'indicator',
+									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'mergeable',
 										selectTopItem: labelType === 'item',
 									},
-								}),
+								} satisfies Omit<FocusCommandArgs, 'command'>),
 							)} "Open Ready to Merge in Launchpad")`,
 						);
 						break;
@@ -376,9 +382,9 @@ export class FocusIndicator implements Disposable {
 								hasMultipleCategories ? 'are blocked' : actionMessage
 							}](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
-									source: 'indicator',
+									source: 'launchpad-indicator',
 									state: { initialGroup: 'blocked', selectTopItem: labelType === 'item' },
-								}),
+								} satisfies Omit<FocusCommandArgs, 'command'>),
 							)} "Open Blocked in Launchpad")`,
 						);
 						if (hasMultipleCategories) {
@@ -410,12 +416,12 @@ export class FocusIndicator implements Disposable {
 								items.length > 1 ? 'require' : 'requires'
 							} follow-up](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
-									source: 'indicator',
+									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'follow-up',
 										selectTopItem: labelType === 'item',
 									},
-								}),
+								} satisfies Omit<FocusCommandArgs, 'command'>),
 							)} "Open Follow-Up in Launchpad")`,
 						);
 						priorityItem ??= { item: items[0], groupLabel: 'requires follow-up' };
@@ -433,12 +439,12 @@ export class FocusIndicator implements Disposable {
 								items.length > 1 ? 'need' : 'needs'
 							} your review](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
-									source: 'indicator',
+									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'needs-review',
 										selectTopItem: labelType === 'item',
 									},
-								}),
+								} satisfies Omit<FocusCommandArgs, 'command'>),
 							)} "Open Needs Your Review in Launchpad")`,
 						);
 						priorityItem ??= { item: items[0], groupLabel: 'needs your review' };

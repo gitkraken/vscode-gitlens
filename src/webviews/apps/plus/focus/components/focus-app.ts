@@ -13,6 +13,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import type { Source } from '../../../../../constants';
 import type { State } from '../../../../../plus/webviews/focus/protocol';
 import { debounce } from '../../../../../system/function';
 import { themeProperties } from './gk-theme.css';
@@ -309,6 +310,7 @@ export class GlFocusApp extends LitElement {
 					<gl-feature-gate
 						.state=${this.subscription?.state}
 						featureWithArticleIfNeeded="Launchpad"
+						.source=${{ source: 'launchpad', detail: 'gate' } satisfies Source}
 						.visible=${this.showFeatureGate}
 						id="subscription-gate"
 						class="scrollable"
@@ -321,7 +323,12 @@ export class GlFocusApp extends LitElement {
 							actionable view.
 						</p></gl-feature-gate
 					>
-					<gl-feature-gate .visible=${this.showConnectionGate} id="connection-gate" class="scrollable">
+					<gl-feature-gate
+						id="connection-gate"
+						class="scrollable"
+						.source=${{ source: 'launchpad', detail: 'gate' } satisfies Source}
+						.visible=${this.showConnectionGate}
+					>
 						<h3>No GitHub remotes are connected</h3>
 						<p>
 							This enables access to Pull Requests and Issues as well as provide additional information
