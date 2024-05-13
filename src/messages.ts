@@ -194,7 +194,9 @@ export async function showWhatsNewMessage(version: string) {
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	await showMessage(
 		'info',
-		`Upgraded to GitLens ${version} — [see what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/ "See what's new in GitLens ${version}").`,
+		`Upgraded to GitLens ${version}${
+			version === '15' ? ', with a host of new Pro features including Launchpad, Code Suggest, and more' : ''
+		} — [see what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/ "See what's new in GitLens ${version}").`,
 		undefined,
 		null,
 		confirm,
