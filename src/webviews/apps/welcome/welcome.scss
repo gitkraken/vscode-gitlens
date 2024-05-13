@@ -575,6 +575,7 @@ gl-feature-badge.super.small {
 gl-indicator {
 	position: absolute;
 	top: -15px;
+	z-index: 1;
 }
 
 hr {
