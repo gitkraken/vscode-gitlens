@@ -20,6 +20,7 @@ import './components/svg-blame';
 import './components/svg-editor-toolbar';
 import './components/svg-focus';
 import './components/svg-graph';
+import './components/svg-launchpad';
 import './components/svg-revision-navigation';
 import './components/svg-timeline';
 import './components/svg-workspaces';
