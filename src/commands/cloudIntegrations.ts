@@ -8,6 +8,7 @@ import { Command } from './base';
 export interface ManageCloudIntegrationsCommandArgs extends Source {
 	integrationId?: IssueIntegrationId.Jira;
 }
+
 @command()
 export class ManageCloudIntegrationsCommand extends Command {
 	constructor(private readonly container: Container) {
