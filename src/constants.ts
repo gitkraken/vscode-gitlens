@@ -38,10 +38,15 @@ export const urls = Object.freeze({
 	proFeatures: 'https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links',
 	security: 'https://help.gitkraken.com/gitlens/security?utm_source=gitlens-extension&utm_medium=in-app-links',
 	workspaces: 'https://gitkraken.com/solutions/workspaces?utm_source=gitlens-extension&utm_medium=in-app-links',
+
 	cli: 'https://gitkraken.com/cli?utm_source=gitlens-extension&utm_medium=in-app-links',
 	browserExtension: 'https://gitkraken.com/browser-extension?utm_source=gitlens-extension&utm_medium=in-app-links',
 	desktop: 'https://gitkraken.com/git-client?utm_source=gitlens-extension&utm_medium=in-app-links',
 	gkdev: 'https://gitkraken.dev?utm_source=gitlens-extension&utm_medium=in-app-links',
+
+	releaseNotes: 'https://help.gitkraken.com/gitlens/gitlens-release-notes-current/',
+	releaseAnnouncement:
+		'https://www.gitkraken.com/blog/gitkraken-launches-devex-platform-acquires-codesee?utm_source=gitlens-extension&utm_medium=in-app-links',
 });
 
 export const enum CharCode {

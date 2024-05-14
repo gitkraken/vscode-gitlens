@@ -17,7 +17,6 @@ import {
 	ProgressLocation,
 	StatusBarAlignment,
 	ThemeColor,
-	Uri,
 	window,
 } from 'vscode';
 import { getPlatform } from '@env/platform';
@@ -492,9 +491,7 @@ export class SubscriptionService implements Disposable {
 				);
 
 				if (result === learn) {
-					void env.openExternal(
-						Uri.parse('https://help.gitkraken.com/gitlens/gitlens-release-notes-current/'),
-					);
+					void openUrl(urls.releaseNotes);
 				}
 			}
 		} catch (ex) {
@@ -1268,11 +1265,9 @@ export class SubscriptionService implements Disposable {
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				`${
 					isReactivatedTrial
-						? `[See what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/) with ${pluralize(
-								'day',
-								remaining ?? 0,
-								{ infix: ' more ' },
-						  )} in your **${effective.name}** trial.`
+						? `[See what's new](${urls.releaseNotes}) with ${pluralize('day', remaining ?? 0, {
+								infix: ' more ',
+						  })} in your **${effective.name}** trial.`
 						: `You have ${pluralize('day', remaining ?? 0)} remaining in your **${effective.name}** trial.`
 				} Once your trial ends, you'll need a paid plan for full access to [Pro features](command:gitlens.openWalkthrough?%7B%22step%22%3A%22pro-trial%22,%22source%22%3A%22prompt%22%7D).\n\nYour trial also includes access to our [DevEx platform](${
 					urls.platform
