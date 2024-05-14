@@ -282,9 +282,7 @@ export class AccountContent extends LitElement {
 						? html`<p>
 								<code-icon icon="rocket"></code-icon>
 								See
-								<a href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
-									>what's new</a
-								>
+								<a href="${urls.releaseNotes}">what's new</a>
 								in GitLens.
 						  </p>`
 						: nothing}
