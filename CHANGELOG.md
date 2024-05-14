@@ -89,9 +89,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3180](https://github.com/gitkraken/vscode-gitlens/issues/3180) - Focus View feedback button is not working
 - Fixes [#3179](https://github.com/gitkraken/vscode-gitlens/issues/3179) - The checkmarks in cherry pick are not displayed
 - Fixes [#3249](https://github.com/gitkraken/vscode-gitlens/issues/3249) - Error "Cannot read properties of null (reading 'map')
-- Fixes [#3198] (https://github.com/gitkraken/vscode-gitlens/issues/3198) - Repository location in cloud workspace doesn't work when the repo descriptor does not contain a url
-- Fixes [#3143](https://github.com/gitkraken/vscode-gitlens/issues/3143) - File Annotation icon isn't themed according to the icons...
 - Fixes [#3198](https://github.com/gitkraken/vscode-gitlens/issues/3198) - Repository location in cloud workspace doesn't work when the repo descriptor does not contain a url
+- Fixes [#3143](https://github.com/gitkraken/vscode-gitlens/issues/3143) - File Annotation icon isn't themed according to the icons...
 
 ## [14.9.0] - 2024-03-06
 
