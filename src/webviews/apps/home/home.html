@@ -171,20 +171,27 @@
 				<div class="alert__description">
 					<p>Explore all of the powerful features in GitLens</p>
 					<p class="button-container">
+						<gl-button
+							style="margin-bottom: 0.4rem"
+							appearance="secondary"
+							full
+							href="command:gitlens.showWelcomePage"
+							aria-label="Open Welcome"
+							>Start Here (Welcome)</gl-button
+						>
 						<span class="button-group button-group--single">
 							<gl-button appearance="secondary" full href="command:gitlens.getStarted?%22home%22"
-								><code-icon icon="info" slot="prefix"></code-icon> Open Walkthrough</gl-button
+								>Walkthrough</gl-button
 							>
-							<gl-tooltip hoist>
-								<gl-button
-									appearance="secondary"
-									density="compact"
-									href="https://www.youtube.com/watch?v=UQPb73Zz9qk?utm_source=gitlens-extension&utm_medium=home_banner"
-									aria-label="Watch the GitLens Tutorial video"
-									><code-icon icon="vm-running"></code-icon
-								></gl-button>
-								<span slot="content">Watch the GitLens Tutorial video</span>
-							</gl-tooltip>
+							<gl-button
+								appearance="secondary"
+								full
+								href="https://www.youtube.com/watch?v=UQPb73Zz9qk?utm_source=gitlens-extension&utm_medium=home_banner"
+								aria-label="Watch the GitLens Tutorial video"
+								tooltip="Watch the GitLens Tutorial video"
+								><code-icon icon="vm-running" style="margin-right: 0.6rem"></code-icon
+								>Tutorial</gl-button
+							>
 						</span>
 					</p>
 				</div>
@@ -454,39 +461,6 @@
 						><code-icon class="nav-list__icon" icon="symbol-color"></code-icon
 						><gl-tooltip hoist class="nav-list__label" content="Open Git Command Palette"
 							><span>Git Command Palette</span></gl-tooltip
-						>
-					</a>
-				</div>
-			</nav>
-			<nav class="nav-list">
-				<h2 class="nav-list__title t-eyebrow sticky">Getting Started</h2>
-				<div class="nav-list__item">
-					<a class="nav-list__link" href="command:gitlens.showWelcomePage" aria-label="Open GitLens Welcome"
-						><code-icon class="nav-list__icon" icon="play"></code-icon
-						><gl-tooltip hoist class="nav-list__label" content="Open GitLens Welcome"
-							><span>Welcome</span></gl-tooltip
-						>
-					</a>
-				</div>
-				<div class="nav-list__item">
-					<a
-						class="nav-list__link"
-						href="command:gitlens.getStarted?%22home%22"
-						aria-label="Open GitLens Feature Walkthrough"
-						><code-icon class="nav-list__icon" icon="info"></code-icon
-						><gl-tooltip hoist class="nav-list__label" content="Open GitLens Feature Walkthrough"
-							><span>Feature Walkthrough</span></gl-tooltip
-						>
-					</a>
-				</div>
-				<div class="nav-list__item">
-					<a
-						class="nav-list__link"
-						href="https://www.youtube.com/watch?v=UQPb73Zz9qk?utm_source=gitlens-extension&utm_medium=home_link"
-						aria-label="Watch the GitLens Tutorial video"
-						><code-icon class="nav-list__icon" icon="vm-running"></code-icon
-						><gl-tooltip hoist class="nav-list__label" content="Watch the GitLens Tutorial video"
-							><span>Tutorial Video</span></gl-tooltip
 						>
 					</a>
 				</div>
