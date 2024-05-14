@@ -45,8 +45,8 @@ Quickly glimpse into when, why, and by whom a line or code block was changed. Ze
 - [**Revision Navigation**](#revision-navigation) &mdash; Explore the history of a file to see how the code evolved over time.
 - [**Side Bar Views**](#side-bar-views) &mdash; Powerful views into Git that don't come in the box.
 - [**Commit Graph `Pro`**](#commit-graph-pro) &mdash; Visualize your repository and keep track of all work in progress.
-- [**Launchpad `Pro`**](#launchpad-pro) &mdash; Stay focused and keep your team unblocked.
-- [**Code Suggest `Pro`**](#code-suggest-pro) &mdash; Free your code reviews from unnecessary restrictions.
+- [**Launchpad `Preview`**](#launchpad-preview) &mdash; Stay focused and keep your team unblocked.
+- [**Code Suggest `Preview`**](#code-suggest-preview) &mdash; Free your code reviews from unnecessary restrictions.
 - [**Cloud Patches `Preview`**](#cloud-patches-preview) &mdash; Easily and securely share code with your teammates.
 - [**Worktrees `Pro`**](#worktrees-pro) &mdash; Simultaneously work on different branches of a repository.
 - [**Visual File History `Pro`**](#visual-file-history-pro) &mdash; Identify the most impactful changes to a file and by whom.
@@ -179,7 +179,7 @@ Use the rich commit search to find exactly what you're looking for. Its powerful
 
 💡Maximize the Graph via the `Toggle Maximized Commit Graph` command.
 
-## Launchpad `Pro`
+## Launchpad `Preview`
 
 Launchpad brings all of your GitHub pull requests into a unified, actionable list to better track work in progress, pending work, reviews, and more. Stay focused and take action on the most important items to keep your team unblocked. [Learn more](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links)
 
@@ -187,7 +187,7 @@ Launchpad brings all of your GitHub pull requests into a unified, actionable lis
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/launchpad.png" alt="Launchpad" />
 </figure>
 
-## Code Suggest `Pro`
+## Code Suggest `Preview`
 
 Liberate your code reviews from GitHub's restrictive, comment-only feedback style. Like suggesting changes on a Google-doc, suggest code changes from where you're already coding — your IDE and on anything in your project, not just on the lines of code changed in the PR. [Learn more](https://gitkraken.com/solutions/code-suggest?utm_source=gitlens-extension&utm_medium=in-app-links)
 
@@ -255,7 +255,7 @@ Use a series of new commands to:
 
 Context switching kills productivity. GitLens not only reveals buried knowledge within your repository, it also brings additional context from issues and pull requests providing you with a wealth of information and insights at your fingertips.
 
-Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise `Pro`, GitLab, GitLab self-managed `Pro`, Jira, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.
+Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise `Pro`, GitLab, GitLab Self-Managed `Pro`, Jira, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.
 
 All integrations provide automatic linking, while rich integrations with GitHub, GitLab and Jira offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.
 
