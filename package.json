@@ -17315,7 +17315,8 @@
 						"title": "Discover Core Features",
 						"description": "**Inline blame** and status bar blame provide historical context about line changes.\n**Git CodeLens** adds contextual and actionable authorship information at the top of each file and at the beginning of each block of code.\n**Hover** over blame annotations to reveal rich details and actions.\n💡 Use the [Toggle Line Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Line%20Blame%22) and [Toggle Git CodeLens](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Git%20CodeLens%22) commands.\n**File annotations**, visual indicators that augment your editor, provide insights into authorship, recent changes, or a heatmap. Annotations can be toggled on-demand for individual files or holistically.\n💡 **On an active file**, use the [Toggle File Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Blame%22), [Toggle File Changes](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Changes%22), and [Toggle File Heatmap](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Heatmap%22) commands.\n\n**Navigate revision history** with just a click of a button at the top of any file. Move through the history of any file to compare changes over time.",
 						"media": {
-							"markdown": "walkthroughs/welcome/core-features.md"
+							"altText": "Illustrations of Inline Blame, Codelens, File Annotations and Revision Navigation",
+							"svg": "walkthroughs/welcome/core-features.svg"
 						}
 					},
 					{
