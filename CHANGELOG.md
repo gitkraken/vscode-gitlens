@@ -12,7 +12,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.ai.experimental.gemini.model` setting to specify the Gemini model
 - Adds support for the latest OpenAI and Anthropic models for GitLens' experimental AI features
 - Adds a new `gitlens.views.collapseWorktreesWhenPossible` setting to specify whether to try to collapse the opened worktrees into a single (common) repository in the views when possible
-- Shows a PR’s code suggestions anywhere we currently display a PR node in our GitLens views (Commits, Branches, Remotes).
 - Adds a preview of [Launchpad](https://www.gitkraken.com/solutions/launchpad), a new Pro feature bringing your GitHub pull requests into a unified, categorized list:
   - Open using the new _GitLens: Open Launchpad_ command
   - Categorizes pull requests by status:
@@ -52,6 +51,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     `gitlens.launchpad.indicator.openInEditor`: Specifies whether to open the Launchpad in the editor when clicked
     `gitlens.launchpad.indicator.polling.enabled`: Specifies whether to regularly check for changes to pull requests
     `gitlens.launchpad.indicator.polling.interval`: Specifies the interval in minutes to check for changes to pull requests
+- Adds a preview of _Code Suggest_, a cloud feature, that frees your code reviews from unnecessary restrictions
+  - Create a Code Suggestion from the _Inspect: Overview_ tab when on a PR's branch
+  - Upon creation of a Code Suggestion, a comment will appear on the pull request
+    - Code Suggestions can be viewed and apply directly from [gitkraken.dev](https://gitkraken.dev), or open in GitKraken Desktop or GitLens.
+  - See a PR's Code Suggestions from anywhere we currently display PR information in our views (Commits, Branches, Remotes)
+  - You can additionally start Code Suggestions from the Launchpad
 - Adds support for Jira Cloud integration as a GitKraken account cloud integration:
   - When connected, enables rich Jira autolinks in commit messages everywhere autolinks are supported in GitLens
   - Automatically syncs from a connected GitKraken account
@@ -60,6 +65,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Reworks _Commit Details_, now called the _Inspect_ view
+  - Revamps the _Working Changes_ tab into the _Overview_ tab
+  - Provides richer branch status information and branch switching
+  - Adds Push, Pull, and Fetch actions
+  - Richer Pull Request Information
+    - Open details in the Pull Request view
+    - Links to open and compare changes
+    - List of the PR's Code Suggestions
+  - Create a Code Suggestion by clicking the _Suggest Changes for PR_ button
 - Improves performance when creating colors derived from the VS Code theme
 - Changes the command to open the Launchpad in the editor (formerly _Focus View_) from _GitLens: Show Focus_ to _GitLens: Open Launchpad in Editor_
 - Renames the setting `gitlens.focus.allowMultiple` to `gitlens.launchpad.allowMultiple`
