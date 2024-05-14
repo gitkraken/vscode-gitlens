@@ -8,9 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds [Launchpad](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links) `preview`, a new Pro feature bringing your GitHub pull requests into a unified, categorized list:
+- Adds [Launchpad](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links) `preview`, a new Pro feature bringing your GitHub pull requests into a unified, categorized list to keep you updated and your team unblocked
   - Open using the new _GitLens: Open Launchpad_ command
-  - Categorizes pull requests by status:
+  - Categorizes pull requests by status
     - _Current Branch_: Pull requests associated with your current branch
     - _Ready to Merge_: Pull requests without conflicts, ci failures, change suggestions or other issues preventing merge
     - _Blocked_: Pull requests with conflicts, CI failures, or that have no reviewers assigned
@@ -35,7 +35,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
       - Also highlights your top pull request in the launchpad when opened from the indicator
     - Provides a summary of your most critical pull requests on hover
       - Each summary line includes a link to open the Launchpad to that category
-  - Adds new settings for the Launchpad and indicator:
+  - Adds new settings for the Launchpad and indicator
     - `gitlens.launchpad.ignoredRepositories`: Array of repositories with `owner/name` format to ignore in the Launchpad
     - `gitlens.launchpad.staleThreshold`: Value in days after which a pull request is considered stale and moved to the _Other_ category
     - `gitlens.launchpad.indicator.enabled`: Specifies whether to show the Launchpad indicator in the status bar
@@ -75,6 +75,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Links to open and compare changes
     - List of the PR's Code Suggestions
   - Create a Code Suggestion by clicking the _Suggest Changes for PR_ button
+- Improves contributor and team member picking for the adding co-authors, _Code Suggest_, and _Cloud Patches_
 - Improves performance when creating colors derived from the VS Code theme
 - Changes the command to open the Launchpad in the editor (formerly _Focus View_) from _GitLens: Show Focus_ to _GitLens: Open Launchpad in Editor_
 - Renames the setting `gitlens.focus.allowMultiple` to `gitlens.launchpad.allowMultiple`
@@ -89,6 +90,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3179](https://github.com/gitkraken/vscode-gitlens/issues/3179) - The checkmarks in cherry pick are not displayed
 - Fixes [#3249](https://github.com/gitkraken/vscode-gitlens/issues/3249) - Error "Cannot read properties of null (reading 'map')
 - Fixes [#3198] (https://github.com/gitkraken/vscode-gitlens/issues/3198) - Repository location in cloud workspace doesn't work when the repo descriptor does not contain a url
+- Fixes [#3143](https://github.com/gitkraken/vscode-gitlens/issues/3143) - File Annotation icon isn't themed according to the icons...
+- Fixes [#3198](https://github.com/gitkraken/vscode-gitlens/issues/3198) - Repository location in cloud workspace doesn't work when the repo descriptor does not contain a url
 
 ## [14.9.0] - 2024-03-06
 
