@@ -1,0 +1,94 @@
+
+<svg width="600" height="372" viewBox="0 0 600 372" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="600" height="45" viewBox="0 0 600 43" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="600" height="45" x="0" y="0" rx="5.5" stroke="var(--vscode-editorWidget-border)" fill="var(--vscode-menu-background)" />
+        <g fill="var(--vscode-editorCodeLens-foreground)">
+            <text y="18"><tspan x="38">Eric Amodio, 3 minutes ago | 1 author (Eric Amodio)</tspan></text>
+        </g>
+        <g fill="var(--vscode-editorCodeLens-foreground)" font-family="var(--vscode-editor-font-family, monospace)">
+            <text y="34"><tspan x="7" fill="var(--vscode-editorLineNumber-foreground)">13</tspan><tspan x="38" fill="var(--vscode-debugTokenExpression-name)">return</tspan><tspan dx="6" fill="var(--vscode-symbolIcon-colorForeground)">supercharged</tspan><tspan fill="var(--vscode-editor-foreground)">(</tspan><tspan fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan fill="var(--vscode-editor-foreground)">)</tspan><tspan fill="var(--vscode-editor-foreground)">;</tspan><tspan fill="var(--vscode-editorCursor-foreground)">|</tspan><tspan dx="24" fill="var(--vscode-gitlens-trailingLineForegroundColor)">You, 6 years ago via PR #1 • Supercharge Git</tspan></text>
+            <circle fill="var(--vscode-activityBarBadge-background,dodgerblue)" cx="260" cy="32" />
+        </g>
+    </svg>
+    <svg x="0" y="40" class="hover" width="600" height="177" viewBox="30 0 80 177" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="370" height="177" rx="3" stroke="var(--vscode-editorWidget-border)" fill="var(--vscode-menu-background)"></rect>
+        <text x="9" y="41" text-anchor="start"><tspan class="codicon" font-family="codicon" font-size="32" fill="var(--vscode-editorCodeLens-foreground)">&#xeb99;</tspan></text>
+        <text fill="var(--vscode-editorHoverWidget-foreground)">
+            <tspan class="hover__author hover__link" fill="#3794ff" x="52" y="30">You</tspan><tspan>, 6 years ago via PR&nbsp;</tspan><tspan class="hover__author hover__link" fill="#3794ff">#1</tspan><tspan class="hover__date" dx="12" font-style="italic">(November 12th, 2016)</tspan><tspan x="52" y="55">Supercharge Git</tspan>
+        </text>
+
+        <line x1="0" y1="70" x2="371" y2="70" stroke="var(--vscode-editorHoverWidget-border)" stroke-width="1" />
+
+        <text y="89" fill="var(--vscode-editorHoverWidget-foreground)">
+            <tspan x="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeafc;</tspan><tspan dx="2" dy="-1.5" fill="#3794ff">29ad3a0</tspan><tspan dx="9" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeafd;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xea82;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeb01;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xea7c;</tspan>
+        </text>
+
+        <line x1="0" y1="99" x2="371" y2="99" stroke="var(--vscode-editorHoverWidget-border)" stroke-width="1" />
+
+        <text class="hover__diff" font-family="var(--vscode-editor-font-family, monospace)">
+            <tspan fill="var(--vscode-gitDecoration-deletedResourceForeground)" x="9" y="119">- return git;</tspan>
+            <tspan fill="var(--vscode-gitDecoration-addedResourceForeground)" x="9" y="136">+ return supercharged(git);</tspan>
+        </text>
+
+        <line x1="0" y1="147" x2="371" y2="147" stroke="var(--vscode-editorHoverWidget-border)" stroke-width="1" />
+
+        <text y="166" fill="var(--vscode-editorHoverWidget-foreground)">
+            <tspan x="9">Changes</tspan><tspan dx="12" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeafc;</tspan><tspan dx="2" dy="-1.5" fill="#3794ff">3ac1d3f</tspan><tspan dx="9" dy="1.5" class="codicon" font-family="codicon">&#xea99;</tspan><tspan dx="6" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeafc;</tspan><tspan dx="2" dy="-1.5" fill="#3794ff">29ad3a0</tspan><tspan dx="9" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeafd;</tspan>
+        </text>
+    </svg>
+    <svg x="0" y="252" width="600" height="44" viewBox="0 0 600 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="600" height="44" x="0" y="0" rx="5.5" stroke="var(--vscode-editorWidget-border)" fill="var(--vscode-menu-background)" />
+        <g class="line" font-family="var(--vscode-editor-font-family)">
+            <rect class="line-current" x="0" y="21" width="calc(100% - 1px)" height="21" fill="var(--vscode-editor-lineHighlightBackground)" stroke="var(--vscode-editor-lineHighlightBorder)" stroke-width="1"></rect>
+            <text y="14"><tspan x="7" class="line-number" fill="var(--vscode-editorLineNumber-foreground)">12</tspan></text>
+            <text y="36"><tspan x="7" class="line-number-active" fill="var(--vscode-editorLineNumber-activeForeground)">13</tspan></text>
+        </g>
+        <g class="annotations-left">
+            <rect class="gutter" fill="var(--vscode-gitlens-gutterBackgroundColor)" x="28" y="0" width="242" height="100%"></rect>
+            <g class="line" font-family="var(--vscode-editor-font-family, monospace)">
+                <g class="gutter-avatar">
+                    <circle cx="42" cy="9" r="7" fill="var(--vscode-editorInfo-foreground)"></circle>
+                    <text x="42" y="11.5" text-anchor="middle" fill="var(--vscode-gitlens-gutterForegroundColor)" font-size="7.5">EA</text>
+                </g>
+                <text y="14"><tspan x="58" class="gutter-text" fill="var(--vscode-gitlens-gutterForegroundColor)" fill="var(--vscode-gitlens-gutterForegroundColor)">Hello GitLens</tspan><tspan x="274" dx="-12" text-anchor="end" class="gutter-text" fill="var(--vscode-gitlens-gutterForegroundColor)">6 yrs ago</tspan></text>
+                <g class="gutter-avatar">
+                    <circle cx="42" cy="31" r="7" fill="var(--vscode-editorInfo-foreground)"></circle>
+                    <text x="42" y="33.5" text-anchor="middle" fill="var(--vscode-gitlens-gutterForegroundColor)" font-size="7.5">EA</text>
+                </g>
+                <text y="36"><tspan x="58" class="gutter-text" fill="var(--vscode-gitlens-gutterForegroundColor)" fill="var(--vscode-gitlens-gutterForegroundColor)">Supercharged</tspan><tspan x="274" dx="-12" text-anchor="end" class="gutter-text" fill="var(--vscode-gitlens-gutterForegroundColor)">6 yrs ago</tspan></text>
+            </g>
+            <line class="heatmap" stroke="#7162db" x1="270" y1="0" x2="270" y2="100%" />
+        </g>
+        <g class="annotations-right">
+            <g class="line" font-family="var(--vscode-editor-font-family, monospace)">
+                <text y="14"><tspan x="278" class="function-declaration" fill="var(--vscode-symbolIcon-functionForeground)">function</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)">gitlens</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">:</tspan><tspan dx="6" class="function-argument-type" fill="var(--vscode-symbolIcon-typeParameterForeground)">object</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan dx="6" class="punctuation" fill="var(--vscode-editor-foreground)">{</tspan></text>
+                <text y="36"><tspan x="278" dx="24" class="function-return" fill="var(--vscode-debugTokenExpression-name)">return</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)">supercharged</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">;</tspan><tspan class="cursor" fill="var(--vscode-editorCursor-foreground)">|</tspan></text>
+            </g>
+        </g>
+    </svg>
+    <svg x="0" y="327" width="600" height="44" viewBox="0 0 600 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<defs>
+					<clipPath id="clip-left">
+						<rect x="0" y="0" width="279" height="100%"></rect>
+					</clipPath>
+				</defs>
+                <rect width="600" height="44" x="0" y="0" rx="5.5" stroke="var(--vscode-editorWidget-border)" fill="var(--vscode-menu-background)" />
+				<g class="revision-left">
+					<rect class="removed-line" fill="var(--vscode-diffEditor-removedLineBackground)" x="28" y="21" width="251" height="21"></rect>
+					<rect class="added-line" fill="var(--vscode-diffEditor-insertedLineBackground)" x="311" y="21" width="309" height="21"></rect>
+					<!-- <rect class="added-text" x="433" y="21" width="38" height="21"></rect> -->
+					<rect class="line-current" fill="var(--vscode-editor-lineHighlightBackground)" stroke="var(--vscode-editor-lineHighlightBorder)" stroke-width="1" x="0" y="21" width="calc(100% - 1px)" height="21"></rect>
+					<g class="line line-left" style="clip-path: url(#clip-left)" font-family="var(--vscode-editor-font-family, monospace)">
+						<text y="14"><tspan x="7" class="line-number" fill="var(--vscode-editorLineNumber-foreground)">12</tspan><tspan x="40" class="function-declaration" fill="var(--vscode-symbolIcon-functionForeground)">function</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)">gitlens</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">:</tspan><tspan dx="6" class="function-argument-type" fill="var(--vscode-symbolIcon-typeParameterForeground)">object</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan dx="6" class="punctuation" fill="var(--vscode-editor-foreground)">{</tspan></text>
+						<text y="36"><tspan x="7" class="line-number" fill="var(--vscode-editorLineNumber-foreground)">13</tspan><tspan x="40" dx="24" class="function-return" fill="var(--vscode-debugTokenExpression-name)">return</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)">supercharged</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">;</tspan></text>
+					</g>
+					<line class="splitter" x1="280" y1="0" x2="280" y2="100%" />
+				</g>
+				<g class="revision-right">
+					<g class="line line-right" font-family="var(--vscode-editor-font-family, monospace)">
+						<text y="14"><tspan x="290" class="line-number" fill="var(--vscode-editorLineNumber-foreground)">12</tspan><tspan x="323" class="function-declaration" fill="var(--vscode-symbolIcon-functionForeground)">function</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)">gitlens</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">:</tspan><tspan dx="6" class="function-argument-type" fill="var(--vscode-symbolIcon-typeParameterForeground)">object</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan dx="6" class="punctuation" fill="var(--vscode-editor-foreground)">{</tspan></text>
+						<text y="36"><tspan x="290" class="line-number-active" fill="var(--vscode-editorLineNumber-activeForeground)">13</tspan><tspan x="323" dx="24" class="function-return" fill="var(--vscode-debugTokenExpression-name)">return</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)"><tspan>super</tspan><tspan class="added-text" fill="green" paint-order="stroke" stroke="1" stroke-color="green">DuperC</tspan><tspan>harged</tspan></tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">;</tspan><tspan class="cursor" fill="var(--vscode-editorCursor-foreground)">|</tspan></text>
+					</g>
+				</g>
+			</svg>
+</svg>
