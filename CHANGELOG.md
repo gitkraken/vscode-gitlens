@@ -29,24 +29,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - View a pull request's branch in the _Commit Graph_
     - View or create code suggestions for a pull request
     - Pin or snooze a pull request in the Launchpad
-  - Adds the following settings:
-    - `gitlens.launchpad.ignoredRepositories`: Array of repositories with `owner/name` format to ignore in the Launchpad
-    - `gitlens.launchpad.staleThreshold`: Value in days after which a pull request is considered stale and moved to the _Other_ category
   - Adds a status bar indicator of the _Launchpad_
     - Opens the Launchpad when clicked
     - Shows the top pull request and its status in the status bar
       - Also highlights your top pull request in the launchpad when opened from the indicator
     - Provides a summary of your most critical pull requests on hover
       - Each summary line includes a link to open the Launchpad to that category
-    - Adds the following settings:
-      `gitlens.launchpad.indicator.enabled`: Specifies whether to show the Launchpad indicator in the status bar
-      `gitlens.launchpad.indicator.icon`: Specifies the style of the Launchpad indicator icon
-      `gitlens.launchpad.indicator.label`: Specifies the style of the Launchpad indicator label
-      `gitlens.launchpad.indicator.groups`: Specifies which critical categories of pull requests to summarize in the indicator tooltip
-      `gitlens.launchpad.indicator.useColors`: Specifies whether to use colors in the indicator
-      `gitlens.launchpad.indicator.openInEditor`: Specifies whether to open the Launchpad in the editor when clicked
-      `gitlens.launchpad.indicator.polling.enabled`: Specifies whether to regularly check for changes to pull requests
-      `gitlens.launchpad.indicator.polling.interval`: Specifies the interval in minutes to check for changes to pull requests
+  - Adds new settings for the Launchpad and indicator:
+    - `gitlens.launchpad.ignoredRepositories`: Array of repositories with `owner/name` format to ignore in the Launchpad
+    - `gitlens.launchpad.staleThreshold`: Value in days after which a pull request is considered stale and moved to the _Other_ category
+    - `gitlens.launchpad.indicator.enabled`: Specifies whether to show the Launchpad indicator in the status bar
+    - `gitlens.launchpad.indicator.icon`: Specifies the style of the Launchpad indicator icon
+    - `gitlens.launchpad.indicator.label`: Specifies the style of the Launchpad indicator label
+    - `gitlens.launchpad.indicator.groups`: Specifies which critical categories of pull requests to summarize in the indicator tooltip
+    - `gitlens.launchpad.indicator.useColors`: Specifies whether to use colors in the indicator
+    - `gitlens.launchpad.indicator.openInEditor`: Specifies whether to open the Launchpad in the editor when clicked
+    - `gitlens.launchpad.indicator.polling.enabled`: Specifies whether to regularly check for changes to pull requests
+    - `gitlens.launchpad.indicator.polling.interval`: Specifies the interval in minutes to check for changes to pull requests
 - Adds new features that make code reviews easier
   - Adds [Code Suggest](https://gitkraken.com/solutions/code-suggest?utm_source=gitlens-extension&utm_medium=in-app-links) `preview`, a cloud feature, that frees your code reviews from unnecessary restrictions
     - Create a Code Suggestion from the _Inspect: Overview_ tab when on a PR's branch
