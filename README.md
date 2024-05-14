@@ -22,8 +22,8 @@ Use `Switch to Pre-Release Version` on the extension banner to live on the edge 
 
 All features are free to use on all repos, **except** for features,
 
-- marked with a ✨ require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos
-- marked with a ☁️ require a GitKraken account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
+- marked with a `Pro` require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos
+- marked with a `Preview` require a GitKraken account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
 
 See the [FAQ](#is-gitlens-free-to-use 'Jump to FAQ') for more details.
 
@@ -44,10 +44,13 @@ Quickly glimpse into when, why, and by whom a line or code block was changed. Ze
 - [**File Annotations**](#file-annotations) &mdash; Toggle on-demand whole file annotations to see authorship, recent changes, and a heatmap.
 - [**Revision Navigation**](#revision-navigation) &mdash; Explore the history of a file to see how the code evolved over time.
 - [**Side Bar Views**](#side-bar-views) &mdash; Powerful views into Git that don't come in the box.
-- [**Commit Graph ✨**](#commit-graph-✨) &mdash; Visualize your repository and keep track of all work in progress.
-- [**GitKraken Workspaces ☁️ and Launchpad ✨**](#gitkraken-workspaces-☁️-and-focus-✨) &mdash; Easily group and manage multiple repositories and bring pull requests and issues into a unified view.
-- [**Visual File History ✨**](#visual-file-history-✨) &mdash; Identify the most impactful changes to a file and by whom.
-- [**Worktrees ✨**](#worktrees-✨) &mdash; Simultaneously work on different branches of a repository.
+- [**Commit Graph `Pro`**](#commit-graph-pro) &mdash; Visualize your repository and keep track of all work in progress.
+- [**Cloud Patches `Preview`**](#cloud-patches-preview) &mdash; Easily and securely share code with your teammates.
+- [**GitKraken Workspaces `Preview`**](#gitkraken-workspaces-preview) &mdash; Easily group and manage multiple repositories.
+- [**Code Suggest `Pro`**](#code-suggest-pro) &mdash; Free your code reviews from unnecessary restrictions.
+- [**Launchpad `Pro`**](#launchpad-pro) &mdash; Stay focused and keep your team unblocked.
+- [**Visual File History `Pro`**](#visual-file-history-pro) &mdash; Identify the most impactful changes to a file and by whom.
+- [**Worktrees `Pro`**](#worktrees-pro) &mdash; Simultaneously work on different branches of a repository.
 - [**Interactive Rebase Editor**](#interactive-rebase-editor) &mdash; Visualize and configure interactive rebase operations with a user-friendly editor.
 - [**Comprehensive Commands**](#comprehensive-commands) &mdash; A rich set of commands to help you do everything you need.
 - [**Integrations**](#integrations) &mdash; Simplify your workflow and quickly gain insights via integration with your Git hosting services.
@@ -131,7 +134,7 @@ An x-ray or developer tools Inspect into your code, focused on providing context
 - **Inspect** &mdash; See rich details of a commit or stash.
 - **Line History** &mdash; Jump through the revision history of the selected line(s).
 - **File History** &mdash; Explore the revision history of a file, folder, or selected lines.
-- [**Visual File History ✨**](#visual-file-history-✨) &mdash; Quickly see the evolution of a file, including when changes were made, how large they were, and who made them.
+- [**Visual File History `Pro`**](#visual-file-history-pro) &mdash; Quickly see the evolution of a file, including when changes were made, how large they were, and who made them.
 - **Search & Compare** &mdash; Search and explore for a specific commit, message, author, changed file or files, or even a specific code change, or visualize comparisons between branches, tags, commits, and more.
 
 ### GitLens
@@ -139,7 +142,7 @@ An x-ray or developer tools Inspect into your code, focused on providing context
 Quick access to many GitLens features. Also the home of GitKraken teams and collaboration services (e.g. GitKraken Workspaces), help, and support.
 
 - **Home** &mdash; Quick access to many features.
-- [**GitKraken Workspaces ☁️**](#gitkraken-workspaces-☁️-and-focus-✨) &mdash; Easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.
+- [**GitKraken Workspaces `Preview`**](#gitkraken-workspaces-preview) &mdash; Easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.
 - **GitKraken Account** &mdash; Power-up with GitKraken Cloud Services.
 
 ### Source Control
@@ -151,7 +154,7 @@ Shows additional views that are focused on exploring and managing your repositor
 - **Remotes** &mdash; Manage and navigate remotes and remote branches.
 - **Stashes** &mdash; Save and restore changes you are not yet ready to commit.
 - **Tags** &mdash; Manage and navigate tags.
-- [**Worktrees ✨**](#worktrees-✨) &mdash; Simultaneously work on different branches of a repository.
+- [**Worktrees `Pro`**](#worktrees-pro) &mdash; Simultaneously work on different branches of a repository.
 - **Contributors** &mdash; Ordered list of contributors, providing insights into individual contributions and involvement.
 - **Repositories** &mdash; Unifies the above views for more efficient management of multiple repositories.
 
@@ -159,33 +162,47 @@ Shows additional views that are focused on exploring and managing your repositor
 
 Convenient and easy access to the Commit Graph with a dedicated details view.
 
-- [**Commit Graph ✨**](#commit-graph-✨) &mdash; Visualize your repository and keep track of all work in progress.
+- [**Commit Graph `Pro`**](#commit-graph-pro) &mdash; Visualize your repository and keep track of all work in progress.
 
-## Commit Graph ✨
+## Commit Graph `Pro`
 
 Easily visualize your repository and keep track of all work in progress.
 
 Use the rich commit search to find exactly what you're looking for. Its powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.
 
 <figure align="center">
-  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-graph-illustrated.png" alt="Commit Graph" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-graph.png" alt="Commit Graph" />
 </figure>
 
 💡Quickly toggle the Graph via the `Toggle Commit Graph` command.
 
 💡Maximize the Graph via the `Toggle Maximized Commit Graph` command.
 
-## GitKraken Workspaces ☁️ and Launchpad ✨
+## Cloud Patches `Preview`
+
+Easily and securely share code changes with your teammates or other developers by creating a Cloud Patch from your WIP, commit or stash and sharing the generated link. Use Cloud Patches to collaborate early for feedback on direction, approach, and more, to minimize rework and streamline your workflow.
+
+## GitKraken Workspaces `Preview`
 
 GitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow. Create workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.
 
-Launchpad brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more. Quickly see if anything requires your attention while keeping you focused.
+## Code Suggest `Pro`
+
+Liberate your code reviews from GitHub's restrictive, comment-only feedback style. Like suggesting changes on a Google-doc, suggest code changes from where you're already coding — your IDE and on anything in your project, not just on the lines of code changed in the PR.
 
 <figure align="center">
-  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/focus-view.png" alt="Launchpad" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/code-suggest.png" alt="Code Suggest" />
 </figure>
 
-## Visual File History ✨
+## Launchpad `Pro`
+
+Launchpad brings all of your GitHub pull requests into a unified, actionable list to better track work in progress, pending work, reviews, and more. Stay focused and take action on the most important items to keep your team unblocked.
+
+<figure align="center">
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/launchpad.png" alt="Launchpad" />
+</figure>
+
+## Visual File History `Pro`
 
 Quickly see the evolution of a file, including when changes were made, how large they were, and who made them. Use it to quickly find when the most impactful changes were made to a file or who best to talk to about file changes and more.
 
@@ -193,14 +210,14 @@ Quickly see the evolution of a file, including when changes were made, how large
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/visual-file-history-illustrated.png" alt="Visual File History view" />
 </figure>
 
-## Worktrees ✨
+## Worktrees `Pro`
 
 Efficiently multitask by minimizing the context switching between branches, allowing you to easily work on different branches of a repository simultaneously.
 
 Avoid interrupting your work in progress when needing to review a pull request. Simply create a new worktree and open it in a new VS Code window, all without impacting your other work.
 
 <figure align="center">
-  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees-illustrated.png" alt="Worktrees view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees.png" alt="Worktrees view" />
 </figure>
 
 ## Interactive Rebase Editor
@@ -237,9 +254,9 @@ Use a series of new commands to:
 
 Context switching kills productivity. GitLens not only reveals buried knowledge within your repository, it also brings additional context from issues and pull requests providing you with a wealth of information and insights at your fingertips.
 
-Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise ✨, GitLab, GitLab self-managed ✨, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.
+Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise `Pro`, GitLab, GitLab self-managed `Pro`, Jira, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.
 
-All integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.
+All integrations provide automatic linking, while rich integrations with GitHub, GitLab and Jira offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.
 
 ## Define your own autolinks
 
@@ -259,9 +276,9 @@ Use the `Generate Commit Message` command from the Source Control view's context
 
 # Ready for GitLens Pro?
 
-When you're ready to unlock the full potential of GitLens and enjoy all the benefits on your privately-hosted repos, consider upgrading to GitLens Pro. With GitLens Pro, you'll gain access to ✨ features on privately-hosted repos and ☁️ features based on the Pro plan.
+When you're ready to unlock the full potential of GitLens and enjoy all the benefits on your privately-hosted repos, consider upgrading to GitLens Pro. With GitLens Pro, you'll gain access to `Pro` features on privately-hosted repos.
 
-To learn more about the pricing and the additional ✨ and ☁️ features offered with GitLens Pro, visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing). Upgrade to GitLens Pro today and take your Git workflow to the next level!
+To learn more about the pricing and the additional features offered with GitLens Pro, visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing). Upgrade to GitLens Pro today and take your Git workflow to the next level!
 
 # FAQ
 
@@ -269,16 +286,16 @@ To learn more about the pricing and the additional ✨ and ☁️ features offer
 
 Yes. All features are free to use on all repos, **except** for features,
 
-- marked with a ✨ require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos
-- marked with a ☁️ require a GitKraken Account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
+- marked with a `Pro` require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos
+- marked with a `Preview` require a GitKraken Account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
 
-While GitLens offers a remarkable set of free features, a subset of features tailored for professional developers and teams, marked with a ✨, require a trial or paid plan for use on privately-hosted repos &mdash; use on local or publicly-hosted repos is free for everyone. Additionally some features marked with a ☁️, rely on GitKraken Dev Services which requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc.
+While GitLens offers a remarkable set of free features, a subset of features tailored for professional developers and teams, marked with a `Pro`, require a trial or paid plan for use on privately-hosted repos &mdash; use on local or publicly-hosted repos is free for everyone. Additionally some features marked with a `Preview`, rely on GitKraken Dev Services which requires a GitKraken account and access is based on your plan, e.g. Free, Pro, etc.
 
-Preview ✨ features instantly for free for 3 days without an account, or start a free GitLens Pro trial to get an additional 7 days and gain access to ☁️ features to experience the full power of GitLens.
+Preview `Pro` features instantly for free for 3 days without an account, or start a free GitLens Pro trial to get an additional 7 days and gain access to `Pro` features to experience the full power of GitLens.
 
-## Are ✨ and ☁️ features free to use?
+## Are `Pro` and `Preview` features free to use?
 
-✨ features are free for use on local and publicly-hosted repos, while a paid plan is required for use on privately-hosted repos. ☁️ feature access is based on your plan including a Free plan.
+`Pro` features are free for use on local and publicly-hosted repos, while a paid plan is required for use on privately-hosted repos. `Preview` feature access is based on your plan including a Free plan.
 
 ## Where can I find pricing?
 
