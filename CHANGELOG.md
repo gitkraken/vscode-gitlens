@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [15.0.3] - 2024-05-14
+
 - Fixes [#3288](https://github.com/gitkraken/vscode-gitlens/issues/3288) - Branch, Tags, Stashes, Local Branch, and Remote Branch "Markers" Are Missing/Removed From Minimap
 
 ## [15.0.2] - 2024-05-14
@@ -5353,7 +5355,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v15.0.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v15.0.3...HEAD
+[15.0.3]: https://github.com/gitkraken/vscode-gitlens/compare/v15.0.2...gitkraken:v15.0.3
 [15.0.2]: https://github.com/gitkraken/vscode-gitlens/compare/v15.0.1...gitkraken:v15.0.2
 [15.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v15.0.0...gitkraken:v15.0.1
 [15.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.9.0...gitkraken:v15.0.0
