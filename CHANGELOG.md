@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds [Launchpad](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links) `preview`, a new Pro feature bringing your GitHub pull requests into a unified, categorized list to keep you updated and your team unblocked
+- Adds [Launchpad](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links) `preview`, a new Pro feature bringing your GitHub pull requests into a unified, categorized list to keep you focused and your team unblocked
   - Open using the new _GitLens: Open Launchpad_ command
   - Categorizes pull requests by status
     - _Current Branch_: Pull requests associated with your current branch
