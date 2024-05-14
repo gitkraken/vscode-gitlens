@@ -8,11 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds support for Google Gemini for GitLens' experimental AI features
-  - Adds a `gitlens.ai.experimental.gemini.model` setting to specify the Gemini model
-- Adds support for the latest OpenAI and Anthropic models for GitLens' experimental AI features
-- Adds a new `gitlens.views.collapseWorktreesWhenPossible` setting to specify whether to try to collapse the opened worktrees into a single (common) repository in the views when possible
-- Adds a preview of [Launchpad](https://www.gitkraken.com/solutions/launchpad), a new Pro feature bringing your GitHub pull requests into a unified, categorized list:
+- Adds [Launchpad](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links) `preview`, a new Pro feature bringing your GitHub pull requests into a unified, categorized list:
   - Open using the new _GitLens: Open Launchpad_ command
   - Categorizes pull requests by status:
     - _Current Branch_: Pull requests associated with your current branch
@@ -36,32 +32,38 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds the following settings:
     - `gitlens.launchpad.ignoredRepositories`: Array of repositories with `owner/name` format to ignore in the Launchpad
     - `gitlens.launchpad.staleThreshold`: Value in days after which a pull request is considered stale and moved to the _Other_ category
-- Adds a preview of the _Launchpad_ indicator, a new Pro feature, to the status bar:
-  - Opens the Launchpad when clicked
-  - Shows the top pull request and its status in the status bar
-    - Also highlights your top pull request in the launchpad when opened from the indicator
-  - Provides a summary of your most critical pull requests on hover
-    - Each summary line includes a link to open the Launchpad to that category
-  - Adds the following settings:
-    `gitlens.launchpad.indicator.enabled`: Specifies whether to show the Launchpad indicator in the status bar
-    `gitlens.launchpad.indicator.icon`: Specifies the style of the Launchpad indicator icon
-    `gitlens.launchpad.indicator.label`: Specifies the style of the Launchpad indicator label
-    `gitlens.launchpad.indicator.groups`: Specifies which critical categories of pull requests to summarize in the indicator tooltip
-    `gitlens.launchpad.indicator.useColors`: Specifies whether to use colors in the indicator
-    `gitlens.launchpad.indicator.openInEditor`: Specifies whether to open the Launchpad in the editor when clicked
-    `gitlens.launchpad.indicator.polling.enabled`: Specifies whether to regularly check for changes to pull requests
-    `gitlens.launchpad.indicator.polling.interval`: Specifies the interval in minutes to check for changes to pull requests
-- Adds a preview of _Code Suggest_, a cloud feature, that frees your code reviews from unnecessary restrictions
-  - Create a Code Suggestion from the _Inspect: Overview_ tab when on a PR's branch
-  - Upon creation of a Code Suggestion, a comment will appear on the pull request
-    - Code Suggestions can be viewed and apply directly from [gitkraken.dev](https://gitkraken.dev), or open in GitKraken Desktop or GitLens.
-  - See a PR's Code Suggestions from anywhere we currently display PR information in our views (Commits, Branches, Remotes)
-  - You can additionally start Code Suggestions from the Launchpad
-- Adds support for Jira Cloud integration as a GitKraken account cloud integration:
-  - When connected, enables rich Jira autolinks in commit messages everywhere autolinks are supported in GitLens
-  - Automatically syncs from a connected GitKraken account
+  - Adds a status bar indicator of the _Launchpad_
+    - Opens the Launchpad when clicked
+    - Shows the top pull request and its status in the status bar
+      - Also highlights your top pull request in the launchpad when opened from the indicator
+    - Provides a summary of your most critical pull requests on hover
+      - Each summary line includes a link to open the Launchpad to that category
+    - Adds the following settings:
+      `gitlens.launchpad.indicator.enabled`: Specifies whether to show the Launchpad indicator in the status bar
+      `gitlens.launchpad.indicator.icon`: Specifies the style of the Launchpad indicator icon
+      `gitlens.launchpad.indicator.label`: Specifies the style of the Launchpad indicator label
+      `gitlens.launchpad.indicator.groups`: Specifies which critical categories of pull requests to summarize in the indicator tooltip
+      `gitlens.launchpad.indicator.useColors`: Specifies whether to use colors in the indicator
+      `gitlens.launchpad.indicator.openInEditor`: Specifies whether to open the Launchpad in the editor when clicked
+      `gitlens.launchpad.indicator.polling.enabled`: Specifies whether to regularly check for changes to pull requests
+      `gitlens.launchpad.indicator.polling.interval`: Specifies the interval in minutes to check for changes to pull requests
+- Adds new features that make code reviews easier
+  - Adds [Code Suggest](https://gitkraken.com/solutions/code-suggest?utm_source=gitlens-extension&utm_medium=in-app-links) `preview`, a cloud feature, that frees your code reviews from unnecessary restrictions
+    - Create a Code Suggestion from the _Inspect: Overview_ tab when on a PR's branch
+    - Upon creation of a Code Suggestion, a comment will appear on the pull request
+      - Code Suggestions can be viewed and apply directly from [gitkraken.dev](https://gitkraken.dev), or open in GitKraken Desktop or GitLens.
+    - See a PR's Code Suggestions from anywhere we currently display PR information in our views (Commits, Branches, Remotes)
+    - You can additionally start Code Suggestions from the Launchpad
+  - Adds a _Pull Request_ view to view PR commits and review file changes
+  - Adds a _Pull Request_ badge to the Graph and the Inspect Overview
+- Adds rich Jira Cloud integration
+  - Enables rich automatic Jira autolinks in commit messages everywhere autolinks are supported in GitLens
   - Adds a _Cloud Integrations_ button to the GitKraken Account view and a new `GitLens: Manage Cloud Integrations` command to manage connected cloud integrations
   - Adds a _Manage Jira_ button to _Inspect_ and a link in Autolink settings to connect to Jira
+- Adds support for Google Gemini for GitLens' experimental AI features
+  - Adds a `gitlens.ai.experimental.gemini.model` setting to specify the Gemini model
+- Adds support for the latest OpenAI and Anthropic models for GitLens' experimental AI features
+- Adds a new `gitlens.views.collapseWorktreesWhenPossible` setting to specify whether to try to collapse the opened worktrees into a single (common) repository in the views when possible
 
 ### Changed
 
