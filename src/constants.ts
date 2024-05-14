@@ -31,6 +31,7 @@ export const ImageMimetypes: Record<string, string> = Object.freeze({
 export const urls = Object.freeze({
 	codeSuggest: 'https://gitkraken.com/solutions/code-suggest?utm_source=gitlens-extension&utm_medium=in-app-links',
 	cloudPatches: 'https://gitkraken.com/solutions/cloud-patches?utm_source=gitlens-extension&utm_medium=in-app-links',
+	graph: 'https://gitkraken.com/solutions/commit-graph?utm_source=gitlens-extension&utm_medium=in-app-links',
 	launchpad: 'https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links',
 	platform: 'https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links',
 	pricing: 'https://gitkraken.com/gitlens/pricing?utm_source=gitlens-extension&utm_medium=in-app-links',
