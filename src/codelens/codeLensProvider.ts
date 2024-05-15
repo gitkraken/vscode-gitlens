@@ -537,8 +537,11 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 		const count = blame.authors.size;
 		const author = first(blame.authors.values())?.name ?? 'Unknown';
+		const andOthers = count > 1
+			? ` and ${pluralize('one other', count - 1, { only: true, plural: 'others' })}`
+			: '';
 
-		let title = `${pluralize('author', count, { zero: '?' })} (${author}${count > 1 ? ' and others' : ''})`;
+		let title = `${pluralize('author', count, { zero: '?' })} (${author}${andOthers})`;
 		if (configuration.get('debug')) {
 			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
 				lens.range.end.character
