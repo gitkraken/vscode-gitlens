@@ -12,6 +12,7 @@ import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderServic
 const provider = { id: 'openai', name: 'OpenAI' } as const;
 
 export type OpenAIModels =
+	| 'gpt-4o'
 	| 'gpt-4-turbo'
 	| 'gpt-4-turbo-2024-04-09'
 	| 'gpt-4-turbo-preview'
@@ -28,6 +29,13 @@ export type OpenAIModels =
 
 type OpenAIModel = AIModel<typeof provider.id>;
 const models: OpenAIModel[] = [
+	{
+		id: 'gpt-4o',
+		name: 'GPT-4 Omni',
+		maxTokens: 128000,
+		provider: provider,
+		default: true,
+	},
 	{
 		id: 'gpt-4-turbo',
 		name: 'GPT-4 Turbo with Vision',
@@ -46,7 +54,6 @@ const models: OpenAIModel[] = [
 		name: 'GPT-4 Turbo Preview',
 		maxTokens: 128000,
 		provider: provider,
-		default: true,
 	},
 	{
 		id: 'gpt-4-0125-preview',

@@ -3512,6 +3512,7 @@
 						],
 						"default": null,
 						"enum": [
+							"gpt-4o",
 							"gpt-4-turbo",
 							"gpt-4-turbo-preview",
 							"gpt-4",
@@ -3520,6 +3521,7 @@
 							"gpt-3.5-turbo-16k"
 						],
 						"enumDescriptions": [
+							"GPT-4 Omni",
 							"GPT-4 Turbo with Vision",
 							"GPT-4 Turbo Preview",
 							"GPT-4",
@@ -3575,10 +3577,12 @@
 						"default": null,
 						"enum": [
 							"gemini-1.5-pro-latest",
+							"gemini-1.5-flash-latest",
 							"gemini-1.0-pro"
 						],
 						"enumDescriptions": [
 							"Gemini 1.5 Pro (Latest)",
+							"Gemini 1.5 Flash",
 							"Gemini 1.0 Pro"
 						],
 						"markdownDescription": "Specifies the Google Gemini model to use for GitLens' experimental AI features",
