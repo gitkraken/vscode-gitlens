@@ -657,7 +657,7 @@ async function parseRebaseTodo(
 			author: commit.author.name,
 			committer: commit.committer.name,
 			date: commit.formatDate(defaultDateFormat),
-			dateFromNow: commit.formatDateFromNow(),
+			dateFromNow: commit.formattedDate,
 			message: emojify(commit.message ?? commit.summary),
 		};
 	}
