@@ -1429,6 +1429,7 @@ export function GraphWrapper({
 				rows={rows}
 				rowsStats={rowsStats}
 				dataType={graphConfig?.minimapDataType ?? 'commits'}
+				markerTypes={graphConfig?.minimapMarkerTypes}
 				searchResults={searchResults}
 				visibleDays={visibleDays}
 				onSelected={e => handleOnMinimapDaySelected(e)}

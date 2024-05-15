@@ -11,7 +11,7 @@ import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderServic
 
 const provider = { id: 'gemini', name: 'Google' } as const;
 
-export type GeminiModels = 'gemini-1.0-pro' | 'gemini-1.5-pro-latest';
+export type GeminiModels = 'gemini-1.0-pro' | 'gemini-1.5-pro-latest' | 'gemini-1.5-flash-latest';
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [
 	{
@@ -20,6 +20,12 @@ const models: GeminiModel[] = [
 		maxTokens: 1048576,
 		provider: provider,
 		default: true,
+	},
+	{
+		id: 'gemini-1.5-flash-latest',
+		name: 'Gemini 1.5 Flash',
+		maxTokens: 1048576,
+		provider: provider,
 	},
 	{
 		id: 'gemini-1.0-pro',

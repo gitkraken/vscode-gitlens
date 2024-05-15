@@ -5,6 +5,7 @@ import type { IpcMessage } from '../../protocol';
 import type { State } from '../../welcome/protocol';
 import { DidChangeNotification, DidChangeOrgSettings, UpdateConfigurationCommand } from '../../welcome/protocol';
 import { App } from '../shared/appBase';
+import type { GlFeatureBadge } from '../shared/components/feature-badge';
 import { DOM } from '../shared/dom';
 import type { BlameSvg } from './components/svg-blame';
 // import { Snow } from '../shared/snow';
@@ -19,6 +20,7 @@ import './components/svg-blame';
 import './components/svg-editor-toolbar';
 import './components/svg-focus';
 import './components/svg-graph';
+import './components/svg-launchpad';
 import './components/svg-revision-navigation';
 import './components/svg-timeline';
 import './components/svg-workspaces';
@@ -101,6 +103,7 @@ export class WelcomeApp extends App<State> {
 		this.updateRepoState();
 		this.updateAccountState();
 		this.updatePromo();
+		this.updateSource();
 		this.updateOrgSettings();
 	}
 
@@ -116,6 +119,13 @@ export class WelcomeApp extends App<State> {
 	private updatePromo() {
 		const { canShowPromo } = this.state;
 		document.getElementById('promo')!.hidden = !(canShowPromo ?? false);
+	}
+
+	private updateSource() {
+		const els = document.querySelectorAll<GlFeatureBadge>('gl-feature-badge');
+		for (const el of els) {
+			el.source = { source: 'welcome', detail: 'badge' };
+		}
 	}
 
 	private updateVersion() {

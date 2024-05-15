@@ -3,9 +3,10 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { Autolink } from '../../../../annotations/autolinks';
-import type { Source } from '../../../../constants';
+import type { ManageCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
 import type { IssueOrPullRequest } from '../../../../git/models/issue';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
+import type { IssueIntegrationId } from '../../../../plus/integrations/providers/models';
 import type { Serialized } from '../../../../system/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
@@ -172,12 +173,13 @@ export class GlCommitDetails extends GlDetailsBase {
 		let message = html`<a
 				href="command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
 					JSON.stringify({
+						integrationId: 'jira' as IssueIntegrationId.Jira,
 						source: 'inspect',
 						detail: {
 							action: 'connect',
 							integration: 'jira',
 						},
-					} satisfies Source),
+					} satisfies ManageCloudIntegrationsCommandArgs),
 				)}"
 				>Connect to Jira Cloud</a
 			>
@@ -243,12 +245,13 @@ export class GlCommitDetails extends GlDetailsBase {
 		const { hasAccount, hasConnectedJira } = this.state ?? {};
 		const jiraIntegrationLink = `command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
 			JSON.stringify({
+				integrationId: 'jira' as IssueIntegrationId.Jira,
 				source: 'inspect',
 				detail: {
 					action: 'connect',
 					integration: 'jira',
 				},
-			} satisfies Source),
+			} satisfies ManageCloudIntegrationsCommandArgs),
 		)}`;
 
 		return html`

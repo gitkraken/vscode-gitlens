@@ -1,0 +1,128 @@
+
+<svg width="600" height="455" viewBox="0 0 600 455" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <text x="0" y="0" fill="var(--vscode-editor-foreground)" font-family="var(--vscode-font-family)" font-size="16" font-weight="600">Inline Blame and Git CodeLens</text>
+    <svg x="0" y="10" width="600" height="45" viewBox="0 0 600 43" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="600" height="45" x="0" y="0" rx="5.5" stroke="var(--vscode-editorWidget-border)" fill="var(--vscode-menu-background)" />
+        <g fill="var(--vscode-editorCodeLens-foreground)">
+            <text y="18"><tspan x="38">Eric Amodio, 3 minutes ago | 1 author (Eric Amodio)</tspan></text>
+        </g>
+        <g fill="var(--vscode-editorCodeLens-foreground)" font-family="var(--vscode-editor-font-family, monospace)">
+            <text y="34"><tspan x="7" fill="var(--vscode-editorLineNumber-foreground)">13</tspan><tspan x="38" fill="var(--vscode-debugTokenExpression-name)">return</tspan><tspan dx="6" fill="var(--vscode-symbolIcon-colorForeground)">supercharged</tspan><tspan fill="var(--vscode-editor-foreground)">(</tspan><tspan fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan fill="var(--vscode-editor-foreground)">)</tspan><tspan fill="var(--vscode-editor-foreground)">;</tspan><tspan fill="var(--vscode-editorCursor-foreground)">|</tspan><tspan dx="24" fill="var(--vscode-gitlens-trailingLineForegroundColor)">You, 6 years ago via PR #1 • Supercharge Git</tspan></text>
+            <circle fill="var(--vscode-activityBarBadge-background,dodgerblue)" cx="260" cy="32" />
+        </g>
+    </svg>
+    <svg x="0" y="50" class="hover" width="600" height="177" viewBox="30 0 80 177" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="370" height="177" rx="3" stroke="var(--vscode-editorWidget-border)" fill="var(--vscode-menu-background)"></rect>
+        <text x="9" y="41" text-anchor="start"><tspan class="codicon" font-family="codicon" font-size="32" fill="var(--vscode-editorCodeLens-foreground)">&#xeb99;</tspan></text>
+        <text fill="var(--vscode-editorHoverWidget-foreground)">
+            <tspan class="hover__author hover__link" fill="#3794ff" x="52" y="30">You</tspan><tspan>, 6 years ago via PR&nbsp;</tspan><tspan class="hover__author hover__link" fill="#3794ff">#1</tspan><tspan class="hover__date" dx="12" font-style="italic">(November 12th, 2016)</tspan><tspan x="52" y="55">Supercharge Git</tspan>
+        </text>
+
+        <line x1="0" y1="70" x2="371" y2="70" stroke="var(--vscode-editorHoverWidget-border)" stroke-width="1" />
+
+        <text y="89" fill="var(--vscode-editorHoverWidget-foreground)">
+            <tspan x="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeafc;</tspan><tspan dx="2" dy="-1.5" fill="#3794ff">29ad3a0</tspan><tspan dx="9" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeafd;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xea82;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeb01;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xea7c;</tspan>
+        </text>
+
+        <line x1="0" y1="99" x2="371" y2="99" stroke="var(--vscode-editorHoverWidget-border)" stroke-width="1" />
+
+        <text class="hover__diff" font-family="var(--vscode-editor-font-family, monospace)">
+            <tspan fill="var(--vscode-gitDecoration-deletedResourceForeground)" x="9" y="119">- return git;</tspan>
+            <tspan fill="var(--vscode-gitDecoration-addedResourceForeground)" x="9" y="136">+ return supercharged(git);</tspan>
+        </text>
+
+        <line x1="0" y1="147" x2="371" y2="147" stroke="var(--vscode-editorHoverWidget-border)" stroke-width="1" />
+
+        <text y="166" fill="var(--vscode-editorHoverWidget-foreground)">
+            <tspan x="9">Changes</tspan><tspan dx="12" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeafc;</tspan><tspan dx="2" dy="-1.5" fill="#3794ff">3ac1d3f</tspan><tspan dx="9" dy="1.5" class="codicon" font-family="codicon">&#xea99;</tspan><tspan dx="6" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeafc;</tspan><tspan dx="2" dy="-1.5" fill="#3794ff">29ad3a0</tspan><tspan dx="9" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link" font-family="codicon" fill="#3794ff">&#xeafd;</tspan>
+        </text>
+    </svg>
+
+    <text x="0" y="282" fill="var(--vscode-editor-foreground)" font-family="var(--vscode-font-family)" font-size="16" font-weight="600">File Annotations</text>
+    <svg x="0" y="292" width="600" height="44" viewBox="0 0 600 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="600" height="44" x="0" y="0" rx="5.5" stroke="var(--vscode-editorWidget-border)" fill="var(--vscode-menu-background)" />
+        <g class="line" font-family="var(--vscode-editor-font-family)">
+            <rect class="line-current" x="0" y="21" width="calc(100% - 1px)" height="21" fill="var(--vscode-editor-lineHighlightBackground)" stroke="var(--vscode-editor-lineHighlightBorder)" stroke-width="1"></rect>
+            <text y="14"><tspan x="7" class="line-number" fill="var(--vscode-editorLineNumber-foreground)">12</tspan></text>
+            <text y="36"><tspan x="7" class="line-number-active" fill="var(--vscode-editorLineNumber-activeForeground)">13</tspan></text>
+        </g>
+        <g class="annotations-left">
+            <rect class="gutter" fill="var(--vscode-gitlens-gutterBackgroundColor)" x="28" y="0" width="242" height="100%"></rect>
+            <g class="line" font-family="var(--vscode-editor-font-family, monospace)">
+                <g class="gutter-avatar">
+                    <circle cx="42" cy="9" r="7" fill="var(--vscode-editorInfo-foreground)"></circle>
+                    <text x="42" y="11.5" text-anchor="middle" fill="var(--vscode-gitlens-gutterForegroundColor)" font-size="7.5">EA</text>
+                </g>
+                <text y="14"><tspan x="58" class="gutter-text" fill="var(--vscode-gitlens-gutterForegroundColor)" fill="var(--vscode-gitlens-gutterForegroundColor)">Hello GitLens</tspan><tspan x="274" dx="-12" text-anchor="end" class="gutter-text" fill="var(--vscode-gitlens-gutterForegroundColor)">6 yrs ago</tspan></text>
+                <g class="gutter-avatar">
+                    <circle cx="42" cy="31" r="7" fill="var(--vscode-editorInfo-foreground)"></circle>
+                    <text x="42" y="33.5" text-anchor="middle" fill="var(--vscode-gitlens-gutterForegroundColor)" font-size="7.5">EA</text>
+                </g>
+                <text y="36"><tspan x="58" class="gutter-text" fill="var(--vscode-gitlens-gutterForegroundColor)" fill="var(--vscode-gitlens-gutterForegroundColor)">Supercharged</tspan><tspan x="274" dx="-12" text-anchor="end" class="gutter-text" fill="var(--vscode-gitlens-gutterForegroundColor)">6 yrs ago</tspan></text>
+            </g>
+            <line class="heatmap" stroke="#7162db" x1="270" y1="0" x2="270" y2="100%" />
+        </g>
+        <g class="annotations-right">
+            <g class="line" font-family="var(--vscode-editor-font-family, monospace)">
+                <text y="14"><tspan x="278" class="function-declaration" fill="var(--vscode-symbolIcon-functionForeground)">function</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)">gitlens</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">:</tspan><tspan dx="6" class="function-argument-type" fill="var(--vscode-symbolIcon-typeParameterForeground)">object</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan dx="6" class="punctuation" fill="var(--vscode-editor-foreground)">{</tspan></text>
+                <text y="36"><tspan x="278" dx="24" class="function-return" fill="var(--vscode-debugTokenExpression-name)">return</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)">supercharged</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">;</tspan><tspan class="cursor" fill="var(--vscode-editorCursor-foreground)">|</tspan></text>
+            </g>
+        </g>
+    </svg>
+
+    <text x="0" y="397" fill="var(--vscode-editor-foreground)" font-family="var(--vscode-font-family)" font-size="16" font-weight="600">Revision Navigation</text>
+    <svg x="0" y="407" width="600" height="44" viewBox="0 0 600 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <clipPath id="clip-left">
+                <rect x="0" y="0" width="279" height="100%"></rect>
+            </clipPath>
+        </defs>
+        <rect width="600" height="44" x="0" y="0" rx="5.5" stroke="var(--vscode-editorWidget-border)" fill="var(--vscode-menu-background)" />
+        <g class="revision-left">
+            <rect class="removed-line" fill="var(--vscode-diffEditor-removedLineBackground)" x="28" y="21" width="251" height="21"></rect>
+            <rect class="added-line" fill="var(--vscode-diffEditor-insertedLineBackground)" x="311" y="21" width="309" height="21"></rect>
+            <!-- <rect class="added-text" x="433" y="21" width="38" height="21"></rect> -->
+            <rect class="line-current" fill="var(--vscode-editor-lineHighlightBackground)" stroke="var(--vscode-editor-lineHighlightBorder)" stroke-width="1" x="0" y="21" width="calc(100% - 1px)" height="21"></rect>
+            <g class="line line-left" style="clip-path: url(#clip-left)" font-family="var(--vscode-editor-font-family, monospace)">
+                <text y="14"><tspan x="7" class="line-number" fill="var(--vscode-editorLineNumber-foreground)">12</tspan><tspan x="40" class="function-declaration" fill="var(--vscode-symbolIcon-functionForeground)">function</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)">gitlens</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">:</tspan><tspan dx="6" class="function-argument-type" fill="var(--vscode-symbolIcon-typeParameterForeground)">object</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan dx="6" class="punctuation" fill="var(--vscode-editor-foreground)">{</tspan></text>
+                <text y="36"><tspan x="7" class="line-number" fill="var(--vscode-editorLineNumber-foreground)">13</tspan><tspan x="40" dx="24" class="function-return" fill="var(--vscode-debugTokenExpression-name)">return</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)">supercharged</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">;</tspan></text>
+            </g>
+            <line class="splitter" x1="280" y1="0" x2="280" y2="100%" />
+        </g>
+        <g class="revision-right">
+            <g class="line line-right" font-family="var(--vscode-editor-font-family, monospace)">
+                <text y="14"><tspan x="290" class="line-number" fill="var(--vscode-editorLineNumber-foreground)">12</tspan><tspan x="323" class="function-declaration" fill="var(--vscode-symbolIcon-functionForeground)">function</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)">gitlens</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">:</tspan><tspan dx="6" class="function-argument-type" fill="var(--vscode-symbolIcon-typeParameterForeground)">object</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan dx="6" class="punctuation" fill="var(--vscode-editor-foreground)">{</tspan></text>
+                <text y="36"><tspan x="290" class="line-number-active" fill="var(--vscode-editorLineNumber-activeForeground)">13</tspan><tspan x="323" dx="24" class="function-return" fill="var(--vscode-debugTokenExpression-name)">return</tspan><tspan dx="6" class="function-name" fill="var(--vscode-symbolIcon-colorForeground)"><tspan>super</tspan><tspan class="added-text" fill="green" paint-order="stroke" stroke="1" stroke-color="green">DuperC</tspan><tspan>harged</tspan></tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">(</tspan><tspan class="function-argument" fill="var(--vscode-symbolIcon-variableForeground)">git</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">)</tspan><tspan class="punctuation" fill="var(--vscode-editor-foreground)">;</tspan><tspan class="cursor" fill="var(--vscode-editorCursor-foreground)">|</tspan></text>
+            </g>
+        </g>
+    </svg>
+    <svg x="520" y="270" id="annotations-toolbar" width="69" height="16" viewBox="0 0 69 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g clip-path="url(#clip0_111_202)">
+            <path d="M61 16C63.1217 16 65.1566 15.1571 66.6569 13.6569C68.1571 12.1566 69 10.1217 69 8C69 5.87827 68.1571 3.84344 66.6569 2.34315C65.1566 0.842855 63.1217 0 61 0C58.8783 0 56.8434 0.842855 55.3431 2.34315C53.8429 3.84344 53 5.87827 53 8C53 10.1217 53.8429 12.1566 55.3431 13.6569C56.8434 15.1571 58.8783 16 61 16ZM60.48 5.52C60.4333 5.54 60.3867 5.56667 60.3333 5.58V10.42C60.6669 10.5379 60.9481 10.77 61.1271 11.0752C61.3062 11.3804 61.3716 11.7391 61.3117 12.0879C61.2519 12.4366 61.0707 12.753 60.8002 12.9811C60.5296 13.2091 60.1872 13.3342 59.8333 13.3342C59.4795 13.3342 59.137 13.2091 58.8665 12.9811C58.596 12.753 58.4148 12.4366 58.3549 12.0879C58.2951 11.7391 58.3605 11.3804 58.5395 11.0752C58.7186 10.77 58.9997 10.5379 59.3333 10.42V5.58C59.0472 5.47879 58.7986 5.29319 58.6202 5.0477C58.4418 4.80222 58.342 4.50839 58.3341 4.20503C58.3262 3.90167 58.4105 3.60304 58.5758 3.34858C58.7412 3.09412 58.9798 2.89579 59.2602 2.77979C59.5406 2.66379 59.8496 2.63557 60.1464 2.69886C60.4432 2.76215 60.7138 2.91397 60.9225 3.13428C61.1312 3.35458 61.2682 3.63301 61.3154 3.93279C61.3625 4.23256 61.3177 4.53959 61.1867 4.81333L63.1867 6.81333C63.506 6.66076 63.8689 6.62598 64.2114 6.71514C64.5538 6.80431 64.8537 7.01167 65.0581 7.30058C65.2624 7.5895 65.358 7.94135 65.328 8.29395C65.298 8.64655 65.1443 8.97718 64.8941 9.22741C64.6438 9.47763 64.3132 9.63133 63.9606 9.66134C63.608 9.69135 63.2562 9.59573 62.9673 9.39139C62.6783 9.18705 62.471 8.88715 62.3818 8.5447C62.2926 8.20224 62.3274 7.83929 62.48 7.52L60.48 5.52Z" fill="var(--vscode-icon-foreground)"/>
+        </g>
+        <path d="M45.7253 6.99998C45.4744 4.47333 43.3427 2.5 40.75 2.5C38.1573 2.5 36.0256 4.47334 35.7747 7H35V8H35.7747C36.0256 10.5267 38.1573 12.5 40.75 12.5C43.3427 12.5 45.4745 10.5267 45.7253 7.99998H49.4358L47 10.4358L47.7071 11.1429L51 7.84999V7.14288L47.7071 3.84998L47 4.55708L49.4393 6.99644V6.99998H45.7253ZM40.75 3.5C42.9591 3.5 44.75 5.29086 44.75 7.5C44.75 9.70914 42.9591 11.5 40.75 11.5C38.5409 11.5 36.75 9.70914 36.75 7.5C36.75 5.29086 38.5409 3.5 40.75 3.5Z" fill="var(--vscode-icon-foreground)"/>
+        <path d="M5.27469 6.99998C5.52556 4.47333 7.65733 2.5 10.25 2.5C12.8427 2.5 14.9745 4.47334 15.2253 7H16V8H15.2253C14.9745 10.5267 12.8427 12.5 10.25 12.5C7.65732 12.5 5.52554 10.5267 5.27469 7.99998H1.5642L4 10.4358L3.29289 11.1429L0 7.84999V7.14288L3.29289 3.84998L4 4.55708L1.56066 6.99644V6.99998H5.27469ZM10.25 3.5C8.04086 3.5 6.25 5.29086 6.25 7.5C6.25 9.70914 8.04086 11.5 10.25 11.5C12.4591 11.5 14.25 9.70914 14.25 7.5C14.25 5.29086 12.4591 3.5 10.25 3.5Z" fill="var(--vscode-icon-foreground)"/>
+        <path d="M25.5 12.5C22.9073 12.5 20.7755 10.5267 20.5247 8H18V7H20.5247C20.7755 4.47334 22.9073 2.5 25.5 2.5C28.0927 2.5 30.2245 4.47334 30.4753 7H33V8H30.4753C30.2245 10.5267 28.0927 12.5 25.5 12.5ZM21.5 7.5C21.5 9.70914 23.2909 11.5 25.5 11.5C27.7091 11.5 29.5 9.70914 29.5 7.5C29.5 5.29086 27.7091 3.5 25.5 3.5C23.2909 3.5 21.5 5.29086 21.5 7.5Z" fill="var(--vscode-icon-foreground)"/>
+        <defs>
+        <clipPath id="clip0_111_202">
+            <rect width="16" height="16" fill="white" transform="translate(53)"/>
+        </clipPath>
+        </defs>
+    </svg>
+    <svg x="520" y="384" id="revisions-toolbar" width="69" height="16" viewBox="0 0 69 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="18" height="16" rx="2" fill="var(--vscode-icon-foreground)" opacity="0.3"/>
+        <path d="M45.7253 6.99998C45.4744 4.47333 43.3427 2.5 40.75 2.5C38.1573 2.5 36.0256 4.47334 35.7747 7H35V8H35.7747C36.0256 10.5267 38.1573 12.5 40.75 12.5C43.3427 12.5 45.4745 10.5267 45.7253 7.99998H49.4358L47 10.4358L47.7071 11.1429L51 7.84999V7.14288L47.7071 3.84998L47 4.55708L49.4393 6.99644V6.99998H45.7253ZM40.75 3.5C42.9591 3.5 44.75 5.29086 44.75 7.5C44.75 9.70914 42.9591 11.5 40.75 11.5C38.5409 11.5 36.75 9.70914 36.75 7.5C36.75 5.29086 38.5409 3.5 40.75 3.5Z" fill="var(--vscode-icon-foreground)"/>
+        <path d="M6.27469 6.99998C6.52556 4.47333 8.65733 2.5 11.25 2.5C13.8427 2.5 15.9745 4.47334 16.2253 7H17V8H16.2253C15.9745 10.5267 13.8427 12.5 11.25 12.5C8.65732 12.5 6.52554 10.5267 6.27469 7.99998H2.5642L5 10.4358L4.29289 11.1429L1 7.84999V7.14288L4.29289 3.84998L5 4.55708L2.56066 6.99644V6.99998H6.27469ZM11.25 3.5C9.04086 3.5 7.25 5.29086 7.25 7.5C7.25 9.70914 9.04086 11.5 11.25 11.5C13.4591 11.5 15.25 9.70914 15.25 7.5C15.25 5.29086 13.4591 3.5 11.25 3.5Z" fill="var(--vscode-icon-foreground)"/>
+        <path d="M25.5 12.5C22.9073 12.5 20.7755 10.5267 20.5247 8H18V7H20.5247C20.7755 4.47334 22.9073 2.5 25.5 2.5C28.0927 2.5 30.2245 4.47334 30.4753 7H33V8H30.4753C30.2245 10.5267 28.0927 12.5 25.5 12.5ZM21.5 7.5C21.5 9.70914 23.2909 11.5 25.5 11.5C27.7091 11.5 29.5 9.70914 29.5 7.5C29.5 5.29086 27.7091 3.5 25.5 3.5C23.2909 3.5 21.5 5.29086 21.5 7.5Z" fill="var(--vscode-icon-foreground)"/>
+        <g clip-path="url(#clip0_111_203)">
+            <path d="M62.6267 7.66663L60.3333 5.37329L61.04 4.66663L63.3333 6.95996L62.6267 7.66663ZM59.3333 10.6666V5.33329H60.3333V10.6666H59.3333Z" fill="var(--vscode-icon-foreground)"/>
+            <path d="M59.8333 13.3333C60.2312 13.3333 60.6127 13.1753 60.894 12.894C61.1753 12.6126 61.3333 12.2311 61.3333 11.8333C61.3333 11.4355 61.1753 11.0539 60.894 10.7726C60.6127 10.4913 60.2312 10.3333 59.8333 10.3333C59.4355 10.3333 59.054 10.4913 58.7727 10.7726C58.4914 11.0539 58.3333 11.4355 58.3333 11.8333C58.3333 12.2311 58.4914 12.6126 58.7727 12.894C59.054 13.1753 59.4355 13.3333 59.8333 13.3333ZM63.8333 9.66663C64.0303 9.66663 64.2254 9.62783 64.4074 9.55245C64.5893 9.47706 64.7547 9.36657 64.894 9.22729C65.0333 9.088 65.1438 8.92264 65.2191 8.74065C65.2945 8.55866 65.3333 8.36361 65.3333 8.16663C65.3333 7.96964 65.2945 7.77459 65.2191 7.5926C65.1438 7.41061 65.0333 7.24525 64.894 7.10597C64.7547 6.96668 64.5893 6.85619 64.4074 6.78081C64.2254 6.70542 64.0303 6.66663 63.8333 6.66663C63.4355 6.66663 63.054 6.82466 62.7727 7.10597C62.4914 7.38727 62.3333 7.7688 62.3333 8.16663C62.3333 8.56445 62.4914 8.94598 62.7727 9.22729C63.054 9.50859 63.4355 9.66663 63.8333 9.66663ZM59.8333 5.66663C60.2312 5.66663 60.6127 5.50859 60.894 5.22729C61.1753 4.94598 61.3333 4.56445 61.3333 4.16663C61.3333 3.7688 61.1753 3.38727 60.894 3.10597C60.6127 2.82466 60.2312 2.66663 59.8333 2.66663C59.4355 2.66663 59.054 2.82466 58.7727 3.10597C58.4914 3.38727 58.3333 3.7688 58.3333 4.16663C58.3333 4.56445 58.4914 4.94598 58.7727 5.22729C59.054 5.50859 59.4355 5.66663 59.8333 5.66663Z" fill="var(--vscode-icon-foreground)"/>
+            <path d="M61 0.833333C60.0589 0.833333 59.1269 1.0187 58.2574 1.37886C57.3879 1.73902 56.5979 2.26691 55.9324 2.9324C55.2669 3.59789 54.739 4.38794 54.3789 5.25744C54.0187 6.12694 53.8333 7.05886 53.8333 8C53.8333 8.94114 54.0187 9.87307 54.3789 10.7426C54.739 11.6121 55.2669 12.4021 55.9324 13.0676C56.5979 13.7331 57.3879 14.261 58.2574 14.6211C59.1269 14.9813 60.0589 15.1667 61 15.1667C62.9007 15.1667 64.7236 14.4116 66.0676 13.0676C67.4116 11.7236 68.1667 9.90072 68.1667 8C68.1667 6.09928 67.4116 4.27641 66.0676 2.9324C64.7236 1.58839 62.9007 0.833333 61 0.833333ZM53 8C53 5.87827 53.8429 3.84344 55.3431 2.34315C56.8434 0.842855 58.8783 0 61 0C63.1217 0 65.1566 0.842855 66.6569 2.34315C68.1571 3.84344 69 5.87827 69 8C69 10.1217 68.1571 12.1566 66.6569 13.6569C65.1566 15.1571 63.1217 16 61 16C58.8783 16 56.8434 15.1571 55.3431 13.6569C53.8429 12.1566 53 10.1217 53 8Z" fill="var(--vscode-icon-foreground)"/>
+        </g>
+        <defs>
+        <clipPath id="clip0_111_203">
+            <rect width="16" height="16" fill="white" transform="translate(53)"/>
+        </clipPath>
+        </defs>
+    </svg>
+</svg>

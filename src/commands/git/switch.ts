@@ -205,7 +205,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 					state.reference.repoPath,
 					w => w.branch?.name === state.reference!.name,
 				);
-				if (worktree != null) {
+				if (worktree != null && !worktree.main) {
 					if (state.fastForwardTo != null) {
 						state.repos[0].merge('--ff-only', state.fastForwardTo.ref);
 					}

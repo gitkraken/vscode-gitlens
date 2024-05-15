@@ -1,13 +1,14 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import type { SuppressedMessages } from './config';
-import { Commands } from './constants';
+import { Commands, urls } from './constants';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
 import { executeCommand } from './system/command';
 import { configuration } from './system/configuration';
 import { Logger } from './system/logger';
+import { openUrl } from './system/utils';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(
 	ex: BlameIgnoreRevsFileError | BlameIgnoreRevsFileBadRevisionError,
@@ -192,13 +193,23 @@ export function showIntegrationRequestTimedOutWarningMessage(providerName: strin
 
 export async function showWhatsNewMessage(version: string) {
 	const confirm = { title: 'OK', isCloseAffordance: true };
-	await showMessage(
+	const announcement = { title: 'Read Announcement', isCloseAffordance: true };
+	const result = await showMessage(
 		'info',
-		`Upgraded to GitLens ${version} — [see what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/ "See what's new in GitLens ${version}").`,
+		`Upgraded to GitLens ${version}${
+			version === '15'
+				? `, with a host of new [Pro features](${urls.proFeatures}) including [Launchpad](${urls.codeSuggest}), [Code Suggest](${urls.codeSuggest}), and more`
+				: ''
+		} — [see what's new](${urls.releaseNotes} "See what's new in GitLens ${version}").`,
 		undefined,
 		null,
 		confirm,
+		announcement,
 	);
+
+	if (result === announcement) {
+		void openUrl(urls.releaseAnnouncement);
+	}
 }
 
 export async function showMessage(

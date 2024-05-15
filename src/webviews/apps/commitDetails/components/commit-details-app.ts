@@ -366,7 +366,7 @@ export class GlCommitDetailsApp extends LitElement {
 		return html`<gl-status-nav .wip=${this.state.wip} .preferences=${this.state.preferences}></gl-status-nav>`;
 	}
 
-	private renderRepoStatusContent(isWip: boolean) {
+	private renderRepoStatusContent(_isWip: boolean) {
 		const statusIndicator = this.wipStatus?.status;
 		return html`
 			<code-icon icon="gl-repository-filled"></code-icon>
@@ -388,11 +388,11 @@ export class GlCommitDetailsApp extends LitElement {
 						class="inspect-header__tab-indicator inspect-header__tab-indicator--${statusIndicator}"
 					></gl-indicator>`,
 			)}
-			${when(
-				isWip !== true && statusIndicator != null,
-				() => html`<gl-indicator pulse class="inspect-header__tab-pulse"></gl-indicator>`,
-			)}
 		`;
+		// ${when(
+		// 	isWip !== true && statusIndicator != null,
+		// 	() => html`<gl-indicator pulse class="inspect-header__tab-pulse"></gl-indicator>`,
+		// )}
 	}
 
 	renderWipTooltipContent() {
