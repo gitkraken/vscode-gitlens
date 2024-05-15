@@ -6811,21 +6811,21 @@
 				"command": "gitlens.fetchRepositories",
 				"title": "Fetch",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-fetch)",
+				"icon": "$(repo-fetch)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.pullRepositories",
 				"title": "Pull",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-pull)",
+				"icon": "$(repo-pull)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.pushRepositories",
 				"title": "Push",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-push)",
+				"icon": "$(repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -6895,7 +6895,7 @@
 				"command": "gitlens.views.fetch",
 				"title": "Fetch",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-fetch)",
+				"icon": "$(repo-fetch)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -6916,21 +6916,21 @@
 				"command": "gitlens.views.pull",
 				"title": "Pull",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-pull)",
+				"icon": "$(repo-pull)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.push",
 				"title": "Push",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-push)",
+				"icon": "$(repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.pushWithForce",
 				"title": "Push (force)",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-force-push)",
+				"icon": "$(repo-force-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -7309,7 +7309,7 @@
 				"command": "gitlens.views.pushToCommit",
 				"title": "Push to Commit...",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-push)",
+				"icon": "$(repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -8551,21 +8551,21 @@
 				"command": "gitlens.graph.push",
 				"title": "Push",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-push)",
+				"icon": "$(repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.pull",
 				"title": "Pull",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-pull)",
+				"icon": "$(repo-pull)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.fetch",
 				"title": "Fetch",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-fetch)",
+				"icon": "$(repo-fetch)",
 				"enablement": "!operationInProgress"
 			},
 			{

@@ -184,7 +184,7 @@ export class GlWipDetails extends GlDetailsBase {
 		if (ahead === 0 && behind === 0) return undefined;
 
 		const fetchLabel = behind > 0 ? 'Pull' : ahead > 0 ? 'Push' : 'Fetch';
-		const fetchIcon = behind > 0 ? 'gl-repo-pull' : ahead > 0 ? 'gl-repo-push' : 'gl-repo-fetch';
+		const fetchIcon = behind > 0 ? 'repo-pull' : ahead > 0 ? 'repo-push' : 'repo-fetch';
 
 		return html`<p class="button-container">
 			<span class="button-group button-group--single">
@@ -257,7 +257,7 @@ export class GlWipDetails extends GlDetailsBase {
 				<action-nav slot="actions">
 					<action-item
 						label="Open Pull Request Changes"
-						icon="gl-diff-multiple"
+						icon="diff-multiple"
 						@click=${() => this.onDataActionClick('open-pr-changes')}
 					></action-item>
 					<action-item

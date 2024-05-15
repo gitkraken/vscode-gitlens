@@ -977,7 +977,7 @@ export function GraphWrapper({
 							)}
 							className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
 						>
-							<span className={`glicon glicon-${icon} action-button__icon`}></span>
+							<span className={`codicon codicon-${icon} action-button__icon`}></span>
 							{label}
 							{(isAhead || isBehind) && (
 								<span>
@@ -1014,7 +1014,7 @@ export function GraphWrapper({
 						href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
 						className="action-button"
 					>
-						<span className="glicon glicon-repo-fetch action-button__icon"></span>
+						<span className="codicon codicon-repo-fetch action-button__icon"></span>
 						Fetch {fetchedText && <span className="action-button__small">({fetchedText})</span>}
 					</a>
 					<span slot="content" style={{ whiteSpace: 'break-spaces' }}>
