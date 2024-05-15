@@ -11,6 +11,12 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 </style>
 */
 
+@use './glicons-properties';
+
+/*---------------------
+ *  Base class
+ *-------------------*/
+
 .glicon {
 	font: normal normal normal 16px/1 glicons;
 	display: inline-block;
@@ -22,6 +28,10 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	user-select: none;
 	-webkit-user-select: none;
 	-ms-user-select: none;
+}
+
+.glicon:before {
+	content: var(--gl-glicon-content);
 }
 
 /*---------------------
@@ -59,147 +69,147 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
  *  Icons
  *-------------------*/
 
-.glicon-commit-horizontal:before {
-	content: '\f101';
+.glicon-commit-horizontal {
+	--gl-glicon-content: var(--gl-glicon-commit-horizontal-content);
 }
-.glicon-graph:before {
-	content: '\f102';
+.glicon-graph {
+	--gl-glicon-content: var(--gl-glicon-graph-content);
 }
-.glicon-next-commit:before {
-	content: '\f103';
+.glicon-next-commit {
+	--gl-glicon-content: var(--gl-glicon-next-commit-content);
 }
-.glicon-prev-commit-menu:before {
-	content: '\f104';
+.glicon-prev-commit-menu {
+	--gl-glicon-content: var(--gl-glicon-prev-commit-menu-content);
 }
-.glicon-prev-commit:before {
-	content: '\f105';
+.glicon-prev-commit {
+	--gl-glicon-content: var(--gl-glicon-prev-commit-content);
 }
-.glicon-compare-ref-working:before {
-	content: '\f106';
+.glicon-compare-ref-working {
+	--gl-glicon-content: var(--gl-glicon-compare-ref-working-content);
 }
-.glicon-branches-view:before {
-	content: '\f107';
+.glicon-branches-view {
+	--gl-glicon-content: var(--gl-glicon-branches-view-content);
 }
-.glicon-commit-view:before {
-	content: '\f108';
+.glicon-commit-view {
+	--gl-glicon-content: var(--gl-glicon-commit-view-content);
 }
-.glicon-commits-view:before {
-	content: '\f109';
+.glicon-commits-view {
+	--gl-glicon-content: var(--gl-glicon-commits-view-content);
 }
-.glicon-compare-view:before {
-	content: '\f10a';
+.glicon-compare-view {
+	--gl-glicon-content: var(--gl-glicon-compare-view-content);
 }
-.glicon-contributors-view:before {
-	content: '\f10b';
+.glicon-contributors-view {
+	--gl-glicon-content: var(--gl-glicon-contributors-view-content);
 }
-.glicon-history-view:before {
-	content: '\f10c';
+.glicon-history-view {
+	--gl-glicon-content: var(--gl-glicon-history-view-content);
 }
-.glicon-history:before {
-	content: '\f10c';
+.glicon-history {
+	--gl-glicon-content: var(--gl-glicon-history-content);
 }
-.glicon-remotes-view:before {
-	content: '\f10d';
+.glicon-remotes-view {
+	--gl-glicon-content: var(--gl-glicon-remotes-view-content);
 }
-.glicon-repositories-view:before {
-	content: '\f10e';
+.glicon-repositories-view {
+	--gl-glicon-content: var(--gl-glicon-repositories-view-content);
 }
-.glicon-search-view:before {
-	content: '\f10f';
+.glicon-search-view {
+	--gl-glicon-content: var(--gl-glicon-search-view-content);
 }
-.glicon-stashes-view:before {
-	content: '\f110';
+.glicon-stashes-view {
+	--gl-glicon-content: var(--gl-glicon-stashes-view-content);
 }
-.glicon-stashes:before {
-	content: '\f110';
+.glicon-stashes {
+	--gl-glicon-content: var(--gl-glicon-stashes-content);
 }
-.glicon-tags-view:before {
-	content: '\f111';
+.glicon-tags-view {
+	--gl-glicon-content: var(--gl-glicon-tags-view-content);
 }
-.glicon-worktrees-view:before {
-	content: '\f112';
+.glicon-worktrees-view {
+	--gl-glicon-content: var(--gl-glicon-worktrees-view-content);
 }
-.glicon-gitlens:before {
-	content: '\f113';
+.glicon-gitlens {
+	--gl-glicon-content: var(--gl-glicon-gitlens-content);
 }
-.glicon-stash-pop:before {
-	content: '\f114';
+.glicon-stash-pop {
+	--gl-glicon-content: var(--gl-glicon-stash-pop-content);
 }
-.glicon-stash-save:before {
-	content: '\f115';
+.glicon-stash-save {
+	--gl-glicon-content: var(--gl-glicon-stash-save-content);
 }
-.glicon-unplug:before {
-	content: '\f116';
+.glicon-unplug {
+	--gl-glicon-content: var(--gl-glicon-unplug-content);
 }
-.glicon-open-revision:before {
-	content: '\f117';
+.glicon-open-revision {
+	--gl-glicon-content: var(--gl-glicon-open-revision-content);
 }
-.glicon-switch:before {
-	content: '\f118';
+.glicon-switch {
+	--gl-glicon-content: var(--gl-glicon-switch-content);
 }
-.glicon-expand:before {
-	content: '\f119';
+.glicon-expand {
+	--gl-glicon-content: var(--gl-glicon-expand-content);
 }
-.glicon-list-auto:before {
-	content: '\f11a';
+.glicon-list-auto {
+	--gl-glicon-content: var(--gl-glicon-list-auto-content);
 }
-.glicon-repo-force-push:before {
-	content: '\f11b';
+.glicon-repo-force-push {
+	--gl-glicon-content: var(--gl-glicon-repo-force-push-content);
 }
-.glicon-pinned-filled:before {
-	content: '\f11c';
+.glicon-pinned-filled {
+	--gl-glicon-content: var(--gl-glicon-pinned-filled-content);
 }
-.glicon-clock:before {
-	content: '\f11d';
+.glicon-clock {
+	--gl-glicon-content: var(--gl-glicon-clock-content);
 }
-.glicon-provider-azdo:before {
-	content: '\f11e';
+.glicon-provider-azdo {
+	--gl-glicon-content: var(--gl-glicon-provider-azdo-content);
 }
-.glicon-provider-bitbucket:before {
-	content: '\f11f';
+.glicon-provider-bitbucket {
+	--gl-glicon-content: var(--gl-glicon-provider-bitbucket-content);
 }
-.glicon-provider-gerrit:before {
-	content: '\f120';
+.glicon-provider-gerrit {
+	--gl-glicon-content: var(--gl-glicon-provider-gerrit-content);
 }
-.glicon-provider-gitea:before {
-	content: '\f121';
+.glicon-provider-gitea {
+	--gl-glicon-content: var(--gl-glicon-provider-gitea-content);
 }
-.glicon-provider-github:before {
-	content: '\f122';
+.glicon-provider-github {
+	--gl-glicon-content: var(--gl-glicon-provider-github-content);
 }
-.glicon-provider-gitlab:before {
-	content: '\f123';
+.glicon-provider-gitlab {
+	--gl-glicon-content: var(--gl-glicon-provider-gitlab-content);
 }
-.glicon-gitlens-inspect:before {
-	content: '\f124';
+.glicon-gitlens-inspect {
+	--gl-glicon-content: var(--gl-glicon-gitlens-inspect-content);
 }
-.glicon-workspaces-view:before {
-	content: '\f125';
+.glicon-workspaces-view {
+	--gl-glicon-content: var(--gl-glicon-workspaces-view-content);
 }
-.glicon-confirm-checked:before {
-	content: '\f126';
+.glicon-confirm-checked {
+	--gl-glicon-content: var(--gl-glicon-confirm-checked-content);
 }
-.glicon-confirm-unchecked:before {
-	content: '\f127';
+.glicon-confirm-unchecked {
+	--gl-glicon-content: var(--gl-glicon-confirm-unchecked-content);
 }
-.glicon-cloud-patch:before {
-	content: '\f128';
+.glicon-cloud-patch {
+	--gl-glicon-content: var(--gl-glicon-cloud-patch-content);
 }
-.glicon-cloud-patch-share:before {
-	content: '\f129';
+.glicon-cloud-patch-share {
+	--gl-glicon-content: var(--gl-glicon-cloud-patch-share-content);
 }
-.glicon-inspect:before {
-	content: '\f12a';
+.glicon-inspect {
+	--gl-glicon-content: var(--gl-glicon-inspect-content);
 }
-.glicon-repository-filled:before {
-	content: '\f12b';
+.glicon-repository-filled {
+	--gl-glicon-content: var(--gl-glicon-repository-filled-content);
 }
-.glicon-gitlens-filled:before {
-	content: '\f12c';
+.glicon-gitlens-filled {
+	--gl-glicon-content: var(--gl-glicon-gitlens-filled-content);
 }
-.glicon-code-suggestion:before {
-	content: '\f12d';
+.glicon-code-suggestion {
+	--gl-glicon-content: var(--gl-glicon-code-suggestion-content);
 }
-.glicon-provider-jira:before {
-	content: '\f12e';
+.glicon-provider-jira {
+	--gl-glicon-content: var(--gl-glicon-provider-jira-content);
 }
