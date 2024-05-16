@@ -88,10 +88,15 @@ export class GitWorktree {
 
 		if (this._statusPromise == null || options?.force) {
 			// eslint-disable-next-line no-async-promise-executor
-			this._statusPromise = new Promise(async resolve => {
-				const status = await Container.instance.git.getStatusForRepo(this.uri.fsPath);
-				this._status = status;
-				resolve(status);
+			this._statusPromise = new Promise(async (resolve, reject) => {
+				try {
+					const status = await Container.instance.git.getStatusForRepo(this.uri.fsPath);
+					this._status = status;
+					resolve(status);
+				} catch (ex) {
+					// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+					reject(ex);
+				}
 			});
 		}
 		return this._statusPromise;
