@@ -147,9 +147,10 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 	}
 
 	provideBranchStatusDecoration(uri: Uri, _token: CancellationToken): FileDecoration | undefined {
-		const [, , status] = uri.path.split('/');
+		const query = new URLSearchParams(uri.query);
+		const status = query.get('status')! as GitBranchStatus;
 
-		switch (status as GitBranchStatus) {
+		switch (status) {
 			case 'ahead':
 				return {
 					badge: '▲',
