@@ -424,7 +424,7 @@ export class FocusCommand extends QuickCommand<State> {
 						void commands.executeCommand('workbench.action.openSettings', 'gitlens.launchpad');
 						break;
 					case FeedbackQuickInputButton:
-						void openUrl('https://github.com/gitkraken/vscode-gitlens/discussions/3268');
+						void openUrl('https://github.com/gitkraken/vscode-gitlens/discussions/3286');
 						break;
 					case OpenInEditorQuickInputButton:
 						void executeCommand(Commands.ShowFocusPage);
