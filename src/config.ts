@@ -380,6 +380,7 @@ export interface GraphConfig {
 	readonly dimMergeCommits: boolean;
 	readonly highlightRowsOnRefHover: boolean;
 	readonly layout: 'editor' | 'panel';
+	readonly useCompactByDefault: boolean;
 	readonly minimap: {
 		readonly enabled: boolean;
 		readonly dataType: 'commits' | 'lines';
