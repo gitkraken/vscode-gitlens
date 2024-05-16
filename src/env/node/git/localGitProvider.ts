@@ -1461,11 +1461,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (options.publish != null) {
 				branchName = options.reference.name;
 				remoteName = options.publish.remote;
-				upstreamName = getBranchTrackingWithoutRemote(options.reference);
 			} else {
 				[branchName, remoteName] = getBranchNameAndRemote(options.reference);
-				upstreamName = undefined;
 			}
+			upstreamName = getBranchTrackingWithoutRemote(options.reference);
 		} else {
 			const branch = await this.getBranch(repoPath);
 			if (branch == null) return;
@@ -1558,6 +1557,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			await this.git.pull(repoPath, {
 				branch: branchName,
 				remote: remoteName,
+				upstream: getBranchTrackingWithoutRemote(branch),
 				rebase: options?.rebase,
 				tags: options?.tags,
 			});
