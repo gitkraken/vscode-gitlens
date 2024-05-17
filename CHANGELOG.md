@@ -7,8 +7,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 
 - Fixes [#3299](https://github.com/gitkraken/vscode-gitlens/issues/3299) - Branches view no longer displays text colors for branch status after updating to v15.0.0 or above
-- Fixes [#3277](https://github.com/gitkraken/vscode-gitlens/issues/3277) - Unable to pull branch when the local branch whose name differs from its tracking branch
-- Fixed "hang" in Worktrees view when a worktree is missing
+- Fixes [#3277](https://github.com/gitkraken/vscode-gitlens/issues/3277) (in pre-release only) - Unable to pull branch when the local branch whose name differs from its tracking branch
+- Fixes "hang" in Worktrees view when a worktree is missing
+- Fixes issue where the Commit Graph header bar sometimes pushes "Fetch" to the right
 
 ## [15.0.3] - 2024-05-14
 
