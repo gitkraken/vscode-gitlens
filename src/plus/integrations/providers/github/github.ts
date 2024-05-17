@@ -59,15 +59,27 @@ import type {
 } from './models';
 import {
 	fromGitHubIssueDetailed,
+	fromGitHubIssueOrPullRequestState,
 	fromGitHubPullRequest,
 	fromGitHubPullRequestDetailed,
-	fromGitHubPullRequestState,
 } from './models';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
 
-const prNodeProperties = `
+const prProps = `
+createdAt
+closed
+closedAt
+id
+number
+title
+updatedAt
+url
+state
+`;
+const prPropsDetailed = `
+${prProps}
 assignees(first: 10) {
 	nodes {
 		login
@@ -90,7 +102,6 @@ baseRepository {
 	url
 }
 checksUrl
-createdAt
 isDraft
 isCrossRepository
 isReadByViewer
@@ -104,14 +115,8 @@ headRepository {
 	url
 }
 permalink
-id
-number
-title
-state
 additions
 deletions
-updatedAt
-closedAt
 mergeable
 viewerCanUpdate
 mergedAt
@@ -166,47 +171,49 @@ commits(last: 1) {
 }
 `;
 
-const issueNodeProperties = `
-... on Issue {
-	assignees(first: 100) {
-		nodes {
-			login
-			url
-			avatarUrl
-		}
-	}
-	author {
+const issueProps = `
+createdAt
+closed
+closedAt
+id
+number
+title
+updatedAt
+url
+state
+`;
+const issuePropsDetailed = `
+${issueProps}
+assignees(first: 100) {
+	nodes {
 		login
-		avatarUrl
 		url
+		avatarUrl
 	}
-	comments {
-	  totalCount
-	}
-	id
-	number
-	title
+}
+author {
+	login
+	avatarUrl
 	url
-	createdAt
-	closedAt
-	closed
-	updatedAt
-	labels(first: 20) {
-		nodes {
-			color
-			name
-		}
-	}
-	reactions(content: THUMBS_UP) {
-	  totalCount
-	}
-	repository {
+}
+comments {
+	totalCount
+}
+labels(first: 20) {
+	nodes {
+		color
 		name
-		owner {
-			login
-		}
-		viewerPermission
 	}
+}
+reactions(content: THUMBS_UP) {
+	totalCount
+}
+repository {
+	name
+	owner {
+		login
+	}
+	viewerPermission
 }
 `;
 
@@ -583,24 +590,10 @@ export class GitHubApi implements Disposable {
 		issueOrPullRequest(number: $number) {
 			__typename
 			... on Issue {
-				createdAt
-				closed
-				closedAt
-				id
-				title
-				updatedAt
-				url
-				state
+				${issueProps}
 			}
 			... on PullRequest {
-				createdAt
-				closed
-				closedAt
-				id
-				title
-				updatedAt
-				url
-				state
+				${prProps}
 			}
 		}
 	}
@@ -624,8 +617,8 @@ export class GitHubApi implements Disposable {
 
 			return {
 				provider: provider,
-				type: issue.type,
-				id: String(number),
+				type: issue.__typename === 'PullRequest' ? 'pullrequest' : 'issue',
+				id: String(issue.number),
 				nodeId: issue.id,
 				createdDate: new Date(issue.createdAt),
 				updatedDate: new Date(issue.updatedAt),
@@ -633,7 +626,7 @@ export class GitHubApi implements Disposable {
 				closed: issue.closed,
 				closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt),
 				url: issue.url,
-				state: fromGitHubPullRequestState(issue.state),
+				state: fromGitHubIssueOrPullRequestState(issue.state),
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
@@ -2790,28 +2783,28 @@ export class GitHubApi implements Disposable {
 	authored: search(first: 100, query: $authored, type: ISSUE) {
 		nodes {
 			...on PullRequest {
-				${prNodeProperties}
+				${prPropsDetailed}
 			}
 		}
 	}
 	assigned: search(first: 100, query: $assigned, type: ISSUE) {
 		nodes {
 			...on PullRequest {
-				${prNodeProperties}
+				${prPropsDetailed}
 			}
 		}
 	}
 	reviewRequested: search(first: 100, query: $reviewRequested, type: ISSUE) {
 		nodes {
 			...on PullRequest {
-				${prNodeProperties}
+				${prPropsDetailed}
 			}
 		}
 	}
 	mentioned: search(first: 100, query: $mentioned, type: ISSUE) {
 		nodes {
 			...on PullRequest {
-				${prNodeProperties}
+				${prPropsDetailed}
 			}
 		}
 	}
@@ -2897,17 +2890,23 @@ export class GitHubApi implements Disposable {
 			) {
 				authored: search(first: 100, query: $authored, type: ISSUE) {
 					nodes {
-						${issueNodeProperties}
+						... on Issue {
+							${issuePropsDetailed}
+						}
 					}
 				}
 				assigned: search(first: 100, query: $assigned, type: ISSUE) {
 					nodes {
-						${issueNodeProperties}
+						... on Issue {
+							${issuePropsDetailed}
+						}
 					}
 				}
 				mentioned: search(first: 100, query: $mentioned, type: ISSUE) {
 					nodes {
-						${issueNodeProperties}
+						... on Issue {
+							${issuePropsDetailed}
+						}
 					}
 				}
 			}`;
