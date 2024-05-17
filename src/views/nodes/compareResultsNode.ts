@@ -1,5 +1,5 @@
-import type { Disposable, TreeCheckboxChangeEvent } from 'vscode';
-import { ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, window } from 'vscode';
+import type { TreeCheckboxChangeEvent } from 'vscode';
+import { Disposable, ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, window } from 'vscode';
 import { md5 } from '@env/crypto';
 import type { StoredNamedRef } from '../../constants';
 import type { FilesComparison } from '../../git/actions/commit';
@@ -106,7 +106,18 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	}
 
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
-		return weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this);
+		return Disposable.from(
+			weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this),
+			weakEvent(
+				this.view.container.integrations.onDidChangeConnectionState,
+				this.onIntegrationConnectionStateChanged,
+				this,
+			),
+		);
+	}
+
+	private onIntegrationConnectionStateChanged() {
+		this.view.triggerNodeChange(this.parent);
 	}
 
 	private onNodesCheckedStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {

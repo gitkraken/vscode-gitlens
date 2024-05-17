@@ -1100,7 +1100,7 @@ export class GitProviderService implements Disposable {
 					}
 
 					if (!hasRemotesWithIntegrations && integrations) {
-						hasRemotesWithIntegrations = await repo.hasRemoteWithIntegration();
+						hasRemotesWithIntegrations = await repo.hasRemoteWithIntegration({ includeDisconnected: true });
 
 						if (hasRemotesWithIntegrations) {
 							hasRemotes = true;
