@@ -38,7 +38,6 @@ import './commands/openFileOnRemote';
 import './commands/openFileAtRevision';
 import './commands/openFileAtRevisionFrom';
 import './commands/openOnRemote';
-import './commands/openIssueOnRemote';
 import './commands/openPullRequestOnRemote';
 import './commands/openRepoOnRemote';
 import './commands/openRevisionFile';

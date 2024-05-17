@@ -6583,30 +6583,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.openAutolinkUrl",
-				"title": "Open Autolink URL",
-				"category": "GitLens",
-				"icon": "$(globe)"
-			},
-			{
-				"command": "gitlens.copyAutolinkUrl",
-				"title": "Copy Autolink URL",
-				"category": "GitLens",
-				"icon": "$(copy)"
-			},
-			{
-				"command": "gitlens.openIssueOnRemote",
-				"title": "Open Issue on Remote",
-				"category": "GitLens",
-				"icon": "$(globe)"
-			},
-			{
-				"command": "gitlens.copyRemoteIssueUrl",
-				"title": "Copy Issue URL",
-				"category": "GitLens",
-				"icon": "$(copy)"
-			},
-			{
 				"command": "gitlens.openPullRequestOnRemote",
 				"title": "Open Pull Request on Remote",
 				"category": "GitLens",
@@ -6884,6 +6860,36 @@
 				"title": "Copy",
 				"category": "GitLens",
 				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.views.copyAsMarkdown",
+				"title": "Copy as Markdown",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.views.copyUrl",
+				"title": "Copy URL",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.views.copyUrl.multi",
+				"title": "Copy URLs",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.views.openUrl",
+				"title": "Open URL",
+				"category": "GitLens",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.views.openUrl.multi",
+				"title": "Open URLs",
+				"category": "GitLens",
+				"icon": "$(globe)"
 			},
 			{
 				"command": "gitlens.views.pruneRemote",
@@ -10284,22 +10290,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.openAutolinkUrl",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.copyAutolinkUrl",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.openIssueOnRemote",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.copyRemoteIssueUrl",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.openPullRequestOnRemote",
 					"when": "false"
 				},
@@ -10501,6 +10491,26 @@
 				},
 				{
 					"command": "gitlens.views.copy",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.copyAsMarkdown",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.copyUrl",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.copyUrl.multi",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openUrl",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openUrl.multi",
 					"when": "false"
 				},
 				{
@@ -13855,6 +13865,11 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
+					"command": "gitlens.views.copyAsMarkdown",
+					"when": "viewItem =~ /gitlens:contributor\\b/",
+					"group": "7_gitlens_cutcopypaste@2"
+				},
+				{
 					"command": "gitlens.copyShaToClipboard",
 					"when": "viewItem =~ /gitlens:commit\\b/",
 					"group": "inline@98",
@@ -14186,39 +14201,38 @@
 				{
 					"command": "gitlens.showSettingsPage!autolinks",
 					"when": "!listMultiSelection && viewItem =~ /gitlens:autolinked:items\\b/",
-					"group": "1_gitlens_actions@99"
+					"group": "8_gitlens_actions@99"
 				},
 				{
-					"command": "gitlens.openIssueOnRemote",
-					"when": "viewItem =~ /gitlens:autolinked:issue\\b/",
-					"group": "inline@99",
-					"alt": "gitlens.copyRemoteIssueUrl"
-				},
-				{
-					"command": "gitlens.openIssueOnRemote",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:autolinked:issue\\b/",
-					"group": "1_gitlens_actions@99"
-				},
-				{
-					"command": "gitlens.copyRemoteIssueUrl",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:autolinked:issue\\b/",
-					"group": "7_gitlens_cutcopypaste@1"
-				},
-				{
-					"command": "gitlens.openAutolinkUrl",
+					"command": "gitlens.views.openUrl",
 					"when": "viewItem =~ /gitlens:autolinked:item\\b/",
 					"group": "inline@99",
-					"alt": "gitlens.copyAutolinkUrl"
+					"alt": "gitlens.views.copyUrl"
 				},
 				{
-					"command": "gitlens.openAutolinkUrl",
+					"command": "gitlens.views.openUrl",
 					"when": "!listMultiSelection && viewItem =~ /gitlens:autolinked:item\\b/",
 					"group": "1_gitlens_actions@99"
 				},
 				{
-					"command": "gitlens.copyAutolinkUrl",
+					"command": "gitlens.views.openUrl.multi",
+					"when": "listMultiSelection && viewItem =~ /gitlens:autolinked:item\\b/",
+					"group": "1_gitlens_actions@99"
+				},
+				{
+					"command": "gitlens.views.copyUrl",
 					"when": "!listMultiSelection && viewItem =~ /gitlens:autolinked:item\\b/",
 					"group": "7_gitlens_cutcopypaste@1"
+				},
+				{
+					"command": "gitlens.views.copyUrl.multi",
+					"when": "listMultiSelection && viewItem =~ /gitlens:autolinked:item\\b/",
+					"group": "7_gitlens_cutcopypaste@1"
+				},
+				{
+					"command": "gitlens.views.copyAsMarkdown",
+					"when": "viewItem =~ /gitlens:autolinked:item\\b/",
+					"group": "7_gitlens_cutcopypaste@2"
 				},
 				{
 					"command": "gitlens.views.openPullRequest",
@@ -15097,7 +15111,7 @@
 				},
 				{
 					"command": "gitlens.views.copy",
-					"when": "viewItem =~ /gitlens:(?=(autolinked:issue|branch|commit|contributor|file(?!.*?\\b\\+(staged|unstaged))\\b|folder|history:line|pullrequest|remote|repository|repo-folder|search:results|stash|tag|workspace|worktree)\\b)/",
+					"when": "viewItem =~ /gitlens:(?=(autolinked:item\\b|branch|commit|contributor|file(?!.*?\\b\\+(staged|unstaged))\\b|folder|history:line|pullrequest|remote|repository|repo-folder|search:results|stash|tag|workspace|worktree)\\b)/",
 					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
