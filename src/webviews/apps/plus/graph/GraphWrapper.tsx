@@ -966,7 +966,7 @@ export function GraphWrapper({
 		const fetchedText = lastFetchedDate && lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
 
 		return (
-			<div className="titlebar__group">
+			<>
 				{(isBehind || isAhead) && (
 					<GlTooltip placement="bottom">
 						<a
@@ -1027,150 +1027,150 @@ export function GraphWrapper({
 						)}
 					</span>
 				</GlTooltip>
-			</div>
+			</>
 		);
 	};
 
 	return (
 		<>
 			<header className="titlebar graph-app__header">
-				<div
-					className={`titlebar__row titlebar__row--wrap${
-						!allowed ? ' disallowed' : repo && branchState?.provider?.url ? '' : ' no-remote-provider'
-					}`}
-				>
-					{repo && branchState?.provider?.url && (
-						<GlTooltip placement="bottom">
-							<a
-								href={branchState.provider.url}
-								className="action-button"
-								style={{ marginRight: '-0.5rem' }}
-								aria-label={`Open Repository on ${branchState.provider.name}`}
-							>
-								<span
-									className={
-										branchState.provider.icon === 'cloud'
-											? 'codicon codicon-cloud action-button__icon'
-											: `glicon glicon-provider-${branchState.provider.icon} action-button__icon`
-									}
-									aria-hidden="true"
-								></span>
-							</a>
-							<span slot="content">Open Repository on {branchState.provider.name}</span>
-						</GlTooltip>
-					)}
-					<GlTooltip placement="bottom">
-						<button
-							type="button"
-							className="action-button"
-							aria-label="Switch to Another Repository..."
-							disabled={repos.length < 2}
-							onClick={() => handleChooseRepository()}
-						>
-							{repo?.formattedName ?? 'none selected'}
-							{repos.length > 1 && (
-								<span
-									className="codicon codicon-chevron-down action-button__more"
-									aria-hidden="true"
-								></span>
-							)}
-						</button>
-						<span slot="content">Switch to Another Repository...</span>
-					</GlTooltip>
-					{allowed && repo && (
-						<>
-							<span>
-								<span className="codicon codicon-chevron-right"></span>
-							</span>
-							{branchState?.pr && (
-								<GlPopover placement="bottom">
-									<button slot="anchor" type="button" className="action-button">
-										<GlIssuePullRequest
-											type="pr"
-											identifier={`#${branchState.pr.id}`}
-											status={branchState.pr.state}
-											compact
-										/>
-									</button>
-									<div slot="content">
-										<GlIssuePullRequest
-											type="pr"
-											name={branchState.pr.title}
-											url={branchState.pr.url}
-											identifier={`#${branchState.pr.id}`}
-											status={branchState.pr.state}
-											date={branchState.pr.updatedDate}
-											dateFormat={graphConfig?.dateFormat}
-											dateStyle={graphConfig?.dateStyle}
-											details
-											onOpenDetails={() =>
-												branchState.pr?.id ? onOpenPullRequest?.(branchState.pr) : undefined
-											}
-										/>
-									</div>
-								</GlPopover>
-							)}
-							<GlPopover placement="bottom">
+				<div className="titlebar__row titlebar__row--wrap">
+					<div className="titlebar__group">
+						{repo && branchState?.provider?.url && (
+							<GlTooltip placement="bottom">
 								<a
-									slot="anchor"
-									href={createWebviewCommandLink(
-										'gitlens.graph.switchToAnotherBranch',
-										state.webviewId,
-										state.webviewInstanceId,
-									)}
+									href={branchState.provider.url}
 									className="action-button"
-									style={branchState?.pr ? { marginLeft: '-0.6rem' } : {}}
-									aria-label="Switch to Another Branch..."
+									style={{ marginRight: '-0.5rem' }}
+									aria-label={`Open Repository on ${branchState.provider.name}`}
 								>
-									{!branchState?.pr ? (
-										<span className="codicon codicon-git-branch" aria-hidden="true"></span>
-									) : (
-										''
-									)}
-									{branchName}
+									<span
+										className={
+											branchState.provider.icon === 'cloud'
+												? 'codicon codicon-cloud action-button__icon'
+												: `glicon glicon-provider-${branchState.provider.icon} action-button__icon`
+										}
+										aria-hidden="true"
+									></span>
+								</a>
+								<span slot="content">Open Repository on {branchState.provider.name}</span>
+							</GlTooltip>
+						)}
+						<GlTooltip placement="bottom">
+							<button
+								type="button"
+								className="action-button"
+								aria-label="Switch to Another Repository..."
+								disabled={repos.length < 2}
+								onClick={() => handleChooseRepository()}
+							>
+								{repo?.formattedName ?? 'none selected'}
+								{repos.length > 1 && (
 									<span
 										className="codicon codicon-chevron-down action-button__more"
 										aria-hidden="true"
 									></span>
-								</a>
-								<div slot="content">
-									<span>
-										Switch to Another Branch...
-										<hr />
-										<span className="codicon codicon-git-branch" aria-hidden="true"></span>{' '}
-										<span className="md-code">{branchName}</span>
-									</span>
-								</div>
-							</GlPopover>
-							<span>
-								<span className="codicon codicon-chevron-right"></span>
+								)}
+							</button>
+							<span slot="content">Switch to Another Repository...</span>
+						</GlTooltip>
+						{allowed && repo && (
+							<>
+								<span>
+									<span className="codicon codicon-chevron-right"></span>
+								</span>
+								{branchState?.pr && (
+									<GlPopover placement="bottom">
+										<button slot="anchor" type="button" className="action-button">
+											<GlIssuePullRequest
+												type="pr"
+												identifier={`#${branchState.pr.id}`}
+												status={branchState.pr.state}
+												compact
+											/>
+										</button>
+										<div slot="content">
+											<GlIssuePullRequest
+												type="pr"
+												name={branchState.pr.title}
+												url={branchState.pr.url}
+												identifier={`#${branchState.pr.id}`}
+												status={branchState.pr.state}
+												date={branchState.pr.updatedDate}
+												dateFormat={graphConfig?.dateFormat}
+												dateStyle={graphConfig?.dateStyle}
+												details
+												onOpenDetails={() =>
+													branchState.pr?.id ? onOpenPullRequest?.(branchState.pr) : undefined
+												}
+											/>
+										</div>
+									</GlPopover>
+								)}
+								<GlPopover placement="bottom">
+									<a
+										slot="anchor"
+										href={createWebviewCommandLink(
+											'gitlens.graph.switchToAnotherBranch',
+											state.webviewId,
+											state.webviewInstanceId,
+										)}
+										className="action-button"
+										style={branchState?.pr ? { marginLeft: '-0.6rem' } : {}}
+										aria-label="Switch to Another Branch..."
+									>
+										{!branchState?.pr ? (
+											<span className="codicon codicon-git-branch" aria-hidden="true"></span>
+										) : (
+											''
+										)}
+										{branchName}
+										<span
+											className="codicon codicon-chevron-down action-button__more"
+											aria-hidden="true"
+										></span>
+									</a>
+									<div slot="content">
+										<span>
+											Switch to Another Branch...
+											<hr />
+											<span className="codicon codicon-git-branch" aria-hidden="true"></span>{' '}
+											<span className="md-code">{branchName}</span>
+										</span>
+									</div>
+								</GlPopover>
+								<span>
+									<span className="codicon codicon-chevron-right"></span>
+								</span>
+								{renderFetchAction()}
+							</>
+						)}
+					</div>
+					<div className="titlebar__group">
+						<GlTooltip placement="bottom">
+							<a
+								href={`command:gitlens.showLaunchpad?${encodeURIComponent(
+									JSON.stringify({
+										source: 'graph',
+									} satisfies Omit<FocusCommandArgs, 'command'>),
+								)}`}
+								className="action-button"
+							>
+								<span className="codicon codicon-rocket"></span>
+								Launchpad
+							</a>
+							<span slot="content">
+								<span style={{ whiteSpace: 'break-spaces' }}>
+									Launchpad organizes your pull requests into actionable groups to help you focus and
+									keep your team unblocked
+								</span>
 							</span>
-							{renderFetchAction()}
-						</>
-					)}
-					<GlTooltip placement="bottom">
-						<a
-							href={`command:gitlens.showLaunchpad?${encodeURIComponent(
-								JSON.stringify({
-									source: 'graph',
-								} satisfies Omit<FocusCommandArgs, 'command'>),
-							)}`}
-							className="action-button"
-						>
-							<span className="codicon codicon-rocket"></span>
-							Launchpad
-						</a>
-						<span slot="content">
-							<span style={{ whiteSpace: 'break-spaces' }}>
-								Launchpad organizes your pull requests into actionable groups to help you focus and keep
-								your team unblocked
-							</span>
-						</span>
-					</GlTooltip>
-					<GlFeatureBadge
-						source={{ source: 'graph', detail: 'badge' }}
-						subscription={subscription}
-					></GlFeatureBadge>
+						</GlTooltip>
+						<GlFeatureBadge
+							source={{ source: 'graph', detail: 'badge' }}
+							subscription={subscription}
+						></GlFeatureBadge>
+					</div>
 				</div>
 				{allowed && (
 					<div className="titlebar__row">
