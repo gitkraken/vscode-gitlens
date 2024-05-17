@@ -866,22 +866,17 @@ button:not([disabled]),
 		&--wrap {
 			display: grid;
 			grid-auto-flow: column;
-			white-space: nowrap;
 			justify-content: start;
-			grid-template-columns: repeat(5, min-content) minmax(min-content, 1fr);
-
-			&.no-remote-provider {
-				grid-template-columns: repeat(4, min-content) minmax(min-content, 1fr);
-			}
-
-			&.disallowed {
-				grid-template-columns: repeat(1, min-content) minmax(min-content, 1fr);
-			}
+			grid-template-columns: minmax(min-content, 1fr) min-content;
 		}
 	}
 
 	&__group {
 		flex: auto 1 1;
+	}
+
+	&__row--wrap &__group {
+		white-space: nowrap;
 	}
 
 	&__debugging {
