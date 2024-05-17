@@ -6336,13 +6336,13 @@
 			},
 			{
 				"command": "gitlens.connectRemoteProvider",
-				"title": "Connect to Remote",
+				"title": "Connect Remote Integration",
 				"category": "GitLens",
 				"icon": "$(plug)"
 			},
 			{
 				"command": "gitlens.disconnectRemoteProvider",
-				"title": "Disconnect from Remote",
+				"title": "Disconnect Remote Integration",
 				"category": "GitLens",
 				"icon": "$(gitlens-unplug)"
 			},
@@ -14194,9 +14194,19 @@
 					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
+					"command": "gitlens.connectRemoteProvider",
+					"when": "config.gitlens.integrations.enabled && viewItem =~ /gitlens:autolinked:items\\b/ && gitlens:hasRichRemotes && !gitlens:hasConnectedRemotes",
+					"group": "inline@98"
+				},
+				{
 					"command": "gitlens.showSettingsPage!autolinks",
 					"when": "viewItem =~ /gitlens:autolinked:items\\b/",
 					"group": "inline@99"
+				},
+				{
+					"command": "gitlens.connectRemoteProvider",
+					"when": "config.gitlens.integrations.enabled && viewItem =~ /gitlens:autolinked:items\\b/ && gitlens:hasRichRemotes && !gitlens:hasConnectedRemotes",
+					"group": "6_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.showSettingsPage!autolinks",

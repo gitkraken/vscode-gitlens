@@ -1,8 +1,9 @@
-import { env, Uri, window } from 'vscode';
+import { env, window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { shortenRevision } from '../git/models/reference';
 import { command } from '../system/command';
+import { openUrl } from '../system/utils';
 import { PullRequestNode } from '../views/nodes/pullRequestNode';
 import type { CommandContext } from './base';
 import { Command } from './base';
@@ -55,7 +56,7 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		if (args.clipboard) {
 			await env.clipboard.writeText(args.pr.url);
 		} else {
-			void env.openExternal(Uri.parse(args.pr.url));
+			void openUrl(args.pr.url);
 		}
 	}
 }
