@@ -27,6 +27,7 @@ import { createReference, shortenRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showPatchesView } from '../plus/drafts/actions';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
+import { mapAsync } from '../system/array';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -38,10 +39,11 @@ import {
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
 import { log } from '../system/decorators/log';
-import { sequentialize } from '../system/function';
+import { partial, sequentialize } from '../system/function';
 import type { OpenWorkspaceLocation } from '../system/utils';
 import { openUrl, openWorkspace, revealInFileExplorer } from '../system/utils';
 import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
+import type { ClipboardType } from './nodes/abstract/viewNode';
 import {
 	canEditNode,
 	canViewDismissNode,
@@ -128,21 +130,12 @@ export class ViewCommands {
 	constructor(private readonly container: Container) {
 		registerViewCommand('gitlens.views.clearComparison', n => this.clearComparison(n), this);
 		registerViewCommand('gitlens.views.clearReviewed', n => this.clearReviewed(n), this);
-		registerViewCommand(
-			Commands.ViewsCopy,
-			async (active: ViewNode | undefined, selection: ViewNode[]) => {
-				selection = Array.isArray(selection) ? selection : active != null ? [active] : [];
-				if (selection.length === 0) return;
-
-				const data = selection
-					.map(n => n.toClipboard?.())
-					.filter(s => Boolean(s))
-					.join('\n');
-				await env.clipboard.writeText(data);
-			},
-			this,
-			true,
-		);
+		registerViewCommand(Commands.ViewsCopy, partial(copyNode, 'text'), this, true);
+		registerViewCommand(Commands.ViewsCopyAsMarkdown, partial(copyNode, 'markdown'), this, true);
+		registerViewCommand(Commands.ViewsCopyUrl, copyNodeUrl, this);
+		registerViewCommand(`${Commands.ViewsCopyUrl}.multi`, copyNodeUrl, this, true);
+		registerViewCommand(Commands.ViewsOpenUrl, openNodeUrl, this);
+		registerViewCommand(`${Commands.ViewsOpenUrl}.multi`, openNodeUrl, this, true);
 		registerViewCommand('gitlens.views.collapseNode', () => executeCoreCommand('list.collapseAllToFocus'), this);
 		registerViewCommand(
 			'gitlens.views.dismissNode',
@@ -1498,4 +1491,59 @@ export class ViewCommands {
 
 		void node.triggerChange(true);
 	}
+}
+
+async function copyNode(type: ClipboardType, active: ViewNode | undefined, selection: ViewNode[]): Promise<void> {
+	selection = Array.isArray(selection) ? selection : active != null ? [active] : [];
+	if (selection.length === 0) return;
+
+	const data = (
+		await mapAsync(
+			selection,
+			n => n.toClipboard?.(type),
+			s => Boolean(s?.trim()),
+		)
+	).join('\n');
+	await env.clipboard.writeText(data);
+}
+
+async function copyNodeUrl(active: ViewNode | undefined, selection: ViewNode[]): Promise<void> {
+	const urls = await getNodeUrls(active, selection);
+	if (urls.length === 0) return;
+
+	await env.clipboard.writeText(urls.join('\n'));
+}
+
+async function openNodeUrl(active: ViewNode | undefined, selection: ViewNode[]): Promise<void> {
+	const urls = await getNodeUrls(active, selection);
+	if (urls.length === 0) return;
+
+	if (urls.length > 10) {
+		const confirm = { title: 'Open' };
+		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const result = await window.showWarningMessage(
+			`Are you sure you want to open ${urls.length} URLs?`,
+			{ modal: true },
+			confirm,
+			cancel,
+		);
+		if (result !== confirm) return;
+	}
+
+	for (const url of urls) {
+		if (url == null) continue;
+
+		void openUrl(url);
+	}
+}
+
+function getNodeUrls(active: ViewNode | undefined, selection: ViewNode[]): Promise<string[]> {
+	selection = Array.isArray(selection) ? selection : active != null ? [active] : [];
+	if (selection.length === 0) return Promise.resolve([]);
+
+	return mapAsync(
+		selection,
+		n => n.getUrl?.(),
+		s => Boolean(s?.trim()),
+	);
 }

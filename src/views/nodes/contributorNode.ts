@@ -11,7 +11,7 @@ import { map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { ViewsWithContributors } from '../viewBase';
-import type { PageableViewNode } from './abstract/viewNode';
+import type { ClipboardType, PageableViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
@@ -43,8 +43,18 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		return this._uniqueId;
 	}
 
-	override toClipboard(): string {
-		return `${this.contributor.name}${this.contributor.email ? ` <${this.contributor.email}>` : ''}`;
+	override toClipboard(type?: ClipboardType): string {
+		const text = `${this.contributor.name}${this.contributor.email ? ` <${this.contributor.email}>` : ''}`;
+		switch (type) {
+			case 'markdown':
+				return this.contributor.email ? `[${text}](mailto:${this.contributor.email})` : text;
+			default:
+				return text;
+		}
+	}
+
+	override getUrl(): string {
+		return this.contributor.email ? `mailto:${this.contributor.email}` : '';
 	}
 
 	get repoPath(): string {

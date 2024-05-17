@@ -204,12 +204,16 @@ export function joinUnique<T>(source: readonly T[], separator: string): string {
 	return join(new Set(source), separator);
 }
 
-export async function mapAsync<T, TMapped>(source: T[], mapper: (item: T) => Promise<TMapped>): Promise<TMapped[]> {
+export async function mapAsync<T, TMapped>(
+	source: T[],
+	mapper: (item: T) => TMapped | Promise<TMapped>,
+	predicate?: (item: TMapped) => boolean,
+): Promise<NonNullable<TMapped>[]> {
 	const items = source.map(mapper);
 
 	const mapped = [];
 	for await (const item of items) {
-		if (item == null) continue;
+		if (item == null || (predicate != null && !predicate(item))) continue;
 
 		mapped.push(item);
 	}

@@ -27,6 +27,10 @@ export class DraftNode extends ViewNode<'draft', ViewsWithCommits | DraftsView> 
 	}
 
 	override toClipboard(): string {
+		return this.getUrl();
+	}
+
+	override getUrl(): string {
 		return this.view.container.drafts.generateWebUrl(this.draft.id);
 	}
 
