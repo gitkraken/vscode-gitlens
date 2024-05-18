@@ -25,6 +25,7 @@ const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's 
 export interface BlameFontOptions {
 	family: string;
 	size: number;
+	style: string;
 	weight: string;
 }
 
@@ -77,6 +78,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const fontOptions: BlameFontOptions = {
 			family: configuration.get('blame.fontFamily'),
 			size: configuration.get('blame.fontSize'),
+			style: configuration.get('blame.fontStyle'),
 			weight: configuration.get('blame.fontWeight'),
 		};
 

@@ -32,6 +32,7 @@ export interface Config {
 		readonly dateFormat: DateTimeFormat | (string & object) | null;
 		readonly fontFamily: string;
 		readonly fontSize: number;
+		readonly fontStyle: string;
 		readonly fontWeight: string;
 		readonly format: string;
 		readonly heatmap: {
@@ -60,12 +61,16 @@ export interface Config {
 	readonly currentLine: {
 		readonly dateFormat: string | null;
 		/*readonly*/ enabled: boolean;
+		readonly fontFamily: string;
+		readonly fontSize: number;
+		readonly fontStyle: string;
+		readonly fontWeight: string;
 		readonly format: string;
-		readonly uncommittedChangesFormat: string | null;
 		readonly pullRequests: {
 			readonly enabled: boolean;
 		};
 		readonly scrollable: boolean;
+		readonly uncommittedChangesFormat: string | null;
 	};
 	readonly debug: boolean;
 	readonly deepLinks: {

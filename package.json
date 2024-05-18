@@ -99,6 +99,34 @@
 						"scope": "window",
 						"order": 31
 					},
+					"gitlens.currentLine.fontFamily": {
+						"type": "string",
+						"default": "",
+						"markdownDescription": "Specifies the font family of the inline blame annotation",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.currentLine.fontSize": {
+						"type": "number",
+						"default": 0,
+						"markdownDescription": "Specifies the font size of the inline blame annotation",
+						"scope": "window",
+						"order": 34
+					},
+					"gitlens.currentLine.fontStyle": {
+						"type": "string",
+						"default": "normal",
+						"markdownDescription": "Specifies the font style of the inline blame annotation",
+						"scope": "window",
+						"order": 35
+					},
+					"gitlens.currentLine.fontWeight": {
+						"type": "string",
+						"default": "normal",
+						"markdownDescription": "Specifies the font weight of the inline blame annotation",
+						"scope": "window",
+						"order": 36
+					},
 					"gitlens.currentLine.scrollable": {
 						"type": "boolean",
 						"default": true,
@@ -2398,21 +2426,28 @@
 						"default": "",
 						"markdownDescription": "Specifies the font family of the file blame annotations",
 						"scope": "window",
-						"order": 21
+						"order": 22
 					},
 					"gitlens.blame.fontSize": {
 						"type": "number",
 						"default": 0,
 						"markdownDescription": "Specifies the font size of the file blame annotations",
 						"scope": "window",
-						"order": 22
+						"order": 23
+					},
+					"gitlens.blame.fontStyle": {
+						"type": "string",
+						"default": "normal",
+						"markdownDescription": "Specifies the font style of the file blame annotations",
+						"scope": "window",
+						"order": 24
 					},
 					"gitlens.blame.fontWeight": {
 						"type": "string",
 						"default": "normal",
 						"markdownDescription": "Specifies the font weight of the file blame annotations",
 						"scope": "window",
-						"order": 22
+						"order": 25
 					},
 					"gitlens.blame.heatmap.enabled": {
 						"type": "boolean",

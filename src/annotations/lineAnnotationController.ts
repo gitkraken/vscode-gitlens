@@ -17,6 +17,7 @@ import { getSettledValue } from '../system/promise';
 import { isTextEditor } from '../system/utils';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
 import { getInlineDecoration } from './annotations';
+import type { BlameFontOptions } from './gutterBlameAnnotationProvider';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
 	after: {
@@ -300,6 +301,13 @@ export class LineAnnotationController implements Disposable {
 			prs: Map<string, MaybePausedResult<PullRequest | undefined>> | undefined,
 			timeout?: number,
 		) {
+			const fontOptions: BlameFontOptions = {
+				family: cfg.fontFamily,
+				size: cfg.fontSize,
+				style: cfg.fontStyle,
+				weight: cfg.fontWeight,
+			};
+
 			const decorations = [];
 
 			for (const [l, state] of lines) {
@@ -319,6 +327,7 @@ export class LineAnnotationController implements Disposable {
 						pullRequest: pr?.value,
 						pullRequestPendingMessage: `PR ${GlyphChars.Ellipsis}`,
 					},
+					fontOptions,
 					cfg.scrollable,
 				) as DecorationOptions;
 				decoration.range = editor.document.validateRange(new Range(l, maxSmallIntegerV8, l, maxSmallIntegerV8));

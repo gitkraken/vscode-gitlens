@@ -215,14 +215,14 @@ export function getGutterRenderOptions(
 		borderWidth: borderWidth,
 		color: new ThemeColor('gitlens.gutterForegroundColor' satisfies Colors),
 		fontWeight: fontOptions.weight ?? 'normal',
-		fontStyle: fontOptions.weight ?? 'normal',
+		fontStyle: fontOptions.style ?? 'normal',
 		height: '100%',
 		margin: '0 26px -1px 0',
 		textDecoration: `${separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none'};box-sizing: border-box${
 			avatars ? ';padding: 0 0 0 18px' : ''
 		}${fontOptions.family ? `;font-family: ${fontOptions.family}` : ''}${
 			fontOptions.size ? `;font-size: ${fontOptions.size}px` : ''
-		}`,
+		};`,
 		width: width,
 		uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor' satisfies Colors),
 	};
@@ -234,6 +234,7 @@ export function getInlineDecoration(
 	// editorLine: number,
 	format: string,
 	formatOptions?: CommitFormatOptions,
+	fontOptions?: BlameFontOptions,
 	scrollable: boolean = true,
 ): Partial<DecorationOptions> {
 	// TODO: Enable this once there is better caching
@@ -254,10 +255,12 @@ export function getInlineDecoration(
 				backgroundColor: new ThemeColor('gitlens.trailingLineBackgroundColor' satisfies Colors),
 				color: new ThemeColor('gitlens.trailingLineForegroundColor' satisfies Colors),
 				contentText: pad(message.replace(/ /g, GlyphChars.Space), 1, 1),
-				fontWeight: 'normal',
-				fontStyle: 'normal',
+				fontWeight: fontOptions?.weight ?? 'normal',
+				fontStyle: fontOptions?.style ?? 'normal',
 				// Pull the decoration out of the document flow if we want to be scrollable
-				textDecoration: `none;${scrollable ? '' : ' position: absolute;'}`,
+				textDecoration: `none${scrollable ? '' : ';position: absolute'}${
+					fontOptions?.family ? `;font-family: ${fontOptions.family}` : ''
+				}${fontOptions?.size ? `;font-size: ${fontOptions.size}px` : ''};`,
 			},
 		},
 	};
