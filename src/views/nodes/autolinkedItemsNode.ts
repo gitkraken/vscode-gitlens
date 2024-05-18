@@ -6,7 +6,7 @@ import { pauseOnCancelOrTimeoutMapTuple } from '../../system/cancellation';
 import { getSettledValue } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
-import type { ViewNode } from './abstract/viewNode';
+import type { PageableViewNode, ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { AutolinkedItemNode } from './autolinkedItemNode';
 import { LoadMoreNode, MessageNode } from './common';
@@ -19,7 +19,7 @@ export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', 
 
 	constructor(
 		view: ViewsWithCommits,
-		protected override readonly parent: ViewNode,
+		protected override readonly parent: PageableViewNode,
 		public readonly repoPath: string,
 		public readonly log: GitLog,
 		private expand: boolean,
@@ -83,7 +83,7 @@ export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', 
 
 			if (this.log.hasMore) {
 				children.push(
-					new LoadMoreNode(this.view, this.parent as any, children[children.length - 1], {
+					new LoadMoreNode(this.view, this.parent, children[children.length - 1], {
 						context: { expandAutolinks: true },
 						message: 'Load more commits to search for autolinks',
 					}),

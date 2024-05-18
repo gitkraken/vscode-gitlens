@@ -1,6 +1,6 @@
 import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '../../../../git/models/file';
-import type { IssueLabel, IssueOrPullRequestType } from '../../../../git/models/issue';
+import type { IssueLabel } from '../../../../git/models/issue';
 import { Issue, RepositoryAccessLevel } from '../../../../git/models/issue';
 import type { PullRequestState } from '../../../../git/models/pullRequest';
 import {
@@ -57,17 +57,16 @@ export interface GitHubCommitRef {
 
 export type GitHubContributor = Endpoints['GET /repos/{owner}/{repo}/contributors']['response']['data'][0];
 export interface GitHubIssueOrPullRequest {
-	id: string;
-	nodeId: string;
-	type: IssueOrPullRequestType;
+	__typename: 'Issue' | 'PullRequest';
 	number: number;
+	id: string;
 	createdAt: string;
 	updatedAt: string;
 	closed: boolean;
 	closedAt: string | null;
 	title: string;
 	url: string;
-	state: GitHubPullRequestState;
+	state: GitHubIssueOrPullRequestState;
 }
 
 export interface GitHubPagedResult<T> {
@@ -82,7 +81,10 @@ export interface GitHubPageInfo {
 	hasPreviousPage: boolean;
 }
 
+export type GitHubIssueState = 'OPEN' | 'CLOSED';
 export type GitHubPullRequestState = 'OPEN' | 'CLOSED' | 'MERGED';
+export type GitHubIssueOrPullRequestState = GitHubIssueState | GitHubPullRequestState;
+
 export interface GitHubPullRequest {
 	author: {
 		login: string;
@@ -131,7 +133,7 @@ export interface GitHubPullRequest {
 	isCrossRepository: boolean;
 }
 
-export interface GitHubIssueDetailed extends GitHubIssueOrPullRequest {
+export interface GitHubIssueDetailed extends Omit<GitHubIssueOrPullRequest, '__typename'> {
 	author: GitHubMember;
 	assignees: { nodes: GitHubMember[] };
 	repository: {
@@ -216,7 +218,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 			repo: pr.repository.name,
 			accessLevel: fromGitHubViewerPermissionToAccessLevel(pr.repository.viewerPermission),
 		},
-		fromGitHubPullRequestState(pr.state),
+		fromGitHubIssueOrPullRequestState(pr.state),
 		new Date(pr.createdAt),
 		new Date(pr.updatedAt),
 		pr.closedAt == null ? undefined : new Date(pr.closedAt),
@@ -245,7 +247,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 	);
 }
 
-export function fromGitHubPullRequestState(state: GitHubPullRequestState): PullRequestState {
+export function fromGitHubIssueOrPullRequestState(state: GitHubPullRequestState): PullRequestState {
 	return state === 'MERGED' ? 'merged' : state === 'CLOSED' ? 'closed' : 'opened';
 }
 
@@ -354,7 +356,7 @@ export function fromGitHubPullRequestDetailed(pr: GitHubDetailedPullRequest, pro
 			repo: pr.repository.name,
 			accessLevel: fromGitHubViewerPermissionToAccessLevel(pr.repository.viewerPermission),
 		},
-		fromGitHubPullRequestState(pr.state),
+		fromGitHubIssueOrPullRequestState(pr.state),
 		new Date(pr.createdAt),
 		new Date(pr.updatedAt),
 		pr.closedAt == null ? undefined : new Date(pr.closedAt),
@@ -433,7 +435,7 @@ export function fromGitHubIssueDetailed(value: GitHubIssueDetailed, provider: Pr
 		new Date(value.createdAt),
 		new Date(value.updatedAt),
 		value.closed,
-		fromGitHubPullRequestState(value.state),
+		fromGitHubIssueOrPullRequestState(value.state),
 		{
 			name: value.author.login,
 			avatarUrl: value.author.avatarUrl,

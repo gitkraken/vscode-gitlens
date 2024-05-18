@@ -50,7 +50,6 @@ export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
 	ActiveLineHistory = 'gitlens:history:active:line',
 	AutolinkedItems = 'gitlens:autolinked:items',
-	AutolinkedIssue = 'gitlens:autolinked:issue',
 	AutolinkedItem = 'gitlens:autolinked:item',
 	Branch = 'gitlens:branch',
 	Branches = 'gitlens:branches',
@@ -215,6 +214,8 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 	return `gitlens://viewnode/${type}${uniqueness}`;
 }
 
+export type ClipboardType = 'text' | 'markdown';
+
 @logName<ViewNode>((c, name) => `${name}${c.id != null ? `(${c.id})` : ''}`)
 export abstract class ViewNode<
 	Type extends TreeViewNodeTypes = TreeViewNodeTypes,
@@ -273,7 +274,8 @@ export abstract class ViewNode<
 		return { ...(reset ? this.parent?.context : this.context), ...context };
 	}
 
-	toClipboard?(): string;
+	getUrl?(): string | Promise<string | undefined> | undefined;
+	toClipboard?(type?: ClipboardType): string | Promise<string>;
 
 	toString(): string {
 		const id = this.id;

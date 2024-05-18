@@ -1024,7 +1024,7 @@ export class Git {
 
 	async pull(
 		repoPath: string,
-		options: { branch?: string; remote?: string; rebase?: boolean; tags?: boolean },
+		options: { branch?: string; remote?: string; upstream?: string; rebase?: boolean; tags?: boolean },
 	): Promise<void> {
 		const params = ['pull'];
 
@@ -1038,7 +1038,7 @@ export class Git {
 
 		if (options.remote && options.branch) {
 			params.push(options.remote);
-			params.push(options.branch);
+			params.push(options.upstream ? `${options.upstream}:${options.branch}` : options.branch);
 		}
 
 		try {
