@@ -637,7 +637,7 @@ button:not([disabled]),
 		&::before {
 			// glicon-provider-gitlab
 			font-family: 'glicons';
-			content: '\f123';
+			content: var(--gl-glicon-provider-github-content);
 		}
 	}
 	&--remote-bitbucket,
@@ -645,14 +645,14 @@ button:not([disabled]),
 		&::before {
 			// glicon-provider-bitbucket
 			font-family: 'glicons';
-			content: '\f11f';
+			content: var(--gl-glicon-provider-bitbucket-content);
 		}
 	}
 	&--remote-azureDevops {
 		&::before {
 			// glicon-provider-azdo
 			font-family: 'glicons';
-			content: '\f11e';
+			content: var(--gl-glicon-provider-azdo-content);
 		}
 	}
 	&--tag {
@@ -775,7 +775,7 @@ button:not([disabled]),
 		&::before {
 			// glicon-graph
 			font-family: glicons;
-			content: '\f102';
+			content: var(--gl-glicon-graph-content);
 		}
 	}
 
@@ -801,7 +801,7 @@ button:not([disabled]),
 		&::before {
 			// glicon-clock
 			font-family: glicons;
-			content: '\f11d';
+			content: var(--gl-glicon-clock-content);
 		}
 	}
 

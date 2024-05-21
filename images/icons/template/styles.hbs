@@ -11,6 +11,12 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 </style>
 */
 
+@use './glicons-properties';
+
+/*---------------------
+ *  Base class
+ *-------------------*/
+
 .glicon {
 	font: normal normal normal 16px/1 {{ name }};
 	display: inline-block;
@@ -22,6 +28,10 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	user-select: none;
 	-webkit-user-select: none;
 	-ms-user-select: none;
+}
+
+.glicon:before {
+	content: var(--gl-glicon-content);
 }
 
 /*---------------------
@@ -60,7 +70,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
  *-------------------*/
 
 {{#each codepoints}}
-.{{ ../prefix }}-{{ @key }}:before {
-	content: '\\{{ codepoint this }}';
+.{{ ../prefix }}-{{ @key }} {
+	--gl-glicon-content: var(--gl-{{ ../prefix }}-{{ @key }}-content);
 }
 {{/each}}

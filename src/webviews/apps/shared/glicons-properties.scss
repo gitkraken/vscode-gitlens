@@ -1,0 +1,69 @@
+/*
+
+Must be placed at the end of body in the HTML file of any webview that needs it (because of CSP)
+
+<style nonce="#{cspNonce}">
+	@font-face {
+		font-family: 'glicons';
+		font-display: block;
+		src: url("#{root}/dist/glicons.woff2?887e981267645659b15471f86c55a40e") format("woff2");
+	}
+</style>
+*/
+
+
+/*---------------------
+ *  Custom Properties
+ *-------------------*/
+
+:root {
+	--gl-glicon-font-family: glicons;
+	--gl-glicon-commit-horizontal-content: '\f101';
+	--gl-glicon-graph-content: '\f102';
+	--gl-glicon-next-commit-content: '\f103';
+	--gl-glicon-prev-commit-menu-content: '\f104';
+	--gl-glicon-prev-commit-content: '\f105';
+	--gl-glicon-compare-ref-working-content: '\f106';
+	--gl-glicon-branches-view-content: '\f107';
+	--gl-glicon-commit-view-content: '\f108';
+	--gl-glicon-commits-view-content: '\f109';
+	--gl-glicon-compare-view-content: '\f10a';
+	--gl-glicon-contributors-view-content: '\f10b';
+	--gl-glicon-history-view-content: '\f10c';
+	--gl-glicon-history-content: '\f10c';
+	--gl-glicon-remotes-view-content: '\f10d';
+	--gl-glicon-repositories-view-content: '\f10e';
+	--gl-glicon-search-view-content: '\f10f';
+	--gl-glicon-stashes-view-content: '\f110';
+	--gl-glicon-stashes-content: '\f110';
+	--gl-glicon-tags-view-content: '\f111';
+	--gl-glicon-worktrees-view-content: '\f112';
+	--gl-glicon-gitlens-content: '\f113';
+	--gl-glicon-stash-pop-content: '\f114';
+	--gl-glicon-stash-save-content: '\f115';
+	--gl-glicon-unplug-content: '\f116';
+	--gl-glicon-open-revision-content: '\f117';
+	--gl-glicon-switch-content: '\f118';
+	--gl-glicon-expand-content: '\f119';
+	--gl-glicon-list-auto-content: '\f11a';
+	--gl-glicon-repo-force-push-content: '\f11b';
+	--gl-glicon-pinned-filled-content: '\f11c';
+	--gl-glicon-clock-content: '\f11d';
+	--gl-glicon-provider-azdo-content: '\f11e';
+	--gl-glicon-provider-bitbucket-content: '\f11f';
+	--gl-glicon-provider-gerrit-content: '\f120';
+	--gl-glicon-provider-gitea-content: '\f121';
+	--gl-glicon-provider-github-content: '\f122';
+	--gl-glicon-provider-gitlab-content: '\f123';
+	--gl-glicon-gitlens-inspect-content: '\f124';
+	--gl-glicon-workspaces-view-content: '\f125';
+	--gl-glicon-confirm-checked-content: '\f126';
+	--gl-glicon-confirm-unchecked-content: '\f127';
+	--gl-glicon-cloud-patch-content: '\f128';
+	--gl-glicon-cloud-patch-share-content: '\f129';
+	--gl-glicon-inspect-content: '\f12a';
+	--gl-glicon-repository-filled-content: '\f12b';
+	--gl-glicon-gitlens-filled-content: '\f12c';
+	--gl-glicon-code-suggestion-content: '\f12d';
+	--gl-glicon-provider-jira-content: '\f12e';
+}
