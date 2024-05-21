@@ -337,7 +337,7 @@ export class GlDraftDetails extends GlTreeBase {
 				</div>
 				<div class="user-selection__info">
 					<div class="user-selection__name">
-						${userSelection.member?.name ?? userSelection.member?.username ?? userSelection.user?.userId}
+						${userSelection.member?.name ?? userSelection.member?.username ?? 'Unknown'}
 					</div>
 				</div>
 				<div class="user-selection__actions">
