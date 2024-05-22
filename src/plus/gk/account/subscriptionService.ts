@@ -54,6 +54,7 @@ import {
 	computeSubscriptionState,
 	getSubscriptionPlan,
 	getSubscriptionPlanName,
+	getSubscriptionStateString,
 	getSubscriptionTimeRemaining,
 	getTimeRemaining,
 	isSubscriptionExpired,
@@ -1358,5 +1359,6 @@ function flattenSubscription(subscription: Optional<Subscription, 'state'> | und
 			stringify: true,
 		}),
 		'subscription.state': subscription.state,
+		'subscription.stateString': getSubscriptionStateString(subscription.state),
 	};
 }
