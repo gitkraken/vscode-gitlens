@@ -54,24 +54,48 @@ export interface SubscriptionPreviewTrial {
 	readonly expiresOn: string;
 }
 
-// Note: Pay attention to gitlens:plus:state in package.json when modifying this enum
+// NOTE: Pay attention to gitlens:plus:state in package.json when modifying this enum
+// NOTE: This is reported in telemetry so we should NOT change the values
 export const enum SubscriptionState {
 	/** Indicates a user who hasn't verified their email address yet */
 	VerificationRequired = -1,
 	/** Indicates a Free user who hasn't yet started the preview trial */
 	Free = 0,
 	/** Indicates a Free user who is in preview trial */
-	FreeInPreviewTrial,
+	FreeInPreviewTrial = 1,
 	/** Indicates a Free user who's preview has expired trial */
-	FreePreviewTrialExpired,
+	FreePreviewTrialExpired = 2,
 	/** Indicates a Free+ user with a completed trial */
-	FreePlusInTrial,
+	FreePlusInTrial = 3,
 	/** Indicates a Free+ user who's trial has expired and is not yet eligible for reactivation */
-	FreePlusTrialExpired,
+	FreePlusTrialExpired = 4,
 	/** Indicated a Free+ user who's trial has expired and is eligible for reactivation */
-	FreePlusTrialReactivationEligible,
+	FreePlusTrialReactivationEligible = 5,
 	/** Indicates a Paid user */
-	Paid,
+	Paid = 6,
+}
+
+export function getSubscriptionStateString(state: SubscriptionState | undefined): string {
+	switch (state) {
+		case SubscriptionState.VerificationRequired:
+			return 'verification';
+		case SubscriptionState.Free:
+			return 'free';
+		case SubscriptionState.FreeInPreviewTrial:
+			return 'preview';
+		case SubscriptionState.FreePreviewTrialExpired:
+			return 'preview-expired';
+		case SubscriptionState.FreePlusInTrial:
+			return 'trial';
+		case SubscriptionState.FreePlusTrialExpired:
+			return 'trial-expired';
+		case SubscriptionState.FreePlusTrialReactivationEligible:
+			return 'trial-reactivation-eligible';
+		case SubscriptionState.Paid:
+			return 'paid';
+		default:
+			return 'unknown';
+	}
 }
 
 export function computeSubscriptionState(subscription: Optional<Subscription, 'state'>): SubscriptionState {
