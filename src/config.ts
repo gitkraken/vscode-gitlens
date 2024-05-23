@@ -1,7 +1,5 @@
-import type { AnthropicModels } from './ai/anthropicProvider';
-import type { GeminiModels } from './ai/geminiProvider';
-import type { OpenAIModels } from './ai/openaiProvider';
-import type { AIProviders } from './constants';
+import type { VSCodeAIModels } from './ai/vscodeProvider';
+import type { SupportedAIModels } from './constants';
 import type { ResourceDescriptor } from './plus/integrations/integration';
 import type { DateTimeFormat } from './system/date';
 import type { LogLevel } from './system/logger.constants';
@@ -9,20 +7,16 @@ import type { LogLevel } from './system/logger.constants';
 export interface Config {
 	readonly ai: {
 		readonly experimental: {
-			readonly anthropic: {
-				readonly model: AnthropicModels | null;
-			};
-			readonly gemini: {
-				readonly model: GeminiModels | null;
-			};
 			readonly generateCommitMessage: {
 				readonly enabled: boolean;
 			};
+			readonly model: SupportedAIModels | null;
 			readonly openai: {
-				readonly model: OpenAIModels | null;
 				readonly url: string | null;
 			};
-			readonly provider: AIProviders | null;
+			readonly vscode: {
+				readonly model: VSCodeAIModels | null;
+			};
 		};
 	};
 	readonly autolinks: AutolinkReference[] | null;

@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds support for GitHub Copilot and other VS Code extension-provided AI models for GitLens' experimental AI features
+  - Adds a `gitlens.ai.experimental.model` setting to specify the AI model to use
+  - Adds a `gitlens.ai.experimental.vscode.model` setting to specify the VS Code extension-provided AI model to use when `gitlens.ai.experimental.model` is set to `vscode`
+
+### Changed
+
+- Changes the settings used to configure the AI models for GitLens' experimental AI features
+  - Adds a `gitlens.ai.experimental.model` setting to specify the AI model to use
+  - Removes the `gitlens.ai.experimental.provider`, `gitlens.ai.experimental.openai.model`, `gitlens.ai.experimental.anthropic.model`, and `gitlens.ai.experimental.gemini.model` settings in favor of the above
+
 ## [15.0.4] - 2024-05-20
 
 ### Added

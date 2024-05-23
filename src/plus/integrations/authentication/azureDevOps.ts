@@ -1,7 +1,6 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import { base64 } from '../../../system/string';
-import { supportedInVSCodeVersion } from '../../../system/utils';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
@@ -94,11 +93,9 @@ export class AzureDevOpsAuthenticationProvider implements IntegrationAuthenticat
 					descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''
 				}`;
 				tokenInput.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
-				tokenInput.prompt = supportedInVSCodeVersion('input-prompt-links')
-					? `Paste your [Azure DevOps Personal Access Token](https://${
-							descriptor?.domain ?? 'dev.azure.com'
-					  }/${azureOrganization}/_usersSettings/tokens "Get your Azure DevOps Access Token")`
-					: 'Paste your Azure DevOps Personal Access Token';
+				tokenInput.prompt = `Paste your [Azure DevOps Personal Access Token](https://${
+					descriptor?.domain ?? 'dev.azure.com'
+				}/${azureOrganization}/_usersSettings/tokens "Get your Azure DevOps Access Token")`;
 				tokenInput.buttons = [infoButton];
 
 				tokenInput.show();
