@@ -3,7 +3,6 @@ import { window } from 'vscode';
 import { fetch } from '@env/fetch';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
-import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
@@ -47,31 +46,13 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		return Promise.resolve(models);
 	}
 
-	private get model(): GeminiModels | null {
-		return configuration.get('ai.experimental.gemini.model') || null;
-	}
-
-	private async getOrChooseModel(): Promise<GeminiModel | undefined> {
-		let model = this.model;
-		if (model == null) {
-			const pick = await showAIModelPicker(this.container, this.id);
-			if (pick == null) return undefined;
-
-			await configuration.updateEffective(`ai.experimental.${pick.provider}.model`, pick.model);
-			model = pick.model;
-		}
-		return models.find(m => m.id === model);
-	}
-
 	async generateCommitMessage(
+		model: GeminiModel,
 		diff: string,
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
-
-		const model = await this.getOrChooseModel();
-		if (model == null) return undefined;
 
 		// const retries = 0;
 		const maxCodeCharacters = getMaxCharacters(model, 2600);
@@ -155,15 +136,13 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 	}
 
 	async explainChanges(
+		model: GeminiModel,
 		message: string,
 		diff: string,
 		options?: { cancellation?: CancellationToken },
 	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
-
-		const model = await this.getOrChooseModel();
-		if (model == null) return undefined;
 
 		// const retries = 0;
 		const maxCodeCharacters = getMaxCharacters(model, 3000);

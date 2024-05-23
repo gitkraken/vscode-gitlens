@@ -3,7 +3,6 @@ import { window } from 'vscode';
 import { fetch } from '@env/fetch';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
-import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
@@ -75,31 +74,13 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 		return Promise.resolve(models);
 	}
 
-	private get model(): AnthropicModels | null {
-		return configuration.get('ai.experimental.anthropic.model') || null;
-	}
-
-	private async getOrChooseModel(): Promise<AnthropicModel | undefined> {
-		let model = this.model;
-		if (model == null) {
-			const pick = await showAIModelPicker(this.container, this.id);
-			if (pick == null) return undefined;
-
-			await configuration.updateEffective(`ai.experimental.${pick.provider}.model`, pick.model);
-			model = pick.model;
-		}
-		return models.find(m => m.id === model);
-	}
-
 	async generateCommitMessage(
+		model: AnthropicModel,
 		diff: string,
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
-
-		const model = await this.getOrChooseModel();
-		if (model == null) return undefined;
 
 		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
 		if (!customPrompt.endsWith('.')) {
@@ -197,15 +178,13 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 	}
 
 	async explainChanges(
+		model: AnthropicModel,
 		message: string,
 		diff: string,
 		options?: { cancellation?: CancellationToken },
 	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
-
-		const model = await this.getOrChooseModel();
-		if (model == null) return undefined;
 
 		const systemPrompt = `You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
 - Concisely synthesizes meaningful information from the provided code diff

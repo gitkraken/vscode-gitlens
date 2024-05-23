@@ -2,6 +2,7 @@ import type { AttributeValue } from '@opentelemetry/api';
 import type { AnthropicModels } from './ai/anthropicProvider';
 import type { GeminiModels } from './ai/geminiProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
+import type { VSCodeAIModels } from './ai/vscodeProvider';
 import type { ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
@@ -896,14 +897,22 @@ export interface Source {
 	detail?: string | Record<string, AttributeValue | null | undefined>;
 }
 
-export type AIProviders = 'anthropic' | 'gemini' | 'openai';
+export type AIProviders = 'anthropic' | 'gemini' | 'openai' | 'vscode';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'
 	? OpenAIModels
 	: Provider extends 'anthropic'
 	  ? AnthropicModels
 	  : Provider extends 'gemini'
 	    ? GeminiModels
-	    : AnthropicModels | GeminiModels | OpenAIModels;
+	    : Provider extends 'vscode'
+	      ? VSCodeAIModels
+	      : AnthropicModels | GeminiModels | OpenAIModels;
+
+export type SupportedAIModels =
+	| `anthropic:${AIModels<'anthropic'>}`
+	| `google:${AIModels<'gemini'>}`
+	| `openai:${AIModels<'openai'>}`
+	| 'vscode';
 
 export type SecretKeys =
 	| `gitlens.integration.auth:${string}`

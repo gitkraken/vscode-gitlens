@@ -10,6 +10,6 @@ export class SwitchAIModelCommand extends Command {
 	}
 
 	async execute() {
-		await (await this.container.ai)?.switchProvider();
+		await (await this.container.ai)?.switchModel();
 	}
 }

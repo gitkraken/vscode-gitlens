@@ -1,6 +1,5 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import { supportedInVSCodeVersion } from '../../../system/utils';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
@@ -51,11 +50,9 @@ export class GitHubEnterpriseAuthenticationProvider implements IntegrationAuthen
 				input.password = true;
 				input.title = `GitHub Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`;
 				input.placeholder = `Requires a classic token with ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
-				input.prompt = supportedInVSCodeVersion('input-prompt-links')
-					? `Paste your [GitHub Personal Access Token](https://${
-							descriptor?.domain ?? 'github.com'
-					  }/settings/tokens "Get your GitHub Access Token")`
-					: 'Paste your GitHub Personal Access Token';
+				input.prompt = `Paste your [GitHub Personal Access Token](https://${
+					descriptor?.domain ?? 'github.com'
+				}/settings/tokens "Get your GitHub Access Token")`;
 
 				input.buttons = [infoButton];
 
