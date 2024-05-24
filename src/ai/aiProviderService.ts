@@ -522,3 +522,17 @@ export async function getApiKey(
 
 	return apiKey;
 }
+
+export function extractDraftMessage(
+	message: string,
+	splitter = '\n\n',
+): { title: string; description: string | undefined } {
+	const firstBreak = message.indexOf(splitter) ?? 0;
+	const title = firstBreak > -1 ? message.substring(0, firstBreak) : message;
+	const description = firstBreak > -1 ? message.substring(firstBreak + splitter.length) : undefined;
+
+	return {
+		title: title,
+		description: description,
+	};
+}

@@ -14,6 +14,13 @@ interface ExplainState {
 	summary?: string;
 }
 
+interface GenerateState {
+	cancelled?: boolean;
+	error?: { message: string };
+	title?: string;
+	description?: string;
+}
+
 export interface ApplyPatchDetail {
 	draft: DraftDetails;
 	target?: 'current' | 'branch' | 'worktree';
@@ -44,6 +51,9 @@ export class GlPatchDetailsApp extends GlElement {
 
 	@property({ type: Object })
 	explain?: ExplainState;
+
+	@property({ type: Object })
+	generate?: GenerateState;
 
 	@property({ attribute: false, type: Object })
 	app?: PatchDetailsApp;
@@ -111,7 +121,7 @@ export class GlPatchDetailsApp extends GlElement {
 					${when(
 						this.mode === 'view',
 						() => html`<gl-draft-details .state=${this.state} .explain=${this.explain}></gl-draft-details>`,
-						() => html`<gl-patch-create .state=${this.state}></gl-patch-create>`,
+						() => html`<gl-patch-create .state=${this.state} .generate=${this.generate}></gl-patch-create>`,
 					)}
 				</main>
 			</div>
