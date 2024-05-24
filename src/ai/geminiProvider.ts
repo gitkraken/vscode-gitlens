@@ -7,6 +7,7 @@ import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
+import { commitMessageSystemPrompt, draftMessageSystemPrompt } from './prompts';
 
 const provider = { id: 'gemini', name: 'Google' } as const;
 
@@ -46,10 +47,18 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		return Promise.resolve(models);
 	}
 
-	async generateCommitMessage(
+	async generateMessage(
 		model: GeminiModel,
 		diff: string,
-		options?: { cancellation?: CancellationToken; context?: string },
+		promptConfig: {
+			systemPrompt: string;
+			customPrompt: string;
+			contextName: string;
+		},
+		options?: {
+			cancellation?: CancellationToken | undefined;
+			context?: string | undefined;
+		},
 	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
@@ -59,24 +68,11 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		while (true) {
 			const code = diff.substring(0, maxCodeCharacters);
 
-			let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
-			if (!customPrompt.endsWith('.')) {
-				customPrompt += '.';
-			}
-
 			const request: GenerateContentRequest = {
 				systemInstruction: {
 					parts: [
 						{
-							text: `You are an advanced AI programming assistant tasked with summarizing code changes into a concise and meaningful commit message. Compose a commit message that:
-- Strictly synthesizes meaningful information from the provided code diff
-- Utilizes any additional user-provided context to comprehend the rationale behind the code changes
-- Is clear and brief, with an informal yet professional tone, and without superfluous descriptions
-- Avoids unnecessary phrases such as "this commit", "this change", and the like
-- Avoids direct mention of specific code identifiers, names, or file names, unless they are crucial for understanding the purpose of the changes
-- Most importantly emphasizes the 'why' of the change, its benefits, or the problem it addresses rather than only the 'what' that changed
-
-Follow the user's instructions carefully, don't repeat yourself, don't include the code in the output, or make anything up!`,
+							text: promptConfig.systemPrompt,
 						},
 					],
 				},
@@ -85,17 +81,17 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 						role: 'user',
 						parts: [
 							{
-								text: `Here is the code diff to use to generate the commit message:\n\n${code}`,
+								text: `Here is the code diff to use to generate the ${promptConfig.contextName}:\n\n${code}`,
 							},
 							...(options?.context
 								? [
 										{
-											text: `Here is additional context which should be taken into account when generating the commit message:\n\n${options.context}`,
+											text: `Here is additional context which should be taken into account when generating the ${promptConfig.contextName}:\n\n${options.context}`,
 										},
 								  ]
 								: []),
 							{
-								text: customPrompt,
+								text: promptConfig.customPrompt,
 							},
 						],
 					},
@@ -117,7 +113,7 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 				// }
 
 				throw new Error(
-					`Unable to generate commit message: (${this.name}:${rsp.status}) ${
+					`Unable to generate ${promptConfig.contextName}: (${this.name}:${rsp.status}) ${
 						json?.error?.message || rsp.statusText
 					}`,
 				);
@@ -133,6 +129,57 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 			const message = data.candidates[0].content.parts[0].text.trim();
 			return message;
 		}
+	}
+
+	async generateDraftMessage(
+		model: GeminiModel,
+		diff: string,
+		options?: {
+			cancellation?: CancellationToken | undefined;
+			context?: string | undefined;
+			codeSuggestion?: boolean | undefined;
+		},
+	): Promise<string | undefined> {
+		let customPrompt = configuration.get('experimental.generateDraftMessagePrompt');
+		if (!customPrompt.endsWith('.')) {
+			customPrompt += '.';
+		}
+
+		return this.generateMessage(
+			model,
+			diff,
+			{
+				systemPrompt: draftMessageSystemPrompt,
+				customPrompt: customPrompt,
+				contextName:
+					options?.codeSuggestion === true
+						? 'code suggestion title and description'
+						: 'cloud patch title and description',
+			},
+			options,
+		);
+	}
+
+	async generateCommitMessage(
+		model: GeminiModel,
+		diff: string,
+		options?: { cancellation?: CancellationToken; context?: string },
+	): Promise<string | undefined> {
+		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
+		if (!customPrompt.endsWith('.')) {
+			customPrompt += '.';
+		}
+
+		return this.generateMessage(
+			model,
+			diff,
+			{
+				systemPrompt: commitMessageSystemPrompt,
+				customPrompt: customPrompt,
+				contextName: 'commit message',
+			},
+			options,
+		);
 	}
 
 	async explainChanges(

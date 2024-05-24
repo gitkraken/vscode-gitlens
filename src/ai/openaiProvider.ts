@@ -7,6 +7,7 @@ import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
+import { commitMessageSystemPrompt, draftMessageSystemPrompt } from './prompts';
 
 const provider = { id: 'openai', name: 'OpenAI' } as const;
 
@@ -139,9 +140,14 @@ export class OpenAIProvider implements AIProvider<typeof provider.id> {
 		return configuration.get('ai.experimental.openai.url') || 'https://api.openai.com/v1/chat/completions';
 	}
 
-	async generateCommitMessage(
+	async generateMessage(
 		model: OpenAIModel,
 		diff: string,
+		promptConfig: {
+			systemPrompt: string;
+			customPrompt: string;
+			contextName: string;
+		},
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
@@ -152,41 +158,28 @@ export class OpenAIProvider implements AIProvider<typeof provider.id> {
 		while (true) {
 			const code = diff.substring(0, maxCodeCharacters);
 
-			let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
-			if (!customPrompt.endsWith('.')) {
-				customPrompt += '.';
-			}
-
 			const request: OpenAIChatCompletionRequest = {
 				model: model.id,
 				messages: [
 					{
 						role: 'system',
-						content: `You are an advanced AI programming assistant tasked with summarizing code changes into a concise and meaningful commit message. Compose a commit message that:
-- Strictly synthesizes meaningful information from the provided code diff
-- Utilizes any additional user-provided context to comprehend the rationale behind the code changes
-- Is clear and brief, with an informal yet professional tone, and without superfluous descriptions
-- Avoids unnecessary phrases such as "this commit", "this change", and the like
-- Avoids direct mention of specific code identifiers, names, or file names, unless they are crucial for understanding the purpose of the changes
-- Most importantly emphasizes the 'why' of the change, its benefits, or the problem it addresses rather than only the 'what' that changed
-
-Follow the user's instructions carefully, don't repeat yourself, don't include the code in the output, or make anything up!`,
+						content: promptConfig.systemPrompt,
 					},
 					{
 						role: 'user',
-						content: `Here is the code diff to use to generate the commit message:\n\n${code}`,
+						content: `Here is the code diff to use to generate the ${promptConfig.contextName}:\n\n${code}`,
 					},
 					...(options?.context
 						? [
 								{
 									role: 'user' as const,
-									content: `Here is additional context which should be taken into account when generating the commit message:\n\n${options.context}`,
+									content: `Here is additional context which should be taken into account when generating the ${promptConfig.contextName}:\n\n${options.context}`,
 								},
 						  ]
 						: []),
 					{
 						role: 'user',
-						content: customPrompt,
+						content: promptConfig.customPrompt,
 					},
 				],
 			};
@@ -195,12 +188,12 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 			if (!rsp.ok) {
 				if (rsp.status === 404) {
 					throw new Error(
-						`Unable to generate commit message: Your API key doesn't seem to have access to the selected '${model.id}' model`,
+						`Unable to generate ${promptConfig.contextName}: Your API key doesn't seem to have access to the selected '${model.id}' model`,
 					);
 				}
 				if (rsp.status === 429) {
 					throw new Error(
-						`Unable to generate commit message: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
+						`Unable to generate ${promptConfig.contextName}: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
 					);
 				}
 
@@ -217,7 +210,7 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 				}
 
 				throw new Error(
-					`Unable to generate commit message: (${this.name}:${rsp.status}) ${
+					`Unable to generate ${promptConfig.contextName}: (${this.name}:${rsp.status}) ${
 						json?.error?.message || rsp.statusText
 					}`,
 				);
@@ -233,6 +226,57 @@ Follow the user's instructions carefully, don't repeat yourself, don't include t
 			const message = data.choices[0].message.content.trim();
 			return message;
 		}
+	}
+
+	async generateDraftMessage(
+		model: OpenAIModel,
+		diff: string,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			codeSuggestion?: boolean | undefined;
+		},
+	): Promise<string | undefined> {
+		let customPrompt = configuration.get('experimental.generateDraftMessagePrompt');
+		if (!customPrompt.endsWith('.')) {
+			customPrompt += '.';
+		}
+
+		return this.generateMessage(
+			model,
+			diff,
+			{
+				systemPrompt: draftMessageSystemPrompt,
+				customPrompt: customPrompt,
+				contextName:
+					options?.codeSuggestion === true
+						? 'code suggestion title and description'
+						: 'cloud patch title and description',
+			},
+			options,
+		);
+	}
+
+	async generateCommitMessage(
+		model: OpenAIModel,
+		diff: string,
+		options?: { cancellation?: CancellationToken; context?: string },
+	): Promise<string | undefined> {
+		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
+		if (!customPrompt.endsWith('.')) {
+			customPrompt += '.';
+		}
+
+		return this.generateMessage(
+			model,
+			diff,
+			{
+				systemPrompt: commitMessageSystemPrompt,
+				customPrompt: customPrompt,
+				contextName: 'commit message',
+			},
+			options,
+		);
 	}
 
 	async explainChanges(

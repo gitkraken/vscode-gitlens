@@ -3532,9 +3532,16 @@
 					"gitlens.experimental.generateCommitMessagePrompt": {
 						"type": "string",
 						"default": "Now, please generate a commit message. Ensure that it includes a precise and informative subject line that succinctly summarizes the crux of the changes in under 50 characters. If necessary, follow with an explanatory body providing insight into the nature of the changes, the reasoning behind them, and any significant consequences or considerations arising from them. Conclude with any relevant issue references at the end of the message.",
-						"markdownDescription": "Specifies the prompt to use to tell OpenAI how to structure or format the generated commit message",
+						"markdownDescription": "Specifies the prompt to use to tell the AI provider how to structure or format the generated commit message",
 						"scope": "window",
 						"order": 2
+					},
+					"gitlens.experimental.generateDraftMessagePrompt": {
+						"type": "string",
+						"default": "Now, please generate a commit message. Ensure that it includes a precise and informative subject line that succinctly summarizes the crux of the changes in under 50 characters. If necessary, follow with an explanatory body providing insight into the nature of the changes, the reasoning behind them, and any significant consequences or considerations arising from them. Conclude with any relevant issue references at the end of the message.",
+						"markdownDescription": "Specifies the prompt to use to tell the AI provider how to structure or format the generated title and description",
+						"scope": "window",
+						"order": 3
 					},
 					"gitlens.ai.experimental.model": {
 						"type": [
