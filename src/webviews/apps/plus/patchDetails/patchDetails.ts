@@ -17,6 +17,7 @@ import {
 	DraftPatchCheckedCommand,
 	ExecuteFileActionCommand,
 	ExplainRequest,
+	GenerateRequest,
 	OpenFileCommand,
 	OpenFileComparePreviousCommand,
 	OpenFileCompareWorkingCommand,
@@ -128,6 +129,9 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 				'gl-patch-create',
 				'gl-patch-create-repo-checked',
 				e => this.onCreateCheckRepo(e.detail),
+			),
+			DOM.on<GlPatchCreate, CreatePatchMetadataEventDetail>('gl-patch-create', 'gl-patch-generate-title', e =>
+				this.onCreateGenerateTitle(e.detail),
 			),
 			DOM.on<GlPatchCreate, CreatePatchMetadataEventDetail>(
 				'gl-patch-create',
@@ -253,6 +257,36 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 	private onCreateUpdateMetadata(e: CreatePatchMetadataEventDetail) {
 		this.sendCommand(UpdateCreatePatchMetadataCommand, e);
+	}
+
+	private async onCreateGenerateTitle(_e: CreatePatchMetadataEventDetail) {
+		try {
+			const result = await this.sendRequest(GenerateRequest, undefined);
+
+			if (result.error) {
+				this.component.generate = { error: { message: result.error.message ?? 'Error retrieving content' } };
+			} else if (result.title || result.description) {
+				this.component.generate = {
+					title: result.title,
+					description: result.description,
+				};
+
+				this.state = {
+					...this.state,
+					create: {
+						...this.state.create!,
+						title: result.title ?? this.state.create?.title,
+						description: result.description ?? this.state.create?.description,
+					},
+				};
+				this.setState(this.state);
+				this.debouncedAttachState();
+			} else {
+				this.component.generate = undefined;
+			}
+		} catch (ex) {
+			this.component.generate = { error: { message: 'Error retrieving content' } };
+		}
 	}
 
 	private onDraftUpdateMetadata(e: { visibility: DraftVisibility }) {

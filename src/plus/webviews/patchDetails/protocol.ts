@@ -275,6 +275,15 @@ export type DidExplainParams =
 	| { error: { message: string } };
 export const ExplainRequest = new IpcRequest<void, DidExplainParams>(scope, 'explain');
 
+export type DidGenerateParams =
+	| {
+			title: string | undefined;
+			description: string | undefined;
+			error?: undefined;
+	  }
+	| { error: { message: string } };
+export const GenerateRequest = new IpcRequest<void, DidGenerateParams>(scope, 'generate');
+
 // NOTIFICATIONS
 
 export interface DidChangeParams {
