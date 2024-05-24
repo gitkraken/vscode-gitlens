@@ -54,6 +54,13 @@ export interface CreatePatchUpdateSelectionEventDetail {
 	role: Exclude<DraftRole, 'owner'> | 'remove';
 }
 
+interface GenerateState {
+	cancelled?: boolean;
+	error?: { message: string };
+	title?: string;
+	description?: string;
+}
+
 // Can only import types from 'vscode'
 const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
@@ -62,6 +69,12 @@ export class GlPatchCreate extends GlTreeBase {
 	@property({ type: Object }) state?: Serialized<State>;
 
 	@property({ type: Boolean }) review = false;
+
+	@property({ type: Object })
+	generate?: GenerateState;
+
+	@state()
+	generateBusy = false;
 
 	// @state()
 	// patchTitle = this.create.title ?? '';
@@ -74,6 +87,9 @@ export class GlPatchCreate extends GlTreeBase {
 
 	@query('#desc')
 	descInput!: HTMLInputElement;
+
+	@query('#generate-ai')
+	generateAiButton!: HTMLElement;
 
 	@state()
 	validityMessage?: string;
@@ -126,6 +142,12 @@ export class GlPatchCreate extends GlTreeBase {
 		defineGkElement(Avatar, Button, Menu, MenuItem, Popover);
 	}
 
+	override updated(changedProperties: Map<string, any>) {
+		if (changedProperties.has('generate')) {
+			this.generateBusy = false;
+			this.generateAiButton.scrollIntoView();
+		}
+	}
 	protected override firstUpdated() {
 		window.requestAnimationFrame(() => {
 			this.titleInput.focus();
@@ -258,7 +280,7 @@ export class GlPatchCreate extends GlTreeBase {
 						${this.renderUserSelectionList()}
 					`,
 				)}
-				<div class="message-input">
+				<div class="message-input message-input--with-menu">
 					<input
 						id="title"
 						type="text"
@@ -266,8 +288,27 @@ export class GlPatchCreate extends GlTreeBase {
 						placeholder="Title (required)"
 						maxlength="100"
 						.value=${this.create.title ?? ''}
+						?disabled=${this.generateBusy}
 						@input=${(e: InputEvent) => this.onDebounceTitleInput(e)}
 					/>
+					${when(
+						this.state?.orgSettings.ai === true,
+						() =>
+							html`<div class="message-input__menu">
+								<gl-button
+									id="generate-ai"
+									appearance="toolbar"
+									density="compact"
+									tooltip="Generate Title and Description..."
+									@click=${(e: MouseEvent) => this.onGenerateTitleClick(e)}
+									?disabled=${this.generateBusy}
+									><code-icon
+										icon=${this.generateBusy ? 'loading' : 'sparkle'}
+										modifier="${this.generateBusy ? 'spin' : ''}"
+									></code-icon
+								></gl-button>
+							</div>`,
+					)}
 				</div>
 				<div class="message-input">
 					<textarea
@@ -276,6 +317,7 @@ export class GlPatchCreate extends GlTreeBase {
 						placeholder="Description (optional)"
 						maxlength="10000"
 						.value=${this.create.description ?? ''}
+						?disabled=${this.generateBusy}
 						@input=${(e: InputEvent) => this.onDebounceDescriptionInput(e)}
 					></textarea>
 				</div>
@@ -663,6 +705,15 @@ export class GlPatchCreate extends GlTreeBase {
 		this.fireMetadataUpdate();
 	}
 
+	private onGenerateTitleClick(_e: Event) {
+		this.generateBusy = true;
+		this.emit('gl-patch-generate-title', {
+			title: this.create.title!,
+			description: this.create.description,
+			visibility: this.create.visibility,
+		});
+	}
+
 	private fireMetadataUpdate() {
 		this.emit('gl-patch-create-update-metadata', {
 			title: this.create.title!,
@@ -786,6 +837,7 @@ declare global {
 		'gl-patch-file-open': CustomEvent<ExecuteFileActionParams>;
 		'gl-patch-file-stage': CustomEvent<ExecuteFileActionParams>;
 		'gl-patch-file-unstage': CustomEvent<ExecuteFileActionParams>;
+		'gl-patch-generate-title': CustomEvent<CreatePatchMetadataEventDetail>;
 		'gl-patch-create-invite-users': CustomEvent<undefined>;
 		'gl-patch-create-update-selection': CustomEvent<CreatePatchUpdateSelectionEventDetail>;
 		'gl-patch-create-cancelled': CustomEvent<undefined>;

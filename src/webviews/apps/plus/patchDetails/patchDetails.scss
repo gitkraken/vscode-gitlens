@@ -216,6 +216,12 @@ gk-menu-item {
 			outline-offset: -1px;
 		}
 
+		&:disabled {
+			opacity: 0.4;
+			cursor: not-allowed;
+			pointer-events: none;
+		}
+
 		&--text {
 			overflow: hidden;
 			white-space: nowrap;
@@ -266,11 +272,21 @@ gk-menu-item {
 		padding-right: 2.4rem;
 	}
 
+	&__menu {
+		position: absolute;
+		top: 0.8rem;
+		right: 0;
+	}
+
 	&--group {
 		display: flex;
 		flex-direction: row;
 		align-items: stretch;
 		gap: 0.6rem;
+	}
+
+	&--with-menu {
+		position: relative;
 	}
 }
 

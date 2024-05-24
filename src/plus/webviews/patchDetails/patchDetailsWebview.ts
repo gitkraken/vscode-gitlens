@@ -1,5 +1,6 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
+import { extractDraftMessage } from '../../../ai/aiProviderService';
 import { getAvatarUri } from '../../../avatars';
 import type { ContextKeys, Sources } from '../../../constants';
 import { Commands, GlyphChars, previewBadge } from '../../../constants';
@@ -56,6 +57,7 @@ import type {
 	CreateDraft,
 	CreatePatchParams,
 	DidExplainParams,
+	DidGenerateParams,
 	DraftPatchCheckedParams,
 	DraftUserSelection,
 	ExecuteFileActionParams,
@@ -81,6 +83,7 @@ import {
 	DidChangePreferencesNotification,
 	DraftPatchCheckedCommand,
 	ExplainRequest,
+	GenerateRequest,
 	OpenFileCommand,
 	OpenFileComparePreviousCommand,
 	OpenFileCompareWorkingCommand,
@@ -238,6 +241,10 @@ export class PatchDetailsWebviewProvider
 
 			case ExplainRequest.is(e):
 				void this.explainRequest(ExplainRequest, e);
+				break;
+
+			case GenerateRequest.is(e):
+				void this.generateRequest(GenerateRequest, e);
 				break;
 
 			case OpenFileComparePreviousCommand.is(e):
@@ -815,6 +822,48 @@ export class PatchDetailsWebviewProvider
 			if (summary == null) throw new Error('Error retrieving content');
 
 			params = { summary: summary };
+		} catch (ex) {
+			debugger;
+			params = { error: { message: ex.message } };
+		}
+
+		void this.host.respond(requestType, msg, params);
+	}
+
+	private async generateRequest<T extends typeof GenerateRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		let repo: Repository | undefined;
+		if (this._context.create?.changes != null) {
+			for (const change of this._context.create.changes.values()) {
+				if (change.repository) {
+					repo = change.repository;
+					break;
+				}
+			}
+		}
+
+		if (!repo) {
+			void this.host.respond(requestType, msg, { error: { message: 'Unable to find changes' } });
+			return;
+		}
+
+		let params: DidGenerateParams;
+
+		try {
+			// TODO@eamodio HACK -- only works for the first patch
+			// const patch = await this.getDraftPatch(this._context.draft);
+			// if (patch == null) throw new Error('Unable to find patch');
+
+			// const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
+			// if (commit == null) throw new Error('Unable to find commit');
+
+			const summary = await (
+				await this.container.ai
+			)?.generateDraftMessage(repo, {
+				progress: { location: { viewId: this.host.id } },
+			});
+			if (summary == null) throw new Error('Error retrieving content');
+
+			params = extractDraftMessage(summary);
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
