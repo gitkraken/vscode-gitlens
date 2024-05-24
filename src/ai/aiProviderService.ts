@@ -65,6 +65,11 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 		diff: string,
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined>;
+	generateDraftMessage(
+		model: AIModel<Provider, AIModels<Provider>>,
+		diff: string,
+		options?: { cancellation?: CancellationToken; context?: string; codeSuggestion?: boolean },
+	): Promise<string | undefined>;
 }
 
 export class AIProviderService implements Disposable {
@@ -204,24 +209,8 @@ export class AIProviderService implements Disposable {
 		changesOrRepoOrPath: string[] | Repository | Uri,
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
 	): Promise<string | undefined> {
-		let changes: string;
-		if (Array.isArray(changesOrRepoOrPath)) {
-			changes = changesOrRepoOrPath.join('\n');
-		} else {
-			const repository = isRepository(changesOrRepoOrPath)
-				? changesOrRepoOrPath
-				: this.container.git.getRepository(changesOrRepoOrPath);
-			if (repository == null) throw new Error('Unable to find repository');
-
-			let diff = await this.container.git.getDiff(repository.uri, uncommittedStaged);
-			if (!diff?.contents) {
-				diff = await this.container.git.getDiff(repository.uri, uncommitted);
-				if (!diff?.contents) throw new Error('No changes to generate a commit message from.');
-			}
-			if (options?.cancellation?.isCancellationRequested) return undefined;
-
-			changes = diff.contents;
-		}
+		const changes: string | undefined = await this.getChanges(changesOrRepoOrPath);
+		if (changes == null) return undefined;
 
 		const model = await this.getModel();
 		if (model == null) return undefined;
@@ -244,6 +233,69 @@ export class AIProviderService implements Disposable {
 			cancellation: options?.cancellation,
 			context: options?.context,
 		});
+	}
+
+	async generateDraftMessage(
+		changesOrRepoOrPath: string[] | Repository | Uri,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			progress?: ProgressOptions;
+			codeSuggestion?: boolean;
+		},
+	): Promise<string | undefined> {
+		const changes: string | undefined = await this.getChanges(changesOrRepoOrPath);
+		if (changes == null) return undefined;
+
+		const model = await this.getModel();
+		if (model == null) return undefined;
+
+		const provider = this._provider!;
+
+		const confirmed = await confirmAIProviderToS(model, this.container.storage);
+		if (!confirmed) return undefined;
+		if (options?.cancellation?.isCancellationRequested) return undefined;
+
+		if (options?.progress != null) {
+			return window.withProgress(options.progress, async () =>
+				provider.generateDraftMessage(model, changes, {
+					cancellation: options?.cancellation,
+					context: options?.context,
+					codeSuggestion: options?.codeSuggestion,
+				}),
+			);
+		}
+		return provider.generateDraftMessage(model, changes, {
+			cancellation: options?.cancellation,
+			context: options?.context,
+			codeSuggestion: options?.codeSuggestion,
+		});
+	}
+
+	private async getChanges(
+		changesOrRepoOrPath: string[] | Repository | Uri,
+		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
+	): Promise<string | undefined> {
+		let changes: string;
+		if (Array.isArray(changesOrRepoOrPath)) {
+			changes = changesOrRepoOrPath.join('\n');
+		} else {
+			const repository = isRepository(changesOrRepoOrPath)
+				? changesOrRepoOrPath
+				: this.container.git.getRepository(changesOrRepoOrPath);
+			if (repository == null) throw new Error('Unable to find repository');
+
+			let diff = await this.container.git.getDiff(repository.uri, uncommittedStaged);
+			if (!diff?.contents) {
+				diff = await this.container.git.getDiff(repository.uri, uncommitted);
+				if (!diff?.contents) throw new Error('No changes to generate a commit message from.');
+			}
+			if (options?.cancellation?.isCancellationRequested) return undefined;
+
+			changes = diff.contents;
+		}
+
+		return changes;
 	}
 
 	async explainCommit(
