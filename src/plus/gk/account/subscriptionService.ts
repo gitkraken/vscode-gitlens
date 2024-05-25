@@ -215,7 +215,7 @@ export class SubscriptionService implements Disposable {
 		if (originalSource != null) {
 			source.detail = {
 				...(typeof source.detail === 'string' ? { action: source.detail } : source.detail),
-				...flatten(originalSource, { prefix: 'original' }),
+				...flatten(originalSource, 'original'),
 			};
 		}
 
@@ -1335,28 +1335,43 @@ export class SubscriptionService implements Disposable {
 	}
 }
 
-function flattenSubscription(subscription: Optional<Subscription, 'state'> | undefined, prefix?: string) {
+type FlattenedSubscription = {
+	'subscription.state'?: SubscriptionState;
+	'subscription.status'?:
+		| 'verification'
+		| 'free'
+		| 'preview'
+		| 'preview-expired'
+		| 'trial'
+		| 'trial-expired'
+		| 'trial-reactivation-eligible'
+		| 'paid'
+		| 'unknown';
+} & Partial<
+	Record<`account.${string}`, string | number | boolean | undefined> &
+		Record<`subscription.${string}`, string | number | boolean | undefined> &
+		Record<`subscription.previewTrial.${string}`, string | number | boolean | undefined> &
+		Record<`previous.account.${string}`, string | number | boolean | undefined> &
+		Record<`previous.subscription.${string}`, string | number | boolean | undefined> &
+		Record<`previous.subscription.previewTrial.${string}`, string | number | boolean | undefined>
+>;
+
+function flattenSubscription(
+	subscription: Optional<Subscription, 'state'> | undefined,
+	prefix?: string,
+): FlattenedSubscription {
 	if (subscription == null) return {};
 
 	return {
-		...flatten(subscription.account, {
-			arrays: 'join',
-			prefix: `${prefix ? `${prefix}.` : ''}account`,
+		...flatten(subscription.account, `${prefix ? `${prefix}.` : ''}account`, {
+			joinArrays: true,
 			skipPaths: ['name', 'email'],
-			skipNulls: true,
-			stringify: true,
 		}),
-		...flatten(subscription.plan, {
-			prefix: `${prefix ? `${prefix}.` : ''}subscription`,
+		...flatten(subscription.plan, `${prefix ? `${prefix}.` : ''}subscription`, {
 			skipPaths: ['actual.name', 'effective.name'],
-			skipNulls: true,
-			stringify: true,
 		}),
-		...flatten(subscription.previewTrial, {
-			prefix: `${prefix ? `${prefix}.` : ''}subscription.previewTrial`,
+		...flatten(subscription.previewTrial, `${prefix ? `${prefix}.` : ''}subscription.previewTrial`, {
 			skipPaths: ['actual.name', 'effective.name'],
-			skipNulls: true,
-			stringify: true,
 		}),
 		'subscription.state': subscription.state,
 		'subscription.stateString': getSubscriptionStateString(subscription.state),

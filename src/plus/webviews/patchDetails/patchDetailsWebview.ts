@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
 import { getAvatarUri } from '../../../avatars';
-import type { ContextKeys } from '../../../constants';
+import type { ContextKeys, Sources } from '../../../constants';
 import { Commands, GlyphChars, previewBadge } from '../../../constants';
 import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
@@ -46,6 +46,7 @@ import type { IpcCallMessageType, IpcMessage } from '../../../webviews/protocol'
 import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProvider';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { showPatchesView } from '../../drafts/actions';
+import { getDraftEntityIdentifier } from '../../drafts/draftsService';
 import type { OrganizationMember } from '../../gk/account/organization';
 import { confirmDraftStorage, ensureAccount } from '../../utils';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
@@ -769,19 +770,25 @@ export class PatchDetailsWebviewProvider
 	private async trackArchiveDraft(draft: Draft) {
 		draft = await this.ensureDraftContent(draft);
 		const patch = draft.changesets?.[0].patches.find(p => isRepoLocated(p.repository));
-		if (patch == null) return;
 
-		const repo = patch.repository as Repository;
-		const remote = await this.container.git.getBestRemoteWithProvider(repo.uri);
-		if (remote == null) return;
+		let repoPrivacy;
+		if (isRepository(patch?.repository)) {
+			repoPrivacy = await this.container.git.visibility(patch.repository.uri);
+		}
 
-		const provider = remote.provider.id;
+		const entity = getDraftEntityIdentifier(draft, patch);
 
-		this.container.telemetry.sendEvent('codeSuggestionArchived', {
-			provider: provider,
-			draftId: draft.id,
-			reason: draft.archivedReason!,
-		});
+		this.container.telemetry.sendEvent(
+			'codeSuggestionArchived',
+			{
+				provider: entity?.provider,
+				'repository.visibility': repoPrivacy,
+				repoPrivacy: repoPrivacy,
+				draftId: draft.id,
+				reason: draft.archivedReason!,
+			},
+			{ source: 'patchDetails' },
+		);
 	}
 
 	private async explainRequest<T extends typeof ExplainRequest>(requestType: T, msg: IpcCallMessageType<T>) {
@@ -1077,27 +1084,31 @@ export class PatchDetailsWebviewProvider
 		});
 	}
 
-	private async trackViewDraft(draft: Draft | LocalDraft | undefined, source?: string) {
+	private async trackViewDraft(draft: Draft | LocalDraft | undefined, source?: Sources | undefined) {
 		if (draft?.draftType !== 'cloud' || draft.type !== 'suggested_pr_change') return;
 
 		draft = await this.ensureDraftContent(draft);
 		const patch = draft.changesets?.[0].patches.find(p => isRepoLocated(p.repository));
-		if (patch == null) return;
 
-		const repo = patch.repository as Repository;
-		const remote = await this.container.git.getBestRemoteWithProvider(repo.uri);
-		if (remote == null) return;
+		let repoPrivacy;
+		if (isRepository(patch?.repository)) {
+			repoPrivacy = await this.container.git.visibility(patch.repository.uri);
+		}
 
-		const provider = remote.provider.id;
-		const repoPrivacy = await this.container.git.visibility(repo.path);
+		const entity = getDraftEntityIdentifier(draft, patch);
 
-		this.container.telemetry.sendEvent('codeSuggestionViewed', {
-			provider: provider,
-			source: source,
-			repoPrivacy: repoPrivacy,
-			draftPrivacy: draft.visibility,
-			draftId: draft.id,
-		});
+		this.container.telemetry.sendEvent(
+			'codeSuggestionViewed',
+			{
+				provider: entity?.provider,
+				'repository.visibility': repoPrivacy,
+				repoPrivacy: repoPrivacy,
+				draftId: draft.id,
+				draftPrivacy: draft.visibility,
+				source: source,
+			},
+			{ source: source ?? 'patchDetails' },
+		);
 	}
 
 	private async updateViewDraftState(draft: LocalDraft | Draft | undefined) {

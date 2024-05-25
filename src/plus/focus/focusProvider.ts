@@ -670,23 +670,20 @@ export class FocusProvider implements Disposable {
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'launchpad')) return;
-		const launchpadConfig = configuration.get('launchpad');
-		this.container.telemetry.sendEvent('launchpad/configurationChanged', {
-			staleThreshold: launchpadConfig.staleThreshold,
-			ignoredRepositories: launchpadConfig.ignoredRepositories,
-			indicatorEnabled: launchpadConfig.indicator.enabled,
-			indicatorOpenInEditor: launchpadConfig.indicator.openInEditor,
-			indicatorIcon: launchpadConfig.indicator.icon,
-			indicatorLabel: launchpadConfig.indicator.label,
-			indicatorUseColors: launchpadConfig.indicator.useColors,
-			indicatorGroups: launchpadConfig.indicator.groups,
-			indicatorPollingEnabled: launchpadConfig.indicator.polling.enabled,
-			indicatorPollingInterval: launchpadConfig.indicator.polling.interval,
-		});
 
-		if (configuration.changed(e, 'launchpad.indicator.enabled') && !launchpadConfig.indicator.enabled) {
-			this.container.telemetry.sendEvent('launchpad/indicator/hidden');
-		}
+		const cfg = configuration.get('launchpad');
+		this.container.telemetry.sendEvent('launchpad/configurationChanged', {
+			'config.launchpad.staleThreshold': cfg.staleThreshold,
+			'config.launchpad.ignoredRepositories': cfg.ignoredRepositories?.length ?? 0,
+			'config.launchpad.indicator.enabled': cfg.indicator.enabled,
+			'config.launchpad.indicator.openInEditor': cfg.indicator.openInEditor,
+			'config.launchpad.indicator.icon': cfg.indicator.icon,
+			'config.launchpad.indicator.label': cfg.indicator.label,
+			'config.launchpad.indicator.useColors': cfg.indicator.useColors,
+			'config.launchpad.indicator.groups': cfg.indicator.groups.join(','),
+			'config.launchpad.indicator.polling.enabled': cfg.indicator.polling.enabled,
+			'config.launchpad.indicator.polling.interval': cfg.indicator.polling.interval,
+		});
 
 		if (
 			configuration.changed(e, 'launchpad.ignoredRepositories') ||
