@@ -17532,10 +17532,10 @@
 		"concurrently": "8.2.2",
 		"copy-webpack-plugin": "12.0.2",
 		"csp-html-webpack-plugin": "5.1.0",
-		"css-loader": "7.1.1",
+		"css-loader": "7.1.2",
 		"css-minimizer-webpack-plugin": "7.0.0",
 		"cssnano-preset-advanced": "7.0.1",
-		"esbuild": "0.21.3",
+		"esbuild": "0.21.4",
 		"esbuild-loader": "4.1.0",
 		"esbuild-sass-plugin": "3.3.0",
 		"eslint": "8.57.0",
@@ -17546,7 +17546,7 @@
 		"eslint-plugin-lit": "1.13.0",
 		"eslint-plugin-wc": "2.1.0",
 		"fork-ts-checker-webpack-plugin": "6.5.3",
-		"glob": "10.3.15",
+		"glob": "10.4.1",
 		"html-loader": "5.0.0",
 		"html-webpack-plugin": "5.6.0",
 		"image-minimizer-webpack-plugin": "4.0.0",
@@ -17571,7 +17571,7 @@
 		"webpack-require-from": "1.8.6"
 	},
 	"resolutions": {
-		"esbuild": "0.21.3",
+		"esbuild": "0.21.4",
 		"iconv-lite": "0.6.3",
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
