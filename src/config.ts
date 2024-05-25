@@ -1,7 +1,5 @@
-import type { AnthropicModels } from './ai/anthropicProvider';
-import type { GeminiModels } from './ai/geminiProvider';
-import type { OpenAIModels } from './ai/openaiProvider';
-import type { AIProviders } from './constants';
+import type { VSCodeAIModels } from './ai/vscodeProvider';
+import type { SupportedAIModels } from './constants';
 import type { ResourceDescriptor } from './plus/integrations/integration';
 import type { DateTimeFormat } from './system/date';
 import type { LogLevel } from './system/logger.constants';
@@ -9,20 +7,16 @@ import type { LogLevel } from './system/logger.constants';
 export interface Config {
 	readonly ai: {
 		readonly experimental: {
-			readonly anthropic: {
-				readonly model: AnthropicModels | null;
-			};
-			readonly gemini: {
-				readonly model: GeminiModels | null;
-			};
 			readonly generateCommitMessage: {
 				readonly enabled: boolean;
 			};
+			readonly model: SupportedAIModels | null;
 			readonly openai: {
-				readonly model: OpenAIModels | null;
 				readonly url: string | null;
 			};
-			readonly provider: AIProviders | null;
+			readonly vscode: {
+				readonly model: VSCodeAIModels | null;
+			};
 		};
 	};
 	readonly autolinks: AutolinkReference[] | null;
@@ -32,6 +26,7 @@ export interface Config {
 		readonly dateFormat: DateTimeFormat | (string & object) | null;
 		readonly fontFamily: string;
 		readonly fontSize: number;
+		readonly fontStyle: string;
 		readonly fontWeight: string;
 		readonly format: string;
 		readonly heatmap: {
@@ -60,12 +55,16 @@ export interface Config {
 	readonly currentLine: {
 		readonly dateFormat: string | null;
 		/*readonly*/ enabled: boolean;
+		readonly fontFamily: string;
+		readonly fontSize: number;
+		readonly fontStyle: string;
+		readonly fontWeight: string;
 		readonly format: string;
-		readonly uncommittedChangesFormat: string | null;
 		readonly pullRequests: {
 			readonly enabled: boolean;
 		};
 		readonly scrollable: boolean;
+		readonly uncommittedChangesFormat: string | null;
 	};
 	readonly debug: boolean;
 	readonly deepLinks: {

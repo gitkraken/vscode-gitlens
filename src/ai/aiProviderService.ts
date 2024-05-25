@@ -1,6 +1,6 @@
 import type { CancellationToken, Disposable, MessageItem, ProgressOptions, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import type { AIModels, AIProviders } from '../constants';
+import type { AIModels, AIProviders, SupportedAIModels } from '../constants';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { assertsCommitHasFullDetails, isCommit } from '../git/models/commit';
@@ -16,6 +16,8 @@ import { supportedInVSCodeVersion } from '../system/utils';
 import { AnthropicProvider } from './anthropicProvider';
 import { GeminiProvider } from './geminiProvider';
 import { OpenAIProvider } from './openaiProvider';
+import type { VSCodeAIModels } from './vscodeProvider';
+import { isVSCodeAIModel, VSCodeAIProvider } from './vscodeProvider';
 
 export interface AIModel<
 	Provider extends AIProviders = AIProviders,
@@ -42,6 +44,9 @@ const _supportedProviderTypes = new Map<AIProviders, AIProviderConstructor>([
 	['anthropic', AnthropicProvider],
 	['gemini', GeminiProvider],
 ]);
+if (supportedInVSCodeVersion('language-models')) {
+	_supportedProviderTypes.set('vscode', VSCodeAIProvider);
+}
 
 export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {
 	readonly id: Provider;
@@ -50,11 +55,13 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 	getModels(): Promise<readonly AIModel<Provider, AIModels<Provider>>[]>;
 
 	explainChanges(
+		model: AIModel<Provider, AIModels<Provider>>,
 		message: string,
 		diff: string,
 		options?: { cancellation?: CancellationToken },
 	): Promise<string | undefined>;
 	generateCommitMessage(
+		model: AIModel<Provider, AIModels<Provider>>,
 		diff: string,
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined>;
@@ -62,6 +69,7 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 
 export class AIProviderService implements Disposable {
 	private _provider: AIProvider | undefined;
+	private _model: AIModel | undefined;
 
 	constructor(private readonly container: Container) {}
 
@@ -73,10 +81,109 @@ export class AIProviderService implements Disposable {
 		return this._provider?.id;
 	}
 
+	private getConfiguredModel(): { provider: AIProviders; model: AIModels } | undefined {
+		const qualifiedModelId = configuration.get('ai.experimental.model') ?? undefined;
+		if (qualifiedModelId != null) {
+			let [providerId, modelId] = qualifiedModelId.split(':') as [AIProviders, AIModels];
+			if (providerId != null && this.supports(providerId)) {
+				if (modelId != null) {
+					return { provider: providerId, model: modelId };
+				} else if (providerId === 'vscode') {
+					modelId = configuration.get('ai.experimental.vscode.model') as VSCodeAIModels;
+					if (modelId != null) {
+						// Model ids are in the form of `vendor:family`
+						if (/^(.+):(.+)$/.test(modelId)) {
+							return { provider: providerId, model: modelId };
+						}
+					}
+				}
+			}
+		}
+		return undefined;
+	}
+
 	async getModels(): Promise<readonly AIModel[]> {
 		const providers = [..._supportedProviderTypes.values()].map(p => new p(this.container));
 		const models = await Promise.allSettled(providers.map(p => p.getModels()));
 		return models.flatMap(m => getSettledValue(m, []));
+	}
+
+	private async getOrChooseModel(force?: boolean): Promise<AIModel | undefined> {
+		const cfg = this.getConfiguredModel();
+		if (!force && cfg?.provider != null && cfg?.model != null) {
+			const model = await this.getOrUpdateModel(cfg.provider, cfg.model);
+			if (model != null) return model;
+		}
+
+		const pick = await showAIModelPicker(this.container, cfg);
+		if (pick == null) return undefined;
+
+		return this.getOrUpdateModel(pick.model);
+	}
+
+	private getOrUpdateModel(model: AIModel): Promise<AIModel | undefined>;
+	private getOrUpdateModel<T extends AIProviders>(providerId: T, modelId: AIModels<T>): Promise<AIModel | undefined>;
+	private async getOrUpdateModel(
+		modelOrProviderId: AIModel | AIProviders,
+		modelId?: AIModels,
+	): Promise<AIModel | undefined> {
+		let providerId: AIProviders;
+		let model: AIModel | undefined;
+		if (typeof modelOrProviderId === 'string') {
+			providerId = modelOrProviderId;
+		} else {
+			model = modelOrProviderId;
+			providerId = model.provider.id;
+		}
+
+		let changed = false;
+
+		if (providerId !== this._provider?.id) {
+			changed = true;
+			this._provider?.dispose();
+
+			const type = _supportedProviderTypes.get(providerId);
+			if (type == null) {
+				this._provider = undefined;
+				this._model = undefined;
+
+				return undefined;
+			}
+
+			this._provider = new type(this.container);
+		}
+
+		if (model == null) {
+			if (modelId != null && modelId === this._model?.id) {
+				model = this._model;
+			} else {
+				changed = true;
+
+				model = (await this._provider.getModels())?.find(m => m.id === modelId);
+				if (model == null) {
+					this._model = undefined;
+
+					return undefined;
+				}
+			}
+		} else if (model.id !== this._model?.id) {
+			changed = true;
+		}
+
+		if (changed) {
+			if (isVSCodeAIModel(model)) {
+				await configuration.updateEffective(`ai.experimental.model`, 'vscode');
+				await configuration.updateEffective(`ai.experimental.vscode.model`, model.id);
+			} else {
+				await configuration.updateEffective(
+					`ai.experimental.model`,
+					`${model.provider.id}:${model.id}` as SupportedAIModels,
+				);
+			}
+		}
+
+		this._model = model;
+		return model;
 	}
 
 	async generateCommitMessage(
@@ -114,22 +221,24 @@ export class AIProviderService implements Disposable {
 			changes = diff.contents;
 		}
 
-		const provider = await this.getOrChooseProvider();
-		if (provider == null) return undefined;
+		const model = await this.getOrChooseModel();
+		if (model == null) return undefined;
 
-		const confirmed = await confirmAIProviderToS(provider, this.container.storage);
+		const provider = this._provider!;
+
+		const confirmed = await confirmAIProviderToS(model, this.container.storage);
 		if (!confirmed) return undefined;
 		if (options?.cancellation?.isCancellationRequested) return undefined;
 
 		if (options?.progress != null) {
 			return window.withProgress(options.progress, async () =>
-				provider.generateCommitMessage(changes, {
+				provider.generateCommitMessage(model, changes, {
 					cancellation: options?.cancellation,
 					context: options?.context,
 				}),
 			);
 		}
-		return provider.generateCommitMessage(changes, {
+		return provider.generateCommitMessage(model, changes, {
 			cancellation: options?.cancellation,
 			context: options?.context,
 		});
@@ -167,10 +276,12 @@ export class AIProviderService implements Disposable {
 		const diff = await this.container.git.getDiff(commit.repoPath, commit.sha);
 		if (!diff?.contents) throw new Error('No changes found to explain.');
 
-		const provider = await this.getOrChooseProvider();
-		if (provider == null) return undefined;
+		const model = await this.getOrChooseModel();
+		if (model == null) return undefined;
 
-		const confirmed = await confirmAIProviderToS(provider, this.container.storage);
+		const provider = this._provider!;
+
+		const confirmed = await confirmAIProviderToS(model, this.container.storage);
 		if (!confirmed) return undefined;
 
 		if (!commit.hasFullDetails()) {
@@ -180,10 +291,14 @@ export class AIProviderService implements Disposable {
 
 		if (options?.progress != null) {
 			return window.withProgress(options.progress, async () =>
-				provider.explainChanges(commit.message, diff.contents, { cancellation: options?.cancellation }),
+				provider.explainChanges(model, commit.message, diff.contents, {
+					cancellation: options?.cancellation,
+				}),
 			);
 		}
-		return provider.explainChanges(commit.message, diff.contents, { cancellation: options?.cancellation });
+		return provider.explainChanges(model, commit.message, diff.contents, {
+			cancellation: options?.cancellation,
+		});
 	}
 
 	reset() {
@@ -200,42 +315,18 @@ export class AIProviderService implements Disposable {
 		return _supportedProviderTypes.has(provider as AIProviders);
 	}
 
-	async switchProvider() {
-		void (await this.getOrChooseProvider(true));
-	}
-
-	private async getOrChooseProvider(force?: boolean): Promise<AIProvider | undefined> {
-		let providerId = !force ? configuration.get('ai.experimental.provider') || undefined : undefined;
-		if (providerId == null || !this.supports(providerId)) {
-			const pick = await showAIModelPicker(this.container);
-			if (pick == null) return undefined;
-
-			providerId = pick.provider;
-			await configuration.updateEffective('ai.experimental.provider', providerId);
-			await configuration.updateEffective(`ai.experimental.${providerId}.model`, pick.model);
-		}
-
-		if (providerId !== this._provider?.id) {
-			this._provider?.dispose();
-
-			let type = _supportedProviderTypes.get(providerId);
-			if (type == null && providerId !== 'openai') {
-				type = _supportedProviderTypes.get('openai');
-				await configuration.updateEffective('ai.experimental.provider', 'openai');
-			}
-			if (type != null) {
-				this._provider = new type(this.container);
-			}
-		}
-
-		return this._provider;
+	async switchModel() {
+		void (await this.getOrChooseModel(true));
 	}
 }
 
-async function confirmAIProviderToS(provider: AIProvider, storage: Storage): Promise<boolean> {
+async function confirmAIProviderToS<Provider extends AIProviders>(
+	model: AIModel<Provider, AIModels<Provider>>,
+	storage: Storage,
+): Promise<boolean> {
 	const confirmed =
-		storage.get(`confirm:ai:tos:${provider.id}`, false) ||
-		storage.getWorkspace(`confirm:ai:tos:${provider.id}`, false);
+		storage.get(`confirm:ai:tos:${model.provider.id}`, false) ||
+		storage.getWorkspace(`confirm:ai:tos:${model.provider.id}`, false);
 	if (confirmed) return true;
 
 	const accept: MessageItem = { title: 'Continue' };
@@ -243,7 +334,7 @@ async function confirmAIProviderToS(provider: AIProvider, storage: Storage): Pro
 	const acceptAlways: MessageItem = { title: 'Always' };
 	const decline: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 	const result = await window.showInformationMessage(
-		`GitLens experimental AI features require sending a diff of the code changes to ${provider.name} for analysis. This may contain sensitive information.\n\nDo you want to continue?`,
+		`GitLens experimental AI features require sending a diff of the code changes to ${model.provider.name} for analysis. This may contain sensitive information.\n\nDo you want to continue?`,
 		{ modal: true },
 		accept,
 		acceptWorkspace,
@@ -254,12 +345,12 @@ async function confirmAIProviderToS(provider: AIProvider, storage: Storage): Pro
 	if (result === accept) return true;
 
 	if (result === acceptWorkspace) {
-		void storage.storeWorkspace(`confirm:ai:tos:${provider.id}`, true);
+		void storage.storeWorkspace(`confirm:ai:tos:${model.provider.id}`, true);
 		return true;
 	}
 
 	if (result === acceptAlways) {
-		void storage.store(`confirm:ai:tos:${provider.id}`, true);
+		void storage.store(`confirm:ai:tos:${model.provider.id}`, true);
 		return true;
 	}
 
@@ -318,9 +409,7 @@ export async function getApiKey(
 				input.password = true;
 				input.title = `Connect to ${provider.name}`;
 				input.placeholder = `Please enter your ${provider.name} API key to use this feature`;
-				input.prompt = supportedInVSCodeVersion('input-prompt-links')
-					? `Enter your [${provider.name} API Key](${provider.url} "Get your ${provider.name} API key")`
-					: `Enter your ${provider.name} API Key`;
+				input.prompt = `Enter your [${provider.name} API Key](${provider.url} "Get your ${provider.name} API key")`;
 				input.buttons = [infoButton];
 
 				input.show();

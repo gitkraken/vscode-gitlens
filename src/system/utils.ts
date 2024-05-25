@@ -246,10 +246,10 @@ export async function revealInFileExplorer(uri: Uri) {
 	void (await executeCoreCommand('revealFileInOS', uri));
 }
 
-export function supportedInVSCodeVersion(feature: 'input-prompt-links') {
+export function supportedInVSCodeVersion(feature: 'language-models') {
 	switch (feature) {
-		case 'input-prompt-links':
-			return satisfies(codeVersion, '>= 1.76');
+		case 'language-models':
+			return satisfies(codeVersion, '>= 1.90-insider');
 		default:
 			return false;
 	}

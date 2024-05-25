@@ -148,7 +148,7 @@ export class GlPatchCreate extends GlTreeBase {
 				</div>
 				<div class="user-selection__info">
 					<div class="user-selection__name">
-						${userSelection.member.name ?? userSelection.member.username}
+						${userSelection.member.name ?? userSelection.member.username ?? 'Unknown'}
 					</div>
 				</div>
 				<div class="user-selection__actions">

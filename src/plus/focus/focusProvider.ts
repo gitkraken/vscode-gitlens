@@ -7,13 +7,13 @@ import { CancellationError } from '../../errors';
 import { openComparisonChanges } from '../../git/actions/commit';
 import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
+import { getLocalBranchByUpstream } from '../../git/models/branch';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
-import { getPathFromProviderIdentity } from '../../gk/models/repositoryIdentities';
 import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { getSettledValue } from '../../system/promise';
@@ -426,39 +426,57 @@ export class FocusProvider implements Disposable {
 		);
 	}
 
-	async getMatchingOpenRepository(pr: EnrichablePullRequest): Promise<OpenRepository | undefined> {
-		for (const repo of this.container.git.openRepositories) {
-			const matchingRemote = (
-				await repo.getRemotes({
-					filter: r =>
-						r.matches(pr.repoIdentity.remote.url!) ||
-						r.matches(
-							pr.repoIdentity.provider.domain,
-							getPathFromProviderIdentity(pr.repoIdentity.provider),
-						),
-				})
-			)?.[0];
-			if (matchingRemote == null) continue;
+	async getMatchingOpenRepository(
+		pr: EnrichablePullRequest,
+		matchingRemoteMap: Map<string, [Repository, GitRemote]>,
+	): Promise<OpenRepository | undefined> {
+		if (pr.repoIdentity.remote.url == null) return undefined;
 
-			const matchingRemoteBranch = (
-				await repo.getBranches({
-					filter: b =>
-						b.remote &&
-						b.getRemoteName() === matchingRemote.name &&
-						b.getNameWithoutRemote() === pr.headRef?.name,
-				})
-			)?.values[0];
-			if (matchingRemoteBranch == null) continue;
+		const match = matchingRemoteMap.get(pr.repoIdentity.remote.url);
+		if (match == null) return undefined;
 
-			const matchingLocalBranches = (
-				await repo.getBranches({ filter: b => b.upstream?.name === matchingRemoteBranch.name })
-			)?.values;
-			const matchingLocalBranch = matchingLocalBranches?.find(b => b.current) ?? matchingLocalBranches?.[0];
+		const [repo, remote] = match;
+		const remoteBranchName = `${remote.name}/${pr.refs?.head.branch ?? pr.headRef?.name}`;
+		const matchingLocalBranch = await getLocalBranchByUpstream(repo, remoteBranchName);
 
-			return { repo: repo, remote: matchingRemote, localBranch: matchingLocalBranch };
+		return { repo: repo, remote: remote, localBranch: matchingLocalBranch };
+	}
+
+	private async getMatchingRemoteMap(actionableItems: FocusPullRequest[]) {
+		const uniqueRemoteUrls = new Set<string>();
+		for (const item of actionableItems) {
+			if (item.repoIdentity.remote.url != null) {
+				uniqueRemoteUrls.add(item.repoIdentity.remote.url);
+			}
 		}
 
-		return undefined;
+		// Get the repo/remote pairs for the unique remote urls
+		const repoRemotes = new Map<string, [Repository, GitRemote]>();
+
+		for (const repo of this.container.git.openRepositories) {
+			const remotes = await repo.getRemotes();
+			for (const remote of remotes) {
+				if (uniqueRemoteUrls.has(remote.url)) {
+					repoRemotes.set(remote.url, [repo, remote]);
+					uniqueRemoteUrls.delete(remote.url);
+
+					if (uniqueRemoteUrls.size === 0) return repoRemotes;
+				} else {
+					for (const url of uniqueRemoteUrls) {
+						if (remote.matches(url)) {
+							repoRemotes.set(url, [repo, remote]);
+							uniqueRemoteUrls.delete(url);
+
+							if (uniqueRemoteUrls.size === 0) return repoRemotes;
+
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		return repoRemotes;
 	}
 
 	async getCategorizedItems(
@@ -495,6 +513,7 @@ export class FocusProvider implements Disposable {
 		]);
 
 		if (cancellation?.isCancellationRequested) throw new CancellationError();
+
 		let categorized: FocusItem[] = [];
 
 		// TODO: Since this is all repos we probably should order by repos you are a contributor on (or even filter out one you aren't)
@@ -515,6 +534,7 @@ export class FocusProvider implements Disposable {
 		if (prsWithSuggestionCounts != null) {
 			const { prs, suggestionCounts } = prsWithSuggestionCounts;
 			if (prs == null) return categorized;
+
 			const filteredPrs = !ignoredRepositories.size
 				? prs
 				: prs.filter(
@@ -526,14 +546,17 @@ export class FocusProvider implements Disposable {
 
 			const github = await this.container.integrations.get(HostingIntegrationId.GitHub);
 			const myAccount = await github.getCurrentAccount();
+
 			const inputPrs: EnrichablePullRequest[] = filteredPrs.map(pr => {
 				const providerPr = toProviderPullRequestWithUniqueId(pr.pullRequest);
+
 				const enrichable = {
 					type: 'pr',
 					id: providerPr.uuid,
 					url: pr.pullRequest.url,
 					provider: 'github',
 				} satisfies EnrichableItem;
+
 				const repoIdentity = {
 					remote: {
 						url: pr.pullRequest.refs?.head?.url,
@@ -566,6 +589,10 @@ export class FocusProvider implements Disposable {
 				{ id: myAccount!.username! },
 				{ enrichedItemsByUniqueId: enrichedItemsByEntityId },
 			) as FocusPullRequest[];
+
+			// Get the unique remote urls
+			const mappedRemotesPromise = await this.getMatchingRemoteMap(actionableItems);
+
 			// Map from shared category label to local actionable category, and get suggested actions
 			categorized = (await Promise.all(
 				actionableItems.map(async item => {
@@ -577,7 +604,7 @@ export class FocusProvider implements Disposable {
 					} else if (codeSuggestionsCount > 0 && item.viewer.isAuthor) {
 						actionableCategory = 'code-suggestions';
 					}
-					const openRepository = await this.getMatchingOpenRepository(item);
+					const openRepository = await this.getMatchingOpenRepository(item, mappedRemotesPromise);
 					const suggestedActions = getSuggestedActions(
 						actionableCategory,
 						openRepository?.localBranch?.current ?? false,
@@ -643,23 +670,20 @@ export class FocusProvider implements Disposable {
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'launchpad')) return;
-		const launchpadConfig = configuration.get('launchpad');
-		this.container.telemetry.sendEvent('launchpad/configurationChanged', {
-			staleThreshold: launchpadConfig.staleThreshold,
-			ignoredRepositories: launchpadConfig.ignoredRepositories,
-			indicatorEnabled: launchpadConfig.indicator.enabled,
-			indicatorOpenInEditor: launchpadConfig.indicator.openInEditor,
-			indicatorIcon: launchpadConfig.indicator.icon,
-			indicatorLabel: launchpadConfig.indicator.label,
-			indicatorUseColors: launchpadConfig.indicator.useColors,
-			indicatorGroups: launchpadConfig.indicator.groups,
-			indicatorPollingEnabled: launchpadConfig.indicator.polling.enabled,
-			indicatorPollingInterval: launchpadConfig.indicator.polling.interval,
-		});
 
-		if (configuration.changed(e, 'launchpad.indicator.enabled') && !launchpadConfig.indicator.enabled) {
-			this.container.telemetry.sendEvent('launchpad/indicator/hidden');
-		}
+		const cfg = configuration.get('launchpad');
+		this.container.telemetry.sendEvent('launchpad/configurationChanged', {
+			'config.launchpad.staleThreshold': cfg.staleThreshold,
+			'config.launchpad.ignoredRepositories': cfg.ignoredRepositories?.length ?? 0,
+			'config.launchpad.indicator.enabled': cfg.indicator.enabled,
+			'config.launchpad.indicator.openInEditor': cfg.indicator.openInEditor,
+			'config.launchpad.indicator.icon': cfg.indicator.icon,
+			'config.launchpad.indicator.label': cfg.indicator.label,
+			'config.launchpad.indicator.useColors': cfg.indicator.useColors,
+			'config.launchpad.indicator.groups': cfg.indicator.groups.join(','),
+			'config.launchpad.indicator.polling.enabled': cfg.indicator.polling.enabled,
+			'config.launchpad.indicator.polling.interval': cfg.indicator.polling.interval,
+		});
 
 		if (
 			configuration.changed(e, 'launchpad.ignoredRepositories') ||

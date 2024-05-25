@@ -1,3 +1,4 @@
+import type { EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { Disposable } from 'vscode';
 import type { HeadersInit } from '@env/fetch';
@@ -1038,4 +1039,16 @@ function formatPatch(
 		files: options?.files,
 		repository: options?.repository,
 	};
+}
+
+export function getDraftEntityIdentifier(draft: Draft, patch?: DraftPatch): EntityIdentifier | undefined {
+	if (draft.prEntityId != null) {
+		return EntityIdentifierUtils.decode(draft.prEntityId);
+	}
+
+	if (patch?.prEntityId != null) {
+		return EntityIdentifierUtils.decode(patch.prEntityId);
+	}
+
+	return undefined;
 }

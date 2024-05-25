@@ -206,7 +206,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	await container.ready();
 
 	// TODO@eamodio do we want to capture any vscode settings that are relevant to GitLens?
-	const flatCfg = flatten(configuration.getAll(true), { prefix: 'config', stringify: 'all' });
+	const flatCfg = flatten(configuration.getAll(true), 'config', { joinArrays: true });
 
 	container.telemetry.setGlobalAttributes({
 		debugging: container.debugging,
