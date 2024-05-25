@@ -328,6 +328,7 @@ export class CommitDetailsWebviewProvider
 
 		this.container.telemetry.sendEvent('openReviewMode', {
 			provider: provider,
+			'repository.visibility': repoPrivacy,
 			repoPrivacy: repoPrivacy,
 			source: source ?? 'inspect',
 			filesChanged: filesChanged,
@@ -532,14 +533,22 @@ export class CommitDetailsWebviewProvider
 		const provider = this._context.wip.pullRequest.provider.id;
 		const repoPrivacy = await this.container.git.visibility(this._context.wip.repo.path);
 
-		this.container.telemetry.sendEvent('openReviewMode', {
-			provider: provider,
-			repoPrivacy: repoPrivacy,
-			source: 'reviewMode',
-			filesChanged: fileCount,
-			draftId: draft.id,
-			draftPrivacy: draft.visibility,
-		});
+		this.container.telemetry.sendEvent(
+			'codeSuggestionCreated',
+			{
+				provider: provider,
+				'repository.visibility': repoPrivacy,
+				repoPrivacy: repoPrivacy,
+				draftId: draft.id,
+				draftPrivacy: draft.visibility,
+				filesChanged: fileCount,
+				source: 'reviewMode',
+			},
+			{
+				source: 'inspect-overview',
+				detail: { reviewMode: true },
+			},
+		);
 	}
 
 	private async suggestChanges(e: SuggestChangesParams) {

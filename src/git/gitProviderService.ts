@@ -923,7 +923,9 @@ export class GitProviderService implements Disposable {
 				visibility = await this.visibilityCore();
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.setGlobalAttribute('repositories.visibility', visibility);
-					this.container.telemetry.sendEvent('repositories/visibility');
+					this.container.telemetry.sendEvent('repositories/visibility', {
+						'repositories.visibility': visibility,
+					});
 				}
 				this._reposVisibilityCache = visibility;
 			}

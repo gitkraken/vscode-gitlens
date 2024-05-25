@@ -44,6 +44,8 @@ export interface Draft {
 	readonly archivedReason?: DraftArchiveReason;
 	readonly archivedAt?: Date;
 
+	readonly prEntityId?: string;
+
 	readonly latestChangesetId: string;
 	changesets?: DraftChangeset[];
 
@@ -78,6 +80,7 @@ export interface DraftPatch {
 	readonly draftId: string;
 	readonly changesetId: string;
 	readonly userId: string;
+	readonly prEntityId?: string;
 
 	readonly baseBranchName: string;
 	/*readonly*/ baseRef: string;

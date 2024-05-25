@@ -60,6 +60,13 @@ export class FocusIndicator implements Disposable {
 	private async onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'launchpad.indicator')) return;
 
+		if (
+			configuration.changed(e, 'launchpad.indicator.enabled') &&
+			!configuration.get('launchpad.indicator.enabled')
+		) {
+			this.container.telemetry.sendEvent('launchpad/indicator/hidden');
+		}
+
 		if (configuration.changed(e, 'launchpad.indicator.openInEditor')) {
 			this.updateStatusBarCommand();
 		}

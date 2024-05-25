@@ -8,73 +8,87 @@ export function areEqual(a: any, b: any): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export function flatten(
-	o: any,
-	options: { arrays?: 'join' | 'spread'; prefix?: string; skipPaths?: string[]; skipNulls: true; stringify: true },
-): Record<string, string>;
-export function flatten(
-	o: any,
-	options: { arrays?: 'join' | 'spread'; prefix?: string; skipPaths?: string[]; skipNulls: true; stringify?: false },
-): Record<string, NonNullable<any>>;
-export function flatten(
-	o: any,
-	options: {
-		arrays?: 'join' | 'spread';
-		prefix?: string;
-		skipPaths?: string[];
-		skipNulls?: false;
-		stringify: true | 'all';
-	},
-): Record<string, string | null>;
-export function flatten(
-	o: any,
-	options?: {
-		arrays?: 'join' | 'spread';
-		prefix?: string;
-		skipPaths?: string[];
-		skipNulls?: boolean;
-		stringify?: boolean;
-	},
-): Record<string, any>;
-export function flatten(
-	o: any,
-	options?: {
-		arrays?: 'join' | 'spread';
-		prefix?: string;
-		skipPaths?: string[];
-		skipNulls?: boolean;
-		stringify?: boolean | 'all';
-	},
-): Record<string, any> {
+type AddPrefix<P extends string | undefined, K extends string> = P extends '' | undefined ? K : `${P}.${K}`;
+type AddArrayIndex<P extends string | undefined, I extends number> = P extends '' | undefined ? `[${I}]` : `${P}[${I}]`;
+
+type Merge<U> = MergeUnion<U extends object ? { [K in keyof U]: U[K] } : never>;
+type MergeUnion<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void
+	? { [K in keyof I]: I[K] }
+	: never;
+
+type FlattenArray<T extends object, P extends string | undefined> = T extends (infer U)[]
+	? U extends object
+		? { [Key in `${AddArrayIndex<P, number>}.${string}`]: string | number | boolean }
+		: { [Key in AddArrayIndex<P, number>]: string | number | boolean }
+	: T extends object
+	  ? { [Key in `${AddArrayIndex<P, number>}.${string}`]: string | number | boolean }
+	  : { [Key in AddArrayIndex<P, number>]: string | number | boolean };
+
+type FlattenSpread<T extends object, P extends string | undefined> = T extends ReadonlyArray<any>
+	? FlattenArray<T, P>
+	: {
+			[K in keyof T]: T[K] extends ReadonlyArray<any>
+				? FlattenArray<T[K], AddPrefix<P, Extract<K, string>>>
+				: T[K] extends object
+				  ? FlattenSpread<T[K], AddPrefix<P, Extract<K, string>>>
+				  : {
+							[Key in AddPrefix<P, Extract<K, string>>]: T[K] extends string | number | boolean
+								? T[K]
+								: string;
+				    };
+	  }[keyof T];
+
+type FlattenJoin<T extends object, P extends string | undefined> = {
+	[K in keyof T]: T[K] extends ReadonlyArray<any>
+		? { [Key in AddPrefix<P, Extract<K, string>>]: string }
+		: T[K] extends object
+		  ? FlattenJoin<T[K], AddPrefix<P, Extract<K, string>>>
+		  : {
+					[Key in AddPrefix<P, Extract<K, string>>]: T[K] extends string | number | boolean ? T[K] : string;
+		    };
+}[keyof T];
+
+type Flatten<
+	T extends object | null | undefined,
+	P extends string | undefined,
+	JoinArrays extends boolean,
+> = T extends object ? Merge<JoinArrays extends true ? FlattenJoin<T, P> : FlattenSpread<T, P>> : object;
+
+type FlattenOptions = {
+	joinArrays?: boolean;
+	skipPaths?: string[];
+};
+
+export function flatten<T extends object | null | undefined, P extends string | undefined, O extends FlattenOptions>(
+	o: T,
+	prefix?: P,
+	options?: O,
+): Flatten<T, P, NonNullable<O['joinArrays']> extends true ? true : false> {
+	const joinArrays = options?.joinArrays ?? false;
+
 	const skipPaths = options?.skipPaths?.length
-		? options?.prefix
-			? options.skipPaths.map(p => `${options.prefix}.${p}`)
+		? prefix
+			? options.skipPaths.map(p => `${prefix}.${p}`)
 			: options.skipPaths
 		: undefined;
-	const skipNulls = options?.skipNulls ?? false;
-	const stringify = options?.stringify ?? false;
 
 	function flattenCore(flattened: Record<string, any>, key: string, value: any) {
 		if (skipPaths?.includes(key)) return;
 
 		if (Object(value) !== value) {
-			if (value == null) {
-				if (skipNulls) return;
+			if (value == null) return;
 
-				flattened[key] = stringify ? (stringify == 'all' ? JSON.stringify(value) : value ?? null) : value;
-			} else if (typeof value === 'string') {
-				flattened[key] = value;
-			} else if (stringify) {
-				flattened[key] =
-					typeof value === 'number' || typeof value === 'boolean' ? value : JSON.stringify(value);
-			} else {
-				flattened[key] = value;
-			}
+			flattened[key] =
+				typeof value === 'string'
+					? value
+					: typeof value === 'number' || typeof value === 'boolean'
+					  ? value
+					  : JSON.stringify(value);
 		} else if (Array.isArray(value)) {
 			const len = value.length;
 			if (len === 0) return;
 
-			if (options?.arrays === 'join') {
+			if (joinArrays) {
 				flattened[key] = value.join(',');
 			} else {
 				for (let i = 0; i < len; i++) {
@@ -92,8 +106,8 @@ export function flatten(
 	}
 
 	const flattened: Record<string, any> = Object.create(null);
-	flattenCore(flattened, options?.prefix ?? '', o);
-	return flattened;
+	flattenCore(flattened, prefix ?? '', o);
+	return flattened as Flatten<T, P, NonNullable<O['joinArrays']> extends true ? true : false>;
 }
 
 export function paths(o: Record<string, any>, path?: string): string[] {

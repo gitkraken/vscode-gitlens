@@ -1,4 +1,3 @@
-import type { AttributeValue } from '@opentelemetry/api';
 import type { QuickInputButton } from 'vscode';
 import { commands, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
@@ -29,7 +28,7 @@ import {
 	UnpinQuickInputButton,
 	UnsnoozeQuickInputButton,
 } from '../../commands/quickCommand.buttons';
-import type { Source, Sources } from '../../constants';
+import type { LaunchpadTelemetryContext, Source, Sources } from '../../constants';
 import { Commands, previewBadge } from '../../constants';
 import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
@@ -91,7 +90,7 @@ interface Context {
 	items: FocusItem[];
 	title: string;
 	collapsed: Map<FocusGroup, boolean>;
-	telemetryContext: Record<string, AttributeValue | null | undefined> | undefined;
+	telemetryContext: LaunchpadTelemetryContext | undefined;
 }
 
 interface GroupedFocusItem extends FocusItem {
@@ -126,7 +125,7 @@ const instanceCounter = getScopedCounter();
 @command()
 export class FocusCommand extends QuickCommand<State> {
 	private readonly source: Source;
-	private readonly telemetryContext: Record<string, any> | undefined;
+	private readonly telemetryContext: LaunchpadTelemetryContext | undefined;
 
 	// TODO: Hidden is a hack for now to avoid telemetry when this gets loaded in the hidden group of the git commands
 	constructor(container: Container, args?: FocusCommandArgs, hidden: boolean = false) {
@@ -145,7 +144,7 @@ export class FocusCommand extends QuickCommand<State> {
 		if (this.container.telemetry.enabled && !hidden) {
 			this.telemetryContext = {
 				instance: instanceCounter.next(),
-				'initialState.group': args?.state?.initialGroup ?? null,
+				'initialState.group': args?.state?.initialGroup,
 				'initialState.selectTopItem': args?.state?.selectTopItem ?? false,
 			};
 
@@ -205,7 +204,7 @@ export class FocusCommand extends QuickCommand<State> {
 					this.container.telemetry.sendEvent(
 						opened ? 'launchpad/steps/connect' : 'launchpad/opened',
 						{
-							...context.telemetryContext,
+							...context.telemetryContext!,
 							connected: false,
 						},
 						this.source,
@@ -236,7 +235,7 @@ export class FocusCommand extends QuickCommand<State> {
 					this.container.telemetry.sendEvent(
 						opened ? 'launchpad/steps/main' : 'launchpad/opened',
 						{
-							...context.telemetryContext,
+							...context.telemetryContext!,
 							connected: true,
 						},
 						this.source,
@@ -349,7 +348,7 @@ export class FocusCommand extends QuickCommand<State> {
 									this.container.telemetry.sendEvent(
 										'launchpad/groupToggled',
 										{
-											...context.telemetryContext,
+											...context.telemetryContext!,
 											group: ui,
 											collapsed: collapsed,
 										},
@@ -915,7 +914,7 @@ export class FocusCommand extends QuickCommand<State> {
 		this.container.telemetry.sendEvent(
 			action === 'select' ? 'launchpad/steps/details' : 'launchpad/action',
 			{
-				...context.telemetryContext,
+				...context.telemetryContext!,
 				action: action,
 				'item.id': getFocusItemIdHash(item),
 				'item.type': item.type,
@@ -927,8 +926,8 @@ export class FocusCommand extends QuickCommand<State> {
 				'item.updatedDate': item.updatedDate.getTime(),
 				'item.isNew': item.isNew,
 
-				'item.comments.count': item.commentCount,
-				'item.upvotes.count': item.upvoteCount,
+				'item.comments.count': item.commentCount ?? undefined,
+				'item.upvotes.count': item.upvoteCount ?? undefined,
 
 				'item.pr.codeSuggestionCount': item.codeSuggestionsCount,
 				'item.pr.isDraft': item.isDraft,
@@ -944,7 +943,7 @@ export class FocusCommand extends QuickCommand<State> {
 				'item.pr.hasConflicts': item.hasConflicts,
 
 				'item.pr.reviews.count': item.reviews?.length ?? undefined,
-				'item.pr.reviews.decision': item.reviewDecision,
+				'item.pr.reviews.decision': item.reviewDecision ?? undefined,
 				'item.pr.reviews.changeRequestCount': item.changeRequestReviewCount ?? undefined,
 
 				'item.viewer.isAuthor': item.viewer.isAuthor,
@@ -971,18 +970,22 @@ async function updateContextItems(container: Container, context: Context, option
 }
 
 function updateTelemetryContext(context: Context) {
+	if (context.telemetryContext == null) return;
+
 	const grouped = countFocusItemGroups(context.items);
 
-	context.telemetryContext = {
+	const updatedContext: NonNullable<(typeof context)['telemetryContext']> = {
 		...context.telemetryContext,
 		'items.count': context.items.length,
 		'groups.count': grouped.size,
 	};
 
 	for (const [group, count] of grouped) {
-		context.telemetryContext[`groups.${group}.count`] = count;
-		context.telemetryContext[`groups.${group}.collapsed`] = context.collapsed.get(group);
+		updatedContext[`groups.${group}.count`] = count;
+		updatedContext[`groups.${group}.collapsed`] = context.collapsed.get(group);
 	}
+
+	context.telemetryContext = updatedContext;
 }
 
 function isFocusTargetActionQuickPickItem(item: any): item is QuickPickItemOfT<FocusTargetAction> {
