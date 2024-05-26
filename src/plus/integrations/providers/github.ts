@@ -93,6 +93,23 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 		);
 	}
 
+	protected override async getProviderPullRequest(
+		{ accessToken }: AuthenticationSession,
+		repo: GitHubRepositoryDescriptor,
+		id: string,
+	): Promise<PullRequest | undefined> {
+		return (await this.container.github)?.getPullRequest(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			parseInt(id, 10),
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+		);
+	}
+
 	protected override async getProviderPullRequestForBranch(
 		{ accessToken }: AuthenticationSession,
 		repo: GitHubRepositoryDescriptor,
@@ -172,6 +189,24 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 			this,
 			accessToken,
 			{
+				repos: repos?.map(r => `${r.owner}/${r.name}`),
+				baseUrl: this.apiBaseUrl,
+			},
+			cancellation,
+		);
+	}
+
+	protected override async searchProviderPullRequests(
+		{ accessToken }: AuthenticationSession,
+		searchQuery: string,
+		repos?: GitHubRepositoryDescriptor[],
+		cancellation?: CancellationToken,
+	): Promise<PullRequest[] | undefined> {
+		return (await this.container.github)?.searchPullRequests(
+			this,
+			accessToken,
+			{
+				search: searchQuery,
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
 				baseUrl: this.apiBaseUrl,
 			},
