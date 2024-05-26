@@ -407,6 +407,33 @@ export abstract class IntegrationBase<
 		session: ProviderAuthenticationSession,
 		options?: { avatarSize?: number },
 	): Promise<Account | undefined>;
+
+	@debug()
+	async getPullRequest(resource: T, id: string): Promise<PullRequest | undefined> {
+		const scope = getLogScope();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		const pr = this.container.cache.getPullRequest(id, resource, this, () => ({
+			value: (async () => {
+				try {
+					const result = await this.getProviderPullRequest?.(this._session!, resource, id);
+					this.resetRequestExceptionCount();
+					return result;
+				} catch (ex) {
+					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+				}
+			})(),
+		}));
+		return pr;
+	}
+
+	protected getProviderPullRequest?(
+		session: ProviderAuthenticationSession,
+		resource: T,
+		id: string,
+	): Promise<PullRequest | undefined>;
 }
 
 export abstract class IssueIntegration<
@@ -1134,4 +1161,45 @@ export abstract class HostingIntegration<
 		repos?: T[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[] | undefined>;
+
+	async searchPullRequests(
+		searchQuery: string,
+		repo?: T,
+		cancellation?: CancellationToken,
+	): Promise<PullRequest[] | undefined>;
+	async searchPullRequests(
+		searchQuery: string,
+		repos?: T[],
+		cancellation?: CancellationToken,
+	): Promise<PullRequest[] | undefined>;
+	@debug()
+	async searchPullRequests(
+		searchQuery: string,
+		repos?: T | T[],
+		cancellation?: CancellationToken,
+	): Promise<PullRequest[] | undefined> {
+		const scope = getLogScope();
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		try {
+			const prs = await this.searchProviderPullRequests?.(
+				this._session!,
+				searchQuery,
+				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
+				cancellation,
+			);
+			this.resetRequestExceptionCount();
+			return prs;
+		} catch (ex) {
+			return this.handleProviderException<PullRequest[] | undefined>(ex, scope, undefined);
+		}
+	}
+
+	protected searchProviderPullRequests?(
+		session: ProviderAuthenticationSession,
+		searchQuery: string,
+		repos?: T[],
+		cancellation?: CancellationToken,
+	): Promise<PullRequest[] | undefined>;
 }
