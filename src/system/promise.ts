@@ -139,7 +139,7 @@ export interface Deferred<T> {
 	readonly pending: boolean;
 	readonly promise: Promise<T>;
 	fulfill: (value: T) => void;
-	cancel(): void;
+	cancel(e?: Error): void;
 }
 
 export function defer<T>(): Deferred<T> {
@@ -154,9 +154,13 @@ export function defer<T>(): Deferred<T> {
 			deferred.pending = false;
 			resolve(value);
 		};
-		deferred.cancel = function () {
+		deferred.cancel = function (e?: Error) {
 			deferred.pending = false;
-			reject();
+			if (e != null) {
+				reject(e);
+			} else {
+				reject();
+			}
 		};
 	});
 	return deferred;
