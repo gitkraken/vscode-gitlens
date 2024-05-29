@@ -109,10 +109,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 
 			const scopeId = logScopeIdGenerator.next();
 
-			const instanceName =
-				this != null
-					? this.constructor?.[LogInstanceNameFn]?.(this, getLoggableName(this)) ?? getLoggableName(this)
-					: undefined;
+			const instanceName = this != null ? getLoggableName(this) : undefined;
 
 			let prefix = instanceName
 				? scoped

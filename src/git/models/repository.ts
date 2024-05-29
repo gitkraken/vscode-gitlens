@@ -392,7 +392,7 @@ export class Repository implements Disposable {
 	}
 
 	toString(): string {
-		return `${getLoggableName(this)}(${this.id})`;
+		return getLoggableName(this);
 	}
 
 	get virtual(): boolean {
