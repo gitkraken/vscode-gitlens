@@ -1,3 +1,4 @@
+import { LogInstanceNameFn } from './decorators/log';
 import type { LogLevel } from './logger.constants';
 import type { LogScope } from './logger.scope';
 
@@ -272,18 +273,26 @@ function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 }
 
 export function getLoggableName(instance: Function | object) {
-	let name: string;
+	let ctor;
 	if (typeof instance === 'function') {
 		if (instance.prototype?.constructor == null) return instance.name;
 
-		name = instance.prototype.constructor.name ?? '';
+		ctor = instance.prototype.constructor;
 	} else {
-		name = instance.constructor?.name ?? '';
+		ctor = instance.constructor;
 	}
+
+	let name: string = ctor?.name ?? '';
 
 	// Strip webpack module name (since I never name classes with an _)
 	const index = name.indexOf('_');
-	return index === -1 ? name : name.substr(index + 1);
+	name = index === -1 ? name : name.substr(index + 1);
+
+	if (ctor?.[LogInstanceNameFn] != null) {
+		name = ctor[LogInstanceNameFn](instance, name);
+	}
+
+	return name;
 }
 
 export interface LogProvider {

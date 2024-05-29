@@ -278,8 +278,7 @@ export abstract class ViewNode<
 	toClipboard?(type?: ClipboardType): string | Promise<string>;
 
 	toString(): string {
-		const id = this.id;
-		return `${getLoggableName(this)}${id != null ? `(${id})` : ''}`;
+		return getLoggableName(this);
 	}
 
 	protected _uri: GitUri;

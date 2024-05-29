@@ -9,7 +9,7 @@ import { setContext } from '../system/context';
 import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
-import { Logger } from '../system/logger';
+import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
 import { isPromise } from '../system/promise';
 import { maybeStopWatch } from '../system/stopwatch';
@@ -512,12 +512,13 @@ export class WebviewController<
 	): Promise<boolean> {
 		let packed;
 		if (notificationType.pack && params != null) {
-			const scope = getLogScope();
-
-			const sw = maybeStopWatch(getNewLogScope(` serializing msg=${notificationType.method}`, scope), {
-				log: false,
-				logLevel: 'debug',
-			});
+			const sw = maybeStopWatch(
+				getNewLogScope(`${getLoggableName(this)}.notify serializing msg=${notificationType.method}`),
+				{
+					log: false,
+					logLevel: 'debug',
+				},
+			);
 			packed = utf8TextEncoder.encode(JSON.stringify(params));
 			sw?.stop();
 		}
