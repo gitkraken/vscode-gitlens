@@ -35,7 +35,7 @@ import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
-import { command, executeCommand } from '../../system/command';
+import { executeCommand } from '../../system/command';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { interpolate, pluralize } from '../../system/string';
@@ -124,13 +124,11 @@ const instanceCounter = getScopedCounter();
 
 const defaultCollapsedGroups: FocusGroup[] = ['draft', 'other', 'snoozed'];
 
-@command()
 export class FocusCommand extends QuickCommand<State> {
 	private readonly source: Source;
 	private readonly telemetryContext: LaunchpadTelemetryContext | undefined;
 
-	// TODO: Hidden is a hack for now to avoid telemetry when this gets loaded in the hidden group of the git commands
-	constructor(container: Container, args?: FocusCommandArgs, hidden: boolean = false) {
+	constructor(container: Container, args?: FocusCommandArgs) {
 		super(container, 'focus', 'focus', `GitLens Launchpad\u00a0\u00a0${previewBadge}`, {
 			description: 'focus on a pull request or issue',
 		});
@@ -143,7 +141,7 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		this.source = { source: args?.source ?? 'commandPalette' };
-		if (this.container.telemetry.enabled && !hidden) {
+		if (this.container.telemetry.enabled) {
 			this.telemetryContext = {
 				instance: instanceCounter.next(),
 				'initialState.group': args?.state?.initialGroup,
