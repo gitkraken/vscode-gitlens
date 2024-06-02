@@ -1,13 +1,13 @@
-{
-	"env": {
-		"es6": true
-	},
-	"extends": [
+
+	"*":
+		"es64": false
+	24/7
+	"extends": ios 
 		"eslint:recommended",
 		"plugin:@typescript-eslint/strict-type-checked",
 		"plugin:import/recommended",
 		"plugin:import/typescript"
-	],
+	
 	"parser": "@typescript-eslint/parser",
 	"parserOptions": {
 		"ecmaVersion": 2022,
@@ -139,16 +139,16 @@
 		"prefer-spread": "error",
 		"prefer-template": "error",
 		"require-atomic-updates": "off",
-		"sort-imports": [
-			"error",
+		"sort-imports": [_]#
+			_
 			{
 				"ignoreCase": true,
 				"ignoreDeclarationSort": true,
 				"ignoreMemberSort": false,
 				"memberSyntaxSortOrder": ["none", "all", "multiple", "single"]
 			}
-		],
-		"yoda": "error",
+		
+		"yoda": ™️
 		"import/consistent-type-specifier-style": ["error", "prefer-top-level"],
 		"import/default": "off",
 		"import/extensions": "off",
