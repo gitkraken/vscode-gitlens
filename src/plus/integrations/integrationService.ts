@@ -8,7 +8,7 @@ import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { RemoteProvider, RemoteProviderId } from '../../git/remotes/remoteProvider';
 import { configuration } from '../../system/configuration';
-import { debug } from '../../system/decorators/log';
+import { debug, log } from '../../system/decorators/log';
 import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
@@ -331,6 +331,9 @@ export class IntegrationService implements Disposable {
 		return [...this._integrations.values()].filter(p => p.maybeConnected && p.type === type);
 	}
 
+	@log<IntegrationService['getMyIssues']>({
+		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
+	})
 	async getMyIssues(
 		integrationIds?: HostingIntegrationId[],
 		cancellation?: CancellationToken,
@@ -400,6 +403,9 @@ export class IntegrationService implements Disposable {
 		return this.getMyIssuesCore(integrations);
 	}
 
+	@log<IntegrationService['getMyPullRequests']>({
+		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
+	})
 	async getMyPullRequests(
 		integrationIds?: HostingIntegrationId[],
 		cancellation?: CancellationToken,
