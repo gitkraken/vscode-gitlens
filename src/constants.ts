@@ -1341,9 +1341,9 @@ export type TelemetryEvents = {
 		action: 'select';
 	} & Partial<Record<`item.${string}`, string | number | boolean>>;
 	/** Sent when the user hides the launchpad indicator */
-	'launchpad/indicator/hidden': TelemetryEventData;
+	'launchpad/indicator/hidden': void;
 	/** Sent when the launchpad indicator loads (with data) for the first time ever for this device */
-	'launchpad/indicator/firstLoad': TelemetryEventData;
+	'launchpad/indicator/firstLoad': void;
 
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: {
@@ -1357,7 +1357,7 @@ export type TelemetryEvents = {
 	};
 
 	/** Sent when the "context" of the workspace changes (e.g. repo added, integration connected, etc) */
-	'providers/context': TelemetryEventData;
+	'providers/context': void;
 
 	/** Sent when we've loaded all the git providers and their repositories */
 	'providers/registrationComplete': {
