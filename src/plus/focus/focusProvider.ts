@@ -780,6 +780,9 @@ export function groupAndSortFocusItems(items?: FocusItem[]) {
 		}
 	}
 
+	// Re-sort pinned and draft groups by updated date
+	grouped.get('pinned')!.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
+	grouped.get('draft')!.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
 	return grouped;
 }
 
