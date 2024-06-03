@@ -1,4 +1,5 @@
 import type { CancellationToken, Disposable } from 'vscode';
+import { pauseOnCancelOrTimeout } from './cancellation';
 
 export type PromiseOrValue<T> = Promise<T> | T;
 
@@ -254,6 +255,28 @@ export function isPromise<T>(obj: PromiseLike<T> | T): obj is Promise<T> {
 // 	);
 // 	return new Map(await Promise.all(promises));
 // }
+
+export type TimedResult<T> = { readonly value: T; readonly duration: number };
+export async function timed<T>(promise: Promise<T>): Promise<TimedResult<T>> {
+	const start = Date.now();
+	const value = await promise;
+	return { value: value, duration: Date.now() - start };
+}
+
+export async function timedWithSlowThreshold<T>(
+	promise: Promise<T>,
+	slowThreshold: { timeout: number; onSlow: (duration: number) => void },
+): Promise<TimedResult<T>> {
+	const start = Date.now();
+
+	const result = await pauseOnCancelOrTimeout(promise, undefined, slowThreshold.timeout);
+
+	const value = result.paused
+		? await result.value.finally(() => slowThreshold.onSlow(Date.now() - start))
+		: result.value;
+
+	return { value: value, duration: Date.now() - start };
+}
 
 export function wait(ms: number): Promise<void> {
 	return new Promise<void>(resolve => setTimeout(resolve, ms));
