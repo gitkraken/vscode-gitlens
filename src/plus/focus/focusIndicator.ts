@@ -14,7 +14,7 @@ import type { FocusCommandArgs } from './focus';
 import type { FocusGroup, FocusItem, FocusProvider, FocusRefreshEvent } from './focusProvider';
 import { groupAndSortFocusItems, supportedFocusIntegrations } from './focusProvider';
 
-type FocusIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load';
+type FocusIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load' | 'failed';
 
 export class FocusIndicator implements Disposable {
 	private readonly _disposable: Disposable;
@@ -111,6 +111,12 @@ export class FocusIndicator implements Disposable {
 
 	private onFocusRefreshed(e: FocusRefreshEvent) {
 		if (this._statusBarFocus == null || !configuration.get('launchpad.indicator.polling.enabled')) return;
+
+		if (e.error != null) {
+			this.updateStatusBar('failed');
+
+			return;
+		}
 
 		this.updateStatusBar('load', e.items);
 	}
@@ -249,7 +255,7 @@ export class FocusIndicator implements Disposable {
 				this.startRefreshTimer(5000);
 				tooltip.appendMarkdown('\n\n---\n\n$(loading~spin) Loading...');
 
-				this._statusBarFocus.text = '$(loading~spin)';
+				this._statusBarFocus.text = '$(rocket)$(loading~spin)';
 				this._statusBarFocus.tooltip = tooltip;
 				this._statusBarFocus.color = undefined;
 				break;
@@ -257,6 +263,13 @@ export class FocusIndicator implements Disposable {
 			case 'load':
 				this.updateStatusBarWithItems(tooltip, categorizedItems);
 				break;
+
+			case 'failed':
+				this.clearRefreshTimer();
+				tooltip.appendMarkdown('\n\n---\n\n$(alert) Unable to load items');
+
+				this._statusBarFocus.text = '$(rocket)$(alert)';
+				this._statusBarFocus.tooltip = tooltip;
 		}
 	}
 

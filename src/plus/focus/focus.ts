@@ -1,4 +1,4 @@
-import type { QuickInputButton } from 'vscode';
+import type { QuickInputButton, QuickPick } from 'vscode';
 import { commands, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
@@ -88,6 +88,8 @@ export interface FocusItemQuickPickItem extends QuickPickItemOfT<FocusItem> {
 
 interface Context {
 	items: FocusItem[];
+	itemsError?: Error;
+
 	title: string;
 	collapsed: Map<FocusGroup, boolean>;
 	telemetryContext: LaunchpadTelemetryContext | undefined;
@@ -192,6 +194,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 		const context: Context = {
 			items: [],
+			itemsError: undefined,
 			title: this.title,
 			collapsed: collapsed,
 			telemetryContext: this.telemetryContext,
@@ -412,13 +415,48 @@ export class FocusCommand extends QuickCommand<State> {
 			return items;
 		};
 
-		const items = getItems(context.items);
+		function getItemsAndPlaceholder() {
+			if (context.itemsError != null) {
+				return {
+					placeholder: `Unable to load items (${String(context.itemsError)})`,
+					items: [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })],
+				};
+			}
+
+			if (!context.items.length) {
+				return {
+					placeholder: 'All done! Take a vacation',
+					items: [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })],
+				};
+			}
+
+			return {
+				placeholder: 'Choose an item to focus on',
+				items: getItems(context.items),
+			};
+		}
+
+		const updateItems = async (quickpick: QuickPick<FocusItemQuickPickItem | DirectiveQuickPickItem>) => {
+			quickpick.busy = true;
+
+			try {
+				await updateContextItems(this.container, context, { force: true });
+
+				const { items, placeholder } = getItemsAndPlaceholder();
+				quickpick.placeholder = placeholder;
+				quickpick.items = items;
+			} finally {
+				quickpick.busy = false;
+			}
+		};
+
+		const { items, placeholder } = getItemsAndPlaceholder();
 
 		const step = createPickStep({
 			title: context.title,
-			placeholder: !items.length ? 'All done! Take a vacation' : 'Choose an item to focus on',
+			placeholder: placeholder,
 			matchOnDetail: true,
-			items: !items.length ? [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })] : items,
+			items: items,
 			buttons: [
 				FeedbackQuickInputButton,
 				OpenInEditorQuickInputButton,
@@ -438,19 +476,7 @@ export class FocusCommand extends QuickCommand<State> {
 						void executeCommand(Commands.ShowFocusPage);
 						break;
 					case RefreshQuickInputButton:
-						quickpick.busy = true;
-
-						try {
-							await updateContextItems(this.container, context, { force: true });
-							const items = getItems(context.items);
-
-							quickpick.placeholder = !items.length
-								? 'All done! Take a vacation'
-								: 'Choose an item to focus on';
-							quickpick.items = items;
-						} finally {
-							quickpick.busy = false;
-						}
+						await updateItems(quickpick);
 						break;
 				}
 			},
@@ -482,17 +508,7 @@ export class FocusCommand extends QuickCommand<State> {
 				}
 
 				this.sendItemActionTelemetry(button, item, group, context);
-				quickpick.busy = true;
-
-				try {
-					await updateContextItems(this.container, context);
-					const items = getItems(context.items);
-
-					quickpick.placeholder = !items.length ? 'All done! Take a vacation' : 'Choose an item to focus on';
-					quickpick.items = items;
-				} finally {
-					quickpick.busy = false;
-				}
+				await updateItems(quickpick);
 			},
 		});
 
@@ -972,7 +988,13 @@ export class FocusCommand extends QuickCommand<State> {
 }
 
 async function updateContextItems(container: Container, context: Context, options?: { force?: boolean }) {
-	context.items = await container.focus.getCategorizedItems(options);
+	try {
+		context.items = await container.focus.getCategorizedItems(options);
+		context.itemsError = undefined;
+	} catch (ex) {
+		context.items = [];
+		context.itemsError = ex;
+	}
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
 	}
