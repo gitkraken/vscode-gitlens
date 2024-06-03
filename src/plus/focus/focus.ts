@@ -780,7 +780,7 @@ export class FocusCommand extends QuickCommand<State> {
 				break;
 		}
 
-		if (item.codeSuggestions?.results != null && item.codeSuggestions.results.length > 0) {
+		if (item.codeSuggestions?.value != null && item.codeSuggestions.value.length > 0) {
 			if (information.length > 0) {
 				information.push(createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }));
 			}
@@ -862,20 +862,17 @@ export class FocusCommand extends QuickCommand<State> {
 	private getFocusItemCodeSuggestionInformation(
 		item: FocusItem,
 	): (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] {
-		if (item.codeSuggestions?.results == null || item.codeSuggestions.results.length === 0) {
+		if (item.codeSuggestions?.value == null || item.codeSuggestions.value.length === 0) {
 			return [];
 		}
 
 		const codeSuggestionInfo: (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] = [
 			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: `$(gitlens-code-suggestion) ${pluralize(
-					'code suggestion',
-					item.codeSuggestions.results.length,
-				)}`,
+				label: `$(gitlens-code-suggestion) ${pluralize('code suggestion', item.codeSuggestions.value.length)}`,
 			}),
 		];
 
-		for (const suggestion of item.codeSuggestions.results) {
+		for (const suggestion of item.codeSuggestions.value) {
 			codeSuggestionInfo.push(
 				createQuickPickItemOfT(
 					{

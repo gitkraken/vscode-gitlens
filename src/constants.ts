@@ -1345,7 +1345,10 @@ export type TelemetryEvents = {
 	/** Sent when the launchpad indicator loads (with data) for the first time ever for this device */
 	'launchpad/indicator/firstLoad': void;
 	/** Sent when a launchpad operation is taking longer than a set timeout to complete */
-	'launchpad/operation/slow': TelemetryEventData;
+	'launchpad/operation/slow': {
+		timeout: number;
+		operation: 'getMyPullRequests' | 'getCodeSuggestions' | 'getEnrichedItems' | 'getCodeSuggestionCounts';
+	};
 
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: {

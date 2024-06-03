@@ -18,7 +18,8 @@ import { configuration } from '../../system/configuration';
 import { debug, log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
-import { getSettledValue } from '../../system/promise';
+import type { TimedResult } from '../../system/promise';
+import { getSettledValue, timedWithSlowThreshold } from '../../system/promise';
 import { openUrl } from '../../system/utils';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
@@ -136,7 +137,7 @@ export type FocusPullRequest = EnrichablePullRequest & ProviderActionablePullReq
 export type FocusItem = FocusPullRequest & {
 	currentViewer: Account;
 	codeSuggestionsCount: number;
-	codeSuggestions?: WithDuration<Draft[]>;
+	codeSuggestions?: TimedResult<Draft[]>;
 	isNew: boolean;
 	actionableCategory: FocusActionCategory;
 	suggestedActions: FocusAction[];
@@ -157,8 +158,8 @@ type CachedFocusPromise<T> = {
 const cacheExpiration = 1000 * 60 * 30; // 30 minutes
 
 type PullRequestsWithSuggestionCounts = {
-	prs: WithDuration<SearchedPullRequest[] | undefined> | undefined;
-	suggestionCounts: WithDuration<CodeSuggestionCounts | undefined> | undefined;
+	prs: TimedResult<SearchedPullRequest[] | undefined> | undefined;
+	suggestionCounts: TimedResult<CodeSuggestionCounts | undefined> | undefined;
 };
 
 export type FocusRefreshEvent =
@@ -251,10 +252,10 @@ export class FocusProvider implements Disposable {
 		const subscription = getSettledValue(subscriptionResult);
 
 		let suggestionCounts;
-		if (prs?.results?.length && subscription?.account != null) {
+		if (prs?.value?.length && subscription?.account != null) {
 			try {
 				suggestionCounts = await withDurationAndSlowEventOnTimeout(
-					this.container.drafts.getCodeSuggestionCounts(prs.results.map(pr => pr.pullRequest)),
+					this.container.drafts.getCodeSuggestionCounts(prs.value.map(pr => pr.pullRequest)),
 					'getCodeSuggestionCounts',
 					this.container,
 				);
@@ -266,7 +267,7 @@ export class FocusProvider implements Disposable {
 		return { prs: prs, suggestionCounts: suggestionCounts };
 	}
 
-	private _enrichedItems: CachedFocusPromise<WithDuration<EnrichedItem[]>> | undefined;
+	private _enrichedItems: CachedFocusPromise<TimedResult<EnrichedItem[]>> | undefined;
 	@debug<FocusProvider['getEnrichedItems']>({ args: { 0: o => `force=${o?.force}` } })
 	private async getEnrichedItems(options?: { cancellation?: CancellationToken; force?: boolean }) {
 		if (options?.force || this._enrichedItems == null || this._enrichedItems.expiresAt < Date.now()) {
@@ -283,7 +284,7 @@ export class FocusProvider implements Disposable {
 		return this._enrichedItems?.promise;
 	}
 
-	private _codeSuggestions: Map<string, CachedFocusPromise<WithDuration<Draft[]>>> | undefined;
+	private _codeSuggestions: Map<string, CachedFocusPromise<TimedResult<Draft[]>>> | undefined;
 	@debug<FocusProvider['getCodeSuggestions']>({
 		args: { 0: i => `${i.id} (${i.provider.name} ${i.type})`, 1: o => `force=${o?.force}` },
 	})
@@ -291,7 +292,7 @@ export class FocusProvider implements Disposable {
 		if (item.codeSuggestionsCount < 1) return undefined;
 
 		if (this._codeSuggestions == null || options?.force) {
-			this._codeSuggestions = new Map<string, CachedFocusPromise<WithDuration<Draft[]>>>();
+			this._codeSuggestions = new Map<string, CachedFocusPromise<TimedResult<Draft[]>>>();
 		}
 
 		if (
@@ -395,7 +396,7 @@ export class FocusProvider implements Disposable {
 
 	@log<FocusProvider['openCodeSuggestion']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
 	openCodeSuggestion(item: FocusItem, target: string) {
-		const draft = item.codeSuggestions?.results?.find(d => d.id === target);
+		const draft = item.codeSuggestions?.value?.find(d => d.id === target);
 		if (draft == null) return;
 		this._codeSuggestions?.delete(item.uuid);
 		this._prs = undefined;
@@ -592,8 +593,8 @@ export class FocusProvider implements Disposable {
 				// Multiple enriched items can have the same entityId. Map by entityId to an array of enriched items.
 				const enrichedItemsByEntityId: { [id: string]: EnrichedItem[] } = {};
 
-				if (enrichedItems?.results != null) {
-					for (const enrichedItem of enrichedItems.results) {
+				if (enrichedItems?.value != null) {
+					for (const enrichedItem of enrichedItems.value) {
 						if (enrichedItem.entityId in enrichedItemsByEntityId) {
 							enrichedItemsByEntityId[enrichedItem.entityId].push(enrichedItem);
 						} else {
@@ -603,7 +604,7 @@ export class FocusProvider implements Disposable {
 				}
 
 				const { prs, suggestionCounts } = prsWithSuggestionCounts;
-				if (prs?.results == null)
+				if (prs?.value == null)
 					return {
 						items: categorized,
 						prsDuration: prs?.duration,
@@ -612,8 +613,8 @@ export class FocusProvider implements Disposable {
 					};
 
 				const filteredPrs = !ignoredRepositories.size
-					? prs.results
-					: prs.results.filter(
+					? prs.value
+					: prs.value.filter(
 							pr =>
 								!ignoredRepositories.has(
 									`${pr.pullRequest.repository.owner.toLowerCase()}/${pr.pullRequest.repository.repo.toLowerCase()}`,
@@ -672,7 +673,7 @@ export class FocusProvider implements Disposable {
 				// Map from shared category label to local actionable category, and get suggested actions
 				categorized = (await Promise.all(
 					actionableItems.map(async item => {
-						const codeSuggestionsCount = suggestionCounts?.results?.[item.uuid]?.count ?? 0;
+						const codeSuggestionsCount = suggestionCounts?.value?.[item.uuid]?.count ?? 0;
 						let actionableCategory = sharedCategoryToFocusActionCategoryMap.get(
 							item.suggestedActionCategory,
 						)!;
@@ -752,7 +753,7 @@ export class FocusProvider implements Disposable {
 	async ensureFocusItemCodeSuggestions(
 		item: FocusItem,
 		options?: { force?: boolean },
-	): Promise<WithDuration<Draft[]> | undefined> {
+	): Promise<TimedResult<Draft[]> | undefined> {
 		item.codeSuggestions ??= await this.getCodeSuggestions(item, options);
 		return item.codeSuggestions;
 	}
@@ -878,30 +879,16 @@ export function getFocusItemIdHash(item: FocusItem) {
 }
 
 const slowEventTimeout = 1000 * 30; // 30 seconds
-type WithDuration<T> = { results: T; duration: number };
+
 function withDurationAndSlowEventOnTimeout<T>(
 	promise: Promise<T>,
-	name: string,
-	_container: Container,
-): Promise<WithDuration<T>> {
-	const withEvent: Promise<WithDuration<T>> = new Promise(resolve => {
-		const timer = setTimeout(() => {
-			console.log('SLOW EVENT ', name);
-			// container.telemetry.sendEvent('launchpad/operation/slow', { timeout: slowEventTimeout, operation: name });
-		}, slowEventTimeout);
-
-		const start = Date.now();
-		promise
-			.then(result => {
-				clearTimeout(timer);
-				resolve({ results: result, duration: Date.now() - start });
-			})
-			.catch((ex: unknown) => {
-				clearTimeout(timer);
-				throw ex;
-			})
-			.finally(() => clearTimeout(timer));
+	name: 'getMyPullRequests' | 'getCodeSuggestionCounts' | 'getCodeSuggestions' | 'getEnrichedItems',
+	container: Container,
+): Promise<TimedResult<T>> {
+	return timedWithSlowThreshold(promise, {
+		timeout: slowEventTimeout,
+		onSlow: (_duration: number) => {
+			container.telemetry.sendEvent('launchpad/operation/slow', { timeout: slowEventTimeout, operation: name });
+		},
 	});
-
-	return withEvent;
 }
