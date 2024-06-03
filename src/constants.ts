@@ -1281,6 +1281,11 @@ export type TelemetryEvents = {
 	'command/core': { command: string };
 
 	/** Sent when the user takes an action on a launchpad item */
+	'launchpad/title/action': LaunchpadEventData & {
+		action: 'feedback' | 'open-in-editor' | 'refresh' | 'settings';
+	};
+
+	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/action': LaunchpadEventData & {
 		action:
 			| 'open'
