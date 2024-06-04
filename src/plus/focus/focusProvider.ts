@@ -25,6 +25,7 @@ import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
+import type { IntegrationResult } from '../integrations/integration';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
 	getActionablePullRequests,
@@ -158,7 +159,7 @@ type CachedFocusPromise<T> = {
 const cacheExpiration = 1000 * 60 * 30; // 30 minutes
 
 type PullRequestsWithSuggestionCounts = {
-	prs: TimedResult<SearchedPullRequest[] | undefined> | undefined;
+	prs: IntegrationResult<SearchedPullRequest[] | undefined> | undefined;
 	suggestionCounts: TimedResult<CodeSuggestionCounts | undefined> | undefined;
 };
 
@@ -250,7 +251,12 @@ export class FocusProvider implements Disposable {
 			throw prsResult.reason;
 		}
 
-		const prs = getSettledValue(prsResult);
+		const prs = getSettledValue(prsResult)?.value;
+		if (prs?.error != null) {
+			Logger.error(prs.error, scope, 'Failed to get pull requests');
+			throw prs.error;
+		}
+
 		const subscription = getSettledValue(subscriptionResult);
 
 		let suggestionCounts;

@@ -102,6 +102,10 @@ export interface Config {
 				interval: number;
 			};
 		};
+		readonly experimental: {
+			readonly queryLimit: number;
+			readonly queryUseInvolvesFilter: boolean;
+		};
 	};
 	readonly gitCommands: {
 		readonly avatars: boolean;
