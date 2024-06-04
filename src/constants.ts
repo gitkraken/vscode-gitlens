@@ -1344,6 +1344,12 @@ export type TelemetryEvents = {
 	'launchpad/indicator/hidden': void;
 	/** Sent when the launchpad indicator loads (with data) for the first time ever for this device */
 	'launchpad/indicator/firstLoad': void;
+	/** Sent when a launchpad operation is taking longer than a set timeout to complete */
+	'launchpad/operation/slow': {
+		timeout: number;
+		operation: 'getMyPullRequests' | 'getCodeSuggestions' | 'getEnrichedItems' | 'getCodeSuggestionCounts';
+		duration: number;
+	};
 
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: {
@@ -1469,6 +1475,9 @@ type LaunchpadEventData = LaunchpadEventDataBase &
 		{
 			'items.count': number;
 			'groups.count': number;
+			'items.timings.prs': number;
+			'items.timings.codeSuggestionCounts': number;
+			'items.timings.enrichedItems': number;
 		} & Record<`groups.${LaunchpadGroups}.count`, number> &
 			Record<`groups.${LaunchpadGroups}.collapsed`, boolean | undefined>
 	>;
