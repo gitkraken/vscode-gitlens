@@ -1,4 +1,5 @@
 import { Avatar, defineGkElement } from '@gitkraken/shared-web-components';
+import type { PropertyValueMap } from 'lit';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
@@ -7,6 +8,7 @@ import type { DraftState, State, Wip } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
+import type { GenerateState } from './gl-inspect-patch';
 import '../../shared/components/button';
 import '../../shared/components/code-icon';
 import '../../shared/components/panes/pane-group';
@@ -32,6 +34,9 @@ export class GlWipDetails extends GlDetailsBase {
 
 	@property({ type: Object })
 	draftState?: DraftState;
+
+	@property({ type: Object })
+	generate?: GenerateState;
 
 	@state()
 	get inReview() {
@@ -61,6 +66,12 @@ export class GlWipDetails extends GlDetailsBase {
 		};
 	}
 
+	@state()
+	patchCreateMetadata: { title: string | undefined; description: string | undefined } = {
+		title: undefined,
+		description: undefined,
+	};
+
 	get patchCreateState() {
 		const wip = this.wip!;
 		const key = wip.repo.uri;
@@ -76,8 +87,7 @@ export class GlWipDetails extends GlDetailsBase {
 		};
 
 		return {
-			title: undefined,
-			description: undefined,
+			...this.patchCreateMetadata,
 			changes: {
 				[key]: change,
 			},
@@ -95,6 +105,17 @@ export class GlWipDetails extends GlDetailsBase {
 		super();
 
 		defineGkElement(Avatar);
+	}
+
+	protected override updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
+		super.updated(changedProperties);
+
+		if (changedProperties.has('generate')) {
+			this.patchCreateMetadata = {
+				title: this.generate?.title ?? this.patchCreateMetadata.title,
+				description: this.generate?.description ?? this.patchCreateMetadata.description,
+			};
+		}
 	}
 
 	override get filesChangedPaneLabel() {
@@ -317,6 +338,7 @@ export class GlWipDetails extends GlDetailsBase {
 		return html`<gl-inspect-patch
 			.orgSettings=${this.orgSettings}
 			.preferences=${this.preferences}
+			.generate=${this.generate}
 			.createState=${this.patchCreateState}
 			@gl-patch-create-patch=${(e: CustomEvent) => {
 				// this.onDataActionClick('create-patch');
