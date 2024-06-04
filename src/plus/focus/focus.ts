@@ -46,7 +46,14 @@ import {
 	ProviderBuildStatusState,
 	ProviderPullRequestReviewState,
 } from '../integrations/providers/models';
-import type { FocusAction, FocusActionCategory, FocusGroup, FocusItem, FocusTargetAction } from './focusProvider';
+import type {
+	FocusAction,
+	FocusActionCategory,
+	FocusGroup,
+	FocusItem,
+	FocusItemsWithDurations,
+	FocusTargetAction,
+} from './focusProvider';
 import {
 	countFocusItemGroups,
 	getFocusItemIdHash,
@@ -87,7 +94,7 @@ export interface FocusItemQuickPickItem extends QuickPickItemOfT<FocusItem> {
 }
 
 interface Context {
-	items: FocusItem[];
+	items: FocusItemsWithDurations;
 	itemsError?: Error;
 
 	title: string;
@@ -193,7 +200,14 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		const context: Context = {
-			items: [],
+			items: {
+				items: [],
+				timings: {
+					prs: undefined,
+					codeSuggestionCounts: undefined,
+					enrichedItems: undefined,
+				},
+			},
 			itemsError: undefined,
 			title: this.title,
 			collapsed: collapsed,
@@ -322,11 +336,11 @@ export class FocusCommand extends QuickCommand<State> {
 		context: Context,
 		{ picked, selectTopItem }: { picked?: string; selectTopItem?: boolean },
 	): StepResultGenerator<GroupedFocusItem> {
-		const getItems = (categorizedItems: FocusItem[]) => {
+		const getItems = (categorizedItems: FocusItemsWithDurations) => {
 			const items: (FocusItemQuickPickItem | DirectiveQuickPickItem)[] = [];
 
-			if (categorizedItems?.length) {
-				const uiGroups = groupAndSortFocusItems(categorizedItems);
+			if (categorizedItems.items?.length) {
+				const uiGroups = groupAndSortFocusItems(categorizedItems.items);
 				const topItem: FocusItem | undefined =
 					!selectTopItem || picked != null
 						? undefined
@@ -422,7 +436,7 @@ export class FocusCommand extends QuickCommand<State> {
 				};
 			}
 
-			if (!context.items.length) {
+			if (!context.items.items.length) {
 				return {
 					placeholder: 'All done! Take a vacation',
 					items: [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })],
@@ -768,7 +782,7 @@ export class FocusCommand extends QuickCommand<State> {
 				break;
 		}
 
-		if (item.codeSuggestions != null && item.codeSuggestions.length > 0) {
+		if (item.codeSuggestions?.value != null && item.codeSuggestions.value.length > 0) {
 			if (information.length > 0) {
 				information.push(createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }));
 			}
@@ -850,17 +864,17 @@ export class FocusCommand extends QuickCommand<State> {
 	private getFocusItemCodeSuggestionInformation(
 		item: FocusItem,
 	): (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] {
-		if (item.codeSuggestions == null || item.codeSuggestions.length === 0) {
+		if (item.codeSuggestions?.value == null || item.codeSuggestions.value.length === 0) {
 			return [];
 		}
 
 		const codeSuggestionInfo: (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] = [
 			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: `$(gitlens-code-suggestion) ${pluralize('code suggestion', item.codeSuggestions.length)}`,
+				label: `$(gitlens-code-suggestion) ${pluralize('code suggestion', item.codeSuggestions.value.length)}`,
 			}),
 		];
 
-		for (const suggestion of item.codeSuggestions) {
+		for (const suggestion of item.codeSuggestions.value) {
 			codeSuggestionInfo.push(
 				createQuickPickItemOfT(
 					{
@@ -1002,7 +1016,9 @@ async function updateContextItems(container: Container, context: Context, option
 		context.items = await container.focus.getCategorizedItems(options);
 		context.itemsError = undefined;
 	} catch (ex) {
-		context.items = [];
+		context.items = {
+			items: [],
+		};
 		context.itemsError = ex;
 	}
 	if (container.telemetry.enabled) {
@@ -1013,12 +1029,15 @@ async function updateContextItems(container: Container, context: Context, option
 function updateTelemetryContext(context: Context) {
 	if (context.telemetryContext == null) return;
 
-	const grouped = countFocusItemGroups(context.items);
+	const grouped = countFocusItemGroups(context.items.items);
 
 	const updatedContext: NonNullable<(typeof context)['telemetryContext']> = {
 		...context.telemetryContext,
-		'items.count': context.items.length,
+		'items.count': context.items.items.length,
 		'groups.count': grouped.size,
+		'items.timings.prs': context.items.timings?.prs,
+		'items.timings.codeSuggestionCounts': context.items.timings?.codeSuggestionCounts,
+		'items.timings.enrichedItems': context.items.timings?.enrichedItems,
 	};
 
 	for (const [group, count] of grouped) {
