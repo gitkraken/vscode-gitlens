@@ -661,9 +661,15 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				} catch (ex) {
 					Logger.error(ex, scope, `Failed to get prs for '${r.remote.url}'`);
 				}
-				if (prs == null) continue;
 
-				for (const pr of prs) {
+				if (prs?.error != null) {
+					Logger.error(prs.error, scope, `Failed to get prs for '${r.remote.url}'`);
+					continue;
+				}
+
+				if (prs?.value == null) continue;
+
+				for (const pr of prs.value) {
 					if (pr.reasons.length === 0) continue;
 
 					const entry: SearchedPullRequestWithRemote = {

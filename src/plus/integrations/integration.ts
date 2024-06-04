@@ -44,6 +44,11 @@ import type {
 import { HostingIntegrationId, IssueFilter, PagingMode, PullRequestFilter } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
 
+export type IntegrationResult<T> =
+	| { value: T; duration?: number; error?: never }
+	| { error: Error; duration?: number; value?: never }
+	| undefined;
+
 export type SupportedIntegrationIds = IntegrationId;
 export type SupportedHostingIntegrationIds = HostingIntegrationId;
 export type SupportedIssueIntegrationIds = IssueIntegrationId;
@@ -1129,30 +1134,34 @@ export abstract class HostingIntegration<
 		}
 	}
 
-	async searchMyPullRequests(repo?: T, cancellation?: CancellationToken): Promise<SearchedPullRequest[] | undefined>;
+	async searchMyPullRequests(
+		repo?: T,
+		cancellation?: CancellationToken,
+	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>>;
 	async searchMyPullRequests(
 		repos?: T[],
 		cancellation?: CancellationToken,
-	): Promise<SearchedPullRequest[] | undefined>;
+	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>>;
 	@debug()
 	async searchMyPullRequests(
 		repos?: T | T[],
 		cancellation?: CancellationToken,
-	): Promise<SearchedPullRequest[] | undefined> {
+	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>> {
 		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
+		const start = Date.now();
 		try {
 			const pullRequests = await this.searchProviderMyPullRequests(
 				this._session!,
 				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
 				cancellation,
 			);
-			this.resetRequestExceptionCount();
-			return pullRequests;
+			return { value: pullRequests, duration: Date.now() - start };
 		} catch (ex) {
-			return this.handleProviderException<SearchedPullRequest[] | undefined>(ex, scope, undefined);
+			Logger.error(ex, scope);
+			return { error: ex, duration: Date.now() - start };
 		}
 	}
 
