@@ -5,7 +5,7 @@ import { configuration } from '../system/configuration';
 import { capitalize } from '../system/string';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getMaxCharacters } from './aiProviderService';
-import { commitMessageSystemPrompt, draftMessageSystemPrompt } from './prompts';
+import { cloudPatchMessageSystemPrompt, codeSuggestMessageSystemPrompt, commitMessageSystemPrompt } from './prompts';
 
 const provider = { id: 'vscode', name: 'VS Code Provided' } as const;
 
@@ -133,7 +133,10 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 			codeSuggestion?: boolean | undefined;
 		},
 	): Promise<string | undefined> {
-		let customPrompt = configuration.get('experimental.generateDraftMessagePrompt');
+		let customPrompt =
+			options?.codeSuggestion === true
+				? configuration.get('experimental.generateCodeSuggestionMessagePrompt')
+				: configuration.get('experimental.generateCloudPatchMessagePrompt');
 		if (!customPrompt.endsWith('.')) {
 			customPrompt += '.';
 		}
@@ -142,7 +145,8 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 			model,
 			diff,
 			{
-				systemPrompt: draftMessageSystemPrompt,
+				systemPrompt:
+					options?.codeSuggestion === true ? codeSuggestMessageSystemPrompt : cloudPatchMessageSystemPrompt,
 				customPrompt: customPrompt,
 				contextName:
 					options?.codeSuggestion === true

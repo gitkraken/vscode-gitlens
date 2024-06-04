@@ -7,7 +7,7 @@ import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
-import { commitMessageSystemPrompt, draftMessageSystemPrompt } from './prompts';
+import { cloudPatchMessageSystemPrompt, codeSuggestMessageSystemPrompt, commitMessageSystemPrompt } from './prompts';
 
 const provider = { id: 'gemini', name: 'Google' } as const;
 
@@ -140,7 +140,10 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 			codeSuggestion?: boolean | undefined;
 		},
 	): Promise<string | undefined> {
-		let customPrompt = configuration.get('experimental.generateDraftMessagePrompt');
+		let customPrompt =
+			options?.codeSuggestion === true
+				? configuration.get('experimental.generateCodeSuggestionMessagePrompt')
+				: configuration.get('experimental.generateCloudPatchMessagePrompt');
 		if (!customPrompt.endsWith('.')) {
 			customPrompt += '.';
 		}
@@ -149,7 +152,8 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 			model,
 			diff,
 			{
-				systemPrompt: draftMessageSystemPrompt,
+				systemPrompt:
+					options?.codeSuggestion === true ? codeSuggestMessageSystemPrompt : cloudPatchMessageSystemPrompt,
 				customPrompt: customPrompt,
 				contextName:
 					options?.codeSuggestion === true
