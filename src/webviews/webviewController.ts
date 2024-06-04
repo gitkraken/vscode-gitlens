@@ -3,7 +3,6 @@ import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vs
 import { getNonce } from '@env/crypto';
 import type { Commands, CustomEditorTypes, WebviewTypes, WebviewViewTypes } from '../constants';
 import type { Container } from '../container';
-import { pauseOnCancelOrTimeout } from '../system/cancellation';
 import { executeCommand, executeCoreCommand } from '../system/command';
 import { setContext } from '../system/context';
 import { getScopedCounter } from '../system/counter';
@@ -11,7 +10,7 @@ import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
 import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
-import { isPromise } from '../system/promise';
+import { isPromise, pauseOnCancelOrTimeout } from '../system/promise';
 import { maybeStopWatch } from '../system/stopwatch';
 import type { WebviewContext } from '../system/webview';
 import type {

@@ -14,9 +14,13 @@ import type { PullRequest } from '../git/models/pullRequest';
 import { isUncommittedStaged, shortenRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import { pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/cancellation';
 import { configuration } from '../system/configuration';
-import { cancellable, getSettledValue } from '../system/promise';
+import {
+	cancellable,
+	getSettledValue,
+	pauseOnCancelOrTimeout,
+	pauseOnCancelOrTimeoutMapTuplePromise,
+} from '../system/promise';
 
 export async function changesMessage(
 	container: Container,

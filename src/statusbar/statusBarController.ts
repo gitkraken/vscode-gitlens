@@ -8,15 +8,14 @@ import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { PullRequest } from '../git/models/pullRequest';
 import { detailsMessage } from '../hovers/hovers';
-import type { MaybePausedResult } from '../system/cancellation';
-import { pauseOnCancelOrTimeout } from '../system/cancellation';
 import { asCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
-import { getSettledValue } from '../system/promise';
+import type { MaybePausedResult } from '../system/promise';
+import { getSettledValue, pauseOnCancelOrTimeout } from '../system/promise';
 import { isTextEditor } from '../system/utils';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
 
