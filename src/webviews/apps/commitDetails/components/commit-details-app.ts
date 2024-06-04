@@ -18,6 +18,7 @@ import {
 	ExecuteFileActionCommand,
 	ExplainRequest,
 	FetchCommand,
+	GenerateRequest,
 	NavigateCommand,
 	OpenFileCommand,
 	OpenFileComparePreviousCommand,
@@ -43,6 +44,7 @@ import {
 } from '../../../commitDetails/protocol';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommand } from '../../../protocol';
+import type { CreatePatchMetadataEventDetail } from '../../plus/patchDetails/components/gl-patch-create';
 import type { IssuePullRequest } from '../../shared/components/rich/issue-pull-request';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../../shared/components/webview-pane';
 import type { Disposable } from '../../shared/dom';
@@ -51,7 +53,7 @@ import { assertsSerialized, HostIpc } from '../../shared/ipc';
 import type { GlCommitDetails } from './gl-commit-details';
 import type { FileChangeListItemDetail } from './gl-details-base';
 import type { GlInspectNav } from './gl-inspect-nav';
-import type { CreatePatchEventDetail } from './gl-inspect-patch';
+import type { CreatePatchEventDetail, GenerateState } from './gl-inspect-patch';
 import type { GlWipDetails } from './gl-wip-details';
 import '../../shared/components/code-icon';
 import '../../shared/components/indicators/indicator';
@@ -77,6 +79,9 @@ export class GlCommitDetailsApp extends LitElement {
 
 	@property({ type: Object })
 	explain?: ExplainState;
+
+	@property({ type: Object })
+	generate?: GenerateState;
 
 	@state()
 	draftState: DraftState = { inReview: false };
@@ -252,6 +257,9 @@ export class GlCommitDetailsApp extends LitElement {
 			),
 			DOM.on<GlWipDetails, CreatePatchEventDetail>('gl-wip-details', 'gl-inspect-create-suggestions', e =>
 				this.onSuggestChanges(e.detail),
+			),
+			DOM.on<GlWipDetails, CreatePatchMetadataEventDetail>('gl-wip-details', 'gl-patch-generate-title', e =>
+				this.onCreateGenerateTitle(e.detail),
 			),
 			DOM.on<GlWipDetails, { id: string }>('gl-wip-details', 'gl-show-code-suggestion', e =>
 				this.onShowCodeSuggestion(e.detail),
@@ -507,6 +515,7 @@ export class GlCommitDetailsApp extends LitElement {
 								.files=${wip?.changes?.files}
 								.preferences=${this.state?.preferences}
 								.orgSettings=${this.state?.orgSettings}
+								.generate=${this.generate}
 								.isUncommitted=${true}
 								.emptyText=${'No working changes'}
 								.draftState=${this.draftState}
@@ -598,6 +607,35 @@ export class GlCommitDetailsApp extends LitElement {
 		} catch (ex) {
 			this.explain = { error: { message: 'Error retrieving content' } };
 		}
+	}
+
+	private async onCreateGenerateTitle(_e: CreatePatchMetadataEventDetail) {
+		try {
+			const result = await this._hostIpc.sendRequest(GenerateRequest, undefined);
+
+			if (result.error) {
+				this.generate = { error: { message: result.error.message ?? 'Error retrieving content' } };
+			} else if (result.title || result.description) {
+				this.generate = {
+					title: result.title,
+					description: result.description,
+				};
+				// this.state = {
+				// 	...this.state,
+				// 	create: {
+				// 		...this.state.create!,
+				// 		title: result.title ?? this.state.create?.title,
+				// 		description: result.description ?? this.state.create?.description,
+				// 	},
+				// };
+				// this.setState(this.state);
+			} else {
+				this.generate = undefined;
+			}
+		} catch (ex) {
+			this.generate = { error: { message: 'Error retrieving content' } };
+		}
+		this.requestUpdate('generate');
 	}
 
 	private onToggleFilesLayout(e: MouseEvent) {
