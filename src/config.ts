@@ -80,7 +80,8 @@ export interface Config {
 	readonly detectNestedRepositories: boolean;
 	readonly experimental: {
 		readonly generateCommitMessagePrompt: string;
-		readonly generateDraftMessagePrompt: string;
+		readonly generateCloudPatchMessagePrompt: string;
+		readonly generateCodeSuggestionMessagePrompt: string;
 	};
 	readonly fileAnnotations: {
 		readonly preserveWhileEditing: boolean;
