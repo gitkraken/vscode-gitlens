@@ -176,9 +176,13 @@ export const supportedFocusIntegrations = [HostingIntegrationId.GitHub];
 
 export interface FocusItemsWithDurations {
 	items: FocusItem[];
-	prsDuration: number | undefined;
-	codeSuggestionCountsDuration: number | undefined;
-	enrichedItemsDuration: number | undefined;
+	timings?: Timings;
+}
+
+export interface Timings {
+	prs: number | undefined;
+	codeSuggestionCounts: number | undefined;
+	enrichedItems: number | undefined;
 }
 
 export class FocusProvider implements Disposable {
@@ -607,9 +611,11 @@ export class FocusProvider implements Disposable {
 				if (prs?.value == null)
 					return {
 						items: categorized,
-						prsDuration: prs?.duration,
-						codeSuggestionCountsDuration: suggestionCounts?.duration,
-						enrichedItemsDuration: enrichedItems?.duration,
+						timings: {
+							prs: prs?.duration,
+							codeSuggestionCounts: suggestionCounts?.duration,
+							enrichedItems: enrichedItems?.duration,
+						},
 					};
 
 				const filteredPrs = !ignoredRepositories.size
@@ -704,9 +710,11 @@ export class FocusProvider implements Disposable {
 
 			return {
 				items: categorized,
-				prsDuration: prsWithSuggestionCounts?.prs?.duration,
-				codeSuggestionCountsDuration: prsWithSuggestionCounts?.suggestionCounts?.duration,
-				enrichedItemsDuration: enrichedItems?.duration,
+				timings: {
+					prs: prsWithSuggestionCounts?.prs?.duration,
+					codeSuggestionCounts: prsWithSuggestionCounts?.suggestionCounts?.duration,
+					enrichedItems: enrichedItems?.duration,
+				},
 			};
 		} finally {
 			this.updateGroupedIds(categorized);
@@ -887,8 +895,12 @@ function withDurationAndSlowEventOnTimeout<T>(
 ): Promise<TimedResult<T>> {
 	return timedWithSlowThreshold(promise, {
 		timeout: slowEventTimeout,
-		onSlow: (_duration: number) => {
-			container.telemetry.sendEvent('launchpad/operation/slow', { timeout: slowEventTimeout, operation: name });
+		onSlow: (duration: number) => {
+			container.telemetry.sendEvent('launchpad/operation/slow', {
+				timeout: slowEventTimeout,
+				operation: name,
+				duration: duration,
+			});
 		},
 	});
 }

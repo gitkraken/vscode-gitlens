@@ -1348,6 +1348,7 @@ export type TelemetryEvents = {
 	'launchpad/operation/slow': {
 		timeout: number;
 		operation: 'getMyPullRequests' | 'getCodeSuggestions' | 'getEnrichedItems' | 'getCodeSuggestionCounts';
+		duration: number;
 	};
 
 	/** Sent when a PR review was started in the inspect overview */
@@ -1474,9 +1475,9 @@ type LaunchpadEventData = LaunchpadEventDataBase &
 		{
 			'items.count': number;
 			'groups.count': number;
-			'items.prsDuration': number;
-			'items.codeSuggestionCountsDuration': number;
-			'items.enrichedItemsDuration': number;
+			'items.timings.prs': number;
+			'items.timings.codeSuggestionCounts': number;
+			'items.timings.enrichedItems': number;
 		} & Record<`groups.${LaunchpadGroups}.count`, number> &
 			Record<`groups.${LaunchpadGroups}.collapsed`, boolean | undefined>
 	>;

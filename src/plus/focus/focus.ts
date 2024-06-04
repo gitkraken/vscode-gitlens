@@ -202,9 +202,11 @@ export class FocusCommand extends QuickCommand<State> {
 		const context: Context = {
 			items: {
 				items: [],
-				prsDuration: undefined,
-				codeSuggestionCountsDuration: undefined,
-				enrichedItemsDuration: undefined,
+				timings: {
+					prs: undefined,
+					codeSuggestionCounts: undefined,
+					enrichedItems: undefined,
+				},
 			},
 			itemsError: undefined,
 			title: this.title,
@@ -1016,9 +1018,6 @@ async function updateContextItems(container: Container, context: Context, option
 	} catch (ex) {
 		context.items = {
 			items: [],
-			prsDuration: undefined,
-			codeSuggestionCountsDuration: undefined,
-			enrichedItemsDuration: undefined,
 		};
 		context.itemsError = ex;
 	}
@@ -1036,9 +1035,9 @@ function updateTelemetryContext(context: Context) {
 		...context.telemetryContext,
 		'items.count': context.items.items.length,
 		'groups.count': grouped.size,
-		'items.prsDuration': context.items.prsDuration,
-		'items.codeSuggestionCountsDuration': context.items.codeSuggestionCountsDuration,
-		'items.enrichedItemsDuration': context.items.enrichedItemsDuration,
+		'items.timings.prs': context.items.timings?.prs,
+		'items.timings.codeSuggestionCounts': context.items.timings?.codeSuggestionCounts,
+		'items.timings.enrichedItems': context.items.timings?.enrichedItems,
 	};
 
 	for (const [group, count] of grouped) {
