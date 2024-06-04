@@ -162,24 +162,22 @@ type PullRequestsWithSuggestionCounts = {
 	suggestionCounts: TimedResult<CodeSuggestionCounts | undefined> | undefined;
 };
 
-export type FocusRefreshEvent =
-	| {
-			items: FocusItem[];
-			error?: never;
-	  }
-	| {
-			items?: never;
-			error: Error;
-	  };
+export type FocusRefreshEvent = FocusCategorizedResult;
 
 export const supportedFocusIntegrations = [HostingIntegrationId.GitHub];
 
-export interface FocusItemsWithDurations {
-	items: FocusItem[];
-	timings?: Timings;
-}
+export type FocusCategorizedResult =
+	| {
+			items: FocusItem[];
+			timings?: FocusCategorizedTimings;
+			error?: never;
+	  }
+	| {
+			error: Error;
+			items?: never;
+	  };
 
-export interface Timings {
+export interface FocusCategorizedTimings {
 	prs: number | undefined;
 	codeSuggestionCounts: number | undefined;
 	enrichedItems: number | undefined;
@@ -547,7 +545,7 @@ export class FocusProvider implements Disposable {
 	async getCategorizedItems(
 		options?: { force?: boolean },
 		cancellation?: CancellationToken,
-	): Promise<FocusItemsWithDurations> {
+	): Promise<FocusCategorizedResult> {
 		const scope = getLogScope();
 
 		const ignoredRepositories = new Set(
@@ -578,137 +576,141 @@ export class FocusProvider implements Disposable {
 
 		// TODO: Since this is all repos we probably should order by repos you are a contributor on (or even filter out one you aren't)
 
-		let categorized: FocusItem[] = [];
-		let failedError: Error | undefined;
+		let result: FocusCategorizedResult | undefined;
 
 		try {
 			if (prsWithCountsResult.status === 'rejected') {
 				Logger.error(prsWithCountsResult.reason, scope, 'Failed to get pull requests with suggestion counts');
-				failedError =
-					prsWithCountsResult.reason instanceof Error
-						? prsWithCountsResult.reason
-						: new Error(String(prsWithCountsResult.reason));
-				throw failedError;
+				result = {
+					error:
+						prsWithCountsResult.reason instanceof Error
+							? prsWithCountsResult.reason
+							: new Error(String(prsWithCountsResult.reason)),
+				};
+				return result;
 			}
 
 			const enrichedItems = getSettledValue(enrichedItemsResult);
 			const prsWithSuggestionCounts = getSettledValue(prsWithCountsResult);
-			if (prsWithSuggestionCounts != null) {
-				// Multiple enriched items can have the same entityId. Map by entityId to an array of enriched items.
-				const enrichedItemsByEntityId: { [id: string]: EnrichedItem[] } = {};
 
-				if (enrichedItems?.value != null) {
-					for (const enrichedItem of enrichedItems.value) {
-						if (enrichedItem.entityId in enrichedItemsByEntityId) {
-							enrichedItemsByEntityId[enrichedItem.entityId].push(enrichedItem);
-						} else {
-							enrichedItemsByEntityId[enrichedItem.entityId] = [enrichedItem];
-						}
-					}
-				}
-
-				const { prs, suggestionCounts } = prsWithSuggestionCounts;
-				if (prs?.value == null)
-					return {
-						items: categorized,
-						timings: {
-							prs: prs?.duration,
-							codeSuggestionCounts: suggestionCounts?.duration,
-							enrichedItems: enrichedItems?.duration,
-						},
-					};
-
-				const filteredPrs = !ignoredRepositories.size
-					? prs.value
-					: prs.value.filter(
-							pr =>
-								!ignoredRepositories.has(
-									`${pr.pullRequest.repository.owner.toLowerCase()}/${pr.pullRequest.repository.repo.toLowerCase()}`,
-								),
-					  );
-
-				const github = await this.container.integrations.get(HostingIntegrationId.GitHub);
-				const myAccount = await github.getCurrentAccount();
-
-				const inputPrs: EnrichablePullRequest[] = filteredPrs.map(pr => {
-					const providerPr = toProviderPullRequestWithUniqueId(pr.pullRequest);
-
-					const enrichable = {
-						type: 'pr',
-						id: providerPr.uuid,
-						url: pr.pullRequest.url,
-						provider: 'github',
-					} satisfies EnrichableItem;
-
-					const repoIdentity = {
-						remote: {
-							url: pr.pullRequest.refs?.head?.url,
-							domain: pr.pullRequest.provider.domain,
-						},
-						name: pr.pullRequest.repository.repo,
-						provider: {
-							id: pr.pullRequest.provider.id,
-							domain: pr.pullRequest.provider.domain,
-							repoDomain: pr.pullRequest.repository.owner,
-							repoName: pr.pullRequest.repository.repo,
-						},
-					};
-
-					return {
-						...providerPr,
-						type: 'pullrequest',
-						uuid: providerPr.uuid,
-						provider: pr.pullRequest.provider,
-						enrichable: enrichable,
-						repoIdentity: repoIdentity,
-						refs: pr.pullRequest.refs,
-					};
-				}) satisfies EnrichablePullRequest[];
-
-				// Note: The expected output of this is ActionablePullRequest[], but we are passing in EnrichablePullRequest,
-				// so we need to cast the output as FocusPullRequest[].
-				const actionableItems = getActionablePullRequests(
-					inputPrs,
-					{ id: myAccount!.username! },
-					{ enrichedItemsByUniqueId: enrichedItemsByEntityId },
-				) as FocusPullRequest[];
-
-				// Get the unique remote urls
-				const mappedRemotesPromise = await this.getMatchingRemoteMap(actionableItems);
-
-				// Map from shared category label to local actionable category, and get suggested actions
-				categorized = (await Promise.all(
-					actionableItems.map(async item => {
-						const codeSuggestionsCount = suggestionCounts?.value?.[item.uuid]?.count ?? 0;
-						let actionableCategory = sharedCategoryToFocusActionCategoryMap.get(
-							item.suggestedActionCategory,
-						)!;
-						// category overrides
-						if (staleDate != null && item.updatedDate.getTime() < staleDate.getTime()) {
-							actionableCategory = 'other';
-						} else if (codeSuggestionsCount > 0 && item.viewer.isAuthor) {
-							actionableCategory = 'code-suggestions';
-						}
-						const openRepository = await this.getMatchingOpenRepository(item, mappedRemotesPromise);
-						const suggestedActions = getSuggestedActions(
-							actionableCategory,
-							openRepository?.localBranch?.current ?? false,
-						);
-
-						return {
-							...item,
-							currentViewer: myAccount!,
-							codeSuggestionsCount: codeSuggestionsCount,
-							isNew: this.isItemNewInGroup(item, actionableCategory),
-							actionableCategory: actionableCategory,
-							suggestedActions: suggestedActions,
-							openRepository: openRepository,
-						};
-					}),
-				)) satisfies FocusItem[];
+			const prs = prsWithSuggestionCounts?.prs;
+			if (prs?.value == null) {
+				result = {
+					items: [],
+					timings: {
+						prs: prsWithSuggestionCounts?.prs?.duration,
+						codeSuggestionCounts: prsWithSuggestionCounts?.suggestionCounts?.duration,
+						enrichedItems: enrichedItems?.duration,
+					},
+				};
+				return result;
 			}
 
-			return {
+			// Multiple enriched items can have the same entityId. Map by entityId to an array of enriched items.
+			const enrichedItemsByEntityId: { [id: string]: EnrichedItem[] } = {};
+
+			if (enrichedItems?.value != null) {
+				for (const enrichedItem of enrichedItems.value) {
+					if (enrichedItem.entityId in enrichedItemsByEntityId) {
+						enrichedItemsByEntityId[enrichedItem.entityId].push(enrichedItem);
+					} else {
+						enrichedItemsByEntityId[enrichedItem.entityId] = [enrichedItem];
+					}
+				}
+			}
+
+			const filteredPrs = !ignoredRepositories.size
+				? prs.value
+				: prs.value.filter(
+						pr =>
+							!ignoredRepositories.has(
+								`${pr.pullRequest.repository.owner.toLowerCase()}/${pr.pullRequest.repository.repo.toLowerCase()}`,
+							),
+				  );
+
+			const github = await this.container.integrations.get(HostingIntegrationId.GitHub);
+			const myAccount = await github.getCurrentAccount();
+
+			const inputPrs: EnrichablePullRequest[] = filteredPrs.map(pr => {
+				const providerPr = toProviderPullRequestWithUniqueId(pr.pullRequest);
+
+				const enrichable = {
+					type: 'pr',
+					id: providerPr.uuid,
+					url: pr.pullRequest.url,
+					provider: 'github',
+				} satisfies EnrichableItem;
+
+				const repoIdentity = {
+					remote: {
+						url: pr.pullRequest.refs?.head?.url,
+						domain: pr.pullRequest.provider.domain,
+					},
+					name: pr.pullRequest.repository.repo,
+					provider: {
+						id: pr.pullRequest.provider.id,
+						domain: pr.pullRequest.provider.domain,
+						repoDomain: pr.pullRequest.repository.owner,
+						repoName: pr.pullRequest.repository.repo,
+					},
+				};
+
+				return {
+					...providerPr,
+					type: 'pullrequest',
+					uuid: providerPr.uuid,
+					provider: pr.pullRequest.provider,
+					enrichable: enrichable,
+					repoIdentity: repoIdentity,
+					refs: pr.pullRequest.refs,
+				};
+			}) satisfies EnrichablePullRequest[];
+
+			// Note: The expected output of this is ActionablePullRequest[], but we are passing in EnrichablePullRequest,
+			// so we need to cast the output as FocusPullRequest[].
+			const actionableItems = getActionablePullRequests(
+				inputPrs,
+				{ id: myAccount!.username! },
+				{ enrichedItemsByUniqueId: enrichedItemsByEntityId },
+			) as FocusPullRequest[];
+
+			// Get the unique remote urls
+			const mappedRemotesPromise = await this.getMatchingRemoteMap(actionableItems);
+
+			const { suggestionCounts } = prsWithSuggestionCounts!;
+
+			// Map from shared category label to local actionable category, and get suggested actions
+			const categorized = (await Promise.all(
+				actionableItems.map(async item => {
+					const codeSuggestionsCount = suggestionCounts?.value?.[item.uuid]?.count ?? 0;
+
+					let actionableCategory = sharedCategoryToFocusActionCategoryMap.get(item.suggestedActionCategory)!;
+					// category overrides
+					if (staleDate != null && item.updatedDate.getTime() < staleDate.getTime()) {
+						actionableCategory = 'other';
+					} else if (codeSuggestionsCount > 0 && item.viewer.isAuthor) {
+						actionableCategory = 'code-suggestions';
+					}
+
+					const openRepository = await this.getMatchingOpenRepository(item, mappedRemotesPromise);
+					const suggestedActions = getSuggestedActions(
+						actionableCategory,
+						openRepository?.localBranch?.current ?? false,
+					);
+
+					return {
+						...item,
+						currentViewer: myAccount!,
+						codeSuggestionsCount: codeSuggestionsCount,
+						isNew: this.isItemNewInGroup(item, actionableCategory),
+						actionableCategory: actionableCategory,
+						suggestedActions: suggestedActions,
+						openRepository: openRepository,
+					};
+				}),
+			)) satisfies FocusItem[];
+
+			result = {
 				items: categorized,
 				timings: {
 					prs: prsWithSuggestionCounts?.prs?.duration,
@@ -716,9 +718,12 @@ export class FocusProvider implements Disposable {
 					enrichedItems: enrichedItems?.duration,
 				},
 			};
+			return result;
 		} finally {
-			this.updateGroupedIds(categorized);
-			this._onDidRefresh.fire(failedError ? { error: failedError } : { items: categorized });
+			if (result != null) {
+				this.updateGroupedIds(result.items ?? []);
+				this._onDidRefresh.fire(result);
+			}
 		}
 	}
 

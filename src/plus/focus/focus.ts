@@ -49,9 +49,9 @@ import {
 import type {
 	FocusAction,
 	FocusActionCategory,
+	FocusCategorizedResult,
 	FocusGroup,
 	FocusItem,
-	FocusItemsWithDurations,
 	FocusTargetAction,
 } from './focusProvider';
 import {
@@ -94,8 +94,7 @@ export interface FocusItemQuickPickItem extends QuickPickItemOfT<FocusItem> {
 }
 
 interface Context {
-	items: FocusItemsWithDurations;
-	itemsError?: Error;
+	result: FocusCategorizedResult;
 
 	title: string;
 	collapsed: Map<FocusGroup, boolean>;
@@ -200,15 +199,7 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		const context: Context = {
-			items: {
-				items: [],
-				timings: {
-					prs: undefined,
-					codeSuggestionCounts: undefined,
-					enrichedItems: undefined,
-				},
-			},
-			itemsError: undefined,
+			result: { items: [] },
 			title: this.title,
 			collapsed: collapsed,
 			telemetryContext: this.telemetryContext,
@@ -336,11 +327,11 @@ export class FocusCommand extends QuickCommand<State> {
 		context: Context,
 		{ picked, selectTopItem }: { picked?: string; selectTopItem?: boolean },
 	): StepResultGenerator<GroupedFocusItem> {
-		const getItems = (categorizedItems: FocusItemsWithDurations) => {
+		const getItems = (result: FocusCategorizedResult) => {
 			const items: (FocusItemQuickPickItem | DirectiveQuickPickItem)[] = [];
 
-			if (categorizedItems.items?.length) {
-				const uiGroups = groupAndSortFocusItems(categorizedItems.items);
+			if (result.items?.length) {
+				const uiGroups = groupAndSortFocusItems(result.items);
 				const topItem: FocusItem | undefined =
 					!selectTopItem || picked != null
 						? undefined
@@ -429,14 +420,14 @@ export class FocusCommand extends QuickCommand<State> {
 		};
 
 		function getItemsAndPlaceholder() {
-			if (context.itemsError != null) {
+			if (context.result.error != null) {
 				return {
-					placeholder: `Unable to load items (${String(context.itemsError)})`,
+					placeholder: `Unable to load items (${String(context.result.error)})`,
 					items: [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })],
 				};
 			}
 
-			if (!context.items.items.length) {
+			if (!context.result.items.length) {
 				return {
 					placeholder: 'All done! Take a vacation',
 					items: [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })],
@@ -445,7 +436,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 			return {
 				placeholder: 'Choose an item to focus on',
-				items: getItems(context.items),
+				items: getItems(context.result),
 			};
 		}
 
@@ -1012,15 +1003,7 @@ export class FocusCommand extends QuickCommand<State> {
 }
 
 async function updateContextItems(container: Container, context: Context, options?: { force?: boolean }) {
-	try {
-		context.items = await container.focus.getCategorizedItems(options);
-		context.itemsError = undefined;
-	} catch (ex) {
-		context.items = {
-			items: [],
-		};
-		context.itemsError = ex;
-	}
+	context.result = await container.focus.getCategorizedItems(options);
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
 	}
@@ -1029,20 +1012,28 @@ async function updateContextItems(container: Container, context: Context, option
 function updateTelemetryContext(context: Context) {
 	if (context.telemetryContext == null) return;
 
-	const grouped = countFocusItemGroups(context.items.items);
+	let updatedContext: NonNullable<(typeof context)['telemetryContext']>;
+	if (context.result.error != null) {
+		updatedContext = {
+			...context.telemetryContext,
+			'items.error': String(context.result.error),
+		};
+	} else {
+		const grouped = countFocusItemGroups(context.result.items);
 
-	const updatedContext: NonNullable<(typeof context)['telemetryContext']> = {
-		...context.telemetryContext,
-		'items.count': context.items.items.length,
-		'groups.count': grouped.size,
-		'items.timings.prs': context.items.timings?.prs,
-		'items.timings.codeSuggestionCounts': context.items.timings?.codeSuggestionCounts,
-		'items.timings.enrichedItems': context.items.timings?.enrichedItems,
-	};
+		updatedContext = {
+			...context.telemetryContext,
+			'items.count': context.result.items.length,
+			'items.timings.prs': context.result.timings?.prs,
+			'items.timings.codeSuggestionCounts': context.result.timings?.codeSuggestionCounts,
+			'items.timings.enrichedItems': context.result.timings?.enrichedItems,
+			'groups.count': grouped.size,
+		};
 
-	for (const [group, count] of grouped) {
-		updatedContext[`groups.${group}.count`] = count;
-		updatedContext[`groups.${group}.collapsed`] = context.collapsed.get(group);
+		for (const [group, count] of grouped) {
+			updatedContext[`groups.${group}.count`] = count;
+			updatedContext[`groups.${group}.collapsed`] = context.collapsed.get(group);
+		}
 	}
 
 	context.telemetryContext = updatedContext;

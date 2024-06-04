@@ -1471,16 +1471,19 @@ type LaunchpadEventDataBase = {
 };
 
 type LaunchpadEventData = LaunchpadEventDataBase &
-	Partial<
-		{
-			'items.count': number;
-			'groups.count': number;
-			'items.timings.prs': number;
-			'items.timings.codeSuggestionCounts': number;
-			'items.timings.enrichedItems': number;
-		} & Record<`groups.${LaunchpadGroups}.count`, number> &
-			Record<`groups.${LaunchpadGroups}.collapsed`, boolean | undefined>
-	>;
+	(
+		| Partial<{ 'items.error': string }>
+		| Partial<
+				{
+					'items.count': number;
+					'items.timings.prs': number;
+					'items.timings.codeSuggestionCounts': number;
+					'items.timings.enrichedItems': number;
+					'groups.count': number;
+				} & Record<`groups.${LaunchpadGroups}.count`, number> &
+					Record<`groups.${LaunchpadGroups}.collapsed`, boolean | undefined>
+		  >
+	);
 
 type LaunchpadGroups =
 	| 'current-branch'
