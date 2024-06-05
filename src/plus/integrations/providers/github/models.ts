@@ -91,13 +91,6 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 
 	baseRefName: string;
 	baseRefOid: string;
-	baseRepository: {
-		name: string;
-		owner: {
-			login: string;
-		};
-		url: string;
-	};
 
 	headRefName: string;
 	headRefOid: string;
@@ -119,6 +112,7 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 		owner: {
 			login: string;
 		};
+		url: string;
 		viewerPermission: GitHubViewerPermission;
 	};
 }
@@ -153,36 +147,25 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 		nodes: GitHubMember[];
 	};
 	checksUrl: string;
-	commits: {
-		nodes: {
-			commit: {
-				oid: string;
-				statusCheckRollup: {
-					state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | 'ERROR';
-				} | null;
-			};
-		}[];
-	};
 	deletions: number;
 	isDraft: boolean;
-	isReadByViewer: boolean;
+	mergeable: GitHubPullRequestMergeableState;
+	reviewDecision: GitHubPullRequestReviewDecision;
 	latestReviews: {
 		nodes: {
 			author: GitHubMember;
 			state: GitHubPullRequestReviewState;
 		}[];
 	};
-	mergeable: GitHubPullRequestMergeableState;
-	reactions: {
-		totalCount: number;
-	};
-	reviewDecision: GitHubPullRequestReviewDecision;
 	reviewRequests: {
 		nodes: {
 			asCodeOwner: boolean;
 			requestedReviewer: GitHubMember | null;
 		}[];
 	};
+	statusCheckRollup: {
+		state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | 'ERROR';
+	} | null;
 	totalCommentsCount: number;
 	viewerCanUpdate: boolean;
 }
@@ -221,12 +204,12 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 				url: pr.headRepository?.url,
 			},
 			base: {
-				exists: pr.baseRepository != null,
-				owner: pr.baseRepository?.owner.login,
-				repo: pr.baseRepository?.name,
+				exists: pr.repository != null,
+				owner: pr.repository?.owner.login,
+				repo: pr.repository?.name,
 				sha: pr.baseRefOid,
 				branch: pr.baseRefName,
-				url: pr.baseRepository?.url,
+				url: pr.repository?.url,
 			},
 			isCrossRepository: pr.isCrossRepository,
 		},
@@ -359,12 +342,12 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 				url: pr.headRepository?.url,
 			},
 			base: {
-				exists: pr.baseRepository != null,
-				owner: pr.baseRepository?.owner.login,
-				repo: pr.baseRepository?.name,
+				exists: pr.repository != null,
+				owner: pr.repository?.owner.login,
+				repo: pr.repository?.name,
 				sha: pr.baseRefOid,
 				branch: pr.baseRefName,
-				url: pr.baseRepository?.url,
+				url: pr.repository?.url,
 			},
 			isCrossRepository: pr.isCrossRepository,
 		},
@@ -372,7 +355,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 		pr.additions,
 		pr.deletions,
 		pr.totalCommentsCount,
-		pr.reactions.totalCount,
+		0, //pr.reactions.totalCount,
 		fromGitHubPullRequestReviewDecision(pr.reviewDecision),
 		pr.reviewRequests.nodes
 			.map(r =>
@@ -402,7 +385,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 			avatarUrl: r.avatarUrl,
 			url: r.url,
 		})),
-		fromGitHubPullRequestStatusCheckRollupState(pr.commits.nodes[0].commit.statusCheckRollup?.state),
+		fromGitHubPullRequestStatusCheckRollupState(pr.statusCheckRollup?.state),
 	);
 }
 
