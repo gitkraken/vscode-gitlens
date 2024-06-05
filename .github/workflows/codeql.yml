@@ -1,70 +1,65 @@
-# For most projects, this workflow file will not need changing; you simply need
-# to commit it to your repository.
-#
-# You may wish to alter this file to override the set of languages analyzed,
-# or to provide custom queries or build logic.
-#
-# ******** NOTE ********
-# We have attempted to detect the languages in your repository. Please check
-# the `language` matrix defined below to confirm you have the correct set of
-# supported CodeQL languages.
-#
-name: 'CodeQL'
+2024-06-05 04:54.27: New job: test ocaml-ppx/ocamlformat https://github.com/ocaml-ppx/ocamlformat.git#refs/heads/main (c43f89bc0ebd536009151814214320bdf3988c50) (macos-x86_64:macos-homebrew-4.14_opam-2.1)
+Base: macos-homebrew-ocaml-4.14
+Opam project build
 
-on:
-    push:
-        branches: [main]
-    pull_request:
-        # The branches below must be a subset of the branches above
-    #    branches: [ main ]
-    schedule:
-        - cron: '43 22 * * 0'
+To reproduce locally:
 
-jobs:
-    analyze:
-        name: Analyze
-        runs-on: ubuntu-latest
-        permissions:
-            actions: read
-            contents: read
-            security-events: write
+git clone --recursive "https://github.com/ocaml-ppx/ocamlformat.git" -b "main" && cd "ocamlformat" && git reset --hard c43f89bc
+cat > Dockerfile <<'END-OF-DOCKERFILE'
+FROM macos-homebrew-ocaml-4.14
+# macos-homebrew-4.14_opam-2.1
+USER 1000:1000
+ENV CLICOLOR_FORCE="1"
+ENV OPAMCOLOR="always"
+RUN ln -f ~/local/bin/opam-2.1 ~/local/bin/opam
+RUN opam init --reinit -ni
+RUN uname -rs && opam exec -- ocaml -version && opam --version
+RUN cd ~/opam-repository && (git cat-file -e 8ef40396ae0c954412b6251c5dc95dc911be845b || git fetch origin master) && git reset -q --hard 8ef40396ae0c954412b6251c5dc95dc911be845b && git log --no-decorate -n1 --oneline && opam update -u
+COPY --chown=1000:1000 ocamlformat.opam ocamlformat-rpc-lib.opam ocamlformat-lib.opam ocamlformat-bench.opam ./src/./
+RUN opam pin add -yn ocamlformat.dev './src/./' && \
+    opam pin add -yn ocamlformat-rpc-lib.dev './src/./' && \
+    opam pin add -yn ocamlformat-lib.dev './src/./' && \
+    opam pin add -yn ocamlformat-bench.dev './src/./'
+ENV DEPS="alcotest.1.7.0 astring.0.8.5 base.v0.16.3 base-bigarray.base base-bytes.base base-threads.base base-unix.base bechamel.0.5.0 camlp-streams.5.0.1 cmdliner.1.3.0 conf-bash.1 csexp.1.5.2 dune.3.15.3 dune-build-info.3.15.3 dune-configurator.3.15.3 either.1.0.0 fix.20230505 fmt.0.9.0 fpath.0.7.3 menhir.20231231 menhirCST.20231231 menhirLib.20231231 menhirSdk.20231231 ocaml.4.14.2 ocaml-base-compiler.4.14.2 ocaml-config.2 ocaml-options-vanilla.1 ocaml-syntax-shims.1.0.0 ocaml-version.3.6.7 ocamlbuild.0.14.3 ocamlfind.1.9.6 ocp-indent.1.8.1 re.1.11.0 seq.base sexplib0.v0.16.0 stdio.v0.16.0 stdlib-shims.0.3.0 topkg.1.0.7 uucp.15.1.0 uuseg.15.1.0 uutf.1.0.3 yojson.2.2.0"
+ENV CI="true"
+ENV OCAMLCI="true"
+RUN opam update --depexts && opam install --cli=2.1 --depext-only -y ocamlformat.dev ocamlformat-rpc-lib.dev ocamlformat-lib.dev ocamlformat-bench.dev $DEPS
+RUN opam install $DEPS
+COPY --chown=1000:1000 . ./src
+RUN cd ./src && opam exec -- dune build @install @check @runtest && rm -rf _build
 
-        strategy:
-            fail-fast: false
-            matrix:
-                language: ['javascript']
-                # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python', 'ruby' ]
-                # Learn more about CodeQL language support at https://git.io/codeql-language-support
+END-OF-DOCKERFILE
+docker build .
+END-REPRO-BLOCK
 
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v3
-
-            # Initializes the CodeQL tools for scanning.
-            - name: Initialize CodeQL
-              uses: github/codeql-action/init@v2
-              with:
-                  languages: ${{ matrix.language }}
-                  # If you wish to specify custom queries, you can do so here or in a config file.
-                  # By default, queries listed here will override any specified in a config file.
-                  # Prefix the list here with "+" to use these queries and those in the config file.
-                  # queries: ./path/to/local/query, your-org/your-repo/queries@main
-
-            # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
-            # If this step fails, then you should remove it and run the build manually (see below)
-            #    - name: Autobuild
-            #      uses: github/codeql-action/autobuild@v2
-
-            # ℹ️ Command-line programs to run using the OS shell.
-            # 📚 https://git.io/JvXDl
-
-            # ✏️ If the Autobuild fails above, remove it and uncomment the following three lines
-            #    and modify them (or add more) to build your code if your project
-            #    uses a compiled language
-
-            #- run: |
-            #   make bootstrap
-            #   make release
-
-            - name: Perform CodeQL Analysis
-              uses: github/codeql-action/analyze@v2
+2024-06-05 04:54.27: Using cache hint "ocaml-ppx/ocamlformat-macos-macos-homebrew-ocaml-4.14-macos-homebrew-4.14_opam-2.1-8b4df0687efda41e1a9c70f59c1041fe"
+2024-06-05 04:54.27: Using OBuilder spec:
+((from macos-homebrew-ocaml-4.14)
+ (comment macos-homebrew-4.14_opam-2.1)
+ (user (uid 1000) (gid 1000))
+ (env CLICOLOR_FORCE 1)
+ (env OPAMCOLOR always)
+ (run (shell "ln -f ~/local/bin/opam-2.1 ~/local/bin/opam"))
+ (run (shell "opam init --reinit -ni"))
+ (run (shell "uname -rs && opam exec -- ocaml -version && opam --version"))
+ (run (cache (opam-archives (target /Users/mac1000/.opam/download-cache)) (homebrew (target /Users/mac1000/Library/Caches/Homebrew)))
+      (network host)
+      (shell "cd ~/opam-repository && (git cat-file -e 8ef40396ae0c954412b6251c5dc95dc911be845b || git fetch origin master) && git reset -q --hard 8ef40396ae0c954412b6251c5dc95dc911be845b && git log --no-decorate -n1 --oneline && opam update -u"))
+ (copy (src ocamlformat.opam ocamlformat-rpc-lib.opam ocamlformat-lib.opam ocamlformat-bench.opam)
+       (dst ./src/./))
+ (run (network host)
+      (shell  "opam pin add -yn ocamlformat.dev './src/./' && \
+             \nopam pin add -yn ocamlformat-rpc-lib.dev './src/./' && \
+             \nopam pin add -yn ocamlformat-lib.dev './src/./' && \
+             \nopam pin add -yn ocamlformat-bench.dev './src/./'"))
+ (env DEPS "alcotest.1.7.0 astring.0.8.5 base.v0.16.3 base-bigarray.base base-bytes.base base-threads.base base-unix.base bechamel.0.5.0 camlp-streams.5.0.1 cmdliner.1.3.0 conf-bash.1 csexp.1.5.2 dune.3.15.3 dune-build-info.3.15.3 dune-configurator.3.15.3 either.1.0.0 fix.20230505 fmt.0.9.0 fpath.0.7.3 menhir.20231231 menhirCST.20231231 menhirLib.20231231 menhirSdk.20231231 ocaml.4.14.2 ocaml-base-compiler.4.14.2 ocaml-config.2 ocaml-options-vanilla.1 ocaml-syntax-shims.1.0.0 ocaml-version.3.6.7 ocamlbuild.0.14.3 ocamlfind.1.9.6 ocp-indent.1.8.1 re.1.11.0 seq.base sexplib0.v0.16.0 stdio.v0.16.0 stdlib-shims.0.3.0 topkg.1.0.7 uucp.15.1.0 uuseg.15.1.0 uutf.1.0.3 yojson.2.2.0")
+ (env CI true)
+ (env OCAMLCI true)
+ (run (cache (opam-archives (target /Users/mac1000/.opam/download-cache)) (homebrew (target /Users/mac1000/Library/Caches/Homebrew)))
+      (network host)
+      (shell "opam update --depexts && opam install --cli=2.1 --depext-only -y ocamlformat.dev ocamlformat-rpc-lib.dev ocamlformat-lib.dev ocamlformat-bench.dev $DEPS"))
+ (run (cache (opam-archives (target /Users/mac1000/.opam/download-cache)) (homebrew (target /Users/mac1000/Library/Caches/Homebrew)))
+      (network host)
+      (shell "opam install $DEPS"))
+ (copy (src .) (dst ./src))
+ (run (shell "cd ./src && opam exec -- dune build @install @check @runtest && rm -rf _build"))
