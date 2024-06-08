@@ -179,6 +179,7 @@ export interface GraphComponentConfig {
 	minimap?: boolean;
 	minimapDataType?: Config['graph']['minimap']['dataType'];
 	minimapMarkerTypes?: GraphMinimapMarkerTypes[];
+	onlyFollowFirstParent?: boolean;
 	scrollMarkerTypes?: GraphScrollMarkerTypes[];
 	scrollRowPadding?: number;
 	showGhostRefsOnRowHover?: boolean;
@@ -261,11 +262,6 @@ export interface UpdateColumnsParams {
 	config: GraphColumnsConfig;
 }
 export const UpdateColumnsCommand = new IpcCommand<UpdateColumnsParams>(scope, 'columns/update');
-
-export interface UpdateDimMergeCommitsParams {
-	dim: boolean;
-}
-export const UpdateDimMergeCommitsCommand = new IpcCommand<UpdateDimMergeCommitsParams>(scope, 'dimMergeCommits');
 
 export interface UpdateRefsVisibilityParams {
 	refs: GraphExcludedRef[];

@@ -81,7 +81,6 @@ export interface GraphWrapperProps {
 	subscriber: (callback: UpdateStateCallback) => () => void;
 	onChooseRepository?: () => void;
 	onColumnsChange?: (colsSettings: GraphColumnsConfig) => void;
-	onDimMergeCommits?: (dim: boolean) => void;
 	onDoubleClickRef?: (ref: GraphRef, metadata?: GraphRefMetadataItem) => void;
 	onDoubleClickRow?: (row: GraphRow, preserveFocus?: boolean) => void;
 	onMissingAvatars?: (emails: Record<string, string>) => void;
@@ -204,7 +203,6 @@ export function GraphWrapper({
 	state,
 	onChooseRepository,
 	onColumnsChange,
-	onDimMergeCommits,
 	onDoubleClickRef,
 	onDoubleClickRow,
 	onEnsureRowPromise,
@@ -503,10 +501,11 @@ export function GraphWrapper({
 	}, [includeOnlyRefsById]);
 
 	const hasFilters = useMemo(() => {
-		if (!isAllBranches) return true;
+		if (!isAllBranches || graphConfig?.onlyFollowFirstParent) return true;
 		if (excludeTypes == null) return false;
+
 		return Object.values(excludeTypes).includes(true);
-	}, [excludeTypes, isAllBranches, graphConfig?.dimMergeCommits]);
+	}, [excludeTypes, isAllBranches, graphConfig?.onlyFollowFirstParent]);
 
 	const hasSpecialFilters = useMemo(() => {
 		return !isAllBranches;
@@ -651,15 +650,27 @@ export function GraphWrapper({
 		onChooseRepository?.();
 	};
 
-	const handleExcludeTypeChange = (e: Event | FormEvent<HTMLElement>) => {
+	const handleFilterChange = (e: Event | FormEvent<HTMLElement>) => {
 		const $el = e.target as HTMLInputElement;
 
 		const value = $el.value;
-		const isLocalBranches = ['branch-all', 'branch-current'].includes(value);
-		if (!isLocalBranches && !['remotes', 'stashes', 'tags', 'mergeCommits'].includes(value)) return;
 		const isChecked = $el.checked;
-		if (value === 'mergeCommits') {
-			onDimMergeCommits?.(isChecked);
+
+		switch (value) {
+			case 'mergeCommits':
+				onUpdateGraphConfiguration?.({ dimMergeCommits: isChecked });
+				return;
+
+			case 'onlyFollowFirstParent':
+				onUpdateGraphConfiguration?.({ onlyFollowFirstParent: isChecked });
+				return;
+		}
+
+		const isLocalBranches = ['branch-all', 'branch-current'].includes(value);
+		if (
+			!isLocalBranches &&
+			!['remotes', 'stashes', 'tags', 'mergeCommits', 'onlyFollowFirstParent'].includes(value)
+		) {
 			return;
 		}
 
@@ -1217,7 +1228,7 @@ export function GraphWrapper({
 												<MenuItem role="none">
 													<VSCodeCheckbox
 														value="remotes"
-														onChange={handleExcludeTypeChange}
+														onChange={handleFilterChange}
 														defaultChecked={excludeTypes?.remotes ?? false}
 													>
 														Hide Remote-only Branches
@@ -1226,7 +1237,7 @@ export function GraphWrapper({
 												<MenuItem role="none">
 													<VSCodeCheckbox
 														value="stashes"
-														onChange={handleExcludeTypeChange}
+														onChange={handleFilterChange}
 														defaultChecked={excludeTypes?.stashes ?? false}
 													>
 														Hide Stashes
@@ -1237,17 +1248,33 @@ export function GraphWrapper({
 										<MenuItem role="none">
 											<VSCodeCheckbox
 												value="tags"
-												onChange={handleExcludeTypeChange}
+												onChange={handleFilterChange}
 												defaultChecked={excludeTypes?.tags ?? false}
 											>
 												Hide Tags
 											</VSCodeCheckbox>
 										</MenuItem>
 										<MenuDivider></MenuDivider>
+										{repo?.isVirtual !== true && (
+											<MenuItem role="none">
+												<GlTooltip
+													placement="right"
+													content="Only follow the first parent of merge commits to provide a more linear history"
+												>
+													<VSCodeCheckbox
+														value="onlyFollowFirstParent"
+														onChange={handleFilterChange}
+														defaultChecked={graphConfig?.onlyFollowFirstParent ?? false}
+													>
+														Simplify Merge History
+													</VSCodeCheckbox>
+												</GlTooltip>
+											</MenuItem>
+										)}
 										<MenuItem role="none">
 											<VSCodeCheckbox
 												value="mergeCommits"
-												onChange={handleExcludeTypeChange}
+												onChange={handleFilterChange}
 												defaultChecked={graphConfig?.dimMergeCommits ?? false}
 											>
 												Dim Merge Commit Rows

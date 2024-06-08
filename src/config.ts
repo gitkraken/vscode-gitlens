@@ -377,27 +377,28 @@ export interface GraphConfig {
 	readonly dateStyle: DateStyle | null;
 	readonly defaultItemLimit: number;
 	readonly dimMergeCommits: boolean;
+	readonly highlightRowsOnRefHover: boolean;
+	readonly layout: 'editor' | 'panel';
 	readonly minimap: {
 		readonly enabled: boolean;
 		readonly dataType: 'commits' | 'lines';
 		readonly additionalTypes: GraphMinimapMarkersAdditionalTypes[];
 	};
-	readonly highlightRowsOnRefHover: boolean;
-	readonly layout: 'editor' | 'panel';
-	readonly scrollRowPadding: number;
-	readonly showDetailsView: 'open' | 'selection' | false;
-	readonly showGhostRefsOnRowHover: boolean;
+	readonly onlyFollowFirstParent: boolean;
+	readonly pageItemLimit: number;
+	readonly pullRequests: {
+		readonly enabled: boolean;
+	};
 	readonly scrollMarkers: {
 		readonly enabled: boolean;
 		readonly additionalTypes: GraphScrollMarkersAdditionalTypes[];
 	};
-	readonly pullRequests: {
-		readonly enabled: boolean;
-	};
+	readonly scrollRowPadding: number;
+	readonly searchItemLimit: number;
+	readonly showDetailsView: 'open' | 'selection' | false;
+	readonly showGhostRefsOnRowHover: boolean;
 	readonly showRemoteNames: boolean;
 	readonly showUpstreamStatus: boolean;
-	readonly pageItemLimit: number;
-	readonly searchItemLimit: number;
 	readonly statusBar: {
 		readonly enabled: boolean;
 	};
