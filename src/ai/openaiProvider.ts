@@ -281,12 +281,12 @@ Do not make any assumptions or invent details that are not supported by the code
 			if (!rsp.ok) {
 				if (rsp.status === 404) {
 					throw new Error(
-						`Unable to explain commit: Your API key doesn't seem to have access to the selected '${model.id}' model`,
+						`Unable to explain changes: Your API key doesn't seem to have access to the selected '${model.id}' model`,
 					);
 				}
 				if (rsp.status === 429) {
 					throw new Error(
-						`Unable to explain commit: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
+						`Unable to explain changes: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
 					);
 				}
 
@@ -303,7 +303,7 @@ Do not make any assumptions or invent details that are not supported by the code
 				}
 
 				throw new Error(
-					`Unable to explain commit: (${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText}`,
+					`Unable to explain changes: (${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText}`,
 				);
 			}
 

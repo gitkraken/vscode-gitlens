@@ -195,7 +195,7 @@ Do not make any assumptions or invent details that are not supported by the code
 				// }
 
 				throw new Error(
-					`Unable to explain commit: (${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText}`,
+					`Unable to explain changes: (${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText}`,
 				);
 			}
 
