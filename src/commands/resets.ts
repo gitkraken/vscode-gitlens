@@ -13,7 +13,7 @@ export class ResetAIKeyCommand extends Command {
 	}
 
 	async execute() {
-		(await this.container.ai)?.reset();
+		await (await this.container.ai)?.reset();
 	}
 }
 
