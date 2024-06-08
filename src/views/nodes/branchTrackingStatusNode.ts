@@ -96,7 +96,7 @@ export class BranchTrackingStatusNode
 		}
 
 		const children = await this.getChildren();
-		const node = children.find(c => c.is('tracking-status-files')) as BranchTrackingStatusFilesNode | undefined;
+		const node = children.find(c => c.is('tracking-status-files'));
 		return node?.getFilesComparison();
 	}
 

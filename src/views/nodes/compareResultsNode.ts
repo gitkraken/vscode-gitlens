@@ -245,7 +245,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 
 	async getFilesComparison(): Promise<FilesComparison | undefined> {
 		const children = await this.getChildren();
-		const node = children.find(c => c.is('results-files')) as ResultsFilesNode | undefined;
+		const node = children.find(c => c.is('results-files'));
 		return node?.getFilesComparison();
 	}
 
