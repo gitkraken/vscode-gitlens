@@ -77,7 +77,7 @@ export class AIProviderService implements Disposable {
 		this._provider?.dispose();
 	}
 
-	get providerId() {
+	get currentProviderId() {
 		return this._provider?.id;
 	}
 
@@ -108,12 +108,14 @@ export class AIProviderService implements Disposable {
 		return models.flatMap(m => getSettledValue(m, []));
 	}
 
-	private async getOrChooseModel(force?: boolean): Promise<AIModel | undefined> {
+	private async getModel(options?: { force?: boolean; silent?: boolean }): Promise<AIModel | undefined> {
 		const cfg = this.getConfiguredModel();
-		if (!force && cfg?.provider != null && cfg?.model != null) {
+		if (!options?.force && cfg?.provider != null && cfg?.model != null) {
 			const model = await this.getOrUpdateModel(cfg.provider, cfg.model);
 			if (model != null) return model;
 		}
+
+		if (options?.silent) return undefined;
 
 		const pick = await showAIModelPicker(this.container, cfg);
 		if (pick == null) return undefined;
@@ -221,7 +223,7 @@ export class AIProviderService implements Disposable {
 			changes = diff.contents;
 		}
 
-		const model = await this.getOrChooseModel();
+		const model = await this.getModel();
 		if (model == null) return undefined;
 
 		const provider = this._provider!;
@@ -276,7 +278,7 @@ export class AIProviderService implements Disposable {
 		const diff = await this.container.git.getDiff(commit.repoPath, commit.sha);
 		if (!diff?.contents) throw new Error('No changes found to explain.');
 
-		const model = await this.getOrChooseModel();
+		const model = await this.getModel();
 		if (model == null) return undefined;
 
 		const provider = this._provider!;
@@ -301,14 +303,56 @@ export class AIProviderService implements Disposable {
 		});
 	}
 
-	reset() {
-		const { providerId } = this;
-		if (providerId == null) return;
+	async reset() {
+		let { _provider: provider } = this;
+		if (provider == null) {
+			// If we have no provider, try to get the current model (which will load the provider)
+			await this.getModel({ silent: true });
+			provider = this._provider;
+		}
 
-		void this.container.storage.deleteSecret(`gitlens.${providerId}.key`);
+		const resetCurrent: MessageItem = { title: `Reset Current` };
+		const resetAll: MessageItem = { title: 'Reset All' };
+		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 
-		void this.container.storage.delete(`confirm:ai:tos:${providerId}`);
-		void this.container.storage.deleteWorkspace(`confirm:ai:tos:${providerId}`);
+		let result;
+		if (provider == null) {
+			result = await window.showInformationMessage(
+				`Do you want to reset all of the stored AI keys?`,
+				{ modal: true },
+				resetAll,
+				cancel,
+			);
+		} else {
+			result = await window.showInformationMessage(
+				`Do you want to reset the stored key for the current provider (${provider.name}) or reset all of the stored AI keys?`,
+				{ modal: true },
+				resetCurrent,
+				resetAll,
+				cancel,
+			);
+		}
+
+		if (provider != null && result === resetCurrent) {
+			void env.clipboard.writeText((await this.container.storage.getSecret(`gitlens.${provider.id}.key`)) ?? '');
+			void this.container.storage.deleteSecret(`gitlens.${provider.id}.key`);
+
+			void this.container.storage.delete(`confirm:ai:tos:${provider.id}`);
+			void this.container.storage.deleteWorkspace(`confirm:ai:tos:${provider.id}`);
+		} else if (result === resetAll) {
+			const keys = [];
+			for (const [providerId] of _supportedProviderTypes) {
+				keys.push(await this.container.storage.getSecret(`gitlens.${providerId}.key`));
+			}
+			void env.clipboard.writeText(keys.join('\n'));
+
+			for (const [providerId] of _supportedProviderTypes) {
+				void this.container.storage.deleteSecret(`gitlens.${providerId}.key`);
+			}
+
+			void this.container.storage.deleteWithPrefix(`confirm:ai:tos`);
+			void this.container.storage.deleteWorkspaceWithPrefix(`confirm:ai:tos`);
+		}
 	}
 
 	supports(provider: AIProviders | string) {
@@ -316,7 +360,7 @@ export class AIProviderService implements Disposable {
 	}
 
 	async switchModel() {
-		void (await this.getOrChooseModel(true));
+		void (await this.getModel({ force: true }));
 	}
 }
 
