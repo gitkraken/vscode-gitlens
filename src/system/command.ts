@@ -54,9 +54,7 @@ export function registerWebviewCommand(command: string, callback: CommandCallbac
 }
 
 export function registerCommands(container: Container): Disposable[] {
-	return registrableCommands.map(c =>
-		c.name === 'FocusCommand' ? new c(container, undefined, true) : new c(container),
-	);
+	return registrableCommands.map(c => new c(container));
 }
 
 export function asCommand<T extends unknown[]>(

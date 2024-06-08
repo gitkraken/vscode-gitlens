@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "15.0.4",
+	"version": "15.1.0",
 	"engines": {
 		"vscode": "^1.82.0"
 	},
@@ -3060,6 +3060,20 @@
 						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Launchpad_ as an editor tab",
 						"scope": "window",
 						"order": 1000
+					},
+					"gitlens.launchpad.experimental.queryLimit": {
+						"type": "number",
+						"default": 100,
+						"markdownDescription": "Specifies an experimental limit on the number of pull requests to be queried in the _Launchpad_",
+						"scope": "window",
+						"order": 1100
+					},
+					"gitlens.launchpad.experimental.queryUseInvolvesFilter": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies an experimental flag whether to use the `involves` filter in the GraphQL query for _Launchpad_",
+						"scope": "window",
+						"order": 1110
 					}
 				}
 			},

@@ -109,7 +109,10 @@ export class PickCommandStep implements QuickPickStep<QuickCommand> {
 			}
 		}
 
-		this.hiddenItems = [new FocusCommand(container, args?.command === 'focus' ? args : undefined, true)];
+		this.hiddenItems = [];
+		if (args?.command === 'focus') {
+			this.hiddenItems.push(new FocusCommand(container, args));
+		}
 	}
 
 	private _command: QuickCommand | undefined;

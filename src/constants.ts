@@ -934,6 +934,7 @@ export type GlobalStorage = {
 	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
+	'launchpad:groups:collapsed': StoredFocusGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
@@ -1152,6 +1153,18 @@ export type WalkthroughSteps =
 	| 'integrations'
 	| 'more';
 
+export type StoredFocusGroup =
+	| 'current-branch'
+	| 'pinned'
+	| 'mergeable'
+	| 'blocked'
+	| 'follow-up'
+	| 'needs-review'
+	| 'waiting-for-review'
+	| 'draft'
+	| 'other'
+	| 'snoozed';
+
 export type TelemetryGlobalContext = {
 	debugging: boolean;
 	enabled: boolean;
@@ -1268,6 +1281,11 @@ export type TelemetryEvents = {
 	'command/core': { command: string };
 
 	/** Sent when the user takes an action on a launchpad item */
+	'launchpad/title/action': LaunchpadEventData & {
+		action: 'feedback' | 'open-in-editor' | 'refresh' | 'settings';
+	};
+
+	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/action': LaunchpadEventData & {
 		action:
 			| 'open'
@@ -1323,9 +1341,15 @@ export type TelemetryEvents = {
 		action: 'select';
 	} & Partial<Record<`item.${string}`, string | number | boolean>>;
 	/** Sent when the user hides the launchpad indicator */
-	'launchpad/indicator/hidden': TelemetryEventData;
+	'launchpad/indicator/hidden': void;
 	/** Sent when the launchpad indicator loads (with data) for the first time ever for this device */
-	'launchpad/indicator/firstLoad': TelemetryEventData;
+	'launchpad/indicator/firstLoad': void;
+	/** Sent when a launchpad operation is taking longer than a set timeout to complete */
+	'launchpad/operation/slow': {
+		timeout: number;
+		operation: 'getMyPullRequests' | 'getCodeSuggestions' | 'getEnrichedItems' | 'getCodeSuggestionCounts';
+		duration: number;
+	};
 
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: {
@@ -1339,7 +1363,7 @@ export type TelemetryEvents = {
 	};
 
 	/** Sent when the "context" of the workspace changes (e.g. repo added, integration connected, etc) */
-	'providers/context': TelemetryEventData;
+	'providers/context': void;
 
 	/** Sent when we've loaded all the git providers and their repositories */
 	'providers/registrationComplete': {
@@ -1447,13 +1471,19 @@ type LaunchpadEventDataBase = {
 };
 
 type LaunchpadEventData = LaunchpadEventDataBase &
-	Partial<
-		{
-			'items.count': number;
-			'groups.count': number;
-		} & Record<`groups.${LaunchpadGroups}.count`, number> &
-			Record<`groups.${LaunchpadGroups}.collapsed`, boolean | undefined>
-	>;
+	(
+		| Partial<{ 'items.error': string }>
+		| Partial<
+				{
+					'items.count': number;
+					'items.timings.prs': number;
+					'items.timings.codeSuggestionCounts': number;
+					'items.timings.enrichedItems': number;
+					'groups.count': number;
+				} & Record<`groups.${LaunchpadGroups}.count`, number> &
+					Record<`groups.${LaunchpadGroups}.collapsed`, boolean | undefined>
+		  >
+	);
 
 type LaunchpadGroups =
 	| 'current-branch'

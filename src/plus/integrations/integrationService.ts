@@ -8,7 +8,7 @@ import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { RemoteProvider, RemoteProviderId } from '../../git/remotes/remoteProvider';
 import { configuration } from '../../system/configuration';
-import { debug } from '../../system/decorators/log';
+import { debug, log } from '../../system/decorators/log';
 import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
@@ -19,6 +19,7 @@ import type {
 	Integration,
 	IntegrationBase,
 	IntegrationKey,
+	IntegrationResult,
 	IntegrationType,
 	IssueIntegration,
 	ResourceDescriptor,
@@ -331,6 +332,9 @@ export class IntegrationService implements Disposable {
 		return [...this._integrations.values()].filter(p => p.maybeConnected && p.type === type);
 	}
 
+	@log<IntegrationService['getMyIssues']>({
+		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
+	})
 	async getMyIssues(
 		integrationIds?: HostingIntegrationId[],
 		cancellation?: CancellationToken,
@@ -400,10 +404,13 @@ export class IntegrationService implements Disposable {
 		return this.getMyIssuesCore(integrations);
 	}
 
+	@log<IntegrationService['getMyPullRequests']>({
+		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
+	})
 	async getMyPullRequests(
 		integrationIds?: HostingIntegrationId[],
 		cancellation?: CancellationToken,
-	): Promise<SearchedPullRequest[] | undefined> {
+	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>> {
 		const integrations: Map<HostingIntegration, ResourceDescriptor[] | undefined> = new Map();
 		for (const integrationId of integrationIds?.length ? integrationIds : Object.values(HostingIntegrationId)) {
 			const integration = await this.get(integrationId);
@@ -419,8 +426,10 @@ export class IntegrationService implements Disposable {
 	private async getMyPullRequestsCore(
 		integrations: Map<HostingIntegration, ResourceDescriptor[] | undefined>,
 		cancellation?: CancellationToken,
-	): Promise<SearchedPullRequest[] | undefined> {
-		const promises: Promise<SearchedPullRequest[] | undefined>[] = [];
+	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>> {
+		const start = Date.now();
+
+		const promises: Promise<IntegrationResult<SearchedPullRequest[] | undefined>>[] = [];
 		for (const [integration, repos] of integrations) {
 			if (integration == null) continue;
 
@@ -428,17 +437,43 @@ export class IntegrationService implements Disposable {
 		}
 
 		const results = await Promise.allSettled(promises);
-		return [...flatten(filterMap(results, r => (r.status === 'fulfilled' ? r.value : undefined)))];
+
+		const errors = [
+			...filterMap(results, r =>
+				r.status === 'fulfilled' && r.value?.error != null ? r.value.error : undefined,
+			),
+		];
+		if (errors.length) {
+			return {
+				error: errors.length === 1 ? errors[0] : new AggregateError(errors),
+				duration: Date.now() - start,
+			};
+		}
+
+		return {
+			value: [
+				...flatten(
+					filterMap(results, r =>
+						r.status === 'fulfilled' && r.value != null && r.value?.error == null
+							? r.value.value
+							: undefined,
+					),
+				),
+			],
+			duration: Date.now() - start,
+		};
 	}
 
-	async getMyPullRequestsForRemotes(remote: GitRemote): Promise<SearchedPullRequest[] | undefined>;
-	async getMyPullRequestsForRemotes(remotes: GitRemote[]): Promise<SearchedPullRequest[] | undefined>;
+	async getMyPullRequestsForRemotes(remote: GitRemote): Promise<IntegrationResult<SearchedPullRequest[] | undefined>>;
+	async getMyPullRequestsForRemotes(
+		remotes: GitRemote[],
+	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>>;
 	@debug<IntegrationService['getMyPullRequestsForRemotes']>({
 		args: { 0: (r: GitRemote | GitRemote[]) => (Array.isArray(r) ? r.map(rp => rp.name) : r.name) },
 	})
 	async getMyPullRequestsForRemotes(
 		remoteOrRemotes: GitRemote | GitRemote[],
-	): Promise<SearchedPullRequest[] | undefined> {
+	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>> {
 		if (!Array.isArray(remoteOrRemotes)) {
 			remoteOrRemotes = [remoteOrRemotes];
 		}

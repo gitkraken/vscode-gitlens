@@ -10,13 +10,13 @@ import type { ProviderReference } from '../git/models/remoteProvider';
 import type { ResourceDescriptor } from '../plus/integrations/integration';
 import type { IntegrationId } from '../plus/integrations/providers/models';
 import { IssueIntegrationId } from '../plus/integrations/providers/models';
-import type { MaybePausedResult } from '../system/cancellation';
 import { configuration } from '../system/configuration';
 import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';
 import { encodeUrl } from '../system/encoding';
 import { join, map } from '../system/iterable';
 import { Logger } from '../system/logger';
+import type { MaybePausedResult } from '../system/promise';
 import { capitalize, encodeHtmlWeak, escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
