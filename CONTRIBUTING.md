@@ -191,7 +191,14 @@ GitLens version changes are bucketed into two types:
 
 #### Preparing a Normal Release
 
-Use the [prep-release](scripts/prep-release.js) script to prepare a new release. The script updates the [package.json](package.json) and [CHANGELOG.md](CHANGELOG.md) appropriately, commits the changes as `Bumps to v{major}.{minor}.{patch}`, and creates a `v{major}.{minor}.{patch}` tag which when pushed will trigger the CI to publish a release.
+Before publishing a new release, do the following:
+
+1. Create a GitHub milestone for any potential patch releases, named `{major}.{minor}-patch` with a description of `Work intended for any patch releases before the {major}.{minor} release`
+2. Create a GitHub milestone for the next release, `{major}.{minor+1}` with a description of `Work intended for the {release-month} {release-year} release` and a set the appropriate due date
+3. Ensure all items in the `{major}.{minor}` GitHub milestone are closed and verified or moved into one of the above milestones
+4. Close the `{major}.{minor}` and `{major}.{minor-1}-patch` GitHub milestones
+
+Then, use the [prep-release](scripts/prep-release.js) script to prepare a new release. The script updates the [package.json](package.json) and [CHANGELOG.md](CHANGELOG.md) appropriately, commits the changes as `Bumps to v{major}.{minor}.{patch}`, and creates a `v{major}.{minor}.{patch}` tag which when pushed will trigger the CI to publish a release.
 
 1. Ensure you are on the `main` branch and have a clean working tree
 2. Ensure the [CHANGELOG.md](CHANGELOG.md) has been updated with the release notes
@@ -205,10 +212,13 @@ If the action fails and retries are unsuccessful, the VSIX can be built locally 
 
 #### Preparing a Patch Release
 
-1. Create, if needed, a `release/{major}.{minor}` branch from the latest `v{major}.{minor}.{patch}` tag
-2. Cherry-pick the desired commits from `main` into the `release/{major}.{minor}` branch
-3. Follow steps 2-5 in [Preparing a Normal Release](#preparing-a-normal-release) above
-4. Manually update the [CHANGELOG.md](CHANGELOG.md) on `main` with the patch release notes
+Before publishing a new release, do the following:
+
+1. Ensure all items in the `{major}.{minor}-patch` GitHub milestone are closed and verified
+2. Create, if needed, a `release/{major}.{minor}` branch from the latest `v{major}.{minor}.{patch}` tag
+3. Cherry-pick the desired commits from `main` into the `release/{major}.{minor}` branch
+4. Follow steps 2-5 in [Preparing a Normal Release](#preparing-a-normal-release) above
+5. Manually update the [CHANGELOG.md](CHANGELOG.md) on `main` with the patch release notes
 
 Note: All patch releases for the same `{major}.{minor}` version use the same `release/{major}.{minor}` branch
 
