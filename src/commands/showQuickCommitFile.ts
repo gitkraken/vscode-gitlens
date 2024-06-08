@@ -13,7 +13,7 @@ import {
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
 } from '../messages';
-import { command, executeCommand } from '../system/command';
+import { command, executeCommand, executeCoreCommand } from '../system/command';
 import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
@@ -157,6 +157,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 					repoPath: args.commit.repoPath,
 				});
 			} else {
+				await executeCoreCommand('workbench.action.focusActiveEditorGroup');
 				await executeGitCommand({
 					command: 'show',
 					state: {
