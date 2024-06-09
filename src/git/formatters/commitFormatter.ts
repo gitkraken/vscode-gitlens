@@ -9,10 +9,10 @@ import type {
 import { getPresenceDataUri } from '../../avatars';
 import { Command } from '../../commands/base';
 import { DiffWithCommand } from '../../commands/diffWith';
+import { InspectCommand } from '../../commands/inspect';
 import { OpenCommitOnRemoteCommand } from '../../commands/openCommitOnRemote';
 import { OpenFileAtRevisionCommand } from '../../commands/openFileAtRevision';
 import { ConnectRemoteProviderCommand } from '../../commands/remoteProviders';
-import { ShowCommitsInViewCommand } from '../../commands/showCommitsInView';
 import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit';
 import { ShowQuickCommitFileCommand } from '../../commands/showQuickCommitFile';
 import type { DateStyle } from '../../config';
@@ -367,10 +367,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				commands = `[\`${this._padOrTruncate(
 					shortenRevision(isUncommittedStaged(diffUris.current.sha) ? diffUris.current.sha : uncommitted),
 					this._options.tokenOptions.commands,
-				)}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
+				)}\`](${InspectCommand.getMarkdownCommandArgs(
 					this._item.sha,
 					this._item.repoPath,
-				)} "Open Details")`;
+				)} "Inspect Commit Details")`;
 
 				commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
 					lhs: {
@@ -394,10 +394,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				commands = `[\`${this._padOrTruncate(
 					shortenRevision(this._item.isUncommittedStaged ? uncommittedStaged : uncommitted),
 					this._options.tokenOptions.commands,
-				)}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
+				)}\`](${InspectCommand.getMarkdownCommandArgs(
 					this._item.sha,
 					this._item.repoPath,
-				)} "Open Details")`;
+				)} "Inspect Commit Details")`;
 			}
 
 			return commands;
@@ -405,10 +405,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		const separator = ' &nbsp;&nbsp;|&nbsp;&nbsp; ';
 
-		commands = `---\n\n[\`$(git-commit) ${this.id}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
+		commands = `---\n\n[\`$(git-commit) ${this.id}\`](${InspectCommand.getMarkdownCommandArgs(
 			this._item.sha,
 			this._item.repoPath,
-		)} "Open Details")`;
+		)} "Inspect Commit Details")`;
 
 		commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
 			this._item,
@@ -589,18 +589,18 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		switch (this._options.outputFormat) {
 			case 'markdown': {
 				const sha = this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.id);
-				link = `[\`$(git-commit) ${sha}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
+				link = `[\`$(git-commit) ${sha}\`](${InspectCommand.getMarkdownCommandArgs(
 					this._item.sha,
 					this._item.repoPath,
-				)} "Open Details")`;
+				)} "Inspect Commit Details")`;
 				break;
 			}
 			case 'html': {
 				const sha = this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.id);
-				link = /*html*/ `<a href="${ShowCommitsInViewCommand.getMarkdownCommandArgs(
+				link = /*html*/ `<a href="${InspectCommand.getMarkdownCommandArgs(
 					this._item.sha,
 					this._item.repoPath,
-				)}" title="Open Details"${
+				)}" title="Inspect Commit Details"${
 					this._options.htmlFormat?.classes?.link ? ` class="${this._options.htmlFormat.classes.link}"` : ''
 				}><span class="codicon codicon-git-commit"></span>${sha}</a>`;
 				break;

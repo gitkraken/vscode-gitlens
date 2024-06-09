@@ -13,11 +13,10 @@ import {
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
 } from '../messages';
-import { command, executeCommand } from '../system/command';
+import { command } from '../system/command';
 import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
-import type { ShowCommitsInViewCommandArgs } from './showCommitsInView';
 
 export interface ShowQuickCommitFileCommandArgs {
 	commit?: GitCommit | GitStashCommit;
@@ -25,8 +24,6 @@ export interface ShowQuickCommitFileCommandArgs {
 	fileLog?: GitLog;
 	revisionUri?: string;
 	sha?: string;
-
-	inView?: boolean;
 }
 
 @command()
@@ -41,17 +38,12 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			Commands.ShowQuickCommitRevision,
 			Commands.ShowQuickCommitRevisionInDiffLeft,
 			Commands.ShowQuickCommitRevisionInDiffRight,
-			Commands.ShowLineCommitInView,
 		]);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs) {
 		if (context.type === 'editorLine') {
 			args = { ...args, line: context.line };
-		}
-
-		if (context.command === Commands.ShowLineCommitInView) {
-			args = { ...args, inView: true };
 		}
 
 		if (context.editor != null && context.command.startsWith(Commands.ShowQuickCommitRevision)) {
@@ -151,21 +143,14 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 				}
 			}
 
-			if (args.inView) {
-				await executeCommand<ShowCommitsInViewCommandArgs>(Commands.ShowCommitsInView, {
-					refs: [args.commit.sha],
-					repoPath: args.commit.repoPath,
-				});
-			} else {
-				await executeGitCommand({
-					command: 'show',
-					state: {
-						repo: args.commit.repoPath,
-						reference: args.commit,
-						fileName: path,
-					},
-				});
-			}
+			await executeGitCommand({
+				command: 'show',
+				state: {
+					repo: args.commit.repoPath,
+					reference: args.commit,
+					fileName: path,
+				},
+			});
 		} catch (ex) {
 			Logger.error(ex, 'ShowQuickCommitFileDetailsCommand');
 			void showGenericErrorMessage('Unable to show commit file details');
