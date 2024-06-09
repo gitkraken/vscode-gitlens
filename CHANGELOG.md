@@ -6,9 +6,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds _Search for Commits within Selection_ command to the editor context menu when there is a selection
+
 ### Changed
 
 - Renames `Reset Stored AI Key` command to `Reset Stored AI Keys...` and adds confirmation prompt with options to reset only the current or all AI keys
+- Renames _Open Inspect_ to _Inspect Commit Details_
+- Renames _Open Line Inspect_ to _Inspect Line Commit Details_
+- Renames _Open Details_ to _Inspect Commit Details_
 
 ### Fixed
 

@@ -183,7 +183,7 @@ export const SetRemoteAsDefaultQuickInputButton: QuickInputButton = {
 
 export const ShowDetailsViewQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('eye'),
-	tooltip: 'Open Details',
+	tooltip: 'Inspect Details',
 };
 
 export const OpenChangesViewQuickInputButton: QuickInputButton = {

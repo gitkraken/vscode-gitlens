@@ -1,7 +1,7 @@
 import type { Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
 import { commands, window } from 'vscode';
 import type { GitCommandsCommandArgs } from '../commands/gitCommands';
-import type { ShowCommitsInViewCommandArgs } from '../commands/showCommitsInView';
+import type { InspectCommandArgs } from '../commands/inspect';
 import type { ShowQuickBranchHistoryCommandArgs } from '../commands/showQuickBranchHistory';
 import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit';
 import { Commands } from '../constants';
@@ -168,7 +168,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 			}
 
 			if (await this.container.git.validateReference(repoPath, ref)) {
-				const link: GitTerminalLink<ShowQuickCommitCommandArgs | ShowCommitsInViewCommandArgs> = {
+				const link: GitTerminalLink<ShowQuickCommitCommandArgs | InspectCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,
 					tooltip: 'Show Commit',
@@ -176,8 +176,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 						? {
 								command: Commands.ShowInDetailsView,
 								args: {
-									repoPath: repoPath,
-									refs: [ref],
+									ref: createReference(ref, repoPath, { refType: 'revision' }),
 								},
 						  }
 						: {

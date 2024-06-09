@@ -25,6 +25,7 @@ import './commands/generateCommitMessage';
 import './commands/ghpr/openOrCreateWorktree';
 import './commands/gitCommands';
 import './commands/inviteToLiveShare';
+import './commands/inspect';
 import './commands/logging';
 import './commands/openAssociatedPullRequestOnRemote';
 import './commands/openBranchesOnRemote';

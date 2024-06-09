@@ -7,7 +7,7 @@ import type {
 } from 'vscode';
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
-import { ShowCommitsInViewCommand } from '../../commands/showCommitsInView';
+import { InspectCommand } from '../../commands/inspect';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitCommit } from '../../git/models/commit';
@@ -638,7 +638,7 @@ async function parseRebaseTodo(
 	}
 
 	const defaultDateFormat = configuration.get('defaultDateFormat');
-	const command = ShowCommitsInViewCommand.getMarkdownCommandArgs(`\${commit}`, context.repoPath);
+	const command = InspectCommand.getMarkdownCommandArgs(`\${commit}`, context.repoPath);
 
 	const ontoCommit = onto ? context.commits?.find(c => c.sha.startsWith(onto)) : undefined;
 
