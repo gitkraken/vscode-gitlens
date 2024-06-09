@@ -3,7 +3,6 @@ import { EventEmitter } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitBlame } from '../git/models/blame';
-import { deletedOrMissing } from '../git/models/constants';
 import type { GitDiffFile } from '../git/models/diff';
 import type { GitLog } from '../git/models/log';
 import { configuration } from '../system/configuration';
@@ -171,10 +170,6 @@ export class TrackedGitDocument implements Disposable {
 		return true;
 	}
 
-	get isRevision() {
-		return this._uri != null ? Boolean(this._uri.sha) && this._uri.sha !== deletedOrMissing : false;
-	}
-
 	private _isTracked: boolean = false;
 	get isTracked() {
 		return this._isTracked;
@@ -293,9 +288,6 @@ export class TrackedGitDocument implements Disposable {
 		}
 		if (this.isBlameable) {
 			status += 'blameable|';
-		}
-		if (this.isRevision) {
-			status += 'revision|';
 		}
 		if (this.hasRemotes) {
 			status += 'remotes|';
