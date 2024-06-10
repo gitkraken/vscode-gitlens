@@ -189,9 +189,9 @@ export class StashGitCommand extends QuickCommand<State> {
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.stashesView,
 			readonly:
-				getContext<boolean>('gitlens:readonly', false) ||
-				getContext<boolean>('gitlens:untrusted', false) ||
-				getContext<boolean>('gitlens:hasVirtualFolders', false),
+				getContext('gitlens:readonly', false) ||
+				getContext('gitlens:untrusted', false) ||
+				getContext('gitlens:hasVirtualFolders', false),
 			title: this.title,
 		};
 
