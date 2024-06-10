@@ -50,12 +50,12 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 
 	private getOrgSettings(): State['orgSettings'] {
 		return {
-			ai: getContext<boolean>('gitlens:gk:organization:ai:enabled', false),
-			drafts: getContext<boolean>('gitlens:gk:organization:drafts:enabled', false),
+			ai: getContext('gitlens:gk:organization:ai:enabled', false),
+			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
 		};
 	}
 
-	private onContextChanged(key: ContextKeys) {
+	private onContextChanged(key: keyof ContextKeys) {
 		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
 			this.notifyDidChangeOrgSettings();
 		}

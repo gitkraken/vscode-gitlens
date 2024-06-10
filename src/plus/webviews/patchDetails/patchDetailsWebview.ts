@@ -346,7 +346,7 @@ export class PatchDetailsWebviewProvider
 		};
 	}
 
-	private onContextChanged(key: ContextKeys) {
+	private onContextChanged(key: keyof ContextKeys) {
 		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
 			this._context.orgSettings = this.getOrgSettings();
 			this.updateState();
@@ -355,8 +355,8 @@ export class PatchDetailsWebviewProvider
 
 	private getOrgSettings(): State['orgSettings'] {
 		return {
-			ai: getContext<boolean>('gitlens:gk:organization:ai:enabled', false),
-			byob: getContext<boolean>('gitlens:gk:organization:drafts:byob', false),
+			ai: getContext('gitlens:gk:organization:ai:enabled', false),
+			byob: getContext('gitlens:gk:organization:drafts:byob', false),
 		};
 	}
 

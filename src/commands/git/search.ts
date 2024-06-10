@@ -138,7 +138,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.searchAndCompareView,
 			commit: undefined,
-			hasVirtualFolders: getContext<boolean>('gitlens:hasVirtualFolders', false),
+			hasVirtualFolders: getContext('gitlens:hasVirtualFolders', false),
 			resultsKey: undefined,
 			resultsPromise: undefined,
 			title: this.title,

@@ -2,10 +2,11 @@ import type { AnthropicModels } from './ai/anthropicProvider';
 import type { GeminiModels } from './ai/geminiProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
 import type { VSCodeAIModels } from './ai/vscodeProvider';
-import type { ViewShowBranchComparison } from './config';
+import type { AnnotationStatus } from './annotations/annotationProvider';
+import type { FileAnnotationType, ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
-import type { Subscription, SubscriptionState } from './plus/gk/account/subscription';
+import type { Subscription, SubscriptionPlanId, SubscriptionState } from './plus/gk/account/subscription';
 import type { Integration } from './plus/integrations/integration';
 import type { IntegrationId, IssueIntegrationId } from './plus/integrations/providers/models';
 import type { TelemetryEventData } from './telemetry/telemetry';
@@ -669,46 +670,46 @@ export type TreeViewNodeTypes =
 	| 'worktree'
 	| 'worktrees';
 
-export type ContextKeys =
-	| `${typeof extensionPrefix}:action:${string}`
-	| `${typeof extensionPrefix}:key:${Keys}`
-	| `${typeof extensionPrefix}:webview:${WebviewTypes | CustomEditorTypes}:visible`
-	| `${typeof extensionPrefix}:webviewView:${WebviewViewTypes}:visible`
-	| `${typeof extensionPrefix}:activeFileStatus`
-	| `${typeof extensionPrefix}:annotationStatus`
-	| `${typeof extensionPrefix}:debugging`
-	| `${typeof extensionPrefix}:disabledToggleCodeLens`
-	| `${typeof extensionPrefix}:disabled`
-	| `${typeof extensionPrefix}:enabled`
-	| `${typeof extensionPrefix}:gk:hasOrganizations`
-	| `${typeof extensionPrefix}:gk:organization:ai:enabled`
-	| `${typeof extensionPrefix}:gk:organization:drafts:byob`
-	| `${typeof extensionPrefix}:gk:organization:drafts:enabled`
-	| `${typeof extensionPrefix}:hasConnectedRemotes`
-	| `${typeof extensionPrefix}:hasRemotes`
-	| `${typeof extensionPrefix}:hasRichRemotes`
-	| `${typeof extensionPrefix}:hasVirtualFolders`
-	| `${typeof extensionPrefix}:prerelease`
-	| `${typeof extensionPrefix}:readonly`
-	| `${typeof extensionPrefix}:untrusted`
-	| `${typeof extensionPrefix}:views:canCompare`
-	| `${typeof extensionPrefix}:views:canCompare:file`
-	| `${typeof extensionPrefix}:views:commits:filtered`
-	| `${typeof extensionPrefix}:views:commits:hideMergeCommits`
-	| `${typeof extensionPrefix}:views:contributors:hideMergeCommits`
-	| `${typeof extensionPrefix}:views:fileHistory:canPin`
-	| `${typeof extensionPrefix}:views:fileHistory:cursorFollowing`
-	| `${typeof extensionPrefix}:views:fileHistory:editorFollowing`
-	| `${typeof extensionPrefix}:views:lineHistory:editorFollowing`
-	| `${typeof extensionPrefix}:views:patchDetails:mode`
-	| `${typeof extensionPrefix}:views:pullRequest:visible`
-	| `${typeof extensionPrefix}:views:repositories:autoRefresh`
-	| `${typeof extensionPrefix}:vsls`
-	| `${typeof extensionPrefix}:plus`
-	| `${typeof extensionPrefix}:plus:disallowedRepos`
-	| `${typeof extensionPrefix}:plus:enabled`
-	| `${typeof extensionPrefix}:plus:required`
-	| `${typeof extensionPrefix}:plus:state`;
+export type ContextKeys = {
+	'gitlens:activeFileStatus': string;
+	'gitlens:annotationStatus': AnnotationStatus | `${AnnotationStatus}+${FileAnnotationType}`;
+	'gitlens:debugging': boolean;
+	'gitlens:disabled': boolean;
+	'gitlens:disabledToggleCodeLens': boolean;
+	'gitlens:enabled': boolean;
+	'gitlens:gk:hasOrganizations': boolean;
+	'gitlens:gk:organization:ai:enabled': boolean;
+	'gitlens:gk:organization:drafts:byob': boolean;
+	'gitlens:gk:organization:drafts:enabled': boolean;
+	'gitlens:hasConnectedRemotes': boolean;
+	'gitlens:hasRemotes': boolean;
+	'gitlens:hasRichRemotes': boolean;
+	'gitlens:hasVirtualFolders': boolean;
+	'gitlens:plus': SubscriptionPlanId;
+	'gitlens:plus:disallowedRepos': string[];
+	'gitlens:plus:enabled': boolean;
+	'gitlens:plus:required': boolean;
+	'gitlens:plus:state': SubscriptionState;
+	'gitlens:prerelease': boolean;
+	'gitlens:readonly': boolean;
+	'gitlens:untrusted': boolean;
+	'gitlens:views:canCompare': boolean;
+	'gitlens:views:canCompare:file': boolean;
+	'gitlens:views:commits:filtered': boolean;
+	'gitlens:views:commits:hideMergeCommits': boolean;
+	'gitlens:views:contributors:hideMergeCommits': boolean;
+	'gitlens:views:fileHistory:canPin': boolean;
+	'gitlens:views:fileHistory:cursorFollowing': boolean;
+	'gitlens:views:fileHistory:editorFollowing': boolean;
+	'gitlens:views:lineHistory:editorFollowing': boolean;
+	'gitlens:views:patchDetails:mode': 'create' | 'view';
+	'gitlens:views:pullRequest:visible': boolean;
+	'gitlens:views:repositories:autoRefresh': boolean;
+	'gitlens:vsls': boolean | 'host' | 'guest';
+} & Record<`gitlens:action:${string}`, number> &
+	Record<`gitlens:key:${Keys}`, boolean> &
+	Record<`gitlens:webview:${WebviewTypes | CustomEditorTypes}:visible`, boolean> &
+	Record<`gitlens:webviewView:${WebviewViewTypes}:visible`, boolean>;
 
 export type CoreCommands =
 	| 'cursorMove'

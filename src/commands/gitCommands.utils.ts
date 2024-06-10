@@ -58,11 +58,9 @@ export class PickCommandStep implements QuickPickStep<QuickCommand> {
 		private readonly container: Container,
 		args?: GitCommandsCommandArgs,
 	) {
-		const hasVirtualFolders = getContext<boolean>('gitlens:hasVirtualFolders', false);
+		const hasVirtualFolders = getContext('gitlens:hasVirtualFolders', false);
 		const readonly =
-			hasVirtualFolders ||
-			getContext<boolean>('gitlens:readonly', false) ||
-			getContext<boolean>('gitlens:untrusted', false);
+			hasVirtualFolders || getContext('gitlens:readonly', false) || getContext('gitlens:untrusted', false);
 
 		this.items = [
 			readonly ? undefined : new BranchGitCommand(container, args?.command === 'branch' ? args : undefined),

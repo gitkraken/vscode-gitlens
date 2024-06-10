@@ -75,7 +75,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		return this._status;
 	}
 
-	get statusContextValue(): string | undefined {
+	get statusContextValue(): `${AnnotationStatus}+${FileAnnotationType}` | undefined {
 		return this.status != null ? `${this.status}+${this.annotationType}` : undefined;
 	}
 

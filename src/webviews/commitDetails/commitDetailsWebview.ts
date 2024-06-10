@@ -893,7 +893,7 @@ export class CommitDetailsWebviewProvider
 		};
 	}
 
-	private onContextChanged(key: ContextKeys) {
+	private onContextChanged(key: keyof ContextKeys) {
 		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
 			this.updatePendingContext({ orgSettings: this.getOrgSettings() });
 			this.updateState();
@@ -902,8 +902,8 @@ export class CommitDetailsWebviewProvider
 
 	private getOrgSettings(): State['orgSettings'] {
 		return {
-			ai: getContext<boolean>('gitlens:gk:organization:ai:enabled', false),
-			drafts: getContext<boolean>('gitlens:gk:organization:drafts:enabled', false),
+			ai: getContext('gitlens:gk:organization:ai:enabled', false),
+			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
 		};
 	}
 
@@ -1265,7 +1265,7 @@ export class CommitDetailsWebviewProvider
 	private async canAccessDrafts(): Promise<boolean> {
 		if ((await this.getHasAccount()) === false) return false;
 
-		return getContext<boolean>('gitlens:gk:organization:drafts:enabled', false);
+		return getContext('gitlens:gk:organization:drafts:enabled', false);
 	}
 
 	private async getCodeSuggestions(pullRequest: PullRequest, repository: Repository): Promise<Draft[]> {
