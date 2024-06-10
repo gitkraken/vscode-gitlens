@@ -3,8 +3,13 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
+import { isUncommitted } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
-import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
+import {
+	showCommitNotFoundWarningMessage,
+	showFileNotUnderSourceControlWarningMessage,
+	showGenericErrorMessage,
+} from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
 import { Logger } from '../system/logger';
@@ -89,7 +94,11 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 				const blame = await this.container.git.getBlameForLine(gitUri, blameLine, editor?.document);
 				if (blame == null) {
-					void showFileNotUnderSourceControlWarningMessage('Unable to open commit on remote provider');
+					void showFileNotUnderSourceControlWarningMessage(
+						args?.clipboard
+							? 'Unable to copy the commit SHA'
+							: 'Unable to open the commit on the remote provider',
+					);
 
 					return;
 				}
@@ -98,6 +107,16 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 				args.sha = blame.commit.isUncommitted
 					? (await blame.commit.getPreviousSha()) ?? deletedOrMissing
 					: blame.commit.sha;
+			}
+
+			if (args.sha == null || args.sha === deletedOrMissing || isUncommitted(args.sha)) {
+				void showCommitNotFoundWarningMessage(
+					args?.clipboard
+						? 'Unable to copy the commit SHA'
+						: 'Unable to open the commit on the remote provider',
+				);
+
+				return;
 			}
 
 			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
