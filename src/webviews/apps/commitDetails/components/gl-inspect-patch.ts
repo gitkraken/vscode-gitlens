@@ -262,6 +262,29 @@ export class InspectPatch extends GlElement {
 			.user-selection__check:not(.is-active) {
 				opacity: 0;
 			}
+
+			.alert {
+				display: flex;
+				flex-direction: row;
+				align-items: center;
+				padding: 0.8rem 1.2rem;
+				line-height: 1.2;
+				background-color: var(--color-alert-errorBackground);
+				border-left: 0.3rem solid var(--color-alert-errorBorder);
+				color: var(--color-alert-foreground);
+			}
+
+			.alert code-icon {
+				margin-right: 0.4rem;
+				vertical-align: baseline;
+			}
+
+			.alert__content {
+				font-size: 1.2rem;
+				line-height: 1.2;
+				text-align: left;
+				margin: 0;
+			}
 		`,
 	];
 

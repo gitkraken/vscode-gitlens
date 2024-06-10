@@ -310,6 +310,16 @@ export class GlPatchCreate extends GlTreeBase {
 							</div>`,
 					)}
 				</div>
+
+				${when(
+					this.generate?.error != null,
+					() => html`
+						<div class="alert alert--error">
+							<code-icon icon="error"></code-icon>
+							<p class="alert__content">${this.generate!.error!.message ?? 'Error retrieving content'}</p>
+						</div>
+					`,
+				)}
 				<div class="message-input">
 					<textarea
 						id="desc"
