@@ -482,7 +482,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 					case OpenOnWebQuickInputButton:
 						this.sendTitleActionTelemetry('open-on-gkdev', context);
-						void openUrl('https://gitkraken.dev/launchpad');
+						void openUrl(this.container.focus.generateWebUrl());
 						break;
 					case RefreshQuickInputButton:
 						this.sendTitleActionTelemetry('refresh', context);

@@ -234,7 +234,7 @@ export class Container {
 		this._disposables.push((this._keyboard = new Keyboard()));
 		this._disposables.push((this._vsls = new VslsController(this)));
 		this._disposables.push((this._eventBus = new EventBus()));
-		this._disposables.push((this._focusProvider = new FocusProvider(this)));
+		this._disposables.push((this._focusProvider = new FocusProvider(this, this._connection)));
 
 		this._disposables.push((this._fileAnnotationController = new FileAnnotationController(this)));
 		this._disposables.push((this._lineAnnotationController = new LineAnnotationController(this)));
