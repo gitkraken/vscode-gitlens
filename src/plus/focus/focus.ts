@@ -463,7 +463,7 @@ export class FocusCommand extends QuickCommand<State> {
 			items: items,
 			buttons: [
 				FeedbackQuickInputButton,
-				OpenInEditorQuickInputButton,
+				OpenOnWebQuickInputButton,
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
@@ -480,9 +480,9 @@ export class FocusCommand extends QuickCommand<State> {
 						void openUrl('https://github.com/gitkraken/vscode-gitlens/discussions/3286');
 						break;
 
-					case OpenInEditorQuickInputButton:
-						this.sendTitleActionTelemetry('open-in-editor', context);
-						void executeCommand(Commands.ShowFocusPage);
+					case OpenOnWebQuickInputButton:
+						this.sendTitleActionTelemetry('open-on-gkdev', context);
+						void openUrl('https://gitkraken.dev/launchpad');
 						break;
 					case RefreshQuickInputButton:
 						this.sendTitleActionTelemetry('refresh', context);

@@ -1286,7 +1286,7 @@ export type TelemetryEvents = {
 
 	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/title/action': LaunchpadEventData & {
-		action: 'feedback' | 'open-in-editor' | 'refresh' | 'settings';
+		action: 'feedback' | 'open-on-gkdev' | 'refresh' | 'settings';
 	};
 
 	/** Sent when the user takes an action on a launchpad item */
