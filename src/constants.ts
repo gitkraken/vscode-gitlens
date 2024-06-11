@@ -1311,6 +1311,7 @@ export type TelemetryEvents = {
 	/** Sent when the user changes launchpad configuration settings */
 	'launchpad/configurationChanged': {
 		'config.launchpad.staleThreshold': number | null;
+		'config.launchpad.ignoredOrganizations': number;
 		'config.launchpad.ignoredRepositories': number;
 		'config.launchpad.indicator.enabled': boolean;
 		'config.launchpad.indicator.openInEditor': boolean;

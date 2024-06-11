@@ -2866,9 +2866,20 @@ export class GitHubApi implements Disposable {
 				search += ` user:${options.user}`;
 			}
 
-			if (options?.repos != null && options.repos.length > 0) {
-				const repo = '  repo:';
-				search += `${repo}${options.repos.join(repo)}`;
+			if (options?.repos?.length) {
+				search += ` repo:${options.repos.join(' repo:')}`;
+			}
+
+			// Hack for now, ultimately this should be passed in
+			const ignoredRepos = configuration.get('launchpad.ignoredRepositories') ?? [];
+			if (ignoredRepos.length) {
+				search += ` -repo:${ignoredRepos.join(' -repo:')}`;
+			}
+
+			// Hack for now, ultimately this should be passed in
+			const ignoredOrgs = configuration.get('launchpad.ignoredOrganizations') ?? [];
+			if (ignoredOrgs.length) {
+				search += ` -org:${ignoredOrgs.join(' -org:')}`;
 			}
 
 			const rsp = await this.graphql<SearchResult>(
@@ -2876,7 +2887,7 @@ export class GitHubApi implements Disposable {
 				token,
 				query,
 				{
-					search: `${search} is:pr is:open archived:false involves:@me`.trim(),
+					search: `is:open is:pr involves:@me archived:false ${search}`.trim(),
 					baseUrl: options?.baseUrl,
 					avatarSize: options?.avatarSize,
 				},

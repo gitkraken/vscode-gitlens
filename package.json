@@ -2961,6 +2961,16 @@
 						"scope": "window",
 						"order": 10
 					},
+					"gitlens.launchpad.ignoredOrganizations": {
+						"type": "array",
+						"default": [],
+						"items": {
+							"type": "string"
+						},
+						"markdownDescription": "Specifies the organizations to ignore in the _Launchpad_",
+						"scope": "window",
+						"order": 11
+					},
 					"gitlens.launchpad.staleThreshold": {
 						"type": [
 							"number",
