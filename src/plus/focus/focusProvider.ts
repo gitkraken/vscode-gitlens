@@ -792,6 +792,7 @@ export class FocusProvider implements Disposable {
 		const cfg = configuration.get('launchpad');
 		this.container.telemetry.sendEvent('launchpad/configurationChanged', {
 			'config.launchpad.staleThreshold': cfg.staleThreshold,
+			'config.launchpad.ignoredOrganizations': cfg.ignoredOrganizations?.length ?? 0,
 			'config.launchpad.ignoredRepositories': cfg.ignoredRepositories?.length ?? 0,
 			'config.launchpad.indicator.enabled': cfg.indicator.enabled,
 			'config.launchpad.indicator.openInEditor': cfg.indicator.openInEditor,
@@ -804,6 +805,7 @@ export class FocusProvider implements Disposable {
 		});
 
 		if (
+			configuration.changed(e, 'launchpad.ignoredOrganizations') ||
 			configuration.changed(e, 'launchpad.ignoredRepositories') ||
 			configuration.changed(e, 'launchpad.staleThreshold')
 		) {
