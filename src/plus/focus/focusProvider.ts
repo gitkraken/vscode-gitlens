@@ -33,7 +33,6 @@ import {
 	toProviderPullRequestWithUniqueId,
 } from '../integrations/providers/models';
 import type { EnrichableItem, EnrichedItem } from './enrichmentService';
-import { ServerConnection } from '../gk/serverConnection';
 
 export const focusActionCategories = [
 	'mergeable',
@@ -198,10 +197,7 @@ export class FocusProvider implements Disposable {
 
 	private readonly _disposable: Disposable;
 
-	constructor(
-		private readonly container: Container,
-		private readonly connection: ServerConnection,
-	) {
+	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			...this.registerCommands(),
@@ -477,7 +473,7 @@ export class FocusProvider implements Disposable {
 	}
 
 	generateWebUrl(): string {
-		return this.connection.getGkDevUri('/launchpad').toString();
+		return this.container.generateWebGkDevUrl('/launchpad');
 	}
 
 	private getItemBranchDeepLink(item: FocusItem, action?: DeepLinkActionType): Uri | undefined {

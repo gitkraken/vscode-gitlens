@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
-import { EventEmitter, ExtensionMode } from 'vscode';
+import { EventEmitter, ExtensionMode, Uri } from 'vscode';
 import { getSupportedGitProviders, getSupportedRepositoryPathMappingProvider } from '@env/providers';
 import type { AIProviderService } from './ai/aiProviderService';
 import { Autolinks } from './annotations/autolinks';
@@ -234,7 +234,7 @@ export class Container {
 		this._disposables.push((this._keyboard = new Keyboard()));
 		this._disposables.push((this._vsls = new VslsController(this)));
 		this._disposables.push((this._eventBus = new EventBus()));
-		this._disposables.push((this._focusProvider = new FocusProvider(this, this._connection)));
+		this._disposables.push((this._focusProvider = new FocusProvider(this)));
 
 		this._disposables.push((this._fileAnnotationController = new FileAnnotationController(this)));
 		this._disposables.push((this._lineAnnotationController = new LineAnnotationController(this)));
@@ -645,7 +645,7 @@ export class Container {
 	private _integrations: IntegrationService | undefined;
 	get integrations(): IntegrationService {
 		if (this._integrations == null) {
-			this._disposables.push((this._integrations = new IntegrationService(this, this._connection)));
+			this._disposables.push((this._integrations = new IntegrationService(this)));
 		}
 		return this._integrations;
 	}
@@ -917,6 +917,31 @@ export class Container {
 				};
 			},
 		});
+	}
+
+	@memoize()
+	private get baseGkDevUri(): Uri {
+		if (this.env === 'staging') {
+			return Uri.parse('https://staging.gitkraken.dev');
+		}
+
+		if (this.env === 'dev') {
+			return Uri.parse('https://dev.gitkraken.dev');
+		}
+
+		return Uri.parse('https://gitkraken.dev');
+	}
+
+	getGkDevUri(path?: string, query?: string): Uri {
+		let uri = path != null ? Uri.joinPath(this.baseGkDevUri, path) : this.baseGkDevUri;
+		if (query != null) {
+			uri = uri.with({ query: query });
+		}
+		return uri;
+	}
+
+	generateWebGkDevUrl(path?: string): string {
+		return this.getGkDevUri(path, '?source=gitlens').toString();
 	}
 }
 

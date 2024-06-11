@@ -910,7 +910,7 @@ export class DraftService implements Disposable {
 	generateWebUrl(draft: Draft): string;
 	generateWebUrl(draftOrDraftId: Draft | string): string {
 		const id = typeof draftOrDraftId === 'string' ? draftOrDraftId : draftOrDraftId.id;
-		return this.connection.getGkDevUri(`/drafts/${id}`, `?source=gitlens`).toString();
+		return this.container.generateWebGkDevUrl(`/drafts/${id}`);
 	}
 }
 

@@ -12,7 +12,6 @@ import { debug, log } from '../../system/decorators/log';
 import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
-import type { ServerConnection } from '../gk/serverConnection';
 import { supportedCloudIntegrationIds, toIntegrationId } from './authentication/models';
 import type {
 	HostingIntegration,
@@ -52,10 +51,7 @@ export class IntegrationService implements Disposable {
 	private readonly _disposable: Disposable;
 	private _integrations = new Map<IntegrationKey, Integration>();
 
-	constructor(
-		private readonly container: Container,
-		private readonly connection: ServerConnection,
-	) {
+	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'remotes')) {
@@ -126,7 +122,7 @@ export class IntegrationService implements Disposable {
 			query += `&connect=${integrationId}`;
 		}
 
-		await env.openExternal(this.connection.getGkDevUri('settings/integrations', query));
+		await env.openExternal(this.container.getGkDevUri('settings/integrations', query));
 		take(
 			window.onDidChangeWindowState,
 			2,
