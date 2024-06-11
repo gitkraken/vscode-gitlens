@@ -42,7 +42,6 @@ import {
 	SearchOpenInViewCommand,
 	SearchRequest,
 	UpdateColumnsCommand,
-	UpdateDimMergeCommitsCommand,
 	UpdateExcludeTypeCommand,
 	UpdateGraphConfigurationCommand,
 	UpdateIncludeOnlyRefsCommand,
@@ -99,7 +98,6 @@ export class GraphApp extends App<State> {
 						settings => this.onColumnsChanged(settings),
 						250,
 					)}
-					onDimMergeCommits={dim => this.onDimMergeCommits(dim)}
 					onRefsVisibilityChange={(refs: GraphExcludedRef[], visible: boolean) =>
 						this.onRefsVisibilityChanged(refs, visible)
 					}
@@ -527,12 +525,6 @@ export class GraphApp extends App<State> {
 
 	private onChooseRepository() {
 		this.sendCommand(ChooseRepositoryCommand, undefined);
-	}
-
-	private onDimMergeCommits(dim: boolean) {
-		this.sendCommand(UpdateDimMergeCommitsCommand, {
-			dim: dim,
-		});
 	}
 
 	private onDoubleClickRef(ref: GraphRef, metadata?: GraphRefMetadataItem) {
