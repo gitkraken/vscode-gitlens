@@ -2824,6 +2824,12 @@
 						"scope": "window",
 						"order": 30
 					},
+					"gitlens.graph.onlyFollowFirstParent": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to only follow the first parent when showing commits on the _Commit Graph_",
+						"order": 31
+					},
 					"gitlens.graph.dateStyle": {
 						"type": [
 							"string",
