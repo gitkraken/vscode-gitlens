@@ -7,6 +7,7 @@ import { GitUri } from '../git/gitUri';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
+import { createReference } from '../git/models/reference';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,
@@ -33,23 +34,12 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 	}
 
 	constructor(private readonly container: Container) {
-		super([
-			Commands.ShowQuickCommitFile,
-			Commands.ShowQuickCommitRevision,
-			Commands.ShowQuickCommitRevisionInDiffLeft,
-			Commands.ShowQuickCommitRevisionInDiffRight,
-		]);
+		super(Commands.ShowQuickCommitFile);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs) {
 		if (context.type === 'editorLine') {
 			args = { ...args, line: context.line };
-		}
-
-		if (context.editor != null && context.command.startsWith(Commands.ShowQuickCommitRevision)) {
-			const gitUri = await GitUri.fromUri(context.editor.document.uri);
-
-			args = { ...args, sha: gitUri.sha };
 		}
 
 		if (context.type === 'viewItem') {
@@ -154,6 +144,39 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 		} catch (ex) {
 			Logger.error(ex, 'ShowQuickCommitFileDetailsCommand');
 			void showGenericErrorMessage('Unable to show commit file details');
+		}
+	}
+}
+
+@command()
+export class ShowQuickCommitRevisionCommand extends ActiveEditorCachedCommand {
+	constructor(private readonly container: Container) {
+		super([
+			Commands.ShowQuickCommitRevision,
+			Commands.ShowQuickCommitRevisionInDiffLeft,
+			Commands.ShowQuickCommitRevisionInDiffRight,
+		]);
+	}
+
+	async execute(editor?: TextEditor, uri?: Uri) {
+		uri = getCommandUri(uri, editor);
+		if (uri == null) return;
+
+		try {
+			const gitUri = await GitUri.fromUri(uri);
+			if (gitUri?.sha == null) return;
+
+			await executeGitCommand({
+				command: 'show',
+				state: {
+					repo: gitUri.repoPath,
+					reference: createReference(gitUri.sha, gitUri.repoPath!, { refType: 'revision' }),
+					fileName: gitUri.fsPath,
+				},
+			});
+		} catch (ex) {
+			Logger.error(ex, 'ShowQuickCommitRevisionCommand');
+			void showGenericErrorMessage('Unable to show commit details');
 		}
 	}
 }
