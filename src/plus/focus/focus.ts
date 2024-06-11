@@ -19,7 +19,6 @@ import {
 	FeedbackQuickInputButton,
 	LaunchpadSettingsQuickInputButton,
 	MergeQuickInputButton,
-	OpenInEditorQuickInputButton,
 	OpenOnGitHubQuickInputButton,
 	OpenOnWebQuickInputButton,
 	PinQuickInputButton,
@@ -29,13 +28,12 @@ import {
 	UnsnoozeQuickInputButton,
 } from '../../commands/quickCommand.buttons';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants';
-import { Commands, previewBadge } from '../../constants';
+import { previewBadge } from '../../constants';
 import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
-import { executeCommand } from '../../system/command';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { interpolate, pluralize } from '../../system/string';
