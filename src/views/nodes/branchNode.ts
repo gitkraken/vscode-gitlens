@@ -174,7 +174,7 @@ export class BranchNode
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
 				(branch.upstream != null || branch.remote) &&
-				getContext('gitlens:hasConnectedRemotes')
+				getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(branch.repoPath)
 			) {
 				pullRequest = this.getState('pullRequest');
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {

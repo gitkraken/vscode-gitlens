@@ -1456,7 +1456,11 @@ export class CommitDetailsWebviewProvider
 		this.updatePendingContext(
 			{
 				commit: commit,
-				richStateLoaded: Boolean(commit?.isUncommitted) || !getContext('gitlens:hasConnectedRemotes'),
+				richStateLoaded:
+					Boolean(commit?.isUncommitted) ||
+					(commit != null
+						? !getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(commit.repoPath)
+						: !getContext('gitlens:repos:withHostingIntegrationsConnected')),
 				formattedMessage: undefined,
 				autolinkedIssues: undefined,
 				pullRequest: undefined,

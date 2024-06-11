@@ -1076,52 +1076,60 @@ export class GitProviderService implements Disposable {
 		async function updateRemoteContext(this: GitProviderService) {
 			const integrations = configuration.get('integrations.enabled');
 
-			const telemetryEnabled = this.container.telemetry.enabled;
 			const remoteProviders = new Set<string>();
+			const reposWithRemotes = new Set<string>();
+			const reposWithHostingIntegrations = new Set<string>();
+			const reposWithHostingIntegrationsConnected = new Set<string>();
 
-			let hasRemotes = false;
-			let hasRemotesWithIntegrations = false;
-			let hasConnectedRemotes = false;
+			async function scanRemotes(repo: Repository) {
+				let hasSupportedIntegration = false;
+				let hasConnectedIntegration = false;
 
-			if (hasRepositories) {
-				for (const repo of this._repositories.values()) {
-					if (telemetryEnabled) {
-						const remotes = await repo.getRemotes();
-						for (const remote of remotes) {
-							remoteProviders.add(remote.provider?.id ?? 'unknown');
+				const remotes = await repo.getRemotes();
+				for (const remote of remotes) {
+					remoteProviders.add(remote.provider?.id ?? 'unknown');
+					reposWithRemotes.add(repo.uri.toString());
+					reposWithRemotes.add(repo.path);
+
+					// Skip if integrations are disabled or if we've already found a connected integration
+					if (!integrations || (hasSupportedIntegration && hasConnectedIntegration)) continue;
+
+					if (remote.hasIntegration()) {
+						hasSupportedIntegration = true;
+						reposWithHostingIntegrations.add(repo.uri.toString());
+						reposWithHostingIntegrations.add(repo.path);
+
+						let connected = remote.maybeIntegrationConnected;
+						// If we don't know if we are connected, only check if the remote is the default or there is only one
+						// TODO@eamodio is the above still a valid requirement?
+						if (connected == null && (remote.default || remotes.length === 1)) {
+							const integration = await remote.getIntegration();
+							connected = await integration?.isConnected();
+						}
+
+						if (connected) {
+							hasConnectedIntegration = true;
+							reposWithHostingIntegrationsConnected.add(repo.uri.toString());
+							reposWithHostingIntegrationsConnected.add(repo.path);
 						}
 					}
-
-					if (!hasConnectedRemotes && integrations) {
-						hasConnectedRemotes = await repo.hasRemoteWithIntegration({ includeDisconnected: false });
-
-						if (hasConnectedRemotes) {
-							hasRemotesWithIntegrations = true;
-							hasRemotes = true;
-						}
-					}
-
-					if (!hasRemotesWithIntegrations && integrations) {
-						hasRemotesWithIntegrations = await repo.hasRemoteWithIntegration({ includeDisconnected: true });
-
-						if (hasRemotesWithIntegrations) {
-							hasRemotes = true;
-						}
-					}
-
-					if (!hasRemotes) {
-						hasRemotes = await repo.hasRemotes();
-					}
-
-					if (hasRemotes && ((hasRemotesWithIntegrations && hasConnectedRemotes) || !integrations)) break;
 				}
 			}
 
-			if (telemetryEnabled) {
+			if (hasRepositories) {
+				void (await Promise.allSettled(map(this._repositories.values(), scanRemotes)));
+			}
+
+			if (this.container.telemetry.enabled) {
 				this.container.telemetry.setGlobalAttributes({
-					'repositories.hasRemotes': hasRemotes,
-					'repositories.hasRichRemotes': hasRemotesWithIntegrations,
-					'repositories.hasConnectedRemotes': hasConnectedRemotes,
+					'repositories.hasRemotes': reposWithRemotes.size !== 0,
+					'repositories.hasRichRemotes': reposWithHostingIntegrations.size !== 0,
+					'repositories.hasConnectedRemotes': reposWithHostingIntegrationsConnected.size !== 0,
+
+					'repositories.withRemotes': reposWithRemotes.size / 2,
+					'repositories.withHostingIntegrations': reposWithHostingIntegrations.size / 2,
+					'repositories.withHostingIntegrationsConnected': reposWithHostingIntegrationsConnected.size / 2,
+
 					'repositories.remoteProviders': join(remoteProviders, ','),
 				});
 				if (this._sendProviderContextTelemetryDebounced == null) {
@@ -1134,9 +1142,15 @@ export class GitProviderService implements Disposable {
 			}
 
 			await Promise.allSettled([
-				setContext('gitlens:hasRemotes', hasRemotes),
-				setContext('gitlens:hasRichRemotes', hasRemotesWithIntegrations),
-				setContext('gitlens:hasConnectedRemotes', hasConnectedRemotes),
+				setContext('gitlens:repos:withRemotes', reposWithRemotes.size ? [...reposWithRemotes] : undefined),
+				setContext(
+					'gitlens:repos:withHostingIntegrations',
+					reposWithHostingIntegrations.size ? [...reposWithHostingIntegrations] : undefined,
+				),
+				setContext(
+					'gitlens:repos:withHostingIntegrationsConnected',
+					reposWithHostingIntegrationsConnected.size ? [...reposWithHostingIntegrationsConnected] : undefined,
+				),
 			]);
 		}
 
