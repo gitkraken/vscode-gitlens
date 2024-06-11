@@ -2491,12 +2491,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				refRemoteHeads = [];
 				refTags = [];
 				contexts = {};
-				head = false;
 
 				if (commit.tips) {
 					groupedRefs.clear();
 
 					for (tip of commit.tips.split(', ')) {
+						head = false;
 						if (tip === 'refs/stash') continue;
 
 						if (tip.startsWith('tag: ')) {
