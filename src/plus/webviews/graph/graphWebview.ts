@@ -945,7 +945,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async onGetMissingRefMetadata(e: GetMissingRefsMetadataParams) {
-		if (this._graph == null || this._refsMetadata === null || !getContext('gitlens:hasConnectedRemotes')) return;
+		if (
+			this._graph == null ||
+			this._refsMetadata === null ||
+			!getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(this._graph.repoPath)
+		) {
+			return;
+		}
 
 		const repoPath = this._graph.repoPath;
 
@@ -1549,7 +1555,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			repo.watchFileSystem(1000),
 			repo.onDidChangeFileSystem(this.onRepositoryFileSystemChanged, this),
 			onDidChangeContext(key => {
-				if (key !== 'gitlens:hasConnectedRemotes') return;
+				if (key !== 'gitlens:repos:withHostingIntegrationsConnected') return;
 
 				this.resetRefsMetadata();
 				this.updateRefsMetadata();
@@ -2142,7 +2148,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private resetRefsMetadata(): null | undefined {
-		this._refsMetadata = getContext('gitlens:hasConnectedRemotes') ? undefined : null;
+		this._refsMetadata = getContext('gitlens:repos:withHostingIntegrationsConnected') ? undefined : null;
 		return this._refsMetadata;
 	}
 

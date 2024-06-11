@@ -125,7 +125,13 @@ function getAvatarUriCore(
 	const avatar = createOrUpdateAvatar(key, email, size, hash, options?.defaultStyle);
 	if (avatar.uri != null) return avatar.uri;
 
-	if (!options?.cached && repoPathOrCommit != null && getContext('gitlens:hasConnectedRemotes')) {
+	if (
+		!options?.cached &&
+		repoPathOrCommit != null &&
+		getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(
+			typeof repoPathOrCommit === 'string' ? repoPathOrCommit : repoPathOrCommit.repoPath,
+		)
+	) {
 		let query = avatarQueue.get(key);
 		if (query == null && hasAvatarExpired(avatar)) {
 			query = getAvatarUriFromRemoteProvider(avatar, key, email, repoPathOrCommit, { size: size }).then(

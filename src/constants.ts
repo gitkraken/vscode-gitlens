@@ -681,9 +681,6 @@ export type ContextKeys = {
 	'gitlens:gk:organization:ai:enabled': boolean;
 	'gitlens:gk:organization:drafts:byob': boolean;
 	'gitlens:gk:organization:drafts:enabled': boolean;
-	'gitlens:hasConnectedRemotes': boolean;
-	'gitlens:hasRemotes': boolean;
-	'gitlens:hasRichRemotes': boolean;
 	'gitlens:hasVirtualFolders': boolean;
 	'gitlens:plus': SubscriptionPlanId;
 	'gitlens:plus:disallowedRepos': string[];
@@ -692,6 +689,9 @@ export type ContextKeys = {
 	'gitlens:plus:state': SubscriptionState;
 	'gitlens:prerelease': boolean;
 	'gitlens:readonly': boolean;
+	'gitlens:repos:withRemotes': string[];
+	'gitlens:repos:withHostingIntegrations': string[];
+	'gitlens:repos:withHostingIntegrationsConnected': string[];
 	'gitlens:untrusted': boolean;
 	'gitlens:views:canCompare': boolean;
 	'gitlens:views:canCompare:file': boolean;
@@ -1178,9 +1178,12 @@ export type TelemetryGlobalContext = {
 	'providers.count': number;
 	'providers.ids': string;
 	'repositories.count': number;
-	'repositories.hasConnectedRemotes': boolean;
 	'repositories.hasRemotes': boolean;
 	'repositories.hasRichRemotes': boolean;
+	'repositories.hasConnectedRemotes': boolean;
+	'repositories.withRemotes': number;
+	'repositories.withHostingIntegrations': number;
+	'repositories.withHostingIntegrationsConnected': number;
 	'repositories.remoteProviders': string;
 	'repositories.schemes': string;
 	'repositories.visibility': 'private' | 'public' | 'local' | 'mixed';
