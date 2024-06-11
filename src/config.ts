@@ -557,6 +557,7 @@ export interface RemotesUrlsConfig {
 	readonly fileInCommit: string;
 	readonly fileLine: string;
 	readonly fileRange: string;
+	readonly avatar?: string;
 }
 
 // NOTE: Must be kept in sync with `gitlens.advanced.messages` setting in the package.json

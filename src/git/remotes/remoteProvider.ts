@@ -155,6 +155,8 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 
 	protected abstract getUrlForCommit(sha: string): string;
 
+	getUrlForAvatar?(email: string, size: number): string | undefined;
+
 	protected getUrlForComparison?(base: string, compare: string, notation: '..' | '...'): string | undefined;
 
 	protected getUrlForCreatePullRequest?(
