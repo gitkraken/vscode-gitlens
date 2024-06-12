@@ -45,7 +45,6 @@ export const urls = Object.freeze({
 	cli: 'https://gitkraken.com/cli?utm_source=gitlens-extension&utm_medium=in-app-links',
 	browserExtension: 'https://gitkraken.com/browser-extension?utm_source=gitlens-extension&utm_medium=in-app-links',
 	desktop: 'https://gitkraken.com/git-client?utm_source=gitlens-extension&utm_medium=in-app-links',
-	gkdev: 'https://gitkraken.dev?utm_source=gitlens-extension&utm_medium=in-app-links',
 
 	releaseNotes: 'https://help.gitkraken.com/gitlens/gitlens-release-notes-current/',
 	releaseAnnouncement:
@@ -1286,7 +1285,7 @@ export type TelemetryEvents = {
 
 	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/title/action': LaunchpadEventData & {
-		action: 'feedback' | 'open-in-editor' | 'refresh' | 'settings';
+		action: 'feedback' | 'open-on-gkdev' | 'refresh' | 'settings';
 	};
 
 	/** Sent when the user takes an action on a launchpad item */

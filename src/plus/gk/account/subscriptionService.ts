@@ -684,7 +684,7 @@ export class SubscriptionService implements Disposable {
 		} else {
 			const activeOrgId = this._subscription.activeOrganization?.id;
 			void env.openExternal(
-				this.connection.getGkDevUri(
+				this.container.getGkDevUri(
 					'purchase',
 					activeOrgId ? `source=gitlens&org=${activeOrgId}` : 'source=gitlens',
 				),

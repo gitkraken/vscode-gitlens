@@ -19,7 +19,6 @@ import {
 	FeedbackQuickInputButton,
 	LaunchpadSettingsQuickInputButton,
 	MergeQuickInputButton,
-	OpenInEditorQuickInputButton,
 	OpenOnGitHubQuickInputButton,
 	OpenOnWebQuickInputButton,
 	PinQuickInputButton,
@@ -29,13 +28,12 @@ import {
 	UnsnoozeQuickInputButton,
 } from '../../commands/quickCommand.buttons';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants';
-import { Commands, previewBadge } from '../../constants';
+import { previewBadge } from '../../constants';
 import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
-import { executeCommand } from '../../system/command';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { interpolate, pluralize } from '../../system/string';
@@ -463,7 +461,7 @@ export class FocusCommand extends QuickCommand<State> {
 			items: items,
 			buttons: [
 				FeedbackQuickInputButton,
-				OpenInEditorQuickInputButton,
+				OpenOnWebQuickInputButton,
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
@@ -480,9 +478,9 @@ export class FocusCommand extends QuickCommand<State> {
 						void openUrl('https://github.com/gitkraken/vscode-gitlens/discussions/3286');
 						break;
 
-					case OpenInEditorQuickInputButton:
-						this.sendTitleActionTelemetry('open-in-editor', context);
-						void executeCommand(Commands.ShowFocusPage);
+					case OpenOnWebQuickInputButton:
+						this.sendTitleActionTelemetry('open-on-gkdev', context);
+						void openUrl(this.container.focus.generateWebUrl());
 						break;
 					case RefreshQuickInputButton:
 						this.sendTitleActionTelemetry('refresh', context);

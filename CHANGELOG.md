@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames _Open Inspect_ to _Inspect Commit Details_
 - Renames _Open Line Inspect_ to _Inspect Line Commit Details_
 - Renames _Open Details_ to _Inspect Commit Details_
+- Replaces _Open in Editor_ link in the Launchpad with a link to _gitkraken.dev_
 
 ### Fixed
 

@@ -472,6 +472,10 @@ export class FocusProvider implements Disposable {
 		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false);
 	}
 
+	generateWebUrl(): string {
+		return this.container.generateWebGkDevUrl('/launchpad');
+	}
+
 	private getItemBranchDeepLink(item: FocusItem, action?: DeepLinkActionType): Uri | undefined {
 		if (item.type !== 'pullrequest' || item.headRef == null || item.repoIdentity?.remote?.url == null)
 			return undefined;
