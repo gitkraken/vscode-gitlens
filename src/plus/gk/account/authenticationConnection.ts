@@ -73,7 +73,7 @@ export class AuthenticationConnection implements Disposable {
 			Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${AuthenticationUriPathPrefix}`),
 		);
 
-		const uri = this.connection.getGkDevUri(
+		const uri = this.container.getGkDevUri(
 			signUp ? 'register' : 'login',
 			`${scopes.includes('gitlens') ? 'source=gitlens&' : ''}state=${encodeURIComponent(
 				gkstate,
