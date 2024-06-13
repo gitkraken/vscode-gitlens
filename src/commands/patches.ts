@@ -323,11 +323,7 @@ export class OpenCloudPatchCommand extends Command {
 				return;
 			}
 
-			const session = await this.container.integrationAuthentication.getSession(
-				integration.id,
-				integration.authProviderDescriptor,
-			);
-
+			const session = await integration.getSession();
 			if (session == null) {
 				void window.showErrorMessage(`Cannot open ${type}; provider not connected.`);
 				return;

@@ -634,21 +634,14 @@ export class Container {
 		return this._context.extension.id;
 	}
 
-	private _integrationAuthentication: IntegrationAuthenticationService | undefined;
-	get integrationAuthentication() {
-		if (this._integrationAuthentication == null) {
-			this._disposables.push(
-				(this._integrationAuthentication = new IntegrationAuthenticationService(this, this._connection)),
-			);
-		}
-
-		return this._integrationAuthentication;
-	}
-
 	private _integrations: IntegrationService | undefined;
 	get integrations(): IntegrationService {
 		if (this._integrations == null) {
-			this._disposables.push((this._integrations = new IntegrationService(this)));
+			const authenticationService = new IntegrationAuthenticationService(this, this._connection);
+			this._disposables.push(
+				authenticationService,
+				(this._integrations = new IntegrationService(this, authenticationService)),
+			);
 		}
 		return this._integrations;
 	}

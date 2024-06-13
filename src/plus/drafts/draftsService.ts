@@ -113,7 +113,7 @@ export class DraftService implements Disposable {
 				};
 
 				const repo = patchRequests[0].repository;
-				const providerAuth = await this.getProviderAuthFromRepository(repo);
+				const providerAuth = await this.getProviderAuthFromRepoOrIntegrationId(repo);
 				if (providerAuth == null) {
 					throw new Error('No provider integration found');
 				}
@@ -759,36 +759,28 @@ export class DraftService implements Disposable {
 		};
 	}
 
-	async getProviderAuthFromRepository(repository: Repository): Promise<ProviderAuth | undefined> {
-		const remoteProvider = await repository.getBestRemoteWithIntegration();
-		if (remoteProvider == null) return undefined;
+	async getProviderAuthFromRepoOrIntegrationId(
+		repoOrIntegrationId: Repository | IntegrationId,
+	): Promise<ProviderAuth | undefined> {
+		let integration;
+		if (isRepository(repoOrIntegrationId)) {
+			const remoteProvider = await repoOrIntegrationId.getBestRemoteWithIntegration();
+			if (remoteProvider == null) return undefined;
 
-		const integration = await remoteProvider.getIntegration();
+			integration = await remoteProvider.getIntegration();
+		} else {
+			const metadata = providersMetadata[repoOrIntegrationId];
+			if (metadata == null) return undefined;
+
+			integration = await this.container.integrations.get(repoOrIntegrationId, metadata.domain);
+		}
 		if (integration == null) return undefined;
 
-		const session = await this.container.integrationAuthentication.getSession(
-			integration.id,
-			integration.authProviderDescriptor,
-		);
+		const session = await integration.getSession();
 		if (session == null) return undefined;
 
 		return {
 			provider: integration.authProvider.id,
-			token: session.accessToken,
-		};
-	}
-
-	async getProviderAuthForIntegration(integrationId: IntegrationId): Promise<ProviderAuth | undefined> {
-		const metadata = providersMetadata[integrationId];
-		if (metadata == null) return undefined;
-		const session = await this.container.integrationAuthentication.getSession(integrationId, {
-			domain: metadata.domain,
-			scopes: metadata.scopes,
-		});
-		if (session == null) return undefined;
-
-		return {
-			provider: integrationId,
 			token: session.accessToken,
 		};
 	}
@@ -829,7 +821,7 @@ export class DraftService implements Disposable {
 			repo = repositoryOrIdentity;
 		}
 
-		return this.getProviderAuthFromRepository(repo);
+		return this.getProviderAuthFromRepoOrIntegrationId(repo);
 	}
 
 	async getCodeSuggestions(
@@ -850,9 +842,7 @@ export class DraftService implements Disposable {
 	): Promise<Draft[]> {
 		const entityIdentifier = getEntityIdentifierInput(item);
 		const prEntityId = EntityIdentifierUtils.encode(entityIdentifier);
-		const providerAuth = isRepository(repositoryOrIntegrationId)
-			? await this.getProviderAuthFromRepository(repositoryOrIntegrationId)
-			: await this.getProviderAuthForIntegration(repositoryOrIntegrationId);
+		const providerAuth = await this.getProviderAuthFromRepoOrIntegrationId(repositoryOrIntegrationId);
 
 		// swallowing this error as we don't need to fail here
 		try {

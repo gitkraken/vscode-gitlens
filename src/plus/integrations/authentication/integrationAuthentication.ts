@@ -143,7 +143,7 @@ export class IntegrationAuthenticationService implements Disposable {
 		}
 	}
 
-	private getSecretKey(providerId: string, id: string): `gitlens.integration.auth:${string}` {
+	private getSecretKey(providerId: IntegrationId, id: string): `gitlens.integration.auth:${IntegrationId}|${string}` {
 		return `gitlens.integration.auth:${providerId}|${id}`;
 	}
 

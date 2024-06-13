@@ -8,6 +8,7 @@ import {
 } from '../../../errors';
 import type { PagedResult } from '../../../git/gitProvider';
 import { base64 } from '../../../system/string';
+import type { IntegrationAuthenticationService } from '../authentication/integrationAuthentication';
 import type {
 	GetAzureProjectsForResourceFn,
 	GetAzureResourcesForUserFn,
@@ -48,7 +49,10 @@ import { HostingIntegrationId, IssueIntegrationId, providersMetadata, SelfHosted
 export class ProvidersApi {
 	private readonly providers: Providers;
 
-	constructor(private readonly container: Container) {
+	constructor(
+		private readonly container: Container,
+		private readonly authenticationService: IntegrationAuthenticationService,
+	) {
 		const providerApis = ProviderApis();
 		this.providers = {
 			[HostingIntegrationId.GitHub]: {
@@ -235,7 +239,7 @@ export class ProvidersApi {
 				: { domain: provider.domain, scopes: provider.scopes };
 		try {
 			return (
-				await this.container.integrationAuthentication.getSession(provider.id, providerDescriptor, {
+				await this.authenticationService.getSession(provider.id, providerDescriptor, {
 					createIfNeeded: options?.createSessionIfNeeded,
 				})
 			)?.accessToken;
