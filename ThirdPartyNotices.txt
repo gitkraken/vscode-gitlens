@@ -15,7 +15,7 @@ This project incorporates components from the projects listed below.
 10. @vscode/codicons version 0.0.36 (https://github.com/microsoft/vscode-codicons)
 11. @vscode/webview-ui-toolkit version 1.4.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
 12. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
-13. billboard.js version 3.12.2 (https://github.com/naver/billboard.js)
+13. billboard.js version 3.12.4 (https://github.com/naver/billboard.js)
 14. fast-string-truncated-width version 1.1.0 (https://github.com/fabiospampinato/fast-string-truncated-width)
 15. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
 16. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
