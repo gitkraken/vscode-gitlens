@@ -355,7 +355,7 @@ export class AIProviderService implements Disposable {
 		});
 	}
 
-	async reset() {
+	async reset(all?: boolean) {
 		let { _provider: provider } = this;
 		if (provider == null) {
 			// If we have no provider, try to get the current model (which will load the provider)
@@ -368,7 +368,9 @@ export class AIProviderService implements Disposable {
 		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 
 		let result;
-		if (provider == null) {
+		if (all) {
+			result = resetAll;
+		} else if (provider == null) {
 			result = await window.showInformationMessage(
 				`Do you want to reset all of the stored AI keys?`,
 				{ modal: true },

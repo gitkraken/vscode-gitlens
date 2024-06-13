@@ -528,6 +528,15 @@ export class IntegrationService implements Disposable {
 		return false;
 	}
 
+	@log()
+	async reset(): Promise<void> {
+		for (const integration of this._integrations.values()) {
+			await integration.disconnect({ silent: true });
+		}
+
+		await this.authenticationService.reset();
+	}
+
 	supports(remoteId: RemoteProviderId): boolean {
 		switch (remoteId) {
 			case 'azure-devops':

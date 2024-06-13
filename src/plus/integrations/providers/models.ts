@@ -84,6 +84,16 @@ const selfHostedIntegrationIds: SelfHostedIntegrationId[] = [
 	SelfHostedIntegrationId.GitLabSelfHosted,
 ] as const;
 
+export const supportedIntegrationIds: IntegrationId[] = [
+	HostingIntegrationId.GitHub,
+	HostingIntegrationId.GitLab,
+	HostingIntegrationId.Bitbucket,
+	HostingIntegrationId.AzureDevOps,
+	IssueIntegrationId.Jira,
+	IssueIntegrationId.Trello,
+	...selfHostedIntegrationIds,
+] as const;
+
 export function isSelfHostedIntegrationId(id: IntegrationId): id is SelfHostedIntegrationId {
 	return selfHostedIntegrationIds.includes(id as SelfHostedIntegrationId);
 }

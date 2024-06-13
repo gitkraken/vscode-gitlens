@@ -282,10 +282,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	private registerCommands(): Disposable[] {
-		return [
-			registerCommand('gitlens.plus.resetRepositoryAccess', () => this.clearAllRepoVisibilityCaches()),
-			registerCommand('gitlens.plus.refreshRepositoryAccess', () => this.clearAllOpenRepoVisibilityCaches()),
-		];
+		return [registerCommand('gitlens.plus.refreshRepositoryAccess', () => this.clearAllOpenRepoVisibilityCaches())];
 	}
 
 	@debug()
@@ -843,17 +840,18 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	private clearRepoVisibilityCache(keys?: string[]): void {
+	private async clearRepoVisibilityCache(keys?: string[]): Promise<void> {
 		if (keys == null) {
 			this._repoVisibilityCache = undefined;
 			void this.container.storage.delete('repoVisibility');
 		} else {
 			keys?.forEach(key => this._repoVisibilityCache?.delete(key));
+
 			const repoVisibility = Array.from(this._repoVisibilityCache?.entries() ?? []);
 			if (repoVisibility.length === 0) {
-				void this.container.storage.delete('repoVisibility');
+				await this.container.storage.delete('repoVisibility');
 			} else {
-				void this.container.storage.store('repoVisibility', repoVisibility);
+				await this.container.storage.store('repoVisibility', repoVisibility);
 			}
 		}
 	}
@@ -866,7 +864,7 @@ export class GitProviderService implements Disposable {
 
 		const now = Date.now();
 		if (now - visibilityInfo.timestamp > 1000 * 60 * 60 * 24 * 30 /* TTL is 30 days */) {
-			this.clearRepoVisibilityCache([key]);
+			void this.clearRepoVisibilityCache([key]);
 			return undefined;
 		}
 
@@ -882,13 +880,13 @@ export class GitProviderService implements Disposable {
 
 		if (visibilityInfo.visibility === 'public') {
 			if (remotes.length == 0 || !remotes.some(r => r.remoteKey === visibilityInfo.remotesHash)) {
-				this.clearRepoVisibilityCache([key]);
+				void this.clearRepoVisibilityCache([key]);
 				return false;
 			}
 		} else if (visibilityInfo.visibility === 'private') {
 			const remotesHash = getVisibilityCacheKey(remotes);
 			if (remotesHash !== visibilityInfo.remotesHash) {
-				this.clearRepoVisibilityCache([key]);
+				void this.clearRepoVisibilityCache([key]);
 				return false;
 			}
 		}
@@ -903,14 +901,14 @@ export class GitProviderService implements Disposable {
 	}
 
 	@debug()
-	clearAllRepoVisibilityCaches(): void {
-		this.clearRepoVisibilityCache();
+	clearAllRepoVisibilityCaches(): Promise<void> {
+		return this.clearRepoVisibilityCache();
 	}
 
 	@debug()
-	clearAllOpenRepoVisibilityCaches(): void {
+	clearAllOpenRepoVisibilityCaches(): Promise<void> {
 		const openRepoProviderPaths = this.openRepositories.map(r => this.getProvider(r.path).path);
-		this.clearRepoVisibilityCache(openRepoProviderPaths);
+		return this.clearRepoVisibilityCache(openRepoProviderPaths);
 	}
 
 	visibility(): Promise<RepositoriesVisibility>;

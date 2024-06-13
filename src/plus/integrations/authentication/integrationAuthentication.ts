@@ -2,10 +2,15 @@ import type { AuthenticationSession, Disposable } from 'vscode';
 import { authentication } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { Container } from '../../../container';
-import { debug } from '../../../system/decorators/log';
+import { debug, log } from '../../../system/decorators/log';
 import type { ServerConnection } from '../../gk/serverConnection';
 import type { IntegrationId } from '../providers/models';
-import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../providers/models';
+import {
+	HostingIntegrationId,
+	IssueIntegrationId,
+	SelfHostedIntegrationId,
+	supportedIntegrationIds,
+} from '../providers/models';
 import type { ProviderAuthenticationSession } from './models';
 
 interface StoredSession {
@@ -127,6 +132,12 @@ export class IntegrationAuthenticationService implements Disposable {
 
 		const key = this.getSecretKey(providerId, provider.getSessionId(descriptor));
 		await this.container.storage.deleteSecret(key);
+	}
+
+	@log()
+	async reset() {
+		// TODO: This really isn't ideal, since it will only work for "cloud" providers as we won't have any more specific descriptors
+		await Promise.allSettled(supportedIntegrationIds.map(providerId => this.deleteSession(providerId)));
 	}
 
 	supports(providerId: string): boolean {
