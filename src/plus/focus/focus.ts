@@ -54,6 +54,9 @@ import type {
 } from './focusProvider';
 import {
 	countFocusItemGroups,
+	focusGroupIconMap,
+	focusGroupLabelMap,
+	focusGroups,
 	getFocusItemIdHash,
 	groupAndSortFocusItems,
 	supportedFocusIntegrations,
@@ -71,20 +74,6 @@ const actionGroupMap = new Map<FocusActionCategory, string[]>([
 	['waiting-for-review', ['Waiting for Review', 'Waiting for reviewers to approve this pull request']],
 	['draft', ['Draft', 'Continue working on your draft']],
 	['other', ['Other', `Opened by \${author} \${createdDateRelative}`]],
-]);
-
-const groupMap = new Map<FocusGroup, [string, string | undefined]>([
-	['current-branch', ['Current Branch', 'git-branch']],
-	['pinned', ['Pinned', 'pinned']],
-	['mergeable', ['Ready to Merge', 'rocket']],
-	['blocked', ['Blocked', 'error']], //bracket-error
-	['follow-up', ['Requires Follow-up', 'report']],
-	// ['needs-attention', ['Needs Your Attention', 'bell-dot']], //comment-unresolved
-	['needs-review', ['Needs Your Review', 'comment-unresolved']], // feedback
-	['waiting-for-review', ['Waiting for Review', 'gitlens-clock']],
-	['draft', ['Draft', 'git-pull-request-draft']],
-	['other', ['Other', 'ellipsis']],
-	['snoozed', ['Snoozed', 'bell-slash']],
 ]);
 
 export interface FocusItemQuickPickItem extends QuickPickItemOfT<FocusItem> {
@@ -191,7 +180,7 @@ export class FocusCommand extends QuickCommand<State> {
 		const collapsed = new Map<FocusGroup, boolean>(storedCollapsed.map(g => [g, true]));
 		if (state.initialGroup != null) {
 			// set all to true except the initial group
-			for (const [group] of groupMap) {
+			for (const group of focusGroups) {
 				collapsed.set(group, group !== state.initialGroup);
 			}
 		}
@@ -343,9 +332,11 @@ export class FocusCommand extends QuickCommand<State> {
 					items.push(
 						createQuickPickSeparator(groupItems.length ? groupItems.length.toString() : undefined),
 						createDirectiveQuickPickItem(Directive.Reload, false, {
-							label: `$(${context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'})\u00a0\u00a0$(${
-								groupMap.get(ui)![1]
-							})\u00a0\u00a0${groupMap.get(ui)![0]?.toUpperCase()}`, //'\u00a0',
+							label: `$(${
+								context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
+							})\u00a0\u00a0${focusGroupIconMap.get(ui)!}\u00a0\u00a0${focusGroupLabelMap
+								.get(ui)
+								?.toUpperCase()}`, //'\u00a0',
 							//detail: groupMap.get(group)?.[0].toUpperCase(),
 							onDidSelect: () => {
 								const collapsed = !context.collapsed.get(ui);

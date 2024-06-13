@@ -2994,6 +2994,10 @@
 							"default",
 							"group"
 						],
+						"enumDescriptions": [
+							"Shows the Launchpad icon",
+							"Shows the icon of the highest priority group"
+						],
 						"default": "default",
 						"markdownDescription": "Specifies the style of the  _Launchpad_ status bar indicator icon",
 						"scope": "window",
@@ -3006,7 +3010,13 @@
 						],
 						"enum": [
 							false,
-							"item"
+							"item",
+							"counts"
+						],
+						"enumDescriptions": [
+							"Hides the label",
+							"Shows the highest priority item which needs your attention",
+							"Shows the status counts of items which need your attention"
 						],
 						"default": "item",
 						"markdownDescription": "Specifies the display of the  _Launchpad_ status bar indicator label",
