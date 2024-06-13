@@ -64,6 +64,42 @@ export const focusGroups = [
 ] as const;
 export type FocusGroup = (typeof focusGroups)[number];
 
+export const focusPriorityGroups = [
+	'mergeable',
+	'blocked',
+	'follow-up',
+	'needs-review',
+] satisfies readonly FocusPriorityGroup[] as readonly FocusGroup[];
+export type FocusPriorityGroup = Extract<FocusGroup, 'mergeable' | 'blocked' | 'follow-up' | 'needs-review'>;
+
+export const focusGroupIconMap = new Map<FocusGroup, `$(${string})`>([
+	['current-branch', '$(git-branch)'],
+	['pinned', '$(pinned)'],
+	['mergeable', '$(rocket)'],
+	['blocked', '$(error)'], //bracket-error
+	['follow-up', '$(report)'],
+	// ['needs-attention', '$(bell-dot)'], //comment-unresolved
+	['needs-review', '$(comment-unresolved)'], // feedback
+	['waiting-for-review', '$(gitlens-clock)'],
+	['draft', '$(git-pull-request-draft)'],
+	['other', '$(ellipsis)'],
+	['snoozed', '$(bell-slash)'],
+]);
+
+export const focusGroupLabelMap = new Map<FocusGroup, string>([
+	['current-branch', 'Current Branch'],
+	['pinned', 'Pinned'],
+	['mergeable', 'Ready to Merge'],
+	['blocked', 'Blocked'],
+	['follow-up', 'Requires Follow-up'],
+	// ['needs-attention', 'Needs Your Attention'],
+	['needs-review', 'Needs Your Review'],
+	['waiting-for-review', 'Waiting for Review'],
+	['draft', 'Draft'],
+	['other', 'Other'],
+	['snoozed', 'Snoozed'],
+]);
+
 export const focusCategoryToGroupMap = new Map<FocusActionCategory, FocusGroup>([
 	// ['pinned', 'pinned'],
 	['mergeable', 'mergeable'],
@@ -730,9 +766,11 @@ export class FocusProvider implements Disposable {
 			};
 			return result;
 		} finally {
+			this.updateGroupedIds(result?.items ?? []);
 			if (result != null) {
-				this.updateGroupedIds(result.items ?? []);
 				this._onDidRefresh.fire(result);
+			} else {
+				debugger;
 			}
 		}
 	}

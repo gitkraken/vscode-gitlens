@@ -7,35 +7,39 @@ import type { Container } from '../../container';
 import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { groupByMap } from '../../system/iterable';
+import { wait } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import { HostingIntegrationId } from '../integrations/providers/models';
 import type { FocusCommandArgs } from './focus';
 import type { FocusGroup, FocusItem, FocusProvider, FocusRefreshEvent } from './focusProvider';
-import { groupAndSortFocusItems, supportedFocusIntegrations } from './focusProvider';
+import {
+	focusGroupIconMap,
+	focusPriorityGroups,
+	groupAndSortFocusItems,
+	supportedFocusIntegrations,
+} from './focusProvider';
 
 type FocusIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load' | 'failed';
 
 export class FocusIndicator implements Disposable {
 	private readonly _disposable: Disposable;
-
-	private _statusBarFocus: StatusBarItem | undefined;
-
-	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
-
-	private _state?: FocusIndicatorState;
-
+	private _categorizedItems: FocusItem[] | undefined;
+	/** Tracks if this is the first state after startup */
+	private _firstStateAfterStartup: boolean = true;
 	private _lastDataUpdate: Date | undefined;
-
 	private _lastRefreshPaused: Date | undefined;
+	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
+	private _state?: FocusIndicatorState;
+	private _statusBarFocus!: StatusBarItem;
 
 	constructor(
 		private readonly container: Container,
-		private readonly focus: FocusProvider,
+		private readonly provider: FocusProvider,
 	) {
 		this._disposable = Disposable.from(
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
-			focus.onDidRefresh(this.onFocusRefreshed, this),
+			provider.onDidRefresh(this.onFocusRefreshed, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChangeConnectionState(this.onConnectedIntegrationsChanged, this),
 			...this.registerCommands(),
@@ -47,8 +51,18 @@ export class FocusIndicator implements Disposable {
 	dispose() {
 		this.clearRefreshTimer();
 		this._statusBarFocus?.dispose();
-		this._statusBarFocus = undefined!;
 		this._disposable.dispose();
+	}
+
+	private get pollingEnabled() {
+		return (
+			configuration.get('launchpad.indicator.polling.enabled') &&
+			configuration.get('launchpad.indicator.polling.interval') > 0
+		);
+	}
+
+	private get pollingInterval() {
+		return configuration.get('launchpad.indicator.polling.interval') * 1000 * 60;
 	}
 
 	private async onConnectedIntegrationsChanged(e: ConnectionStateChangeEvent) {
@@ -61,69 +75,66 @@ export class FocusIndicator implements Disposable {
 		if (!configuration.changed(e, 'launchpad.indicator')) return;
 
 		if (
-			configuration.changed(e, 'launchpad.indicator.enabled') &&
-			!configuration.get('launchpad.indicator.enabled')
+			configuration.changed(e, 'launchpad.indicator.openInEditor') ||
+			configuration.changed(e, 'launchpad.indicator.label')
 		) {
-			this.container.telemetry.sendEvent('launchpad/indicator/hidden');
-		}
-
-		if (configuration.changed(e, 'launchpad.indicator.openInEditor')) {
 			this.updateStatusBarCommand();
 		}
 
-		let reloaded = false;
+		let load = false;
+
 		if (configuration.changed(e, 'launchpad.indicator.polling')) {
 			if (configuration.changed(e, 'launchpad.indicator.polling.enabled')) {
-				await this.maybeLoadData();
-				reloaded = true;
+				load = true;
 			} else if (configuration.changed(e, 'launchpad.indicator.polling.interval')) {
 				this.startRefreshTimer();
 			}
 		}
 
-		if (
-			(!reloaded && configuration.changed(e, 'launchpad.indicator.useColors')) ||
+		load ||=
+			configuration.changed(e, 'launchpad.indicator.useColors') ||
 			configuration.changed(e, 'launchpad.indicator.icon') ||
 			configuration.changed(e, 'launchpad.indicator.label') ||
-			configuration.changed(e, 'launchpad.indicator.groups')
-		) {
+			configuration.changed(e, 'launchpad.indicator.groups');
+
+		if (load) {
 			await this.maybeLoadData();
-			if (configuration.changed(e, 'launchpad.indicator.label')) {
-				this.updateStatusBarCommand();
-			}
 		}
 	}
 
 	private async maybeLoadData() {
-		if (
-			configuration.get('launchpad.indicator.polling.enabled') &&
-			configuration.get('launchpad.indicator.polling.interval') > 0
-		) {
-			if (await this.focus.hasConnectedIntegration()) {
-				this.updateStatusBar('loading');
+		if (this.pollingEnabled) {
+			if (await this.provider.hasConnectedIntegration()) {
+				if (this._state === 'load' && this._categorizedItems != null)
+					this.updateStatusBarState('load', this._categorizedItems);
+				else {
+					this.updateStatusBarState('loading');
+				}
 			} else {
-				this.updateStatusBar('disconnected');
+				this.updateStatusBarState('disconnected');
 			}
 		} else {
-			this.updateStatusBar('idle');
+			this.updateStatusBarState('idle');
 		}
 	}
 
 	private onFocusRefreshed(e: FocusRefreshEvent) {
-		if (this._statusBarFocus == null || !configuration.get('launchpad.indicator.polling.enabled')) return;
-
-		if (e.error != null) {
-			this.updateStatusBar('failed');
+		if (!this.pollingEnabled) {
+			this.updateStatusBarState('idle');
 
 			return;
 		}
 
-		this.updateStatusBar('load', e.items);
+		if (e.error != null) {
+			this.updateStatusBarState('failed');
+
+			return;
+		}
+
+		this.updateStatusBarState('load', e.items);
 	}
 
 	private async onReady(): Promise<void> {
-		if (!configuration.get('launchpad.indicator.enabled')) return;
-
 		this._statusBarFocus = window.createStatusBarItem('gitlens.launchpad', StatusBarAlignment.Left, 10000 - 3);
 		this._statusBarFocus.name = 'GitLens Launchpad';
 
@@ -131,37 +142,6 @@ export class FocusIndicator implements Disposable {
 		this.updateStatusBarCommand();
 
 		this._statusBarFocus.show();
-	}
-
-	private startRefreshTimer(firstDelay?: number) {
-		if (this._refreshTimer != null) {
-			clearInterval(this._refreshTimer);
-		}
-
-		if (!configuration.get('launchpad.indicator.polling.enabled') || this._state === 'disconnected') return;
-
-		const refreshInterval = configuration.get('launchpad.indicator.polling.interval') * 1000 * 60;
-		if (refreshInterval <= 0) return;
-
-		if (firstDelay != null) {
-			this._refreshTimer = setTimeout(() => {
-				void this.focus.getCategorizedItems({ force: true });
-				this._refreshTimer = setInterval(() => {
-					void this.focus.getCategorizedItems({ force: true });
-				}, refreshInterval);
-			}, firstDelay);
-		} else {
-			this._refreshTimer = setInterval(() => {
-				void this.focus.getCategorizedItems({ force: true });
-			}, refreshInterval);
-		}
-	}
-
-	private clearRefreshTimer() {
-		if (this._refreshTimer != null) {
-			clearInterval(this._refreshTimer);
-			this._refreshTimer = undefined;
-		}
 	}
 
 	private onWindowStateChanged(e: { focused: boolean }) {
@@ -176,7 +156,7 @@ export class FocusIndicator implements Disposable {
 
 		if (this._lastRefreshPaused == null) return;
 		if (this._state === 'loading') {
-			this.startRefreshTimer(5000);
+			this.startRefreshTimer();
 
 			return;
 		}
@@ -197,11 +177,55 @@ export class FocusIndicator implements Disposable {
 		this.startRefreshTimer(diff < 0 ? 0 : diff);
 	}
 
-	private updateStatusBar(state: FocusIndicatorState, categorizedItems?: FocusItem[]) {
-		if (this._statusBarFocus == null) return;
-		if (state === this._state && state !== 'load') return;
+	private clearRefreshTimer() {
+		if (this._refreshTimer != null) {
+			clearInterval(this._refreshTimer);
+			this._refreshTimer = undefined;
+		}
+	}
+
+	private startRefreshTimer(startDelay?: number) {
+		const starting = this._firstStateAfterStartup;
+		if (starting) {
+			this._firstStateAfterStartup = false;
+		}
+
+		this.clearRefreshTimer();
+		if (!this.pollingEnabled || this._state === 'disconnected') {
+			if (this._state !== 'idle' && this._state !== 'disconnected') {
+				this.updateStatusBarState('idle');
+			}
+			return;
+		}
+
+		const startRefreshInterval = () => {
+			this._refreshTimer = setInterval(() => {
+				void this.provider.getCategorizedItems({ force: true });
+			}, this.pollingInterval);
+		};
+
+		if (startDelay != null) {
+			this._refreshTimer = setTimeout(() => {
+				startRefreshInterval();
+
+				// If we are loading at startup, wait to give vscode time to settle before querying
+				if (starting) {
+					// Using a wait here, instead using the `startDelay` to avoid case where the timer could be cancelled if the user focused a different windows before the timer fires (because we will cancel the timer)
+					void wait(5000).then(() => this.provider.getCategorizedItems({ force: true }));
+				} else {
+					void this.provider.getCategorizedItems({ force: true });
+				}
+			}, startDelay);
+		} else {
+			startRefreshInterval();
+		}
+	}
+
+	private updateStatusBarState(state: FocusIndicatorState, categorizedItems?: FocusItem[]) {
+		if (state !== 'load' && state === this._state) return;
 
 		this._state = state;
+		this._categorizedItems = categorizedItems;
 
 		const tooltip = new MarkdownString('', true);
 		tooltip.supportHtml = true;
@@ -216,7 +240,6 @@ export class FocusIndicator implements Disposable {
 		tooltip.appendMarkdown('\u00a0\u00a0|\u00a0\u00a0');
 		tooltip.appendMarkdown(`[$(circle-slash) Hide](command:gitlens.launchpad.indicator.action?%22hide%22 "Hide")`);
 
-		// TODO: Also add as a first-time tooltip
 		if (
 			state === 'idle' ||
 			state === 'disconnected' ||
@@ -252,7 +275,7 @@ export class FocusIndicator implements Disposable {
 				break;
 
 			case 'loading':
-				this.startRefreshTimer(5000);
+				this.startRefreshTimer(0);
 				tooltip.appendMarkdown('\n\n---\n\n$(loading~spin) Loading...');
 
 				this._statusBarFocus.text = '$(rocket)$(loading~spin)';
@@ -270,12 +293,15 @@ export class FocusIndicator implements Disposable {
 
 				this._statusBarFocus.text = '$(rocket)$(alert)';
 				this._statusBarFocus.tooltip = tooltip;
+				this._statusBarFocus.color = undefined;
+				break;
 		}
+
+		// After the first state change, clear this
+		this._firstStateAfterStartup = false;
 	}
 
 	private updateStatusBarCommand() {
-		if (this._statusBarFocus == null) return;
-
 		const labelType = configuration.get('launchpad.indicator.label') ?? 'item';
 		this._statusBarFocus.command = configuration.get('launchpad.indicator.openInEditor')
 			? 'gitlens.showFocusPage'
@@ -292,8 +318,6 @@ export class FocusIndicator implements Disposable {
 	}
 
 	private updateStatusBarWithItems(tooltip: MarkdownString, categorizedItems: FocusItem[] | undefined) {
-		if (this._statusBarFocus == null) return;
-
 		this.sendTelemetryFirstLoadEvent();
 
 		this._lastDataUpdate = new Date();
@@ -303,7 +327,7 @@ export class FocusIndicator implements Disposable {
 		const iconType = configuration.get('launchpad.indicator.icon') ?? 'default';
 
 		let color: string | ThemeColor | undefined = undefined;
-		let priorityIcon: 'error' | 'comment-unresolved' | 'report' | 'rocket' | undefined;
+		let priorityIcon: `$(${string})` | undefined;
 		let priorityItem: { item: FocusItem; groupLabel: string } | undefined;
 
 		const groupedItems = groupAndSortFocusItems(categorizedItems);
@@ -327,13 +351,14 @@ export class FocusIndicator implements Disposable {
 					tooltip.appendMarkdown(`\n\n---\n\n`);
 				}
 
+				const icon = focusGroupIconMap.get(group)!;
 				switch (group) {
 					case 'mergeable': {
-						priorityIcon ??= 'rocket';
+						priorityIcon ??= icon;
 						color = new ThemeColor('gitlens.launchpadIndicatorMergeableColor' satisfies Colors);
 						priorityItem ??= { item: items[0], groupLabel: 'can be merged' };
 						tooltip.appendMarkdown(
-							`<span style="color:var(--vscode-gitlens-launchpadIndicatorMergeableHoverColor);">$(rocket)</span>$(blank) [${
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorMergeableHoverColor);">${icon}</span>$(blank) [${
 								labelType === 'item' && priorityItem != null
 									? this.getPriorityItemLabel(priorityItem.item, items.length)
 									: pluralize('pull request', items.length)
@@ -391,10 +416,10 @@ export class FocusIndicator implements Disposable {
 
 						summaryMessage += ')';
 
-						priorityIcon ??= 'error';
+						priorityIcon ??= icon;
 						color ??= new ThemeColor('gitlens.launchpadIndicatorBlockedColor' satisfies Colors);
 						tooltip.appendMarkdown(
-							`<span style="color:var(--vscode-gitlens-launchpadIndicatorBlockedColor);">$(error)</span>$(blank) [${
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorBlockedColor);">${icon}</span>$(blank) [${
 								labelType === 'item' && item != null && priorityItem == null
 									? this.getPriorityItemLabel(item, items.length)
 									: pluralize('pull request', items.length)
@@ -425,10 +450,10 @@ export class FocusIndicator implements Disposable {
 						break;
 					}
 					case 'follow-up': {
-						priorityIcon ??= 'report';
+						priorityIcon ??= icon;
 						color ??= new ThemeColor('gitlens.launchpadIndicatorAttentionColor' satisfies Colors);
 						tooltip.appendMarkdown(
-							`<span style="color:var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);">$(report)</span>$(blank) [${
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);">${icon}</span>$(blank) [${
 								labelType === 'item' && priorityItem == null && items.length
 									? this.getPriorityItemLabel(items[0], items.length)
 									: pluralize('pull request', items.length)
@@ -448,10 +473,10 @@ export class FocusIndicator implements Disposable {
 						break;
 					}
 					case 'needs-review': {
-						priorityIcon ??= 'comment-unresolved';
+						priorityIcon ??= icon;
 						color ??= new ThemeColor('gitlens.launchpadIndicatorAttentionColor' satisfies Colors);
 						tooltip.appendMarkdown(
-							`<span style="color:var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);">$(comment-unresolved)</span>$(blank) [${
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);">${icon}</span>$(blank) [${
 								labelType === 'item' && priorityItem == null && items.length
 									? this.getPriorityItemLabel(items[0], items.length)
 									: pluralize('pull request', items.length)
@@ -474,11 +499,34 @@ export class FocusIndicator implements Disposable {
 			}
 		}
 
-		const iconSegment = priorityIcon != null && iconType === 'group' ? `$(${priorityIcon})` : '$(rocket)';
-		const labelSegment =
-			labelType === 'item' && priorityItem != null
-				? ` ${this.getPriorityItemLabel(priorityItem.item)} ${priorityItem.groupLabel}`
-				: '';
+		const iconSegment = iconType === 'group' && priorityIcon != null ? priorityIcon : '$(rocket)';
+
+		let labelSegment;
+		switch (labelType) {
+			case 'item':
+				labelSegment =
+					priorityItem != null
+						? ` ${this.getPriorityItemLabel(priorityItem.item)} ${priorityItem.groupLabel}`
+						: '';
+				break;
+
+			case 'counts':
+				labelSegment = '';
+				for (const group of groups) {
+					if (!focusPriorityGroups.includes(group)) continue;
+
+					const count = groupedItems.get(group)?.length ?? 0;
+					const icon = focusGroupIconMap.get(group)!;
+
+					labelSegment +=
+						!labelSegment && iconSegment === icon ? `\u00a0${count}` : `\u00a0\u00a0${icon} ${count}`;
+				}
+				break;
+
+			default:
+				labelSegment = '';
+				break;
+		}
 
 		this._statusBarFocus.text = `${iconSegment}${labelSegment}`;
 		this._statusBarFocus.tooltip = tooltip;

@@ -313,6 +313,9 @@ export class Container {
 				if (configuration.changed(e, 'launchpad.indicator.enabled')) {
 					this._focusIndicator?.dispose();
 					this._focusIndicator = undefined;
+
+					this.telemetry.sendEvent('launchpad/indicator/hidden');
+
 					if (configuration.get('launchpad.indicator.enabled')) {
 						this._disposables.push((this._focusIndicator = new FocusIndicator(this, this._focusProvider)));
 					}
