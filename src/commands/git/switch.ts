@@ -188,7 +188,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				}
 
 				if (isCrossCommandReference(result)) {
-					void executeCommand(result.command);
+					void executeCommand(result.command, result.args);
 					endSteps(state);
 					return;
 				}

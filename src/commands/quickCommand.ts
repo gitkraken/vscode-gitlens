@@ -386,10 +386,15 @@ export function freezeStep(step: QuickPickStep, quickpick: QuickPick<any>): Disp
 	};
 }
 
-export interface CrossCommandReference {
+export interface CrossCommandReference<T = unknown> {
 	command: Commands;
+	args?: T;
 }
 
-export function isCrossCommandReference(value: any): value is CrossCommandReference {
+export function isCrossCommandReference<T = unknown>(value: any): value is CrossCommandReference<T> {
 	return value.command != null;
+}
+
+export function createCrossCommandReference<T>(command: Commands, args: T): CrossCommandReference<T> {
+	return { command: command, args: args };
 }

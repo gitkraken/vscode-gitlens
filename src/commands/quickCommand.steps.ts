@@ -41,6 +41,7 @@ import { sortTags } from '../git/models/tag';
 import type { GitWorktree, WorktreeQuickPickItem } from '../git/models/worktree';
 import { createWorktreeQuickPickItem, sortWorktrees } from '../git/models/worktree';
 import { remoteUrlRegex } from '../git/parsers/remoteParser';
+import type { FocusCommandArgs } from '../plus/focus/focus';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/account/subscription';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
@@ -69,7 +70,7 @@ import {
 	OpenChangedFilesCommandQuickPickItem,
 	OpenOnlyChangedFilesCommandQuickPickItem,
 } from '../quickpicks/items/commits';
-import type { QuickPickSeparator } from '../quickpicks/items/common';
+import type { QuickPickItemOfT, QuickPickSeparator } from '../quickpicks/items/common';
 import { CommandQuickPickItem, createQuickPickSeparator } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
@@ -118,6 +119,7 @@ import {
 	canInputStepContinue,
 	canPickStepContinue,
 	canStepContinue,
+	createCrossCommandReference,
 	createInputStep,
 	createPickStep,
 	endSteps,
@@ -961,11 +963,13 @@ export function* pickBranchOrTagStepMultiRepo<
 		item: '',
 	};
 
-	const choosePullRequestItem: QuickPickItem & { item: CrossCommandReference } = {
+	const choosePullRequestItem: QuickPickItemOfT<CrossCommandReference> = {
 		label: 'Choose a Pull Request...',
 		iconPath: new ThemeIcon('git-pull-request'),
 		alwaysShow: true,
-		item: { command: Commands.ShowLaunchpad },
+		item: createCrossCommandReference<Partial<FocusCommandArgs>>(Commands.ShowLaunchpad, {
+			source: 'git-commands',
+		}),
 	};
 
 	const getBranchesAndOrTagsFn = () => {
