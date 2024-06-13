@@ -1,8 +1,11 @@
-import type { AuthenticationSession, Disposable } from 'vscode';
-import { authentication } from 'vscode';
+import type { AuthenticationSession, CancellationToken, Disposable, Uri } from 'vscode';
+import { authentication, CancellationTokenSource, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { Container } from '../../../container';
 import { debug, log } from '../../../system/decorators/log';
+import type { DeferredEventExecutor } from '../../../system/event';
+import { promisifyDeferred } from '../../../system/event';
+import { openUrl } from '../../../system/utils';
 import type { ServerConnection } from '../../gk/serverConnection';
 import type { IntegrationId } from '../providers/models';
 import {
@@ -36,11 +39,117 @@ export interface IntegrationAuthenticationSessionDescriptor {
 	[key: string]: unknown;
 }
 
-export interface IntegrationAuthenticationProvider {
-	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string;
-	createSession(
+export abstract class IntegrationAuthenticationProvider {
+	constructor(
+		private readonly container: Container,
+		private readonly authProviderId: IntegrationId,
+	) {}
+
+	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
+		return descriptor?.domain ?? '';
+	}
+	async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<ProviderAuthenticationSession | undefined>;
+		options?: { authorizeIfNeeded?: boolean },
+	): Promise<ProviderAuthenticationSession | undefined> {
+		const cloudIntegrations = await this.container.cloudIntegrations;
+		if (cloudIntegrations == null) return undefined;
+
+		let session = await cloudIntegrations.getConnectionSession(this.authProviderId);
+
+		if (session != null && session.expiresIn < 60) {
+			session = await cloudIntegrations.getConnectionSession(this.authProviderId, session.accessToken);
+		}
+
+		if (!session && options?.authorizeIfNeeded) {
+			const authorizeUrl = (await cloudIntegrations.authorize(this.authProviderId))?.url;
+
+			if (!authorizeUrl) return undefined;
+
+			void (await openUrl(authorizeUrl));
+
+			const cancellation = new CancellationTokenSource();
+			const deferredCallback = promisifyDeferred(
+				this.container.uri.onDidReceiveCloudIntegrationAuthenticationUri,
+				this.getUriHandlerDeferredExecutor(),
+			);
+
+			try {
+				await Promise.race([
+					deferredCallback.promise,
+					this.openCompletionInput(cancellation.token),
+					new Promise<string>((_, reject) =>
+						// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+						cancellation.token.onCancellationRequested(() => reject('Cancelled')),
+					),
+					new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
+				]);
+				session = await cloudIntegrations.getConnectionSession(this.authProviderId);
+			} catch {
+				session = undefined;
+			} finally {
+				cancellation.cancel();
+				cancellation.dispose();
+				deferredCallback.cancel();
+			}
+		}
+
+		if (!session) return undefined;
+
+		return {
+			id: this.getSessionId(descriptor),
+			accessToken: session.accessToken,
+			scopes: descriptor?.scopes ?? [],
+			account: {
+				id: '',
+				label: '',
+			},
+			expiresAt: new Date(session.expiresIn * 1000 + Date.now()),
+		};
+	}
+
+	private async openCompletionInput(cancellationToken: CancellationToken) {
+		const input = window.createInputBox();
+		input.ignoreFocusOut = true;
+
+		const disposables: Disposable[] = [];
+
+		try {
+			if (cancellationToken.isCancellationRequested) return;
+
+			await new Promise<string | undefined>(resolve => {
+				disposables.push(
+					cancellationToken.onCancellationRequested(() => input.hide()),
+					input.onDidHide(() => resolve(undefined)),
+					input.onDidAccept(() => resolve(undefined)),
+				);
+
+				input.title = this.getCompletionInputTitle();
+				input.placeholder = 'Please enter the provided authorization code';
+				input.prompt = '';
+
+				input.show();
+			});
+		} finally {
+			input.dispose();
+			disposables.forEach(d => void d.dispose());
+		}
+	}
+
+	protected abstract getCompletionInputTitle(): string;
+
+	private getUriHandlerDeferredExecutor(): DeferredEventExecutor<Uri, string> {
+		return (uri: Uri, resolve, reject) => {
+			const queryParams: URLSearchParams = new URLSearchParams(uri.query);
+			const provider = queryParams.get('provider');
+			if (provider !== this.authProviderId) {
+				reject('Invalid provider');
+				return;
+			}
+
+			resolve(uri.toString(true));
+		};
+	}
 }
 
 export class IntegrationAuthenticationService implements Disposable {
@@ -165,23 +274,23 @@ export class IntegrationAuthenticationService implements Disposable {
 				case HostingIntegrationId.AzureDevOps:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './azureDevOps')
-					).AzureDevOpsAuthenticationProvider();
+					).AzureDevOpsAuthenticationProvider(this.container);
 					break;
 				case HostingIntegrationId.Bitbucket:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './bitbucket')
-					).BitbucketAuthenticationProvider();
+					).BitbucketAuthenticationProvider(this.container);
 					break;
 				case SelfHostedIntegrationId.GitHubEnterprise:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './github')
-					).GitHubEnterpriseAuthenticationProvider();
+					).GitHubEnterpriseAuthenticationProvider(this.container);
 					break;
 				case HostingIntegrationId.GitLab:
 				case SelfHostedIntegrationId.GitLabSelfHosted:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './gitlab')
-					).GitLabAuthenticationProvider();
+					).GitLabAuthenticationProvider(this.container, providerId);
 					break;
 				case IssueIntegrationId.Jira:
 					provider = new (

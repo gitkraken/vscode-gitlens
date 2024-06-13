@@ -1,17 +1,17 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
+import type { Container } from '../../../container';
 import { base64 } from '../../../system/string';
-import type {
-	IntegrationAuthenticationProvider,
-	IntegrationAuthenticationSessionDescriptor,
-} from './integrationAuthentication';
+import { HostingIntegrationId } from '../providers/models';
+import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
+import { IntegrationAuthenticationProvider } from './integrationAuthentication';
 
-export class BitbucketAuthenticationProvider implements IntegrationAuthenticationProvider {
-	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
-		return descriptor?.domain ?? '';
+export class BitbucketAuthenticationProvider extends IntegrationAuthenticationProvider {
+	constructor(container: Container) {
+		super(container, HostingIntegrationId.Bitbucket);
 	}
 
-	async createSession(
+	override async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 	): Promise<AuthenticationSession | undefined> {
 		let bitbucketUsername: string | undefined = descriptor?.username as string | undefined;
@@ -128,5 +128,9 @@ export class BitbucketAuthenticationProvider implements IntegrationAuthenticatio
 				label: '',
 			},
 		};
+	}
+
+	protected override getCompletionInputTitle(): string {
+		throw new Error('Method not implemented');
 	}
 }

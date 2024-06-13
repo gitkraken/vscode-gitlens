@@ -1,16 +1,16 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import type {
-	IntegrationAuthenticationProvider,
-	IntegrationAuthenticationSessionDescriptor,
-} from './integrationAuthentication';
+import type { Container } from '../../../container';
+import { SelfHostedIntegrationId } from '../providers/models';
+import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
+import { IntegrationAuthenticationProvider } from './integrationAuthentication';
 
-export class GitHubEnterpriseAuthenticationProvider implements IntegrationAuthenticationProvider {
-	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
-		return descriptor?.domain ?? '';
+export class GitHubEnterpriseAuthenticationProvider extends IntegrationAuthenticationProvider {
+	constructor(container: Container) {
+		super(container, SelfHostedIntegrationId.GitHubEnterprise);
 	}
 
-	async createSession(
+	override async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 	): Promise<AuthenticationSession | undefined> {
 		const input = window.createInputBox();
@@ -74,5 +74,9 @@ export class GitHubEnterpriseAuthenticationProvider implements IntegrationAuthen
 				label: '',
 			},
 		};
+	}
+
+	protected override getCompletionInputTitle(): string {
+		throw new Error('Method not implemented');
 	}
 }
