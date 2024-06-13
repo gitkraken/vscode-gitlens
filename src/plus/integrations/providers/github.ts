@@ -9,7 +9,10 @@ import { PullRequest } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
 import { ensurePaidPlan } from '../../utils';
-import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
+import type {
+	IntegrationAuthenticationProviderDescriptor,
+	IntegrationAuthenticationService,
+} from '../authentication/integrationAuthentication';
 import type { SupportedIntegrationIds } from '../integration';
 import { HostingIntegration } from '../integration';
 import { HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
@@ -282,10 +285,11 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHoste
 
 	constructor(
 		container: Container,
+		authenticationService: IntegrationAuthenticationService,
 		getProvidersApi: () => Promise<ProvidersApi>,
 		private readonly _domain: string,
 	) {
-		super(container, getProvidersApi);
+		super(container, authenticationService, getProvidersApi);
 	}
 
 	@log()

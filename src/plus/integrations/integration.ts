@@ -24,6 +24,7 @@ import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
+	IntegrationAuthenticationService,
 	IntegrationAuthenticationSessionDescriptor,
 } from './authentication/integrationAuthentication';
 import type { ProviderAuthenticationSession } from './authentication/models';
@@ -88,6 +89,7 @@ export abstract class IntegrationBase<
 
 	constructor(
 		protected readonly container: Container,
+		protected readonly authenticationService: IntegrationAuthenticationService,
 		protected readonly getProvidersApi: () => Promise<ProvidersApi>,
 	) {}
 
@@ -125,7 +127,7 @@ export abstract class IntegrationBase<
 	}
 
 	protected _session: ProviderAuthenticationSession | null | undefined;
-	protected session() {
+	getSession() {
 		if (this._session === undefined) {
 			return this.ensureSession(false);
 		}
@@ -151,40 +153,38 @@ export abstract class IntegrationBase<
 
 		const connected = this._session != null;
 
-		if (connected && !options?.silent) {
-			if (options?.currentSessionOnly) {
-				void showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(this.name);
+		let signOut = !options?.currentSessionOnly;
+
+		if (connected && !options?.currentSessionOnly && !options?.silent) {
+			const disable = { title: 'Disable' };
+			const disableAndSignOut = { title: 'Disable & Sign Out' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+
+			let result: MessageItem | undefined;
+			if (this.authenticationService.supports(this.authProvider.id)) {
+				result = await window.showWarningMessage(
+					`Are you sure you want to disable the rich integration with ${this.name}?\n\nNote: signing out clears the saved authentication.`,
+					{ modal: true },
+					disable,
+					disableAndSignOut,
+					cancel,
+				);
 			} else {
-				const disable = { title: 'Disable' };
-				const signout = { title: 'Disable & Sign Out' };
-				const cancel = { title: 'Cancel', isCloseAffordance: true };
-
-				let result: MessageItem | undefined;
-				if (this.container.integrationAuthentication.supports(this.authProvider.id)) {
-					result = await window.showWarningMessage(
-						`Are you sure you want to disable the rich integration with ${this.name}?\n\nNote: signing out clears the saved authentication.`,
-						{ modal: true },
-						disable,
-						signout,
-						cancel,
-					);
-				} else {
-					result = await window.showWarningMessage(
-						`Are you sure you want to disable the rich integration with ${this.name}?`,
-						{ modal: true },
-						disable,
-						cancel,
-					);
-				}
-
-				if (result == null || result === cancel) return;
-				if (result === signout) {
-					void this.container.integrationAuthentication.deleteSession(
-						this.authProvider.id,
-						this.authProviderDescriptor,
-					);
-				}
+				result = await window.showWarningMessage(
+					`Are you sure you want to disable the rich integration with ${this.name}?`,
+					{ modal: true },
+					disable,
+					cancel,
+				);
 			}
+
+			if (result == null || result === cancel) return;
+
+			signOut = result === disableAndSignOut;
+		}
+
+		if (signOut) {
+			void this.authenticationService.deleteSession(this.authProvider.id, this.authProviderDescriptor);
 		}
 
 		this.resetRequestExceptionCount();
@@ -241,6 +241,7 @@ export abstract class IntegrationBase<
 		this.requestExceptionCount++;
 
 		if (this.requestExceptionCount >= 5 && this._session !== null) {
+			void showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(this.name);
 			void this.disconnect({ currentSessionOnly: true });
 		}
 	}
@@ -248,7 +249,7 @@ export abstract class IntegrationBase<
 	@gate()
 	@debug({ exit: true })
 	async isConnected(): Promise<boolean> {
-		return (await this.session()) != null;
+		return (await this.getSession()) != null;
 	}
 
 	@gate()
@@ -267,11 +268,10 @@ export abstract class IntegrationBase<
 
 		let session: ProviderAuthenticationSession | undefined | null;
 		try {
-			session = await this.container.integrationAuthentication.getSession(
-				this.authProvider.id,
-				this.authProviderDescriptor,
-				{ createIfNeeded: createIfNeeded, forceNewSession: forceNewSession },
-			);
+			session = await this.authenticationService.getSession(this.authProvider.id, this.authProviderDescriptor, {
+				createIfNeeded: createIfNeeded,
+				forceNewSession: forceNewSession,
+			});
 		} catch (ex) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);
 

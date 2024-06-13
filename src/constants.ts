@@ -878,7 +878,7 @@ export type SupportedAIModels =
 	| 'vscode';
 
 export type SecretKeys =
-	| `gitlens.integration.auth:${string}`
+	| `gitlens.integration.auth:${IntegrationId}|${string}`
 	| `gitlens.${AIProviders}.key`
 	| `gitlens.plus.auth:${Environment}`;
 
