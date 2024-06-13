@@ -191,10 +191,6 @@ export class SubscriptionService implements Disposable {
 			registerCommand(Commands.PlusRestore, (src?: Source) => this.setProFeaturesVisibility(true, src)),
 
 			registerCommand(Commands.PlusValidate, (src?: Source) => this.validate({ force: true }, src)),
-
-			...(this.container.debugging
-				? [registerCommand('gitlens.plus.reset', () => this.logout(true, undefined))]
-				: []),
 		];
 	}
 

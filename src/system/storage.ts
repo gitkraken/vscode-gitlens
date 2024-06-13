@@ -66,15 +66,31 @@ export class Storage implements Disposable {
 
 	@debug({ logThreshold: 250 })
 	async deleteWithPrefix(prefix: ExtractPrefixes<GlobalStorageKeys, ':'>): Promise<void> {
-		const qualifiedKey = `${extensionPrefix}:${prefix}`;
-		const qualifiedPrefix = `${qualifiedKey}:`;
+		return this.deleteWithPrefixCore(prefix);
+	}
 
-		for (const key of this.context.globalState.keys() as GlobalStorageKeys[]) {
-			if (key === qualifiedKey || key.startsWith(qualifiedPrefix)) {
+	async deleteWithPrefixCore(
+		prefix?: ExtractPrefixes<GlobalStorageKeys, ':'>,
+		exclude?: GlobalStorageKeys[],
+	): Promise<void> {
+		const qualifiedKeyPrefix = `${extensionPrefix}:`;
+
+		for (const qualifiedKey of this.context.globalState.keys() as `${typeof extensionPrefix}:${GlobalStorageKeys}`[]) {
+			if (!qualifiedKey.startsWith(qualifiedKeyPrefix)) continue;
+
+			const key = qualifiedKey.substring(qualifiedKeyPrefix.length) as GlobalStorageKeys;
+			if (prefix == null || key === prefix || key.startsWith(`${prefix}:`)) {
+				if (exclude?.includes(key)) continue;
+
 				await this.context.globalState.update(key, undefined);
 				this._onDidChange.fire({ key: key, workspace: false });
 			}
 		}
+	}
+
+	@debug({ logThreshold: 250 })
+	async reset(): Promise<void> {
+		return this.deleteWithPrefixCore(undefined, ['premium:subscription']);
 	}
 
 	@debug({ args: { 1: false }, logThreshold: 250 })
@@ -115,15 +131,31 @@ export class Storage implements Disposable {
 
 	@debug({ logThreshold: 250 })
 	async deleteWorkspaceWithPrefix(prefix: ExtractPrefixes<WorkspaceStorageKeys, ':'>): Promise<void> {
-		const qualifiedKey = `${extensionPrefix}:${prefix}`;
-		const qualifiedPrefix = `${qualifiedKey}:`;
+		return this.deleteWorkspaceWithPrefixCore(prefix);
+	}
 
-		for (const key of this.context.workspaceState.keys() as WorkspaceStorageKeys[]) {
-			if (key === qualifiedKey || key.startsWith(qualifiedPrefix)) {
+	async deleteWorkspaceWithPrefixCore(
+		prefix?: ExtractPrefixes<WorkspaceStorageKeys, ':'>,
+		exclude?: WorkspaceStorageKeys[],
+	): Promise<void> {
+		const qualifiedKeyPrefix = `${extensionPrefix}:`;
+
+		for (const qualifiedKey of this.context.workspaceState.keys() as `${typeof extensionPrefix}:${WorkspaceStorageKeys}`[]) {
+			if (!qualifiedKey.startsWith(qualifiedKeyPrefix)) continue;
+
+			const key = qualifiedKey.substring(qualifiedKeyPrefix.length) as WorkspaceStorageKeys;
+			if (prefix == null || key === prefix || key.startsWith(`${prefix}:`)) {
+				if (exclude?.includes(key)) continue;
+
 				await this.context.workspaceState.update(key, undefined);
 				this._onDidChange.fire({ key: key, workspace: true });
 			}
 		}
+	}
+
+	@debug({ logThreshold: 250 })
+	async resetWorkspace(): Promise<void> {
+		return this.deleteWorkspaceWithPrefixCore();
 	}
 
 	@debug({ args: { 1: false }, logThreshold: 250 })

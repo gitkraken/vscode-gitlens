@@ -5468,6 +5468,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.reset",
+				"title": "Reset Stored Data...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.resetAIKey",
 				"title": "Reset Stored AI Keys...",
 				"category": "GitLens"
@@ -5520,16 +5525,6 @@
 			{
 				"command": "gitlens.plus.restore",
 				"title": "Restore Pro Features",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.plus.reset",
-				"title": "Reset",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.plus.resetRepositoryAccess",
-				"title": "Reset Repository Access Cache",
 				"category": "GitLens"
 			},
 			{
@@ -6764,21 +6759,6 @@
 			{
 				"command": "gitlens.externalDiffAll",
 				"title": "Open All Changes (difftool)",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.resetAvatarCache",
-				"title": "Reset Avatar Cache",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.resetSuppressedWarnings",
-				"title": "Reset Suppressed Warnings",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.resetTrackedUsage",
-				"title": "Reset Tracked Usage",
 				"category": "GitLens"
 			},
 			{
@@ -9582,14 +9562,6 @@
 					"when": "!config.gitlens.plusFeatures.enabled"
 				},
 				{
-					"command": "gitlens.plus.reset",
-					"when": "gitlens:debugging"
-				},
-				{
-					"command": "gitlens.plus.resetRepositoryAccess",
-					"when": "gitlens:enabled"
-				},
-				{
 					"command": "gitlens.plus.refreshRepositoryAccess",
 					"when": "gitlens:enabled"
 				},
@@ -10452,18 +10424,6 @@
 				{
 					"command": "gitlens.stashSaveFiles",
 					"when": "false"
-				},
-				{
-					"command": "gitlens.resetAvatarCache",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.resetSuppressedWarnings",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.resetTrackedUsage",
-					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.inviteToLiveShare",
