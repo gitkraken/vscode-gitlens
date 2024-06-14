@@ -184,7 +184,8 @@ export abstract class IntegrationBase<
 		}
 
 		if (signOut) {
-			void this.authenticationService.deleteSession(this.authProvider.id, this.authProviderDescriptor);
+			const authProvider = await this.authenticationService.get(this.authProvider.id);
+			void authProvider.deleteSession(this.authProviderDescriptor);
 		}
 
 		this.resetRequestExceptionCount();
@@ -268,7 +269,8 @@ export abstract class IntegrationBase<
 
 		let session: ProviderAuthenticationSession | undefined | null;
 		try {
-			session = await this.authenticationService.getSession(this.authProvider.id, this.authProviderDescriptor, {
+			const authProvider = await this.authenticationService.get(this.authProvider.id);
+			session = await authProvider.getSession(this.authProviderDescriptor, {
 				createIfNeeded: createIfNeeded,
 				forceNewSession: forceNewSession,
 			});
