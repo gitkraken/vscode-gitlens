@@ -308,6 +308,16 @@ export interface DidEnsureRowParams {
 }
 export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
 
+export type GetRowHoverParams = {
+	type: GitGraphRowType;
+	id: string;
+};
+export interface DidGetRowHoverParams {
+	id: string;
+	markdown?: string;
+}
+export const GetRowHoverRequest = new IpcRequest<GetRowHoverParams, DidGetRowHoverParams>(scope, 'row/hover/get');
+
 export interface SearchParams {
 	search?: SearchQuery;
 	limit?: number;
