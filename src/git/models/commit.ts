@@ -220,6 +220,8 @@ export class GitCommit implements GitRevisionReference {
 				this._files = this.file != null ? [this.file] : [];
 			}
 
+			this._recomputeStats = true;
+
 			return;
 		}
 
