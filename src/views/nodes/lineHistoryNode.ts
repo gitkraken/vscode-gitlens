@@ -80,9 +80,7 @@ export class LineHistoryNode
 					? await this.view.container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
 					: await this.view.container.git.getBlameForRange(this.uri, selection)
 				: undefined,
-			this.branch != null
-				? this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
-				: undefined,
+			this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch?.name),
 			range
 				? this.view.container.git.getLogRefsOnly(this.uri.repoPath, {
 						limit: 0,

@@ -650,7 +650,7 @@
 					},
 					"gitlens.views.formats.commits.tooltip": {
 						"type": "string",
-						"default": "${link}${' via 'pullRequest}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n${avatar} &nbsp;__${author}__, ${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
+						"default": "${link}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips} \\\n${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
 						"markdownDescription": "Specifies the tooltip format (in markdown) of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 32
@@ -689,6 +689,13 @@
 						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 51
+					},
+					"gitlens.views.formats.stashes.tooltip": {
+						"type": "string",
+						"default": "${link}${' on `'stashOnRef`}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail} \\\n&nbsp;&nbsp;${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
+						"markdownDescription": "Specifies the tooltip format (in markdown) of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 52
 					},
 					"gitlens.views.openChangesInMultiDiffEditor": {
 						"type": "boolean",

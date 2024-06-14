@@ -8,6 +8,7 @@ import { equalsIgnoreCase, sortCompare } from '../../system/string';
 import { isLightTheme } from '../../system/utils';
 import { parseGitRemoteUrl } from '../parsers/remoteParser';
 import type { RemoteProvider } from '../remotes/remoteProvider';
+import { getRemoteProviderThemeIconString } from '../remotes/remoteProvider';
 
 export type GitRemoteType = 'fetch' | 'push';
 
@@ -161,6 +162,10 @@ export function getRemoteIconUri(
 		`images/${isLightTheme(theme) ? 'light' : 'dark'}/icon-${remote.provider.icon}.svg`,
 	);
 	return asWebviewUri != null ? asWebviewUri(uri) : uri;
+}
+
+export function getRemoteThemeIconString(remote: GitRemote | undefined): string {
+	return getRemoteProviderThemeIconString(remote?.provider);
 }
 
 export function getRemoteUpstreamDescription(remote: GitRemote): string {
