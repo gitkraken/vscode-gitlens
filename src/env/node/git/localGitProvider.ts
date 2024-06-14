@@ -81,7 +81,6 @@ import type { GitFile, GitFileStatus } from '../../../git/models/file';
 import { GitFileChange } from '../../../git/models/file';
 import type {
 	GitGraph,
-	GitGraphHostingServiceType,
 	GitGraphRow,
 	GitGraphRowContexts,
 	GitGraphRowHead,
@@ -2569,7 +2568,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									avatarUrl: avatarUrl,
 									context: serializeWebviewItemContext<GraphItemRefContext>(context),
 									current: tip === headRefUpstreamName,
-									hostingServiceType: remote.provider?.id as GitGraphHostingServiceType,
+									hostingServiceType: remote.provider?.gkProviderId,
 								};
 								refRemoteHeads.push(refRemoteHead);
 

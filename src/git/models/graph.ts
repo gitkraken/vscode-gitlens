@@ -7,6 +7,8 @@ import type {
 	RowStats,
 	Tag,
 } from '@gitkraken/gitkraken-components';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { Brand, Unbrand } from '../../system/brand';
 import type { GitBranch } from './branch';
 import type { GitRemote } from './remote';
 
@@ -64,3 +66,44 @@ export interface GitGraph {
 }
 
 export type GitGraphRowsStats = Map<string, GitGraphRowStats>;
+
+export function convertHostingServiceTypeToGkProviderId(type: GitGraphHostingServiceType): GkProviderId | undefined {
+	switch (type) {
+		case 'github':
+			return 'github' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
+		case 'githubEnterprise':
+			return 'githubEnterprise' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
+		case 'gitlab':
+			return 'gitlab' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
+		case 'gitlabSelfHosted':
+			return 'gitlabSelfHosted' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
+		case 'bitbucket':
+			return 'bitbucket' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
+		case 'bitbucketServer':
+			return 'bitbucketServer' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
+		case 'azureDevops':
+			return 'azureDevops' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
+		default:
+			return undefined;
+	}
+}
+
+export function getGkProviderThemeIconString(
+	providerIdOrHostingType: GkProviderId | GitGraphHostingServiceType | undefined,
+): string {
+	switch (providerIdOrHostingType) {
+		case 'azureDevops':
+			return 'gitlens-provider-azdo';
+		case 'bitbucket':
+		case 'bitbucketServer':
+			return 'gitlens-provider-bitbucket';
+		case 'github':
+		case 'githubEnterprise':
+			return 'gitlens-provider-github';
+		case 'gitlab':
+		case 'gitlabSelfHosted':
+			return 'gitlens-provider-gitlab';
+		default:
+			return 'cloud';
+	}
+}

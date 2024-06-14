@@ -596,6 +596,7 @@ export interface ViewsCommonConfig {
 		readonly stashes: {
 			readonly label: string;
 			readonly description: string;
+			readonly tooltip: string;
 		};
 	};
 	readonly openChangesInMultiDiffEditor: boolean;

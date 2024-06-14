@@ -69,7 +69,7 @@ import type { GitBranchReference, GitReference } from './models/reference';
 import { createRevisionRange, isSha, isUncommitted, isUncommittedParent } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
-import { getVisibilityCacheKey } from './models/remote';
+import { getRemoteThemeIconString, getVisibilityCacheKey } from './models/remote';
 import type { RepositoryChangeEvent } from './models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from './models/repository';
 import type { GitStash } from './models/stash';
@@ -1605,60 +1605,69 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getBranchesAndTagsTipsFn(
 		repoPath: string | Uri | undefined,
-		currentName?: string,
+		suppressName?: string,
 	): Promise<
 		(sha: string, options?: { compact?: boolean | undefined; icons?: boolean | undefined }) => string | undefined
 	> {
-		const [branchesResult, tagsResult] = await Promise.allSettled([
+		if (repoPath == null) return () => undefined;
+
+		const [branchesResult, tagsResult, remotesResult] = await Promise.allSettled([
 			this.getBranches(repoPath),
 			this.getTags(repoPath),
+			this.getRemotes(repoPath),
 		]);
 
 		const branches = getSettledValue(branchesResult)?.values ?? [];
 		const tags = getSettledValue(tagsResult)?.values ?? [];
+		const remotes = getSettledValue(remotesResult) ?? [];
 
 		const branchesAndTagsBySha = groupByFilterMap(
 			(branches as (GitBranch | GitTag)[]).concat(tags as (GitBranch | GitTag)[]),
 			bt => bt.sha,
 			bt => {
-				if (currentName) {
-					if (bt.name === currentName) return undefined;
-					if (bt.refType === 'branch' && bt.getNameWithoutRemote() === currentName) {
-						return { name: bt.name, compactName: bt.getRemoteName(), type: bt.refType };
+				let icon;
+				if (bt.refType === 'branch') {
+					if (bt.remote) {
+						const remote = remotes.find(r => r.name === bt.getRemoteName());
+						icon = `$(${getRemoteThemeIconString(remote)}) `;
+					} else {
+						icon = '$(git-branch) ';
 					}
+				} else {
+					icon = '$(tag) ';
 				}
 
-				return { name: bt.name, compactName: undefined, type: bt.refType };
+				return {
+					name: bt.name,
+					icon: icon,
+					compactName:
+						suppressName && bt.refType === 'branch' && bt.getNameWithoutRemote() === suppressName
+							? bt.getRemoteName()
+							: undefined,
+					type: bt.refType,
+				};
 			},
 		);
 
 		return (sha: string, options?: { compact?: boolean; icons?: boolean }): string | undefined => {
 			const branchesAndTags = branchesAndTagsBySha.get(sha);
-			if (branchesAndTags == null || branchesAndTags.length === 0) return undefined;
+			if (!branchesAndTags?.length) return undefined;
+
+			const tips =
+				suppressName && options?.compact
+					? branchesAndTags.filter(bt => bt.name !== suppressName)
+					: branchesAndTags;
 
 			if (!options?.compact) {
-				return branchesAndTags
-					.map(
-						bt => `${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${bt.name}`,
-					)
-					.join(', ');
+				return tips.map(bt => `${options?.icons ? bt.icon : ''}${bt.name}`).join(', ');
 			}
 
-			if (branchesAndTags.length > 1) {
-				const [bt] = branchesAndTags;
-				return `${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${
-					bt.compactName ?? bt.name
-				}, ${GlyphChars.Ellipsis}`;
+			if (tips.length > 1) {
+				const [bt] = tips;
+				return `${options?.icons ? bt.icon : ''}${bt.compactName ?? bt.name}, ${GlyphChars.Ellipsis}`;
 			}
 
-			return branchesAndTags
-				.map(
-					bt =>
-						`${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${
-							bt.compactName ?? bt.name
-						}`,
-				)
-				.join(', ');
+			return tips.map(bt => `${options?.icons ? bt.icon : ''}${bt.compactName ?? bt.name}`).join(', ');
 		};
 	}
 
