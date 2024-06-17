@@ -1,5 +1,6 @@
 import type { AuthenticationSession, CancellationToken, Disposable, Uri } from 'vscode';
-import { CancellationTokenSource, window } from 'vscode';
+import { authentication, CancellationTokenSource, window } from 'vscode';
+import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { Container } from '../../../container';
 import { debug, log } from '../../../system/decorators/log';
 import type { DeferredEventExecutor } from '../../../system/event';
@@ -40,8 +41,8 @@ export interface IntegrationAuthenticationSessionDescriptor {
 
 export abstract class IntegrationAuthenticationProvider {
 	constructor(
-		private readonly container: Container,
-		private readonly authProviderId: IntegrationId,
+		protected readonly container: Container,
+		protected readonly authProviderId: IntegrationId,
 	) {}
 
 	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
@@ -54,7 +55,7 @@ export abstract class IntegrationAuthenticationProvider {
 		await this.container.storage.deleteSecret(key);
 	}
 
-	async createSession(
+	protected async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { authorizeIfNeeded?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
@@ -209,22 +210,34 @@ export abstract class IntegrationAuthenticationProvider {
 		}
 
 		return storedSession as ProviderAuthenticationSession | undefined;
+	}
+}
 
-		// For unsupported providers
-		// import { authentication } from 'vscode';
-		// import { wrapForForcedInsecureSSL } from '@env/fetch';
-		//
-		// 	if (descriptor == null) return undefined;
-		// 	const { createIfNeeded, forceNewSession } = options ?? {};
-		// 	return wrapForForcedInsecureSSL(
-		// 		this.container.integrations.ignoreSSLErrors({ id: providerId, domain: descriptor?.domain }),
-		// 		() =>
-		// 			authentication.getSession(providerId, descriptor.scopes, {
-		// 				createIfNone: forceNewSession ? undefined : createIfNeeded,
-		// 				silent: !createIfNeeded && !forceNewSession ? true : undefined,
-		// 				forceNewSession: forceNewSession ? true : undefined,
-		// 			}),
-		// 	);
+class BuiltInAuthenticationProvider extends IntegrationAuthenticationProvider {
+	protected override createSession(): Promise<ProviderAuthenticationSession | undefined> {
+		throw new Error('Method `createSession` should never be used in BuiltInAuthenticationProvider');
+	}
+
+	@debug()
+	override async getSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+	): Promise<ProviderAuthenticationSession | undefined> {
+		if (descriptor == null) return undefined;
+		const { createIfNeeded, forceNewSession } = options ?? {};
+		return wrapForForcedInsecureSSL(
+			this.container.integrations.ignoreSSLErrors({ id: this.authProviderId, domain: descriptor?.domain }),
+			() =>
+				authentication.getSession(this.authProviderId, descriptor.scopes, {
+					createIfNone: forceNewSession ? undefined : createIfNeeded,
+					silent: !createIfNeeded && !forceNewSession ? true : undefined,
+					forceNewSession: forceNewSession ? true : undefined,
+				}),
+		);
+	}
+
+	protected override getCompletionInputTitle(): string {
+		throw new Error('Method not implemented');
 	}
 }
 
@@ -297,7 +310,7 @@ export class IntegrationAuthenticationService implements Disposable {
 					).JiraAuthenticationProvider(this.container);
 					break;
 				default:
-					throw new Error(`Provider '${providerId}' is not supported`);
+					provider = new BuiltInAuthenticationProvider(this.container, providerId);
 			}
 			this.providers.set(providerId, provider);
 		}
