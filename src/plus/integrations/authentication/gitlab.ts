@@ -1,13 +1,17 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { Container } from '../../../container';
-import type { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
+import type { SelfHostedIntegrationId } from '../providers/models';
+import { HostingIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
-import { LocalIntegrationAuthenticationProvider } from './integrationAuthentication';
+import {
+	CloudIntegrationAuthenticationProvider,
+	LocalIntegrationAuthenticationProvider,
+} from './integrationAuthentication';
 
 type GitLabId = HostingIntegrationId.GitLab | SelfHostedIntegrationId.GitLabSelfHosted;
 
-export class GitLabAuthenticationProvider extends LocalIntegrationAuthenticationProvider<GitLabId> {
+export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthenticationProvider<GitLabId> {
 	constructor(
 		container: Container,
 		protected readonly authProviderId: GitLabId,
@@ -82,5 +86,24 @@ export class GitLabAuthenticationProvider extends LocalIntegrationAuthentication
 				label: '',
 			},
 		};
+	}
+}
+
+export class GitLabCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<GitLabId> {
+	protected override get authProviderId(): GitLabId {
+		return HostingIntegrationId.GitLab;
+	}
+
+	protected override getCompletionInputTitle(): string {
+		return 'Connect to GitLab';
+	}
+	protected override async restoreSession({ sessionId, ignoreErrors }: { sessionId: string; ignoreErrors: boolean }) {
+		const localSession = await this.readSecret(this.getLocalSecretKey(sessionId), ignoreErrors);
+		if (localSession != null) return localSession;
+
+		return super.restoreSession({
+			sessionId: sessionId,
+			ignoreErrors: ignoreErrors,
+		});
 	}
 }
