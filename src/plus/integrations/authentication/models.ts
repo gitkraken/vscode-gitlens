@@ -32,7 +32,11 @@ export type CloudIntegrationAuthType = 'oauth' | 'pat';
 export const CloudIntegrationAuthenticationUriPathPrefix = 'did-authenticate-cloud-integration';
 
 const supportedCloudIntegrationIds = [IssueIntegrationId.Jira];
-const supportedCloudIntegrationIdsExperimental = [IssueIntegrationId.Jira, HostingIntegrationId.GitHub];
+const supportedCloudIntegrationIdsExperimental = [
+	IssueIntegrationId.Jira,
+	HostingIntegrationId.GitHub,
+	HostingIntegrationId.GitLab,
+];
 
 export type SupportedCloudIntegrationIds = (typeof supportedCloudIntegrationIdsExperimental)[number];
 
