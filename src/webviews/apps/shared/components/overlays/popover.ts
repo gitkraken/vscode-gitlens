@@ -161,7 +161,10 @@ export class GlPopover extends GlElement {
 	@property({ reflect: true })
 	placement: SlPopup['placement'] = 'bottom';
 
-	@property({ type: Boolean, reflect: true })
+	@property({ type: Object })
+	anchor?: string | HTMLElement | { getBoundingClientRect: () => Omit<DOMRect, 'toJSON'> };
+
+	@property({ reflect: true, type: Boolean })
 	disabled: boolean = false;
 
 	@property({ type: Number })
@@ -368,6 +371,7 @@ export class GlPopover extends GlElement {
 				arrow:base__arrow
 			"
 			class="popover"
+			.anchor=${this.anchor}
 			placement=${this.placement}
 			distance=${this.distance}
 			skidding=${this.skidding}
