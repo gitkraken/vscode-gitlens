@@ -1,4 +1,4 @@
-import type { ColorTheme, ConfigurationChangeEvent, Uri } from 'vscode';
+import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, env, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
@@ -36,11 +36,14 @@ import * as StashActions from '../../../git/actions/stash';
 import * as TagActions from '../../../git/actions/tag';
 import * as WorktreeActions from '../../../git/actions/worktree';
 import { GitSearchError } from '../../../git/errors';
+import { CommitFormatter } from '../../../git/formatters/commitFormatter';
 import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch';
 import type { GitCommit } from '../../../git/models/commit';
+import { isStash } from '../../../git/models/commit';
 import { uncommitted } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
+import { getGkProviderThemeIconString } from '../../../git/models/graph';
 import { getComparisonRefsForPullRequest, serializePullRequest } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
@@ -77,7 +80,7 @@ import type { Deferrable } from '../../../system/function';
 import { debounce, disposableInterval } from '../../../system/function';
 import { find, last, map } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
-import { getSettledValue } from '../../../system/promise';
+import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
@@ -88,6 +91,7 @@ import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type {
 	BranchState,
+	DidGetRowHoverParams,
 	DidSearchParams,
 	DoubleClickedParams,
 	GetMissingAvatarsParams,
@@ -157,6 +161,7 @@ import {
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
+	GetRowHoverRequest,
 	OpenPullRequestDetailsCommand,
 	SearchOpenInViewCommand,
 	SearchRequest,
@@ -222,6 +227,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _etagRepository?: number;
 	private _firstSelection = true;
 	private _graph?: GitGraph;
+	private _hoverCache = new Map<string, Promise<string | undefined>>();
+	private _hoverCancellation: CancellationTokenSource | undefined;
+
 	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean>>([
 		[DidChangeColumnsNotification, this.notifyDidChangeColumns],
 		[DidChangeGraphConfigurationNotification, this.notifyDidChangeConfiguration],
@@ -629,6 +637,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case GetMoreRowsCommand.is(e):
 				void this.onGetMoreRows(e.params);
 				break;
+			case GetRowHoverRequest.is(e):
+				void this.onHoverRowRequest(GetRowHoverRequest, e);
+				break;
 			case OpenPullRequestDetailsCommand.is(e):
 				void this.onOpenPullRequestDetails(e.params);
 				break;
@@ -894,6 +905,152 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return Promise.resolve();
+	}
+
+	private async onHoverRowRequest<T extends typeof GetRowHoverRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		const hover: DidGetRowHoverParams = {
+			id: msg.params.id,
+			markdown: undefined,
+		};
+
+		if (this._hoverCancellation != null) {
+			this._hoverCancellation.cancel();
+		}
+
+		if (this._graph != null) {
+			const id = msg.params.id;
+
+			let markdown = this._hoverCache.get(id);
+			if (markdown == null) {
+				const cancellation = new CancellationTokenSource();
+				this._hoverCancellation = cancellation;
+
+				let cache = true;
+				let commit;
+				switch (msg.params.type) {
+					case 'work-dir-changes':
+						cache = false;
+						commit = await this.container.git.getCommit(this._graph.repoPath, uncommitted);
+						break;
+					case 'stash-node': {
+						const stash = await this.container.git.getStash(this._graph.repoPath);
+						commit = stash?.commits.get(msg.params.id);
+						break;
+					}
+					default: {
+						commit = await this.container.git.getCommit(this._graph.repoPath, msg.params.id);
+						break;
+					}
+				}
+
+				if (commit != null && !cancellation.token.isCancellationRequested) {
+					// Check if we have calculated stats for the row and if so apply it to the commit
+					const stats = this._graph.rowsStats?.get(commit.sha);
+					if (stats != null) {
+						commit = commit.with({
+							stats: {
+								...commit.stats,
+								additions: stats.additions,
+								deletions: stats.deletions,
+								// If `changedFiles` already exists, then use it, otherwise use the files count
+								changedFiles: commit.stats?.changedFiles ? commit.stats.changedFiles : stats.files,
+							},
+						});
+					}
+
+					markdown = this.getCommitTooltip(commit, cancellation.token).catch(() => {
+						this._hoverCache.delete(id);
+						return undefined;
+					});
+					if (cache) {
+						this._hoverCache.set(id, markdown);
+					}
+				}
+			}
+
+			if (markdown != null) {
+				hover.markdown = await markdown;
+			}
+		}
+
+		void this.host.respond(requestType, msg, hover);
+	}
+
+	private async getCommitTooltip(commit: GitCommit, cancellation: CancellationToken) {
+		const [remotesResult, _] = await Promise.allSettled([
+			this.container.git.getBestRemotesWithProviders(commit.repoPath),
+			commit.ensureFullDetails(),
+		]);
+
+		if (cancellation.isCancellationRequested) throw new CancellationError();
+
+		const remotes = getSettledValue(remotesResult, []);
+		const [remote] = remotes;
+
+		let enrichedAutolinks;
+		let pr;
+
+		if (remote?.hasIntegration()) {
+			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
+				pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote), cancellation),
+				commit.getAssociatedPullRequest(remote),
+			]);
+
+			if (cancellation.isCancellationRequested) throw new CancellationError();
+
+			const enrichedAutolinksMaybeResult = getSettledValue(enrichedAutolinksResult);
+			if (!enrichedAutolinksMaybeResult?.paused) {
+				enrichedAutolinks = enrichedAutolinksMaybeResult?.value;
+			}
+			pr = getSettledValue(prResult);
+		}
+
+		let template;
+		if (isStash(commit)) {
+			template = configuration.get('views.formats.stashes.tooltip');
+		} else {
+			template = configuration.get('views.formats.commits.tooltip');
+		}
+
+		const tooltip = await CommitFormatter.fromTemplateAsync(template, commit, {
+			enrichedAutolinks: enrichedAutolinks,
+			dateFormat: configuration.get('defaultDateFormat'),
+			getBranchAndTagTips: this.getBranchAndTagTips.bind(this),
+			messageAutolinks: true,
+			messageIndent: 4,
+			pullRequest: pr,
+			outputFormat: 'markdown',
+			remotes: remotes,
+			// unpublished: this.unpublished,
+		});
+
+		return tooltip;
+	}
+
+	private getBranchAndTagTips(sha: string, options?: { compact?: boolean; icons?: boolean }): string | undefined {
+		if (this._graph == null) return undefined;
+
+		const row = this._graph.rows.find(r => r.sha === sha);
+		if (row == null) return undefined;
+
+		const tips = [];
+		if (row.heads?.length) {
+			tips.push(...row.heads.map(h => (options?.icons ? `$(git-branch) ${h.name}` : h.name)));
+		}
+
+		if (row.remotes?.length) {
+			tips.push(
+				...row.remotes.map(h => {
+					const name = `${h.owner ? `${h.owner}/` : ''}${h.name}`;
+					return options?.icons ? `$(${getGkProviderThemeIconString(h.hostingServiceType)}) ${name}` : name;
+				}),
+			);
+		}
+		if (row.tags?.length) {
+			tips.push(...row.tags.map(h => (options?.icons ? `$(tag) ${h.name}` : h.name)));
+		}
+
+		return tips.join(', ') || undefined;
 	}
 
 	@debug()
@@ -2147,6 +2304,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.notifyDidChangeRefsVisibility();
 	}
 
+	private resetHoverCache() {
+		this._hoverCache.clear();
+		this._hoverCancellation?.dispose();
+		this._hoverCancellation = undefined;
+	}
+
 	private resetRefsMetadata(): null | undefined {
 		this._refsMetadata = getContext('gitlens:repos:withHostingIntegrationsConnected') ? undefined : null;
 		return this._refsMetadata;
@@ -2176,6 +2339,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private setGraph(graph: GitGraph | undefined) {
 		this._graph = graph;
 		if (graph == null) {
+			this.resetHoverCache();
 			this.resetRefsMetadata();
 			this.resetSearchState();
 		} else {

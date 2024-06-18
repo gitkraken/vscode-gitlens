@@ -17511,7 +17511,7 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "10.3.0",
+		"@gitkraken/gitkraken-components": "10.4.0",
 		"@gitkraken/provider-apis": "0.22.9",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@lit/react": "1.0.5",
@@ -17531,6 +17531,7 @@
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"lit": "3.1.4",
+		"marked": "12.0.2",
 		"node-fetch": "2.7.0",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
