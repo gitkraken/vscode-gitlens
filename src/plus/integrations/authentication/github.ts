@@ -1,9 +1,43 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
-import { env, ThemeIcon, Uri, window } from 'vscode';
+import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
+import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { Container } from '../../../container';
-import { SelfHostedIntegrationId } from '../providers/models';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
 import { IntegrationAuthenticationProvider } from './integrationAuthentication';
+
+export class GitHubAuthenticationProvider extends IntegrationAuthenticationProvider {
+	constructor(container: Container) {
+		super(container, HostingIntegrationId.GitHub);
+	}
+
+	override async createSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { authorizeIfNeeded?: boolean; createIfNeeded?: boolean; forceNewSession?: boolean },
+	): Promise<AuthenticationSession | undefined> {
+		if (descriptor != null) {
+			const { createIfNeeded, forceNewSession } = options ?? {};
+			const session = wrapForForcedInsecureSSL(
+				this.container.integrations.ignoreSSLErrors({ id: this.authProviderId, domain: descriptor?.domain }),
+				() =>
+					authentication.getSession(this.authProviderId, descriptor.scopes, {
+						createIfNone: forceNewSession ? undefined : createIfNeeded,
+						silent: !createIfNeeded && !forceNewSession ? true : undefined,
+						forceNewSession: forceNewSession ? true : undefined,
+					}),
+			);
+
+			if (session != null) {
+				return session;
+			}
+		}
+		return super.createSession(descriptor, options);
+	}
+
+	protected override getCompletionInputTitle(): string {
+		throw new Error('Method not implemented.');
+	}
+}
 
 export class GitHubEnterpriseAuthenticationProvider extends IntegrationAuthenticationProvider {
 	constructor(container: Container) {
