@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#3344](https://github.com/gitkraken/vscode-gitlens/issues/3344) - Make changing the AI key easier
+- Fixes fixes issue with Jira integration not refreshing
 
 ## [15.1.0] - 2024-06-05
 
