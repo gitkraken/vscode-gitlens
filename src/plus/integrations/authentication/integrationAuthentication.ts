@@ -456,10 +456,18 @@ export class IntegrationAuthenticationService implements Disposable {
 					).GitHubEnterpriseAuthenticationProvider(this.container);
 					break;
 				case HostingIntegrationId.GitLab:
+					provider = isSupportedCloudIntegrationId(HostingIntegrationId.GitLab)
+						? new (
+								await import(/* webpackChunkName: "integrations" */ './gitlab')
+						  ).GitLabCloudAuthenticationProvider(this.container)
+						: new (
+								await import(/* webpackChunkName: "integrations" */ './gitlab')
+						  ).GitLabLocalAuthenticationProvider(this.container, HostingIntegrationId.GitLab);
+					break;
 				case SelfHostedIntegrationId.GitLabSelfHosted:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './gitlab')
-					).GitLabAuthenticationProvider(this.container, providerId);
+					).GitLabLocalAuthenticationProvider(this.container, SelfHostedIntegrationId.GitLabSelfHosted);
 					break;
 				case IssueIntegrationId.Jira:
 					provider = new (
