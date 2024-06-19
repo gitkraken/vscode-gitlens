@@ -1,4 +1,4 @@
-import { Commands } from '../constants';
+import { Commands, isSupportedCloudIntegrationId } from '../constants';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitRemote } from '../git/models/remote';
@@ -92,7 +92,25 @@ export class ConnectRemoteProviderCommand extends Command {
 		const integration = await this.container.integrations.getByRemote(remote);
 		if (integration == null) return false;
 
-		const connected = await integration.connect();
+		// Some integrations does not require managmement of Cloud Integrations (e.g. GitHub that can take a built-in VS Code session),
+		// therefore we try to connect them right away.
+		// Only if our attempt fails, we fall to manageCloudIntegrations flow.
+		let connected = await integration.connect();
+
+		if (!connected) {
+			if (isSupportedCloudIntegrationId(integration.id)) {
+				await this.container.integrations.manageCloudIntegrations(integration.id, {
+					source: 'remoteProvider',
+					detail: {
+						action: 'connect',
+						integration: integration.id,
+					},
+				});
+			}
+
+			connected = await integration.connect();
+		}
+
 		if (
 			connected &&
 			!(remotes ?? (await this.container.git.getRemotesWithProviders(repoPath))).some(r => r.default)

@@ -1,7 +1,7 @@
 import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
 import { authentication, Disposable, env, EventEmitter, window } from 'vscode';
 import { isWeb } from '@env/platform';
-import type { Source } from '../../constants';
+import type { Source, SupportedCloudIntegrationIds } from '../../constants';
 import type { Container } from '../../container';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
@@ -107,7 +107,7 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
-	async manageCloudIntegrations(integrationId: IssueIntegrationId.Jira | undefined, source: Source | undefined) {
+	async manageCloudIntegrations(integrationId: SupportedCloudIntegrationIds | undefined, source: Source | undefined) {
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent(
 				'cloudIntegrations/settingsOpened',

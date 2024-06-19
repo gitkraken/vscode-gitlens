@@ -1,12 +1,11 @@
-import type { Source } from '../constants';
+import type { Source, SupportedCloudIntegrationIds } from '../constants';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import type { IssueIntegrationId } from '../plus/integrations/providers/models';
 import { command } from '../system/command';
 import { Command } from './base';
 
 export interface ManageCloudIntegrationsCommandArgs extends Source {
-	integrationId?: IssueIntegrationId.Jira;
+	integrationId?: SupportedCloudIntegrationIds;
 }
 
 @command()

@@ -150,6 +150,9 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { authorizeIfNeeded?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
+		const loggedIn = await this.container.subscription.getAuthenticationSession(false);
+		if (!loggedIn) return undefined;
+
 		const cloudIntegrations = await this.container.cloudIntegrations;
 		if (cloudIntegrations == null) return undefined;
 

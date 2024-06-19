@@ -29,7 +29,7 @@ import {
 	UnsnoozeQuickInputButton,
 } from '../../commands/quickCommand.buttons';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants';
-import { previewBadge } from '../../constants';
+import { isSupportedCloudIntegrationId, previewBadge } from '../../constants';
 import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
@@ -160,6 +160,15 @@ export class FocusCommand extends QuickCommand<State> {
 		const integration = await this.container.integrations.get(id);
 		let connected = integration.maybeConnected ?? (await integration.isConnected());
 		if (!connected) {
+			if (isSupportedCloudIntegrationId(integration.id)) {
+				await this.container.integrations.manageCloudIntegrations(integration.id, {
+					source: 'launchpad',
+					detail: {
+						action: 'connect',
+						integration: integration.id,
+					},
+				});
+			}
 			connected = await integration.connect();
 		}
 

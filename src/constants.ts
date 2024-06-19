@@ -8,7 +8,7 @@ import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription, SubscriptionPlanId, SubscriptionState } from './plus/gk/account/subscription';
 import type { Integration } from './plus/integrations/integration';
-import type { IntegrationId, IssueIntegrationId } from './plus/integrations/providers/models';
+import type { HostingIntegrationId, IntegrationId, IssueIntegrationId } from './plus/integrations/providers/models';
 import type { TelemetryEventData } from './telemetry/telemetry';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 
@@ -846,6 +846,7 @@ export type Sources =
 	| 'notification'
 	| 'patchDetails'
 	| 'prompt'
+	| 'remoteProvider'
 	| 'settings'
 	| 'timeline'
 	| 'trial-indicator'
@@ -874,6 +875,15 @@ export type SupportedAIModels =
 	| `google:${AIModels<'gemini'>}`
 	| `openai:${AIModels<'openai'>}`
 	| 'vscode';
+
+// export const supportedCloudIntegrationIds = [HostingIntegrationId.GitHub, IssueIntegrationId.Jira];
+// export type SupportedCloudIntegrationIds = (typeof supportedCloudIntegrationIds)[number];
+const supportedCloudIntegrationIds = ['github', 'jira'];
+export type SupportedCloudIntegrationIds = HostingIntegrationId.GitHub | IssueIntegrationId.Jira;
+
+export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudIntegrationIds {
+	return supportedCloudIntegrationIds.includes(id as SupportedCloudIntegrationIds);
+}
 
 export type SecretKeys =
 	| `gitlens.integration.auth:${IntegrationId}|${string}`
@@ -1224,7 +1234,7 @@ export type TelemetryEvents = {
 	};
 	/** Sent when a user chooses to manage the cloud integrations */
 	'cloudIntegrations/settingsOpened': {
-		'integration.id': IssueIntegrationId | undefined;
+		'integration.id': SupportedCloudIntegrationIds | undefined;
 	};
 
 	/** Sent when a code suggestion is archived */
