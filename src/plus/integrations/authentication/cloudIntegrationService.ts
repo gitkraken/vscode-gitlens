@@ -35,17 +35,26 @@ export class CloudIntegrationService {
 
 	async getConnectionSession(
 		id: IntegrationId,
-		refresh: boolean = false,
+		refreshToken?: string,
 	): Promise<CloudIntegrationAuthenticationSession | undefined> {
+		const refresh = Boolean(refreshToken);
 		const cloudIntegrationType = toCloudIntegrationType[id];
 		if (cloudIntegrationType == null) {
 			Logger.error(`Unsupported cloud integration type: ${id}`);
 			return undefined;
 		}
+		const reqInitOptions = refreshToken
+			? {
+					method: 'POST',
+					body: JSON.stringify({
+						access_token: refreshToken,
+					}),
+			  }
+			: { method: 'GET' };
 
 		const tokenRsp = await this.connection.fetchGkDevApi(
 			`v1/provider-tokens/${cloudIntegrationType}${refresh ? '/refresh' : ''}`,
-			{ method: refresh ? 'POST' : 'GET' },
+			reqInitOptions,
 			{ organizationId: false },
 		);
 		if (!tokenRsp.ok) {
