@@ -30,7 +30,7 @@ export class JiraAuthenticationProvider implements IntegrationAuthenticationProv
 		let session = await cloudIntegrations.getConnectionSession(this.authProviderId);
 
 		if (session != null && session.expiresIn < 60) {
-			session = await cloudIntegrations.getConnectionSession(this.authProviderId, true);
+			session = await cloudIntegrations.getConnectionSession(this.authProviderId, session.accessToken);
 		}
 
 		if (!session && options?.authorizeIfNeeded) {
