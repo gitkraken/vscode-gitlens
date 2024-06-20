@@ -3,9 +3,12 @@ import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
-import { IntegrationAuthenticationProvider } from './integrationAuthentication';
+import {
+	CloudIntegrationAuthenticationProvider,
+	LocalIntegrationAuthenticationProvider,
+} from './integrationAuthentication';
 
-export class GitHubAuthenticationProvider extends IntegrationAuthenticationProvider<HostingIntegrationId.GitHub> {
+export class GitHubAuthenticationProvider extends CloudIntegrationAuthenticationProvider<HostingIntegrationId.GitHub> {
 	protected override get authProviderId(): HostingIntegrationId.GitHub {
 		return HostingIntegrationId.GitHub;
 	}
@@ -38,7 +41,7 @@ export class GitHubAuthenticationProvider extends IntegrationAuthenticationProvi
 	}
 }
 
-export class GitHubEnterpriseAuthenticationProvider extends IntegrationAuthenticationProvider<SelfHostedIntegrationId.GitHubEnterprise> {
+export class GitHubEnterpriseAuthenticationProvider extends LocalIntegrationAuthenticationProvider<SelfHostedIntegrationId.GitHubEnterprise> {
 	protected override get authProviderId(): SelfHostedIntegrationId.GitHubEnterprise {
 		return SelfHostedIntegrationId.GitHubEnterprise;
 	}
@@ -107,9 +110,5 @@ export class GitHubEnterpriseAuthenticationProvider extends IntegrationAuthentic
 				label: '',
 			},
 		};
-	}
-
-	protected override getCompletionInputTitle(): string {
-		throw new Error('Method not implemented');
 	}
 }

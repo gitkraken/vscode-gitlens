@@ -3,11 +3,11 @@ import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { Container } from '../../../container';
 import type { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
-import { IntegrationAuthenticationProvider } from './integrationAuthentication';
+import { LocalIntegrationAuthenticationProvider } from './integrationAuthentication';
 
 type GitLabId = HostingIntegrationId.GitLab | SelfHostedIntegrationId.GitLabSelfHosted;
 
-export class GitLabAuthenticationProvider extends IntegrationAuthenticationProvider<GitLabId> {
+export class GitLabAuthenticationProvider extends LocalIntegrationAuthenticationProvider<GitLabId> {
 	constructor(
 		container: Container,
 		protected readonly authProviderId: GitLabId,
@@ -80,9 +80,5 @@ export class GitLabAuthenticationProvider extends IntegrationAuthenticationProvi
 				label: '',
 			},
 		};
-	}
-
-	protected override getCompletionInputTitle(): string {
-		throw new Error('Method not implemented');
 	}
 }

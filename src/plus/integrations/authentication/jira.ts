@@ -1,7 +1,7 @@
 import { IssueIntegrationId } from '../providers/models';
-import { IntegrationAuthenticationProvider } from './integrationAuthentication';
+import { CloudIntegrationAuthenticationProvider } from './integrationAuthentication';
 
-export class JiraAuthenticationProvider extends IntegrationAuthenticationProvider<IssueIntegrationId.Jira> {
+export class JiraAuthenticationProvider extends CloudIntegrationAuthenticationProvider<IssueIntegrationId.Jira> {
 	protected override get authProviderId(): IssueIntegrationId.Jira {
 		return IssueIntegrationId.Jira;
 	}

@@ -3,9 +3,9 @@ import { env, ThemeIcon, Uri, window } from 'vscode';
 import { base64 } from '../../../system/string';
 import { HostingIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
-import { IntegrationAuthenticationProvider } from './integrationAuthentication';
+import { LocalIntegrationAuthenticationProvider } from './integrationAuthentication';
 
-export class AzureDevOpsAuthenticationProvider extends IntegrationAuthenticationProvider<HostingIntegrationId.AzureDevOps> {
+export class AzureDevOpsAuthenticationProvider extends LocalIntegrationAuthenticationProvider<HostingIntegrationId.AzureDevOps> {
 	protected override get authProviderId(): HostingIntegrationId.AzureDevOps {
 		return HostingIntegrationId.AzureDevOps;
 	}
@@ -115,9 +115,5 @@ export class AzureDevOpsAuthenticationProvider extends IntegrationAuthentication
 				label: '',
 			},
 		};
-	}
-
-	protected override getCompletionInputTitle(): string {
-		throw new Error('Method not implemented');
 	}
 }

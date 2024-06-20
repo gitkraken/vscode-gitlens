@@ -39,14 +39,29 @@ export interface IntegrationAuthenticationSessionDescriptor {
 	[key: string]: unknown;
 }
 
-export abstract class IntegrationAuthenticationProvider<ID extends IntegrationId = IntegrationId> {
+export interface IntegrationAuthenticationProvider {
+	deleteSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void>;
+	getSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+	): Promise<ProviderAuthenticationSession | undefined>;
+}
+
+abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = IntegrationId>
+	implements IntegrationAuthenticationProvider
+{
 	constructor(protected readonly container: Container) {}
 
 	protected abstract get authProviderId(): ID;
 
-	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
+	protected getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
 		return descriptor?.domain ?? '';
 	}
+
+	protected abstract createSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { authorizeIfNeeded?: boolean },
+	): Promise<ProviderAuthenticationSession | undefined>;
 
 	@debug()
 	async deleteSession(descriptor?: IntegrationAuthenticationSessionDescriptor) {
@@ -54,7 +69,68 @@ export abstract class IntegrationAuthenticationProvider<ID extends IntegrationId
 		await this.container.storage.deleteSecret(key);
 	}
 
-	protected async createSession(
+	private getSecretKey(id: string): `gitlens.integration.auth:${IntegrationId}|${string}` {
+		return `gitlens.integration.auth:${this.authProviderId}|${id}`;
+	}
+
+	private async createAndStoreSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+	): Promise<AuthenticationSession | undefined> {
+		const session = await this.createSession(descriptor);
+		if (session == null) return undefined;
+
+		const key = this.getSecretKey(this.getSessionId(descriptor));
+		await this.container.storage.storeSecret(key, JSON.stringify(session));
+
+		return session;
+	}
+
+	@debug()
+	async getSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+	): Promise<ProviderAuthenticationSession | undefined> {
+		const key = this.getSecretKey(this.getSessionId(descriptor));
+
+		if (options?.forceNewSession) {
+			await this.container.storage.deleteSecret(key);
+		}
+
+		let storedSession: StoredSession | undefined;
+		try {
+			const sessionJSON = await this.container.storage.getSecret(key);
+			if (sessionJSON) {
+				storedSession = JSON.parse(sessionJSON);
+			}
+		} catch (ex) {
+			try {
+				await this.container.storage.deleteSecret(key);
+			} catch {}
+
+			if (!options?.createIfNeeded) {
+				throw ex;
+			}
+		}
+
+		if (
+			(options?.createIfNeeded && storedSession == null) ||
+			(storedSession?.expiresAt != null && new Date(storedSession.expiresAt).getTime() < Date.now())
+		) {
+			return this.createAndStoreSession(descriptor);
+		}
+
+		return storedSession as ProviderAuthenticationSession | undefined;
+	}
+}
+
+export abstract class LocalIntegrationAuthenticationProvider<
+	ID extends IntegrationId = IntegrationId,
+> extends IntegrationAuthenticationProviderBase<ID> {}
+
+export abstract class CloudIntegrationAuthenticationProvider<
+	ID extends IntegrationId = IntegrationId,
+> extends IntegrationAuthenticationProviderBase<ID> {
+	protected override async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { authorizeIfNeeded?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
@@ -156,63 +232,9 @@ export abstract class IntegrationAuthenticationProvider<ID extends IntegrationId
 			resolve(uri.toString(true));
 		};
 	}
-
-	private getSecretKey(id: string): `gitlens.integration.auth:${IntegrationId}|${string}` {
-		return `gitlens.integration.auth:${this.authProviderId}|${id}`;
-	}
-
-	@debug()
-	private async createAndStoreSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<AuthenticationSession | undefined> {
-		const session = await this.createSession(descriptor);
-		if (session == null) return undefined;
-
-		const key = this.getSecretKey(this.getSessionId(descriptor));
-		await this.container.storage.storeSecret(key, JSON.stringify(session));
-
-		return session;
-	}
-
-	@debug()
-	async getSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
-	): Promise<ProviderAuthenticationSession | undefined> {
-		const key = this.getSecretKey(this.getSessionId(descriptor));
-
-		if (options?.forceNewSession) {
-			await this.container.storage.deleteSecret(key);
-		}
-
-		let storedSession: StoredSession | undefined;
-		try {
-			const sessionJSON = await this.container.storage.getSecret(key);
-			if (sessionJSON) {
-				storedSession = JSON.parse(sessionJSON);
-			}
-		} catch (ex) {
-			try {
-				await this.container.storage.deleteSecret(key);
-			} catch {}
-
-			if (!options?.createIfNeeded) {
-				throw ex;
-			}
-		}
-
-		if (
-			(options?.createIfNeeded && storedSession == null) ||
-			(storedSession?.expiresAt != null && new Date(storedSession.expiresAt).getTime() < Date.now())
-		) {
-			return this.createAndStoreSession(descriptor);
-		}
-
-		return storedSession as ProviderAuthenticationSession | undefined;
-	}
 }
 
-class BuiltInAuthenticationProvider extends IntegrationAuthenticationProvider {
+class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticationProvider {
 	constructor(
 		container: Container,
 		protected readonly authProviderId: IntegrationId,
@@ -240,10 +262,6 @@ class BuiltInAuthenticationProvider extends IntegrationAuthenticationProvider {
 					forceNewSession: forceNewSession ? true : undefined,
 				}),
 		);
-	}
-
-	protected override getCompletionInputTitle(): string {
-		throw new Error('Method not implemented');
 	}
 }
 
