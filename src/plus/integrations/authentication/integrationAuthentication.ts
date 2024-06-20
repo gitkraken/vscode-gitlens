@@ -130,10 +130,19 @@ export abstract class LocalIntegrationAuthenticationProvider<
 export abstract class CloudIntegrationAuthenticationProvider<
 	ID extends IntegrationId = IntegrationId,
 > extends IntegrationAuthenticationProviderBase<ID> {
+	protected async getBuiltInExistingSession(
+		_?: IntegrationAuthenticationSessionDescriptor,
+	): Promise<ProviderAuthenticationSession | undefined> {
+		return Promise.resolve(undefined);
+	}
+
 	protected override async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { authorizeIfNeeded?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
+		const existingSession = await this.getBuiltInExistingSession(descriptor);
+		if (existingSession != null) return existingSession;
+
 		const cloudIntegrations = await this.container.cloudIntegrations;
 		if (cloudIntegrations == null) return undefined;
 

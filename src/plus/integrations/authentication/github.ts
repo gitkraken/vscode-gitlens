@@ -13,31 +13,26 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 		return HostingIntegrationId.GitHub;
 	}
 
-	override async createSession(
+	override async getBuiltInExistingSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { authorizeIfNeeded?: boolean; createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<AuthenticationSession | undefined> {
-		if (descriptor != null) {
-			const { createIfNeeded, forceNewSession } = options ?? {};
-			const session = wrapForForcedInsecureSSL(
-				this.container.integrations.ignoreSSLErrors({ id: this.authProviderId, domain: descriptor?.domain }),
-				() =>
-					authentication.getSession(this.authProviderId, descriptor.scopes, {
-						createIfNone: forceNewSession ? undefined : createIfNeeded,
-						silent: !createIfNeeded && !forceNewSession ? true : undefined,
-						forceNewSession: forceNewSession ? true : undefined,
-					}),
-			);
+		if (descriptor == null) return undefined;
 
-			if (session != null) {
-				return session;
-			}
-		}
-		return super.createSession(descriptor, options);
+		const { createIfNeeded, forceNewSession } = options ?? {};
+		return wrapForForcedInsecureSSL(
+			this.container.integrations.ignoreSSLErrors({ id: this.authProviderId, domain: descriptor?.domain }),
+			() =>
+				authentication.getSession(this.authProviderId, descriptor.scopes, {
+					createIfNone: forceNewSession ? undefined : createIfNeeded,
+					silent: !createIfNeeded && !forceNewSession ? true : undefined,
+					forceNewSession: forceNewSession ? true : undefined,
+				}),
+		);
 	}
 
 	protected override getCompletionInputTitle(): string {
-		throw new Error('Method not implemented.');
+		return 'Connect to GitHub';
 	}
 }
 
