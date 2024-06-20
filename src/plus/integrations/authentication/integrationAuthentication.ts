@@ -39,11 +39,10 @@ export interface IntegrationAuthenticationSessionDescriptor {
 	[key: string]: unknown;
 }
 
-export abstract class IntegrationAuthenticationProvider {
-	constructor(
-		protected readonly container: Container,
-		protected readonly authProviderId: IntegrationId,
-	) {}
+export abstract class IntegrationAuthenticationProvider<ID extends IntegrationId = IntegrationId> {
+	constructor(protected readonly container: Container) {}
+
+	protected abstract get authProviderId(): ID;
 
 	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
 		return descriptor?.domain ?? '';
@@ -214,6 +213,13 @@ export abstract class IntegrationAuthenticationProvider {
 }
 
 class BuiltInAuthenticationProvider extends IntegrationAuthenticationProvider {
+	constructor(
+		container: Container,
+		protected readonly authProviderId: IntegrationId,
+	) {
+		super(container);
+	}
+
 	protected override createSession(): Promise<ProviderAuthenticationSession | undefined> {
 		throw new Error('Method `createSession` should never be used in BuiltInAuthenticationProvider');
 	}

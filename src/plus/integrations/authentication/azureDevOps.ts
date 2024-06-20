@@ -1,14 +1,13 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import type { Container } from '../../../container';
 import { base64 } from '../../../system/string';
 import { HostingIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
 import { IntegrationAuthenticationProvider } from './integrationAuthentication';
 
-export class AzureDevOpsAuthenticationProvider extends IntegrationAuthenticationProvider {
-	constructor(container: Container) {
-		super(container, HostingIntegrationId.AzureDevOps);
+export class AzureDevOpsAuthenticationProvider extends IntegrationAuthenticationProvider<HostingIntegrationId.AzureDevOps> {
+	protected override get authProviderId(): HostingIntegrationId.AzureDevOps {
+		return HostingIntegrationId.AzureDevOps;
 	}
 
 	override async createSession(

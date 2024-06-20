@@ -1,14 +1,13 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import type { Container } from '../../../container';
 import { base64 } from '../../../system/string';
 import { HostingIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
 import { IntegrationAuthenticationProvider } from './integrationAuthentication';
 
-export class BitbucketAuthenticationProvider extends IntegrationAuthenticationProvider {
-	constructor(container: Container) {
-		super(container, HostingIntegrationId.Bitbucket);
+export class BitbucketAuthenticationProvider extends IntegrationAuthenticationProvider<HostingIntegrationId.Bitbucket> {
+	protected override get authProviderId(): HostingIntegrationId.Bitbucket {
+		return HostingIntegrationId.Bitbucket;
 	}
 
 	override async createSession(

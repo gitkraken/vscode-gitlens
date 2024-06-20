@@ -1,10 +1,9 @@
-import type { Container } from '../../../container';
 import { IssueIntegrationId } from '../providers/models';
 import { IntegrationAuthenticationProvider } from './integrationAuthentication';
 
-export class JiraAuthenticationProvider extends IntegrationAuthenticationProvider {
-	constructor(container: Container) {
-		super(container, IssueIntegrationId.Jira);
+export class JiraAuthenticationProvider extends IntegrationAuthenticationProvider<IssueIntegrationId.Jira> {
+	protected override get authProviderId(): IssueIntegrationId.Jira {
+		return IssueIntegrationId.Jira;
 	}
 
 	protected override getCompletionInputTitle(): string {

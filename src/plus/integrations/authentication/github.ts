@@ -1,14 +1,13 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
-import type { Container } from '../../../container';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
 import { IntegrationAuthenticationProvider } from './integrationAuthentication';
 
-export class GitHubAuthenticationProvider extends IntegrationAuthenticationProvider {
-	constructor(container: Container) {
-		super(container, HostingIntegrationId.GitHub);
+export class GitHubAuthenticationProvider extends IntegrationAuthenticationProvider<HostingIntegrationId.GitHub> {
+	protected override get authProviderId(): HostingIntegrationId.GitHub {
+		return HostingIntegrationId.GitHub;
 	}
 
 	override async createSession(
@@ -39,9 +38,9 @@ export class GitHubAuthenticationProvider extends IntegrationAuthenticationProvi
 	}
 }
 
-export class GitHubEnterpriseAuthenticationProvider extends IntegrationAuthenticationProvider {
-	constructor(container: Container) {
-		super(container, SelfHostedIntegrationId.GitHubEnterprise);
+export class GitHubEnterpriseAuthenticationProvider extends IntegrationAuthenticationProvider<SelfHostedIntegrationId.GitHubEnterprise> {
+	protected override get authProviderId(): SelfHostedIntegrationId.GitHubEnterprise {
+		return SelfHostedIntegrationId.GitHubEnterprise;
 	}
 
 	override async createSession(
