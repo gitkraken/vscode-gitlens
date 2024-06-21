@@ -2,6 +2,8 @@
 import { getDateDifference } from '../../../system/date';
 import type { Organization } from './organization';
 
+export const SubscriptionUpdatedUriPathPrefix = 'did-update-subscription';
+
 export const enum SubscriptionPlanId {
 	Free = 'free',
 	FreePlus = 'free+',

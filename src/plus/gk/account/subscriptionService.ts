@@ -104,6 +104,7 @@ export class SubscriptionService implements Disposable {
 					this.updateContext();
 				}
 			}),
+			container.uri.onDidReceiveSubscriptionUpdatedUri(this.onSubscriptionUpdatedUri, this),
 		);
 
 		const subscription = this.getStoredSubscription();
@@ -428,12 +429,19 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	manage(source: Source | undefined): void {
+	async manage(source: Source | undefined): Promise<void> {
+		const scope = getLogScope();
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'manage' }, source);
 		}
 
-		void env.openExternal(this.container.getGkDevUri('account'));
+		try {
+			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
+			void env.openExternal(this.container.getGkDevExchangeUri(exchangeToken, 'account'));
+		} catch (ex) {
+			Logger.error(ex, scope);
+			void env.openExternal(this.container.getGkDevUri('account'));
+		}
 	}
 
 	@gate(() => '')
@@ -1329,6 +1337,11 @@ export class SubscriptionService implements Disposable {
 			},
 			{ store: true },
 		);
+	}
+
+	async onSubscriptionUpdatedUri() {
+		if (this._session == null) return;
+		await this.checkInAndValidate(this._session, { force: true });
 	}
 }
 

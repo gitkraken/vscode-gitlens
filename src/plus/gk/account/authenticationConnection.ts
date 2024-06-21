@@ -227,4 +227,28 @@ export class AuthenticationConnection implements Disposable {
 			this._statusBarItem = undefined;
 		}
 	}
+
+	async getExchangeToken(redirectPath?: string): Promise<string> {
+		const redirectUrl =
+			redirectPath != null
+				? await env.asExternalUri(
+						Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${redirectPath}`),
+				  )
+				: undefined;
+
+		const rsp = await this.connection.fetchGkDevApi('v1/login/auth-exchange', {
+			method: 'POST',
+			body: JSON.stringify({
+				source: 'gitlens',
+				redirectUrl: redirectUrl?.toString(),
+			}),
+		});
+
+		if (!rsp.ok) {
+			throw new Error(`Failed to get exchange token: (${rsp.status}) ${rsp.statusText}`);
+		}
+
+		const json: { data: { exchangeToken: string } } = await rsp.json();
+		return json.data.exchangeToken;
+	}
 }
