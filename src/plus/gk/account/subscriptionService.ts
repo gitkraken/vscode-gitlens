@@ -217,6 +217,7 @@ export class SubscriptionService implements Disposable {
 
 		const subscription = await this.getSubscription();
 		switch (subscription.state) {
+			case SubscriptionState.VerificationRequired:
 			case SubscriptionState.Free:
 			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePreviewTrialExpired:
