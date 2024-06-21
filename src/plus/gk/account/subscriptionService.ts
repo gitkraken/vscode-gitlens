@@ -433,7 +433,7 @@ export class SubscriptionService implements Disposable {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'manage' }, source);
 		}
 
-		void env.openExternal(this.connection.getAccountsUri());
+		void env.openExternal(this.container.getGkDevUri('account'));
 	}
 
 	@gate(() => '')
