@@ -15,18 +15,14 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 
 	override async getBuiltInExistingSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { authorizeIfNeeded?: boolean; createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<AuthenticationSession | undefined> {
 		if (descriptor == null) return undefined;
 
-		const { createIfNeeded, forceNewSession } = options ?? {};
 		return wrapForForcedInsecureSSL(
 			this.container.integrations.ignoreSSLErrors({ id: this.authProviderId, domain: descriptor?.domain }),
 			() =>
 				authentication.getSession(this.authProviderId, descriptor.scopes, {
-					createIfNone: forceNewSession ? undefined : createIfNeeded,
-					silent: !createIfNeeded && !forceNewSession ? true : undefined,
-					forceNewSession: forceNewSession ? true : undefined,
+					silent: true,
 				}),
 		);
 	}
