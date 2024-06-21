@@ -148,6 +148,12 @@ export abstract class CloudIntegrationAuthenticationProvider<
 
 		let session = await cloudIntegrations.getConnectionSession(this.authProviderId);
 
+		// Make an exception for GitHub because they always return 0
+		if (session?.expiresIn === 0 && this.authProviderId === HostingIntegrationId.GitHub) {
+			// It never expires so don't refresh it frequently:
+			session.expiresIn = 31536000; // 1 year
+		}
+
 		if (session != null && session.expiresIn < 60) {
 			session = await cloudIntegrations.getConnectionSession(this.authProviderId, session.accessToken);
 		}
