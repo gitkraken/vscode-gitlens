@@ -25,7 +25,7 @@ export class CloudIntegrationService {
 		if (!providersRsp.ok) {
 			const error = (await providersRsp.json())?.error;
 			if (error != null) {
-				Logger.error(`Failed to get connected providers from cloud: ${error}`);
+				Logger.error(`Failed to get connected providers from cloud: ${error.message}`);
 			}
 			return undefined;
 		}
@@ -60,7 +60,7 @@ export class CloudIntegrationService {
 		if (!tokenRsp.ok) {
 			const error = (await tokenRsp.json())?.error;
 			if (error != null) {
-				Logger.error(`Failed to ${refresh ? 'refresh' : 'get'} ${id} token from cloud: ${error}`);
+				Logger.error(`Failed to ${refresh ? 'refresh' : 'get'} ${id} token from cloud: ${error.message}`);
 			}
 			return undefined;
 		}
@@ -95,7 +95,7 @@ export class CloudIntegrationService {
 		if (!authorizeRsp.ok) {
 			const error = (await authorizeRsp.json())?.error;
 			if (error != null) {
-				Logger.error(`Failed to authorize with ${id}: ${error}`);
+				Logger.error(`Failed to authorize with ${id}: ${error.message}`);
 			}
 			return undefined;
 		}
