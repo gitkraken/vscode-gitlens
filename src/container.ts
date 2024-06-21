@@ -937,7 +937,9 @@ export class Container {
 
 	getGkDevExchangeUri(token: string, successPath: string, failurePath?: string): Uri {
 		return Uri.joinPath(this.baseGkDevUri, `api/exchange/${token}`).with({
-			query: `success=${successPath}${failurePath ? `&failure=${failurePath}` : ''}`,
+			query: `success=${encodeURIComponent(successPath)}${
+				failurePath ? `&failure=${encodeURIComponent(failurePath)}` : ''
+			}`,
 		});
 	}
 

@@ -63,6 +63,7 @@ import {
 	isSubscriptionTrial,
 	SubscriptionPlanId,
 	SubscriptionState,
+	SubscriptionUpdatedUriPathPrefix,
 } from './subscription';
 
 export interface SubscriptionChangeEvent {
@@ -254,6 +255,98 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
+	private async showPlanMessage(source: Source | undefined) {
+		if (!(await this.ensureSession(false))) return;
+		const {
+			account,
+			plan: { actual, effective },
+		} = this._subscription;
+
+		if (account?.verified === false) {
+			const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 7;
+
+			const verify: MessageItem = { title: 'Resend Email' };
+			const learn: MessageItem = { title: 'See Pro Features' };
+			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
+			const result = await window.showInformationMessage(
+				`Welcome to your ${
+					effective.name
+				} Trial.\n\nYou must first verify your email. Once verified, you will have full access to Pro features for ${
+					days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
+				}.`,
+				{
+					modal: true,
+					detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+				},
+				verify,
+				learn,
+				confirm,
+			);
+
+			if (result === verify) {
+				void this.resendVerification(source);
+			} else if (result === learn) {
+				void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-started-verify-email' } }, source);
+			}
+		} else if (isSubscriptionPaid(this._subscription)) {
+			const learn: MessageItem = { title: 'See Pro Features' };
+			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
+			const result = await window.showInformationMessage(
+				`You are now on the ${actual.name} plan and have full access to Pro features.`,
+				{
+					modal: true,
+					detail: 'Your plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+				},
+				learn,
+				confirm,
+			);
+
+			if (result === learn) {
+				void this.learnAboutPro({ source: 'prompt', detail: { action: 'upgraded' } }, source);
+			}
+		} else if (isSubscriptionTrial(this._subscription)) {
+			const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
+
+			const learn: MessageItem = { title: 'See Pro Features' };
+			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
+			const result = await window.showInformationMessage(
+				`Welcome to your ${effective.name} Trial.\n\nYou now have full access to Pro features for ${
+					days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
+				}.`,
+				{
+					modal: true,
+					detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+				},
+				confirm,
+				learn,
+			);
+
+			if (result === learn) {
+				void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-started' } }, source);
+			}
+		} else {
+			const upgrade: MessageItem = { title: 'Upgrade to Pro' };
+			const learn: MessageItem = { title: 'See Pro Features' };
+			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
+			const result = await window.showInformationMessage(
+				`You are now on the ${actual.name} plan.`,
+				{
+					modal: true,
+					detail: 'You only have access to Pro features on publicly-hosted repos. For full access to Pro features, please upgrade to a paid plan.\nA paid plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+				},
+				upgrade,
+				learn,
+				confirm,
+			);
+
+			if (result === upgrade) {
+				void this.upgrade(source);
+			} else if (result === learn) {
+				void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-ended' } }, source);
+			}
+		}
+	}
+
 	@log()
 	async loginOrSignUp(signUp: boolean, source: Source | undefined): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
@@ -273,97 +366,7 @@ export class SubscriptionService implements Disposable {
 		const session = await this.ensureSession(true, { signUp: signUp });
 		const loggedIn = Boolean(session);
 		if (loggedIn) {
-			const {
-				account,
-				plan: { actual, effective },
-			} = this._subscription;
-
-			if (account?.verified === false) {
-				const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 7;
-
-				const verify: MessageItem = { title: 'Resend Email' };
-				const learn: MessageItem = { title: 'See Pro Features' };
-				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
-				const result = await window.showInformationMessage(
-					`Welcome to your ${
-						effective.name
-					} Trial.\n\nYou must first verify your email. Once verified, you will have full access to Pro features for ${
-						days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
-					}.`,
-					{
-						modal: true,
-						detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
-					},
-					verify,
-					learn,
-					confirm,
-				);
-
-				if (result === verify) {
-					void this.resendVerification(source);
-				} else if (result === learn) {
-					void this.learnAboutPro(
-						{ source: 'prompt', detail: { action: 'trial-started-verify-email' } },
-						source,
-					);
-				}
-			} else if (isSubscriptionPaid(this._subscription)) {
-				const learn: MessageItem = { title: 'See Pro Features' };
-				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
-				const result = await window.showInformationMessage(
-					`You are now on the ${actual.name} plan and have full access to Pro features.`,
-					{
-						modal: true,
-						detail: 'Your plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
-					},
-					learn,
-					confirm,
-				);
-
-				if (result === learn) {
-					void this.learnAboutPro({ source: 'prompt', detail: { action: 'upgraded' } }, source);
-				}
-			} else if (isSubscriptionTrial(this._subscription)) {
-				const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
-
-				const learn: MessageItem = { title: 'See Pro Features' };
-				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
-				const result = await window.showInformationMessage(
-					`Welcome to your ${effective.name} Trial.\n\nYou now have full access to Pro features for ${
-						days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
-					}.`,
-					{
-						modal: true,
-						detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
-					},
-					confirm,
-					learn,
-				);
-
-				if (result === learn) {
-					void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-started' } }, source);
-				}
-			} else {
-				const upgrade: MessageItem = { title: 'Upgrade to Pro' };
-				const learn: MessageItem = { title: 'See Pro Features' };
-				const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
-				const result = await window.showInformationMessage(
-					`You are now on the ${actual.name} plan.`,
-					{
-						modal: true,
-						detail: 'You only have access to Pro features on publicly-hosted repos. For full access to Pro features, please upgrade to a paid plan.\nA paid plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
-					},
-					upgrade,
-					learn,
-					confirm,
-				);
-
-				if (result === upgrade) {
-					void this.upgrade(source);
-				} else if (result === learn) {
-					void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-ended' } }, source);
-				}
-			}
+			void this.showPlanMessage(source);
 		}
 		return loggedIn;
 	}
@@ -679,6 +682,7 @@ export class SubscriptionService implements Disposable {
 	@log()
 	async upgrade(source: Source | undefined): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
+		const scope = getLogScope();
 
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'upgrade' }, source);
@@ -688,20 +692,25 @@ export class SubscriptionService implements Disposable {
 			this.showPlans(source);
 		} else {
 			const activeOrgId = this._subscription.activeOrganization?.id;
-			void env.openExternal(
-				this.container.getGkDevUri(
-					'purchase',
-					activeOrgId ? `source=gitlens&org=${activeOrgId}` : 'source=gitlens',
-				),
-			);
-			take(
-				window.onDidChangeWindowState,
-				2,
-			)(e => {
-				if (e.focused && this._session != null) {
-					void this.checkInAndValidate(this._session, { force: true });
-				}
-			});
+			const query = `source=gitlens${activeOrgId != null ? `&org=${activeOrgId}` : ''}`;
+			try {
+				const token = await this.container.accountAuthentication.getExchangeToken(
+					SubscriptionUpdatedUriPathPrefix,
+				);
+				const purchasePath = `purchase?${query}`;
+				void openUrl(this.container.getGkDevExchangeUri(token, purchasePath).toString(true));
+			} catch (ex) {
+				Logger.error(ex, scope);
+				void env.openExternal(this.container.getGkDevUri('purchase', query));
+				take(
+					window.onDidChangeWindowState,
+					2,
+				)(e => {
+					if (e.focused && this._session != null) {
+						void this.checkInAndValidate(this._session, { force: true });
+					}
+				});
+			}
 		}
 		await this.showAccountView();
 	}
@@ -1341,7 +1350,11 @@ export class SubscriptionService implements Disposable {
 
 	async onSubscriptionUpdatedUri() {
 		if (this._session == null) return;
+		const oldSubscriptionState = this._subscription.state;
 		await this.checkInAndValidate(this._session, { force: true });
+		if (oldSubscriptionState !== this._subscription.state) {
+			void this.showPlanMessage({ source: 'subscription' });
+		}
 	}
 }
 
