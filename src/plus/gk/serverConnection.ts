@@ -27,27 +27,6 @@ export class ServerConnection implements Disposable {
 	dispose() {}
 
 	@memoize()
-	private get accountsUri(): Uri {
-		if (this.container.env === 'staging') {
-			return Uri.parse('https://stagingapp.gitkraken.com');
-		}
-
-		if (this.container.env === 'dev') {
-			return Uri.parse('https://devapp.gitkraken.com');
-		}
-
-		return Uri.parse('https://app.gitkraken.com');
-	}
-
-	getAccountsUri(path?: string, query?: string) {
-		let uri = path != null ? Uri.joinPath(this.accountsUri, path) : this.accountsUri;
-		if (query != null) {
-			uri = uri.with({ query: query });
-		}
-		return uri;
-	}
-
-	@memoize()
 	private get baseApiUri(): Uri {
 		if (this.container.env === 'staging') {
 			return Uri.parse('https://stagingapi.gitkraken.com');
