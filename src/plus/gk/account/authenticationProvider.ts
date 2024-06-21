@@ -297,6 +297,10 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 			Logger.error(ex, `Unable to store ${sessions.length} sessions`);
 		}
 	}
+
+	async getExchangeToken(redirectPath?: string): Promise<string> {
+		return this._authConnection.getExchangeToken(redirectPath);
+	}
 }
 
 function getScopesKey(scopes: readonly string[]): string;

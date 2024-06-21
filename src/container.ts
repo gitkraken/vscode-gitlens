@@ -218,13 +218,12 @@ export class Container {
 		this._disposables.push(
 			(this._accountAuthentication = new AccountAuthenticationProvider(this, this._connection)),
 		);
+		this._disposables.push((this._uri = new UriService(this)));
 		this._disposables.push((this._subscription = new SubscriptionService(this, this._connection, previousVersion)));
 		this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
 
 		this._disposables.push((this._git = new GitProviderService(this)));
 		this._disposables.push(new GitFileSystemProvider(this));
-
-		this._disposables.push((this._uri = new UriService(this)));
 
 		this._disposables.push((this._deepLinks = new DeepLinkService(this)));
 
@@ -934,6 +933,12 @@ export class Container {
 			uri = uri.with({ query: query });
 		}
 		return uri;
+	}
+
+	getGkDevExchangeUri(token: string, successPath: string, failurePath?: string): Uri {
+		return Uri.joinPath(this.baseGkDevUri, `api/exchange/${token}`).with({
+			query: `success=${successPath}${failurePath ? `&failure=${failurePath}` : ''}`,
+		});
 	}
 
 	generateWebGkDevUrl(path?: string): string {
