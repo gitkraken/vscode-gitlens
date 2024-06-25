@@ -136,13 +136,20 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		return Promise.resolve(undefined);
 	}
 
-	protected override async createSession(
+	public override async getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { authorizeIfNeeded?: boolean },
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const existingSession = await this.getBuiltInExistingSession(descriptor);
 		if (existingSession != null) return existingSession;
 
+		return super.getSession(descriptor, options);
+	}
+
+	protected override async createSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { authorizeIfNeeded?: boolean },
+	): Promise<ProviderAuthenticationSession | undefined> {
 		const cloudIntegrations = await this.container.cloudIntegrations;
 		if (cloudIntegrations == null) return undefined;
 
