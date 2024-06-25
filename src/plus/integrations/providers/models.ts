@@ -30,12 +30,13 @@ import type { Account as UserAccount } from '../../../git/models/author';
 import type { IssueMember, SearchedIssue } from '../../../git/models/issue';
 import { RepositoryAccessLevel } from '../../../git/models/issue';
 import type {
-	PullRequest,
 	PullRequestMember,
 	PullRequestRefs,
 	PullRequestReviewer,
+	PullRequestState,
 } from '../../../git/models/pullRequest';
 import {
+	PullRequest,
 	PullRequestMergeableState,
 	PullRequestReviewDecision,
 	PullRequestReviewState,
@@ -44,6 +45,7 @@ import {
 import type { ProviderReference } from '../../../git/models/remoteProvider';
 import type { RepositoryIdentityDescriptor } from '../../../gk/models/repositoryIdentities';
 import type { EnrichableItem } from '../../focus/enrichmentService';
+import type { Integration } from '../integration';
 import { getEntityIdentifierInput } from './utils';
 
 export type ProviderAccount = Account;
@@ -560,6 +562,20 @@ export const toProviderBuildStatusState = {
 	[PullRequestStatusCheckRollupState.Pending]: GitBuildStatusState.Pending,
 };
 
+export const fromProviderBuildStatusState = {
+	[GitBuildStatusState.Success]: PullRequestStatusCheckRollupState.Success,
+	[GitBuildStatusState.Failed]: PullRequestStatusCheckRollupState.Failed,
+	[GitBuildStatusState.Pending]: PullRequestStatusCheckRollupState.Pending,
+	[GitBuildStatusState.ActionRequired]: PullRequestStatusCheckRollupState.Failed,
+	// TODO: The rest of these are defaulted because we don't have a matching state for them
+	[GitBuildStatusState.Error]: undefined,
+	[GitBuildStatusState.Cancelled]: undefined,
+	[GitBuildStatusState.OptionalActionRequired]: undefined,
+	[GitBuildStatusState.Skipped]: undefined,
+	[GitBuildStatusState.Running]: undefined,
+	[GitBuildStatusState.Warning]: undefined,
+};
+
 export const toProviderPullRequestReviewState = {
 	[PullRequestReviewState.Approved]: GitPullRequestReviewState.Approved,
 	[PullRequestReviewState.ChangesRequested]: GitPullRequestReviewState.ChangesRequested,
@@ -569,10 +585,27 @@ export const toProviderPullRequestReviewState = {
 	[PullRequestReviewState.Pending]: null,
 };
 
+export const fromProviderPullRequestReviewState = {
+	[GitPullRequestReviewState.Approved]: PullRequestReviewState.Approved,
+	[GitPullRequestReviewState.ChangesRequested]: PullRequestReviewState.ChangesRequested,
+	[GitPullRequestReviewState.Commented]: PullRequestReviewState.Commented,
+	[GitPullRequestReviewState.ReviewRequested]: PullRequestReviewState.ReviewRequested,
+};
+
 export const toProviderPullRequestMergeableState = {
 	[PullRequestMergeableState.Mergeable]: GitPullRequestMergeableState.Mergeable,
 	[PullRequestMergeableState.Conflicting]: GitPullRequestMergeableState.Conflicts,
 	[PullRequestMergeableState.Unknown]: GitPullRequestMergeableState.Unknown,
+};
+
+export const fromProviderPullRequestMergeableState = {
+	[GitPullRequestMergeableState.Mergeable]: PullRequestMergeableState.Mergeable,
+	[GitPullRequestMergeableState.Conflicts]: PullRequestMergeableState.Conflicting,
+	[GitPullRequestMergeableState.Unknown]: PullRequestMergeableState.Unknown,
+	[GitPullRequestMergeableState.Behind]: PullRequestMergeableState.Unknown,
+	[GitPullRequestMergeableState.Blocked]: PullRequestMergeableState.Unknown,
+	[GitPullRequestMergeableState.UnknownAndBlocked]: PullRequestMergeableState.Unknown,
+	[GitPullRequestMergeableState.Unstable]: PullRequestMergeableState.Unknown,
 };
 
 export function toProviderReviews(reviewers: PullRequestReviewer[]): ProviderPullRequest['reviews'] {
@@ -582,6 +615,30 @@ export function toProviderReviews(reviewers: PullRequestReviewer[]): ProviderPul
 			reviewer: toProviderAccount(reviewer.reviewer),
 			state: toProviderPullRequestReviewState[reviewer.state] ?? GitPullRequestReviewState.ReviewRequested,
 		}));
+}
+
+export function toReviewRequests(reviews: ProviderPullRequest['reviews']): PullRequestReviewer[] | undefined {
+	return reviews == null
+		? undefined
+		: reviews
+				?.filter(r => r.state === GitPullRequestReviewState.ReviewRequested)
+				.map(r => ({
+					isCodeOwner: false, // TODO: Find this value, and implement in the shared lib if needed
+					reviewer: fromProviderAccount(r.reviewer),
+					state: PullRequestReviewState.ReviewRequested,
+				}));
+}
+
+export function toCompletedReviews(reviews: ProviderPullRequest['reviews']): PullRequestReviewer[] | undefined {
+	return reviews == null
+		? undefined
+		: reviews
+				?.filter(r => r.state !== GitPullRequestReviewState.ReviewRequested)
+				.map(r => ({
+					isCodeOwner: false, // TODO: Find this value, and implement in the shared lib if needed
+					reviewer: fromProviderAccount(r.reviewer),
+					state: fromProviderPullRequestReviewState[r.state],
+				}));
 }
 
 export function toProviderReviewDecision(
@@ -606,6 +663,25 @@ export function toProviderReviewDecision(
 	}
 }
 
+export const fromPullRequestReviewDecision = {
+	[GitPullRequestReviewState.Approved]: PullRequestReviewDecision.Approved,
+	[GitPullRequestReviewState.ChangesRequested]: PullRequestReviewDecision.ChangesRequested,
+	[GitPullRequestReviewState.Commented]: undefined,
+	[GitPullRequestReviewState.ReviewRequested]: PullRequestReviewDecision.ReviewRequired,
+};
+
+export function toProviderPullRequestState(state: PullRequestState): GitPullRequestState {
+	return state === 'opened'
+		? GitPullRequestState.Open
+		: state === 'closed'
+		  ? GitPullRequestState.Closed
+		  : GitPullRequestState.Merged;
+}
+
+export function fromProviderPullRequestState(state: GitPullRequestState): PullRequestState {
+	return state === GitPullRequestState.Open ? 'opened' : state === GitPullRequestState.Closed ? 'closed' : 'merged';
+}
+
 export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	const prReviews = [...(pr.reviewRequests ?? []), ...(pr.latestReviews ?? [])];
 	return {
@@ -614,12 +690,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		number: Number.parseInt(pr.id, 10),
 		title: pr.title,
 		url: pr.url,
-		state:
-			pr.state === 'opened'
-				? GitPullRequestState.Open
-				: pr.state === 'closed'
-				  ? GitPullRequestState.Closed
-				  : GitPullRequestState.Merged,
+		state: toProviderPullRequestState(pr.state),
 		isDraft: pr.isDraft ?? false,
 		createdDate: pr.createdDate,
 		updatedDate: pr.updatedDate,
@@ -710,6 +781,63 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	};
 }
 
+export function fromProviderPullRequest(pr: ProviderPullRequest, integration: Integration): PullRequest {
+	return new PullRequest(
+		integration,
+		fromProviderAccount(pr.author),
+		pr.id,
+		pr.graphQLId,
+		pr.title,
+		pr.url ?? '',
+		{
+			owner: pr.repository.owner.login,
+			repo: pr.repository.name,
+		},
+		fromProviderPullRequestState(pr.state),
+		pr.createdDate,
+		pr.updatedDate,
+		pr.closedDate ?? undefined,
+		pr.mergedDate ?? undefined,
+		pr.mergeableState ? fromProviderPullRequestMergeableState[pr.mergeableState] : undefined,
+		pr.permissions?.canMerge || pr.permissions?.canMergeAndBypassProtections ? true : undefined,
+		{
+			base: {
+				branch: pr.baseRef?.name ?? '',
+				sha: pr.baseRef?.oid ?? '',
+				repo: pr.repository.name,
+				owner: pr.repository.owner.login,
+				exists: pr.baseRef != null,
+				url: pr.repository.remoteInfo?.cloneUrlHTTPS
+					? pr.repository.remoteInfo.cloneUrlHTTPS.replace(/\.git$/, '')
+					: '',
+			},
+			head: {
+				branch: pr.headRef?.name ?? '',
+				sha: pr.headRef?.oid ?? '',
+				repo: pr.headRepository?.name ?? '',
+				owner: pr.headRepository?.owner.login ?? '',
+				exists: pr.headRef != null,
+				url: pr.headRepository?.remoteInfo?.cloneUrlHTTPS
+					? pr.headRepository.remoteInfo.cloneUrlHTTPS.replace(/\.git$/, '')
+					: '',
+			},
+			isCrossRepository: pr.headRepository?.id !== pr.repository.id,
+		},
+		pr.isDraft,
+		pr.additions ?? undefined,
+		pr.deletions ?? undefined,
+		pr.commentCount ?? undefined,
+		pr.upvoteCount ?? undefined,
+		pr.reviewDecision ? fromPullRequestReviewDecision[pr.reviewDecision] : undefined,
+		toReviewRequests(pr.reviews),
+		toCompletedReviews(pr.reviews),
+		pr.assignees?.map(fromProviderAccount) ?? undefined,
+		pr.headCommit?.buildStatuses?.[0]?.state
+			? fromProviderBuildStatusState[pr.headCommit.buildStatuses[0].state]
+			: undefined,
+	);
+}
+
 export function toProviderPullRequestWithUniqueId(pr: PullRequest): PullRequestWithUniqueID {
 	return {
 		...toProviderPullRequest(pr),
@@ -726,6 +854,14 @@ export function toProviderAccount(account: PullRequestMember | IssueMember): Pro
 		email: '',
 		username: account.name ?? null,
 		id: account.name ?? null,
+	};
+}
+
+export function fromProviderAccount(account: ProviderAccount | null): PullRequestMember | IssueMember {
+	return {
+		name: account?.name ?? 'unknown',
+		avatarUrl: account?.avatarUrl ?? undefined,
+		url: account?.url ?? '',
 	};
 }
 
