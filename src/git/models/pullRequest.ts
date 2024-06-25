@@ -57,8 +57,8 @@ export interface PullRequestRefs {
 
 export interface PullRequestMember {
 	name: string;
-	avatarUrl: string;
-	url: string;
+	avatarUrl?: string;
+	url?: string;
 }
 
 export interface PullRequestReviewer {
@@ -150,8 +150,8 @@ export class PullRequest implements PullRequestShape {
 		public readonly provider: ProviderReference,
 		public readonly author: {
 			readonly name: string;
-			readonly avatarUrl: string;
-			readonly url: string;
+			readonly avatarUrl?: string;
+			readonly url?: string;
 		},
 		public readonly id: string,
 		public readonly nodeId: string | undefined,
