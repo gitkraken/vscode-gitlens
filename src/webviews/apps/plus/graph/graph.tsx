@@ -487,6 +487,10 @@ export class GraphApp extends App<State> {
 					'--color-graph-scroll-marker-selection',
 					computedStyle,
 				),
+				'--scroll-marker-pull-requests-color': getCssVariable(
+					'--color-graph-scroll-marker-pull-requests',
+					computedStyle,
+				),
 
 				'--stats-added-color': getCssVariable('--color-graph-stats-added', computedStyle),
 				'--stats-deleted-color': getCssVariable('--color-graph-stats-deleted', computedStyle),

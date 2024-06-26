@@ -32,7 +32,13 @@ export interface TagMarker {
 	current?: undefined;
 }
 
-export type GraphMinimapMarker = BranchMarker | RemoteMarker | StashMarker | TagMarker;
+export interface PullRequestMarker {
+	type: 'pull-request';
+	name: string;
+	current?: undefined;
+}
+
+export type GraphMinimapMarker = BranchMarker | RemoteMarker | StashMarker | TagMarker | PullRequestMarker;
 
 export interface GraphMinimapSearchResultMarker {
 	type: 'search-result';
@@ -61,6 +67,7 @@ const markerZOrder = [
 	'marker-head-arrow-right',
 	'marker-head',
 	'marker-upstream',
+	'marker-pull-request',
 	'marker-branch',
 	'marker-stash',
 	'marker-remote',
@@ -243,6 +250,16 @@ export class GlGraphMinimap extends GlElement {
 		.bb-region.marker-upstream > rect {
 			width: 1px;
 			height: 100%;
+		}
+
+		.bb-region.marker-pull-request {
+			fill: var(--color-graph-minimap-marker-pull-requests);
+			stroke: var(--color-graph-minimap-marker-pull-requests);
+			transform: translate(-2px, 29px);
+		}
+		.bb-region.marker-pull-request > rect {
+			width: 3px;
+			height: 3px;
 		}
 
 		.bb-region.marker-branch {
@@ -432,6 +449,13 @@ export class GlGraphMinimap extends GlElement {
 			background-color: var(--color-graph-minimap-tip-stashBackground);
 			border: 1px solid var(--color-graph-minimap-tip-stashBorder);
 			color: var(--color-graph-minimap-tip-stashForeground);
+		}
+		.bb-tooltip .refs .pull-request {
+			border-radius: 3px;
+			padding: 0 4px;
+			background-color: var(--color-graph-minimap-pullRequestBackground);
+			border: 1px solid var(--color-graph-minimap-pullRequestBorder);
+			color: var(--color-graph-minimap-pullRequestForeground);
 		}
 		.bb-tooltip .refs .tag {
 			border-radius: 3px;
@@ -909,6 +933,7 @@ export class GlGraphMinimap extends GlElement {
 						}
 
 						const stashesCount = groups?.get('stash')?.length ?? 0;
+						const pullRequestsCount = groups?.get('pull-request')?.length ?? 0;
 
 						let commits;
 						let linesChanged;
@@ -964,6 +989,12 @@ export class GlGraphMinimap extends GlElement {
 								.join('') ?? ''
 						}</div>
 						<div class="refs">${
+							pullRequestsCount
+								? /*html*/ `<span class="pull-request">${pluralize('pull request', pullRequestsCount, {
+										plural: 'pull requests',
+								  })}</span>`
+								: ''
+						}${
 							groups
 								?.get('remote')
 								?.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1))

@@ -4,6 +4,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import type {
 	GraphDownstreams,
 	GraphMinimapMarkerTypes,
+	GraphRefsMetadata,
 	GraphRowStats,
 	GraphSearchResults,
 	GraphSearchResultsError,
@@ -48,6 +49,9 @@ export class GlGraphMinimapContainer extends GlElement {
 	@property({ type: Array })
 	markerTypes: GraphMinimapMarkerTypes[] = [];
 
+	@property({ type: Object })
+	refMetadata?: GraphRefsMetadata | null;
+
 	@property({ type: Array })
 	rows: GraphRow[] = [];
 
@@ -71,7 +75,7 @@ export class GlGraphMinimapContainer extends GlElement {
 
 	private pendingDataChange = false;
 
-	@observe(['dataType', 'downstreams', 'markerTypes', 'rows', 'rowsStats'])
+	@observe(['dataType', 'downstreams', 'markerTypes', 'refMetadata', 'rows', 'rowsStats'])
 	private handleDataChanged(changedKeys: PropertyKey[]) {
 		// If only the rowsStats changed, and we're not in lines mode, we don't need to reprocess the rows
 		if (changedKeys.length === 1 && changedKeys[0] === 'rowsStats') {
@@ -154,6 +158,7 @@ export class GlGraphMinimapContainer extends GlElement {
 
 		let markers;
 		let headMarkers: GraphMinimapMarker[];
+		let pullRequestMarkers: GraphMinimapMarker[];
 		let remoteMarkers: GraphMinimapMarker[];
 		let stashMarker: StashMarker | undefined;
 		let tagMarkers: GraphMinimapMarker[];
@@ -165,6 +170,7 @@ export class GlGraphMinimapContainer extends GlElement {
 		// Iterate in reverse order so that we can track the HEAD upstream properly
 		for (let i = rows.length - 1; i >= 0; i--) {
 			row = rows[i];
+			pullRequestMarkers = [];
 
 			day = getDay(row.date);
 			if (day !== prevDay) {
@@ -179,7 +185,9 @@ export class GlGraphMinimapContainer extends GlElement {
 
 			if (
 				row.heads?.length &&
-				(this.markerTypes.includes('head') || this.markerTypes.includes('localBranches'))
+				(this.markerTypes.includes('head') ||
+					this.markerTypes.includes('localBranches') ||
+					this.markerTypes.includes('pullRequests'))
 			) {
 				rankedShas.branch = row.sha;
 
@@ -201,6 +209,19 @@ export class GlGraphMinimapContainer extends GlElement {
 							current: h.isCurrentHead && this.markerTypes.includes('head'),
 						});
 					}
+
+					if (
+						this.markerTypes.includes('pullRequests') &&
+						h.id != null &&
+						this.refMetadata?.[h.id]?.pullRequest?.length
+					) {
+						for (const pr of this.refMetadata?.[h.id]?.pullRequest ?? []) {
+							pullRequestMarkers.push({
+								type: 'pull-request',
+								name: pr.title,
+							});
+						}
+					}
 				});
 
 				markers = markersByDay.get(day);
@@ -215,7 +236,8 @@ export class GlGraphMinimapContainer extends GlElement {
 				row.remotes?.length &&
 				(this.markerTypes.includes('upstream') ||
 					this.markerTypes.includes('remoteBranches') ||
-					this.markerTypes.includes('localBranches'))
+					this.markerTypes.includes('localBranches') ||
+					this.markerTypes.includes('pullRequests'))
 			) {
 				rankedShas.remote = row.sha;
 
@@ -240,6 +262,19 @@ export class GlGraphMinimapContainer extends GlElement {
 							name: `${r.owner}/${r.name}`,
 							current: current && this.markerTypes.includes('upstream'),
 						});
+					}
+
+					if (
+						this.markerTypes.includes('pullRequests') &&
+						r.id != null &&
+						this.refMetadata?.[r.id]?.pullRequest?.length
+					) {
+						for (const pr of this.refMetadata?.[r.id]?.pullRequest ?? []) {
+							pullRequestMarkers.push({
+								type: 'pull-request',
+								name: pr.title,
+							});
+						}
 					}
 				});
 
@@ -275,6 +310,13 @@ export class GlGraphMinimapContainer extends GlElement {
 				} else {
 					markers.push(...tagMarkers);
 				}
+			}
+
+			markers = markersByDay.get(day);
+			if (markers == null) {
+				markersByDay.set(day, pullRequestMarkers);
+			} else {
+				markers.push(...pullRequestMarkers);
 			}
 
 			stat = statsByDayMap.get(day);

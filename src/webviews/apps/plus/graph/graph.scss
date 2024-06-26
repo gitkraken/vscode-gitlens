@@ -57,6 +57,8 @@
 	--color-graph-scroll-marker-highlights: var(--vscode-gitlens-graphScrollMarkerHighlightsColor);
 	--color-graph-minimap-marker-local-branches: var(--vscode-gitlens-graphMinimapMarkerLocalBranchesColor);
 	--color-graph-scroll-marker-local-branches: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor);
+	--color-graph-minimap-marker-pull-requests: var(--vscode-gitlens-graphMinimapMarkerPullRequestsColor);
+	--color-graph-scroll-marker-pull-requests: var(--vscode-gitlens-graphScrollMarkerPullRequestsColor);
 	--color-graph-minimap-marker-remote-branches: var(--vscode-gitlens-graphMinimapMarkerRemoteBranchesColor);
 	--color-graph-scroll-marker-remote-branches: var(--vscode-gitlens-graphScrollMarkerRemoteBranchesColor);
 	--color-graph-minimap-marker-stashes: var(--vscode-gitlens-graphMinimapMarkerStashesColor);
@@ -86,6 +88,10 @@
 	--color-graph-minimap-tip-stashBackground: var(--color-graph-scroll-marker-stashes);
 	--color-graph-minimap-tip-stashBorder: var(--color-graph-scroll-marker-stashes);
 	--color-graph-minimap-tip-stashForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-minimap-pullRequestBackground: var(--color-graph-scroll-marker-pull-requests);
+	--color-graph-minimap-pullRequestBorder: var(--color-graph-scroll-marker-pull-requests);
+	--color-graph-minimap-pullRequestForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
 
 	--color-graph-minimap-tip-tagBackground: var(--color-graph-scroll-marker-tags);
 	--color-graph-minimap-tip-tagBorder: var(--color-graph-scroll-marker-tags);
@@ -1176,6 +1182,10 @@ gl-feature-gate gl-feature-badge {
 
 	&[data-marker='localBranches'] {
 		background-color: var(--color-graph-minimap-marker-local-branches);
+	}
+
+	&[data-marker='pullRequests'] {
+		background-color: var(--color-graph-minimap-marker-pull-requests);
 	}
 
 	&[data-marker='remoteBranches'] {
