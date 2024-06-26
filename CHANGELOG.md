@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.views.formats.stashes.tooltip` setting to specify the tooltip format of the stashes in GitLens views
 - Improves the display of branch and tag tips in the _File History_ and _Line History_ and in commit tooltips in GitLens views
   - Adds provider-specific icons to tips of remote branches
+- Adds pull request scroll and minimap markers to the _Commit Graph_
 
 ### Changed
 
