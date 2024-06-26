@@ -305,8 +305,18 @@ export type DateSource = 'authored' | 'committed';
 export type DateStyle = 'absolute' | 'relative';
 export type FileAnnotationType = 'blame' | 'changes' | 'heatmap';
 export type GitCommandSorting = 'name' | 'usage';
-export type GraphScrollMarkersAdditionalTypes = 'localBranches' | 'remoteBranches' | 'stashes' | 'tags';
-export type GraphMinimapMarkersAdditionalTypes = 'localBranches' | 'remoteBranches' | 'stashes' | 'tags';
+export type GraphScrollMarkersAdditionalTypes =
+	| 'localBranches'
+	| 'remoteBranches'
+	| 'stashes'
+	| 'tags'
+	| 'pullRequests';
+export type GraphMinimapMarkersAdditionalTypes =
+	| 'localBranches'
+	| 'remoteBranches'
+	| 'stashes'
+	| 'tags'
+	| 'pullRequests';
 export type GravatarDefaultStyle = 'wavatar' | 'identicon' | 'monsterid' | 'mp' | 'retro' | 'robohash';
 export type HeatmapLocations = 'gutter' | 'line' | 'overview';
 export type KeyMap = 'alternate' | 'chorded' | 'none';

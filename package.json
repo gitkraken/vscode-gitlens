@@ -5354,6 +5354,26 @@
 				}
 			},
 			{
+				"id": "gitlens.graphMinimapMarkerPullRequestsColor",
+				"description": "Specifies the color marking pull requests on the minimap of the _Commit Graph_",
+				"defaults": {
+					"light": "#ff8f18",
+					"highContrastLight": "#ff8f18",
+					"dark": "#c76801",
+					"highContrast": "#c76801"
+				}
+			},
+			{
+				"id": "gitlens.graphScrollMarkerPullRequestsColor",
+				"description": "Specifies the color marking pull requests on the scrollbar of the _Commit Graph_",
+				"defaults": {
+					"light": "#ff8f18",
+					"highContrastLight": "#ff8f18",
+					"dark": "#c76801",
+					"highContrast": "#c76801"
+				}
+			},
+			{
 				"id": "gitlens.graphMinimapMarkerRemoteBranchesColor",
 				"description": "Specifies the color marking remote branches on the minimap of the _Commit Graph_",
 				"defaults": {
@@ -9146,6 +9166,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.scrollMarkerPullRequestOn",
+				"title": "Show Pull Request Markers",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.scrollMarkerPullRequestOff",
+				"title": "Hide Pull Request Markers",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.shareAsCloudPatch",
 				"title": "Share as Cloud Patch...",
 				"category": "GitLens"
@@ -12070,6 +12100,14 @@
 				},
 				{
 					"command": "gitlens.graph.scrollMarkerTagOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerPullRequestOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerPullRequestOff",
 					"when": "false"
 				},
 				{
@@ -16307,6 +16345,16 @@
 					"command": "gitlens.graph.scrollMarkerTagOff",
 					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:tags:enabled\\b/",
 					"group": "4_settings@4"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerPullRequestOn",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:pullRequests:disabled\\b/",
+					"group": "4_settings@5"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerPullRequestOff",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:pullRequests:enabled\\b/",
+					"group": "4_settings@5"
 				}
 			],
 			"gitlens/scm/resourceGroup/changes": [
@@ -17511,7 +17559,7 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "10.4.0",
+		"@gitkraken/gitkraken-components": "10.5.1",
 		"@gitkraken/provider-apis": "0.22.9",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@lit/react": "1.0.5",

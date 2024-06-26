@@ -539,6 +539,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.scrollMarkerTagOff', () =>
 				this.toggleScrollMarker('tags', false),
 			),
+			this.host.registerWebviewCommand('gitlens.graph.scrollMarkerPullRequestOn', () =>
+				this.toggleScrollMarker('pullRequests', true),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.scrollMarkerPullRequestOff', () =>
+				this.toggleScrollMarker('pullRequests', false),
+			),
 
 			this.host.registerWebviewCommand('gitlens.graph.copyDeepLinkToBranch', this.copyDeepLinkToBranch),
 			this.host.registerWebviewCommand('gitlens.graph.copyDeepLinkToCommit', this.copyDeepLinkToCommit),
@@ -693,6 +699,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								case 'remoteBranches':
 								case 'stashes':
 								case 'tags':
+								case 'pullRequests':
 									additionalTypes.push(marker);
 									break;
 							}
@@ -1968,6 +1975,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				'remoteBranches',
 				'stashes',
 				'tags',
+				'pullRequests',
 			];
 			const enabledScrollMarkerTypes = configuration.get('graph.scrollMarkers.additionalTypes');
 			for (const type of configurableScrollMarkerTypes) {

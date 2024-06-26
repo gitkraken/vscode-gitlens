@@ -1465,6 +1465,22 @@ export function GraphWrapper({
 													Tags
 												</VSCodeCheckbox>
 											</MenuItem>
+											<MenuItem role="none">
+												<VSCodeCheckbox
+													value="pullRequests"
+													onChange={handleOnMinimapAdditionalTypesChange}
+													defaultChecked={
+														graphConfig?.minimapMarkerTypes?.includes('pullRequests') ??
+														true
+													}
+												>
+													<span
+														className="minimap-marker-swatch"
+														data-marker="pullRequests"
+													></span>
+													Pull Requests
+												</VSCodeCheckbox>
+											</MenuItem>
 										</MenuList>
 									</PopMenu>
 									<span slot="content">Minimap Options</span>
@@ -1509,6 +1525,7 @@ export function GraphWrapper({
 				rowsStats={rowsStats}
 				dataType={graphConfig?.minimapDataType ?? 'commits'}
 				markerTypes={graphConfig?.minimapMarkerTypes}
+				refMetadata={refsMetadata}
 				searchResults={searchResults}
 				visibleDays={visibleDays}
 				onSelected={e => handleOnMinimapDaySelected(e)}
