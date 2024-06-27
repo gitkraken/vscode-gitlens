@@ -99,13 +99,16 @@ export class ConnectRemoteProviderCommand extends Command {
 
 		if (!connected) {
 			if (isSupportedCloudIntegrationId(integration.id)) {
-				await this.container.integrations.manageCloudIntegrations(integration.id, {
-					source: 'remoteProvider',
-					detail: {
-						action: 'connect',
-						integration: integration.id,
+				await this.container.integrations.manageCloudIntegrations(
+					{ integrationId: integration.id, skipIfConnected: true },
+					{
+						source: 'remoteProvider',
+						detail: {
+							action: 'connect',
+							integration: integration.id,
+						},
 					},
-				});
+				);
 			}
 
 			connected = await integration.connect();

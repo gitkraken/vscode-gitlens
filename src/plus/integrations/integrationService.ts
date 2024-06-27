@@ -107,7 +107,11 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
-	async manageCloudIntegrations(integrationId: SupportedCloudIntegrationIds | undefined, source: Source | undefined) {
+	async manageCloudIntegrations(
+		connect: { integrationId: SupportedCloudIntegrationIds; skipIfConnected?: boolean } | undefined,
+		source: Source | undefined,
+	) {
+		const integrationId = connect?.integrationId;
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent(
 				'cloudIntegrations/settingsOpened',
@@ -119,6 +123,13 @@ export class IntegrationService implements Disposable {
 		const account = (await this.container.subscription.getSubscription()).account;
 		if (account == null) {
 			if (!(await this.container.subscription.loginOrSignUp(true, source))) return;
+		}
+
+		if (integrationId && connect.skipIfConnected) {
+			await this.syncCloudIntegrations();
+			const integration = await this.container.integrations.get(integrationId);
+			const connected = integration.maybeConnected ?? (await integration.isConnected());
+			if (connected) return;
 		}
 
 		let query = 'source=gitlens';

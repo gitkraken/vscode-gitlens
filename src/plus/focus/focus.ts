@@ -161,13 +161,16 @@ export class FocusCommand extends QuickCommand<State> {
 		let connected = integration.maybeConnected ?? (await integration.isConnected());
 		if (!connected) {
 			if (isSupportedCloudIntegrationId(integration.id)) {
-				await this.container.integrations.manageCloudIntegrations(integration.id, {
-					source: 'launchpad',
-					detail: {
-						action: 'connect',
-						integration: integration.id,
+				await this.container.integrations.manageCloudIntegrations(
+					{ integrationId: integration.id },
+					{
+						source: 'launchpad',
+						detail: {
+							action: 'connect',
+							integration: integration.id,
+						},
 					},
-				});
+				);
 			}
 			connected = await integration.connect();
 		}

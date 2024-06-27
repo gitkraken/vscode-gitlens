@@ -16,7 +16,7 @@ export class ManageCloudIntegrationsCommand extends Command {
 
 	async execute(args?: ManageCloudIntegrationsCommandArgs) {
 		await this.container.integrations.manageCloudIntegrations(
-			args?.integrationId,
+			args?.integrationId ? { integrationId: args.integrationId } : undefined,
 			args?.source ? { source: args.source, detail: args?.detail } : undefined,
 		);
 	}
