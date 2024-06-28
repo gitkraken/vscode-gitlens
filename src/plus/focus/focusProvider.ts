@@ -135,6 +135,7 @@ export type FocusAction =
 	| 'soft-open'
 	| 'switch'
 	| 'switch-and-code-suggest'
+	| 'open-worktree'
 	| 'code-suggest'
 	| 'show-overview'
 	| 'open-changes'
@@ -164,7 +165,7 @@ export function getSuggestedActions(category: FocusActionCategory, isCurrentBran
 	if (isCurrentBranch) {
 		actions.push('show-overview', 'open-changes', 'code-suggest', 'open-in-graph');
 	} else {
-		actions.push('switch', 'switch-and-code-suggest', 'open-in-graph');
+		actions.push('switch', 'open-worktree', 'switch-and-code-suggest', 'open-in-graph');
 	}
 	return actions;
 }
@@ -456,11 +457,14 @@ export class FocusProvider implements Disposable {
 	}
 
 	@log<FocusProvider['switchTo']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async switchTo(item: FocusItem, startCodeSuggestion: boolean = false): Promise<void> {
+	async switchTo(
+		item: FocusItem,
+		options?: { skipWorktreeConfirmations?: boolean; startCodeSuggestion?: boolean },
+	): Promise<void> {
 		if (item.openRepository?.localBranch?.current) {
 			void showInspectView({
 				type: 'wip',
-				inReview: startCodeSuggestion,
+				inReview: options?.startCodeSuggestion,
 				repository: item.openRepository.repo,
 				source: 'launchpad',
 			} satisfies ShowWipArgs);
@@ -469,9 +473,11 @@ export class FocusProvider implements Disposable {
 
 		const deepLinkUrl = this.getItemBranchDeepLink(
 			item,
-			startCodeSuggestion
+			options?.startCodeSuggestion
 				? DeepLinkActionType.SwitchToAndSuggestPullRequest
-				: DeepLinkActionType.SwitchToPullRequest,
+				: options?.skipWorktreeConfirmations
+				  ? DeepLinkActionType.SwitchToPullRequestWorktree
+				  : DeepLinkActionType.SwitchToPullRequest,
 		);
 		if (deepLinkUrl == null) return;
 

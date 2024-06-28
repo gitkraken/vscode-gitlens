@@ -96,6 +96,8 @@ interface CreateState {
 	overrides?: {
 		title?: string;
 	};
+
+	skipWorktreeConfirmations?: boolean;
 }
 
 type DeleteFlags = '--force';
@@ -129,6 +131,8 @@ interface OpenState {
 			placeholder?: string;
 		};
 	};
+
+	skipWorktreeConfirmations?: boolean;
 }
 
 interface CopyChangesState {
@@ -609,6 +613,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						confirm: action === 'prompt',
 						openOnly: true,
 						overrides: { disallowBack: true },
+						skipWorktreeConfirmations: state.skipWorktreeConfirmations,
 					} satisfies OpenStepState,
 					context,
 				);
@@ -695,26 +700,28 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		const isRemoteBranch = isBranchReference(state.reference) && state.reference?.remote;
 
 		type StepType = FlagsQuickPickItem<CreateFlags, CreateConfirmationChoice>;
+		const defaultOption = createFlagsQuickPickItem<CreateFlags, Uri>(
+			state.flags,
+			[],
+			{
+				label: isRemoteBranch
+					? 'Create Worktree for New Local Branch'
+					: isBranch
+					  ? 'Create Worktree for Branch'
+					  : context.title,
+				description: '',
+				detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
+			},
+			recommendedRootUri,
+		);
 
 		const confirmations: StepType[] = [];
 		if (!createDirectlyInFolder) {
 			if (!state.createBranch) {
-				confirmations.push(
-					createFlagsQuickPickItem<CreateFlags, Uri>(
-						state.flags,
-						[],
-						{
-							label: isRemoteBranch
-								? 'Create Worktree for New Local Branch'
-								: isBranch
-								  ? 'Create Worktree for Branch'
-								  : context.title,
-							description: '',
-							detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
-						},
-						recommendedRootUri,
-					),
-				);
+				if (state.skipWorktreeConfirmations) {
+					return [defaultOption.context, defaultOption.item];
+				}
+				confirmations.push(defaultOption);
 			}
 
 			confirmations.push(
@@ -992,15 +999,21 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	private *openCommandConfirmStep(state: OpenStepState, context: Context): StepResultGenerator<OpenFlags[]> {
 		type StepType = FlagsQuickPickItem<OpenFlags>;
 
+		const newWindowItem = createFlagsQuickPickItem<OpenFlags>(state.flags, ['--new-window'], {
+			label: `Open Worktree in a New Window`,
+			detail: 'Will open the worktree in a new window',
+		});
+
+		if (state.skipWorktreeConfirmations) {
+			return newWindowItem.item;
+		}
+
 		const confirmations: StepType[] = [
 			createFlagsQuickPickItem<OpenFlags>(state.flags, [], {
 				label: 'Open Worktree',
 				detail: 'Will open the worktree in the current window',
 			}),
-			createFlagsQuickPickItem<OpenFlags>(state.flags, ['--new-window'], {
-				label: `Open Worktree in a New Window`,
-				detail: 'Will open the worktree in a new window',
-			}),
+			newWindowItem,
 			createFlagsQuickPickItem<OpenFlags>(state.flags, ['--add-to-workspace'], {
 				label: `Add Worktree to Workspace`,
 				detail: 'Will add the worktree into the current workspace',

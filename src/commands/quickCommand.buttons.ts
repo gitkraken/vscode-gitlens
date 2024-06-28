@@ -196,6 +196,11 @@ export const ShowResultsInSideBarQuickInputButton: QuickInputButton = {
 	tooltip: 'Show Results in Side Bar',
 };
 
+export const OpenWorktreeInNewWindowQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('empty-window'),
+	tooltip: 'Open Worktree in New Window',
+};
+
 export const ShowTagsToggleQuickInputButton = class extends SelectableQuickInputButton {
 	constructor(on = false) {
 		super('Show Tags', { off: new ThemeIcon('tag'), on: 'icon-tag-selected' }, on);

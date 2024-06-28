@@ -1294,6 +1294,7 @@ export type TelemetryEvents = {
 			| 'merge'
 			| 'soft-open'
 			| 'switch'
+			| 'open-worktree'
 			| 'switch-and-code-suggest'
 			| 'show-overview'
 			| 'open-changes'
