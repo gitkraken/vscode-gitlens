@@ -417,7 +417,7 @@ export class DeepLinkService implements Disposable {
 		const cancel: QuickPickItem = { label: 'Cancel' };
 		const result = await window.showQuickPick([add, cancel], {
 			title: `Locating Remote`,
-			placeHolder: `Unable to find remote for '${remoteUrl}', would you like to a new remote?`,
+			placeHolder: `Unable to find remote for '${remoteUrl}', would you like to add a new remote?`,
 		});
 		if (result !== add) return undefined;
 
@@ -885,6 +885,9 @@ export class DeepLinkService implements Disposable {
 								message = 'Failed to add remote.';
 								break;
 							}
+						} else {
+							action = DeepLinkServiceAction.DeepLinkCancelled;
+							break;
 						}
 					}
 
@@ -911,6 +914,9 @@ export class DeepLinkService implements Disposable {
 								message = 'Failed to add remote.';
 								break;
 							}
+						} else {
+							action = DeepLinkServiceAction.DeepLinkCancelled;
+							break;
 						}
 					}
 
@@ -920,9 +926,11 @@ export class DeepLinkService implements Disposable {
 
 					if (!remoteName && !secondaryRemoteName) {
 						action = DeepLinkServiceAction.DeepLinkCancelled;
+						break;
 					} else if (!this._context.remote) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Failed to add remote.';
+						break;
 					}
 
 					action = DeepLinkServiceAction.RemoteAdded;
