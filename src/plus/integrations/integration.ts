@@ -200,6 +200,18 @@ export abstract class IntegrationBase<
 		this.resetRequestExceptionCount();
 		this._session = null;
 
+		if (connected && options?.cloudSessionOnly) {
+			const authProvider = await this.authenticationService.get(this.authProvider.id);
+			this._session = await authProvider.getSession(this.authProviderDescriptor, {
+				createIfNeeded: false,
+				forceNewSession: false,
+			});
+		}
+
+		if (this._session != null) {
+			return;
+		}
+
 		if (connected) {
 			// Don't store the disconnected flag if this only for this current VS Code session (will be re-connected on next restart)
 			if (!options?.currentSessionOnly) {
