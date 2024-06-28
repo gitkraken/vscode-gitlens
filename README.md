@@ -447,6 +447,7 @@ A big thanks to the people that have contributed to this project 🙏❤️:
 - may ([@m4rch3n1ng](https://github.com/m4rch3n1ng)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=m4rch3n1ng)
 - bm-w ([@bm-w](https://github.com/bm-w)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=bm-w)
 - Tyler Johnson ([@TJohnsonSE](https://github.com/TJohnsonSE)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=TJohnsonSE)
+- Dawn Hwang ([@hwangh95](https://github.com/hwangh95)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=hwangh95)
 
 Also special thanks to the people that have provided support, testing, brainstorming, etc:
 

@@ -1831,11 +1831,17 @@ export class Git {
 				);
 				if (data.trim() === 'true') {
 					// If we are in a bare clone, then the common dir is the git dir
-					data = await this.git<string>(
-						{ cwd: cwd, errors: GitErrorHandling.Ignore },
-						'rev-parse',
-						'--git-common-dir',
-					);
+					// We can assume rev_parse__git_dir will always return a value since we know we are in a repo
+					({ commonPath: data } = (await this.rev_parse__git_dir(cwd)) as {
+						path: string;
+						commonPath?: string;
+					});
+
+					// If the git dir is .git or a path pointed to by gitdir: ...,
+					// we should treat it as an "empty" version of a bare clone
+					// This is the case when git dir == git common dir, or when commonPath is undefined
+					data = data ?? '.';
+
 					data = data.trim();
 					if (data.length) {
 						return [true, normalizePath((data === '.' ? cwd : data).trimStart().replace(/[\r|\n]+$/, ''))];
