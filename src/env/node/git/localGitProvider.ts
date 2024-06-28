@@ -5684,6 +5684,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		try {
 			await this.git.worktree__add(repoPath, path, options);
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['worktrees'] });
 			if (options?.createBranch) {
 				this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['branches'] });
 			}
@@ -5771,6 +5772,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		try {
 			await this.git.worktree__remove(repoPath, normalizePath(path), options);
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['worktrees'] });
 		} catch (ex) {
 			Logger.error(ex, scope);
 
