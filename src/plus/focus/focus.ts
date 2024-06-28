@@ -578,6 +578,7 @@ export class FocusCommand extends QuickCommand<State> {
 							{
 								label: 'Merge...',
 								detail: `Will merge ${from}${into}`,
+								buttons: [OpenOnGitHubQuickInputButton],
 							},
 							action,
 						),
@@ -589,6 +590,7 @@ export class FocusCommand extends QuickCommand<State> {
 						createQuickPickItemOfT(
 							{
 								label: `${this.getOpenActionLabel(state.item.actionableCategory)} on GitHub`,
+								buttons: [OpenOnGitHubQuickInputButton],
 							},
 							action,
 						),
@@ -802,12 +804,17 @@ export class FocusCommand extends QuickCommand<State> {
 			status = `$(pass) No conflicts`;
 		}
 
-		return createQuickPickItemOfT({ label: status }, 'soft-open');
+		return createQuickPickItemOfT({ label: status, buttons: [OpenOnGitHubQuickInputButton] }, 'soft-open');
 	}
 
 	private getFocusItemReviewInformation(item: FocusItem): QuickPickItemOfT<FocusAction>[] {
 		if (item.reviews == null || item.reviews.length === 0) {
-			return [createQuickPickItemOfT({ label: `$(info) No reviewers have been assigned` }, 'soft-open')];
+			return [
+				createQuickPickItemOfT(
+					{ label: `$(info) No reviewers have been assigned`, buttons: [OpenOnGitHubQuickInputButton] },
+					'soft-open',
+				),
+			];
 		}
 
 		const reviewInfo: QuickPickItemOfT<FocusAction>[] = [];
@@ -834,7 +841,12 @@ export class FocusCommand extends QuickCommand<State> {
 			}
 
 			if (reviewLabel != null) {
-				reviewInfo.push(createQuickPickItemOfT({ label: reviewLabel, iconPath: iconPath }, 'soft-open'));
+				reviewInfo.push(
+					createQuickPickItemOfT(
+						{ label: reviewLabel, iconPath: iconPath, buttons: [OpenOnGitHubQuickInputButton] },
+						'soft-open',
+					),
+				);
 			}
 		}
 
