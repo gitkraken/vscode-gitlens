@@ -887,6 +887,7 @@ export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudI
 
 export type SecretKeys =
 	| `gitlens.integration.auth:${IntegrationId}|${string}`
+	| `gitlens.integration.auth.cloud:${IntegrationId}|${string}`
 	| `gitlens.${AIProviders}.key`
 	| `gitlens.plus.auth:${Environment}`;
 

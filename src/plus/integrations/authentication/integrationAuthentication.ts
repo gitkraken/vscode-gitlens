@@ -1,12 +1,12 @@
 import type { AuthenticationSession, CancellationToken, Disposable, Uri } from 'vscode';
 import { authentication, CancellationTokenSource, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
+import type { SecretKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import { debug, log } from '../../../system/decorators/log';
 import type { DeferredEventExecutor } from '../../../system/event';
 import { promisifyDeferred } from '../../../system/event';
 import { openUrl } from '../../../system/utils';
-import type { ServerConnection } from '../../gk/serverConnection';
 import type { IntegrationId } from '../providers/models';
 import {
 	HostingIntegrationId,
@@ -54,48 +54,29 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 
 	protected abstract get authProviderId(): ID;
 
-	protected getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
-		return descriptor?.domain ?? '';
-	}
-
 	protected abstract createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { authorizeIfNeeded?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined>;
 
-	@debug()
-	async deleteSession(descriptor?: IntegrationAuthenticationSessionDescriptor) {
-		const key = this.getSecretKey(this.getSessionId(descriptor));
+	protected abstract deleteAllSecrets(sessionId: string): Promise<void>;
+
+	protected abstract storeSession(sessionId: string, session: AuthenticationSession): Promise<void>;
+
+	protected abstract restoreSession(options: {
+		sessionId: string;
+		ignoreErrors: boolean;
+	}): Promise<StoredSession | undefined>;
+
+	protected async deleteSecret(key: SecretKeys) {
 		await this.container.storage.deleteSecret(key);
 	}
 
-	private getSecretKey(id: string): `gitlens.integration.auth:${IntegrationId}|${string}` {
-		return `gitlens.integration.auth:${this.authProviderId}|${id}`;
-	}
-
-	private async createAndStoreSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<AuthenticationSession | undefined> {
-		const session = await this.createSession(descriptor);
-		if (session == null) return undefined;
-
-		const key = this.getSecretKey(this.getSessionId(descriptor));
+	protected async writeSecret(key: SecretKeys, session: AuthenticationSession | StoredSession) {
 		await this.container.storage.storeSecret(key, JSON.stringify(session));
-
-		return session;
 	}
 
-	@debug()
-	async getSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
-	): Promise<ProviderAuthenticationSession | undefined> {
-		const key = this.getSecretKey(this.getSessionId(descriptor));
-
-		if (options?.forceNewSession) {
-			await this.container.storage.deleteSecret(key);
-		}
-
+	protected async readSecret(key: SecretKeys, ignoreErrors: boolean): Promise<StoredSession | undefined> {
 		let storedSession: StoredSession | undefined;
 		try {
 			const sessionJSON = await this.container.storage.getSecret(key);
@@ -104,19 +85,54 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 			}
 		} catch (ex) {
 			try {
-				await this.container.storage.deleteSecret(key);
+				await this.deleteSecret(key);
 			} catch {}
 
-			if (!options?.createIfNeeded) {
+			if (ignoreErrors) {
 				throw ex;
 			}
 		}
+		return storedSession;
+	}
 
+	protected getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
+		return descriptor?.domain ?? '';
+	}
+
+	protected getLocalSecretKey(id: string): `gitlens.integration.auth:${IntegrationId}|${string}` {
+		return `gitlens.integration.auth:${this.authProviderId}|${id}`;
+	}
+
+	@debug()
+	async deleteSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void> {
+		const sessionId = this.getSessionId(descriptor);
+		await this.deleteAllSecrets(sessionId);
+	}
+
+	@debug()
+	async getSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+	): Promise<ProviderAuthenticationSession | undefined> {
+		const sessionId = this.getSessionId(descriptor);
+
+		if (options?.forceNewSession) {
+			await this.deleteAllSecrets(sessionId);
+		}
+
+		const storedSession = await this.restoreSession({
+			sessionId: sessionId,
+			ignoreErrors: !options?.createIfNeeded,
+		});
 		if (
 			(options?.createIfNeeded && storedSession == null) ||
 			(storedSession?.expiresAt != null && new Date(storedSession.expiresAt).getTime() < Date.now())
 		) {
-			return this.createAndStoreSession(descriptor);
+			const session = await this.createSession(descriptor);
+			if (session != null) {
+				await this.storeSession(sessionId, session);
+			}
+			return session;
 		}
 
 		return storedSession as ProviderAuthenticationSession | undefined;
@@ -125,7 +141,26 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 
 export abstract class LocalIntegrationAuthenticationProvider<
 	ID extends IntegrationId = IntegrationId,
-> extends IntegrationAuthenticationProviderBase<ID> {}
+> extends IntegrationAuthenticationProviderBase<ID> {
+	protected async deleteAllSecrets(sessionId: string) {
+		await this.deleteSecret(this.getLocalSecretKey(sessionId));
+	}
+
+	protected async storeSession(sessionId: string, session: AuthenticationSession) {
+		await this.writeSecret(this.getLocalSecretKey(sessionId), session);
+	}
+
+	protected override async restoreSession({
+		sessionId,
+		ignoreErrors,
+	}: {
+		sessionId: string;
+		ignoreErrors: boolean;
+	}): Promise<StoredSession | undefined> {
+		const key = this.getLocalSecretKey(sessionId);
+		return this.readSecret(key, ignoreErrors);
+	}
+}
 
 export abstract class CloudIntegrationAuthenticationProvider<
 	ID extends IntegrationId = IntegrationId,
@@ -136,10 +171,72 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		return Promise.resolve(undefined);
 	}
 
+	private getCloudSecretKey(id: string): `gitlens.integration.auth.cloud:${IntegrationId}|${string}` {
+		return `gitlens.integration.auth.cloud:${this.authProviderId}|${id}`;
+	}
+
+	public async deleteCloudSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void> {
+		const key = this.getCloudSecretKey(this.getSessionId(descriptor));
+		await this.deleteSecret(key);
+	}
+
+	protected async deleteAllSecrets(sessionId: string) {
+		await Promise.all([
+			this.deleteSecret(this.getLocalSecretKey(sessionId)),
+			this.deleteSecret(this.getCloudSecretKey(sessionId)),
+		]);
+	}
+
+	protected override async storeSession(sessionId: string, session: AuthenticationSession) {
+		await this.writeSecret(this.getCloudSecretKey(sessionId), session);
+	}
+
+	/**
+	 * This method gets the session from the storage and returns it.
+	 * Howewer, if a cloud session is stored with a local key, it will be renamed and saved in the storage with the cloud key.
+	 */
+	protected override async restoreSession({
+		sessionId,
+		ignoreErrors,
+	}: {
+		sessionId: string;
+		ignoreErrors: boolean;
+	}): Promise<StoredSession | undefined> {
+		// At first we try to restore the cloud session
+		let session = await this.readSecret(this.getCloudSecretKey(sessionId), ignoreErrors);
+		if (session != null) return session;
+
+		// If no cloud session, we check whether we have a token with the local key
+		session = await this.readSecret(this.getLocalSecretKey(sessionId), ignoreErrors);
+		if (session != null) {
+			// Check the `expiresAt` field
+			// If it has an expiresAt property and the key is the old type, then it's a cloud session,
+			// so delete it from the local key and
+			// store with the "cloud" type key, and then use that one
+			//
+			if (session.expiresAt != null) {
+				await Promise.all([
+					this.deleteSecret(this.getLocalSecretKey(sessionId)),
+					this.writeSecret(this.getCloudSecretKey(sessionId), session),
+				]);
+				return session;
+			}
+			// Otherwise, it is rather unexpected, so I'm deleting it and returning undefined,
+			// This lets us drop local GitHub sessions that were incorrectly saved during testing the intermitent version of this change.
+			return undefined;
+			// However, I'm also thingking about using it rather than deleting:
+			// return session;
+		}
+
+		return undefined;
+	}
+
 	public override async getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
+		// by default getBuiltInExistingSession returns undefined
+		// but specific providers can override it to return a session (e.g. GitHub)
 		const existingSession = await this.getBuiltInExistingSession(descriptor);
 		if (existingSession != null) return existingSession;
 
@@ -293,10 +390,7 @@ class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticationProvid
 export class IntegrationAuthenticationService implements Disposable {
 	private readonly providers = new Map<IntegrationId, IntegrationAuthenticationProvider>();
 
-	constructor(
-		private readonly container: Container,
-		private readonly connection: ServerConnection,
-	) {}
+	constructor(private readonly container: Container) {}
 
 	dispose() {
 		this.providers.clear();

@@ -92,7 +92,7 @@ export class IntegrationService implements Disposable {
 			} else {
 				if (!isConnected) continue;
 
-				await integration.disconnect({ silent: true });
+				await integration.disconnect({ silent: true, cloudSessionOnly: true });
 			}
 		}
 	}

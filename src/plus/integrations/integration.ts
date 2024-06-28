@@ -27,6 +27,7 @@ import type {
 	IntegrationAuthenticationService,
 	IntegrationAuthenticationSessionDescriptor,
 } from './authentication/integrationAuthentication';
+import { CloudIntegrationAuthenticationProvider } from './authentication/integrationAuthentication';
 import type { ProviderAuthenticationSession } from './authentication/models';
 import type {
 	GetIssuesOptions,
@@ -148,7 +149,11 @@ export abstract class IntegrationBase<
 
 	@gate()
 	@log()
-	async disconnect(options?: { silent?: boolean; currentSessionOnly?: boolean }): Promise<void> {
+	async disconnect(options?: {
+		silent?: boolean;
+		currentSessionOnly?: boolean;
+		cloudSessionOnly?: boolean;
+	}): Promise<void> {
 		if (options?.currentSessionOnly && this._session === null) return;
 
 		const connected = this._session != null;
@@ -185,7 +190,11 @@ export abstract class IntegrationBase<
 
 		if (signOut) {
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			void authProvider.deleteSession(this.authProviderDescriptor);
+			if (options?.cloudSessionOnly && authProvider instanceof CloudIntegrationAuthenticationProvider) {
+				void authProvider.deleteCloudSession(this.authProviderDescriptor);
+			} else {
+				void authProvider.deleteSession(this.authProviderDescriptor);
+			}
 		}
 
 		this.resetRequestExceptionCount();
