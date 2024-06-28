@@ -1040,6 +1040,7 @@ export class DeepLinkService implements Disposable {
 						if (
 							this._context.action === DeepLinkActionType.Switch ||
 							this._context.action === DeepLinkActionType.SwitchToPullRequest ||
+							this._context.action === DeepLinkActionType.SwitchToPullRequestWorktree ||
 							this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest
 						) {
 							action = DeepLinkServiceAction.OpenSwitch;
@@ -1060,6 +1061,7 @@ export class DeepLinkService implements Disposable {
 							if (
 								this._context.action === DeepLinkActionType.Switch ||
 								this._context.action === DeepLinkActionType.SwitchToPullRequest ||
+								this._context.action === DeepLinkActionType.SwitchToPullRequestWorktree ||
 								this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest
 							) {
 								action = DeepLinkServiceAction.OpenSwitch;
@@ -1268,12 +1270,18 @@ export class DeepLinkService implements Disposable {
 
 						await executeGitCommand({
 							command: 'switch',
-							state: { repos: repo, reference: ref },
+							state: {
+								repos: repo,
+								reference: ref,
+								skipWorktreeConfirmations:
+									this._context.action === DeepLinkActionType.SwitchToPullRequestWorktree,
+							},
 						});
 					}
 
 					if (
 						this._context.action === DeepLinkActionType.SwitchToPullRequest ||
+						this._context.action === DeepLinkActionType.SwitchToPullRequestWorktree ||
 						this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest
 					) {
 						await showInspectView({

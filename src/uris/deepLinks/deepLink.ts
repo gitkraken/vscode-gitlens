@@ -20,6 +20,7 @@ export enum DeepLinkType {
 export enum DeepLinkActionType {
 	Switch = 'switch',
 	SwitchToPullRequest = 'switch-to-pr',
+	SwitchToPullRequestWorktree = 'switch-to-pr-worktree',
 	SwitchToAndSuggestPullRequest = 'switch-to-and-suggest-pr',
 }
 

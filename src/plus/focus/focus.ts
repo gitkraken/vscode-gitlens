@@ -21,6 +21,7 @@ import {
 	MergeQuickInputButton,
 	OpenOnGitHubQuickInputButton,
 	OpenOnWebQuickInputButton,
+	OpenWorktreeInNewWindowQuickInputButton,
 	PinQuickInputButton,
 	RefreshQuickInputButton,
 	SnoozeQuickInputButton,
@@ -283,9 +284,12 @@ export class FocusCommand extends QuickCommand<State> {
 					case 'show-overview':
 						void this.container.focus.switchTo(state.item);
 						break;
+					case 'open-worktree':
+						void this.container.focus.switchTo(state.item, { skipWorktreeConfirmations: true });
+						break;
 					case 'switch-and-code-suggest':
 					case 'code-suggest':
-						void this.container.focus.switchTo(state.item, true);
+						void this.container.focus.switchTo(state.item, { startCodeSuggestion: true });
 						break;
 					case 'open-changes':
 						void this.container.focus.openChanges(state.item);
@@ -377,8 +381,13 @@ export class FocusCommand extends QuickCommand<State> {
 							buttons.push(
 								i.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
 								i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
-								OpenOnGitHubQuickInputButton,
 							);
+
+							if (!i.openRepository?.localBranch?.current) {
+								buttons.push(OpenWorktreeInNewWindowQuickInputButton);
+							}
+
+							buttons.push(OpenOnGitHubQuickInputButton);
 
 							return {
 								label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
@@ -511,6 +520,11 @@ export class FocusCommand extends QuickCommand<State> {
 						this.sendItemActionTelemetry('merge', item, group, context);
 						await this.container.focus.merge(item);
 						break;
+
+					case OpenWorktreeInNewWindowQuickInputButton:
+						this.sendItemActionTelemetry('open-worktree', item, group, context);
+						await this.container.focus.switchTo(item, { skipWorktreeConfirmations: true });
+						break;
 				}
 
 				await updateItems(quickpick);
@@ -602,6 +616,17 @@ export class FocusCommand extends QuickCommand<State> {
 							{
 								label: 'Switch to Branch or Worktree',
 								detail: 'Will checkout the branch, create or open a worktree',
+							},
+							action,
+						),
+					);
+					break;
+				case 'open-worktree':
+					confirmations.push(
+						createQuickPickItemOfT(
+							{
+								label: 'Open Worktree in New Window',
+								detail: 'Will create or open a worktree in a new window',
 							},
 							action,
 						),
