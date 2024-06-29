@@ -1,8 +1,9 @@
 import type { CancellationToken, DecorationOptions, Disposable, TextDocument, TextEditor } from 'vscode';
-import { Hover, languages, Position, Range, Selection, TextEditorRevealType } from 'vscode';
+import { Hover, languages, Position, Range, Selection, TextEditorRevealType, window } from 'vscode';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitDiffFile } from '../git/models/diff';
+import { shortenRevision } from '../git/models/reference';
 import { localChangesMessage } from '../hovers/hovers';
 import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
@@ -24,6 +25,7 @@ export interface ChangesAnnotationContext extends AnnotationContext {
 
 export class GutterChangesAnnotationProvider extends AnnotationProviderBase<ChangesAnnotationContext> {
 	private hoverProviderDisposable: Disposable | undefined;
+	private quickdiffProviderDisposable: Disposable | undefined;
 	private sortedHunkStarts: number[] | undefined;
 	private state: { commit: GitCommit | undefined; diffs: GitDiffFile[] } | undefined;
 
@@ -37,6 +39,10 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 	override clear() {
 		this.state = undefined;
+		if (this.quickdiffProviderDisposable != null) {
+			this.quickdiffProviderDisposable.dispose();
+			this.quickdiffProviderDisposable = undefined;
+		}
 		if (this.hoverProviderDisposable != null) {
 			this.hoverProviderDisposable.dispose();
 			this.hoverProviderDisposable = undefined;
@@ -166,6 +172,22 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 				}
 			}
 		}
+
+		const label = `GitLens: Changes from ${shortenRevision(ref2)}`;
+		this.quickdiffProviderDisposable?.dispose();
+		this.quickdiffProviderDisposable = window.registerQuickDiffProvider(
+			{ pattern: this.trackedDocument.uri.fsPath },
+			{
+				label: label,
+				provideOriginalResource: async () =>
+					(await this.container.git.getBestRevisionUri(
+						this.trackedDocument.uri.repoPath,
+						this.trackedDocument.uri.fsPath,
+						ref1 ?? ref2,
+					))!,
+			},
+			label,
+		);
 
 		const diffs = (
 			await Promise.allSettled(
