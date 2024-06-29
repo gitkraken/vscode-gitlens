@@ -1802,11 +1802,21 @@ export class Git {
 
 		try {
 			data = await this.git<string>({ cwd: cwd, errors: GitErrorHandling.Throw }, 'rev-parse', '--show-toplevel');
+			if (data.length === 0) {
+				return (emptyArray as []);
+			}
+
 			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
 			// Keep trailing spaces which are part of the directory name
-			return data.length === 0
-				? (emptyArray as [])
-				: [true, normalizePath(data.trimStart().replace(/[\r|\n]+$/, ''))];
+			data = normalizePath(data.trimStart().replace(/[\r|\n]+$/, ''));
+
+			// MSYS2 Git (not Git for Windows) rev-parse returns Cygwin style path. (Git for Windows returns Windows style path with rev-parse)
+			// Convert Cygwin style path -> Windows style path
+			if (process.platform === 'win32') {
+				data = data.replace(/^\/([a-z])\//, (_, letter) => `${letter.toUpperCase()}:/`);
+			}
+
+			return [true, data];
 		} catch (ex) {
 			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
 
