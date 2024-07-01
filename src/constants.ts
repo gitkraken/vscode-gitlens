@@ -876,8 +876,6 @@ export type SupportedAIModels =
 	| `openai:${AIModels<'openai'>}`
 	| 'vscode';
 
-// export const supportedCloudIntegrationIds = [HostingIntegrationId.GitHub, IssueIntegrationId.Jira];
-// export type SupportedCloudIntegrationIds = (typeof supportedCloudIntegrationIds)[number];
 const supportedCloudIntegrationIds = ['github', 'jira'];
 export type SupportedCloudIntegrationIds = HostingIntegrationId.GitHub | IssueIntegrationId.Jira;
 
