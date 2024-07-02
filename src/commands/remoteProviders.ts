@@ -1,10 +1,11 @@
-import { Commands, isSupportedCloudIntegrationId } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitRemote } from '../git/models/remote';
 import { isRemote } from '../git/models/remote';
 import type { Repository } from '../git/models/repository';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import { isSupportedCloudIntegrationId } from '../plus/integrations/authentication/models';
 import { showRepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import { first } from '../system/iterable';

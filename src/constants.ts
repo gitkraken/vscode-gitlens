@@ -7,8 +7,9 @@ import type { FileAnnotationType, ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription, SubscriptionPlanId, SubscriptionState } from './plus/gk/account/subscription';
+import type { SupportedCloudIntegrationIds } from './plus/integrations/authentication/models';
 import type { Integration } from './plus/integrations/integration';
-import type { HostingIntegrationId, IntegrationId, IssueIntegrationId } from './plus/integrations/providers/models';
+import type { IntegrationId } from './plus/integrations/providers/models';
 import type { TelemetryEventData } from './telemetry/telemetry';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 
@@ -875,13 +876,6 @@ export type SupportedAIModels =
 	| `google:${AIModels<'gemini'>}`
 	| `openai:${AIModels<'openai'>}`
 	| 'vscode';
-
-const supportedCloudIntegrationIds = ['github', 'jira'];
-export type SupportedCloudIntegrationIds = HostingIntegrationId.GitHub | IssueIntegrationId.Jira;
-
-export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudIntegrationIds {
-	return supportedCloudIntegrationIds.includes(id as SupportedCloudIntegrationIds);
-}
 
 export type SecretKeys =
 	| `gitlens.integration.auth:${IntegrationId}|${string}`

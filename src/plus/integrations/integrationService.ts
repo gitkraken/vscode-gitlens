@@ -1,7 +1,7 @@
 import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
 import { authentication, Disposable, env, EventEmitter, window } from 'vscode';
 import { isWeb } from '@env/platform';
-import type { Source, SupportedCloudIntegrationIds } from '../../constants';
+import type { Source } from '../../constants';
 import type { Container } from '../../container';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
@@ -13,7 +13,8 @@ import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthentication';
-import { supportedCloudIntegrationIds, toIntegrationId } from './authentication/models';
+import type { SupportedCloudIntegrationIds } from './authentication/models';
+import { isSupportedCloudIntegrationId, supportedCloudIntegrationIds, toIntegrationId } from './authentication/models';
 import type {
 	HostingIntegration,
 	Integration,
@@ -163,7 +164,7 @@ export class IntegrationService implements Disposable {
 		this._connectedCache.add(key);
 		if (this.container.telemetry.enabled) {
 			if (integration.type === 'hosting') {
-				if (supportedCloudIntegrationIds.includes(integration.id)) {
+				if (isSupportedCloudIntegrationId(integration.id)) {
 					this.container.telemetry.sendEvent('cloudIntegrations/hosting/connected', {
 						'hostingProvider.provider': integration.id,
 						'hostingProvider.key': key,
@@ -194,7 +195,7 @@ export class IntegrationService implements Disposable {
 		this._connectedCache.delete(key);
 		if (this.container.telemetry.enabled) {
 			if (integration.type === 'hosting') {
-				if (supportedCloudIntegrationIds.includes(integration.id)) {
+				if (isSupportedCloudIntegrationId(integration.id)) {
 					this.container.telemetry.sendEvent('cloudIntegrations/hosting/disconnected', {
 						'hostingProvider.provider': integration.id,
 						'hostingProvider.key': key,

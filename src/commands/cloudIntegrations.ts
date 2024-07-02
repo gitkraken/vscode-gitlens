@@ -1,6 +1,7 @@
-import type { Source, SupportedCloudIntegrationIds } from '../constants';
+import type { Source } from '../constants';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import type { SupportedCloudIntegrationIds } from '../plus/integrations/authentication/models';
 import { command } from '../system/command';
 import { Command } from './base';
 

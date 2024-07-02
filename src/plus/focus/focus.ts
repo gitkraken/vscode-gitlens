@@ -29,7 +29,7 @@ import {
 	UnsnoozeQuickInputButton,
 } from '../../commands/quickCommand.buttons';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants';
-import { isSupportedCloudIntegrationId, previewBadge } from '../../constants';
+import { previewBadge } from '../../constants';
 import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
@@ -39,6 +39,7 @@ import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { interpolate, pluralize } from '../../system/string';
 import { openUrl } from '../../system/utils';
+import { isSupportedCloudIntegrationId } from '../integrations/authentication/models';
 import type { IntegrationId } from '../integrations/providers/models';
 import {
 	HostingIntegrationId,
