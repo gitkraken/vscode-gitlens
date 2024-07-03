@@ -636,7 +636,7 @@ export class Container {
 	private _integrations: IntegrationService | undefined;
 	get integrations(): IntegrationService {
 		if (this._integrations == null) {
-			const authenticationService = new IntegrationAuthenticationService(this, this._connection);
+			const authenticationService = new IntegrationAuthenticationService(this);
 			this._disposables.push(
 				authenticationService,
 				(this._integrations = new IntegrationService(this, authenticationService)),

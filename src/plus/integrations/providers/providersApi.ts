@@ -238,8 +238,9 @@ export class ProvidersApi {
 				? undefined
 				: { domain: provider.domain, scopes: provider.scopes };
 		try {
+			const authProvider = await this.authenticationService.get(provider.id);
 			return (
-				await this.authenticationService.getSession(provider.id, providerDescriptor, {
+				await authProvider.getSession(providerDescriptor, {
 					createIfNeeded: options?.createSessionIfNeeded,
 				})
 			)?.accessToken;

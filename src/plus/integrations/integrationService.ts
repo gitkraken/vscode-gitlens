@@ -13,7 +13,8 @@ import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthentication';
-import { supportedCloudIntegrationIds, toIntegrationId } from './authentication/models';
+import type { SupportedCloudIntegrationIds } from './authentication/models';
+import { isSupportedCloudIntegrationId, supportedCloudIntegrationIds, toIntegrationId } from './authentication/models';
 import type {
 	HostingIntegration,
 	Integration,
@@ -92,7 +93,7 @@ export class IntegrationService implements Disposable {
 			} else {
 				if (!isConnected) continue;
 
-				await integration.disconnect({ silent: true });
+				await integration.disconnect({ silent: true, cloudSessionOnly: true });
 			}
 		}
 	}
@@ -107,7 +108,11 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
-	async manageCloudIntegrations(integrationId: IssueIntegrationId.Jira | undefined, source: Source | undefined) {
+	async manageCloudIntegrations(
+		connect: { integrationId: SupportedCloudIntegrationIds; skipIfConnected?: boolean } | undefined,
+		source: Source | undefined,
+	) {
+		const integrationId = connect?.integrationId;
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent(
 				'cloudIntegrations/settingsOpened',
@@ -119,6 +124,13 @@ export class IntegrationService implements Disposable {
 		const account = (await this.container.subscription.getSubscription()).account;
 		if (account == null) {
 			if (!(await this.container.subscription.loginOrSignUp(true, source))) return;
+		}
+
+		if (integrationId && connect.skipIfConnected) {
+			await this.syncCloudIntegrations();
+			const integration = await this.container.integrations.get(integrationId);
+			const connected = integration.maybeConnected ?? (await integration.isConnected());
+			if (connected) return;
 		}
 
 		let query = 'source=gitlens';
@@ -152,7 +164,7 @@ export class IntegrationService implements Disposable {
 		this._connectedCache.add(key);
 		if (this.container.telemetry.enabled) {
 			if (integration.type === 'hosting') {
-				if (supportedCloudIntegrationIds.includes(integration.id)) {
+				if (isSupportedCloudIntegrationId(integration.id)) {
 					this.container.telemetry.sendEvent('cloudIntegrations/hosting/connected', {
 						'hostingProvider.provider': integration.id,
 						'hostingProvider.key': key,
@@ -183,7 +195,7 @@ export class IntegrationService implements Disposable {
 		this._connectedCache.delete(key);
 		if (this.container.telemetry.enabled) {
 			if (integration.type === 'hosting') {
-				if (supportedCloudIntegrationIds.includes(integration.id)) {
+				if (isSupportedCloudIntegrationId(integration.id)) {
 					this.container.telemetry.sendEvent('cloudIntegrations/hosting/disconnected', {
 						'hostingProvider.provider': integration.id,
 						'hostingProvider.key': key,

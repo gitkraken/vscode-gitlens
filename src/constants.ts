@@ -7,8 +7,9 @@ import type { FileAnnotationType, ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription, SubscriptionPlanId, SubscriptionState } from './plus/gk/account/subscription';
+import type { SupportedCloudIntegrationIds } from './plus/integrations/authentication/models';
 import type { Integration } from './plus/integrations/integration';
-import type { IntegrationId, IssueIntegrationId } from './plus/integrations/providers/models';
+import type { IntegrationId } from './plus/integrations/providers/models';
 import type { TelemetryEventData } from './telemetry/telemetry';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 
@@ -846,6 +847,7 @@ export type Sources =
 	| 'notification'
 	| 'patchDetails'
 	| 'prompt'
+	| 'remoteProvider'
 	| 'settings'
 	| 'timeline'
 	| 'trial-indicator'
@@ -877,6 +879,7 @@ export type SupportedAIModels =
 
 export type SecretKeys =
 	| `gitlens.integration.auth:${IntegrationId}|${string}`
+	| `gitlens.integration.auth.cloud:${IntegrationId}|${string}`
 	| `gitlens.${AIProviders}.key`
 	| `gitlens.plus.auth:${Environment}`;
 
@@ -1224,7 +1227,7 @@ export type TelemetryEvents = {
 	};
 	/** Sent when a user chooses to manage the cloud integrations */
 	'cloudIntegrations/settingsOpened': {
-		'integration.id': IssueIntegrationId | undefined;
+		'integration.id': SupportedCloudIntegrationIds | undefined;
 	};
 
 	/** Sent when a code suggestion is archived */
