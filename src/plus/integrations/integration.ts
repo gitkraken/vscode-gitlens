@@ -27,6 +27,7 @@ import type {
 	IntegrationAuthenticationService,
 	IntegrationAuthenticationSessionDescriptor,
 } from './authentication/integrationAuthentication';
+import { CloudIntegrationAuthenticationProvider } from './authentication/integrationAuthentication';
 import type { ProviderAuthenticationSession } from './authentication/models';
 import type {
 	GetIssuesOptions,
@@ -148,7 +149,11 @@ export abstract class IntegrationBase<
 
 	@gate()
 	@log()
-	async disconnect(options?: { silent?: boolean; currentSessionOnly?: boolean }): Promise<void> {
+	async disconnect(options?: {
+		silent?: boolean;
+		currentSessionOnly?: boolean;
+		cloudSessionOnly?: boolean;
+	}): Promise<void> {
 		if (options?.currentSessionOnly && this._session === null) return;
 
 		const connected = this._session != null;
@@ -184,11 +189,28 @@ export abstract class IntegrationBase<
 		}
 
 		if (signOut) {
-			void this.authenticationService.deleteSession(this.authProvider.id, this.authProviderDescriptor);
+			const authProvider = await this.authenticationService.get(this.authProvider.id);
+			if (options?.cloudSessionOnly && authProvider instanceof CloudIntegrationAuthenticationProvider) {
+				void authProvider.deleteCloudSession(this.authProviderDescriptor);
+			} else {
+				void authProvider.deleteSession(this.authProviderDescriptor);
+			}
 		}
 
 		this.resetRequestExceptionCount();
 		this._session = null;
+
+		if (connected && options?.cloudSessionOnly) {
+			const authProvider = await this.authenticationService.get(this.authProvider.id);
+			this._session = await authProvider.getSession(this.authProviderDescriptor, {
+				createIfNeeded: false,
+				forceNewSession: false,
+			});
+		}
+
+		if (this._session != null) {
+			return;
+		}
 
 		if (connected) {
 			// Don't store the disconnected flag if this only for this current VS Code session (will be re-connected on next restart)
@@ -268,7 +290,8 @@ export abstract class IntegrationBase<
 
 		let session: ProviderAuthenticationSession | undefined | null;
 		try {
-			session = await this.authenticationService.getSession(this.authProvider.id, this.authProviderDescriptor, {
+			const authProvider = await this.authenticationService.get(this.authProvider.id);
+			session = await authProvider.getSession(this.authProviderDescriptor, {
 				createIfNeeded: createIfNeeded,
 				forceNewSession: forceNewSession,
 			});
