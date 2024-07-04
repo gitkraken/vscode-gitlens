@@ -20,9 +20,9 @@ export function getEntityIdentifierInput(entity: IssueOrPullRequest | FocusItem)
 		entityType = EntityType.PullRequest;
 	}
 
-	let provider = EntityIdentifierProviderType.Github;
+	let provider = fromStringToEntityIdentifierProviderType(entity.provider.id);
 	let domain = undefined;
-	if (!isGitHubDotCom(entity.provider.domain)) {
+	if (provider === EntityIdentifierProviderType.Github && !isGitHubDotCom(entity.provider.domain)) {
 		provider = EntityIdentifierProviderType.GithubEnterprise;
 		domain = entity.provider.domain;
 	}
@@ -44,5 +44,16 @@ export function getProviderIdFromEntityIdentifier(entityIdentifier: EntityIdenti
 			return SelfHostedIntegrationId.GitHubEnterprise;
 		default:
 			return undefined;
+	}
+}
+
+function fromStringToEntityIdentifierProviderType(str: string): EntityIdentifierProviderType {
+	switch (str) {
+		case 'github':
+			return EntityIdentifierProviderType.Github;
+		case 'gitlab':
+			return EntityIdentifierProviderType.Gitlab;
+		default:
+			throw new Error(`Unknown provider type '${str}'`);
 	}
 }

@@ -1,3 +1,5 @@
+import type { GitPullRequest } from '@gitkraken/provider-apis';
+import { GitPullRequestReviewState } from '@gitkraken/provider-apis';
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
@@ -11,13 +13,14 @@ import type {
 } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
+import { uniqueBy } from '../../../system/iterable';
 import { ensurePaidPlan } from '../../utils';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationService,
 } from '../authentication/integrationAuthentication';
 import { HostingIntegration } from '../integration';
-import { HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
+import { fromProviderPullRequest, HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
 import type { ProvidersApi } from './providersApi';
 
 const metadata = providersMetadata[HostingIntegrationId.GitLab];
@@ -151,11 +154,90 @@ abstract class GitLabIntegrationBase<
 		);
 	}
 
-	protected override searchProviderMyPullRequests(
-		_session: AuthenticationSession,
-		_repo?: GitLabRepositoryDescriptor[],
+	protected override async searchProviderMyPullRequests(
+		{ accessToken }: AuthenticationSession,
+		repos?: GitLabRepositoryDescriptor[],
 	): Promise<SearchedPullRequest[] | undefined> {
-		return Promise.resolve(undefined);
+		const api = await this.getProvidersApi();
+		const username = (await this.getCurrentAccount())?.username;
+		if (!username) {
+			return Promise.resolve([]);
+		}
+		const apiResult = await api.getPullRequestsForUser(this.id, username, {
+			accessToken: accessToken,
+		});
+
+		if (apiResult == null) {
+			return Promise.resolve([]);
+		}
+
+		// now I'm going to filter prs from the result according to the repos parameter
+		let prs;
+		if (repos != null) {
+			const repoMap = new Map<string, GitLabRepositoryDescriptor>();
+			for (const repo of repos) {
+				repoMap.set(`${repo.owner}/${repo.name}`, repo);
+			}
+			prs = apiResult.values.filter(pr => {
+				const repo = repoMap.get(`${pr.repository.owner.login}/${pr.repository.name}`);
+				return repo != null;
+			});
+		} else {
+			prs = apiResult.values;
+		}
+
+		const toQueryResult = (pr: GitPullRequest, reason?: string): SearchedPullRequest => {
+			return {
+				pullRequest: fromProviderPullRequest(pr, this),
+				reasons: reason ? [reason] : [],
+			};
+		};
+
+		function uniqueWithReasons<T extends { reasons: string[] }>(items: T[], lookup: (item: T) => unknown): T[] {
+			return [
+				...uniqueBy(items, lookup, (original, current) => {
+					if (current.reasons.length !== 0) {
+						original.reasons.push(...current.reasons);
+					}
+					return original;
+				}),
+			];
+		}
+
+		const results: SearchedPullRequest[] = uniqueWithReasons(
+			[
+				...prs.map(pr => {
+					if (pr.assignees?.some(a => a.username === username)) {
+						return toQueryResult(pr, 'assigned');
+					}
+
+					if (
+						pr.reviews?.some(
+							review =>
+								review.reviewer?.username === username ||
+								review.state === GitPullRequestReviewState.ReviewRequested,
+						)
+					) {
+						return toQueryResult(pr, 'review-requested');
+					}
+
+					if (pr.author?.username === username) {
+						return toQueryResult(pr, 'authored');
+					}
+
+					// It seems like GitLab doesn't give us mentioned PRs.
+					// if (???) {
+					// 	return toQueryResult(pr, 'mentioned');
+					// }
+
+					// I assume nothing can come here, but just in case let set it to review-requested
+					return toQueryResult(pr, 'review-requested');
+				}),
+			],
+			r => r.pullRequest.url,
+		);
+
+		return results;
 	}
 
 	protected override searchProviderMyIssues(
