@@ -176,6 +176,27 @@ abstract class GitLabIntegrationBase<ID extends SupportedIntegrationIds> extends
 	): Promise<boolean> {
 		return Promise.resolve(false);
 	}
+
+	protected override async getProviderCurrentAccount({
+		accessToken,
+	}: AuthenticationSession): Promise<Account | undefined> {
+		const api = await this.getProvidersApi();
+		const currentUser = await api.getCurrentUser(this.id, { accessToken: accessToken });
+		if (currentUser == null) return undefined;
+
+		return {
+			provider: {
+				id: this.id,
+				name: this.name,
+				domain: this.domain,
+				icon: this.icon,
+			},
+			name: currentUser.name || undefined,
+			email: currentUser.email || undefined,
+			avatarUrl: currentUser.avatarUrl || undefined,
+			username: currentUser.username || undefined,
+		};
+	}
 }
 
 export class GitLabIntegration extends GitLabIntegrationBase<HostingIntegrationId.GitLab> {
