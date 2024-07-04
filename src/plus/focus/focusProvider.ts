@@ -25,6 +25,7 @@ import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
+import { isSupportedCloudIntegrationId } from '../integrations/authentication/models';
 import type { IntegrationResult } from '../integrations/integration';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
@@ -33,6 +34,7 @@ import {
 	toProviderPullRequestWithUniqueId,
 } from '../integrations/providers/models';
 import type { EnrichableItem, EnrichedItem } from './enrichmentService';
+import { convertRemoteProviderIdToEnrichProvider, isEnrichableRemoteProviderId } from './enrichmentService';
 
 export const focusActionCategories = [
 	'mergeable',
@@ -276,7 +278,7 @@ export class FocusProvider implements Disposable {
 
 		const [prsResult, subscriptionResult] = await Promise.allSettled([
 			withDurationAndSlowEventOnTimeout(
-				this.container.integrations.getMyPullRequests([HostingIntegrationId.GitHub], cancellation, true),
+				this.container.integrations.getMyPullRequests(supportedFocusIntegrations, cancellation, true),
 				'getMyPullRequests',
 				this.container,
 			),
@@ -680,17 +682,28 @@ export class FocusProvider implements Disposable {
 							),
 				  );
 
-			const github = await this.container.integrations.get(HostingIntegrationId.GitHub);
-			const myAccount = await github.getCurrentAccount();
+			// There was a conversation https://github.com/gitkraken/vscode-gitlens/pull/3200#discussion_r1563347675
+			// that was related to this piece of code.
+			// But since the code has changed it might be hard to find it, therefore I'm leaving the link here,
+			// because it's still relevant.
+			const myAccounts: Map<string, Account> =
+				await this.container.integrations.getMyCurrentAccounts(supportedFocusIntegrations);
 
-			const inputPrs: EnrichablePullRequest[] = filteredPrs.map(pr => {
+			const inputPrs: (EnrichablePullRequest | undefined)[] = filteredPrs.map(pr => {
 				const providerPr = toProviderPullRequestWithUniqueId(pr.pullRequest);
+
+				const providerId = pr.pullRequest.provider.id;
+
+				if (!isSupportedCloudIntegrationId(providerId) || !isEnrichableRemoteProviderId(providerId)) {
+					Logger.warn(`Unsupported provider ${providerId}`);
+					return undefined;
+				}
 
 				const enrichable = {
 					type: 'pr',
 					id: providerPr.uuid,
 					url: pr.pullRequest.url,
-					provider: 'github',
+					provider: convertRemoteProviderIdToEnrichProvider(providerId),
 				} satisfies EnrichableItem;
 
 				const repoIdentity = {
@@ -716,13 +729,24 @@ export class FocusProvider implements Disposable {
 					repoIdentity: repoIdentity,
 					refs: pr.pullRequest.refs,
 				};
-			}) satisfies EnrichablePullRequest[];
+			}) satisfies (EnrichablePullRequest | undefined)[];
 
 			// Note: The expected output of this is ActionablePullRequest[], but we are passing in EnrichablePullRequest,
 			// so we need to cast the output as FocusPullRequest[].
+			//
+			//
+			// Note2: We need to send an account to `getActionablePullRequests` that is a part of `providers-api`, and it accepts one account.
+			// So I provide the function call with one of accounts that we have: `myAccounts.values().next().value`
+			//
+			// In future, we probably want to do one of the following:
+			// 1. change `providers-api` make it accept many accounts (from every integration that we use to collect PRs)
+			// 2. separate the PRs of different ingegrations and call `getActionablePullRequests` for each integration.
+			//
+			// I think #1 is better.
+			// But now I keep this as is.
 			const actionableItems = getActionablePullRequests(
-				inputPrs,
-				{ id: myAccount!.username! },
+				inputPrs.filter((i: EnrichablePullRequest | undefined): i is EnrichablePullRequest => i != null),
+				{ id: myAccounts.values().next().value.username! },
 				{ enrichedItemsByUniqueId: enrichedItemsByEntityId },
 			) as FocusPullRequest[];
 
@@ -752,7 +776,7 @@ export class FocusProvider implements Disposable {
 
 					return {
 						...item,
-						currentViewer: myAccount!,
+						currentViewer: myAccounts.get(item.provider.id)!,
 						codeSuggestionsCount: codeSuggestionsCount,
 						isNew: this.isItemNewInGroup(item, actionableCategory),
 						actionableCategory: actionableCategory,
