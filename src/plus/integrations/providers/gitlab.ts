@@ -16,7 +16,6 @@ import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationService,
 } from '../authentication/integrationAuthentication';
-import type { SupportedIntegrationIds } from '../integration';
 import { HostingIntegration } from '../integration';
 import { HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
 import type { ProvidersApi } from './providersApi';
@@ -39,10 +38,9 @@ export type GitLabRepositoryDescriptor = {
 	name: string;
 };
 
-abstract class GitLabIntegrationBase<ID extends SupportedIntegrationIds> extends HostingIntegration<
-	ID,
-	GitLabRepositoryDescriptor
-> {
+abstract class GitLabIntegrationBase<
+	ID extends HostingIntegrationId.GitLab | SelfHostedIntegrationId.GitLabSelfHosted,
+> extends HostingIntegration<ID, GitLabRepositoryDescriptor> {
 	protected abstract get apiBaseUrl(): string;
 
 	protected override async getProviderAccountForCommit(

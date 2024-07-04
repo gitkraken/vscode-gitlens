@@ -3,6 +3,7 @@ import { authentication, Disposable, env, EventEmitter, window } from 'vscode';
 import { isWeb } from '@env/platform';
 import type { Source } from '../../constants';
 import type { Container } from '../../container';
+import type { Account } from '../../git/models/author';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
@@ -441,6 +442,25 @@ export class IntegrationService implements Disposable {
 		}
 
 		return this.getMyIssuesCore(integrations);
+	}
+
+	@log<IntegrationService['getMyCurrentAccounts']>({
+		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>') },
+	})
+	async getMyCurrentAccounts(integrationIds: HostingIntegrationId[]): Promise<Map<HostingIntegrationId, Account>> {
+		const accounts = new Map<HostingIntegrationId, Account>();
+		await Promise.allSettled(
+			integrationIds.map(async integrationId => {
+				const integration = await this.get(integrationId);
+				if (integration == null) return;
+
+				const account = await integration.getCurrentAccount();
+				if (account) {
+					accounts.set(integrationId, account);
+				}
+			}),
+		);
+		return accounts;
 	}
 
 	@log<IntegrationService['getMyPullRequests']>({
