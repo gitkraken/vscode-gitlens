@@ -413,7 +413,7 @@ export abstract class IntegrationBase<
 
 		const { expiryOverride, ...opts } = options ?? {};
 
-		const currentAccount = this.container.cache.getCurrentAccount(
+		const currentAccount = await this.container.cache.getCurrentAccount(
 			this,
 			() => ({
 				value: (async () => {
