@@ -1,3 +1,9 @@
+import type {
+	ActionablePullRequest,
+	CodeSuggestionsCountByPrUuid,
+	EnrichedItemsByUniqueId,
+	PullRequestWithUniqueID,
+} from '@gitkraken/provider-apis';
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { md5 } from '@env/crypto';
@@ -16,6 +22,7 @@ import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
 import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { debug, log } from '../../system/decorators/log';
+import { groupByMap } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { TimedResult } from '../../system/promise';
@@ -204,7 +211,7 @@ type PullRequestsWithSuggestionCounts = {
 
 export type FocusRefreshEvent = FocusCategorizedResult;
 
-export const supportedFocusIntegrations = [HostingIntegrationId.GitHub];
+export const supportedFocusIntegrations = [HostingIntegrationId.GitHub, HostingIntegrationId.GitLab];
 
 export type FocusCategorizedResult =
 	| {
@@ -733,20 +740,9 @@ export class FocusProvider implements Disposable {
 
 			// Note: The expected output of this is ActionablePullRequest[], but we are passing in EnrichablePullRequest,
 			// so we need to cast the output as FocusPullRequest[].
-			//
-			//
-			// Note2: We need to send an account to `getActionablePullRequests` that is a part of `providers-api`, and it accepts one account.
-			// So I provide the function call with one of accounts that we have: `myAccounts.values().next().value`
-			//
-			// In future, we probably want to do one of the following:
-			// 1. change `providers-api` make it accept many accounts (from every integration that we use to collect PRs)
-			// 2. separate the PRs of different ingegrations and call `getActionablePullRequests` for each integration.
-			//
-			// I think #1 is better.
-			// But now I keep this as is.
-			const actionableItems = getActionablePullRequests(
+			const actionableItems = this.getActionablePullRequests(
 				inputPrs.filter((i: EnrichablePullRequest | undefined): i is EnrichablePullRequest => i != null),
-				{ id: myAccounts.values().next().value.username! },
+				myAccounts,
 				{ enrichedItemsByUniqueId: enrichedItemsByEntityId },
 			) as FocusPullRequest[];
 
@@ -803,6 +799,44 @@ export class FocusProvider implements Disposable {
 				debugger;
 			}
 		}
+	}
+
+	// Note: We need to send an account to `getActionablePullRequests` that is a part of `providers-api`, and it accepts one account.
+	// But now we start having PRs from the different integrations, so, we have many current users (per. integration).
+	//
+	// In future, we probably want to change `providers-api` make it accept many accounts (from every integration that we use to collect PRs)
+	// However, for doing that we’d need consensus with the library owner and the other surfaces, that woudl slow down the development.
+	//
+	// So, now I separate the PRs of different ingegrations and call `getActionablePullRequests` for each integration.
+	// And I wrap these operations in this function so the focusProvider.getCategorizedItems thinks that it just passes current users to the library.
+	//
+	// When the library starts supporting many accounts, we can remove this function.
+	private getActionablePullRequests(
+		pullRequests: (PullRequestWithUniqueID & { provider: { id: string } })[],
+		currentUsers: Map<string, Account>,
+		options?: {
+			enrichedItemsByUniqueId?: EnrichedItemsByUniqueId;
+			codeSuggestionsCountByPrUuid?: CodeSuggestionsCountByPrUuid;
+		},
+	): ActionablePullRequest[] {
+		const pullRequestsByIntegration = groupByMap<string, PullRequestWithUniqueID & { provider: { id: string } }>(
+			pullRequests,
+			pr => pr.provider.id,
+		);
+
+		const actionablePullRequests: ActionablePullRequest[] = [];
+		for (const [integrationId, prs] of pullRequestsByIntegration.entries()) {
+			const currentUser = currentUsers.get(integrationId);
+			if (currentUser == null) {
+				Logger.warn(`No current user for integration ${integrationId}`);
+				continue;
+			}
+
+			const actionablePrs = getActionablePullRequests(prs, { id: currentUser.username! }, options);
+			actionablePullRequests.push(...actionablePrs);
+		}
+
+		return actionablePullRequests;
 	}
 
 	private _groupedIds: Set<string> | undefined;
