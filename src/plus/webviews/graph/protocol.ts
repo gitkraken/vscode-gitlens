@@ -314,10 +314,13 @@ export type GetRowHoverParams = {
 	type: GitGraphRowType;
 	id: string;
 };
+
 export interface DidGetRowHoverParams {
 	id: string;
 	markdown?: string;
+	cancelled: boolean;
 }
+
 export const GetRowHoverRequest = new IpcRequest<GetRowHoverParams, DidGetRowHoverParams>(scope, 'row/hover/get');
 
 export interface SearchParams {

@@ -78,10 +78,15 @@ export class GlGraphHover extends GlElement {
 		this.hoverMarkdownCache.clear();
 	}
 
-	onRowHovered(row: GraphRow, anchor: Anchor) {
-		console.log('onRowHovered', row.sha);
+	onParentMouseLeave = () => {
+		this.hide();
+	};
 
+	onRowHovered(row: GraphRow, anchor: Anchor) {
+		clearTimeout(this.unhoverTimer);
 		if (this.requestMarkdown == null) return;
+		// Break if we are already showing the hover for thesame row
+		if (this.hoveredSha === row.sha && this.open) return;
 
 		this.hoveredSha = row.sha;
 
@@ -98,6 +103,8 @@ export class GlGraphHover extends GlElement {
 				}
 
 				this.hoverMarkdownCache.delete(row.sha);
+				if (params?.cancelled) throw new Error('Cancelled');
+
 				return '';
 			});
 
@@ -105,12 +112,11 @@ export class GlGraphHover extends GlElement {
 				this.hoverMarkdownCache.set(row.sha, markdown);
 			}
 		}
+
 		this.showCore(anchor, markdown);
 	}
 
 	onRowUnhovered(row: GraphRow, relatedTarget: EventTarget | null) {
-		console.log('onRowUnhovered', row.sha);
-
 		clearTimeout(this.unhoverTimer);
 
 		if (
@@ -121,14 +127,7 @@ export class GlGraphHover extends GlElement {
 			return;
 		}
 
-		this.hoveredSha = undefined;
-
-		this.unhoverTimer = setTimeout(() => {
-			console.log('onRowUnhovered timeout', this.hoveredSha);
-			if (this.hoveredSha == null) {
-				this.hide();
-			}
-		}, 100);
+		this.unhoverTimer = setTimeout(() => this.hide(), 250);
 	}
 
 	private showCore(
@@ -136,10 +135,13 @@ export class GlGraphHover extends GlElement {
 		markdown: Promise<string | undefined> | string | undefined,
 	) {
 		if (isPromise(markdown)) {
+			const previousSha = this.hoveredSha;
 			void markdown.then(markdown => {
+				if (previousSha !== this.hoveredSha) return;
+
 				this.markdown = markdown;
 				if (!markdown) {
-					this.open = false;
+					this.hide();
 				}
 			});
 		}
@@ -147,9 +149,15 @@ export class GlGraphHover extends GlElement {
 		this.anchor = anchor;
 		this.markdown = markdown;
 		this.open = true;
+		this.parentElement?.addEventListener('mouseleave', this.onParentMouseLeave);
 	}
 
 	hide() {
+		clearTimeout(this.unhoverTimer);
+		this.parentElement?.removeEventListener('mouseleave', this.onParentMouseLeave);
+
+		this.hoveredSha = undefined;
+		this.markdown = undefined;
 		this.open = false;
 	}
 }
