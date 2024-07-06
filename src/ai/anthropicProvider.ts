@@ -29,6 +29,7 @@ export type AnthropicModels =
 	| 'claude-2.1'
 	| 'claude-3-opus-20240229'
 	| 'claude-3-sonnet-20240229'
+	| 'claude-3-5-sonnet-20240620'
 	| 'claude-3-haiku-20240307';
 
 type AnthropicModel = AIModel<typeof provider.id>;
@@ -37,6 +38,12 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-opus-20240229',
 		name: 'Claude 3 Opus',
+		maxTokens: 200000,
+		provider: provider,
+	},
+	{
+		id: 'claude-3-5-sonnet-20240620',
+		name: 'Claude 3.5 Sonnet',
 		maxTokens: 200000,
 		provider: provider,
 	},
