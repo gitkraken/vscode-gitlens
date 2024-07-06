@@ -681,8 +681,9 @@ export class SubscriptionService implements Disposable {
 
 	@log()
 	async upgrade(source: Source | undefined): Promise<void> {
-		if (!(await ensurePlusFeaturesEnabled())) return;
 		const scope = getLogScope();
+
+		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'upgrade' }, source);
