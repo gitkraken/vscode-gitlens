@@ -1,6 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
 
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 abstract class Comparer<T> {
 	abstract equals(lhs: T, rhs: T): boolean;
 }
