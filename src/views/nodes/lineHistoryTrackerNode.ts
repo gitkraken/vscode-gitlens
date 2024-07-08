@@ -59,7 +59,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 				return [];
 			}
 
-			if (this._selection == null) {
+			const selection = this._selection;
+			const editorContents = this._editorContents;
+
+			if (selection == null) {
 				this.view.description = undefined;
 
 				this.view.message = 'There was no selection provided for line history.';
@@ -90,7 +93,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 					filter: b => b.name === commitish.sha,
 				}));
 			}
-			this.child = new LineHistoryNode(fileUri, this.view, this, branch, this._selection, this._editorContents);
+			this.child = new LineHistoryNode(fileUri, this.view, this, branch, selection, editorContents);
 		}
 
 		return this.child.getChildren();
