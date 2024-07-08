@@ -354,9 +354,14 @@ export class FocusProvider implements Disposable {
 			!this._codeSuggestions.has(item.uuid) ||
 			this._codeSuggestions.get(item.uuid)!.expiresAt < Date.now()
 		) {
+			const providerId = item.provider.id;
+			if (!isSupportedCloudIntegrationId(providerId)) {
+				return undefined;
+			}
+
 			this._codeSuggestions.set(item.uuid, {
 				promise: withDurationAndSlowEventOnTimeout(
-					this.container.drafts.getCodeSuggestions(item, HostingIntegrationId.GitHub, {
+					this.container.drafts.getCodeSuggestions(item, providerId, {
 						includeArchived: false,
 					}),
 					'getCodeSuggestions',
