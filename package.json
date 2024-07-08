@@ -11741,6 +11741,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.openSCM",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.switchToAnotherBranch",
 					"when": "false"
 				},
