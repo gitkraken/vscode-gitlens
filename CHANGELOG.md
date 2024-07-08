@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#3344](https://github.com/gitkraken/vscode-gitlens/issues/3344) - Make changing the AI key easier
 - Fixes [#3377](https://github.com/gitkraken/vscode-gitlens/issues/3377) - Cannot read properties of undefined (reading 'start')
+- Fixes [#3377](https://github.com/gitkraken/vscode-gitlens/issues/3378) - Deleting a worktree (without force) with working changes causes double prompts
 - Fixes fixes issue with Jira integration not refreshing
 
 ## [15.1.0] - 2024-06-05

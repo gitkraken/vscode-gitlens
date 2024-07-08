@@ -861,6 +861,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			for (const uri of state.uris) {
 				let retry = false;
+				let skipHasChangesPrompt = false;
 				do {
 					retry = false;
 					const force = state.flags.includes('--force');
@@ -873,7 +874,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								status = await worktree?.getStatus();
 							} catch {}
 
-							if (status?.hasChanges ?? false) {
+							if ((status?.hasChanges ?? false) && !skipHasChangesPrompt) {
 								const confirm: MessageItem = { title: 'Force Delete' };
 								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 								const result = await window.showWarningMessage(
@@ -889,6 +890,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 						await state.repo.deleteWorktree(uri, { force: force });
 					} catch (ex) {
+						skipHasChangesPrompt = false;
+
 						if (WorktreeDeleteError.is(ex)) {
 							if (ex.reason === WorktreeDeleteErrorReason.MainWorkingTree) {
 								void window.showErrorMessage('Unable to delete the main worktree');
@@ -907,6 +910,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								if (result === confirm) {
 									state.flags.push('--force');
 									retry = true;
+									skipHasChangesPrompt = ex.reason === WorktreeDeleteErrorReason.HasChanges;
 								}
 							}
 						} else {
