@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3344](https://github.com/gitkraken/vscode-gitlens/issues/3344) - Make changing the AI key easier
 - Fixes [#3377](https://github.com/gitkraken/vscode-gitlens/issues/3377) - Cannot read properties of undefined (reading 'start')
 - Fixes [#3377](https://github.com/gitkraken/vscode-gitlens/issues/3378) - Deleting a worktree (without force) with working changes causes double prompts
+- Fixes Open SCM command for the Commmit Graph showing in the command palette - Thanks to [PR #3376](https://github.com/gitkraken/vscode-gitlens/pull/3376) by Nikolay ([@nzaytsev](https://github.com/nzaytsev))
 - Fixes fixes issue with Jira integration not refreshing
 - Fixes the _Learn More_ link not working in the account verification dialog
 - Upgrading to Pro, managing a GitKraken account, and managing or connecting cloud integrations now no longer require the user to log in again in their respective pages on _gitkraken.dev_
