@@ -567,7 +567,8 @@ export class FocusIndicator implements Disposable {
 						const github = await this.container.integrations?.get(HostingIntegrationId.GitHub);
 						if (github == null) break;
 						if (!(github.maybeConnected ?? (await github.isConnected()))) {
-							await this.container.integrations.manageCloudIntegrations(
+							// TODO: Add back in once we switch GitHub to use the cloud
+							/* await this.container.integrations.manageCloudIntegrations(
 								{ integrationId: HostingIntegrationId.GitHub },
 								{
 									source: 'launchpad-indicator',
@@ -576,7 +577,7 @@ export class FocusIndicator implements Disposable {
 										integration: HostingIntegrationId.GitHub,
 									},
 								},
-							);
+							); */
 							void github.connect();
 						}
 						break;

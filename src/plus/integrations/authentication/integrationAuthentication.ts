@@ -436,11 +436,6 @@ export class IntegrationAuthenticationService implements Disposable {
 						await import(/* webpackChunkName: "integrations" */ './bitbucket')
 					).BitbucketAuthenticationProvider(this.container);
 					break;
-				case HostingIntegrationId.GitHub:
-					provider = new (
-						await import(/* webpackChunkName: "integrations" */ './github')
-					).GitHubAuthenticationProvider(this.container);
-					break;
 				case SelfHostedIntegrationId.GitHubEnterprise:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './github')
