@@ -97,13 +97,4 @@ export class GitLabCloudAuthenticationProvider extends CloudIntegrationAuthentic
 	protected override getCompletionInputTitle(): string {
 		return 'Connect to GitLab';
 	}
-	protected override async restoreSession({ sessionId, ignoreErrors }: { sessionId: string; ignoreErrors: boolean }) {
-		const localSession = await this.readSecret(this.getLocalSecretKey(sessionId), ignoreErrors);
-		if (localSession != null) return localSession;
-
-		return super.restoreSession({
-			sessionId: sessionId,
-			ignoreErrors: ignoreErrors,
-		});
-	}
 }

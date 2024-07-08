@@ -217,20 +217,15 @@ export abstract class CloudIntegrationAuthenticationProvider<
 			// Check the `expiresAt` field
 			// If it has an expiresAt property and the key is the old type, then it's a cloud session,
 			// so delete it from the local key and
-			// store with the "cloud" type key, and then use that one
-			//
+			// store with the "cloud" type key, and then use that one.
+			// Otherwise it's a local session under the local key, so just return it.
 			if (session.expiresAt != null) {
 				await Promise.allSettled([
 					this.deleteSecret(this.getLocalSecretKey(sessionId)),
 					this.writeSecret(this.getCloudSecretKey(sessionId), session),
 				]);
-				return session;
 			}
-			// Otherwise, it is rather unexpected, so I'm deleting it and returning undefined,
-			// This lets us drop local GitHub sessions that were incorrectly saved during testing the intermitent version of this change.
-			return undefined;
-			// However, I'm also thingking about using it rather than deleting:
-			// return session;
+			return session;
 		}
 
 		return undefined;
