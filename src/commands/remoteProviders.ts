@@ -110,9 +110,8 @@ export class ConnectRemoteProviderCommand extends Command {
 						},
 					},
 				);
+				connected = await integration.connect();
 			}
-
-			connected = await integration.connect();
 		}
 
 		if (
