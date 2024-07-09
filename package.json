@@ -16329,33 +16329,33 @@
 					"group": "4_settings@2"
 				},
 				{
-					"command": "gitlens.graph.scrollMarkerStashOn",
-					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:stashes:disabled\\b/",
-					"group": "4_settings@3"
-				},
-				{
-					"command": "gitlens.graph.scrollMarkerStashOff",
-					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:stashes:enabled\\b/",
-					"group": "4_settings@3"
-				},
-				{
-					"command": "gitlens.graph.scrollMarkerTagOn",
-					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:tags:disabled\\b/",
-					"group": "4_settings@4"
-				},
-				{
-					"command": "gitlens.graph.scrollMarkerTagOff",
-					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:tags:enabled\\b/",
-					"group": "4_settings@4"
-				},
-				{
 					"command": "gitlens.graph.scrollMarkerPullRequestOn",
 					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:pullRequests:disabled\\b/",
-					"group": "4_settings@5"
+					"group": "4_settings@3"
 				},
 				{
 					"command": "gitlens.graph.scrollMarkerPullRequestOff",
 					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:pullRequests:enabled\\b/",
+					"group": "4_settings@3"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerStashOn",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:stashes:disabled\\b/",
+					"group": "4_settings@4"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerStashOff",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:stashes:enabled\\b/",
+					"group": "4_settings@4"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerTagOn",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:tags:disabled\\b/",
+					"group": "4_settings@5"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerTagOff",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:tags:enabled\\b/",
 					"group": "4_settings@5"
 				}
 			],
