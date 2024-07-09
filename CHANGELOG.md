@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3377](https://github.com/gitkraken/vscode-gitlens/issues/3377) - Cannot read properties of undefined (reading 'start')
 - Fixes [#3377](https://github.com/gitkraken/vscode-gitlens/issues/3378) - Deleting a worktree (without force) with working changes causes double prompts
 - Fixes fixes issue with Jira integration not refreshing
+- Fixes [#3090](https://github.com/gitkraken/vscode-gitlens/issues/3090) - Manually created empty bare clone repositories in a trusted directory crash worktree view since LocalGitProvider.findRepositoryUri returns just ".git" *and* Fixes [#2575](https://github.com/gitkraken/vscode-gitlens/issues/2575) - Existing worktrees recognized, but incorrectly organized &mdash; thanks to [PR #3092](https://github.com/gitkraken/vscode-gitlens/pull/3092)
 
 ## [15.1.0] - 2024-06-05
 
