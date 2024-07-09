@@ -1,5 +1,6 @@
 @use '../../shared/styles/properties';
 @use '../../shared/styles/theme';
+@use '../../shared/styles/scrollbars';
 
 :root {
 	--gitlens-z-inline: 1000;
@@ -54,49 +55,9 @@ body {
 	min-height: 100%;
 	line-height: 1.4;
 	font-size: var(--vscode-font-size);
-
-	&.scrollable,
-	.scrollable {
-		border-color: transparent;
-		transition: border-color 1s linear;
-	}
-
-	&:hover,
-	&:focus-within {
-		&.scrollable,
-		.scrollable {
-			border-color: var(--vscode-scrollbarSlider-background);
-			transition: none;
-		}
-	}
-
-	&.preload {
-		&.scrollable,
-		.scrollable {
-			transition: none;
-		}
-	}
 }
 
-::-webkit-scrollbar-corner {
-	background-color: transparent !important;
-}
-
-::-webkit-scrollbar-thumb {
-	background-color: transparent;
-	border-color: inherit;
-	border-right-style: inset;
-	border-right-width: calc(100vw + 100vh);
-	border-radius: unset !important;
-
-	&:hover {
-		border-color: var(--vscode-scrollbarSlider-hoverBackground);
-	}
-
-	&:active {
-		border-color: var(--vscode-scrollbarSlider-activeBackground);
-	}
-}
+@include scrollbars.scrollableBase();
 
 :focus {
 	outline-color: var(--vscode-focusBorder);
