@@ -1284,6 +1284,15 @@ export type TelemetryEvents = {
 	/** Sent when a VS Code command is executed by a GitLens provided action */
 	'command/core': { command: string };
 
+	/** Sent when explaining changes from  */
+	explainChanges: {
+		changeType: 'wip' | 'stash' | 'commit' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
+	};
+
+	generateDraftMessage: {
+		draftType: 'patch' | 'stash' | 'suggested_pr_change';
+	};
+
 	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/title/action': LaunchpadEventData & {
 		action: 'feedback' | 'open-on-gkdev' | 'refresh' | 'settings';
