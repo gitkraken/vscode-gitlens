@@ -1,4 +1,5 @@
 @use './theme';
+@use './scrollbars';
 
 :root {
 	--gitlens-gutter-width: 20px;
@@ -45,49 +46,9 @@ body {
 	font-size: var(--font-size);
 	color: var(--color-foreground);
 	padding: 0;
-
-	&.scrollable,
-	.scrollable {
-		border-color: transparent;
-		transition: border-color 1s linear;
-
-		&:hover,
-		&:focus-within {
-			&.scrollable,
-			.scrollable {
-				border-color: var(--vscode-scrollbarSlider-background);
-				transition: none;
-			}
-		}
-	}
-
-	&.preload {
-		&.scrollable,
-		.scrollable {
-			transition: none;
-		}
-	}
 }
 
-::-webkit-scrollbar-corner {
-	background-color: transparent !important;
-}
-
-::-webkit-scrollbar-thumb {
-	background-color: transparent;
-	border-color: inherit;
-	border-right-style: inset;
-	border-right-width: calc(100vw + 100vh);
-	border-radius: unset !important;
-
-	&:hover {
-		border-color: var(--vscode-scrollbarSlider-hoverBackground);
-	}
-
-	&:active {
-		border-color: var(--vscode-scrollbarSlider-activeBackground);
-	}
-}
+@include scrollbars.scrollableBase();
 
 a {
 	text-decoration: none;
