@@ -41,7 +41,6 @@ import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { interpolate, pluralize } from '../../system/string';
 import { openUrl } from '../../system/utils';
-import { isSupportedCloudIntegrationId } from '../integrations/authentication/models';
 import type { IntegrationId } from '../integrations/providers/models';
 import {
 	HostingIntegrationId,
@@ -179,19 +178,7 @@ export class FocusCommand extends QuickCommand<State> {
 		const integration = await this.container.integrations.get(id);
 		let connected = integration.maybeConnected ?? (await integration.isConnected());
 		if (!connected) {
-			if (isSupportedCloudIntegrationId(integration.id)) {
-				await this.container.integrations.manageCloudIntegrations(
-					{ integrationId: integration.id },
-					{
-						source: 'launchpad',
-						detail: {
-							action: 'connect',
-							integration: integration.id,
-						},
-					},
-				);
-			}
-			connected = await integration.connect();
+			connected = await integration.connect('launchpad');
 		}
 
 		return connected;
