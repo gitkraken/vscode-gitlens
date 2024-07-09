@@ -11,6 +11,9 @@ import { configuration } from '../../system/configuration';
 import { debug, log } from '../../system/decorators/log';
 import { take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
+import { Logger } from '../../system/logger';
+import { getLogScope } from '../../system/logger.scope';
+import { openUrl } from '../../system/utils';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthentication';
 import type { SupportedCloudIntegrationIds } from './authentication/models';
@@ -112,6 +115,7 @@ export class IntegrationService implements Disposable {
 		connect: { integrationId: SupportedCloudIntegrationIds; skipIfConnected?: boolean } | undefined,
 		source: Source | undefined,
 	) {
+		const scope = getLogScope();
 		const integrationId = connect?.integrationId;
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent(
@@ -138,7 +142,15 @@ export class IntegrationService implements Disposable {
 			query += `&connect=${integrationId}`;
 		}
 
-		await env.openExternal(this.container.getGkDevUri('settings/integrations', query));
+		try {
+			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
+			await openUrl(
+				this.container.getGkDevExchangeUri(exchangeToken, `settings/integrations?${query}`).toString(true),
+			);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			await env.openExternal(this.container.getGkDevUri('settings/integrations', query));
+		}
 		take(
 			window.onDidChangeWindowState,
 			2,
