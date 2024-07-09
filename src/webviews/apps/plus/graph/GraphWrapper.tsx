@@ -1440,6 +1440,22 @@ export function GraphWrapper({
 											</MenuItem>
 											<MenuItem role="none">
 												<VSCodeCheckbox
+													value="pullRequests"
+													onChange={handleOnMinimapAdditionalTypesChange}
+													defaultChecked={
+														graphConfig?.minimapMarkerTypes?.includes('pullRequests') ??
+														true
+													}
+												>
+													<span
+														className="minimap-marker-swatch"
+														data-marker="pullRequests"
+													></span>
+													Pull Requests
+												</VSCodeCheckbox>
+											</MenuItem>
+											<MenuItem role="none">
+												<VSCodeCheckbox
 													value="stashes"
 													onChange={handleOnMinimapAdditionalTypesChange}
 													defaultChecked={
@@ -1463,22 +1479,6 @@ export function GraphWrapper({
 												>
 													<span className="minimap-marker-swatch" data-marker="tags"></span>
 													Tags
-												</VSCodeCheckbox>
-											</MenuItem>
-											<MenuItem role="none">
-												<VSCodeCheckbox
-													value="pullRequests"
-													onChange={handleOnMinimapAdditionalTypesChange}
-													defaultChecked={
-														graphConfig?.minimapMarkerTypes?.includes('pullRequests') ??
-														true
-													}
-												>
-													<span
-														className="minimap-marker-swatch"
-														data-marker="pullRequests"
-													></span>
-													Pull Requests
 												</VSCodeCheckbox>
 											</MenuItem>
 										</MenuList>
