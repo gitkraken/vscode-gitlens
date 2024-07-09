@@ -118,7 +118,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 			return session;
 		} catch (ex) {
 			// If login was cancelled, do not notify user.
-			if (ex === 'Cancelled') throw ex;
+			if (ex === 'Cancelled' || ex.message === 'Cancelled') throw ex;
 
 			Logger.error(ex, scope);
 			void window.showErrorMessage(
