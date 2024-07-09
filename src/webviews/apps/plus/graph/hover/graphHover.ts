@@ -3,6 +3,8 @@ import { css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { until } from 'lit/directives/until.js';
 import type { DidGetRowHoverParams } from '../../../../../plus/webviews/graph/protocol';
+import type { Deferrable } from '../../../../../system/function';
+import { debounce } from '../../../../../system/function';
 import { isPromise } from '../../../../../system/promise';
 import { GlElement } from '../../../shared/components/element';
 import type { GlPopover } from '../../../shared/components/overlays/popover.react';
@@ -82,10 +84,12 @@ export class GlGraphHover extends GlElement {
 		this.hide();
 	};
 
+	private _showCoreDebounced: Deferrable<GlGraphHover['showCore']> | undefined = undefined;
+
 	onRowHovered(row: GraphRow, anchor: Anchor) {
 		clearTimeout(this.unhoverTimer);
 		if (this.requestMarkdown == null) return;
-		// Break if we are already showing the hover for thesame row
+		// Break if we are already showing the hover for the same row
 		if (this.hoveredSha === row.sha && this.open) return;
 
 		this.hoveredSha = row.sha;
@@ -113,7 +117,12 @@ export class GlGraphHover extends GlElement {
 			}
 		}
 
-		this.showCore(anchor, markdown);
+		if (this.open) {
+			this.showCore(anchor, markdown);
+		} else {
+			this._showCoreDebounced ??= debounce(this.showCore.bind(this), 500);
+			this._showCoreDebounced(anchor, markdown);
+		}
 	}
 
 	onRowUnhovered(row: GraphRow, relatedTarget: EventTarget | null) {
@@ -129,6 +138,13 @@ export class GlGraphHover extends GlElement {
 
 		this.unhoverTimer = setTimeout(() => this.hide(), 250);
 	}
+
+	onWindowKeydown = (e: KeyboardEvent) => {
+		if (e.key === 'Escape') {
+			e.stopPropagation();
+			this.hide();
+		}
+	};
 
 	private showCore(
 		anchor: string | HTMLElement | { getBoundingClientRect: () => Omit<DOMRect, 'toJSON'> },
@@ -150,11 +166,14 @@ export class GlGraphHover extends GlElement {
 		this.markdown = markdown;
 		this.open = true;
 		this.parentElement?.addEventListener('mouseleave', this.onParentMouseLeave);
+		window.addEventListener('keydown', this.onWindowKeydown);
 	}
 
 	hide() {
+		this._showCoreDebounced?.cancel();
 		clearTimeout(this.unhoverTimer);
 		this.parentElement?.removeEventListener('mouseleave', this.onParentMouseLeave);
+		window.removeEventListener('keydown', this.onWindowKeydown);
 
 		this.hoveredSha = undefined;
 		this.markdown = undefined;
