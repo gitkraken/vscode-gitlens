@@ -1086,6 +1086,14 @@ export class CommitDetailsWebviewProvider
 			if (summary == null) throw new Error('Error retrieving content');
 
 			params = { summary: summary };
+
+			this.container.telemetry.sendEvent(
+				'explainChanges',
+				{
+					changeType: isStash(this._context.commit) ? 'stash' : 'commit',
+				},
+				{ source: 'inspect' },
+			);
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
@@ -1120,6 +1128,14 @@ export class CommitDetailsWebviewProvider
 			if (summary == null) throw new Error('Error retrieving content');
 
 			params = extractDraftMessage(summary);
+
+			this.container.telemetry.sendEvent(
+				'generateDraftMessage',
+				{
+					draftType: 'suggested_pr_change',
+				},
+				{ source: 'inspect' },
+			);
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };

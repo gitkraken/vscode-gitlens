@@ -822,6 +822,14 @@ export class PatchDetailsWebviewProvider
 			if (summary == null) throw new Error('Error retrieving content');
 
 			params = { summary: summary };
+
+			this.container.telemetry.sendEvent(
+				'explainChanges',
+				{
+					changeType: `draft-${this._context.draft.type}`,
+				},
+				{ source: 'patchDetails' },
+			);
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
@@ -864,6 +872,14 @@ export class PatchDetailsWebviewProvider
 			if (summary == null) throw new Error('Error retrieving content');
 
 			params = extractDraftMessage(summary);
+
+			this.container.telemetry.sendEvent(
+				'generateDraftMessage',
+				{
+					draftType: 'patch',
+				},
+				{ source: 'patchDetails' },
+			);
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
