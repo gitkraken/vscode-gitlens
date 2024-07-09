@@ -42,7 +42,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3377](https://github.com/gitkraken/vscode-gitlens/issues/3378) - Deleting a worktree (without force) with working changes causes double prompts
 - Fixes fixes issue with Jira integration not refreshing
 - Fixes the _Learn More_ link not working in the account verification dialog
-- Upgrading to Pro and account management now no longer require the user to log in again in their respective pages on _gitkraken.dev_
+- Upgrading to Pro, managing a GitKraken account, and managing or connecting cloud integrations now no longer require the user to log in again in their respective pages on _gitkraken.dev_
 - Fixes deep links failing to cancel in the remote add stage
 
 ## [15.1.0] - 2024-06-05
