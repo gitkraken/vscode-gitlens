@@ -181,7 +181,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 	}
 
 	protected async deleteAllSecrets(sessionId: string) {
-		await Promise.all([
+		await Promise.allSettled([
 			this.deleteSecret(this.getLocalSecretKey(sessionId)),
 			this.deleteSecret(this.getCloudSecretKey(sessionId)),
 		]);
@@ -215,7 +215,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 			// store with the "cloud" type key, and then use that one
 			//
 			if (session.expiresAt != null) {
-				await Promise.all([
+				await Promise.allSettled([
 					this.deleteSecret(this.getLocalSecretKey(sessionId)),
 					this.writeSecret(this.getCloudSecretKey(sessionId), session),
 				]);
