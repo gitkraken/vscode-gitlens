@@ -16,7 +16,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.views.formats.stashes.tooltip` setting to specify the tooltip format of the stashes in GitLens views
 - Improves the display of branch and tag tips in the _File History_ and _Line History_ and in commit tooltips in GitLens views
   - Adds provider-specific icons to tips of remote branches
-- Adds pull request scroll and minimap markers to the _Commit Graph_
+- Adds Commit Graph improvements:
+  - Adds pull request markers to the graph scroll and minimap
+  - Adds rich hovers on commit rows which include detailed commit information and links to pull requests, issues, and inspect
+- Adds Launchpad improvements:
+  - Truncates long titles for Pull Requests so that the repository label is always visible
+  - Adds _Open on GitHub_ button to other relevant rows in the action step
+  - Adds a new _Open Worktree in New Window_ action and button to Launchpad items to more easily view the item in a worktree
 
 ### Changed
 
@@ -25,6 +31,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames _Open Line Inspect_ to _Inspect Line Commit Details_
 - Renames _Open Details_ to _Inspect Commit Details_
 - Replaces _Open in Editor_ link in the Launchpad with a link to _gitkraken.dev_
+- The _Manage Account_ button in the GitKraken Account view and the _GitLens: Manage Your Account_ command now use the account management page at _gitkraken.dev_
+- Fixes some cases where worktree state can be out-of-date after creation/deletion of a worktree
 
 ### Fixed
 
@@ -32,6 +40,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3377](https://github.com/gitkraken/vscode-gitlens/issues/3377) - Cannot read properties of undefined (reading 'start')
 - Fixes [#3377](https://github.com/gitkraken/vscode-gitlens/issues/3378) - Deleting a worktree (without force) with working changes causes double prompts
 - Fixes fixes issue with Jira integration not refreshing
+- Fixes the _Learn More_ link not working in the account verification dialog
+- Upgrading to Pro and account management now no longer require the user to log in again in their respective pages on _gitkraken.dev_
+- Fixes deep links failing to cancel in the remote add stage
 
 ## [15.1.0] - 2024-06-05
 
