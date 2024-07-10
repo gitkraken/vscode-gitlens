@@ -2318,9 +2318,14 @@ export class GitProviderService implements Disposable {
 
 				const autoRepositoryDetection = configuration.getCore('git.autoRepositoryDetection') ?? true;
 
-				const closed =
+				let closed =
 					options?.closeOnOpen ??
 					(autoRepositoryDetection !== true && autoRepositoryDetection !== 'openEditors');
+				// If we are trying to open a file inside the .git folder, then treat the repository as closed, unless explicitly requested it to be open
+				// This avoids showing the root repo in worktrees during certain operations (e.g. rebase) and vice-versa
+				if (!closed && options?.closeOnOpen !== false && !isDirectory && uri.path.includes('/.git/')) {
+					closed = true;
+				}
 
 				Logger.log(scope, `Repository found in '${repoUri.toString(true)}'`);
 				const repositories = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
