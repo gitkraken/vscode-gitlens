@@ -280,7 +280,7 @@ export class AccountContent extends LitElement {
 				return html`
 					${this.isReactivatedTrial
 						? html`<p>
-								<code-icon icon="rocket"></code-icon>
+								<code-icon icon="megaphone"></code-icon>
 								See
 								<a href="${urls.releaseNotes}">what's new</a>
 								in GitLens.
