@@ -792,6 +792,8 @@ export function fromProviderPullRequest(pr: ProviderPullRequest, integration: In
 		{
 			owner: pr.repository.owner.login,
 			repo: pr.repository.name,
+			// This a dirty hack that's needed to enable PRs original pr does not have this information
+			accessLevel: RepositoryAccessLevel.Write,
 		},
 		fromProviderPullRequestState(pr.state),
 		pr.createdDate,

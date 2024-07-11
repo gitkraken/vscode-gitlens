@@ -187,6 +187,13 @@ abstract class GitLabIntegrationBase<
 		}
 
 		const toQueryResult = (pr: GitPullRequest, reason?: string): SearchedPullRequest => {
+			// This a dirty hack that's needed to enable PRs because providers-api always returns null here: https://github.com/gitkraken/provider-apis-package-js/blob/6ee521eb6b46bbb759d9c68646979c3b25681d90/src/providers/gitlab/gitlab.ts#L597
+			if (!pr.permissions) {
+				pr.permissions = {
+					canMerge: true,
+					canMergeAndBypassProtections: false,
+				};
+			}
 			return {
 				pullRequest: fromProviderPullRequest(pr, this),
 				reasons: reason ? [reason] : [],

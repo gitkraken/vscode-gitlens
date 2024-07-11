@@ -840,7 +840,12 @@ export class FocusProvider implements Disposable {
 				continue;
 			}
 
-			const actionablePrs = getActionablePullRequests(prs, { id: currentUser.username! }, options);
+			// Now it looks like a hack. Before the GitLab changes (GLVSC-579) the currentUser.username was used. That worked for GitHub.
+			// But user.id in GitLab's pull requests correspond to the `name` rather than `username`, therefore I'm changing it for now.
+			// As a follow up I'm going to do the following:
+			// - investigate why GitLab PR uses name as id field
+			// - add "id" field to all user conversions, so it could be same for every type of provider.
+			const actionablePrs = getActionablePullRequests(prs, { id: currentUser.name! }, options);
 			actionablePullRequests.push(...actionablePrs);
 		}
 
