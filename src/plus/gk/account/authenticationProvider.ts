@@ -28,6 +28,12 @@ export const authenticationProviderId = 'gitlens+';
 export const authenticationProviderScopes = ['gitlens'];
 const authenticationLabel = 'GitKraken: GitLens';
 
+export interface AuthenticationProviderOptions {
+	signUp?: boolean;
+	code?: string;
+	state?: string;
+}
+
 export class AccountAuthenticationProvider implements AuthenticationProvider, Disposable {
 	private _onDidChangeSessions = new EventEmitter<AuthenticationProviderAuthenticationSessionsChangeEvent>();
 	get onDidChangeSessions() {
@@ -37,6 +43,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 	private readonly _disposable: Disposable;
 	private readonly _authConnection: AuthenticationConnection;
 	private _sessionsPromise: Promise<AuthenticationSession[]>;
+	private _optionsByScope: Map<string, AuthenticationProviderOptions> | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -68,40 +75,32 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		return this._authConnection.abort();
 	}
 
+	public setOptionsForScopes(scopes: string[], options: AuthenticationProviderOptions) {
+		this._optionsByScope ??= new Map<string, AuthenticationProviderOptions>();
+		this._optionsByScope.set(getScopesKey(scopes), options);
+	}
+
+	public clearOptionsForScopes(scopes: string[]) {
+		this._optionsByScope?.delete(getScopesKey(scopes));
+	}
+
 	@debug()
 	public async createSession(scopes: string[]): Promise<AuthenticationSession> {
 		const scope = getLogScope();
 
-		// TODO: Find a way to get around having to sneak data into scopes so we don't have to do these workarounds
-		const signUp = scopes.includes('signUp');
-		// 'signUp' is just a flag, not a valid scope, so remove it before continuing
-		if (signUp) {
-			scopes = scopes.filter(s => s !== 'signUp');
+		const options = this._optionsByScope?.get(getScopesKey(scopes));
+		if (options != null) {
+			this._optionsByScope?.delete(getScopesKey(scopes));
 		}
-
-		let code = undefined;
-		let state = undefined;
-		if (scopes.some(s => s.startsWith('useCode:'))) {
-			const codeMatch = scopes.find(s => s.startsWith('useCode:'));
-			code = codeMatch?.substring('useCode:'.length);
-			scopes = scopes.filter(s => s !== codeMatch);
-		}
-
-		if (scopes.some(s => s.startsWith('useState:'))) {
-			const stateMatch = scopes.find(s => s.startsWith('useState:'));
-			state = stateMatch?.substring('useState:'.length);
-			scopes = scopes.filter(s => s !== stateMatch);
-		}
-
 		// Ensure that the scopes are sorted consistently (since we use them for matching and order doesn't matter)
 		scopes = scopes.sort();
 		const scopesKey = getScopesKey(scopes);
 
 		try {
 			const token =
-				code != null
-					? await this._authConnection.getTokenFromCodeAndState(code, state)
-					: await this._authConnection.login(scopes, scopesKey, signUp);
+				options?.code != null
+					? await this._authConnection.getTokenFromCodeAndState(options?.code, options?.state)
+					: await this._authConnection.login(scopes, scopesKey, options?.signUp);
 			const session = await this.createSessionForToken(token, scopes);
 
 			const sessions = await this._sessionsPromise;

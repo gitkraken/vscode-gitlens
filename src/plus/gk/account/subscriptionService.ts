@@ -983,26 +983,19 @@ export class SubscriptionService implements Disposable {
 		const scope = getLogScope();
 
 		let session: AuthenticationSession | null | undefined;
-		let scopes = authenticationProviderScopes;
-		if (options?.signUp) {
-			scopes = [...scopes, 'signUp'];
-		}
-
-		if (options?.code != null) {
-			scopes = [...scopes, `useCode:${options.code}`];
-		}
-
-		if (options?.state != null) {
-			scopes = [...scopes, `useState:${options.state}`];
-		}
-
 		try {
-			session = await authentication.getSession(authenticationProviderId, scopes, {
+			if (options != null && createIfNeeded) {
+				this.container.accountAuthentication.setOptionsForScopes(authenticationProviderScopes, options);
+			}
+			session = await authentication.getSession(authenticationProviderId, authenticationProviderScopes, {
 				createIfNone: createIfNeeded,
 				silent: !createIfNeeded,
 			});
 		} catch (ex) {
 			session = null;
+			if (options != null && createIfNeeded) {
+				this.container.accountAuthentication.clearOptionsForScopes(authenticationProviderScopes);
+			}
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
 				setLogScopeExit(scope, ' \u2022 User declined authentication');
