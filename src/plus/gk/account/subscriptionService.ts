@@ -1388,7 +1388,7 @@ export class SubscriptionService implements Disposable {
 		const code = queryParams.get('code');
 		const state = queryParams.get('state');
 		if (code == null) {
-			void window.showErrorMessage('Unable to login to GitKraken: invalid error link.');
+			void window.showErrorMessage('Unable to login to GitKraken: invalid link.');
 			return;
 		}
 
