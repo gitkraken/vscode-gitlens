@@ -32,7 +32,6 @@ import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
-import { isSupportedCloudIntegrationId } from '../integrations/authentication/models';
 import type { IntegrationResult } from '../integrations/integration';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
@@ -212,6 +211,10 @@ type PullRequestsWithSuggestionCounts = {
 export type FocusRefreshEvent = FocusCategorizedResult;
 
 export const supportedFocusIntegrations = [HostingIntegrationId.GitHub, HostingIntegrationId.GitLab];
+type SupportedFocusIntegrationIds = (typeof supportedFocusIntegrations)[number];
+function isSupportedFocusIntegrationId(id: string): id is SupportedFocusIntegrationIds {
+	return supportedFocusIntegrations.includes(id as SupportedFocusIntegrationIds);
+}
 
 export type FocusCategorizedResult =
 	| {
@@ -355,7 +358,7 @@ export class FocusProvider implements Disposable {
 			this._codeSuggestions.get(item.uuid)!.expiresAt < Date.now()
 		) {
 			const providerId = item.provider.id;
-			if (!isSupportedCloudIntegrationId(providerId)) {
+			if (!isSupportedFocusIntegrationId(providerId)) {
 				return undefined;
 			}
 
@@ -706,7 +709,7 @@ export class FocusProvider implements Disposable {
 
 				const providerId = pr.pullRequest.provider.id;
 
-				if (!isSupportedCloudIntegrationId(providerId) || !isEnrichableRemoteProviderId(providerId)) {
+				if (!isSupportedFocusIntegrationId(providerId) || !isEnrichableRemoteProviderId(providerId)) {
 					Logger.warn(`Unsupported provider ${providerId}`);
 					return undefined;
 				}
