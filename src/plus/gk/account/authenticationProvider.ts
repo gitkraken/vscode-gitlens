@@ -72,10 +72,25 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 	public async createSession(scopes: string[]): Promise<AuthenticationSession> {
 		const scope = getLogScope();
 
+		// TODO: Find a way to get around having to sneak data into scopes so we don't have to do these workarounds
 		const signUp = scopes.includes('signUp');
 		// 'signUp' is just a flag, not a valid scope, so remove it before continuing
 		if (signUp) {
 			scopes = scopes.filter(s => s !== 'signUp');
+		}
+
+		let code = undefined;
+		let state = undefined;
+		if (scopes.some(s => s.startsWith('useCode:'))) {
+			const codeMatch = scopes.find(s => s.startsWith('useCode:'));
+			code = codeMatch?.substring('useCode:'.length);
+			scopes = scopes.filter(s => s !== codeMatch);
+		}
+
+		if (scopes.some(s => s.startsWith('useState:'))) {
+			const stateMatch = scopes.find(s => s.startsWith('useState:'));
+			state = stateMatch?.substring('useState:'.length);
+			scopes = scopes.filter(s => s !== stateMatch);
 		}
 
 		// Ensure that the scopes are sorted consistently (since we use them for matching and order doesn't matter)
@@ -83,7 +98,10 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		const scopesKey = getScopesKey(scopes);
 
 		try {
-			const token = await this._authConnection.login(scopes, scopesKey, signUp);
+			const token =
+				code != null
+					? await this._authConnection.getTokenFromCodeAndState(code, state)
+					: await this._authConnection.login(scopes, scopesKey, signUp);
 			const session = await this.createSessionForToken(token, scopes);
 
 			const sessions = await this._sessionsPromise;

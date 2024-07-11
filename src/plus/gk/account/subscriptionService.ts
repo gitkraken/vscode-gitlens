@@ -5,6 +5,7 @@ import type {
 	Event,
 	MessageItem,
 	StatusBarItem,
+	Uri,
 } from 'vscode';
 import {
 	authentication,
@@ -106,6 +107,7 @@ export class SubscriptionService implements Disposable {
 				}
 			}),
 			container.uri.onDidReceiveSubscriptionUpdatedUri(this.onSubscriptionUpdatedUri, this),
+			container.uri.onDidReceiveLoginUri(this.onLoginUri, this),
 		);
 
 		const subscription = this.getStoredSubscription();
@@ -359,14 +361,41 @@ export class SubscriptionService implements Disposable {
 			);
 		}
 
+		return this.loginCore({ signUp: signUp, source: source });
+	}
+
+	async loginWithCode(code: string, state?: string, source?: Source): Promise<boolean> {
+		if (!(await ensurePlusFeaturesEnabled())) return false;
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('subscription/action', { action: 'sign-in' }, source);
+		}
+
+		const session = await this.ensureSession(false);
+		if (session != null) {
+			await this.logout(undefined, source);
+		}
+
+		return this.loginCore({ code: code, state: state, source: source });
+	}
+
+	private async loginCore(options?: {
+		signUp?: boolean;
+		source?: Source;
+		code?: string;
+		state?: string;
+	}): Promise<boolean> {
 		// Abort any waiting authentication to ensure we can start a new flow
 		await this.container.accountAuthentication.abort();
 		void this.showAccountView();
 
-		const session = await this.ensureSession(true, { signUp: signUp });
+		const session = await this.ensureSession(true, {
+			code: options?.code,
+			state: options?.state,
+			signUp: options?.signUp,
+		});
 		const loggedIn = Boolean(session);
 		if (loggedIn) {
-			void this.showPlanMessage(source);
+			void this.showPlanMessage(options?.source);
 		}
 		return loggedIn;
 	}
@@ -914,7 +943,7 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private async ensureSession(
 		createIfNeeded: boolean,
-		options?: { force?: boolean; signUp?: boolean },
+		options?: { force?: boolean; signUp?: boolean; code?: string; state?: string },
 	): Promise<AuthenticationSession | undefined> {
 		if (this._sessionPromise != null) {
 			void (await this._sessionPromise);
@@ -924,7 +953,11 @@ export class SubscriptionService implements Disposable {
 		if (this._session === null && !createIfNeeded) return undefined;
 
 		if (this._sessionPromise === undefined) {
-			this._sessionPromise = this.getOrCreateSession(createIfNeeded, options?.signUp).then(
+			this._sessionPromise = this.getOrCreateSession(createIfNeeded, {
+				signUp: options?.signUp,
+				code: options?.code,
+				state: options?.state,
+			}).then(
 				s => {
 					this._session = s;
 					this._sessionPromise = undefined;
@@ -945,21 +978,29 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private async getOrCreateSession(
 		createIfNeeded: boolean,
-		signUp: boolean = false,
+		options?: { signUp?: boolean; code?: string; state?: string },
 	): Promise<AuthenticationSession | null> {
 		const scope = getLogScope();
 
 		let session: AuthenticationSession | null | undefined;
+		let scopes = authenticationProviderScopes;
+		if (options?.signUp) {
+			scopes = [...scopes, 'signUp'];
+		}
+
+		if (options?.code != null) {
+			scopes = [...scopes, `useCode:${options.code}`];
+		}
+
+		if (options?.state != null) {
+			scopes = [...scopes, `useState:${options.state}`];
+		}
 
 		try {
-			session = await authentication.getSession(
-				authenticationProviderId,
-				signUp ? [...authenticationProviderScopes, 'signUp'] : authenticationProviderScopes,
-				{
-					createIfNone: createIfNeeded,
-					silent: !createIfNeeded,
-				},
-			);
+			session = await authentication.getSession(authenticationProviderId, scopes, {
+				createIfNone: createIfNeeded,
+				silent: !createIfNeeded,
+			});
 		} catch (ex) {
 			session = null;
 
@@ -1347,6 +1388,18 @@ export class SubscriptionService implements Disposable {
 			},
 			{ store: true },
 		);
+	}
+
+	onLoginUri(uri: Uri) {
+		const queryParams: URLSearchParams = new URLSearchParams(uri.query);
+		const code = queryParams.get('code');
+		const state = queryParams.get('state');
+		if (code == null) {
+			void window.showErrorMessage('Unable to login to GitKraken: invalid error link.');
+			return;
+		}
+
+		void this.loginWithCode(code, state ?? undefined, { source: 'deeplink' });
 	}
 
 	async onSubscriptionUpdatedUri() {
