@@ -2629,11 +2629,16 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	private handleException(ex: Error, provider: Provider | undefined, scope: LogScope | undefined): Error {
+	private handleException(
+		ex: Error,
+		provider: Provider | undefined,
+		scope: LogScope | undefined,
+		silent?: boolean,
+	): Error {
 		Logger.error(ex, scope);
 		// debugger;
 
-		if (ex instanceof AuthenticationError) {
+		if (ex instanceof AuthenticationError && !silent) {
 			void this.showAuthenticationErrorMessage(ex, provider);
 		}
 		return ex;
@@ -2706,7 +2711,14 @@ export class GitHubApi implements Disposable {
 	async searchMyPullRequests(
 		provider: Provider,
 		token: string,
-		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
+		options?: {
+			search?: string;
+			user?: string;
+			repos?: string[];
+			baseUrl?: string;
+			avatarSize?: number;
+			silent?: boolean;
+		},
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[]> {
 		const scope = getLogScope();
@@ -2817,7 +2829,7 @@ export class GitHubApi implements Disposable {
 			);
 			return results;
 		} catch (ex) {
-			throw this.handleException(ex, provider, scope);
+			throw this.handleException(ex, provider, scope, options?.silent);
 		}
 	}
 
@@ -2825,7 +2837,14 @@ export class GitHubApi implements Disposable {
 	private async searchMyInvolvedPullRequests(
 		provider: Provider,
 		token: string,
-		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
+		options?: {
+			search?: string;
+			user?: string;
+			repos?: string[];
+			baseUrl?: string;
+			avatarSize?: number;
+			silent?: boolean;
+		},
 		cancellation?: CancellationToken,
 	): Promise<SearchedPullRequest[]> {
 		const scope = getLogScope();
@@ -2922,7 +2941,7 @@ export class GitHubApi implements Disposable {
 			const results: SearchedPullRequest[] = rsp.search.nodes.map(pr => toQueryResult(pr));
 			return results;
 		} catch (ex) {
-			throw this.handleException(ex, provider, scope);
+			throw this.handleException(ex, provider, scope, options?.silent);
 		}
 	}
 
