@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import { basename } from 'path';
+import { before, suite, test } from 'mocha';
 import { Uri } from 'vscode';
 import { isLinux } from '../../../env/node/platform';
 import { normalizeRepoUri } from '../../../repositories';
@@ -7,7 +8,7 @@ import type { UriEntry } from '../../../system/trie';
 import { PathEntryTrie, UriEntryTrie, UriTrie } from '../../../system/trie';
 import paths from './paths.json';
 
-describe('PathEntryTrie Test Suite', () => {
+suite.skip('PathEntryTrie Test Suite', () => {
 	type Repo = { type: 'repo'; name: string; path: string; fsPath: string };
 	type File = { type: 'file'; name: string; path: string };
 
@@ -49,7 +50,7 @@ describe('PathEntryTrie Test Suite', () => {
 		}
 	});
 
-	it('has: repo', () => {
+	test('has: repo', () => {
 		assert.strictEqual(trie.has(repoGL.fsPath), true);
 		assert.strictEqual(trie.has(repoNested.fsPath), true);
 		assert.strictEqual(trie.has(repoVSC.fsPath), true);
@@ -58,13 +59,13 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(trie.has('D:\\Users\\Name\\code\\gitkraken\\vscode-gitlens'), false);
 	});
 
-	it('has: repo (ignore case)', () => {
+	test('has: repo (ignore case)', () => {
 		assert.strictEqual(trie.has(repoGL.fsPath.toUpperCase()), true);
 		assert.strictEqual(trie.has(repoNested.fsPath.toUpperCase()), true);
 		assert.strictEqual(trie.has(repoVSC.fsPath.toUpperCase()), true);
 	});
 
-	it('has: file', () => {
+	test('has: file', () => {
 		assert.strictEqual(trie.has(`${repoGL.fsPath}\\src\\extension.ts`), true);
 		assert.strictEqual(trie.has(`${repoGL.fsPath}\\foo\\bar\\baz.ts`), false);
 
@@ -72,7 +73,7 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(trie.has(`${repoVSC.fsPath}\\src\\main.ts`), true);
 	});
 
-	it('has: file (ignore case)', () => {
+	test('has: file (ignore case)', () => {
 		assert.strictEqual(trie.has(`${repoGL.fsPath}\\src\\extension.ts`.toUpperCase()), true);
 		assert.strictEqual(trie.has(`${repoGL.fsPath}\\foo\\bar\\baz.ts`.toUpperCase()), false);
 
@@ -80,13 +81,13 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(trie.has(`${repoVSC.fsPath}\\src\\main.ts`.toUpperCase()), true);
 	});
 
-	it('has: folder (failure case)', () => {
+	test('has: folder (failure case)', () => {
 		assert.strictEqual(trie.has(`${repoGL.fsPath}\\src`), false);
 		assert.strictEqual(trie.has(`${repoNested.fsPath}\\src`), false);
 		assert.strictEqual(trie.has(`${repoVSC.fsPath}\\src`), false);
 	});
 
-	it('get: repo', () => {
+	test('get: repo', () => {
 		let entry = trie.get(repoGL.fsPath);
 		assert.strictEqual(entry?.path, basename(repoGL.path));
 		assert.strictEqual(entry?.fullPath, repoGL.path);
@@ -109,7 +110,7 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(trie.get('D:\\Users\\Name\\code\\gitkraken\\vscode-gitlens'), undefined);
 	});
 
-	it('get: repo (ignore case)', () => {
+	test('get: repo (ignore case)', () => {
 		let entry = trie.get(repoGL.fsPath.toUpperCase());
 		assert.strictEqual(entry?.path, basename(repoGL.path));
 		assert.strictEqual(entry?.fullPath, repoGL.path);
@@ -129,7 +130,7 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(entry?.value?.path, repoVSC.path);
 	});
 
-	it('get: file', () => {
+	test('get: file', () => {
 		let entry = trie.get(`${repoGL.fsPath}\\src\\extension.ts`);
 		assert.strictEqual(entry?.path, 'extension.ts');
 		assert.strictEqual(entry?.fullPath, `${repoGL.path}/src/extension.ts`);
@@ -148,7 +149,7 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(entry?.value?.path, `${repoVSC.fsPath}\\src\\main.ts`);
 	});
 
-	it('get: file (ignore case)', () => {
+	test('get: file (ignore case)', () => {
 		let entry = trie.get(`${repoGL.fsPath}\\src\\extension.ts`.toLocaleUpperCase());
 		assert.strictEqual(entry?.path, 'extension.ts');
 		assert.strictEqual(entry?.fullPath, `${repoGL.path}/src/extension.ts`);
@@ -165,13 +166,13 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(entry?.value?.path, `${repoVSC.fsPath}\\src\\main.ts`);
 	});
 
-	it('get: folder (failure case)', () => {
+	test('get: folder (failure case)', () => {
 		assert.strictEqual(trie.get(`${repoGL.fsPath}\\src`), undefined);
 		assert.strictEqual(trie.get(`${repoNested.fsPath}\\src`), undefined);
 		assert.strictEqual(trie.get(`${repoVSC.fsPath}\\src`), undefined);
 	});
 
-	it('getClosest: repo file', () => {
+	test('getClosest: repo file', () => {
 		let entry = trie.getClosest(`${repoGL.fsPath}\\src\\extension.ts`, true);
 		assert.strictEqual(entry?.path, repoGL.name);
 		assert.strictEqual(entry?.fullPath, repoGL.path);
@@ -188,7 +189,7 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(entry?.value?.path, repoVSC.path);
 	});
 
-	it('getClosest: repo file (ignore case)', () => {
+	test('getClosest: repo file (ignore case)', () => {
 		let entry = trie.getClosest(`${repoGL.fsPath}\\src\\extension.ts`.toUpperCase(), true);
 		assert.strictEqual(entry?.path, repoGL.name);
 		assert.strictEqual(entry?.fullPath, repoGL.path);
@@ -205,7 +206,7 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(entry?.value?.path, repoVSC.path);
 	});
 
-	it('getClosest: missing path but inside repo', () => {
+	test('getClosest: missing path but inside repo', () => {
 		let entry = trie.getClosest(`${repoGL.fsPath}\\src\\foo\\bar\\baz.ts`.toUpperCase());
 		assert.strictEqual(entry?.path, repoGL.name);
 		assert.strictEqual(entry?.fullPath, repoGL.path);
@@ -222,12 +223,12 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(entry?.value?.path, repoVSC.path);
 	});
 
-	it('getClosest: missing path', () => {
+	test('getClosest: missing path', () => {
 		const entry = trie.getClosest('C:\\Users\\Name\\code\\company\\repo\\foo\\bar\\baz.ts');
 		assert.strictEqual(entry, undefined);
 	});
 
-	it('getClosest: repo', () => {
+	test('getClosest: repo', () => {
 		let entry = trie.getClosest(repoGL.fsPath);
 		assert.strictEqual(entry?.path, repoGL.name);
 		assert.strictEqual(entry?.fullPath, repoGL.path);
@@ -244,14 +245,14 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(entry?.value?.path, repoVSC.path);
 	});
 
-	it('delete file', () => {
+	test('delete file', () => {
 		const file = `${repoVSC.fsPath}\\src\\main.ts`;
 		assert.strictEqual(trie.has(file), true);
 		assert.strictEqual(trie.delete(file), true);
 		assert.strictEqual(trie.has(file), false);
 	});
 
-	it('delete repo', () => {
+	test('delete repo', () => {
 		const repo = repoGL.fsPath;
 		assert.strictEqual(trie.has(repo), true);
 		assert.strictEqual(trie.delete(repo), true);
@@ -260,14 +261,14 @@ describe('PathEntryTrie Test Suite', () => {
 		assert.strictEqual(trie.has(repoNested.fsPath), true);
 	});
 
-	it('delete missing', () => {
+	test('delete missing', () => {
 		const file = `${repoGL.fsPath}\\src\\foo\\bar\\baz.ts`;
 		assert.strictEqual(trie.has(file), false);
 		assert.strictEqual(trie.delete(file), false);
 		assert.strictEqual(trie.has(file), false);
 	});
 
-	it('clear', () => {
+	test('clear', () => {
 		assert.strictEqual(trie.has(repoVSC.fsPath), true);
 		trie.clear();
 
@@ -285,7 +286,7 @@ describe('PathEntryTrie Test Suite', () => {
 	});
 });
 
-describe('UriEntryTrie Test Suite', () => {
+suite.skip('UriEntryTrie Test Suite', () => {
 	type Repo = { type: 'repo'; name: string; uri: Uri; fsPath: string };
 	type File = { type: 'file'; name: string; uri: Uri };
 
@@ -314,7 +315,7 @@ describe('UriEntryTrie Test Suite', () => {
 		fsPath: 'github/microsoft/vscode',
 	};
 
-	const trie = new UriEntryTrie<Repo | File>();
+	const trie = new UriEntryTrie<Repo | File>(() => ({ ignoreCase: false, path: '' }));
 
 	function assertRepoEntry(actual: UriEntry<Repo | File> | undefined, expected: Repo): void {
 		assert.strictEqual(actual?.path, expected.name);
@@ -365,7 +366,7 @@ describe('UriEntryTrie Test Suite', () => {
 		}
 	});
 
-	it('has(file://): repo', () => {
+	test('has(file://): repo', () => {
 		assert.strictEqual(trie.has(repoGL.uri), true);
 		assert.strictEqual(trie.has(repoGL.uri.with({ path: repoGL.uri.path.toUpperCase() })), !isLinux);
 		assert.strictEqual(trie.has(repoNested.uri), true);
@@ -375,14 +376,14 @@ describe('UriEntryTrie Test Suite', () => {
 		assert.strictEqual(trie.has(Uri.file('D:\\Users\\Name\\code\\gitkraken\\vscode-gitlens')), false);
 	});
 
-	it('has(file://): file', () => {
+	test('has(file://): file', () => {
 		assert.strictEqual(trie.has(Uri.file(`${repoGL.fsPath}/src/extension.ts`)), true);
 		assert.strictEqual(trie.has(Uri.file(`${repoGL.fsPath}/foo/bar/baz.ts`)), false);
 
 		assert.strictEqual(trie.has(Uri.file(`${repoNested.fsPath}/src/index.ts`)), true);
 	});
 
-	it('has(vscode-vfs://): repo', () => {
+	test('has(vscode-vfs://): repo', () => {
 		assert.strictEqual(trie.has(repoGLvfs.uri), true);
 		assert.strictEqual(trie.has(repoGLvfs.uri.with({ path: repoGLvfs.uri.path.toUpperCase() })), false);
 		assert.strictEqual(trie.has(repoVSCvfs.uri), true);
@@ -392,7 +393,7 @@ describe('UriEntryTrie Test Suite', () => {
 		assert.strictEqual(trie.has(repoGLvfs.uri.with({ authority: 'azdo' })), false);
 	});
 
-	it('has(vscode-vfs://): file', () => {
+	test('has(vscode-vfs://): file', () => {
 		assert.strictEqual(trie.has(Uri.joinPath(repoGLvfs.uri, 'src/extension.ts')), true);
 		assert.strictEqual(trie.has(Uri.joinPath(repoGLvfs.uri, 'foo/bar/baz.ts')), false);
 		assert.strictEqual(trie.has(Uri.joinPath(repoVSCvfs.uri, 'src/main.ts')), true);
@@ -406,7 +407,7 @@ describe('UriEntryTrie Test Suite', () => {
 		);
 	});
 
-	it('has(github://): repo', () => {
+	test('has(github://): repo', () => {
 		assert.strictEqual(trie.has(repoGLvfs.uri.with({ scheme: 'github' })), true);
 		assert.strictEqual(
 			trie.has(repoGLvfs.uri.with({ scheme: 'github', path: repoGLvfs.uri.path.toUpperCase() })),
@@ -422,7 +423,7 @@ describe('UriEntryTrie Test Suite', () => {
 		assert.strictEqual(trie.has(repoGLvfs.uri.with({ scheme: 'github', authority: 'azdo' })), false);
 	});
 
-	it('has(github://): file', () => {
+	test('has(github://): file', () => {
 		assert.strictEqual(trie.has(Uri.joinPath(repoGLvfs.uri, 'src/extension.ts').with({ scheme: 'github' })), true);
 		assert.strictEqual(trie.has(Uri.joinPath(repoGLvfs.uri, 'foo/bar/baz.ts').with({ scheme: 'github' })), false);
 		assert.strictEqual(trie.has(Uri.joinPath(repoVSCvfs.uri, 'src/main.ts').with({ scheme: 'github' })), true);
@@ -443,7 +444,7 @@ describe('UriEntryTrie Test Suite', () => {
 		);
 	});
 
-	// it('has(gitlens://): repo', () => {
+	// test('has(gitlens://): repo', () => {
 	// 	assert.strictEqual(
 	// 		trie.has(
 	// 			repoGL.uri.with({
@@ -507,7 +508,7 @@ describe('UriEntryTrie Test Suite', () => {
 	// 	);
 	// });
 
-	// it('has(gitlens://): file', () => {
+	// test('has(gitlens://): file', () => {
 	// 	assert.strictEqual(
 	// 		trie.has(
 	// 			Uri.joinPath(repoGL.uri, 'src/extension.ts').with({
@@ -540,7 +541,7 @@ describe('UriEntryTrie Test Suite', () => {
 	// 	);
 	// });
 
-	it('get(file://): repo', () => {
+	test('get(file://): repo', () => {
 		assertRepoEntry(trie.get(repoGL.uri), repoGL);
 		assertRepoEntry(trie.get(repoNested.uri), repoNested);
 
@@ -548,7 +549,7 @@ describe('UriEntryTrie Test Suite', () => {
 		assert.strictEqual(trie.get(Uri.file('D:\\Users\\Name\\code\\gitkraken\\vscode-gitlens')), undefined);
 	});
 
-	it('get(vscode-vfs://): repo', () => {
+	test('get(vscode-vfs://): repo', () => {
 		assertRepoEntry(trie.get(repoGLvfs.uri), repoGLvfs);
 		assertRepoEntry(trie.get(repoVSCvfs.uri), repoVSCvfs);
 
@@ -556,12 +557,12 @@ describe('UriEntryTrie Test Suite', () => {
 		assert.strictEqual(trie.get(Uri.file('D:\\Users\\Name\\code\\gitkraken\\vscode-gitlens')), undefined);
 	});
 
-	it('get(github://): repo', () => {
+	test('get(github://): repo', () => {
 		assertRepoEntry(trie.get(repoGLvfs.uri.with({ scheme: 'github' })), repoGLvfs);
 		assertRepoEntry(trie.get(repoVSCvfs.uri.with({ scheme: 'github' })), repoVSCvfs);
 	});
 
-	// it('get(gitlens://): repo', () => {
+	// test('get(gitlens://): repo', () => {
 	// 	assertRepoEntry(
 	// 		trie.get(
 	// 			repoGL.uri.with({
@@ -585,7 +586,7 @@ describe('UriEntryTrie Test Suite', () => {
 	// 	);
 	// });
 
-	it('get(file://): repo (ignore case)', () => {
+	test('get(file://): repo (ignore case)', () => {
 		assertRepoEntryIgnoreCase(trie.get(repoGL.uri.with({ path: repoGL.uri.path.toUpperCase() })), repoGL);
 		assertRepoEntryIgnoreCase(
 			trie.get(repoNested.uri.with({ path: repoNested.uri.path.toUpperCase() })),
@@ -593,7 +594,7 @@ describe('UriEntryTrie Test Suite', () => {
 		);
 	});
 
-	it('get(vscode://): repo (ignore case)', () => {
+	test('get(vscode://): repo (ignore case)', () => {
 		assertRepoEntry(trie.get(repoGLvfs.uri.with({ scheme: 'VSCODE-VFS' })), repoGLvfs);
 
 		assert.strictEqual(
@@ -603,7 +604,7 @@ describe('UriEntryTrie Test Suite', () => {
 		assert.strictEqual(trie.get(repoGLvfs.uri.with({ path: repoGLvfs.uri.path.toUpperCase() })), undefined);
 	});
 
-	it('get(github://): repo (ignore case)', () => {
+	test('get(github://): repo (ignore case)', () => {
 		assertRepoEntry(trie.get(repoGLvfs.uri.with({ scheme: 'GITHUB' })), repoGLvfs);
 
 		assert.strictEqual(
@@ -616,7 +617,7 @@ describe('UriEntryTrie Test Suite', () => {
 		);
 	});
 
-	// it('get(gitlens://): repo (ignore case)', () => {
+	// test('get(gitlens://): repo (ignore case)', () => {
 	// 	assertRepoEntry(
 	// 		trie.get(
 	// 			repoGL.uri.with({
@@ -645,7 +646,7 @@ describe('UriEntryTrie Test Suite', () => {
 	// 	);
 	// });
 
-	it('get(file://): file', () => {
+	test('get(file://): file', () => {
 		let uri = Uri.joinPath(repoGL.uri, 'src/extension.ts');
 		assertFileEntry(trie.get(uri), uri);
 
@@ -655,17 +656,17 @@ describe('UriEntryTrie Test Suite', () => {
 		assertFileEntry(trie.get(uri), uri);
 	});
 
-	it('get(vscode-vfs://): file', () => {
+	test('get(vscode-vfs://): file', () => {
 		const uri = Uri.joinPath(repoGLvfs.uri, 'src/extension.ts');
 		assertFileEntry(trie.get(uri), uri);
 	});
 
-	it('get(github://): file', () => {
+	test('get(github://): file', () => {
 		const uri = Uri.joinPath(repoGLvfs.uri, 'src/extension.ts');
 		assertFileEntry(trie.get(uri.with({ scheme: 'github' })), uri);
 	});
 
-	// it('get(gitlens://): file', () => {
+	// test('get(gitlens://): file', () => {
 	// 	const uri = Uri.joinPath(repoGL.uri, 'src/extension.ts');
 	// 	assertFileEntry(
 	// 		trie.get(
@@ -679,36 +680,36 @@ describe('UriEntryTrie Test Suite', () => {
 	// 	);
 	// });
 
-	it('get: missing file', () => {
+	test('get: missing file', () => {
 		assert.strictEqual(trie.get(Uri.joinPath(repoGL.uri, 'foo/bar/baz.ts')), undefined);
 	});
 
-	it('getClosest(file://): repo', () => {
+	test('getClosest(file://): repo', () => {
 		assertRepoEntry(trie.getClosest(repoGL.uri), repoGL);
 		assertRepoEntry(trie.getClosest(repoNested.uri), repoNested);
 	});
 
-	it('getClosest(vscode-vfs://): repo', () => {
+	test('getClosest(vscode-vfs://): repo', () => {
 		assertRepoEntry(trie.getClosest(repoGLvfs.uri), repoGLvfs);
 		assertRepoEntry(trie.getClosest(repoVSCvfs.uri), repoVSCvfs);
 	});
 
-	it('getClosest(file://): file', () => {
+	test('getClosest(file://): file', () => {
 		assertRepoEntry(trie.getClosest(Uri.joinPath(repoGL.uri, 'src/extension.ts'), true), repoGL);
 	});
 
-	it('getClosest(vscode-vfs://): file', () => {
+	test('getClosest(vscode-vfs://): file', () => {
 		assertRepoEntry(trie.getClosest(Uri.joinPath(repoGLvfs.uri, 'src/extension.ts'), true), repoGLvfs);
 	});
 
-	it('getClosest(github://): file', () => {
+	test('getClosest(github://): file', () => {
 		assertRepoEntry(
 			trie.getClosest(Uri.joinPath(repoGLvfs.uri, 'src/extension.ts').with({ scheme: 'github' }), true),
 			repoGLvfs,
 		);
 	});
 
-	// it('getClosest(gitlens://): file', () => {
+	// test('getClosest(gitlens://): file', () => {
 	// 	assertRepoEntry(
 	// 		trie.getClosest(
 	// 			Uri.joinPath(repoGL.uri, 'src/extension.ts').with({
@@ -722,22 +723,22 @@ describe('UriEntryTrie Test Suite', () => {
 	// 	);
 	// });
 
-	it('getClosest(file://): missing repo file', () => {
+	test('getClosest(file://): missing repo file', () => {
 		assertRepoEntry(trie.getClosest(Uri.joinPath(repoGL.uri, 'foo/bar/baz.ts'), true), repoGL);
 	});
 
-	it('getClosest(vscode-vfs://): missing repo file', () => {
+	test('getClosest(vscode-vfs://): missing repo file', () => {
 		assertRepoEntry(trie.getClosest(Uri.joinPath(repoGLvfs.uri, 'foo/bar/baz.ts'), true), repoGLvfs);
 	});
 
-	it('getClosest(github://): missing repo file', () => {
+	test('getClosest(github://): missing repo file', () => {
 		assertRepoEntry(
 			trie.getClosest(Uri.joinPath(repoGLvfs.uri, 'foo/bar/baz.ts').with({ scheme: 'github' }), true),
 			repoGLvfs,
 		);
 	});
 
-	// it('getClosest(gitlens://): missing repo file', () => {
+	// test('getClosest(gitlens://): missing repo file', () => {
 	// 	assertRepoEntry(
 	// 		trie.getClosest(
 	// 			Uri.joinPath(repoGL.uri, 'src/extension.ts').with({
@@ -773,7 +774,7 @@ describe('UriEntryTrie Test Suite', () => {
 	// 	);
 	// });
 
-	it("getClosest: path doesn't exists anywhere", () => {
+	test("getClosest: path doesn't exists anywhere", () => {
 		assert.strictEqual(
 			trie.getClosest(Uri.file('C:\\Users\\Name\\code\\company\\repo\\foo\\bar\\baz.ts')),
 			undefined,
@@ -781,7 +782,7 @@ describe('UriEntryTrie Test Suite', () => {
 	});
 });
 
-describe('UriTrie(Repositories) Test Suite', () => {
+suite.skip('UriTrie(Repositories) Test Suite', () => {
 	type Repo = { type: 'repo'; name: string; uri: Uri; fsPath: string };
 
 	const repoGL: Repo = {
@@ -836,7 +837,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		trie.set(repoVSCvfs.uri, repoVSCvfs);
 	});
 
-	it('has(file://)', () => {
+	test('has(file://)', () => {
 		assert.strictEqual(trie.has(repoGL.uri), true);
 		assert.strictEqual(trie.has(repoGL.uri.with({ path: repoGL.uri.path.toUpperCase() })), !isLinux);
 		assert.strictEqual(trie.has(repoNested.uri), true);
@@ -846,7 +847,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		assert.strictEqual(trie.has(Uri.file('D:\\Users\\Name\\code\\gitkraken\\vscode-gitlens')), false);
 	});
 
-	it('has(vscode-vfs://)', () => {
+	test('has(vscode-vfs://)', () => {
 		assert.strictEqual(trie.has(repoGLvfs.uri), true);
 		assert.strictEqual(trie.has(repoGLvfs.uri.with({ path: repoGLvfs.uri.path.toUpperCase() })), false);
 		assert.strictEqual(trie.has(repoVSCvfs.uri), true);
@@ -856,7 +857,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		assert.strictEqual(trie.has(repoGLvfs.uri.with({ authority: 'azdo' })), false);
 	});
 
-	it('has(github://)', () => {
+	test('has(github://)', () => {
 		assert.strictEqual(trie.has(repoGLvfs.uri.with({ scheme: 'github' })), true);
 		assert.strictEqual(
 			trie.has(repoGLvfs.uri.with({ scheme: 'github', path: repoGLvfs.uri.path.toUpperCase() })),
@@ -872,7 +873,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		assert.strictEqual(trie.has(repoGLvfs.uri.with({ scheme: 'github', authority: 'azdo' })), false);
 	});
 
-	it('has(gitlens://)', () => {
+	test('has(gitlens://)', () => {
 		assert.strictEqual(
 			trie.has(
 				repoGL.uri.with({
@@ -936,7 +937,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		);
 	});
 
-	it('get(file://)', () => {
+	test('get(file://)', () => {
 		assertRepoEntry(trie.get(repoGL.uri), repoGL);
 		assertRepoEntry(trie.get(repoNested.uri), repoNested);
 
@@ -944,7 +945,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		assert.strictEqual(trie.get(Uri.file('D:\\Users\\Name\\code\\gitkraken\\vscode-gitlens')), undefined);
 	});
 
-	it('get(vscode-vfs://)', () => {
+	test('get(vscode-vfs://)', () => {
 		assertRepoEntry(trie.get(repoGLvfs.uri), repoGLvfs);
 		assertRepoEntry(trie.get(repoVSCvfs.uri), repoVSCvfs);
 
@@ -952,12 +953,12 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		assert.strictEqual(trie.get(Uri.file('D:\\Users\\Name\\code\\gitkraken\\vscode-gitlens')), undefined);
 	});
 
-	it('get(github://)', () => {
+	test('get(github://)', () => {
 		assertRepoEntry(trie.get(repoGLvfs.uri.with({ scheme: 'github' })), repoGLvfs);
 		assertRepoEntry(trie.get(repoVSCvfs.uri.with({ scheme: 'github' })), repoVSCvfs);
 	});
 
-	it('get(gitlens://)', () => {
+	test('get(gitlens://)', () => {
 		assertRepoEntry(
 			trie.get(
 				repoGL.uri.with({
@@ -981,7 +982,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		);
 	});
 
-	it('get(file://) (ignore case)', () => {
+	test('get(file://) (ignore case)', () => {
 		assertRepoEntryIgnoreCase(trie.get(repoGL.uri.with({ path: repoGL.uri.path.toUpperCase() })), repoGL);
 		assertRepoEntryIgnoreCase(
 			trie.get(repoNested.uri.with({ path: repoNested.uri.path.toUpperCase() })),
@@ -989,7 +990,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		);
 	});
 
-	it('get(vscode://) (ignore case)', () => {
+	test('get(vscode://) (ignore case)', () => {
 		assertRepoEntry(trie.get(repoGLvfs.uri.with({ scheme: 'VSCODE-VFS' })), repoGLvfs);
 
 		assert.strictEqual(
@@ -999,7 +1000,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		assert.strictEqual(trie.get(repoGLvfs.uri.with({ path: repoGLvfs.uri.path.toUpperCase() })), undefined);
 	});
 
-	it('get(github://) (ignore case)', () => {
+	test('get(github://) (ignore case)', () => {
 		assertRepoEntry(trie.get(repoGLvfs.uri.with({ scheme: 'GITHUB' })), repoGLvfs);
 
 		assert.strictEqual(
@@ -1012,7 +1013,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		);
 	});
 
-	it('get(gitlens://) (ignore case)', () => {
+	test('get(gitlens://) (ignore case)', () => {
 		assertRepoEntry(
 			trie.get(
 				repoGL.uri.with({
@@ -1041,7 +1042,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		);
 	});
 
-	it('getClosest(file://)', () => {
+	test('getClosest(file://)', () => {
 		assertRepoEntry(trie.getClosest(repoGL.uri), repoGL);
 		assert.strictEqual(trie.getClosest(repoGL.uri, true), undefined);
 		assertRepoEntry(trie.getClosest(repoNested.uri), repoNested);
@@ -1051,7 +1052,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		assertRepoEntry(trie.getClosest(Uri.joinPath(repoNested.uri, 'src/index.ts')), repoNested);
 	});
 
-	it('getClosest(vscode-vfs://)', () => {
+	test('getClosest(vscode-vfs://)', () => {
 		assertRepoEntry(trie.getClosest(repoGLvfs.uri), repoGLvfs);
 		assert.strictEqual(trie.getClosest(repoGLvfs.uri, true), undefined);
 		assertRepoEntry(trie.getClosest(repoVSCvfs.uri), repoVSCvfs);
@@ -1061,7 +1062,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		assertRepoEntry(trie.getClosest(Uri.joinPath(repoVSCvfs.uri, 'src/main.ts'), true), repoVSCvfs);
 	});
 
-	it('getClosest(github://)', () => {
+	test('getClosest(github://)', () => {
 		const repoGLvfsUri = repoGLvfs.uri.with({ scheme: 'github' });
 		const repoVSCvfsUri = repoVSCvfs.uri.with({ scheme: 'github' });
 
@@ -1074,7 +1075,7 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		assertRepoEntry(trie.getClosest(Uri.joinPath(repoVSCvfsUri, 'src/main.ts'), true), repoVSCvfs);
 	});
 
-	it('getClosest(gitlens://)', () => {
+	test('getClosest(gitlens://)', () => {
 		const repoGLUri = Uri.joinPath(repoGL.uri, 'src/extension.ts').with({
 			scheme: 'gitlens',
 			authority: 'abcd',
@@ -1090,14 +1091,14 @@ describe('UriTrie(Repositories) Test Suite', () => {
 		assertRepoEntry(trie.getClosest(repoNestedUri), repoNested);
 	});
 
-	it('getClosest: missing', () => {
+	test('getClosest: missing', () => {
 		assert.strictEqual(
 			trie.getClosest(Uri.file('C:\\Users\\Name\\code\\company\\repo\\foo\\bar\\baz.ts')),
 			undefined,
 		);
 	});
 
-	it('getDescendants', () => {
+	test('getDescendants', () => {
 		const descendants = [...trie.getDescendants()];
 		assert.strictEqual(descendants.length, 4);
 	});

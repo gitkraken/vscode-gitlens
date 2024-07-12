@@ -3,7 +3,7 @@ import type {
 	TruncationOptions as StringWidthTruncationOptions,
 	Result as TruncatedStringWidthResult,
 } from 'fast-string-truncated-width';
-import getTruncatedStringWidth from 'fast-string-truncated-width';
+import { getTruncatedStringWidth } from '@env/fast-string-truncated-width';
 import { hrtime } from '@env/hrtime';
 import { CharCode } from '../constants';
 

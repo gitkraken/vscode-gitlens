@@ -2,14 +2,12 @@
 import { isAbsolute as _isAbsolute, basename, dirname } from 'path';
 import { Uri } from 'vscode';
 import { isLinux, isWindows } from '@env/platform';
-import { Schemes } from '../constants';
-// TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
-// import { CharCode } from './string';
+import { CharCode, Schemes } from '../constants';
 
 // eslint-disable-next-line no-restricted-imports
 export { basename, dirname, extname, join as joinPaths } from 'path';
 
-const slash = 47; //slash;
+const slash = CharCode.Slash;
 
 const driveLetterNormalizeRegex = /(?<=^\/?)([A-Z])(?=:\/)/;
 const hasSchemeRegex = /^([a-zA-Z][\w+.-]+):/;

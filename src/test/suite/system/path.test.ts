@@ -1,13 +1,14 @@
 import * as assert from 'assert';
+import { suite, test } from 'mocha';
 import { splitPath } from '../../../system/path';
 
-describe('Path Test Suite', () => {
+suite('Path Test Suite', () => {
 	function assertSplitPath(actual: [string, string], expected: [string, string]) {
 		assert.strictEqual(actual[0], expected[0]);
 		assert.strictEqual(actual[1], expected[1]);
 	}
 
-	it('splitPath: no repoPath', () => {
+	test('splitPath: no repoPath', () => {
 		assertSplitPath(splitPath('C:\\User\\Name\\code\\gitkraken\\vscode-gitlens', ''), [
 			'c:/User/Name/code/gitkraken/vscode-gitlens',
 			'',
@@ -29,7 +30,7 @@ describe('Path Test Suite', () => {
 		]);
 	});
 
-	it('splitPath: no repoPath (split base)', () => {
+	test('splitPath: no repoPath (split base)', () => {
 		assertSplitPath(splitPath('C:\\User\\Name\\code\\gitkraken\\vscode-gitlens', '', true), [
 			'vscode-gitlens',
 			'c:/User/Name/code/gitkraken',
@@ -51,7 +52,7 @@ describe('Path Test Suite', () => {
 		]);
 	});
 
-	it('splitPath: match', () => {
+	test('splitPath: match', () => {
 		assertSplitPath(
 			splitPath(
 				'C:\\User\\Name\\code\\gitkraken\\vscode-gitlens\\foo\\bar\\baz.ts',
@@ -101,7 +102,7 @@ describe('Path Test Suite', () => {
 		);
 	});
 
-	it('splitPath: match (casing)', () => {
+	test('splitPath: match (casing)', () => {
 		assertSplitPath(
 			splitPath(
 				'C:/USER/NAME/CODE/GITKRAKEN/VSCODE-GITLENS/FOO/BAR/BAZ.TS',
@@ -143,7 +144,7 @@ describe('Path Test Suite', () => {
 		);
 	});
 
-	it('splitPath: no match', () => {
+	test('splitPath: no match', () => {
 		assertSplitPath(
 			splitPath(
 				'/foo/User/Name/code/gitkraken/vscode-gitlens/foo/bar/baz.ts',

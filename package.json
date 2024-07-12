@@ -17580,7 +17580,7 @@
 		"pub-pre": "vsce publish --yarn --pre-release",
 		"rebuild": "yarn run reset && yarn run build",
 		"reset": "yarn run clean && yarn --frozen-lockfile",
-		"test": "node ./out/test/runTest.js",
+		"test": "vscode-test",
 		"watch": "webpack --watch --mode development",
 		"watch:extension": "webpack --watch --mode development --config-name extension",
 		"watch:webviews": "webpack --watch --mode development --config-name webviews",
@@ -17592,7 +17592,7 @@
 		"update-dts:main": "pushd \"src/@types\" && npx @vscode/dts main && popd",
 		"update-emoji": "node ./scripts/generateEmojiShortcodeMap.mjs",
 		"update-licenses": "node ./scripts/generateLicenses.mjs",
-		"-pretest": "yarn run build:tests",
+		"pretest": "yarn run build:tests",
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
@@ -17637,6 +17637,7 @@
 		"@typescript-eslint/eslint-plugin": "7.17.0",
 		"@typescript-eslint/parser": "7.17.0",
 		"@vscode/test-electron": "2.4.1",
+		"@vscode/test-cli": "^0.0.10",
 		"@vscode/test-web": "0.0.56",
 		"@vscode/vsce": "2.31.1",
 		"circular-dependency-plugin": "5.2.2",
