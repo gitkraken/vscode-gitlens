@@ -10,7 +10,7 @@ import { getLogScope } from '../system/logger.scope';
 import { getSettledValue } from '../system/promise';
 import { maybeStopWatch } from '../system/stopwatch';
 import type { TrackedGitDocument } from '../trackers/trackedDocument';
-import type { AnnotationContext, AnnotationState } from './annotationProvider';
+import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider';
 import { AnnotationProviderBase } from './annotationProvider';
 import type { Decoration } from './annotations';
 import { Decorations } from './fileAnnotationController';
@@ -27,8 +27,13 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 	private sortedHunkStarts: number[] | undefined;
 	private state: { commit: GitCommit | undefined; diffs: GitDiffFile[] } | undefined;
 
-	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedGitDocument) {
-		super(container, 'changes', editor, trackedDocument);
+	constructor(
+		container: Container,
+		onDidChangeStatus: DidChangeStatusCallback,
+		editor: TextEditor,
+		trackedDocument: TrackedGitDocument,
+	) {
+		super(container, onDidChangeStatus, 'changes', editor, trackedDocument);
 	}
 
 	override canReuse(context?: ChangesAnnotationContext): boolean {
@@ -41,7 +46,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 			this.hoverProviderDisposable.dispose();
 			this.hoverProviderDisposable = undefined;
 		}
-		super.clear();
+		return super.clear();
 	}
 
 	override nextChange() {

@@ -3,7 +3,7 @@ import type { GeminiModels } from './ai/geminiProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
 import type { VSCodeAIModels } from './ai/vscodeProvider';
 import type { AnnotationStatus } from './annotations/annotationProvider';
-import type { FileAnnotationType, ViewShowBranchComparison } from './config';
+import type { ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription, SubscriptionPlanId, SubscriptionState } from './plus/gk/account/subscription';
@@ -669,8 +669,6 @@ export type TreeViewNodeTypes =
 	| 'worktrees';
 
 export type ContextKeys = {
-	'gitlens:activeFileStatus': string;
-	'gitlens:annotationStatus': AnnotationStatus | `${AnnotationStatus}+${FileAnnotationType}`;
 	'gitlens:debugging': boolean;
 	'gitlens:disabled': boolean;
 	'gitlens:disabledToggleCodeLens': boolean;
@@ -690,6 +688,10 @@ export type ContextKeys = {
 	'gitlens:repos:withRemotes': string[];
 	'gitlens:repos:withHostingIntegrations': string[];
 	'gitlens:repos:withHostingIntegrationsConnected': string[];
+	'gitlens:tabs:annotated': string[];
+	'gitlens:tabs:annotated:computing': string[];
+	'gitlens:tabs:blameable': string[];
+	'gitlens:tabs:tracked': string[];
 	'gitlens:untrusted': boolean;
 	'gitlens:views:canCompare': boolean;
 	'gitlens:views:canCompare:file': boolean;
@@ -704,6 +706,7 @@ export type ContextKeys = {
 	'gitlens:views:pullRequest:visible': boolean;
 	'gitlens:views:repositories:autoRefresh': boolean;
 	'gitlens:vsls': boolean | 'host' | 'guest';
+	'gitlens:window:annotated': AnnotationStatus;
 } & Record<`gitlens:action:${string}`, number> &
 	Record<`gitlens:key:${Keys}`, boolean> &
 	Record<`gitlens:webview:${WebviewTypes | CustomEditorTypes}:visible`, boolean> &

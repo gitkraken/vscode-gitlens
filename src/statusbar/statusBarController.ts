@@ -160,7 +160,10 @@ export class StatusBarController implements Disposable {
 				const trackedDocumentPromise = this.container.documentTracker.get(e.editor.document);
 				queueMicrotask(async () => {
 					const doc = await trackedDocumentPromise;
-					if (!doc?.isBlameable) return;
+					if (doc == null) return;
+
+					const status = await doc?.getStatus();
+					if (!status?.blameable) return;
 
 					statusBarItem.tooltip = new MarkdownString();
 					statusBarItem.tooltip.isTrusted = { enabledCommands: [Commands.ShowSettingsPage] };

@@ -57,8 +57,11 @@ export class GitCodeLensController implements Disposable {
 		this._provider.reset();
 	}
 
-	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent) {
-		if (this._provider == null || !e.document.isBlameable) return;
+	private async onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent) {
+		if (this._provider == null) return;
+
+		const status = await e.document.getStatus();
+		if (!status.blameable) return;
 
 		Logger.log('Dirty idle triggered; resetting CodeLens provider');
 		this._provider.reset();

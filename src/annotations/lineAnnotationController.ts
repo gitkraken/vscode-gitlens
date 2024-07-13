@@ -205,7 +205,8 @@ export class LineAnnotationController implements Disposable {
 		}
 
 		const trackedDocument = await this.container.documentTracker.getOrAdd(editor.document);
-		if (!trackedDocument.isBlameable && this.suspended) {
+		const status = await trackedDocument?.getStatus();
+		if (!status?.blameable && this.suspended) {
 			if (scope != null) {
 				scope.exitDetails = ` ${GlyphChars.Dot} Skipped because the ${
 					this.suspended
