@@ -1,14 +1,12 @@
 import type { TextEditor, TextEditorEdit, Uri } from 'vscode';
-import { window } from 'vscode';
 import type { AnnotationContext } from '../annotations/annotationProvider';
 import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
-import { UriComparer } from '../system/comparers';
 import { Logger } from '../system/logger';
-import { isTextEditor } from '../system/utils';
+import { getEditorIfVisible, isTextEditor } from '../system/utils';
 import { ActiveEditorCommand, EditorCommand } from './base';
 
 @command()
@@ -17,16 +15,9 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 		super([Commands.ClearFileAnnotations, Commands.ComputingFileAnnotations]);
 	}
 
-	async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri): Promise<void> {
-		// Handle the case where we are focused on a non-editor editor (output, debug console)
-		if (editor != null && !isTextEditor(editor)) {
-			if (uri != null && !UriComparer.equals(uri, editor.document.uri)) {
-				const e = window.visibleTextEditors.find(e => UriComparer.equals(uri, e.document.uri));
-				if (e != null) {
-					editor = e;
-				}
-			}
-		}
+	async execute(editor: TextEditor | undefined, edit: TextEditorEdit, uri?: Uri): Promise<void> {
+		editor = getValidEditor(editor, uri);
+		if (editor == null) return;
 
 		try {
 			await this.container.fileAnnotations.clear(editor);
@@ -108,19 +99,11 @@ export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 
 async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandArgs>(
 	container: Container,
-	editor: TextEditor,
+	editor: TextEditor | undefined,
 	uri: Uri | undefined,
 	args: TArgs,
 ): Promise<void> {
-	// Handle the case where we are focused on a non-editor editor (output, debug console)
-	if (editor != null && !isTextEditor(editor)) {
-		if (uri != null && !UriComparer.equals(uri, editor.document.uri)) {
-			const e = window.visibleTextEditors.find(e => UriComparer.equals(uri, e.document.uri));
-			if (e != null) {
-				editor = e;
-			}
-		}
-	}
+	editor = getValidEditor(editor, uri);
 
 	try {
 		args = { type: 'blame', ...(args as any) };
@@ -138,4 +121,20 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 		Logger.error(ex, 'ToggleFileAnnotationsCommand');
 		void showGenericErrorMessage(`Unable to toggle file ${args.type} annotations`);
 	}
+}
+
+function getValidEditor(editor: TextEditor | undefined, uri: Uri | undefined) {
+	// Handle the case where we are focused on a non-editor editor (output, debug console) or focused on another editor, but executing an action on another editor
+	if (editor != null && !isTextEditor(editor)) {
+		editor = undefined;
+	}
+
+	if (uri != null && (editor == null || editor.document.uri.toString() !== uri.toString())) {
+		const e = getEditorIfVisible(uri);
+		if (e != null) {
+			editor = e;
+		}
+	}
+
+	return editor;
 }

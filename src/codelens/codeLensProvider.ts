@@ -100,11 +100,12 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		if (document.isDirty && isVirtualUri(document.uri)) return [];
 
 		const trackedDocument = await this.container.documentTracker.getOrAdd(document);
-		if (!trackedDocument.isBlameable) return [];
+		const status = await trackedDocument.getStatus();
+		if (!status.blameable) return [];
 
 		let dirty = false;
 		// Only allow dirty blames if we are idle
-		if (document.isDirty && !trackedDocument.isDirtyIdle) {
+		if (document.isDirty && !status.dirtyIdle) {
 			dirty = true;
 		}
 
@@ -537,9 +538,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 		const count = blame.authors.size;
 		const author = first(blame.authors.values())?.name ?? 'Unknown';
-		const andOthers = count > 1
-			? ` and ${pluralize('one other', count - 1, { only: true, plural: 'others' })}`
-			: '';
+		const andOthers =
+			count > 1 ? ` and ${pluralize('one other', count - 1, { only: true, plural: 'others' })}` : '';
 
 		let title = `${pluralize('author', count, { zero: '?' })} (${author}${andOthers})`;
 		if (configuration.get('debug')) {

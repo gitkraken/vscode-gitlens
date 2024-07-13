@@ -72,7 +72,7 @@ export class LineTracker {
 
 	@debug<LineTracker['onBlameStateChanged']>({
 		args: {
-			0: e => `editor/doc=${e.editor.document.uri.toString(true)}, blameable=${e.blameable}`,
+			0: e => `editor/doc=${e.editor?.document.uri.toString(true)}, blameable=${e.blameable}`,
 		},
 	})
 	private onBlameStateChanged(_e: DocumentBlameStateChangeEvent) {
@@ -339,7 +339,8 @@ export class LineTracker {
 		}
 
 		const document = await this.documentTracker.getOrAdd(editor.document);
-		if (!document.isBlameable) {
+		let status = await document.getStatus();
+		if (!status.blameable) {
 			setLogScopeExit(scope, ` \u2022 document is not blameable`);
 
 			return false;
@@ -394,7 +395,9 @@ export class LineTracker {
 			return false;
 		}
 
-		if (!document.isBlameable) {
+		status = await document.getStatus();
+
+		if (!status.blameable) {
 			setLogScopeExit(scope, ` \u2022 document is not blameable`);
 
 			return false;

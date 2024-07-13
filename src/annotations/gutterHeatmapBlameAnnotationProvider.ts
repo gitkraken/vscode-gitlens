@@ -6,14 +6,19 @@ import { log } from '../system/decorators/log';
 import { getLogScope } from '../system/logger.scope';
 import { maybeStopWatch } from '../system/stopwatch';
 import type { TrackedGitDocument } from '../trackers/trackedDocument';
-import type { AnnotationContext, AnnotationState } from './annotationProvider';
+import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider';
 import type { Decoration } from './annotations';
 import { addOrUpdateGutterHeatmapDecoration } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
-	constructor(container: Container, editor: TextEditor, trackedDocument: TrackedGitDocument) {
-		super(container, 'heatmap', editor, trackedDocument);
+	constructor(
+		container: Container,
+		onDidChangeStatus: DidChangeStatusCallback,
+		editor: TextEditor,
+		trackedDocument: TrackedGitDocument,
+	) {
+		super(container, onDidChangeStatus, 'heatmap', editor, trackedDocument);
 	}
 
 	@log()
