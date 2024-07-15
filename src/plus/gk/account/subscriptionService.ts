@@ -1381,12 +1381,23 @@ export class SubscriptionService implements Disposable {
 	}
 
 	onLoginUri(uri: Uri) {
+		const scope = getLogScope();
 		const queryParams: URLSearchParams = new URLSearchParams(uri.query);
 		const code = queryParams.get('code');
 		const state = queryParams.get('state');
+		const context = queryParams.get('context');
+		let contextMessage = 'sign in to GitKraken';
+
+		switch (context) {
+			case 'start_trial':
+				contextMessage = 'start a Pro trial';
+				break;
+		}
+
 		if (code == null) {
+			Logger.error(`No code provided. Link: ${uri.toString(true)}`, scope);
 			void window.showErrorMessage(
-				'Unable to sign in to GitKraken with that link. Please try clicking that link again. If this issue persists, please contact support.',
+				`Unable to ${contextMessage} with that link. Please try clicking that link again. If this issue persists, please contact support.`,
 			);
 			return;
 		}
