@@ -17566,7 +17566,8 @@
 		"update-emoji": "node ./scripts/generateEmojiShortcodeMap.mjs",
 		"update-licenses": "node ./scripts/generateLicenses.mjs",
 		"-pretest": "yarn run build:tests",
-		"vscode:prepublish": "yarn run bundle"
+		"vscode:prepublish": "yarn run bundle",
+		"test:e2e": "wdio run ./tests/wdio/wdio.conf.ts"
 	},
 	"dependencies": {
 		"@gitkraken/gitkraken-components": "10.5.1",
@@ -17612,6 +17613,10 @@
 		"@vscode/test-electron": "2.4.1",
 		"@vscode/test-web": "0.0.56",
 		"@vscode/vsce": "2.30.0",
+		"@wdio/cli": "8.39.0",
+		"@wdio/local-runner": "8.39.0",
+		"@wdio/mocha-framework": "8.39.0",
+		"@wdio/spec-reporter": "8.39.0",
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
 		"concurrently": "8.2.2",
@@ -17647,13 +17652,15 @@
 		"svgo": "3.3.2",
 		"terser-webpack-plugin": "5.3.10",
 		"ts-loader": "9.5.1",
+		"ts-node": "^10.9.2",
 		"tsc-alias": "1.8.10",
 		"typescript": "5.5.3",
+		"wdio-vscode-service": "6.1.0",
 		"webpack": "5.93.0",
 		"webpack-bundle-analyzer": "4.10.2",
 		"webpack-cli": "5.1.4",
 		"webpack-node-externals": "3.0.0",
-		"webpack-require-from": "1.8.6"
+		"webpack-require-from": "^1.8.6"
 	},
 	"resolutions": {
 		"esbuild": "0.23.0",

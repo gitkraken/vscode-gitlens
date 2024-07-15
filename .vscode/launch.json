@@ -177,6 +177,42 @@
 			"smartStep": true,
 			"sourceMapRenames": true,
 			"sourceMaps": true
+		},
+		{
+			"name": "Watch & Run E2E Tests",
+			"type": "node",
+			"request": "launch",
+			"runtimeArgs": ["test:e2e"],
+			"runtimeExecutable": "yarn",
+			"cwd": "${workspaceFolder}",
+			"autoAttachChildProcesses": true,
+			"env": {
+				"DEBUG": "1"
+			},
+			"console": "integratedTerminal",
+			"skipFiles": [
+				"${workspaceFolder}/testing/node_modules/**/*.js",
+				"${workspaceFolder}/testing/lib/**/*.js",
+				"<node_internals>/**/*.js"
+			]
+		},
+		{
+			"name": "Run E2E Test on current file",
+			"type": "node",
+			"request": "launch",
+			"runtimeArgs": ["test:e2e", "--spec", "${file}"],
+			"runtimeExecutable": "yarn",
+			"cwd": "${workspaceFolder}",
+			"autoAttachChildProcesses": true,
+			"env": {
+				"DEBUG": "1"
+			},
+			"console": "integratedTerminal",
+			"skipFiles": [
+				"${workspaceFolder}/testing/node_modules/**/*.js",
+				"${workspaceFolder}/testing/lib/**/*.js",
+				"<node_internals>/**/*.js"
+			]
 		}
 	]
 }
