@@ -26,6 +26,7 @@ import {
 	GitPullRequestReviewState,
 	GitPullRequestState,
 } from '@gitkraken/provider-apis';
+import type { GitProvider } from '@gitkraken/provider-apis/dist/providers/gitProvider';
 import type { Account as UserAccount } from '../../../git/models/author';
 import type { IssueMember, SearchedIssue } from '../../../git/models/issue';
 import { RepositoryAccessLevel } from '../../../git/models/issue';
@@ -235,6 +236,8 @@ export type GetPullRequestsForAzureProjectsFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderPullRequest[] }>;
 
+export type MergePullRequestFn = GitProvider['mergePullRequest'];
+
 export type GetIssueFn = (
 	input: { resourceId: string; number: string },
 	options?: EnterpriseOptions,
@@ -315,6 +318,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getIssuesForProjectFn?: GetIssuesForProjectFn;
 	getReposForAzureProjectFn?: GetReposForAzureProjectFn;
 	getIssuesForResourceForCurrentUserFn?: GetIssuesForResourceForCurrentUserFn;
+	mergePullRequestFn?: MergePullRequestFn;
 }
 
 export interface ProviderMetadata {
