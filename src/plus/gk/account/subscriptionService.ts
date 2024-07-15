@@ -1397,7 +1397,7 @@ export class SubscriptionService implements Disposable {
 		if (code == null) {
 			Logger.error(`No code provided. Link: ${uri.toString(true)}`, scope);
 			void window.showErrorMessage(
-				`Unable to ${contextMessage} with that link. Please try clicking that link again. If this issue persists, please contact support.`,
+				`Unable to ${contextMessage} with that link. Please try clicking the link again. If this issue persists, please contact support.`,
 			);
 			return;
 		}
