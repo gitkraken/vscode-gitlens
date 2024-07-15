@@ -17600,6 +17600,7 @@
 	},
 	"devDependencies": {
 		"@eamodio/eslint-lite-webpack-plugin": "0.0.8",
+		"@playwright/test": "1.45.1",
 		"@swc/core": "1.6.13",
 		"@twbs/fantasticon": "3.0.0",
 		"@types/mocha": "10.0.7",
@@ -17644,6 +17645,7 @@
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.9.0",
 		"mocha": "10.6.0",
+		"playwright": "1.45.1",
 		"prettier": "3.1.0",
 		"sass": "1.77.6",
 		"sass-loader": "14.2.1",

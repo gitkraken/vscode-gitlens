@@ -10,3 +10,5 @@ gitlens-*.vsix
 tsconfig*.tsbuildinfo
 .DS_Store
 .wdio-vscode-service
+test-results
+playwright-report
