@@ -171,6 +171,7 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 		{ accessToken }: AuthenticationSession,
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: CancellationToken,
+		silent?: boolean,
 	): Promise<SearchedPullRequest[] | undefined> {
 		return (await this.container.github)?.searchMyPullRequests(
 			this,
@@ -178,6 +179,7 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 			{
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
 				baseUrl: this.apiBaseUrl,
+				silent: silent,
 			},
 			cancellation,
 		);
