@@ -14,7 +14,7 @@ import { openComparisonChanges } from '../../git/actions/commit';
 import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
 import { getLocalBranchByUpstream } from '../../git/models/branch';
-import type { SearchedPullRequest } from '../../git/models/pullRequest';
+import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
 import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
@@ -35,6 +35,7 @@ import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
 import type { IntegrationResult } from '../integrations/integration';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
+	fromProviderPullRequest,
 	getActionablePullRequests,
 	HostingIntegrationId,
 	toProviderPullRequestWithUniqueId,
@@ -436,16 +437,17 @@ export class FocusProvider implements Disposable {
 	@log<FocusProvider['merge']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
 	async merge(item: FocusItem): Promise<void> {
 		if (item.graphQLId == null || item.headRef?.oid == null) return;
-		// TODO: Include other providers.
-		if (item.provider.id !== 'github') return;
+		const integrationId = item.provider.id;
+		if (!isSupportedFocusIntegrationId(integrationId)) return;
 		const confirm = await window.showQuickPick(['Merge', 'Cancel'], {
 			placeHolder: `Are you sure you want to merge ${item.headRef?.name ?? 'this pull request'}${
 				item.baseRef?.name ? ` into ${item.baseRef.name}` : ''
 			}? This cannot be undone.`,
 		});
 		if (confirm !== 'Merge') return;
-		const integrations = await this.container.integrations.get(HostingIntegrationId.GitHub);
-		await integrations.mergePullRequest({ id: item.graphQLId, headRefSha: item.headRef.oid });
+		const integrations = await this.container.integrations.get(integrationId);
+		const pr: PullRequest = fromProviderPullRequest(item, integrations);
+		await integrations.mergePullRequest(pr);
 		this.refresh();
 	}
 
