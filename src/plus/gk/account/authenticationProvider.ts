@@ -30,8 +30,7 @@ const authenticationLabel = 'GitKraken: GitLens';
 
 export interface AuthenticationProviderOptions {
 	signUp?: boolean;
-	code?: string;
-	state?: string;
+	signIn?: { code: string; state?: string };
 }
 
 export class AccountAuthenticationProvider implements AuthenticationProvider, Disposable {
@@ -98,8 +97,8 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 
 		try {
 			const token =
-				options?.code != null
-					? await this._authConnection.getTokenFromCodeAndState(options?.code, options?.state)
+				options?.signIn != null
+					? await this._authConnection.getTokenFromCodeAndState(options.signIn.code, options.signIn.state)
 					: await this._authConnection.login(scopes, scopesKey, options?.signUp);
 			const session = await this.createSessionForToken(token, scopes);
 

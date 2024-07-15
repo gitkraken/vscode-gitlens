@@ -364,7 +364,7 @@ export class SubscriptionService implements Disposable {
 		return this.loginCore({ signUp: signUp, source: source });
 	}
 
-	async loginWithCode(code: string, state?: string, source?: Source): Promise<boolean> {
+	async loginWithCode(authentication: { code: string; state?: string }, source?: Source): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'sign-in' }, source);
@@ -375,22 +375,20 @@ export class SubscriptionService implements Disposable {
 			await this.logout(undefined, source);
 		}
 
-		return this.loginCore({ code: code, state: state, source: source });
+		return this.loginCore({ signIn: authentication, source: source });
 	}
 
 	private async loginCore(options?: {
 		signUp?: boolean;
 		source?: Source;
-		code?: string;
-		state?: string;
+		signIn?: { code: string; state?: string };
 	}): Promise<boolean> {
 		// Abort any waiting authentication to ensure we can start a new flow
 		await this.container.accountAuthentication.abort();
 		void this.showAccountView();
 
 		const session = await this.ensureSession(true, {
-			code: options?.code,
-			state: options?.state,
+			signIn: options?.signIn,
 			signUp: options?.signUp,
 		});
 		const loggedIn = Boolean(session);
@@ -943,7 +941,7 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private async ensureSession(
 		createIfNeeded: boolean,
-		options?: { force?: boolean; signUp?: boolean; code?: string; state?: string },
+		options?: { force?: boolean; signUp?: boolean; signIn?: { code: string; state?: string } },
 	): Promise<AuthenticationSession | undefined> {
 		if (this._sessionPromise != null) {
 			void (await this._sessionPromise);
@@ -955,8 +953,7 @@ export class SubscriptionService implements Disposable {
 		if (this._sessionPromise === undefined) {
 			this._sessionPromise = this.getOrCreateSession(createIfNeeded, {
 				signUp: options?.signUp,
-				code: options?.code,
-				state: options?.state,
+				signIn: options?.signIn,
 			}).then(
 				s => {
 					this._session = s;
@@ -978,7 +975,7 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private async getOrCreateSession(
 		createIfNeeded: boolean,
-		options?: { signUp?: boolean; code?: string; state?: string },
+		options?: { signUp?: boolean; signIn?: { code: string; state?: string } },
 	): Promise<AuthenticationSession | null> {
 		const scope = getLogScope();
 
@@ -1388,11 +1385,13 @@ export class SubscriptionService implements Disposable {
 		const code = queryParams.get('code');
 		const state = queryParams.get('state');
 		if (code == null) {
-			void window.showErrorMessage('Unable to login to GitKraken: invalid link.');
+			void window.showErrorMessage(
+				'Unable to sign in to GitKraken with that link. Please try clicking that link again. If this issue persists, please contact support.',
+			);
 			return;
 		}
 
-		void this.loginWithCode(code, state ?? undefined, { source: 'deeplink' });
+		void this.loginWithCode({ code: code, state: state ?? undefined }, { source: 'deeplink' });
 	}
 
 	async onSubscriptionUpdatedUri() {
