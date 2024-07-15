@@ -276,7 +276,7 @@ export class FocusProvider implements Disposable {
 
 		const [prsResult, subscriptionResult] = await Promise.allSettled([
 			withDurationAndSlowEventOnTimeout(
-				this.container.integrations.getMyPullRequests([HostingIntegrationId.GitHub], cancellation),
+				this.container.integrations.getMyPullRequests([HostingIntegrationId.GitHub], cancellation, true),
 				'getMyPullRequests',
 				this.container,
 			),

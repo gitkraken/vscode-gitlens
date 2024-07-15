@@ -1160,15 +1160,18 @@ export abstract class HostingIntegration<
 	async searchMyPullRequests(
 		repo?: T,
 		cancellation?: CancellationToken,
+		silent?: boolean,
 	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>>;
 	async searchMyPullRequests(
 		repos?: T[],
 		cancellation?: CancellationToken,
+		silent?: boolean,
 	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>>;
 	@debug()
 	async searchMyPullRequests(
 		repos?: T | T[],
 		cancellation?: CancellationToken,
+		silent?: boolean,
 	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>> {
 		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -1180,6 +1183,7 @@ export abstract class HostingIntegration<
 				this._session!,
 				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
 				cancellation,
+				silent,
 			);
 			return { value: pullRequests, duration: Date.now() - start };
 		} catch (ex) {
@@ -1192,6 +1196,7 @@ export abstract class HostingIntegration<
 		session: ProviderAuthenticationSession,
 		repos?: T[],
 		cancellation?: CancellationToken,
+		silent?: boolean,
 	): Promise<SearchedPullRequest[] | undefined>;
 
 	async searchPullRequests(
