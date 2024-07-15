@@ -7,6 +7,7 @@ import {
 	ProviderRequestRateLimitError,
 } from '../../../errors';
 import type { PagedResult } from '../../../git/gitProvider';
+import type { PullRequest, PullRequestMergeMethod } from '../../../git/models/pullRequest';
 import { base64 } from '../../../system/string';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthentication';
 import type {
@@ -102,6 +103,7 @@ export class ProvidersApi {
 				getIssuesForRepoFn: providerApis.gitlab.getIssuesForRepo.bind(
 					providerApis.gitlab,
 				) as GetIssuesForRepoFn,
+				mergePullRequestFn: providerApis.gitlab.mergePullRequest.bind(providerApis.gitlab),
 			},
 			[SelfHostedIntegrationId.GitLabSelfHosted]: {
 				...providersMetadata[SelfHostedIntegrationId.GitLabSelfHosted],
@@ -626,6 +628,42 @@ export class ProvidersApi {
 			)?.data;
 		} catch (e) {
 			return this.handleProviderError<ProviderPullRequest[]>(HostingIntegrationId.AzureDevOps, token, e);
+		}
+	}
+
+	async mergePullRequest(
+		providerId: IntegrationId,
+		pr: PullRequest,
+		options?: {
+			mergeMethod?: PullRequestMergeMethod;
+		},
+	): Promise<boolean> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(providerId, 'mergePullRequestFn');
+		const headRef = pr.refs?.head;
+		if (headRef == null) return false;
+
+		try {
+			await provider.mergePullRequestFn?.(
+				{
+					pullRequest: {
+						headRef: { oid: headRef.sha },
+						id: pr.id,
+						number: Number.parseInt(pr.id, 10),
+						repository: {
+							id: pr.repository.repo,
+							name: pr.repository.repo,
+							owner: {
+								login: pr.repository.owner,
+							},
+						},
+					},
+					...options,
+				},
+				{ token: token },
+			);
+			return true;
+		} catch (e) {
+			return this.handleProviderError<boolean>(providerId, token, e);
 		}
 	}
 

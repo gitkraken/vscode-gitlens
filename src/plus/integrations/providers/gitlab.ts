@@ -20,7 +20,8 @@ import type {
 	IntegrationAuthenticationService,
 } from '../authentication/integrationAuthentication';
 import { HostingIntegration } from '../integration';
-import { fromProviderPullRequest, HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
+import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
+import { HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
 import type { ProvidersApi } from './providersApi';
 
 const metadata = providersMetadata[HostingIntegrationId.GitLab];
@@ -187,15 +188,8 @@ abstract class GitLabIntegrationBase<
 		}
 
 		const toQueryResult = (pr: GitPullRequest, reason?: string): SearchedPullRequest => {
-			// This a dirty hack that's needed to enable PRs because providers-api always returns null here: https://github.com/gitkraken/provider-apis-package-js/blob/6ee521eb6b46bbb759d9c68646979c3b25681d90/src/providers/gitlab/gitlab.ts#L597
-			if (!pr.permissions) {
-				pr.permissions = {
-					canMerge: true,
-					canMergeAndBypassProtections: false,
-				};
-			}
 			return {
-				pullRequest: fromProviderPullRequest(pr, this),
+				pullRequest: fromGitLabMergeRequestProvidersApi(pr, this),
 				reasons: reason ? [reason] : [],
 			};
 		};
@@ -256,12 +250,19 @@ abstract class GitLabIntegrationBase<
 
 	protected override async mergeProviderPullRequest(
 		_session: AuthenticationSession,
-		_pr: PullRequest | { id: string; headRefSha: string },
-		_options?: {
+		pr: PullRequest | { id: string; headRefSha: string },
+		options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},
 	): Promise<boolean> {
-		return Promise.resolve(false);
+		if (!this.isPullRequest(pr)) return false;
+		const api = await this.getProvidersApi();
+		const res = await api.mergePullRequest(this.id, pr, options);
+		return res;
+	}
+
+	private isPullRequest(pr: PullRequest | { id: string; headRefSha: string }): pr is PullRequest {
+		return (pr as PullRequest).refs != null;
 	}
 
 	protected override async getProviderCurrentAccount({
