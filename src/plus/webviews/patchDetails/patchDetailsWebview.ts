@@ -816,20 +816,14 @@ export class PatchDetailsWebviewProvider
 
 			const summary = await (
 				await this.container.ai
-			)?.explainCommit(commit, {
-				progress: { location: { viewId: this.host.id } },
-			});
+			)?.explainCommit(
+				commit,
+				{ source: 'patchDetails', type: `draft-${this._context.draft.type}` },
+				{ progress: { location: { viewId: this.host.id } } },
+			);
 			if (summary == null) throw new Error('Error retrieving content');
 
 			params = { summary: summary };
-
-			this.container.telemetry.sendEvent(
-				'explainChanges',
-				{
-					changeType: `draft-${this._context.draft.type}`,
-				},
-				{ source: 'patchDetails' },
-			);
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
@@ -866,20 +860,14 @@ export class PatchDetailsWebviewProvider
 
 			const summary = await (
 				await this.container.ai
-			)?.generateDraftMessage(repo, {
-				progress: { location: { viewId: this.host.id } },
-			});
+			)?.generateDraftMessage(
+				repo,
+				{ source: 'patchDetails', type: 'patch' },
+				{ progress: { location: { viewId: this.host.id } } },
+			);
 			if (summary == null) throw new Error('Error retrieving content');
 
 			params = extractDraftMessage(summary);
-
-			this.container.telemetry.sendEvent(
-				'generateDraftMessage',
-				{
-					draftType: 'patch',
-				},
-				{ source: 'patchDetails' },
-			);
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };

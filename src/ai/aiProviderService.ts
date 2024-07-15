@@ -1,7 +1,15 @@
 import type { CancellationToken, Disposable, MessageItem, ProgressOptions, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import type { AIModels, AIProviders, SupportedAIModels } from '../constants';
+import type {
+	AIGenerateDraftEvent,
+	AIModels,
+	AIProviders,
+	Sources,
+	SupportedAIModels,
+	TelemetryEvents,
+} from '../constants';
 import type { Container } from '../container';
+import { CancellationError } from '../errors';
 import type { GitCommit } from '../git/models/commit';
 import { assertsCommitHasFullDetails, isCommit } from '../git/models/commit';
 import { uncommitted, uncommittedStaged } from '../git/models/constants';
@@ -13,6 +21,7 @@ import { configuration } from '../system/configuration';
 import { getSettledValue } from '../system/promise';
 import type { Storage } from '../system/storage';
 import { supportedInVSCodeVersion } from '../system/utils';
+import type { TelemetryService } from '../telemetry/telemetry';
 import { AnthropicProvider } from './anthropicProvider';
 import { GeminiProvider } from './geminiProvider';
 import { OpenAIProvider } from './openaiProvider';
@@ -195,18 +204,22 @@ export class AIProviderService implements Disposable {
 
 	async generateCommitMessage(
 		changes: string[],
+		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
 	): Promise<string | undefined>;
 	async generateCommitMessage(
 		repoPath: Uri,
+		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
 	): Promise<string | undefined>;
 	async generateCommitMessage(
 		repository: Repository,
+		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
 	): Promise<string | undefined>;
 	async generateCommitMessage(
 		changesOrRepoOrPath: string[] | Repository | Uri,
+		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
 	): Promise<string | undefined> {
 		const changes: string | undefined = await this.getChanges(changesOrRepoOrPath);
@@ -217,26 +230,68 @@ export class AIProviderService implements Disposable {
 
 		const provider = this._provider!;
 
-		const confirmed = await confirmAIProviderToS(model, this.container.storage);
-		if (!confirmed) return undefined;
-		if (options?.cancellation?.isCancellationRequested) return undefined;
+		const payload: TelemetryEvents['ai/generate'] = {
+			type: 'commitMessage',
+			model: { id: model.id, provider: { id: model.provider.id, name: model.provider.name } },
+		};
+		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
-		if (options?.progress != null) {
-			return window.withProgress(options.progress, async () =>
-				provider.generateCommitMessage(model, changes, {
-					cancellation: options?.cancellation,
-					context: options?.context,
-				}),
+		const confirmed = await confirmAIProviderToS(model, this.container.storage);
+		if (!confirmed) {
+			this.container.telemetry.sendEvent(
+				'ai/generate',
+				{ ...payload, failed: { reason: 'user-declined' } },
+				source,
 			);
+
+			return undefined;
 		}
-		return provider.generateCommitMessage(model, changes, {
+
+		if (options?.cancellation?.isCancellationRequested) {
+			this.container.telemetry.sendEvent(
+				'ai/generate',
+				{ ...payload, failed: { reason: 'user-cancelled' } },
+				source,
+			);
+
+			return undefined;
+		}
+
+		const promise = provider.generateCommitMessage(model, changes, {
 			cancellation: options?.cancellation,
 			context: options?.context,
 		});
+
+		const start = Date.now();
+		try {
+			const result = await (options?.progress != null
+				? window.withProgress(options.progress, () => promise)
+				: promise);
+
+			this.container.telemetry.sendEvent('ai/generate', { ...payload, duration: Date.now() - start }, source);
+
+			return result;
+		} catch (ex) {
+			this.container.telemetry.sendEvent(
+				'ai/generate',
+				{
+					...payload,
+					duration: Date.now() - start,
+					failed:
+						ex instanceof CancellationError
+							? { reason: 'user-cancelled' }
+							: { reason: 'error', error: String(ex) },
+				},
+				source,
+			);
+
+			throw ex;
+		}
 	}
 
 	async generateDraftMessage(
 		changesOrRepoOrPath: string[] | Repository | Uri,
+		sourceContext: { source: Sources; type: AIGenerateDraftEvent['draftType'] },
 		options?: {
 			cancellation?: CancellationToken;
 			context?: string;
@@ -252,24 +307,65 @@ export class AIProviderService implements Disposable {
 
 		const provider = this._provider!;
 
-		const confirmed = await confirmAIProviderToS(model, this.container.storage);
-		if (!confirmed) return undefined;
-		if (options?.cancellation?.isCancellationRequested) return undefined;
+		const payload: TelemetryEvents['ai/generate'] = {
+			type: 'draftMessage',
+			draftType: sourceContext.type,
+			model: { id: model.id, provider: { id: model.provider.id, name: model.provider.name } },
+		};
+		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
-		if (options?.progress != null) {
-			return window.withProgress(options.progress, async () =>
-				provider.generateDraftMessage(model, changes, {
-					cancellation: options?.cancellation,
-					context: options?.context,
-					codeSuggestion: options?.codeSuggestion,
-				}),
+		const confirmed = await confirmAIProviderToS(model, this.container.storage);
+		if (!confirmed) {
+			this.container.telemetry.sendEvent(
+				'ai/generate',
+				{ ...payload, failed: { reason: 'user-declined' } },
+				source,
 			);
+
+			return undefined;
 		}
-		return provider.generateDraftMessage(model, changes, {
+
+		if (options?.cancellation?.isCancellationRequested) {
+			this.container.telemetry.sendEvent(
+				'ai/generate',
+				{ ...payload, failed: { reason: 'user-cancelled' } },
+				source,
+			);
+
+			return undefined;
+		}
+
+		const promise = provider.generateDraftMessage(model, changes, {
 			cancellation: options?.cancellation,
 			context: options?.context,
 			codeSuggestion: options?.codeSuggestion,
 		});
+
+		const start = Date.now();
+		try {
+			const result = await (options?.progress != null
+				? window.withProgress(options.progress, () => promise)
+				: promise);
+
+			this.container.telemetry.sendEvent('ai/generate', { ...payload, duration: Date.now() - start }, source);
+
+			return result;
+		} catch (ex) {
+			this.container.telemetry.sendEvent(
+				'ai/generate',
+				{
+					...payload,
+					duration: Date.now() - start,
+					failed:
+						ex instanceof CancellationError
+							? { reason: 'user-cancelled' }
+							: { reason: 'error', error: String(ex) },
+				},
+				source,
+			);
+
+			throw ex;
+		}
 	}
 
 	private async getChanges(
@@ -299,35 +395,11 @@ export class AIProviderService implements Disposable {
 	}
 
 	async explainCommit(
-		repoPath: string | Uri,
-		sha: string,
-		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<string | undefined>;
-	async explainCommit(
-		commit: GitRevisionReference | GitCommit,
-		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<string | undefined>;
-	async explainCommit(
-		commitOrRepoPath: string | Uri | GitRevisionReference | GitCommit,
-		shaOrOptions?: string | { progress?: ProgressOptions },
+		commitOrRevision: GitRevisionReference | GitCommit,
+		sourceContext: { source: Sources; type: TelemetryEvents['ai/explain']['changeType'] },
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<string | undefined> {
-		let commit: GitCommit | undefined;
-		if (typeof commitOrRepoPath === 'string' || commitOrRepoPath instanceof Uri) {
-			if (typeof shaOrOptions !== 'string' || !shaOrOptions) throw new Error('Invalid arguments provided');
-
-			commit = await this.container.git.getCommit(commitOrRepoPath, shaOrOptions);
-		} else {
-			if (typeof shaOrOptions === 'string') throw new Error('Invalid arguments provided');
-
-			commit = isCommit(commitOrRepoPath)
-				? commitOrRepoPath
-				: await this.container.git.getCommit(commitOrRepoPath.repoPath, commitOrRepoPath.ref);
-			options = shaOrOptions;
-		}
-		if (commit == null) throw new Error('Unable to find commit');
-
-		const diff = await this.container.git.getDiff(commit.repoPath, commit.sha);
+		const diff = await this.container.git.getDiff(commitOrRevision.repoPath, commitOrRevision.ref);
 		if (!diff?.contents) throw new Error('No changes found to explain.');
 
 		const model = await this.getModel();
@@ -335,24 +407,73 @@ export class AIProviderService implements Disposable {
 
 		const provider = this._provider!;
 
+		const payload: TelemetryEvents['ai/explain'] = {
+			type: 'change',
+			changeType: sourceContext.type,
+			model: { id: model.id, provider: { id: model.provider.id, name: model.provider.name } },
+		};
+		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
+
 		const confirmed = await confirmAIProviderToS(model, this.container.storage);
-		if (!confirmed) return undefined;
+		if (!confirmed) {
+			this.container.telemetry.sendEvent(
+				'ai/explain',
+				{ ...payload, failed: { reason: 'user-declined' } },
+				source,
+			);
+
+			return undefined;
+		}
+
+		const commit = isCommit(commitOrRevision)
+			? commitOrRevision
+			: await this.container.git.getCommit(commitOrRevision.repoPath, commitOrRevision.ref);
+		if (commit == null) throw new Error('Unable to find commit');
 
 		if (!commit.hasFullDetails()) {
 			await commit.ensureFullDetails();
 			assertsCommitHasFullDetails(commit);
 		}
 
-		if (options?.progress != null) {
-			return window.withProgress(options.progress, async () =>
-				provider.explainChanges(model, commit.message, diff.contents, {
-					cancellation: options?.cancellation,
-				}),
+		if (options?.cancellation?.isCancellationRequested) {
+			this.container.telemetry.sendEvent(
+				'ai/explain',
+				{ ...payload, failed: { reason: 'user-cancelled' } },
+				source,
 			);
+
+			return undefined;
 		}
-		return provider.explainChanges(model, commit.message, diff.contents, {
+
+		const promise = provider.explainChanges(model, commit.message, diff.contents, {
 			cancellation: options?.cancellation,
 		});
+
+		const start = Date.now();
+		try {
+			const result = await (options?.progress != null
+				? window.withProgress(options.progress, () => promise)
+				: promise);
+
+			this.container.telemetry.sendEvent('ai/explain', { ...payload, duration: Date.now() - start }, source);
+
+			return result;
+		} catch (ex) {
+			this.container.telemetry.sendEvent(
+				'ai/explain',
+				{
+					...payload,
+					duration: Date.now() - start,
+					failed:
+						ex instanceof CancellationError
+							? { reason: 'user-cancelled' }
+							: { reason: 'error', error: String(ex) },
+				},
+				source,
+			);
+
+			throw ex;
+		}
 	}
 
 	async reset(all?: boolean) {

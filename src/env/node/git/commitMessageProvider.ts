@@ -51,14 +51,19 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 		try {
 			const message = await (
 				await this.container.ai
-			)?.generateCommitMessage(changes, {
-				cancellation: cancellation,
-				context: currentMessage,
-				progress: {
-					location: ProgressLocation.Notification,
-					title: 'Generating commit message...',
+			)?.generateCommitMessage(
+				changes,
+				{ source: 'scm-input' },
+				{
+					cancellation: cancellation,
+					context: currentMessage,
+					progress: {
+						location: ProgressLocation.Notification,
+						title: 'Generating commit message...',
+					},
 				},
-			});
+			);
+
 			return currentMessage ? `${currentMessage}\n\n${message}` : message;
 		} catch (ex) {
 			Logger.error(scope, ex);
