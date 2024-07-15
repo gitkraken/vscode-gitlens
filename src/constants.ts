@@ -854,6 +854,7 @@ export type Sources =
 	| 'settings'
 	| 'timeline'
 	| 'trial-indicator'
+	| 'scm-input'
 	| 'subscription'
 	| 'walkthrough'
 	| 'welcome';
@@ -1208,6 +1209,15 @@ export type TelemetryEvents = {
 		'activation.mode': string | undefined;
 	} & Record<`config.${string}`, string | number | boolean | null>;
 
+	/** Sent when explaining changes from wip, commits, stashes, patches,etc. */
+	'ai/explain': {
+		type: 'change';
+		changeType: 'wip' | 'stash' | 'commit' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
+	} & AIEventBase;
+
+	/** Sent when generating summaries from commits, stashes, patches, etc. */
+	'ai/generate': (AIGenerateCommitEvent | AIGenerateDraftEvent) & AIEventBase;
+
 	/** Sent when a cloud-based hosting provider is connected */
 	'cloudIntegrations/hosting/connected': {
 		'hostingProvider.provider': IntegrationId;
@@ -1286,15 +1296,6 @@ export type TelemetryEvents = {
 		  };
 	/** Sent when a VS Code command is executed by a GitLens provided action */
 	'command/core': { command: string };
-
-	/** Sent when explaining changes from  */
-	explainChanges: {
-		changeType: 'wip' | 'stash' | 'commit' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
-	};
-
-	generateDraftMessage: {
-		draftType: 'patch' | 'stash' | 'suggested_pr_change';
-	};
 
 	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/title/action': LaunchpadEventData & {
@@ -1478,6 +1479,24 @@ export type TelemetryEvents = {
 			| 'integrations'
 			| 'more';
 	};
+};
+
+type AIEventBase = {
+	model: {
+		id: AIModels;
+		provider: { id: AIProviders; name: string };
+	};
+	duration?: number;
+	failed?: { reason: 'user-declined' | 'user-cancelled' } | { reason: 'error'; error: string };
+};
+
+export type AIGenerateCommitEvent = {
+	type: 'commitMessage';
+};
+
+export type AIGenerateDraftEvent = {
+	type: 'draftMessage';
+	draftType: 'patch' | 'stash' | 'suggested_pr_change';
 };
 
 export type LaunchpadTelemetryContext = LaunchpadEventData;

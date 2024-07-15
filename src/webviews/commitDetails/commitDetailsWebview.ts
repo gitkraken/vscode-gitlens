@@ -1080,20 +1080,14 @@ export class CommitDetailsWebviewProvider
 		try {
 			const summary = await (
 				await this.container.ai
-			)?.explainCommit(this._context.commit!, {
-				progress: { location: { viewId: this.host.id } },
-			});
+			)?.explainCommit(
+				this._context.commit!,
+				{ source: 'inspect', type: isStash(this._context.commit) ? 'stash' : 'commit' },
+				{ progress: { location: { viewId: this.host.id } } },
+			);
 			if (summary == null) throw new Error('Error retrieving content');
 
 			params = { summary: summary };
-
-			this.container.telemetry.sendEvent(
-				'explainChanges',
-				{
-					changeType: isStash(this._context.commit) ? 'stash' : 'commit',
-				},
-				{ source: 'inspect' },
-			);
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
@@ -1122,20 +1116,14 @@ export class CommitDetailsWebviewProvider
 
 			const summary = await (
 				await this.container.ai
-			)?.generateDraftMessage(repo, {
-				progress: { location: { viewId: this.host.id } },
-			});
+			)?.generateDraftMessage(
+				repo,
+				{ source: 'inspect', type: 'suggested_pr_change' },
+				{ progress: { location: { viewId: this.host.id } } },
+			);
 			if (summary == null) throw new Error('Error retrieving content');
 
 			params = extractDraftMessage(summary);
-
-			this.container.telemetry.sendEvent(
-				'generateDraftMessage',
-				{
-					draftType: 'suggested_pr_change',
-				},
-				{ source: 'inspect' },
-			);
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
