@@ -51,6 +51,7 @@ export interface GitLabIssue {
 export interface GitLabMergeRequest {
 	iid: string;
 	author: {
+		id: string;
 		name: string;
 		avatarUrl: string | null;
 		webUrl: string;
@@ -78,6 +79,7 @@ export interface GitLabMergeRequestREST {
 	id: number;
 	iid: number;
 	author: {
+		id: string;
 		name: string;
 		avatar_url?: string;
 		web_url: string;
@@ -100,6 +102,7 @@ export function fromGitLabMergeRequestREST(
 	return new PullRequest(
 		provider,
 		{
+			id: pr.author?.id ?? '',
 			name: pr.author?.name ?? 'Unknown',
 			avatarUrl: pr.author?.avatar_url ?? '',
 			url: pr.author?.web_url ?? '',
