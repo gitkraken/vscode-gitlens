@@ -17,9 +17,12 @@ import {
 } from '../../commands/quickCommand';
 import {
 	FeedbackQuickInputButton,
+	getIntegrationTitle,
+	getOpenOnGitproviderQuickInputButtons,
 	LaunchpadSettingsQuickInputButton,
 	MergeQuickInputButton,
 	OpenOnGitHubQuickInputButton,
+	OpenOnGitLabQuickInputButton,
 	OpenOnWebQuickInputButton,
 	OpenWorktreeInNewWindowQuickInputButton,
 	PinQuickInputButton,
@@ -400,7 +403,7 @@ export class FocusCommand extends QuickCommand<State> {
 								buttons.push(OpenWorktreeInNewWindowQuickInputButton);
 							}
 
-							buttons.push(OpenOnGitHubQuickInputButton);
+							buttons.push(...getOpenOnGitproviderQuickInputButtons(i.provider.id));
 
 							return {
 								label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
@@ -505,6 +508,7 @@ export class FocusCommand extends QuickCommand<State> {
 			onDidClickItemButton: async (quickpick, button, { group, item }) => {
 				switch (button) {
 					case OpenOnGitHubQuickInputButton:
+					case OpenOnGitLabQuickInputButton:
 						this.sendItemActionTelemetry('soft-open', item, group, context);
 						this.container.focus.open(item);
 						break;
@@ -554,6 +558,7 @@ export class FocusCommand extends QuickCommand<State> {
 		state: FocusStepState,
 		context: Context,
 	): StepResultGenerator<FocusAction | FocusTargetAction> {
+		const gitProviderWebButtons = getOpenOnGitproviderQuickInputButtons(state.item.provider.id);
 		const confirmations: (
 			| QuickPickItemOfT<FocusAction>
 			| QuickPickItemOfT<FocusTargetAction>
@@ -569,7 +574,7 @@ export class FocusCommand extends QuickCommand<State> {
 						createdDateRelative: fromNow(state.item.createdDate),
 					}),
 					iconPath: state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
-					buttons: [OpenOnGitHubQuickInputButton],
+					buttons: [...gitProviderWebButtons],
 				},
 				'soft-open',
 			),
@@ -605,7 +610,7 @@ export class FocusCommand extends QuickCommand<State> {
 							{
 								label: 'Merge...',
 								detail: `Will merge ${from}${into}`,
-								buttons: [OpenOnGitHubQuickInputButton],
+								buttons: [...gitProviderWebButtons],
 							},
 							action,
 						),
@@ -616,8 +621,10 @@ export class FocusCommand extends QuickCommand<State> {
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: `${this.getOpenActionLabel(state.item.actionableCategory)} on GitHub`,
-								buttons: [OpenOnGitHubQuickInputButton],
+								label: `${this.getOpenActionLabel(
+									state.item.actionableCategory,
+								)} on ${getIntegrationTitle(state.item.provider.id)}`,
+								buttons: [...gitProviderWebButtons],
 							},
 							action,
 						),
@@ -713,6 +720,7 @@ export class FocusCommand extends QuickCommand<State> {
 				onDidClickItemButton: (_quickpick, button, item) => {
 					switch (button) {
 						case OpenOnGitHubQuickInputButton:
+						case OpenOnGitLabQuickInputButton:
 							this.sendItemActionTelemetry('soft-open', state.item, state.item.group, context);
 							this.container.focus.open(state.item);
 							break;
@@ -842,14 +850,16 @@ export class FocusCommand extends QuickCommand<State> {
 			status = `$(pass) No conflicts`;
 		}
 
-		return createQuickPickItemOfT({ label: status, buttons: [OpenOnGitHubQuickInputButton] }, 'soft-open');
+		const gitProviderWebButtons = getOpenOnGitproviderQuickInputButtons(item.provider.id);
+		return createQuickPickItemOfT({ label: status, buttons: [...gitProviderWebButtons] }, 'soft-open');
 	}
 
 	private getFocusItemReviewInformation(item: FocusItem): QuickPickItemOfT<FocusAction>[] {
+		const gitProviderWebButtons = getOpenOnGitproviderQuickInputButtons(item.provider.id);
 		if (item.reviews == null || item.reviews.length === 0) {
 			return [
 				createQuickPickItemOfT(
-					{ label: `$(info) No reviewers have been assigned`, buttons: [OpenOnGitHubQuickInputButton] },
+					{ label: `$(info) No reviewers have been assigned`, buttons: [...gitProviderWebButtons] },
 					'soft-open',
 				),
 			];
@@ -881,7 +891,7 @@ export class FocusCommand extends QuickCommand<State> {
 			if (reviewLabel != null) {
 				reviewInfo.push(
 					createQuickPickItemOfT(
-						{ label: reviewLabel, iconPath: iconPath, buttons: [OpenOnGitHubQuickInputButton] },
+						{ label: reviewLabel, iconPath: iconPath, buttons: [...gitProviderWebButtons] },
 						'soft-open',
 					),
 				);
