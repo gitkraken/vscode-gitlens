@@ -11,6 +11,6 @@ test.describe('Test GitLens installation', () => {
 		const gitlensIcons = await page.getByRole('tab', { name: 'GitLens' });
 		expect(gitlensIcons).toHaveCount(2);
 
-		expect(await page.title()).toContain('[Extension Development Host] gltest-');
+		expect(await page.title()).toContain('[Extension Development Host]');
 	});
 });

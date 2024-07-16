@@ -12,17 +12,16 @@ export type TestOptions = {
 
 type TestFixtures = TestOptions & {
 	page: Page;
-	createTestProject: () => Promise<string>;
 	createTmpDir: () => Promise<string>;
 };
 
 let testProjectPath: string;
 export const test = base.extend<TestFixtures>({
 	vscodeVersion: ['insiders', { option: true }],
-	page: async ({ vscodeVersion, createTestProject, createTmpDir }, use) => {
+	page: async ({ vscodeVersion, createTmpDir }, use) => {
 		const defaultCachePath = await createTmpDir();
 		const vscodePath = await downloadAndUnzipVSCode(vscodeVersion);
-		testProjectPath = await createTestProject();
+		testProjectPath = path.join(__dirname, '../../../');
 
 		const electronApp = await _electron.launch({
 			executablePath: vscodePath,
@@ -60,24 +59,6 @@ export const test = base.extend<TestFixtures>({
 			const logOutputPath = test.info().outputPath('vscode-logs');
 			await fs.promises.cp(logPath, logOutputPath, { recursive: true });
 		}
-	},
-	createTestProject: async ({ createTmpDir }, use) => {
-		await use(async () => {
-			// We want to be outside of the project directory to avoid already installed dependencies.
-			const projectPath = await createTmpDir();
-			if (fs.existsSync(projectPath)) await fs.promises.rm(projectPath, { recursive: true });
-			console.log(`Creating project in ${projectPath}`);
-			await fs.promises.mkdir(projectPath);
-			spawnSync(`yarn init playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`, {
-				cwd: projectPath,
-				stdio: 'inherit',
-				shell: true,
-			});
-			spawnSync(`git init .`, {
-				cwd: projectPath,
-			});
-			return projectPath;
-		});
 	},
 	createTmpDir: async ({}, use) => {
 		const tempDirs: string[] = [];
