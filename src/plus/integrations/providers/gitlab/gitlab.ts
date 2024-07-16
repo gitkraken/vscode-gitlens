@@ -42,6 +42,12 @@ import type {
 } from './models';
 import { fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models';
 
+// drop it as soon as we switch to @gitkraken/providers-api
+const gitlabUserIdPrefix = 'gid://gitlab/User/';
+function buildGitLabUserId(id: string | undefined): string | undefined {
+	return id?.startsWith(gitlabUserIdPrefix) ? id.substring(gitlabUserIdPrefix.length) : id;
+}
+
 export class GitLabApi implements Disposable {
 	private readonly _disposable: Disposable;
 	private _projectIds = new Map<string, Promise<string | undefined>>();
@@ -136,6 +142,7 @@ export class GitLabApi implements Disposable {
 
 			return {
 				provider: provider,
+				id: String(user.id),
 				name: user.name || undefined,
 				email: commit.author_email || undefined,
 				avatarUrl: user.avatarUrl || undefined,
@@ -168,6 +175,7 @@ export class GitLabApi implements Disposable {
 
 			return {
 				provider: provider,
+				id: String(user.id),
 				name: user.name || undefined,
 				email: user.publicEmail || undefined,
 				avatarUrl: user.avatarUrl || undefined,
@@ -271,6 +279,7 @@ export class GitLabApi implements Disposable {
 	project(fullPath: $fullPath) {
 		mergeRequest(iid: $iid) {
 			author {
+				id
 				name
 				avatarUrl
 				webUrl
@@ -286,6 +295,7 @@ export class GitLabApi implements Disposable {
 		}
 		issue(iid: $iid) {
 			author {
+				id
 				name
 				avatarUrl
 				webUrl
@@ -398,6 +408,7 @@ export class GitLabApi implements Disposable {
 			nodes {
 				iid
 				author {
+					id
 					name
 					avatarUrl
 					webUrl
@@ -487,6 +498,7 @@ export class GitLabApi implements Disposable {
 			return new PullRequest(
 				provider,
 				{
+					id: buildGitLabUserId(pr.author?.id) ?? '',
 					name: pr.author?.name ?? 'Unknown',
 					avatarUrl: pr.author?.avatarUrl ?? '',
 					url: pr.author?.webUrl ?? '',

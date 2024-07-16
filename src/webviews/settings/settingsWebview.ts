@@ -219,6 +219,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 							pr = new PullRequest(
 								{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
 								{
+									id: 'eamodio',
 									name: 'Eric Amodio',
 									avatarUrl: 'https://avatars1.githubusercontent.com/u/641685?s=32&v=4',
 									url: 'https://github.com/eamodio',

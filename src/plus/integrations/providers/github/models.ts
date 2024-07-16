@@ -174,6 +174,7 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 	return new PullRequest(
 		provider,
 		{
+			id: pr.author.login,
 			name: pr.author.login,
 			avatarUrl: pr.author.avatarUrl,
 			url: pr.author.url,
@@ -312,6 +313,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 	return new PullRequest(
 		provider,
 		{
+			id: pr.author.login,
 			name: pr.author.login,
 			avatarUrl: pr.author.avatarUrl,
 			url: pr.author.url,
@@ -363,6 +365,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 					? {
 							isCodeOwner: r.asCodeOwner,
 							reviewer: {
+								id: r.requestedReviewer.login,
 								name: r.requestedReviewer.login,
 								avatarUrl: r.requestedReviewer.avatarUrl,
 								url: r.requestedReviewer.url,
@@ -374,6 +377,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 			.filter(<T>(r?: T): r is T => Boolean(r)),
 		pr.latestReviews.nodes.map(r => ({
 			reviewer: {
+				id: r.author.login,
 				name: r.author.login,
 				avatarUrl: r.author.avatarUrl,
 				url: r.author.url,
@@ -381,6 +385,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 			state: fromGitHubPullRequestReviewState(r.state),
 		})),
 		pr.assignees.nodes.map(r => ({
+			id: r.login,
 			name: r.login,
 			avatarUrl: r.avatarUrl,
 			url: r.url,
@@ -406,6 +411,7 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
 		value.closed,
 		fromGitHubIssueOrPullRequestState(value.state),
 		{
+			id: value.author.login,
 			name: value.author.login,
 			avatarUrl: value.author.avatarUrl,
 			url: value.author.url,
@@ -416,6 +422,7 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
 			accessLevel: fromGitHubViewerPermissionToAccessLevel(value.repository.viewerPermission),
 		},
 		value.assignees.nodes.map(assignee => ({
+			id: assignee.login,
 			name: assignee.login,
 			avatarUrl: assignee.avatarUrl,
 			url: assignee.url,

@@ -261,10 +261,11 @@ export class GitHubApi implements Disposable {
 }`;
 
 			const rsp = await this.graphql<QueryResult>(provider, token, query, { ...options }, scope);
-			if (rsp?.viewer == null) return undefined;
+			if (rsp?.viewer?.login == null) return undefined;
 
 			return {
 				provider: provider,
+				id: rsp.viewer.login,
 				name: rsp.viewer.name ?? undefined,
 				email: rsp.viewer.email ?? undefined,
 				// If we are GitHub Enterprise, we may need to convert the avatar URL since it might require authentication
@@ -365,6 +366,7 @@ export class GitHubApi implements Disposable {
 
 			return {
 				provider: provider,
+				id: author?.user?.login ?? '',
 				name: author.name ?? undefined,
 				email: author.email ?? undefined,
 				// If we are GitHub Enterprise, we may need to convert the avatar URL since it might require authentication
@@ -455,6 +457,7 @@ export class GitHubApi implements Disposable {
 
 			return {
 				provider: provider,
+				id: author.login ?? '',
 				name: author.name ?? undefined,
 				email: author.email ?? undefined,
 				// If we are GitHub Enterprise, we may need to convert the avatar URL since it might require authentication

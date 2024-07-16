@@ -56,6 +56,7 @@ export interface PullRequestRefs {
 }
 
 export interface PullRequestMember {
+	id: string;
 	name: string;
 	avatarUrl?: string;
 	url?: string;
@@ -103,6 +104,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		closedDate: value.closedDate,
 		closed: value.closed,
 		author: {
+			id: value.author.id,
 			name: value.author.name,
 			avatarUrl: value.author.avatarUrl,
 			url: value.author.url,
@@ -149,6 +151,7 @@ export class PullRequest implements PullRequestShape {
 	constructor(
 		public readonly provider: ProviderReference,
 		public readonly author: {
+			readonly id: string;
 			readonly name: string;
 			readonly avatarUrl?: string;
 			readonly url?: string;

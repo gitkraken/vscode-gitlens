@@ -279,6 +279,7 @@ abstract class GitLabIntegrationBase<
 				domain: this.domain,
 				icon: this.icon,
 			},
+			id: currentUser.id,
 			name: currentUser.name || undefined,
 			email: currentUser.email || undefined,
 			avatarUrl: currentUser.avatarUrl || undefined,
