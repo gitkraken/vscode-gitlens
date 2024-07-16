@@ -1,4 +1,4 @@
-import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
+import { downloadAndUnzipVSCode } from '@vscode/test-electron';
 
 export default async () => {
 	await downloadAndUnzipVSCode('insiders');
