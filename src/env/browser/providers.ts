@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await */
 import type { Container } from '../../container';
 import type { GitCommandOptions } from '../../git/commandOptions';
 // Force import of GitHub since dynamic imports are not supported in the WebWorker ExtensionHost
@@ -20,7 +21,7 @@ export function gitLogStreamTo(
 	return Promise.resolve([[''], 0]);
 }
 
-export function getSupportedGitProviders(container: Container): GitProvider[] {
+export async function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {
 	return [new GitHubGitProvider(container)];
 }
 

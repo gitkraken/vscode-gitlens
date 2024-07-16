@@ -1,0 +1,6 @@
+{
+	"all": true,
+	"include": ["out/**/*"],
+	"exclude": ["**/node_modules/**", "out/test/", "out/**/*.test.*", "**/@types/**", "**/ai/**", "**/env/**"],
+	"reporter": ["html", "text"]
+}

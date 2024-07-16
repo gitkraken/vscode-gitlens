@@ -9,14 +9,13 @@ export function run(): Promise<void> {
 		color: true,
 	});
 
-	const testsRoot = path.resolve(__dirname, '..');
-
+	const srcRoot = path.resolve(__dirname, '../..');
 	return new Promise((c, e) => {
-		glob('**/**.test.js', { cwd: testsRoot })
+		glob('**/**.test.js', { cwd: srcRoot })
 			.then(files => {
 				// Add files to the test suite
 				files.forEach(f => {
-					mocha.addFile(path.resolve(testsRoot, f));
+					mocha.addFile(path.resolve(srcRoot, f));
 				});
 
 				try {

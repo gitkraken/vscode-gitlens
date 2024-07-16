@@ -29,9 +29,17 @@ suite('Color Test Suite', () => {
 		assert.strictEqual(formatRGB(Color.from('hsl(0 0% 100%)')), 'rgb(255, 255, 255)');
 	});
 	test('mix', () => {
-		assert.strictEqual(mix('#FFFFFF', '#000000', 50), '#808080');
+		assert.strictEqual(mix('#FFFFFF', '#000000', 50), '#7f7f7f');
 	});
 	test('opacity', () => {
 		assert.strictEqual(opacity('#FFFFFF', 50), 'rgba(255, 255, 255, 0.5)');
+	});
+	test('round', () => {
+		assert.strictEqual(new Color(new RGBA(127.5, 127.5, 127.5, 0.5)).toString(), 'rgba(127, 127, 127, 0.5)');
+		assert.strictEqual(new Color(new RGBA(127.5, 127.5, 127.5, 1)).toString(), '#7f7f7f');
+	});
+	test('make opaque', () => {
+		assert.strictEqual(new Color(new RGBA(0, 0, 0, 0.5)).makeOpaque(Color.white).toString(), '#7f7f7f');
+		assert.strictEqual(new Color(new RGBA(255, 255, 255, 0.5)).makeOpaque(Color.black).toString(), '#7f7f7f');
 	});
 });

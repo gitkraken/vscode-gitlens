@@ -110,6 +110,12 @@ export class RGBA {
 	 */
 	readonly a: number;
 
+	/**
+	 * Constrictor does validation of inputs, so you can put any numbers as inputs.
+	 * But keep in mind that result value will be validated next way
+	 * @param band (r | g | b) integer value from 0 to 255 rounded down
+	 * @param alpha (a) - float value from 0 to 1 rounded to 3 decimal points
+	 */
 	constructor(r: number, g: number, b: number, a: number = 1) {
 		this.r = Math.min(255, Math.max(0, r)) | 0;
 		this.g = Math.min(255, Math.max(0, g)) | 0;
@@ -623,7 +629,7 @@ export function formatHSLA(color: Color): string {
 }
 
 function _toTwoDigitHex(n: number): string {
-	const r = n.toString(16);
+	const r = Math.round(n).toString(16);
 	return r.length !== 2 ? `0${r}` : r;
 }
 
@@ -755,7 +761,7 @@ export function parseHexColor(hex: string): Color | null {
 	}
 }
 
-function _parseHexDigit(charCode: CharCode): number {
+export function _parseHexDigit(charCode: CharCode): number {
 	switch (charCode) {
 		case CharCode.Digit0:
 			return 0;

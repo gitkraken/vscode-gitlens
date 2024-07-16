@@ -9,3 +9,4 @@ images/settings
 gitlens-*.vsix
 tsconfig*.tsbuildinfo
 .DS_Store
+coverage/**

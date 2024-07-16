@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import js from '@eslint/js';
 import { FlatCompat } from '@eslint/eslintrc';
+// import webviewsEslint from './src/webviews/apps/eslint.webviews.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,14 +16,25 @@ const compat = new FlatCompat({
 export default [
 	{
 		ignores: [
-			// do not check itself
 			'**/eslint*',
-			'src/webviews/apps/**/*',
+			'out/**',
+			'scripts/**',
+			'coverage/**',
+			'walkthroughs/**',
+			'*.config.js',
+			'patches/**',
+			'node_modules/**',
+			'dist/**',
+			'images/**',
+			'.vscode/**',
+			'.github/**',
+			'.wdio-vscode-service/**',
+			'esbuild.mjs',
 		],
 	},
-	...compat.extends('.eslintrc.base.json'),
+	...compat.extends('.eslintrc.base.json', 'plugin:lit/recommended', 'plugin:wc/recommended'),
 	{
-		ignores: ['src/**/__tests__/*.test.ts', 'src/env/browser/*', 'src/test/suite/**'],
+		ignores: ['src/**/__tests__/*.test.ts', 'src/env/browser/*', 'src/test/suite/**', 'src/webviews/apps/**/*'],
 		files: ['src/**'],
 		languageOptions: {
 			globals: {
