@@ -11,6 +11,7 @@ import { getLogScope } from '../../../system/logger.scope';
 import { openUrl } from '../../../system/utils';
 import type { ServerConnection } from '../serverConnection';
 
+export const LoginUriPathPrefix = 'login';
 export const AuthenticationUriPathPrefix = 'did-authenticate';
 
 interface AccountInfo {
@@ -113,7 +114,7 @@ export class AuthenticationConnection implements Disposable {
 				new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
 			]);
 
-			const token = await this.getTokenFromCodeAndState(scopeKey, code, gkstate);
+			const token = await this.getTokenFromCodeAndState(code, gkstate, scopeKey);
 			return token;
 		} finally {
 			this._cancellationSource?.cancel();
@@ -167,10 +168,12 @@ export class AuthenticationConnection implements Disposable {
 		}
 	}
 
-	private async getTokenFromCodeAndState(scopeKey: string, code: string, state: string): Promise<string> {
-		const existingStates = this._pendingStates.get(scopeKey);
-		if (!existingStates?.includes(state)) {
-			throw new Error('Getting token failed: Invalid state');
+	async getTokenFromCodeAndState(code: string, state?: string, scopeKey?: string): Promise<string> {
+		if (state != null && scopeKey != null) {
+			const existingStates = this._pendingStates.get(scopeKey);
+			if (!existingStates?.includes(state)) {
+				throw new Error('Getting token failed: Invalid state');
+			}
 		}
 
 		const rsp = await this.connection.fetchGkDevApi(
@@ -181,7 +184,7 @@ export class AuthenticationConnection implements Disposable {
 					grant_type: 'authorization_code',
 					client_id: 'gitkraken.gitlens',
 					code: code,
-					state: state,
+					state: state ?? '',
 				}),
 			},
 			{

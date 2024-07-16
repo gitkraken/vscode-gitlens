@@ -28,6 +28,11 @@ export const authenticationProviderId = 'gitlens+';
 export const authenticationProviderScopes = ['gitlens'];
 const authenticationLabel = 'GitKraken: GitLens';
 
+export interface AuthenticationProviderOptions {
+	signUp?: boolean;
+	signIn?: { code: string; state?: string };
+}
+
 export class AccountAuthenticationProvider implements AuthenticationProvider, Disposable {
 	private _onDidChangeSessions = new EventEmitter<AuthenticationProviderAuthenticationSessionsChangeEvent>();
 	get onDidChangeSessions() {
@@ -37,6 +42,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 	private readonly _disposable: Disposable;
 	private readonly _authConnection: AuthenticationConnection;
 	private _sessionsPromise: Promise<AuthenticationSession[]>;
+	private _optionsByScope: Map<string, AuthenticationProviderOptions> | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -68,22 +74,32 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		return this._authConnection.abort();
 	}
 
+	public setOptionsForScopes(scopes: string[], options: AuthenticationProviderOptions) {
+		this._optionsByScope ??= new Map<string, AuthenticationProviderOptions>();
+		this._optionsByScope.set(getScopesKey(scopes), options);
+	}
+
+	public clearOptionsForScopes(scopes: string[]) {
+		this._optionsByScope?.delete(getScopesKey(scopes));
+	}
+
 	@debug()
 	public async createSession(scopes: string[]): Promise<AuthenticationSession> {
 		const scope = getLogScope();
 
-		const signUp = scopes.includes('signUp');
-		// 'signUp' is just a flag, not a valid scope, so remove it before continuing
-		if (signUp) {
-			scopes = scopes.filter(s => s !== 'signUp');
+		const options = this._optionsByScope?.get(getScopesKey(scopes));
+		if (options != null) {
+			this._optionsByScope?.delete(getScopesKey(scopes));
 		}
-
 		// Ensure that the scopes are sorted consistently (since we use them for matching and order doesn't matter)
 		scopes = scopes.sort();
 		const scopesKey = getScopesKey(scopes);
 
 		try {
-			const token = await this._authConnection.login(scopes, scopesKey, signUp);
+			const token =
+				options?.signIn != null
+					? await this._authConnection.getTokenFromCodeAndState(options.signIn.code, options.signIn.state)
+					: await this._authConnection.login(scopes, scopesKey, options?.signUp);
 			const session = await this.createSessionForToken(token, scopes);
 
 			const sessions = await this._sessionsPromise;
