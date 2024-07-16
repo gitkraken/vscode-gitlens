@@ -68,14 +68,13 @@ export const test = base.extend<TestFixtures>({
 			if (fs.existsSync(projectPath)) await fs.promises.rm(projectPath, { recursive: true });
 			console.log(`Creating project in ${projectPath}`);
 			await fs.promises.mkdir(projectPath);
+			await fs.promises.cp(path.join(__dirname, '../test-repo'), projectPath, { recursive: true });
 			spawnSync(`yarn init playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`, {
 				cwd: projectPath,
 				stdio: 'inherit',
 				shell: true,
 			});
-			spawnSync(`git init .`, {
-				cwd: projectPath,
-			});
+
 			return projectPath;
 		});
 	},
