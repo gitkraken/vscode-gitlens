@@ -305,6 +305,12 @@ ul {
 			opacity: 1;
 		}
 	}
+	&.is-collapsed {
+		cursor: pointer;
+		&:hover {
+			background-color: var(--color-alert-neutralHoverBackground);
+		}
+	}
 
 	&.is-collapsed &__description,
 	&.is-collapsed &__close gl-tooltip:first-child,
