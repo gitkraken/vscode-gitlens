@@ -1386,10 +1386,7 @@ export class GitProviderService implements Disposable {
 
 	@gate()
 	@log()
-	pull(
-		repoPath: string | Uri,
-		options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean },
-	): Promise<void> {
+	pull(repoPath: string | Uri, options?: { rebase?: boolean; tags?: boolean }): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.pull(path, options);
 	}

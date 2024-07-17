@@ -1538,26 +1538,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@gate()
 	@log()
-	async pull(
-		repoPath: string,
-		options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean },
-	): Promise<void> {
+	async pull(repoPath: string, options?: { rebase?: boolean; tags?: boolean }): Promise<void> {
 		const scope = getLogScope();
-
-		let branch = options?.branch;
-		if (!isBranchReference(branch)) {
-			branch = await this.getBranch(repoPath);
-			if (branch == null) return undefined;
-		}
-
-		const [branchName, remoteName] = getBranchNameAndRemote(branch);
-		if (remoteName == null && branch.upstream == null) return undefined;
 
 		try {
 			await this.git.pull(repoPath, {
-				branch: branchName,
-				remote: remoteName,
-				upstream: getBranchTrackingWithoutRemote(branch),
 				rebase: options?.rebase,
 				tags: options?.tags,
 			});
