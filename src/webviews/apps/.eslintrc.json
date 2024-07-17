@@ -1,3 +1,4 @@
+// Used for linting while building via webpack
 {
 	"extends": ["../../../.eslintrc.base.json", "plugin:lit/recommended", "plugin:wc/recommended"],
 	"env": {

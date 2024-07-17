@@ -7,6 +7,7 @@ export class RepositoryWebPathMappingProvider implements RepositoryPathMappingPr
 
 	dispose() {}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async getLocalRepoPaths(_options: {
 		remoteUrl?: string;
 		repoInfo?: { provider?: string; owner?: string; repoName?: string };

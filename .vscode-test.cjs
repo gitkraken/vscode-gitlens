@@ -7,6 +7,6 @@ module.exports = defineConfig([
 			timeout: 20000,
 		},
 		label: 'unitTests',
-		files: 'out/test/suite/**/*.test.js',
+		files: 'out/**/*.test.js',
 	},
 ]);

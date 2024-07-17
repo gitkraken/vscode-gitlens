@@ -78,7 +78,7 @@ function getExtensionConfig(target, mode, env) {
 					cacheStrategy: 'content',
 					overrideConfigFile: path.join(
 						__dirname,
-						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
+						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.node.json',
 					),
 				},
 			}),
@@ -354,6 +354,7 @@ function getWebviewsConfig(mode, env) {
 					cache: true,
 					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
 					cacheStrategy: 'content',
+					// uses config file src/webviews/apps/.eslintrc.json
 				},
 			}),
 		);

@@ -1,8 +1,8 @@
-import { Container } from '../../container';
-import { GitCommandOptions } from '../../git/commandOptions';
+import type { Container } from '../../container';
+import type { GitCommandOptions } from '../../git/commandOptions';
 // Force import of GitHub since dynamic imports are not supported in the WebWorker ExtensionHost
+import type { GitProvider } from '../../git/gitProvider';
 import { GitHubGitProvider } from '../../plus/integrations/providers/github/githubGitProvider';
-import { GitProvider } from '../../git/gitProvider';
 import { RepositoryWebPathMappingProvider } from './pathMapping/repositoryWebPathMappingProvider';
 import { WorkspacesWebPathMappingProvider } from './pathMapping/workspacesWebPathMappingProvider';
 
@@ -20,7 +20,7 @@ export function gitLogStreamTo(
 	return Promise.resolve([[''], 0]);
 }
 
-export async function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {
+export function getSupportedGitProviders(container: Container): GitProvider[] {
 	return [new GitHubGitProvider(container)];
 }
 

@@ -2,34 +2,34 @@ import * as assert from 'assert';
 import { basename } from 'path';
 import { before, suite, test } from 'mocha';
 import { Uri } from 'vscode';
-import { isLinux } from '../../../env/node/platform';
-import { normalizeRepoUri } from '../../../repositories';
-import type { UriEntry } from '../../../system/trie';
-import { PathEntryTrie, UriEntryTrie, UriTrie } from '../../../system/trie';
-import paths from './paths.json';
+import { isLinux } from '../../env/node/platform';
+import { normalizeRepoUri } from '../../repositories';
+import type { UriEntry } from '../trie';
+import { PathEntryTrie, UriEntryTrie, UriTrie } from '../trie';
+import paths from './__mock__/paths.json';
 
 suite.skip('PathEntryTrie Test Suite', () => {
 	type Repo = { type: 'repo'; name: string; path: string; fsPath: string };
 	type File = { type: 'file'; name: string; path: string };
 
-	const repoGL: Repo = {
+	const repoGL = {
 		type: 'repo',
 		name: 'vscode-gitlens',
-		path: 'c:/Users/Name/code/gitkraken/vscode-gitlens',
+		path: 'C:/Users/Name/code/gitkraken/vscode-gitlens',
 		fsPath: 'C:\\Users\\Name\\code\\gitkraken\\vscode-gitlens',
-	};
-	const repoNested: Repo = {
+	} as const satisfies Repo;
+	const repoNested = {
 		type: 'repo',
 		name: 'repo',
-		path: 'c:/Users/Name/code/gitkraken/vscode-gitlens/nested/repo',
+		path: 'C:/Users/Name/code/gitkraken/vscode-gitlens/nested/repo',
 		fsPath: 'C:\\Users\\Name\\code\\gitkraken\\vscode-gitlens\\nested\\repo',
-	};
-	const repoVSC: Repo = {
+	} as const satisfies Repo;
+	const repoVSC = {
 		type: 'repo',
 		name: 'vscode',
-		path: 'c:/Users/Name/code/microsoft/vscode',
+		path: 'C:/Users/Name/code/microsoft/vscode',
 		fsPath: 'C:\\Users\\Name\\code\\microsoft\\vscode',
-	};
+	} as const satisfies Repo;
 
 	const trie = new PathEntryTrie<Repo | File>();
 
@@ -290,32 +290,32 @@ suite.skip('UriEntryTrie Test Suite', () => {
 	type Repo = { type: 'repo'; name: string; uri: Uri; fsPath: string };
 	type File = { type: 'file'; name: string; uri: Uri };
 
-	const repoGL: Repo = {
+	const repoGL = {
 		type: 'repo',
 		name: 'vscode-gitlens',
 		uri: Uri.file('c:/Users/Name/code/gitkraken/vscode-gitlens'),
 		fsPath: 'c:/Users/Name/code/gitkraken/vscode-gitlens',
-	};
-	const repoNested: Repo = {
+	} as const satisfies Repo;
+	const repoNested = {
 		type: 'repo',
 		name: 'repo',
 		uri: Uri.file('c:/Users/Name/code/gitkraken/vscode-gitlens/nested/repo'),
 		fsPath: 'c:/Users/Name/code/gitkraken/vscode-gitlens/nested/repo',
-	};
-	const repoGLvfs: Repo = {
+	} as const satisfies Repo;
+	const repoGLvfs = {
 		type: 'repo',
 		name: 'vscode-gitlens',
 		uri: Uri.parse('vscode-vfs://github/gitkraken/vscode-gitlens'),
 		fsPath: 'github/gitkraken/vscode-gitlens',
-	};
-	const repoVSCvfs: Repo = {
+	} as const satisfies Repo;
+	const repoVSCvfs = {
 		type: 'repo',
 		name: 'vscode',
 		uri: Uri.parse('vscode-vfs://github/microsoft/vscode'),
 		fsPath: 'github/microsoft/vscode',
-	};
+	} as const satisfies Repo;
 
-	const trie = new UriEntryTrie<Repo | File>(() => ({ ignoreCase: false, path: '' }));
+	const trie = new UriEntryTrie<Repo | File>(_ => ({ ignoreCase: false, path: '' }));
 
 	function assertRepoEntry(actual: UriEntry<Repo | File> | undefined, expected: Repo): void {
 		assert.strictEqual(actual?.path, expected.name);
@@ -785,30 +785,30 @@ suite.skip('UriEntryTrie Test Suite', () => {
 suite.skip('UriTrie(Repositories) Test Suite', () => {
 	type Repo = { type: 'repo'; name: string; uri: Uri; fsPath: string };
 
-	const repoGL: Repo = {
+	const repoGL = {
 		type: 'repo',
 		name: 'vscode-gitlens',
 		uri: Uri.file('c:/Users/Name/code/gitkraken/vscode-gitlens'),
 		fsPath: 'c:/Users/Name/code/gitkraken/vscode-gitlens',
-	};
-	const repoNested: Repo = {
+	} as const satisfies Repo;
+	const repoNested = {
 		type: 'repo',
 		name: 'repo',
 		uri: Uri.file('c:/Users/Name/code/gitkraken/vscode-gitlens/nested/repo'),
 		fsPath: 'c:/Users/Name/code/gitkraken/vscode-gitlens/nested/repo',
-	};
-	const repoGLvfs: Repo = {
+	} as const satisfies Repo;
+	const repoGLvfs = {
 		type: 'repo',
 		name: 'vscode-gitlens',
 		uri: Uri.parse('vscode-vfs://github/gitkraken/vscode-gitlens'),
 		fsPath: 'github/gitkraken/vscode-gitlens',
-	};
-	const repoVSCvfs: Repo = {
+	} as const satisfies Repo;
+	const repoVSCvfs = {
 		type: 'repo',
 		name: 'vscode',
 		uri: Uri.parse('vscode-vfs://github/microsoft/vscode'),
 		fsPath: 'github/microsoft/vscode',
-	};
+	} as const satisfies Repo;
 
 	const trie = new UriTrie<Repo>(normalizeRepoUri);
 
