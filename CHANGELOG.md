@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- GitLab & GitLab self-managed access tokens now require `api` scope instead of `read_api` to be able to merge Pull Requests.
+
 ## [15.2.0] - 2024-07-10
 
 ### Added
