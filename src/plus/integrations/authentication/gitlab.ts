@@ -59,7 +59,9 @@ export class GitLabAuthenticationProvider extends LocalIntegrationAuthentication
 				input.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
 				input.prompt = `Paste your [GitLab Personal Access Token](https://${
 					descriptor?.domain ?? 'gitlab.com'
-				}/-/profile/personal_access_tokens "Get your GitLab Access Token")`;
+				}/-/user_settings/personal_access_tokens?name=GitLens+Access+token&scopes=${
+					descriptor?.scopes.join(',') ?? 'all'
+				} "Get your GitLab Access Token")`;
 				input.buttons = [infoButton];
 
 				input.show();
