@@ -44,6 +44,9 @@ export class HomeApp extends App<State> {
 			DOM.on('[data-section-toggle]', 'click', (e, target: HTMLElement) =>
 				this.onSectionToggleClicked(e, target),
 			),
+			DOM.on('[data-section-expand]', 'click', (e, target: HTMLElement) =>
+				this.onSectionExpandClicked(e, target),
+			),
 		);
 
 		return disposables;
@@ -100,17 +103,22 @@ export class HomeApp extends App<State> {
 		}
 	}
 
-	private onSectionToggleClicked(_e: MouseEvent, _target: HTMLElement) {
-		// const section = target.dataset.sectionToggle;
-		// if (section === 'walkthrough') {
-		this.state.walkthroughCollapsed = !this.state.walkthroughCollapsed;
-		this.setState(this.state);
-		this.updateCollapsedSections(this.state.walkthroughCollapsed);
-		this.sendCommand(CollapseSectionCommand, {
-			section: 'walkthrough',
-			collapsed: this.state.walkthroughCollapsed,
-		});
-		// }
+	private onSectionToggleClicked(e: MouseEvent, target: HTMLElement) {
+		e.stopImmediatePropagation();
+		const section = target.dataset.sectionToggle;
+		if (section !== 'walkthrough') {
+			return;
+		}
+
+		this.updateCollapsedSections(!this.state.walkthroughCollapsed);
+	}
+
+	private onSectionExpandClicked(e: MouseEvent, target: HTMLElement) {
+		const section = target.dataset.sectionExpand;
+		if (section !== 'walkthrough') {
+			return;
+		}
+		this.updateCollapsedSections(false);
 	}
 
 	private updateNoRepo() {
@@ -165,7 +173,13 @@ export class HomeApp extends App<State> {
 	}
 
 	private updateCollapsedSections(toggle = this.state.walkthroughCollapsed) {
+		this.state.walkthroughCollapsed = toggle;
+		this.setState({ walkthroughCollapsed: toggle });
 		document.getElementById('section-walkthrough')!.classList.toggle('is-collapsed', toggle);
+		this.sendCommand(CollapseSectionCommand, {
+			section: 'walkthrough',
+			collapsed: toggle,
+		});
 	}
 
 	private updateState() {
