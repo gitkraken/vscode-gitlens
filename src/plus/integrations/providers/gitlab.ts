@@ -1,6 +1,7 @@
 import type { GitPullRequest } from '@gitkraken/provider-apis';
 import { GitPullRequestReviewState } from '@gitkraken/provider-apis';
 import type { AuthenticationSession, CancellationToken } from 'vscode';
+import { window } from 'vscode';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -257,8 +258,28 @@ abstract class GitLabIntegrationBase<
 	): Promise<boolean> {
 		if (!this.isPullRequest(pr)) return false;
 		const api = await this.getProvidersApi();
-		const res = await api.mergePullRequest(this.id, pr, options);
-		return res;
+		try {
+			const res = await api.mergePullRequest(this.id, pr, options);
+			return res;
+		} catch (ex) {
+			void this.showMergeErrorMessage(ex);
+			return false;
+		}
+	}
+
+	private async showMergeErrorMessage(ex: Error) {
+		// Unfortunately, providers-api does not let us know the exact reason for the error,
+		// so we show the same message to everything.
+		// When we update the library, we can improve the error handling here.
+		const confirm = 'Reauthenticate';
+		const result = await window.showErrorMessage(
+			`${ex.message}. Would you like to try reauthenticating to provide additional access? Your token needs to have the 'api' scope to perform merge.`,
+			confirm,
+		);
+
+		if (result === confirm) {
+			await this.reauthenticate();
+		}
 	}
 
 	private isPullRequest(pr: PullRequest | { id: string; headRefSha: string }): pr is PullRequest {
