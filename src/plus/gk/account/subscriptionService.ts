@@ -47,6 +47,7 @@ import type { GKCheckInResponse } from '../checkin';
 import { getSubscriptionFromCheckIn } from '../checkin';
 import type { ServerConnection } from '../serverConnection';
 import { ensurePlusFeaturesEnabled } from '../utils';
+import { AuthenticationContext } from './authenticationConnection';
 import { authenticationProviderId, authenticationProviderScopes } from './authenticationProvider';
 import type { Organization } from './organization';
 import type { Subscription } from './subscription';
@@ -361,7 +362,31 @@ export class SubscriptionService implements Disposable {
 			);
 		}
 
-		return this.loginCore({ signUp: signUp, source: source });
+		let context: AuthenticationContext | undefined;
+		switch (source?.source) {
+			case 'graph':
+				context = AuthenticationContext.Graph;
+				break;
+			case 'timeline':
+				context = AuthenticationContext.VisualFileHistory;
+				break;
+			case 'git-commands':
+				if (
+					source.detail != null &&
+					typeof source.detail !== 'string' &&
+					(source.detail['action'] === 'worktree' ||
+						source.detail['step.title'] === 'Create Worktree' ||
+						source.detail['step.title'] === 'Open Worktree')
+				) {
+					context = AuthenticationContext.Worktrees;
+				}
+				break;
+			case 'worktrees':
+				context = AuthenticationContext.Worktrees;
+				break;
+		}
+
+		return this.loginCore({ signUp: signUp, source: source, context: context });
 	}
 
 	async loginWithCode(authentication: { code: string; state?: string }, source?: Source): Promise<boolean> {
@@ -382,6 +407,7 @@ export class SubscriptionService implements Disposable {
 		signUp?: boolean;
 		source?: Source;
 		signIn?: { code: string; state?: string };
+		context?: AuthenticationContext;
 	}): Promise<boolean> {
 		// Abort any waiting authentication to ensure we can start a new flow
 		await this.container.accountAuthentication.abort();
@@ -390,6 +416,7 @@ export class SubscriptionService implements Disposable {
 		const session = await this.ensureSession(true, {
 			signIn: options?.signIn,
 			signUp: options?.signUp,
+			context: options?.context,
 		});
 		const loggedIn = Boolean(session);
 		if (loggedIn) {
@@ -941,7 +968,12 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private async ensureSession(
 		createIfNeeded: boolean,
-		options?: { force?: boolean; signUp?: boolean; signIn?: { code: string; state?: string } },
+		options?: {
+			force?: boolean;
+			signUp?: boolean;
+			signIn?: { code: string; state?: string };
+			context?: AuthenticationContext;
+		},
 	): Promise<AuthenticationSession | undefined> {
 		if (this._sessionPromise != null) {
 			void (await this._sessionPromise);
@@ -954,6 +986,7 @@ export class SubscriptionService implements Disposable {
 			this._sessionPromise = this.getOrCreateSession(createIfNeeded, {
 				signUp: options?.signUp,
 				signIn: options?.signIn,
+				context: options?.context,
 			}).then(
 				s => {
 					this._session = s;
@@ -975,7 +1008,7 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private async getOrCreateSession(
 		createIfNeeded: boolean,
-		options?: { signUp?: boolean; signIn?: { code: string; state?: string } },
+		options?: { signUp?: boolean; signIn?: { code: string; state?: string }; context?: AuthenticationContext },
 	): Promise<AuthenticationSession | null> {
 		const scope = getLogScope();
 
