@@ -209,30 +209,24 @@ export class EnrichmentService implements Disposable {
 	}
 }
 
+const supportedRemoteProvidersToEnrich: Record<string, EnrichedItemResponse['provider']> = {
+	'azure-devops': 'azure',
+	bitbucket: 'bitbucket',
+	'bitbucket-server': 'bitbucket',
+	github: 'github',
+	gitlab: 'gitlab',
+};
+
 export function convertRemoteProviderToEnrichProvider(provider: RemoteProvider): EnrichedItemResponse['provider'] {
 	return convertRemoteProviderIdToEnrichProvider(provider.id);
 }
 
 export function convertRemoteProviderIdToEnrichProvider(id: string): EnrichedItemResponse['provider'] {
-	switch (id) {
-		case 'azure-devops':
-			return 'azure';
-
-		case 'bitbucket':
-		case 'bitbucket-server':
-			return 'bitbucket';
-
-		case 'github':
-			return 'github';
-
-		case 'gitlab':
-			return 'gitlab';
-
-		default:
-			throw new Error(`Unknown remote provider '${id}'`);
-	}
+	const enrichProvider = supportedRemoteProvidersToEnrich[id];
+	if (enrichProvider == null) throw new Error(`Unknown remote provider '${id}'`);
+	return enrichProvider;
 }
 
 export function isEnrichableRemoteProviderId(id: string): id is RemoteProvider['id'] {
-	return id === 'azure-devops' || id === 'bitbucket' || id === 'github' || id === 'gitlab';
+	return supportedRemoteProvidersToEnrich[id] != null;
 }
