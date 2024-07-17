@@ -242,17 +242,12 @@ export class PullError extends Error {
 
 	constructor(reason?: PullErrorReason, original?: Error, branch?: string, remote?: string);
 	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | PullErrorReason | undefined,
-		original?: Error,
-		branch?: string,
-		remote?: string,
-	) {
+	constructor(messageOrReason: string | PullErrorReason | undefined, original?: Error) {
 		let message;
 		let reason: PullErrorReason | undefined;
-		const baseMessage = `Unable to pull${branch ? ` branch '${branch}'` : ''}${remote ? ` from ${remote}` : ''}`;
+		const baseMessage = `Unable to pull`;
 		if (messageOrReason == null) {
-			message = 'Unable to pull';
+			message = baseMessage;
 		} else if (typeof messageOrReason === 'string') {
 			message = messageOrReason;
 			reason = undefined;

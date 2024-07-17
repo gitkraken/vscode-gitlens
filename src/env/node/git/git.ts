@@ -1022,10 +1022,7 @@ export class Git {
 		}
 	}
 
-	async pull(
-		repoPath: string,
-		options: { branch?: string; remote?: string; upstream?: string; rebase?: boolean; tags?: boolean },
-	): Promise<void> {
+	async pull(repoPath: string, options: { rebase?: boolean; tags?: boolean }): Promise<void> {
 		const params = ['pull'];
 
 		if (options.tags) {
@@ -1034,11 +1031,6 @@ export class Git {
 
 		if (options.rebase) {
 			params.push('-r');
-		}
-
-		if (options.remote && options.branch) {
-			params.push(options.remote);
-			params.push(options.upstream ? `${options.upstream}:${options.branch}` : options.branch);
 		}
 
 		try {
@@ -1077,7 +1069,7 @@ export class Git {
 				reason = PullErrorReason.TagConflict;
 			}
 
-			throw new PullError(reason, ex, options?.branch, options?.remote);
+			throw new PullError(reason, ex);
 		}
 	}
 
