@@ -11,6 +11,7 @@ import { debug } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
 import type { ServerConnection } from '../serverConnection';
+import type { AuthenticationContext } from './authenticationConnection';
 import { AuthenticationConnection } from './authenticationConnection';
 
 interface StoredSession {
@@ -31,6 +32,7 @@ const authenticationLabel = 'GitKraken: GitLens';
 export interface AuthenticationProviderOptions {
 	signUp?: boolean;
 	signIn?: { code: string; state?: string };
+	context?: AuthenticationContext;
 }
 
 export class AccountAuthenticationProvider implements AuthenticationProvider, Disposable {
@@ -99,7 +101,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 			const token =
 				options?.signIn != null
 					? await this._authConnection.getTokenFromCodeAndState(options.signIn.code, options.signIn.state)
-					: await this._authConnection.login(scopes, scopesKey, options?.signUp);
+					: await this._authConnection.login(scopes, scopesKey, options?.signUp, options?.context);
 			const session = await this.createSessionForToken(token, scopes);
 
 			const sessions = await this._sessionsPromise;

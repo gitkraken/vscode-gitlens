@@ -857,7 +857,8 @@ export type Sources =
 	| 'scm-input'
 	| 'subscription'
 	| 'walkthrough'
-	| 'welcome';
+	| 'welcome'
+	| 'worktrees';
 
 export interface Source {
 	source: Sources;
