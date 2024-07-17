@@ -55,6 +55,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the _Learn More_ link not working in the account verification dialog
 - Upgrading to Pro, managing a GitKraken account, and managing or connecting cloud integrations now no longer require the user to log in again in their respective pages on _gitkraken.dev_
 - Fixes deep links failing to cancel in the remote add stage
+- Fixes [#3386](https://github.com/gitkraken/vscode-gitlens/issues/3386) Clicking anywhere on "Get started" should expand the section - Thanks to [PR #3402](https://github.com/gitkraken/vscode-gitlens/pull/3402) by Nikolay ([@nzaytsev](https://github.com/nzaytsev))
 
 ## [15.1.0] - 2024-06-05
 
