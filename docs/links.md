@@ -2,6 +2,26 @@
 
 This document covers the various VSCode link formats that work with GitLens, along with their formats, parameters and descriptions.
 
+## Contents
+
+### Repository Items
+
+- [Repository](#repository 'Jump to Repository')
+- [Branch](#branch 'Jump to Branch')
+- [Commit](#commit 'Jump to Commit')
+- [Tag](#tag 'Jump to Tag')
+- [Comparison](#comparison 'Jump to Comparison')
+- [File/Lines](#filelines 'Jump to File/Lines')
+
+### GitKraken Cloud Items
+
+- [Cloud Patch/Code Suggestion](#cloud-patchcode-suggestion 'Jump to Cloud Patch/Code Suggestion')
+- [Cloud Workspace](#cloud-workspace 'Jump to Cloud Workspace')
+
+### GitKraken Account Links
+
+- [Login](#login 'Jump to Login')
+
 ## Notation
 
 The following are used in link notation in this document:
@@ -34,11 +54,23 @@ The following are used in link notation in this document:
 
 ### Repository
 
+#### Description
+
+Used to open a (remote) repository in GitLens. Once the repository is opened, the Commit Graph will open to that repository.
+
 #### Format
 
 _{prefix}/r/{repoId}?{baseQuery}_
 
+#### Example Usage
+
+Right click a remote in the Remotes view and choose "Share -> Copy Link to Repository", and share with a teammate. When they access the link, GitLens will help them clone the repository, open it in GitLens, add the remote you linked, and open the Commit Graph to the repository, step-by-step.
+
 ### Branch
+
+#### Description
+
+Used to open a (remote) branch in GitLens. Once the branch's repository is opened, GitLens will open the Commit Graph to that repository and select the branch, or perform another action if specified (see _{action}_ in _References_ below).
 
 #### Format
 
@@ -58,7 +90,15 @@ _{prefix}/r/{repoId}/b/{branchName}?{baseQuery}(&action={action})_
 
   - _switch-to-pr-worktree_: Does everything that the _switch-to-pr_ action does, but always chooses to open the branch in a worktree, creating a new one if needed and creating a new local branch if needed. For creating the local branch and worktree, default options are chosen. The worktree is then opened in a new window.
 
+#### Example Usage
+
+Right click a branch in the Commit Graph and choose "Share -> Copy Link to Branch", select a remote to copy the branch for, and share with a teammate. When they access the link, GitLens will help them clone the repository, open it in GitLens, add the remote you linked, and open the Commit Graph to the branch, step-by-step.
+
 ### Commit
+
+#### Description
+
+Used to open a (remote) commit in GitLens. Once the commit's repository is opened, GitLens will open the Commit Graph to that repository and select the commit.
 
 #### Format
 
@@ -68,7 +108,15 @@ _{prefix}/r/{repoId}/c/{commitSha}?{baseQuery}_
 
 - _{commitSha}_ is the full SHA of the commit.
 
+#### Example Usage
+
+Right click a commit in the Commit Graph and choose "Share -> Copy Link to Commit", select a remote to copy the commit for, and share with a teammate. When they access the link, GitLens will help them clone the repository, open it in GitLens, add the remote you linked, and open the Commit Graph to the commit, step-by-step.
+
 ### Tag
+
+#### Description
+
+Used to open a (remote) tag in GitLens. Once the tag's repository is opened, GitLens will open the Commit Graph to that repository and select the tag.
 
 #### Format
 
@@ -78,7 +126,15 @@ _{prefix}/r/{repoId}/t/{tagName}?{baseQuery}_
 
 - _{tagName}_ is the name of the tag. Note that the remote name should not be included. Instead, _{remoteUrl}_ is used to determine the remote for the tag. So if the tag _15.2.0_ is located on _origin_, for example, _{tagName}_ should just be _15.2.0_ and the remote url of _origin_ should be used for the _{remoteUrl}_ parameter. You should not set _{tagName}_ to _origin/15.2.0_ in this example.
 
+#### Example Usage
+
+Right click a tag in the Tags View and choose "Share -> Copy Link to Tag", select a remote to copy the tag for, and share with a teammate. When they access the link, GitLens will help them clone the repository, open it in GitLens, add the remote you linked, and open the Commit Graph to the tag, step-by-step.
+
 ### Comparison
+
+#### Description
+
+Used to open a comparison between two references in the _Search & Compare_ view.
 
 #### Format
 
@@ -90,7 +146,15 @@ _{prefix}/r/{repoId}/compare/{ref1}[..|...]{ref2}?{baseQuery}(&prRepoUrl={prRepo
 
 - _{prRepoUrl}_ is an optional parameter, generally used for Pull Request comparisons, representing the pull URL of the git remote that represents the head commit of the Pull Request. It is formatted similar to _{remoteUrl}_, so see Common References section above to learn how to format it.
 
+#### Example Usage
+
+Share the changes of a pull request by right clicking the pull request's branch in the Commit Graph and choose "Compare with Common Base". The changes should be opened in the _Search & Compare_ view. Right click the Comparison item in the _Search & Compare_ view and choose "Share -> Copy Link to Comparison", and choose a remote to copy the comparison for. Share the link with a teammate. When they access the link, GitLens will help them clone the repository, open it in GitLens, add the remote, and open the _Search & Compare_ view to the pull request's changes, step-by-step.
+
 ### File/Lines
+
+#### Description
+
+Used to open a repository to a file, or specific lines of code within a file. Can open a file at a particular reference point or target the working copy of the file. Will highlight the specified lines of code if included.
 
 #### Format
 
@@ -104,6 +168,10 @@ _{prefix}/r/{repoId}/f/{filePath}?{baseQuery}(&lines={lines})(&ref={ref})_
 
 - _{ref}_ is an optional parameter representing the ref at which the file is referenced. Can be a branch name or tag name, fully qualified ref like _refs/tags/…_ or a commit SHA/revision. If this is not supplied, the link points to the working version of the file.
 
+#### Example Usage
+
+To guide a teammate to a specific line of code, right click the line in the editor and choose "Share -> Copy Link to Code". Then choose which remote to target. If you prefer to target a block of code or multiple lines, highlight the lines and then right click the highlighted code and choose "Copy As -> Copy Link to Code". Then share the link with a teammate. When they access the link, GitLens will help them clone the repository, open it in GitLens, add the remote, and open the file to the specified lines of code, step-by-step.
+
 ## GitKraken Cloud Item Deep Links
 
 ### Common References
@@ -115,6 +183,10 @@ _{prefix}/r/{repoId}/f/{filePath}?{baseQuery}(&lines={lines})(&ref={ref})_
 - Accessing these deep links requires a GitKraken account.
 
 ### Cloud Patch/Code Suggestion
+
+#### Description
+
+Used to open a cloud patch or code suggestion in GitLens.
 
 #### Format
 
@@ -130,7 +202,15 @@ _{prefix}/drafts/{draftId}(?patch={patchId})(&type=suggested_pr_change&prEntityI
 
   - _{prEntityId}_ refers to the GK entity identifier for the Pull Request related to the code suggestion.
 
+#### Example Usage
+
+When you create a cloud patch from the _Cloud Patches_ view, you will receive a notification that the cloud patch has been successfully created. On that notification is a "Copy Link" button. Click it to copy a link to the cloud patch to your clipboard. Share the link with a teammate (ensure that the teammate has access based on the permissions/visibility you set for the cloud patch). When they access the link, GitLens will help them open the cloud patch in GitLens and view the patch changes, and even apply the changes to their local repository.
+
 ### Cloud Workspace
+
+#### Description
+
+Used to open a cloud workspace in GitLens.
 
 #### Format
 
@@ -140,9 +220,17 @@ _{prefix}/workspace/{workspaceId}_
 
 - _{workspaceId}_ is the ID of the cloud workspace.
 
+#### Example Usage
+
+Right click a cloud workspace in the _GK Workspaces_ view and choose "Share -> Copy Link to Workspace". Use this link to open the view to the chosen workspace in GitLens.
+
 ## GitKraken Account Links
 
 ### Login
+
+#### Description
+
+Used to log in to a GitKraken account from GitLens.
 
 #### Format
 
@@ -157,3 +245,7 @@ _vscode://eamodio.gitlens/login?code={code}(&state={state})(&context={context})_
 - _{context}_ is an optional parameter representing the context of the login. Currently supported values include:
 
   - _start_trial_ - Log in to start a Pro trial.
+
+#### Example Usage
+
+External sources, such as GitKraken web pages, can use these links internally to get you into GitLens and logged in to your GitKraken account.
