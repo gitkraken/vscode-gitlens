@@ -376,7 +376,7 @@ export const providersMetadata: ProvidersMetadata = {
 		],
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
-		scopes: ['read_api', 'read_user', 'read_repository'],
+		scopes: ['api', 'read_user', 'read_repository'],
 	},
 	[SelfHostedIntegrationId.GitLabSelfHosted]: {
 		domain: '',
@@ -391,7 +391,7 @@ export const providersMetadata: ProvidersMetadata = {
 		],
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
-		scopes: ['read_api', 'read_user', 'read_repository'],
+		scopes: ['api', 'read_user', 'read_repository'],
 	},
 	[HostingIntegrationId.Bitbucket]: {
 		domain: 'bitbucket.org',
