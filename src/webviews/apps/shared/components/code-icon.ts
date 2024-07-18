@@ -644,19 +644,19 @@ export class CodeIcon extends LitElement {
 			transform: rotateZ(45deg);
 		}
 	`;
-	@property()
+	@property({ reflect: true })
 	icon = '';
 
-	@property()
+	@property({ reflect: true })
 	modifier = '';
 
 	@property({ type: Number })
 	size: number | undefined = undefined;
 
-	@property()
+	@property({ reflect: true })
 	flip?: 'inline' | 'block';
 
-	@property()
+	@property({ reflect: true })
 	rotate?: '45';
 
 	override updated(changedProperties: Map<string, unknown>) {
