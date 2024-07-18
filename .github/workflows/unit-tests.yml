@@ -1,0 +1,31 @@
+name: Unit tests
+
+on:
+    pull_request:
+        branches: ['*']
+        types:
+            - opened
+            - reopened
+            - synchronize
+            - ready_for_review
+
+jobs:
+    test:
+        name: Run unit tests
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              # uses: actions/checkout@master
+              # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+              uses: actions/checkout@v3
+            - run: cd tests/docker && ./run-e2e-test-local.sh
+    # test:
+    #     name: Run unit tests
+    #     needs: [build]
+    #     runs-on: ubuntu-latest
+    #     steps:
+    #         - name: Checkout
+    #           # uses: actions/checkout@master
+    #           # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    #           uses: actions/checkout@v3
+    #         - run: cd tests/docker &&  ./run-e2e-test-local.sh
