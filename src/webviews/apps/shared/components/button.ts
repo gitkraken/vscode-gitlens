@@ -159,8 +159,8 @@ export class GlButton extends LitElement {
 	@query('.control')
 	protected control!: HTMLElement;
 
-	@property()
-	appearance?: string;
+	@property({ reflect: true })
+	appearance?: 'alert' | 'secondary' | 'toolbar';
 
 	@property({ type: Boolean, reflect: true })
 	disabled = false;

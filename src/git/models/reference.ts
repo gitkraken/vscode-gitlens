@@ -104,6 +104,7 @@ export interface GitBranchReference {
 	id?: string;
 	name: string;
 	ref: string;
+	sha?: string;
 	readonly remote: boolean;
 	readonly upstream?: { name: string; missing: boolean };
 	repoPath: string;
@@ -114,6 +115,7 @@ export interface GitRevisionReference {
 	id?: undefined;
 	name: string;
 	ref: string;
+	sha: string;
 	repoPath: string;
 
 	number?: string | undefined;
@@ -125,6 +127,7 @@ export interface GitStashReference {
 	id?: undefined;
 	name: string;
 	ref: string;
+	sha: string;
 	repoPath: string;
 	number: string;
 
@@ -137,6 +140,7 @@ export interface GitTagReference {
 	id?: string;
 	name: string;
 	ref: string;
+	sha?: string;
 	repoPath: string;
 }
 
@@ -199,6 +203,7 @@ export function createReference(
 				refType: 'stash',
 				repoPath: repoPath,
 				ref: ref,
+				sha: ref,
 				name: options.name,
 				number: options.number,
 				message: options.message,
@@ -217,6 +222,7 @@ export function createReference(
 				refType: 'revision',
 				repoPath: repoPath,
 				ref: ref,
+				sha: ref,
 				name: options.name ?? shortenRevision(ref, { force: true, strings: { working: 'Working Tree' } }),
 				message: options.message,
 			};

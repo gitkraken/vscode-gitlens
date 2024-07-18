@@ -70,6 +70,7 @@ import {
 } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
+import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import { executeActionCommand, executeCommand, executeCoreCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
@@ -141,6 +142,7 @@ import type {
 	UpdateSelectionParams,
 } from './protocol';
 import {
+	ChooseRefRequest,
 	ChooseRepositoryCommand,
 	DidChangeAvatarsNotification,
 	DidChangeColumnsNotification,
@@ -627,6 +629,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		switch (true) {
 			case ChooseRepositoryCommand.is(e):
 				void this.onChooseRepository();
+				break;
+			case ChooseRefRequest.is(e):
+				void this.onChooseRef(ChooseRefRequest, e);
 				break;
 			case DoubleClickedCommandType.is(e):
 				void this.onDoubleClick(e.params);
@@ -1408,6 +1413,33 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (pick == null) return;
 
 		this.repository = pick;
+	}
+
+	async onChooseRef<T extends typeof ChooseRefRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		if (this.repository == null) {
+			return this.host.respond(requestType, msg, undefined);
+		}
+
+		let pick;
+		// If not alt, then jump directly to HEAD
+		if (!msg.params.alt) {
+			let branch = find(this._graph!.branches.values(), b => b.current);
+			if (branch == null) {
+				branch = await this.repository.getBranch();
+			}
+			if (branch != null) {
+				pick = branch;
+			}
+		} else {
+			pick = await showReferencePicker(
+				this.repository.path,
+				`Jump to Reference ${GlyphChars.Dot} ${this.repository?.name}`,
+				'Choose a reference to jump to',
+				{ include: ReferencesQuickPickIncludes.BranchesAndTags },
+			);
+		}
+
+		return this.host.respond(requestType, msg, pick?.sha != null ? { name: pick.name, sha: pick.sha } : undefined);
 	}
 
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =

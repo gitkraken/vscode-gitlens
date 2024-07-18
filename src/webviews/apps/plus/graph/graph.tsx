@@ -18,6 +18,7 @@ import type {
 	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import {
+	ChooseRefRequest,
 	ChooseRepositoryCommand,
 	DidChangeAvatarsNotification,
 	DidChangeColumnsNotification,
@@ -106,6 +107,7 @@ export class GraphApp extends App<State> {
 					onDoubleClickRef={(ref, metadata) => this.onDoubleClickRef(ref, metadata)}
 					onDoubleClickRow={(row, preserveFocus) => this.onDoubleClickRow(row, preserveFocus)}
 					onHoverRowPromise={(row: GraphRow) => this.onHoverRowPromise(row)}
+					onJumpToRefPromise={(shift: boolean) => this.onJumpToRefPromise(shift)}
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMissingRefsMetadata={(...params) => this.onGetMissingRefsMetadata(...params)}
 					onMoreRows={(...params) => this.onGetMoreRows(...params)}
@@ -552,6 +554,16 @@ export class GraphApp extends App<State> {
 	private async onHoverRowPromise(row: GraphRow) {
 		try {
 			return await this.sendRequest(GetRowHoverRequest, { type: row.type as GitGraphRowType, id: row.sha });
+		} catch {
+			return undefined;
+		}
+	}
+
+	private async onJumpToRefPromise(alt: boolean): Promise<{ name: string; sha: string } | undefined> {
+		try {
+			// Assuming we have a command to get the ref details
+			const rsp = await this.sendRequest(ChooseRefRequest, { alt: alt });
+			return rsp;
 		} catch {
 			return undefined;
 		}
