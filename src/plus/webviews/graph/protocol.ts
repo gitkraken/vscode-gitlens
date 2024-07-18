@@ -219,6 +219,12 @@ export type UpdateStateCallback = (
 
 export const ChooseRepositoryCommand = new IpcCommand(scope, 'chooseRepository');
 
+export interface ChooseRefParams {
+	alt: boolean;
+}
+export type DidChooseRefParams = { name: string; sha: string } | undefined;
+export const ChooseRefRequest = new IpcRequest<ChooseRefParams, DidChooseRefParams>(scope, 'chooseRef');
+
 export type DoubleClickedParams =
 	| {
 			type: 'ref';
