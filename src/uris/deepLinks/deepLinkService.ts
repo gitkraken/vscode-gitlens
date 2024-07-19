@@ -10,6 +10,7 @@ import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
+import { Repository } from '../../git/models/repository';
 import type { GitTag } from '../../git/models/tag';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type { RepositoryIdentity } from '../../gk/models/repositoryIdentities';
@@ -94,6 +95,7 @@ export class DeepLinkService implements Disposable {
 			repoOpenLocation: undefined,
 			repoOpenUri: undefined,
 			params: undefined,
+			currentBranch: undefined,
 		};
 	}
 
@@ -153,35 +155,108 @@ export class DeepLinkService implements Disposable {
 		}
 	}
 
+	private getServiceActionFromPendingContext(): DeepLinkServiceAction {
+		switch (this._context.state) {
+			case DeepLinkServiceState.MaybeOpenRepo:
+				return this._context.repo != null
+					? DeepLinkServiceAction.RepoOpened
+					: DeepLinkServiceAction.RepoOpening;
+			case DeepLinkServiceState.SwitchToRef: {
+				if (this._context.repo == null) {
+					return DeepLinkServiceAction.DeepLinkErrored;
+				}
+
+				switch (this._context.action) {
+					case DeepLinkActionType.SwitchToPullRequest:
+					case DeepLinkActionType.SwitchToPullRequestWorktree:
+					case DeepLinkActionType.SwitchToAndSuggestPullRequest:
+						return DeepLinkServiceAction.OpenInspect;
+					default:
+						return DeepLinkServiceAction.DeepLinkResolved;
+				}
+			}
+			default:
+				return DeepLinkServiceAction.DeepLinkErrored;
+		}
+	}
+
+	private async findMatchingRepositoryFromCurrentWindow(
+		repoPath: string | undefined,
+		remoteUrl: string | undefined,
+		repoId: string | undefined,
+		isPending?: boolean,
+	): Promise<void> {
+		if (repoPath != null && isPending) {
+			const repoOpenUri = Uri.parse(repoPath);
+			try {
+				const openRepo = await this.container.git.getOrOpenRepository(repoOpenUri, { detectNested: false });
+				if (openRepo != null) {
+					this._context.repo = openRepo;
+					return;
+				}
+			} catch {}
+		}
+
+		let remoteDomain: string | undefined;
+		let remotePath: string | undefined;
+		if (remoteUrl != null) {
+			[, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
+		}
+
+		// Try to match a repo using the remote URL first, since that saves us some steps.
+		// As a fallback, try to match using the repo id.
+		for (const repo of this.container.git.repositories) {
+			if (repoPath != null && normalizePath(repo.path.toLowerCase()) === normalizePath(repoPath.toLowerCase())) {
+				this._context.repo = repo;
+				return;
+			}
+
+			if (remoteDomain != null && remotePath != null) {
+				const matchingRemotes = await repo.getRemotes({
+					filter: r => r.matches(remoteDomain, remotePath),
+				});
+				if (matchingRemotes.length > 0) {
+					this._context.repo = repo;
+					this._context.remote = matchingRemotes[0];
+					return;
+				}
+			}
+
+			if (repoId != null && repoId !== missingRepositoryId) {
+				// Repo ID can be any valid SHA in the repo, though standard practice is to use the
+				// first commit SHA.
+				if (await this.container.git.validateReference(repo.path, repoId)) {
+					this._context.repo = repo;
+					return;
+				}
+			}
+		}
+	}
+
 	private async processPendingDeepLink(pendingDeepLink: StoredDeepLinkContext) {
 		if (pendingDeepLink.url == null) return;
 
 		const link = parseDeepLinkUri(Uri.parse(pendingDeepLink.url));
 		if (link == null) return;
 
-		this._context = { state: DeepLinkServiceState.MaybeOpenRepo };
+		this._context = { state: pendingDeepLink.state ?? DeepLinkServiceState.MaybeOpenRepo };
 		this.setContextFromDeepLink(link, pendingDeepLink.url);
 		this._context.targetSha = pendingDeepLink.targetSha;
 		this._context.secondaryTargetSha = pendingDeepLink.secondaryTargetSha;
 		this._context.repoPath = pendingDeepLink.repoPath;
 
-		let action = DeepLinkServiceAction.RepoOpening;
-
 		if (this.container.git.isDiscoveringRepositories) {
 			await this.container.git.isDiscoveringRepositories;
 		}
 
-		if (pendingDeepLink.repoPath != null) {
-			const repoOpenUri = Uri.parse(pendingDeepLink.repoPath);
-			try {
-				const repo = await this.container.git.getOrOpenRepository(repoOpenUri, { detectNested: false });
-				if (repo != null) {
-					this._context.repo = repo;
-					action = DeepLinkServiceAction.RepoOpened;
-				}
-			} catch {}
-		}
+		await this.findMatchingRepositoryFromCurrentWindow(
+			this._context.repoPath,
+			this._context.remoteUrl,
+			this._context.mainId,
+			true,
+		);
 
+		const action = this.getServiceActionFromPendingContext();
 		queueMicrotask(() => {
 			void this.processDeepLink(action, pendingDeepLink.useProgress);
 		});
@@ -618,44 +693,12 @@ export class DeepLinkService implements Disposable {
 						mainIdToSearch = repoIdentity.initialCommitSha;
 					}
 
-					let remoteDomain = '';
-					let remotePath = '';
-					if (remoteUrlToSearch != null) {
-						[, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrlToSearch);
-					}
 					// Try to match a repo using the remote URL first, since that saves us some steps.
 					// As a fallback, try to match using the repo id.
-					for (const repo of this.container.git.repositories) {
-						if (
-							repoPath != null &&
-							normalizePath(repo.path.toLowerCase()) === normalizePath(repoPath.toLowerCase())
-						) {
-							this._context.repo = repo;
-							action = DeepLinkServiceAction.RepoMatched;
-							break;
-						}
-
-						if (remoteDomain != null && remotePath != null) {
-							const matchingRemotes = await repo.getRemotes({
-								filter: r => r.matches(remoteDomain, remotePath),
-							});
-							if (matchingRemotes.length > 0) {
-								this._context.repo = repo;
-								this._context.remote = matchingRemotes[0];
-								action = DeepLinkServiceAction.RepoMatched;
-								break;
-							}
-						}
-
-						if (mainIdToSearch != null && mainIdToSearch !== missingRepositoryId) {
-							// Repo ID can be any valid SHA in the repo, though standard practice is to use the
-							// first commit SHA.
-							if (await this.container.git.validateReference(repo.path, mainIdToSearch)) {
-								this._context.repo = repo;
-								action = DeepLinkServiceAction.RepoMatched;
-								break;
-							}
-						}
+					await this.findMatchingRepositoryFromCurrentWindow(repoPath, remoteUrlToSearch, mainIdToSearch);
+					if (this._context.repo != null) {
+						action = DeepLinkServiceAction.RepoMatched;
+						break;
 					}
 
 					if (!this._context.repo && state === DeepLinkServiceState.RepoMatch) {
@@ -1248,6 +1291,7 @@ export class DeepLinkService implements Disposable {
 					if (targetType === DeepLinkType.Branch) {
 						// Check if the branch is already checked out. If so, we are done.
 						const currentBranch = await repo.getBranch();
+						this._context.currentBranch = currentBranch?.name;
 						const targetBranch = await this.getBranch(targetId);
 						if (
 							currentBranch != null &&
@@ -1268,6 +1312,16 @@ export class DeepLinkService implements Disposable {
 							break;
 						}
 
+						// Storing link info in case the switch causes a new window to open
+						await this.container.storage.store('deepLinks:pending', {
+							url: this._context.url,
+							repoPath: repo.path,
+							targetSha: this._context.targetSha,
+							secondaryTargetSha: this._context.secondaryTargetSha,
+							useProgress: useProgress,
+							state: this._context.state,
+						});
+
 						await executeGitCommand({
 							command: 'switch',
 							state: {
@@ -1277,6 +1331,13 @@ export class DeepLinkService implements Disposable {
 									this._context.action === DeepLinkActionType.SwitchToPullRequestWorktree,
 							},
 						});
+
+						// Only proceed if the branch switch occurred in the current window. This is necessary because the switch flow may
+						// open a new window, and if it does, we need to end things here.
+						if ((await repo.getBranch())?.name === this._context.currentBranch) {
+							action = DeepLinkServiceAction.DeepLinkResolved;
+							break;
+						}
 					}
 
 					if (
@@ -1284,14 +1345,28 @@ export class DeepLinkService implements Disposable {
 						this._context.action === DeepLinkActionType.SwitchToPullRequestWorktree ||
 						this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest
 					) {
-						await showInspectView({
-							type: 'wip',
-							inReview: this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest,
-							repository: repo,
-							source: 'launchpad',
-						} satisfies ShowWipArgs);
+						action = DeepLinkServiceAction.OpenInspect;
+					} else {
+						action = DeepLinkServiceAction.DeepLinkResolved;
+					}
+					break;
+				}
+				case DeepLinkServiceState.OpenInspect: {
+					// If we arrive at this step, clear any stored data used for the "new window" option
+					await this.container.storage.delete('deepLinks:pending');
+
+					if (!repo) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Missing repository.';
+						break;
 					}
 
+					await showInspectView({
+						type: 'wip',
+						inReview: this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest,
+						repository: repo,
+						source: 'launchpad',
+					} satisfies ShowWipArgs);
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}
