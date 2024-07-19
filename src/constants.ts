@@ -12,6 +12,7 @@ import type { Integration } from './plus/integrations/integration';
 import type { IntegrationId } from './plus/integrations/providers/models';
 import type { TelemetryEventData } from './telemetry/telemetry';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
+import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
 
 export const extensionPrefix = 'gitlens';
 export const quickPickTitleMaxChars = 80;
@@ -1123,6 +1124,7 @@ export interface StoredDeepLinkContext {
 	targetSha?: string | undefined;
 	secondaryTargetSha?: string | undefined;
 	useProgress?: boolean | undefined;
+	state?: DeepLinkServiceState | undefined;
 }
 
 export interface StoredGraphColumn {
