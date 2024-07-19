@@ -2680,6 +2680,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							ref: createReference(commit.sha, repoPath, {
 								refType: 'stash',
 								name: stashCommit.name,
+								message: stashCommit.message,
 								number: stashCommit.number,
 							}),
 						},
