@@ -213,6 +213,7 @@ export class FocusCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
+			let newlyConnected = false;
 			if (state.counter < 1 && !(await this.container.focus.hasConnectedIntegration())) {
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
@@ -240,9 +241,10 @@ export class FocusCommand extends QuickCommand<State> {
 					}
 					throw new Error(`Unable to connect to ${integration}`);
 				}
+				newlyConnected = result !== StepResultBreak;
 			}
 
-			await updateContextItems(this.container, context);
+			await updateContextItems(this.container, context, { force: newlyConnected });
 
 			if (state.counter < 2 || state.item == null) {
 				if (this.container.telemetry.enabled) {
@@ -757,6 +759,17 @@ export class FocusCommand extends QuickCommand<State> {
 							{
 								label: 'Connect to GitHub...',
 								detail: 'Will connect to GitHub to provide access your pull requests and issues',
+							},
+							integration,
+						),
+					);
+					break;
+				case HostingIntegrationId.GitLab:
+					confirmations.push(
+						createQuickPickItemOfT(
+							{
+								label: 'Connect to GitLab...',
+								detail: 'Will connect to GitLab to provide access your pull requests and issues',
 							},
 							integration,
 						),
