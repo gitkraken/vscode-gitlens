@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds support for OpenAI's GPT-4o Mini model for GitLens' experimental AI features
+
 ### Changed
 
 - GitLab & GitLab self-managed access tokens now require `api` scope instead of `read_api` to be able to merge Pull Requests.
