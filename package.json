@@ -3595,6 +3595,7 @@
 						"default": null,
 						"enum": [
 							"openai:gpt-4o",
+							"openai:gpt-4o-mini",
 							"openai:gpt-4-turbo",
 							"openai:gpt-4-turbo-preview",
 							"openai:gpt-4",
@@ -3615,6 +3616,7 @@
 						],
 						"enumDescriptions": [
 							"OpenAI GPT-4 Omni",
+							"OpenAI GPT-4 Omni Mini",
 							"OpenAI GPT-4 Turbo with Vision",
 							"OpenAI GPT-4 Turbo Preview",
 							"OpenAI GPT-4",

@@ -13,6 +13,7 @@ const provider = { id: 'openai', name: 'OpenAI' } as const;
 
 export type OpenAIModels =
 	| 'gpt-4o'
+	| 'gpt-4o-mini'
 	| 'gpt-4-turbo'
 	| 'gpt-4-turbo-2024-04-09'
 	| 'gpt-4-turbo-preview'
@@ -35,6 +36,12 @@ const models: OpenAIModel[] = [
 		maxTokens: 128000,
 		provider: provider,
 		default: true,
+	},
+	{
+		id: 'gpt-4o-mini',
+		name: 'GPT-4 Omni Mini',
+		maxTokens: 128000,
+		provider: provider,
 	},
 	{
 		id: 'gpt-4-turbo',
