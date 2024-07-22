@@ -73,7 +73,10 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	onDidClickButton?(
 		quickpick: QuickPick<DirectiveQuickPickItem | T>,
 		button: QuickInputButton,
-	): boolean | void | Promise<boolean | void>;
+	):
+		| boolean
+		| void
+		| Promise<boolean | void | IteratorResult<QuickPickStep | QuickInputStep | CustomStep | undefined>>;
 	/**
 	 * @returns `true` if the current item should be selected
 	 */
