@@ -165,7 +165,7 @@ export function getSuggestedActions(category: FocusActionCategory, isCurrentBran
 	if (isCurrentBranch) {
 		actions.push('show-overview', 'open-changes', 'code-suggest', 'open-in-graph');
 	} else {
-		actions.push('switch', 'open-worktree', 'switch-and-code-suggest', 'open-in-graph');
+		actions.push('open-worktree', 'switch', 'switch-and-code-suggest', 'open-in-graph');
 	}
 	return actions;
 }

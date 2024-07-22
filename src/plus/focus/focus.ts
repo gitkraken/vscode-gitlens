@@ -638,7 +638,7 @@ export class FocusCommand extends QuickCommand<State> {
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: 'Open Worktree in New Window',
+								label: 'Open in Worktree',
 								detail: 'Will create or open a worktree in a new window',
 							},
 							action,
