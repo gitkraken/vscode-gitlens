@@ -410,7 +410,7 @@ export class FocusCommand extends QuickCommand<State> {
 										? ` $(gitlens-code-suggestion) ${i.codeSuggestionsCount}`
 										: ''
 								} \u00a0 ${i.isNew ? '(New since last view)' : ''}`,
-								detail: `      ${i.viewer.pinned ? '$(pin) ' : ''}${
+								detail: `      ${i.viewer.pinned ? '$(pinned) ' : ''}${
 									i.actionableCategory === 'other'
 										? ''
 										: `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
