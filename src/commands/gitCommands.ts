@@ -707,10 +707,13 @@ export class GitCommandsCommand extends Command {
 						}
 
 						if (step.onDidClickButton != null) {
-							const result = step.onDidClickButton(quickpick, e);
+							const resultPromise = step.onDidClickButton(quickpick, e);
 							quickpick.buttons = this.getButtons(step, commandsStep.command);
-							if ((await result) === true) {
+							const result = await resultPromise;
+							if (result === true) {
 								resolve(commandsStep.command?.retry());
+							} else if (result !== false && result != null) {
+								resolve(result.value);
 							}
 						}
 					}),
