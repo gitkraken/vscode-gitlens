@@ -19,8 +19,8 @@ git clone https://github.com/gitkraken/vscode-gitlens.git
 Prerequisites
 
 - [Git](https://git-scm.com/), `>= 2.7.2`
-- [NodeJS](https://nodejs.org/), `>= 16.14.2`
-- [yarn](https://yarnpkg.com/), `>= 1.22.19`
+- [NodeJS](https://nodejs.org/), `>= 20`
+- [yarn](https://yarnpkg.com/), `>= 1.22.22`
 
 ### Dependencies
 
@@ -224,7 +224,7 @@ Note: All patch releases for the same `{major}.{minor}` version use the same `re
 
 ### Pre-releases
 
-The [Publish Pre-release workflow](.github/workflows/cd-pre.yml) is automatically run every AM unless no new changes have been committed to `main`.
+The [Publish Pre-release workflow](.github/workflows/cd-pre.yml) is automatically run every AM unless no new changes have been committed to `main`. This workflow can also be manually triggered by running the `Publish Pre-release` workflow from the Actions tab, no more than once per hour (because of the versioning scheme).
 
 ### Insiders (deprecated use pre-release instead)
 
