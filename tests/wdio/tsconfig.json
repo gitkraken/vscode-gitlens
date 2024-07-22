@@ -1,0 +1,20 @@
+{
+	"compilerOptions": {
+		"moduleResolution": "node",
+		"module": "ESNext",
+		"target": "es2022",
+		"lib": ["es2022", "dom"],
+		"types": ["node", "@wdio/globals/types", "@wdio/mocha-framework", "expect-webdriverio"],
+		"skipLibCheck": true,
+		"noEmit": true,
+		"allowImportingTsExtensions": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noFallthroughCasesInSwitch": true
+	},
+	"include": ["**/*.ts"],
+	"exclude": ["../../src/**/*"]
+}

@@ -1,0 +1,15 @@
+{
+	"extend": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "node",
+		"moduleResolution": "node",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"outDir": "./out",
+		"sourceMap": true
+	},
+	"include": ["**/*.ts"]
+}

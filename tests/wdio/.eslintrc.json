@@ -1,0 +1,17 @@
+{
+	"extends": ["../../.eslintrc.base.json"],
+	"env": {
+		"node": true
+	},
+	"overrides": [
+		{
+			"files": ["wdio.conf.ts"],
+			"rules": {
+				"no-restricted-globals": 0
+			}
+		}
+	],
+	"parserOptions": {
+		"project": "./tests/wdio/tsconfig.json"
+	}
+}
