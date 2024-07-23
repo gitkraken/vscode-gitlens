@@ -208,9 +208,10 @@ abstract class GitLabIntegrationBase<
 
 		const results: SearchedPullRequest[] = uniqueWithReasons(
 			[
-				...prs.map(pr => {
+				...prs.flatMap(pr => {
+					const result: SearchedPullRequest[] = [];
 					if (pr.assignees?.some(a => a.username === username)) {
-						return toQueryResult(pr, 'assigned');
+						result.push(toQueryResult(pr, 'assigned'));
 					}
 
 					if (
@@ -220,11 +221,11 @@ abstract class GitLabIntegrationBase<
 								review.state === GitPullRequestReviewState.ReviewRequested,
 						)
 					) {
-						return toQueryResult(pr, 'review-requested');
+						result.push(toQueryResult(pr, 'review-requested'));
 					}
 
 					if (pr.author?.username === username) {
-						return toQueryResult(pr, 'authored');
+						result.push(toQueryResult(pr, 'authored'));
 					}
 
 					// It seems like GitLab doesn't give us mentioned PRs.
@@ -232,8 +233,7 @@ abstract class GitLabIntegrationBase<
 					// 	return toQueryResult(pr, 'mentioned');
 					// }
 
-					// I assume nothing can come here, but just in case let set it to review-requested
-					return toQueryResult(pr, 'review-requested');
+					return result;
 				}),
 			],
 			r => r.pullRequest.url,
