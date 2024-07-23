@@ -17,7 +17,9 @@ const fileRegex = /path=([^&]+)/i;
 const rangeRegex = /line=(\d+)(?:&lineEnd=(\d+))?/;
 
 export class AzureDevOpsRemote extends RemoteProvider {
+	private readonly project: string | undefined;
 	constructor(domain: string, path: string, protocol?: string, name?: string, legacy: boolean = false) {
+		let repoProject;
 		if (sshDomainRegex.test(domain)) {
 			path = path.replace(sshPathRegex, '');
 			domain = domain.replace(sshDomainRegex, '');
@@ -27,6 +29,8 @@ export class AzureDevOpsRemote extends RemoteProvider {
 			if (match != null) {
 				const [, org, project, rest] = match;
 
+				repoProject = project;
+
 				// Handle legacy vsts urls
 				if (legacy) {
 					domain = `${org}.${domain}`;
@@ -35,6 +39,13 @@ export class AzureDevOpsRemote extends RemoteProvider {
 					path = `${org}/${project}/_git/${rest}`;
 				}
 			}
+		} else {
+			const match = orgAndProjectRegex.exec(path);
+			if (match != null) {
+				const [, , project] = match;
+
+				repoProject = project;
+			}
 		}
 
 		// Azure DevOps allows projects and repository names with spaces. In that situation,
@@ -42,6 +53,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		// revert that encoding to avoid double-encoding by gitlens during copy remote and open remote
 		path = decodeURIComponent(path);
 		super(domain, path, protocol, name);
+		this.project = repoProject;
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
@@ -86,6 +98,26 @@ export class AzureDevOpsRemote extends RemoteProvider {
 
 	get name() {
 		return 'Azure DevOps';
+	}
+
+	override get providerDesc():
+		| {
+				id: GkProviderId;
+				repoDomain: string;
+				repoName: string;
+				repoOwnerDomain: string;
+		  }
+		| undefined {
+		if (this.gkProviderId == null || this.owner == null || this.repoName == null || this.project == null) {
+			return undefined;
+		}
+
+		return {
+			id: this.gkProviderId,
+			repoDomain: this.project,
+			repoName: this.repoName,
+			repoOwnerDomain: this.owner,
+		};
 	}
 
 	private _displayPath: string | undefined;
