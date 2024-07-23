@@ -73,6 +73,7 @@ import { getSearchQueryComparisonKey } from '../../../git/search';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import { executeActionCommand, executeCommand, executeCoreCommand, registerCommand } from '../../../system/command';
+import { splitGitCommitMessage } from '../../../system/commitUtils';
 import { configuration } from '../../../system/configuration';
 import { getContext, onDidChangeContext } from '../../../system/context';
 import { gate } from '../../../system/decorators/gate';
@@ -80,6 +81,7 @@ import { debug, log } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, disposableInterval } from '../../../system/function';
 import { find, last, map } from '../../../system/iterable';
+import { Logger } from '../../../system/logger';
 import { updateRecordValue } from '../../../system/object';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
@@ -553,6 +555,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.copyDeepLinkToRepo', this.copyDeepLinkToRepo),
 			this.host.registerWebviewCommand('gitlens.graph.copyDeepLinkToTag', this.copyDeepLinkToTag),
 			this.host.registerWebviewCommand('gitlens.graph.shareAsCloudPatch', this.shareAsCloudPatch),
+			this.host.registerWebviewCommand('gitlens.graph.createPatch', this.shareAsCloudPatch),
 
 			this.host.registerWebviewCommand('gitlens.graph.openChangedFiles', this.openFiles),
 			this.host.registerWebviewCommand('gitlens.graph.openOnlyChangedFiles', this.openOnlyChangedFiles),
@@ -2676,11 +2679,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@log()
 	private async shareAsCloudPatch(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'revision') ?? this.getGraphItemRef(item, 'stash');
+
 		if (ref == null) return Promise.resolve();
 
+		const { title, description } = splitGitCommitMessage(ref.message);
 		return executeCommand<CreatePatchCommandArgs>(Commands.CreateCloudPatch, {
 			to: ref.ref,
 			repoPath: ref.repoPath,
+			title: title,
+			description: description,
 		});
 	}
 

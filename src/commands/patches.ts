@@ -19,6 +19,7 @@ import { getProviderIdFromEntityIdentifier } from '../plus/integrations/provider
 import type { Change, CreateDraft } from '../plus/webviews/patchDetails/protocol';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
+import { splitGitCommitMessage } from '../system/commitUtils';
 import { map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
@@ -35,6 +36,9 @@ export interface CreatePatchCommandArgs {
 	from?: string;
 	repoPath?: string;
 	uris?: Uri[];
+
+	title?: string;
+	description?: string;
 }
 
 abstract class CreatePatchCommandBase extends Command {
@@ -66,32 +70,46 @@ abstract class CreatePatchCommandBase extends Command {
 					}
 				}
 
+				const to =
+					resourcesByGroup.size == 1 && resourcesByGroup.has(ScmResourceGroupType.Index)
+						? uncommittedStaged
+						: uncommitted;
 				args = {
 					repoPath: repo?.path,
-					to:
-						resourcesByGroup.size == 1 && resourcesByGroup.has(ScmResourceGroupType.Index)
-							? uncommittedStaged
-							: uncommitted,
+					to: to,
 					from: 'HEAD',
 					uris: [...map(uris, u => Uri.parse(u))],
+					title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
 				};
 			} else if (context.type === 'scm-groups') {
+				debugger;
 				const group = context.scmResourceGroups[0];
 				if (!group?.resourceStates?.length) return;
 
 				const repo = await this.container.git.getOrOpenRepository(group.resourceStates[0].resourceUri);
 
+				const to = group.id === 'index' ? uncommittedStaged : uncommitted;
 				args = {
 					repoPath: repo?.path,
-					to: group.id === 'index' ? uncommittedStaged : uncommitted,
+					to: to,
 					from: 'HEAD',
+					title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
 				};
 			} else if (context.type === 'viewItem') {
 				if (isCommandContextViewNodeHasCommit(context)) {
+					const { commit } = context.node;
+					if (commit.message == null) {
+						await commit.ensureFullDetails();
+					}
+
+					const { title, description } = splitGitCommitMessage(commit.message);
+
 					args = {
 						repoPath: context.node.commit.repoPath,
 						to: context.node.commit.ref,
 						from: `${context.node.commit.ref}^`,
+						title: title,
+						description: description,
 					};
 					if (isCommandContextViewNodeHasFileCommit(context)) {
 						args.uris = [context.node.uri];
@@ -101,6 +119,9 @@ abstract class CreatePatchCommandBase extends Command {
 						repoPath: context.node.uri.fsPath,
 						to: context.node.compareRef.ref,
 						from: context.node.compareWithRef.ref,
+						title: `Changes between ${shortenRevision(context.node.compareRef.ref)} and ${shortenRevision(
+							context.node.compareWithRef.ref,
+						)}`,
 					};
 				}
 			}
@@ -138,6 +159,7 @@ export class CreatePatchCommand extends CreatePatchCommandBase {
 		const diff = await this.getDiff('Create Patch', args);
 		if (diff == null) return;
 
+		debugger;
 		const d = await workspace.openTextDocument({ content: diff.contents, language: 'diff' });
 		await window.showTextDocument(d);
 
@@ -363,19 +385,10 @@ async function createDraft(
 		revision: { to: to, from: args.from ?? `${to}^` },
 	};
 
-	const create: CreateDraft = { changes: [change] };
+	const create: CreateDraft = { changes: [change], title: args.title, description: args.description };
 
 	const commit = await container.git.getCommit(repository.uri, to);
 	if (commit == null) return undefined;
-
-	const message = commit.message!.trim();
-	const index = message.indexOf('\n');
-	if (index < 0) {
-		create.title = message;
-	} else {
-		create.title = message.substring(0, index);
-		create.description = message.substring(index + 1).trim();
-	}
 
 	if (args.from == null) {
 		if (commit.files == null) return;
@@ -389,8 +402,6 @@ async function createDraft(
 		if (result?.files == null) return;
 
 		change.files = result.files;
-
-		create.title = `Comparing ${shortenRevision(args.to)} with ${shortenRevision(args.from)}`;
 
 		if (!isSha(args.to)) {
 			const commit = await container.git.getCommit(repository.uri, args.to);
