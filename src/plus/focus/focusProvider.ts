@@ -811,16 +811,8 @@ export class FocusProvider implements Disposable {
 		}
 	}
 
-	// Note: We need to send an account to `getActionablePullRequests` that is a part of `providers-api`, and it accepts one account.
-	// But now we start having PRs from the different integrations, so, we have many current users (per. integration).
-	//
-	// In future, we probably want to change `providers-api` make it accept many accounts (from every integration that we use to collect PRs)
-	// However, for doing that we’d need consensus with the library owner and the other surfaces, that woudl slow down the development.
-	//
-	// So, now I separate the PRs of different ingegrations and call `getActionablePullRequests` for each integration.
-	// And I wrap these operations in this function so the focusProvider.getCategorizedItems thinks that it just passes current users to the library.
-	//
-	// When the library starts supporting many accounts, we can remove this function.
+	// TODO: Switch to using getActionablePullRequests from the shared provider library
+	// once it supports passing in multiple current users, one for each provider
 	private getActionablePullRequests(
 		pullRequests: (PullRequestWithUniqueID & { provider: { id: string } })[],
 		currentUsers: Map<string, Account>,
