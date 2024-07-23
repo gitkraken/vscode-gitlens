@@ -251,7 +251,7 @@ abstract class GitLabIntegrationBase<
 
 	protected override async mergeProviderPullRequest(
 		_session: AuthenticationSession,
-		pr: PullRequest | { id: string; headRefSha: string },
+		pr: PullRequest,
 		options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},

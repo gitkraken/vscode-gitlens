@@ -693,7 +693,7 @@ export abstract class HostingIntegration<
 	): Promise<RepositoryMetadata | undefined>;
 
 	async mergePullRequest(
-		pr: PullRequest | { id: string; headRefSha: string },
+		pr: PullRequest,
 		options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},
@@ -714,7 +714,7 @@ export abstract class HostingIntegration<
 
 	protected abstract mergeProviderPullRequest(
 		session: ProviderAuthenticationSession,
-		pr: PullRequest | { id: string; headRefSha: string },
+		pr: PullRequest,
 		options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},
