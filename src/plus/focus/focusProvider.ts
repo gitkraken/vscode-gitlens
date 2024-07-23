@@ -32,7 +32,11 @@ import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink'
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
 import type { IntegrationResult } from '../integrations/integration';
-import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
+import type {
+	EnrichablePullRequest,
+	IntegrationId,
+	ProviderActionablePullRequest,
+} from '../integrations/providers/models';
 import {
 	fromProviderPullRequest,
 	getActionablePullRequests,
@@ -871,6 +875,17 @@ export class FocusProvider implements Disposable {
 		}
 
 		return false;
+	}
+
+	async getConnectedIntegrations(): Promise<Map<IntegrationId, boolean>> {
+		const connected = new Map<IntegrationId, boolean>();
+		await Promise.allSettled(
+			supportedFocusIntegrations.map(async integrationId => {
+				const integration = await this.container.integrations.get(integrationId);
+				connected.set(integrationId, integration.maybeConnected ?? (await integration.isConnected()));
+			}),
+		);
+		return connected;
 	}
 
 	@log<FocusProvider['ensureFocusItemCodeSuggestions']>({

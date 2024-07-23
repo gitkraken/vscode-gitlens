@@ -105,6 +105,7 @@ interface Context {
 	title: string;
 	collapsed: Map<FocusGroup, boolean>;
 	telemetryContext: LaunchpadTelemetryContext | undefined;
+	connectedIntegrations: Map<IntegrationId, boolean>;
 }
 
 interface GroupedFocusItem extends FocusItem {
@@ -221,6 +222,7 @@ export class FocusCommand extends QuickCommand<State> {
 			title: this.title,
 			collapsed: collapsed,
 			telemetryContext: this.telemetryContext,
+			connectedIntegrations: await this.container.focus.getConnectedIntegrations(),
 		};
 
 		let opened = false;
@@ -229,7 +231,8 @@ export class FocusCommand extends QuickCommand<State> {
 			context.title = this.title;
 
 			let newlyConnected = false;
-			if (state.counter < 1 && !(await this.container.focus.hasConnectedIntegration())) {
+			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
+			if (state.counter < 1 && !hasConnectedIntegrations) {
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
 						opened ? 'launchpad/steps/connect' : 'launchpad/opened',
@@ -372,6 +375,7 @@ export class FocusCommand extends QuickCommand<State> {
 		context: Context,
 		{ picked, selectTopItem }: { picked?: string; selectTopItem?: boolean },
 	): StepResultGenerator<GroupedFocusItem | ConnectMoreIntegrationsItem> {
+		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
 		const getItems = (result: FocusCategorizedResult) => {
 			const items: (FocusItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
 
@@ -516,7 +520,7 @@ export class FocusCommand extends QuickCommand<State> {
 			matchOnDetail: true,
 			items: items,
 			buttons: [
-				ConnectIntegrationButton,
+				...(hasDisconnectedIntegrations ? [ConnectIntegrationButton] : []),
 				FeedbackQuickInputButton,
 				OpenOnWebQuickInputButton,
 				LaunchpadSettingsQuickInputButton,
@@ -798,11 +802,14 @@ export class FocusCommand extends QuickCommand<State> {
 
 	private *confirmIntegrationConnectStep(
 		state: StepState<State>,
-		_context: Context,
+		context: Context,
 	): StepResultGenerator<IntegrationId> {
 		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [];
 
 		for (const integration of supportedFocusIntegrations) {
+			if (context.connectedIntegrations.get(integration)) {
+				continue;
+			}
 			switch (integration) {
 				case HostingIntegrationId.GitHub:
 					confirmations.push(
@@ -1150,6 +1157,7 @@ async function updateContextItems(container: Container, context: Context, option
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
 	}
+	context.connectedIntegrations = await container.focus.getConnectedIntegrations();
 }
 
 function updateTelemetryContext(context: Context) {
