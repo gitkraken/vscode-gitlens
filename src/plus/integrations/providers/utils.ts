@@ -10,6 +10,10 @@ function isGitHubDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'github.com');
 }
 
+function isGitLabDotCom(domain: string): boolean {
+	return equalsIgnoreCase(domain, 'gitlab.com');
+}
+
 function isFocusItem(item: IssueOrPullRequest | FocusItem): item is FocusItem {
 	return (item as FocusItem).uuid !== undefined;
 }
@@ -24,6 +28,10 @@ export function getEntityIdentifierInput(entity: IssueOrPullRequest | FocusItem)
 	let domain = undefined;
 	if (provider === EntityIdentifierProviderType.Github && !isGitHubDotCom(entity.provider.domain)) {
 		provider = EntityIdentifierProviderType.GithubEnterprise;
+		domain = entity.provider.domain;
+	}
+	if (provider === EntityIdentifierProviderType.Gitlab && !isGitLabDotCom(entity.provider.domain)) {
+		provider = EntityIdentifierProviderType.GitlabSelfHosted;
 		domain = entity.provider.domain;
 	}
 
