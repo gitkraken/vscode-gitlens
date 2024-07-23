@@ -19,7 +19,7 @@ import {
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 
-const rebaseActions = ['pick', 'reword', 'edit', 'squash', 'fixup', 'drop'];
+const rebaseActions = ['pick', 'reword', 'edit', 'squash', 'fixup', 'drop', 'update-ref'];
 const rebaseActionsMap = new Map<string, RebaseEntryAction>([
 	['p', 'pick'],
 	['P', 'pick'],
@@ -33,6 +33,8 @@ const rebaseActionsMap = new Map<string, RebaseEntryAction>([
 	['F', 'fixup'],
 	['d', 'drop'],
 	['D', 'drop'],
+	['u', 'update-ref'],
+	['U', 'update-ref'],
 ]);
 
 class RebaseEditor extends App<State> {
@@ -414,6 +416,7 @@ class RebaseEditor extends App<State> {
 						index: 0,
 						message: commit.message,
 						sha: state.onto.sha,
+						branch: undefined!,
 					},
 					state,
 					++tabIndex,
@@ -448,6 +451,7 @@ class RebaseEditor extends App<State> {
 		$entry.classList.add('entry', `entry--${action}`);
 		$entry.classList.toggle('entry--squash-to', squashToHere);
 		$entry.dataset.sha = entry.sha;
+		$entry.dataset.branch = entry.branch;
 
 		let $content: HTMLElement = $entry;
 		if (action === 'base') {
@@ -467,24 +471,30 @@ class RebaseEditor extends App<State> {
 			$selectContainer.classList.add('entry-action', 'select-container');
 			$entry.appendChild($selectContainer);
 
-			const $select = document.createElement('select');
-			$select.dataset.sha = entry.sha;
-			$select.name = 'action';
+			if (action === 'update-ref') {
+				const $updateRefAction = document.createElement('span');
+				$updateRefAction.textContent = 'Update Ref';
+				$selectContainer.appendChild($updateRefAction);
+			} else {
+				const $select = document.createElement('select');
+				$select.dataset.sha = entry.sha;
+				$select.name = 'action';
 
-			const $options = document.createDocumentFragment();
-			for (const action of rebaseActions) {
-				const $option = document.createElement('option');
-				$option.value = action;
-				$option.text = action;
+				const $options = document.createDocumentFragment();
+				for (const action of rebaseActions) {
+					const $option = document.createElement('option');
+					$option.value = action;
+					$option.text = action;
 
-				if (entry.action === action) {
-					$option.selected = true;
+					if (entry.action === action) {
+						$option.selected = true;
+					}
+
+					$options.appendChild($option);
 				}
-
-				$options.appendChild($option);
+				$select.appendChild($options);
+				$selectContainer.appendChild($select);
 			}
-			$select.appendChild($options);
-			$selectContainer.appendChild($select);
 		}
 
 		const commit = entry.commit;
@@ -537,11 +547,18 @@ class RebaseEditor extends App<State> {
 			}
 		}
 
-		const $sha = document.createElement('a');
-		$sha.classList.add('entry-sha', 'icon--commit');
-		$sha.href = state.commands.commit.replace(this.commitTokenRegex, commit?.sha ?? entry.sha);
-		$sha.textContent = entry.sha.substr(0, 7);
-		$content.appendChild($sha);
+		if (entry.action != 'update-ref') {
+			const $sha = document.createElement('a');
+			$sha.classList.add('entry-sha', 'icon--commit');
+			$sha.href = state.commands.commit.replace(this.commitTokenRegex, commit?.sha ?? entry.sha);
+			$sha.textContent = entry.sha.substr(0, 7);
+			$content.appendChild($sha);
+		} else {
+			const $branch = document.createElement('span');
+			$branch.classList.add('entry-sha', 'icon--branch');
+			$branch.textContent = entry.branch;
+			$content.appendChild($branch);
+		}
 
 		return [$entry, tabIndex];
 	}

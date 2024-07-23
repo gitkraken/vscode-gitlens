@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds support for OpenAI's GPT-4o Mini model for GitLens' experimental AI features
+- Adds support for `--update-refs` flag when using interactive rebase editor - closes [#2387](https://github.com/gitkraken/vscode-gitlens/issues/2387) thanks to [PR #3705](https://github.com/gitkraken/vscode-gitlens/pull/3705) by Gavin Bath ([@thezwap](https://github.com/thezwap))
 
 ### Changed
 

@@ -56,7 +56,8 @@ const ipcSequencer = getScopedCounter();
 const webviewIdGenerator = getScopedCounter();
 
 const rebaseRegex = /^\s?#\s?Rebase\s([0-9a-f]+)(?:..([0-9a-f]+))?\sonto\s([0-9a-f]+)\s.*$/im;
-const rebaseCommandsRegex = /^\s?(p|pick|r|reword|e|edit|s|squash|f|fixup|d|drop)\s([0-9a-f]+?)\s(.*)$/gm;
+const rebaseCommandsRegex =
+	/^\s?(p|pick|r|reword|e|edit|s|squash|f|fixup|d|drop|u|update-ref)(?:\s([0-9a-f]+)\s(.*)|\s(refs\/heads\/\S+))$/gm;
 
 const rebaseActionsMap = new Map<string, RebaseEntryAction>([
 	['p', 'pick'],
@@ -71,6 +72,8 @@ const rebaseActionsMap = new Map<string, RebaseEntryAction>([
 	['fixup', 'fixup'],
 	['d', 'drop'],
 	['drop', 'drop'],
+	['u', 'update-ref'],
+	['update-ref', 'update-ref'],
 ]);
 
 interface RebaseEditorContext {
@@ -440,7 +443,13 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		}
 
 		edit.delete(context.document.uri, range);
-		edit.insert(context.document.uri, new Position(newLine, 0), `${action} ${entry.sha} ${entry.message}\n`);
+		let entryToInsert = '';
+		if (entry.action === 'update-ref') {
+			entryToInsert = `${action}${entry.branch}\n`;
+		} else {
+			entryToInsert = `${action} ${entry.sha} ${entry.message}\n`;
+		}
+		edit.insert(context.document.uri, new Position(newLine, 0), entryToInsert);
 
 		await workspace.applyEdit(edit);
 	}
@@ -701,18 +710,20 @@ function parseRebaseTodoEntries(contentsOrDocument: string | TextDocument): Reba
 	let action;
 	let sha;
 	let message;
+	let branch;
 
 	do {
 		match = rebaseCommandsRegex.exec(contents);
 		if (match == null) break;
 
-		[, action, sha, message] = match;
+		[, action, sha, message, branch] = match;
 
 		entries.push({
 			index: match.index,
 			action: rebaseActionsMap.get(action) ?? 'pick',
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			sha: ` ${sha}`.substr(1),
+			sha: sha ? ` ${sha}`.substr(1) : `UpdateRefId${match.index}`,
+			branch: ` ${branch}`,
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 			message: message == null || message.length === 0 ? '' : ` ${message}`.substr(1),
 		});
