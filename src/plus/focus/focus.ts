@@ -1,4 +1,4 @@
-import type { QuickPick } from 'vscode';
+import type { QuickInputButton, QuickPick } from 'vscode';
 import { commands, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
@@ -17,8 +17,6 @@ import {
 } from '../../commands/quickCommand';
 import {
 	FeedbackQuickInputButton,
-	getIntegrationTitle,
-	getOpenOnGitproviderQuickInputButtons,
 	LaunchpadSettingsQuickInputButton,
 	MergeQuickInputButton,
 	OpenOnGitHubQuickInputButton,
@@ -48,6 +46,7 @@ import {
 	HostingIntegrationId,
 	ProviderBuildStatusState,
 	ProviderPullRequestReviewState,
+	SelfHostedIntegrationId,
 } from '../integrations/providers/models';
 import type {
 	FocusAction,
@@ -403,7 +402,7 @@ export class FocusCommand extends QuickCommand<State> {
 								buttons.push(OpenWorktreeInNewWindowQuickInputButton);
 							}
 
-							buttons.push(...getOpenOnGitproviderQuickInputButtons(i.provider.id));
+							buttons.push(...getOpenOnGitProviderQuickInputButtons(i.provider.id));
 
 							return {
 								label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
@@ -558,7 +557,7 @@ export class FocusCommand extends QuickCommand<State> {
 		state: FocusStepState,
 		context: Context,
 	): StepResultGenerator<FocusAction | FocusTargetAction> {
-		const gitProviderWebButtons = getOpenOnGitproviderQuickInputButtons(state.item.provider.id);
+		const gitProviderWebButtons = getOpenOnGitProviderQuickInputButtons(state.item.provider.id);
 		const confirmations: (
 			| QuickPickItemOfT<FocusAction>
 			| QuickPickItemOfT<FocusTargetAction>
@@ -850,12 +849,12 @@ export class FocusCommand extends QuickCommand<State> {
 			status = `$(pass) No conflicts`;
 		}
 
-		const gitProviderWebButtons = getOpenOnGitproviderQuickInputButtons(item.provider.id);
+		const gitProviderWebButtons = getOpenOnGitProviderQuickInputButtons(item.provider.id);
 		return createQuickPickItemOfT({ label: status, buttons: [...gitProviderWebButtons] }, 'soft-open');
 	}
 
 	private getFocusItemReviewInformation(item: FocusItem): QuickPickItemOfT<FocusAction>[] {
-		const gitProviderWebButtons = getOpenOnGitproviderQuickInputButtons(item.provider.id);
+		const gitProviderWebButtons = getOpenOnGitProviderQuickInputButtons(item.provider.id);
 		if (item.reviews == null || item.reviews.length === 0) {
 			return [
 				createQuickPickItemOfT(
@@ -1048,6 +1047,37 @@ export class FocusCommand extends QuickCommand<State> {
 			{ ...context.telemetryContext!, action: action },
 			this.source,
 		);
+	}
+}
+
+function getOpenOnGitProviderQuickInputButton(integrationId: string): QuickInputButton | undefined {
+	switch (integrationId) {
+		case HostingIntegrationId.GitLab:
+		case SelfHostedIntegrationId.GitLabSelfHosted:
+			return OpenOnGitLabQuickInputButton;
+		case HostingIntegrationId.GitHub:
+		case SelfHostedIntegrationId.GitHubEnterprise:
+			return OpenOnGitHubQuickInputButton;
+		default:
+			return undefined;
+	}
+}
+
+function getOpenOnGitProviderQuickInputButtons(integrationId: string): QuickInputButton[] {
+	const button = getOpenOnGitProviderQuickInputButton(integrationId);
+	return button != null ? [button] : [];
+}
+
+function getIntegrationTitle(integrationId: string): string {
+	switch (integrationId) {
+		case HostingIntegrationId.GitLab:
+		case SelfHostedIntegrationId.GitLabSelfHosted:
+			return 'GitLab';
+		case HostingIntegrationId.GitHub:
+		case SelfHostedIntegrationId.GitHubEnterprise:
+			return 'GitHub';
+		default:
+			return integrationId;
 	}
 }
 

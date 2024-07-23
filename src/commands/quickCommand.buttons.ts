@@ -1,7 +1,6 @@
 import type { QuickInput, QuickInputButton } from 'vscode';
 import { ThemeIcon, Uri } from 'vscode';
 import { Container } from '../container';
-import { HostingIntegrationId, SelfHostedIntegrationId } from '../plus/integrations/providers/models';
 
 export class ToggleQuickInputButton implements QuickInputButton {
 	constructor(
@@ -132,37 +131,6 @@ export const OpenOnGitLabQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('globe'),
 	tooltip: 'Open on GitLab',
 };
-
-function getOpenOnGitproviderQuickInputButton(integrationId: string): QuickInputButton | undefined {
-	switch (integrationId) {
-		case HostingIntegrationId.GitLab:
-		case SelfHostedIntegrationId.GitLabSelfHosted:
-			return OpenOnGitLabQuickInputButton;
-		case HostingIntegrationId.GitHub:
-		case SelfHostedIntegrationId.GitHubEnterprise:
-			return OpenOnGitHubQuickInputButton;
-		default:
-			return undefined;
-	}
-}
-
-export function getOpenOnGitproviderQuickInputButtons(integrationId: string): QuickInputButton[] {
-	const button = getOpenOnGitproviderQuickInputButton(integrationId);
-	return button != null ? [button] : [];
-}
-
-export function getIntegrationTitle(integrationId: string): string {
-	switch (integrationId) {
-		case HostingIntegrationId.GitLab:
-		case SelfHostedIntegrationId.GitLabSelfHosted:
-			return 'GitLab';
-		case HostingIntegrationId.GitHub:
-		case SelfHostedIntegrationId.GitHubEnterprise:
-			return 'GitHub';
-		default:
-			return integrationId;
-	}
-}
 
 export const OpenOnWebQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('globe'),
