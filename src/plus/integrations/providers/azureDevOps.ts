@@ -61,7 +61,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 
 	protected override async mergeProviderPullRequest(
 		_session: AuthenticationSession,
-		_pr: PullRequest | { id: string; headRefSha: string },
+		_pr: PullRequest,
 		_options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},
