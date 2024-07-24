@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds a `gitlens.views.showCurrentBranchOnTop` setting to specify whether the current branch is shown at the top of the views &mdash; closes [#3520](https://github.com/gitkraken/vscode-gitlens/issues/3520)
+- Adds option to display first name only on inline blame
 
 ### Fixed
 

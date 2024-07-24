@@ -78,6 +78,13 @@
 						"scope": "window",
 						"order": 10
 					},
+					"gitlens.currentLine.fullUserName.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to provide a full name of user to inline blame annotation for the current line.",
+						"scope": "window",
+						"order": 15
+					},
 					"gitlens.currentLine.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,

@@ -47,6 +47,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	dateStyle?: DateStyle;
 	editor?: { line: number; uri: Uri };
 	footnotes?: Map<number, string>;
+	authorShortStyle?: boolean;
 	getBranchAndTagTips?: (sha: string, options?: { compact?: boolean; icons?: boolean }) => string | undefined;
 	htmlFormat?: {
 		classes?: {
@@ -201,6 +202,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	get author(): string {
 		let { name, email } = this._item.author;
+		if (this._options.authorShortStyle) {
+			name = name.split(' ')[0];
+		}
 		const author = this._padOrTruncate(name, this._options.tokenOptions.author);
 
 		switch (this._options.outputFormat) {

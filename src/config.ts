@@ -29,6 +29,7 @@ export interface Config {
 		readonly fontStyle: string;
 		readonly fontWeight: string;
 		readonly format: string;
+		readonly fullName: string;
 		readonly heatmap: {
 			readonly enabled: boolean;
 			readonly location: 'left' | 'right';
@@ -63,6 +64,9 @@ export interface Config {
 		readonly fontStyle: string;
 		readonly fontWeight: string;
 		readonly format: string;
+		readonly fullUserName: {
+			readonly enabled: boolean;
+		};
 		readonly pullRequests: {
 			readonly enabled: boolean;
 		};

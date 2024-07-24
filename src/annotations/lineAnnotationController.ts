@@ -323,6 +323,7 @@ export class LineAnnotationController implements Disposable {
 						getBranchAndTagTips: getBranchAndTagTips,
 						pullRequest: pr?.value,
 						pullRequestPendingMessage: `PR ${GlyphChars.Ellipsis}`,
+						authorShortStyle: !cfg.fullUserName.enabled,
 					},
 					fontOptions,
 					cfg.scrollable,
