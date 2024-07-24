@@ -376,10 +376,10 @@
     react-dragula "1.1.17"
     react-onclickoutside "6.13.0"
 
-"@gitkraken/provider-apis@0.22.9":
-  version "0.22.9"
-  resolved "https://registry.yarnpkg.com/@gitkraken/provider-apis/-/provider-apis-0.22.9.tgz#165235f07ec4d56e9dafaee2e36d0eb5b3f24c9c"
-  integrity sha512-942DLjaC6aDyUEEkAVjxX/QfdB8GjpXQineoRT67VzCIT+WWAbWCCOqYiwL3waRHSscRfpDimiLdC0j8/GWRPA==
+"@gitkraken/provider-apis@0.24.2":
+  version "0.24.2"
+  resolved "https://registry.yarnpkg.com/@gitkraken/provider-apis/-/provider-apis-0.24.2.tgz#217ebf881aacc88f1cc487b3f2ed15d46f2f4212"
+  integrity sha512-Il0QqYbw0mzjda+EhApny2re0cMY7LOYygmGh5ASQ33juT9rinMsZo1Wu3wh93jwSbAMEzS0royOHFfw37vz2w==
   dependencies:
     js-base64 "3.7.5"
     node-fetch "2.7.0"
