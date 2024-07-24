@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [15.2.1] - 2024-07-24
+
 ### Added
 
 - Adds support for OpenAI's GPT-4o Mini model for GitLens' experimental AI features
@@ -5475,7 +5477,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.1...HEAD
+[15.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.0...gitkraken:v15.2.1
 [15.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v15.1.0...gitkraken:v15.2.0
 [15.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v15.0.4...gitkraken:v15.1.0
 [15.0.4]: https://github.com/gitkraken/vscode-gitlens/compare/v15.0.3...gitkraken:v15.0.4
