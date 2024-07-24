@@ -167,7 +167,7 @@ export class GlFeatureGatePlusState extends LitElement {
 						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and other ` : ''}Pro
 						features.
 					</p>
-					<p class="special">Special: <b>50% off first seat of Pro</b> — only $4/month!<br /></p>`;
+					<p class="special">Special: <b>1st seat of Pro is now 50%+ off.</b><br /></p>`;
 
 			case SubscriptionState.FreePlusTrialReactivationEligible:
 				return html`
