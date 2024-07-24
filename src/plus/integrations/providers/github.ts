@@ -1,7 +1,7 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { authentication } from 'vscode';
 import type { Container } from '../../../container';
-import type { Account } from '../../../git/models/author';
+import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
 import type {
@@ -53,7 +53,7 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 		options?: {
 			avatarSize?: number;
 		},
-	): Promise<Account | undefined> {
+	): Promise<Account | UnidentifiedAuthor | undefined> {
 		return (await this.container.github)?.getAccountForCommit(this, accessToken, repo.owner, repo.name, ref, {
 			...options,
 			baseUrl: this.apiBaseUrl,

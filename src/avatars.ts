@@ -3,6 +3,7 @@ import { md5 } from '@env/crypto';
 import type { GravatarDefaultStyle } from './config';
 import type { StoredAvatar } from './constants';
 import { Container } from './container';
+import type { CommitAuthor } from './git/models/author';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
 import { configuration } from './system/configuration';
 import { getContext } from './system/context';
@@ -220,7 +221,7 @@ async function getAvatarUriFromRemoteProvider(
 	ensureAvatarCache(avatarCache);
 
 	try {
-		let account;
+		let account: CommitAuthor | undefined;
 		// if (typeof repoPathOrCommit === 'string') {
 		// 	const remote = await Container.instance.git.getRichRemoteProvider(repoPathOrCommit);
 		// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
