@@ -289,10 +289,7 @@ export type GetAzureProjectsForResourceFn = (
 	input: { namespace: string; cursor?: string },
 	options?: EnterpriseOptions,
 ) => Promise<{ data: AzureProject[]; pageInfo?: PageInfo }>;
-export type GetIssuesForProjectFn = (
-	input: GetIssuesForProjectInput,
-	options?: EnterpriseOptions,
-) => Promise<{ data: ProviderIssue[] }>;
+export type GetIssuesForProjectFn = Jira['getIssuesForProject'];
 export type GetIssuesForResourceForCurrentUserFn = (
 	input: { resourceId: string },
 	options?: EnterpriseOptions,
