@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Shows GitLab merge requests in the _Launchpad_ when GitLab integration is connected
+
 ### Fixed
 
 - Fixes cloud patch creation error on azure repos
