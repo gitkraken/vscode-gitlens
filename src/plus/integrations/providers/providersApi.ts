@@ -744,7 +744,7 @@ export class ProvidersApi {
 
 		try {
 			const result = await provider.getIssuesForProjectFn?.(
-				{ project: project, resourceId: resourceId, ...options },
+				{ projectKey: project, resourceId: resourceId, ...options },
 				{ token: token },
 			);
 
