@@ -460,11 +460,11 @@ export class GitHubApi implements Disposable {
 			);
 
 			const author = rsp?.search?.nodes?.[0];
-			if (author == null) return undefined;
+			if (author?.login == null) return undefined;
 
 			return {
 				provider: provider,
-				id: author.login ?? '',
+				id: author.login,
 				name: author.name ?? undefined,
 				email: author.email ?? undefined,
 				// If we are GitHub Enterprise, we may need to convert the avatar URL since it might require authentication
