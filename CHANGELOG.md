@@ -9,13 +9,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds support for OpenAI's GPT-4o Mini model for GitLens' experimental AI features
+- Adds a _Jump to HEAD_ button on the _Commit Graph_ header bar (next to the current branch) to quickly jump to the HEAD commit
+  - Adds a _Jump to Reference_ as an `alt` modifier to the _Jump to HEAD_ button to jump to the selected branch or tag
+- Adds support deep link documentation &mdash; closes [#3399](https://github.com/gitkraken/vscode-gitlens/issues/3399)
+- Adds a pin status icon to Launchpad items when pinned
 
 ### Changed
 
-- GitLab & GitLab self-managed access tokens now require `api` scope instead of `read_api` to be able to merge Pull Requests.
+- Changes the "What's new" icon on _Home_ to not conflict with _Launchpad_
+- Improves working with worktrees by avoiding showing the root repo in worktrees during certain operations (e.g. rebase) and vice-versa
+- Changes how we track open documents to improve performance, reduce UI jumping, and support VS Code's new ability to [show editor commands for all visible editors](https://code.visualstudio.com/updates/v1_90#_always-show-editor-actions) &mdash; closes[#3284](https://github.com/gitkraken/vscode-gitlens/issues/3284)
+- Changes GitLab & GitLab self-managed access tokens to now require `api` scope instead of `read_api` to be able to merge Pull Requests
+- Renames _Open Worktree in New Window_ option to _Open in Worktree_ in _Launchpad_
 
 ### Fixed
 
+- Fixes [#3386](https://github.com/gitkraken/vscode-gitlens/issues/3386) - Clicking anywhere on "Get started" should expand the section &mdash; thanks to [PR #3402](https://github.com/gitkraken/vscode-gitlens/pull/3402) by Nikolay ([@nzaytsev](https://github.com/nzaytsev))
+- Fixes [#3410](https://github.com/gitkraken/vscode-gitlens/issues/3410) - Adds stash commit message to commit graph row
+- Fixes [#3397](https://github.com/gitkraken/vscode-gitlens/issues/3397) - Suppress auth error notifications for github triggered by Launchpad
 - Fixes [#3367](https://github.com/gitkraken/vscode-gitlens/issues/3367) - Continually asked to reauthenticate
 - Fixes [#3389](https://github.com/gitkraken/vscode-gitlens/issues/3389) - Unable to pull branch 'xxx' from origin
 - Fixes [#3394](https://github.com/gitkraken/vscode-gitlens/issues/3394) - Pull request markers, when set in commit graph minimap or scroll, show as unsupported in settings JSON
@@ -61,7 +72,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the _Learn More_ link not working in the account verification dialog
 - Upgrading to Pro, managing a GitKraken account, and managing or connecting cloud integrations now no longer require the user to log in again in their respective pages on _gitkraken.dev_
 - Fixes deep links failing to cancel in the remote add stage
-- Fixes [#3386](https://github.com/gitkraken/vscode-gitlens/issues/3386) Clicking anywhere on "Get started" should expand the section - Thanks to [PR #3402](https://github.com/gitkraken/vscode-gitlens/pull/3402) by Nikolay ([@nzaytsev](https://github.com/nzaytsev))
 
 ## [15.1.0] - 2024-06-05
 
