@@ -17,7 +17,7 @@ import {
 	ProviderRequestRateLimitError,
 } from '../../../../errors';
 import type { PagedResult, RepositoryVisibility } from '../../../../git/gitProvider';
-import type { Account } from '../../../../git/models/author';
+import type { Account, UnidentifiedAuthor } from '../../../../git/models/author';
 import type { DefaultBranch } from '../../../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../../../git/models/issue';
 import type { PullRequest, SearchedPullRequest } from '../../../../git/models/pullRequest';
@@ -301,7 +301,7 @@ export class GitHubApi implements Disposable {
 			baseUrl?: string;
 			avatarSize?: number;
 		},
-	): Promise<Account | undefined> {
+	): Promise<Account | UnidentifiedAuthor | undefined> {
 		const scope = getLogScope();
 
 		interface QueryResult {
@@ -366,7 +366,15 @@ export class GitHubApi implements Disposable {
 
 			return {
 				provider: provider,
-				id: author?.user?.login ?? '',
+				...(author?.user?.login != null
+					? {
+							id: author.user.login,
+							username: author.user.login,
+					  }
+					: {
+							id: undefined,
+							username: undefined,
+					  }),
 				name: author.name ?? undefined,
 				email: author.email ?? undefined,
 				// If we are GitHub Enterprise, we may need to convert the avatar URL since it might require authentication
@@ -382,7 +390,6 @@ export class GitHubApi implements Disposable {
 									options.avatarSize,
 						    )
 						  : undefined,
-				username: author.user?.login ?? undefined,
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;

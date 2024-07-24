@@ -5,7 +5,7 @@ import type { AutolinkReference } from '../../config';
 import type { Container } from '../../container';
 import { AuthenticationError, CancellationError, ProviderRequestClientError } from '../../errors';
 import type { PagedResult } from '../../git/gitProvider';
-import type { Account } from '../../git/models/author';
+import type { Account, UnidentifiedAuthor } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
 import type {
@@ -603,7 +603,7 @@ export abstract class HostingIntegration<
 		options?: {
 			avatarSize?: number;
 		},
-	): Promise<Account | undefined> {
+	): Promise<Account | UnidentifiedAuthor | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -625,7 +625,7 @@ export abstract class HostingIntegration<
 		options?: {
 			avatarSize?: number;
 		},
-	): Promise<Account | undefined>;
+	): Promise<Account | UnidentifiedAuthor | undefined>;
 
 	@debug()
 	async getDefaultBranch(repo: T): Promise<DefaultBranch | undefined> {
