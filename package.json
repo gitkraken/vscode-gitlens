@@ -17646,6 +17646,7 @@
 		"@vscode/webview-ui-toolkit": "1.4.0",
 		"ansi-regex": "6.0.1",
 		"billboard.js": "3.12.4",
+		"driver.js": "^1.3.1",
 		"fast-string-truncated-width": "1.1.0",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",

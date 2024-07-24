@@ -14,8 +14,9 @@ import type {
 } from '@gitkraken/gitkraken-components';
 import GraphContainer, { CommitDateTimeSources, refZone } from '@gitkraken/gitkraken-components';
 import { VSCodeCheckbox, VSCodeRadio, VSCodeRadioGroup } from '@vscode/webview-ui-toolkit/react';
+import { driver } from 'driver.js';
 import type { FormEvent, MouseEvent, ReactElement } from 'react';
-import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import type { DateStyle } from '../../../../config';
 import type { SearchQuery } from '../../../../git/search';
@@ -393,6 +394,64 @@ export function GraphWrapper({
 	}
 
 	useEffect(() => subscriber?.(updateState), []);
+
+	useLayoutEffect(() => {
+		const driverObj = driver({
+			showProgress: true,
+			steps: [
+				{
+					popover: {
+						title: 'Welcome to the Commit Graph',
+						description:
+							'It helps visualize your repository commit history and give you information about branches, commits, and collaborators all in one view.',
+					},
+				},
+				{
+					element: '#graph-repo-actions',
+					popover: {
+						title: 'Repository Actions',
+						description:
+							"Quickly switch repos, branches, see a branch's PR info, push/pull/fetch, and more.",
+					},
+				},
+				{
+					element: '#graph-search',
+					popover: {
+						title: 'Rich Commit Search',
+						description:
+							'Highlight all matching results across your entire repository when searching for a commit, message, author, a changed file or files, or even a specific code change.',
+					},
+				},
+				{
+					element: '#graph-minimap',
+					popover: {
+						title: 'Minimap',
+						description:
+							'Quickly see the activity of the repository, see the HEAD/upstream, branches (local and remote), and easily jump to them. ',
+					},
+				},
+				{
+					element: '#main',
+					popover: {
+						title: 'Commit Graph',
+						description: 'The Commit Graph is a visualization of your repository history.',
+					},
+				},
+				{
+					popover: {
+						title: 'Done',
+						description: "That's it for now. Enjoy! Please see this walkthrough for more information.",
+					},
+				},
+			],
+		});
+
+		driverObj.drive();
+
+		return () => {
+			driverObj.destroy();
+		};
+	}, []);
 
 	const handleKeyDown = (e: KeyboardEvent) => {
 		if (e.key === 'Enter' || e.key === ' ') {
@@ -1126,7 +1185,7 @@ export function GraphWrapper({
 	return (
 		<>
 			<header className="titlebar graph-app__header">
-				<div className="titlebar__row titlebar__row--wrap">
+				<div id="graph-repo-actions" className="titlebar__row titlebar__row--wrap">
 					<div className="titlebar__group">
 						{repo && branchState?.provider?.url && (
 							<GlTooltip placement="bottom">
@@ -1377,6 +1436,7 @@ export function GraphWrapper({
 								<span className="action-divider"></span>
 							</span>
 							<GlSearchBox
+								id="graph-search"
 								ref={searchEl}
 								label="Search Commits"
 								step={searchPosition}
@@ -1553,6 +1613,7 @@ export function GraphWrapper({
 				</p>
 			</GlFeatureGate>
 			<GlGraphMinimapContainer
+				id="graph-minimap"
 				ref={minimap as any}
 				activeDay={activeDay}
 				disabled={!graphConfig?.minimap}

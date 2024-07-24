@@ -94,6 +94,7 @@
 	--color-alert-errorHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-errorBackground));
 	--color-alert-neutralBackground: color-mix(in srgb, #fff 5%, var(--color-background));
 	--color-alert-neutralHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-neutralBackground));
+	--gl-tour-overlay-color: #000 50%;
 }
 
 :root:has(.vscode-light, .vscode-high-contrast-light) {
@@ -102,4 +103,5 @@
 	--color-alert-errorHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-errorBackground));
 	--color-alert-neutralBackground: color-mix(in srgb, #000 5%, var(--color-background));
 	--color-alert-neutralHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-neutralBackground));
+	--gl-tour-overlay-color: #fff;
 }

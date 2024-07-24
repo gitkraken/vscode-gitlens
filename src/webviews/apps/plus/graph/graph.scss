@@ -1,4 +1,5 @@
 @use '../../shared/styles/theme';
+@use '../../shared/styles/driver';
 @import '../../shared/base';
 @import '../../shared/codicons';
 @import '../../shared/glicons';
@@ -1220,3 +1221,5 @@ hr {
 	padding: 0px 4px 2px 4px;
 	font-family: var(--vscode-editor-font-family);
 }
+
+@include driver.core();
