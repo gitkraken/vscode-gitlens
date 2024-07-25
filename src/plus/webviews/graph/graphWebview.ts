@@ -81,7 +81,6 @@ import { debug, log } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, disposableInterval } from '../../../system/function';
 import { find, last, map } from '../../../system/iterable';
-import { Logger } from '../../../system/logger';
 import { updateRecordValue } from '../../../system/object';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
