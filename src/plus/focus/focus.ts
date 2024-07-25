@@ -259,7 +259,7 @@ export class FocusCommand extends QuickCommand<State> {
 				opened = true;
 
 				const result = yield* this.pickFocusItemStep(state, context, {
-					picked: state.item?.id,
+					picked: state.item?.graphQLId,
 					selectTopItem: state.selectTopItem,
 				});
 				if (result === StepResultBreak) continue;
@@ -421,7 +421,7 @@ export class FocusCommand extends QuickCommand<State> {
 								buttons: buttons,
 								iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
 								item: i,
-								picked: i.id === picked || i.id === topItem?.id,
+								picked: i.graphQLId === picked || i.graphQLId === topItem?.graphQLId,
 								group: ui,
 							};
 						}),
