@@ -1,9 +1,11 @@
 import type { CancellationToken } from 'vscode';
 import { window } from 'vscode';
 import { fetch } from '@env/fetch';
+import type { TelemetryEvents } from '../constants';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import { configuration } from '../system/configuration';
+import { sum } from '../system/iterable';
 import type { Storage } from '../system/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
@@ -50,6 +52,7 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 	async generateMessage(
 		model: GeminiModel,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
 			systemPrompt: string;
 			customPrompt: string;
@@ -63,7 +66,7 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
-		// const retries = 0;
+		const retries = 0;
 		const maxCodeCharacters = getMaxCharacters(model, 2600);
 		while (true) {
 			const code = diff.substring(0, maxCodeCharacters);
@@ -97,6 +100,12 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 					},
 				],
 			};
+
+			reporting['retry.count'] = retries;
+			reporting['input.length'] =
+				(reporting['input.length'] ?? 0) +
+				sum(request.systemInstruction?.parts, p => p.text.length) +
+				sum(request.contents, c => sum(c.parts, p => p.text.length));
 
 			const rsp = await this.fetch(model.id, apiKey, request, options?.cancellation);
 			if (!rsp.ok) {
@@ -134,6 +143,7 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 	async generateDraftMessage(
 		model: GeminiModel,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
 		options?: {
 			cancellation?: CancellationToken | undefined;
 			context?: string | undefined;
@@ -151,6 +161,7 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		return this.generateMessage(
 			model,
 			diff,
+			reporting,
 			{
 				systemPrompt:
 					options?.codeSuggestion === true ? codeSuggestMessageSystemPrompt : cloudPatchMessageSystemPrompt,
@@ -167,6 +178,7 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 	async generateCommitMessage(
 		model: GeminiModel,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
 		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
@@ -177,6 +189,7 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		return this.generateMessage(
 			model,
 			diff,
+			reporting,
 			{
 				systemPrompt: commitMessageSystemPrompt,
 				customPrompt: customPrompt,
@@ -190,12 +203,13 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		model: GeminiModel,
 		message: string,
 		diff: string,
+		reporting: TelemetryEvents['ai/explain'],
 		options?: { cancellation?: CancellationToken },
 	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
-		// const retries = 0;
+		const retries = 0;
 		const maxCodeCharacters = getMaxCharacters(model, 3000);
 		while (true) {
 			const code = diff.substring(0, maxCodeCharacters);
@@ -230,6 +244,12 @@ Do not make any assumptions or invent details that are not supported by the code
 					},
 				],
 			};
+
+			reporting['retry.count'] = retries;
+			reporting['input.length'] =
+				(reporting['input.length'] ?? 0) +
+				sum(request.systemInstruction?.parts, p => p.text.length) +
+				sum(request.contents, c => sum(c.parts, p => p.text.length));
 
 			const rsp = await this.fetch(model.id, apiKey, request, options?.cancellation);
 			if (!rsp.ok) {

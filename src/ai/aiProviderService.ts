@@ -67,16 +67,19 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 		model: AIModel<Provider, AIModels<Provider>>,
 		message: string,
 		diff: string,
+		reporting: TelemetryEvents['ai/explain'],
 		options?: { cancellation?: CancellationToken },
 	): Promise<string | undefined>;
 	generateCommitMessage(
 		model: AIModel<Provider, AIModels<Provider>>,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined>;
 	generateDraftMessage(
 		model: AIModel<Provider, AIModels<Provider>>,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string; codeSuggestion?: boolean },
 	): Promise<string | undefined>;
 }
@@ -232,17 +235,16 @@ export class AIProviderService implements Disposable {
 
 		const payload: TelemetryEvents['ai/generate'] = {
 			type: 'commitMessage',
-			model: { id: model.id, provider: { id: model.provider.id, name: model.provider.name } },
+			'model.id': model.id,
+			'model.provider.id': model.provider.id,
+			'model.provider.name': model.provider.name,
+			'retry.count': 0,
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
 		const confirmed = await confirmAIProviderToS(model, this.container.storage);
 		if (!confirmed) {
-			this.container.telemetry.sendEvent(
-				'ai/generate',
-				{ ...payload, failed: { reason: 'user-declined' } },
-				source,
-			);
+			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
 
 			return undefined;
 		}
@@ -250,14 +252,14 @@ export class AIProviderService implements Disposable {
 		if (options?.cancellation?.isCancellationRequested) {
 			this.container.telemetry.sendEvent(
 				'ai/generate',
-				{ ...payload, failed: { reason: 'user-cancelled' } },
+				{ ...payload, 'failed.reason': 'user-cancelled' },
 				source,
 			);
 
 			return undefined;
 		}
 
-		const promise = provider.generateCommitMessage(model, changes, {
+		const promise = provider.generateCommitMessage(model, changes, payload, {
 			cancellation: options?.cancellation,
 			context: options?.context,
 		});
@@ -268,6 +270,7 @@ export class AIProviderService implements Disposable {
 				? window.withProgress(options.progress, () => promise)
 				: promise);
 
+			payload['output.length'] = result?.length;
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, duration: Date.now() - start }, source);
 
 			return result;
@@ -277,10 +280,9 @@ export class AIProviderService implements Disposable {
 				{
 					...payload,
 					duration: Date.now() - start,
-					failed:
-						ex instanceof CancellationError
-							? { reason: 'user-cancelled' }
-							: { reason: 'error', error: String(ex) },
+					...(ex instanceof CancellationError
+						? { 'failed.reason': 'user-cancelled' }
+						: { 'failed.reason': 'error', 'failed.error': String(ex) }),
 				},
 				source,
 			);
@@ -310,17 +312,16 @@ export class AIProviderService implements Disposable {
 		const payload: TelemetryEvents['ai/generate'] = {
 			type: 'draftMessage',
 			draftType: sourceContext.type,
-			model: { id: model.id, provider: { id: model.provider.id, name: model.provider.name } },
+			'model.id': model.id,
+			'model.provider.id': model.provider.id,
+			'model.provider.name': model.provider.name,
+			'retry.count': 0,
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
 		const confirmed = await confirmAIProviderToS(model, this.container.storage);
 		if (!confirmed) {
-			this.container.telemetry.sendEvent(
-				'ai/generate',
-				{ ...payload, failed: { reason: 'user-declined' } },
-				source,
-			);
+			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
 
 			return undefined;
 		}
@@ -328,14 +329,14 @@ export class AIProviderService implements Disposable {
 		if (options?.cancellation?.isCancellationRequested) {
 			this.container.telemetry.sendEvent(
 				'ai/generate',
-				{ ...payload, failed: { reason: 'user-cancelled' } },
+				{ ...payload, 'failed.reason': 'user-cancelled' },
 				source,
 			);
 
 			return undefined;
 		}
 
-		const promise = provider.generateDraftMessage(model, changes, {
+		const promise = provider.generateDraftMessage(model, changes, payload, {
 			cancellation: options?.cancellation,
 			context: options?.context,
 			codeSuggestion: options?.codeSuggestion,
@@ -347,6 +348,7 @@ export class AIProviderService implements Disposable {
 				? window.withProgress(options.progress, () => promise)
 				: promise);
 
+			payload['output.length'] = result?.length;
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, duration: Date.now() - start }, source);
 
 			return result;
@@ -356,10 +358,9 @@ export class AIProviderService implements Disposable {
 				{
 					...payload,
 					duration: Date.now() - start,
-					failed:
-						ex instanceof CancellationError
-							? { reason: 'user-cancelled' }
-							: { reason: 'error', error: String(ex) },
+					...(ex instanceof CancellationError
+						? { 'failed.reason': 'user-cancelled' }
+						: { 'failed.reason': 'error', 'failed.error': String(ex) }),
 				},
 				source,
 			);
@@ -410,17 +411,16 @@ export class AIProviderService implements Disposable {
 		const payload: TelemetryEvents['ai/explain'] = {
 			type: 'change',
 			changeType: sourceContext.type,
-			model: { id: model.id, provider: { id: model.provider.id, name: model.provider.name } },
+			'model.id': model.id,
+			'model.provider.id': model.provider.id,
+			'model.provider.name': model.provider.name,
+			'retry.count': 0,
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
 		const confirmed = await confirmAIProviderToS(model, this.container.storage);
 		if (!confirmed) {
-			this.container.telemetry.sendEvent(
-				'ai/explain',
-				{ ...payload, failed: { reason: 'user-declined' } },
-				source,
-			);
+			this.container.telemetry.sendEvent('ai/explain', { ...payload, 'failed.reason': 'user-declined' }, source);
 
 			return undefined;
 		}
@@ -436,16 +436,12 @@ export class AIProviderService implements Disposable {
 		}
 
 		if (options?.cancellation?.isCancellationRequested) {
-			this.container.telemetry.sendEvent(
-				'ai/explain',
-				{ ...payload, failed: { reason: 'user-cancelled' } },
-				source,
-			);
+			this.container.telemetry.sendEvent('ai/explain', { ...payload, 'failed.reason': 'user-cancelled' }, source);
 
 			return undefined;
 		}
 
-		const promise = provider.explainChanges(model, commit.message, diff.contents, {
+		const promise = provider.explainChanges(model, commit.message, diff.contents, payload, {
 			cancellation: options?.cancellation,
 		});
 
@@ -455,6 +451,7 @@ export class AIProviderService implements Disposable {
 				? window.withProgress(options.progress, () => promise)
 				: promise);
 
+			payload['output.length'] = result?.length;
 			this.container.telemetry.sendEvent('ai/explain', { ...payload, duration: Date.now() - start }, source);
 
 			return result;
@@ -464,10 +461,9 @@ export class AIProviderService implements Disposable {
 				{
 					...payload,
 					duration: Date.now() - start,
-					failed:
-						ex instanceof CancellationError
-							? { reason: 'user-cancelled' }
-							: { reason: 'error', error: String(ex) },
+					...(ex instanceof CancellationError
+						? { 'failed.reason': 'user-cancelled' }
+						: { 'failed.reason': 'error', 'failed.error': String(ex) }),
 				},
 				source,
 			);

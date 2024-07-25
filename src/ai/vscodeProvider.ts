@@ -1,7 +1,9 @@
 import type { CancellationToken, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
 import { CancellationTokenSource, LanguageModelChatMessage, lm, window } from 'vscode';
+import type { TelemetryEvents } from '../constants';
 import type { Container } from '../container';
 import { configuration } from '../system/configuration';
+import { sum } from '../system/iterable';
 import { capitalize } from '../system/string';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getMaxCharacters } from './aiProviderService';
@@ -40,6 +42,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 	async generateMessage(
 		model: VSCodeAIModel,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
 			systemPrompt: string;
 			customPrompt: string;
@@ -80,6 +83,9 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 						: []),
 					LanguageModelChatMessage.User(promptConfig.customPrompt),
 				];
+
+				reporting['retry.count'] = retries;
+				reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
 
 				try {
 					const rsp = await chatModel.sendRequest(messages, {}, cancellation);
@@ -127,6 +133,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 	async generateDraftMessage(
 		model: VSCodeAIModel,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
 		options?: {
 			cancellation?: CancellationToken | undefined;
 			context?: string | undefined;
@@ -144,6 +151,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		return this.generateMessage(
 			model,
 			diff,
+			reporting,
 			{
 				systemPrompt:
 					options?.codeSuggestion === true ? codeSuggestMessageSystemPrompt : cloudPatchMessageSystemPrompt,
@@ -165,6 +173,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 	async generateCommitMessage(
 		model: VSCodeAIModel,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
 		options?: {
 			cancellation?: CancellationToken | undefined;
 			context?: string | undefined;
@@ -178,6 +187,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		return this.generateMessage(
 			model,
 			diff,
+			reporting,
 			{
 				systemPrompt: commitMessageSystemPrompt,
 				customPrompt: customPrompt,
@@ -191,6 +201,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		model: VSCodeAIModel,
 		message: string,
 		diff: string,
+		reporting: TelemetryEvents['ai/explain'],
 		options?: { cancellation?: CancellationToken },
 	): Promise<string | undefined> {
 		const chatModel = await this.getChatModel(model);
@@ -229,6 +240,9 @@ Do not make any assumptions or invent details that are not supported by the code
 						'Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase.',
 					),
 				];
+
+				reporting['retry.count'] = retries;
+				reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
 
 				try {
 					const rsp = await chatModel.sendRequest(messages, {}, cancellation);
