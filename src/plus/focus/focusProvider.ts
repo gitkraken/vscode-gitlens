@@ -444,9 +444,9 @@ export class FocusProvider implements Disposable {
 			}? This cannot be undone.`,
 		});
 		if (confirm !== 'Merge') return;
-		const integrations = await this.container.integrations.get(integrationId);
-		const pr: PullRequest = fromProviderPullRequest(item, integrations);
-		await integrations.mergePullRequest(pr);
+		const integration = await this.container.integrations.get(integrationId);
+		const pr: PullRequest = fromProviderPullRequest(item, integration);
+		await integration.mergePullRequest(pr);
 		this.refresh();
 	}
 
