@@ -1483,12 +1483,15 @@ export type TelemetryEvents = {
 };
 
 type AIEventBase = {
-	model: {
-		id: AIModels;
-		provider: { id: AIProviders; name: string };
-	};
+	'model.id': AIModels;
+	'model.provider.id': AIProviders;
+	'model.provider.name': string;
+	'retry.count': number;
 	duration?: number;
-	failed?: { reason: 'user-declined' | 'user-cancelled' } | { reason: 'error'; error: string };
+	'input.length'?: number;
+	'output.length'?: number;
+	'failed.reason'?: 'user-declined' | 'user-cancelled' | 'error';
+	'failed.error'?: string;
 };
 
 export type AIGenerateCommitEvent = {
