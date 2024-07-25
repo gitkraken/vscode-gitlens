@@ -28,6 +28,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes cloud patch creation error on azure repos
 - Fixes [#3385](https://github.com/gitkraken/vscode-gitlens/issues/3385) - Provides commit from stash on create patch from stash action
 - Fixes [#3414](https://github.com/gitkraken/vscode-gitlens/issues/3414) - Patch creation may be done multiple times
+- Fixes running unit tests and improves eslint configuration
+
+### Changed
+
+- Uses vscode-test to run unit-tests
+- GitLab & GitLab self-managed access tokens now require `api` scope instead of `read_api` to be able to merge Pull Requests.
 
 ## [15.2.1] - 2024-07-24
 
