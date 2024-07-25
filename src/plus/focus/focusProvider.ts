@@ -1,5 +1,4 @@
 import type {
-	ActionablePullRequest,
 	CodeSuggestionsCountByPrUuid,
 	EnrichedItemsByUniqueId,
 	PullRequestWithUniqueID,
@@ -820,13 +819,13 @@ export class FocusProvider implements Disposable {
 			enrichedItemsByUniqueId?: EnrichedItemsByUniqueId;
 			codeSuggestionsCountByPrUuid?: CodeSuggestionsCountByPrUuid;
 		},
-	): ActionablePullRequest[] {
+	): ProviderActionablePullRequest[] {
 		const pullRequestsByIntegration = groupByMap<string, PullRequestWithUniqueID & { provider: { id: string } }>(
 			pullRequests,
 			pr => pr.provider.id,
 		);
 
-		const actionablePullRequests: ActionablePullRequest[] = [];
+		const actionablePullRequests: ProviderActionablePullRequest[] = [];
 		for (const [integrationId, prs] of pullRequestsByIntegration.entries()) {
 			const currentUser = currentUsers.get(integrationId);
 			if (currentUser == null) {

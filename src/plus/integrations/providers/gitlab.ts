@@ -1,5 +1,3 @@
-import type { GitPullRequest } from '@gitkraken/provider-apis';
-import { GitPullRequestReviewState } from '@gitkraken/provider-apis';
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { window } from 'vscode';
 import type { Container } from '../../../container';
@@ -22,7 +20,13 @@ import type {
 } from '../authentication/integrationAuthentication';
 import { HostingIntegration } from '../integration';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
-import { HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
+import type { ProviderPullRequest } from './models';
+import {
+	HostingIntegrationId,
+	ProviderPullRequestReviewState,
+	providersMetadata,
+	SelfHostedIntegrationId,
+} from './models';
 import type { ProvidersApi } from './providersApi';
 
 const metadata = providersMetadata[HostingIntegrationId.GitLab];
@@ -188,7 +192,7 @@ abstract class GitLabIntegrationBase<
 			prs = apiResult.values;
 		}
 
-		const toQueryResult = (pr: GitPullRequest, reason?: string): SearchedPullRequest => {
+		const toQueryResult = (pr: ProviderPullRequest, reason?: string): SearchedPullRequest => {
 			return {
 				pullRequest: fromGitLabMergeRequestProvidersApi(pr, this),
 				reasons: reason ? [reason] : [],
@@ -218,7 +222,7 @@ abstract class GitLabIntegrationBase<
 						pr.reviews?.some(
 							review =>
 								review.reviewer?.username === username ||
-								review.state === GitPullRequestReviewState.ReviewRequested,
+								review.state === ProviderPullRequestReviewState.ReviewRequested,
 						)
 					) {
 						result.push(toQueryResult(pr, 'review-requested'));
