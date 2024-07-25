@@ -313,6 +313,16 @@ export function some<T>(source: Iterable<T> | IterableIterator<T>, predicate: (i
 	return false;
 }
 
+export function sum<T>(source: Iterable<T> | IterableIterator<T> | undefined, predicate: (item: T) => number): number {
+	if (source == null) return 0;
+
+	let sum = 0;
+	for (const item of source) {
+		sum += predicate(item);
+	}
+	return sum;
+}
+
 export function* take<T>(source: Iterable<T> | IterableIterator<T>, count: number): Iterable<T> {
 	if (count > 0) {
 		let i = 0;
