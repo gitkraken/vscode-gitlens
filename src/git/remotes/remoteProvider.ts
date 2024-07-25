@@ -66,6 +66,19 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		return { owner: this.owner, name: this.repoName } as unknown as T;
 	}
 
+	get providerDesc():
+		| {
+				id: GkProviderId;
+				repoDomain: string;
+				repoName: string;
+				repoOwnerDomain?: string;
+		  }
+		| undefined {
+		if (this.gkProviderId == null || this.owner == null || this.repoName == null) return undefined;
+
+		return { id: this.gkProviderId, repoDomain: this.owner, repoName: this.repoName };
+	}
+
 	get repoName(): string | undefined {
 		return this.splitPath()[1];
 	}
