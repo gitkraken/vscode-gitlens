@@ -37,6 +37,7 @@ BACKERS.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 esbuild.mjs
+pnpm-lock.yaml
 README.pre.md
 svgo.config.js
 tsconfig*.json

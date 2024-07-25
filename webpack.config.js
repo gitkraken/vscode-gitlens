@@ -101,13 +101,13 @@ function getExtensionConfig(target, mode, env) {
 					mode !== 'production'
 						? undefined
 						: () =>
-								spawnSync('yarn', ['run', 'icons:svgo'], {
+								spawnSync('pnpm', ['run', 'icons:svgo'], {
 									cwd: __dirname,
 									encoding: 'utf8',
 									shell: true,
 								}),
 				onComplete: () =>
-					spawnSync('yarn', ['run', 'icons:apply'], {
+					spawnSync('pnpm', ['run', 'icons:apply'], {
 						cwd: __dirname,
 						encoding: 'utf8',
 						shell: true,
