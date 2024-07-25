@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes cloud patch creation error on azure repos
+
 ## [15.2.1] - 2024-07-24
 
 ### Added
