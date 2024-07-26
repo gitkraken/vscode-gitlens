@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Shows GitLab merge requests in the _Launchpad_ when GitLab integration is connected
 - Adds a new "Connect" button to the _Launchpad_ that allows the user to connect additional integrations.
 
+### Fixed
+
+- Fixes (for real) [#3423](https://github.com/gitkraken/vscode-gitlens/issues/3423) - Blame annotations & revision navigation are missing in 15.2.1 when using remote (WSL, SSH, etc) repositories
+
 ## [15.2.2] - 2024-07-26
 
 ### Fixed
