@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#3423](https://github.com/gitkraken/vscode-gitlens/issues/3423) - Blame annotations & revision navigation are missing in 15.2.1 when using remote (WSL, SSH, etc) repositories
+- Fixes [#3422](https://github.com/gitkraken/vscode-gitlens/issues/3422) - Extra logging
 - Fixes cloud patch creation error on azure repos
 
 ## [15.2.1] - 2024-07-24

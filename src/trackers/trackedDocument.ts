@@ -253,12 +253,6 @@ export class TrackedGitDocument implements Disposable {
 		const updates = this._pendingUpdates;
 		this._pendingUpdates = undefined;
 
-		console.log(
-			`### ${Logger.timestamp} update (${updates?.reason})`,
-			this.document.uri.toString(true),
-			this._disposed || this._uri == null,
-		);
-
 		if (this._disposed || this._uri == null) {
 			this._tracked = false;
 
