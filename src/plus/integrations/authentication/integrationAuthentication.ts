@@ -239,12 +239,12 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
-		const session = await super.getSession(descriptor, options);
-		if (session != null) return session;
-
 		// by default getBuiltInExistingSession returns undefined
 		// but specific providers can override it to return a session (e.g. GitHub)
-		return this.getBuiltInExistingSession(descriptor);
+		const existingSession = await this.getBuiltInExistingSession(descriptor);
+		if (existingSession != null) return existingSession;
+
+		return super.getSession(descriptor, options);
 	}
 
 	protected override async createSession(
