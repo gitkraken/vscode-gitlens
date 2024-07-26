@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [15.2.3] - 2024-07-26
+
 ### Fixed
 
 - Fixes (for real) [#3423](https://github.com/gitkraken/vscode-gitlens/issues/3423) - Blame annotations & revision navigation are missing in 15.2.1 when using remote (WSL, SSH, etc) repositories
@@ -5490,7 +5492,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.3...HEAD
+[15.2.3]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.2...gitkraken:v15.2.3
 [15.2.2]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.1...gitkraken:v15.2.2
 [15.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.0...gitkraken:v15.2.1
 [15.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v15.1.0...gitkraken:v15.2.0
