@@ -33,7 +33,7 @@ import { debounce } from '../system/function';
 import { find } from '../system/iterable';
 import type { KeyboardScope } from '../system/keyboard';
 import { basename } from '../system/path';
-import { isTextEditor } from '../system/utils';
+import { getResourceContextKeyValue, isTextEditor } from '../system/utils';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
@@ -333,38 +333,69 @@ export class FileAnnotationController implements Disposable {
 	async onProviderEditorStatusChanged(editor: TextEditor | undefined, status: AnnotationStatus | undefined) {
 		if (editor == null) return;
 
+		let changed = false;
 		let windowStatus;
 
 		if (this.isInWindowToggle()) {
 			windowStatus = status;
+
+			changed = Boolean(this._annotatedUris.size || this._computingUris.size);
 			this._annotatedUris.clear();
 			this._computingUris.clear();
 		} else {
 			windowStatus = undefined;
-			const uri = editor.document.uri.toString();
+
+			let key = getResourceContextKeyValue(editor.document.uri);
+			if (typeof key !== 'string') {
+				key = await key;
+			}
 
 			switch (status) {
 				case 'computing':
-					this._annotatedUris.add(uri);
-					this._computingUris.add(uri);
-					break;
-				case 'computed':
-					this._annotatedUris.add(uri);
-					this._computingUris.delete(uri);
-					break;
-				default:
-					this._annotatedUris.delete(uri);
-					this._computingUris.delete(uri);
-					break;
-			}
+					if (!this._annotatedUris.has(key)) {
+						this._annotatedUris.add(key);
+						changed = true;
+					}
 
-			const provider = this.getProvider(editor);
-			if (provider == null) {
-				this._annotatedUris.delete(uri);
-			} else {
-				this._annotatedUris.add(uri);
+					if (!this._computingUris.has(key)) {
+						this._computingUris.add(key);
+						changed = true;
+					}
+
+					break;
+				case 'computed': {
+					const provider = this.getProvider(editor);
+					if (provider == null) {
+						if (this._annotatedUris.has(key)) {
+							this._annotatedUris.delete(key);
+							changed = true;
+						}
+					} else if (!this._annotatedUris.has(key)) {
+						this._annotatedUris.add(key);
+						changed = true;
+					}
+
+					if (this._computingUris.has(key)) {
+						this._computingUris.delete(key);
+						changed = true;
+					}
+					break;
+				}
+				default:
+					if (this._annotatedUris.has(key)) {
+						this._annotatedUris.delete(key);
+						changed = true;
+					}
+
+					if (this._computingUris.has(key)) {
+						this._computingUris.delete(key);
+						changed = true;
+					}
+					break;
 			}
 		}
+
+		if (!changed) return;
 
 		await Promise.allSettled([
 			setContext('gitlens:window:annotated', windowStatus),

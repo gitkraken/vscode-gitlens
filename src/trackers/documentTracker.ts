@@ -22,7 +22,7 @@ import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
-import { findTextDocument, isVisibleDocument } from '../system/utils';
+import { findTextDocument, getResourceContextKeyValue, isVisibleDocument } from '../system/utils';
 import type { TrackedGitDocument } from './trackedDocument';
 import { createTrackedGitDocument } from './trackedDocument';
 
@@ -421,35 +421,44 @@ export class GitDocumentTracker implements Disposable {
 	updateContext(uri: Uri, blameable: boolean, tracked: boolean) {
 		let changed = false;
 
-		const path = uri.fsPath;
-		if (tracked) {
-			if (!this._openUrisTracked.has(path)) {
+		function updateContextCore(this: GitDocumentTracker, key: string, blameable: boolean, tracked: boolean) {
+			if (tracked) {
+				if (!this._openUrisTracked.has(key)) {
+					changed = true;
+					this._openUrisTracked.add(key);
+				}
+			} else if (this._openUrisTracked.has(key)) {
 				changed = true;
-				this._openUrisTracked.add(path);
+				this._openUrisTracked.delete(key);
 			}
-		} else if (this._openUrisTracked.has(path)) {
-			changed = true;
-			this._openUrisTracked.delete(path);
+
+			if (blameable) {
+				if (!this._openUrisBlameable.has(key)) {
+					changed = true;
+
+					this._openUrisBlameable.add(key);
+				}
+			} else if (this._openUrisBlameable.has(key)) {
+				changed = true;
+				this._openUrisBlameable.delete(key);
+			}
+
+			if (!changed) return;
+
+			this._updateContextDebounced ??= debounce(() => {
+				void setContext('gitlens:tabs:tracked', [...this._openUrisTracked]);
+				void setContext('gitlens:tabs:blameable', [...this._openUrisBlameable]);
+			}, 100);
+			this._updateContextDebounced();
 		}
 
-		if (blameable) {
-			if (!this._openUrisBlameable.has(path)) {
-				changed = true;
-
-				this._openUrisBlameable.add(path);
-			}
-		} else if (this._openUrisBlameable.has(path)) {
-			changed = true;
-			this._openUrisBlameable.delete(path);
+		const key = getResourceContextKeyValue(uri);
+		if (typeof key !== 'string') {
+			void key.then(u => updateContextCore.call(this, u, blameable, tracked));
+			return;
 		}
 
-		if (!changed) return;
-
-		this._updateContextDebounced ??= debounce(() => {
-			void setContext('gitlens:tabs:tracked', [...this._openUrisTracked]);
-			void setContext('gitlens:tabs:blameable', [...this._openUrisBlameable]);
-		}, 100);
-		this._updateContextDebounced();
+		updateContextCore.call(this, key, blameable, tracked);
 	}
 
 	private fireDocumentDirtyStateChanged(e: DocumentDirtyStateChangeEvent) {
