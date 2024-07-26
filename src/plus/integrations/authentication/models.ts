@@ -1,4 +1,5 @@
 import type { AuthenticationSession } from 'vscode';
+import { configuration } from '../../../system/configuration';
 import type { IntegrationId } from '../providers/models';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 
@@ -30,11 +31,25 @@ export type CloudIntegrationAuthType = 'oauth' | 'pat';
 
 export const CloudIntegrationAuthenticationUriPathPrefix = 'did-authenticate-cloud-integration';
 
-export const supportedCloudIntegrationIds = [IssueIntegrationId.Jira];
-export type SupportedCloudIntegrationIds = (typeof supportedCloudIntegrationIds)[number];
+const supportedCloudIntegrationIds = [IssueIntegrationId.Jira];
+const supportedCloudIntegrationIdsExperimental = [IssueIntegrationId.Jira, HostingIntegrationId.GitHub];
+
+export type SupportedCloudIntegrationIds = (typeof supportedCloudIntegrationIdsExperimental)[number];
 
 export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudIntegrationIds {
-	return supportedCloudIntegrationIds.includes(id as SupportedCloudIntegrationIds);
+	const ids = configuration.get('experimental.cloudIntegrations.github.enabled', undefined, false)
+		? supportedCloudIntegrationIdsExperimental
+		: supportedCloudIntegrationIds;
+	return ids.includes(id as SupportedCloudIntegrationIds);
+}
+
+export function* iterateSupportedCloudIntegrationIds() {
+	const ids = configuration.get('experimental.cloudIntegrations.github.enabled', undefined, false)
+		? supportedCloudIntegrationIdsExperimental
+		: supportedCloudIntegrationIds;
+	for (const id of ids) {
+		yield id;
+	}
 }
 
 export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationId } = {
