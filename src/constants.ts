@@ -883,10 +883,13 @@ export type SupportedAIModels =
 	| 'vscode';
 
 export type SecretKeys =
-	| `gitlens.integration.auth:${IntegrationId}|${string}`
-	| `gitlens.integration.auth.cloud:${IntegrationId}|${string}`
+	| IntegrationAuthenticationKeys
 	| `gitlens.${AIProviders}.key`
 	| `gitlens.plus.auth:${Environment}`;
+
+export type IntegrationAuthenticationKeys =
+	| `gitlens.integration.auth:${IntegrationId}|${string}`
+	| `gitlens.integration.auth.cloud:${IntegrationId}|${string}`;
 
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',

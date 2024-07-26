@@ -1,7 +1,7 @@
 import type { AuthenticationSession, CancellationToken, Disposable, Uri } from 'vscode';
 import { authentication, CancellationTokenSource, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
-import type { SecretKeys } from '../../../constants';
+import type { IntegrationAuthenticationKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import { debug, log } from '../../../system/decorators/log';
 import type { DeferredEventExecutor } from '../../../system/event';
@@ -68,15 +68,18 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 		ignoreErrors: boolean;
 	}): Promise<StoredSession | undefined>;
 
-	protected async deleteSecret(key: SecretKeys) {
+	protected async deleteSecret(key: IntegrationAuthenticationKeys) {
 		await this.container.storage.deleteSecret(key);
 	}
 
-	protected async writeSecret(key: SecretKeys, session: AuthenticationSession | StoredSession) {
+	protected async writeSecret(key: IntegrationAuthenticationKeys, session: AuthenticationSession | StoredSession) {
 		await this.container.storage.storeSecret(key, JSON.stringify(session));
 	}
 
-	protected async readSecret(key: SecretKeys, ignoreErrors: boolean): Promise<StoredSession | undefined> {
+	protected async readSecret(
+		key: IntegrationAuthenticationKeys,
+		ignoreErrors: boolean,
+	): Promise<StoredSession | undefined> {
 		let storedSession: StoredSession | undefined;
 		try {
 			const sessionJSON = await this.container.storage.getSecret(key);
