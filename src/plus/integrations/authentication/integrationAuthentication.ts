@@ -145,11 +145,11 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 export abstract class LocalIntegrationAuthenticationProvider<
 	ID extends IntegrationId = IntegrationId,
 > extends IntegrationAuthenticationProviderBase<ID> {
-	protected async deleteAllSecrets(sessionId: string) {
+	protected override async deleteAllSecrets(sessionId: string) {
 		await this.deleteSecret(this.getLocalSecretKey(sessionId));
 	}
 
-	protected async storeSession(sessionId: string, session: AuthenticationSession) {
+	protected override async storeSession(sessionId: string, session: AuthenticationSession) {
 		await this.writeSecret(this.getLocalSecretKey(sessionId), session);
 	}
 
@@ -183,7 +183,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		await this.deleteSecret(key);
 	}
 
-	protected async deleteAllSecrets(sessionId: string) {
+	protected override async deleteAllSecrets(sessionId: string) {
 		await Promise.allSettled([
 			this.deleteSecret(this.getLocalSecretKey(sessionId)),
 			this.deleteSecret(this.getCloudSecretKey(sessionId)),
