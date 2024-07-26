@@ -15,6 +15,7 @@ import {
 	supportedIntegrationIds,
 } from '../providers/models';
 import type { ProviderAuthenticationSession } from './models';
+import { isSupportedCloudIntegrationId } from './models';
 
 interface StoredSession {
 	id: string;
@@ -438,6 +439,14 @@ export class IntegrationAuthenticationService implements Disposable {
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './bitbucket')
 					).BitbucketAuthenticationProvider(this.container);
+					break;
+				case HostingIntegrationId.GitHub:
+					provider = isSupportedCloudIntegrationId(HostingIntegrationId.GitHub)
+						? new (
+								await import(/* webpackChunkName: "integrations" */ './github')
+						  ).GitHubAuthenticationProvider(this.container)
+						: new BuiltInAuthenticationProvider(this.container, providerId);
+
 					break;
 				case SelfHostedIntegrationId.GitHubEnterprise:
 					provider = new (
