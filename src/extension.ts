@@ -73,9 +73,17 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 				}
 
 				if ('uri' in o && o.uri instanceof Uri) {
-					return `${
-						'name' in o && 'index' in o ? 'WorkspaceFolder' : getLoggableName(o)
-					}(uri=${o.uri.toString(true)})`;
+					if ('name' in o && 'index' in o) {
+						return `WorkspaceFolder(name=${o.name}, index=${o.index}, uri=${o.uri.toString(true)})`;
+					}
+
+					if ('filename' in o && 'languageId' in o && 'isDirty' in o && 'isUntitled' in o) {
+						return `TextDocument(uri=${o.uri.toString(true)}, languageId=${o.languageId}, isDirty=${
+							o.isDirty
+						})`;
+					}
+
+					return `${getLoggableName(o)}(uri=${o.uri.toString(true)})`;
 				}
 
 				return undefined;

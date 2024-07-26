@@ -5,6 +5,7 @@ import type { GitBlame } from '../git/models/blame';
 import type { GitDiffFile } from '../git/models/diff';
 import type { GitLog } from '../git/models/log';
 import { configuration } from '../system/configuration';
+import { debug } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { Logger } from '../system/logger';
@@ -133,6 +134,7 @@ export class TrackedGitDocument implements Disposable {
 
 	private _loading = false;
 
+	@debug()
 	private async initialize(visible: boolean): Promise<void> {
 		this._uri = await GitUri.fromUri(this.document.uri);
 		if (this._disposed) return;
@@ -190,6 +192,7 @@ export class TrackedGitDocument implements Disposable {
 		return document === this.document;
 	}
 
+	@debug()
 	refresh(reason: 'changed' | 'saved' | 'visible' | 'repositoryChanged') {
 		if (this._pendingUpdates == null && reason === 'visible') return;
 
@@ -245,6 +248,7 @@ export class TrackedGitDocument implements Disposable {
 		this._forceDirtyStateChangeOnNextDocumentChange = true;
 	}
 
+	@debug()
 	private async update(): Promise<void> {
 		const updates = this._pendingUpdates;
 		this._pendingUpdates = undefined;
