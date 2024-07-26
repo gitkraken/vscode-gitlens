@@ -18,7 +18,11 @@ import { openUrl } from '../../system/utils';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthentication';
 import type { SupportedCloudIntegrationIds } from './authentication/models';
-import { isSupportedCloudIntegrationId, supportedCloudIntegrationIds, toIntegrationId } from './authentication/models';
+import {
+	isSupportedCloudIntegrationId,
+	iterateSupportedCloudIntegrationIds,
+	toIntegrationId,
+} from './authentication/models';
 import type {
 	HostingIntegration,
 	Integration,
@@ -87,7 +91,7 @@ export class IntegrationService implements Disposable {
 			connectedProviders = new Set(connections.map(p => toIntegrationId[p.provider]));
 		}
 
-		for (const cloudIntegrationId of supportedCloudIntegrationIds) {
+		for (const cloudIntegrationId of iterateSupportedCloudIntegrationIds()) {
 			const integration = await this.get(cloudIntegrationId);
 			const isConnected = integration.maybeConnected ?? (await integration.isConnected());
 			if (connectedProviders.has(cloudIntegrationId)) {
