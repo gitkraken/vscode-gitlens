@@ -1201,151 +1201,6 @@
 				}
 			},
 			{
-				"id": "views",
-				"title": "Views",
-				"order": 100,
-				"properties": {
-					"gitlens.views.collapseWorktreesWhenPossible": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to try to collapse the opened worktrees into a single (common) repository in the views when possible",
-						"scope": "window",
-						"order": 1
-					},
-					"gitlens.views.defaultItemLimit": {
-						"type": "number",
-						"default": 10,
-						"markdownDescription": "Specifies the default number of items to show in a view list. Use 0 to specify no limit",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.pageItemLimit": {
-						"type": "number",
-						"default": 40,
-						"markdownDescription": "Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit",
-						"scope": "window",
-						"order": 11
-					},
-					"gitlens.views.showRelativeDateMarkers": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.views.formats.commits.label": {
-						"type": "string",
-						"default": "${❰ tips|11? ❱➤  }${message}",
-						"markdownDescription": "Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.formats.commits.description": {
-						"type": "string",
-						"default": "${author, }${agoOrDate}",
-						"markdownDescription": "Specifies the description format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.formats.commits.tooltip": {
-						"type": "string",
-						"default": "${link}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips} \\\n${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
-						"markdownDescription": "Specifies the tooltip format (in markdown) of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.formats.commits.tooltipWithStatus": {
-						"type": "string",
-						"default": "${link}${' via 'pullRequest}&nbsp;&nbsp;•&nbsp;&nbsp;{{slot-status}}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n${avatar} &nbsp;__${author}__, ${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
-						"markdownDescription": "Specifies the tooltip format (in markdown) of \"file\" commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.formats.files.label": {
-						"type": "string",
-						"default": "${working  }${file}",
-						"markdownDescription": "Specifies the format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 40
-					},
-					"gitlens.views.formats.files.description": {
-						"type": "string",
-						"default": "${directory}${  ←  originalPath}",
-						"markdownDescription": "Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 41
-					},
-					"gitlens.views.formats.stashes.label": {
-						"type": "string",
-						"default": "${message}",
-						"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 50
-					},
-					"gitlens.views.formats.stashes.description": {
-						"type": "string",
-						"default": "${stashOnRef, }${agoOrDate}",
-						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 51
-					},
-					"gitlens.views.formats.stashes.tooltip": {
-						"type": "string",
-						"default": "${link}${' on `'stashOnRef`}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail} \\\n&nbsp;&nbsp;${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
-						"markdownDescription": "Specifies the tooltip format (in markdown) of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 52
-					},
-					"gitlens.views.openChangesInMultiDiffEditor": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to open multiple changes in the multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
-						"scope": "window",
-						"order": 60
-					},
-					"gitlens.views.commitFileFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
-					},
-					"gitlens.views.commitFileDescriptionFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
-					},
-					"gitlens.views.commitFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.label` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.commits.files.label#` instead"
-					},
-					"gitlens.views.commitDescriptionFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.description` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.commits.description#` instead"
-					},
-					"gitlens.views.stashFileFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
-					},
-					"gitlens.views.stashFileDescriptionFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
-					},
-					"gitlens.views.stashFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.label` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.stashes.files.label#` instead"
-					},
-					"gitlens.views.stashDescriptionFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.description` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.stashes.description#` instead"
-					},
-					"gitlens.views.statusFileFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
-					},
-					"gitlens.views.statusFileDescriptionFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
-					}
-				}
-			},
-			{
 				"id": "focus",
 				"title": "Launchpad (Preview)",
 				"order": 60,
@@ -1513,6 +1368,151 @@
 						"markdownDescription": "Specifies whether to enable the preview of _Cloud Patches_, which allow you to easily and securely share code with your teammates or other developers",
 						"scope": "window",
 						"order": 10
+					}
+				}
+			},
+			{
+				"id": "views",
+				"title": "Views",
+				"order": 100,
+				"properties": {
+					"gitlens.views.collapseWorktreesWhenPossible": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to try to collapse the opened worktrees into a single (common) repository in the views when possible",
+						"scope": "window",
+						"order": 1
+					},
+					"gitlens.views.defaultItemLimit": {
+						"type": "number",
+						"default": 10,
+						"markdownDescription": "Specifies the default number of items to show in a view list. Use 0 to specify no limit",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.pageItemLimit": {
+						"type": "number",
+						"default": 40,
+						"markdownDescription": "Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit",
+						"scope": "window",
+						"order": 11
+					},
+					"gitlens.views.showRelativeDateMarkers": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.views.formats.commits.label": {
+						"type": "string",
+						"default": "${❰ tips|11? ❱➤  }${message}",
+						"markdownDescription": "Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.formats.commits.description": {
+						"type": "string",
+						"default": "${author, }${agoOrDate}",
+						"markdownDescription": "Specifies the description format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.formats.commits.tooltip": {
+						"type": "string",
+						"default": "${link}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips} \\\n${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
+						"markdownDescription": "Specifies the tooltip format (in markdown) of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.formats.commits.tooltipWithStatus": {
+						"type": "string",
+						"default": "${link}${' via 'pullRequest}&nbsp;&nbsp;•&nbsp;&nbsp;{{slot-status}}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n${avatar} &nbsp;__${author}__, ${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
+						"markdownDescription": "Specifies the tooltip format (in markdown) of \"file\" commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.formats.files.label": {
+						"type": "string",
+						"default": "${working  }${file}",
+						"markdownDescription": "Specifies the format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 40
+					},
+					"gitlens.views.formats.files.description": {
+						"type": "string",
+						"default": "${directory}${  ←  originalPath}",
+						"markdownDescription": "Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 41
+					},
+					"gitlens.views.formats.stashes.label": {
+						"type": "string",
+						"default": "${message}",
+						"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 50
+					},
+					"gitlens.views.formats.stashes.description": {
+						"type": "string",
+						"default": "${stashOnRef, }${agoOrDate}",
+						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 51
+					},
+					"gitlens.views.formats.stashes.tooltip": {
+						"type": "string",
+						"default": "${link}${' on `'stashOnRef`}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail} \\\n&nbsp;&nbsp;${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
+						"markdownDescription": "Specifies the tooltip format (in markdown) of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 52
+					},
+					"gitlens.views.openChangesInMultiDiffEditor": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to open multiple changes in the multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
+						"scope": "window",
+						"order": 60
+					},
+					"gitlens.views.commitFileFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
+					},
+					"gitlens.views.commitFileDescriptionFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
+					},
+					"gitlens.views.commitFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.label` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.commits.files.label#` instead"
+					},
+					"gitlens.views.commitDescriptionFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.description` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.commits.description#` instead"
+					},
+					"gitlens.views.stashFileFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
+					},
+					"gitlens.views.stashFileDescriptionFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
+					},
+					"gitlens.views.stashFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.label` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.stashes.files.label#` instead"
+					},
+					"gitlens.views.stashDescriptionFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.description` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.stashes.description#` instead"
+					},
+					"gitlens.views.statusFileFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
+					},
+					"gitlens.views.statusFileDescriptionFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
 					}
 				}
 			},
