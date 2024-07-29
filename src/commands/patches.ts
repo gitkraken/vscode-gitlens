@@ -11,6 +11,7 @@ import { uncommitted, uncommittedStaged } from '../git/models/constants';
 import type { GitDiff } from '../git/models/diff';
 import { isSha, shortenRevision } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
+import { splitGitCommitMessage } from '../git/utils/commit-utils';
 import type { Draft, LocalDraft } from '../gk/models/drafts';
 import { showPatchesView } from '../plus/drafts/actions';
 import type { ProviderAuth } from '../plus/drafts/draftsService';
@@ -19,7 +20,6 @@ import { getProviderIdFromEntityIdentifier } from '../plus/integrations/provider
 import type { Change, CreateDraft } from '../plus/webviews/patchDetails/protocol';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
-import { splitGitCommitMessage } from '../system/commitUtils';
 import { map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import type { CommandContext } from './base';

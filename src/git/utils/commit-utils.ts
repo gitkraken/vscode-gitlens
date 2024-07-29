@@ -3,7 +3,7 @@
 /**
  * use `\n` symbol is presented to split commit message to description and title
  */
-export const splitGitCommitMessage = (commitMessage?: string) => {
+export function splitGitCommitMessage(commitMessage?: string) {
 	if (!commitMessage) {
 		return {
 			title: '',
@@ -20,4 +20,4 @@ export const splitGitCommitMessage = (commitMessage?: string) => {
 		title: message.substring(0, index),
 		description: message.substring(index + 1).trim(),
 	};
-};
+}
