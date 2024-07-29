@@ -602,1749 +602,6 @@
 				}
 			},
 			{
-				"id": "views",
-				"title": "Views",
-				"order": 20,
-				"properties": {
-					"gitlens.views.collapseWorktreesWhenPossible": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to try to collapse the opened worktrees into a single (common) repository in the views when possible",
-						"scope": "window",
-						"order": 1
-					},
-					"gitlens.views.defaultItemLimit": {
-						"type": "number",
-						"default": 10,
-						"markdownDescription": "Specifies the default number of items to show in a view list. Use 0 to specify no limit",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.pageItemLimit": {
-						"type": "number",
-						"default": 40,
-						"markdownDescription": "Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit",
-						"scope": "window",
-						"order": 11
-					},
-					"gitlens.views.showRelativeDateMarkers": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.views.formats.commits.label": {
-						"type": "string",
-						"default": "${❰ tips|11? ❱➤  }${message}",
-						"markdownDescription": "Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.formats.commits.description": {
-						"type": "string",
-						"default": "${author, }${agoOrDate}",
-						"markdownDescription": "Specifies the description format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.formats.commits.tooltip": {
-						"type": "string",
-						"default": "${link}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips} \\\n${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
-						"markdownDescription": "Specifies the tooltip format (in markdown) of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.formats.commits.tooltipWithStatus": {
-						"type": "string",
-						"default": "${link}${' via 'pullRequest}&nbsp;&nbsp;•&nbsp;&nbsp;{{slot-status}}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n${avatar} &nbsp;__${author}__, ${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
-						"markdownDescription": "Specifies the tooltip format (in markdown) of \"file\" commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.formats.files.label": {
-						"type": "string",
-						"default": "${working  }${file}",
-						"markdownDescription": "Specifies the format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 40
-					},
-					"gitlens.views.formats.files.description": {
-						"type": "string",
-						"default": "${directory}${  ←  originalPath}",
-						"markdownDescription": "Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 41
-					},
-					"gitlens.views.formats.stashes.label": {
-						"type": "string",
-						"default": "${message}",
-						"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 50
-					},
-					"gitlens.views.formats.stashes.description": {
-						"type": "string",
-						"default": "${stashOnRef, }${agoOrDate}",
-						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 51
-					},
-					"gitlens.views.formats.stashes.tooltip": {
-						"type": "string",
-						"default": "${link}${' on `'stashOnRef`}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail} \\\n&nbsp;&nbsp;${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
-						"markdownDescription": "Specifies the tooltip format (in markdown) of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-						"scope": "window",
-						"order": 52
-					},
-					"gitlens.views.openChangesInMultiDiffEditor": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to open multiple changes in the multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
-						"scope": "window",
-						"order": 60
-					},
-					"gitlens.views.commitFileFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
-					},
-					"gitlens.views.commitFileDescriptionFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
-					},
-					"gitlens.views.commitFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.label` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.commits.files.label#` instead"
-					},
-					"gitlens.views.commitDescriptionFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.description` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.commits.description#` instead"
-					},
-					"gitlens.views.stashFileFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
-					},
-					"gitlens.views.stashFileDescriptionFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
-					},
-					"gitlens.views.stashFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.label` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.stashes.files.label#` instead"
-					},
-					"gitlens.views.stashDescriptionFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.description` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.stashes.description#` instead"
-					},
-					"gitlens.views.statusFileFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
-					},
-					"gitlens.views.statusFileDescriptionFormat": {
-						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
-						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
-					}
-				}
-			},
-			{
-				"id": "commits-view",
-				"title": "Commits View",
-				"order": 21,
-				"properties": {
-					"gitlens.views.commits.showBranchComparison": {
-						"type": [
-							"boolean",
-							"string"
-						],
-						"enum": [
-							false,
-							"branch",
-							"working"
-						],
-						"enumDescriptions": [
-							"Hides the branch comparison",
-							"Compares the current branch with a user-selected reference",
-							"Compares the working tree with a user-selected reference"
-						],
-						"default": "working",
-						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag, etc) in the _Commits_ view",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.commits.pullRequests.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with the current branch and commits in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 21
-					},
-					"gitlens.views.commits.pullRequests.showForBranches": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with the current branch in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 22
-					},
-					"gitlens.views.commits.pullRequests.showForCommits": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 23
-					},
-					"gitlens.views.commits.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.commits.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Commits_ view will display files",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.commits.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Commits_ view. Only applies when `#gitlens.views.commits.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.commits.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Commits_ view. Only applies when `#gitlens.views.commits.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.commits.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Commits_ view will display file icons",
-						"scope": "window",
-						"order": 33
-					},
-					"gitlens.views.commits.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Commits_ view",
-						"scope": "window",
-						"order": 40
-					},
-					"gitlens.views.commits.reveal": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to reveal commits in the _Commits_ view, otherwise they revealed in the _Repositories_ view",
-						"scope": "window",
-						"order": 50
-					}
-				}
-			},
-			{
-				"id": "commit-details-view",
-				"title": "Inspect View",
-				"order": 22,
-				"properties": {
-					"gitlens.views.commitDetails.autolinks.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to automatically link external resources in commit messages",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.commitDetails.autolinks.enhanced": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to lookup additional details about automatically link external resources in commit messages. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.commitDetails.pullRequests.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to query for associated pull requests. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 21
-					},
-					"gitlens.views.commitDetails.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.commitDetails.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Commit Details_ view will display files",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.commitDetails.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Commit Details_ view. Only applies when `#gitlens.views.commitDetails.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.commitDetails.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Commit Details_ view. Only applies when `#gitlens.views.commitDetails.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.commitDetails.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Commit Details_ view will display file icons",
-						"scope": "window",
-						"order": 33
-					},
-					"gitlens.views.commitDetails.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Commit Details_ view",
-						"scope": "window",
-						"order": 40
-					}
-				}
-			},
-			{
-				"id": "repositories-view",
-				"title": "Repositories View",
-				"order": 23,
-				"properties": {
-					"gitlens.views.repositories.showBranchComparison": {
-						"type": [
-							"boolean",
-							"string"
-						],
-						"enum": [
-							false,
-							"branch",
-							"working"
-						],
-						"enumDescriptions": [
-							"Hides the branch comparison",
-							"Compares the current branch with a user-selected reference",
-							"Compares the working tree with a user-selected reference"
-						],
-						"default": "working",
-						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag, etc) in the _Repositories_ view",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.repositories.showUpstreamStatus": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the upstream status of the current branch for each repository in the _Repositories_ view",
-						"scope": "window",
-						"order": 11
-					},
-					"gitlens.views.repositories.includeWorkingTree": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to include working tree file status for each repository in the _Repositories_ view",
-						"scope": "window",
-						"order": 12
-					},
-					"gitlens.views.repositories.pullRequests.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Repositories_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.views.repositories.pullRequests.showForBranches": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _Repositories_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 21
-					},
-					"gitlens.views.repositories.pullRequests.showForCommits": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Repositories_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 22
-					},
-					"gitlens.views.repositories.showCommits": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the commits on the current branch for each repository in the _Repositories_ view",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.repositories.showBranches": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the branches for each repository in the _Repositories_ view",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.repositories.showRemotes": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the remotes for each repository in the _Repositories_ view",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.repositories.showStashes": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the stashes for each repository in the _Repositories_ view",
-						"scope": "window",
-						"order": 33
-					},
-					"gitlens.views.repositories.showTags": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the tags for each repository in the _Repositories_ view",
-						"scope": "window",
-						"order": 34
-					},
-					"gitlens.views.repositories.showContributors": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the contributors for each repository in the _Repositories_ view",
-						"scope": "window",
-						"order": 35
-					},
-					"gitlens.views.repositories.showWorktrees": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the worktrees for each repository in the _Repositories_ view",
-						"scope": "window",
-						"order": 36
-					},
-					"gitlens.views.repositories.showIncomingActivity": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to show the experimental incoming activity for each repository in the _Repositories_ view",
-						"scope": "window",
-						"order": 37
-					},
-					"gitlens.views.repositories.autoRefresh": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to automatically refresh the _Repositories_ view when the repository or the file system changes",
-						"scope": "window",
-						"order": 40
-					},
-					"gitlens.views.repositories.autoReveal": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to automatically reveal repositories in the _Repositories_ view when opening files",
-						"scope": "window",
-						"order": 50
-					},
-					"gitlens.views.repositories.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Repositories_ view",
-						"scope": "window",
-						"order": 60
-					},
-					"gitlens.views.repositories.branches.layout": {
-						"type": "string",
-						"default": "tree",
-						"enum": [
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Displays branches as a list",
-							"Displays branches as a tree when branch names contain slashes `/`"
-						],
-						"markdownDescription": "Specifies how the _Repositories_ view will display branches",
-						"scope": "window",
-						"order": 70
-					},
-					"gitlens.views.repositories.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.repositories.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Repositories_ view will display files",
-						"scope": "window",
-						"order": 80
-					},
-					"gitlens.views.repositories.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Repositories_ view. Only applies when `#gitlens.views.repositories.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 81
-					},
-					"gitlens.views.repositories.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Repositories_ view. Only applies when `#gitlens.views.repositories.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 82
-					},
-					"gitlens.views.repositories.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Repositories_ view will display file icons",
-						"scope": "window",
-						"order": 83
-					},
-					"gitlens.views.repositories.compact": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to show the _Repositories_ view in a compact display density",
-						"scope": "window",
-						"order": 90
-					},
-					"gitlens.views.repositories.branches.showBranchComparison": {
-						"type": [
-							"boolean",
-							"string"
-						],
-						"enum": [
-							false,
-							"branch"
-						],
-						"enumDescriptions": [
-							"Hides the branch comparison",
-							"Compares the branch with a user-selected reference"
-						],
-						"default": "branch",
-						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag, etc) under each branch in the _Repositories_ view",
-						"scope": "window",
-						"order": 100
-					},
-					"gitlens.views.repositories.enabled": {
-						"deprecationMessage": "Deprecated. This setting is no longer used",
-						"markdownDeprecationMessage": "Deprecated. This setting is no longer used"
-					}
-				}
-			},
-			{
-				"id": "pull-request-view",
-				"title": "Pull Request View",
-				"order": 21,
-				"properties": {
-					"gitlens.views.pullRequest.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.pullRequest.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Pull Request_ view will display files",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.pullRequest.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Pull Request_ view. Only applies when `#gitlens.views.pullRequest.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.pullRequest.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Pull Request_ view. Only applies when `#gitlens.views.pullRequest.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.pullRequest.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Pull Request_ view will display file icons",
-						"scope": "window",
-						"order": 33
-					},
-					"gitlens.views.pullRequest.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Pull Request_ view",
-						"scope": "window",
-						"order": 40
-					}
-				}
-			},
-			{
-				"id": "file-history-view",
-				"title": "File History View",
-				"order": 24,
-				"properties": {
-					"gitlens.views.fileHistory.pullRequests.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with commits in the _File History_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 21
-					},
-					"gitlens.views.fileHistory.pullRequests.showForCommits": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _File History_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 22
-					},
-					"gitlens.views.fileHistory.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.fileHistory.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _File History_ view will display files",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.fileHistory.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _File History_ view. Only applies when `#gitlens.views.fileHistory.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.fileHistory.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _File History_ view. Only applies when `#gitlens.views.fileHistory.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.fileHistory.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _File History_ view will display file icons",
-						"scope": "window",
-						"order": 33
-					},
-					"gitlens.views.fileHistory.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of status icons in the _File History_ view",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.advanced.fileHistoryFollowsRenames": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether file histories will follow renames",
-						"scope": "window",
-						"order": 100
-					},
-					"gitlens.advanced.fileHistoryShowAllBranches": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether file histories will show commits from all branches",
-						"scope": "window",
-						"order": 101
-					},
-					"gitlens.advanced.fileHistoryShowMergeCommits": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether file histories will show merge commits",
-						"scope": "window",
-						"order": 102
-					}
-				}
-			},
-			{
-				"id": "line-history-view",
-				"title": "Line History View",
-				"order": 25,
-				"properties": {
-					"gitlens.views.lineHistory.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of status icons in the _Line History_ view",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.lineHistory.enabled": {
-						"deprecationMessage": "Deprecated. This setting is no longer used",
-						"markdownDeprecationMessage": "Deprecated. This setting is no longer used"
-					}
-				}
-			},
-			{
-				"id": "branches-view",
-				"title": "Branches View",
-				"order": 26,
-				"properties": {
-					"gitlens.views.branches.showBranchComparison": {
-						"type": [
-							"boolean",
-							"string"
-						],
-						"enum": [
-							false,
-							"branch"
-						],
-						"enumDescriptions": [
-							"Hides the branch comparison",
-							"Compares the branch with a user-selected reference"
-						],
-						"default": "branch",
-						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag, etc) in the _Branches_ view",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.branches.pullRequests.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with each branch and commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.views.branches.pullRequests.showForBranches": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with each branch in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 21
-					},
-					"gitlens.views.branches.pullRequests.showForCommits": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 22
-					},
-					"gitlens.views.branches.branches.layout": {
-						"type": "string",
-						"default": "tree",
-						"enum": [
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Displays branches as a list",
-							"Displays branches as a tree when branch names contain slashes `/`"
-						],
-						"markdownDescription": "Specifies how the _Branches_ view will display branches",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.branches.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.branches.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Branches_ view will display files",
-						"scope": "window",
-						"order": 50
-					},
-					"gitlens.views.branches.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Branches_ view. Only applies when `#gitlens.views.branches.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 51
-					},
-					"gitlens.views.branches.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Branches_ view. Only applies when `#gitlens.views.branches.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 52
-					},
-					"gitlens.views.branches.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Branches_ view will display file icons",
-						"scope": "window",
-						"order": 53
-					},
-					"gitlens.views.branches.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Branches_ view",
-						"scope": "window",
-						"order": 60
-					},
-					"gitlens.views.branches.reveal": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to reveal branches in the _Branches_ view, otherwise they revealed in the _Repositories_ view",
-						"scope": "window",
-						"order": 70
-					}
-				}
-			},
-			{
-				"id": "remotes-view",
-				"title": "Remotes View",
-				"order": 27,
-				"properties": {
-					"gitlens.views.remotes.pullRequests.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with each branch and commits in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.remotes.pullRequests.showForBranches": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with each branch in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 11
-					},
-					"gitlens.views.remotes.pullRequests.showForCommits": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 12
-					},
-					"gitlens.views.remotes.branches.layout": {
-						"type": "string",
-						"default": "tree",
-						"enum": [
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Displays branches as a list",
-							"Displays branches as a tree when branch names contain slashes `/`"
-						],
-						"markdownDescription": "Specifies how the _Remotes_ view will display branches",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.views.remotes.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.remotes.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Remotes_ view will display files",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.remotes.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Remotes_ view. Only applies when `#gitlens.views.remotes.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.remotes.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Remotes_ view. Only applies when `#gitlens.views.remotes.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.remotes.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Remotes_ view will display file icons",
-						"scope": "window",
-						"order": 33
-					},
-					"gitlens.views.remotes.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Remotes_ view",
-						"scope": "window",
-						"order": 40
-					},
-					"gitlens.views.remotes.reveal": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to reveal remotes in the _Remotes_ view, otherwise they revealed in the _Repositories_ view",
-						"scope": "window",
-						"order": 50
-					}
-				}
-			},
-			{
-				"id": "stashes-view",
-				"title": "Stashes View",
-				"order": 28,
-				"properties": {
-					"gitlens.views.stashes.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.stashes.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Stashes_ view will display files",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.stashes.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Stashes_ view. Only applies when `#gitlens.views.stashes.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 11
-					},
-					"gitlens.views.stashes.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Stashes_ view. Only applies when `#gitlens.views.stashes.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 12
-					},
-					"gitlens.views.stashes.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Stashes_ view will display file icons",
-						"scope": "window",
-						"order": 13
-					},
-					"gitlens.views.stashes.reveal": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to reveal stashes in the _Stashes_ view, otherwise they revealed in the _Repositories_ view",
-						"scope": "window",
-						"order": 20
-					}
-				}
-			},
-			{
-				"id": "tags-view",
-				"title": "Tags View",
-				"order": 29,
-				"properties": {
-					"gitlens.views.tags.branches.layout": {
-						"type": "string",
-						"default": "tree",
-						"enum": [
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Displays tags as a list",
-							"Displays tags as a tree when tags names contain slashes `/`"
-						],
-						"markdownDescription": "Specifies how the _Tags_ view will display tags",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.tags.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.tags.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Tags_ view will display files",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.tags.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Tags_ view. Only applies when `#gitlens.views.tags.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.tags.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Tags_ view. Only applies when `#gitlens.views.tags.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.tags.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Tags_ view will display file icons",
-						"scope": "window",
-						"order": 33
-					},
-					"gitlens.views.tags.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Tags_ view",
-						"scope": "window",
-						"order": 40
-					},
-					"gitlens.views.tags.reveal": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to reveal tags in the _Tags_ view, otherwise they revealed in the _Repositories_ view",
-						"scope": "window",
-						"order": 50
-					}
-				}
-			},
-			{
-				"id": "worktrees-view",
-				"title": "Worktrees View",
-				"order": 30,
-				"properties": {
-					"gitlens.worktrees.promptForLocation": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to prompt for a path when creating new worktrees",
-						"scope": "resource",
-						"order": 10
-					},
-					"gitlens.worktrees.defaultLocation": {
-						"type": "string",
-						"default": null,
-						"markdownDescription": "Specifies the default path in which new worktrees will be created",
-						"scope": "resource",
-						"order": 11
-					},
-					"gitlens.worktrees.openAfterCreate": {
-						"type": "string",
-						"default": "prompt",
-						"enum": [
-							"always",
-							"alwaysNewWindow",
-							"onlyWhenEmpty",
-							"never",
-							"prompt"
-						],
-						"enumDescriptions": [
-							"Always open the new worktree in the current window",
-							"Always open the new worktree in a new window",
-							"Only open the new worktree in the current window when no folder is opened",
-							"Never open the new worktree",
-							"Always prompt to open the new worktree"
-						],
-						"markdownDescription": "Specifies how and when to open a worktree after it is created",
-						"scope": "resource",
-						"order": 12
-					},
-					"gitlens.views.worktrees.showBranchComparison": {
-						"type": [
-							"boolean",
-							"string"
-						],
-						"enum": [
-							false,
-							"branch"
-						],
-						"enumDescriptions": [
-							"Hides the branch comparison",
-							"Compares the worktree branch with a user-selected reference"
-						],
-						"default": "working",
-						"markdownDescription": "Specifies whether to show a comparison of the worktree branch with a user-selected reference (branch, tag, etc) in the _Worktrees_ view",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.views.worktrees.pullRequests.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with the worktree branch and commits in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.worktrees.pullRequests.showForBranches": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with the worktree branch in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.worktrees.pullRequests.showForCommits": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.worktrees.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.worktrees.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Worktrees_ view will display files",
-						"scope": "window",
-						"order": 40
-					},
-					"gitlens.views.worktrees.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Worktrees_ view. Only applies when `#gitlens.views.worktrees.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 41
-					},
-					"gitlens.views.worktrees.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Worktrees_ view. Only applies when `#gitlens.views.worktrees.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 42
-					},
-					"gitlens.views.worktrees.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Worktrees_ view will display file icons",
-						"scope": "window",
-						"order": 43
-					},
-					"gitlens.views.worktrees.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Worktrees_ view",
-						"scope": "window",
-						"order": 50
-					},
-					"gitlens.views.worktrees.reveal": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to reveal worktrees in the _Worktrees_ view, otherwise they revealed in the _Repositories_ view",
-						"scope": "window",
-						"order": 60
-					}
-				}
-			},
-			{
-				"id": "contributors-view",
-				"title": "Contributors View",
-				"order": 31,
-				"properties": {
-					"gitlens.views.contributors.showAllBranches": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to show commits from all branches in the _Contributors_ view",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.contributors.showStatistics": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to show contributor statistics in the _Contributors_ view. This can take a while to compute depending on the repository size",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.views.contributors.pullRequests.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Contributors_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.contributors.pullRequests.showForCommits": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Contributors_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.contributors.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.contributors.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Contributors_ view will display files",
-						"scope": "window",
-						"order": 50
-					},
-					"gitlens.views.contributors.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Contributors_ view. Only applies when `#gitlens.views.contributors.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 51
-					},
-					"gitlens.views.contributors.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Contributors_ view. Only applies when `#gitlens.views.contributors.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 52
-					},
-					"gitlens.views.contributors.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Contributors_ view will display file icons",
-						"scope": "window",
-						"order": 53
-					},
-					"gitlens.views.contributors.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Contributors_ view",
-						"scope": "window",
-						"order": 60
-					},
-					"gitlens.views.contributors.reveal": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to reveal contributors in the _Contributors_ view, otherwise they revealed in the _Repositories_ view",
-						"scope": "window",
-						"order": 20
-					}
-				}
-			},
-			{
-				"id": "search-compare-view",
-				"title": "Search & Compare View",
-				"order": 32,
-				"properties": {
-					"gitlens.views.searchAndCompare.pullRequests.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with commits in the _Search & Compare_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.searchAndCompare.pullRequests.showForCommits": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Search & Compare_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 11
-					},
-					"gitlens.views.searchAndCompare.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.searchAndCompare.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Search & Compare_ view will display files",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.views.searchAndCompare.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Search & Compare_ view. Only applies when `#gitlens.views.searchAndCompare.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 21
-					},
-					"gitlens.views.searchAndCompare.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Search & Compare_ view. Only applies when `#gitlens.views.searchAndCompare.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 22
-					},
-					"gitlens.views.searchAndCompare.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Search & Compare_ view will display file icons",
-						"scope": "window",
-						"order": 33
-					},
-					"gitlens.views.searchAndCompare.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Search & Compare_ view",
-						"scope": "window",
-						"order": 30
-					}
-				}
-			},
-			{
-				"id": "cloud-patches-view",
-				"title": "Cloud Patches View",
-				"order": 33,
-				"properties": {
-					"gitlens.views.drafts.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.drafts.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Cloud Patches_ view will display files",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.drafts.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Cloud Patches_ view. Only applies when `#gitlens.views.drafts.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.drafts.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Cloud Patches_ view. Only applies when `#gitlens.views.drafts.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.drafts.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Cloud Patches_ view will display file icons",
-						"scope": "window",
-						"order": 33
-					},
-					"gitlens.views.drafts.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Cloud Patches_ view",
-						"scope": "window",
-						"order": 40
-					}
-				}
-			},
-			{
-				"id": "workspaces-view",
-				"title": "GitKraken Workspaces View",
-				"order": 34,
-				"properties": {
-					"gitlens.views.workspaces.showBranchComparison": {
-						"type": [
-							"boolean",
-							"string"
-						],
-						"enum": [
-							false,
-							"branch",
-							"working"
-						],
-						"enumDescriptions": [
-							"Hides the branch comparison",
-							"Compares the current branch with a user-selected reference",
-							"Compares the working tree with a user-selected reference"
-						],
-						"default": "working",
-						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag, etc) in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.views.workspaces.showUpstreamStatus": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the upstream status of the current branch for each repository in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 11
-					},
-					"gitlens.views.workspaces.includeWorkingTree": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to include working tree file status for each repository in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 12
-					},
-					"gitlens.views.workspaces.pullRequests.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _GitKraken Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.views.workspaces.pullRequests.showForBranches": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _GitKraken Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 21
-					},
-					"gitlens.views.workspaces.pullRequests.showForCommits": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _GitKraken Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 22
-					},
-					"gitlens.views.workspaces.showCommits": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the commits on the current branch for each repository in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.workspaces.showBranches": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the branches for each repository in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.workspaces.showRemotes": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the remotes for each repository in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.workspaces.showStashes": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the stashes for each repository in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 33
-					},
-					"gitlens.views.workspaces.showTags": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the tags for each repository in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 34
-					},
-					"gitlens.views.workspaces.showContributors": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the contributors for each repository in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 35
-					},
-					"gitlens.views.workspaces.showWorktrees": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the worktrees for each repository in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 36
-					},
-					"gitlens.views.workspaces.showIncomingActivity": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to show the experimental incoming activity for each repository in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 37
-					},
-					"gitlens.views.workspaces.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 60
-					},
-					"gitlens.views.workspaces.branches.layout": {
-						"type": "string",
-						"default": "tree",
-						"enum": [
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Displays branches as a list",
-							"Displays branches as a tree when branch names contain slashes `/`"
-						],
-						"markdownDescription": "Specifies how the _GitKraken Workspaces_ view will display branches",
-						"scope": "window",
-						"order": 70
-					},
-					"gitlens.views.workspaces.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.workspaces.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _GitKraken Workspaces_ view will display files",
-						"scope": "window",
-						"order": 80
-					},
-					"gitlens.views.workspaces.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _GitKraken Workspaces_ view. Only applies when `#gitlens.views.workspaces.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 81
-					},
-					"gitlens.views.workspaces.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _GitKraken Workspaces_ view. Only applies when `#gitlens.views.workspaces.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 82
-					},
-					"gitlens.views.workspaces.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _GitKraken Workspaces_ view will display file icons",
-						"scope": "window",
-						"order": 83
-					},
-					"gitlens.views.workspaces.compact": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to show the _GitKraken Workspaces_ view in a compact display density",
-						"scope": "window",
-						"order": 90
-					},
-					"gitlens.views.workspaces.branches.showBranchComparison": {
-						"type": [
-							"boolean",
-							"string"
-						],
-						"enum": [
-							false,
-							"branch"
-						],
-						"enumDescriptions": [
-							"Hides the branch comparison",
-							"Compares the branch with a user-selected reference"
-						],
-						"default": "branch",
-						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag, etc) under each branch in the _GitKraken Workspaces_ view",
-						"scope": "window",
-						"order": 100
-					}
-				}
-			},
-			{
-				"id": "patch-details-view",
-				"title": "Patch Details View",
-				"order": 35,
-				"properties": {
-					"gitlens.views.patchDetails.files.layout": {
-						"type": "string",
-						"default": "auto",
-						"enum": [
-							"auto",
-							"list",
-							"tree"
-						],
-						"enumDescriptions": [
-							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.patchDetails.files.threshold#` value and the number of files at each nesting level",
-							"Displays files as a list",
-							"Displays files as a tree"
-						],
-						"markdownDescription": "Specifies how the _Patch Details_ view will display files",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.views.patchDetails.files.threshold": {
-						"type": "number",
-						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Patch Details_ view. Only applies when `#gitlens.views.patchDetails.files.layout#` is set to `auto`",
-						"scope": "window",
-						"order": 31
-					},
-					"gitlens.views.patchDetails.files.compact": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Patch Details_ view. Only applies when `#gitlens.views.patchDetails.files.layout#` is set to `tree` or `auto`",
-						"scope": "window",
-						"order": 32
-					},
-					"gitlens.views.patchDetails.files.icon": {
-						"type": "string",
-						"default": "type",
-						"enum": [
-							"status",
-							"type"
-						],
-						"enumDescriptions": [
-							"Shows the file's status as the icon",
-							"Shows the file's type (theme icon) as the icon"
-						],
-						"markdownDescription": "Specifies how the _Patch Details_ view will display file icons",
-						"scope": "window",
-						"order": 33
-					},
-					"gitlens.views.patchDetails.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Patch Details_ view",
-						"scope": "window",
-						"order": 40
-					}
-				}
-			},
-			{
 				"id": "file-annotations",
 				"title": "File Annotations",
 				"order": 14,
@@ -2673,7 +930,7 @@
 			{
 				"id": "graph",
 				"title": "Commit Graph",
-				"order": 200,
+				"order": 50,
 				"properties": {
 					"gitlens.graph.allowMultiple": {
 						"type": "boolean",
@@ -2944,23 +1201,154 @@
 				}
 			},
 			{
-				"id": "cloud-patches",
-				"title": "Cloud Patches (Preview)",
-				"order": 300,
+				"id": "views",
+				"title": "Views",
+				"order": 100,
 				"properties": {
-					"gitlens.cloudPatches.enabled": {
+					"gitlens.views.collapseWorktreesWhenPossible": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to enable the preview of _Cloud Patches_, which allow you to easily and securely share code with your teammates or other developers",
+						"markdownDescription": "Specifies whether to try to collapse the opened worktrees into a single (common) repository in the views when possible",
+						"scope": "window",
+						"order": 1
+					},
+					"gitlens.views.defaultItemLimit": {
+						"type": "number",
+						"default": 10,
+						"markdownDescription": "Specifies the default number of items to show in a view list. Use 0 to specify no limit",
 						"scope": "window",
 						"order": 10
+					},
+					"gitlens.views.pageItemLimit": {
+						"type": "number",
+						"default": 40,
+						"markdownDescription": "Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit",
+						"scope": "window",
+						"order": 11
+					},
+					"gitlens.views.showRelativeDateMarkers": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.views.formats.commits.label": {
+						"type": "string",
+						"default": "${❰ tips|11? ❱➤  }${message}",
+						"markdownDescription": "Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.formats.commits.description": {
+						"type": "string",
+						"default": "${author, }${agoOrDate}",
+						"markdownDescription": "Specifies the description format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.formats.commits.tooltip": {
+						"type": "string",
+						"default": "${link}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips} \\\n${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
+						"markdownDescription": "Specifies the tooltip format (in markdown) of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.formats.commits.tooltipWithStatus": {
+						"type": "string",
+						"default": "${link}${' via 'pullRequest}&nbsp;&nbsp;•&nbsp;&nbsp;{{slot-status}}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n${avatar} &nbsp;__${author}__, ${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
+						"markdownDescription": "Specifies the tooltip format (in markdown) of \"file\" commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.formats.files.label": {
+						"type": "string",
+						"default": "${working  }${file}",
+						"markdownDescription": "Specifies the format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 40
+					},
+					"gitlens.views.formats.files.description": {
+						"type": "string",
+						"default": "${directory}${  ←  originalPath}",
+						"markdownDescription": "Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 41
+					},
+					"gitlens.views.formats.stashes.label": {
+						"type": "string",
+						"default": "${message}",
+						"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 50
+					},
+					"gitlens.views.formats.stashes.description": {
+						"type": "string",
+						"default": "${stashOnRef, }${agoOrDate}",
+						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 51
+					},
+					"gitlens.views.formats.stashes.tooltip": {
+						"type": "string",
+						"default": "${link}${' on `'stashOnRef`}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail} \\\n&nbsp;&nbsp;${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
+						"markdownDescription": "Specifies the tooltip format (in markdown) of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 52
+					},
+					"gitlens.views.openChangesInMultiDiffEditor": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to open multiple changes in the multi-diff editor (single tab) or in individual diff editors (multiple tabs)",
+						"scope": "window",
+						"order": 60
+					},
+					"gitlens.views.commitFileFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
+					},
+					"gitlens.views.commitFileDescriptionFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
+					},
+					"gitlens.views.commitFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.label` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.commits.files.label#` instead"
+					},
+					"gitlens.views.commitDescriptionFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.description` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.commits.description#` instead"
+					},
+					"gitlens.views.stashFileFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
+					},
+					"gitlens.views.stashFileDescriptionFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
+					},
+					"gitlens.views.stashFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.label` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.stashes.files.label#` instead"
+					},
+					"gitlens.views.stashDescriptionFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.description` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.stashes.description#` instead"
+					},
+					"gitlens.views.statusFileFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
+					},
+					"gitlens.views.statusFileDescriptionFormat": {
+						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
+						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
 					}
 				}
 			},
 			{
 				"id": "focus",
 				"title": "Launchpad (Preview)",
-				"order": 400,
+				"order": 60,
 				"properties": {
 					"gitlens.launchpad.ignoredRepositories": {
 						"type": "array",
@@ -3115,9 +1503,596 @@
 				}
 			},
 			{
+				"id": "cloud-patches",
+				"title": "Cloud Patches (Preview)",
+				"order": 70,
+				"properties": {
+					"gitlens.cloudPatches.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to enable the preview of _Cloud Patches_, which allow you to easily and securely share code with your teammates or other developers",
+						"scope": "window",
+						"order": 10
+					}
+				}
+			},
+			{
+				"id": "commits-view",
+				"title": "Commits View",
+				"order": 110,
+				"properties": {
+					"gitlens.views.commits.showBranchComparison": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"branch",
+							"working"
+						],
+						"enumDescriptions": [
+							"Hides the branch comparison",
+							"Compares the current branch with a user-selected reference",
+							"Compares the working tree with a user-selected reference"
+						],
+						"default": "working",
+						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag, etc) in the _Commits_ view",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.commits.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for pull requests associated with the current branch and commits in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 21
+					},
+					"gitlens.views.commits.pullRequests.showForBranches": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with the current branch in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 22
+					},
+					"gitlens.views.commits.pullRequests.showForCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 23
+					},
+					"gitlens.views.commits.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.commits.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Commits_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.commits.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Commits_ view. Only applies when `#gitlens.views.commits.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.commits.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Commits_ view. Only applies when `#gitlens.views.commits.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.commits.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Commits_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.commits.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Commits_ view",
+						"scope": "window",
+						"order": 40
+					},
+					"gitlens.views.commits.reveal": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to reveal commits in the _Commits_ view, otherwise they revealed in the _Repositories_ view",
+						"scope": "window",
+						"order": 50
+					}
+				}
+			},
+			{
+				"id": "commit-details-view",
+				"title": "Inspect View",
+				"order": 120,
+				"properties": {
+					"gitlens.views.commitDetails.autolinks.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to automatically link external resources in commit messages",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.commitDetails.autolinks.enhanced": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to lookup additional details about automatically link external resources in commit messages. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.commitDetails.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for associated pull requests. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 21
+					},
+					"gitlens.views.commitDetails.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.commitDetails.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Commit Details_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.commitDetails.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Commit Details_ view. Only applies when `#gitlens.views.commitDetails.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.commitDetails.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Commit Details_ view. Only applies when `#gitlens.views.commitDetails.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.commitDetails.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Commit Details_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.commitDetails.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Commit Details_ view",
+						"scope": "window",
+						"order": 40
+					}
+				}
+			},
+			{
+				"id": "pull-request-view",
+				"title": "Pull Request View",
+				"order": 130,
+				"properties": {
+					"gitlens.views.pullRequest.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.pullRequest.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Pull Request_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.pullRequest.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Pull Request_ view. Only applies when `#gitlens.views.pullRequest.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.pullRequest.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Pull Request_ view. Only applies when `#gitlens.views.pullRequest.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.pullRequest.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Pull Request_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.pullRequest.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Pull Request_ view",
+						"scope": "window",
+						"order": 40
+					}
+				}
+			},
+			{
+				"id": "repositories-view",
+				"title": "Repositories View",
+				"order": 140,
+				"properties": {
+					"gitlens.views.repositories.showBranchComparison": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"branch",
+							"working"
+						],
+						"enumDescriptions": [
+							"Hides the branch comparison",
+							"Compares the current branch with a user-selected reference",
+							"Compares the working tree with a user-selected reference"
+						],
+						"default": "working",
+						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag, etc) in the _Repositories_ view",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.repositories.showUpstreamStatus": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the upstream status of the current branch for each repository in the _Repositories_ view",
+						"scope": "window",
+						"order": 11
+					},
+					"gitlens.views.repositories.includeWorkingTree": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to include working tree file status for each repository in the _Repositories_ view",
+						"scope": "window",
+						"order": 12
+					},
+					"gitlens.views.repositories.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Repositories_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.views.repositories.pullRequests.showForBranches": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _Repositories_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 21
+					},
+					"gitlens.views.repositories.pullRequests.showForCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Repositories_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 22
+					},
+					"gitlens.views.repositories.showCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the commits on the current branch for each repository in the _Repositories_ view",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.repositories.showBranches": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the branches for each repository in the _Repositories_ view",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.repositories.showRemotes": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the remotes for each repository in the _Repositories_ view",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.repositories.showStashes": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the stashes for each repository in the _Repositories_ view",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.repositories.showTags": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the tags for each repository in the _Repositories_ view",
+						"scope": "window",
+						"order": 34
+					},
+					"gitlens.views.repositories.showContributors": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the contributors for each repository in the _Repositories_ view",
+						"scope": "window",
+						"order": 35
+					},
+					"gitlens.views.repositories.showWorktrees": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the worktrees for each repository in the _Repositories_ view",
+						"scope": "window",
+						"order": 36
+					},
+					"gitlens.views.repositories.showIncomingActivity": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show the experimental incoming activity for each repository in the _Repositories_ view",
+						"scope": "window",
+						"order": 37
+					},
+					"gitlens.views.repositories.autoRefresh": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to automatically refresh the _Repositories_ view when the repository or the file system changes",
+						"scope": "window",
+						"order": 40
+					},
+					"gitlens.views.repositories.autoReveal": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to automatically reveal repositories in the _Repositories_ view when opening files",
+						"scope": "window",
+						"order": 50
+					},
+					"gitlens.views.repositories.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Repositories_ view",
+						"scope": "window",
+						"order": 60
+					},
+					"gitlens.views.repositories.branches.layout": {
+						"type": "string",
+						"default": "tree",
+						"enum": [
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Displays branches as a list",
+							"Displays branches as a tree when branch names contain slashes `/`"
+						],
+						"markdownDescription": "Specifies how the _Repositories_ view will display branches",
+						"scope": "window",
+						"order": 70
+					},
+					"gitlens.views.repositories.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.repositories.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Repositories_ view will display files",
+						"scope": "window",
+						"order": 80
+					},
+					"gitlens.views.repositories.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Repositories_ view. Only applies when `#gitlens.views.repositories.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 81
+					},
+					"gitlens.views.repositories.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Repositories_ view. Only applies when `#gitlens.views.repositories.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 82
+					},
+					"gitlens.views.repositories.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Repositories_ view will display file icons",
+						"scope": "window",
+						"order": 83
+					},
+					"gitlens.views.repositories.compact": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show the _Repositories_ view in a compact display density",
+						"scope": "window",
+						"order": 90
+					},
+					"gitlens.views.repositories.branches.showBranchComparison": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"branch"
+						],
+						"enumDescriptions": [
+							"Hides the branch comparison",
+							"Compares the branch with a user-selected reference"
+						],
+						"default": "branch",
+						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag, etc) under each branch in the _Repositories_ view",
+						"scope": "window",
+						"order": 100
+					},
+					"gitlens.views.repositories.enabled": {
+						"deprecationMessage": "Deprecated. This setting is no longer used",
+						"markdownDeprecationMessage": "Deprecated. This setting is no longer used"
+					}
+				}
+			},
+			{
+				"id": "file-history-view",
+				"title": "File History View",
+				"order": 150,
+				"properties": {
+					"gitlens.views.fileHistory.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for pull requests associated with commits in the _File History_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 21
+					},
+					"gitlens.views.fileHistory.pullRequests.showForCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _File History_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 22
+					},
+					"gitlens.views.fileHistory.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.fileHistory.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _File History_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.fileHistory.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _File History_ view. Only applies when `#gitlens.views.fileHistory.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.fileHistory.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _File History_ view. Only applies when `#gitlens.views.fileHistory.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.fileHistory.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _File History_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.fileHistory.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of status icons in the _File History_ view",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.advanced.fileHistoryFollowsRenames": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether file histories will follow renames",
+						"scope": "window",
+						"order": 100
+					},
+					"gitlens.advanced.fileHistoryShowAllBranches": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether file histories will show commits from all branches",
+						"scope": "window",
+						"order": 101
+					},
+					"gitlens.advanced.fileHistoryShowMergeCommits": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether file histories will show merge commits",
+						"scope": "window",
+						"order": 102
+					}
+				}
+			},
+			{
 				"id": "visual-history",
 				"title": "Visual File History",
-				"order": 500,
+				"order": 155,
 				"properties": {
 					"gitlens.visualHistory.allowMultiple": {
 						"type": "boolean",
@@ -3132,6 +2107,1031 @@
 						"markdownDescription": "Specifies the limit on the how many commits can be queried for statistics in the _Visual File History_, because of rate limits. Only applies to virtual workspaces.",
 						"scope": "window",
 						"order": 20
+					}
+				}
+			},
+			{
+				"id": "line-history-view",
+				"title": "Line History View",
+				"order": 160,
+				"properties": {
+					"gitlens.views.lineHistory.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of status icons in the _Line History_ view",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.lineHistory.enabled": {
+						"deprecationMessage": "Deprecated. This setting is no longer used",
+						"markdownDeprecationMessage": "Deprecated. This setting is no longer used"
+					}
+				}
+			},
+			{
+				"id": "branches-view",
+				"title": "Branches View",
+				"order": 170,
+				"properties": {
+					"gitlens.views.branches.showBranchComparison": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"branch"
+						],
+						"enumDescriptions": [
+							"Hides the branch comparison",
+							"Compares the branch with a user-selected reference"
+						],
+						"default": "branch",
+						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag, etc) in the _Branches_ view",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.branches.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for pull requests associated with each branch and commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.views.branches.pullRequests.showForBranches": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with each branch in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 21
+					},
+					"gitlens.views.branches.pullRequests.showForCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 22
+					},
+					"gitlens.views.branches.branches.layout": {
+						"type": "string",
+						"default": "tree",
+						"enum": [
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Displays branches as a list",
+							"Displays branches as a tree when branch names contain slashes `/`"
+						],
+						"markdownDescription": "Specifies how the _Branches_ view will display branches",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.branches.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.branches.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Branches_ view will display files",
+						"scope": "window",
+						"order": 50
+					},
+					"gitlens.views.branches.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Branches_ view. Only applies when `#gitlens.views.branches.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 51
+					},
+					"gitlens.views.branches.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Branches_ view. Only applies when `#gitlens.views.branches.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 52
+					},
+					"gitlens.views.branches.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Branches_ view will display file icons",
+						"scope": "window",
+						"order": 53
+					},
+					"gitlens.views.branches.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Branches_ view",
+						"scope": "window",
+						"order": 60
+					},
+					"gitlens.views.branches.reveal": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to reveal branches in the _Branches_ view, otherwise they revealed in the _Repositories_ view",
+						"scope": "window",
+						"order": 70
+					}
+				}
+			},
+			{
+				"id": "remotes-view",
+				"title": "Remotes View",
+				"order": 180,
+				"properties": {
+					"gitlens.views.remotes.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for pull requests associated with each branch and commits in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.remotes.pullRequests.showForBranches": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with each branch in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 11
+					},
+					"gitlens.views.remotes.pullRequests.showForCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 12
+					},
+					"gitlens.views.remotes.branches.layout": {
+						"type": "string",
+						"default": "tree",
+						"enum": [
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Displays branches as a list",
+							"Displays branches as a tree when branch names contain slashes `/`"
+						],
+						"markdownDescription": "Specifies how the _Remotes_ view will display branches",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.views.remotes.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.remotes.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Remotes_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.remotes.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Remotes_ view. Only applies when `#gitlens.views.remotes.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.remotes.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Remotes_ view. Only applies when `#gitlens.views.remotes.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.remotes.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Remotes_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.remotes.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Remotes_ view",
+						"scope": "window",
+						"order": 40
+					},
+					"gitlens.views.remotes.reveal": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to reveal remotes in the _Remotes_ view, otherwise they revealed in the _Repositories_ view",
+						"scope": "window",
+						"order": 50
+					}
+				}
+			},
+			{
+				"id": "stashes-view",
+				"title": "Stashes View",
+				"order": 190,
+				"properties": {
+					"gitlens.views.stashes.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.stashes.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Stashes_ view will display files",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.stashes.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Stashes_ view. Only applies when `#gitlens.views.stashes.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 11
+					},
+					"gitlens.views.stashes.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Stashes_ view. Only applies when `#gitlens.views.stashes.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 12
+					},
+					"gitlens.views.stashes.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Stashes_ view will display file icons",
+						"scope": "window",
+						"order": 13
+					},
+					"gitlens.views.stashes.reveal": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to reveal stashes in the _Stashes_ view, otherwise they revealed in the _Repositories_ view",
+						"scope": "window",
+						"order": 20
+					}
+				}
+			},
+			{
+				"id": "tags-view",
+				"title": "Tags View",
+				"order": 200,
+				"properties": {
+					"gitlens.views.tags.branches.layout": {
+						"type": "string",
+						"default": "tree",
+						"enum": [
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Displays tags as a list",
+							"Displays tags as a tree when tags names contain slashes `/`"
+						],
+						"markdownDescription": "Specifies how the _Tags_ view will display tags",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.tags.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.tags.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Tags_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.tags.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Tags_ view. Only applies when `#gitlens.views.tags.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.tags.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Tags_ view. Only applies when `#gitlens.views.tags.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.tags.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Tags_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.tags.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Tags_ view",
+						"scope": "window",
+						"order": 40
+					},
+					"gitlens.views.tags.reveal": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to reveal tags in the _Tags_ view, otherwise they revealed in the _Repositories_ view",
+						"scope": "window",
+						"order": 50
+					}
+				}
+			},
+			{
+				"id": "worktrees-view",
+				"title": "Worktrees View",
+				"order": 210,
+				"properties": {
+					"gitlens.worktrees.promptForLocation": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to prompt for a path when creating new worktrees",
+						"scope": "resource",
+						"order": 10
+					},
+					"gitlens.worktrees.defaultLocation": {
+						"type": "string",
+						"default": null,
+						"markdownDescription": "Specifies the default path in which new worktrees will be created",
+						"scope": "resource",
+						"order": 11
+					},
+					"gitlens.worktrees.openAfterCreate": {
+						"type": "string",
+						"default": "prompt",
+						"enum": [
+							"always",
+							"alwaysNewWindow",
+							"onlyWhenEmpty",
+							"never",
+							"prompt"
+						],
+						"enumDescriptions": [
+							"Always open the new worktree in the current window",
+							"Always open the new worktree in a new window",
+							"Only open the new worktree in the current window when no folder is opened",
+							"Never open the new worktree",
+							"Always prompt to open the new worktree"
+						],
+						"markdownDescription": "Specifies how and when to open a worktree after it is created",
+						"scope": "resource",
+						"order": 12
+					},
+					"gitlens.views.worktrees.showBranchComparison": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"branch"
+						],
+						"enumDescriptions": [
+							"Hides the branch comparison",
+							"Compares the worktree branch with a user-selected reference"
+						],
+						"default": "working",
+						"markdownDescription": "Specifies whether to show a comparison of the worktree branch with a user-selected reference (branch, tag, etc) in the _Worktrees_ view",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.views.worktrees.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for pull requests associated with the worktree branch and commits in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.worktrees.pullRequests.showForBranches": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with the worktree branch in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.worktrees.pullRequests.showForCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.worktrees.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.worktrees.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Worktrees_ view will display files",
+						"scope": "window",
+						"order": 40
+					},
+					"gitlens.views.worktrees.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Worktrees_ view. Only applies when `#gitlens.views.worktrees.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 41
+					},
+					"gitlens.views.worktrees.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Worktrees_ view. Only applies when `#gitlens.views.worktrees.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 42
+					},
+					"gitlens.views.worktrees.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Worktrees_ view will display file icons",
+						"scope": "window",
+						"order": 43
+					},
+					"gitlens.views.worktrees.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Worktrees_ view",
+						"scope": "window",
+						"order": 50
+					},
+					"gitlens.views.worktrees.reveal": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to reveal worktrees in the _Worktrees_ view, otherwise they revealed in the _Repositories_ view",
+						"scope": "window",
+						"order": 60
+					}
+				}
+			},
+			{
+				"id": "contributors-view",
+				"title": "Contributors View",
+				"order": 220,
+				"properties": {
+					"gitlens.views.contributors.showAllBranches": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show commits from all branches in the _Contributors_ view",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.contributors.showStatistics": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show contributor statistics in the _Contributors_ view. This can take a while to compute depending on the repository size",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.views.contributors.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Contributors_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.contributors.pullRequests.showForCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Contributors_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.contributors.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.contributors.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Contributors_ view will display files",
+						"scope": "window",
+						"order": 50
+					},
+					"gitlens.views.contributors.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Contributors_ view. Only applies when `#gitlens.views.contributors.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 51
+					},
+					"gitlens.views.contributors.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Contributors_ view. Only applies when `#gitlens.views.contributors.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 52
+					},
+					"gitlens.views.contributors.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Contributors_ view will display file icons",
+						"scope": "window",
+						"order": 53
+					},
+					"gitlens.views.contributors.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Contributors_ view",
+						"scope": "window",
+						"order": 60
+					},
+					"gitlens.views.contributors.reveal": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to reveal contributors in the _Contributors_ view, otherwise they revealed in the _Repositories_ view",
+						"scope": "window",
+						"order": 20
+					}
+				}
+			},
+			{
+				"id": "search-compare-view",
+				"title": "Search & Compare View",
+				"order": 230,
+				"properties": {
+					"gitlens.views.searchAndCompare.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for pull requests associated with commits in the _Search & Compare_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.searchAndCompare.pullRequests.showForCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Search & Compare_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 11
+					},
+					"gitlens.views.searchAndCompare.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.searchAndCompare.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Search & Compare_ view will display files",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.views.searchAndCompare.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Search & Compare_ view. Only applies when `#gitlens.views.searchAndCompare.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 21
+					},
+					"gitlens.views.searchAndCompare.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Search & Compare_ view. Only applies when `#gitlens.views.searchAndCompare.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 22
+					},
+					"gitlens.views.searchAndCompare.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Search & Compare_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.searchAndCompare.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Search & Compare_ view",
+						"scope": "window",
+						"order": 30
+					}
+				}
+			},
+			{
+				"id": "cloud-patches-view",
+				"title": "Cloud Patches View",
+				"order": 240,
+				"properties": {
+					"gitlens.views.drafts.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.drafts.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Cloud Patches_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.drafts.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Cloud Patches_ view. Only applies when `#gitlens.views.drafts.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.drafts.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Cloud Patches_ view. Only applies when `#gitlens.views.drafts.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.drafts.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Cloud Patches_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.drafts.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Cloud Patches_ view",
+						"scope": "window",
+						"order": 40
+					}
+				}
+			},
+			{
+				"id": "patch-details-view",
+				"title": "Patch Details View",
+				"order": 250,
+				"properties": {
+					"gitlens.views.patchDetails.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.patchDetails.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Patch Details_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.patchDetails.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Patch Details_ view. Only applies when `#gitlens.views.patchDetails.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.patchDetails.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Patch Details_ view. Only applies when `#gitlens.views.patchDetails.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.patchDetails.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Patch Details_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.patchDetails.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Patch Details_ view",
+						"scope": "window",
+						"order": 40
+					}
+				}
+			},
+			{
+				"id": "workspaces-view",
+				"title": "GitKraken Workspaces View",
+				"order": 260,
+				"properties": {
+					"gitlens.views.workspaces.showBranchComparison": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"branch",
+							"working"
+						],
+						"enumDescriptions": [
+							"Hides the branch comparison",
+							"Compares the current branch with a user-selected reference",
+							"Compares the working tree with a user-selected reference"
+						],
+						"default": "working",
+						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag, etc) in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.workspaces.showUpstreamStatus": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the upstream status of the current branch for each repository in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 11
+					},
+					"gitlens.views.workspaces.includeWorkingTree": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to include working tree file status for each repository in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 12
+					},
+					"gitlens.views.workspaces.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _GitKraken Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.views.workspaces.pullRequests.showForBranches": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _GitKraken Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 21
+					},
+					"gitlens.views.workspaces.pullRequests.showForCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _GitKraken Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 22
+					},
+					"gitlens.views.workspaces.showCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the commits on the current branch for each repository in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.workspaces.showBranches": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the branches for each repository in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.workspaces.showRemotes": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the remotes for each repository in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.workspaces.showStashes": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the stashes for each repository in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.workspaces.showTags": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the tags for each repository in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 34
+					},
+					"gitlens.views.workspaces.showContributors": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the contributors for each repository in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 35
+					},
+					"gitlens.views.workspaces.showWorktrees": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the worktrees for each repository in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 36
+					},
+					"gitlens.views.workspaces.showIncomingActivity": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show the experimental incoming activity for each repository in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 37
+					},
+					"gitlens.views.workspaces.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 60
+					},
+					"gitlens.views.workspaces.branches.layout": {
+						"type": "string",
+						"default": "tree",
+						"enum": [
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Displays branches as a list",
+							"Displays branches as a tree when branch names contain slashes `/`"
+						],
+						"markdownDescription": "Specifies how the _GitKraken Workspaces_ view will display branches",
+						"scope": "window",
+						"order": 70
+					},
+					"gitlens.views.workspaces.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.workspaces.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _GitKraken Workspaces_ view will display files",
+						"scope": "window",
+						"order": 80
+					},
+					"gitlens.views.workspaces.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _GitKraken Workspaces_ view. Only applies when `#gitlens.views.workspaces.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 81
+					},
+					"gitlens.views.workspaces.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _GitKraken Workspaces_ view. Only applies when `#gitlens.views.workspaces.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 82
+					},
+					"gitlens.views.workspaces.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _GitKraken Workspaces_ view will display file icons",
+						"scope": "window",
+						"order": 83
+					},
+					"gitlens.views.workspaces.compact": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show the _GitKraken Workspaces_ view in a compact display density",
+						"scope": "window",
+						"order": 90
+					},
+					"gitlens.views.workspaces.branches.showBranchComparison": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"branch"
+						],
+						"enumDescriptions": [
+							"Hides the branch comparison",
+							"Compares the branch with a user-selected reference"
+						],
+						"default": "branch",
+						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag, etc) under each branch in the _GitKraken Workspaces_ view",
+						"scope": "window",
+						"order": 100
 					}
 				}
 			},
