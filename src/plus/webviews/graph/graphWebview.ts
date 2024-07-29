@@ -230,7 +230,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _etagRepository?: number;
 	private _firstSelection = true;
 	private _graph?: GitGraph;
-	private _hoverCache = new Map<string, Promise<string | undefined>>();
+	private _hoverCache = new Map<string, Promise<string>>();
 	private _hoverCancellation: CancellationTokenSource | undefined;
 
 	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean>>([
@@ -925,7 +925,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onHoverRowRequest<T extends typeof GetRowHoverRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		const hover: DidGetRowHoverParams = {
 			id: msg.params.id,
-			cancelled: true,
+			markdown: undefined!,
 		};
 
 		if (this._hoverCancellation != null) {
@@ -985,12 +985,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			if (markdown != null) {
 				try {
-					hover.markdown = await markdown;
-					hover.cancelled = false;
-				} catch {}
+					hover.markdown = {
+						status: 'fulfilled' as const,
+						value: await markdown,
+					};
+				} catch (ex) {
+					hover.markdown = { status: 'rejected' as const, reason: ex };
+				}
 			}
 		}
 
+		hover.markdown ??= { status: 'rejected' as const, reason: new CancellationError() };
 		void this.host.respond(requestType, msg, hover);
 	}
 

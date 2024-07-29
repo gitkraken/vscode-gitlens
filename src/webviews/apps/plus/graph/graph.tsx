@@ -554,8 +554,8 @@ export class GraphApp extends App<State> {
 	private async onHoverRowPromise(row: GraphRow) {
 		try {
 			return await this.sendRequest(GetRowHoverRequest, { type: row.type as GitGraphRowType, id: row.sha });
-		} catch {
-			return undefined;
+		} catch (ex) {
+			return { id: row.sha, markdown: { status: 'rejected' as const, reason: ex } };
 		}
 	}
 

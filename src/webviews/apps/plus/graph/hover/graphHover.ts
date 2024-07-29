@@ -5,7 +5,7 @@ import { until } from 'lit/directives/until.js';
 import type { DidGetRowHoverParams } from '../../../../../plus/webviews/graph/protocol';
 import type { Deferrable } from '../../../../../system/function';
 import { debounce } from '../../../../../system/function';
-import { isPromise } from '../../../../../system/promise';
+import { getSettledValue, isPromise } from '../../../../../system/promise';
 import { GlElement } from '../../../shared/components/element';
 import type { GlPopover } from '../../../shared/components/overlays/popover.react';
 import '../../../shared/components/overlays/popover';
@@ -43,15 +43,18 @@ export class GlGraphHover extends GlElement {
 	placement?: GlPopover['placement'] = 'bottom';
 
 	@property({ type: Object })
-	markdown?: Promise<string | undefined> | string | undefined;
+	markdown?: Promise<PromiseSettledResult<string>> | string;
 
 	@property({ reflect: true, type: Number })
 	skidding?: number | undefined;
 
 	@property({ type: Function })
-	requestMarkdown: ((row: GraphRow) => Promise<DidGetRowHoverParams | undefined>) | undefined;
+	requestMarkdown: ((row: GraphRow) => Promise<DidGetRowHoverParams>) | undefined;
 
-	private hoverMarkdownCache = new Map<string, Promise<string> | string>();
+	private hoverMarkdownCache = new Map<
+		string,
+		Promise<PromiseSettledResult<string>> | PromiseSettledResult<string> | string
+	>();
 	private hoveredSha: string | undefined;
 	private unhoverTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -99,17 +102,13 @@ export class GlGraphHover extends GlElement {
 			const cache = row.type !== 'work-dir-changes';
 
 			markdown = this.requestMarkdown(row).then(params => {
-				if (params?.markdown != null) {
-					if (cache) {
-						this.hoverMarkdownCache.set(row.sha, params.markdown);
-					}
-					return params.markdown;
+				if (params.markdown.status === 'fulfilled' && cache) {
+					this.hoverMarkdownCache.set(row.sha, params.markdown);
+				} else if (params.markdown.status === 'rejected') {
+					this.hoverMarkdownCache.delete(row.sha);
 				}
 
-				this.hoverMarkdownCache.delete(row.sha);
-				if (params?.cancelled) throw new Error('Cancelled');
-
-				return '';
+				return params.markdown;
 			});
 
 			if (cache) {
@@ -148,22 +147,27 @@ export class GlGraphHover extends GlElement {
 
 	private showCore(
 		anchor: string | HTMLElement | { getBoundingClientRect: () => Omit<DOMRect, 'toJSON'> },
-		markdown: Promise<string | undefined> | string | undefined,
+		markdown: Promise<PromiseSettledResult<string>> | PromiseSettledResult<string> | string,
 	) {
-		if (isPromise(markdown)) {
+		if (typeof markdown === 'string') {
+			this.markdown = markdown;
+		} else if (isPromise(markdown)) {
 			const previousSha = this.hoveredSha;
-			void markdown.then(markdown => {
-				if (previousSha !== this.hoveredSha) return;
+			void markdown
+				.then(markdown => {
+					if (previousSha !== this.hoveredSha) return;
 
-				this.markdown = markdown;
-				if (!markdown) {
-					this.hide();
-				}
-			});
+					this.markdown = getSettledValue(markdown);
+					if (!markdown) {
+						this.hide();
+					}
+				})
+				.catch(() => {});
+		} else {
+			this.markdown = getSettledValue(markdown);
 		}
 
 		this.anchor = anchor;
-		this.markdown = markdown;
 		this.open = true;
 		this.parentElement?.addEventListener('mouseleave', this.onParentMouseLeave);
 		window.addEventListener('keydown', this.onWindowKeydown);
