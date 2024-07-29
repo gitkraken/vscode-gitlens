@@ -705,11 +705,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		let text;
 		if (isPullRequest(pr)) {
 			if (this._options.outputFormat === 'markdown') {
-				text = `PR [**#${pr.id}**](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
-					repoPath: this._item.repoPath,
-					provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
-					pullRequest: { id: pr.id, url: pr.url },
-				})} "Open Pull Request \\#${pr.id}${
+				text = `[**$(git-pull-request) PR #${pr.id}**](${getMarkdownActionCommand<OpenPullRequestActionContext>(
+					'openPullRequest',
+					{
+						repoPath: this._item.repoPath,
+						provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
+						pullRequest: { id: pr.id, url: pr.url },
+					},
+				)} "Open Pull Request \\#${pr.id}${
 					Container.instance.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : '...'
 				}\n${GlyphChars.Dash.repeat(2)}\n${escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
