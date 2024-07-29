@@ -16,6 +16,7 @@ import type {
 	BranchesViewConfig,
 	CommitsViewConfig,
 	ContributorsViewConfig,
+	DraftsViewConfig,
 	FileHistoryViewConfig,
 	LineHistoryViewConfig,
 	PullRequestViewConfig,
@@ -103,9 +104,10 @@ export abstract class ViewBase<
 		RootNode extends ViewNode,
 		ViewConfig extends
 			| BranchesViewConfig
-			| ContributorsViewConfig
-			| FileHistoryViewConfig
 			| CommitsViewConfig
+			| ContributorsViewConfig
+			| DraftsViewConfig
+			| FileHistoryViewConfig
 			| LineHistoryViewConfig
 			| PullRequestViewConfig
 			| RemotesViewConfig
