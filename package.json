@@ -5608,7 +5608,17 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.createPatch",
+				"title": "Create Patch...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.createCloudPatch",
+				"title": "Create Patch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.createCloudPatch",
 				"title": "Create Patch...",
 				"category": "GitLens"
 			},
@@ -12127,6 +12137,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.createPatch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.createCloudPatch",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.enableDebugLogging",
 					"when": "config.gitlens.outputLevel != debug"
 				},
@@ -15379,7 +15397,7 @@
 					"group": "1_gitlens_actions_1@1"
 				},
 				{
-					"command": "gitlens.createPatch",
+					"command": "gitlens.graph.createPatch",
 					"when": "!listMultiSelection && false && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:(commit|stash)\\b/",
 					"group": "1_gitlens_actions_1@2"
 				},
@@ -15389,7 +15407,7 @@
 					"group": "7_cutcopypaste@97"
 				},
 				{
-					"command": "gitlens.createCloudPatch",
+					"command": "gitlens.graph.createCloudPatch",
 					"when": "!listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && webviewItem =~ /gitlens:(commit|stash)\\b/",
 					"group": "1_gitlens_actions_1@3"
 				},
