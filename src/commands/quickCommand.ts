@@ -104,8 +104,8 @@ export function isQuickPickStep(
 }
 
 export type StepGenerator =
-	| Generator<QuickPickStep | QuickInputStep | CustomStep, StepResult<void | undefined>, any | undefined>
-	| AsyncGenerator<QuickPickStep | QuickInputStep | CustomStep, StepResult<void | undefined>, any | undefined>;
+	| Generator<QuickPickStep | QuickInputStep | CustomStep, StepResult<void | undefined>>
+	| AsyncGenerator<QuickPickStep | QuickInputStep | CustomStep, StepResult<void | undefined>>;
 
 export type StepItemType<T> = T extends CustomStep<infer U>
 	? U
@@ -117,16 +117,8 @@ export type StepItemType<T> = T extends CustomStep<infer U>
 export type StepNavigationKeys = Exclude<Keys, 'left' | 'alt+left' | 'ctrl+left'>;
 export const StepResultBreak = Symbol('BreakStep');
 export type StepResult<T> = typeof StepResultBreak | T;
-export type StepResultGenerator<T> = Generator<
-	QuickPickStep | QuickInputStep | CustomStep,
-	StepResult<T>,
-	any | undefined
->;
-export type AsyncStepResultGenerator<T> = AsyncGenerator<
-	QuickPickStep | QuickInputStep | CustomStep,
-	StepResult<T>,
-	any | undefined
->;
+export type StepResultGenerator<T> = Generator<QuickPickStep | QuickInputStep | CustomStep, StepResult<T>>;
+export type AsyncStepResultGenerator<T> = AsyncGenerator<QuickPickStep | QuickInputStep | CustomStep, StepResult<T>>;
 // Can't use this union type because of https://github.com/microsoft/TypeScript/issues/41428
 // export type StepResultGenerator<T> =
 // 	| Generator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>

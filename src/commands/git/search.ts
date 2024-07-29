@@ -14,7 +14,7 @@ import { ActionQuickPickItem } from '../../quickpicks/items/common';
 import { isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { configuration } from '../../system/configuration';
 import { getContext } from '../../system/context';
-import { join, map } from '../../system/iterable';
+import { first, join, map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
 import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
@@ -408,9 +408,9 @@ export class SearchGitCommand extends QuickCommand<State> {
 				});
 
 				quickpick.title = appendReposToTitle(
-					operations.size === 0 || operations.size > 1
-						? context.title
-						: `Commit ${searchOperatorToTitleMap.get(operations.keys().next().value)!}`,
+					operations.size === 1
+						? `Commit ${searchOperatorToTitleMap.get(first(operations.keys())!)}`
+						: context.title,
 					state,
 					context,
 				);

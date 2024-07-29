@@ -19,6 +19,7 @@ import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '
 import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
+import { first } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
@@ -844,7 +845,7 @@ export abstract class HostingIntegration<
 				return undefined;
 			}
 
-			const organization: string = organizations.values().next().value;
+			const organization: string = first(organizations.values())!;
 
 			if (options?.filters != null) {
 				if (!api.providerSupportsIssueFilters(providerId, options.filters)) {
@@ -1055,7 +1056,7 @@ export abstract class HostingIntegration<
 					return undefined;
 				}
 
-				const organization: string = organizations.values().next().value;
+				const organization: string = first(organizations.values())!;
 				try {
 					userAccount = await api.getCurrentUserForInstance(providerId, organization);
 				} catch (ex) {
