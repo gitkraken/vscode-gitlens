@@ -1,8 +1,11 @@
 import type { Subscription } from '../../plus/gk/account/subscription';
+import type { OnboardingItem } from '../apps/home/model/gitlens-onboarding';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification } from '../protocol';
 
 export const scope: IpcScope = 'home';
+
+export type OnboardingState = Partial<Record<`${OnboardingItem}Checked`, boolean>>;
 
 export interface State extends WebviewState {
 	repositories: DidChangeRepositoriesParams;
@@ -11,6 +14,7 @@ export interface State extends WebviewState {
 	orgSettings: {
 		drafts: boolean;
 	};
+	onboardingState: OnboardingState;
 	walkthroughCollapsed: boolean;
 	hasAnyIntegrationConnected: boolean;
 }
@@ -40,6 +44,8 @@ export const DidChangeIntegrationsConnections = new IpcNotification<DidChangeInt
 	scope,
 	'integrations/didChange',
 );
+export type DidChangeUsagesParams = OnboardingState;
+export const DidChangeUsage = new IpcNotification<DidChangeUsagesParams>(scope, 'onboarding/usage/didChange');
 
 export interface DidChangeSubscriptionParams {
 	subscription: Subscription;

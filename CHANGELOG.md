@@ -223,6 +223,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a _Connect Remote Integration_ command to the _Autolinked Issues and Pull Requests_ section in the _Search & Compare_ view
 - Adds `gitlens.currentLine.fontFamily`, `gitlens.currentLine.fontSize`, `gitlens.currentLine.fontStyle`, `gitlens.currentLine.fontWeight` settings to specify the font (family, size, style, and weight respectively) of the _Inline Blame_ annotation &mdash; closes [#3306](https://github.com/gitkraken/vscode-gitlens/issues/3306)
 - Adds `gitlens.blame.fontStyle` settings to specify the font style of the _File Blame_ annotations
+- Adds new onboarding widget to the home page
 
 ### Changed
 

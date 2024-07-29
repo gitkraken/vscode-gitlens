@@ -403,6 +403,12 @@ export class WebviewController<
 
 	@debug()
 	private onParentVisibilityChanged(visible: boolean, active?: boolean) {
+		// if (
+		// 	!this.descriptor.trackingFeature ||
+		// 	['graphView', 'graphWebview'].includes(this.descriptor.trackingFeature)
+		// ) {
+		// 	debugger;
+		// }
 		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
 			if (visible) {
 				if (this._ready) {

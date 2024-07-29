@@ -140,7 +140,26 @@
 			<p data-requires="norepo">
 				<code-icon icon="question"></code-icon> Features which need a repository are currently unavailable
 			</p>
-			<div id="section-walkthrough" data-section-expand="walkthrough" class="alert">
+			<div class="promo-banner" id="promo-hs2023" hidden>
+				<a
+					class="promo-banner__link"
+					href="https://gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023"
+					aria-label="Holiday Special: 1st seat of Pro (plus the entire GitKraken DevEx platform) is now 50%+ off. Includes all Pro versions: GitLens, GitKraken Client, CLI, Browser Extension & more! See your special price."
+				>
+					<img
+						class="promo-banner__media is-dark"
+						src="#{webroot}/media/holiday-2023-small-dark.webp"
+						alt=""
+					/>
+					<img
+						class="promo-banner__media is-light"
+						src="#{webroot}/media/holiday-2023-small-light.webp"
+						alt=""
+					/><br />
+					1st seat of Pro (plus the entire GitKraken DevEx platform) is now 50%+ off. See your special price.
+				</a>
+			</div>
+			<!-- <div id="section-walkthrough" data-section-expand="walkthrough" class="alert">
 				<h1 class="alert__title">Get Started with GitLens</h1>
 				<div class="alert__description">
 					<p>Explore all of the powerful features in GitLens</p>
@@ -177,7 +196,12 @@
 						<span slot="content">Expand</span>
 					</gl-tooltip>
 				</a>
-			</div>
+			</div> -->
+			<nav class="nav-list">
+				<gl-onboarding>
+					<span slot="title">Get Started with GitLens</span>
+				</gl-onboarding>
+			</nav>
 			<nav class="nav-list">
 				<h2 class="nav-list__title t-eyebrow sticky">Setup</h2>
 				<div class="nav-list__item">

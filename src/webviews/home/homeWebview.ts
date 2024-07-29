@@ -5,15 +5,17 @@ import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { registerCommand } from '../../system/command';
 import { getContext, onDidChangeContext } from '../../system/context';
+import { Logger } from '../../system/logger';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider';
-import type { CollapseSectionParams, DidChangeRepositoriesParams, State } from './protocol';
+import type { CollapseSectionParams, DidChangeRepositoriesParams, DidChangeUsagesParams, State } from './protocol';
 import {
 	CollapseSectionCommand,
 	DidChangeIntegrationsConnections,
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidChangeUsage,
 } from './protocol';
 
 const emptyDisposable = Object.freeze({
@@ -29,6 +31,8 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		private readonly container: Container,
 		private readonly host: WebviewHost,
 	) {
+		Logger.log('test usage', this.container.usage.get('graphView:shown'));
+
 		this._disposable = Disposable.from(
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 			!workspace.isTrusted
@@ -37,6 +41,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.integrations.onDidChangeConnectionState(this.onChangeConnectionState, this),
+			this.container.usage.onDidChange(this.onUsagesChanged, this),
 		);
 	}
 
@@ -46,6 +51,15 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	private onChangeConnectionState() {
 		this.notifyDidChangeOnboardingIntegration();
+	}
+
+	private onUsagesChanged() {
+		Logger.log(
+			'usage changed',
+			this.container.usage.get('graphView:shown'),
+			this.container.usage.get('graphWebview:shown'),
+		);
+		this.notifyDidChangeUsages();
 	}
 
 	private onRepositoriesChanged() {
@@ -113,6 +127,8 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		Logger.log('test usage', this.container.usage);
+
 		void this.notifyDidChangeSubscription(e.current);
 	}
 
@@ -121,6 +137,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return {
 			...this.host.baseWebviewState,
 			repositories: this.getRepositoriesState(),
+			onboardingState: this.getOnboardingState(),
 			webroot: this.host.getWebRoot(),
 			subscription: subscription,
 			orgSettings: this.getOrgSettings(),
@@ -150,6 +167,31 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return this._hostedIntegrationConnected;
 	}
 
+	private getOnboardingState(): DidChangeUsagesParams {
+		return {
+			configurationChecked: Boolean(this.container.usage.get('settingsWebview:shown')?.firstUsedAt),
+			revisionHistoryChecked: false,
+			commitGraphChecked:
+				Boolean(this.container.usage.get('graphView:shown')?.firstUsedAt) ||
+				Boolean(this.container.usage.get('graphWebview:shown')?.firstUsedAt),
+			branchesChecked: Boolean(this.container.usage.get('branchesView:shown')?.firstUsedAt),
+			cloudPatchesChecked: false,
+			commitsChecked: Boolean(this.container.usage.get('commitsView:shown')?.firstUsedAt),
+			contributorsChecked: Boolean(this.container.usage.get('contributorsView:shown')?.firstUsedAt),
+			fileHistoryChecked: Boolean(this.container.usage.get('fileHistoryView:shown')?.firstUsedAt),
+			inspectChecked: false,
+			gitLensChecked: false,
+			launchpadChecked: false,
+			lineHistoryChecked: Boolean(this.container.usage.get('lineHistoryView:shown')?.firstUsedAt),
+			searchAndCompareChecked: Boolean(this.container.usage.get('searchAndCompareView:shown')?.firstUsedAt),
+			stashesChecked: Boolean(this.container.usage.get('stashesView:shown')?.firstUsedAt),
+			tagsChecked: Boolean(this.container.usage.get('tagsView:shown')?.firstUsedAt),
+			visualFileHistoryChecked: false,
+			workTreesChecked: Boolean(this.container.usage.get('worktreesView:shown')?.firstUsedAt),
+			workSpacesChecked: Boolean(this.container.usage.get('workspacesView:shown')?.firstUsedAt),
+		};
+	}
+
 	private notifyDidChangeRepositories() {
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
 	}
@@ -160,6 +202,9 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		void this.host.notify(DidChangeIntegrationsConnections, {
 			hasAnyIntegrationConnected: isConnected,
 		});
+	}
+	private notifyDidChangeUsages() {
+		void this.host.notify(DidChangeUsage, this.getOnboardingState());
 	}
 
 	private async notifyDidChangeSubscription(subscription?: Subscription) {

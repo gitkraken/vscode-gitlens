@@ -64,7 +64,7 @@ export class UsageTracker implements Disposable {
 		if (usages == null) {
 			usages = Object.create(null) as NonNullable<typeof usages>;
 		}
-
+		// debugger;
 		const usedAt = Date.now();
 
 		let usage = usages[key];

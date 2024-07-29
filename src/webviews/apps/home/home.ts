@@ -2,29 +2,48 @@
 import './home.scss';
 import type { Disposable } from 'vscode';
 import { getApplicablePromo } from '../../../plus/gk/account/promos';
-import type { State } from '../../home/protocol';
+import type { OnboardingState, State } from '../../home/protocol';
 import {
 	CollapseSectionCommand,
 	DidChangeIntegrationsConnections,
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidChangeUsage,
 } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommand } from '../../protocol';
 import { App } from '../shared/appBase';
 import type { GlFeatureBadge } from '../shared/components/feature-badge';
 import type { GlPromo } from '../shared/components/promo';
+import type { GlOnboarding as _GlOnboarding } from '../shared/components/onboarding/onboarding';
 import { DOM } from '../shared/dom';
 import '../shared/components/button';
 import '../shared/components/code-icon';
 import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
 import '../shared/components/promo';
+import '../shared/components/onboarding/onboarding';
+import type { OnboardingItem } from './model/gitlens-onboarding';
+import { onboardingConfiguration } from './model/gitlens-onboarding';
 
+type GlOnboarding = _GlOnboarding<OnboardingState, OnboardingItem>;
 export class HomeApp extends App<State> {
 	constructor() {
 		super('HomeApp');
+	}
+
+	private _component?: GlOnboarding;
+	private get component() {
+		if (this._component == null) {
+			this._component = (document.querySelector('gl-onboarding') as GlOnboarding)!;
+		}
+		return this._component;
+	}
+
+	attachState() {
+		this.component.state = this.state.onboardingState;
+		this.component.onboardingConfiguration = onboardingConfiguration;
 	}
 
 	private get blockRepoFeatures() {
@@ -37,6 +56,7 @@ export class HomeApp extends App<State> {
 	protected override onInitialize() {
 		this.state = this.getState() ?? this.state;
 		this.updateState();
+		this.attachState();
 	}
 
 	protected override onBind(): Disposable[] {
@@ -58,6 +78,12 @@ export class HomeApp extends App<State> {
 
 	protected override onMessageReceived(msg: IpcMessage) {
 		switch (true) {
+			case DidChangeUsage.is(msg):
+				this.state.onboardingState = msg.params;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.attachState();
+				break;
 			case DidChangeRepositories.is(msg):
 				this.state.repositories = msg.params;
 				this.state.timestamp = Date.now();
@@ -203,7 +229,6 @@ export class HomeApp extends App<State> {
 		this.updatePromos();
 		this.updateSourceAndSubscription();
 		this.updateOrgSettings();
-		this.updateCollapsedSections();
 		this.updateIntegrations();
 	}
 }
