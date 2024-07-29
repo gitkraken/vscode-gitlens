@@ -659,7 +659,7 @@ export function format(color: Color): string {
 	return formatRGBA(color);
 }
 
-const cssColorRegex = /^((?:rgb|hsl)a?)\((-?\d+%?)[,\s]+(-?\d+%?)[,\s]+(-?\d+%?)[,\s]*(-?[\d.]+%?)?\)$/i;
+const cssColorRegex = /^((?:rgb|hsl)a?)\((-?\d+(?:%|deg)?)[,\s]+(-?\d+%?)[,\s]+(-?\d+%?)[,\s]*(-?[\d.]+%?)?\)$/i;
 export function parseColor(value: string): Color | null {
 	value = value.trim();
 
