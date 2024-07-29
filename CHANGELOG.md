@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3422](https://github.com/gitkraken/vscode-gitlens/issues/3422) - Extra logging
 - Fixes [#3406](https://github.com/gitkraken/vscode-gitlens/issues/3406) - Worktrees typo in package.json &mdash; thanks to [PR #3407](https://github.com/gitkraken/vscode-gitlens/pull/3407) by Matthew Yu ([@matthewyu01](https://github.com/matthewyu01))
 - Fixes cloud patch creation error on azure repos
+- Fixes [#3385](https://github.com/gitkraken/vscode-gitlens/issues/3385) - Provides commit from stash on create patch from stash action
 - Fixes [#3414](https://github.com/gitkraken/vscode-gitlens/issues/3414) - Patch creation may be done multiple times
 
 ## [15.2.1] - 2024-07-24
