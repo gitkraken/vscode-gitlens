@@ -323,8 +323,7 @@ export type GetRowHoverParams = {
 
 export interface DidGetRowHoverParams {
 	id: string;
-	markdown?: string;
-	cancelled: boolean;
+	markdown: PromiseSettledResult<string>;
 }
 
 export const GetRowHoverRequest = new IpcRequest<GetRowHoverParams, DidGetRowHoverParams>(scope, 'row/hover/get');
