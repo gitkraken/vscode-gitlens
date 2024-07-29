@@ -477,6 +477,14 @@ export function GraphWrapper({
 
 	const handleOnGraphMouseLeave = (_event: React.MouseEvent<any>) => {
 		minimap.current?.unselect(undefined, true);
+
+		document.dispatchEvent(
+			new MouseEvent('mouseup', {
+				view: window,
+				bubbles: true,
+				cancelable: false,
+			}),
+		);
 	};
 
 	const handleOnGraphRowHovered = (
