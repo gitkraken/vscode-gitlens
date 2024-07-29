@@ -664,7 +664,7 @@ export type TreeViewNodeTypes =
 	| 'tracking-status-files'
 	| 'uncommitted-files'
 	| 'workspace-missing-repository'
-	| 'workspaces-view'
+	| 'workspaces'
 	| 'worktree'
 	| 'worktrees';
 

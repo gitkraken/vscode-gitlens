@@ -19,9 +19,9 @@ import { WorkspaceNode } from './nodes/workspaceNode';
 import { disposeChildren, ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
-export class WorkspacesViewNode extends ViewNode<'workspaces-view', WorkspacesView> {
+export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
 	constructor(view: WorkspacesView) {
-		super('workspaces-view', unknownGitUri, view);
+		super('workspaces', unknownGitUri, view);
 	}
 
 	private _children: (WorkspaceNode | MessageNode | RepositoriesNode)[] | undefined;
