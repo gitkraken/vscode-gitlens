@@ -315,7 +315,7 @@ export class GlFocusApp extends LitElement {
 						id="subscription-gate"
 						class="scrollable"
 						><p slot="feature">
-							<a href="https://help.gitkraken.com/gitlens/gitlens-features/#focus-view-%e2%9c%a8"
+							<a href="https://help.gitkraken.com/gitlens/gitlens-features/#launchpad-preview"
 								>Launchpad</a
 							>
 							<gl-feature-badge preview .subscription=${this.subscription}></gl-feature-badge>
