@@ -82,7 +82,6 @@ abstract class CreatePatchCommandBase extends Command {
 					title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
 				};
 			} else if (context.type === 'scm-groups') {
-				debugger;
 				const group = context.scmResourceGroups[0];
 				if (!group?.resourceStates?.length) return;
 
