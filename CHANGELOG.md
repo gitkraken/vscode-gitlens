@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes cloud patch creation error on azure repos
-- Fixes multiple patch creation
+- Fixes [#3414](https://github.com/gitkraken/vscode-gitlens/issues/3414) - Patch creation may be done multiple times
 
 ## [15.2.1] - 2024-07-24
 
