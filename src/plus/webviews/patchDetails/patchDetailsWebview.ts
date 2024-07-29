@@ -718,7 +718,7 @@ export class PatchDetailsWebviewProvider
 			this.closeView();
 		} catch (ex) {
 			debugger;
-
+			void this.notifyDidChangeCreateDraftState();
 			void window.showErrorMessage(`Unable to create draft: ${ex.message}`);
 		}
 	}
