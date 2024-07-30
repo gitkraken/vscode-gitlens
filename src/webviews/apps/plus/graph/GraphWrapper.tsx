@@ -475,16 +475,23 @@ export function GraphWrapper({
 		}
 	};
 
-	const handleOnGraphMouseLeave = (_event: React.MouseEvent<any>) => {
-		minimap.current?.unselect(undefined, true);
+	const stopColumnResize = () => {
+		const activeResizeElement = document.querySelector('.graph-header .resizable.resizing');
+		if (!activeResizeElement) return;
 
+		// Trigger a mouseup event to reset the column resize state
 		document.dispatchEvent(
 			new MouseEvent('mouseup', {
 				view: window,
 				bubbles: true,
-				cancelable: false,
+				cancelable: true,
 			}),
 		);
+	};
+
+	const handleOnGraphMouseLeave = (_event: React.MouseEvent<any>) => {
+		minimap.current?.unselect(undefined, true);
+		stopColumnResize();
 	};
 
 	const handleOnGraphRowHovered = (

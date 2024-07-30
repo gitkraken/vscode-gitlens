@@ -1031,6 +1031,14 @@ gl-feature-gate gl-feature-badge {
 	}
 }
 
+.graph-app:not(:hover) {
+	.gk-graph .graph-header {
+		& .resizable-handle.horizontal:before {
+			display: none;
+		}
+	}
+}
+
 .graph-container {
 	& .resizable-handle.horizontal {
 		display: none;
