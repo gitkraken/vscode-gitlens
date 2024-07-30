@@ -1212,3 +1212,13 @@ hr {
 	padding: 0px 4px 2px 4px;
 	font-family: var(--vscode-editor-font-family);
 }
+
+div[data-testid='resizable-core-graphColumn'] {
+	container: graphColumn / inline-size;
+}
+@container graphColumn (max-width: 56px) {
+	.scrollbar-outer.horizontal {
+		display: none;
+	}
+}
+
