@@ -13,6 +13,7 @@ import type {
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
 	InternalNotificationType,
+	OnboardingState,
 	State,
 	UpdateGraphConfigurationParams,
 	UpdateStateCallback,
@@ -47,6 +48,7 @@ import {
 	UpdateExcludeTypeCommand,
 	UpdateGraphConfigurationCommand,
 	UpdateIncludeOnlyRefsCommand,
+	UpdateOnboardingStateCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
 } from '../../../../plus/webviews/graph/protocol';
@@ -123,6 +125,7 @@ export class GraphApp extends App<State> {
 					onExcludeType={this.onExcludeType.bind(this)}
 					onIncludeOnlyRef={this.onIncludeOnlyRef.bind(this)}
 					onUpdateGraphConfiguration={this.onUpdateGraphConfiguration.bind(this)}
+					onOnboardingStateChanged={this.onOnboardingStateChanged.bind(this)}
 				/>,
 				$root,
 			);
@@ -636,6 +639,10 @@ export class GraphApp extends App<State> {
 
 	private onUpdateGraphConfiguration(changes: UpdateGraphConfigurationParams['changes']) {
 		this.sendCommand(UpdateGraphConfigurationCommand, { changes: changes });
+	}
+
+	private onOnboardingStateChanged(name: string, state: OnboardingState) {
+		this.sendCommand(UpdateOnboardingStateCommand, { name: name, state: state });
 	}
 
 	private onSelectionChanged(rows: GraphRow[]) {

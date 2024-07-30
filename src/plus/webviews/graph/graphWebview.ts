@@ -133,6 +133,7 @@ import type {
 	GraphUpstreamMetadata,
 	GraphUpstreamStatusContextValue,
 	GraphWorkingTreeStats,
+	OnboardingState,
 	OpenPullRequestDetailsParams,
 	SearchOpenInViewParams,
 	SearchParams,
@@ -174,6 +175,7 @@ import {
 	UpdateExcludeTypeCommand,
 	UpdateGraphConfigurationCommand,
 	UpdateIncludeOnlyRefsCommand,
+	UpdateOnboardingStateCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
 } from './protocol';
@@ -683,6 +685,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case UpdateIncludeOnlyRefsCommand.is(e):
 				this.updateIncludeOnlyRefs(this._graph, e.params.refs);
 				break;
+			case UpdateOnboardingStateCommand.is(e):
+				this.updateOnboardingState(e.params.name, e.params.state);
+				break;
 		}
 	}
 
@@ -730,6 +735,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 			}
 		}
+	}
+
+	private updateOnboardingState(name: string, state: OnboardingState) {
+		const storedState = this.container.storage.get('graph:onboarding');
+		if (storedState == null) {
+			void this.container.storage.store('graph:onboarding', { [name]: state });
+			this.container.telemetry.sendEvent('graph/onboarding/state', { name: name, state: state });
+			return;
+		}
+		storedState[name] = {
+			...storedState[name],
+			...state,
+		};
+		void this.container.storage.store('graph:onboarding', storedState);
+		this.container.telemetry.sendEvent('graph/onboarding/state', { name: name, state: storedState[name] });
 	}
 
 	private _showActiveSelectionDetailsDebounced:
@@ -2146,13 +2166,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private async getState(deferRows?: boolean): Promise<State> {
 		if (this.container.git.repositoryCount === 0) {
-			return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
+			return { ...this.host.baseWebviewState, allowed: true, repositories: [], onboarding: undefined };
 		}
 
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
 			if (this.repository == null) {
-				return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
+				return { ...this.host.baseWebviewState, allowed: true, repositories: [], onboarding: undefined };
 			}
 		}
 
@@ -2282,6 +2302,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			includeOnlyRefs: data != null ? this.getIncludeOnlyRefs(data) ?? {} : {},
 			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
+			onboarding: this.container.storage.get('graph:onboarding'),
 		};
 	}
 

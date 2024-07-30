@@ -10,6 +10,7 @@ import type { Subscription, SubscriptionPlanId, SubscriptionState } from './plus
 import type { SupportedCloudIntegrationIds } from './plus/integrations/authentication/models';
 import type { Integration } from './plus/integrations/integration';
 import type { IntegrationId } from './plus/integrations/providers/models';
+import type { OnboardingState } from './plus/webviews/graph/protocol';
 import type { TelemetryEventData } from './telemetry/telemetry';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 
@@ -946,6 +947,7 @@ export type GlobalStorage = {
 	'launchpad:groups:collapsed': StoredFocusGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
+	'graph:onboarding': Record<string, OnboardingState>;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
@@ -1300,6 +1302,11 @@ export type TelemetryEvents = {
 		  };
 	/** Sent when a VS Code command is executed by a GitLens provided action */
 	'command/core': { command: string };
+
+	'graph/onboarding/state': {
+		name: string;
+		state: OnboardingState;
+	};
 
 	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/title/action': LaunchpadEventData & {

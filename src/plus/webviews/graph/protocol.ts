@@ -87,6 +87,12 @@ export type GraphMinimapMarkerTypes =
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'pullRequest', 'issue'];
 
+export interface OnboardingState {
+	completed?: boolean;
+	dismissed?: boolean;
+	step?: string;
+}
+
 export interface State extends WebviewState {
 	windowFocused?: boolean;
 	repositories?: GraphRepository[];
@@ -124,6 +130,7 @@ export interface State extends WebviewState {
 		bottom: number;
 	};
 	theming?: { cssVariables: CssVariables; themeOpacityFactor: number };
+	onboarding: Record<string, OnboardingState> | undefined;
 }
 
 export interface BranchState extends GitTrackingState {
@@ -303,6 +310,15 @@ export interface UpdateSelectionParams {
 	selection: { id: string; type: GitGraphRowType }[];
 }
 export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
+
+export interface UpdateOnboardingStateParams {
+	name: string;
+	state: OnboardingState;
+}
+export const UpdateOnboardingStateCommand = new IpcCommand<UpdateOnboardingStateParams>(
+	scope,
+	'onboarding/update/state',
+);
 
 // REQUESTS
 

@@ -14,7 +14,6 @@ import type {
 } from '@gitkraken/gitkraken-components';
 import GraphContainer, { CommitDateTimeSources, refZone } from '@gitkraken/gitkraken-components';
 import { VSCodeCheckbox, VSCodeRadio, VSCodeRadioGroup } from '@vscode/webview-ui-toolkit/react';
-import { driver } from 'driver.js';
 import type { FormEvent, MouseEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
@@ -40,6 +39,7 @@ import type {
 	GraphSearchResults,
 	GraphSearchResultsError,
 	InternalNotificationType,
+	OnboardingState,
 	State,
 	UpdateGraphConfigurationParams,
 	UpdateStateCallback,
@@ -76,6 +76,7 @@ import { GlSearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
+import { createOnboarding } from '../../shared/onboarding';
 import { GlGraphHover } from './hover/graphHover.react';
 import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap';
 import { GlGraphMinimapContainer } from './minimap/minimap-container.react';
@@ -106,6 +107,7 @@ export interface GraphWrapperProps {
 	onExcludeType?: (key: keyof GraphExcludeTypes, value: boolean) => void;
 	onIncludeOnlyRef?: (all: boolean) => void;
 	onUpdateGraphConfiguration?: (changes: UpdateGraphConfigurationParams['changes']) => void;
+	onOnboardingStateChanged?: (name: string, state: OnboardingState) => void;
 }
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
@@ -227,6 +229,7 @@ export function GraphWrapper({
 	onExcludeType,
 	onIncludeOnlyRef,
 	onUpdateGraphConfiguration,
+	onOnboardingStateChanged,
 }: GraphWrapperProps) {
 	const graphRef = useRef<GraphContainer>(null);
 
@@ -396,55 +399,81 @@ export function GraphWrapper({
 	useEffect(() => subscriber?.(updateState), []);
 
 	useLayoutEffect(() => {
-		const driverObj = driver({
-			showProgress: true,
-			steps: [
-				{
-					popover: {
-						title: 'Welcome to the Commit Graph',
-						description:
-							'It helps visualize your repository commit history and give you information about branches, commits, and collaborators all in one view.',
-					},
+		const onboardingKey = 'graph-tour';
+		const onboardingState = state.onboarding?.[onboardingKey];
+		if (onboardingState?.dismissed === true) {
+			return;
+		}
+
+		const steps = [
+			{
+				key: `${onboardingKey}-welcome`,
+				popover: {
+					title: 'Welcome to the Commit Graph',
+					description:
+						'It helps visualize your repository commit history and give you information about branches, commits, and collaborators all in one view.',
 				},
-				{
-					element: '#graph-repo-actions',
-					popover: {
-						title: 'Repository Actions',
-						description:
-							"Quickly switch repos, branches, see a branch's PR info, push/pull/fetch, and more.",
-					},
+			},
+			{
+				key: `${onboardingKey}-repo-actions`,
+				element: '#graph-repo-actions',
+				popover: {
+					title: 'Repository Actions',
+					description: "Quickly switch repos, branches, see a branch's PR info, push/pull/fetch, and more.",
 				},
-				{
-					element: '#graph-search',
-					popover: {
-						title: 'Rich Commit Search',
-						description:
-							'Highlight all matching results across your entire repository when searching for a commit, message, author, a changed file or files, or even a specific code change.',
-					},
+			},
+			{
+				key: `${onboardingKey}-search`,
+				element: '#graph-search',
+				popover: {
+					title: 'Rich Commit Search',
+					description:
+						'Highlight all matching results across your entire repository when searching for a commit, message, author, a changed file or files, or even a specific code change.',
 				},
-				{
-					element: '#graph-minimap',
-					popover: {
-						title: 'Minimap',
-						description:
-							'Quickly see the activity of the repository, see the HEAD/upstream, branches (local and remote), and easily jump to them. ',
-					},
+			},
+			{
+				key: `${onboardingKey}-minimap`,
+				element: '#graph-minimap',
+				popover: {
+					title: 'Minimap',
+					description:
+						'Quickly see the activity of the repository, see the HEAD/upstream, branches (local and remote), and easily jump to them. ',
 				},
-				{
-					element: '#main',
-					popover: {
-						title: 'Commit Graph',
-						description: 'The Commit Graph is a visualization of your repository history.',
-					},
+			},
+			{
+				key: `${onboardingKey}-graph`,
+				element: '#main',
+				popover: {
+					title: 'Commit Graph',
+					description: 'The Commit Graph is a visualization of your repository history.',
 				},
-				{
-					popover: {
-						title: 'Done',
-						description: "That's it for now. Enjoy! Please see this walkthrough for more information.",
-					},
+			},
+			{
+				key: `${onboardingKey}-done`,
+				popover: {
+					title: 'Done',
+					description: "That's it for now. Enjoy! Please see this walkthrough for more information.",
 				},
-			],
-		});
+			},
+		];
+
+		const driverObj = createOnboarding(
+			steps,
+			{
+				onCloseClick: ($el, step, options) => {
+					console.log('onCloseClick', $el, step, options);
+					onOnboardingStateChanged?.(onboardingKey, { dismissed: true });
+				},
+			},
+			(key, step, options) => {
+				console.log('onHighlightedByKey', key, step, options);
+				onOnboardingStateChanged?.(onboardingKey, {
+					dismissed: false,
+					completed: key === `${onboardingKey}-done`,
+					step: key,
+				});
+			},
+		);
 
 		driverObj.drive();
 
@@ -1185,8 +1214,8 @@ export function GraphWrapper({
 	return (
 		<>
 			<header className="titlebar graph-app__header">
-				<div id="graph-repo-actions" className="titlebar__row titlebar__row--wrap">
-					<div className="titlebar__group">
+				<div className="titlebar__row titlebar__row--wrap">
+					<div id="graph-repo-actions" className="titlebar__group">
 						{repo && branchState?.provider?.url && (
 							<GlTooltip placement="bottom">
 								<a
