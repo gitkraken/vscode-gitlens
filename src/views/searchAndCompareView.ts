@@ -6,7 +6,7 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitLog } from '../git/models/log';
-import { isRevisionRange, shortenRevision, splitRevisionRange } from '../git/models/reference';
+import { getRevisionRangeParts, isRevisionRange, shortenRevision } from '../git/models/reference';
 import type { SearchQuery } from '../git/search';
 import { getSearchQuery } from '../git/search';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
@@ -213,10 +213,10 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 			ref = pick.ref;
 
 			if (isRevisionRange(ref)) {
-				const range = splitRevisionRange(ref);
+				const range = getRevisionRangeParts(ref);
 				if (range != null) {
-					ref = range.ref1 || 'HEAD';
-					ref2 = range.ref2 || 'HEAD';
+					ref = range.left || 'HEAD';
+					ref2 = range.right || 'HEAD';
 				}
 			}
 

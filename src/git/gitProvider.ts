@@ -13,7 +13,7 @@ import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
 import type { GitRebaseStatus } from './models/rebase';
-import type { GitBranchReference, GitReference } from './models/reference';
+import type { GitBranchReference, GitReference, GitRevisionRange } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
 import type { Repository, RepositoryChangeEvent } from './models/repository';
@@ -200,11 +200,11 @@ export interface GitProvider extends Disposable {
 		},
 	): Promise<void>;
 	findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined>;
-	getAheadBehindCommitCount(
+	getLeftRightCommitCount(
 		repoPath: string,
-		refs: string[],
-		options?: { authors?: GitUser[] | undefined },
-	): Promise<{ ahead: number; behind: number } | undefined>;
+		range: GitRevisionRange,
+		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
+	): Promise<{ left: number; right: number } | undefined>;
 	/**
 	 * Returns the blame of a file
 	 * @param uri Uri of the file to blame
@@ -341,7 +341,7 @@ export interface GitProvider extends Disposable {
 	): Promise<GitDiffLine | undefined>;
 	getDiffStatus(
 		repoPath: string,
-		ref1?: string,
+		ref1OrRange: string | GitRevisionRange,
 		ref2?: string,
 		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined>;
@@ -456,6 +456,7 @@ export interface GitProvider extends Disposable {
 
 	hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean>;
 	hasUnsafeRepositories?(): boolean;
+	isAncestorOf(repoPath: string, ref1: string, ref2: string): Promise<boolean>;
 	isTrackable(uri: Uri): boolean;
 	isTracked(uri: Uri): Promise<boolean>;
 

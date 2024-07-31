@@ -96,20 +96,17 @@ export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', Vi
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const refs = await getComparisonRefsForPullRequest(
-				this.view.container,
-				this.repoPath,
-				this.pullRequest.refs!,
-			);
+			const refs = getComparisonRefsForPullRequest(this.repoPath, this.pullRequest.refs!);
 
 			const comparison = {
 				ref1: refs.base.ref,
 				ref2: refs.head.ref,
 			};
 
-			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(this.repoPath, [
-				createRevisionRange(comparison.ref2, comparison.ref1, '...'),
-			]);
+			const counts = await this.view.container.git.getLeftRightCommitCount(
+				this.repoPath,
+				createRevisionRange(comparison.ref1, comparison.ref2, '...'),
+			);
 
 			const children = [
 				new ResultsCommitsNode(
@@ -128,7 +125,7 @@ export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', Vi
 					{
 						autolinks: false,
 						expand: false,
-						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
+						description: pluralize('commit', counts?.right ?? 0),
 					},
 				),
 				new CodeSuggestionsNode(this.view, this, this.repoPath, this.pullRequest),
