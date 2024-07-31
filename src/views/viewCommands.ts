@@ -292,6 +292,7 @@ export class ViewCommands {
 
 		registerViewCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
 		registerViewCommand('gitlens.views.compareWithHead', this.compareHeadWith, this);
+		registerViewCommand('gitlens.views.compareBranchWithHead', this.compareBranchWithHead, this);
 		registerViewCommand('gitlens.views.compareWithMergeBase', this.compareWithMergeBase, this);
 		registerViewCommand('gitlens.views.compareWithUpstream', this.compareWithUpstream, this);
 		registerViewCommand('gitlens.views.compareWithSelected', this.compareWithSelected, this);
@@ -669,11 +670,11 @@ export class ViewCommands {
 	}
 
 	@log()
-	private async openPullRequestChanges(node: PullRequestNode) {
+	private openPullRequestChanges(node: PullRequestNode) {
 		if (!node.is('pullrequest')) return Promise.resolve();
 		if (node.pullRequest.refs?.base == null || node.pullRequest.refs.head == null) return Promise.resolve();
 
-		const refs = await getComparisonRefsForPullRequest(this.container, node.repoPath, node.pullRequest.refs);
+		const refs = getComparisonRefsForPullRequest(node.repoPath, node.pullRequest.refs);
 		return CommitActions.openComparisonChanges(
 			this.container,
 			{
@@ -688,11 +689,11 @@ export class ViewCommands {
 	}
 
 	@log()
-	private async openPullRequestComparison(node: PullRequestNode) {
+	private openPullRequestComparison(node: PullRequestNode) {
 		if (!node.is('pullrequest')) return Promise.resolve();
 		if (node.pullRequest.refs?.base == null || node.pullRequest.refs.head == null) return Promise.resolve();
 
-		const refs = await getComparisonRefsForPullRequest(this.container, node.repoPath, node.pullRequest.refs);
+		const refs = getComparisonRefsForPullRequest(node.repoPath, node.pullRequest.refs);
 		return this.container.searchAndCompareView.compare(refs.repoPath, refs.head, refs.base);
 	}
 
@@ -1011,6 +1012,19 @@ export class ViewCommands {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
 		return this.container.searchAndCompareView.compare(node.repoPath, 'HEAD', node.ref);
+	}
+
+	@log()
+	private async compareBranchWithHead(node: BranchNode) {
+		if (!(node instanceof ViewRefNode)) return Promise.resolve();
+
+		const [ref1, ref2] = await CommitActions.getOrderedComparisonRefs(
+			this.container,
+			node.repoPath,
+			'HEAD',
+			node.ref.ref,
+		);
+		return this.container.searchAndCompareView.compare(node.repoPath, ref1, ref2);
 	}
 
 	@log()

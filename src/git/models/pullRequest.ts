@@ -242,24 +242,11 @@ export interface PullRequestComparisonRefs {
 	head: { ref: string; label: string };
 }
 
-export async function getComparisonRefsForPullRequest(
-	container: Container,
-	repoPath: string,
-	prRefs: PullRequestRefs,
-): Promise<PullRequestComparisonRefs> {
+export function getComparisonRefsForPullRequest(repoPath: string, prRefs: PullRequestRefs): PullRequestComparisonRefs {
 	const refs: PullRequestComparisonRefs = {
 		repoPath: repoPath,
 		base: { ref: prRefs.base.sha, label: `${prRefs.base.branch} (${shortenRevision(prRefs.base.sha)})` },
 		head: { ref: prRefs.head.sha, label: prRefs.head.branch },
 	};
-
-	// Find the merge base to show a more accurate comparison for the PR
-	const mergeBase =
-		(await container.git.getMergeBase(refs.repoPath, refs.base.ref, refs.head.ref, { forkPoint: true })) ??
-		(await container.git.getMergeBase(refs.repoPath, refs.base.ref, refs.head.ref));
-	if (mergeBase != null) {
-		refs.base = { ref: mergeBase, label: `${prRefs.base.branch} (${shortenRevision(mergeBase)})` };
-	}
-
 	return refs;
 }

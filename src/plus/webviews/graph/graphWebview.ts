@@ -19,6 +19,7 @@ import type { CommitSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
 import * as BranchActions from '../../../git/actions/branch';
 import {
+	getOrderedComparisonRefs,
 	openAllChanges,
 	openAllChangesIndividually,
 	openAllChangesWithWorking,
@@ -477,6 +478,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			this.host.registerWebviewCommand('gitlens.graph.compareWithUpstream', this.compareWithUpstream),
 			this.host.registerWebviewCommand('gitlens.graph.compareWithHead', this.compareHeadWith),
+			this.host.registerWebviewCommand('gitlens.graph.compareBranchWithHead', this.compareBranchWithHead),
 			this.host.registerWebviewCommand('gitlens.graph.compareWithWorking', this.compareWorkingWith),
 			this.host.registerWebviewCommand('gitlens.graph.compareWithMergeBase', this.compareWithMergeBase),
 			this.host.registerWebviewCommand(
@@ -2910,11 +2912,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private async openPullRequestChanges(item?: GraphItemContext) {
+	private openPullRequestChanges(item?: GraphItemContext) {
 		if (isGraphItemTypedContext(item, 'pullrequest')) {
 			const pr = item.webviewItemValue;
 			if (pr.refs?.base != null && pr.refs.head != null) {
-				const refs = await getComparisonRefsForPullRequest(this.container, pr.repoPath, pr.refs);
+				const refs = getComparisonRefsForPullRequest(pr.repoPath, pr.refs);
 				return openComparisonChanges(
 					this.container,
 					{
@@ -2931,11 +2933,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private async openPullRequestComparison(item?: GraphItemContext) {
+	private openPullRequestComparison(item?: GraphItemContext) {
 		if (isGraphItemTypedContext(item, 'pullrequest')) {
 			const pr = item.webviewItemValue;
 			if (pr.refs?.base != null && pr.refs.head != null) {
-				const refs = await getComparisonRefsForPullRequest(this.container, pr.repoPath, pr.refs);
+				const refs = getComparisonRefsForPullRequest(pr.repoPath, pr.refs);
 				return this.container.searchAndCompareView.compare(refs.repoPath, refs.head, refs.base);
 			}
 		}
@@ -2974,11 +2976,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private compareHeadWith(item?: GraphItemContext) {
+	private async compareHeadWith(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return this.container.searchAndCompareView.compare(ref.repoPath, 'HEAD', ref.ref);
+		const [ref1, ref2] = await getOrderedComparisonRefs(this.container, ref.repoPath, 'HEAD', ref.ref);
+		return this.container.searchAndCompareView.compare(ref.repoPath, ref1, ref2);
+	}
+
+	@log()
+	private compareBranchWithHead(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
+
+		return this.container.searchAndCompareView.compare(ref.repoPath, ref.ref, 'HEAD');
 	}
 
 	@log()

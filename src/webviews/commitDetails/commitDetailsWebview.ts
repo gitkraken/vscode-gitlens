@@ -720,13 +720,13 @@ export class CommitDetailsWebviewProvider
 		};
 	}
 
-	private async openPullRequestChanges() {
+	private openPullRequestChanges() {
 		if (this.pullRequestContext == null) return;
 
 		const { repoPath, pr } = this.pullRequestContext;
 		if (pr.refs == null) return;
 
-		const refs = await getComparisonRefsForPullRequest(this.container, repoPath, pr.refs);
+		const refs = getComparisonRefsForPullRequest(repoPath, pr.refs);
 		return openComparisonChanges(
 			this.container,
 			{
@@ -738,13 +738,13 @@ export class CommitDetailsWebviewProvider
 		);
 	}
 
-	private async openPullRequestComparison() {
+	private openPullRequestComparison() {
 		if (this.pullRequestContext == null) return;
 
 		const { repoPath, pr } = this.pullRequestContext;
 		if (pr.refs == null) return;
 
-		const refs = await getComparisonRefsForPullRequest(this.container, repoPath, pr.refs);
+		const refs = getComparisonRefsForPullRequest(repoPath, pr.refs);
 		return this.container.searchAndCompareView.compare(refs.repoPath, refs.head, refs.base);
 	}
 

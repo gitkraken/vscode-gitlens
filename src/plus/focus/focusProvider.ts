@@ -510,13 +510,10 @@ export class FocusProvider implements Disposable {
 	@log<FocusProvider['openChanges']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
 	async openChanges(item: FocusItem) {
 		if (!item.openRepository?.localBranch?.current) return;
+
 		await this.switchTo(item);
 		if (item.refs != null) {
-			const refs = await getComparisonRefsForPullRequest(
-				this.container,
-				item.openRepository.repo.path,
-				item.refs,
-			);
+			const refs = getComparisonRefsForPullRequest(item.openRepository.repo.path, item.refs);
 			await openComparisonChanges(
 				this.container,
 				{

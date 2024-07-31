@@ -22,7 +22,8 @@ import type { DefaultBranch } from '../../../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../../../git/models/issue';
 import type { PullRequest, SearchedPullRequest } from '../../../../git/models/pullRequest';
 import { PullRequestMergeMethod } from '../../../../git/models/pullRequest';
-import { isSha } from '../../../../git/models/reference';
+import type { GitRevisionRange } from '../../../../git/models/reference';
+import { createRevisionRange, getRevisionRangeParts, isRevisionRange, isSha } from '../../../../git/models/reference';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
 import type { GitUser } from '../../../../git/models/user';
@@ -1428,6 +1429,10 @@ export class GitHubApi implements Disposable {
 			return this.getCommitsCoreSingle(token, owner, repo, ref);
 		}
 
+		if (isRevisionRange(ref)) {
+			return this.getCommitsCoreRange(token, owner, repo, ref);
+		}
+
 		interface QueryResult {
 			viewer: { name: string };
 			repository:
@@ -1542,6 +1547,45 @@ export class GitHubApi implements Disposable {
 						: undefined,
 				values: history.nodes,
 				viewer: rsp?.viewer.name,
+			};
+		} catch (ex) {
+			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
+
+			throw this.handleException(ex, undefined, scope);
+		}
+	}
+
+	private async getCommitsCoreRange(
+		token: string,
+		owner: string,
+		repo: string,
+		range: GitRevisionRange,
+	): Promise<PagedResult<GitHubCommit> & { viewer?: string }> {
+		const scope = getLogScope();
+
+		try {
+			const result = await this.getComparison(token, owner, repo, range);
+			if (result == null) return emptyPagedResult;
+
+			return {
+				values: result.commits
+					?.map<GitHubCommit>(r => ({
+						oid: r.sha,
+						parents: { nodes: r.parents.map(p => ({ oid: p.sha })) },
+						message: r.commit.message,
+						author: {
+							avatarUrl: r.author?.avatar_url ?? undefined,
+							date: r.commit.author?.date ?? r.commit.author?.date ?? new Date().toString(),
+							email: r.author?.email ?? r.commit.author?.email ?? undefined,
+							name: r.author?.name ?? r.commit.author?.name ?? '',
+						},
+						committer: {
+							date: r.commit.committer?.date ?? new Date().toString(),
+							email: r.committer?.email ?? r.commit.committer?.email ?? undefined,
+							name: r.committer?.name ?? r.commit.committer?.name ?? '',
+						},
+					}))
+					.reverse(),
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
@@ -1989,6 +2033,45 @@ export class GitHubApi implements Disposable {
 				username: rsp.viewer?.login,
 				id: rsp.viewer?.id,
 			};
+		} catch (ex) {
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, undefined, scope);
+		}
+	}
+
+	@debug<GitHubApi['getComparison']>({ args: { 0: '<token>' } })
+	async getComparison(
+		token: string,
+		owner: string,
+		repo: string,
+		range: GitRevisionRange,
+	): Promise<Endpoints['GET /repos/{owner}/{repo}/compare/{basehead}']['response']['data'] | undefined> {
+		const scope = getLogScope();
+
+		if (!isRevisionRange(range, 'qualified-triple-dot')) {
+			// GitHub doesn't support the `..` range notation, so convert it to `...` since it will work for many of our usages
+			const parts = getRevisionRangeParts(range);
+			range = createRevisionRange(parts?.left || 'HEAD', parts?.right || 'HEAD', '...');
+		}
+
+		try {
+			const rsp = await this.request(
+				undefined,
+				token,
+				'GET /repos/{owner}/{repo}/compare/{basehead}',
+				{
+					owner: owner,
+					repo: repo,
+					basehead: range,
+				},
+				scope,
+			);
+
+			const result = rsp?.data;
+			if (result == null) return undefined;
+
+			return result;
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 

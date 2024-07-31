@@ -4,7 +4,10 @@ import { capitalize } from '../../system/string';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName, getRemoteNameSlashIndex } from './branch';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from './constants';
 
-const rangeRegex = /^(\S*?)(\.\.\.?)(\S*)\s*$/;
+const rangeRegex = /(\S*?)?([.]{2,3})(\S*)?/;
+const qualifiedRangeRegex = /(\S*?)([.]{2,3})(\S*)/;
+const qualifiedDoubleDotRange = /(\S*?)(\.\.)(\S*?)([\^@~:]\S*)?/;
+const qualifiedTripleDotRange = /(\S*?)(\.\.\.)(\S*?)([\^@~:]\S*)?/;
 const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
 const shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
 const shaParentRegex = /(^[0-9a-f]{40})\^[0-3]?$/;
@@ -12,20 +15,53 @@ const shaShortenRegex = /^(.*?)([\^@~:].*)?$/;
 const uncommittedRegex = /^[0]{40}(?:[\^@~:]\S*)?:?$/;
 const uncommittedStagedRegex = /^[0]{40}([\^@~]\S*)?:$/;
 
+export type GitRevisionRange =
+	| `${'..' | '...'}${string}`
+	| `${string}${'..' | '...'}`
+	| `${string}${'..' | '...'}${string}`;
+
 function isMatch(regex: RegExp, ref: string | undefined) {
 	return !ref ? false : regex.test(ref);
 }
 
 export function createRevisionRange(
-	ref1: string | undefined,
-	ref2: string | undefined,
+	left: string | undefined,
+	right: string | undefined,
 	notation: '..' | '...' = '..',
-): string {
-	return `${ref1 ?? ''}${notation}${ref2 ?? ''}`;
+): GitRevisionRange {
+	return `${left ?? ''}${notation}${right ?? ''}`;
 }
 
-export function isRevisionRange(ref: string | undefined) {
-	return ref?.includes('..') ?? false;
+export function getRevisionRangeParts(
+	ref: GitRevisionRange,
+): { left: string | undefined; right: string | undefined; notation: '..' | '...' } | undefined {
+	const match = rangeRegex.exec(ref);
+	if (match == null) return undefined;
+
+	const [, left, notation, right] = match;
+	return {
+		left: left || undefined,
+		right: right || undefined,
+		notation: notation as '..' | '...',
+	};
+}
+
+export function isRevisionRange(
+	ref: string | undefined,
+	rangeType: 'any' | 'qualified' | 'qualified-double-dot' | 'qualified-triple-dot' = 'any',
+): ref is GitRevisionRange {
+	if (ref == null) return false;
+
+	switch (rangeType) {
+		case 'qualified':
+			return qualifiedRangeRegex.test(ref);
+		case 'qualified-double-dot':
+			return qualifiedDoubleDotRange.test(ref);
+		case 'qualified-triple-dot':
+			return qualifiedTripleDotRange.test(ref);
+		default:
+			return rangeRegex.test(ref);
+	}
 }
 
 export function isSha(ref: string) {
@@ -85,18 +121,6 @@ export function shortenRevision(
 	}
 
 	return ref.substr(0, len);
-}
-
-export function splitRevisionRange(ref: string): { ref1: string; ref2: string; notation: '..' | '...' } | undefined {
-	const match = rangeRegex.exec(ref);
-	if (match == null) return undefined;
-
-	const [, ref1, notation, ref2] = match;
-	return {
-		ref1: ref1,
-		notation: notation as '..' | '...',
-		ref2: ref2,
-	};
 }
 
 export interface GitBranchReference {

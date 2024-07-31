@@ -7188,7 +7188,7 @@
 			},
 			{
 				"command": "gitlens.views.compareAncestryWithWorking",
-				"title": "Compare Common Base with Working Tree",
+				"title": "Compare Working Tree to Common Base",
 				"category": "GitLens"
 			},
 			{
@@ -7204,6 +7204,12 @@
 			},
 			{
 				"command": "gitlens.views.compareWithHead",
+				"title": "Compare to/from HEAD",
+				"category": "GitLens",
+				"icon": "$(compare-changes)"
+			},
+			{
+				"command": "gitlens.views.compareBranchWithHead",
 				"title": "Compare with HEAD",
 				"category": "GitLens",
 				"icon": "$(compare-changes)"
@@ -7235,7 +7241,7 @@
 			},
 			{
 				"command": "gitlens.views.compareWithWorking",
-				"title": "Compare with Working Tree",
+				"title": "Compare Working Tree to Here",
 				"category": "GitLens",
 				"icon": "$(gitlens-compare-ref-working)"
 			},
@@ -8973,7 +8979,7 @@
 			},
 			{
 				"command": "gitlens.graph.compareAncestryWithWorking",
-				"title": "Compare Common Base with Working Tree",
+				"title": "Compare Working Tree to Common Base",
 				"category": "GitLens"
 			},
 			{
@@ -8989,6 +8995,12 @@
 			},
 			{
 				"command": "gitlens.graph.compareWithHead",
+				"title": "Compare to/from HEAD",
+				"category": "GitLens",
+				"icon": "$(compare-changes)"
+			},
+			{
+				"command": "gitlens.graph.compareBranchWithHead",
 				"title": "Compare with HEAD",
 				"category": "GitLens",
 				"icon": "$(compare-changes)"
@@ -9000,7 +9012,7 @@
 			},
 			{
 				"command": "gitlens.graph.compareWithWorking",
-				"title": "Compare with Working Tree",
+				"title": "Compare Working Tree to Here",
 				"category": "GitLens",
 				"icon": "$(gitlens-compare-ref-working)"
 			},
@@ -9861,11 +9873,11 @@
 				},
 				{
 					"command": "gitlens.compareWith",
-					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.compareHeadWith",
-					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.compareWorkingWith",
@@ -10745,6 +10757,10 @@
 				},
 				{
 					"command": "gitlens.views.compareWithHead",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.compareBranchWithHead",
 					"when": "false"
 				},
 				{
@@ -11981,6 +11997,10 @@
 				},
 				{
 					"command": "gitlens.graph.compareWithHead",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.compareBranchWithHead",
 					"when": "false"
 				},
 				{
@@ -13732,13 +13752,24 @@
 				},
 				{
 					"command": "gitlens.views.compareWithHead",
-					"when": "viewItem =~ /gitlens:(branch\\b(?!.*?\\b\\+current\\b)|commit\\b|stash\\b|tag\\b)/",
+					"when": "viewItem =~ /gitlens:(commit|stash|tag)\\b/",
 					"group": "inline@97",
 					"alt": "gitlens.views.compareWithWorking"
 				},
 				{
+					"command": "gitlens.views.compareBranchWithHead",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "inline@97",
+					"alt": "gitlens.views.compareWithWorking"
+				},
+				{
+					"command": "gitlens.views.compareBranchWithHead",
+					"when": "gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "inline@97"
+				},
+				{
 					"command": "gitlens.views.compareWithWorking",
-					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)/",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)/",
 					"group": "inline@97"
 				},
 				{
@@ -13849,7 +13880,7 @@
 				},
 				{
 					"command": "gitlens.views.openChangedFileDiffsWithMergeBase",
-					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
 					"group": "3_gitlens_explore@11"
 				},
 				{
@@ -13864,17 +13895,22 @@
 				},
 				{
 					"command": "gitlens.views.compareWithHead",
-					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:(branch\\b(?!.*?\\b\\+current\\b)|commit\\b|stash\\b|tag\\b)/",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(commit|stash|tag)\\b/",
 					"group": "4_gitlens_compare@2"
+				},
+				{
+					"command": "gitlens.views.compareBranchWithHead",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "4_gitlens_compare@2"
+				},
+				{
+					"command": "gitlens.views.compareWithMergeBase",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "4_gitlens_compare@3"
 				},
 				{
 					"command": "gitlens.views.compareWithWorking",
 					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
-					"group": "4_gitlens_compare@3"
-				},
-				{
-					"command": "gitlens.views.compareWithMergeBase",
-					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
 					"group": "4_gitlens_compare@4"
 				},
 				{
@@ -13884,12 +13920,12 @@
 				},
 				{
 					"command": "gitlens.views.compareWithSelected",
-					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && gitlens:views:canCompare",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && gitlens:views:canCompare",
 					"group": "4_gitlens_compare@98"
 				},
 				{
 					"command": "gitlens.views.selectForCompare",
-					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
 					"group": "4_gitlens_compare@99"
 				},
 				{
@@ -14251,7 +14287,7 @@
 				},
 				{
 					"command": "gitlens.views.compareWithHead",
-					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"when": "!listMultiSelection && view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "4_gitlens_compare@2"
 				},
 				{
@@ -15545,7 +15581,7 @@
 				},
 				{
 					"command": "gitlens.graph.openChangedFileDiffsWithMergeBase",
-					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
 					"group": "3_gitlens_explore@11"
 				},
 				{
@@ -15555,17 +15591,22 @@
 				},
 				{
 					"command": "gitlens.graph.compareWithHead",
-					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:(branch\\b(?!.*?\\b\\+current\\b)|commit\\b|stash\\b|tag\\b)/",
+					"when": "!listMultiSelection && webviewItem =~ /gitlens:(commit|stash|tag)\\b/",
 					"group": "4_gitlens_compare@2"
+				},
+				{
+					"command": "gitlens.graph.compareBranchWithHead",
+					"when": "!listMultiSelection && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "4_gitlens_compare@2"
+				},
+				{
+					"command": "gitlens.graph.compareWithMergeBase",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "4_gitlens_compare@3"
 				},
 				{
 					"command": "gitlens.graph.compareWithWorking",
 					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
-					"group": "4_gitlens_compare@3"
-				},
-				{
-					"command": "gitlens.graph.compareWithMergeBase",
-					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
 					"group": "4_gitlens_compare@4"
 				},
 				{
@@ -16566,7 +16607,7 @@
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.selectForCompare",
-					"when": "!gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
 					"group": "navigation@11"
 				}
 			],
