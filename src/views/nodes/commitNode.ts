@@ -94,6 +94,8 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				!this.unpublished &&
 				this.view.config.pullRequests?.enabled &&
 				this.view.config.pullRequests?.showForCommits &&
+				// If we are in the context of a PR node, don't show the pull request node again
+				this.context.pullRequest == null &&
 				getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(commit.repoPath)
 			) {
 				pullRequest = this.getState('pullRequest');
