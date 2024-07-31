@@ -7101,12 +7101,12 @@
 			},
 			{
 				"command": "gitlens.views.openDirectoryDiff",
-				"title": "Open Directory Compare",
+				"title": "Open Directory Comparison",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.openDirectoryDiffWithWorking",
-				"title": "Open Directory Compare with Working Tree",
+				"title": "Directory Compare Working Tree to Here",
 				"category": "GitLens"
 			},
 			{

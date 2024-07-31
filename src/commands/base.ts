@@ -180,7 +180,7 @@ export function isCommandContextViewNodeHasRef(
 	context: CommandContext,
 ): context is CommandViewNodeContext & { node: ViewNode & { ref: GitReference } } {
 	return (
-		context.type === 'viewItem' && context.node instanceof ViewRefNode && context.node instanceof ViewRefFileNode
+		context.type === 'viewItem' && (context.node instanceof ViewRefNode || context.node instanceof ViewRefFileNode)
 	);
 }
 
