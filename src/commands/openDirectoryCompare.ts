@@ -46,7 +46,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 				if (isCommandContextViewNodeHasRef(context)) {
 					args = { ...args };
 					args.ref1 = context.node.ref.ref;
-					args.ref2 = undefined;
+					args.ref2 = '';
 				}
 				break;
 		}
