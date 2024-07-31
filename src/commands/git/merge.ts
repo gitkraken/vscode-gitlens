@@ -129,6 +129,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 			context.title = `${this.title} into ${getReferenceLabel(context.destination, {
 				icon: false,
+				label: false,
 			})}`;
 			context.pickCommitForItem = false;
 
@@ -206,19 +207,26 @@ export class MergeGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: MergeStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const aheadBehind = await this.container.git.getAheadBehindCommitCount(state.repo.path, [
-			createRevisionRange(context.destination.name, state.reference.name),
-		]);
-		const count = aheadBehind != null ? aheadBehind.ahead + aheadBehind.behind : 0;
+		const counts = await this.container.git.getLeftRightCommitCount(
+			state.repo.path,
+			createRevisionRange(context.destination.name, state.reference.name, '...'),
+		);
+
+		const title = `Merge ${getReferenceLabel(state.reference, {
+			icon: false,
+			label: false,
+		})} into ${getReferenceLabel(context.destination, { icon: false, label: false })} `;
+		const count = counts != null ? counts.right : 0;
 		if (count === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
-				appendReposToTitle(context.title, state, context),
+				appendReposToTitle(title, state, context),
 				[],
 				createDirectiveQuickPickItem(Directive.Cancel, true, {
 					label: 'OK',
 					detail: `${getReferenceLabel(context.destination, {
 						capitalize: true,
-					})} is already up to date with ${getReferenceLabel(state.reference)}`,
+						label: false,
+					})} is already up to date with ${getReferenceLabel(state.reference, { label: false })}`,
 				}),
 				{
 					placeholder: `Nothing to merge; ${getReferenceLabel(context.destination, {
@@ -233,42 +241,49 @@ export class MergeGitCommand extends QuickCommand<State> {
 		}
 
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(`Confirm ${title}`, state, context),
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will merge ${pluralize('commit', count)} from ${getReferenceLabel(
-						state.reference,
-					)} into ${getReferenceLabel(context.destination)}`,
+					detail: `Will merge ${pluralize('commit', count)} from ${getReferenceLabel(state.reference, {
+						label: false,
+					})} into ${getReferenceLabel(context.destination, { label: false })}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--ff-only'], {
 					label: `Fast-forward ${this.title}`,
 					description: '--ff-only',
 					detail: `Will fast-forward merge ${pluralize('commit', count)} from ${getReferenceLabel(
 						state.reference,
-					)} into ${getReferenceLabel(context.destination)}`,
+						{ label: false },
+					)} into ${getReferenceLabel(context.destination, { label: false })}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--squash'], {
 					label: `Squash ${this.title}`,
 					description: '--squash',
-					detail: `Will squash ${pluralize('commit', count)} from ${getReferenceLabel(
-						state.reference,
-					)} into one when merging into ${getReferenceLabel(context.destination)}`,
+					detail: `Will squash ${pluralize('commit', count)} from ${getReferenceLabel(state.reference, {
+						label: false,
+					})} into one when merging into ${getReferenceLabel(context.destination, { label: false })}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--no-ff'], {
-					label: `${this.title} without Fast-Forwarding`,
+					label: `No Fast-forward ${this.title}`,
 					description: '--no-ff',
 					detail: `Will create a merge commit when merging ${pluralize(
 						'commit',
 						count,
-					)} from ${getReferenceLabel(state.reference)} into ${getReferenceLabel(context.destination)}`,
+					)} from ${getReferenceLabel(state.reference, { label: false })} into ${getReferenceLabel(
+						context.destination,
+						{ label: false },
+					)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--no-ff', '--no-commit'], {
-					label: `${this.title} without Fast-Forwarding or Committing`,
-					description: '--no-ff --no-commit',
-					detail: `Will merge ${pluralize('commit', count)} from ${getReferenceLabel(
-						state.reference,
-					)} into ${getReferenceLabel(context.destination)} without Committing`,
+					label: `Don't Commit ${this.title}`,
+					description: '--no-commit --no-ff',
+					detail: `Will pause before committing the merge of ${pluralize(
+						'commit',
+						count,
+					)} from ${getReferenceLabel(state.reference, {
+						label: false,
+					})} into ${getReferenceLabel(context.destination, { label: false })}`,
 				}),
 			],
 		);

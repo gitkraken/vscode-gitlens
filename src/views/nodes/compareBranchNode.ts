@@ -114,9 +114,9 @@ export class CompareBranchNode extends SubscribeableViewNode<
 			const ahead = this.ahead;
 			const behind = this.behind;
 
-			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(
+			const counts = await this.view.container.git.getLeftRightCommitCount(
 				this.branch.repoPath,
-				[createRevisionRange(behind.ref1, behind.ref2, '...')],
+				createRevisionRange(behind.ref1, behind.ref2, '...'),
 				{ authors: this.filterByAuthors },
 			);
 			const mergeBase =
@@ -141,7 +141,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 						},
 					},
 					{
-						description: pluralize('commit', aheadBehindCounts?.behind ?? 0),
+						description: pluralize('commit', counts?.right ?? 0),
 						expand: false,
 					},
 				),
@@ -163,7 +163,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 						},
 					},
 					{
-						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
+						description: pluralize('commit', counts?.left ?? 0),
 						expand: false,
 					},
 				),

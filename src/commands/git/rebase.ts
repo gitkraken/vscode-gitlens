@@ -137,7 +137,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				context.destination = branch;
 			}
 
-			context.title = `${this.title} ${getReferenceLabel(context.destination, { icon: false })}`;
+			context.title = `${this.title} ${getReferenceLabel(context.destination, {
+				icon: false,
+				label: false,
+			})} onto`;
 			context.pickCommitForItem = false;
 
 			if (state.counter < 2 || state.reference == null) {
@@ -214,22 +217,27 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const aheadBehind = await this.container.git.getAheadBehindCommitCount(state.repo.path, [
-			state.reference.refType === 'revision'
-				? createRevisionRange(state.reference.ref, context.destination.ref)
-				: createRevisionRange(context.destination.name, state.reference.name),
-		]);
+		const counts = await this.container.git.getLeftRightCommitCount(
+			state.repo.path,
+			createRevisionRange(
+				context.destination.name,
+				state.reference.refType === 'revision' ? state.reference.ref : state.reference.name,
+				'...',
+			),
+			{ excludeMerges: true },
+		);
 
-		const count = aheadBehind != null ? aheadBehind.ahead + aheadBehind.behind : 0;
+		const title = `${context.title} ${getReferenceLabel(state.reference, { icon: false, label: false })}`;
+		const count = counts != null ? counts.left : 0;
 		if (count === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
-				appendReposToTitle(context.title, state, context),
+				appendReposToTitle(title, state, context),
 				[],
 				createDirectiveQuickPickItem(Directive.Cancel, true, {
 					label: 'OK',
 					detail: `${getReferenceLabel(context.destination, {
 						capitalize: true,
-					})} is already up to date with ${getReferenceLabel(state.reference)}`,
+					})} is already up to date with ${getReferenceLabel(state.reference, { label: false })}`,
 				}),
 				{
 					placeholder: `Nothing to rebase; ${getReferenceLabel(context.destination, {
@@ -244,21 +252,24 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		}
 
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(`Confirm ${title}`, state, context),
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will update ${getReferenceLabel(context.destination)} by applying ${pluralize(
-						'commit',
-						count,
-					)} on top of ${getReferenceLabel(state.reference)}`,
+					detail: `Will update ${getReferenceLabel(context.destination, {
+						label: false,
+					})} by applying ${pluralize('commit', count)} on top of ${getReferenceLabel(state.reference, {
+						label: false,
+					})}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
 					label: `Interactive ${this.title}`,
 					description: '--interactive',
-					detail: `Will interactively update ${getReferenceLabel(
-						context.destination,
-					)} by applying ${pluralize('commit', count)} on top of ${getReferenceLabel(state.reference)}`,
+					detail: `Will interactively update ${getReferenceLabel(context.destination, {
+						label: false,
+					})} by applying ${pluralize('commit', count)} on top of ${getReferenceLabel(state.reference, {
+						label: false,
+					})}`,
 				}),
 			],
 		);

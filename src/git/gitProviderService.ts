@@ -65,7 +65,7 @@ import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
 import type { GitRebaseStatus } from './models/rebase';
-import type { GitBranchReference, GitReference } from './models/reference';
+import type { GitBranchReference, GitReference, GitRevisionRange } from './models/reference';
 import { createRevisionRange, isSha, isUncommitted, isUncommittedParent } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
@@ -1458,14 +1458,14 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
-	@log<GitProviderService['getAheadBehindCommitCount']>({ args: { 1: refs => refs.join(',') } })
-	getAheadBehindCommitCount(
+	@log()
+	getLeftRightCommitCount(
 		repoPath: string | Uri,
-		refs: string[],
-		options?: { authors?: GitUser[] | undefined },
-	): Promise<{ ahead: number; behind: number } | undefined> {
+		range: GitRevisionRange,
+		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
+	): Promise<{ left: number; right: number } | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getAheadBehindCommitCount(path, refs, options);
+		return provider.getLeftRightCommitCount(path, range, options);
 	}
 
 	@log<GitProviderService['getBlame']>({ args: { 1: d => d?.isDirty } })
@@ -1855,12 +1855,12 @@ export class GitProviderService implements Disposable {
 	@log()
 	getDiffStatus(
 		repoPath: string | Uri,
-		ref1?: string,
+		ref1OrRange: string | GitRevisionRange,
 		ref2?: string,
 		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getDiffStatus(path, ref1, ref2, options);
+		return provider.getDiffStatus(path, ref1OrRange, ref2, options);
 	}
 
 	@log()
@@ -2497,7 +2497,7 @@ export class GitProviderService implements Disposable {
 		return provider.hasBranchOrTag(path, options);
 	}
 
-	@log({ args: { 1: false }, exit: true })
+	@log({ exit: true })
 	async hasCommitBeenPushed(repoPath: string | Uri, ref: string): Promise<boolean> {
 		if (repoPath == null) return false;
 
@@ -2531,6 +2531,14 @@ export class GitProviderService implements Disposable {
 			if (provider.hasUnsafeRepositories?.()) return true;
 		}
 		return false;
+	}
+
+	@log({ exit: true })
+	async isAncestorOf(repoPath: string | Uri, ref1: string, ref2: string): Promise<boolean> {
+		if (repoPath == null) return false;
+
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.isAncestorOf(path, ref1, ref2);
 	}
 
 	@log<GitProviderService['isRepositoryForEditor']>({

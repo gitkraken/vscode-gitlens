@@ -139,6 +139,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 
 			context.title = `${this.title} into ${getReferenceLabel(context.destination, {
 				icon: false,
+				label: false,
 			})}`;
 
 			if (state.counter < 2 || state.references == null || state.references.length === 0) {
@@ -236,22 +237,24 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will apply ${getReferenceLabel(state.references)} to ${getReferenceLabel(
+					detail: `Will apply ${getReferenceLabel(state.references, { label: false })} to ${getReferenceLabel(
 						context.destination,
+						{ label: false },
 					)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--edit'], {
 					label: `${this.title} & Edit`,
 					description: '--edit',
-					detail: `Will edit and apply ${getReferenceLabel(state.references)} to ${getReferenceLabel(
-						context.destination,
-					)}`,
+					detail: `Will edit and apply ${getReferenceLabel(state.references, {
+						label: false,
+					})} to ${getReferenceLabel(context.destination, { label: false })}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--no-commit'], {
 					label: `${this.title} without Committing`,
 					description: '--no-commit',
-					detail: `Will apply ${getReferenceLabel(state.references)} to ${getReferenceLabel(
+					detail: `Will apply ${getReferenceLabel(state.references, { label: false })} to ${getReferenceLabel(
 						context.destination,
+						{ label: false },
 					)} without Committing`,
 				}),
 			],

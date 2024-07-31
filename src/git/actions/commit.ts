@@ -15,6 +15,7 @@ import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/pro
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
 import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
+import { getSettledValue } from '../../system/promise';
 import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/utils';
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
@@ -974,4 +975,36 @@ async function getChangesRefsArgs(
 				commitOrFiles.unresolvedPreviousSha,
 		},
 	};
+}
+
+export async function getOrderedComparisonRefs(
+	container: Container,
+	repoPath: string,
+	refA: string,
+	refB: string,
+): Promise<[string, string]> {
+	// Check the ancestry of refA and refB to determine which is the "newer" one
+	const ancestor = await container.git.isAncestorOf(repoPath, refA, refB);
+	// If refB is an ancestor of refA, compare refA to refB (as refA is "newer")
+	if (ancestor) return [refB, refA];
+
+	const ancestor2 = await container.git.isAncestorOf(repoPath, refB, refA);
+	// If refA is an ancestor of refB, compare refB to refA (as refB is "newer")
+	if (ancestor2) return [refA, refB];
+
+	const [commitRefAResult, commitRefBResult] = await Promise.allSettled([
+		container.git.getCommit(repoPath, refA),
+		container.git.getCommit(repoPath, refB),
+	]);
+
+	const commitRefA = getSettledValue(commitRefAResult);
+	const commitRefB = getSettledValue(commitRefBResult);
+
+	if (commitRefB != null && commitRefA != null && commitRefB.date > commitRefA.date) {
+		// If refB is "newer", compare refB to refA
+		return [refB, refA];
+	}
+
+	// If refA is "newer", compare refA to refB
+	return [refA, refB];
 }

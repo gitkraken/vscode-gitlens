@@ -11,6 +11,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Shows GitLab merge requests in the _Launchpad_ when GitLab integration is connected
 - Adds a new "Connect" button to the _Launchpad_ that allows the user to connect additional integrations.
 - Adds `gitlens.experimental.cloudIntegrations.github.enabled` setting to connect GitHub integration using cloud integration of GitKraken account.
+- Adds comparison support to virtual (GitHub) repositories
+
+### Changed
+
+- Improves the _Compare to/from HEAD_ command (previously _Compare with HEAD_) to compare commits, stashes, and tags with the HEAD commit where directionality is determined by topology and time
+- Improves the messaging of the merge and rebase commands
+- Renames _Compare with Working Tree_ command to _Compare Working Tree to Here_
+- Renames _Compare Common Base with Working Tree_ command to _Compare Working Tree to Common Base_
+
+### Fixed
+
+- Fixes issues with incorrect commit count when using the merge and rebase commands
+- Fixes issues where a merge or rebase operationsays there or no changes when there are changes
 
 ## [15.2.3] - 2024-07-26
 
