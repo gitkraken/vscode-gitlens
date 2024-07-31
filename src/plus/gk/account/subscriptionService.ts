@@ -874,6 +874,9 @@ export class SubscriptionService implements Disposable {
 
 			Logger.error(ex, scope);
 			debugger;
+
+			// If we cannot check in, validate stored subscription
+			this.changeSubscription(this._subscription);
 			if (ex instanceof AccountValidationError) throw ex;
 
 			throw new AccountValidationError('Unable to validate account', ex);
