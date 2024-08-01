@@ -270,7 +270,6 @@ export class WebviewsController implements Disposable {
 			options?: WebviewPanelsShowOptions,
 			...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 		): Promise<void> {
-			// debugger;
 			const { descriptor } = registration;
 			if (descriptor.plusFeature) {
 				if (!(await ensurePlusFeaturesEnabled())) return;

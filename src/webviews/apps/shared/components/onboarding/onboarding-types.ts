@@ -1,6 +1,4 @@
-export interface OnboardingStateTemplate {
-	[key: `${string}Checked`]: boolean;
-}
+export type OnboardingStateTemplate = Partial<Record<`${string}Checked`, boolean>>;
 
 export interface OnboardingItemConfiguration<T extends string> {
 	itemId: T;

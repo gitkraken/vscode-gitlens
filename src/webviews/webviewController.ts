@@ -9,6 +9,7 @@ import { setContext } from '../system/context';
 import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
+import { debounce } from '../system/function';
 import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
 import { isPromise, pauseOnCancelOrTimeout } from '../system/promise';
@@ -371,7 +372,7 @@ export class WebviewController<
 				this._ready = true;
 				this.sendPendingIpcNotifications();
 				this.provider.onReady?.();
-
+				this.trackUsage();
 				break;
 
 			case WebviewFocusChangedCommand.is(e):
@@ -401,14 +402,20 @@ export class WebviewController<
 		this.handleFocusChanged(e.focused);
 	}
 
+	private _trackUsage() {
+		void this.container.usage.track(`${this.descriptor.trackingFeature}:shown`);
+	}
+	private _debouncedTrackUsage: undefined | (() => void);
+	/** debounced to prevent possible duplicated track from ready message handler and onParentVisibilityChanged */
+	private trackUsage() {
+		if (!this._debouncedTrackUsage) {
+			this._debouncedTrackUsage = debounce(this._trackUsage.bind(this), 500);
+		}
+		this._debouncedTrackUsage();
+	}
+
 	@debug()
 	private onParentVisibilityChanged(visible: boolean, active?: boolean) {
-		// if (
-		// 	!this.descriptor.trackingFeature ||
-		// 	['graphView', 'graphWebview'].includes(this.descriptor.trackingFeature)
-		// ) {
-		// 	debugger;
-		// }
 		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
 			if (visible) {
 				if (this._ready) {
@@ -425,8 +432,7 @@ export class WebviewController<
 		}
 
 		if (visible) {
-			void this.container.usage.track(`${this.descriptor.trackingFeature}:shown`);
-
+			this.trackUsage();
 			setContextKeys(this.descriptor.contextKeyPrefix);
 			if (active != null) {
 				this.provider.onActiveChanged?.(active);

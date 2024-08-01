@@ -190,6 +190,44 @@ export class LineHoverController implements Disposable {
 		return new Hover(message, range);
 	}
 
+	async provideHoverTracker(
+		document: TextDocument,
+		position: Position,
+		_token: CancellationToken,
+	): Promise<Hover | undefined> {
+		// TODO: I would reduce code duplication and move range checking to a separate private method,
+		// but there is a `Avoid double annotations if we are showing the whole-file hover blame annotations` section that is different
+		// Can I move it after range check?
+		if (!this.container.lineTracker.includes(position.line)) return undefined;
+
+		const lineState = this.container.lineTracker.getState(position.line);
+		const commit = lineState?.commit;
+		if (commit == null) return undefined;
+
+		const cfg = configuration.get('hovers');
+
+		const wholeLine = cfg.currentLine.over === 'line';
+		// If we aren't showing the hover over the whole line, make sure the annotation is on
+		if (!wholeLine && this.container.lineAnnotations.suspended) return undefined;
+
+		const range = document.validateRange(
+			new Range(
+				position.line,
+				wholeLine ? position.character : maxSmallIntegerV8,
+				position.line,
+				maxSmallIntegerV8,
+			),
+		);
+		if (!wholeLine && range.start.character !== position.character) return undefined;
+
+		const trackedDocument = await this.container.documentTracker.get(document);
+		if (trackedDocument == null) return undefined;
+
+		await new Promise(resolve => setTimeout(resolve, 500));
+		void this.container.usage.track('lineBlame:hovered');
+		return undefined;
+	}
+
 	private isRegistered(uri: Uri | undefined) {
 		return this._hoverProviderDisposable != null && UriComparer.equals(this._uri, uri);
 	}
@@ -205,6 +243,16 @@ export class LineHoverController implements Disposable {
 		this._uri = editor.document.uri;
 
 		const subscriptions = [];
+		if (cfg.currentLine.changes || cfg.currentLine.details) {
+			subscriptions.push(
+				languages.registerHoverProvider(
+					{ pattern: this._uri.fsPath },
+					{
+						provideHover: this.provideHoverTracker.bind(this),
+					},
+				),
+			);
+		}
 		if (cfg.currentLine.changes) {
 			subscriptions.push(
 				languages.registerHoverProvider(

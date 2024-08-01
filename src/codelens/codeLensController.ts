@@ -60,6 +60,7 @@ export class GitCodeLensController implements Disposable {
 		using scope = startLogScope(`${getLoggableName(this)}.onBlameStateChanged`, false);
 
 		Logger.log(scope, 'resetting CodeLens provider');
+		void this.container.usage.track('codeLens:activated');
 		this._provider.reset();
 	}
 

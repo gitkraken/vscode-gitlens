@@ -85,11 +85,13 @@ export class GlOnboarding<
 		const onboardingConfiguration = this.onboardingConfiguration;
 		if (!onboardingState || !onboardingConfiguration) return 0;
 		return Number(
-			onboardingConfiguration.reduce(
-				(a, b) =>
-					a + Number(b.children ? this.calcStateFromChildren(b) : onboardingState[`${b.itemId}Checked`]),
-				0,
-			),
+			onboardingConfiguration.reduce((acc, onboardingItem) => {
+				const ownState = Boolean(onboardingState[`${onboardingItem.itemId}Checked`]);
+				if (!onboardingItem.children) {
+					return acc + Number(ownState);
+				}
+				return acc + Number(this.calcStateFromChildren(onboardingItem));
+			}, 0),
 		);
 	}
 
@@ -111,7 +113,10 @@ export class GlOnboarding<
 
 	private calcStateFromChildren(onboardingItem: OnboardingItemConfiguration<OnboardingItem>) {
 		return (
-			onboardingItem.children?.reduce((a, b) => a && Boolean(this.state?.[`${b.itemId}Checked`]), true) ?? false
+			onboardingItem.children?.reduce(
+				(acc, onboardingItemChild) => acc && Boolean(this.state?.[`${onboardingItemChild.itemId}Checked`]),
+				true,
+			) ?? false
 		);
 	}
 

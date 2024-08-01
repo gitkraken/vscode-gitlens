@@ -1,5 +1,6 @@
 import type { Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
+import type { Commands } from '../constants.commands';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { updateRecordValue } from '../system/object';
@@ -11,11 +12,19 @@ export interface TrackedUsage {
 	lastUsedAt: number;
 }
 
+export type EditorTrackedFeatures = 'lineBlame:hovered' | 'codeLens:activated';
+export type IntegrationTrackedFeatures = 'integration:repoHost';
+export type CommandExecutionTrackedFeatures = `command:${Commands}:executed`;
+
 export type TrackedUsageFeatures =
 	| `${WebviewTypes}Webview`
 	| `${TreeViewTypes | WebviewViewTypes}View`
 	| `${CustomEditorTypes}Editor`;
-export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown`;
+export type TrackedUsageKeys =
+	| `${TrackedUsageFeatures}:shown`
+	| EditorTrackedFeatures
+	| CommandExecutionTrackedFeatures
+	| IntegrationTrackedFeatures;
 
 export type UsageChangeEvent = {
 	/**
@@ -64,7 +73,7 @@ export class UsageTracker implements Disposable {
 		if (usages == null) {
 			usages = Object.create(null) as NonNullable<typeof usages>;
 		}
-		// debugger;
+
 		const usedAt = Date.now();
 
 		let usage = usages[key];
