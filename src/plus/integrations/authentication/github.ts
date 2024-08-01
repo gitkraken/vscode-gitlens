@@ -7,13 +7,14 @@ import {
 	CloudIntegrationAuthenticationProvider,
 	LocalIntegrationAuthenticationProvider,
 } from './integrationAuthentication';
+import type { ProviderAuthenticationSession } from './models';
 
 export class GitHubAuthenticationProvider extends CloudIntegrationAuthenticationProvider<HostingIntegrationId.GitHub> {
 	protected override get authProviderId(): HostingIntegrationId.GitHub {
 		return HostingIntegrationId.GitHub;
 	}
 
-	override async getBuiltInExistingSession(
+	private async getBuiltInExistingSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 	): Promise<AuthenticationSession | undefined> {
 		if (descriptor == null) return undefined;
@@ -25,6 +26,16 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 					silent: true,
 				}),
 		);
+	}
+
+	public override async getSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+	): Promise<ProviderAuthenticationSession | undefined> {
+		const existingSession = await this.getBuiltInExistingSession(descriptor);
+		if (existingSession != null) return existingSession;
+
+		return super.getSession(descriptor, options);
 	}
 
 	protected override getCompletionInputTitle(): string {
