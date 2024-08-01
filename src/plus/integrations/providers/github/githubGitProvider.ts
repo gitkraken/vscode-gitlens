@@ -552,7 +552,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				range,
+				stripOriginFromRange(range),
 			);
 
 			if (result == null) return undefined;
@@ -1042,7 +1042,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 
-			const commit = await github.getCommit(session.accessToken, metadata.repo.owner, metadata.repo.name, ref);
+			const commit = await github.getCommit(
+				session.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				stripOrigin(ref),
+			);
 			if (commit == null) return undefined;
 
 			const { viewer = session.account.label } = commit;
@@ -1112,7 +1117,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					metadata.repo.owner,
 					metadata.repo.name,
 					branch,
-					refs,
+					refs.map(stripOrigin),
 					options?.mode ?? 'contains',
 					options?.commitDate,
 				);
@@ -1121,7 +1126,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
-					refs,
+					refs.map(stripOrigin),
 					options?.mode ?? 'contains',
 					options?.commitDate,
 				);
@@ -1148,7 +1153,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session?.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				ref,
+				stripOrigin(ref),
 			);
 
 			return count;
@@ -1179,7 +1184,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				ref,
+				stripOrigin(ref),
 				file,
 			);
 			if (commit == null) return undefined;
@@ -1659,7 +1664,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				ref,
+				stripOrigin(ref),
 				options?.commitDate,
 			);
 
@@ -1823,7 +1828,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				range,
+				stripOriginFromRange(range),
 			);
 
 			const files1 = result?.files;
@@ -1834,7 +1839,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
-					range2,
+					stripOriginFromRange(range2),
 				);
 
 				const files2 = result?.files;
@@ -1905,13 +1910,19 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 
 			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
-			const result = await github.getCommits(session.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
-				all: options?.all,
-				authors: options?.authors,
-				after: options?.cursor,
-				limit: limit,
-				since: options?.since ? new Date(options.since) : undefined,
-			});
+			const result = await github.getCommits(
+				session.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				stripOrigin(ref),
+				{
+					all: options?.all,
+					authors: options?.authors,
+					after: options?.cursor,
+					limit: limit,
+					since: options?.since ? new Date(options.since) : undefined,
+				},
+			);
 
 			const commits = new Map<string, GitCommit>();
 
@@ -2280,13 +2291,19 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// }
 
 			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
-			const result = await github.getCommits(session.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
-				all: options?.all,
-				after: options?.cursor,
-				path: relativePath,
-				limit: limit,
-				since: options?.since ? new Date(options.since) : undefined,
-			});
+			const result = await github.getCommits(
+				session.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				stripOrigin(ref),
+				{
+					all: options?.all,
+					after: options?.cursor,
+					path: relativePath,
+					limit: limit,
+					since: options?.since ? new Date(options.since) : undefined,
+				},
+			);
 
 			const commits = new Map<string, GitCommit>();
 
@@ -2467,7 +2484,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				createRevisionRange(ref1, ref2, '...'),
+				createRevisionRange(stripOrigin(ref1), stripOrigin(ref2), '...'),
 			);
 			return result?.merge_base_commit?.sha;
 		} catch (ex) {
@@ -2519,7 +2536,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				metadata.repo.name,
 				revision,
 				relativePath,
-				ref,
+				stripOrigin(ref),
 			);
 
 			return {
@@ -2571,7 +2588,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				!ref || ref === 'HEAD' ? (await metadata.getRevision()).revision : ref,
+				stripOrigin(!ref || ref === 'HEAD' ? (await metadata.getRevision()).revision : ref),
 				{
 					path: relativePath,
 					first: offset + skip + 1,
@@ -2954,7 +2971,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				createRevisionRange(ref1, ref2, '...'),
+				createRevisionRange(stripOrigin(ref1), stripOrigin(ref2), '...'),
 			);
 
 			switch (result?.status) {
@@ -3041,7 +3058,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			session.accessToken,
 			metadata.repo.owner,
 			metadata.repo.name,
-			ref,
+			stripOrigin(ref),
 			relativePath,
 		);
 
@@ -3669,4 +3686,19 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 function encodeAuthority<T>(scheme: string, metadata?: T): string {
 	return `${scheme}${metadata != null ? `+${encodeUtf8Hex(JSON.stringify(metadata))}` : ''}`;
+}
+
+function stripOrigin<T extends string | undefined>(ref: T): T {
+	if (isRevisionRange(ref)) {
+		return stripOriginFromRange(ref) as T;
+	}
+
+	return ref?.replace(/^origin\//, '') as T;
+}
+
+function stripOriginFromRange(range: GitRevisionRange): GitRevisionRange {
+	const parts = getRevisionRangeParts(range);
+	if (parts == null) return range;
+
+	return createRevisionRange(stripOrigin(parts.left), stripOrigin(parts.right), parts.notation);
 }

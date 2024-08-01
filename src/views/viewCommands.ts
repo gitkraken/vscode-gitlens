@@ -1004,18 +1004,11 @@ export class ViewCommands {
 	}
 
 	@log()
-	private compareHeadWith(node: ViewRefNode | ViewRefFileNode) {
+	private async compareHeadWith(node: ViewRefNode | ViewRefFileNode) {
 		if (node instanceof ViewRefFileNode) {
 			return this.compareFileWith(node.repoPath, node.uri, node.ref.ref, undefined, 'HEAD');
 		}
 
-		if (!(node instanceof ViewRefNode)) return Promise.resolve();
-
-		return this.container.searchAndCompareView.compare(node.repoPath, 'HEAD', node.ref);
-	}
-
-	@log()
-	private async compareBranchWithHead(node: BranchNode) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
 		const [ref1, ref2] = await CommitActions.getOrderedComparisonRefs(
@@ -1025,6 +1018,13 @@ export class ViewCommands {
 			node.ref.ref,
 		);
 		return this.container.searchAndCompareView.compare(node.repoPath, ref1, ref2);
+	}
+
+	@log()
+	private compareBranchWithHead(node: BranchNode) {
+		if (!(node instanceof ViewRefNode)) return Promise.resolve();
+
+		return this.container.searchAndCompareView.compare(node.repoPath, node.ref, 'HEAD');
 	}
 
 	@log()
