@@ -552,7 +552,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				stripOriginFromRange(range),
+				stripOrigin(range),
 			);
 
 			if (result == null) return undefined;
@@ -1828,7 +1828,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				stripOriginFromRange(range),
+				stripOrigin(range),
 			);
 
 			const files1 = result?.files;
@@ -1839,7 +1839,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
-					stripOriginFromRange(range2),
+					stripOrigin(range2),
 				);
 
 				const files2 = result?.files;
@@ -3688,17 +3688,7 @@ function encodeAuthority<T>(scheme: string, metadata?: T): string {
 	return `${scheme}${metadata != null ? `+${encodeUtf8Hex(JSON.stringify(metadata))}` : ''}`;
 }
 
-function stripOrigin<T extends string | undefined>(ref: T): T {
-	if (isRevisionRange(ref)) {
-		return stripOriginFromRange(ref) as T;
-	}
-
-	return ref?.replace(/^origin\//, '') as T;
-}
-
-function stripOriginFromRange(range: GitRevisionRange): GitRevisionRange {
-	const parts = getRevisionRangeParts(range);
-	if (parts == null) return range;
-
-	return createRevisionRange(stripOrigin(parts.left), stripOrigin(parts.right), parts.notation);
+//** Strips `origin/` from a reference or range, because we "fake" origin as the default remote */
+function stripOrigin<T extends string | GitRevisionRange | undefined>(ref: T): T {
+	return ref?.replace(/(?:^|(?<=..))origin\//, '') as T;
 }
