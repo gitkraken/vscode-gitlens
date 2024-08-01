@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await */
 import type {
 	AuthenticationSession,
-	AuthenticationSessionsChangeEvent,
 	CancellationToken,
 	Disposable,
 	Event,
@@ -9,7 +8,7 @@ import type {
 	TextDocument,
 	WorkspaceFolder,
 } from 'vscode';
-import { authentication, EventEmitter, FileType, Uri, window, workspace } from 'vscode';
+import { EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
 import { CharCode, Schemes } from '../../../../constants';
 import type { Container } from '../../../../container';
@@ -112,6 +111,10 @@ import type {
 	GraphItemRefContext,
 	GraphTagContextValue,
 } from '../../../webviews/graph/protocol';
+import type {
+	IntegrationAuthenticationService,
+} from '../../authentication/integrationAuthentication';
+import { HostingIntegrationId } from '../models';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
 
@@ -132,6 +135,7 @@ interface RepositoryInfo {
 
 export class GitHubGitProvider implements GitProvider, Disposable {
 	descriptor = { id: 'github' as const, name: 'GitHub', virtual: true };
+	readonly authenticationProviderId = HostingIntegrationId.GitHub;
 	readonly supportedSchemes = new Set<string>([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
 
 	private _onDidChange = new EventEmitter<void>();
@@ -160,28 +164,29 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	private readonly _disposables: Disposable[] = [];
 
-	constructor(private readonly container: Container) {
+	constructor(
+		private readonly container: Container,
+		private readonly authenticationService: IntegrationAuthenticationService,
+	) {
 		this._disposables.push(
-			this.container.events.on(
-				'git:cache:reset',
-				e =>
-					e.data.repoPath
-						? this.resetCache(e.data.repoPath, ...(e.data.caches ?? emptyArray))
-						: this.resetCaches(...(e.data.caches ?? emptyArray)),
-				authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
+			this.container.events.on('git:cache:reset', e =>
+				e.data.repoPath
+					? this.resetCache(e.data.repoPath, ...(e.data.caches ?? emptyArray))
+					: this.resetCaches(...(e.data.caches ?? emptyArray)),
 			),
 		);
+		void authenticationService.get(this.authenticationProviderId).then(authProvider => {
+			this._disposables.push(authProvider.onDidChange(this.onAuthenticationSessionsChanged, this));
+		});
 	}
 
 	dispose() {
 		this._disposables.forEach(d => void d.dispose());
 	}
 
-	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
-		if (e.provider.id === 'github') {
-			this._sessionPromise = undefined;
-			void this.ensureSession(false, true);
-		}
+	private onAuthenticationSessionsChanged() {
+		this._sessionPromise = undefined;
+		void this.ensureSession(false, true);
 	}
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {

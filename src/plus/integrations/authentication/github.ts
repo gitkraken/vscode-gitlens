@@ -1,6 +1,7 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
+import type { Container } from '../../../container';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
 import {
@@ -10,6 +11,17 @@ import {
 import type { ProviderAuthenticationSession } from './models';
 
 export class GitHubAuthenticationProvider extends CloudIntegrationAuthenticationProvider<HostingIntegrationId.GitHub> {
+	constructor(container: Container) {
+		super(container);
+		this.disposables.push(
+			authentication.onDidChangeSessions(e => {
+				if (e.provider.id === this.authProviderId) {
+					this.fireDidChange();
+				}
+			}),
+		);
+	}
+
 	protected override get authProviderId(): HostingIntegrationId.GitHub {
 		return HostingIntegrationId.GitHub;
 	}

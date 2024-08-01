@@ -41,7 +41,7 @@ export interface IntegrationAuthenticationSessionDescriptor {
 	[key: string]: unknown;
 }
 
-export interface IntegrationAuthenticationProvider {
+export interface IntegrationAuthenticationProvider extends Disposable {
 	deleteSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void>;
 	getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
@@ -53,7 +53,13 @@ export interface IntegrationAuthenticationProvider {
 abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = IntegrationId>
 	implements IntegrationAuthenticationProvider
 {
+	protected readonly disposables: Disposable[] = [];
+
 	constructor(protected readonly container: Container) {}
+
+	dispose() {
+		this.disposables.forEach(d => void d.dispose());
+	}
 
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
@@ -374,6 +380,13 @@ class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticationProvid
 		protected readonly authProviderId: IntegrationId,
 	) {
 		super(container);
+		this.disposables.push(
+			authentication.onDidChangeSessions(e => {
+				if (e.provider.id === this.authProviderId) {
+					this.fireDidChange();
+				}
+			}),
+		);
 	}
 
 	protected override createSession(): Promise<ProviderAuthenticationSession | undefined> {
@@ -405,6 +418,7 @@ export class IntegrationAuthenticationService implements Disposable {
 	constructor(private readonly container: Container) {}
 
 	dispose() {
+		this.providers.forEach(p => void p.dispose());
 		this.providers.clear();
 	}
 
