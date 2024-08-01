@@ -187,7 +187,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			}
 
 			if (state.counter < 3 && context.selectedBranchOrTag != null) {
-				const ref = createRevisionRange(context.destination.ref, context.selectedBranchOrTag.ref);
+				const ref = createRevisionRange(context.destination.ref, context.selectedBranchOrTag.ref, '..');
 
 				let log = context.cache.get(ref);
 				if (log == null) {

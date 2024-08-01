@@ -342,8 +342,8 @@ export class BranchTrackingStatusNode
 		if (this._log == null) {
 			const range =
 				this.upstreamType === 'ahead'
-					? createRevisionRange(this.status.upstream?.name, this.status.ref)
-					: createRevisionRange(this.status.ref, this.status.upstream?.name);
+					? createRevisionRange(this.status.upstream?.name, this.status.ref, '..')
+					: createRevisionRange(this.status.ref, this.status.upstream?.name, '..');
 
 			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,

@@ -2514,7 +2514,7 @@ function getShowRepositoryStatusStepItems<
 						state: {
 							repo: state.repo,
 							reference: createReference(
-								createRevisionRange(context.status.ref, context.status.upstream?.name),
+								createRevisionRange(context.status.ref, context.status.upstream?.name, '..'),
 								state.repo.path,
 							),
 						},
@@ -2532,7 +2532,7 @@ function getShowRepositoryStatusStepItems<
 						state: {
 							repo: state.repo,
 							reference: createReference(
-								createRevisionRange(context.status.upstream?.name, context.status.ref),
+								createRevisionRange(context.status.upstream?.name, context.status.ref, '..'),
 								state.repo.path,
 							),
 						},

@@ -1555,7 +1555,7 @@ export class GitProviderService implements Disposable {
 	@log<GitProviderService['getBranchAheadRange']>({ args: { 0: b => b.name } })
 	async getBranchAheadRange(branch: GitBranch): Promise<string | undefined> {
 		if (branch.state.ahead > 0) {
-			return createRevisionRange(branch.upstream?.name, branch.ref);
+			return createRevisionRange(branch.upstream?.name, branch.ref, '..');
 		}
 
 		if (branch.upstream == null) {
@@ -1576,7 +1576,7 @@ export class GitProviderService implements Disposable {
 
 				const possibleBranch = weightedBranch!.branch.upstream?.name ?? weightedBranch!.branch.ref;
 				if (possibleBranch !== branch.ref) {
-					return createRevisionRange(possibleBranch, branch.ref);
+					return createRevisionRange(possibleBranch, branch.ref, '..');
 				}
 			}
 		}
