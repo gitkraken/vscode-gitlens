@@ -27,7 +27,7 @@ function isMatch(regex: RegExp, ref: string | undefined) {
 export function createRevisionRange(
 	left: string | undefined,
 	right: string | undefined,
-	notation: '..' | '...' = '..',
+	notation: '..' | '...',
 ): GitRevisionRange {
 	return `${left ?? ''}${notation}${right ?? ''}`;
 }
