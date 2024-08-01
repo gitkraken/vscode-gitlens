@@ -113,6 +113,7 @@ import type {
 } from '../../../webviews/graph/protocol';
 import type {
 	IntegrationAuthenticationService,
+	IntegrationAuthenticationSessionDescriptor,
 } from '../../authentication/integrationAuthentication';
 import { HostingIntegrationId } from '../models';
 import type { GitHubApi } from './github';
@@ -135,6 +136,10 @@ interface RepositoryInfo {
 
 export class GitHubGitProvider implements GitProvider, Disposable {
 	descriptor = { id: 'github' as const, name: 'GitHub', virtual: true };
+	readonly authenticationDescriptor: IntegrationAuthenticationSessionDescriptor = {
+		domain: 'github.com',
+		scopes: githubAuthenticationScopes,
+	};
 	readonly authenticationProviderId = HostingIntegrationId.GitHub;
 	readonly supportedSchemes = new Set<string>([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
 
@@ -3484,27 +3489,25 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (force || this._sessionPromise == null) {
 			async function getSession(this: GitHubGitProvider): Promise<AuthenticationSession> {
 				let skip = this.container.storage.get(`provider:authentication:skip:${this.descriptor.id}`, false);
+				const authenticationProvider = await this.authenticationService.get(this.authenticationProviderId);
 
 				try {
+					let session;
 					if (force) {
 						skip = false;
 						void this.container.storage.delete(`provider:authentication:skip:${this.descriptor.id}`);
 
-						return await authentication.getSession('github', githubAuthenticationScopes, {
+						session = await authenticationProvider.getSession(this.authenticationDescriptor, {
 							forceNewSession: true,
 						});
-					}
-
-					if (!skip && !silent) {
-						return await authentication.getSession('github', githubAuthenticationScopes, {
-							createIfNone: true,
+					} else if (!skip && !silent) {
+						session = await authenticationProvider.getSession(this.authenticationDescriptor, {
+							createIfNeeded: true,
 						});
+					} else {
+						session = await authenticationProvider.getSession(this.authenticationDescriptor);
 					}
 
-					const session = await authentication.getSession('github', githubAuthenticationScopes, {
-						createIfNone: false,
-						silent: silent,
-					});
 					if (session != null) return session;
 
 					throw new Error('User did not consent');
