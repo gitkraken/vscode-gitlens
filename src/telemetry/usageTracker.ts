@@ -70,7 +70,7 @@ export class UsageTracker implements Disposable {
 		let usage = usages[key];
 		if (usage == null) {
 			usage = {
-				count: 0,
+				count: 1,
 				firstUsedAt: usedAt,
 				lastUsedAt: usedAt,
 			};
