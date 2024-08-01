@@ -1,5 +1,5 @@
-import type { AuthenticationSession, CancellationToken, Disposable, Uri } from 'vscode';
-import { authentication, CancellationTokenSource, window } from 'vscode';
+import type { AuthenticationSession, CancellationToken, Disposable, Event, Uri } from 'vscode';
+import { authentication, CancellationTokenSource, EventEmitter, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { IntegrationAuthenticationKeys } from '../../../constants';
 import type { Container } from '../../../container';
@@ -47,12 +47,18 @@ export interface IntegrationAuthenticationProvider {
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined>;
+	get onDidChange(): Event<void>;
 }
 
 abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = IntegrationId>
 	implements IntegrationAuthenticationProvider
 {
 	constructor(protected readonly container: Container) {}
+
+	private readonly _onDidChange = new EventEmitter<void>();
+	get onDidChange(): Event<void> {
+		return this._onDidChange.event;
+	}
 
 	protected abstract get authProviderId(): ID;
 
@@ -111,7 +117,11 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 	@debug()
 	async deleteSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void> {
 		const sessionId = this.getSessionId(descriptor);
+		const storedSession = await this.restoreSession({ sessionId: sessionId, ignoreErrors: true });
 		await this.deleteAllSecrets(sessionId);
+		if (storedSession != null) {
+			this.fireDidChange();
+		}
 	}
 
 	@debug()
@@ -121,14 +131,16 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const sessionId = this.getSessionId(descriptor);
 
+		const oldStoredSession = await this.restoreSession({ sessionId: sessionId, ignoreErrors: true });
+
 		if (options?.forceNewSession) {
 			await this.deleteAllSecrets(sessionId);
 		}
 
-		const storedSession = await this.restoreSession({
+		const storedSession = (await this.restoreSession({
 			sessionId: sessionId,
 			ignoreErrors: !options?.createIfNeeded,
-		});
+		})) as ProviderAuthenticationSession | undefined;
 		if (
 			(options?.createIfNeeded && storedSession == null) ||
 			(storedSession?.expiresAt != null && new Date(storedSession.expiresAt).getTime() < Date.now())
@@ -137,10 +149,27 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 			if (session != null) {
 				await this.storeSession(sessionId, session);
 			}
+			this.fireIfChanged(oldStoredSession, session);
 			return session;
 		}
 
-		return storedSession as ProviderAuthenticationSession | undefined;
+		this.fireIfChanged(oldStoredSession, storedSession);
+		return storedSession;
+	}
+
+	protected fireIfChanged(
+		oldSession: StoredSession | undefined,
+		curSession: ProviderAuthenticationSession | undefined,
+	) {
+		if (oldSession == null && curSession == null) return;
+		if (oldSession != null && curSession != null && curSession.accessToken === oldSession.accessToken) {
+			return;
+		}
+
+		queueMicrotask(() => this._onDidChange.fire());
+	}
+	protected fireDidChange() {
+		queueMicrotask(() => this._onDidChange.fire());
 	}
 }
 
@@ -176,7 +205,11 @@ export abstract class CloudIntegrationAuthenticationProvider<
 
 	public async deleteCloudSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void> {
 		const key = this.getCloudSecretKey(this.getSessionId(descriptor));
+		const storedCloudSecret = await this.readSecret(key, true);
 		await this.deleteSecret(key);
+		if (storedCloudSecret != null) {
+			this.fireDidChange();
+		}
 	}
 
 	protected override async deleteAllSecrets(sessionId: string) {
