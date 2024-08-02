@@ -585,6 +585,7 @@ export class IntegrationService implements Disposable {
 		}
 
 		await this.authenticationService.reset();
+		await this.container.storage.deleteWithPrefix('provider:authentication:skip');
 	}
 
 	supports(remoteId: RemoteProviderId): boolean {
