@@ -304,3 +304,14 @@ export async function getOrOpenPullRequestRepository(
 
 	return repo;
 }
+
+export async function getOpenedPullRequestRepoPath(
+	container: Container,
+	pr: PullRequest,
+	repoPath?: string,
+): Promise<string | undefined> {
+	if (repoPath) return repoPath;
+
+	const repo = await getOrOpenPullRequestRepository(container, pr);
+	return repo?.path;
+}

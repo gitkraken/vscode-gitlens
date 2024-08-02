@@ -24,6 +24,7 @@ import { gate } from '../../../system/decorators/gate';
 import { debug, logName } from '../../../system/decorators/log';
 import { is as isA } from '../../../system/function';
 import { getLoggableName } from '../../../system/logger';
+import type { LaunchpadItemNode } from '../../launchpadView';
 import type { View } from '../../viewBase';
 import type { BranchNode } from '../branchNode';
 import type { BranchTrackingStatusFilesNode } from '../branchTrackingStatusFilesNode';
@@ -37,6 +38,7 @@ import type { FileRevisionAsCommitNode } from '../fileRevisionAsCommitNode';
 import type { FolderNode } from '../folderNode';
 import type { LineHistoryTrackerNode } from '../lineHistoryTrackerNode';
 import type { MergeConflictFileNode } from '../mergeConflictFileNode';
+import type { PullRequestNode } from '../pullRequestNode';
 import type { RepositoryNode } from '../repositoryNode';
 import type { ResultsCommitsNode } from '../resultsCommitsNode';
 import type { ResultsFileNode } from '../resultsFileNode';
@@ -421,8 +423,12 @@ type TreeViewNodesByType = {
 		? FileRevisionAsCommitNode
 		: T extends 'folder'
 		? FolderNode
+		: T extends 'launchpad-item'
+		? LaunchpadItemNode
 		: T extends 'line-history-tracker'
 		? LineHistoryTrackerNode
+		: T extends 'pullrequest'
+		? PullRequestNode
 		: T extends 'repository'
 		? RepositoryNode
 		: T extends 'repo-folder'
