@@ -1347,13 +1347,6 @@
 						"markdownDescription": "Specifies an experimental limit on the number of pull requests to be queried in the _Launchpad_",
 						"scope": "window",
 						"order": 1100
-					},
-					"gitlens.launchpad.experimental.queryUseInvolvesFilter": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies an experimental flag whether to use the `involves` filter in the GraphQL query for _Launchpad_",
-						"scope": "window",
-						"order": 1110
 					}
 				}
 			},

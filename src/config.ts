@@ -112,7 +112,6 @@ export interface Config {
 		};
 		readonly experimental: {
 			readonly queryLimit: number;
-			readonly queryUseInvolvesFilter: boolean;
 		};
 	};
 	readonly gitCommands: {
