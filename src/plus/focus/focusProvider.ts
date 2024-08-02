@@ -14,14 +14,14 @@ import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
 import { getLocalBranchByUpstream } from '../../git/models/branch';
 import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
-import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
+import { getComparisonRefsForPullRequest, getRepositoryIdentityForPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
 import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { debug, log } from '../../system/decorators/log';
-import { groupByMap } from '../../system/iterable';
+import { filterMap, groupByMap, map } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { TimedResult } from '../../system/promise';
@@ -192,6 +192,8 @@ export type FocusItem = FocusPullRequest & {
 	actionableCategory: FocusActionCategory;
 	suggestedActions: FocusAction[];
 	openRepository?: OpenRepository;
+
+	underlyingPullRequest: PullRequest;
 };
 
 export type OpenRepository = {
@@ -565,10 +567,15 @@ export class FocusProvider implements Disposable {
 	): Promise<OpenRepository | undefined> {
 		if (pr.repoIdentity.remote.url == null) return undefined;
 
-		const match = matchingRemoteMap.get(pr.repoIdentity.remote.url);
+		const match =
+			matchingRemoteMap.get(pr.repoIdentity.remote.url) ??
+			(pr.underlyingPullRequest?.refs?.base?.url
+				? matchingRemoteMap.get(pr.underlyingPullRequest.refs.base.url)
+				: undefined);
 		if (match == null) return undefined;
 
 		const [repo, remote] = match;
+
 		const remoteBranchName = `${remote.name}/${pr.refs?.head.branch ?? pr.headRef?.name}`;
 		const matchingLocalBranch = await getLocalBranchByUpstream(repo, remoteBranchName);
 
@@ -579,28 +586,34 @@ export class FocusProvider implements Disposable {
 		const uniqueRemoteUrls = new Set<string>();
 		for (const item of actionableItems) {
 			if (item.repoIdentity.remote.url != null) {
-				uniqueRemoteUrls.add(item.repoIdentity.remote.url);
+				uniqueRemoteUrls.add(item.repoIdentity.remote.url.replace(/\.git$/, ''));
 			}
 		}
 
 		// Get the repo/remote pairs for the unique remote urls
 		const repoRemotes = new Map<string, [Repository, GitRemote]>();
 
-		for (const repo of this.container.git.openRepositories) {
-			const remotes = await repo.getRemotes();
-			for (const remote of remotes) {
-				if (uniqueRemoteUrls.has(remote.url)) {
-					repoRemotes.set(remote.url, [repo, remote]);
-					uniqueRemoteUrls.delete(remote.url);
+		async function matchRemotes(repo: Repository) {
+			if (uniqueRemoteUrls.size === 0) return;
 
-					if (uniqueRemoteUrls.size === 0) return repoRemotes;
+			const remotes = await repo.getRemotes();
+
+			for (const remote of remotes) {
+				if (uniqueRemoteUrls.size === 0) return;
+
+				const remoteUrl = remote.url.replace(/\.git$/, '');
+				if (uniqueRemoteUrls.has(remoteUrl)) {
+					repoRemotes.set(remoteUrl, [repo, remote]);
+					uniqueRemoteUrls.delete(remoteUrl);
+
+					if (uniqueRemoteUrls.size === 0) return;
 				} else {
-					for (const url of uniqueRemoteUrls) {
+					for (const [url] of uniqueRemoteUrls) {
 						if (remote.matches(url)) {
 							repoRemotes.set(url, [repo, remote]);
 							uniqueRemoteUrls.delete(url);
 
-							if (uniqueRemoteUrls.size === 0) return repoRemotes;
+							if (uniqueRemoteUrls.size === 0) return;
 
 							break;
 						}
@@ -608,6 +621,8 @@ export class FocusProvider implements Disposable {
 				}
 			}
 		}
+
+		await Promise.allSettled(map(this.container.git.openRepositories, r => matchRemotes(r)));
 
 		return repoRemotes;
 	}
@@ -723,19 +738,7 @@ export class FocusProvider implements Disposable {
 					provider: convertRemoteProviderIdToEnrichProvider(providerId),
 				} satisfies EnrichableItem;
 
-				const repoIdentity = {
-					remote: {
-						url: pr.pullRequest.refs?.head?.url,
-						domain: pr.pullRequest.provider.domain,
-					},
-					name: pr.pullRequest.repository.repo,
-					provider: {
-						id: pr.pullRequest.provider.id,
-						domain: pr.pullRequest.provider.domain,
-						repoDomain: pr.pullRequest.repository.owner,
-						repoName: pr.pullRequest.repository.repo,
-					},
-				};
+				const repoIdentity = getRepositoryIdentityForPullRequest(pr.pullRequest);
 
 				return {
 					...providerPr,
@@ -745,7 +748,8 @@ export class FocusProvider implements Disposable {
 					enrichable: enrichable,
 					repoIdentity: repoIdentity,
 					refs: pr.pullRequest.refs,
-				};
+					underlyingPullRequest: pr.pullRequest,
+				} satisfies EnrichablePullRequest;
 			}) satisfies (EnrichablePullRequest | undefined)[];
 
 			// Note: The expected output of this is ActionablePullRequest[], but we are passing in EnrichablePullRequest,
@@ -762,8 +766,8 @@ export class FocusProvider implements Disposable {
 			const { suggestionCounts } = prsWithSuggestionCounts!;
 
 			// Map from shared category label to local actionable category, and get suggested actions
-			const categorized = (await Promise.all(
-				actionableItems.map(async item => {
+			const categorized = await Promise.allSettled(
+				actionableItems.map<Promise<FocusItem>>(async item => {
 					const codeSuggestionsCount = suggestionCounts?.value?.[item.uuid]?.count ?? 0;
 
 					let actionableCategory = sharedCategoryToFocusActionCategoryMap.get(item.suggestedActionCategory)!;
@@ -775,6 +779,7 @@ export class FocusProvider implements Disposable {
 					}
 
 					const openRepository = await this.getMatchingOpenRepository(item, mappedRemotesPromise);
+
 					const suggestedActions = getSuggestedActions(
 						actionableCategory,
 						openRepository?.localBranch?.current ?? false,
@@ -788,12 +793,13 @@ export class FocusProvider implements Disposable {
 						actionableCategory: actionableCategory,
 						suggestedActions: suggestedActions,
 						openRepository: openRepository,
-					};
+						underlyingPullRequest: item.underlyingPullRequest,
+					} satisfies FocusItem;
 				}),
-			)) satisfies FocusItem[];
+			);
 
 			result = {
-				items: categorized,
+				items: [...filterMap(categorized, i => getSettledValue(i))],
 				timings: {
 					prs: prsWithSuggestionCounts?.prs?.duration,
 					codeSuggestionCounts: prsWithSuggestionCounts?.suggestionCounts?.duration,
