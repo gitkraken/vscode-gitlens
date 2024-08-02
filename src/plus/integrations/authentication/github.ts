@@ -28,6 +28,7 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 
 	private async getBuiltInExistingSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		forceNewSession?: boolean,
 	): Promise<AuthenticationSession | undefined> {
 		if (descriptor == null) return undefined;
 
@@ -35,7 +36,8 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 			this.container.integrations.ignoreSSLErrors({ id: this.authProviderId, domain: descriptor?.domain }),
 			() =>
 				authentication.getSession(this.authProviderId, descriptor.scopes, {
-					silent: true,
+					forceNewSession: forceNewSession ? true : undefined,
+					silent: forceNewSession ? undefined : true,
 				}),
 		);
 	}
@@ -44,8 +46,13 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
-		const existingSession = await this.getBuiltInExistingSession(descriptor);
-		if (existingSession != null) return existingSession;
+		let vscodeSession = await this.getBuiltInExistingSession(descriptor);
+
+		if (vscodeSession != null && options?.forceNewSession) {
+			vscodeSession = await this.getBuiltInExistingSession(descriptor, true);
+		}
+
+		if (vscodeSession != null) return vscodeSession;
 
 		return super.getSession(descriptor, options);
 	}
