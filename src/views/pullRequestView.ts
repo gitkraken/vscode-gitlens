@@ -131,8 +131,7 @@ export class PullRequestView extends ViewBase<'pullRequest', PullRequestViewNode
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'plusFeatures.enabled')
+			!configuration.changed(e, 'defaultTimeFormat')
 		) {
 			return false;
 		}

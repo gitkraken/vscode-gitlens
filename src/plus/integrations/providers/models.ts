@@ -33,6 +33,7 @@ import { RepositoryAccessLevel } from '../../../git/models/issue';
 import type {
 	PullRequestMember,
 	PullRequestRefs,
+	PullRequestRepositoryIdentityDescriptor,
 	PullRequestReviewer,
 	PullRequestState,
 } from '../../../git/models/pullRequest';
@@ -44,7 +45,6 @@ import {
 	PullRequestStatusCheckRollupState,
 } from '../../../git/models/pullRequest';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
-import type { RepositoryIdentityDescriptor } from '../../../gk/models/repositoryIdentities';
 import type { EnrichableItem } from '../../focus/enrichmentService';
 import type { Integration } from '../integration';
 import { getEntityIdentifierInput } from './utils';
@@ -879,12 +879,9 @@ export type EnrichablePullRequest = ProviderPullRequest & {
 	type: 'pullrequest';
 	provider: ProviderReference;
 	enrichable: EnrichableItem;
-	repoIdentity: RequireSomeWithProps<
-		RequireSome<RepositoryIdentityDescriptor<string>, 'remote' | 'provider'>,
-		'provider',
-		'id' | 'domain' | 'repoDomain' | 'repoName'
-	>;
+	repoIdentity: PullRequestRepositoryIdentityDescriptor;
 	refs?: PullRequestRefs;
+	underlyingPullRequest: PullRequest;
 };
 
 export const getActionablePullRequests = GitProviderUtils.getActionablePullRequests;

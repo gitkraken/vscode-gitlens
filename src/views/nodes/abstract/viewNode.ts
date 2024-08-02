@@ -12,6 +12,8 @@ import type { Repository } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
 import type { GitWorktree } from '../../../git/models/worktree';
 import type { Draft } from '../../../gk/models/drafts';
+import type { FocusGroup, FocusItem } from '../../../plus/focus/focusProvider';
+import { focusCategoryToGroupMap, sharedCategoryToFocusActionCategoryMap } from '../../../plus/focus/focusProvider';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,
@@ -76,6 +78,7 @@ export const enum ContextValues {
 	FileHistory = 'gitlens:history:file',
 	Folder = 'gitlens:folder',
 	Grouping = 'gitlens:grouping',
+	LaunchpadItem = 'gitlens:launchpad:item',
 	LineHistory = 'gitlens:history:line',
 	Merge = 'gitlens:merge',
 	MergeConflictCurrentChanges = 'gitlens:merge-conflict:current',
@@ -127,6 +130,8 @@ export interface AmbientContext {
 	readonly contributor?: GitContributor;
 	readonly draft?: Draft;
 	readonly file?: GitFile;
+	readonly launchpadGroup?: FocusGroup;
+	readonly launchpadItem?: FocusItem;
 	readonly pullRequest?: PullRequest;
 	readonly reflog?: GitReflogRecord;
 	readonly remote?: GitRemote;
@@ -174,6 +179,16 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 	}
 	if (context.branchStatusUpstreamType != null) {
 		uniqueness += `/branch-status-direction/${context.branchStatusUpstreamType}`;
+	}
+	if (context.launchpadGroup != null) {
+		uniqueness += `/lp/${context.launchpadGroup}`;
+		if (context.launchpadItem != null) {
+			uniqueness += `/${context.launchpadItem.type}/${context.launchpadItem.uuid}`;
+		}
+	} else if (context.launchpadItem != null) {
+		uniqueness += `/lp/${focusCategoryToGroupMap.get(
+			sharedCategoryToFocusActionCategoryMap.get(context.launchpadItem.suggestedActionCategory)!,
+		)}/${context.launchpadItem.type}/${context.launchpadItem.uuid}`;
 	}
 	if (context.pullRequest != null) {
 		uniqueness += `/pr/${context.pullRequest.id}`;

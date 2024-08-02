@@ -18,6 +18,7 @@ import type {
 	ContributorsViewConfig,
 	DraftsViewConfig,
 	FileHistoryViewConfig,
+	LaunchpadViewConfig,
 	LineHistoryViewConfig,
 	PullRequestViewConfig,
 	RemotesViewConfig,
@@ -46,6 +47,7 @@ import type { CommitsView } from './commitsView';
 import type { ContributorsView } from './contributorsView';
 import type { DraftsView } from './draftsView';
 import type { FileHistoryView } from './fileHistoryView';
+import type { LaunchpadView } from './launchpadView';
 import type { LineHistoryView } from './lineHistoryView';
 import type { PageableViewNode, ViewNode } from './nodes/abstract/viewNode';
 import { isPageableViewNode } from './nodes/abstract/viewNode';
@@ -64,6 +66,7 @@ export type View =
 	| ContributorsView
 	| DraftsView
 	| FileHistoryView
+	| LaunchpadView
 	| LineHistoryView
 	| PullRequestView
 	| RemotesView
@@ -85,7 +88,7 @@ export type ViewsWithRepositories = RepositoriesView | WorkspacesView;
 export type ViewsWithRepositoriesNode = RepositoriesView | WorkspacesView;
 export type ViewsWithRepositoryFolders = Exclude<
 	View,
-	DraftsView | FileHistoryView | LineHistoryView | PullRequestView | RepositoriesView | WorkspacesView
+	DraftsView | FileHistoryView | LaunchpadView | LineHistoryView | PullRequestView | RepositoriesView | WorkspacesView
 >;
 export type ViewsWithStashes = StashesView | ViewsWithCommits;
 export type ViewsWithStashesNode = RepositoriesView | StashesView | WorkspacesView;
@@ -108,6 +111,7 @@ export abstract class ViewBase<
 			| ContributorsViewConfig
 			| DraftsViewConfig
 			| FileHistoryViewConfig
+			| LaunchpadViewConfig
 			| LineHistoryViewConfig
 			| PullRequestViewConfig
 			| RemotesViewConfig

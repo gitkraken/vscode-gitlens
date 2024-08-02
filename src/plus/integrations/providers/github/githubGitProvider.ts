@@ -523,8 +523,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		try {
 			const remotehub = await this.ensureRemoteHubApi();
-			const rootUri = remotehub.getProviderRootUri(uri).with({ scheme: Schemes.Virtual });
-			return rootUri;
+
+			return await ensureProviderLoaded(uri, remotehub, uri =>
+				remotehub.getProviderRootUri(uri).with({ scheme: Schemes.Virtual }),
+			);
 		} catch (ex) {
 			if (!(ex instanceof ExtensionNotFoundError)) {
 				debugger;
@@ -3402,7 +3404,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		const metadata = await remotehub?.getMetadata(uri);
+		const metadata = await ensureProviderLoaded(uri, remotehub, uri => remotehub?.getMetadata(uri));
 		if (metadata?.provider.id !== 'github') {
 			throw new OpenVirtualRepositoryError(repoPath, OpenVirtualRepositoryErrorReason.NotAGitHubRepository);
 		}
@@ -3686,6 +3688,36 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 function encodeAuthority<T>(scheme: string, metadata?: T): string {
 	return `${scheme}${metadata != null ? `+${encodeUtf8Hex(JSON.stringify(metadata))}` : ''}`;
+}
+
+let ensuringProvider: Promise<boolean> | undefined;
+async function ensureProviderLoaded<T extends (uri: Uri) => any>(
+	uri: Uri,
+	remotehub: RemoteHubApi,
+	action: T,
+): Promise<ReturnType<T>> {
+	let retrying = false;
+	while (true) {
+		try {
+			const result = await action(uri);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+			return result;
+		} catch (ex) {
+			// HACK: If the provider isn't loaded, try to force it to load
+			if (!retrying && (/No provider registered/i.test(ex.message) || remotehub.getProvider(uri) == null)) {
+				ensuringProvider ??= remotehub.loadWorkspaceContents(uri);
+				try {
+					await ensuringProvider;
+					retrying = true;
+					continue;
+				} catch (ex) {
+					debugger;
+				}
+			}
+
+			throw ex;
+		}
+	}
 }
 
 //** Strips `origin/` from a reference or range, because we "fake" origin as the default remote */

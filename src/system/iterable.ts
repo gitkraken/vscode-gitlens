@@ -60,12 +60,14 @@ export function every<T>(source: Iterable<T> | IterableIterator<T>, predicate: (
 	return true;
 }
 
-export function filter<T>(source: Iterable<T | undefined | null> | IterableIterator<T | undefined | null>): Iterable<T>;
-export function filter<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): Iterable<T>;
+export function filter<T>(
+	source: Iterable<T | undefined | null> | IterableIterator<T | undefined | null>,
+): Iterable<NonNullable<T>>;
 export function filter<T, U extends T>(
 	source: Iterable<T> | IterableIterator<T>,
 	predicate: (item: T) => item is U,
 ): Iterable<U>;
+export function filter<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): Iterable<T>;
 export function* filter<T, U extends T = T>(
 	source: Iterable<T> | IterableIterator<T>,
 	predicate?: ((item: T) => item is U) | ((item: T) => boolean),
