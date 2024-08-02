@@ -4,10 +4,10 @@ import { capitalize } from '../../system/string';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName, getRemoteNameSlashIndex } from './branch';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from './constants';
 
-const rangeRegex = /(\S*?)?([.]{2,3})(\S*)?/;
-const qualifiedRangeRegex = /(\S*?)([.]{2,3})(\S*)/;
-const qualifiedDoubleDotRange = /(\S*?)(\.\.)(\S*?)([\^@~:]\S*)?/;
-const qualifiedTripleDotRange = /(\S*?)(\.\.\.)(\S*?)([\^@~:]\S*)?/;
+const rangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)?(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)?$/;
+const qualifiedRangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)$/;
+const qualifiedDoubleDotRange = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.)([\w\-/]+(?:\.[\w\-/]+)*)$/;
+const qualifiedTripleDotRange = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.\.)([\w\-/]+(?:\.[\w\-/]+)*)$/;
 const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
 const shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
 const shaParentRegex = /(^[0-9a-f]{40})\^[0-3]?$/;
