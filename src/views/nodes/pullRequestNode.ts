@@ -15,6 +15,7 @@ import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode'
 import type { ClipboardType, ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { CodeSuggestionsNode } from './codeSuggestionsNode';
+import { MessageNode } from './common';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 
@@ -156,6 +157,10 @@ export async function getPullRequestChildren(
 		repoPath,
 		createRevisionRange(comparison.ref1, comparison.ref2, '...'),
 	);
+
+	if (!counts?.right) {
+		return [new MessageNode(view, parent, 'No commits could be found.')];
+	}
 
 	const children = [
 		new ResultsCommitsNode(

@@ -20,11 +20,13 @@ import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
 export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item', LaunchpadView> {
+	readonly repoPath: string | undefined;
+
 	constructor(
 		view: LaunchpadView,
 		protected override readonly parent: ViewNode,
 		private readonly group: FocusGroup,
-		private readonly item: FocusItem,
+		public readonly item: FocusItem,
 	) {
 		const repoPath = item.openRepository?.repo?.path;
 
@@ -32,6 +34,7 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 
 		this.updateContext({ launchpadGroup: group, launchpadItem: item });
 		this._uniqueId = getViewNodeId(this.type, this.context);
+		this.repoPath = repoPath;
 	}
 
 	override get id(): string {
@@ -52,13 +55,17 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 		return this.item.url ?? this.item.underlyingPullRequest.url;
 	}
 
+	get pullRequest() {
+		return this.item.type === 'pullrequest' ? this.item.underlyingPullRequest : undefined;
+	}
+
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
 			const children = await getPullRequestChildren(
 				this.view,
 				this,
 				this.item.underlyingPullRequest,
-				this.item.openRepository?.repo,
+				this.item.openRepository?.repo ?? this.repoPath,
 			);
 			this.children = children;
 		}
