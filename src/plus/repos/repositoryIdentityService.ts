@@ -4,7 +4,7 @@ import type { Container } from '../../container';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
-import type { RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
+import type { GkProviderId, RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
 import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
 import { log } from '../../system/decorators/log';
 import type { ServerConnection } from '../gk/serverConnection';
@@ -18,16 +18,16 @@ export class RepositoryIdentityService implements Disposable {
 	dispose(): void {}
 
 	@log()
-	getRepository(
-		identity: RepositoryIdentityDescriptor,
+	getRepository<T extends string | GkProviderId>(
+		identity: RepositoryIdentityDescriptor<T>,
 		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined> {
 		return this.locateRepository(identity, options);
 	}
 
 	@log()
-	private async locateRepository(
-		identity: RepositoryIdentityDescriptor,
+	private async locateRepository<T extends string | GkProviderId>(
+		identity: RepositoryIdentityDescriptor<T>,
 		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined> {
 		const hasInitialCommitSha =
@@ -139,7 +139,10 @@ export class RepositoryIdentityService implements Disposable {
 		return foundRepo;
 	}
 
-	private async addFoundRepositoryToMap(repo: Repository, identity?: RepositoryIdentityDescriptor) {
+	private async addFoundRepositoryToMap<T extends string | GkProviderId>(
+		repo: Repository,
+		identity?: RepositoryIdentityDescriptor<T>,
+	) {
 		const repoPath = repo.uri.fsPath;
 
 		const remotes = await repo.getRemotes();

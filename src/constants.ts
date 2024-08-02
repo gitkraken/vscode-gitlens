@@ -437,6 +437,12 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setShowAllBranches${'On' | 'Off'}`
 			| `setShowMergeCommits${'On' | 'Off'}`
 			| `setShowAvatars${'On' | 'Off'}`}`
+	| `launchpad.${
+			| 'copy'
+			| 'info'
+			| 'refresh'
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAvatars${'On' | 'Off'}`}`
 	| `lineHistory.${
 			| 'copy'
 			| 'refresh'
@@ -444,9 +450,9 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setEditorFollowing${'On' | 'Off'}`
 			| `setShowAvatars${'On' | 'Off'}`}`
 	| `pullRequest.${
+			| 'close'
 			| 'copy'
 			| 'refresh'
-			| 'close'
 			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
 			| `setShowAvatars${'On' | 'Off'}`}`
 	| `remotes.${
@@ -540,6 +546,7 @@ export type TreeViewTypes =
 	| 'contributors'
 	| 'drafts'
 	| 'fileHistory'
+	| 'launchpad'
 	| 'lineHistory'
 	| 'pullRequest'
 	| 'remotes'
@@ -645,6 +652,8 @@ export type TreeViewNodeTypes =
 	| 'drafts'
 	| 'drafts-code-suggestions'
 	| 'grouping'
+	| 'launchpad'
+	| 'launchpad-item'
 	| 'merge-status'
 	| 'message'
 	| 'pager'
@@ -861,6 +870,7 @@ export type Sources =
 	| 'integrations'
 	| 'launchpad'
 	| 'launchpad-indicator'
+	| 'launchpad-view'
 	| 'notification'
 	| 'patchDetails'
 	| 'prompt'

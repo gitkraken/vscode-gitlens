@@ -632,6 +632,7 @@ interface ViewsConfigs {
 	readonly contributors: ContributorsViewConfig;
 	readonly drafts: DraftsViewConfig;
 	readonly fileHistory: FileHistoryViewConfig;
+	readonly launchpad: LaunchpadViewConfig;
 	readonly lineHistory: LineHistoryViewConfig;
 	readonly patchDetails: PatchDetailsViewConfig;
 	readonly pullRequest: PullRequestViewConfig;
@@ -732,6 +733,17 @@ export interface DraftsViewConfig {
 }
 
 export interface FileHistoryViewConfig {
+	readonly avatars: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly pullRequests: {
+		readonly enabled: boolean;
+		readonly showForCommits: boolean;
+	};
+}
+
+export interface LaunchpadViewConfig {
+	readonly enabled: boolean;
+
 	readonly avatars: boolean;
 	readonly files: ViewsFilesConfig;
 	readonly pullRequests: {

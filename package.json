@@ -1344,7 +1344,7 @@
 					"gitlens.launchpad.experimental.queryLimit": {
 						"type": "number",
 						"default": 100,
-						"markdownDescription": "Specifies an experimental limit on the number of pull requests to be queried in the _Launchpad_",
+						"markdownDescription": "(Experimental) Specifies a limit on the number of pull requests to be queried in the _Launchpad_",
 						"scope": "window",
 						"order": 1100
 					}
@@ -1506,6 +1506,73 @@
 					"gitlens.views.statusFileDescriptionFormat": {
 						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
 						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.description#` instead"
+					}
+				}
+			},
+			{
+				"id": "launchpad-view",
+				"title": "Launchpad View",
+				"order": 101,
+				"properties": {
+					"gitlens.views.launchpad.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether to enable an experimental _Launchpad_ view",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.views.launchpad.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.launchpad.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Launchpad_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.launchpad.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Launchpad_ view. Only applies when `#gitlens.views.launchpad.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.launchpad.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Launchpad_ view. Only applies when `#gitlens.views.launchpad.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.launchpad.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _Launchpad_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.launchpad.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Launchpad_ view",
+						"scope": "window",
+						"order": 40
 					}
 				}
 			},
@@ -7960,6 +8027,51 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.views.launchpad.copy",
+				"title": "Copy",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.launchpad.info",
+				"title": "Learn about Launchpad...",
+				"category": "GitLens",
+				"icon": "$(info)"
+			},
+			{
+				"command": "gitlens.views.launchpad.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "gitlens.views.launchpad.setFilesLayoutToAuto",
+				"title": "View Files as Auto",
+				"category": "GitLens",
+				"icon": "$(list-tree)"
+			},
+			{
+				"command": "gitlens.views.launchpad.setFilesLayoutToList",
+				"title": "View Files as List",
+				"category": "GitLens",
+				"icon": "$(gitlens-list-auto)"
+			},
+			{
+				"command": "gitlens.views.launchpad.setFilesLayoutToTree",
+				"title": "View Files as Tree",
+				"category": "GitLens",
+				"icon": "$(list-flat)"
+			},
+			{
+				"command": "gitlens.views.launchpad.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.launchpad.setShowAvatarsOff",
+				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.lineHistory.changeBase",
 				"title": "Change Base...",
 				"category": "GitLens",
@@ -11281,6 +11393,38 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.launchpad.copy",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.launchpad.info",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.launchpad.refresh",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.launchpad.setFilesLayoutToAuto",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.launchpad.setFilesLayoutToList",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.launchpad.setFilesLayoutToTree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.launchpad.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.launchpad.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.lineHistory.changeBase",
 					"when": "false"
 				},
@@ -13092,6 +13236,41 @@
 					"command": "gitlens.views.account.refresh",
 					"when": "view =~ /^gitlens\\.views\\.account/",
 					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.launchpad.refresh",
+					"when": "view =~ /^gitlens\\.views\\.launchpad/",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.launchpad.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.launchpad/ && config.gitlens.views.launchpad.files.layout == tree",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.launchpad.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.launchpad/ && config.gitlens.views.launchpad.files.layout == auto",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.launchpad.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.launchpad/ && config.gitlens.views.launchpad.files.layout == list",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.launchpad.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.launchpad/ && !config.gitlens.views.launchpad.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.launchpad.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.launchpad/ && config.gitlens.views.launchpad.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.launchpad.info",
+					"when": "view =~ /^gitlens\\.views\\.launchpad/",
+					"group": "8_info@1"
 				},
 				{
 					"command": "gitlens.showLineHistoryView",
@@ -15242,7 +15421,7 @@
 				},
 				{
 					"command": "gitlens.views.copy",
-					"when": "viewItem =~ /gitlens:(?=(autolinked:item\\b|branch|commit|contributor|file(?!.*?\\b\\+(staged|unstaged))\\b|folder|history:line|pullrequest|remote|repository|repo-folder|search:results|stash|tag|workspace|worktree)\\b)/",
+					"when": "viewItem =~ /gitlens:(?=(autolinked:item\\b|branch|commit|contributor|file(?!.*?\\b\\+(staged|unstaged))\\b|folder|history:line|launchpad:item|pullrequest|remote|repository|repo-folder|search:results|stash|tag|workspace|worktree)\\b)/",
 					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
@@ -15614,7 +15793,7 @@
 				},
 				{
 					"command": "gitlens.graph.copy",
-					"when": "webviewItem =~ /gitlens:(branch|commit|contributor|pullrequest|stash|tag)\\b/",
+					"when": "webviewItem =~ /gitlens:(branch|commit|contributor|launchpad:item|pullrequest|stash|tag)\\b/",
 					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
@@ -17277,6 +17456,15 @@
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
 					"initialSize": 6,
+					"visibility": "visible"
+				},
+				{
+					"id": "gitlens.views.launchpad",
+					"name": "Launchpad",
+					"when": "config.gitlens.views.launchpad.enabled",
+					"contextualTitle": "GitLens",
+					"icon": "$(rocket)",
+					"initialSize": 2,
 					"visibility": "visible"
 				},
 				{
