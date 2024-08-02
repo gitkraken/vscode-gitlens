@@ -3,6 +3,7 @@ import { authentication, CancellationTokenSource, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { IntegrationAuthenticationKeys } from '../../../constants';
 import type { Container } from '../../../container';
+import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { DeferredEventExecutor } from '../../../system/event';
 import { promisifyDeferred } from '../../../system/event';
@@ -426,6 +427,7 @@ export class IntegrationAuthenticationService implements Disposable {
 		}
 	}
 
+	@gate()
 	private async ensureProvider(providerId: IntegrationId): Promise<IntegrationAuthenticationProvider> {
 		let provider = this.providers.get(providerId);
 		if (provider == null) {
