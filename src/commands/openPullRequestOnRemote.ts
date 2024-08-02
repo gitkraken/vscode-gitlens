@@ -4,7 +4,6 @@ import type { Container } from '../container';
 import { shortenRevision } from '../git/models/reference';
 import { command } from '../system/command';
 import { openUrl } from '../system/utils';
-import { PullRequestNode } from '../views/nodes/pullRequestNode';
 import type { CommandContext } from './base';
 import { Command } from './base';
 
@@ -22,10 +21,10 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenPullRequestOnRemoteCommandArgs) {
-		if (context.type === 'viewItem' && context.node instanceof PullRequestNode) {
+		if (context.type === 'viewItem' && (context.node.is('pullrequest') || context.node.is('launchpad-item'))) {
 			args = {
 				...args,
-				pr: { url: context.node.pullRequest.url },
+				pr: context.node.pullRequest != null ? { url: context.node.pullRequest.url } : undefined,
 				clipboard: context.command === Commands.CopyRemotePullRequestUrl,
 			};
 		}

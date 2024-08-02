@@ -14551,23 +14551,23 @@
 				},
 				{
 					"command": "gitlens.views.openPullRequestChanges",
-					"when": "viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/ && config.multiDiffEditor.experimental.enabled",
+					"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && config.multiDiffEditor.experimental.enabled",
 					"group": "inline@2"
 				},
 				{
 					"command": "gitlens.views.openPullRequestComparison",
-					"when": "viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
 					"group": "inline@3"
 				},
 				{
 					"command": "gitlens.openPullRequestOnRemote",
-					"when": "viewItem =~ /gitlens:pullrequest\\b/",
+					"when": "viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
 					"group": "inline@99",
 					"alt": "gitlens.copyRemotePullRequestUrl"
 				},
 				{
 					"command": "gitlens.views.openPullRequestChanges",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/ && config.multiDiffEditor.experimental.enabled",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && config.multiDiffEditor.experimental.enabled",
 					"group": "1_gitlens_actions@1"
 				},
 				{
@@ -14577,7 +14577,7 @@
 				},
 				{
 					"command": "gitlens.openPullRequestOnRemote",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:pullrequest\\b/",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
 					"group": "1_gitlens_actions@99"
 				},
 				{
@@ -14587,13 +14587,8 @@
 				},
 				{
 					"command": "gitlens.views.openPullRequestComparison",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
 					"group": "4_gitlens_compare@1"
-				},
-				{
-					"command": "gitlens.copyRemotePullRequestUrl",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:pullrequest\\b/",
-					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
 					"command": "gitlens.views.addRemote",
