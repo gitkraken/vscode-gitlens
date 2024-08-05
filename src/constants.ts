@@ -688,6 +688,7 @@ export type ContextKeys = {
 	'gitlens:repos:withRemotes': string[];
 	'gitlens:repos:withHostingIntegrations': string[];
 	'gitlens:repos:withHostingIntegrationsConnected': string[];
+	'gitlens:schemes:trackable': string[];
 	'gitlens:tabs:annotated': string[];
 	'gitlens:tabs:annotated:computing': string[];
 	'gitlens:tabs:blameable': string[];
@@ -827,11 +828,24 @@ export const enum Schemes {
 	GitLens = 'gitlens',
 	Output = 'output',
 	PRs = 'pr',
+	Remote = 'vscode-remote',
 	Terminal = 'vscode-terminal',
 	Vsls = 'vsls',
 	VslsScc = 'vsls-scc',
 	Virtual = 'vscode-vfs',
 }
+
+export const trackableSchemes = new Set<string>([
+	Schemes.File,
+	Schemes.Git,
+	Schemes.GitLens,
+	Schemes.PRs,
+	Schemes.Remote,
+	Schemes.Vsls,
+	Schemes.VslsScc,
+	Schemes.Virtual,
+	Schemes.GitHub,
+]);
 
 export type Sources =
 	| 'account'

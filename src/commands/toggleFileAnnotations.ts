@@ -6,7 +6,7 @@ import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { Logger } from '../system/logger';
-import { getEditorIfVisible, isTextEditor } from '../system/utils';
+import { getEditorIfVisible, isTrackableTextEditor } from '../system/utils';
 import { ActiveEditorCommand, EditorCommand } from './base';
 
 @command()
@@ -125,7 +125,7 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 
 function getValidEditor(editor: TextEditor | undefined, uri: Uri | undefined) {
 	// Handle the case where we are focused on a non-editor editor (output, debug console) or focused on another editor, but executing an action on another editor
-	if (editor != null && !isTextEditor(editor)) {
+	if (editor != null && !isTrackableTextEditor(editor)) {
 		editor = undefined;
 	}
 

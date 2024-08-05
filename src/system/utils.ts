@@ -1,6 +1,6 @@
 import type { ColorTheme, Tab, TextDocument, TextDocumentShowOptions, TextEditor } from 'vscode';
 import { version as codeVersion, ColorThemeKind, env, Uri, ViewColumn, window, workspace } from 'vscode';
-import { ImageMimetypes, Schemes } from '../constants';
+import { ImageMimetypes, Schemes, trackableSchemes } from '../constants';
 import { isGitUri } from '../git/gitUri';
 import { executeCoreCommand } from './command';
 import { configuration } from './configuration';
@@ -154,6 +154,14 @@ export function isVisibleDocument(document: TextDocument): boolean {
 export function isTextEditor(editor: TextEditor): boolean {
 	const scheme = editor.document.uri.scheme;
 	return scheme !== Schemes.DebugConsole && scheme !== Schemes.Output && scheme !== Schemes.Terminal;
+}
+
+export function isTrackableTextEditor(editor: TextEditor): boolean {
+	return isTrackableUri(editor.document.uri);
+}
+
+export function isTrackableUri(uri: Uri): boolean {
+	return trackableSchemes.has(uri.scheme);
 }
 
 export async function openEditor(

@@ -33,7 +33,7 @@ import { debounce } from '../system/function';
 import { find } from '../system/iterable';
 import type { KeyboardScope } from '../system/keyboard';
 import { basename } from '../system/path';
-import { getResourceContextKeyValue, isTextEditor } from '../system/utils';
+import { getResourceContextKeyValue, isTrackableTextEditor } from '../system/utils';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
@@ -169,7 +169,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private async onActiveTextEditorChanged(editor: TextEditor | undefined) {
-		if (editor != null && !isTextEditor(editor)) return;
+		if (editor != null && !isTrackableTextEditor(editor)) return;
 
 		this._editor = editor;
 		// Logger.log('AnnotationController.onActiveTextEditorChanged', editor && editor.document.uri.fsPath);

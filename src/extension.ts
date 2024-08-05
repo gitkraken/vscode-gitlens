@@ -7,7 +7,7 @@ import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionC
 import type { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote';
 import { fromOutputLevel } from './config';
-import { Commands, SyncedStorageKeys } from './constants';
+import { Commands, SyncedStorageKeys, trackableSchemes } from './constants';
 import { Container } from './container';
 import { isGitUri } from './git/gitUri';
 import { getBranchNameWithoutRemote, isBranch } from './git/models/branch';
@@ -209,6 +209,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		// Set context to only show some commands when using the pre-release version
 		void setContext('gitlens:prerelease', true);
 	}
+	// NOTE: We might have to add more schemes to this list, because the schemes that are used in the `resource*` context keys don't match was URI scheme is returned in the APIs
+	// For example, using the remote extensions the `resourceScheme` is `vscode-remote`, but the URI scheme is `file`
+	void setContext('gitlens:schemes:trackable', [...trackableSchemes]);
 
 	// Signal that the container is now ready
 	await container.ready();
