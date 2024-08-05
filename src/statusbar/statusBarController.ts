@@ -16,7 +16,7 @@ import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import type { MaybePausedResult } from '../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../system/promise';
-import { isTextEditor } from '../system/utils';
+import { isTrackableTextEditor } from '../system/utils';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
 
 export class StatusBarController implements Disposable {
@@ -212,7 +212,7 @@ export class StatusBarController implements Disposable {
 	})
 	private async updateBlame(editor: TextEditor, state: LineState) {
 		const cfg = configuration.get('statusBar');
-		if (!cfg.enabled || this._statusBarBlame == null || !isTextEditor(editor)) {
+		if (!cfg.enabled || this._statusBarBlame == null || !isTrackableTextEditor(editor)) {
 			this._cancellation?.cancel();
 			this._selectedSha = undefined;
 

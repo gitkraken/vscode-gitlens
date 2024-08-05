@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#3443](https://github.com/gitkraken/vscode-gitlens/issues/3443) - Don't show gitlens context menu items in Copilot Chat codeblock editors
 - Fixes issues with incorrect commit count when using the merge and rebase commands
 - Fixes issues where a merge or rebase operationsays there or no changes when there are changes
 

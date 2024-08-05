@@ -18,7 +18,7 @@ import type { ShowQuickFileHistoryCommandArgs } from '../commands/showQuickFileH
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
 import type { CodeLensConfig, CodeLensLanguageScope } from '../config';
 import { CodeLensCommand } from '../config';
-import { Commands, Schemes } from '../constants';
+import { Commands, trackableSchemes } from '../constants';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import type { GitBlame, GitBlameLines } from '../git/models/blame';
@@ -73,16 +73,7 @@ class GitAuthorsCodeLens extends CodeLens {
 }
 
 export class GitCodeLensProvider implements CodeLensProvider {
-	static selector: DocumentSelector = [
-		{ scheme: Schemes.File },
-		{ scheme: Schemes.Git },
-		{ scheme: Schemes.GitLens },
-		{ scheme: Schemes.PRs },
-		{ scheme: Schemes.Vsls },
-		{ scheme: Schemes.VslsScc },
-		{ scheme: Schemes.Virtual },
-		{ scheme: Schemes.GitHub },
-	];
+	static selector: DocumentSelector = [...map(trackableSchemes, scheme => ({ scheme: scheme }))];
 
 	private _onDidChangeCodeLenses = new EventEmitter<void>();
 	get onDidChangeCodeLenses(): Event<void> {
