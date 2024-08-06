@@ -68,9 +68,9 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 
 	protected abstract get authProviderId(): ID;
 
-	protected abstract createSession(
+	protected abstract fetchOrCreateSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { authorizeIfNeeded?: boolean },
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined>;
 
 	protected abstract deleteAllSecrets(sessionId: string): Promise<void>;
@@ -148,10 +148,10 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 			ignoreErrors: !options?.createIfNeeded,
 		})) as ProviderAuthenticationSession | undefined;
 		if (
-			(options?.createIfNeeded && storedSession == null) ||
+			storedSession == null ||
 			(storedSession?.expiresAt != null && new Date(storedSession.expiresAt).getTime() < Date.now())
 		) {
-			const session = await this.createSession(descriptor);
+			const session = await this.fetchOrCreateSession(descriptor, options);
 			if (session != null) {
 				await this.storeSession(sessionId, session);
 			}
@@ -199,6 +199,20 @@ export abstract class LocalIntegrationAuthenticationProvider<
 	}): Promise<StoredSession | undefined> {
 		const key = this.getLocalSecretKey(sessionId);
 		return this.readSecret(key, ignoreErrors);
+	}
+
+	protected abstract createSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { authorizeIfNeeded?: boolean },
+	): Promise<ProviderAuthenticationSession | undefined>;
+
+	protected override async fetchOrCreateSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+	) {
+		if (!options?.createIfNeeded && !options?.forceNewSession) return undefined;
+
+		return this.createSession(descriptor);
 	}
 }
 
@@ -261,7 +275,14 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		return this.readSecret(this.getCloudSecretKey(sessionId), ignoreErrors);
 	}
 
-	protected override async createSession(
+	protected override async fetchOrCreateSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		_options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+	) {
+		return this.fetchSession(descriptor);
+	}
+
+	private async fetchSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { authorizeIfNeeded?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
