@@ -2,7 +2,7 @@ import type { ConfigurationChangeEvent, TreeViewVisibilityChangeEvent } from 'vs
 import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { LaunchpadViewConfig, ViewFilesLayout } from '../config';
-import { Commands, previewBadge } from '../constants';
+import { Commands, experimentalBadge } from '../constants';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { GitUri, unknownGitUri } from '../git/gitUri';
@@ -114,9 +114,19 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		if (this.children == null) {
 			const children: (GroupingNode | LaunchpadItemNode)[] = [];
 
+			this.view.message = undefined;
+
+			const hasIntegrations = await this.view.container.focus.hasConnectedIntegration();
+			if (!hasIntegrations) {
+				return [];
+			}
+
 			try {
 				const result = await this.view.container.focus.getCategorizedItems();
-				if (result.items == null) return [];
+				if (!result.items?.length) {
+					this.view.message = 'All done! Take a vacation.';
+					return [];
+				}
 
 				const uiGroups = groupAndSortFocusItems(result.items);
 				for (const [ui, groupItems] of uiGroups) {
@@ -159,7 +169,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 	constructor(container: Container) {
 		super(container, 'launchpad', 'Launchpad', 'launchpadView');
 
-		this.description = previewBadge;
+		this.description = experimentalBadge;
 	}
 
 	override dispose() {
