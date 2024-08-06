@@ -799,6 +799,7 @@ export async function showDetailsQuickPick(commit: GitCommit, fileOrUri?: string
 
 	void (await executeCommand<[Uri, ShowQuickCommitFileCommandArgs]>(Commands.ShowQuickCommitFile, uri, {
 		sha: commit.sha,
+		commit: commit,
 	}));
 }
 
