@@ -1,6 +1,7 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
+import type { Sources } from '../../../constants';
 import type { Container } from '../../../container';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
@@ -44,7 +45,7 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 
 	public override async getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
 	): Promise<ProviderAuthenticationSession | undefined> {
 		let vscodeSession = await this.getBuiltInExistingSession(descriptor);
 
