@@ -20,6 +20,7 @@ import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
 import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
+import { setContext } from '../../system/context';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, groupByMap, map } from '../../system/iterable';
 import { Logger } from '../../system/logger';
@@ -32,6 +33,7 @@ import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink'
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
 import type { IntegrationResult } from '../integrations/integration';
+import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import type {
 	EnrichablePullRequest,
 	IntegrationId,
@@ -255,6 +257,7 @@ export class FocusProvider implements Disposable {
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
+			container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionStateChanged, this),
 			...this.registerCommands(),
 		);
 	}
@@ -936,6 +939,16 @@ export class FocusProvider implements Disposable {
 		) {
 			this.refresh();
 			void this.getCategorizedItems({ force: true });
+		}
+	}
+
+	private async onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
+		if (isSupportedFocusIntegrationId(e.key)) {
+			if (e.reason === 'connected') {
+				void setContext('gitlens:launchpad:connect', false);
+			} else {
+				void setContext('gitlens:launchpad:connect', await this.hasConnectedIntegration());
+			}
 		}
 	}
 }

@@ -17386,6 +17386,15 @@
 				"contents": "Preview feature ☁️ — requires an account and may require a paid plan in the future."
 			},
 			{
+				"view": "gitlens.views.launchpad",
+				"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked."
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "[Connect Integrations...](command:gitlens.showLaunchpad)\n\nConnect to your Git provider to see pull requests in Launchpad.",
+				"when": "gitlens:launchpad:connect"
+			},
+			{
 				"view": "gitlens.views.workspaces",
 				"contents": "Workspaces ᴘʀᴇᴠɪᴇᴡ — group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\n\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration."
 			},
