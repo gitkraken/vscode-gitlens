@@ -36,7 +36,7 @@ import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
+import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { interpolate, pluralize } from '../../system/string';
@@ -501,6 +501,8 @@ export class FocusCommand extends QuickCommand<State> {
 
 		const { items, placeholder } = getItemsAndPlaceholder();
 
+		let groupsHidden = false;
+
 		const step = createPickStep({
 			title: context.title,
 			placeholder: placeholder,
@@ -513,7 +515,16 @@ export class FocusCommand extends QuickCommand<State> {
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
-			// onDidChangeValue: async (quickpick, value) => {},
+			onDidChangeValue: quickpick => {
+				const hideGroups = Boolean(quickpick.value?.length);
+
+				if (groupsHidden != hideGroups) {
+					groupsHidden = hideGroups;
+					quickpick.items = hideGroups ? items.filter(i => !isDirectiveQuickPickItem(i)) : items;
+				}
+
+				return true;
+			},
 			onDidClickButton: async (quickpick, button) => {
 				switch (button) {
 					case ConnectIntegrationButton:
