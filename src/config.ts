@@ -83,9 +83,7 @@ export interface Config {
 		readonly generateCloudPatchMessagePrompt: string;
 		readonly generateCodeSuggestionMessagePrompt: string;
 		readonly cloudIntegrations: {
-			readonly github: {
-				readonly enabled: boolean;
-			};
+			readonly enabled: boolean;
 		};
 	};
 	readonly fileAnnotations: {
