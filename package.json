@@ -3427,7 +3427,7 @@
 						"scope": "window",
 						"order": 20
 					},
-					"gitlens.experimental.cloudIntegrations.github.enabled": {
+					"gitlens.experimental.cloudIntegrations.enabled": {
 						"type": "boolean",
 						"default": false,
 						"markdownDescription": "Specifies whether to use the GitKraken cloud integration when authenticating with GitHub",

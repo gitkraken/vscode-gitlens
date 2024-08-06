@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Shows GitLab merge requests in the _Launchpad_ when GitLab integration is connected
 - Adds a new "Connect" button to the _Launchpad_ that allows the user to connect additional integrations.
-- Adds `gitlens.experimental.cloudIntegrations.github.enabled` setting to connect GitHub integration using cloud integration of GitKraken account.
+- Adds `gitlens.experimental.cloudIntegrations.enabled` setting to connect GitHub integration using cloud integration of GitKraken account.
 - Adds comparison support to virtual (GitHub) repositories
 
 ### Changed

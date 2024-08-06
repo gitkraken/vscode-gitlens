@@ -37,14 +37,14 @@ const supportedCloudIntegrationIdsExperimental = [IssueIntegrationId.Jira, Hosti
 export type SupportedCloudIntegrationIds = (typeof supportedCloudIntegrationIdsExperimental)[number];
 
 export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudIntegrationIds {
-	const ids = configuration.get('experimental.cloudIntegrations.github.enabled', undefined, false)
+	const ids = configuration.get('experimental.cloudIntegrations.enabled', undefined, false)
 		? supportedCloudIntegrationIdsExperimental
 		: supportedCloudIntegrationIds;
 	return ids.includes(id as SupportedCloudIntegrationIds);
 }
 
 export function* iterateSupportedCloudIntegrationIds() {
-	const ids = configuration.get('experimental.cloudIntegrations.github.enabled', undefined, false)
+	const ids = configuration.get('experimental.cloudIntegrations.enabled', undefined, false)
 		? supportedCloudIntegrationIdsExperimental
 		: supportedCloudIntegrationIds;
 	for (const id of ids) {
