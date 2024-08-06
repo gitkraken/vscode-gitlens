@@ -6924,14 +6924,14 @@
 			},
 			{
 				"command": "gitlens.views.switchToCommit",
-				"title": "Switch to Commit...",
+				"title": "Checkout Commit...",
 				"category": "GitLens",
 				"icon": "$(gitlens-switch)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.switchToTag",
-				"title": "Switch to Tag...",
+				"title": "Checkout Tag...",
 				"category": "GitLens",
 				"icon": "$(gitlens-switch)",
 				"enablement": "!operationInProgress"
