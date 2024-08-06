@@ -1,4 +1,8 @@
 import ProviderApis from '@gitkraken/provider-apis';
+import { version as codeVersion, env } from 'vscode';
+import type { Response as FetchResponse } from '@env/fetch';
+import { fetch as _fetch, getProxyAgent } from '@env/fetch';
+import { getPlatform } from '@env/platform';
 import type { Container } from '../../../container';
 import {
 	AuthenticationError,
@@ -42,6 +46,9 @@ import type {
 	ProviderRepoInput,
 	ProviderReposInput,
 	ProviderRepository,
+	ProviderRequestFunction,
+	ProviderRequestOptions,
+	ProviderRequestResponse,
 	Providers,
 	PullRequestFilter,
 } from './models';
@@ -54,7 +61,26 @@ export class ProvidersApi {
 		private readonly container: Container,
 		private readonly authenticationService: IntegrationAuthenticationService,
 	) {
-		const providerApis = ProviderApis();
+		const proxyAgent = getProxyAgent();
+		const userAgent = `${
+			container.debugging ? 'GitLens-Debug' : container.prerelease ? 'GitLens-Pre' : 'GitLens'
+		}/${container.version} (${env.appName}/${codeVersion}; ${getPlatform()})`;
+		const customFetch: ProviderRequestFunction = async <T>({
+			url,
+			...options
+		}: ProviderRequestOptions): Promise<ProviderRequestResponse<T>> => {
+			const response = await _fetch(url, {
+				agent: proxyAgent,
+				...options,
+				headers: {
+					'User-Agent': userAgent,
+					...options.headers,
+				},
+			});
+
+			return parseFetchResponseForApi(response);
+		};
+		const providerApis = ProviderApis({ request: customFetch });
 		this.providers = {
 			[HostingIntegrationId.GitHub]: {
 				...providersMetadata[HostingIntegrationId.GitHub],
@@ -797,4 +823,37 @@ export class ProvidersApi {
 			return this.handleProviderError<ProviderIssue | undefined>(providerId, token, e);
 		}
 	}
+}
+
+async function parseFetchResponseForApi<T>(response: FetchResponse): Promise<ProviderRequestResponse<T>> {
+	const contentType = response.headers.get('content-type') || '';
+	let body = null;
+
+	// parse the response body
+	if (contentType.startsWith('application/json')) {
+		const text = await response.text();
+		body = text.trim().length > 0 ? JSON.parse(text) : null;
+	} else if (contentType.startsWith('text/') || contentType === '') {
+		body = await response.text();
+	} else if (contentType.startsWith('application/vnd.github.raw+json')) {
+		body = await response.arrayBuffer();
+	} else {
+		throw new Error(`Unsupported content-type: ${contentType}`);
+	}
+
+	const result = {
+		body: body,
+		headers: Object.fromEntries(response.headers.entries()),
+		status: response.status,
+		statusText: response.statusText,
+	};
+
+	// throw an error if the response is not ok
+	if (!response.ok) {
+		const error = new Error(response.statusText);
+		Object.assign(error, { response: result });
+		throw error;
+	}
+
+	return result;
 }
