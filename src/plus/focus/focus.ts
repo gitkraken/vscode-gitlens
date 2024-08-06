@@ -533,6 +533,7 @@ export class FocusCommand extends QuickCommand<State> {
 					case ConnectIntegrationButton:
 						this.sendTitleActionTelemetry('connect', context);
 						return this.next([connectMoreIntegrationsItem]);
+
 					case LaunchpadSettingsQuickInputButton:
 						this.sendTitleActionTelemetry('settings', context);
 						void commands.executeCommand('workbench.action.openSettings', 'gitlens.launchpad');
@@ -547,6 +548,7 @@ export class FocusCommand extends QuickCommand<State> {
 						this.sendTitleActionTelemetry('open-on-gkdev', context);
 						void openUrl(this.container.focus.generateWebUrl());
 						break;
+
 					case RefreshQuickInputButton:
 						this.sendTitleActionTelemetry('refresh', context);
 						await updateItems(quickpick);

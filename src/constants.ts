@@ -16,6 +16,7 @@ import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 export const extensionPrefix = 'gitlens';
 export const quickPickTitleMaxChars = 80;
 
+export const experimentalBadge = 'ᴇxᴘᴇʀɪᴍᴇɴᴛᴀʟ';
 export const previewBadge = 'ᴘʀᴇᴠɪᴇᴡ';
 export const proBadge = 'ᴘʀᴏ';
 export const proBadgeSuperscript = 'ᴾᴿᴼ';
@@ -687,6 +688,7 @@ export type ContextKeys = {
 	'gitlens:gk:organization:drafts:byob': boolean;
 	'gitlens:gk:organization:drafts:enabled': boolean;
 	'gitlens:hasVirtualFolders': boolean;
+	'gitlens:launchpad:connect': boolean;
 	'gitlens:plus': SubscriptionPlanId;
 	'gitlens:plus:disallowedRepos': string[];
 	'gitlens:plus:enabled': boolean;
