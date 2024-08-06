@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `...` inline action for stashes on the _GitLens Inspect_ view
+
 ## [15.3.0] - 2024-08-15
 
 ### Added
