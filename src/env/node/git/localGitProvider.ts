@@ -2103,11 +2103,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			]);
 
 			const committerDate = getSettledValue(committerDateResult);
+			const rebaseStatus = getSettledValue(rebaseStatusResult);
 
 			branch = new GitBranch(
 				this.container,
 				repoPath,
-				getSettledValue(rebaseStatusResult)?.incoming.name ?? name,
+				rebaseStatus?.incoming.name ?? name,
 				false,
 				true,
 				committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
@@ -2116,7 +2117,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				undefined,
 				undefined,
 				undefined,
-				rebaseStatusResult != null,
+				rebaseStatus != null,
 			);
 		}
 
@@ -2148,10 +2149,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						const data = await this.git.rev_parse__currentBranch(repoPath!, commitOrdering);
 						if (data != null) {
 							const [name, upstream] = data[0].split('\n');
-							const [rebaseStatus, committerDate] = await Promise.all([
+
+							const [rebaseStatusResult, committerDateResult] = await Promise.allSettled([
 								isDetachedHead(name) ? this.getRebaseStatus(repoPath!) : undefined,
 								this.git.log__recent_committerdate(repoPath!, commitOrdering),
 							]);
+
+							const committerDate = getSettledValue(committerDateResult);
+							const rebaseStatus = getSettledValue(rebaseStatusResult);
 
 							current = new GitBranch(
 								this.container,
