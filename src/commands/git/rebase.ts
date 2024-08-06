@@ -219,11 +219,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		const counts = await this.container.git.getLeftRightCommitCount(
 			state.repo.path,
-			createRevisionRange(
-				context.destination.name,
-				state.reference.refType === 'revision' ? state.reference.ref : state.reference.name,
-				'...',
-			),
+			createRevisionRange(context.destination.ref, state.reference.ref, '...'),
 			{ excludeMerges: true },
 		);
 

@@ -209,7 +209,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 	private async *confirmStep(state: MergeStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		const counts = await this.container.git.getLeftRightCommitCount(
 			state.repo.path,
-			createRevisionRange(context.destination.name, state.reference.name, '...'),
+			createRevisionRange(context.destination.ref, state.reference.ref, '...'),
 		);
 
 		const title = `Merge ${getReferenceLabel(state.reference, {
