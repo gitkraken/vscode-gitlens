@@ -207,12 +207,8 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		sessionId: string;
 		ignoreErrors: boolean;
 	}): Promise<StoredSession | undefined> {
-		// At first we try to restore the cloud session
-		let session = await this.readSecret(this.getCloudSecretKey(sessionId), ignoreErrors);
-		if (session != null) return session;
-
-		// If no cloud session, we check whether we have a token with the local key
-		session = await this.readSecret(this.getLocalSecretKey(sessionId), ignoreErrors);
+		// At first we try to restore a token with the local key
+		const session = await this.readSecret(this.getLocalSecretKey(sessionId), ignoreErrors);
 		if (session != null) {
 			// Check the `expiresAt` field
 			// If it has an expiresAt property and the key is the old type, then it's a cloud session,
@@ -228,7 +224,8 @@ export abstract class CloudIntegrationAuthenticationProvider<
 			return session;
 		}
 
-		return undefined;
+		// If no local session we try to restore a session with the cloud key
+		return this.readSecret(this.getCloudSecretKey(sessionId), ignoreErrors);
 	}
 
 	public override async getSession(
