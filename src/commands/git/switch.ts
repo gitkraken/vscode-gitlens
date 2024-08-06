@@ -88,9 +88,11 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Switching ${
+				title: `${
+					isBranchReference(state.reference) || state.createBranch ? 'Switching to' : 'Checking out'
+				} ${getReferenceLabel(state.reference, { icon: false, label: false })} in ${
 					state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repos`
-				} to ${state.reference.name}`,
+				}`,
 			},
 			() =>
 				Promise.all(
