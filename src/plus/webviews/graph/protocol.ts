@@ -187,6 +187,7 @@ export interface GraphComponentConfig {
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
 	idLength?: number;
+	useCompactByDefault?: boolean;
 }
 
 export interface GraphColumnConfig {

@@ -1073,6 +1073,13 @@
 						"scope": "window",
 						"order": 27
 					},
+					"gitlens.graph.useCompactByDefault": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to default to using the compact graph layout in the _Commit Graph_",
+						"scope": "window",
+						"order": 28
+					},
 					"gitlens.graph.commitOrdering": {
 						"type": "string",
 						"default": "date",

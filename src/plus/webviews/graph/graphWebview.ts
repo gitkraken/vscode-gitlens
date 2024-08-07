@@ -1969,6 +1969,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
+		if (this._graph == undefined && this.getComponentConfig().useCompactByDefault && this._firstSelection) {
+			void this.setColumnMode('graph', 'compact');
+		}
+
 		return columnsSettings;
 	}
 
@@ -2052,6 +2056,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
+			useCompactByDefault: configuration.get('graph.useCompactByDefault'),
 		};
 		return config;
 	}
