@@ -431,11 +431,11 @@ export class FocusCommand extends QuickCommand<State> {
 								i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
 							);
 
+							buttons.push(...getOpenOnGitProviderQuickInputButtons(i.provider.id));
+
 							if (!i.openRepository?.localBranch?.current) {
 								buttons.push(OpenWorktreeInNewWindowQuickInputButton);
 							}
-
-							buttons.push(...getOpenOnGitProviderQuickInputButtons(i.provider.id));
 
 							return {
 								label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
