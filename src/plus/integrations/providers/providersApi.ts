@@ -78,7 +78,7 @@ export class ProvidersApi {
 				},
 			});
 
-			return parseFetchResponseForApi(response);
+			return parseFetchResponseForApi<T>(response);
 		};
 		const providerApis = ProviderApis({ request: customFetch });
 		this.providers = {
@@ -825,6 +825,9 @@ export class ProvidersApi {
 	}
 }
 
+// This is copied over from the shared provider library because the current version is not respecting the "forceIsFetch: true"
+// option in the config and our custom fetch function isn't being wrapped by the necessary fetch wrapper. Remove this once the library
+// properly wraps our custom fetch and use `forceIsFetch: true` in the config.
 async function parseFetchResponseForApi<T>(response: FetchResponse): Promise<ProviderRequestResponse<T>> {
 	const contentType = response.headers.get('content-type') || '';
 	let body = null;
