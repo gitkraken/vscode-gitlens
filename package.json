@@ -15426,12 +15426,12 @@
 				},
 				{
 					"command": "gitlens.views.collapseNode",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:(branch|compare|folder|results|search|status|tag)\\b/",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(branch|compare|folder|grouping|results|search|status|tag)\\b/",
 					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.expandNode",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:(branch|compare|folder|results|search|status|tag)\\b/",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(branch|compare|folder|grouping|results|search|status|tag)\\b/",
 					"group": "9_gitlens@2"
 				},
 				{
