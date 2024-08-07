@@ -1,7 +1,7 @@
-import type { AuthenticationSession, CancellationToken, Disposable, Uri } from 'vscode';
-import { authentication, CancellationTokenSource, window } from 'vscode';
+import type { AuthenticationSession, CancellationToken, Disposable, Event, Uri } from 'vscode';
+import { authentication, CancellationTokenSource, EventEmitter, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
-import type { IntegrationAuthenticationKeys } from '../../../constants';
+import type { IntegrationAuthenticationKeys, Sources } from '../../../constants';
 import type { Container } from '../../../container';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
@@ -41,24 +41,37 @@ export interface IntegrationAuthenticationSessionDescriptor {
 	[key: string]: unknown;
 }
 
-export interface IntegrationAuthenticationProvider {
+export interface IntegrationAuthenticationProvider extends Disposable {
 	deleteSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void>;
 	getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
 	): Promise<ProviderAuthenticationSession | undefined>;
+	get onDidChange(): Event<void>;
 }
 
 abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = IntegrationId>
 	implements IntegrationAuthenticationProvider
 {
+	protected readonly disposables: Disposable[] = [];
+
 	constructor(protected readonly container: Container) {}
+
+	dispose() {
+		this.disposables.forEach(d => void d.dispose());
+	}
+
+	private readonly _onDidChange = new EventEmitter<void>();
+	get onDidChange(): Event<void> {
+		return this._onDidChange.event;
+	}
 
 	protected abstract get authProviderId(): ID;
 
-	protected abstract createSession(
+	protected abstract fetchOrCreateSession(
+		oldSession: StoredSession | undefined,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { authorizeIfNeeded?: boolean },
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
 	): Promise<ProviderAuthenticationSession | undefined>;
 
 	protected abstract deleteAllSecrets(sessionId: string): Promise<void>;
@@ -111,36 +124,59 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 	@debug()
 	async deleteSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void> {
 		const sessionId = this.getSessionId(descriptor);
+		const storedSession = await this.restoreSession({ sessionId: sessionId, ignoreErrors: true });
 		await this.deleteAllSecrets(sessionId);
+		if (storedSession != null) {
+			this.fireDidChange();
+		}
 	}
 
 	@debug()
 	async getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const sessionId = this.getSessionId(descriptor);
+
+		const oldStoredSession = await this.restoreSession({ sessionId: sessionId, ignoreErrors: true });
 
 		if (options?.forceNewSession) {
 			await this.deleteAllSecrets(sessionId);
 		}
 
-		const storedSession = await this.restoreSession({
+		const storedSession = (await this.restoreSession({
 			sessionId: sessionId,
 			ignoreErrors: !options?.createIfNeeded,
-		});
+		})) as ProviderAuthenticationSession | undefined;
 		if (
-			(options?.createIfNeeded && storedSession == null) ||
+			storedSession == null ||
 			(storedSession?.expiresAt != null && new Date(storedSession.expiresAt).getTime() < Date.now())
 		) {
-			const session = await this.createSession(descriptor);
+			const session = await this.fetchOrCreateSession(oldStoredSession, descriptor, options);
 			if (session != null) {
 				await this.storeSession(sessionId, session);
 			}
+			this.fireIfChanged(oldStoredSession, session);
 			return session;
 		}
 
-		return storedSession as ProviderAuthenticationSession | undefined;
+		this.fireIfChanged(oldStoredSession, storedSession);
+		return storedSession;
+	}
+
+	protected fireIfChanged(
+		oldSession: StoredSession | undefined,
+		curSession: ProviderAuthenticationSession | undefined,
+	) {
+		if (oldSession == null && curSession == null) return;
+		if (oldSession != null && curSession != null && curSession.accessToken === oldSession.accessToken) {
+			return;
+		}
+
+		queueMicrotask(() => this._onDidChange.fire());
+	}
+	protected fireDidChange() {
+		queueMicrotask(() => this._onDidChange.fire());
 	}
 }
 
@@ -165,24 +201,37 @@ export abstract class LocalIntegrationAuthenticationProvider<
 		const key = this.getLocalSecretKey(sessionId);
 		return this.readSecret(key, ignoreErrors);
 	}
+
+	protected abstract createSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { authorizeIfNeeded?: boolean },
+	): Promise<ProviderAuthenticationSession | undefined>;
+
+	protected override async fetchOrCreateSession(
+		_oldSession: StoredSession | undefined,
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
+	) {
+		if (!options?.createIfNeeded && !options?.forceNewSession) return undefined;
+
+		return this.createSession(descriptor);
+	}
 }
 
 export abstract class CloudIntegrationAuthenticationProvider<
 	ID extends IntegrationId = IntegrationId,
 > extends IntegrationAuthenticationProviderBase<ID> {
-	protected async getBuiltInExistingSession(
-		_?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<ProviderAuthenticationSession | undefined> {
-		return Promise.resolve(undefined);
-	}
-
 	private getCloudSecretKey(id: string): `gitlens.integration.auth.cloud:${IntegrationId}|${string}` {
 		return `gitlens.integration.auth.cloud:${this.authProviderId}|${id}`;
 	}
 
 	public async deleteCloudSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void> {
 		const key = this.getCloudSecretKey(this.getSessionId(descriptor));
+		const storedCloudSecret = await this.readSecret(key, true);
 		await this.deleteSecret(key);
+		if (storedCloudSecret != null) {
+			this.fireDidChange();
+		}
 	}
 
 	protected override async deleteAllSecrets(sessionId: string) {
@@ -228,19 +277,58 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		return this.readSecret(this.getCloudSecretKey(sessionId), ignoreErrors);
 	}
 
-	public override async getSession(
+	protected override async fetchOrCreateSession(
+		oldSession: StoredSession | undefined,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
-	): Promise<ProviderAuthenticationSession | undefined> {
-		// by default getBuiltInExistingSession returns undefined
-		// but specific providers can override it to return a session (e.g. GitHub)
-		const existingSession = await this.getBuiltInExistingSession(descriptor);
-		if (existingSession != null) return existingSession;
-
-		return super.getSession(descriptor, options);
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
+	) {
+		let session = await this.fetchSession(descriptor);
+		if (this.isNotNewAsForced(oldSession, session, options)) {
+			void this.manageCloudIntegrations(false, options?.source);
+		} else if (this.isNotCreatedAsNeeded(session, options)) {
+			await this.manageCloudIntegrations(true, options?.source);
+			session = await this.fetchSession(descriptor);
+		}
+		return session;
 	}
 
-	protected override async createSession(
+	private isNotNewAsForced(
+		oldSession: StoredSession | undefined,
+		curSession: ProviderAuthenticationSession | undefined,
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+	) {
+		return (
+			isSupportedCloudIntegrationId(this.authProviderId) &&
+			options?.forceNewSession &&
+			oldSession != null &&
+			curSession != null &&
+			oldSession.accessToken === curSession.accessToken
+		);
+	}
+
+	private isNotCreatedAsNeeded(
+		curSession: ProviderAuthenticationSession | undefined,
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
+	) {
+		return isSupportedCloudIntegrationId(this.authProviderId) && options?.createIfNeeded && curSession == null;
+	}
+
+	private async manageCloudIntegrations(skipIfConnected: boolean, source: Sources | undefined): Promise<void> {
+		if (isSupportedCloudIntegrationId(this.authProviderId)) {
+			await this.container.integrations.manageCloudIntegrations(
+				{ integrationId: this.authProviderId, skipIfConnected: skipIfConnected },
+				{
+					source: source ?? 'integrations',
+					detail: {
+						action: 'connect',
+						integration: this.authProviderId,
+					},
+				},
+			);
+		}
+	}
+
+	private async fetchSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { authorizeIfNeeded?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
@@ -359,6 +447,13 @@ class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticationProvid
 		protected readonly authProviderId: IntegrationId,
 	) {
 		super(container);
+		this.disposables.push(
+			authentication.onDidChangeSessions(e => {
+				if (e.provider.id === this.authProviderId) {
+					this.fireDidChange();
+				}
+			}),
+		);
 	}
 
 	protected override createSession(): Promise<ProviderAuthenticationSession | undefined> {
@@ -390,6 +485,7 @@ export class IntegrationAuthenticationService implements Disposable {
 	constructor(private readonly container: Container) {}
 
 	dispose() {
+		this.providers.forEach(p => void p.dispose());
 		this.providers.clear();
 	}
 

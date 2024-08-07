@@ -1,5 +1,4 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
-import { authentication } from 'vscode';
 import type { Container } from '../../../container';
 import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -264,13 +263,17 @@ export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationI
 		return 'https://api.github.com';
 	}
 
-	// TODO: This is a special case for GitHub because we use VSCode's GitHub session, and it can be disconnected
-	// outside of the extension. Remove this once we use our own GitHub auth provider.
+	// This is a special case for GitHub because we use VSCode's GitHub session, and it can be disconnected
+	// outside of the extension.
 	override async refresh() {
-		const session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes);
+		const authProvider = await this.authenticationService.get(this.authProvider.id);
+		const session = await authProvider.getSession(this.authProviderDescriptor);
 		if (session == null && this.maybeConnected) {
 			void this.disconnect();
 		} else {
+			if (session?.accessToken !== this._session?.accessToken) {
+				this._session = undefined;
+			}
 			super.refresh();
 		}
 	}
