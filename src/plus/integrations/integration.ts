@@ -31,7 +31,6 @@ import type {
 } from './authentication/integrationAuthentication';
 import { CloudIntegrationAuthenticationProvider } from './authentication/integrationAuthentication';
 import type { ProviderAuthenticationSession } from './authentication/models';
-import { isSupportedCloudIntegrationId } from './authentication/models';
 import type {
 	GetIssuesOptions,
 	GetPullRequestsOptions,
@@ -133,7 +132,7 @@ export abstract class IntegrationBase<
 	protected _session: ProviderAuthenticationSession | null | undefined;
 	getSession() {
 		if (this._session === undefined) {
-			return this.ensureSession(false);
+			return this.ensureSession({ createIfNeeded: false });
 		}
 		return this._session ?? undefined;
 	}
@@ -141,26 +140,7 @@ export abstract class IntegrationBase<
 	@log()
 	async connect(source?: Sources): Promise<boolean> {
 		try {
-			// Some integrations does not require managmement of Cloud Integrations (e.g. GitHub that can take a built-in VS Code session),
-			// therefore we try to connect them right away.
-			// Only if our attempt fails, we fall to manageCloudIntegrations flow.
-			let connected = Boolean(await this.ensureSession(true));
-			if (!connected) {
-				if (isSupportedCloudIntegrationId(this.id)) {
-					await this.container.integrations.manageCloudIntegrations(
-						{ integrationId: this.id, skipIfConnected: true },
-						{
-							source: source || 'integrations',
-							detail: {
-								action: 'connect',
-								integration: this.id,
-							},
-						},
-					);
-					connected = Boolean(await this.ensureSession(true));
-				}
-			}
-			return connected;
+			return Boolean(await this.ensureSession({ createIfNeeded: true, source: source }));
 		} catch (ex) {
 			return false;
 		}
@@ -255,11 +235,11 @@ export abstract class IntegrationBase<
 		if (this._session === undefined) return;
 
 		this._session = undefined;
-		void (await this.ensureSession(true, true));
+		void (await this.ensureSession({ createIfNeeded: true, forceNewSession: true }));
 	}
 
 	refresh() {
-		void this.ensureSession(false);
+		void this.ensureSession({ createIfNeeded: false });
 	}
 
 	private requestExceptionCount = 0;
@@ -296,10 +276,12 @@ export abstract class IntegrationBase<
 	}
 
 	@gate()
-	private async ensureSession(
-		createIfNeeded: boolean,
-		forceNewSession: boolean = false,
-	): Promise<ProviderAuthenticationSession | undefined> {
+	private async ensureSession(options: {
+		createIfNeeded?: boolean;
+		forceNewSession?: boolean;
+		source?: Sources;
+	}): Promise<ProviderAuthenticationSession | undefined> {
+		const { createIfNeeded, forceNewSession, source } = options;
 		if (this._session != null) return this._session;
 		if (!configuration.get('integrations.enabled')) return undefined;
 
@@ -315,6 +297,7 @@ export abstract class IntegrationBase<
 			session = await authProvider.getSession(this.authProviderDescriptor, {
 				createIfNeeded: createIfNeeded,
 				forceNewSession: forceNewSession,
+				source: source,
 			});
 		} catch (ex) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);

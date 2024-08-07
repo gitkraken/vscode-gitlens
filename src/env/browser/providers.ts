@@ -5,6 +5,7 @@ import { GitHubGitProvider } from '../../plus/integrations/providers/github/gith
 import { GitProvider } from '../../git/gitProvider';
 import { RepositoryWebPathMappingProvider } from './pathMapping/repositoryWebPathMappingProvider';
 import { WorkspacesWebPathMappingProvider } from './pathMapping/workspacesWebPathMappingProvider';
+import { IntegrationAuthenticationService } from '../../plus/integrations/authentication/integrationAuthentication';
 
 export function git(_options: GitCommandOptions, ..._args: any[]): Promise<string | Buffer> {
 	return Promise.resolve('');
@@ -20,8 +21,11 @@ export function gitLogStreamTo(
 	return Promise.resolve([[''], 0]);
 }
 
-export async function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {
-	return [new GitHubGitProvider(container)];
+export async function getSupportedGitProviders(
+	container: Container,
+	authenticationService: IntegrationAuthenticationService,
+): Promise<GitProvider[]> {
+	return [new GitHubGitProvider(container, authenticationService)];
 }
 
 export function getSupportedRepositoryPathMappingProvider(container: Container) {

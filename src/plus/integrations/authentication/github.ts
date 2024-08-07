@@ -1,20 +1,35 @@
 import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
 import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
+import type { Sources } from '../../../constants';
+import type { Container } from '../../../container';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
 import {
 	CloudIntegrationAuthenticationProvider,
 	LocalIntegrationAuthenticationProvider,
 } from './integrationAuthentication';
+import type { ProviderAuthenticationSession } from './models';
 
 export class GitHubAuthenticationProvider extends CloudIntegrationAuthenticationProvider<HostingIntegrationId.GitHub> {
+	constructor(container: Container) {
+		super(container);
+		this.disposables.push(
+			authentication.onDidChangeSessions(e => {
+				if (e.provider.id === this.authProviderId) {
+					this.fireDidChange();
+				}
+			}),
+		);
+	}
+
 	protected override get authProviderId(): HostingIntegrationId.GitHub {
 		return HostingIntegrationId.GitHub;
 	}
 
-	override async getBuiltInExistingSession(
+	private async getBuiltInExistingSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		forceNewSession?: boolean,
 	): Promise<AuthenticationSession | undefined> {
 		if (descriptor == null) return undefined;
 
@@ -22,9 +37,25 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 			this.container.integrations.ignoreSSLErrors({ id: this.authProviderId, domain: descriptor?.domain }),
 			() =>
 				authentication.getSession(this.authProviderId, descriptor.scopes, {
-					silent: true,
+					forceNewSession: forceNewSession ? true : undefined,
+					silent: forceNewSession ? undefined : true,
 				}),
 		);
+	}
+
+	public override async getSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
+	): Promise<ProviderAuthenticationSession | undefined> {
+		let vscodeSession = await this.getBuiltInExistingSession(descriptor);
+
+		if (vscodeSession != null && options?.forceNewSession) {
+			vscodeSession = await this.getBuiltInExistingSession(descriptor, true);
+		}
+
+		if (vscodeSession != null) return vscodeSession;
+
+		return super.getSession(descriptor, options);
 	}
 
 	protected override getCompletionInputTitle(): string {
