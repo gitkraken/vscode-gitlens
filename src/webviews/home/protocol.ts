@@ -41,8 +41,12 @@ export const DidChangeIntegrationsConnections = new IpcNotification<DidChangeInt
 	scope,
 	'integrations/didChange',
 );
-export type DidChangeUsagesParams = OnboardingState;
-export const DidChangeUsage = new IpcNotification<DidChangeUsagesParams>(scope, 'onboarding/usage/didChange');
+
+export type DidChangeOnboardingStateParams = OnboardingState;
+export const DidChangeOnboardingState = new IpcNotification<DidChangeOnboardingStateParams>(
+	scope,
+	'onboarding/usage/didChange',
+);
 
 export type DidChangeOnboardingConfigurationParams = OnboardingConfigurationExtras;
 export const DidChangeOnboardingConfiguration = new IpcNotification<DidChangeOnboardingConfigurationParams>(

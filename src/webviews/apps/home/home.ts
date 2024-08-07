@@ -9,7 +9,7 @@ import {
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
-	DidChangeUsage,
+	DidChangeOnboardingState,
 } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommand } from '../../protocol';
@@ -72,7 +72,7 @@ export class HomeApp extends App<State> {
 
 	protected override onMessageReceived(msg: IpcMessage) {
 		switch (true) {
-			case DidChangeUsage.is(msg):
+			case DidChangeOnboardingState.is(msg):
 				this.state.onboardingState = msg.params;
 				this.state.timestamp = Date.now();
 				this.setState(this.state);
