@@ -910,7 +910,9 @@ export class FocusCommand extends QuickCommand<State> {
 
 		if (canPickStepContinue(step, state, selection)) {
 			const resume = freeze();
-			const connected = await this.container.integrations.connectCloudIntegrations(undefined, this.source);
+			const connected = await this.container.integrations.connectCloudIntegrations(undefined, {
+				source: 'launchpad',
+			});
 			return { connected: connected, resume: () => resume[Symbol.dispose]() };
 		}
 
