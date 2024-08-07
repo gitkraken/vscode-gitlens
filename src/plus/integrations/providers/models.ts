@@ -107,6 +107,10 @@ export function isSelfHostedIntegrationId(id: IntegrationId): id is SelfHostedIn
 	return selfHostedIntegrationIds.includes(id as SelfHostedIntegrationId);
 }
 
+export function isIntegrationId(id: any): id is IntegrationId {
+	return typeof id === 'string' && supportedIntegrationIds.includes(id as IntegrationId);
+}
+
 export enum PullRequestFilter {
 	Author = 'author',
 	Assignee = 'assignee',
