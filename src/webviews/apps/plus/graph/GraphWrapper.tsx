@@ -76,6 +76,7 @@ import { GlSearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
+import type { KeyedDriveStep } from '../../shared/onboarding';
 import { createOnboarding } from '../../shared/onboarding';
 import { GlGraphHover } from './hover/graphHover.react';
 import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap';
@@ -400,18 +401,103 @@ export function GraphWrapper({
 
 	useLayoutEffect(() => {
 		const onboardingKey = 'graph-tour';
-		const onboardingState = state.onboarding?.[onboardingKey];
-		if (onboardingState?.dismissed === true) {
-			return;
-		}
+		// const onboardingState = state.onboarding?.[onboardingKey];
+		// if (onboardingState?.dismissed === true) {
+		// 	return;
+		// }
 
-		const steps = [
+		const onboardingColumnKey = `${onboardingKey}-graph-column-`;
+		// columns: ref, graph, message, author, changes, datetime, sha
+		const columnSteps = [
+			{
+				key: `${onboardingColumnKey}ref`,
+				element: '#ref-zone',
+				popover: {
+					title: 'Branch / Tag Column',
+					description:
+						'See branches and tag labels, including locally and on remotes. This label indicates the commit it is on as well as associated PRs, ahead/behind status and your current branch.',
+				},
+			},
+			{
+				key: `${onboardingColumnKey}graph`,
+				element: '#commit-zone',
+				popover: {
+					title: 'Graph Column',
+					description: /* html */ `
+							Each row of the graph represents one commit, and the top is always for the latest changes.
+							<br><br>
+							An interactive WIP (Work-In-Progress) node will show if the working directory has changed since the last commit.
+						`,
+				},
+			},
+			// {
+			// 	key: `${onboardingColumnKey}message`,
+			// 	element: '#commit-message-zone',
+			// 	popover: {
+			// 		title: 'Commit Message Column',
+			// 		description: 'The commit message.',
+			// 	},
+			// },
+			// {
+			// 	key: `${onboardingColumnKey}author`,
+			// 	element: '#commit-author-zone',
+			// 	popover: {
+			// 		title: 'Author Column',
+			// 		description: 'The author of the commit.',
+			// 	},
+			// },
+			// {
+			// 	key: `${onboardingColumnKey}changes`,
+			// 	element: '#changes-zone',
+			// 	popover: {
+			// 		title: 'Changes Column',
+			// 		description: 'The number of files changed and the number of lines added/removed.',
+			// 	},
+			// },
+			// {
+			// 	key: `${onboardingColumnKey}datetime`,
+			// 	element: '#commit-date-time-zone',
+			// 	popover: {
+			// 		title: 'Date/Time',
+			// 		description: 'The date and time the commit was authored.',
+			// 	},
+			// },
+			// {
+			// 	key: `${onboardingColumnKey}sha`,
+			// 	element: '#commit-sha-zone',
+			// 	popover: {
+			// 		title: 'Column: SHA',
+			// 		description: 'The SHA of the commit.',
+			// 	},
+			// },
+		].filter(step => {
+			const columnName = step.key.replace(onboardingColumnKey, '');
+			if ((columns as GraphColumnsSettings)?.[columnName]?.isHidden === true) {
+				return false;
+			}
+			return true;
+		});
+
+		const steps: KeyedDriveStep[] = [
 			{
 				key: `${onboardingKey}-welcome`,
+				element: '#main',
 				popover: {
+					side: 'top',
+					align: 'center',
 					title: 'Welcome to the Commit Graph',
 					description:
-						'It helps visualize your repository commit history and give you information about branches, commits, and collaborators all in one view.',
+						'Visualize your repository commit history and get rich information about branches, commits, and collaborators all in one view.',
+				},
+			},
+			...columnSteps,
+			{
+				key: `${onboardingKey}-minimap`,
+				element: '#graph-minimap',
+				popover: {
+					title: 'Minimap',
+					description:
+						'Quickly see the activity of the repository, see the HEAD/upstream, branches (local and remote), and easily jump to them. ',
 				},
 			},
 			{
@@ -431,30 +517,13 @@ export function GraphWrapper({
 						'Highlight all matching results across your entire repository when searching for a commit, message, author, a changed file or files, or even a specific code change.',
 				},
 			},
-			{
-				key: `${onboardingKey}-minimap`,
-				element: '#graph-minimap',
-				popover: {
-					title: 'Minimap',
-					description:
-						'Quickly see the activity of the repository, see the HEAD/upstream, branches (local and remote), and easily jump to them. ',
-				},
-			},
-			{
-				key: `${onboardingKey}-graph`,
-				element: '#main',
-				popover: {
-					title: 'Commit Graph',
-					description: 'The Commit Graph is a visualization of your repository history.',
-				},
-			},
-			{
-				key: `${onboardingKey}-done`,
-				popover: {
-					title: 'Done',
-					description: "That's it for now. Enjoy! Please see this walkthrough for more information.",
-				},
-			},
+			// {
+			// 	key: `${onboardingKey}-done`,
+			// 	popover: {
+			// 		title: 'Done',
+			// 		description: "That's it for now. Enjoy! Please see this walkthrough for more information.",
+			// 	},
+			// },
 		];
 
 		const driverObj = createOnboarding(

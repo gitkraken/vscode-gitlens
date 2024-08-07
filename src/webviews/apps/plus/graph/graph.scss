@@ -110,6 +110,7 @@
 	--branch-status-both-foreground: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
 
 	--graph-column-scrollbar-thickness: 14px;
+	--gl-tour-width-max: 34rem;
 }
 
 :root:has(.vscode-dark, .vscode-high-contrast) {
