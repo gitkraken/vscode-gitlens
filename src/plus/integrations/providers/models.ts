@@ -16,6 +16,9 @@ import type {
 	JiraProject,
 	JiraResource,
 	PullRequestWithUniqueID,
+	RequestFunction,
+	RequestOptions,
+	Response,
 	Trello,
 } from '@gitkraken/provider-apis';
 import {
@@ -62,6 +65,9 @@ export type ProviderAzureProject = AzureProject;
 export type ProviderAzureResource = AzureOrganization;
 export const ProviderPullRequestReviewState = GitPullRequestReviewState;
 export const ProviderBuildStatusState = GitBuildStatusState;
+export type ProviderRequestFunction = RequestFunction;
+export type ProviderRequestResponse<T> = Response<T>;
+export type ProviderRequestOptions = RequestOptions;
 
 export type IntegrationId = HostingIntegrationId | IssueIntegrationId | SelfHostedIntegrationId;
 
