@@ -3,15 +3,15 @@ import { css } from 'lit';
 export const accordionBaseStyles = css`
 	.accordion-button {
 		appearance: none;
-		border: var(--gk-accordion-button-border, 1px solid #111a22);
+		border: var(--gk-accordion-button-border, 1px solid var(--color-foreground));
 		border-radius: var(--gk-accordion-button-border-radius, 0.25rem);
 		background-color: var(--gk-accordion-button-background-color, transparent);
-		color: var(--gk-accordion-button-color, #111a22);
+		color: var(--gk-accordion-button-color, var(--color-foreground));
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		padding: var(--gk-accordion-button-padding, 0.5rem);
-		width: var(--gk-accordion-button-width);
+		width: var(--gk-accordion-button-width, 100%);
 	}
 	/* override hover only if provided; */
 	@container style(--gk-accordion-button-background-color-hovered) {
@@ -48,7 +48,7 @@ export const accordionBaseStyles = css`
 	.accordion-details {
 		background-color: var(--gk-accordion-details-background-color, transparent);
 		border: var(--gk-accordion-details-border, none);
-		color: var(--gk-accordion-details-color, #111a22);
+		color: var(--gk-accordion-details-color, var(--color-foreground));
 		padding: var(--gk-accordion-details-padding, 0.5rem);
 	}
 `;

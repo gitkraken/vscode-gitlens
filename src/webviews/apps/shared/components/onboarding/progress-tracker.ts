@@ -11,12 +11,13 @@ export class ProgressTracker extends LitElement {
 
 	static override readonly styles = css`
 		:host {
+			--gl-progress-background-color: var(--progress-bar-color, gray);
+			--gl-progress-foreground-color: var(--vscode-progressBar-background, blue);
+
 			padding: initial;
 			display: flex;
 			align-items: center;
 			gap: 12px;
-			--gl-progress-background-color: gray;
-			--gl-progress-foreground-color: var(--vscode-progressBar-background, blue);
 		}
 		span {
 			flex-shrink: 0;
