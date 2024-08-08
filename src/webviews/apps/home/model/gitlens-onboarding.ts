@@ -1,29 +1,12 @@
 import { Commands } from '../../../../constants.commands';
-import type { OnboardingConfigurationExtras } from '../../../home/protocol';
+import { OnboardingItem } from '../../../home/protocol';
+import { createCommandLink } from '../../shared/commands';
 import type { OnboardingItemConfiguration } from '../../shared/components/onboarding/onboarding-types';
 
-export enum OnboardingItem {
-	repoHost = 'repoHost',
-	commitGraph = 'commitGraph',
-	sourceControl = 'sourceControl',
-	gitLens = 'gitLens',
-	inspect = 'inspect',
-	visualFileHistory = 'visualFileHistory',
-	launchpad = 'launchpad',
-	revisionHistory = 'revisionHistory',
-	allSidebarViews = 'allSidebarViews',
-	editorFeatures = 'editorFeatures',
-	blame = 'blame',
-	codeLens = 'codeLens',
-	fileAnnotations = 'fileAnnotations',
-}
-
-const createCommandLink = (command: Commands | string) => `command:${command}`;
-
-export function getOnboardingConfiguration({
-	editorPreviewEnabled,
-	repoHostConnected,
-}: OnboardingConfigurationExtras): OnboardingItemConfiguration<OnboardingItem>[] {
+export function getOnboardingConfiguration(
+	editorPreviewEnabled: boolean,
+	repoHostConnected: boolean,
+): OnboardingItemConfiguration<OnboardingItem>[] {
 	const passIfTrue = <T>(condition: boolean, value: T): T | undefined => (condition ? value : undefined);
 	return [
 		{

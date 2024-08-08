@@ -2,14 +2,15 @@
 import './home.scss';
 import type { Disposable } from 'vscode';
 import { getApplicablePromo } from '../../../plus/gk/account/promos';
-import type { OnboardingState, State } from '../../home/protocol';
+import type { OnboardingItem, OnboardingState, State } from '../../home/protocol';
 import {
 	DidChangeIntegrationsConnections,
-	DidChangeOnboardingConfiguration,
+	DidChangeOnboardingEditor,
+	DidChangeOnboardingIntegration,
+	DidChangeOnboardingState,
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
-	DidChangeOnboardingState,
 } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommand } from '../../protocol';
@@ -24,7 +25,6 @@ import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
 import '../shared/components/promo';
 import '../shared/components/onboarding/onboarding';
-import type { OnboardingItem } from './model/gitlens-onboarding';
 import { getOnboardingConfiguration } from './model/gitlens-onboarding';
 
 type GlOnboarding = _GlOnboarding<OnboardingState, OnboardingItem>;
@@ -43,7 +43,10 @@ export class HomeApp extends App<State> {
 
 	attachState() {
 		this.component.state = this.state.onboardingState;
-		this.component.onboardingConfiguration = getOnboardingConfiguration(this.state.onboardingExtras);
+		this.component.onboardingConfiguration = getOnboardingConfiguration(
+			this.state.editorPreviewEnabled,
+			this.state.repoHostConnected,
+		);
 	}
 
 	private get blockRepoFeatures() {
@@ -79,8 +82,16 @@ export class HomeApp extends App<State> {
 				this.attachState();
 				break;
 
-			case DidChangeOnboardingConfiguration.is(msg):
-				this.state.onboardingExtras = msg.params;
+			case DidChangeOnboardingEditor.is(msg):
+				this.state.editorPreviewEnabled = msg.params.editorPreviewEnabled;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.attachState();
+				break;
+
+			case DidChangeOnboardingIntegration.is(msg):
+				this.state.onboardingState = msg.params.onboardingState;
+				this.state.repoHostConnected = msg.params.repoHostConnected;
 				this.state.timestamp = Date.now();
 				this.setState(this.state);
 				this.attachState();

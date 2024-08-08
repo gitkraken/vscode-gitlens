@@ -1,9 +1,24 @@
 import type { Subscription } from '../../plus/gk/account/subscription';
-import type { OnboardingItem } from '../apps/home/model/gitlens-onboarding';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcNotification } from '../protocol';
 
 export const scope: IpcScope = 'home';
+
+export enum OnboardingItem {
+	repoHost = 'repoHost',
+	commitGraph = 'commitGraph',
+	sourceControl = 'sourceControl',
+	gitLens = 'gitLens',
+	inspect = 'inspect',
+	visualFileHistory = 'visualFileHistory',
+	launchpad = 'launchpad',
+	revisionHistory = 'revisionHistory',
+	allSidebarViews = 'allSidebarViews',
+	editorFeatures = 'editorFeatures',
+	blame = 'blame',
+	codeLens = 'codeLens',
+	fileAnnotations = 'fileAnnotations',
+}
 
 export type OnboardingState = Partial<Record<`${OnboardingItem}Checked`, boolean>>;
 
@@ -21,7 +36,8 @@ export interface State extends WebviewState {
 	};
 	onboardingState: OnboardingState;
 	hasAnyIntegrationConnected: boolean;
-	onboardingExtras: OnboardingConfigurationExtras;
+	repoHostConnected: boolean;
+	editorPreviewEnabled: boolean;
 }
 
 // NOTIFICATIONS
@@ -48,10 +64,21 @@ export const DidChangeOnboardingState = new IpcNotification<DidChangeOnboardingS
 	'onboarding/usage/didChange',
 );
 
-export type DidChangeOnboardingConfigurationParams = OnboardingConfigurationExtras;
-export const DidChangeOnboardingConfiguration = new IpcNotification<DidChangeOnboardingConfigurationParams>(
+export interface DidChangeOnboardingEditorParams {
+	editorPreviewEnabled: boolean;
+}
+export const DidChangeOnboardingEditor = new IpcNotification<DidChangeOnboardingEditorParams>(
 	scope,
-	'onboarding/configuration/didChange',
+	'onboarding/editor/didChange',
+);
+
+export interface DidChangeOnboardingIntegrationParams {
+	onboardingState: OnboardingState;
+	repoHostConnected: boolean;
+}
+export const DidChangeOnboardingIntegration = new IpcNotification<DidChangeOnboardingIntegrationParams>(
+	scope,
+	'onboarding/integration/didChange',
 );
 
 export interface DidChangeSubscriptionParams {
