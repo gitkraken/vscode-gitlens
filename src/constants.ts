@@ -3,7 +3,7 @@ import type { GeminiModels } from './ai/geminiProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
 import type { VSCodeAIModels } from './ai/vscodeProvider';
 import type { AnnotationStatus } from './annotations/annotationProvider';
-import type { ViewShowBranchComparison } from './config';
+import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription, SubscriptionPlanId, SubscriptionState } from './plus/gk/account/subscription';
@@ -986,8 +986,6 @@ export type DeprecatedWorkspaceStorage = {
 	'confirm:sendToOpenAI': boolean;
 	/** @deprecated */
 	'graph:banners:dismissed': Record<string, boolean>;
-	/** @deprecated use `graph:filtersByRepo.excludeRefs` */
-	'graph:hiddenRefs': Record<string, StoredGraphExcludedRef>;
 	/** @deprecated */
 	'views:searchAndCompare:keepResults': boolean;
 };
@@ -1116,10 +1114,13 @@ export interface StoredGraphColumn {
 	width?: number;
 }
 
+export type StoredGraphExcludeTypes = 'remotes' | 'stashes' | 'tags';
+
 export interface StoredGraphFilters {
+	branchesVisibility?: GraphBranchesVisibility;
 	includeOnlyRefs?: Record<string, StoredGraphIncludeOnlyRef>;
 	excludeRefs?: Record<string, StoredGraphExcludedRef>;
-	excludeTypes?: Record<string, boolean>;
+	excludeTypes?: Record<StoredGraphExcludeTypes, boolean>;
 }
 
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';

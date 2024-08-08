@@ -932,6 +932,23 @@
 				"title": "Commit Graph",
 				"order": 50,
 				"properties": {
+					"gitlens.graph.branchesVisibility": {
+						"type": "string",
+						"enum": [
+							"all",
+							"smart",
+							"current"
+						],
+						"enumDescriptions": [
+							"Shows all branches",
+							"Shows only relevant branches",
+							"Shows only the current branch"
+						],
+						"default": "smart",
+						"markdownDescription": "Specifies the visibility of branches on the _Commit Graph_",
+						"scope": "window",
+						"order": 2
+					},
 					"gitlens.graph.allowMultiple": {
 						"type": "boolean",
 						"default": true,
