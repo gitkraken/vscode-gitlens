@@ -632,29 +632,38 @@ export abstract class HostingIntegration<
 	): Promise<Account | UnidentifiedAuthor | undefined>;
 
 	@debug()
-	async getDefaultBranch(repo: T): Promise<DefaultBranch | undefined> {
+	async getDefaultBranch(
+		repo: T,
+		options?: { cancellation?: CancellationToken; expiryOverride?: boolean | number },
+	): Promise<DefaultBranch | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const defaultBranch = this.container.cache.getRepositoryDefaultBranch(repo, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderDefaultBranch(this._session!, repo);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<DefaultBranch | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const defaultBranch = this.container.cache.getRepositoryDefaultBranch(
+			repo,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderDefaultBranch(this._session!, repo, options?.cancellation);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<DefaultBranch | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			{ expiryOverride: options?.expiryOverride },
+		);
 		return defaultBranch;
 	}
 
 	protected abstract getProviderDefaultBranch(
 		{ accessToken }: ProviderAuthenticationSession,
 		repo: T,
+		cancellation?: CancellationToken,
 	): Promise<DefaultBranch | undefined>;
 
 	@debug()

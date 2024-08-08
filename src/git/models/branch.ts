@@ -1,3 +1,4 @@
+import type { CancellationToken } from 'vscode';
 import type { BranchSorting } from '../../config';
 import type { Container } from '../../container';
 import { configuration } from '../../system/configuration';
@@ -221,6 +222,23 @@ export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, 
 
 export function getBranchNameWithoutRemote(name: string): string {
 	return name.substring(getRemoteNameSlashIndex(name) + 1);
+}
+
+export async function getDefaultBranchName(
+	container: Container,
+	repoPath: string,
+	remoteName?: string,
+	options?: { cancellation?: CancellationToken },
+): Promise<string | undefined> {
+	const name = await container.git.getDefaultBranchName(repoPath, remoteName);
+	if (name != null) return name;
+
+	const remote = await container.git.getBestRemoteWithIntegration(repoPath);
+	if (remote == null) return undefined;
+
+	const integration = await remote.getIntegration();
+	const defaultBranch = await integration?.getDefaultBranch?.(remote.provider.repoDesc, options);
+	return `${remote.name}/${defaultBranch?.name}`;
 }
 
 export function getRemoteNameFromBranchName(name: string): string {

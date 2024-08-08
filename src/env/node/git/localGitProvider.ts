@@ -3003,26 +3003,25 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
-		if (!remote) {
+		if (remote) {
 			try {
-				const data = await this.git.symbolic_ref(repoPath, 'HEAD');
-				if (data != null) return data.trim();
+				const data = await this.git.ls_remote__HEAD(repoPath, remote);
+				if (data == null) return undefined;
+
+				const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
+				if (match == null) return undefined;
+
+				const [, branch] = match;
+				return `${remote}/${branch.substr('refs/heads/'.length)}`;
 			} catch {}
 		}
 
-		remote = remote ?? 'origin';
 		try {
-			const data = await this.git.ls_remote__HEAD(repoPath, remote);
-			if (data == null) return undefined;
+			const data = await this.git.symbolic_ref(repoPath, `refs/remotes/origin/HEAD`);
+			if (data != null) return data.trim();
+		} catch {}
 
-			const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
-			if (match == null) return undefined;
-
-			const [, branch] = match;
-			return branch.substr('refs/heads/'.length);
-		} catch {
-			return undefined;
-		}
+		return undefined;
 	}
 
 	@log()
