@@ -6758,6 +6758,12 @@
 				"icon": "$(copy)"
 			},
 			{
+				"command": "gitlens.createPullRequestOnRemote",
+				"title": "Create Pull Request on Remote",
+				"category": "GitLens",
+				"icon": "$(git-pull-request-create)"
+			},
+			{
 				"command": "gitlens.openAssociatedPullRequestOnRemote",
 				"title": "Open Associated Pull Request",
 				"category": "GitLens",
@@ -10503,6 +10509,10 @@
 				{
 					"command": "gitlens.copyRemotePullRequestUrl",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.createPullRequestOnRemote",
+					"when": "gitlens:repos:withRemotes"
 				},
 				{
 					"command": "gitlens.openAssociatedPullRequestOnRemote",
