@@ -178,6 +178,7 @@ export interface GraphComponentConfig {
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
+	idLength?: number;
 	minimap?: boolean;
 	minimapDataType?: Config['graph']['minimap']['dataType'];
 	minimapMarkerTypes?: GraphMinimapMarkerTypes[];
@@ -186,7 +187,6 @@ export interface GraphComponentConfig {
 	scrollRowPadding?: number;
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
-	idLength?: number;
 }
 
 export interface GraphColumnConfig {
@@ -277,11 +277,11 @@ export interface UpdateRefsVisibilityParams {
 }
 export const UpdateRefsVisibilityCommand = new IpcCommand<UpdateRefsVisibilityParams>(scope, 'refs/update/visibility');
 
-export interface UpdateExcludeTypeParams {
+export interface UpdateExcludeTypesParams {
 	key: keyof GraphExcludeTypes;
 	value: boolean;
 }
-export const UpdateExcludeTypeCommand = new IpcCommand<UpdateExcludeTypeParams>(scope, 'fitlers/update/excludeType');
+export const UpdateExcludeTypesCommand = new IpcCommand<UpdateExcludeTypesParams>(scope, 'filters/update/excludeTypes');
 
 export interface UpdateGraphConfigurationParams {
 	changes: { [key in keyof GraphComponentConfig]?: GraphComponentConfig[key] };
@@ -291,13 +291,10 @@ export const UpdateGraphConfigurationCommand = new IpcCommand<UpdateGraphConfigu
 	'configuration/update',
 );
 
-export interface UpdateIncludeOnlyRefsParams {
+export interface UpdateIncludedRefsParams {
 	refs?: GraphIncludeOnlyRef[];
 }
-export const UpdateIncludeOnlyRefsCommand = new IpcCommand<UpdateIncludeOnlyRefsParams>(
-	scope,
-	'fitlers/update/includeOnlyRefs',
-);
+export const UpdateIncludedRefsCommand = new IpcCommand<UpdateIncludedRefsParams>(scope, 'filters/update/includedRefs');
 
 export interface UpdateSelectionParams {
 	selection: { id: string; type: GitGraphRowType }[];
@@ -375,6 +372,14 @@ export interface DidChangeAvatarsParams {
 	avatars: GraphAvatars;
 }
 export const DidChangeAvatarsNotification = new IpcNotification<DidChangeAvatarsParams>(scope, 'avatars/didChange');
+
+export interface DidChangeBranchStateParams {
+	branchState: BranchState;
+}
+export const DidChangeBranchStateNotification = new IpcNotification<DidChangeBranchStateParams>(
+	scope,
+	'branchState/didChange',
+);
 
 export interface DidChangeRefsMetadataParams {
 	metadata: GraphRefsMetadata | null | undefined;

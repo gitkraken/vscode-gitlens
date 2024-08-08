@@ -45,6 +45,7 @@ import type {
 } from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotification,
+	DidChangeBranchStateNotification,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeRefsMetadataNotification,
@@ -83,28 +84,28 @@ export interface GraphWrapperProps {
 	nonce?: string;
 	state: State;
 	subscriber: (callback: UpdateStateCallback) => () => void;
+	onChangeColumns?: (colsSettings: GraphColumnsConfig) => void;
+	onChangeExcludeTypes?: (key: keyof GraphExcludeTypes, value: boolean) => void;
+	onChangeGraphConfiguration?: (changes: UpdateGraphConfigurationParams['changes']) => void;
+	onChangeRefIncludes?: (all?: boolean) => void;
+	onChangeRefsVisibility?: (refs: GraphExcludedRef[], visible: boolean) => void;
+	onChangeSelection?: (rows: GraphRow[]) => void;
 	onChooseRepository?: () => void;
-	onColumnsChange?: (colsSettings: GraphColumnsConfig) => void;
 	onDoubleClickRef?: (ref: GraphRef, metadata?: GraphRefMetadataItem) => void;
 	onDoubleClickRow?: (row: GraphRow, preserveFocus?: boolean) => void;
+	onEnsureRowPromise?: (id: string, select: boolean) => Promise<DidEnsureRowParams | undefined>;
 	onHoverRowPromise?: (row: GraphRow) => Promise<DidGetRowHoverParams>;
 	onJumpToRefPromise?: (alt: boolean) => Promise<{ name: string; sha: string } | undefined>;
 	onMissingAvatars?: (emails: Record<string, string>) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
 	onOpenPullRequest?: (pr: NonNullable<NonNullable<State['branchState']>['pr']>) => void;
-	onRefsVisibilityChange?: (refs: GraphExcludedRef[], visible: boolean) => void;
 	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
 	onSearchPromise?: (
 		search: SearchQuery,
 		options?: { limit?: number; more?: boolean },
 	) => Promise<DidSearchParams | undefined>;
 	onSearchOpenInView?: (search: SearchQuery) => void;
-	onSelectionChange?: (rows: GraphRow[]) => void;
-	onEnsureRowPromise?: (id: string, select: boolean) => Promise<DidEnsureRowParams | undefined>;
-	onExcludeType?: (key: keyof GraphExcludeTypes, value: boolean) => void;
-	onIncludeOnlyRef?: (all: boolean) => void;
-	onUpdateGraphConfiguration?: (changes: UpdateGraphConfigurationParams['changes']) => void;
 }
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
@@ -208,7 +209,12 @@ export function GraphWrapper({
 	nonce,
 	state,
 	onChooseRepository,
-	onColumnsChange,
+	onChangeColumns,
+	onChangeExcludeTypes,
+	onChangeGraphConfiguration,
+	onChangeRefIncludes,
+	onChangeRefsVisibility,
+	onChangeSelection,
 	onDoubleClickRef,
 	onDoubleClickRow,
 	onEnsureRowPromise,
@@ -218,14 +224,9 @@ export function GraphWrapper({
 	onMissingRefsMetadata,
 	onMoreRows,
 	onOpenPullRequest,
-	onRefsVisibilityChange,
 	onSearch,
 	onSearchPromise,
 	onSearchOpenInView,
-	onSelectionChange,
-	onExcludeType,
-	onIncludeOnlyRef,
-	onUpdateGraphConfiguration,
 }: GraphWrapperProps) {
 	const graphRef = useRef<GraphContainer>(null);
 
@@ -297,6 +298,9 @@ export function GraphWrapper({
 				break;
 			case DidChangeAvatarsNotification:
 				setAvatars(state.avatars);
+				break;
+			case DidChangeBranchStateNotification:
+				setBranchState(state.branchState);
 				break;
 			case DidChangeHostWindowFocusNotification:
 				setWindowFocused(state.windowFocused);
@@ -435,7 +439,7 @@ export function GraphWrapper({
 	};
 
 	const handleOnMinimapToggle = (_e: React.MouseEvent) => {
-		onUpdateGraphConfiguration?.({ minimap: !graphConfig?.minimap });
+		onChangeGraphConfiguration?.({ minimap: !graphConfig?.minimap });
 	};
 
 	// This can only be applied to one radio button for now due to a bug in the component: https://github.com/microsoft/fast/issues/6381
@@ -448,7 +452,7 @@ export function GraphWrapper({
 			if (graphConfig.minimapDataType === minimapDataType) return;
 
 			setGraphConfig({ ...graphConfig, minimapDataType: minimapDataType });
-			onUpdateGraphConfiguration?.({ minimapDataType: minimapDataType });
+			onChangeGraphConfiguration?.({ minimapDataType: minimapDataType });
 		}
 	};
 
@@ -462,7 +466,7 @@ export function GraphWrapper({
 			if (!graphConfig.minimapMarkerTypes.includes(value)) {
 				const minimapMarkerTypes = [...graphConfig.minimapMarkerTypes, value];
 				setGraphConfig({ ...graphConfig, minimapMarkerTypes: minimapMarkerTypes });
-				onUpdateGraphConfiguration?.({ minimapMarkerTypes: minimapMarkerTypes });
+				onChangeGraphConfiguration?.({ minimapMarkerTypes: minimapMarkerTypes });
 			}
 		} else {
 			const index = graphConfig.minimapMarkerTypes.indexOf(value);
@@ -470,7 +474,7 @@ export function GraphWrapper({
 				const minimapMarkerTypes = [...graphConfig.minimapMarkerTypes];
 				minimapMarkerTypes.splice(index, 1);
 				setGraphConfig({ ...graphConfig, minimapMarkerTypes: minimapMarkerTypes });
-				onUpdateGraphConfiguration?.({ minimapMarkerTypes: minimapMarkerTypes });
+				onChangeGraphConfiguration?.({ minimapMarkerTypes: minimapMarkerTypes });
 			}
 		}
 	};
@@ -739,11 +743,11 @@ export function GraphWrapper({
 
 		switch (value) {
 			case 'mergeCommits':
-				onUpdateGraphConfiguration?.({ dimMergeCommits: isChecked });
+				onChangeGraphConfiguration?.({ dimMergeCommits: isChecked });
 				return;
 
 			case 'onlyFollowFirstParent':
-				onUpdateGraphConfiguration?.({ onlyFollowFirstParent: isChecked });
+				onChangeGraphConfiguration?.({ onlyFollowFirstParent: isChecked });
 				return;
 		}
 
@@ -762,7 +766,7 @@ export function GraphWrapper({
 				...excludeTypes,
 				[key]: isChecked,
 			});
-			onExcludeType?.(key, isChecked);
+			onChangeExcludeTypes?.(key, isChecked);
 		}
 	};
 
@@ -775,7 +779,7 @@ export function GraphWrapper({
 		if (isAllBranches === wantsAllBranches) {
 			return;
 		}
-		onIncludeOnlyRef?.(wantsAllBranches);
+		onChangeRefIncludes?.(wantsAllBranches);
 	};
 
 	const handleMissingAvatars = (emails: GraphAvatars) => {
@@ -804,7 +808,7 @@ export function GraphWrapper({
 
 	const handleOnColumnResized = (columnName: GraphColumnName, columnSettings: GraphColumnSetting) => {
 		if (columnSettings.width) {
-			onColumnsChange?.({
+			onChangeColumns?.({
 				[columnName]: {
 					width: columnSettings.width,
 					isHidden: columnSettings.isHidden,
@@ -827,11 +831,11 @@ export function GraphWrapper({
 		for (const [columnName, config] of Object.entries(columnsSettings as GraphColumnsConfig)) {
 			graphColumnsConfig[columnName] = { ...config };
 		}
-		onColumnsChange?.(graphColumnsConfig);
+		onChangeColumns?.(graphColumnsConfig);
 	};
 
 	const handleOnToggleRefsVisibilityClick = (_event: any, refs: GraphRefOptData[], visible: boolean) => {
-		onRefsVisibilityChange?.(refs, visible);
+		onChangeRefsVisibility?.(refs, visible);
 	};
 
 	const handleOnDoubleClickRef = (
@@ -980,7 +984,7 @@ export function GraphWrapper({
 		setActiveDay(active?.date);
 		computeSelectionContext(active, rows);
 
-		onSelectionChange?.(rows);
+		onChangeSelection?.(rows);
 	};
 
 	const renderFetchAction = () => {
@@ -1286,7 +1290,7 @@ export function GraphWrapper({
 										></span>
 									</button>
 									<MenuList slot="content">
-										<MenuLabel>Filter options</MenuLabel>
+										<MenuLabel>Graph Filters</MenuLabel>
 										<MenuItem role="none">
 											<VSCodeRadioGroup
 												orientation="vertical"
@@ -1371,7 +1375,7 @@ export function GraphWrapper({
 										</MenuItem>
 									</MenuList>
 								</PopMenu>
-								<span slot="content">Filter Graph</span>
+								<span slot="content">Graph Filtering</span>
 							</GlTooltip>
 							<span>
 								<span className="action-divider"></span>
@@ -1423,7 +1427,7 @@ export function GraphWrapper({
 											></span>
 										</button>
 										<MenuList slot="content">
-											<MenuLabel>Chart</MenuLabel>
+											<MenuLabel>Minimap</MenuLabel>
 											<MenuItem role="none">
 												<VSCodeRadioGroup
 													orientation="vertical"

@@ -83,7 +83,11 @@ import type { Deferrable } from '../../../system/function';
 import { debounce, disposableInterval } from '../../../system/function';
 import { find, last, map } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
-import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../../system/promise';
+import {
+	getSettledValue,
+	pauseOnCancelOrTimeout,
+	pauseOnCancelOrTimeoutMapTuplePromise,
+} from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
@@ -138,8 +142,9 @@ import type {
 	SearchParams,
 	State,
 	UpdateColumnsParams,
-	UpdateExcludeTypeParams,
+	UpdateExcludeTypesParams,
 	UpdateGraphConfigurationParams,
+	UpdateIncludedRefsParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectionParams,
 } from './protocol';
@@ -147,6 +152,7 @@ import {
 	ChooseRefRequest,
 	ChooseRepositoryCommand,
 	DidChangeAvatarsNotification,
+	DidChangeBranchStateNotification,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
@@ -171,9 +177,9 @@ import {
 	SearchRequest,
 	supportedRefMetadataTypes,
 	UpdateColumnsCommand,
-	UpdateExcludeTypeCommand,
+	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
-	UpdateIncludeOnlyRefsCommand,
+	UpdateIncludedRefsCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
 } from './protocol';
@@ -198,6 +204,8 @@ const compactGraphColumnsSettings: GraphColumnsSettings = {
 	datetime: { width: 130, isHidden: true, order: 5 },
 	sha: { width: 130, isHidden: false, order: 6 },
 };
+
+type CancellableOperations = 'hover' | 'search' | 'state';
 
 export class GraphWebviewProvider implements WebviewProvider<State, State, GraphWebviewShowingArgs> {
 	private _repository?: Repository;
@@ -224,6 +232,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this._selection?.[0];
 	}
 
+	private _cancellations = new Map<CancellableOperations, CancellationTokenSource>();
 	private _discovering: Promise<number | undefined> | undefined;
 	private readonly _disposable: Disposable;
 	private _etag?: number;
@@ -232,7 +241,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _firstSelection = true;
 	private _graph?: GitGraph;
 	private _hoverCache = new Map<string, Promise<string>>();
-	private _hoverCancellation: CancellationTokenSource | undefined;
 
 	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean>>([
 		[DidChangeColumnsNotification, this.notifyDidChangeColumns],
@@ -247,7 +255,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	]);
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
 	private _search: GitSearch | undefined;
-	private _searchCancellation: CancellationTokenSource | undefined;
 	private _selectedId?: string;
 	private _selectedRows: GraphSelectedRows | undefined;
 	private _showDetailsView: Config['graph']['showDetailsView'];
@@ -671,17 +678,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case UpdateGraphConfigurationCommand.is(e):
 				this.updateGraphConfig(e.params);
 				break;
+			case UpdateExcludeTypesCommand.is(e):
+				this.updateExcludedTypes(this._graph?.repoPath, e.params);
+				break;
+			case UpdateIncludedRefsCommand.is(e):
+				this.updateIncludeOnlyRefs(this._graph?.repoPath, e.params);
+				break;
 			case UpdateRefsVisibilityCommand.is(e):
 				this.onRefsVisibilityChanged(e.params);
 				break;
 			case UpdateSelectionCommand.is(e):
 				this.onSelectionChanged(e.params);
-				break;
-			case UpdateExcludeTypeCommand.is(e):
-				this.updateExcludedType(this._graph, e.params);
-				break;
-			case UpdateIncludeOnlyRefsCommand.is(e):
-				this.updateIncludeOnlyRefs(this._graph, e.params.refs);
 				break;
 		}
 	}
@@ -854,7 +861,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {
-		this.updateExcludedRefs(this._graph, e.refs, e.visible);
+		this.updateExcludedRefs(this._graph?.repoPath, e.refs, e.visible);
 	}
 
 	private onDoubleClick(e: DoubleClickedParams) {
@@ -930,17 +937,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			markdown: undefined!,
 		};
 
-		if (this._hoverCancellation != null) {
-			this._hoverCancellation.cancel();
-		}
+		this.cancelOperation('hover');
 
 		if (this._graph != null) {
 			const id = msg.params.id;
 
 			let markdown = this._hoverCache.get(id);
 			if (markdown == null) {
-				const cancellation = new CancellationTokenSource();
-				this._hoverCancellation = cancellation;
+				const cancellation = this.createCancellation('hover');
 
 				let cache = true;
 				let commit;
@@ -1337,12 +1341,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.updateState(true);
 			}
 
-			if (this._searchCancellation != null) {
-				this._searchCancellation.cancel();
-			}
-
-			const cancellation = new CancellationTokenSource();
-			this._searchCancellation = cancellation;
+			const cancellation = this.createCancellation('search');
 
 			try {
 				search = await this.repository.searchCommits(e.search, {
@@ -1565,6 +1564,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
+	@debug()
+	private async notifyDidChangeBranchState(branchState: BranchState) {
+		return this.host.notify(DidChangeBranchStateNotification, {
+			branchState: branchState,
+		});
+	}
+
 	private _notifyDidChangeRefsMetadataDebounced:
 		| Deferrable<GraphWebviewProvider['notifyDidChangeRefsMetadata']>
 		| undefined = undefined;
@@ -1627,10 +1633,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return false;
 		}
 
+		const filters = this.getFiltersByRepo(this._graph?.repoPath);
 		return this.host.notify(DidChangeRefsVisibilityNotification, {
-			excludeRefs: this.getExcludedRefs(this._graph),
-			excludeTypes: this.getExcludedTypes(this._graph),
-			includeOnlyRefs: this.getIncludeOnlyRefs(this._graph),
+			excludeRefs: this.getExcludedRefs(filters, this._graph),
+			excludeTypes: this.getExcludedTypes(filters),
+			includeOnlyRefs: this.getIncludeOnlyRefs(filters, this._graph),
 		});
 	}
 
@@ -1823,45 +1830,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.container.storage.getWorkspace('graph:columns');
 	}
 
-	private getExcludedTypes(graph: GitGraph | undefined): GraphExcludeTypes | undefined {
-		if (graph == null) return undefined;
-
-		return this.getFiltersByRepo(graph)?.excludeTypes;
+	private getExcludedTypes(filters: StoredGraphFilters | undefined): GraphExcludeTypes | undefined {
+		return filters?.excludeTypes;
 	}
 
-	private getExcludedRefs(graph: GitGraph | undefined): Record<string, GraphExcludedRef> | undefined {
+	private getExcludedRefs(
+		filters: StoredGraphFilters | undefined,
+		graph: GitGraph | undefined,
+	): Record<string, GraphExcludedRef> | undefined {
 		if (graph == null) return undefined;
 
-		let filtersByRepo: Record<string, StoredGraphFilters> | undefined;
-
-		const storedHiddenRefs = this.container.storage.getWorkspace('graph:hiddenRefs');
-		if (storedHiddenRefs != null && Object.keys(storedHiddenRefs).length !== 0) {
-			// Migrate hidden refs to exclude refs
-			filtersByRepo = this.container.storage.getWorkspace('graph:filtersByRepo') ?? {};
-
-			for (const id in storedHiddenRefs) {
-				const repoPath = getRepoPathFromBranchOrTagId(id);
-
-				filtersByRepo[repoPath] = filtersByRepo[repoPath] ?? {};
-				filtersByRepo[repoPath].excludeRefs = updateRecordValue(
-					filtersByRepo[repoPath].excludeRefs,
-					id,
-					storedHiddenRefs[id],
-				);
-			}
-
-			void this.container.storage.storeWorkspace('graph:filtersByRepo', filtersByRepo);
-			void this.container.storage.deleteWorkspace('graph:hiddenRefs');
-		}
-
-		const storedExcludeRefs = (filtersByRepo?.[graph.repoPath] ?? this.getFiltersByRepo(graph))?.excludeRefs;
+		const storedExcludeRefs = filters?.excludeRefs;
 		if (storedExcludeRefs == null || Object.keys(storedExcludeRefs).length === 0) return undefined;
 
+		const asWebviewUri = (uri: Uri) => this.host.asWebviewUri(uri);
 		const useAvatars = configuration.get('graph.avatars', undefined, true);
 
 		const excludeRefs: GraphExcludeRefs = {};
 
-		const asWebviewUri = (uri: Uri) => this.host.asWebviewUri(uri);
 		for (const id in storedExcludeRefs) {
 			const ref: GraphExcludedRef = { ...storedExcludeRefs[id] };
 			if (ref.type === 'remote' && ref.owner) {
@@ -1911,12 +1897,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return excludeRefs;
 	}
 
-	private getIncludeOnlyRefs(graph: GitGraph | undefined): Record<string, GraphIncludeOnlyRef> | undefined {
+	private getIncludeOnlyRefs(
+		filters: StoredGraphFilters | undefined,
+		graph: GitGraph | undefined,
+	): Record<string, GraphIncludeOnlyRef> | undefined {
 		if (graph == null) return undefined;
 
-		const storedFilters = this.getFiltersByRepo(graph);
-		const storedIncludeOnlyRefs = storedFilters?.includeOnlyRefs;
-		if (storedIncludeOnlyRefs == null || Object.keys(storedIncludeOnlyRefs).length === 0) return undefined;
+		const storedIncludeOnlyRefs = filters?.includeOnlyRefs;
+		if (storedIncludeOnlyRefs == null || !Object.keys(storedIncludeOnlyRefs).length) return undefined;
 
 		const includeOnlyRefs: Record<string, StoredGraphIncludeOnlyRef> = {};
 
@@ -1949,11 +1937,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return includeOnlyRefs;
 	}
 
-	private getFiltersByRepo(graph: GitGraph | undefined): StoredGraphFilters | undefined {
-		if (graph == null) return undefined;
+	private getFiltersByRepo(repoPath: string | undefined): StoredGraphFilters | undefined {
+		if (repoPath == null) return undefined;
 
 		const filters = this.container.storage.getWorkspace('graph:filtersByRepo');
-		return filters?.[graph.repoPath];
+		return filters?.[repoPath];
 	}
 
 	private getColumnSettings(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings {
@@ -2043,6 +2031,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			enableMultiSelection: this.container.prereleaseOrDebugging,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
+			idLength: configuration.get('advanced.abbreviatedShaLength'),
 			minimap: configuration.get('graph.minimap.enabled'),
 			minimapDataType: configuration.get('graph.minimap.dataType'),
 			minimapMarkerTypes: this.getMinimapMarkerTypes(),
@@ -2051,7 +2040,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			scrollMarkerTypes: this.getScrollMarkerTypes(),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
-			idLength: configuration.get('advanced.abbreviatedShaLength'),
 		};
 		return config;
 	}
@@ -2225,9 +2213,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (branch.upstream != null) {
 				branchState.upstream = branch.upstream.name;
 
+				const cancellation = this.createCancellation('state');
+
 				const [remoteResult, prResult] = await Promise.allSettled([
 					branch.getRemote(),
-					branch.getAssociatedPullRequest(),
+					pauseOnCancelOrTimeout(branch.getAssociatedPullRequest(), cancellation.token, 100),
 				]);
 
 				const remote = getSettledValue(remoteResult);
@@ -2239,13 +2229,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					};
 				}
 
-				const pr = getSettledValue(prResult);
-				if (pr != null) {
-					branchState.pr = serializePullRequest(pr);
+				const maybePr = getSettledValue(prResult);
+				if (maybePr?.paused) {
+					const updatedBranchState = { ...branchState };
+					void maybePr.value.then(pr => {
+						if (cancellation?.token.isCancellationRequested) return;
+
+						if (pr != null) {
+							updatedBranchState.pr = serializePullRequest(pr);
+							void this.notifyDidChangeBranchState(updatedBranchState);
+						}
+					});
+				} else {
+					const pr = maybePr?.value;
+					if (pr != null) {
+						branchState.pr = serializePullRequest(pr);
+					}
 				}
 			}
 		}
 
+		const filters = this.getFiltersByRepo(this.repository.path);
 		return {
 			...this.host.baseWebviewState,
 			windowFocused: this.isWindowFocused,
@@ -2277,9 +2281,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				header: this.getColumnHeaderContext(columnSettings),
 				settings: this.getGraphSettingsIconContext(columnSettings),
 			},
-			excludeRefs: data != null ? this.getExcludedRefs(data) ?? {} : {},
-			excludeTypes: this.getExcludedTypes(data) ?? {},
-			includeOnlyRefs: data != null ? this.getIncludeOnlyRefs(data) ?? {} : {},
+			excludeRefs: this.getExcludedRefs(filters, data) ?? {},
+			excludeTypes: this.getExcludedTypes(filters) ?? {},
+			includeOnlyRefs: this.getIncludeOnlyRefs(filters, data) ?? {},
 			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 		};
@@ -2294,10 +2298,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.notifyDidChangeColumns();
 	}
 
-	private updateExcludedRefs(graph: GitGraph | undefined, refs: GraphExcludedRef[], visible: boolean) {
-		if (refs == null || refs.length === 0) return;
+	private updateExcludedRefs(repoPath: string | undefined, refs: GraphExcludedRef[], visible: boolean) {
+		if (repoPath == null || !refs?.length) return;
 
-		let storedExcludeRefs: StoredGraphFilters['excludeRefs'] = this.getFiltersByRepo(graph)?.excludeRefs ?? {};
+		let storedExcludeRefs: StoredGraphFilters['excludeRefs'] = this.getFiltersByRepo(repoPath)?.excludeRefs ?? {};
 		for (const ref of refs) {
 			storedExcludeRefs = updateRecordValue(
 				storedExcludeRefs,
@@ -2308,25 +2312,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			);
 		}
 
-		void this.updateFiltersByRepo(graph, { excludeRefs: storedExcludeRefs });
+		void this.updateFiltersByRepo(repoPath, { excludeRefs: storedExcludeRefs });
 		void this.notifyDidChangeRefsVisibility();
 	}
 
-	private updateFiltersByRepo(graph: GitGraph | undefined, updates: Partial<StoredGraphFilters>) {
-		if (graph == null) throw new Error('Cannot save repository filters since Graph is undefined');
+	private updateFiltersByRepo(repoPath: string | undefined, updates: Partial<StoredGraphFilters>) {
+		if (repoPath == null) return;
 
 		const filtersByRepo = this.container.storage.getWorkspace('graph:filtersByRepo');
 		return this.container.storage.storeWorkspace(
 			'graph:filtersByRepo',
-			updateRecordValue(filtersByRepo, graph.repoPath, { ...filtersByRepo?.[graph.repoPath], ...updates }),
+			updateRecordValue(filtersByRepo, repoPath, { ...filtersByRepo?.[repoPath], ...updates }),
 		);
 	}
 
-	private updateIncludeOnlyRefs(graph: GitGraph | undefined, refs: GraphIncludeOnlyRef[] | undefined) {
+	private updateIncludeOnlyRefs(repoPath: string | undefined, { refs }: UpdateIncludedRefsParams) {
+		if (repoPath == null) return;
+
 		let storedIncludeOnlyRefs: StoredGraphFilters['includeOnlyRefs'];
 
-		if (refs == null || refs.length === 0) {
-			if (this.getFiltersByRepo(graph)?.includeOnlyRefs == null) return;
+		if (!refs?.length) {
+			if (this.getFiltersByRepo(repoPath)?.includeOnlyRefs == null) return;
 
 			storedIncludeOnlyRefs = undefined;
 		} else {
@@ -2341,26 +2347,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		void this.updateFiltersByRepo(graph, { includeOnlyRefs: storedIncludeOnlyRefs });
+		void this.updateFiltersByRepo(repoPath, { includeOnlyRefs: storedIncludeOnlyRefs });
 		void this.notifyDidChangeRefsVisibility();
 	}
 
-	private updateExcludedType(graph: GitGraph | undefined, { key, value }: UpdateExcludeTypeParams) {
-		let excludeTypes = this.getFiltersByRepo(graph)?.excludeTypes;
-		if ((excludeTypes == null || Object.keys(excludeTypes).length === 0) && value === false) {
+	private updateExcludedTypes(repoPath: string | undefined, { key, value }: UpdateExcludeTypesParams) {
+		if (repoPath == null) return;
+
+		let excludeTypes = this.getFiltersByRepo(repoPath)?.excludeTypes;
+		if ((excludeTypes == null || !Object.keys(excludeTypes).length) && value === false) {
 			return;
 		}
 
 		excludeTypes = updateRecordValue(excludeTypes, key, value);
 
-		void this.updateFiltersByRepo(graph, { excludeTypes: excludeTypes });
+		void this.updateFiltersByRepo(repoPath, { excludeTypes: excludeTypes });
 		void this.notifyDidChangeRefsVisibility();
 	}
 
 	private resetHoverCache() {
 		this._hoverCache.clear();
-		this._hoverCancellation?.dispose();
-		this._hoverCancellation = undefined;
+		this.cancelOperation('hover');
 	}
 
 	private resetRefsMetadata(): null | undefined {
@@ -2375,8 +2382,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private resetSearchState() {
 		this._search = undefined;
-		this._searchCancellation?.dispose();
-		this._searchCancellation = undefined;
+		this.cancelOperation('search');
 	}
 
 	private setSelectedRows(id: string | undefined) {
@@ -2762,7 +2768,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		if (refs != null) {
 			this.updateExcludedRefs(
-				this._graph,
+				this._graph?.repoPath,
 				refs.map(r => {
 					const remoteBranch = r.refType === 'branch' && r.remote;
 					return {
@@ -3267,6 +3273,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 		return { active: item.webviewItemValue.ref, selection: selection };
 	}
+
+	private createCancellation(op: CancellableOperations) {
+		this.cancelOperation(op);
+
+		const cancellation = new CancellationTokenSource();
+		this._cancellations.set(op, cancellation);
+		return cancellation;
+	}
+
+	private cancelOperation(op: CancellableOperations) {
+		this._cancellations.get(op)?.cancel();
+		this._cancellations.delete(op);
+	}
 }
 
 type GraphItemRefs<T> = {
@@ -3348,10 +3367,6 @@ function isGraphItemRefContext(item: unknown, refType?: GitReference['refType'])
 		'ref' in item.webviewItemValue &&
 		(refType == null || item.webviewItemValue.ref.refType === refType)
 	);
-}
-
-function getRepoPathFromBranchOrTagId(id: string): string {
-	return id.split('|', 1)[0];
 }
 
 export function hasGitReference(o: unknown): o is { ref: GitReference } {
