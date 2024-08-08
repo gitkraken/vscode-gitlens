@@ -559,16 +559,37 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get footnotes(): string {
-		const { outputFormat } = this._options;
+		if (this._options.footnotes == null || this._options.footnotes.size === 0) return '';
+
+		const { footnotes, outputFormat } = this._options;
+
+		// Aggregate similar footnotes
+		const notes = new Map<string, string[]>();
+		for (const [i, footnote] of footnotes) {
+			let note = notes.get(footnote);
+			if (note == null) {
+				note = [getSuperscript(i)];
+				notes.set(footnote, note);
+			} else {
+				note.push(getSuperscript(i));
+			}
+		}
+
+		if (outputFormat === 'plaintext') {
+			return this._padOrTruncate(
+				join(
+					map(notes, ([footnote, indices]) => `${indices.join(',')} ${footnote}`),
+					'\n',
+				),
+				this._options.tokenOptions.footnotes,
+			);
+		}
+
 		return this._padOrTruncate(
-			this._options.footnotes == null || this._options.footnotes.size === 0
-				? ''
-				: join(
-						map(this._options.footnotes, ([i, footnote]) =>
-							outputFormat === 'plaintext' ? `${getSuperscript(i)} ${footnote}` : footnote,
-						),
-						outputFormat === 'html' ? /*html*/ `<br \\>` : outputFormat === 'markdown' ? '\\\n' : '\n',
-				  ),
+			join(
+				notes.keys(),
+				outputFormat === 'html' ? /*html*/ `<br \\>` : outputFormat === 'markdown' ? '\\\n' : '\n',
+			),
 			this._options.tokenOptions.footnotes,
 		);
 	}
