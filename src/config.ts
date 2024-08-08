@@ -307,6 +307,7 @@ export type DateSource = 'authored' | 'committed';
 export type DateStyle = 'absolute' | 'relative';
 export type FileAnnotationType = 'blame' | 'changes' | 'heatmap';
 export type GitCommandSorting = 'name' | 'usage';
+export type GraphBranchesVisibility = 'all' | 'smart' | 'current';
 export type GraphScrollMarkersAdditionalTypes =
 	| 'localBranches'
 	| 'remoteBranches'
@@ -385,6 +386,7 @@ export interface AdvancedConfig {
 export interface GraphConfig {
 	readonly allowMultiple: boolean;
 	readonly avatars: boolean;
+	readonly branchesVisibility: GraphBranchesVisibility;
 	readonly commitOrdering: 'date' | 'author-date' | 'topo';
 	readonly dateFormat: DateTimeFormat | string | null;
 	readonly dateStyle: DateStyle | null;
