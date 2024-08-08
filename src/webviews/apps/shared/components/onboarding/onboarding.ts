@@ -28,28 +28,23 @@ export class GlOnboarding<
 			--gk-accordion-button-background-color-hovered: var(--vscode-list-hoverBackground);
 			--gk-accordion-button-border-radius: 0;
 		}
-		h3.title {
+
+		.title {
 			text-transform: uppercase;
 			font-weight: 700;
 			font-size: 11px;
 			text-align: left;
-			margin: 0;
+			margin-block: 0;
 			color: currentColor;
 			width: 100%;
 		}
-		h3.title span.progress {
+
+		.progress {
 			color: var(--vscode-progressBar-background);
-		}
-		gl-progress-tracker {
-			--gl-progress-foreground-color: var(--vscode-progressBar-background);
-			--gl-progress-background-color: var(--progress-bar-color);
 		}
 
 		gl-onboarding-item {
-			margin: 2px 0;
-			--gl-disabled-text-color: var(--vscode-disabledForeground);
-			--gl-checked-icon-color: var(--sl-color-success-500, green);
-			--gl-action-button-color: var(--sl-color-neutral-700, gray);
+			margin-block: 2px;
 		}
 
 		gl-onboarding-item-group {
@@ -104,6 +99,7 @@ export class GlOnboarding<
 			<gl-onboarding-item
 				.checked=${Boolean(this.state?.[`${onboardingItem.itemId}Checked`])}
 				play-href=${ifDefined(onboardingItem.playHref)}
+				play-title=${ifDefined(onboardingItem.playTooltip)}
 				info-href=${ifDefined(onboardingItem.infoHref)}
 				info-title=${ifDefined(onboardingItem.infoTooltip)}
 				>${onboardingItem.title}

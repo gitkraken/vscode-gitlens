@@ -1,4 +1,4 @@
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -11,78 +11,68 @@ export class GlOnboardingItem extends LitElement {
 		delegatesFocus: true,
 	};
 
-	private static cssInputVariables = css`
-		:host {
-			--gl-action-button-color: gray;
-			--gl-disabled-text-color: gray;
-			--gl-unchecked-icon-color: inherit;
-			--gl-checked-icon-color: green;
-		}
-	`;
-
-	private static actionButtonsStyles = css`
-		.actions {
-			display: flex;
-			align-items: center;
-			margin: -4px 0;
-		}
-		.actions gl-button {
-			--button-padding: 2px 0 0 0;
-		}
-		.actions gl-button.tooltip-only:focus-within {
-			outline: none;
-		}
-		.actions gl-button.tooltip-only {
-			cursor: default !important;
-			background: unset;
-		}
-		.actions gl-button.tooltip-only * {
-			cursor: default !important;
-		}
-		.actions gl-button code-icon {
-			font-size: 20px;
-			color: var(--gl-action-button-color);
-		}
-	`;
-
-	private static checkIconStyles = css`
-		code-icon.check {
-			color: var(--gl-unchecked-icon-color);
-			overflow: visible;
-			display: inline-block;
-			width: 14px;
-			flex-shrink: 0;
-			margin-right: 8px;
-		}
-		code-icon.check.checked {
-			color: var(--gl-checked-icon-color);
-		}
-	`;
-
-	private static descriptionStyles = css`
-		.description {
-			display: inline-flex;
-			flex: 1;
-			align-items: center;
-		}
-		.description span {
-			flex: 1;
-		}
-		.description.disabled span {
-			color: var(--gl-disabled-text-color);
-		}
-	`;
-
 	static override readonly styles = [
-		GlOnboardingItem.cssInputVariables,
-		GlOnboardingItem.actionButtonsStyles,
-		GlOnboardingItem.checkIconStyles,
-		GlOnboardingItem.descriptionStyles,
 		css`
 			:host {
+				--gl-action-button-color: var(--sl-color-neutral-700, gray);
+				--gl-disabled-text-color: var(--vscode-disabledForeground);
+				--gl-unchecked-icon-color: inherit;
+				--gl-checked-icon-color: var(--sl-color-success-500, green);
+
 				display: flex;
 				align-items: center;
 				font-size: 14px;
+			}
+
+			/* action buttons */
+			.actions {
+				display: flex;
+				align-items: center;
+				margin: -4px 0;
+			}
+			.actions gl-button {
+				--button-padding: 0;
+			}
+			.actions gl-button.tooltip-only:focus-within {
+				outline: none;
+			}
+			.actions gl-button.tooltip-only {
+				cursor: default !important;
+				background: unset;
+			}
+			.actions gl-button.tooltip-only * {
+				cursor: default !important;
+			}
+			.actions gl-button code-icon {
+				--code-icon-size: 20px;
+				--code-icon-v-align: middle;
+				color: var(--gl-action-button-color);
+			}
+
+			/* check icon */
+			code-icon.check {
+				color: var(--gl-unchecked-icon-color);
+				overflow: visible;
+				display: inline-block;
+				width: 14px;
+				flex-shrink: 0;
+				margin-right: 8px;
+			}
+			code-icon.check.checked {
+				color: var(--gl-checked-icon-color);
+			}
+
+			/* description */
+			.description {
+				display: inline-flex;
+				flex: 1;
+				align-items: center;
+			}
+			.description span {
+				flex: 1;
+			}
+			.description.disabled span {
+				color: var(--gl-disabled-text-color);
 			}
 		`,
 	];
@@ -90,8 +80,11 @@ export class GlOnboardingItem extends LitElement {
 	@property({ type: Boolean })
 	checked = false;
 
+	@property({ type: String, attribute: 'play-title' })
+	playTitle?: string;
+
 	@property({ type: String, attribute: 'play-href' })
-	playHref = '';
+	playHref?: string;
 
 	@property({ type: String, attribute: 'info-title' })
 	infoTitle?: string;
@@ -104,12 +97,16 @@ export class GlOnboardingItem extends LitElement {
 	}
 
 	private renderPlay() {
-		return html`<gl-button href=${this.playHref} appearance="toolbar"
+		if (!this.playHref) return nothing;
+
+		return html`<gl-button href=${this.playHref} tooltip=${ifDefined(this.playTitle)} appearance="toolbar"
 			><code-icon icon="play-circle"></code-icon
 		></gl-button>`;
 	}
 
 	private renderInfo() {
+		if (!this.infoPresented) return nothing;
+
 		return html`<gl-button
 			href=${ifDefined(this.infoHref)}
 			class=${classMap({
@@ -137,10 +134,7 @@ export class GlOnboardingItem extends LitElement {
 	}
 
 	private renderActions() {
-		return html` <div class="actions">
-			${when(Boolean(this.playHref), this.renderPlay.bind(this))}
-			${when(this.infoPresented, this.renderInfo.bind(this))}
-		</div>`;
+		return html` <div class="actions">${this.renderPlay()}${this.renderInfo()}</div>`;
 	}
 
 	protected override render() {
