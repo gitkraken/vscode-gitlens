@@ -68,10 +68,10 @@ export class GlOnboardingItem extends LitElement {
 				flex: 1;
 				align-items: center;
 			}
-			.description span {
+			.description-label {
 				flex: 1;
 			}
-			.description.disabled span {
+			.description.disabled .description-label {
 				color: var(--gl-disabled-text-color);
 			}
 		`,
@@ -146,7 +146,7 @@ export class GlOnboardingItem extends LitElement {
 					disabled: this.checked,
 				})}
 			>
-				<span><slot></slot></span>
+				<span class="description-label"><slot></slot></span>
 				${this.renderActions()}
 			</div>
 		`;
