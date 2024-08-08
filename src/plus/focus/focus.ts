@@ -47,7 +47,6 @@ import { openUrl } from '../../system/utils';
 import type { IntegrationId } from '../integrations/providers/models';
 import {
 	HostingIntegrationId,
-	isIntegrationId,
 	ProviderBuildStatusState,
 	ProviderPullRequestReviewState,
 	SelfHostedIntegrationId,
@@ -256,11 +255,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 				const connected = result.connected;
 				if (!connected) {
-					throw new Error(
-						`Unable to connect to ${
-							isIntegrationId(connected) ? getIntegrationTitle(connected) : 'integrations'
-						}`,
-					);
+					continue;
 				}
 
 				newlyConnected = Boolean(connected);
@@ -302,14 +297,6 @@ export class FocusCommand extends QuickCommand<State> {
 					result.resume();
 
 					const connected = result.connected;
-					if (!connected) {
-						throw new Error(
-							`Unable to connect to ${
-								isIntegrationId(connected) ? getIntegrationTitle(connected) : 'integrations'
-							}`,
-						);
-					}
-
 					newlyConnected = Boolean(connected);
 					await updateContextItems(this.container, context, { force: newlyConnected });
 					continue;
@@ -867,6 +854,8 @@ export class FocusCommand extends QuickCommand<State> {
 			{ placeholder: 'Launchpad requires a connected integration', ignoreFocusOut: false },
 		);
 
+		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
+		// Otherwise it disappears.
 		let freeze!: () => Disposable;
 		step.onDidActivate = qp => {
 			freeze = () => freezeStep(step, qp);
@@ -901,6 +890,8 @@ export class FocusCommand extends QuickCommand<State> {
 			{ placeholder: 'Launchpad requires a connected integration', ignoreFocusOut: true },
 		);
 
+		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
+		// Otherwise it disappears.
 		let freeze!: () => Disposable;
 		step.onDidActivate = qp => {
 			freeze = () => freezeStep(step, qp);
@@ -910,9 +901,12 @@ export class FocusCommand extends QuickCommand<State> {
 
 		if (canPickStepContinue(step, state, selection)) {
 			const resume = freeze();
-			const connected = await this.container.integrations.connectCloudIntegrations(undefined, {
-				source: 'launchpad',
-			});
+			const connected = await this.container.integrations.connectCloudIntegrations(
+				{ integrationIds: supportedFocusIntegrations },
+				{
+					source: 'launchpad',
+				},
+			);
 			return { connected: connected, resume: () => resume[Symbol.dispose]() };
 		}
 

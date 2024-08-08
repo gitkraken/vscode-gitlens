@@ -1,5 +1,5 @@
 import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
-import { authentication, Disposable, env, EventEmitter, Uri, window } from 'vscode';
+import { authentication, Disposable, env, EventEmitter, ProgressLocation, Uri, window } from 'vscode';
 import { isWeb } from '@env/platform';
 import type { Source } from '../../constants';
 import { sourceToContext } from '../../constants';
@@ -23,6 +23,7 @@ import {
 	CloudIntegrationAuthenticationUriPathPrefix,
 	isSupportedCloudIntegrationId,
 	iterateSupportedCloudIntegrationIds,
+	toCloudIntegrationType,
 	toIntegrationId,
 } from './authentication/models';
 import type {
@@ -151,7 +152,10 @@ export class IntegrationService implements Disposable {
 
 		let query = 'source=gitlens';
 		if (integrationId != null) {
-			query += `&connect=${integrationId}`;
+			const cloudIntegrationType = toCloudIntegrationType[integrationId];
+			if (cloudIntegrationType != null) {
+				query += `&connect=${cloudIntegrationType}`;
+			}
 		}
 
 		try {
@@ -174,26 +178,44 @@ export class IntegrationService implements Disposable {
 	}
 
 	async connectCloudIntegrations(
-		connect: { integrationId: SupportedCloudIntegrationIds; skipIfConnected?: boolean } | undefined,
-		source: Source | undefined,
+		connect?: { integrationIds: SupportedCloudIntegrationIds[]; skipIfConnected?: boolean },
+		source?: Source,
 	): Promise<boolean> {
 		const scope = getLogScope();
-		const integrationId = connect?.integrationId;
-		/* if (this.container.telemetry.enabled) {
-			this.container.telemetry.sendEvent(
-				'cloudIntegrations/settingsOpened',
-				{ 'integration.id': integrationId },
-				source,
-			);
-		} */
+		const integrationIds = connect?.integrationIds;
+		// TODO: Hook in a telemetry event here
 
 		let account = (await this.container.subscription.getSubscription()).account;
+		const connectedIntegrations = new Set<string>();
+		if (integrationIds != null) {
+			if (connect?.skipIfConnected) {
+				await this.syncCloudIntegrations();
+			}
 
-		if (integrationId && connect?.skipIfConnected) {
+			for (const integrationId of integrationIds) {
+				const integration = await this.get(integrationId);
+				if (integration.maybeConnected ?? (await integration.isConnected())) {
+					connectedIntegrations.add(integrationId);
+				}
+			}
+
+			if (connect?.skipIfConnected && connectedIntegrations.size === integrationIds.length) {
+				return true;
+			}
+		}
+
+		if (integrationIds && connect?.skipIfConnected) {
 			await this.syncCloudIntegrations();
-			const integration = await this.get(integrationId);
-			const connected = integration.maybeConnected ?? (await integration.isConnected());
-			if (connected) return true;
+			let someDisconnected = false;
+			for (const integrationId of integrationIds) {
+				const integration = await this.get(integrationId);
+				const connected = integration.maybeConnected ?? (await integration.isConnected());
+				if (!connected) {
+					someDisconnected = true;
+					break;
+				}
+			}
+			if (!someDisconnected) return true;
 		}
 
 		let query = 'source=gitlens';
@@ -202,8 +224,19 @@ export class IntegrationService implements Disposable {
 			query += `&context=${sourceToContext[source.source]}`;
 		}
 
-		if (integrationId != null) {
-			query += `&provider=${integrationId}`;
+		if (integrationIds != null) {
+			const cloudIntegrationTypes = [];
+			for (const integrationId of integrationIds) {
+				const cloudIntegrationType = toCloudIntegrationType[integrationId];
+				if (cloudIntegrationType == null) {
+					Logger.error(`Attempting to connect unsupported cloud integration type: ${integrationId}`);
+				} else {
+					cloudIntegrationTypes.push(cloudIntegrationType);
+				}
+			}
+			if (cloudIntegrationTypes.length > 0) {
+				query += `&provider=${cloudIntegrationTypes.join(',')}`;
+			}
 		}
 
 		const callbackUri = await env.asExternalUri(
@@ -238,10 +271,25 @@ export class IntegrationService implements Disposable {
 
 		let authData: CloudIntegrationConnectionAuth = { code: undefined, state: undefined };
 		try {
-			authData = await Promise.race([
-				deferredCallback.promise,
-				new Promise<CloudIntegrationConnectionAuth>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
-			]);
+			authData = await window.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: 'Connecting cloud integrations...',
+					cancellable: true,
+				},
+				(_, token) => {
+					return Promise.race([
+						deferredCallback.promise,
+						new Promise<CloudIntegrationConnectionAuth>((_, reject) =>
+							// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+							token.onCancellationRequested(() => reject('Cancelled')),
+						),
+						new Promise<CloudIntegrationConnectionAuth>((_, reject) =>
+							setTimeout(reject, 120000, 'Cancelled'),
+						),
+					]);
+				},
+			);
 		} catch {
 			return false;
 		} finally {
@@ -259,10 +307,16 @@ export class IntegrationService implements Disposable {
 
 		await this.syncCloudIntegrations();
 
-		if (integrationId != null) {
-			const integration = await this.get(integrationId);
-			const connected = integration.maybeConnected ?? (await integration.isConnected());
-			return connected;
+		if (integrationIds != null) {
+			for (const integrationId of integrationIds) {
+				const integration = await this.get(integrationId);
+				const connected = integration.maybeConnected ?? (await integration.isConnected());
+				if (connected && !connectedIntegrations.has(integrationId)) {
+					return true;
+				}
+			}
+
+			return false;
 		}
 
 		return true;
