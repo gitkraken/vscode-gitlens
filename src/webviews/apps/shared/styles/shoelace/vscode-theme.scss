@@ -133,6 +133,8 @@
 	--sl-color-neutral-0: var(--vscode-editor-background);
 	--sl-color-neutral-1000: var(--vscode-foreground);
 
+	--sl-color-primary-600: var(--vscode-list-activeSelectionBackground);
+
 	--sl-border-radius-small: 0.3rem; // 0.1875rem;
 	--sl-border-radius-medium: 0.4rem; // 0.25rem;
 	--sl-border-radius-large: 0.8rem; // 0.5rem;
@@ -197,7 +199,7 @@
 
 	--sl-focus-ring-color: var(--vscode-focusBorder);
 	--sl-focus-ring-style: solid;
-	--sl-focus-ring-width: 3px;
+	--sl-focus-ring-width: 1px;
 	--sl-focus-ring: var(--sl-focus-ring-style) var(--sl-focus-ring-width) var(--sl-focus-ring-color);
 	--sl-focus-ring-offset: 1px;
 
@@ -215,7 +217,7 @@
 	--sl-input-background-color-disabled: var(--sl-color-neutral-100);
 	--sl-input-border-color: var(--sl-color-neutral-300);
 	--sl-input-border-color-hover: var(--sl-color-neutral-400);
-	--sl-input-border-color-focus: var(--sl-color-primary-500);
+	--sl-input-border-color-focus: var(--vscode-focusBorder);
 	--sl-input-border-color-disabled: var(--sl-color-neutral-300);
 	--sl-input-border-width: 1px;
 	--sl-input-required-content: '*';

@@ -1,7 +1,8 @@
 /*global document window*/
-import type { CssVariables, GraphRef, GraphRow } from '@gitkraken/gitkraken-components';
+import type { CssVariables, GraphRef, GraphRefOptData, GraphRow } from '@gitkraken/gitkraken-components';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
+import type { GraphBranchesVisibility } from '../../../../config';
 import type { GitGraphRowType } from '../../../../git/models/graph';
 import type { SearchQuery } from '../../../../git/search';
 import type {
@@ -183,6 +184,7 @@ export class GraphApp extends App<State> {
 				break;
 
 			case DidChangeRefsVisibilityNotification.is(msg):
+				this.state.branchesVisibility = msg.params.branchesVisibility;
 				this.state.excludeRefs = msg.params.excludeRefs;
 				this.state.excludeTypes = msg.params.excludeTypes;
 				this.state.includeOnlyRefs = msg.params.includeOnlyRefs;
@@ -633,8 +635,8 @@ export class GraphApp extends App<State> {
 		this.sendCommand(UpdateExcludeTypesCommand, { key: key, value: value });
 	}
 
-	private onRefIncludesChanged(all?: boolean) {
-		this.sendCommand(UpdateIncludedRefsCommand, all ? {} : { refs: [{ id: 'HEAD', type: 'head', name: 'HEAD' }] });
+	private onRefIncludesChanged(branchesVisibility: GraphBranchesVisibility, refs?: GraphRefOptData[]) {
+		this.sendCommand(UpdateIncludedRefsCommand, { branchesVisibility: branchesVisibility, refs: refs });
 	}
 
 	private onGraphConfigurationChanged(changes: UpdateGraphConfigurationParams['changes']) {

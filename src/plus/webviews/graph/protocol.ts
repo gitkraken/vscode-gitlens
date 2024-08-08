@@ -22,7 +22,7 @@ import type {
 	UpstreamMetadata,
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
-import type { Config, DateStyle } from '../../../config';
+import type { Config, DateStyle, GraphBranchesVisibility } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
@@ -92,6 +92,7 @@ export interface State extends WebviewState {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
+	branchesVisibility?: GraphBranchesVisibility;
 	branchName?: string;
 	branchState?: BranchState;
 	lastFetched?: Date;
@@ -292,6 +293,7 @@ export const UpdateGraphConfigurationCommand = new IpcCommand<UpdateGraphConfigu
 );
 
 export interface UpdateIncludedRefsParams {
+	branchesVisibility?: GraphBranchesVisibility;
 	refs?: GraphIncludeOnlyRef[];
 }
 export const UpdateIncludedRefsCommand = new IpcCommand<UpdateIncludedRefsParams>(scope, 'filters/update/includedRefs');
@@ -405,6 +407,7 @@ export const DidChangeScrollMarkersNotification = new IpcNotification<DidChangeS
 );
 
 export interface DidChangeRefsVisibilityParams {
+	branchesVisibility: GraphBranchesVisibility;
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;

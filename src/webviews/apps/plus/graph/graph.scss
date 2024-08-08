@@ -395,12 +395,13 @@ button:not([disabled]),
 	> *:not(:first-child) .action-button {
 		padding-left: 0.5rem;
 		padding-right: 0.5rem;
+		height: 100%;
 	}
 
-	> *:not(:last-child),
-	> *:not(:last-child) .action-button {
-		padding-right: 0.5rem;
-	}
+	// > *:not(:last-child),
+	// > *:not(:last-child) .action-button {
+	// 	padding-right: 0.5rem;
+	// }
 
 	&:hover > *:not(:last-child),
 	&:active > *:not(:last-child),
@@ -1219,4 +1220,49 @@ hr {
 	border-radius: 3px;
 	padding: 0px 4px 2px 4px;
 	font-family: var(--vscode-editor-font-family);
+}
+
+sl-option::part(base) {
+	padding: 0.2rem 0.4rem;
+}
+
+sl-option[aria-selected='true']::part(base),
+sl-option:not([aria-selected='true']):hover::part(base),
+sl-option:not([aria-selected='true']):focus::part(base) {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+sl-option::part(checked-icon) {
+	display: none;
+}
+
+sl-select::part(listbox) {
+	padding-block: 0.2rem 0;
+	width: max-content;
+}
+
+sl-select::part(combobox) {
+	--sl-input-background-color: var(--color-graph-actionbar-background);
+	--sl-input-color: var(--color-foreground);
+	--sl-input-color-hover: var(--color-foreground);
+	padding: 0 0.75rem;
+	color: var(--color-foreground);
+	border-radius: var(--sl-border-radius-small);
+}
+
+sl-select::part(display-input) {
+	field-sizing: content;
+}
+
+sl-select::part(expand-icon) {
+	margin-inline-start: var(--sl-spacing-x-small);
+}
+
+sl-select[open]::part(combobox) {
+	background-color: var(--color-graph-actionbar-background);
+}
+sl-select:hover::part(combobox),
+sl-select:focus::part(combobox) {
+	background-color: var(--color-graph-actionbar-selectedBackground);
 }
