@@ -1,9 +1,12 @@
+import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { getRemoteNameFromBranchName } from '../git/models/branch';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
 import { Command } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
@@ -24,10 +27,29 @@ export class CreatePullRequestOnRemoteCommand extends Command {
 	}
 
 	async execute(args?: CreatePullRequestOnRemoteCommandArgs) {
-		if (args?.repoPath == null) return;
-
-		const repo = this.container.git.getRepository(args.repoPath);
+		let repo;
+		if (args?.repoPath != null) {
+			repo = this.container.git.getRepository(args.repoPath);
+		}
+		repo ??= await getRepositoryOrShowPicker('Create Pull Request', undefined, undefined);
 		if (repo == null) return;
+
+		if (args == null) {
+			const branch = await repo.getBranch();
+			if (branch?.upstream == null) {
+				void window.showErrorMessage(
+					`Unable to create a pull request for branch \`${branch?.name}\` because it has no upstream branch`,
+				);
+				return;
+			}
+
+			args = {
+				base: undefined,
+				compare: branch.name,
+				remote: getRemoteNameFromBranchName(branch.upstream.name),
+				repoPath: repo.path,
+			};
+		}
 
 		const compareRemote = await repo.getRemote(args.remote);
 		if (compareRemote?.provider == null) return;
