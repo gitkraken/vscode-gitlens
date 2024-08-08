@@ -1212,6 +1212,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					metadata.pullRequest = [prMetadata];
 
 					this._refsMetadata.set(id, metadata);
+					if (branch?.upstream?.missing) {
+						this._refsMetadata.set(getBranchId(repoPath, true, branch.upstream.name), metadata);
+					}
 					continue;
 				}
 
