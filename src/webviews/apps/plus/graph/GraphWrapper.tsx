@@ -976,6 +976,8 @@ export function GraphWrapper({
 	};
 
 	const handleSelectGraphRows = (rows: GraphRow[]) => {
+		hover.current?.hide();
+
 		const active = rows[rows.length - 1];
 		const activeKey = active != null ? `${active.sha}|${active.date}` : undefined;
 		// HACK: Ensure the main state is updated since it doesn't come from the extension
