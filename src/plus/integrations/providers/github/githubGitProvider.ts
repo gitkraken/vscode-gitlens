@@ -10,6 +10,7 @@ import type {
 } from 'vscode';
 import { EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
+import { isWeb } from '@env/platform';
 import { CharCode, Schemes } from '../../../../constants';
 import type { Container } from '../../../../container';
 import { emojify } from '../../../../emojis';
@@ -3486,6 +3487,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	private _sessionPromise: Promise<AuthenticationSession> | undefined;
 	private async ensureSession(force: boolean = false, silent: boolean = false): Promise<AuthenticationSession> {
+		silent = silent && !isWeb;
 		if (force || this._sessionPromise == null) {
 			async function getSession(this: GitHubGitProvider): Promise<AuthenticationSession> {
 				let skip = this.container.storage.get(`provider:authentication:skip:${this.descriptor.id}`, false);
