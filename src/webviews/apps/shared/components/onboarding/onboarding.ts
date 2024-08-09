@@ -123,6 +123,7 @@ export class GlOnboarding<
 					.checked=${this.calcStateFromChildren(onboardingItem)}
 					slot=${'top'}
 					play-href=${ifDefined(onboardingItem.playHref)}
+					play-title=${ifDefined(onboardingItem.playTooltip)}
 					info-href=${ifDefined(onboardingItem.infoHref)}
 					info-title=${ifDefined(onboardingItem.infoTooltip)}
 					>${onboardingItem.title}
