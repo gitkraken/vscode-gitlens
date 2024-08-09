@@ -45,11 +45,12 @@ import { GitSearchError } from '../../../git/errors';
 import { CommitFormatter } from '../../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../../git/models/branch';
 import {
-	getBaseBranchNameOrDefault,
 	getBranchId,
 	getBranchNameWithoutRemote,
+	getDefaultBranchName,
 	getLocalBranchByUpstream,
 	getRemoteNameFromBranchName,
+	getTargetBranchName,
 } from '../../../git/models/branch';
 import type { GitCommit } from '../../../git/models/commit';
 import { isStash } from '../../../git/models/commit';
@@ -1952,26 +1953,36 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				const cancellation = this.createCancellation('computeIncludedRefs');
 
-				const result = await getBaseBranchNameOrDefault(this.container, current, {
-					cancellation: cancellation.token,
-					timeout: options?.timeout,
-				});
+				const [baseResult, defaultResult, targetResult] = await Promise.allSettled([
+					this.container.git.getBaseBranchName(current.repoPath, current.name),
+					getDefaultBranchName(this.container, current.repoPath, current.getRemoteName()),
+					getTargetBranchName(this.container, current, {
+						cancellation: cancellation.token,
+						timeout: options?.timeout,
+					}),
+				]);
 
-				const defaultBranchName = result.default;
-				if (result.pending) {
-					continuation = result.base.then(async base => {
-						if (base == null || cancellation?.token.isCancellationRequested) return undefined;
+				const baseBranchName = getSettledValue(baseResult);
+				const defaultBranchName = getSettledValue(defaultResult);
+				const targetMaybeResult = getSettledValue(targetResult);
+
+				let targetBranchName: string | undefined;
+				if (targetMaybeResult?.paused) {
+					continuation = targetMaybeResult.value.then(async target => {
+						if (target == null || cancellation?.token.isCancellationRequested) return undefined;
 
 						const refs = await this.getVisibleRefs(graph, current, {
-							baseBranchName: base,
+							baseOrTargetBranchName: target,
 							defaultBranchName: defaultBranchName,
 						});
 						return Object.fromEntries(refs);
 					});
+				} else {
+					targetBranchName = targetMaybeResult?.value;
 				}
 
 				refs = await this.getVisibleRefs(graph, current, {
-					baseBranchName: result.pending ? undefined : result.base,
+					baseOrTargetBranchName: targetBranchName ?? baseBranchName,
 					defaultBranchName: defaultBranchName,
 				});
 
@@ -2513,7 +2524,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		currentBranch: GitBranch,
 		options?: {
 			defaultBranchName: string | undefined;
-			baseBranchName?: string | undefined;
+			baseOrTargetBranchName?: string | undefined;
 			associatedPullRequest?: PullRequest | undefined;
 		},
 	): Promise<Map<string, GraphIncludeOnlyRef>> {
@@ -2552,7 +2563,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		let includeDefault = true;
 
-		const baseBranchName = options?.baseBranchName;
+		const baseBranchName = options?.baseOrTargetBranchName;
 		if (baseBranchName != null && baseBranchName !== currentBranch?.name) {
 			const baseBranch = graph.branches.get(baseBranchName);
 			if (baseBranch != null) {

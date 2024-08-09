@@ -405,6 +405,7 @@ export const enum Commands {
 
 export type GitConfigKeys =
 	| `branch.${string}.${'gk' | 'vscode'}-merge-base`
+	| `branch.${string}.gk-target-base`
 	| `branch.${string}.github-pr-owner-number`;
 
 export type TreeViewCommands = `gitlens.views.${
