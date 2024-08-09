@@ -983,7 +983,6 @@ export type GlobalStorage = {
 	preVersion: string;
 	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
-	'home:sections:collapsed': string[];
 	'launchpad:groups:collapsed': StoredFocusGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;

@@ -162,6 +162,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 		if (symbols !== undefined) {
 			Logger.log('GitCodeLensProvider.provideCodeLenses:', `${symbols.length} symbol(s) found`);
+			this._onDidChangeCodeLenses.fire();
 			for (const sym of symbols) {
 				this.provideCodeLens(
 					lenses,

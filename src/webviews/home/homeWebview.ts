@@ -1,15 +1,26 @@
-import { Disposable, workspace } from 'vscode';
+import type { TextEditor } from 'vscode';
+import { Disposable, window, workspace } from 'vscode';
 import type { ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import { isSubscriptionExpired, isSubscriptionPaid, isSubscriptionTrial } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
+import { HostingIntegrationId } from '../../plus/integrations/providers/models';
 import { registerCommand } from '../../system/command';
 import { getContext, onDidChangeContext } from '../../system/context';
-import type { IpcMessage } from '../protocol';
+import type { TrackedUsageKeys, UsageChangeEvent } from '../../telemetry/usageTracker';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider';
-import type { CollapseSectionParams, DidChangeRepositoriesParams, State } from './protocol';
-import { CollapseSectionCommand, DidChangeOrgSettings, DidChangeRepositories, DidChangeSubscription } from './protocol';
+import type { DidChangeOnboardingStateParams, DidChangeRepositoriesParams, OnboardingItem, State } from './protocol';
+import {
+	DidChangeCodeLensState,
+	DidChangeOnboardingEditor,
+	DidChangeOnboardingIntegration,
+	DidChangeOnboardingState,
+	DidChangeOrgSettings,
+	DidChangeRepositories,
+	DidChangeSubscription,
+	DidResume,
+} from './protocol';
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {
@@ -19,6 +30,8 @@ const emptyDisposable = Object.freeze({
 
 export class HomeWebviewProvider implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
+	private activeTrackedTextEditor: TextEditor | undefined;
+	private hostedIntegrationConnected: boolean | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -31,11 +44,50 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 				: emptyDisposable,
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
+			this.container.usage.onDidChange(this.onUsagesChanged, this),
+			window.onDidChangeActiveTextEditor(this.onChangeActiveTextEditor, this),
+			this.container.integrations.onDidChangeConnectionState(e => {
+				if (isSupportedIntegration(e.key)) this.onChangeConnectionState();
+			}, this),
+			this.container.codeLens.onCodeLensToggle(this.onToggleCodeLens, this),
+			// window.on.focus.onDidChange(e => {
+			// 	console.log('home test focus', e);
+			// }, this),
 		);
 	}
 
 	dispose() {
 		this._disposable.dispose();
+	}
+
+	private onChangeConnectionState() {
+		this.notifyDidChangeOnboardingIntegration();
+	}
+
+	onVisibilityChanged(visible: boolean): void {
+		if (visible) this.notifyDidResume();
+	}
+
+	private async onChangeActiveTextEditor(e: TextEditor | undefined) {
+		if (!e) {
+			this.activeTrackedTextEditor = undefined;
+		} else if (await this.container.git.isTracked(e.document.uri)) {
+			this.activeTrackedTextEditor = e;
+		} else {
+			this.activeTrackedTextEditor = undefined;
+		}
+		this.notifyDidChangeEditor();
+	}
+
+	private onToggleCodeLens() {
+		this.notifyDidToggleCodeLens();
+	}
+
+	private onUsagesChanged(e: UsageChangeEvent | undefined) {
+		if (!e || e?.key === 'integration:repoHost') {
+			this.notifyDidChangeOnboardingIntegration();
+		}
+		this.notifyDidChangeOnboardingState();
 	}
 
 	private onRepositoriesChanged() {
@@ -46,48 +98,12 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this)];
 	}
 
-	onMessageReceived(e: IpcMessage) {
-		switch (true) {
-			case CollapseSectionCommand.is(e):
-				this.onCollapseSection(e.params);
-				break;
-		}
-	}
-
 	includeBootstrap(): Promise<State> {
 		return this.getState();
 	}
 
 	onReloaded() {
 		this.notifyDidChangeRepositories();
-	}
-
-	private onCollapseSection(params: CollapseSectionParams) {
-		const collapsed = this.container.storage.get('home:sections:collapsed');
-		if (collapsed == null) {
-			if (params.collapsed === true) {
-				void this.container.storage.store('home:sections:collapsed', [params.section]);
-			}
-			return;
-		}
-
-		const idx = collapsed.indexOf(params.section);
-		if (params.collapsed === true) {
-			if (idx === -1) {
-				void this.container.storage.store('home:sections:collapsed', [...collapsed, params.section]);
-			}
-
-			return;
-		}
-
-		if (idx !== -1) {
-			collapsed.splice(idx, 1);
-			void this.container.storage.store('home:sections:collapsed', collapsed);
-		}
-	}
-
-	private getWalkthroughCollapsed() {
-		return this.container.storage.get('home:sections:collapsed')?.includes('walkthrough') ?? false;
 	}
 
 	private getOrgSettings(): State['orgSettings'] {
@@ -111,11 +127,14 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return {
 			...this.host.baseWebviewState,
 			repositories: this.getRepositoriesState(),
+			onboardingState: this.getOnboardingState(),
+			editorPreviewEnabled: this.isEditorPreviewEnabled(),
+			canEnableCodeLens: this.canCodeLensBeEnabled(),
+			repoHostConnected: this.isHostedIntegrationConnected(),
 			webroot: this.host.getWebRoot(),
 			promoStates: await this.getCanShowPromos(subscription),
 			subscription: subscription,
 			orgSettings: this.getOrgSettings(),
-			walkthroughCollapsed: this.getWalkthroughCollapsed(),
 		};
 	}
 
@@ -125,6 +144,82 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			openCount: this.container.git.openRepositoryCount,
 			hasUnsafe: this.container.git.hasUnsafeRepositories(),
 			trusted: workspace.isTrusted,
+		};
+	}
+
+	private checkIfSomeUsed(...keys: TrackedUsageKeys[]) {
+		for (const key of keys) {
+			if (this.container.usage.get(key)?.firstUsedAt) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private isEditorPreviewEnabled() {
+		return Boolean(this.activeTrackedTextEditor);
+	}
+
+	private canCodeLensBeEnabled() {
+		return this.container.codeLens.canToggle && !this.container.codeLens.isEnabled;
+	}
+
+	private isHostedIntegrationConnected(force = false) {
+		if (this.hostedIntegrationConnected == null || force === true) {
+			this.hostedIntegrationConnected = this.container.integrations
+				.getConnected('hosting')
+				.some(x => isSupportedIntegration(x.id));
+		}
+		return this.hostedIntegrationConnected;
+	}
+
+	private getOnboardingState(): Omit<
+		Required<DidChangeOnboardingStateParams>,
+		`${OnboardingItem.allSidebarViews}Checked` | `${OnboardingItem.editorFeatures}Checked`
+	> {
+		return {
+			commitGraphChecked: this.checkIfSomeUsed(
+				'graphView:shown',
+				'graphWebview:shown',
+				'command:gitlens.showGraphPage:executed',
+				'command:gitlens.showGraph:executed',
+			),
+			visualFileHistoryChecked: this.checkIfSomeUsed('timelineWebview:shown'),
+			sourceControlChecked:
+				// as we cannot track native vscode usage, let's check if user has opened one of the GL features on the SCM view
+				this.checkIfSomeUsed(
+					'stashesView:shown',
+					'commitsView:shown',
+					'branchesView:shown',
+					'tagsView:shown',
+					'worktreesView:shown',
+					'contributorsView:shown',
+					'remotesView:shown',
+				),
+
+			repoHostChecked: this.isHostedIntegrationConnected(),
+			revisionHistoryChecked: this.checkIfSomeUsed(
+				'command:gitlens.diffWithPrevious:executed',
+				'command:gitlens.diffWithNext:executed',
+				'command:gitlens.diffWithRevision:executed',
+			),
+			inspectChecked: this.checkIfSomeUsed(
+				'commitDetailsView:shown',
+				'lineHistoryView:shown',
+				'fileHistoryView:shown',
+				'lineHistoryView:shown',
+				'searchAndCompareView:shown',
+			),
+			gitLensChecked: this.checkIfSomeUsed(
+				'homeView:shown',
+				'accountView:shown',
+				'patchDetailsView:shown',
+				'workspacesView:shown',
+			),
+			launchpadChecked: this.checkIfSomeUsed('focusWebview:shown', 'command:gitlens.showLaunchpad:executed'),
+			blameChecked: this.checkIfSomeUsed('lineBlame:hovered'),
+			codeLensChecked: this.checkIfSomeUsed('codeLens:activated'),
+			fileAnnotationsChecked: this.checkIfSomeUsed('command:gitlens.toggleFileBlame:executed'),
 		};
 	}
 
@@ -149,6 +244,44 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
 	}
 
+	private notifyDidChangeOnboardingState() {
+		void this.host.notify(DidChangeOnboardingState, this.getOnboardingState());
+	}
+
+	private notifyDidChangeOnboardingIntegration() {
+		// force rechecking
+		const isConnected = this.isHostedIntegrationConnected(true);
+		void this.host.notify(DidChangeOnboardingIntegration, {
+			onboardingState: this.getOnboardingState(),
+			repoHostConnected: isConnected,
+		});
+	}
+
+	private notifyDidChangeEditor() {
+		console.log('home test changed editor', this.isEditorPreviewEnabled());
+		void this.host.notify(DidChangeOnboardingEditor, {
+			editorPreviewEnabled: this.isEditorPreviewEnabled(),
+		});
+	}
+
+	private notifyDidToggleCodeLens() {
+		void this.host.notify(DidChangeCodeLensState, {
+			canBeEnabled: this.canCodeLensBeEnabled(),
+		});
+	}
+
+	// the webview is not updated when it's invisible, but the provider is alive.
+	// need to refresh all states on open already loaded view
+	// TODO: this part doesn't work
+	private notifyDidResume() {
+		console.log('home test notify');
+		setTimeout(() => {
+			void this.host.notify(DidResume, {
+				canBeEnabled: this.canCodeLensBeEnabled(),
+			});
+		}, 2000);
+	}
+
 	private async notifyDidChangeSubscription(subscription?: Subscription) {
 		subscription ??= await this.container.subscription.getSubscription(true);
 
@@ -163,4 +296,8 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			orgSettings: this.getOrgSettings(),
 		});
 	}
+}
+
+function isSupportedIntegration(key: string) {
+	return [HostingIntegrationId.GitHub, HostingIntegrationId.GitLab].includes(key as HostingIntegrationId);
 }

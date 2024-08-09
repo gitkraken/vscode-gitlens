@@ -1,26 +1,52 @@
 /*global*/
 import './home.scss';
 import type { Disposable } from 'vscode';
-import type { State } from '../../home/protocol';
+import type { OnboardingItem, OnboardingState, State } from '../../home/protocol';
 import {
-	CollapseSectionCommand,
+	DidChangeCodeLensState,
+	DidChangeCodeLensStateParams,
+	DidChangeOnboardingEditor,
+	DidChangeOnboardingIntegration,
+	DidChangeOnboardingState,
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidResume,
 } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
-import { ExecuteCommand } from '../../protocol';
+import { DidChangeHostWindowFocusNotification, DidChangeWebviewFocusNotfication, ExecuteCommand } from '../../protocol';
 import { App } from '../shared/appBase';
 import type { GlFeatureBadge } from '../shared/components/feature-badge';
+import type { GlOnboarding as _GlOnboarding } from '../shared/components/onboarding/onboarding';
 import { DOM } from '../shared/dom';
 import '../shared/components/button';
 import '../shared/components/code-icon';
 import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
+import '../shared/components/onboarding/onboarding';
+import { getOnboardingConfiguration } from './model/gitlens-onboarding';
 
+type GlOnboarding = _GlOnboarding<OnboardingState, OnboardingItem>;
 export class HomeApp extends App<State> {
 	constructor() {
 		super('HomeApp');
+	}
+
+	private _component?: GlOnboarding;
+	private get component() {
+		if (this._component == null) {
+			this._component = (document.querySelector('gl-onboarding') as GlOnboarding)!;
+		}
+		return this._component;
+	}
+
+	attachState() {
+		this.component.state = this.state.onboardingState;
+		this.component.onboardingConfiguration = getOnboardingConfiguration(
+			this.state.editorPreviewEnabled,
+			this.state.repoHostConnected,
+			this.state.canEnableCodeLens,
+		);
 	}
 
 	private get blockRepoFeatures() {
@@ -33,6 +59,7 @@ export class HomeApp extends App<State> {
 	protected override onInitialize() {
 		this.state = this.getState() ?? this.state;
 		this.updateState();
+		this.attachState();
 	}
 
 	protected override onBind(): Disposable[] {
@@ -41,12 +68,6 @@ export class HomeApp extends App<State> {
 		disposables.push(
 			DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onDataActionClicked(e, target)),
 			DOM.on('[data-requires="repo"]', 'click', (e, target: HTMLElement) => this.onRepoFeatureClicked(e, target)),
-			DOM.on('[data-section-toggle]', 'click', (e, target: HTMLElement) =>
-				this.onSectionToggleClicked(e, target),
-			),
-			DOM.on('[data-section-expand]', 'click', (e, target: HTMLElement) =>
-				this.onSectionExpandClicked(e, target),
-			),
 		);
 
 		return disposables;
@@ -54,6 +75,40 @@ export class HomeApp extends App<State> {
 
 	protected override onMessageReceived(msg: IpcMessage) {
 		switch (true) {
+			case DidResume.is(msg):
+				console.log('home test focus', msg.params);
+				this.attachState();
+				break;
+
+			case DidChangeOnboardingState.is(msg):
+				this.state.onboardingState = msg.params;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.attachState();
+				break;
+
+			case DidChangeOnboardingEditor.is(msg):
+				this.state.editorPreviewEnabled = msg.params.editorPreviewEnabled;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.attachState();
+				break;
+
+			case DidChangeCodeLensState.is(msg):
+				this.state.canEnableCodeLens = msg.params.canBeEnabled;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.attachState();
+				break;
+
+			case DidChangeOnboardingIntegration.is(msg):
+				this.state.onboardingState = msg.params.onboardingState;
+				this.state.repoHostConnected = msg.params.repoHostConnected;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.attachState();
+				break;
+
 			case DidChangeRepositories.is(msg):
 				this.state.repositories = msg.params;
 				this.state.timestamp = Date.now();
@@ -101,24 +156,6 @@ export class HomeApp extends App<State> {
 		if (action?.startsWith('command:')) {
 			this.sendCommand(ExecuteCommand, { command: action.slice(8) });
 		}
-	}
-
-	private onSectionToggleClicked(e: MouseEvent, target: HTMLElement) {
-		e.stopImmediatePropagation();
-		const section = target.dataset.sectionToggle;
-		if (section !== 'walkthrough') {
-			return;
-		}
-
-		this.updateCollapsedSections(!this.state.walkthroughCollapsed);
-	}
-
-	private onSectionExpandClicked(e: MouseEvent, target: HTMLElement) {
-		const section = target.dataset.sectionExpand;
-		if (section !== 'walkthrough') {
-			return;
-		}
-		this.updateCollapsedSections(false);
 	}
 
 	private updateNoRepo() {
@@ -172,22 +209,11 @@ export class HomeApp extends App<State> {
 		}
 	}
 
-	private updateCollapsedSections(toggle = this.state.walkthroughCollapsed) {
-		this.state.walkthroughCollapsed = toggle;
-		this.setState({ walkthroughCollapsed: toggle });
-		document.getElementById('section-walkthrough')!.classList.toggle('is-collapsed', toggle);
-		this.sendCommand(CollapseSectionCommand, {
-			section: 'walkthrough',
-			collapsed: toggle,
-		});
-	}
-
 	private updateState() {
 		this.updateNoRepo();
 		this.updatePromos();
 		this.updateSourceAndSubscription();
 		this.updateOrgSettings();
-		this.updateCollapsedSections();
 	}
 }
 

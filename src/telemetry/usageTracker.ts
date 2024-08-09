@@ -1,6 +1,6 @@
 import type { Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
-import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from '../constants';
+import type { Commands, CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from '../constants';
 import type { Container } from '../container';
 import { updateRecordValue } from '../system/object';
 import type { Storage } from '../system/storage';
@@ -11,11 +11,19 @@ export interface TrackedUsage {
 	lastUsedAt: number;
 }
 
+export type EditorTrackedFeatures = 'lineBlame:hovered' | 'codeLens:activated';
+export type IntegrationTrackedFeatures = 'integration:repoHost';
+export type CommandExecutionTrackedFeatures = `command:${Commands}:executed`;
+
 export type TrackedUsageFeatures =
 	| `${WebviewTypes}Webview`
 	| `${TreeViewTypes | WebviewViewTypes}View`
 	| `${CustomEditorTypes}Editor`;
-export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown`;
+export type TrackedUsageKeys =
+	| `${TrackedUsageFeatures}:shown`
+	| EditorTrackedFeatures
+	| CommandExecutionTrackedFeatures
+	| IntegrationTrackedFeatures;
 
 export type UsageChangeEvent = {
 	/**
