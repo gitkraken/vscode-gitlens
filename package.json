@@ -944,7 +944,7 @@
 							"Shows only relevant branches",
 							"Shows only the current branch"
 						],
-						"default": "smart",
+						"default": "all",
 						"markdownDescription": "Specifies the visibility of branches on the _Commit Graph_",
 						"scope": "window",
 						"order": 2
