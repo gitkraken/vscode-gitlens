@@ -1,4 +1,5 @@
-import { Uri } from 'vscode';
+/* eslint-disable @typescript-eslint/require-await */
+import type { Uri } from 'vscode';
 import type { LocalWorkspaceFileData, WorkspaceAutoAddSetting } from '../../../plus/workspaces/models';
 import type { WorkspacesPathMappingProvider } from '../../../plus/workspaces/workspacesPathMappingProvider';
 

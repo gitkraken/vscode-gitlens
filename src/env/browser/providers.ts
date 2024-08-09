@@ -1,8 +1,9 @@
-import { Container } from '../../container';
-import { GitCommandOptions } from '../../git/commandOptions';
+/* eslint-disable @typescript-eslint/require-await */
+import type { Container } from '../../container';
+import type { GitCommandOptions } from '../../git/commandOptions';
 // Force import of GitHub since dynamic imports are not supported in the WebWorker ExtensionHost
+import type { GitProvider } from '../../git/gitProvider';
 import { GitHubGitProvider } from '../../plus/integrations/providers/github/githubGitProvider';
-import { GitProvider } from '../../git/gitProvider';
 import { RepositoryWebPathMappingProvider } from './pathMapping/repositoryWebPathMappingProvider';
 import { WorkspacesWebPathMappingProvider } from './pathMapping/workspacesWebPathMappingProvider';
 import { IntegrationAuthenticationService } from '../../plus/integrations/authentication/integrationAuthentication';
