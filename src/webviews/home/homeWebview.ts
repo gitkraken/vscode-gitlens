@@ -7,6 +7,8 @@ import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscription
 import { HostingIntegrationId } from '../../plus/integrations/providers/models';
 import { registerCommand } from '../../system/command';
 import { getContext, onDidChangeContext } from '../../system/context';
+import { debounce } from '../../system/function';
+import { isTextEditor } from '../../system/utils';
 import type { TrackedUsageKeys, UsageChangeEvent } from '../../telemetry/usageTracker';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type { DidChangeOnboardingStateParams, DidChangeRepositoriesParams, OnboardingItem, State } from './protocol';
@@ -37,6 +39,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		private readonly container: Container,
 		private readonly host: WebviewHost,
 	) {
+		this.activeTrackedTextEditor = window.activeTextEditor;
 		this._disposable = Disposable.from(
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 			!workspace.isTrusted
@@ -46,7 +49,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.integrations.onDidChangeConnectionState(this.onChangeConnectionState, this),
 			this.container.usage.onDidChange(this.onUsagesChanged, this),
-			window.onDidChangeActiveTextEditor(this.onChangeActiveTextEditor, this),
+			window.onDidChangeActiveTextEditor(debounce(this.onChangeActiveTextEditor, 250), this),
 			this.container.integrations.onDidChangeConnectionState(e => {
 				if (isSupportedIntegration(e.key)) this.onChangeConnectionState();
 			}, this),
@@ -70,7 +73,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async onChangeActiveTextEditor(e: TextEditor | undefined) {
-		if (!e) {
+		if (!e || !isTextEditor(e)) {
 			this.activeTrackedTextEditor = undefined;
 		} else if (await this.container.git.isTracked(e.document.uri)) {
 			this.activeTrackedTextEditor = e;
