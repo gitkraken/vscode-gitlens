@@ -44,6 +44,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3385](https://github.com/gitkraken/vscode-gitlens/issues/3385) - Provides commit from stash on create patch from stash action
 - Fixes [#3414](https://github.com/gitkraken/vscode-gitlens/issues/3414) - Patch creation may be done multiple times
 
+### Added
+
+- Adds option to display first name only on inline blame
+
 ## [15.2.1] - 2024-07-24
 
 ### Added
