@@ -1,5 +1,5 @@
-import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable, languages } from 'vscode';
+import type { ConfigurationChangeEvent, Event } from 'vscode';
+import { Disposable, EventEmitter, languages } from 'vscode';
 import type { Container } from '../container';
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
@@ -13,6 +13,18 @@ export class GitCodeLensController implements Disposable {
 	private _disposable: Disposable | undefined;
 	private _provider: GitCodeLensProvider | undefined;
 	private _providerDisposable: Disposable | undefined;
+
+	private _onCodeLensToggle = new EventEmitter<void>();
+	get onCodeLensToggle(): Event<void> {
+		return this._onCodeLensToggle.event;
+	}
+
+	get canToggle() {
+		return this._canToggle;
+	}
+	get isEnabled() {
+		return Boolean(this._provider);
+	}
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
@@ -30,21 +42,25 @@ export class GitCodeLensController implements Disposable {
 		this.onConfigurationChanged();
 	}
 
+	private disableCodeLens() {
+		this._providerDisposable?.dispose();
+		this._provider = undefined;
+		this._onCodeLensToggle.fire();
+	}
+
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, ['codeLens', 'defaultDateFormat', 'defaultDateSource', 'defaultDateStyle'])) {
 			if (e != null) {
 				Logger.log('CodeLens config changed; resetting CodeLens provider');
 			}
-
 			const cfg = configuration.get('codeLens');
+			this._canToggle = cfg.recentChange.enabled || cfg.authors.enabled;
+
 			if (cfg.enabled && (cfg.recentChange.enabled || cfg.authors.enabled)) {
 				void this.ensureProvider();
 			} else {
-				this._providerDisposable?.dispose();
-				this._provider = undefined;
+				this.disableCodeLens();
 			}
-
-			this._canToggle = cfg.recentChange.enabled || cfg.authors.enabled;
 			void setContext('gitlens:disabledToggleCodeLens', !this._canToggle);
 		}
 	}
@@ -55,7 +71,7 @@ export class GitCodeLensController implements Disposable {
 
 		Logger.log('Blame state changed; resetting CodeLens provider');
 		void this.container.usage.track('codeLens:activated');
-		this._provider.reset();
+		// this._provider.reset();
 	}
 
 	private async onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent) {
@@ -65,7 +81,7 @@ export class GitCodeLensController implements Disposable {
 		if (!status.blameable) return;
 
 		Logger.log('Dirty idle triggered; resetting CodeLens provider');
-		this._provider.reset();
+		// this._provider.reset();
 	}
 
 	toggleCodeLens() {
@@ -73,18 +89,20 @@ export class GitCodeLensController implements Disposable {
 
 		Logger.log('toggleCodeLens()');
 		if (this._provider != null) {
-			this._providerDisposable?.dispose();
-			this._provider = undefined;
-
+			this.disableCodeLens();
 			return;
 		}
 
 		void this.ensureProvider();
 	}
 
+	private trackCodeLens() {
+		if (!this.container.usage.get('codeLens:activated')) void this.container.usage.track('codeLens:activated');
+	}
+
 	private async ensureProvider() {
 		if (this._provider != null) {
-			this._provider.reset();
+			// this._provider.reset();
 
 			return;
 		}
@@ -94,8 +112,11 @@ export class GitCodeLensController implements Disposable {
 		const { GitCodeLensProvider } = await import(/* webpackChunkName: "codelens" */ './codeLensProvider');
 
 		this._provider = new GitCodeLensProvider(this.container);
+		this._onCodeLensToggle.fire();
+
 		this._providerDisposable = Disposable.from(
 			languages.registerCodeLensProvider(GitCodeLensProvider.selector, this._provider),
+			this._provider.onDidChangeCodeLenses(this.trackCodeLens, this),
 			this.container.documentTracker.onDidChangeBlameState(this.onBlameStateChanged, this),
 			this.container.documentTracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
 		);

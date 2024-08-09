@@ -3,15 +3,18 @@ import './home.scss';
 import type { Disposable } from 'vscode';
 import type { OnboardingItem, OnboardingState, State } from '../../home/protocol';
 import {
+	DidChangeCodeLensState,
+	DidChangeCodeLensStateParams,
 	DidChangeOnboardingEditor,
 	DidChangeOnboardingIntegration,
 	DidChangeOnboardingState,
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidResume,
 } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
-import { ExecuteCommand } from '../../protocol';
+import { DidChangeHostWindowFocusNotification, DidChangeWebviewFocusNotfication, ExecuteCommand } from '../../protocol';
 import { App } from '../shared/appBase';
 import type { GlFeatureBadge } from '../shared/components/feature-badge';
 import type { GlOnboarding as _GlOnboarding } from '../shared/components/onboarding/onboarding';
@@ -42,6 +45,7 @@ export class HomeApp extends App<State> {
 		this.component.onboardingConfiguration = getOnboardingConfiguration(
 			this.state.editorPreviewEnabled,
 			this.state.repoHostConnected,
+			this.state.canEnableCodeLens,
 		);
 	}
 
@@ -71,6 +75,11 @@ export class HomeApp extends App<State> {
 
 	protected override onMessageReceived(msg: IpcMessage) {
 		switch (true) {
+			case DidResume.is(msg):
+				console.log('home test focus', msg.params);
+				this.attachState();
+				break;
+
 			case DidChangeOnboardingState.is(msg):
 				this.state.onboardingState = msg.params;
 				this.state.timestamp = Date.now();
@@ -80,6 +89,13 @@ export class HomeApp extends App<State> {
 
 			case DidChangeOnboardingEditor.is(msg):
 				this.state.editorPreviewEnabled = msg.params.editorPreviewEnabled;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.attachState();
+				break;
+
+			case DidChangeCodeLensState.is(msg):
+				this.state.canEnableCodeLens = msg.params.canBeEnabled;
 				this.state.timestamp = Date.now();
 				this.setState(this.state);
 				this.attachState();
