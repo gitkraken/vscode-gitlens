@@ -12,6 +12,7 @@ import type {
 import { Disposable, EventEmitter, FileType, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { isWeb } from '@env/platform';
 import { resetAvatarCache } from '../avatars';
+import type { GitConfigKeys } from '../constants';
 import { GlyphChars, Schemes } from '../constants';
 import type { Container } from '../container';
 import { AccessDeniedError, CancellationError, ProviderNotFoundError } from '../errors';
@@ -1756,13 +1757,13 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getConfig(repoPath: string | Uri, key: string): Promise<string | undefined> {
+	async getConfig(repoPath: string | Uri, key: GitConfigKeys): Promise<string | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getConfig?.(path, key);
 	}
 
 	@log()
-	async setConfig(repoPath: string | Uri, key: string, value: string | undefined): Promise<void> {
+	async setConfig(repoPath: string | Uri, key: GitConfigKeys, value: string | undefined): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.setConfig?.(path, key, value);
 	}
@@ -1783,6 +1784,12 @@ export class GitProviderService implements Disposable {
 	getCurrentUser(repoPath: string | Uri): Promise<GitUser | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getCurrentUser(path);
+	}
+
+	@log()
+	async getBaseBranchName(repoPath: string | Uri, ref: string): Promise<string | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getBaseBranchName?.(path, ref);
 	}
 
 	@log()

@@ -1286,11 +1286,7 @@ export function GraphWrapper({
 													Shows only relevant branches
 													<br />
 													<br />
-													<i>
-														Includes the current branch, the current branch's upstream (if
-														any), and either the base branch or if current branch is
-														associated with a PR then the PR's target branch
-													</i>
+													<i>Includes the current branch, its upstream, and its base</i>
 												</span>
 											</GlTooltip>
 										) : (

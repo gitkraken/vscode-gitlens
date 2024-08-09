@@ -7,6 +7,7 @@ import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { getLoggableName } from '../../system/logger';
 import { PageableResult } from '../../system/paging';
+import { getSettledValue, pauseOnCancelOrTimeout } from '../../system/promise';
 import { sortCompare } from '../../system/string';
 import type { PullRequest, PullRequestState } from './pullRequest';
 import type { GitBranchReference, GitReference } from './reference';
@@ -231,6 +232,42 @@ export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, 
 
 export function getBranchNameWithoutRemote(name: string): string {
 	return name.substring(getRemoteNameSlashIndex(name) + 1);
+}
+
+export async function getBaseBranchNameOrDefault(
+	container: Container,
+	branch: GitBranch,
+	options?: { cancellation?: CancellationToken; timeout?: number },
+): Promise<
+	| { base: string | undefined; default?: string; pending?: false }
+	| { base: Promise<string | undefined>; default: string | undefined; pending: true }
+> {
+	const name = await container.git.getBaseBranchName(branch.repoPath, branch.name);
+	if (name != null) return { base: name };
+
+	const [defaultBranchNameResult, prResult] = await Promise.allSettled([
+		getDefaultBranchName(container, branch.repoPath, branch.getRemoteName()),
+		pauseOnCancelOrTimeout(branch?.getAssociatedPullRequest(), options?.cancellation, options?.timeout),
+	]);
+
+	const defaultBranchName = getSettledValue(defaultBranchNameResult);
+
+	function getBaseFromPullRequest(pr: PullRequest | undefined) {
+		if (pr?.refs?.base == null) return undefined;
+
+		const name = `${branch.getRemoteName()}/${pr.refs.base.branch}`;
+		void container.git.setConfig(branch.repoPath, `branch.${branch.name}.gk-merge-base`, name);
+
+		return name;
+	}
+
+	const maybePr = getSettledValue(prResult);
+	if (maybePr?.paused) {
+		const base = maybePr.value.then(pr => getBaseFromPullRequest(pr));
+		return { base: base, default: defaultBranchName, pending: true };
+	}
+
+	return { base: getBaseFromPullRequest(maybePr?.value), default: defaultBranchName };
 }
 
 export async function getDefaultBranchName(

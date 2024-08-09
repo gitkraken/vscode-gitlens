@@ -45,9 +45,9 @@ import { GitSearchError } from '../../../git/errors';
 import { CommitFormatter } from '../../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../../git/models/branch';
 import {
+	getBaseBranchNameOrDefault,
 	getBranchId,
 	getBranchNameWithoutRemote,
-	getDefaultBranchName,
 	getLocalBranchByUpstream,
 	getRemoteNameFromBranchName,
 } from '../../../git/models/branch';
@@ -1952,30 +1952,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				const cancellation = this.createCancellation('computeIncludedRefs');
 
-				const [defaultBranchNameResult, prResult] = await Promise.allSettled([
-					getDefaultBranchName(this.container, graph.repoPath, getRemoteNameFromBranchName(current.name)),
-					pauseOnCancelOrTimeout(current?.getAssociatedPullRequest(), cancellation.token, options?.timeout),
-				]);
+				const result = await getBaseBranchNameOrDefault(this.container, current, {
+					cancellation: cancellation.token,
+					timeout: options?.timeout,
+				});
 
-				const defaultBranchName = getSettledValue(defaultBranchNameResult);
-
-				const maybePr = getSettledValue(prResult);
-				if (maybePr?.paused) {
-					continuation = maybePr.value.then(async pr => {
-						if (pr == null || cancellation?.token.isCancellationRequested) return undefined;
+				const defaultBranchName = result.default;
+				if (result.pending) {
+					continuation = result.base.then(async base => {
+						if (base == null || cancellation?.token.isCancellationRequested) return undefined;
 
 						const refs = await this.getVisibleRefs(graph, current, {
+							baseBranchName: base,
 							defaultBranchName: defaultBranchName,
-							associatedPullRequest: pr,
 						});
 						return Object.fromEntries(refs);
 					});
 				}
 
 				refs = await this.getVisibleRefs(graph, current, {
+					baseBranchName: result.pending ? undefined : result.base,
 					defaultBranchName: defaultBranchName,
-					associatedPullRequest: maybePr?.paused ? undefined : maybePr?.value,
 				});
+
 				break;
 			}
 			case 'current': {
@@ -2514,7 +2513,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		currentBranch: GitBranch,
 		options?: {
 			defaultBranchName: string | undefined;
-			associatedPullRequest: PullRequest | undefined;
+			baseBranchName?: string | undefined;
+			associatedPullRequest?: PullRequest | undefined;
 		},
 	): Promise<Map<string, GraphIncludeOnlyRef>> {
 		const refs = new Map<string, GraphIncludeOnlyRef>([
@@ -2552,6 +2552,35 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		let includeDefault = true;
 
+		const baseBranchName = options?.baseBranchName;
+		if (baseBranchName != null && baseBranchName !== currentBranch?.name) {
+			const baseBranch = graph.branches.get(baseBranchName);
+			if (baseBranch != null) {
+				includeDefault = false;
+
+				if (baseBranch.remote) {
+					if (!refs.has(baseBranch.id)) {
+						refs.set(baseBranch.id, {
+							id: baseBranch.id,
+							type: 'remote',
+							name: baseBranch.getNameWithoutRemote(),
+							owner: baseBranch.getRemoteName(),
+						});
+					}
+				} else if (baseBranch.upstream != null && !baseBranch.upstream.missing) {
+					const id = getBranchId(graph.repoPath, true, baseBranch.upstream.name);
+					if (!refs.has(baseBranch.id)) {
+						refs.set(id, {
+							id: id,
+							type: 'remote',
+							name: getBranchNameWithoutRemote(baseBranch.upstream.name),
+							owner: baseBranch.getRemoteName(),
+						});
+					}
+				}
+			}
+		}
+
 		const pr = options?.associatedPullRequest;
 		if (pr?.refs != null) {
 			let prBranch;
@@ -2562,6 +2591,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 
 			if (prBranch != null) {
+				includeDefault = false;
+
 				if (!refs.has(prBranch.id)) {
 					refs.set(prBranch.id, {
 						id: prBranch.id,
@@ -2570,8 +2601,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						owner: prBranch.getRemoteName(),
 					});
 				}
-
-				includeDefault = false;
 			}
 		}
 
