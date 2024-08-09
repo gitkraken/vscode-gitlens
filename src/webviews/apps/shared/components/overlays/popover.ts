@@ -188,6 +188,10 @@ export class GlPopover extends GlElement {
 	@property({ type: Boolean })
 	hoist = false;
 
+	get currentPlacement() {
+		return (this.popup.getAttribute('data-current-placement') ?? this.placement) as SlPopup['placement'];
+	}
+
 	constructor() {
 		super();
 

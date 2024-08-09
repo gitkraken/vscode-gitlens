@@ -1571,13 +1571,7 @@ export function GraphWrapper({
 				visibleDays={visibleDays}
 				onSelected={e => handleOnMinimapDaySelected(e)}
 			></GlGraphMinimapContainer>
-			<GlGraphHover
-				ref={hover as any}
-				id="commit-hover"
-				distance={0}
-				skidding={15}
-				placement="bottom-start"
-			></GlGraphHover>
+			<GlGraphHover ref={hover as any} id="commit-hover" distance={0} skidding={15}></GlGraphHover>
 			<main id="main" className="graph-app__main" aria-hidden={!allowed}>
 				{repo !== undefined ? (
 					<>
