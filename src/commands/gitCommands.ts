@@ -1030,6 +1030,8 @@ export class GitCommandsCommand extends Command {
 						debugger;
 					}
 				}
+
+				step.onDidActivate?.(quickpick);
 			});
 		} finally {
 			quickpick.dispose();
