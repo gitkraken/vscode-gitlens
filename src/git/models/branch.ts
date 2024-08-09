@@ -1,5 +1,6 @@
 import type { CancellationToken } from 'vscode';
 import type { BranchSorting } from '../../config';
+import type { GitConfigKeys } from '../../constants';
 import type { Container } from '../../container';
 import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
@@ -7,7 +8,8 @@ import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { getLoggableName } from '../../system/logger';
 import { PageableResult } from '../../system/paging';
-import { getSettledValue, pauseOnCancelOrTimeout } from '../../system/promise';
+import type { MaybePausedResult } from '../../system/promise';
+import { pauseOnCancelOrTimeout } from '../../system/promise';
 import { sortCompare } from '../../system/string';
 import type { PullRequest, PullRequestState } from './pullRequest';
 import type { GitBranchReference, GitReference } from './reference';
@@ -234,42 +236,6 @@ export function getBranchNameWithoutRemote(name: string): string {
 	return name.substring(getRemoteNameSlashIndex(name) + 1);
 }
 
-export async function getBaseBranchNameOrDefault(
-	container: Container,
-	branch: GitBranch,
-	options?: { cancellation?: CancellationToken; timeout?: number },
-): Promise<
-	| { base: string | undefined; default?: string; pending?: false }
-	| { base: Promise<string | undefined>; default: string | undefined; pending: true }
-> {
-	const name = await container.git.getBaseBranchName(branch.repoPath, branch.name);
-	if (name != null) return { base: name };
-
-	const [defaultBranchNameResult, prResult] = await Promise.allSettled([
-		getDefaultBranchName(container, branch.repoPath, branch.getRemoteName()),
-		pauseOnCancelOrTimeout(branch?.getAssociatedPullRequest(), options?.cancellation, options?.timeout),
-	]);
-
-	const defaultBranchName = getSettledValue(defaultBranchNameResult);
-
-	function getBaseFromPullRequest(pr: PullRequest | undefined) {
-		if (pr?.refs?.base == null) return undefined;
-
-		const name = `${branch.getRemoteName()}/${pr.refs.base.branch}`;
-		void container.git.setConfig(branch.repoPath, `branch.${branch.name}.gk-merge-base`, name);
-
-		return name;
-	}
-
-	const maybePr = getSettledValue(prResult);
-	if (maybePr?.paused) {
-		const base = maybePr.value.then(pr => getBaseFromPullRequest(pr));
-		return { base: base, default: defaultBranchName, pending: true };
-	}
-
-	return { base: getBaseFromPullRequest(maybePr?.value), default: defaultBranchName };
-}
-
 export async function getDefaultBranchName(
 	container: Container,
 	repoPath: string,
@@ -289,6 +255,40 @@ export async function getDefaultBranchName(
 
 export function getRemoteNameFromBranchName(name: string): string {
 	return name.substring(0, getRemoteNameSlashIndex(name));
+}
+
+export async function getTargetBranchName(
+	container: Container,
+	branch: GitBranch,
+	options?: { cancellation?: CancellationToken; timeout?: number },
+): Promise<MaybePausedResult<string | undefined>> {
+	const targetBaseConfigKey: GitConfigKeys = `branch.${branch.name}.gk-target-base`;
+
+	const targetBase = await container.git.getConfig(branch.repoPath, targetBaseConfigKey);
+
+	if (options?.cancellation?.isCancellationRequested) return { value: undefined, paused: false };
+
+	if (targetBase != null) {
+		const [targetBranch] = (
+			await container.git.getBranches(branch.repoPath, { filter: b => b.name === targetBase })
+		).values;
+		if (targetBranch != null) return { value: targetBranch.name, paused: false };
+	}
+
+	if (options?.cancellation?.isCancellationRequested) return { value: undefined, paused: false };
+
+	return pauseOnCancelOrTimeout(
+		branch?.getAssociatedPullRequest()?.then(pr => {
+			if (pr?.refs?.base == null) return undefined;
+
+			const name = `${branch.getRemoteName()}/${pr.refs.base.branch}`;
+			void container.git.setConfig(branch.repoPath, targetBaseConfigKey, name);
+
+			return name;
+		}),
+		options?.cancellation,
+		options?.timeout,
+	);
 }
 
 export function isBranch(branch: any): branch is GitBranch {
