@@ -183,7 +183,10 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 
 	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
 		if (this._disposable == null) {
-			this._disposable = Disposable.from(this.container.subscription.onDidChange(() => this.refresh(true), this));
+			this._disposable = Disposable.from(
+				this.container.subscription.onDidChange(() => this.refresh(true), this),
+				this.container.integrations.onDidChangeConnectionState(() => this.refresh(true), this),
+			);
 		}
 
 		super.onVisibilityChanged(e);

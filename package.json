@@ -17427,7 +17427,7 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Connect Integrations...](command:gitlens.showLaunchpad)\n\nConnect to your Git provider to see pull requests in Launchpad.",
+				"contents": "[Connect an Integration...](command:gitlens.showLaunchpad?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nAllows Launchpad to organize your pull requests into actionable groups and keep your team unblocked.",
 				"when": "gitlens:launchpad:connect"
 			},
 			{

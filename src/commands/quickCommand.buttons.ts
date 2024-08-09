@@ -64,7 +64,7 @@ export const ClearQuickInputButton: QuickInputButton = {
 
 export const ConnectIntegrationButton: QuickInputButton = {
 	iconPath: new ThemeIcon('plug'),
-	tooltip: 'Connect',
+	tooltip: 'Connect Additional Integrations',
 };
 
 export const FeedbackQuickInputButton: QuickInputButton = {

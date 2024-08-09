@@ -42,6 +42,7 @@ import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } fro
 import { configuration } from '../../system/configuration';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
+import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
 import { openUrl } from '../../system/utils';
 import type { IntegrationId } from '../integrations/providers/models';
@@ -245,7 +246,7 @@ export class FocusCommand extends QuickCommand<State> {
 					false,
 				);
 				const result = isUsingCloudIntegrations
-					? yield* this.confirmCloudIntegrationsConnectStep(state)
+					? yield* this.confirmCloudIntegrationsConnectStep(state, context)
 					: yield* this.confirmLocalIntegrationConnectStep(state, context);
 				if (result === StepResultBreak) {
 					return result;
@@ -290,7 +291,7 @@ export class FocusCommand extends QuickCommand<State> {
 						false,
 					);
 					const result = isUsingCloudIntegrations
-						? yield* this.confirmCloudIntegrationsConnectStep(state)
+						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
 						: yield* this.confirmLocalIntegrationConnectStep(state, context);
 					if (result === StepResultBreak) continue;
 
@@ -518,9 +519,9 @@ export class FocusCommand extends QuickCommand<State> {
 			matchOnDetail: true,
 			items: items,
 			buttons: [
-				...(hasDisconnectedIntegrations ? [ConnectIntegrationButton] : []),
-				FeedbackQuickInputButton,
+				// FeedbackQuickInputButton,
 				OpenOnWebQuickInputButton,
+				...(hasDisconnectedIntegrations ? [ConnectIntegrationButton] : []),
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
@@ -874,20 +875,29 @@ export class FocusCommand extends QuickCommand<State> {
 
 	private async *confirmCloudIntegrationsConnectStep(
 		state: StepState<State>,
+		context: Context,
 	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
+		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
 		const step = this.createConfirmStep(
-			`${this.title} \u00a0\u2022\u00a0 Connect an Integration`,
+			`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
 			[
 				createQuickPickItemOfT(
 					{
-						label: 'Connect a Cloud Integration...',
-						detail: 'Will connect a cloud integration to use with Launchpad',
+						label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
+						detail: hasConnectedIntegration
+							? 'Add additional integrations to view their pull requests in Launchpad'
+							: 'Launchpad organizes your pull requests into actionable groups to keep your team unblocked',
 					},
 					true,
 				),
 			],
 			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
-			{ placeholder: 'Launchpad requires a connected integration', ignoreFocusOut: true },
+			{
+				placeholder: hasConnectedIntegration
+					? 'Add additional integrations to Launchpad'
+					: 'Launchpad requires a connected integration',
+				ignoreFocusOut: true,
+			},
 		);
 
 		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
