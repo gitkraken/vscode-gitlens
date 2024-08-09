@@ -402,6 +402,10 @@ export const enum Commands {
 	Deprecated_ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
 }
 
+export type GitConfigKeys =
+	| `branch.${string}.${'gk' | 'vscode'}-merge-base`
+	| `branch.${string}.github-pr-owner-number`;
+
 export type TreeViewCommands = `gitlens.views.${
 	| `branches.${
 			| 'copy'

@@ -1,6 +1,7 @@
 import type { CancellationToken, Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
 import type { Commit, InputBox } from '../@types/vscode.git';
 import type { ForcePushMode } from '../@types/vscode.git.enums';
+import type { GitConfigKeys } from '../constants';
 import type { Features } from '../features';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
@@ -292,8 +293,8 @@ export interface GitProvider extends Disposable {
 			mode?: 'contains' | 'pointsAt' | undefined;
 		},
 	): Promise<string[]>;
-	getConfig?(repoPath: string, key: string): Promise<string | undefined>;
-	setConfig?(repoPath: string, key: string, value: string | undefined): Promise<void>;
+	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
+	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
 	getContributors(
 		repoPath: string,
 		options?: {
@@ -304,6 +305,7 @@ export interface GitProvider extends Disposable {
 		},
 	): Promise<GitContributor[]>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
+	getBaseBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined>;
 	getDiff?(
 		repoPath: string | Uri,

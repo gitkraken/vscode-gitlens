@@ -31,7 +31,6 @@ import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../gi
 import type { GitUser } from '../../../git/models/user';
 import { parseGitBranchesDefaultFormat } from '../../../git/parsers/branchParser';
 import { parseGitLogAllFormat, parseGitLogDefaultFormat } from '../../../git/parsers/logParser';
-import { parseGitRefLogDefaultFormat } from '../../../git/parsers/reflogParser';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import { parseGitTagsDefaultFormat } from '../../../git/parsers/tagParser';
 import { splitAt } from '../../../system/array';
@@ -1517,43 +1516,29 @@ export class Git {
 
 	reflog(
 		repoPath: string,
-		{
-			all,
-			branch,
-			limit,
-			ordering,
-			skip,
-		}: {
-			all?: boolean;
-			branch?: string;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			skip?: number;
-		} = {},
+		options?: {
+			cancellation?: CancellationToken;
+			configs?: readonly string[];
+			ref?: string;
+			errors?: GitErrorHandling;
+			stdin?: string;
+		},
+		...args: string[]
 	): Promise<string> {
-		const params = ['log', '--walk-reflogs', `--format=${parseGitRefLogDefaultFormat}`, '--date=iso8601'];
-
-		if (ordering) {
-			params.push(`--${ordering}-order`);
-		}
-
-		if (all) {
-			params.push('--all');
-		}
-
-		if (limit) {
-			params.push(`-n${limit}`);
-		}
-
-		if (skip) {
-			params.push(`--skip=${skip}`);
-		}
-
-		if (branch) {
-			params.push(branch);
-		}
-
-		return this.git<string>({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...params, '--');
+		return this.git<string>(
+			{
+				cwd: repoPath,
+				cancellation: options?.cancellation,
+				configs: options?.configs ?? gitLogDefaultConfigs,
+				errors: options?.errors,
+				stdin: options?.stdin,
+			},
+			'reflog',
+			...(options?.stdin ? ['--stdin'] : emptyArray),
+			...args,
+			...(options?.ref && !isUncommittedStaged(options.ref) ? [options.ref] : emptyArray),
+			...(!args.includes('--') ? ['--'] : emptyArray),
+		);
 	}
 
 	remote(repoPath: string): Promise<string> {
