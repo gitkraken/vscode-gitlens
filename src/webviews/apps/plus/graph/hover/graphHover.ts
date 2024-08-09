@@ -1,6 +1,6 @@
 import type { GraphRow } from '@gitkraken/gitkraken-components';
 import { css, html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { until } from 'lit/directives/until.js';
 import type { DidGetRowHoverParams } from '../../../../../plus/webviews/graph/protocol';
 import type { Deferrable } from '../../../../../system/function';
@@ -40,7 +40,7 @@ export class GlGraphHover extends GlElement {
 	open?: boolean = false;
 
 	@property({ reflect: true })
-	placement?: GlPopover['placement'] = 'bottom';
+	placement?: GlPopover['placement'] = 'bottom-start';
 
 	@property({ type: Object })
 	markdown?: Promise<PromiseSettledResult<string>> | string;
@@ -50,6 +50,9 @@ export class GlGraphHover extends GlElement {
 
 	@property({ type: Function })
 	requestMarkdown: ((row: GraphRow) => Promise<DidGetRowHoverParams>) | undefined;
+
+	@query('gl-popover')
+	popup!: GlPopover;
 
 	private hoverMarkdownCache = new Map<
 		string,
@@ -72,11 +75,36 @@ export class GlGraphHover extends GlElement {
 			.placement=${this.placement}
 			trigger="manual"
 			@gl-popover-hide=${() => this.hide()}
+			@sl-reposition=${() => this.onReposition()}
 		>
 			<div slot="content">
 				<gl-markdown .markdown=${until(this.markdown, 'Loading...')}></gl-markdown>
 			</div>
 		</gl-popover>`;
+	}
+
+	private previousSkidding: number | undefined;
+
+	private onReposition() {
+		if (this.skidding == null || (this.placement !== `bottom-start` && this.placement !== `top-start`)) {
+			return;
+		}
+
+		switch (this.popup.currentPlacement) {
+			case 'bottom-end':
+			case 'top-end':
+				if (this.previousSkidding == null) {
+					this.previousSkidding = this.skidding;
+					this.skidding = -this.skidding * 5;
+				}
+				break;
+			default:
+				if (this.previousSkidding != null) {
+					this.skidding = this.previousSkidding;
+					this.previousSkidding = undefined;
+				}
+				break;
+		}
 	}
 
 	reset() {
