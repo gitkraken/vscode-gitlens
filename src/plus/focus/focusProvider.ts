@@ -22,7 +22,7 @@ import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { setContext } from '../../system/context';
 import { debug, log } from '../../system/decorators/log';
-import { filterMap, groupByMap, map } from '../../system/iterable';
+import { filterMap, groupByMap, map, some } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { TimedResult } from '../../system/promise';
@@ -880,6 +880,7 @@ export class FocusProvider implements Disposable {
 			}
 		}
 
+		void setContext('gitlens:launchpad:connect', true);
 		return false;
 	}
 
@@ -891,6 +892,8 @@ export class FocusProvider implements Disposable {
 				connected.set(integrationId, integration.maybeConnected ?? (await integration.isConnected()));
 			}),
 		);
+
+		void setContext('gitlens:launchpad:connect', !some(connected.values(), c => c));
 		return connected;
 	}
 
