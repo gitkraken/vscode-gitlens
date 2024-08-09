@@ -2,6 +2,7 @@ import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
+	AsyncStepResultGenerator,
 	PartialStepState,
 	StepGenerator,
 	StepResultGenerator,
@@ -12,6 +13,7 @@ import {
 	canPickStepContinue,
 	createPickStep,
 	endSteps,
+	freezeStep,
 	QuickCommand,
 	StepResultBreak,
 } from '../../commands/quickCommand';
@@ -37,6 +39,7 @@ import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { configuration } from '../../system/configuration';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { interpolate, pluralize } from '../../system/string';
@@ -236,20 +239,26 @@ export class FocusCommand extends QuickCommand<State> {
 
 				opened = true;
 
-				const result = yield* this.confirmIntegrationConnectStep(state, context);
-				if (result !== StepResultBreak && !(await this.ensureIntegrationConnected(result))) {
-					let integration;
-					switch (result) {
-						case HostingIntegrationId.GitHub:
-							integration = 'GitHub';
-							break;
-						default:
-							integration = `integration (${result})`;
-							break;
-					}
-					throw new Error(`Unable to connect to ${integration}`);
+				const isUsingCloudIntegrations = configuration.get(
+					'experimental.cloudIntegrations.enabled',
+					undefined,
+					false,
+				);
+				const result = isUsingCloudIntegrations
+					? yield* this.confirmCloudIntegrationsConnectStep(state)
+					: yield* this.confirmLocalIntegrationConnectStep(state, context);
+				if (result === StepResultBreak) {
+					return result;
 				}
-				newlyConnected = result !== StepResultBreak;
+
+				result.resume();
+
+				const connected = result.connected;
+				if (!connected) {
+					continue;
+				}
+
+				newlyConnected = Boolean(connected);
 			}
 
 			await updateContextItems(this.container, context, { force: newlyConnected });
@@ -275,23 +284,20 @@ export class FocusCommand extends QuickCommand<State> {
 				if (result === StepResultBreak) continue;
 
 				if (isConnectMoreIntegrationsItem(result)) {
-					const connectingResult = yield* this.confirmIntegrationConnectStep(state, context);
-					if (
-						connectingResult !== StepResultBreak &&
-						!(await this.ensureIntegrationConnected(connectingResult))
-					) {
-						let integration;
-						switch (connectingResult) {
-							case HostingIntegrationId.GitHub:
-								integration = 'GitHub';
-								break;
-							default:
-								integration = `integration (${connectingResult})`;
-								break;
-						}
-						throw new Error(`Unable to connect to ${integration}`);
-					}
-					newlyConnected = connectingResult !== StepResultBreak;
+					const isUsingCloudIntegrations = configuration.get(
+						'experimental.cloudIntegrations.enabled',
+						undefined,
+						false,
+					);
+					const result = isUsingCloudIntegrations
+						? yield* this.confirmCloudIntegrationsConnectStep(state)
+						: yield* this.confirmLocalIntegrationConnectStep(state, context);
+					if (result === StepResultBreak) continue;
+
+					result.resume();
+
+					const connected = result.connected;
+					newlyConnected = Boolean(connected);
 					await updateContextItems(this.container, context, { force: newlyConnected });
 					continue;
 				}
@@ -803,10 +809,10 @@ export class FocusCommand extends QuickCommand<State> {
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
-	private *confirmIntegrationConnectStep(
+	private async *confirmLocalIntegrationConnectStep(
 		state: StepState<State>,
 		context: Context,
-	): StepResultGenerator<IntegrationId> {
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
 		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [];
 
 		for (const integration of supportedFocusIntegrations) {
@@ -848,8 +854,63 @@ export class FocusCommand extends QuickCommand<State> {
 			{ placeholder: 'Launchpad requires a connected integration', ignoreFocusOut: false },
 		);
 
+		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
+		// Otherwise it disappears.
+		let freeze!: () => Disposable;
+		step.onDidActivate = qp => {
+			freeze = () => freezeStep(step, qp);
+		};
+
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
+		if (canPickStepContinue(step, state, selection)) {
+			const resume = freeze();
+			const chosenIntegrationId = selection[0].item;
+			const connected = await this.ensureIntegrationConnected(chosenIntegrationId);
+			return { connected: connected ? chosenIntegrationId : false, resume: () => resume[Symbol.dispose]() };
+		}
+
+		return StepResultBreak;
+	}
+
+	private async *confirmCloudIntegrationsConnectStep(
+		state: StepState<State>,
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
+		const step = this.createConfirmStep(
+			`${this.title} \u00a0\u2022\u00a0 Connect an Integration`,
+			[
+				createQuickPickItemOfT(
+					{
+						label: 'Connect a Cloud Integration...',
+						detail: 'Will connect a cloud integration to use with Launchpad',
+					},
+					true,
+				),
+			],
+			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
+			{ placeholder: 'Launchpad requires a connected integration', ignoreFocusOut: true },
+		);
+
+		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
+		// Otherwise it disappears.
+		let freeze!: () => Disposable;
+		step.onDidActivate = qp => {
+			freeze = () => freezeStep(step, qp);
+		};
+
+		const selection: StepSelection<typeof step> = yield step;
+
+		if (canPickStepContinue(step, state, selection)) {
+			const resume = freeze();
+			const connected = await this.container.integrations.connectCloudIntegrations(
+				{ integrationIds: supportedFocusIntegrations },
+				{
+					source: 'launchpad',
+				},
+			);
+			return { connected: connected, resume: () => resume[Symbol.dispose]() };
+		}
+
+		return StepResultBreak;
 	}
 
 	private getFocusItemInformationRows(

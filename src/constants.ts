@@ -891,10 +891,20 @@ export type Sources =
 	| 'welcome'
 	| 'worktrees';
 
+export type LoginContext = 'start_trial';
+
+export type ConnectIntegrationContext = 'launchpad';
+
+export type Context = LoginContext | ConnectIntegrationContext;
+
 export interface Source {
 	source: Sources;
 	detail?: string | TelemetryEventData;
 }
+
+export const sourceToContext: { [source in Sources]?: Context } = {
+	launchpad: 'launchpad',
+};
 
 export type AIProviders = 'anthropic' | 'gemini' | 'openai' | 'vscode';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'
