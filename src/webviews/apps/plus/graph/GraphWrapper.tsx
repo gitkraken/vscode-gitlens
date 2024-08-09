@@ -23,6 +23,7 @@ import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
 import type { SearchQuery } from '../../../../git/search';
 import type { FocusCommandArgs } from '../../../../plus/focus/focus';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
+import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
 import type {
 	DidEnsureRowParams,
 	DidGetRowHoverParams,
@@ -1253,19 +1254,20 @@ export function GraphWrapper({
 								className="action-button"
 							>
 								<span className="codicon codicon-rocket"></span>
-								Launchpad
 							</a>
 							<span slot="content">
 								<span style={{ whiteSpace: 'break-spaces' }}>
-									Launchpad organizes your pull requests into actionable groups to help you focus and
-									keep your team unblocked
+									<strong>Launchpad</strong> &mdash; organizes your pull requests into actionable
+									groups to help you focus and keep your team unblocked
 								</span>
 							</span>
 						</GlTooltip>
-						<GlFeatureBadge
-							source={{ source: 'graph', detail: 'badge' }}
-							subscription={subscription}
-						></GlFeatureBadge>
+						{(subscription == null || !isSubscriptionPaid(subscription)) && (
+							<GlFeatureBadge
+								source={{ source: 'graph', detail: 'badge' }}
+								subscription={subscription}
+							></GlFeatureBadge>
+						)}
 					</div>
 				</div>
 				{allowed && (
