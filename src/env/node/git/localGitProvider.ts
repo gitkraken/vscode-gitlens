@@ -2252,62 +2252,34 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.git.rev_list__count(repoPath, ref);
 	}
 
-	private async findStashForFile(
-		repoPath: string | undefined,
-		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range },
-	) {
-		const stashes = await this.getStash(repoPath);
-		if (!stashes?.commits.size) {
-			throw new Error('No stashes');
-		}
-		let commit;
-		if (options?.ref) {
-			commit = stashes.commits.get(options.ref);
-			if (!commit) {
-				throw new Error('No stash for file');
-			}
-		}
-		return commit ?? first(stashes.commits.values());
-	}
-
-	private async findCommitForFile(
-		repoPath: string | undefined,
-		uri: Uri,
-		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range },
-	) {
-		const [relativePath, root] = splitPath(uri, repoPath);
-		const log = await this.getLogForFile(root, relativePath, {
-			limit: 2,
-			ref: options?.ref,
-			range: options?.range,
-		});
-		if (log == null) return undefined;
-
-		let commit;
-		if (options?.ref) {
-			const commit = log.commits.get(options.ref);
-			if (commit == null && !options?.firstIfNotFound) {
-				// If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
-				if (isSha(options.ref) || isUncommitted(options.ref)) return undefined;
-			}
-		}
-
-		return commit ?? first(log.commits.values());
-	}
-
 	@log()
 	async getCommitForFile(
 		repoPath: string | undefined,
 		uri: Uri,
 		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range },
-	): Promise<GitStashCommit | GitCommit | undefined> {
+	): Promise<GitCommit | undefined> {
 		const scope = getLogScope();
 
+		const [relativePath, root] = splitPath(uri, repoPath);
+
 		try {
-			return await Promise.any([
-				this.findStashForFile(repoPath, options),
-				this.findCommitForFile(repoPath, uri, options),
-			]);
+			const log = await this.getLogForFile(root, relativePath, {
+				limit: 2,
+				ref: options?.ref,
+				range: options?.range,
+			});
+			if (log == null) return undefined;
+
+			let commit;
+			if (options?.ref) {
+				const commit = log.commits.get(options.ref);
+				if (commit == null && !options?.firstIfNotFound) {
+					// If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
+					if (isSha(options.ref) || isUncommitted(options.ref)) return undefined;
+				}
+			}
+
+			return commit ?? first(log.commits.values());
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;

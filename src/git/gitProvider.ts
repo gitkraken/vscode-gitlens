@@ -5,7 +5,7 @@ import type { Features } from '../features';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
 import type { BranchSortOptions, GitBranch } from './models/branch';
-import type { GitCommit, GitStashCommit } from './models/commit';
+import type { GitCommit } from './models/commit';
 import type { GitContributor } from './models/contributor';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
@@ -273,7 +273,7 @@ export interface GitProvider extends Disposable {
 			firstIfNotFound?: boolean | undefined;
 			range?: Range | undefined;
 		},
-	): Promise<GitStashCommit | GitCommit | undefined>;
+	): Promise<GitCommit | undefined>;
 	getCommitsForGraph(
 		repoPath: string,
 		asWebviewUri: (uri: Uri) => Uri,
