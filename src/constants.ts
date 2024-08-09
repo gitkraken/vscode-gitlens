@@ -181,6 +181,7 @@ export const enum Commands {
 	CopyShaToClipboard = 'gitlens.copyShaToClipboard',
 	CopyRelativePathToClipboard = 'gitlens.copyRelativePathToClipboard',
 	ApplyPatchFromClipboard = 'gitlens.applyPatchFromClipboard',
+	PastePatchFromClipboard = 'gitlens.pastePatchFromClipboard',
 	CopyPatchToClipboard = 'gitlens.copyPatchToClipboard',
 	CopyWorkingChangesToWorktree = 'gitlens.copyWorkingChangesToWorktree',
 	CreatePatch = 'gitlens.createPatch',

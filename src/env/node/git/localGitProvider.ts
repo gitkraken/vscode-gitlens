@@ -1267,6 +1267,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitCommit | undefined> {
 		const scope = getLogScope();
 
+		if (!contents.endsWith('\n')) {
+			contents += '\n';
+		}
+
 		// Create a temporary index file
 		const tempDir = await fs.mkdtemp(path.join(tmpdir(), 'gl-'));
 		const tempIndex = joinPaths(tempDir, 'index');

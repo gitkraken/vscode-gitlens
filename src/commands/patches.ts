@@ -192,7 +192,7 @@ export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
 @command()
 export class ApplyPatchFromClipboardCommand extends Command {
 	constructor(private readonly container: Container) {
-		super(Commands.ApplyPatchFromClipboard);
+		super([Commands.ApplyPatchFromClipboard, Commands.PastePatchFromClipboard]);
 	}
 
 	async execute() {

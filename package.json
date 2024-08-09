@@ -5651,12 +5651,17 @@
 			},
 			{
 				"command": "gitlens.applyPatchFromClipboard",
-				"title": "Apply Copied Patch",
+				"title": "Apply Copied Changes (Patch)",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.pastePatchFromClipboard",
+				"title": "Paste Copied Changes (Patch)",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.copyPatchToClipboard",
-				"title": "Copy as Patch",
+				"title": "Copy Changes (Patch)",
 				"category": "GitLens"
 			},
 			{
@@ -9760,6 +9765,10 @@
 				},
 				{
 					"command": "gitlens.applyPatchFromClipboard",
+					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.pastePatchFromClipboard",
 					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
