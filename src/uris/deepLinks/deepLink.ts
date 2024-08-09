@@ -204,6 +204,7 @@ export const enum DeepLinkServiceState {
 	OpenDraft,
 	OpenWorkspace,
 	OpenFile,
+	OpenInspect,
 	SwitchToRef,
 }
 
@@ -234,6 +235,7 @@ export const enum DeepLinkServiceAction {
 	OpenGraph,
 	OpenComparison,
 	OpenFile,
+	OpenInspect,
 	OpenSwitch,
 }
 
@@ -259,6 +261,7 @@ export interface DeepLinkServiceContext {
 	repoOpenLocation?: OpenWorkspaceLocation | undefined;
 	repoOpenUri?: Uri | undefined;
 	params?: URLSearchParams | undefined;
+	currentBranch?: string | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
@@ -285,6 +288,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	},
 	[DeepLinkServiceState.RepoMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.RepoMatched]: DeepLinkServiceState.RemoteMatch,
 		[DeepLinkServiceAction.RepoMatchedInLocalMapping]: DeepLinkServiceState.CloneOrAddRepo,
 		[DeepLinkServiceAction.RepoMatchFailed]: DeepLinkServiceState.CloneOrAddRepo,
@@ -297,6 +301,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	[DeepLinkServiceState.AddedRepoMatch]: {
 		[DeepLinkServiceAction.RepoMatched]: DeepLinkServiceState.RemoteMatch,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.RemoteMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
@@ -312,6 +317,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	},
 	[DeepLinkServiceState.TargetMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.TargetMatched]: DeepLinkServiceState.MaybeOpenRepo,
 		[DeepLinkServiceAction.TargetMatchFailed]: DeepLinkServiceState.Fetch,
 	},
@@ -353,26 +359,38 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	[DeepLinkServiceState.OpenGraph]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpenComparison]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpenDraft]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpenWorkspace]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpenFile]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
-	[DeepLinkServiceState.SwitchToRef]: {
+	[DeepLinkServiceState.OpenInspect]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.SwitchToRef]: {
+		[DeepLinkServiceAction.OpenInspect]: DeepLinkServiceState.OpenInspect,
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 };
 
@@ -402,5 +420,6 @@ export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.OpenDraft]: { message: 'Opening cloud patch...', increment: 90 },
 	[DeepLinkServiceState.OpenWorkspace]: { message: 'Opening workspace...', increment: 90 },
 	[DeepLinkServiceState.OpenFile]: { message: 'Opening file...', increment: 90 },
+	[DeepLinkServiceState.OpenInspect]: { message: 'Opening inspect...', increment: 90 },
 	[DeepLinkServiceState.SwitchToRef]: { message: 'Switching to ref...', increment: 90 },
 };
