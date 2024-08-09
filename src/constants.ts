@@ -280,6 +280,7 @@ export const enum Commands {
 	GitCommandsWorktreeDelete = 'gitlens.gitCommands.worktree.delete',
 	GitCommandsWorktreeOpen = 'gitlens.gitCommands.worktree.open',
 	OpenOrCreateWorktreeForGHPR = 'gitlens.ghpr.views.openOrCreateWorktree',
+	PlusConnectCloudIntegrations = 'gitlens.plus.cloudIntegrations.connect',
 	PlusHide = 'gitlens.plus.hide',
 	PlusLogin = 'gitlens.plus.login',
 	PlusLogout = 'gitlens.plus.logout',
