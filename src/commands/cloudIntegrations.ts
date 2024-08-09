@@ -9,6 +9,10 @@ export interface ManageCloudIntegrationsCommandArgs extends Source {
 	integrationId?: SupportedCloudIntegrationIds;
 }
 
+export interface ConnectCloudIntegrationsCommandArgs extends Source {
+	integrationIds?: SupportedCloudIntegrationIds[];
+}
+
 @command()
 export class ManageCloudIntegrationsCommand extends Command {
 	constructor(private readonly container: Container) {
@@ -18,6 +22,20 @@ export class ManageCloudIntegrationsCommand extends Command {
 	async execute(args?: ManageCloudIntegrationsCommandArgs) {
 		await this.container.integrations.manageCloudIntegrations(
 			args?.integrationId ? { integrationId: args.integrationId } : undefined,
+			args?.source ? { source: args.source, detail: args?.detail } : undefined,
+		);
+	}
+}
+
+@command()
+export class ConnectCloudIntegrationsCommand extends Command {
+	constructor(private readonly container: Container) {
+		super(Commands.PlusConnectCloudIntegrations);
+	}
+
+	async execute(args?: ConnectCloudIntegrationsCommandArgs) {
+		await this.container.integrations.connectCloudIntegrations(
+			args?.integrationIds ? { integrationIds: args.integrationIds } : undefined,
 			args?.source ? { source: args.source, detail: args?.detail } : undefined,
 		);
 	}

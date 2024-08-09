@@ -284,9 +284,9 @@ export abstract class CloudIntegrationAuthenticationProvider<
 	) {
 		let session = await this.fetchSession(descriptor);
 		if (this.isNotNewAsForced(oldSession, session, options)) {
-			void this.manageCloudIntegrations(false, options?.source);
+			void this.connectCloudIntegration(false, options?.source);
 		} else if (this.isNotCreatedAsNeeded(session, options)) {
-			await this.manageCloudIntegrations(true, options?.source);
+			await this.connectCloudIntegration(true, options?.source);
 			session = await this.fetchSession(descriptor);
 		}
 		return session;
@@ -313,10 +313,10 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		return isSupportedCloudIntegrationId(this.authProviderId) && options?.createIfNeeded && curSession == null;
 	}
 
-	private async manageCloudIntegrations(skipIfConnected: boolean, source: Sources | undefined): Promise<void> {
+	private async connectCloudIntegration(skipIfConnected: boolean, source: Sources | undefined): Promise<void> {
 		if (isSupportedCloudIntegrationId(this.authProviderId)) {
-			await this.container.integrations.manageCloudIntegrations(
-				{ integrationId: this.authProviderId, skipIfConnected: skipIfConnected },
+			await this.container.integrations.connectCloudIntegrations(
+				{ integrationIds: [this.authProviderId], skipIfConnected: skipIfConnected },
 				{
 					source: source ?? 'integrations',
 					detail: {

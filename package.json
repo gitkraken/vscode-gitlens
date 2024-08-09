@@ -5627,6 +5627,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.plus.cloudIntegrations.connect",
+				"title": "Connect Cloud Integrations...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.plus.cloudIntegrations.manage",
 				"title": "Manage Cloud Integrations...",
 				"category": "GitLens"
@@ -9755,6 +9760,10 @@
 				{
 					"command": "gitlens.plus.manage",
 					"when": "gitlens:plus"
+				},
+				{
+					"command": "gitlens.plus.cloudIntegrations.connect",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.plus.cloudIntegrations.manage",
@@ -17791,7 +17800,7 @@
 					{
 						"id": "integrations",
 						"title": "Integrate with Git Hosting & Issue Services",
-						"description": "GitLens automatically detects patterns in commit messages to generate autolinks to pull requests and issues for Git hosting services including GitHub, GitLab, Gitea, Gerrit, Google Source, Bitbucket, Azure DevOps, and custom servers.\n\n[Configure autolinks](command:gitlens.showSettingsPage!autolinks) for custom pattern-matching with other services.\n\n**Rich Integrations with GitHub, GitLab, and Jira**\nConnect [GitHub](command:gitlens.connectRemoteProvider), [GitLab](command:gitlens.connectRemoteProvider), and [Jira](command:gitlens.plus.cloudIntegrations.manage?%7B%22integrationId%22%3A%22jira%22%2C%22source%22%3A%22walkthrough%22%2C%22detail%22%3A%7B%22action%22%3A%22connect%22%2C%22integration%22%3A%22jira%22%7D%7D) integrations to enhance autolinks with more data available via APIs, associate branches and commits with PRs, and review pull requests within VS Code.",
+						"description": "GitLens automatically detects patterns in commit messages to generate autolinks to pull requests and issues for Git hosting services including GitHub, GitLab, Gitea, Gerrit, Google Source, Bitbucket, Azure DevOps, and custom servers.\n\n[Configure autolinks](command:gitlens.showSettingsPage!autolinks) for custom pattern-matching with other services.\n\n**Rich Integrations with GitHub, GitLab, and Jira**\nConnect [GitHub](command:gitlens.connectRemoteProvider), [GitLab](command:gitlens.connectRemoteProvider), and [Jira](command:gitlens.plus.cloudIntegrations.connect?%7B%22integrationIds%22%3A%5B%22jira%22%5D%2C%22source%22%3A%22walkthrough%22%2C%22detail%22%3A%7B%22action%22%3A%22connect%22%2C%22integration%22%3A%22jira%22%7D%7D) integrations to enhance autolinks with more data available via APIs, associate branches and commits with PRs, and review pull requests within VS Code.",
 						"media": {
 							"markdown": "walkthroughs/welcome/integrations.md"
 						}
