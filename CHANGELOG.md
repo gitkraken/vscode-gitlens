@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new "Connect" button to the _Launchpad_ that allows the user to connect additional integrations.
 - Adds `gitlens.experimental.cloudIntegrations.enabled` setting to connect GitHub integration using cloud integration of GitKraken account.
 - Adds comparison support to virtual (GitHub) repositories
+- Adds menu for stashes on the commit graph
 
 ### Changed
 

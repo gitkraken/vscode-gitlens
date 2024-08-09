@@ -509,20 +509,17 @@ export class GlCommitDetails extends GlDetailsBase {
 		});
 
 		if (!this.isStash) {
-			actions.push(
-				{
-					icon: 'globe',
-					label: 'Open on remote',
-					action: 'file-open-on-remote',
-				},
-				{
-					icon: 'ellipsis',
-					label: 'Show more actions',
-					action: 'file-more-actions',
-				},
-			);
+			actions.push({
+				icon: 'globe',
+				label: 'Open on remote',
+				action: 'file-open-on-remote',
+			});
 		}
-
+		actions.push({
+			icon: 'ellipsis',
+			label: 'Show more actions',
+			action: 'file-more-actions',
+		});
 		return actions;
 	}
 }
