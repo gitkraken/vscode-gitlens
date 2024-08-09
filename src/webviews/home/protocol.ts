@@ -38,6 +38,7 @@ export interface State extends WebviewState {
 	hasAnyIntegrationConnected: boolean;
 	repoHostConnected: boolean;
 	editorPreviewEnabled: boolean;
+	canEnableCodeLens: boolean;
 }
 
 // NOTIFICATIONS
@@ -71,6 +72,16 @@ export const DidChangeOnboardingEditor = new IpcNotification<DidChangeOnboarding
 	scope,
 	'onboarding/editor/didChange',
 );
+
+export interface DidChangeCodeLensStateParams {
+	canBeEnabled: boolean;
+}
+export const DidChangeCodeLensState = new IpcNotification<DidChangeCodeLensStateParams>(
+	scope,
+	'onboarding/codelens/didToggle',
+);
+
+export const DidResume = new IpcNotification<DidChangeCodeLensStateParams>(scope, 'onboarding/home/didResume');
 
 export interface DidChangeOnboardingIntegrationParams {
 	onboardingState: OnboardingState;

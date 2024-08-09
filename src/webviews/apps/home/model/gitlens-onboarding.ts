@@ -6,6 +6,7 @@ import type { OnboardingItemConfiguration } from '../../shared/components/onboar
 export function getOnboardingConfiguration(
 	editorPreviewEnabled: boolean,
 	repoHostConnected: boolean,
+	canEnableCodeLens: boolean,
 ): OnboardingItemConfiguration<OnboardingItem>[] {
 	const passIfTrue = <T>(condition: boolean, value: T): T | undefined => (condition ? value : undefined);
 	return [
@@ -61,7 +62,10 @@ export function getOnboardingConfiguration(
 					itemId: OnboardingItem.codeLens,
 					title: 'Use Codelens',
 					infoHref: 'https://youtu.be/oJdlGtsbc3U?t=145',
-					playHref: passIfTrue(editorPreviewEnabled, createCommandLink(Commands.ToggleCodeLens)),
+					playHref: passIfTrue(
+						editorPreviewEnabled && canEnableCodeLens,
+						createCommandLink(Commands.ToggleCodeLens),
+					),
 					playTooltip: 'Toggle Git CodeLens',
 				},
 				{
