@@ -7,6 +7,7 @@ export function getOnboardingConfiguration(
 	editorPreviewEnabled: boolean,
 	repoHostConnected: boolean,
 	canEnableCodeLens: boolean,
+	canEnableLineBlame: boolean,
 ): OnboardingItemConfiguration<OnboardingItem>[] {
 	const passIfTrue = <T>(condition: boolean, value: T): T | undefined => (condition ? value : undefined);
 	return [
@@ -55,8 +56,8 @@ export function getOnboardingConfiguration(
 					title: 'Hover over inline blame ',
 					infoHref: 'https://youtu.be/oJdlGtsbc3U?t=129',
 					infoTooltip: 'Put the cursor on any line in your file and hover over inline blame',
-					playHref: passIfTrue(editorPreviewEnabled, createCommandLink(Commands.ToggleLineBlame)),
-					playTooltip: 'Toggle inline blame',
+					playHref: passIfTrue(canEnableLineBlame, createCommandLink(Commands.ToggleLineBlame)),
+					playTooltip: 'Enable inline blame',
 				},
 				{
 					itemId: OnboardingItem.codeLens,
@@ -66,7 +67,7 @@ export function getOnboardingConfiguration(
 						editorPreviewEnabled && canEnableCodeLens,
 						createCommandLink(Commands.ToggleCodeLens),
 					),
-					playTooltip: 'Toggle Git CodeLens',
+					playTooltip: 'Enable Git CodeLens',
 				},
 				{
 					itemId: OnboardingItem.fileAnnotations,
