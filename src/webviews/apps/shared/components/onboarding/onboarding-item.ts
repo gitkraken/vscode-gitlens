@@ -58,7 +58,13 @@ export class GlOnboardingItem extends LitElement {
 				flex-shrink: 0;
 				margin-right: 8px;
 			}
-			code-icon.check.checked {
+			code-icon.check.disabled {
+				color: var(--gl-disabled-text-color);
+			}
+			code-icon.check:not(.disabled) {
+				color: var(--gl-unchecked-icon-color);
+			}
+			code-icon.check.checked:not(.disabled) {
 				color: var(--gl-checked-icon-color);
 			}
 
@@ -92,6 +98,9 @@ export class GlOnboardingItem extends LitElement {
 	@property({ type: String, attribute: 'info-href' })
 	infoHref?: string;
 
+	@property({ type: Boolean })
+	disabled?: boolean;
+
 	private get infoPresented() {
 		return Boolean(this.infoHref) || Boolean(this.infoTitle);
 	}
@@ -99,7 +108,11 @@ export class GlOnboardingItem extends LitElement {
 	private renderPlay() {
 		if (!this.playHref) return nothing;
 
-		return html`<gl-button href=${this.playHref} tooltip=${ifDefined(this.playTitle)} appearance="toolbar"
+		return html`<gl-button
+			?disabled=${this.disabled}
+			href=${this.playHref}
+			tooltip=${ifDefined(this.playTitle)}
+			appearance="toolbar"
 			><code-icon icon="play-circle"></code-icon
 		></gl-button>`;
 	}
@@ -108,6 +121,7 @@ export class GlOnboardingItem extends LitElement {
 		if (!this.infoPresented) return nothing;
 
 		return html`<gl-button
+			?disabled=${this.disabled}
 			href=${ifDefined(this.infoHref)}
 			class=${classMap({
 				'tooltip-only': !this.infoHref,
@@ -124,6 +138,7 @@ export class GlOnboardingItem extends LitElement {
 			class=${classMap({
 				check: true,
 				checked: this.checked,
+				disabled: Boolean(this.disabled),
 			})}
 			icon=${when(
 				this.checked,
@@ -143,7 +158,7 @@ export class GlOnboardingItem extends LitElement {
 			<div
 				class=${classMap({
 					description: true,
-					disabled: this.checked,
+					disabled: this.checked || Boolean(this.disabled),
 				})}
 			>
 				<span class="description-label"><slot></slot></span>

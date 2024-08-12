@@ -12,10 +12,9 @@ import {
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
-	DidResume,
 } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
-import { DidChangeHostWindowFocusNotification, DidChangeWebviewFocusNotfication, ExecuteCommand } from '../../protocol';
+import { ExecuteCommand } from '../../protocol';
 import { App } from '../shared/appBase';
 import type { GlFeatureBadge } from '../shared/components/feature-badge';
 import type { GlOnboarding as _GlOnboarding } from '../shared/components/onboarding/onboarding';
@@ -45,6 +44,7 @@ export class HomeApp extends App<State> {
 
 	attachState() {
 		this.component.state = this.state.onboardingState;
+		this.component.disabled = this.blockRepoFeatures;
 		this.component.onboardingConfiguration = getOnboardingConfiguration(
 			this.state.editorPreviewEnabled,
 			this.state.repoHostConnected,
@@ -78,11 +78,6 @@ export class HomeApp extends App<State> {
 
 	protected override onMessageReceived(msg: IpcMessage) {
 		switch (true) {
-			case DidResume.is(msg):
-				console.log('home test focus', msg.params);
-				this.attachState();
-				break;
-
 			case DidChangeOnboardingState.is(msg):
 				this.state.onboardingState = msg.params;
 				this.state.timestamp = Date.now();

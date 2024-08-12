@@ -61,6 +61,9 @@ export class GlOnboarding<
 		delegatesFocus: true,
 	};
 
+	@property({ type: Boolean })
+	disabled?: boolean;
+
 	@property({ type: Object })
 	state?: OnboardingState;
 
@@ -97,6 +100,7 @@ export class GlOnboarding<
 	private renderOnboardingItem(onboardingItem: OnboardingItemConfiguration<OnboardingItem>) {
 		return html`
 			<gl-onboarding-item
+				?disabled=${this.disabled}
 				.checked=${Boolean(this.state?.[`${onboardingItem.itemId}Checked`])}
 				play-href=${ifDefined(onboardingItem.playHref)}
 				play-title=${ifDefined(onboardingItem.playTooltip)}
@@ -120,6 +124,7 @@ export class GlOnboarding<
 		return html`
 			<gl-onboarding-item-group>
 				<gl-onboarding-item
+					?disabled=${this.disabled}
 					.checked=${this.calcStateFromChildren(onboardingItem)}
 					slot=${'top'}
 					play-href=${ifDefined(onboardingItem.playHref)}
