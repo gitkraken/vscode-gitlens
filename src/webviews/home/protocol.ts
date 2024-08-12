@@ -22,11 +22,6 @@ export enum OnboardingItem {
 
 export type OnboardingState = Partial<Record<`${OnboardingItem}Checked`, boolean>>;
 
-export interface OnboardingConfigurationExtras {
-	editorPreviewEnabled: boolean;
-	repoHostConnected: boolean;
-}
-
 export interface State extends WebviewState {
 	repositories: DidChangeRepositoriesParams;
 	webroot?: string;
@@ -34,12 +29,13 @@ export interface State extends WebviewState {
 	orgSettings: {
 		drafts: boolean;
 	};
-	onboardingState: OnboardingState;
 	hasAnyIntegrationConnected: boolean;
+	onboardingState: undefined | OnboardingState;
 	repoHostConnected: boolean;
 	editorPreviewEnabled: boolean;
 	canEnableCodeLens: boolean;
 	canEnableLineBlame: boolean;
+	isOnboardingInitialized: boolean;
 }
 
 // NOTIFICATIONS
@@ -80,6 +76,15 @@ export interface DidChangeCodeLensStateParams {
 export const DidChangeCodeLensState = new IpcNotification<DidChangeCodeLensStateParams>(
 	scope,
 	'onboarding/codelens/didToggle',
+);
+
+export interface DidChangeOnboardingIsInitializedParams {
+	isInitialized: boolean;
+}
+
+export const DidChangeOnboardingIsInitialized = new IpcNotification<DidChangeOnboardingIsInitializedParams>(
+	scope,
+	'onboarding/isInitialized/didChange',
 );
 
 export interface DidChangeLineBlameStateParams {

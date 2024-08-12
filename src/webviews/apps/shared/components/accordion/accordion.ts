@@ -1,6 +1,7 @@
 import { html, LitElement } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { GlElement } from '../element';
 import { accordionBaseStyles } from './accordion.css';
 
@@ -42,7 +43,6 @@ export class Accordion extends GlElement {
 	@property()
 	override id!: string;
 
-	@property({ attribute: 'default-is-expanded', type: Boolean }) defaultIsExpanded: boolean = false;
 	@property({ attribute: 'show-chevron', type: Boolean }) showChevron: boolean = false;
 
 	get buttonId() {
@@ -52,18 +52,13 @@ export class Accordion extends GlElement {
 		return `accordion-${this.id}__details`;
 	}
 
-	@state() isExpanded = false;
-
-	override connectedCallback() {
-		super.connectedCallback();
-		this.isExpanded = this.defaultIsExpanded;
-	}
+	@property({ type: Boolean, attribute: 'is-expanded' })
+	isExpanded?: boolean = false;
 
 	_handleClick(e: MouseEvent) {
 		e.stopPropagation();
-		this.isExpanded = !this.isExpanded;
 		const buttonEl = this as any;
-		buttonEl.dispatchEvent(new Event('click'));
+		buttonEl.dispatchEvent(new Event('toggle'));
 	}
 
 	get chevronIcon() {
@@ -74,11 +69,11 @@ export class Accordion extends GlElement {
 		return html`
 			<div class="accordion" part="wrapper">
 				<button
-					?aria-expanded=${this.isExpanded}
+					aria-expanded=${ifDefined(this.isExpanded)}
 					aria-controls="${this.detailsId}"
 					class=${classMap({
 						'accordion-button': true,
-						'accordion-button--expanded': this.isExpanded,
+						'accordion-button--expanded': Boolean(this.isExpanded),
 					})}
 					id="${this.buttonId}"
 					@click="${this._handleClick}"
@@ -92,7 +87,7 @@ export class Accordion extends GlElement {
 					aria-labelledby="${this.buttonId}"
 					class=${classMap({
 						'accordion-details': true,
-						'accordion-details--expanded': this.isExpanded,
+						'accordion-details--expanded': Boolean(this.isExpanded),
 					})}
 					?hidden=${!this.isExpanded}
 					id="${this.detailsId}"

@@ -1,5 +1,6 @@
+import type { PropertyValues } from 'lit';
 import { css, html, LitElement } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
@@ -70,12 +71,25 @@ export class GlOnboarding<
 	@property({ type: Array })
 	onboardingConfiguration?: OnboardingItemConfiguration<OnboardingItem>[];
 
-	@state()
-	isExpanded: boolean = true;
+	@property({ type: Boolean, attribute: 'is-expanded' })
+	isExpanded: boolean = false;
 
 	override connectedCallback(): void {
 		super.connectedCallback();
-		this.isExpanded = !this.finished;
+	}
+
+	@property({ type: Boolean, attribute: 'is-initialized' })
+	isInitialized = false;
+
+	protected override updated(
+		_changedProperties: PropertyValues<GlOnboarding<OnboardingState, OnboardingItem>>,
+	): void {
+		// expand not finished onboarding accordion, but only on component initialize
+		if (this.isInitialized) {
+			if (_changedProperties.has('isInitialized') && !this.finished) {
+				this.isExpanded = true;
+			}
+		}
 	}
 
 	private get progress() {
@@ -147,7 +161,11 @@ export class GlOnboarding<
 			return html``;
 		}
 		return html`
-			<gl-accordion show-chevron ?default-is-expanded=${!this.finished}>
+			<gl-accordion
+				show-chevron
+				?is-expanded=${this.isExpanded}
+				@toggle=${() => (this.isExpanded = !this.isExpanded)}
+			>
 				<h3 class="title" slot="button-content">
 					<slot name="title"></slot>
 					<span class="progress">${this.progress}/${this.stepCount}</span>
