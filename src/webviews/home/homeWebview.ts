@@ -9,7 +9,13 @@ import { getContext, onDidChangeContext } from '../../system/context';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type { CollapseSectionParams, DidChangeRepositoriesParams, State } from './protocol';
-import { CollapseSectionCommand, DidChangeOrgSettings, DidChangeRepositories, DidChangeSubscription } from './protocol';
+import {
+	CollapseSectionCommand,
+	DidChangeIntegrationsConnections,
+	DidChangeOrgSettings,
+	DidChangeRepositories,
+	DidChangeSubscription,
+} from './protocol';
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {
@@ -31,11 +37,16 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 				: emptyDisposable,
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
+			this.container.integrations.onDidChangeConnectionState(this.onChangeConnectionState, this),
 		);
 	}
 
 	dispose() {
 		this._disposable.dispose();
+	}
+
+	private onChangeConnectionState() {
+		this.notifyDidChangeOnboardingIntegration();
 	}
 
 	private onRepositoriesChanged() {
@@ -116,6 +127,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			subscription: subscription,
 			orgSettings: this.getOrgSettings(),
 			walkthroughCollapsed: this.getWalkthroughCollapsed(),
+			hasAnyIntegrationConnected: this.isAnyIntegrationConnected(),
 		};
 	}
 
@@ -126,6 +138,18 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			hasUnsafe: this.container.git.hasUnsafeRepositories(),
 			trusted: workspace.isTrusted,
 		};
+	}
+
+	private _hostedIntegrationConnected: boolean | undefined;
+	private isAnyIntegrationConnected(force = false) {
+		if (this._hostedIntegrationConnected == null || force === true) {
+			this._hostedIntegrationConnected =
+				[
+					...this.container.integrations.getConnected('hosting'),
+					...this.container.integrations.getConnected('issues'),
+				].length > 0;
+		}
+		return this._hostedIntegrationConnected;
 	}
 
 	private async getCanShowPromos(subscription?: Subscription): Promise<Record<string, boolean>> {
@@ -147,6 +171,14 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	private notifyDidChangeRepositories() {
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
+	}
+
+	private notifyDidChangeOnboardingIntegration() {
+		// force rechecking
+		const isConnected = this.isAnyIntegrationConnected(true);
+		void this.host.notify(DidChangeIntegrationsConnections, {
+			hasAnyIntegrationConnected: isConnected,
+		});
 	}
 
 	private async notifyDidChangeSubscription(subscription?: Subscription) {
