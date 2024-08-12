@@ -21,7 +21,6 @@ import {
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
-	DidResume,
 } from './protocol';
 
 const emptyDisposable = Object.freeze({
@@ -54,9 +53,6 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 				if (isSupportedIntegration(e.key)) this.onChangeConnectionState();
 			}, this),
 			this.container.codeLens.onCodeLensToggle(this.onToggleCodeLens, this),
-			// window.on.focus.onDidChange(e => {
-			// 	console.log('home test focus', e);
-			// }, this),
 		);
 	}
 
@@ -108,6 +104,9 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	onReloaded() {
 		this.notifyDidChangeRepositories();
+		this.notifyDidChangeEditor();
+		this.notifyDidChangeOnboardingState();
+		this.notifyDidChangeOnboardingIntegration();
 	}
 
 	private getOrgSettings(): State['orgSettings'] {
@@ -267,18 +266,6 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		void this.host.notify(DidChangeCodeLensState, {
 			canBeEnabled: this.canCodeLensBeEnabled(),
 		});
-	}
-
-	// the webview is not updated when it's invisible, but the provider is alive.
-	// need to refresh all states on open already loaded view
-	// TODO: this part doesn't work
-	private notifyDidResume() {
-		console.log('home test notify');
-		setTimeout(() => {
-			void this.host.notify(DidResume, {
-				canBeEnabled: this.canCodeLensBeEnabled(),
-			});
-		}, 2000);
 	}
 
 	private async notifyDidChangeSubscription(subscription?: Subscription) {
