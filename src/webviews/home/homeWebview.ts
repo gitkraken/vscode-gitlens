@@ -64,10 +64,6 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		this.notifyDidChangeOnboardingIntegration();
 	}
 
-	onVisibilityChanged(visible: boolean): void {
-		if (visible) this.notifyDidResume();
-	}
-
 	private async onChangeActiveTextEditor(e: TextEditor | undefined) {
 		if (!e || !isTextEditor(e)) {
 			this.activeTrackedTextEditor = undefined;
