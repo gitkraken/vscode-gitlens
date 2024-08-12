@@ -9,9 +9,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Shows GitLab merge requests in the _Launchpad_ when GitLab integration is connected
-- Adds a new "Connect" button to the _Launchpad_ that allows the user to connect additional integrations.
+- Adds a new _Connect Additional Integrations_ button to the _Launchpad_ that allows the user to connect additional integrations.
 - Adds `gitlens.experimental.cloudIntegrations.enabled` setting to connect GitHub integration using cloud integration of GitKraken account.
 - Adds comparison support to virtual (GitHub) repositories
+- Adds support for GitHub and GitLab cloud integrations
+  - Synced automatically with an associated GitKraken account
+  - Managed through the _Cloud Integrations_ button on the _GitKraken Account_ view or through the _Manage Cloud Integrations_ command
+  - Adds an improved, streamlined experience for connecting a cloud integration to GitLens
+- Adds new features and improvements to the _Commit Graph_:
+  - Adds a new _Smart Branches_ visibility option to the _Commit Graph_ which shows only relevant branches (the current branch, its upstream, and its base)
+  - Branch visibility options for the _Commit Graph_, formerly in the _Graph Filtering_ dropdown, are now moved to the new _Branches Visibility_ dropdown in the _Commit Graph_ header bar
+  - Adds Pull Request information to branches with missing upstreams
+  - Improves interactions with hovers on rows
+  - Fixes column resizing being stuck when the mouse leaves the graph
+- Adds an experimental _Launchpad_ view
+  - Enabled by setting the new `gitlens.views.launchpad.enabled` setting to `true`
+  - Categorizes pull requests into groups similar to the _Launchpad_ quickpick
+  - Pull requests can be expanded to view commits, code suggestions and changes
+  - Includes inline commands to view pull request changes and comparisons or open a pull request on the remote provider
+  - Adds a new _Focus on Launchpad View_ command to the _Command Palette_
 
 ### Changed
 
@@ -19,13 +35,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves the messaging of the merge and rebase commands
 - Renames _Compare with Working Tree_ command to _Compare Working Tree to Here_
 - Renames _Compare Common Base with Working Tree_ command to _Compare Working Tree to Common Base_
+- Renames _Open Worktree in New Window_ Launchpad command to _Open in Worktree_
+- Renames _Open Directory Compare_ command to _Open Directory Comparison_
+- Renames _Open Directory Compare with Working Tree_ command to _Directory Compare Working Tree to Here_
+- Improves some messaging on _Switch_ and _Checkout_ commands
 
 ### Fixed
 
 - Fixes [#3445](https://github.com/gitkraken/vscode-gitlens/issues/3445) - Cannot merge branch into detached HEAD
 - Fixes [#3443](https://github.com/gitkraken/vscode-gitlens/issues/3443) - Don't show gitlens context menu items in Copilot Chat codeblock editors
 - Fixes issues with incorrect commit count when using the merge and rebase commands
-- Fixes issues where a merge or rebase operationsays there or no changes when there are changes
+- Fixes issues where a merge or rebase operation says there or no changes when there are changes
+- Fixes an error with queries that can cause Jira Cloud and other cloud integrations to stop working
+- Fixes issues with some directory comparison commands
 
 ## [15.2.3] - 2024-07-26
 
