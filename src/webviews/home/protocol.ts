@@ -13,6 +13,7 @@ export interface State extends WebviewState {
 		drafts: boolean;
 	};
 	walkthroughCollapsed: boolean;
+	hasAnyIntegrationConnected: boolean;
 }
 
 // COMMANDS
@@ -32,6 +33,14 @@ export interface DidChangeRepositoriesParams {
 	trusted: boolean;
 }
 export const DidChangeRepositories = new IpcNotification<DidChangeRepositoriesParams>(scope, 'repositories/didChange');
+
+export interface DidChangeIntegrationsParams {
+	hasAnyIntegrationConnected: boolean;
+}
+export const DidChangeIntegrationsConnections = new IpcNotification<DidChangeIntegrationsParams>(
+	scope,
+	'integrations/didChange',
+);
 
 export interface DidChangeSubscriptionParams {
 	promoStates: Record<string, boolean>;

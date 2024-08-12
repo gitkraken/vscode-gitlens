@@ -4,6 +4,7 @@ import type { Disposable } from 'vscode';
 import type { State } from '../../home/protocol';
 import {
 	CollapseSectionCommand,
+	DidChangeIntegrationsConnections,
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
@@ -74,6 +75,12 @@ export class HomeApp extends App<State> {
 				this.state.orgSettings = msg.params.orgSettings;
 				this.setState(this.state);
 				this.updateOrgSettings();
+				break;
+
+			case DidChangeIntegrationsConnections.is(msg):
+				this.state.hasAnyIntegrationConnected = msg.params.hasAnyIntegrationConnected;
+				this.setState(this.state);
+				this.updateIntegrations();
 				break;
 
 			default:
@@ -182,12 +189,22 @@ export class HomeApp extends App<State> {
 		});
 	}
 
+	private updateIntegrations() {
+		const { hasAnyIntegrationConnected } = this.state;
+		const els = document.querySelectorAll<HTMLElement>('[data-integrations]');
+		const dataValue = hasAnyIntegrationConnected ? 'connected' : 'none';
+		for (const el of els) {
+			setElementVisibility(el, el.dataset.integrations === dataValue);
+		}
+	}
+
 	private updateState() {
 		this.updateNoRepo();
 		this.updatePromos();
 		this.updateSourceAndSubscription();
 		this.updateOrgSettings();
 		this.updateCollapsedSections();
+		this.updateIntegrations();
 	}
 }
 

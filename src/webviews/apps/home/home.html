@@ -205,6 +205,50 @@
 				</a>
 			</div>
 			<nav class="nav-list">
+				<h2 class="nav-list__title t-eyebrow sticky">Setup</h2>
+				<div class="nav-list__item">
+					<a class="nav-list__link" href="command:gitlens.showSettingsPage" aria-label="Open GitLens Settings"
+						><code-icon class="nav-list__icon" icon="gear"></code-icon
+						><gl-tooltip hoist class="nav-list__label" content="Open GitLens Settings">
+							<span>Open GitLens Settings</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item" data-integrations="none">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.plus.cloudIntegrations.connect?%7B%22source%22%3A%22home%22%7D"
+						aria-label="Connect an Integration on GitKraken.dev"
+						><code-icon class="nav-list__icon" icon="gl-unplug"></code-icon
+						><gl-tooltip hoist class="nav-list__label" content="Connect an Integration on GitKraken.dev"
+							><span>Connect an Integration</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item" data-integrations="connected" hidden>
+					<a
+						class="nav-list__link"
+						href="command:gitlens.plus.cloudIntegrations.manage?%7B%22source%22%3A%22home%22%7D"
+						aria-label="Manage Integrations on GitKraken.dev"
+						><code-icon class="nav-list__icon" icon="settings"></code-icon
+						><gl-tooltip hoist class="nav-list__label" content="Manage Integrations on GitKraken.dev"
+							><span>Manage Integrations</span></gl-tooltip
+						>
+					</a>
+				</div>
+				<div class="nav-list__item">
+					<a
+						class="nav-list__link"
+						href="command:gitlens.showSettingsPage!autolinks"
+						aria-label="Open Autolinks Settings"
+						><code-icon class="nav-list__icon" icon="link"></code-icon
+						><gl-tooltip hoist class="nav-list__label" content="Open Autolinks Settings"
+							><span>Configure Autolinks</span></gl-tooltip
+						>
+					</a>
+				</div>
+			</nav>
+			<nav class="nav-list">
 				<h2 class="nav-list__title t-eyebrow sticky">Configuration</h2>
 				<div class="nav-list__item">
 					<a class="nav-list__link" href="command:gitlens.showSettingsPage" aria-label="Open GitLens Settings"
@@ -408,31 +452,6 @@
 						><code-icon class="nav-list__icon" icon="source-control"></code-icon
 						><gl-tooltip hoist class="nav-list__label" content="Show Source Control Side Bar"
 							><span>Source Control</span></gl-tooltip
-						>
-					</a>
-				</div>
-			</nav>
-			<nav class="nav-list">
-				<h2 class="nav-list__title t-eyebrow sticky">Integrations</h2>
-				<div class="nav-list__item">
-					<a
-						class="nav-list__link"
-						href="command:gitlens.plus.cloudIntegrations.manage?%7B%22source%22%3A%22home%22%7D"
-						aria-label="Manage Cloud Integrations on GitKraken.dev"
-						><code-icon class="nav-list__icon" icon="settings"></code-icon
-						><gl-tooltip hoist class="nav-list__label" content="Manage Cloud Integrations on GitKraken.dev"
-							><span>Cloud Integrations</span></gl-tooltip
-						>
-					</a>
-				</div>
-				<div class="nav-list__item">
-					<a
-						class="nav-list__link"
-						href="command:gitlens.showSettingsPage!autolinks"
-						aria-label="Open Autolinks Settings"
-						><code-icon class="nav-list__icon" icon="link"></code-icon
-						><gl-tooltip hoist class="nav-list__label" content="Open Autolinks Settings"
-							><span>Autolinks</span></gl-tooltip
 						>
 					</a>
 				</div>
