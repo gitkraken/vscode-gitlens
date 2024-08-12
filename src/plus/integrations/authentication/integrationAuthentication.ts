@@ -54,7 +54,12 @@ export interface IntegrationAuthenticationProvider extends Disposable {
 	deleteSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void>;
 	getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
+		options?: {
+			createIfNeeded?: boolean;
+			forceNewSession?: boolean;
+			hitApiSilentlyIfNeeded?: boolean;
+			source?: Sources;
+		},
 	): Promise<ProviderAuthenticationSession | undefined>;
 	get onDidChange(): Event<void>;
 }
@@ -146,9 +151,15 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 	@debug()
 	async getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
+		options?: {
+			createIfNeeded?: boolean;
+			hitApiSilentlyIfNeeded?: boolean;
+			forceNewSession?: boolean;
+			source?: Sources;
+		},
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const sessionId = this.getSessionId(descriptor);
+		const hitApiIfNeeded = options?.hitApiSilentlyIfNeeded || options?.createIfNeeded;
 
 		const oldStoredSession = realiseStoredSession(
 			await this.restoreSession({ sessionId: sessionId, ignoreErrors: true }),
@@ -164,7 +175,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 		});
 		if (
 			storedSession == null ||
-			(!isRealSession(storedSession) && options?.createIfNeeded) ||
+			(!isRealSession(storedSession) && hitApiIfNeeded) ||
 			this.isStoredSessionDeprecated(storedSession)
 		) {
 			const session = await this.fetchOrCreateSession(oldStoredSession, descriptor, options);

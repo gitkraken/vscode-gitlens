@@ -146,6 +146,15 @@ export abstract class IntegrationBase<
 		}
 	}
 
+	@log()
+	async connectSilently(source?: Sources): Promise<boolean> {
+		try {
+			return Boolean(await this.ensureSession({ hitApiSilentlyIfNeeded: true, source: source }));
+		} catch (ex) {
+			return false;
+		}
+	}
+
 	protected providerOnConnect?(): void | Promise<void>;
 
 	@gate()
@@ -215,7 +224,7 @@ export abstract class IntegrationBase<
 
 		if (connected) {
 			// Don't store the disconnected flag if this only for this current VS Code session (will be re-connected on next restart)
-			if (!options?.currentSessionOnly) {
+			if (!options?.currentSessionOnly && !options?.cloudSessionOnly) {
 				void this.container.storage.storeWorkspace(this.connectedKey, false);
 			}
 
@@ -279,9 +288,10 @@ export abstract class IntegrationBase<
 	private async ensureSession(options: {
 		createIfNeeded?: boolean;
 		forceNewSession?: boolean;
+		hitApiSilentlyIfNeeded?: boolean;
 		source?: Sources;
 	}): Promise<ProviderAuthenticationSession | undefined> {
-		const { createIfNeeded, forceNewSession, source } = options;
+		const { createIfNeeded, forceNewSession, hitApiSilentlyIfNeeded, source } = options;
 		if (this._session != null) return this._session;
 		if (!configuration.get('integrations.enabled')) return undefined;
 
@@ -297,6 +307,7 @@ export abstract class IntegrationBase<
 			session = await authProvider.getSession(this.authProviderDescriptor, {
 				createIfNeeded: createIfNeeded,
 				forceNewSession: forceNewSession,
+				hitApiSilentlyIfNeeded: hitApiSilentlyIfNeeded,
 				source: source,
 			});
 		} catch (ex) {

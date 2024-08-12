@@ -105,7 +105,7 @@ export class IntegrationService implements Disposable {
 			if (connectedProviders.has(cloudIntegrationId)) {
 				if (isConnected) continue;
 
-				await integration.connect();
+				await integration.connectSilently();
 			} else {
 				if (!isConnected) continue;
 
