@@ -110,6 +110,7 @@ import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../../
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
+import type { ConnectionStateChangeEvent } from '../../integrations/integrationService';
 import type {
 	BranchState,
 	DidChangeRefsVisibilityParams,
@@ -174,6 +175,7 @@ import {
 	DidChangeNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
+	DidChangeRepoConnectionNotification,
 	DidChangeRowsNotification,
 	DidChangeRowsStatsNotification,
 	DidChangeScrollMarkersNotification,
@@ -309,6 +311,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					this._repositoryEventsDisposable = undefined;
 				},
 			},
+			this.container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionChanged, this),
 		);
 	}
 
@@ -1813,6 +1816,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		);
 	}
 
+	private onIntegrationConnectionChanged(_e: ConnectionStateChangeEvent) {
+		void this.notifyDidChangeRepoConnection();
+	}
+
+	private async notifyDidChangeRepoConnection() {
+		void this.host.notify(DidChangeRepoConnectionNotification, {
+			repositories: await this.getRepositoriesState(),
+		});
+	}
+
+	private async getRepositoriesState(): Promise<GraphRepository[]> {
+		return formatRepositories(this.container.git.openRepositories);
+	}
+
 	private async ensureLastFetchedSubscription(force?: boolean) {
 		if (!force && this._lastFetchedDisposable != null) return;
 
@@ -2364,7 +2381,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return {
 			...this.host.baseWebviewState,
 			windowFocused: this.isWindowFocused,
-			repositories: formatRepositories(this.container.git.openRepositories),
+			repositories: await formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
 			selectedRepositoryVisibility: visibility,
 			branchesVisibility: refsVisibility.branchesVisibility,
@@ -3644,16 +3661,30 @@ type GraphItemRefs<T> = {
 	selection: T[];
 };
 
-function formatRepositories(repositories: Repository[]): GraphRepository[] {
-	if (repositories.length === 0) return [];
+async function formatRepositories(repositories: Repository[]): Promise<GraphRepository[]> {
+	if (repositories.length === 0) return Promise.resolve([]);
 
-	return repositories.map(r => ({
-		formattedName: r.formattedName,
-		id: r.id,
-		name: r.name,
-		path: r.path,
-		isVirtual: r.provider.virtual,
-	}));
+	return Promise.all(
+		repositories.map(async r => {
+			const remote = await r.getBestRemoteWithIntegration();
+
+			// const integration = await remote?.getIntegration();
+			// const connected = integration ? integration?.maybeConnected ?? (await integration?.isConnected()) : false;
+			let connected = false;
+			if (remote?.maybeIntegrationConnected) {
+				connected = true;
+			}
+
+			return {
+				formattedName: r.formattedName,
+				id: r.id,
+				name: r.name,
+				path: r.path,
+				isVirtual: r.provider.virtual,
+				isConnected: connected,
+			};
+		}),
+	);
 }
 
 function isGraphItemContext(item: unknown): item is GraphItemContext {

@@ -28,6 +28,7 @@ import {
 	DidChangeNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
+	DidChangeRepoConnectionNotification,
 	DidChangeRowsNotification,
 	DidChangeRowsStatsNotification,
 	DidChangeScrollMarkersNotification,
@@ -307,6 +308,11 @@ export class GraphApp extends App<State> {
 			case DidChangeWorkingTreeNotification.is(msg):
 				this.state.workingTreeStats = msg.params.stats;
 				this.setState(this.state, DidChangeWorkingTreeNotification);
+				break;
+
+			case DidChangeRepoConnectionNotification.is(msg):
+				this.state.repositories = msg.params.repositories;
+				this.setState(this.state, DidChangeRepoConnectionNotification);
 				break;
 
 			default:

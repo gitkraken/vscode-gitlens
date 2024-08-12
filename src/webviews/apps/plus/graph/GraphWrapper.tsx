@@ -53,6 +53,7 @@ import {
 	DidChangeGraphConfigurationNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
+	DidChangeRepoConnectionNotification,
 	DidChangeRowsNotification,
 	DidChangeRowsStatsNotification,
 	DidChangeSelectionNotification,
@@ -66,8 +67,10 @@ import { pluralize } from '../../../../system/string';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type { IpcNotification } from '../../../protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
+import { createCommandLink } from '../../shared/commands';
 import { GlButton } from '../../shared/components/button.react';
 import { CodeIcon } from '../../shared/components/code-icon.react';
+import { GlConnect } from '../../shared/components/integrations/connect.react';
 import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
 import { GlPopover } from '../../shared/components/overlays/popover.react';
@@ -368,6 +371,10 @@ export function GraphWrapper({
 				break;
 			case DidFetchNotification:
 				setLastFetched(state.lastFetched);
+				break;
+			case DidChangeRepoConnectionNotification:
+				setRepos(state.repositories ?? []);
+				setRepo(state.repositories?.find(item => item.path === state.selectedRepository));
 				break;
 			default: {
 				hover.current?.reset();
@@ -1126,24 +1133,38 @@ export function GraphWrapper({
 				<div className="titlebar__row titlebar__row--wrap">
 					<div className="titlebar__group">
 						{repo && branchState?.provider?.url && (
-							<GlTooltip placement="bottom">
-								<a
-									href={branchState.provider.url}
-									className="action-button"
-									style={{ marginRight: '-0.5rem' }}
-									aria-label={`Open Repository on ${branchState.provider.name}`}
-								>
-									<span
-										className={
-											branchState.provider.icon === 'cloud'
-												? 'codicon codicon-cloud action-button__icon'
-												: `glicon glicon-provider-${branchState.provider.icon} action-button__icon`
-										}
-										aria-hidden="true"
-									></span>
-								</a>
-								<span slot="content">Open Repository on {branchState.provider.name}</span>
-							</GlTooltip>
+							<>
+								<GlTooltip placement="bottom">
+									<a
+										href={branchState.provider.url}
+										className="action-button"
+										style={{ marginRight: '-0.5rem' }}
+										aria-label={`Open Repository on ${branchState.provider.name}`}
+									>
+										<span
+											className={
+												branchState.provider.icon === 'cloud'
+													? 'codicon codicon-cloud action-button__icon'
+													: `glicon glicon-provider-${branchState.provider.icon} action-button__icon`
+											}
+											aria-hidden="true"
+										></span>
+									</a>
+									<span slot="content">Open Repository on {branchState.provider.name}</span>
+								</GlTooltip>
+								{repo.isConnected !== true && (
+									<GlConnect
+										type="action"
+										connected={false}
+										integration={branchState.provider.name}
+										connectUrl={createCommandLink('gitlens.plus.cloudIntegrations.connect', {
+											args: {
+												source: 'graph',
+											},
+										})}
+									></GlConnect>
+								)}
+							</>
 						)}
 						<GlTooltip placement="bottom">
 							<button
