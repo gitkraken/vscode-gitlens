@@ -150,6 +150,7 @@ export interface GraphRepository {
 	name: string;
 	path: string;
 	isVirtual: boolean;
+	isConnected: boolean;
 }
 
 export interface GraphCommitIdentity {
@@ -347,6 +348,14 @@ export interface DidSearchParams {
 export const SearchRequest = new IpcRequest<SearchParams, DidSearchParams>(scope, 'search');
 
 // NOTIFICATIONS
+
+export interface DidChangeRepoConnectionParams {
+	repositories?: GraphRepository[];
+}
+export const DidChangeRepoConnectionNotification = new IpcNotification<DidChangeRepoConnectionParams>(
+	scope,
+	'repositories/integration/didChange',
+);
 
 export interface DidChangeParams {
 	state: State;
