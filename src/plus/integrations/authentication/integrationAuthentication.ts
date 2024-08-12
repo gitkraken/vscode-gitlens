@@ -18,6 +18,7 @@ import {
 import type { ProviderAuthenticationSession } from './models';
 import { isSupportedCloudIntegrationId } from './models';
 
+type StoredNoSession = 'no-session-special-value';
 interface StoredSession {
 	id: string;
 	accessToken: string;
@@ -29,6 +30,14 @@ interface StoredSession {
 	scopes: string[];
 	expiresAt?: string;
 }
+type StoredSecretValue = StoredNoSession | StoredSession;
+function isRealSession(session: StoredSecretValue | undefined): session is StoredSession {
+	return session != null && typeof session !== 'string';
+}
+function realiseStoredSession(session: StoredSecretValue | undefined): StoredSession | undefined {
+	return isRealSession(session) ? session : undefined;
+}
+const noSessionToStore: StoredNoSession = 'no-session-special-value';
 
 export interface IntegrationAuthenticationProviderDescriptor {
 	id: IntegrationId;
@@ -76,26 +85,29 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 
 	protected abstract deleteAllSecrets(sessionId: string): Promise<void>;
 
-	protected abstract storeSession(sessionId: string, session: AuthenticationSession): Promise<void>;
+	protected abstract storeSession(sessionId: string, session: AuthenticationSession | StoredNoSession): Promise<void>;
 
 	protected abstract restoreSession(options: {
 		sessionId: string;
 		ignoreErrors: boolean;
-	}): Promise<StoredSession | undefined>;
+	}): Promise<StoredSecretValue | undefined>;
 
 	protected async deleteSecret(key: IntegrationAuthenticationKeys) {
 		await this.container.storage.deleteSecret(key);
 	}
 
-	protected async writeSecret(key: IntegrationAuthenticationKeys, session: AuthenticationSession | StoredSession) {
+	protected async writeSecret(
+		key: IntegrationAuthenticationKeys,
+		session: AuthenticationSession | StoredSecretValue,
+	) {
 		await this.container.storage.storeSecret(key, JSON.stringify(session));
 	}
 
 	protected async readSecret(
 		key: IntegrationAuthenticationKeys,
 		ignoreErrors: boolean,
-	): Promise<StoredSession | undefined> {
-		let storedSession: StoredSession | undefined;
+	): Promise<StoredSecretValue | undefined> {
+		let storedSession: StoredSecretValue | undefined;
 		try {
 			const sessionJSON = await this.container.storage.getSecret(key);
 			if (sessionJSON) {
@@ -138,35 +150,44 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const sessionId = this.getSessionId(descriptor);
 
-		const oldStoredSession = await this.restoreSession({ sessionId: sessionId, ignoreErrors: true });
+		const oldStoredSession = realiseStoredSession(
+			await this.restoreSession({ sessionId: sessionId, ignoreErrors: true }),
+		);
 
 		if (options?.forceNewSession) {
 			await this.deleteAllSecrets(sessionId);
 		}
 
-		const storedSession = (await this.restoreSession({
+		const storedSession = await this.restoreSession({
 			sessionId: sessionId,
 			ignoreErrors: !options?.createIfNeeded,
-		})) as ProviderAuthenticationSession | undefined;
+		});
 		if (
 			storedSession == null ||
-			(storedSession?.expiresAt != null && new Date(storedSession.expiresAt).getTime() < Date.now())
+			(!isRealSession(storedSession) && options?.createIfNeeded) ||
+			this.isStoredSessionDeprecated(storedSession)
 		) {
 			const session = await this.fetchOrCreateSession(oldStoredSession, descriptor, options);
-			if (session != null) {
-				await this.storeSession(sessionId, session);
-			}
+			await this.storeSession(sessionId, session != null ? session : noSessionToStore);
 			this.fireIfChanged(oldStoredSession, session);
 			return session;
 		}
 
-		this.fireIfChanged(oldStoredSession, storedSession);
-		return storedSession;
+		this.fireIfChanged(oldStoredSession, realiseStoredSession(storedSession));
+		return realiseStoredSession(storedSession) as ProviderAuthenticationSession | undefined;
+	}
+
+	private isStoredSessionDeprecated(storedSession: StoredSecretValue | undefined) {
+		return (
+			isRealSession(storedSession) &&
+			storedSession.expiresAt != null &&
+			new Date(storedSession.expiresAt).getTime() < Date.now()
+		);
 	}
 
 	protected fireIfChanged(
 		oldSession: StoredSession | undefined,
-		curSession: ProviderAuthenticationSession | undefined,
+		curSession: StoredSession | ProviderAuthenticationSession | undefined,
 	) {
 		if (oldSession == null && curSession == null) return;
 		if (oldSession != null && curSession != null && curSession.accessToken === oldSession.accessToken) {
@@ -197,7 +218,7 @@ export abstract class LocalIntegrationAuthenticationProvider<
 	}: {
 		sessionId: string;
 		ignoreErrors: boolean;
-	}): Promise<StoredSession | undefined> {
+	}): Promise<StoredSecretValue | undefined> {
 		const key = this.getLocalSecretKey(sessionId);
 		return this.readSecret(key, ignoreErrors);
 	}
@@ -241,7 +262,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		]);
 	}
 
-	protected override async storeSession(sessionId: string, session: AuthenticationSession) {
+	protected override async storeSession(sessionId: string, session: AuthenticationSession | StoredNoSession) {
 		await this.writeSecret(this.getCloudSecretKey(sessionId), session);
 	}
 
@@ -255,10 +276,10 @@ export abstract class CloudIntegrationAuthenticationProvider<
 	}: {
 		sessionId: string;
 		ignoreErrors: boolean;
-	}): Promise<StoredSession | undefined> {
+	}): Promise<StoredSecretValue | undefined> {
 		// At first we try to restore a token with the local key
 		const session = await this.readSecret(this.getLocalSecretKey(sessionId), ignoreErrors);
-		if (session != null) {
+		if (isRealSession(session)) {
 			// Check the `expiresAt` field
 			// If it has an expiresAt property and the key is the old type, then it's a cloud session,
 			// so delete it from the local key and
