@@ -5628,12 +5628,12 @@
 			},
 			{
 				"command": "gitlens.plus.cloudIntegrations.connect",
-				"title": "Connect Cloud Integrations...",
+				"title": "Connect Integrations...",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.plus.cloudIntegrations.manage",
-				"title": "Manage Cloud Integrations...",
+				"title": "Manage Integrations...",
 				"category": "GitLens"
 			},
 			{
