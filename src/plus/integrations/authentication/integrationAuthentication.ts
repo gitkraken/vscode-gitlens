@@ -297,7 +297,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		} else if (this.isNotCreatedAsNeeded(session, options)) {
 			const connected = await this.connectCloudIntegration(true, options?.source);
 			if (!connected) return undefined;
-			session = await this.getSession(descriptor, options);
+			session = await this.getSession(descriptor, { source: options?.source });
 		}
 		return session;
 	}
@@ -344,6 +344,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { authorizeIfNeeded?: boolean },
 	): Promise<ProviderAuthenticationSession | undefined> {
+		const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 		const loggedIn = await this.container.subscription.getAuthenticationSession(false);
 		if (!loggedIn) return undefined;
 
@@ -355,7 +356,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		// Make an exception for GitHub because they always return 0
 		if (session?.expiresIn === 0 && this.authProviderId === HostingIntegrationId.GitHub) {
 			// It never expires so don't refresh it frequently:
-			session.expiresIn = 31536000; // 1 year
+			session.expiresIn = maxSmallIntegerV8; // maximum expiration length
 		}
 
 		if (session != null && session.expiresIn < 60) {
@@ -522,6 +523,8 @@ export class IntegrationAuthenticationService implements Disposable {
 			case SelfHostedIntegrationId.GitLabSelfHosted:
 			case IssueIntegrationId.Jira:
 				return true;
+			case HostingIntegrationId.GitHub:
+				return isSupportedCloudIntegrationId(HostingIntegrationId.GitHub);
 			default:
 				return false;
 		}
