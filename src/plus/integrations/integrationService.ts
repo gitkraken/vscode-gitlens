@@ -10,6 +10,7 @@ import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { RemoteProvider, RemoteProviderId } from '../../git/remotes/remoteProvider';
 import { configuration } from '../../system/configuration';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { promisifyDeferred, take } from '../../system/event';
 import { filterMap, flatten } from '../../system/iterable';
@@ -89,7 +90,9 @@ export class IntegrationService implements Disposable {
 		this._disposable?.dispose();
 	}
 
-	private async syncCloudIntegrations(_options?: { force?: boolean }) {
+	@gate()
+	@debug()
+	private async syncCloudIntegrations() {
 		let connectedProviders = new Set<IntegrationId>();
 
 		const session = await this.container.subscription.getAuthenticationSession();
@@ -194,7 +197,7 @@ export class IntegrationService implements Disposable {
 
 		let account = (await this.container.subscription.getSubscription()).account;
 		const connectedIntegrations = new Set<string>();
-		if (integrationIds != null) {
+		if (integrationIds?.length) {
 			if (connect?.skipIfConnected && !connect?.skipPreSync) {
 				await this.syncCloudIntegrations();
 			}
@@ -209,20 +212,6 @@ export class IntegrationService implements Disposable {
 			if (connect?.skipIfConnected && connectedIntegrations.size === integrationIds.length) {
 				return true;
 			}
-		}
-
-		if (integrationIds && connect?.skipIfConnected) {
-			await this.syncCloudIntegrations();
-			let someDisconnected = false;
-			for (const integrationId of integrationIds) {
-				const integration = await this.get(integrationId);
-				const connected = integration.maybeConnected ?? (await integration.isConnected());
-				if (!connected) {
-					someDisconnected = true;
-					break;
-				}
-			}
-			if (!someDisconnected) return true;
 		}
 
 		let query = 'source=gitlens';
