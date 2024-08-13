@@ -71,7 +71,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 	protected abstract fetchOrCreateSession(
 		oldSession: StoredSession | undefined,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; refreshIfExpired?: boolean; source?: Sources },
 	): Promise<ProviderAuthenticationSession | undefined>;
 
 	protected abstract deleteAllSecrets(sessionId: string): Promise<void>;
@@ -153,7 +153,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 		if (storedSession == null || isExpiredSession) {
 			const session = await this.fetchOrCreateSession(oldStoredSession, descriptor, {
 				...options,
-				createIfNeeded: options?.createIfNeeded || isExpiredSession,
+				refreshIfExpired: isExpiredSession,
 			});
 			if (session != null) {
 				await this.storeSession(sessionId, session);
@@ -282,13 +282,15 @@ export abstract class CloudIntegrationAuthenticationProvider<
 	protected override async fetchOrCreateSession(
 		oldSession: StoredSession | undefined,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; refreshIfExpired?: boolean; source?: Sources },
 	) {
 		// TODO: This is a stopgap to make sure we're not hammering the api on automatic calls to get the session.
 		// Ultimately we want to timestamp calls to syncCloudIntegrations and use that to determine whether we should
 		// make the call or not.
 		let session =
-			options?.createIfNeeded || options?.forceNewSession ? await this.fetchSession(descriptor) : undefined;
+			options?.refreshIfExpired || options?.createIfNeeded || options?.forceNewSession
+				? await this.fetchSession(descriptor)
+				: undefined;
 
 		if (this.isNotNewAsForced(oldSession, session, options)) {
 			void this.connectCloudIntegration(false, options?.source);
