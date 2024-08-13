@@ -240,11 +240,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 				opened = true;
 
-				const isUsingCloudIntegrations = configuration.get(
-					'experimental.cloudIntegrations.enabled',
-					undefined,
-					false,
-				);
+				const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
 				const result = isUsingCloudIntegrations
 					? yield* this.confirmCloudIntegrationsConnectStep(state, context)
 					: yield* this.confirmLocalIntegrationConnectStep(state, context);
@@ -285,11 +281,7 @@ export class FocusCommand extends QuickCommand<State> {
 				if (result === StepResultBreak) continue;
 
 				if (isConnectMoreIntegrationsItem(result)) {
-					const isUsingCloudIntegrations = configuration.get(
-						'experimental.cloudIntegrations.enabled',
-						undefined,
-						false,
-					);
+					const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
 					const result = isUsingCloudIntegrations
 						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
 						: yield* this.confirmLocalIntegrationConnectStep(state, context);

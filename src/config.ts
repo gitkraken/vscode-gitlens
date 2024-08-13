@@ -45,6 +45,9 @@ export interface Config {
 		readonly locations: ChangesLocations[];
 		/*readonly*/ toggleMode: AnnotationsToggleMode;
 	};
+	readonly cloudIntegrations: {
+		readonly enabled: boolean;
+	};
 	readonly cloudPatches: {
 		readonly enabled: boolean;
 		readonly experimental: {
@@ -82,9 +85,6 @@ export interface Config {
 		readonly generateCommitMessagePrompt: string;
 		readonly generateCloudPatchMessagePrompt: string;
 		readonly generateCodeSuggestionMessagePrompt: string;
-		readonly cloudIntegrations: {
-			readonly enabled: boolean;
-		};
 	};
 	readonly fileAnnotations: {
 		readonly preserveWhileEditing: boolean;
