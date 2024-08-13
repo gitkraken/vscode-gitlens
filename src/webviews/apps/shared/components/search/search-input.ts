@@ -58,6 +58,14 @@ export class GlSearchInput extends GlElement {
 		}
 
 		:host {
+			--gl-search-input-background: var(--vscode-input-background);
+			--gl-search-input-foreground: var(--vscode-input-foreground);
+			--gl-search-input-border: var(--vscode-input-border);
+			--gl-search-input-placeholder: var(
+				--vscode-editor-placeholder\\\.foreground,
+				var(--vscode-input-placeholderForeground)
+			);
+
 			display: inline-flex;
 			flex-direction: row;
 			align-items: center;
@@ -74,7 +82,7 @@ export class GlSearchInput extends GlElement {
 			gap: 0.2rem;
 			width: 3.2rem;
 			height: 2.4rem;
-			color: var(--vscode-input-foreground);
+			color: var(--gl-search-input-foreground);
 			cursor: pointer;
 			border-radius: 3px;
 		}
@@ -98,11 +106,11 @@ export class GlSearchInput extends GlElement {
 		input {
 			width: 100%;
 			height: 2.4rem;
-			background-color: var(--vscode-input-background);
-			color: var(--vscode-input-foreground);
-			border: 1px solid var(--vscode-input-border);
+			background-color: var(--gl-search-input-background);
+			color: var(--gl-search-input-foreground);
+			border: 1px solid var(--gl-search-input-border);
 			border-radius: 0.25rem;
-			padding: 0 6.6rem 1px 0.4rem;
+			padding: 0 6.6rem 1px 0.7rem;
 			font-family: inherit;
 			font-size: inherit;
 		}
@@ -111,7 +119,7 @@ export class GlSearchInput extends GlElement {
 			outline-offset: -1px;
 		}
 		input::placeholder {
-			color: var(--vscode-input-placeholderForeground);
+			color: var(--gl-search-input-placeholder);
 		}
 
 		input::-webkit-search-cancel-button {
@@ -144,7 +152,7 @@ export class GlSearchInput extends GlElement {
 			z-index: 1000;
 			background-color: var(--vscode-inputValidation-infoBackground);
 			border: 1px solid var(--vscode-inputValidation-infoBorder);
-			color: var(--vscode-input-foreground);
+			color: var(--gl-search-input-foreground);
 			font-size: 1.2rem;
 			line-height: 1.4;
 		}
@@ -170,7 +178,7 @@ export class GlSearchInput extends GlElement {
 
 		button {
 			padding: 0;
-			color: var(--vscode-input-foreground);
+			color: var(--gl-search-input-foreground);
 			border: 1px solid transparent;
 			background: none;
 		}
