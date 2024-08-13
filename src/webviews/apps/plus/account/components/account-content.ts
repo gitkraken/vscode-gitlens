@@ -253,7 +253,7 @@ export class AccountContent extends LitElement {
 							appearance="secondary"
 							full
 							href="command:gitlens.plus.cloudIntegrations.manage?%7B%22source%22%3A%22account%22%7D"
-							>Cloud Integrations</gl-button
+							>Integrations</gl-button
 						>
 					</button-container>
 					<p>
