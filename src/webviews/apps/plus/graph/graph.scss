@@ -233,6 +233,10 @@ button:not([disabled]),
 	}
 }
 
+.jump-to-ref {
+	--button-foreground: var(--color-foreground);
+}
+
 .action-button {
 	position: relative;
 	appearance: none;
@@ -1220,6 +1224,11 @@ hr {
 	border-radius: 3px;
 	padding: 0px 4px 2px 4px;
 	font-family: var(--vscode-editor-font-family);
+}
+
+gl-search-box::part(search) {
+	--gl-search-input-background: var(--color-graph-actionbar-background);
+	--gl-search-input-border: var(--sl-input-border-color);
 }
 
 sl-option::part(base) {

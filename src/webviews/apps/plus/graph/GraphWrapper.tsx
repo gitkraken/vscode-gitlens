@@ -1249,7 +1249,7 @@ export function GraphWrapper({
 										</span>
 									</div>
 								</GlPopover>
-								<GlButton appearance="toolbar" onClick={handleJumpToRef}>
+								<GlButton className="jump-to-ref" appearance="toolbar" onClick={handleJumpToRef}>
 									<CodeIcon icon="target"></CodeIcon>
 									<span slot="tooltip">
 										Jump to HEAD
