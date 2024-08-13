@@ -67,7 +67,7 @@ export class FocusIndicator implements Disposable {
 
 	private async onConnectedIntegrationsChanged(e: ConnectionStateChangeEvent) {
 		if (supportedFocusIntegrations.includes(e.key as HostingIntegrationId)) {
-			await this.maybeLoadData();
+			await this.maybeLoadData(true);
 		}
 	}
 
@@ -102,10 +102,10 @@ export class FocusIndicator implements Disposable {
 		}
 	}
 
-	private async maybeLoadData() {
+	private async maybeLoadData(forceIfConnected: boolean = false) {
 		if (this.pollingEnabled) {
 			if (await this.provider.hasConnectedIntegration()) {
-				if (this._state === 'load' && this._categorizedItems != null)
+				if (this._state === 'load' && this._categorizedItems != null && !forceIfConnected)
 					this.updateStatusBarState('load', this._categorizedItems);
 				else {
 					this.updateStatusBarState('loading');
