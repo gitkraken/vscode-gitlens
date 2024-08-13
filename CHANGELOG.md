@@ -17,7 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Managed through the _Cloud Integrations_ button on the _GitKraken Account_ view or through the _Manage Cloud Integrations_ command
   - Adds an improved, streamlined experience for connecting a cloud integration to GitLens
 - Adds new features and improvements to the _Commit Graph_:
-  - Adds a new _Smart Branches_ visibility option to the _Commit Graph_ which shows only relevant branches (the current branch, its upstream, and its base)
+  - Adds a new _Smart Branches_ visibility option to the _Commit Graph_ which shows only relevant branches (the current branch, its upstream, and its base or target branch)
   - Branch visibility options for the _Commit Graph_, formerly in the _Graph Filtering_ dropdown, are now moved to the new _Branches Visibility_ dropdown in the _Commit Graph_ header bar
   - Adds Pull Request information to branches with missing upstreams
   - Improves interactions with hovers on rows
