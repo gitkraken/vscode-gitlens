@@ -1309,7 +1309,10 @@ export function GraphWrapper({
 													Shows only relevant branches
 													<br />
 													<br />
-													<i>Includes the current branch, its upstream, and its base</i>
+													<i>
+														Includes the current branch, its upstream, and its base or
+														target branch
+													</i>
 												</span>
 											</GlTooltip>
 										) : (
