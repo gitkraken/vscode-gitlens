@@ -148,11 +148,13 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 			sessionId: sessionId,
 			ignoreErrors: !options?.createIfNeeded,
 		})) as ProviderAuthenticationSession | undefined;
-		if (
-			storedSession == null ||
-			(storedSession?.expiresAt != null && new Date(storedSession.expiresAt).getTime() < Date.now())
-		) {
-			const session = await this.fetchOrCreateSession(oldStoredSession, descriptor, options);
+		const isExpiredSession =
+			storedSession?.expiresAt != null && new Date(storedSession.expiresAt).getTime() < Date.now();
+		if (storedSession == null || isExpiredSession) {
+			const session = await this.fetchOrCreateSession(oldStoredSession, descriptor, {
+				...options,
+				createIfNeeded: options?.createIfNeeded || isExpiredSession,
+			});
 			if (session != null) {
 				await this.storeSession(sessionId, session);
 			}
@@ -282,12 +284,18 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
 	) {
-		let session = await this.fetchSession(descriptor);
+		// TODO: This is a stopgap to make sure we're not hammering the api on automatic calls to get the session.
+		// Ultimately we want to timestamp calls to syncCloudIntegrations and use that to determine whether we should
+		// make the call or not.
+		let session =
+			options?.createIfNeeded || options?.forceNewSession ? await this.fetchSession(descriptor) : undefined;
+
 		if (this.isNotNewAsForced(oldSession, session, options)) {
 			void this.connectCloudIntegration(false, options?.source);
 		} else if (this.isNotCreatedAsNeeded(session, options)) {
-			await this.connectCloudIntegration(true, options?.source);
-			session = await this.fetchSession(descriptor);
+			const connected = await this.connectCloudIntegration(true, options?.source);
+			if (!connected) return undefined;
+			session = await this.getSession(descriptor, options);
 		}
 		return session;
 	}
@@ -313,10 +321,10 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		return isSupportedCloudIntegrationId(this.authProviderId) && options?.createIfNeeded && curSession == null;
 	}
 
-	private async connectCloudIntegration(skipIfConnected: boolean, source: Sources | undefined): Promise<void> {
+	private async connectCloudIntegration(skipIfConnected: boolean, source: Sources | undefined): Promise<boolean> {
 		if (isSupportedCloudIntegrationId(this.authProviderId)) {
-			await this.container.integrations.connectCloudIntegrations(
-				{ integrationIds: [this.authProviderId], skipIfConnected: skipIfConnected },
+			return this.container.integrations.connectCloudIntegrations(
+				{ integrationIds: [this.authProviderId], skipIfConnected: skipIfConnected, skipPreSync: true },
 				{
 					source: source ?? 'integrations',
 					detail: {
@@ -326,6 +334,8 @@ export abstract class CloudIntegrationAuthenticationProvider<
 				},
 			);
 		}
+
+		return false;
 	}
 
 	private async fetchSession(
