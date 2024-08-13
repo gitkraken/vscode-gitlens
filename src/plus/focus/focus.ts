@@ -903,13 +903,18 @@ export class FocusCommand extends QuickCommand<State> {
 		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
 		// Otherwise it disappears.
 		let freeze!: () => Disposable;
+		let quickpick!: QuickPick<any>;
 		step.onDidActivate = qp => {
+			quickpick = qp;
 			freeze = () => freezeStep(step, qp);
 		};
 
 		const selection: StepSelection<typeof step> = yield step;
 
 		if (canPickStepContinue(step, state, selection)) {
+			const previousPlaceholder = quickpick.placeholder;
+			quickpick.placeholder = 'Connecting integrations...';
+			quickpick.ignoreFocusOut = true;
 			const resume = freeze();
 			const connected = await this.container.integrations.connectCloudIntegrations(
 				{ integrationIds: supportedFocusIntegrations },
@@ -917,6 +922,7 @@ export class FocusCommand extends QuickCommand<State> {
 					source: 'launchpad',
 				},
 			);
+			quickpick.placeholder = previousPlaceholder;
 			return { connected: connected, resume: () => resume[Symbol.dispose]() };
 		}
 

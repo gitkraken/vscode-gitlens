@@ -124,6 +124,7 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
+	// TODO: Remove `integrationId` flow from this because we always use "connectIntegrations" for that
 	async manageCloudIntegrations(
 		connect: { integrationId: SupportedCloudIntegrationIds; skipIfConnected?: boolean } | undefined,
 		source: Source | undefined,
@@ -178,17 +179,23 @@ export class IntegrationService implements Disposable {
 	}
 
 	async connectCloudIntegrations(
-		connect?: { integrationIds: SupportedCloudIntegrationIds[]; skipIfConnected?: boolean },
+		connect?: { integrationIds: SupportedCloudIntegrationIds[]; skipIfConnected?: boolean; skipPreSync?: boolean },
 		source?: Source,
 	): Promise<boolean> {
 		const scope = getLogScope();
 		const integrationIds = connect?.integrationIds;
-		// TODO: Hook in a telemetry event here
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent(
+				'cloudIntegrations/connecting',
+				{ 'integration.ids': integrationIds?.join(',') },
+				source,
+			);
+		}
 
 		let account = (await this.container.subscription.getSubscription()).account;
 		const connectedIntegrations = new Set<string>();
 		if (integrationIds != null) {
-			if (connect?.skipIfConnected) {
+			if (connect?.skipIfConnected && !connect?.skipPreSync) {
 				await this.syncCloudIntegrations();
 			}
 
@@ -274,7 +281,7 @@ export class IntegrationService implements Disposable {
 			authData = await window.withProgress(
 				{
 					location: ProgressLocation.Notification,
-					title: 'Connecting cloud integrations...',
+					title: 'Connecting integrations...',
 					cancellable: true,
 				},
 				(_, token) => {
@@ -285,7 +292,7 @@ export class IntegrationService implements Disposable {
 							token.onCancellationRequested(() => reject('Cancelled')),
 						),
 						new Promise<CloudIntegrationConnectionAuth>((_, reject) =>
-							setTimeout(reject, 120000, 'Cancelled'),
+							setTimeout(reject, 5 * 60 * 1000, 'Cancelled'),
 						),
 					]);
 				},

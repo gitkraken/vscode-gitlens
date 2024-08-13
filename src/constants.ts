@@ -1266,6 +1266,11 @@ export type TelemetryEvents = {
 	/** Sent when generating summaries from commits, stashes, patches, etc. */
 	'ai/generate': (AIGenerateCommitEvent | AIGenerateDraftEvent) & AIEventBase;
 
+	/** Sent when connecting to one or more cloud-based integrations*/
+	'cloudIntegrations/connecting': {
+		'integration.ids': string | undefined;
+	};
+
 	/** Sent when a cloud-based hosting provider is connected */
 	'cloudIntegrations/hosting/connected': {
 		'hostingProvider.provider': IntegrationId;
