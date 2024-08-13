@@ -264,6 +264,7 @@ export class GlSearchBox extends GlElement {
 	override render() {
 		return html`<gl-search-input
 				id="search-input"
+				exportparts="search: search"
 				.errorMessage="${this.errorMessage}"
 				.label="${this.label}"
 				.placeholder="${this.placeholder}"
