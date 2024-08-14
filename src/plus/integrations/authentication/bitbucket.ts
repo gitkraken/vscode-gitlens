@@ -1,9 +1,10 @@
-import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
+import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import { base64 } from '../../../system/string';
 import { HostingIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
 import { LocalIntegrationAuthenticationProvider } from './integrationAuthentication';
+import type { ProviderAuthenticationSession } from './models';
 
 export class BitbucketAuthenticationProvider extends LocalIntegrationAuthenticationProvider<HostingIntegrationId.Bitbucket> {
 	protected override get authProviderId(): HostingIntegrationId.Bitbucket {
@@ -12,7 +13,7 @@ export class BitbucketAuthenticationProvider extends LocalIntegrationAuthenticat
 
 	override async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<AuthenticationSession | undefined> {
+	): Promise<ProviderAuthenticationSession | undefined> {
 		let bitbucketUsername: string | undefined = descriptor?.username as string | undefined;
 		if (!bitbucketUsername) {
 			const infoButton: QuickInputButton = {
@@ -126,6 +127,7 @@ export class BitbucketAuthenticationProvider extends LocalIntegrationAuthenticat
 				id: '',
 				label: '',
 			},
+			cloud: false,
 		};
 	}
 }

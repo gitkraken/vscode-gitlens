@@ -1,4 +1,4 @@
-import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
+import type { Disposable, QuickInputButton } from 'vscode';
 import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { Sources } from '../../../constants';
@@ -30,16 +30,22 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 	private async getBuiltInExistingSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		forceNewSession?: boolean,
-	): Promise<AuthenticationSession | undefined> {
+	): Promise<ProviderAuthenticationSession | undefined> {
 		if (descriptor == null) return undefined;
 
 		return wrapForForcedInsecureSSL(
 			this.container.integrations.ignoreSSLErrors({ id: this.authProviderId, domain: descriptor?.domain }),
-			() =>
-				authentication.getSession(this.authProviderId, descriptor.scopes, {
+			async () => {
+				const session = await authentication.getSession(this.authProviderId, descriptor.scopes, {
 					forceNewSession: forceNewSession ? true : undefined,
 					silent: forceNewSession ? undefined : true,
-				}),
+				});
+				if (session == null) return undefined;
+				return {
+					...session,
+					cloud: false,
+				};
+			},
 		);
 	}
 
@@ -70,7 +76,7 @@ export class GitHubEnterpriseAuthenticationProvider extends LocalIntegrationAuth
 
 	override async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<AuthenticationSession | undefined> {
+	): Promise<ProviderAuthenticationSession | undefined> {
 		const input = window.createInputBox();
 		input.ignoreFocusOut = true;
 
@@ -131,6 +137,7 @@ export class GitHubEnterpriseAuthenticationProvider extends LocalIntegrationAuth
 				id: '',
 				label: '',
 			},
+			cloud: false,
 		};
 	}
 }

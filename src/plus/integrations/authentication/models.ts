@@ -4,6 +4,7 @@ import type { IntegrationId } from '../providers/models';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 
 export interface ProviderAuthenticationSession extends AuthenticationSession {
+	readonly cloud: boolean;
 	readonly expiresAt?: Date;
 }
 
@@ -40,20 +41,14 @@ const supportedCloudIntegrationIdsExperimental = [
 
 export type SupportedCloudIntegrationIds = (typeof supportedCloudIntegrationIdsExperimental)[number];
 
-export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudIntegrationIds {
-	const ids = configuration.get('cloudIntegrations.enabled', undefined, false)
+export function getSupportedCloudIntegrationIds(): SupportedCloudIntegrationIds[] {
+	return configuration.get('cloudIntegrations.enabled', undefined, true)
 		? supportedCloudIntegrationIdsExperimental
 		: supportedCloudIntegrationIds;
-	return ids.includes(id as SupportedCloudIntegrationIds);
 }
 
-export function* iterateSupportedCloudIntegrationIds() {
-	const ids = configuration.get('cloudIntegrations.enabled', undefined, false)
-		? supportedCloudIntegrationIdsExperimental
-		: supportedCloudIntegrationIds;
-	for (const id of ids) {
-		yield id;
-	}
+export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudIntegrationIds {
+	return getSupportedCloudIntegrationIds().includes(id as SupportedCloudIntegrationIds);
 }
 
 export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationId } = {

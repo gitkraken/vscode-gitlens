@@ -1,4 +1,4 @@
-import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
+import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { Container } from '../../../container';
 import type { SelfHostedIntegrationId } from '../providers/models';
@@ -8,6 +8,7 @@ import {
 	CloudIntegrationAuthenticationProvider,
 	LocalIntegrationAuthenticationProvider,
 } from './integrationAuthentication';
+import type { ProviderAuthenticationSession } from './models';
 
 type GitLabId = HostingIntegrationId.GitLab | SelfHostedIntegrationId.GitLabSelfHosted;
 
@@ -21,7 +22,7 @@ export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthentic
 
 	override async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<AuthenticationSession | undefined> {
+	): Promise<ProviderAuthenticationSession | undefined> {
 		const input = window.createInputBox();
 		input.ignoreFocusOut = true;
 
@@ -85,6 +86,7 @@ export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthentic
 				id: '',
 				label: '',
 			},
+			cloud: false,
 		};
 	}
 }

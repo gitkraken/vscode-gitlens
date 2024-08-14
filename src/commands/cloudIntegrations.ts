@@ -5,9 +5,7 @@ import type { SupportedCloudIntegrationIds } from '../plus/integrations/authenti
 import { command } from '../system/command';
 import { Command } from './base';
 
-export interface ManageCloudIntegrationsCommandArgs extends Source {
-	integrationId?: SupportedCloudIntegrationIds;
-}
+export interface ManageCloudIntegrationsCommandArgs extends Source {}
 
 export interface ConnectCloudIntegrationsCommandArgs extends Source {
 	integrationIds?: SupportedCloudIntegrationIds[];
@@ -21,7 +19,6 @@ export class ManageCloudIntegrationsCommand extends Command {
 
 	async execute(args?: ManageCloudIntegrationsCommandArgs) {
 		await this.container.integrations.manageCloudIntegrations(
-			args?.integrationId ? { integrationId: args.integrationId } : undefined,
 			args?.source ? { source: args.source, detail: args?.detail } : undefined,
 		);
 	}
