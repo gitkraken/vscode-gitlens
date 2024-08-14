@@ -467,7 +467,13 @@ export class FocusCommand extends QuickCommand<State> {
 		function getItemsAndPlaceholder() {
 			if (context.result.error != null) {
 				return {
-					placeholder: `Unable to load items (${String(context.result.error)})`,
+					placeholder: `Unable to load items (${
+						context.result.error.name === 'HttpError' &&
+						'status' in context.result.error &&
+						typeof context.result.error.status === 'number'
+							? `${context.result.error.status}: ${String(context.result.error)}`
+							: String(context.result.error)
+					})`,
 					items: [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })],
 				};
 			}
