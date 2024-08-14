@@ -86,7 +86,7 @@ export class RepositoryLocalPathMappingProvider implements RepositoryPathMapping
 	}
 
 	private async _writeLocalRepoPath(key: string, localPath: string): Promise<void> {
-		if (!(await acquireSharedFolderWriteLock())) {
+		if (!key || !localPath || !(await acquireSharedFolderWriteLock())) {
 			return;
 		}
 
