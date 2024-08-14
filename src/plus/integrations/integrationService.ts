@@ -22,8 +22,8 @@ import type { IntegrationAuthenticationService } from './authentication/integrat
 import type { SupportedCloudIntegrationIds } from './authentication/models';
 import {
 	CloudIntegrationAuthenticationUriPathPrefix,
+	getSupportedCloudIntegrationIds,
 	isSupportedCloudIntegrationId,
-	iterateSupportedCloudIntegrationIds,
 	toCloudIntegrationType,
 	toIntegrationId,
 } from './authentication/models';
@@ -92,54 +92,47 @@ export class IntegrationService implements Disposable {
 
 	@gate()
 	@debug()
-	private async syncCloudIntegrations() {
-		let connectedProviders = new Set<IntegrationId>();
-
-		const session = await this.container.subscription.getAuthenticationSession();
-		if (session != null) {
+	private async syncCloudIntegrations(forceConnect: boolean) {
+		const connectedIntegrations = new Set<IntegrationId>();
+		const loggedIn = await this.container.subscription.getAuthenticationSession();
+		if (loggedIn) {
 			const cloudIntegrations = await this.container.cloudIntegrations;
-			const connections = (await cloudIntegrations?.getConnections()) ?? [];
-			connectedProviders = new Set(connections.map(p => toIntegrationId[p.provider]));
+			const connections = await cloudIntegrations?.getConnections();
+			if (connections == null) return;
+
+			connections.map(p => connectedIntegrations.add(toIntegrationId[p.provider]));
 		}
 
-		for (const cloudIntegrationId of iterateSupportedCloudIntegrationIds()) {
-			const integration = await this.get(cloudIntegrationId);
-			const isConnected = integration.maybeConnected ?? (await integration.isConnected());
-			if (connectedProviders.has(cloudIntegrationId)) {
-				if (isConnected) continue;
+		for await (const integration of this.getSupportedCloudIntegrations()) {
+			await integration.syncCloudConnection(
+				connectedIntegrations.has(integration.id) ? 'connected' : 'disconnected',
+				forceConnect,
+			);
+		}
+		return connectedIntegrations;
+	}
 
-				await integration.connect();
-			} else {
-				if (!isConnected) continue;
-
-				await integration.disconnect({ silent: true, cloudSessionOnly: true });
-			}
+	private *getSupportedCloudIntegrations() {
+		for (const id of getSupportedCloudIntegrationIds()) {
+			yield this.get(id);
 		}
 	}
 
 	private onUserCheckedIn() {
-		void this.syncCloudIntegrations();
+		void this.syncCloudIntegrations(false);
 	}
 
 	private onDidChangeSubscription(e: SubscriptionChangeEvent) {
 		if (e.current?.account == null) {
-			void this.syncCloudIntegrations();
+			void this.syncCloudIntegrations(false);
 		}
 	}
 
 	// TODO: Remove `integrationId` flow from this because we always use "connectIntegrations" for that
-	async manageCloudIntegrations(
-		connect: { integrationId: SupportedCloudIntegrationIds; skipIfConnected?: boolean } | undefined,
-		source: Source | undefined,
-	) {
+	async manageCloudIntegrations(source: Source | undefined) {
 		const scope = getLogScope();
-		const integrationId = connect?.integrationId;
 		if (this.container.telemetry.enabled) {
-			this.container.telemetry.sendEvent(
-				'cloudIntegrations/settingsOpened',
-				{ 'integration.id': integrationId },
-				source,
-			);
+			this.container.telemetry.sendEvent('cloudIntegrations/settingsOpened', undefined, source);
 		}
 
 		const account = (await this.container.subscription.getSubscription()).account;
@@ -147,36 +140,23 @@ export class IntegrationService implements Disposable {
 			if (!(await this.container.subscription.loginOrSignUp(true, source))) return;
 		}
 
-		if (integrationId && connect.skipIfConnected) {
-			await this.syncCloudIntegrations();
-			const integration = await this.container.integrations.get(integrationId);
-			const connected = integration.maybeConnected ?? (await integration.isConnected());
-			if (connected) return;
-		}
-
-		let query = 'source=gitlens';
-		if (integrationId != null) {
-			const cloudIntegrationType = toCloudIntegrationType[integrationId];
-			if (cloudIntegrationType != null) {
-				query += `&connect=${cloudIntegrationType}`;
-			}
-		}
-
 		try {
 			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
 			await openUrl(
-				this.container.getGkDevExchangeUri(exchangeToken, `settings/integrations?${query}`).toString(true),
+				this.container
+					.getGkDevExchangeUri(exchangeToken, `settings/integrations?source=gitlens`)
+					.toString(true),
 			);
 		} catch (ex) {
 			Logger.error(ex, scope);
-			await env.openExternal(this.container.getGkDevUri('settings/integrations', query));
+			await env.openExternal(this.container.getGkDevUri('settings/integrations', 'source=gitlens'));
 		}
 		take(
 			window.onDidChangeWindowState,
 			2,
 		)(e => {
 			if (e.focused) {
-				void this.syncCloudIntegrations();
+				void this.syncCloudIntegrations(true);
 			}
 		});
 	}
@@ -199,7 +179,7 @@ export class IntegrationService implements Disposable {
 		const connectedIntegrations = new Set<string>();
 		if (integrationIds?.length) {
 			if (connect?.skipIfConnected && !connect?.skipPreSync) {
-				await this.syncCloudIntegrations();
+				await this.syncCloudIntegrations(true);
 			}
 
 			for (const integrationId of integrationIds) {
@@ -301,7 +281,7 @@ export class IntegrationService implements Disposable {
 			if (account == null) return false;
 		}
 
-		await this.syncCloudIntegrations();
+		await this.syncCloudIntegrations(true);
 
 		if (integrationIds != null) {
 			for (const integrationId of integrationIds) {
@@ -733,7 +713,7 @@ export class IntegrationService implements Disposable {
 	@log()
 	async reset(): Promise<void> {
 		for (const integration of this._integrations.values()) {
-			await integration.disconnect({ silent: true });
+			await integration.reset();
 		}
 
 		await this.authenticationService.reset();

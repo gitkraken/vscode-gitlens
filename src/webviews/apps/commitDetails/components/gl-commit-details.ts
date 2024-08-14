@@ -250,7 +250,6 @@ export class GlCommitDetails extends GlDetailsBase {
 		const jiraIntegrationLink = hasConnectedJira
 			? `command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
 					JSON.stringify({
-						integrationId: 'jira' as IssueIntegrationId.Jira,
 						source: 'inspect',
 						detail: {
 							action: 'connect',

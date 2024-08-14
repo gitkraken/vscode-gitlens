@@ -1,9 +1,10 @@
-import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
+import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import { base64 } from '../../../system/string';
 import { HostingIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
 import { LocalIntegrationAuthenticationProvider } from './integrationAuthentication';
+import type { ProviderAuthenticationSession } from './models';
 
 export class AzureDevOpsAuthenticationProvider extends LocalIntegrationAuthenticationProvider<HostingIntegrationId.AzureDevOps> {
 	protected override get authProviderId(): HostingIntegrationId.AzureDevOps {
@@ -12,7 +13,7 @@ export class AzureDevOpsAuthenticationProvider extends LocalIntegrationAuthentic
 
 	override async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<AuthenticationSession | undefined> {
+	): Promise<ProviderAuthenticationSession | undefined> {
 		let azureOrganization: string | undefined = descriptor?.organization as string | undefined;
 		if (!azureOrganization) {
 			const orgInput = window.createInputBox();
@@ -114,6 +115,7 @@ export class AzureDevOpsAuthenticationProvider extends LocalIntegrationAuthentic
 				id: '',
 				label: '',
 			},
+			cloud: false,
 		};
 	}
 }

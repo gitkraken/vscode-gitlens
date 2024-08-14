@@ -29,7 +29,6 @@ import type {
 	IntegrationAuthenticationService,
 	IntegrationAuthenticationSessionDescriptor,
 } from './authentication/integrationAuthentication';
-import { CloudIntegrationAuthenticationProvider } from './authentication/integrationAuthentication';
 import type { ProviderAuthenticationSession } from './authentication/models';
 import type {
 	GetIssuesOptions,
@@ -150,11 +149,7 @@ export abstract class IntegrationBase<
 
 	@gate()
 	@log()
-	async disconnect(options?: {
-		silent?: boolean;
-		currentSessionOnly?: boolean;
-		cloudSessionOnly?: boolean;
-	}): Promise<void> {
+	async disconnect(options?: { silent?: boolean; currentSessionOnly?: boolean }): Promise<void> {
 		if (options?.currentSessionOnly && this._session === null) return;
 
 		const connected = this._session != null;
@@ -191,27 +186,11 @@ export abstract class IntegrationBase<
 
 		if (signOut) {
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			if (options?.cloudSessionOnly && authProvider instanceof CloudIntegrationAuthenticationProvider) {
-				void authProvider.deleteCloudSession(this.authProviderDescriptor);
-			} else {
-				void authProvider.deleteSession(this.authProviderDescriptor);
-			}
+			void authProvider.deleteSession(this.authProviderDescriptor);
 		}
 
 		this.resetRequestExceptionCount();
 		this._session = null;
-
-		if (connected && options?.cloudSessionOnly) {
-			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			this._session = await authProvider.getSession(this.authProviderDescriptor, {
-				createIfNeeded: false,
-				forceNewSession: false,
-			});
-		}
-
-		if (this._session != null) {
-			return;
-		}
 
 		if (connected) {
 			// Don't store the disconnected flag if this only for this current VS Code session (will be re-connected on next restart)
@@ -246,6 +225,45 @@ export abstract class IntegrationBase<
 
 	resetRequestExceptionCount(): void {
 		this.requestExceptionCount = 0;
+	}
+
+	async reset(): Promise<void> {
+		await this.disconnect({ silent: true });
+		await this.container.storage.deleteWorkspace(this.connectedKey);
+	}
+
+	@log()
+	async syncCloudConnection(state: 'connected' | 'disconnected', forceSync: boolean): Promise<void> {
+		if (this._session?.cloud === false) return;
+
+		switch (state) {
+			case 'connected':
+				if (forceSync) {
+					// Reset our stored session so that we get a new one from the cloud
+					const authProvider = await this.authenticationService.get(this.authProvider.id);
+					await authProvider.deleteSession(this.authProviderDescriptor);
+					// Reset the session and clear our "stay disconnected" flag
+					this._session = undefined;
+					await this.container.storage.deleteWorkspace(this.connectedKey);
+				} else {
+					// Only sync if we're not connected and not disabled and don't have pending errors
+					if (
+						this._session != null ||
+						this.requestExceptionCount > 0 ||
+						this.container.storage.getWorkspace(this.connectedKey) === false
+					) {
+						return;
+					}
+
+					forceSync = true;
+				}
+
+				await this.ensureSession({ createIfNeeded: forceSync });
+				break;
+			case 'disconnected':
+				await this.disconnect({ silent: true });
+				break;
+		}
 	}
 
 	protected handleProviderException<T>(ex: Error, scope: LogScope | undefined, defaultValue: T): T {
