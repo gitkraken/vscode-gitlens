@@ -325,6 +325,7 @@ export const enum Commands {
 	ShowInTimeline = 'gitlens.showInTimeline',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowLaunchpad = 'gitlens.showLaunchpad',
+	ShowLaunchpadView = 'gitlens.showLaunchpadView',
 	ShowLineCommitInView = 'gitlens.showLineCommitInView',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
 	OpenOnlyChangedFiles = 'gitlens.openOnlyChangedFiles',

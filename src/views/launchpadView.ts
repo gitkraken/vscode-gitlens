@@ -1,5 +1,5 @@
-import type { ConfigurationChangeEvent, TreeViewVisibilityChangeEvent } from 'vscode';
-import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { ConfigurationChangeEvent, MessageItem, TreeViewVisibilityChangeEvent } from 'vscode';
+import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { LaunchpadViewConfig, ViewFilesLayout } from '../config';
 import { Commands, experimentalBadge } from '../constants';
@@ -192,11 +192,27 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 		super.onVisibilityChanged(e);
 	}
 
-	// override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
-	// 	if (!(await ensurePlusFeaturesEnabled())) return;
+	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
+		if (!configuration.get('views.launchpad.enabled')) {
+			const confirm: MessageItem = { title: 'Enable' };
+			const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showInformationMessage(
+				'Would you like to try the new experimental Launchpad view?',
+				{
+					modal: true,
+					detail: 'Launchpad organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
+				},
+				confirm,
+				cancel,
+			);
 
-	// 	return super.show(options);
-	// }
+			if (result !== confirm) return;
+
+			await configuration.updateEffective('views.launchpad.enabled', true);
+		}
+
+		return super.show(options);
+	}
 
 	override get canReveal(): boolean {
 		return false;
