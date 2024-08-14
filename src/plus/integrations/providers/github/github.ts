@@ -2709,6 +2709,17 @@ export class GitHubApi implements Disposable {
 					return;
 				}
 				break;
+			case 503: // Service Unavailable
+				Logger.error(ex, scope);
+				provider?.trackRequestException();
+				void showIntegrationRequestFailed500WarningMessage(
+					`${provider?.name ?? 'GitHub'} failed to respond and might be experiencing issues.${
+						provider == null || provider.id === 'github'
+							? ' Please visit the [GitHub status page](https://githubstatus.com) for more information.'
+							: ''
+					}`,
+				);
+				return;
 			default:
 				if (ex.status >= 400 && ex.status < 500) throw new ProviderRequestClientError(ex);
 				break;
