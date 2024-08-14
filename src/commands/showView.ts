@@ -9,6 +9,7 @@ import { Command } from './base';
 export class ShowViewCommand extends Command {
 	constructor(private readonly container: Container) {
 		super([
+			Commands.ShowAccountView,
 			Commands.ShowBranchesView,
 			Commands.ShowCommitDetailsView,
 			Commands.ShowCommitsView,
@@ -17,7 +18,7 @@ export class ShowViewCommand extends Command {
 			Commands.ShowFileHistoryView,
 			Commands.ShowGraphView,
 			Commands.ShowHomeView,
-			Commands.ShowAccountView,
+			Commands.ShowLaunchpadView,
 			Commands.ShowLineHistoryView,
 			Commands.ShowRemotesView,
 			Commands.ShowRepositoriesView,
@@ -37,6 +38,8 @@ export class ShowViewCommand extends Command {
 	async execute(context: CommandContext, ...args: unknown[]) {
 		const command = context.command as Commands;
 		switch (command) {
+			case Commands.ShowAccountView:
+				return this.container.accountView.show();
 			case Commands.ShowBranchesView:
 				return this.container.branchesView.show();
 			case Commands.ShowCommitDetailsView:
@@ -49,12 +52,12 @@ export class ShowViewCommand extends Command {
 				return this.container.draftsView.show();
 			case Commands.ShowFileHistoryView:
 				return this.container.fileHistoryView.show();
-			case Commands.ShowHomeView:
-				return this.container.homeView.show();
-			case Commands.ShowAccountView:
-				return this.container.accountView.show();
 			case Commands.ShowGraphView:
 				return this.container.graphView.show(undefined, ...(args as GraphWebviewShowingArgs));
+			case Commands.ShowHomeView:
+				return this.container.homeView.show();
+			case Commands.ShowLaunchpadView:
+				return this.container.launchpadView.show();
 			case Commands.ShowLineHistoryView:
 				return this.container.lineHistoryView.show();
 			case Commands.ShowRemotesView:

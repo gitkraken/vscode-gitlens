@@ -5768,6 +5768,12 @@
 				"icon": "$(rocket)"
 			},
 			{
+				"command": "gitlens.showLaunchpadView",
+				"title": "Show Launchpad View",
+				"category": "GitLens",
+				"icon": "$(rocket)"
+			},
+			{
 				"command": "gitlens.showFocusPage",
 				"title": "Open Launchpad in Editor",
 				"category": "GitLens",
@@ -9859,6 +9865,10 @@
 				},
 				{
 					"command": "gitlens.showLaunchpad",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showLaunchpadView",
 					"when": "gitlens:enabled"
 				},
 				{
