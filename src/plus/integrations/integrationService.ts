@@ -55,11 +55,6 @@ export interface ConnectionStateChangeEvent {
 	reason: 'connected' | 'disconnected';
 }
 
-interface CloudIntegrationConnectionAuth {
-	code: string | undefined;
-	state: string | undefined;
-}
-
 export class IntegrationService implements Disposable {
 	private readonly _onDidChangeConnectionState = new EventEmitter<ConnectionStateChangeEvent>();
 	get onDidChangeConnectionState(): Event<ConnectionStateChangeEvent> {
@@ -234,20 +229,17 @@ export class IntegrationService implements Disposable {
 			await env.openExternal(this.container.getGkDevUri('connect', query));
 		}
 
-		const deferredCallback = promisifyDeferred<Uri, CloudIntegrationConnectionAuth>(
+		const deferredCallback = promisifyDeferred<Uri, string | undefined>(
 			this.container.uri.onDidReceiveCloudIntegrationAuthenticationUri,
 			(uri: Uri, resolve) => {
 				const queryParams: URLSearchParams = new URLSearchParams(uri.query);
-				resolve({
-					code: queryParams.get('code') ?? undefined,
-					state: queryParams.get('state') ?? undefined,
-				});
+				resolve(queryParams.get('code') ?? undefined);
 			},
 		);
 
-		let authData: CloudIntegrationConnectionAuth = { code: undefined, state: undefined };
+		let code: string | undefined;
 		try {
-			authData = await window.withProgress(
+			code = await window.withProgress(
 				{
 					location: ProgressLocation.Notification,
 					title: 'Connecting integrations...',
@@ -256,13 +248,11 @@ export class IntegrationService implements Disposable {
 				(_, token) => {
 					return Promise.race([
 						deferredCallback.promise,
-						new Promise<CloudIntegrationConnectionAuth>((_, reject) =>
+						new Promise<string | undefined>((_, reject) =>
 							// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
 							token.onCancellationRequested(() => reject('Cancelled')),
 						),
-						new Promise<CloudIntegrationConnectionAuth>((_, reject) =>
-							setTimeout(reject, 5 * 60 * 1000, 'Cancelled'),
-						),
+						new Promise<string | undefined>((_, reject) => setTimeout(reject, 5 * 60 * 1000, 'Cancelled')),
 					]);
 				},
 			);
@@ -273,10 +263,8 @@ export class IntegrationService implements Disposable {
 		}
 
 		if (account == null) {
-			if (authData.code == null) return false;
-			await this.container.subscription.loginWithCode(
-				{ code: authData.code, state: authData.state } /*, source: source*/,
-			);
+			if (code == null) return false;
+			await this.container.subscription.loginWithCode({ code: code }, source);
 			account = (await this.container.subscription.getSubscription()).account;
 			if (account == null) return false;
 		}
