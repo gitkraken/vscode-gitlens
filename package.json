@@ -9859,7 +9859,7 @@
 				},
 				{
 					"command": "gitlens.showLaunchpad",
-					"when": "gitlens:prerelease"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showFocusPage",
