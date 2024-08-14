@@ -63,6 +63,11 @@ export interface ScmRepository {
 	push(remoteName?: string, branchName?: string, setUpstream?: boolean, force?: ForcePushMode): Promise<void>;
 }
 
+export interface LeftRightCommitCountResult {
+	left: number;
+	right: number;
+}
+
 export interface PagedResult<T> {
 	readonly paging?: {
 		readonly cursor: string;
@@ -205,7 +210,7 @@ export interface GitProvider extends Disposable {
 		repoPath: string,
 		range: GitRevisionRange,
 		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
-	): Promise<{ left: number; right: number } | undefined>;
+	): Promise<LeftRightCommitCountResult | undefined>;
 	/**
 	 * Returns the blame of a file
 	 * @param uri Uri of the file to blame

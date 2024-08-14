@@ -42,6 +42,7 @@ import type {
 	GitDir,
 	GitProvider,
 	GitProviderDescriptor,
+	LeftRightCommitCountResult,
 	NextComparisonUrisResult,
 	PagedResult,
 	PagingOptions,
@@ -1685,7 +1686,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		range: GitRevisionRange,
 		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
-	): Promise<{ left: number; right: number } | undefined> {
+	): Promise<LeftRightCommitCountResult | undefined> {
 		return this.git.rev_list__left_right(repoPath, range, options?.authors, options?.excludeMerges);
 	}
 

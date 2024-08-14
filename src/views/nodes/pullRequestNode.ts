@@ -4,7 +4,11 @@ import { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
-import { getComparisonRefsForPullRequest, getOrOpenPullRequestRepository } from '../../git/models/pullRequest';
+import {
+	ensurePullRequestRefs,
+	getComparisonRefsForPullRequest,
+	getOrOpenPullRequestRepository,
+} from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
 import { createRevisionRange } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
@@ -137,30 +141,41 @@ export async function getPullRequestChildren(
 ) {
 	let repo: Repository | undefined;
 	if (repoOrPath == null || typeof repoOrPath === 'string') {
-		repo = await getOrOpenPullRequestRepository(view.container, pullRequest);
+		repo = await getOrOpenPullRequestRepository(view.container, pullRequest, { promptIfNeeded: true });
 	} else {
 		repo = repoOrPath;
 	}
 
-	if (repo == null) return [];
+	if (repo == null) {
+		return [
+			new MessageNode(
+				view,
+				parent,
+				`Unable to locate repository '${pullRequest.refs?.head.owner ?? pullRequest.repository.owner}/${
+					pullRequest.refs?.head.repo ?? pullRequest.repository.repo
+				}'.`,
+			),
+		];
+	}
 
 	const repoPath = repo.path;
-
 	const refs = getComparisonRefsForPullRequest(repoPath, pullRequest.refs!);
+
+	const counts = await ensurePullRequestRefs(
+		view.container,
+		pullRequest,
+		repo,
+		{ promptMessage: `Unable to open details for PR #${pullRequest.id} because of a missing remote.` },
+		refs,
+	);
+	if (!counts?.right) {
+		return [new MessageNode(view, parent, 'No commits could be found.')];
+	}
 
 	const comparison = {
 		ref1: refs.base.ref,
 		ref2: refs.head.ref,
 	};
-
-	const counts = await view.container.git.getLeftRightCommitCount(
-		repoPath,
-		createRevisionRange(comparison.ref1, comparison.ref2, '...'),
-	);
-
-	if (!counts?.right) {
-		return [new MessageNode(view, parent, 'No commits could be found.')];
-	}
 
 	const children = [
 		new ResultsCommitsNode(
