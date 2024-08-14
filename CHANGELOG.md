@@ -8,26 +8,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Shows GitLab merge requests in the _Launchpad_ when GitLab integration is connected
-- Adds a new _Connect Additional Integrations_ button to the _Launchpad_ that allows the user to connect additional integrations.
-- Adds `gitlens.cloudIntegrations.enabled` setting to enable/disable cloud integrations (enabled by default)
+- Adds improvements and enhancements to _Launchpad_ to make it easier to manage and review pull requests
+  - Adds GitLab (cloud-only for now) support to show and manage merge requests in _Launchpad_
+  - Adds a new _Connect Additional Integrations_ button to the _Launchpad_ titlebar to allow connecting additional integrations (GitHub and GitLab currently)
+  - Adds an new experimental _Launchpad_ view to provide a persistent view of the _Launchpad_ in the sidebar
+    - To try it out, run the _Show Launchpad View_ command or set the `gitlens.views.launchpad.enabled` setting to `true` &mdash; let us know what you think!
+    - While its functionality is currently limited, pull requests can be expanded to show changes, commits, and code suggestions, as well as actions to open changes in the multi-diff editor, open a comparision, and more
+- Adds new features and improvements to the _Commit Graph_
+  - Branch visibility options, formerly in the _Graph Filtering_ dropdown, are now moved to the new _Branches Visibility_ dropdown in the _Commit Graph_ header bar
+  - Adds a new _Smart Branches_ visibility option to shows only relevant branches &mdash; the current branch, its upstream, and its base or target branch, to help you better focus
+  - Improves interactions with hovers on rows &mdash; they should do a better job of staying out of your way
+  - Adds pull request information to branches with missing upstreams
+- Adds support for GitHub and GitLab cloud integrations &mdash; automatically synced with your GitKraken account
+  - Adds an improved, streamlined experience for connecting cloud integrations to GitLens
+  - Manage your connected integration via the the _Manage Integrations_ command or the _Integrations_ button on the _GitKraken Account_ view
 - Adds comparison support to virtual (GitHub) repositories
-- Adds support for GitHub and GitLab cloud integrations
-  - Synced automatically with an associated GitKraken account
-  - Managed through the _Cloud Integrations_ button on the _GitKraken Account_ view or through the _Manage Cloud Integrations_ command
-  - Adds an improved, streamlined experience for connecting a cloud integration to GitLens
-- Adds new features and improvements to the _Commit Graph_:
-  - Adds a new _Smart Branches_ visibility option to the _Commit Graph_ which shows only relevant branches (the current branch, its upstream, and its base or target branch)
-  - Branch visibility options for the _Commit Graph_, formerly in the _Graph Filtering_ dropdown, are now moved to the new _Branches Visibility_ dropdown in the _Commit Graph_ header bar
-  - Adds Pull Request information to branches with missing upstreams
-  - Improves interactions with hovers on rows
-  - Fixes column resizing being stuck when the mouse leaves the graph
-- Adds an experimental _Launchpad_ view
-  - Enabled by setting the new `gitlens.views.launchpad.enabled` setting to `true`
-  - Categorizes pull requests into groups similar to the _Launchpad_ quickpick
-  - Pull requests can be expanded to view commits, code suggestions and changes
-  - Includes inline commands to view pull request changes and comparisons or open a pull request on the remote provider
-  - Adds a new _Focus on Launchpad View_ command to the _Command Palette_
 
 ### Changed
 
@@ -45,6 +40,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3445](https://github.com/gitkraken/vscode-gitlens/issues/3445) - Cannot merge branch into detached HEAD
 - Fixes [#3443](https://github.com/gitkraken/vscode-gitlens/issues/3443) - Don't show gitlens context menu items in Copilot Chat codeblock editors
 - Fixes [#3457](https://github.com/gitkraken/vscode-gitlens/issues/3457) - Enriched autolink duplication in graph hover (and possibly other places)
+- Fixes column resizing being stuck when the mouse leaves the _Commit Graph_
 - Fixes issues with incorrect commit count when using the merge and rebase commands
 - Fixes issues where a merge or rebase operation says there or no changes when there are changes
 - Fixes an error with queries that can cause Jira Cloud and other cloud integrations to stop working
