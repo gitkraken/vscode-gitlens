@@ -1,11 +1,12 @@
-import { Uri } from 'vscode';
+import { Uri, window } from 'vscode';
 import { Schemes } from '../../constants';
 import { Container } from '../../container';
 import type { RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
+import type { LeftRightCommitCountResult } from '../gitProvider';
 import type { IssueOrPullRequest, IssueRepository, IssueOrPullRequestState as PullRequestState } from './issue';
-import { shortenRevision } from './reference';
+import { createRevisionRange, shortenRevision } from './reference';
 import type { ProviderReference } from './remoteProvider';
 import type { Repository } from './repository';
 
@@ -256,23 +257,44 @@ export function getComparisonRefsForPullRequest(repoPath: string, prRefs: PullRe
 }
 
 export type PullRequestRepositoryIdentityDescriptor = RequireSomeWithProps<
-	RequireSome<RepositoryIdentityDescriptor<string>, 'remote' | 'provider'>,
+	RequireSome<RepositoryIdentityDescriptor<string>, 'provider'>,
 	'provider',
 	'id' | 'domain' | 'repoDomain' | 'repoName'
->;
+> &
+	RequireSomeWithProps<RequireSome<RepositoryIdentityDescriptor<string>, 'remote'>, 'remote', 'domain'>;
 
-export function getRepositoryIdentityForPullRequest(pr: PullRequest): PullRequestRepositoryIdentityDescriptor {
+export function getRepositoryIdentityForPullRequest(
+	pr: PullRequest,
+	headRepo: boolean = true,
+): PullRequestRepositoryIdentityDescriptor {
+	if (headRepo) {
+		return {
+			remote: {
+				url: pr.refs?.head?.url,
+				domain: pr.provider.domain,
+			},
+			name: `${pr.refs?.head?.owner ?? pr.repository.owner}/${pr.refs?.head?.repo ?? pr.repository.repo}`,
+			provider: {
+				id: pr.provider.id,
+				domain: pr.provider.domain,
+				repoDomain: pr.refs?.head?.owner ?? pr.repository.owner,
+				repoName: pr.refs?.head?.repo ?? pr.repository.repo,
+			},
+		};
+	}
+
 	return {
 		remote: {
-			url: pr.refs?.head?.url,
+			url: pr.refs?.base?.url ?? pr.url,
 			domain: pr.provider.domain,
 		},
-		name: pr.repository.repo,
+		name: `${pr.refs?.base?.owner ?? pr.repository.owner}/${pr.refs?.base?.repo ?? pr.repository.repo}`,
 		provider: {
 			id: pr.provider.id,
 			domain: pr.provider.domain,
-			repoDomain: pr.refs?.head?.owner ?? pr.repository.owner,
-			repoName: pr.refs?.head?.repo ?? pr.repository.repo,
+			repoDomain: pr.refs?.base?.owner ?? pr.repository.owner,
+			repoName: pr.refs?.base?.repo ?? pr.repository.repo,
+			repoOwnerDomain: pr.refs?.base?.owner ?? pr.repository.owner,
 		},
 	};
 }
@@ -287,6 +309,7 @@ export function getVirtualUriForPullRequest(pr: PullRequest): Uri | undefined {
 export async function getOrOpenPullRequestRepository(
 	container: Container,
 	pr: PullRequest,
+	options?: { promptIfNeeded?: boolean },
 ): Promise<Repository | undefined> {
 	const identity = getRepositoryIdentityForPullRequest(pr);
 	let repo = await container.repositoryIdentity.getRepository(identity, {
@@ -295,23 +318,100 @@ export async function getOrOpenPullRequestRepository(
 		prompt: false,
 	});
 
-	if (repo != null) return repo;
+	if (repo == null) {
+		const virtualUri = getVirtualUriForPullRequest(pr);
+		if (virtualUri != null) {
+			repo = await container.git.getOrOpenRepository(virtualUri, { closeOnOpen: true, detectNested: false });
+		}
+	}
 
-	const virtualUri = getVirtualUriForPullRequest(pr);
-	if (virtualUri != null) {
-		repo = await container.git.getOrOpenRepository(virtualUri, { closeOnOpen: true, detectNested: false });
+	if (repo == null) {
+		const baseIdentity = getRepositoryIdentityForPullRequest(pr, false);
+		repo = await container.repositoryIdentity.getRepository(baseIdentity, {
+			openIfNeeded: true,
+			keepOpen: false,
+			prompt: false,
+		});
+	}
+
+	if (repo == null && options?.promptIfNeeded) {
+		repo = await container.repositoryIdentity.getRepository(identity, {
+			openIfNeeded: true,
+			keepOpen: false,
+			prompt: true,
+		});
 	}
 
 	return repo;
 }
 
-export async function getOpenedPullRequestRepoPath(
+export async function ensurePullRequestRefs(
+	container: Container,
+	pr: PullRequest,
+	repo: Repository,
+	options?: { promptMessage?: string },
+	refs?: PullRequestComparisonRefs,
+): Promise<LeftRightCommitCountResult | undefined> {
+	if (pr.refs == null) return undefined;
+
+	refs ??= getComparisonRefsForPullRequest(repo.path, pr.refs);
+	const range = createRevisionRange(refs.base.ref, refs.head.ref, '...');
+	let counts = await container.git.getLeftRightCommitCount(repo.path, range);
+	if (counts == null) {
+		if (await ensurePullRequestRemote(pr, repo, options)) {
+			counts = await container.git.getLeftRightCommitCount(repo.path, range);
+		}
+	}
+
+	return counts;
+}
+
+export async function ensurePullRequestRemote(
+	pr: PullRequest,
+	repo: Repository,
+	options?: { promptMessage?: string },
+): Promise<boolean> {
+	const identity = getRepositoryIdentityForPullRequest(pr);
+	if (identity.remote.url == null) return false;
+
+	const prRemoteUrl = identity.remote.url.replace(/\.git$/, '');
+
+	let found = false;
+	for (const remote of await repo.getRemotes()) {
+		if (remote.matches(prRemoteUrl)) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found) return true;
+
+	const confirm = { title: 'Add Remote' };
+	const cancel = { title: 'Cancel', isCloseAffordance: true };
+	const result = await window.showInformationMessage(
+		`${
+			options?.promptMessage ?? `Unable to find a remote for PR #${pr.id}.`
+		}\nWould you like to add a remote for '${identity.provider.repoDomain}?`,
+		{ modal: true },
+		confirm,
+		cancel,
+	);
+
+	if (result === confirm) {
+		await repo.addRemote(identity.provider.repoDomain, identity.remote.url, { fetch: true });
+		return true;
+	}
+
+	return false;
+}
+
+export async function getOpenedPullRequestRepo(
 	container: Container,
 	pr: PullRequest,
 	repoPath?: string,
-): Promise<string | undefined> {
-	if (repoPath) return repoPath;
+): Promise<Repository | undefined> {
+	if (repoPath) return container.git.getRepository(repoPath);
 
-	const repo = await getOrOpenPullRequestRepository(container, pr);
-	return repo?.path;
+	const repo = await getOrOpenPullRequestRepository(container, pr, { promptIfNeeded: true });
+	return repo;
 }

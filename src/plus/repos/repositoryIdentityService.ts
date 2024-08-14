@@ -102,7 +102,7 @@ export class RepositoryIdentityService implements Disposable {
 			const locate = { title: 'Locate Repository' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const decision = await window.showInformationMessage(
-				`Unable to locate a repository for ${identity.name}`,
+				`Unable to find a repository for '${identity.name}'.\nWould you like to locate it?`,
 				{ modal: true },
 				locate,
 				cancel,

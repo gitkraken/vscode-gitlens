@@ -45,6 +45,7 @@ import type {
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
+	LeftRightCommitCountResult,
 	NextComparisonUrisResult,
 	PagedResult,
 	PagingOptions,
@@ -1464,7 +1465,7 @@ export class GitProviderService implements Disposable {
 		repoPath: string | Uri,
 		range: GitRevisionRange,
 		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
-	): Promise<{ left: number; right: number } | undefined> {
+	): Promise<LeftRightCommitCountResult | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getLeftRightCommitCount(path, range, options);
 	}

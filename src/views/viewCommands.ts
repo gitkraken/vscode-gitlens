@@ -22,7 +22,11 @@ import * as WorktreeActions from '../git/actions/worktree';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
 import { matchContributor } from '../git/models/contributor';
-import { getComparisonRefsForPullRequest, getOpenedPullRequestRepoPath } from '../git/models/pullRequest';
+import {
+	ensurePullRequestRefs,
+	getComparisonRefsForPullRequest,
+	getOpenedPullRequestRepo,
+} from '../git/models/pullRequest';
 import { createReference, shortenRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showPatchesView } from '../plus/drafts/actions';
@@ -677,10 +681,19 @@ export class ViewCommands {
 		const pr = node.pullRequest;
 		if (pr?.refs?.base == null || pr?.refs.head == null) return Promise.resolve();
 
-		const repoPath = await getOpenedPullRequestRepoPath(this.container, pr, node.repoPath);
-		if (repoPath == null) return Promise.resolve();
+		const repo = await getOpenedPullRequestRepo(this.container, pr, node.repoPath);
+		if (repo == null) return Promise.resolve();
 
-		const refs = getComparisonRefsForPullRequest(repoPath, pr.refs);
+		const refs = getComparisonRefsForPullRequest(repo.path, pr.refs);
+		const counts = await ensurePullRequestRefs(
+			this.container,
+			pr,
+			repo,
+			{ promptMessage: `Unable to open changes for PR #${pr.id} because of a missing remote.` },
+			refs,
+		);
+		if (counts == null) return Promise.resolve();
+
 		return CommitActions.openComparisonChanges(
 			this.container,
 			{
@@ -701,10 +714,19 @@ export class ViewCommands {
 		const pr = node.pullRequest;
 		if (pr?.refs?.base == null || pr?.refs.head == null) return Promise.resolve();
 
-		const repoPath = await getOpenedPullRequestRepoPath(this.container, pr, node.repoPath);
-		if (repoPath == null) return Promise.resolve();
+		const repo = await getOpenedPullRequestRepo(this.container, pr, node.repoPath);
+		if (repo == null) return Promise.resolve();
 
-		const refs = getComparisonRefsForPullRequest(repoPath, pr.refs);
+		const refs = getComparisonRefsForPullRequest(repo.path, pr.refs);
+		const counts = await ensurePullRequestRefs(
+			this.container,
+			pr,
+			repo,
+			{ promptMessage: `Unable to open comparison for PR #${pr.id} because of a missing remote.` },
+			refs,
+		);
+		if (counts == null) return Promise.resolve();
+
 		return this.container.searchAndCompareView.compare(refs.repoPath, refs.head, refs.base);
 	}
 

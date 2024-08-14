@@ -26,6 +26,7 @@ import { GitSearchError } from '../../../../git/errors';
 import type {
 	GitCaches,
 	GitProvider,
+	LeftRightCommitCountResult,
 	NextComparisonUrisResult,
 	PagedResult,
 	PagingOptions,
@@ -553,7 +554,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		range: GitRevisionRange,
 		_options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
-	): Promise<{ left: number; right: number } | undefined> {
+	): Promise<LeftRightCommitCountResult | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
