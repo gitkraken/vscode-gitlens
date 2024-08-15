@@ -19,8 +19,15 @@ export class CloudIntegrationService {
 		);
 		if (!providersRsp.ok) {
 			const error = (await providersRsp.json())?.error;
+			const errorMessage =
+				typeof error === 'string' ? error : (error?.message as string) ?? providersRsp.statusText;
 			if (error != null) {
-				Logger.error(`Failed to get connected providers from cloud: ${error.message}`);
+				Logger.error(`Failed to get connected providers from cloud: ${errorMessage}`);
+			}
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('cloudIntegrations/getConnections/failed', {
+					code: providersRsp.status,
+				});
 			}
 			return undefined;
 		}
@@ -54,8 +61,20 @@ export class CloudIntegrationService {
 		);
 		if (!tokenRsp.ok) {
 			const error = (await tokenRsp.json())?.error;
+			const errorMessage = typeof error === 'string' ? error : (error?.message as string) ?? tokenRsp.statusText;
 			if (error != null) {
-				Logger.error(`Failed to ${refresh ? 'refresh' : 'get'} ${id} token from cloud: ${error.message}`);
+				Logger.error(`Failed to ${refresh ? 'refresh' : 'get'} ${id} token from cloud: ${errorMessage}`);
+			}
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent(
+					refreshToken
+						? 'cloudIntegrations/refreshConnection/failed'
+						: 'cloudIntegrations/getConnection/failed',
+					{
+						code: tokenRsp.status,
+						'integration.id': id,
+					},
+				);
 			}
 			return undefined;
 		}
