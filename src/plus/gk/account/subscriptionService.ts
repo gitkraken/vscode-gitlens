@@ -632,7 +632,7 @@ export class SubscriptionService implements Disposable {
 			);
 		}
 
-		void configuration.updateEffective('plusFeatures.enabled', false);
+		void configuration.updateEffective('plusFeatures.enabled', visible);
 	}
 
 	@log()
