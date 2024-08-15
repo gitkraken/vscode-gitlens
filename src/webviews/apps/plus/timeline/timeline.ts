@@ -1,6 +1,7 @@
 /*global*/
 import './timeline.scss';
 import { provideVSCodeDesignSystem, vsCodeDropdown, vsCodeOption } from '@vscode/webview-ui-toolkit';
+import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
 import type { Period, State } from '../../../../plus/webviews/timeline/protocol';
 import {
 	DidChangeNotification,
@@ -88,10 +89,15 @@ export class TimelineApp extends App<State> {
 			$gate.visible = this.state.access.allowed !== true; // && this.state.uri != null;
 		}
 
+		const showBadge =
+			this.state.access.subscription?.current == null ||
+			!isSubscriptionPaid(this.state.access.subscription?.current);
+
 		const els = document.querySelectorAll<GlFeatureBadge>('gl-feature-badge');
 		for (const el of els) {
 			el.source = { source: 'timeline', detail: 'badge' };
 			el.subscription = this.state.access.subscription.current;
+			el.hidden = !showBadge;
 		}
 
 		if (this._chart == null) {
