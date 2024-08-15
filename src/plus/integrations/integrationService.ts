@@ -112,8 +112,8 @@ export class IntegrationService implements Disposable {
 
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.setGlobalAttributes({
-				'cloudIntegrations.connectedCount': connectedIntegrations.size,
-				'cloudIntegrations.connectedIds': join(connectedIntegrations.values(), ','),
+				'cloudIntegrations.connected.count': connectedIntegrations.size,
+				'cloudIntegrations.connected.ids': join(connectedIntegrations.values(), ','),
 			});
 		}
 
@@ -168,7 +168,10 @@ export class IntegrationService implements Disposable {
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
 						'cloudIntegrations/connected',
-						{ 'integration.ids': connected ? join(connected.values(), ',') : undefined },
+						{
+							'integration.ids': undefined,
+							'integration.connected.ids': connected ? join(connected.values(), ',') : undefined,
+						},
 						source,
 					);
 				}
@@ -293,7 +296,10 @@ export class IntegrationService implements Disposable {
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent(
 				'cloudIntegrations/connected',
-				{ 'integration.ids': connected ? join(connected.values(), ',') : undefined },
+				{
+					'integration.ids': integrationIds?.join(','),
+					'integration.connected.ids': connected ? join(connected.values(), ',') : undefined,
+				},
 				source,
 			);
 		}
