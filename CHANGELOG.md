@@ -40,12 +40,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3445](https://github.com/gitkraken/vscode-gitlens/issues/3445) - Cannot merge branch into detached HEAD
 - Fixes [#3443](https://github.com/gitkraken/vscode-gitlens/issues/3443) - Don't show gitlens context menu items in Copilot Chat codeblock editors
 - Fixes [#3457](https://github.com/gitkraken/vscode-gitlens/issues/3457) - Enriched autolink duplication in graph hover (and possibly other places)
+- Fixes [#3473](https://github.com/gitkraken/vscode-gitlens/issues/3473) - Plus features can't be restored after they are hidden
 - Fixes column resizing being stuck when the mouse leaves the _Commit Graph_
 - Fixes issues with incorrect commit count when using the merge and rebase commands
 - Fixes issues where a merge or rebase operation says there or no changes when there are changes
 - Fixes an error with queries that can cause Jira Cloud and other cloud integrations to stop working
 - Fixes issues with some directory comparison commands
-- Fixes [#3473](https://github.com/gitkraken/vscode-gitlens/issues/3473) - Plus features can't be restored after they are hidden
 
 ## [15.2.3] - 2024-07-26
 
