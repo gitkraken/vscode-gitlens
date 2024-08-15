@@ -17903,7 +17903,11 @@
 						"media": {
 							"altText": "Illustrations of Launchpad",
 							"svg": "walkthroughs/welcome/launchpad-quick.svg"
-						}
+						},
+						"//": "there can be used vscode context that we could sync with the onboarding state",
+						"completionEvents": [
+							"onCommand:gitlens.showLaunchpad"
+						]
 					},
 					{
 						"id": "code-collab",

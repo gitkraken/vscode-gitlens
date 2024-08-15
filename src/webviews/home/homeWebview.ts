@@ -3,6 +3,7 @@ import { Disposable, window, workspace } from 'vscode';
 import type { ContextKeys } from '../../constants.context';
 import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
+import { SubscriptionState } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { HostingIntegrationId } from '../../plus/integrations/providers/models';
 import { registerCommand } from '../../system/command';
@@ -22,6 +23,7 @@ import {
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidTogglePlusFeatures,
 } from './protocol';
 
 const emptyDisposable = Object.freeze({
@@ -64,7 +66,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private onChangeConnectionState() {
-		this.notifyDidChangeOnboardingIntegration();
+		void this.notifyDidChangeOnboardingIntegration();
 	}
 
 	private async onChangeActiveTextEditor(e: TextEditor | undefined) {
@@ -88,9 +90,9 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	private onUsagesChanged(e: UsageChangeEvent | undefined) {
 		if (!e || e?.key === 'integration:repoHost') {
-			this.notifyDidChangeOnboardingIntegration();
+			void this.notifyDidChangeOnboardingIntegration();
 		}
-		this.notifyDidChangeOnboardingState();
+		void this.notifyDidChangeOnboardingState();
 	}
 
 	private onRepositoriesChanged() {
@@ -108,10 +110,11 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	onReloaded() {
 		this.notifyDidChangeRepositories();
 		this.notifyDidChangeEditor();
-		this.notifyDidChangeOnboardingState();
+		void this.notifyDidChangeOnboardingState();
 		this.notifyDidToggleCodeLens();
 		this.notifyDidToggleLineBlame();
-		this.notifyDidChangeOnboardingIntegration();
+		void this.notifyDidChangeOnboardingIntegration();
+		void this.container.git.access().then(x => console.log('subscription', { x: x, plan: x.subscription }));
 	}
 
 	private getOrgSettings(): State['orgSettings'] {
@@ -124,10 +127,14 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		if (key === 'gitlens:gk:organization:drafts:enabled') {
 			this.notifyDidChangeOrgSettings();
 		}
+		if (key === 'gitlens:plus:enabled') {
+			this.notifyDidTogglePlus();
+		}
 	}
 
 	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		void this.notifyDidChangeSubscription(e.current);
+		void this.notifyDidChangeOnboardingState();
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
@@ -135,7 +142,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return {
 			...this.host.baseWebviewState,
 			repositories: this.getRepositoriesState(),
-			onboardingState: this.getOnboardingState(),
+			onboardingState: await this.getOnboardingState(),
 			editorPreviewEnabled: this.isEditorPreviewEnabled(),
 			canEnableCodeLens: this.canCodeLensBeEnabled(),
 			canEnableLineBlame: this.canLineBlameBeEnabled(),
@@ -145,6 +152,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			orgSettings: this.getOrgSettings(),
 			hasAnyIntegrationConnected: this.isAnyIntegrationConnected(),
 			isOnboardingInitialized: this.onboardingInitialized,
+			proFeaturesEnabled: this.getPlusFeaturesEnabled(),
 		};
 	}
 
@@ -199,10 +207,15 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return this.hostedIntegrationConnected;
 	}
 
-	private getOnboardingState(): Omit<
-		Required<DidChangeOnboardingStateParams>,
-		`${OnboardingItem.allSidebarViews}Checked` | `${OnboardingItem.editorFeatures}Checked`
+	private async getOnboardingState(): Promise<
+		Omit<
+			Required<DidChangeOnboardingStateParams>,
+			| `${OnboardingItem.allSidebarViews}Checked`
+			| `${OnboardingItem.editorFeatures}Checked`
+			| `${OnboardingItem.proFeatures}Checked`
+		>
 	> {
+		const subscription = await this.container.subscription.getSubscription();
 		return {
 			commitGraphChecked: this.checkIfSomeUsed(
 				'graphView:shown',
@@ -246,6 +259,12 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			blameChecked: this.checkIfSomeUsed('lineBlame:hovered'),
 			codeLensChecked: this.checkIfSomeUsed('codeLens:activated'),
 			fileAnnotationsChecked: this.checkIfSomeUsed('command:gitlens.toggleFileBlame:executed'),
+			upgradeToProChecked: subscription.state === SubscriptionState.Paid,
+			tryTrialChecked:
+				subscription.state === SubscriptionState.FreeInPreviewTrial ||
+				subscription.state === SubscriptionState.FreePlusInTrial ||
+				subscription.state === SubscriptionState.FreePlusTrialExpired ||
+				subscription.state === SubscriptionState.Paid,
 		};
 	}
 
@@ -253,8 +272,12 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
 	}
 
-	private notifyDidChangeOnboardingState() {
-		void this.host.notify(DidChangeOnboardingState, this.getOnboardingState());
+	private async notifyDidChangeOnboardingState() {
+		void this.host.notify(DidChangeOnboardingState, await this.getOnboardingState());
+	}
+
+	private getPlusFeaturesEnabled() {
+		return getContext('gitlens:plus:enabled') ?? false;
 	}
 
 	private notifyDidChangeIsOnboardingInitialized() {
@@ -265,11 +288,11 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	private _timeout: NodeJS.Timeout | undefined;
 
-	private notifyDidChangeOnboardingIntegration() {
+	private async notifyDidChangeOnboardingIntegration() {
 		// force rechecking
 		const isConnected = this.isHostedIntegrationConnected(true);
 		void this.host.notify(DidChangeOnboardingIntegration, {
-			onboardingState: this.getOnboardingState(),
+			onboardingState: await this.getOnboardingState(),
 			repoHostConnected: isConnected,
 		});
 		if (!this._timeout) {
@@ -281,8 +304,11 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		}, 250);
 	}
 
+	private notifyDidTogglePlus() {
+		void this.host.notify(DidTogglePlusFeatures, this.getPlusFeaturesEnabled());
+	}
+
 	private notifyDidChangeEditor() {
-		console.log('home test changed editor', this.isEditorPreviewEnabled());
 		void this.host.notify(DidChangeOnboardingEditor, {
 			editorPreviewEnabled: this.isEditorPreviewEnabled(),
 		});

@@ -2,6 +2,7 @@
 import './home.scss';
 import type { Disposable } from 'vscode';
 import { getApplicablePromo } from '../../../plus/gk/account/promos';
+import { SubscriptionState } from '../../../plus/gk/account/subscription';
 import type { OnboardingItem, OnboardingState, State } from '../../home/protocol';
 import {
 	DidChangeCodeLensState,
@@ -14,6 +15,7 @@ import {
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidTogglePlusFeatures,
 } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommand } from '../../protocol';
@@ -53,6 +55,10 @@ export class HomeApp extends App<State> {
 			this.state.repoHostConnected,
 			this.state.canEnableCodeLens,
 			this.state.canEnableLineBlame,
+			this.state.proFeaturesEnabled,
+			this.state.subscription.state === SubscriptionState.Free,
+			this.state.subscription.state === SubscriptionState.FreePlusTrialReactivationEligible,
+			this.state.subscription.state !== SubscriptionState.Paid,
 		);
 	}
 
@@ -84,6 +90,13 @@ export class HomeApp extends App<State> {
 		switch (true) {
 			case DidChangeOnboardingState.is(msg):
 				this.state.onboardingState = msg.params;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.attachState();
+				break;
+
+			case DidTogglePlusFeatures.is(msg):
+				this.state.proFeaturesEnabled = msg.params;
 				this.state.timestamp = Date.now();
 				this.setState(this.state);
 				this.attachState();

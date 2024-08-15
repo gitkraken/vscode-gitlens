@@ -7,5 +7,6 @@ export interface OnboardingItemConfiguration<T extends string> {
 	infoHref?: string;
 	infoTooltip?: string;
 	title: string;
+	disabled?: boolean;
 	children?: OnboardingItemConfiguration<T>[];
 }

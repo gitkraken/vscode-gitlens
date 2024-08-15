@@ -1,13 +1,21 @@
+import type { WalkthroughSteps } from '../../../../constants';
 import { Commands } from '../../../../constants.commands';
 import { OnboardingItem } from '../../../home/protocol';
 import { createCommandLink } from '../../shared/commands';
 import type { OnboardingItemConfiguration } from '../../shared/components/onboarding/onboarding-types';
+
+const createWalkthroughLink = (step: WalkthroughSteps) =>
+	createCommandLink(Commands.OpenWalkthrough, { args: { source: 'welcome', step: step } });
 
 export function getOnboardingConfiguration(
 	editorPreviewEnabled: boolean,
 	repoHostConnected: boolean,
 	canEnableCodeLens: boolean,
 	canEnableLineBlame: boolean,
+	proFeaturesEnabled: boolean,
+	canActivateTrial: boolean,
+	canReActivateTrial: boolean,
+	canUpgradeToPro: boolean,
 ): OnboardingItemConfiguration<OnboardingItem>[] {
 	const passIfTrue = <T>(condition: boolean, value: T): T | undefined => (condition ? value : undefined);
 	return [
@@ -48,6 +56,7 @@ export function getOnboardingConfiguration(
 			itemId: OnboardingItem.editorFeatures,
 			title: 'Editor / file features',
 			infoTooltip: 'Check the features of GitLens with active file editor',
+			infoHref: createWalkthroughLink('core-features'),
 			playHref: passIfTrue(!editorPreviewEnabled, createCommandLink('workbench.action.quickOpen')),
 			playTooltip: 'Open a file to try editor features',
 			children: [
@@ -88,33 +97,59 @@ export function getOnboardingConfiguration(
 			],
 		},
 		{
-			itemId: OnboardingItem.commitGraph,
-			title: 'View the Commit Graph',
-			infoHref: 'https://youtu.be/oJdlGtsbc3U?t=275',
-			playHref: createCommandLink(Commands.ShowGraph),
-			playTooltip: 'Show the Commit Graph',
-		},
-		{
 			itemId: OnboardingItem.launchpad,
 			title: 'Open Launchpad',
 			playHref: createCommandLink(Commands.ShowLaunchpad),
-			infoHref: 'https://youtu.be/oJdlGtsbc3U?t=443',
+			infoHref: createWalkthroughLink('launchpad'),
 			playTooltip: 'Open Launchpad',
 		},
 		{
 			itemId: OnboardingItem.repoHost,
 			title: 'Connect with Repo Host',
 			playHref: passIfTrue(!repoHostConnected, createCommandLink(Commands.ConnectRemoteProvider)),
+			infoHref: createWalkthroughLink('integrations'),
 			infoTooltip:
 				'Connect remote integration to have such additional features as enriched autolinks, extensive PR support on commits/branches, extensive repo and commit metadata, Launchpad support',
 			playTooltip: 'Connect remote integration',
 		},
 		{
-			itemId: OnboardingItem.visualFileHistory,
-			title: 'Visual File History',
-			infoHref: 'https://youtu.be/oJdlGtsbc3U?t=233',
-			playHref: createCommandLink(Commands.ShowTimelineView),
-			playTooltip: 'Show Visual File History',
+			itemId: OnboardingItem.proFeatures,
+			title: 'Pro features',
+			infoHref: createWalkthroughLink('pro-upgrade'),
+			playTooltip: 'Restore plus features',
+			playHref: passIfTrue(!proFeaturesEnabled, createCommandLink(Commands.PlusRestore)),
+			children: [
+				{
+					itemId: OnboardingItem.tryTrial,
+					title: canReActivateTrial ? 'Reactivate trial' : 'Activate trial',
+					infoTooltip: 'Try pro features',
+					playHref:
+						passIfTrue(canActivateTrial, createCommandLink(Commands.PlusStartPreviewTrial)) ??
+						passIfTrue(canReActivateTrial, createCommandLink(Commands.PlusReactivateProTrial)),
+				},
+				{
+					itemId: OnboardingItem.upgradeToPro,
+					playHref: passIfTrue(!canUpgradeToPro, createCommandLink(Commands.PlusUpgrade)),
+					title: 'Upgrade to pro',
+					playTooltip: 'Upgrade to pro to get more features',
+				},
+				{
+					itemId: OnboardingItem.commitGraph,
+					title: 'View the Commit Graph',
+					infoHref: createWalkthroughLink('visualize'),
+					playHref: createCommandLink(Commands.ShowGraph),
+					playTooltip: 'Show the Commit Graph',
+					disabled: !proFeaturesEnabled,
+				},
+				{
+					itemId: OnboardingItem.visualFileHistory,
+					title: 'Visual File History',
+					infoHref: 'https://youtu.be/oJdlGtsbc3U?t=233',
+					playHref: createCommandLink(Commands.ShowTimelineView),
+					playTooltip: 'Show Visual File History',
+					disabled: !proFeaturesEnabled,
+				},
+			],
 		},
 	];
 }
