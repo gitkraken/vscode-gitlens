@@ -1,6 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
@@ -54,6 +55,27 @@ export class GlOnboarding<
 		gl-onboarding-item-group.top-onboarding-group {
 			--gl-onboarding-group-indent: 0px;
 			margin-top: 12px;
+		}
+
+		progress#mini-progress::-webkit-progress-bar {
+			background-color: unset;
+		}
+		progress#mini-progress.finished::-webkit-progress-value {
+			background: unset;
+		}
+		progress#mini-progress::-webkit-progress-value {
+			background: var(--vscode-progressBar-background, blue);
+			transition: 0.1s ease-in;
+		}
+		progress#mini-progress {
+			pointer-events: none;
+			width: 100%;
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			background: unset;
+			height: 2px;
+			flex: 1;
 		}
 	`;
 
@@ -156,6 +178,19 @@ export class GlOnboarding<
 		return this.progress === this.stepCount;
 	}
 
+	private renderMiniProgress() {
+		return html`
+			<progress
+				class=${classMap({
+					finished: this.finished,
+				})}
+				id="mini-progress"
+				value=${this.progress}
+				max=${this.stepCount}
+			></progress>
+		`;
+	}
+
 	protected override render() {
 		if (!this.state) {
 			return html``;
@@ -169,6 +204,7 @@ export class GlOnboarding<
 				<h3 class="title" slot="button-content">
 					<slot name="title"></slot>
 					<span class="progress">${this.progress}/${this.stepCount}</span>
+					${when(!this.isExpanded, this.renderMiniProgress.bind(this))}
 				</h3>
 
 				<div slot="details-content">

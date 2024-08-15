@@ -2,6 +2,7 @@ import { css } from 'lit';
 
 export const accordionBaseStyles = css`
 	.accordion-button {
+		position: relative;
 		appearance: none;
 		border: var(--gk-accordion-button-border, 1px solid var(--color-foreground));
 		border-radius: var(--gk-accordion-button-border-radius, 0.25rem);
