@@ -1220,6 +1220,8 @@ export type StoredFocusGroup =
 	| 'snoozed';
 
 export type TelemetryGlobalContext = {
+	'cloudIntegrations.connectedCount': number;
+	'cloudIntegrations.connectedIds': string;
 	debugging: boolean;
 	enabled: boolean;
 	prerelease: boolean;
@@ -1269,6 +1271,11 @@ export type TelemetryEvents = {
 
 	/** Sent when connecting to one or more cloud-based integrations*/
 	'cloudIntegrations/connecting': {
+		'integration.ids': string | undefined;
+	};
+
+	/** Sent when connected to one or more cloud-based integrations from gkdev*/
+	'cloudIntegrations/connected': {
 		'integration.ids': string | undefined;
 	};
 
