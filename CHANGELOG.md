@@ -45,6 +45,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues where a merge or rebase operation says there or no changes when there are changes
 - Fixes an error with queries that can cause Jira Cloud and other cloud integrations to stop working
 - Fixes issues with some directory comparison commands
+- Fixes [#3473](https://github.com/gitkraken/vscode-gitlens/issues/3473) - Plus features can't be restored after they are hidden
 
 ## [15.2.3] - 2024-07-26
 
