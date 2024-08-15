@@ -1,4 +1,5 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
+import type { Sources } from '../../../constants';
 import type { Container } from '../../../container';
 import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -302,7 +303,7 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHoste
 	}
 
 	@log()
-	override async connect(): Promise<boolean> {
+	override async connect(source: Sources): Promise<boolean> {
 		if (
 			!(await ensurePaidPlan(this.container, `Rich integration with ${this.name} is a Pro feature.`, {
 				source: 'integrations',
@@ -312,6 +313,6 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHoste
 			return false;
 		}
 
-		return super.connect();
+		return super.connect(source);
 	}
 }
