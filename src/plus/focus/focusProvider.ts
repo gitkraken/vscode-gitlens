@@ -21,6 +21,7 @@ import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
 import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { setContext } from '../../system/context';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, groupByMap, map, some } from '../../system/iterable';
 import { Logger } from '../../system/logger';
@@ -630,12 +631,15 @@ export class FocusProvider implements Disposable {
 		return repoRemotes;
 	}
 
+	@gate<FocusProvider['getCategorizedItems']>(o => `${o?.force ?? false}`)
 	@log<FocusProvider['getCategorizedItems']>({ args: { 0: o => `force=${o?.force}`, 1: false } })
 	async getCategorizedItems(
 		options?: { force?: boolean },
 		cancellation?: CancellationToken,
 	): Promise<FocusCategorizedResult> {
 		const scope = getLogScope();
+
+		const fireRefresh = options?.force || this._prs == null;
 
 		const ignoredRepositories = new Set(
 			(configuration.get('launchpad.ignoredRepositories') ?? []).map(r => r.toLowerCase()),
@@ -812,10 +816,8 @@ export class FocusProvider implements Disposable {
 			return result;
 		} finally {
 			this.updateGroupedIds(result?.items ?? []);
-			if (result != null) {
+			if (result != null && fireRefresh) {
 				this._onDidRefresh.fire(result);
-			} else {
-				debugger;
 			}
 		}
 	}
