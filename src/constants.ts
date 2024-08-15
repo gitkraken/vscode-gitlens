@@ -1280,6 +1280,23 @@ export type TelemetryEvents = {
 		'integration.connected.ids': string | undefined;
 	};
 
+	/** Sent when getting connected providers from the api fails*/
+	'cloudIntegrations/getConnections/failed': {
+		code: number | undefined;
+	};
+
+	/** Sent when getting a provider token from the api fails*/
+	'cloudIntegrations/getConnection/failed': {
+		code: number | undefined;
+		'integration.id': string | undefined;
+	};
+
+	/** Sent when refreshing a provider token from the api fails*/
+	'cloudIntegrations/refreshConnection/failed': {
+		code: number | undefined;
+		'integration.id': string | undefined;
+	};
+
 	/** Sent when a cloud-based hosting provider is connected */
 	'cloudIntegrations/hosting/connected': {
 		'hostingProvider.provider': IntegrationId;
