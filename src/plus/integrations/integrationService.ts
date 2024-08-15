@@ -13,7 +13,7 @@ import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { promisifyDeferred, take } from '../../system/event';
-import { filterMap, flatten } from '../../system/iterable';
+import { filterMap, flatten, join } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { openUrl } from '../../system/utils';
@@ -95,7 +95,12 @@ export class IntegrationService implements Disposable {
 			const connections = await cloudIntegrations?.getConnections();
 			if (connections == null) return;
 
-			connections.map(p => connectedIntegrations.add(toIntegrationId[p.provider]));
+			connections.map(p => {
+				const integrationId = toIntegrationId[p.provider];
+				// GKDev includes some integrations like "google" that we don't support
+				if (integrationId == null) return;
+				connectedIntegrations.add(toIntegrationId[p.provider]);
+			});
 		}
 
 		for await (const integration of this.getSupportedCloudIntegrations()) {
@@ -104,6 +109,14 @@ export class IntegrationService implements Disposable {
 				forceConnect,
 			);
 		}
+
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.setGlobalAttributes({
+				'cloudIntegrations.connectedCount': connectedIntegrations.size,
+				'cloudIntegrations.connectedIds': join(connectedIntegrations.values(), ','),
+			});
+		}
+
 		return connectedIntegrations;
 	}
 
@@ -149,9 +162,16 @@ export class IntegrationService implements Disposable {
 		take(
 			window.onDidChangeWindowState,
 			2,
-		)(e => {
+		)(async e => {
 			if (e.focused) {
-				void this.syncCloudIntegrations(true);
+				const connected = await this.syncCloudIntegrations(true);
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(
+						'cloudIntegrations/connected',
+						{ 'integration.ids': connected ? join(connected.values(), ',') : undefined },
+						source,
+					);
+				}
 			}
 		});
 	}
@@ -269,7 +289,14 @@ export class IntegrationService implements Disposable {
 			if (account == null) return false;
 		}
 
-		await this.syncCloudIntegrations(true);
+		const connected = await this.syncCloudIntegrations(true);
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent(
+				'cloudIntegrations/connected',
+				{ 'integration.ids': connected ? join(connected.values(), ',') : undefined },
+				source,
+			);
+		}
 
 		if (integrationIds != null) {
 			for (const integrationId of integrationIds) {
