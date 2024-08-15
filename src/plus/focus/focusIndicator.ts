@@ -27,6 +27,7 @@ export class FocusIndicator implements Disposable {
 	private _categorizedItems: FocusItem[] | undefined;
 	/** Tracks if this is the first state after startup */
 	private _firstStateAfterStartup: boolean = true;
+	private _hasRefreshed: boolean = false;
 	private _lastDataUpdate: Date | undefined;
 	private _lastRefreshPaused: Date | undefined;
 	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
@@ -119,6 +120,7 @@ export class FocusIndicator implements Disposable {
 	}
 
 	private onFocusRefreshed(e: FocusRefreshEvent) {
+		this._hasRefreshed = true;
 		if (!this.pollingEnabled) {
 			this.updateStatusBarState('idle');
 
@@ -211,7 +213,12 @@ export class FocusIndicator implements Disposable {
 				// If we are loading at startup, wait to give vscode time to settle before querying
 				if (starting) {
 					// Using a wait here, instead using the `startDelay` to avoid case where the timer could be cancelled if the user focused a different windows before the timer fires (because we will cancel the timer)
-					void wait(5000).then(() => this.provider.getCategorizedItems({ force: true }));
+					void wait(5000).then(() => {
+						// If something else has already caused a refresh, don't do another one
+						if (this._hasRefreshed) return;
+
+						void this.provider.getCategorizedItems({ force: true });
+					});
 				} else {
 					void this.provider.getCategorizedItems({ force: true });
 				}

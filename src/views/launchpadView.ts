@@ -184,8 +184,8 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
 		if (this._disposable == null) {
 			this._disposable = Disposable.from(
-				this.container.subscription.onDidChange(() => this.refresh(true), this),
-				this.container.integrations.onDidChangeConnectionState(() => this.refresh(true), this),
+				this.container.integrations.onDidChangeConnectionState(() => this.refresh(), this),
+				this.container.focus.onDidRefresh(() => this.refresh(), this),
 			);
 		}
 
@@ -237,7 +237,14 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
+			registerViewCommand(
+				this.getQualifiedCommand('refresh'),
+				() =>
+					window.withProgress({ location: { viewId: this.id } }, () =>
+						this.container.focus.getCategorizedItems({ force: true }),
+					),
+				this,
+			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),
