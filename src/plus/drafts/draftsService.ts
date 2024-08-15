@@ -766,7 +766,7 @@ export class DraftService implements Disposable {
 		}
 		if (integration == null) return undefined;
 
-		const session = await integration.getSession();
+		const session = await integration.getSession('code-suggest');
 		if (session == null) return undefined;
 
 		return {

@@ -129,15 +129,15 @@ export abstract class IntegrationBase<
 	}
 
 	protected _session: ProviderAuthenticationSession | null | undefined;
-	getSession() {
+	getSession(source: Sources) {
 		if (this._session === undefined) {
-			return this.ensureSession({ createIfNeeded: false });
+			return this.ensureSession({ createIfNeeded: false, source: source });
 		}
 		return this._session ?? undefined;
 	}
 
 	@log()
-	async connect(source?: Sources): Promise<boolean> {
+	async connect(source: Sources): Promise<boolean> {
 		try {
 			return Boolean(await this.ensureSession({ createIfNeeded: true, source: source }));
 		} catch (ex) {
@@ -290,7 +290,7 @@ export abstract class IntegrationBase<
 	@gate()
 	@debug({ exit: true })
 	async isConnected(): Promise<boolean> {
-		return (await this.getSession()) != null;
+		return (await this.getSession('integrations')) != null;
 	}
 
 	@gate()

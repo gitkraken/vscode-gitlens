@@ -344,7 +344,7 @@ export class OpenCloudPatchCommand extends Command {
 				return;
 			}
 
-			const session = await integration.getSession();
+			const session = await integration.getSession('cloud-patches');
 			if (session == null) {
 				void window.showErrorMessage(`Cannot open ${type}; provider not connected.`);
 				return;
