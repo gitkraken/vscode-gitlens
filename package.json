@@ -17442,12 +17442,13 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked."
+				"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked.",
+				"when": "config.gitlens.views.launchpad.enabled"
 			},
 			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Connect an Integration...](command:gitlens.showLaunchpad?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nAllows Launchpad to organize your pull requests into actionable groups and keep your team unblocked.",
-				"when": "gitlens:launchpad:connect"
+				"when": "config.gitlens.views.launchpad.enabled && gitlens:launchpad:connect"
 			},
 			{
 				"view": "gitlens.views.workspaces",
