@@ -1,11 +1,12 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
-import { ThemeIcon } from 'vscode';
+import { ThemeIcon, Uri } from 'vscode';
 import type { GitCommandsCommandArgs } from '../../commands/gitCommands';
 import { getSteps } from '../../commands/gitCommands.utils';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitBranch } from '../../git/models/branch';
+import { getBranchIconStatus } from '../../git/models/branch';
 import type { GitCommit, GitStashCommit } from '../../git/models/commit';
 import { isStash } from '../../git/models/commit';
 import type { GitReference } from '../../git/models/reference';
@@ -49,9 +50,11 @@ export async function createBranchQuickPickItem(
 		ref?: boolean;
 		status?: boolean;
 		type?: boolean | 'remote';
+		worktree?: boolean;
 	},
 ): Promise<BranchQuickPickItem> {
 	let description = '';
+
 	if (options?.type === true) {
 		if (options.current === true && branch.current) {
 			description = 'current branch';
@@ -118,6 +121,9 @@ export async function createBranchQuickPickItem(
 		}
 	}
 
+	const iconStatus = getBranchIconStatus(branch);
+	const iconSuffix = iconStatus ? `-${iconStatus}` : '';
+
 	const checked =
 		options?.checked || (options?.checked == null && options?.current === 'checkmark' && branch.current);
 	const item: BranchQuickPickItem = {
@@ -130,7 +136,25 @@ export async function createBranchQuickPickItem(
 		current: branch.current,
 		ref: branch.name,
 		remote: branch.remote,
-		iconPath: branch.starred ? new ThemeIcon('star-full') : new ThemeIcon('git-branch'),
+		iconPath: branch.starred
+			? new ThemeIcon('star-full')
+			: options?.worktree
+			  ? {
+						dark: Uri.file(
+							Container.instance.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
+						),
+						light: Uri.file(
+							Container.instance.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
+						),
+			    }
+			  : {
+						dark: Uri.file(
+							Container.instance.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
+						),
+						light: Uri.file(
+							Container.instance.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`),
+						),
+			    },
 	};
 
 	return item;

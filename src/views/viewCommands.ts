@@ -31,7 +31,7 @@ import { createReference, shortenRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showPatchesView } from '../plus/drafts/actions';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
-import { mapAsync } from '../system/array';
+import { filterMap, mapAsync } from '../system/array';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -743,11 +743,12 @@ export class ViewCommands {
 
 	@log()
 	private async openWorktree(
-		node: WorktreeNode,
-		nodes?: WorktreeNode[],
+		node: BranchNode | WorktreeNode,
+		nodes?: (BranchNode | WorktreeNode)[],
 		options?: { location?: OpenWorkspaceLocation },
 	) {
-		if (!node.is('worktree')) return;
+		if (!node.is('branch') && !node.is('worktree')) return;
+		if (node.worktree == null) return;
 
 		let uri;
 		if (nodes?.length && options?.location === 'newWindow') {
@@ -758,7 +759,9 @@ export class ViewCommands {
 
 			// TODO@eamodio hash the folder paths to get a unique, but re-usable workspace name?
 			const codeWorkspace: VSCodeWorkspace = {
-				folders: nodes.map(n => ({ name: n.worktree.name, path: n.worktree.uri.fsPath })),
+				folders: filterMap(nodes, n =>
+					n.worktree != null ? { name: n.worktree.name, path: n.worktree.uri.fsPath } : undefined,
+				),
 				settings: {},
 			};
 			uri = Uri.file(getTempFile(`worktrees-${Date.now()}.code-workspace`));
@@ -927,10 +930,11 @@ export class ViewCommands {
 	}
 
 	@log()
-	private revealWorktreeInExplorer(node: WorktreeNode) {
-		if (!node.is('worktree')) return undefined;
+	private revealWorktreeInExplorer(nodeOrUrl: WorktreeNode | string) {
+		if (typeof nodeOrUrl === 'string') return revealInFileExplorer(Uri.parse(nodeOrUrl));
+		if (!nodeOrUrl.is('worktree')) return undefined;
 
-		return revealInFileExplorer(node.worktree.uri);
+		return revealInFileExplorer(nodeOrUrl.worktree.uri);
 	}
 
 	@log()

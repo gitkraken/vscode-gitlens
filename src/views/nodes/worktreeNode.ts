@@ -190,57 +190,47 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		this.splatted = false;
 
 		let description = '';
-		const tooltip = new MarkdownString('', true);
 		let icon: ThemeIcon | undefined;
 		let hasChanges = false;
 
+		const tooltip = new MarkdownString('', true);
+		tooltip.isTrusted = true;
+
 		const indicators =
 			this.worktree.main || this.worktree.opened
-				? `${pad(GlyphChars.Dash, 2, 2)} ${
+				? ` \u00a0(${
 						this.worktree.main
-							? `_Main${this.worktree.opened ? ', Active_' : '_'}`
+							? `_main${this.worktree.opened ? ', active_' : '_'}`
 							: this.worktree.opened
-							  ? '_Active_'
+							  ? '_active_'
 							  : ''
-				  } `
+				  })`
 				: '';
 
 		const status = this.worktreeStatus?.status;
 
+		const folder = `\\\n$(folder) [\`${
+			this.worktree.friendlyPath
+		}\`](command:gitlens.views.revealWorktreeInExplorer?%22${this.worktree.uri.toString()}%22 "Reveal in Explorer")`;
+
 		switch (this.worktree.type) {
 			case 'bare':
 				icon = new ThemeIcon('folder');
-				tooltip.appendMarkdown(
-					`${this.worktree.main ? '$(pass) ' : ''}Bare Worktree${indicators}\\\n\`${
-						this.worktree.friendlyPath
-					}\``,
-				);
+				tooltip.appendMarkdown(`${this.worktree.main ? '$(pass) ' : ''}Bare Worktree${indicators}${folder}`);
 				break;
+
 			case 'branch': {
 				const { branch } = this.worktree;
 				this._branch = branch;
 
 				tooltip.appendMarkdown(
-					`${this.worktree.main ? '$(pass) ' : ''}Worktree for Branch $(git-branch) ${
+					`${this.worktree.main ? '$(pass) ' : ''}Worktree for $(git-branch) \`${
 						branch?.getNameWithoutRemote() ?? branch?.name
-					}${indicators}\\\n\`${this.worktree.friendlyPath}\``,
+					}\`${indicators}${folder}`,
 				);
 				icon = new ThemeIcon('git-branch');
 
-				if (status != null) {
-					hasChanges = status.hasChanges;
-					tooltip.appendMarkdown(
-						`\n\n${status.getFormattedDiffStatus({
-							prefix: 'Has Uncommitted Changes\\\n',
-							empty: 'No Uncommitted Changes',
-							expand: true,
-						})}`,
-					);
-				}
-
 				if (branch != null) {
-					tooltip.appendMarkdown(`\n\nBranch $(git-branch) ${branch.getNameWithoutRemote()}`);
-
 					if (!branch.remote) {
 						if (branch.upstream != null) {
 							let arrows = GlyphChars.Dash;
@@ -280,16 +270,16 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 							})}${branch.upstream.name}`;
 
 							tooltip.appendMarkdown(
-								` is ${branch.getTrackingStatus({
-									empty: branch.upstream.missing
-										? `missing upstream $(git-branch) ${branch.upstream.name}`
-										: `up to date with $(git-branch)  ${branch.upstream.name}${
-												remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-										  }`,
+								`\n\nBranch is ${branch.getTrackingStatus({
+									empty: `${
+										branch.upstream.missing ? 'missing upstream' : 'up to date with'
+									} \\\n $(git-branch) \`${branch.upstream.name}\`${
+										remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+									}`,
 									expand: true,
 									icons: true,
 									separator: ', ',
-									suffix: ` $(git-branch) ${branch.upstream.name}${
+									suffix: `\\\n$(git-branch) \`${branch.upstream.name}\`${
 										remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 									}`,
 								})}`,
@@ -299,9 +289,22 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 								await this.view.container.git.getRemotesWithProviders(branch.repoPath),
 							);
 
-							tooltip.appendMarkdown(` hasn't been published to ${providerName ?? 'a remote'}`);
+							tooltip.appendMarkdown(
+								`\n\nLocal branch, hasn't been published to ${providerName ?? 'a remote'}`,
+							);
 						}
 					}
+				}
+
+				if (status != null) {
+					hasChanges = status.hasChanges;
+					tooltip.appendMarkdown(
+						`\n\n${status.getFormattedDiffStatus({
+							prefix: 'Has Uncommitted Changes\\\n',
+							empty: 'No Uncommitted Changes',
+							expand: true,
+						})}`,
+					);
 				}
 
 				break;
@@ -311,7 +314,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				tooltip.appendMarkdown(
 					`${this.worktree.main ? '$(pass) ' : ''}Detached Worktree at $(git-commit) ${shortenRevision(
 						this.worktree.sha,
-					)}${indicators}\\\n\`${this.worktree.friendlyPath}\``,
+					)}${indicators}${folder}`,
 				);
 
 				if (status != null) {

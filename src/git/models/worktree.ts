@@ -7,6 +7,7 @@ import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
+import { filterMap } from '../../system/iterable';
 import { PageableResult } from '../../system/paging';
 import { normalizePath, relative } from '../../system/path';
 import { pad, sortCompare } from '../../system/string';
@@ -329,4 +330,39 @@ export function sortWorktrees(worktrees: GitWorktree[] | WorktreeQuickPickItem[]
 				);
 			});
 	}
+}
+
+export async function getWorktreesByBranch(repos: Repository | Repository[] | undefined) {
+	const worktreesByBranch = new Map<string, GitWorktree>();
+	if (repos == null) return worktreesByBranch;
+
+	async function addWorktrees(repo: Repository) {
+		const worktrees = await repo.getWorktrees();
+		for (const wt of worktrees) {
+			if (wt.branch == null || wt.main) continue;
+
+			worktreesByBranch.set(wt.branch.id, wt);
+		}
+	}
+
+	if (!Array.isArray(repos)) {
+		await addWorktrees(repos);
+	} else {
+		await Promise.allSettled(repos.map(async r => addWorktrees(r)));
+	}
+
+	return worktreesByBranch;
+}
+
+export function getOpenedWorktreesByBranch(
+	worktreesByBranch: Map<string, GitWorktree> | undefined,
+): Set<string> | undefined {
+	let openedWorktreesByBranch: Set<string> | undefined;
+	if (worktreesByBranch?.size) {
+		openedWorktreesByBranch = new Set(filterMap(worktreesByBranch, ([id, wt]) => (wt.opened ? id : undefined)));
+		if (!openedWorktreesByBranch.size) {
+			openedWorktreesByBranch = undefined;
+		}
+	}
+	return openedWorktreesByBranch;
 }

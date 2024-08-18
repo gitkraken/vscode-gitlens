@@ -1370,6 +1370,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				branches: branchMap,
 				remotes: remoteMap,
 				downstreams: downstreamMap,
+				worktreesByBranch: undefined,
 				rows: [],
 			};
 		}
@@ -1384,6 +1385,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				branches: branchMap,
 				remotes: remoteMap,
 				downstreams: downstreamMap,
+				worktreesByBranch: undefined,
 				rows: [],
 			};
 		}
@@ -1632,6 +1634,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			branches: branchMap,
 			remotes: remoteMap,
 			downstreams: downstreamMap,
+			worktreesByBranch: undefined,
 			rows: rows,
 			id: options?.ref,
 

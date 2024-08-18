@@ -12,6 +12,7 @@ import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
 import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase';
+import { createViewDecorationUri } from '../viewDecorationProvider';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { ViewRefFileNode } from './abstract/viewRefNode';
@@ -79,6 +80,7 @@ export abstract class CommitFileNodeBase<
 		item.id = this.id;
 		item.contextValue = this.contextValue;
 		item.description = this.description;
+
 		if (this.view.config.files.icon === 'type') {
 			item.resourceUri = Uri.from({
 				scheme: Schemes.Git,
@@ -88,11 +90,11 @@ export abstract class CommitFileNodeBase<
 					// Ensure we use the fsPath here, otherwise the url won't open properly
 					path: this.uri.fsPath,
 					ref: this.uri.sha,
-					decoration: `gitlens-view://commit-file/status/${this.file.status}`,
+					decoration: createViewDecorationUri('commit-file', { status: this.file.status }).toString(),
 				}),
 			});
 		} else {
-			item.resourceUri = Uri.parse(`gitlens-view://commit-file/status/${this.file.status}`);
+			item.resourceUri = createViewDecorationUri('commit-file', { status: this.file.status });
 			const icon = getGitFileStatusIcon(this.file.status);
 			item.iconPath = {
 				dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),

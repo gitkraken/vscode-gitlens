@@ -1,5 +1,5 @@
 import type { TextEditor } from 'vscode';
-import { Disposable, TreeItem, TreeItemCollapsibleState, Uri, window, workspace } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { gate } from '../../system/decorators/gate';
@@ -8,6 +8,7 @@ import { weakEvent } from '../../system/event';
 import { debounce, szudzikPairing } from '../../system/function';
 import { Logger } from '../../system/logger';
 import type { ViewsWithRepositoriesNode } from '../viewBase';
+import { createViewDecorationUri } from '../viewDecorationProvider';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues } from './abstract/viewNode';
@@ -58,7 +59,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 
 		if (isCurrentLinkedWorkspace) {
 			contextValue += '+current';
-			item.resourceUri = Uri.parse('gitlens-view://workspaces/workspace/current');
+			item.resourceUri = createViewDecorationUri('repositories', { currentWorkspace: true });
 		}
 
 		item.contextValue = contextValue;

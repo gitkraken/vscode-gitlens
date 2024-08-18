@@ -1,7 +1,8 @@
-import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Features } from '../../features';
 import type { GitUri } from '../../git/gitUri';
+import type { BranchIconStatus } from '../../git/models/branch';
 import { GitBranch } from '../../git/models/branch';
 import { getHighlanderProviders } from '../../git/models/remote';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
@@ -20,6 +21,7 @@ import { weakEvent } from '../../system/event';
 import { disposableInterval } from '../../system/function';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositories } from '../viewBase';
+import { createViewDecorationUri } from '../viewDecorationProvider';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { AmbientContext, ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
@@ -157,7 +159,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 						new BranchNode(this.uri, this.view, this, this.repo, branch, true, {
 							showAsCommits: true,
 							showComparison: false,
-							showCurrentOrOpened: false,
+							showStatusDecorationOnly: true,
 							showStatus: false,
 							showTracking: false,
 						}),
@@ -226,8 +228,8 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			}
 		}
 
-		let iconType: '' | '-solid' | '-cloud' = '';
-		let iconColor: '' | '-blue' | '-green' | '-yellow' | '-red' = '';
+		let iconType: '' | '-cloud' | '-solid' = '';
+		let iconColor: '' | `-${NonNullable<BranchIconStatus>}` | '-changes' = '';
 
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
 		if (this.repo.closed) {
@@ -281,13 +283,14 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					suffix: ` $(git-branch) ${status.upstream.name}${providerName ? ` on ${providerName}` : ''}`,
 				})}`;
 
+				iconColor = '-synced';
 				if (status.state.behind) {
 					contextValue += '+behind';
-					iconColor = '-red';
+					iconColor = '-behind';
 				}
 				if (status.state.ahead) {
 					contextValue += '+ahead';
-					iconColor = status.state.behind ? '-yellow' : '-green';
+					iconColor = status.state.behind ? '-diverged' : '-ahead';
 				}
 			}
 
@@ -297,7 +300,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					prefix: '\n',
 					separator: '\n',
 				})}`;
-				iconColor = '-blue';
+				iconColor = '-changes';
 			}
 		}
 
@@ -322,7 +325,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		};
 
 		if (workspace != null && !this.repo.closed) {
-			item.resourceUri = Uri.parse(`gitlens-view://workspaces/repository/open`);
+			item.resourceUri = createViewDecorationUri('repository', { state: 'open', workspace: true });
 		}
 
 		const markdown = new MarkdownString(tooltip, true);

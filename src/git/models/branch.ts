@@ -39,7 +39,7 @@ export interface BranchSortOptions {
 	current?: boolean;
 	missingUpstream?: boolean;
 	orderBy?: BranchSorting;
-	openWorktreeBranches?: string[];
+	openedWorktreesByBranch?: Set<string>;
 }
 
 export function getBranchId(repoPath: string, remote: boolean, name: string): string {
@@ -315,9 +315,9 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 				(a, b) =>
 					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					(options.openWorktreeBranches
-						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
-						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
+					(options.openedWorktreesByBranch
+						? (options.openedWorktreesByBranch.has(a.id) ? -1 : 1) -
+						  (options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
 						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
@@ -329,9 +329,9 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 				(a, b) =>
 					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					(options.openWorktreeBranches
-						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
-						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
+					(options.openedWorktreesByBranch
+						? (options.openedWorktreesByBranch.has(a.id) ? -1 : 1) -
+						  (options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
 						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
@@ -345,9 +345,9 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 				(a, b) =>
 					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					(options.openWorktreeBranches
-						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
-						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
+					(options.openedWorktreesByBranch
+						? (options.openedWorktreesByBranch.has(a.id) ? -1 : 1) -
+						  (options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
 						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
@@ -362,9 +362,9 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 				(a, b) =>
 					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					(options.openWorktreeBranches
-						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
-						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
+					(options.openedWorktreesByBranch
+						? (options.openedWorktreesByBranch.has(a.id) ? -1 : 1) -
+						  (options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
 						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
@@ -396,6 +396,18 @@ export async function getLocalBranchByUpstream(
 		) {
 			return branch;
 		}
+	}
+
+	return undefined;
+}
+
+export type BranchIconStatus = 'ahead' | 'behind' | 'diverged' | 'synced';
+export function getBranchIconStatus(branch: GitBranch): BranchIconStatus | undefined {
+	if (branch.upstream != null && !branch.upstream.missing) {
+		if (branch.state.ahead && branch.state.behind) return 'diverged';
+		if (branch.state.ahead) return 'ahead';
+		if (branch.state.behind) return 'behind';
+		return 'synced';
 	}
 
 	return undefined;

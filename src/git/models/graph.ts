@@ -11,6 +11,7 @@ import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { Brand, Unbrand } from '../../system/brand';
 import type { GitBranch } from './branch';
 import type { GitRemote } from './remote';
+import type { GitWorktree } from './worktree';
 
 export type GitGraphHostingServiceType = HostingServiceType;
 
@@ -49,6 +50,8 @@ export interface GitGraph {
 	readonly branches: Map<string, GitBranch>;
 	readonly remotes: Map<string, GitRemote>;
 	readonly downstreams: Map<string, string[]>;
+	readonly worktreesByBranch: Map<string, GitWorktree> | undefined;
+
 	/** The rows for the set of commits requested */
 	readonly rows: GitGraphRow[];
 	readonly id?: string;

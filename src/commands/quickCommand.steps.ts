@@ -39,7 +39,7 @@ import type { GitStatus } from '../git/models/status';
 import type { GitTag, TagSortOptions } from '../git/models/tag';
 import { sortTags } from '../git/models/tag';
 import type { GitWorktree, WorktreeQuickPickItem } from '../git/models/worktree';
-import { createWorktreeQuickPickItem, sortWorktrees } from '../git/models/worktree';
+import { createWorktreeQuickPickItem, getWorktreesByBranch, sortWorktrees } from '../git/models/worktree';
 import { remoteUrlRegex } from '../git/parsers/remoteParser';
 import type { FocusCommandArgs } from '../plus/focus/focus';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/account/subscription';
@@ -286,6 +286,8 @@ export async function getBranchesAndOrTags(
 ): Promise<(BranchQuickPickItem | TagQuickPickItem)[]> {
 	if (repos == null) return [];
 
+	let worktreesByBranch: Map<string, GitWorktree> | undefined;
+
 	let branches: GitBranch[] | undefined;
 	let tags: GitTag[] | undefined;
 
@@ -295,7 +297,8 @@ export async function getBranchesAndOrTags(
 		const repo = repos instanceof Repository ? repos : repos[0];
 
 		// TODO@eamodio handle paging
-		const [branchesResult, tagsResult] = await Promise.allSettled([
+		const [worktreesByBranchResult, branchesResult, tagsResult] = await Promise.allSettled([
+			include.includes('branches') ? getWorktreesByBranch(repo) : undefined,
 			include.includes('branches')
 				? repo.getBranches({
 						filter: filter?.branches,
@@ -305,11 +308,13 @@ export async function getBranchesAndOrTags(
 			include.includes('tags') ? repo.getTags({ filter: filter?.tags, sort: true }) : undefined,
 		]);
 
+		worktreesByBranch = getSettledValue(worktreesByBranchResult);
 		branches = getSettledValue(branchesResult)?.values ?? [];
 		tags = getSettledValue(tagsResult)?.values ?? [];
 	} else {
 		// TODO@eamodio handle paging
-		const [branchesByRepoResult, tagsByRepoResult] = await Promise.allSettled([
+		const [worktreesByBranchResult, branchesByRepoResult, tagsByRepoResult] = await Promise.allSettled([
+			include.includes('branches') ? getWorktreesByBranch(repos) : undefined,
 			include.includes('branches')
 				? Promise.allSettled(
 						repos.map(r =>
@@ -329,6 +334,7 @@ export async function getBranchesAndOrTags(
 				: undefined,
 		]);
 
+		worktreesByBranch = getSettledValue(worktreesByBranchResult);
 		const branchesByRepo =
 			branchesByRepoResult.status === 'fulfilled'
 				? branchesByRepoResult.value
@@ -371,6 +377,7 @@ export async function getBranchesAndOrTags(
 								ref: singleRepo,
 								status: singleRepo,
 								type: 'remote',
+								worktree: worktreesByBranch?.has(b.id),
 							},
 						),
 					),
@@ -424,6 +431,7 @@ export async function getBranchesAndOrTags(
 							current: singleRepo ? 'checkmark' : false,
 							ref: singleRepo,
 							status: singleRepo,
+							worktree: worktreesByBranch?.has(b.id),
 						},
 					),
 				),

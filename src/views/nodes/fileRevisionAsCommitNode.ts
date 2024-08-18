@@ -1,5 +1,5 @@
-import type { CancellationToken, Command, Selection } from 'vscode';
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { CancellationToken, Command, Selection, Uri } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { Colors } from '../../constants';
 import { Commands } from '../../constants';
@@ -18,6 +18,7 @@ import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../sy
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
+import { createViewDecorationUri } from '../viewDecorationProvider';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues } from './abstract/viewNode';
 import { ViewRefFileNode } from './abstract/viewRefNode';
@@ -107,7 +108,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 			messageTruncateAtNewLine: true,
 		});
 
-		item.resourceUri = Uri.parse(`gitlens-view://commit-file/status/${this.file.status}`);
+		item.resourceUri = createViewDecorationUri('commit-file', { status: this.file.status });
 
 		if (!this.commit.isUncommitted && this.view.config.avatars) {
 			item.iconPath = this._options.unpublished

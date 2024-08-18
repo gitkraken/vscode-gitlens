@@ -1,6 +1,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
+import { getOpenedWorktreesByBranch } from '../../git/models/worktree';
 import { makeHierarchical } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithBranchesNode } from '../viewBase';
@@ -37,16 +38,12 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 			const branches = await this.repo.getBranches({
 				// only show local branches
 				filter: b => !b.remote,
-				sort: { current: false },
+				sort: {
+					current: true,
+					openedWorktreesByBranch: getOpenedWorktreesByBranch(this.context.worktreesByBranch),
+				},
 			});
 			if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
-
-			// if (configuration.get('views.collapseWorktreesWhenPossible')) {
-			// 	sortBranches(branches.values, {
-			// 		current: true,
-			// 		openWorktreeBranches: this.context.openWorktreeBranches,
-			// 	});
-			// }
 
 			// TODO@eamodio handle paging
 			const branchNodes = branches.values.map(
