@@ -1,10 +1,11 @@
-import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import type { CloudWorkspace, LocalWorkspace } from '../../plus/workspaces/models';
 import { createCommand } from '../../system/command';
 import { debug } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
+import { createViewDecorationUri } from '../viewDecorationProvider';
 import type { WorkspacesView } from '../workspacesView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -109,7 +110,7 @@ export class WorkspaceNode extends SubscribeableViewNode<
 		if (this.workspace.current) {
 			contextValue += '+current';
 			descriptionItems.push('current');
-			item.resourceUri = Uri.parse('gitlens-view://workspaces/workspace/current');
+			item.resourceUri = createViewDecorationUri('workspace', { current: true });
 		}
 		if (this.workspace.localPath != null) {
 			contextValue += '+hasPath';

@@ -83,6 +83,7 @@ import {
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 } from '../../../git/models/repository';
+import { getWorktreesByBranch } from '../../../git/models/worktree';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
 import { splitGitCommitMessage } from '../../../git/utils/commit-utils';
@@ -102,7 +103,8 @@ import {
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
 } from '../../../system/promise';
-import { isDarkTheme, isLightTheme } from '../../../system/utils';
+import type { OpenWorkspaceLocation } from '../../../system/utils';
+import { isDarkTheme, isLightTheme, openWorkspace } from '../../../system/utils';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
 import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../../webviews/protocol';
@@ -609,6 +611,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.updateColumns(compactGraphColumnsSettings),
 			),
 
+			this.host.registerWebviewCommand('gitlens.graph.openWorktree', this.openWorktree),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.openWorktreeInNewWindow', item =>
+				this.openWorktree(item, { location: 'newWindow' }),
+			),
 			this.host.registerWebviewCommand(
 				'gitlens.graph.copyWorkingChangesToWorktree',
 				this.copyWorkingChangesToWorktree,
@@ -3476,6 +3482,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (commit == null) return;
 
 		return openOnlyChangedFiles(commit);
+	}
+
+	@log()
+	private async openWorktree(item?: GraphItemContext, options?: { location?: OpenWorkspaceLocation }) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			if (ref.id == null) return;
+
+			let worktreesByBranch;
+			if (ref.repoPath === this._graph?.repoPath) {
+				worktreesByBranch = this._graph?.worktreesByBranch;
+			} else {
+				const repo = this.container.git.getRepository(ref.repoPath);
+				if (repo == null) return;
+
+				worktreesByBranch = await getWorktreesByBranch(repo);
+			}
+
+			const worktree = worktreesByBranch?.get(ref.id);
+			if (worktree == null) return;
+
+			openWorkspace(worktree.uri, options);
+		}
 	}
 
 	@log()

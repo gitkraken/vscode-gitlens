@@ -10,6 +10,7 @@ import type { GitBranchReference, GitRevisionReference } from '../git/models/ref
 import { getReferenceLabel } from '../git/models/reference';
 import type { Repository, RepositoryChangeEvent } from '../git/models/repository';
 import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { getWorktreesByBranch } from '../git/models/worktree';
 import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
@@ -66,26 +67,10 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 
 			this.view.message = undefined;
 
-			let openWorktreeBranches: Set<string> | undefined;
-			if (grouped?.size) {
-				// Get all the opened worktree branches to pass along downstream, e.g. in the BranchNode to display an indicator
-				openWorktreeBranches = new Set<string>();
-
-				await Promise.allSettled(
-					[...grouped].map(async ([r, nested]) => {
-						if (!nested.size) return;
-
-						const worktrees = await r.getWorktrees();
-						for (const wt of worktrees) {
-							if (wt.branch == null || nested.has(wt.repoPath)) return;
-
-							openWorktreeBranches!.add(wt.branch?.name);
-						}
-					}),
-				);
-			}
+			// Get all the worktree branches (and track if they are opened) to pass along downstream, e.g. in the BranchNode to display an indicator
+			const worktreesByBranch = await getWorktreesByBranch(repositories);
 			this.updateContext({
-				openWorktreeBranches: openWorktreeBranches?.size ? openWorktreeBranches : undefined,
+				worktreesByBranch: worktreesByBranch?.size ? worktreesByBranch : undefined,
 			});
 
 			const splat = repositories.length === 1;

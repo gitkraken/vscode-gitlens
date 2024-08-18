@@ -8,6 +8,7 @@ import type { GitStatus } from '../../git/models/status';
 import { executeCoreCommand } from '../../system/command';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
+import { createViewDecorationUri } from '../viewDecorationProvider';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { MergeConflictFilesNode } from './mergeConflictFilesNode';
 import { RebaseCommitNode } from './rebaseCommitNode';
@@ -104,9 +105,8 @@ export class RebaseStatusNode extends ViewNode<'rebase-status', ViewsWithCommits
 		);
 		markdown.supportHtml = true;
 		markdown.isTrusted = true;
-
 		item.tooltip = markdown;
-		item.resourceUri = Uri.parse(`gitlens-view://status/rebasing${hasConflicts ? '/conflicts' : ''}`);
+		item.resourceUri = createViewDecorationUri('status', { status: 'rebasing', conflicts: hasConflicts });
 
 		return item;
 	}

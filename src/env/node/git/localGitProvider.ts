@@ -127,6 +127,7 @@ import type { GitTreeEntry } from '../../../git/models/tree';
 import type { GitUser } from '../../../git/models/user';
 import { isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
+import { getWorktreesByBranch } from '../../../git/models/worktree';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
 import { parseGitBranches } from '../../../git/parsers/branchParser';
 import {
@@ -2314,18 +2315,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const refParser = getRefParser();
 		const statsParser = getGraphStatsParser();
 
-		const [refResult, stashResult, branchesResult, remotesResult, currentUserResult] = await Promise.allSettled([
-			this.git.log(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
-			this.getStash(repoPath),
-			this.getBranches(repoPath),
-			this.getRemotes(repoPath),
-			this.getCurrentUser(repoPath),
-		]);
+		const [refResult, stashResult, branchesResult, remotesResult, currentUserResult, worktreesByBranchResult] =
+			await Promise.allSettled([
+				this.git.log(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
+				this.getStash(repoPath),
+				this.getBranches(repoPath),
+				this.getRemotes(repoPath),
+				this.getCurrentUser(repoPath),
+				getWorktreesByBranch(this.container.git.getRepository(repoPath)),
+			]);
 
 		const branches = getSettledValue(branchesResult)?.values;
 		const branchMap = branches != null ? new Map(branches.map(r => [r.name, r])) : new Map<string, GitBranch>();
 		const headBranch = branches?.find(b => b.current);
 		const headRefUpstreamName = headBranch?.upstream?.name;
+		const worktreesByBranch = getSettledValue(worktreesByBranchResult);
 
 		const currentUser = getSettledValue(currentUserResult);
 
@@ -2404,6 +2408,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									branches: branchMap,
 									remotes: remoteMap,
 									downstreams: downstreamMap,
+									worktreesByBranch: worktreesByBranch,
 									rows: [],
 								};
 							}
@@ -2426,6 +2431,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						branches: branchMap,
 						remotes: remoteMap,
 						downstreams: downstreamMap,
+						worktreesByBranch: worktreesByBranch,
 						rows: [],
 					};
 				}
@@ -2519,7 +2525,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								name: tagName,
 								// Not currently used, so don't bother looking it up
 								annotated: true,
-								context: serializeWebviewItemContext<GraphItemRefContext>(context),
+								context:
+									serializeWebviewItemContext<GraphItemRefContext<GraphTagContextValue>>(context),
 							};
 							refTags.push(refTag);
 
@@ -2567,7 +2574,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									owner: remote.name,
 									url: remote.url,
 									avatarUrl: avatarUrl,
-									context: serializeWebviewItemContext<GraphItemRefContext>(context),
+									context:
+										serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>(
+											context,
+										),
 									current: tip === headRefUpstreamName,
 									hostingServiceType: remote.provider?.gkProviderId,
 								};
@@ -2592,7 +2602,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						context = {
 							webviewItem: `gitlens:branch${head ? '+current' : ''}${
 								branch?.upstream != null ? '+tracking' : ''
-							}`,
+							}${worktreesByBranch?.has(branchId) ? '+worktree' : ''}`,
 							webviewItemValue: {
 								type: 'branch',
 								ref: createReference(tip, repoPath, {
@@ -2609,7 +2619,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							id: branchId,
 							name: tip,
 							isCurrentHead: head,
-							context: serializeWebviewItemContext<GraphItemRefContext>(context),
+							context: serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>(context),
 							upstream:
 								branch?.upstream != null
 									? {
@@ -2807,6 +2817,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				branches: branchMap,
 				remotes: remoteMap,
 				downstreams: downstreamMap,
+				worktreesByBranch: worktreesByBranch,
 				rows: rows,
 				id: sha,
 				rowsStats: stats,

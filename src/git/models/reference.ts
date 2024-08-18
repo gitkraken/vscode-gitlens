@@ -1,8 +1,11 @@
 import { GlyphChars } from '../../constants';
 import { configuration } from '../../system/configuration';
 import { capitalize } from '../../system/string';
+import type { GitBranch } from './branch';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName, getRemoteNameSlashIndex } from './branch';
+import type { GitCommit, GitStashCommit } from './commit';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from './constants';
+import type { GitTag } from './tag';
 
 const rangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)?(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)?$/;
 const qualifiedRangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)$/;
@@ -253,7 +256,7 @@ export function createReference(
 	}
 }
 
-export function getReferenceFromBranch(branch: GitBranchReference) {
+export function getReferenceFromBranch(branch: GitBranch) {
 	return createReference(branch.ref, branch.repoPath, {
 		id: branch.id,
 		refType: branch.refType,
@@ -263,7 +266,10 @@ export function getReferenceFromBranch(branch: GitBranchReference) {
 	});
 }
 
-export function getReferenceFromRevision(revision: GitRevisionReference, options?: { excludeMessage?: boolean }) {
+export function getReferenceFromRevision(
+	revision: GitCommit | GitStashCommit | GitRevisionReference,
+	options?: { excludeMessage?: boolean },
+) {
 	if (revision.refType === 'stash') {
 		return createReference(revision.ref, revision.repoPath, {
 			refType: revision.refType,
@@ -280,7 +286,7 @@ export function getReferenceFromRevision(revision: GitRevisionReference, options
 	});
 }
 
-export function getReferenceFromTag(tag: GitTagReference) {
+export function getReferenceFromTag(tag: GitTag) {
 	return createReference(tag.ref, tag.repoPath, {
 		id: tag.id,
 		refType: tag.refType,

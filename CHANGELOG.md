@@ -8,7 +8,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds `...` inline action for stashes on the _GitLens Inspect_ view
+- Adds better support for branches in worktrees
+  - Changes the branch icon to a "repo" icon when the branch is in a worktree in views and quick pick menus
+  - Adds an _Open in Worktree_ inline and context menu command and an _Open in Worktree in New Window_ context menu command to branches in views and on the _Commit Graph_
+  - Removes the _Switch to Branch..._ inline and context menu command from branches in views and on the _Commit Graph_ when the branch is in a worktree
+- Adds `...` inline command for stashes on the _GitLens Inspect_ view
+- Adds an "up-to-date" indicator dot to the branch icon of branches in views
+- Adds an "alt" _Pull_ command for the inline _Fetch_ command on branches in views
+- Adds an "alt" _Fetch_ command for the inline _Pull_ command on branches in views
+
+### Changed
+
+- Improves tooltips on branches, remotes, and worktrees in views
+
+### Fixed
+
+### Removed
+
+- Removes status (ahead, behind, etc) decoration icons from branches in views
 
 ## [15.3.0] - 2024-08-15
 
