@@ -164,7 +164,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		await configuration.updateAny('workbench.editorAssociations', associations, ConfigurationTarget.Global);
 	}
 
-	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: { 0: d => d.uri.toString(true) } })
+	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: { 1: false, 2: false } })
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
 		void this.container.usage.track(`rebaseEditor:shown`);
 

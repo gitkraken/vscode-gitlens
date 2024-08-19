@@ -16,7 +16,7 @@ import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { filter } from '../../../system/iterable';
-import { hasVisibleTextEditor, isTrackableTextEditor } from '../../../system/utils';
+import { hasVisibleTrackableTextEditor, isTrackableTextEditor } from '../../../system/utils';
 import { isViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { updatePendingContext } from '../../../webviews/webviewController';
@@ -231,7 +231,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	@debug({ args: false })
+	@debug()
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
 		if (editor != null) {
 			if (!isTrackableTextEditor(editor)) return;
@@ -410,8 +410,12 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	}
 
 	private updatePendingEditor(editor: TextEditor | undefined, force?: boolean): boolean {
-		if (editor == null && hasVisibleTextEditor(this._context.uri ?? this._pendingContext?.uri)) return false;
-		if (editor != null && !isTrackableTextEditor(editor)) return false;
+		if (
+			(editor == null && hasVisibleTrackableTextEditor(this._context.uri ?? this._pendingContext?.uri)) ||
+			(editor != null && !isTrackableTextEditor(editor))
+		) {
+			return false;
+		}
 
 		return this.updatePendingUri(editor?.document.uri, force);
 	}

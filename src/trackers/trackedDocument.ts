@@ -5,10 +5,11 @@ import type { GitBlame } from '../git/models/blame';
 import type { GitDiffFile } from '../git/models/diff';
 import type { GitLog } from '../git/models/log';
 import { configuration } from '../system/configuration';
-import { debug } from '../system/decorators/log';
+import { debug, logName } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { Logger } from '../system/logger';
+import { getLogScope } from '../system/logger.scope';
 import { getEditorIfVisible, isActiveDocument, isVisibleDocument } from '../system/utils';
 import type { DocumentBlameStateChangeEvent, GitDocumentTracker } from './documentTracker';
 
@@ -94,6 +95,7 @@ export interface TrackedGitDocumentStatus {
 	dirtyIdle?: boolean;
 }
 
+@logName<TrackedGitDocument>((c, name) => `${name}(${Logger.toLoggable(c.document)})`)
 export class TrackedGitDocument implements Disposable {
 	static async create(
 		container: Container,
@@ -196,12 +198,14 @@ export class TrackedGitDocument implements Disposable {
 	refresh(reason: 'changed' | 'saved' | 'visible' | 'repositoryChanged') {
 		if (this._pendingUpdates == null && reason === 'visible') return;
 
+		const scope = getLogScope();
+
 		this._blameFailure = undefined;
 		this._dirtyIdle = false;
 
 		if (this.state != null) {
 			this.state = undefined;
-			Logger.log(`Reset state for '${this.document.uri.toString(true)}', reason=${reason}`);
+			Logger.log(scope, `Reset state, reason=${reason}`);
 		}
 
 		switch (reason) {
