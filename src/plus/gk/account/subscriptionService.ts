@@ -757,15 +757,16 @@ export class SubscriptionService implements Disposable {
 			} catch (ex) {
 				Logger.error(ex, scope);
 				void env.openExternal(this.container.getGkDevUri('purchase', query));
-				take(
-					window.onDidChangeWindowState,
-					2,
-				)(e => {
-					if (e.focused && this._session != null) {
-						void this.checkInAndValidate(this._session, { force: true });
-					}
-				});
 			}
+
+			take(
+				window.onDidChangeWindowState,
+				2,
+			)(e => {
+				if (e.focused && this._session != null) {
+					void this.checkInAndValidate(this._session, { force: true });
+				}
+			});
 		}
 		await this.showAccountView();
 	}
