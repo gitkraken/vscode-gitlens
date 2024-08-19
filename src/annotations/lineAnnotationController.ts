@@ -207,13 +207,12 @@ export class LineAnnotationController implements Disposable {
 		const trackedDocument = await this.container.documentTracker.getOrAdd(editor.document);
 		const status = await trackedDocument?.getStatus();
 		if (!status?.blameable && this.suspended) {
-			if (scope != null) {
-				scope.exitDetails = ` ${GlyphChars.Dot} Skipped because the ${
-					this.suspended
-						? 'controller is suspended'
-						: `document(${trackedDocument.uri.toString(true)}) is not blameable`
-				}`;
-			}
+			setLogScopeExit(
+				scope,
+				` ${GlyphChars.Dot} Skipped because the ${
+					this.suspended ? 'controller is suspended' : 'document is not blameable'
+				}`,
+			);
 
 			this.clear(editor);
 			return;
@@ -221,23 +220,23 @@ export class LineAnnotationController implements Disposable {
 
 		// Make sure the editor hasn't died since the await above and that we are still on the same line(s)
 		if (editor.document == null || !this.container.lineTracker.includes(selections)) {
-			if (scope != null) {
-				scope.exitDetails = ` ${GlyphChars.Dot} Skipped because the ${
+			setLogScopeExit(
+				scope,
+				` ${GlyphChars.Dot} Skipped because the ${
 					editor.document == null
 						? 'editor is gone'
 						: `selection(s)=${selections
 								.map(s => `[${s.anchor}-${s.active}]`)
 								.join()} are no longer current`
-				}`;
-			}
+				}`,
+			);
 			return;
 		}
 
-		if (scope != null) {
-			scope.exitDetails = ` ${GlyphChars.Dot} selection(s)=${selections
-				.map(s => `[${s.anchor}-${s.active}]`)
-				.join()}`;
-		}
+		setLogScopeExit(
+			scope,
+			` ${GlyphChars.Dot} selection(s)=${selections.map(s => `[${s.anchor}-${s.active}]`).join()}`,
+		);
 
 		let uncommittedOnly = true;
 

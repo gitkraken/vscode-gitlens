@@ -13,7 +13,7 @@ import { configuration } from '../system/configuration';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
-import { getLogScope } from '../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import type { MaybePausedResult } from '../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../system/promise';
 import { isTrackableTextEditor } from '../system/utils';
@@ -206,10 +206,19 @@ export class StatusBarController implements Disposable {
 
 	@debug<StatusBarController['updateBlame']>({ args: { 1: s => s.commit?.sha } })
 	private async updateBlame(editor: TextEditor, state: LineState) {
+		const scope = getLogScope();
+
 		const cfg = configuration.get('statusBar');
 		if (!cfg.enabled || this._statusBarBlame == null || !isTrackableTextEditor(editor)) {
 			this._cancellation?.cancel();
 			this._selectedSha = undefined;
+
+			setLogScopeExit(
+				scope,
+				` \u2022 skipped; ${
+					!cfg.enabled || this._statusBarBlame == null ? 'disabled' : 'not a trackable editor'
+				}`,
+			);
 
 			return;
 		}
@@ -217,6 +226,8 @@ export class StatusBarController implements Disposable {
 		const { commit } = state;
 		if (commit == null) {
 			this._cancellation?.cancel();
+
+			setLogScopeExit(scope, ' \u2022 skipped; no commit found');
 
 			return;
 		}
@@ -227,10 +238,11 @@ export class StatusBarController implements Disposable {
 				this._statusBarBlame.text = `$(git-commit)${this._statusBarBlame.text.substring(8)}`;
 			}
 
+			setLogScopeExit(scope, ' \u2022 skipped; same commit');
+
 			return;
 		}
 
-		const scope = getLogScope();
 		this._selectedSha = commit.sha;
 
 		this._cancellation?.cancel();
