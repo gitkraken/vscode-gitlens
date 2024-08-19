@@ -204,12 +204,7 @@ export class StatusBarController implements Disposable {
 		this._statusBarBlame?.hide();
 	}
 
-	@debug<StatusBarController['updateBlame']>({
-		args: {
-			0: false,
-			1: s => s.commit?.sha,
-		},
-	})
+	@debug<StatusBarController['updateBlame']>({ args: { 1: s => s.commit?.sha } })
 	private async updateBlame(editor: TextEditor, state: LineState) {
 		const cfg = configuration.get('statusBar');
 		if (!cfg.enabled || this._statusBarBlame == null || !isTrackableTextEditor(editor)) {

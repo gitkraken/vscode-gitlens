@@ -25,6 +25,7 @@ import { BufferedLogChannel, getLoggableName, Logger } from './system/logger';
 import { flatten } from './system/object';
 import { Stopwatch } from './system/stopwatch';
 import { Storage } from './system/storage';
+import { isTextDocument, isTextEditor, isWorkspaceFolder } from './system/utils';
 import { compare, fromString, satisfies } from './system/version';
 import { isViewNode } from './views/nodes/abstract/viewNode';
 import './commands';
@@ -69,21 +70,25 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 				if (isRepository(o) || isBranch(o) || isCommit(o) || isTag(o) || isViewNode(o)) return o.toString();
 
 				if ('rootUri' in o && o.rootUri instanceof Uri) {
-					return `ScmRepository(rootUri=${o.rootUri.toString(true)})`;
+					return `ScmRepository(${o.rootUri.toString(true)})`;
 				}
 
 				if ('uri' in o && o.uri instanceof Uri) {
-					if ('name' in o && 'index' in o) {
-						return `WorkspaceFolder(name=${o.name}, index=${o.index}, uri=${o.uri.toString(true)})`;
+					if (isWorkspaceFolder(o)) {
+						return `WorkspaceFolder(${o.name}, index=${o.index}, ${o.uri.toString(true)})`;
 					}
 
-					if ('filename' in o && 'languageId' in o && 'isDirty' in o && 'isUntitled' in o) {
-						return `TextDocument(uri=${o.uri.toString(true)}, languageId=${o.languageId}, isDirty=${
-							o.isDirty
-						})`;
+					if (isTextDocument(o)) {
+						return `TextDocument(${o.languageId}, dirty=${o.isDirty}, ${o.uri.toString(true)})`;
 					}
 
-					return `${getLoggableName(o)}(uri=${o.uri.toString(true)})`;
+					return `${getLoggableName(o)}(${o.uri.toString(true)})`;
+				}
+
+				if (isTextEditor(o)) {
+					return `TextEditor(${o.viewColumn}, ${o.document.uri.toString(true)} ${o.selections
+						?.map(s => `[${s.anchor.line}:${s.anchor.character}-${s.active.line}:${s.active.character}]`)
+						.join(',')})`;
 				}
 
 				return undefined;

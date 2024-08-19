@@ -172,7 +172,7 @@ export class LineAnnotationController implements Disposable {
 		return prs;
 	}
 
-	@debug({ args: false })
+	@debug()
 	private async refresh(editor: TextEditor | undefined) {
 		if (editor == null && this._editor == null) return;
 

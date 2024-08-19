@@ -2364,9 +2364,7 @@ export class GitProviderService implements Disposable {
 		return promise;
 	}
 
-	@log<GitProviderService['getOrOpenRepositoryForEditor']>({
-		args: { 0: e => (e != null ? `TextEditor(${Logger.toLoggable(e.document.uri)})` : undefined) },
-	})
+	@log()
 	async getOrOpenRepositoryForEditor(editor?: TextEditor): Promise<Repository | undefined> {
 		editor = editor ?? window.activeTextEditor;
 
@@ -2549,13 +2547,7 @@ export class GitProviderService implements Disposable {
 		return provider.isAncestorOf(path, ref1, ref2);
 	}
 
-	@log<GitProviderService['isRepositoryForEditor']>({
-		args: {
-			0: r => r.uri.toString(true),
-			1: e => (e != null ? `TextEditor(${Logger.toLoggable(e.document.uri)})` : undefined),
-		},
-		exit: true,
-	})
+	@log({ exit: true })
 	isRepositoryForEditor(repository: Repository, editor?: TextEditor): boolean {
 		editor = editor ?? window.activeTextEditor;
 		if (editor == null) return false;

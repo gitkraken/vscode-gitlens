@@ -1,4 +1,4 @@
-import type { ColorTheme, Tab, TextDocument, TextDocumentShowOptions, TextEditor } from 'vscode';
+import type { ColorTheme, Tab, TextDocument, TextDocumentShowOptions, TextEditor, WorkspaceFolder } from 'vscode';
 import { version as codeVersion, ColorThemeKind, env, Uri, ViewColumn, window, workspace } from 'vscode';
 import { ImageMimetypes, Schemes, trackableSchemes } from '../constants';
 import { isGitUri } from '../git/gitUri';
@@ -121,14 +121,14 @@ export function getWorkspaceFriendlyPath(uri: Uri): string {
 	return relativePath || folder.name;
 }
 
-export function hasVisibleTextEditor(uri?: Uri): boolean {
+export function hasVisibleTrackableTextEditor(uri?: Uri): boolean {
 	const editors = window.visibleTextEditors;
 	if (!editors.length) return false;
 
-	if (uri == null) return editors.some(e => isTextEditor(e));
+	if (uri == null) return editors.some(e => isTrackableTextEditor(e));
 
 	const uriString = uri.toString();
-	return editors.some(e => e.document.uri.toString() === uriString && isTextEditor(e));
+	return editors.some(e => e.document.uri.toString() === uriString && isTrackableTextEditor(e));
 }
 
 export function isActiveDocument(document: TextDocument): boolean {
@@ -143,17 +143,31 @@ export function isLightTheme(theme: ColorTheme): boolean {
 	return theme.kind === ColorThemeKind.Light || theme.kind === ColorThemeKind.HighContrastLight;
 }
 
-export function isVirtualUri(uri: Uri): boolean {
-	return uri.scheme === Schemes.Virtual || uri.scheme === Schemes.GitHub;
+export function isTextDocument(document: unknown): document is TextDocument {
+	if (document == null || typeof document !== 'object') return false;
+
+	if (
+		'uri' in document &&
+		document.uri instanceof Uri &&
+		'fileName' in document &&
+		'languageId' in document &&
+		'isDirty' in document &&
+		'isUntitled' in document
+	) {
+		return true;
+	}
+
+	return false;
 }
 
-export function isVisibleDocument(document: TextDocument): boolean {
-	return window.visibleTextEditors.some(e => e.document === document);
-}
+export function isTextEditor(editor: unknown): editor is TextEditor {
+	if (editor == null || typeof editor !== 'object') return false;
 
-export function isTextEditor(editor: TextEditor): boolean {
-	const scheme = editor.document.uri.scheme;
-	return scheme !== Schemes.DebugConsole && scheme !== Schemes.Output && scheme !== Schemes.Terminal;
+	if ('document' in editor && isTextDocument(editor.document) && 'viewColumn' in editor && 'selections' in editor) {
+		return true;
+	}
+
+	return false;
 }
 
 export function isTrackableTextEditor(editor: TextEditor): boolean {
@@ -162,6 +176,24 @@ export function isTrackableTextEditor(editor: TextEditor): boolean {
 
 export function isTrackableUri(uri: Uri): boolean {
 	return trackableSchemes.has(uri.scheme);
+}
+
+export function isVirtualUri(uri: Uri): boolean {
+	return uri.scheme === Schemes.Virtual || uri.scheme === Schemes.GitHub;
+}
+
+export function isVisibleDocument(document: TextDocument): boolean {
+	return window.visibleTextEditors.some(e => e.document === document);
+}
+
+export function isWorkspaceFolder(folder: unknown): folder is WorkspaceFolder {
+	if (folder == null || typeof folder !== 'object') return false;
+
+	if ('uri' in folder && folder.uri instanceof Uri && 'name' in folder && 'index' in folder) {
+		return true;
+	}
+
+	return false;
 }
 
 export async function openEditor(
