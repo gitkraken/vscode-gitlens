@@ -39,7 +39,7 @@ import { log } from '../../../system/decorators/log';
 import { join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import { slowCallWarningThreshold } from '../../../system/logger.constants';
-import { getLogScope } from '../../../system/logger.scope';
+import { getLoggableScopeBlockOverride, getLogScope } from '../../../system/logger.scope';
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
 import { getDurationMilliseconds } from '../../../system/string';
 import { getEditorCommand } from '../../../system/utils';
@@ -216,7 +216,7 @@ export class Git {
 			this.pendingCommands.set(command, promise);
 		} else {
 			waiting = true;
-			Logger.debug(`[GIT  ] ${gitCommand} ${GlyphChars.Dot} waiting...`);
+			Logger.debug(`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} ${GlyphChars.Dot} waiting...`);
 		}
 
 		let exception: Error | undefined;
@@ -2214,7 +2214,7 @@ export class Git {
 		}
 
 		Logger.log(scope, `\u2022 '${text}'`);
-		this.logCore(`[TERM] ${text}`);
+		this.logCore(`${getLoggableScopeBlockOverride('TERMINAL')} ${text}`);
 
 		const terminal = ensureGitTerminal();
 		terminal.show(false);
@@ -2231,18 +2231,20 @@ export class Git {
 		if (ex != null) {
 			Logger.error(
 				'',
-				`[GIT  ] ${command} ${GlyphChars.Dot} ${(ex.message || String(ex) || '')
+				`${getLoggableScopeBlockOverride('GIT')} ${command} ${GlyphChars.Dot} ${(ex.message || String(ex) || '')
 					.trim()
 					.replace(/fatal: /g, '')
 					.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} [${duration}ms]${status}`,
 			);
 		} else if (slow) {
-			Logger.warn(`[GIT  ] ${command} [*${duration}ms]${status}`);
+			Logger.warn(
+				`${getLoggableScopeBlockOverride('GIT', `*${duration}ms`)} ${command} [*${duration}ms]${status}`,
+			);
 		} else {
-			Logger.log(`[GIT  ] ${command} [${duration}ms]${status}`);
+			Logger.log(`${getLoggableScopeBlockOverride('GIT', `${duration}ms`)} ${command} [${duration}ms]${status}`);
 		}
 
-		this.logCore(`[${slow ? '*' : ' '}${duration.toString().padStart(6)}ms] ${command}${status}`, ex);
+		this.logCore(`${getLoggableScopeBlockOverride(slow ? '*' : '', `${duration}ms`)} ${command}${status}`, ex);
 	}
 
 	private _gitOutput: OutputChannel | undefined;

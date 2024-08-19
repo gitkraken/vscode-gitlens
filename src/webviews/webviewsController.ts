@@ -131,7 +131,7 @@ export class WebviewsController implements Disposable {
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 		onBeforeShow?: (...args: WebviewShowingArgs<ShowingArgs, SerializedState>) => void | Promise<void>,
 	): WebviewViewProxy<ShowingArgs, SerializedState> {
-		const scope = getNewLogScope(`WebviewView(${descriptor.id})`);
+		const scope = getNewLogScope(`WebviewView(${descriptor.id})`, false);
 
 		const registration: WebviewViewRegistration<State, SerializedState, ShowingArgs> = { descriptor: descriptor };
 		this._views.set(descriptor.id, registration);
@@ -255,7 +255,7 @@ export class WebviewsController implements Disposable {
 			host: WebviewHost,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	): WebviewPanelsProxy<ShowingArgs, SerializedState> {
-		const scope = getNewLogScope(`WebviewPanel(${descriptor.id})`);
+		const scope = getNewLogScope(`WebviewPanel(${descriptor.id})`, false);
 
 		const registration: WebviewPanelRegistration<State, SerializedState, ShowingArgs> = { descriptor: descriptor };
 		this._panels.set(descriptor.id, registration);

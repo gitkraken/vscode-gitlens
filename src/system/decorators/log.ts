@@ -4,7 +4,7 @@ import { getParameters } from '../function';
 import { getLoggableName, Logger } from '../logger';
 import { slowCallWarningThreshold } from '../logger.constants';
 import type { LogScope } from '../logger.scope';
-import { clearLogScope, logScopeIdGenerator, setLogScope } from '../logger.scope';
+import { clearLogScope, getLoggableScopeBlock, logScopeIdGenerator, setLogScope } from '../logger.scope';
 import { isPromise } from '../promise';
 import { getDurationMilliseconds } from '../string';
 
@@ -107,13 +107,14 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 				return fn.apply(this, args);
 			}
 
+			const prevScopeId = logScopeIdGenerator.current;
 			const scopeId = logScopeIdGenerator.next();
 
 			const instanceName = this != null ? getLoggableName(this) : undefined;
 
 			let prefix = instanceName
 				? scoped
-					? `[${scopeId.toString(16).padStart(5)}] ${instanceName}.${key}`
+					? `${getLoggableScopeBlock(scopeId, prevScopeId)} ${instanceName}.${key}`
 					: `${instanceName}.${key}`
 				: key;
 
@@ -132,8 +133,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 
 			let scope: LogScope | undefined;
 			if (scoped) {
-				scope = { scopeId: scopeId, prefix: prefix };
-				setLogScope(scopeId, scope);
+				scope = setLogScope(scopeId, { scopeId: scopeId, prevScopeId: prevScopeId, prefix: prefix });
 			}
 
 			const enter = enterFn != null ? enterFn(...args) : '';
