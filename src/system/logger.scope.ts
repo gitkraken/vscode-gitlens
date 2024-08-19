@@ -49,6 +49,15 @@ export function getNewLogScope(prefix: string, scope: LogScope | boolean | undef
 	};
 }
 
+export function startLogScope(prefix: string, scope: LogScope | boolean | undefined): LogScope & Disposable {
+	const newScope = getNewLogScope(prefix, scope);
+	scopes.set(newScope.scopeId!, newScope);
+	return {
+		...newScope,
+		[Symbol.dispose]: () => clearLogScope(newScope.scopeId!),
+	};
+}
+
 export function setLogScope(scopeId: number, scope: LogScope) {
 	scope = { prevScopeId: logScopeIdGenerator.current, ...scope };
 	scopes.set(scopeId, scope);
