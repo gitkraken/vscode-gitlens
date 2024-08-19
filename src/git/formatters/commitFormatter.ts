@@ -65,7 +65,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	messageTruncateAtNewLine?: boolean;
 	pullRequest?: PullRequest | Promise<PullRequest | undefined>;
 	pullRequestPendingMessage?: string;
-	presence?: ContactPresence;
+	presence?: ContactPresence | Promise<ContactPresence | undefined>;
 	previousLineComparisonUris?: PreviousLineComparisonUrisResult;
 	outputFormat?: 'html' | 'markdown' | 'plaintext';
 	remotes?: GitRemote<RemoteProvider>[];
@@ -278,7 +278,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		let { name } = this._item.author;
 
-		const presence = this._options.presence;
+		let presence = this._options.presence;
+		// If we are still waiting for the presence, pretend it is offline
+		if (isPromise(presence)) {
+			presence = {
+				status: 'offline',
+				statusText: 'Offline',
+			};
+		}
 		if (presence != null) {
 			let title = `${name} ${name === 'You' ? 'are' : 'is'} ${
 				presence.status === 'dnd' ? 'in ' : ''

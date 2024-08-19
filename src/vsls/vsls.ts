@@ -1,4 +1,4 @@
-import type { ConfigurationChangeEvent } from 'vscode';
+import type { ConfigurationChangeEvent, Extension } from 'vscode';
 import { Disposable, extensions, workspace } from 'vscode';
 import type { LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls';
 import { Schemes } from '../constants';
@@ -143,10 +143,10 @@ export class VslsController implements Disposable {
 
 	private async getLiveShareApi(): Promise<LiveShare | undefined> {
 		try {
-			const extension = extensions.getExtension<LiveShareExtension>('ms-vsliveshare.vsliveshare');
+			const extension = this.getLiveShareExtension();
 			if (extension != null) {
-				const vslsExtension = extension.isActive ? extension.exports : await extension.activate();
-				return (await vslsExtension.getApi('1.0.4753')) ?? undefined;
+				const vsls = extension.isActive ? extension.exports : await extension.activate();
+				return (await vsls.getApi('1.0.4753')) ?? undefined;
 			}
 		} catch (ex) {
 			debugger;
@@ -156,6 +156,18 @@ export class VslsController implements Disposable {
 		return undefined;
 	}
 
+	private getLiveShareExtension(): Extension<LiveShareExtension> | undefined {
+		return extensions.getExtension<LiveShareExtension>('ms-vsliveshare.vsliveshare');
+	}
+
+	get active() {
+		return configuration.get('liveshare.enabled') && this.getLiveShareExtension()?.isActive;
+	}
+
+	get enabled() {
+		return configuration.get('liveshare.enabled');
+	}
+
 	private _readonly: boolean = false;
 	get readonly() {
 		return this._readonly;
@@ -163,10 +175,6 @@ export class VslsController implements Disposable {
 	private setReadonly(value: boolean) {
 		this._readonly = value;
 		void setContext('gitlens:readonly', value ? true : undefined);
-	}
-
-	get enabled() {
-		return configuration.get('liveshare.enabled');
 	}
 
 	async guest() {

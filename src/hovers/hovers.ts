@@ -15,12 +15,7 @@ import { isUncommittedStaged, shortenRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { configuration } from '../system/configuration';
-import {
-	cancellable,
-	getSettledValue,
-	pauseOnCancelOrTimeout,
-	pauseOnCancelOrTimeoutMapTuplePromise,
-} from '../system/promise';
+import { getSettledValue, pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/promise';
 
 export async function changesMessage(
 	container: Container,
@@ -261,8 +256,12 @@ export async function detailsMessage(
 						options?.timeout,
 				  )
 				: undefined,
-			container.vsls.enabled
-				? cancellable(container.vsls.getContactPresence(commit.author.email), 250, options?.cancellation)
+			container.vsls.active
+				? pauseOnCancelOrTimeout(
+						container.vsls.getContactPresence(commit.author.email),
+						options?.cancellation,
+						Math.min(options?.timeout ?? 250, 250),
+				  )
 				: undefined,
 			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
 			commit.message == null ? commit.ensureFullDetails() : undefined,
@@ -285,7 +284,7 @@ export async function detailsMessage(
 		getBranchAndTagTips: options?.getBranchAndTagTips,
 		messageAutolinks: options?.autolinks || (options?.autolinks !== false && cfg.autolinks.enabled),
 		pullRequest: pr?.value,
-		presence: presence,
+		presence: presence?.value,
 		previousLineComparisonUris: previousLineComparisonUris,
 		outputFormat: 'markdown',
 		remotes: remotes,

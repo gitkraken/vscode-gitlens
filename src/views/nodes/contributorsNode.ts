@@ -66,7 +66,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
 			sortContributors(contributors);
-			const presenceMap = this.view.container.vsls.enabled ? await this.getPresenceMap(contributors) : undefined;
+			const presenceMap = this.view.container.vsls.active ? await this.getPresenceMap(contributors) : undefined;
 
 			this.children = contributors.map(
 				c =>
