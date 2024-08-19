@@ -29,7 +29,7 @@ import { configuration } from '../system/configuration';
 import { is, once } from '../system/function';
 import { filterMap, find, first, join, map } from '../system/iterable';
 import { getLoggableName, Logger } from '../system/logger';
-import { getNewLogScope } from '../system/logger.scope';
+import { startLogScope } from '../system/logger.scope';
 import { pluralize } from '../system/string';
 import { isVirtualUri } from '../system/utils';
 
@@ -90,6 +90,11 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
 		// Since we can't currently blame edited virtual documents, don't even attempt anything if dirty
 		if (document.isDirty && isVirtualUri(document.uri)) return [];
+
+		using scope = startLogScope(
+			`${getLoggableName(this)}.provideCodeLenses(${Logger.toLoggable(document)})`,
+			false,
+		);
 
 		const trackedDocument = await this.container.documentTracker.getOrAdd(document);
 		const status = await trackedDocument.getStatus();
@@ -162,10 +167,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			: undefined;
 
 		if (symbols !== undefined) {
-			Logger.log(
-				getNewLogScope(`${getLoggableName(this)}.provideCodeLenses(${Logger.toLoggable(document)})`, false),
-				`${symbols.length} symbol(s) found`,
-			);
+			Logger.log(scope, `${symbols.length} symbol(s) found`);
 			for (const sym of symbols) {
 				this.provideCodeLens(
 					lenses,

@@ -15,7 +15,7 @@ import { executeCoreCommand, registerCommand } from '../system/command';
 import { debug } from '../system/decorators/log';
 import { find, first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
-import { getNewLogScope } from '../system/logger.scope';
+import { startLogScope } from '../system/logger.scope';
 import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import { WebviewCommandRegistrar } from './webviewCommandRegistrar';
 import { WebviewController } from './webviewController';
@@ -131,7 +131,7 @@ export class WebviewsController implements Disposable {
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 		onBeforeShow?: (...args: WebviewShowingArgs<ShowingArgs, SerializedState>) => void | Promise<void>,
 	): WebviewViewProxy<ShowingArgs, SerializedState> {
-		const scope = getNewLogScope(`WebviewView(${descriptor.id})`, false);
+		using scope = startLogScope(`WebviewView(${descriptor.id})`, false);
 
 		const registration: WebviewViewRegistration<State, SerializedState, ShowingArgs> = { descriptor: descriptor };
 		this._views.set(descriptor.id, registration);
@@ -255,7 +255,7 @@ export class WebviewsController implements Disposable {
 			host: WebviewHost,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	): WebviewPanelsProxy<ShowingArgs, SerializedState> {
-		const scope = getNewLogScope(`WebviewPanel(${descriptor.id})`, false);
+		using scope = startLogScope(`WebviewPanel(${descriptor.id})`, false);
 
 		const registration: WebviewPanelRegistration<State, SerializedState, ShowingArgs> = { descriptor: descriptor };
 		this._panels.set(descriptor.id, registration);
