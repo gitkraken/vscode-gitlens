@@ -512,7 +512,7 @@ export class WebviewController<
 		let packed;
 		if (notificationType.pack && params != null) {
 			const sw = maybeStopWatch(
-				getNewLogScope(`${getLoggableName(this)}.notify serializing msg=${notificationType.method}`),
+				getNewLogScope(`${getLoggableName(this)}.notify serializing msg=${notificationType.method}`, true),
 				{
 					log: false,
 					logLevel: 'debug',

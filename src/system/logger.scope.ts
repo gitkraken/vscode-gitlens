@@ -6,6 +6,7 @@ const scopes = new Map<number, LogScope>();
 
 export interface LogScope {
 	readonly scopeId?: number;
+	readonly prevScopeId?: number;
 	readonly prefix: string;
 	exitDetails?: string;
 	exitFailed?: string;
@@ -15,22 +16,43 @@ export function clearLogScope(scopeId: number) {
 	scopes.delete(scopeId);
 }
 
+export function getLoggableScopeBlock(scopeId: number, prevScopeId?: number) {
+	return prevScopeId == null
+		? `[${scopeId.toString(16).padStart(13)}]`
+		: `[${prevScopeId.toString(16).padStart(5)} \u2192 ${scopeId.toString(16).padStart(5)}]`;
+}
+
+export function getLoggableScopeBlockOverride(prefix: string, suffix?: string) {
+	if (suffix == null) return `[${prefix.padEnd(13)}]`;
+
+	return `[${prefix}${suffix.padStart(13 - prefix.length)}]`;
+}
+
 export function getLogScope(): LogScope | undefined {
 	return scopes.get(logScopeIdGenerator.current);
 }
 
-export function getNewLogScope(prefix: string, scope?: LogScope | undefined): LogScope {
-	if (scope != null) return { scopeId: scope.scopeId, prefix: `${scope.prefix}${prefix}` };
+export function getNewLogScope(prefix: string, scope: LogScope | boolean | undefined): LogScope {
+	if (scope != null && typeof scope !== 'boolean')
+		return {
+			scopeId: scope.scopeId,
+			prevScopeId: scope.prevScopeId,
+			prefix: `${scope.prefix}${prefix}`,
+		};
 
+	const prevScopeId = scope ? logScopeIdGenerator.current : undefined;
 	const scopeId = logScopeIdGenerator.next();
 	return {
 		scopeId: scopeId,
-		prefix: `[${String(scopeId).padStart(5)}] ${prefix}`,
+		prevScopeId: prevScopeId,
+		prefix: `${getLoggableScopeBlock(scopeId)} ${prefix}`,
 	};
 }
 
 export function setLogScope(scopeId: number, scope: LogScope) {
+	scope = { prevScopeId: logScopeIdGenerator.current, ...scope };
 	scopes.set(scopeId, scope);
+	return scope;
 }
 
 export function setLogScopeExit(scope: LogScope | undefined, details: string | undefined, failed?: string): void {

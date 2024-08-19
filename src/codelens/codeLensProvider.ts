@@ -28,7 +28,8 @@ import { asCommand, executeCoreCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { is, once } from '../system/function';
 import { filterMap, find, first, join, map } from '../system/iterable';
-import { Logger } from '../system/logger';
+import { getLoggableName, Logger } from '../system/logger';
+import { getNewLogScope } from '../system/logger.scope';
 import { pluralize } from '../system/string';
 import { isVirtualUri } from '../system/utils';
 
@@ -161,7 +162,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			: undefined;
 
 		if (symbols !== undefined) {
-			Logger.log('GitCodeLensProvider.provideCodeLenses:', `${symbols.length} symbol(s) found`);
+			Logger.log(
+				getNewLogScope(`${getLoggableName(this)}.provideCodeLenses(${Logger.toLoggable(document)})`, false),
+				`${symbols.length} symbol(s) found`,
+			);
 			for (const sym of symbols) {
 				this.provideCodeLens(
 					lenses,
