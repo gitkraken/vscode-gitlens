@@ -225,9 +225,7 @@ export class LineAnnotationController implements Disposable {
 				` ${GlyphChars.Dot} Skipped because the ${
 					editor.document == null
 						? 'editor is gone'
-						: `selection(s)=${selections
-								.map(s => `[${s.anchor}-${s.active}]`)
-								.join()} are no longer current`
+						: `selection=${selections.map(s => `[${s.anchor}-${s.active}]`).join()} are no longer current`
 				}`,
 			);
 			return;
@@ -235,7 +233,7 @@ export class LineAnnotationController implements Disposable {
 
 		setLogScopeExit(
 			scope,
-			` ${GlyphChars.Dot} selection(s)=${selections.map(s => `[${s.anchor}-${s.active}]`).join()}`,
+			` ${GlyphChars.Dot} selection=${selections.map(s => `[${s.anchor}-${s.active}]`).join()}`,
 		);
 
 		let uncommittedOnly = true;
