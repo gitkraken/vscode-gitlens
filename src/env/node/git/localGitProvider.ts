@@ -185,7 +185,7 @@ import { debounce } from '../../../system/function';
 import { filterMap as filterMapIterable, find, first, join, last, map, some } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
-import { getLogScope } from '../../../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
 import {
 	commonBaseIndex,
 	dirname,
@@ -448,9 +448,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		setTimeout(() => void this.container.storage.storeWorkspace('gitPath', location.path), 1000);
 
 		if (scope != null) {
-			scope.exitDetails = ` ${GlyphChars.Dot} Git (${location.version}) found in ${
-				location.path === 'git' ? 'PATH' : location.path
-			}`;
+			setLogScopeExit(
+				scope,
+				` ${GlyphChars.Dot} Git (${location.version}) found in ${
+					location.path === 'git' ? 'PATH' : location.path
+				}`,
+			);
 		} else {
 			Logger.log(
 				scope,
