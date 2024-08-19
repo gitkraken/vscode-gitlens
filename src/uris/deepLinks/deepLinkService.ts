@@ -10,7 +10,6 @@ import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
-import { Repository } from '../../git/models/repository';
 import type { GitTag } from '../../git/models/tag';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type { RepositoryIdentity } from '../../gk/models/repositoryIdentities';
@@ -1312,21 +1311,25 @@ export class DeepLinkService implements Disposable {
 							break;
 						}
 
-						// Storing link info in case the switch causes a new window to open
-						await this.container.storage.store('deepLinks:pending', {
+						const pendingDeepLink = {
 							url: this._context.url,
 							repoPath: repo.path,
 							targetSha: this._context.targetSha,
 							secondaryTargetSha: this._context.secondaryTargetSha,
 							useProgress: useProgress,
 							state: this._context.state,
-						});
+						};
+
+						// Storing link info in case the switch causes a new window to open
+						const onWorkspaceChanging = async () =>
+							this.container.storage.store('deepLinks:pending', pendingDeepLink);
 
 						await executeGitCommand({
 							command: 'switch',
 							state: {
 								repos: repo,
 								reference: ref,
+								onWorkspaceChanging: onWorkspaceChanging,
 								skipWorktreeConfirmations:
 									this._context.action === DeepLinkActionType.SwitchToPullRequestWorktree,
 							},
