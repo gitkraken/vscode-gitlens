@@ -246,11 +246,9 @@ export class IntegrationService implements Disposable {
 				await openUrl(this.container.getGkDevExchangeUri(exchangeToken, `connect?${query}`).toString(true));
 			} catch (ex) {
 				Logger.error(ex, scope);
-				await env.openExternal(this.container.getGkDevUri('connect', query));
+				if (!(await env.openExternal(this.container.getGkDevUri('connect', query)))) return false;
 			}
-		} else {
-			await env.openExternal(this.container.getGkDevUri('connect', query));
-		}
+		} else if (!(await env.openExternal(this.container.getGkDevUri('connect', query)))) return false;
 
 		const deferredCallback = promisifyDeferred<Uri, string | undefined>(
 			this.container.uri.onDidReceiveCloudIntegrationAuthenticationUri,
