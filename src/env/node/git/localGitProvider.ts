@@ -3165,6 +3165,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				from = `${to}^`;
 				params.push(from, to);
 			}
+		} else if (to === '') {
+			params.push(from);
 		} else {
 			params.push(from, to);
 		}
