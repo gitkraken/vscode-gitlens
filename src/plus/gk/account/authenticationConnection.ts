@@ -91,7 +91,11 @@ export class AuthenticationConnection implements Disposable {
 			}state=${encodeURIComponent(gkstate)}&redirect_uri=${encodeURIComponent(callbackUri.toString(true))}`,
 		);
 
-		void (await openUrl(uri.toString(true)));
+		if (!(await openUrl(uri.toString(true)))) {
+			this._pendingStates.delete(scopeKey);
+			this.updateStatusBarItem(false);
+			throw new Error('Cancelled');
+		}
 
 		// Ensure there is only a single listener for the URI callback, in case the user starts the login process multiple times before completing it
 		let deferredCodeExchange = this._deferredCodeExchanges.get(scopeKey);
@@ -113,8 +117,8 @@ export class AuthenticationConnection implements Disposable {
 		try {
 			const code = await Promise.race([
 				deferredCodeExchange.promise,
-				new Promise<string>(resolve =>
-					this.openCompletionInputFallback(this._cancellationSource!.token, resolve),
+				new Promise<string>((resolve, reject) =>
+					this.openCompletionInputFallback(this._cancellationSource!.token, resolve, reject),
 				),
 				new Promise<string>(
 					(_, reject) =>
@@ -137,7 +141,11 @@ export class AuthenticationConnection implements Disposable {
 		}
 	}
 
-	private async openCompletionInputFallback(cancellationToken: CancellationToken, resolve: (token: string) => void) {
+	private async openCompletionInputFallback(
+		cancellationToken: CancellationToken,
+		resolve: (token: string) => void,
+		reject: (error: string) => void,
+	) {
 		const input = window.createInputBox();
 		input.ignoreFocusOut = true;
 
@@ -175,6 +183,8 @@ export class AuthenticationConnection implements Disposable {
 
 		if (code != null) {
 			resolve(code);
+		} else {
+			reject('Cancelled');
 		}
 	}
 
