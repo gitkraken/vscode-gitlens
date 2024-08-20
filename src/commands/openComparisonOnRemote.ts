@@ -24,14 +24,21 @@ export class OpenComparisonOnRemoteCommand extends Command {
 
 	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs) {
 		if (context.type === 'viewItem') {
-			if (context.node.is('results-commits')) {
+			if (context.node.isAny('results-commits')) {
 				args = {
 					...args,
 					repoPath: context.node.repoPath,
-					ref1: context.node.ref1,
-					ref2: context.node.ref2,
+					ref1: context.node.ref1 || 'HEAD',
+					ref2: context.node.ref2 || 'HEAD',
 				};
 			} else if (context.node.is('compare-results')) {
+				args = {
+					...args,
+					repoPath: context.node.repoPath,
+					ref1: context.node.ahead.ref1,
+					ref2: context.node.ahead.ref2,
+				};
+			} else if (context.node.is('compare-branch')) {
 				args = {
 					...args,
 					repoPath: context.node.repoPath,
@@ -41,7 +48,7 @@ export class OpenComparisonOnRemoteCommand extends Command {
 			}
 		}
 
-		if (context.command === Commands.CopyRemoteBranchesUrl) {
+		if (context.command === Commands.CopyRemoteComparisonUrl) {
 			args = { ...args, clipboard: true };
 		}
 

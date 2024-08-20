@@ -16,12 +16,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds an "up-to-date" indicator dot to the branch icon of branches in views
 - Adds an "alt" _Pull_ command for the inline _Fetch_ command on branches in views
 - Adds an "alt" _Fetch_ command for the inline _Pull_ command on branches in views
+- Adds _Open Comparison on Remote_ command to branch comparisons in views
 
 ### Changed
 
 - Improves tooltips on branches, remotes, and worktrees in views
 
 ### Fixed
+
+- Fixes _Copy Remote Comparison URL_ command to not open the URL, just copy it
 
 ### Removed
 

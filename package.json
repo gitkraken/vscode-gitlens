@@ -14387,7 +14387,7 @@
 				},
 				{
 					"submenu": "gitlens/share",
-					"when": "viewItem =~ /gitlens:(branch|commit|compare:(branch(?=.*?\\b\\+comparing\\b)|results(?!:))|remote|repo-folder|repository|stash|status:upstream|tag|workspace|file\\b(?=.*?\\b\\+committed\\b))\\b/",
+					"when": "viewItem =~ /gitlens:(branch|commit|compare:(branch(?=.*?\\b\\+comparing\\b)|results(:commits(?!:)|(?!:)))|remote|repo-folder|repository|stash|status:upstream|tag|workspace|file\\b(?=.*?\\b\\+committed\\b))\\b/",
 					"group": "7_gitlens_a_share@1"
 				},
 				{
@@ -15285,7 +15285,7 @@
 				},
 				{
 					"command": "gitlens.openComparisonOnRemote",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:compare:results(?!:)\\b/",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:compare:(branch\\b(?=.*?\\b\\+comparing\\b)|results(?!:))/",
 					"group": "2_gitlens_quickopen@1 && gitlens:repos:withRemotes"
 				},
 				{
@@ -16026,26 +16026,6 @@
 					"group": "1_a_gitlens@1"
 				},
 				{
-					"command": "gitlens.copyDeepLinkToBranch",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:(branch\\b(?=.*?\\b\\+(remote|tracking)\\b)|status:upstream(?!:none))\\b/",
-					"group": "1_gitlens@50"
-				},
-				{
-					"command": "gitlens.graph.copyDeepLinkToBranch",
-					"when": "!listMultiSelection && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)/",
-					"group": "1_gitlens@50"
-				},
-				{
-					"command": "gitlens.copyRemoteBranchUrl",
-					"when": "!listMultiSelection && gitlens:repos:withRemotes && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)/",
-					"group": "2_gitlens@50"
-				},
-				{
-					"command": "gitlens.graph.copyRemoteBranchUrl",
-					"when": "!listMultiSelection && gitlens:repos:withRemotes && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)/",
-					"group": "2_gitlens@50"
-				},
-				{
 					"command": "gitlens.copyDeepLinkToCommit",
 					"when": "!listMultiSelection && viewItem =~ /gitlens:(commit|file\\b(?=.*?\\b\\+committed\\b))/",
 					"group": "1_gitlens@25"
@@ -16061,6 +16041,11 @@
 					"group": "1_gitlens@25"
 				},
 				{
+					"command": "gitlens.copyDeepLinkToWorkspace",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:workspace\\b/",
+					"group": "1_gitlens@25"
+				},
+				{
 					"command": "gitlens.copyDeepLinkToFile",
 					"when": "!listMultiSelection && viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/ && gitlens:repos:withRemotes",
 					"group": "1_gitlens@26"
@@ -16071,24 +16056,49 @@
 					"group": "1_gitlens@27"
 				},
 				{
-					"command": "gitlens.copyDeepLinkToWorkspace",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:workspace\\b/",
-					"group": "1_gitlens@25"
+					"command": "gitlens.copyDeepLinkToBranch",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(branch\\b(?=.*?\\b\\+(remote|tracking)\\b)|status:upstream(?!:none))\\b/",
+					"group": "1_gitlens@50"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToBranch",
+					"when": "!listMultiSelection && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)/",
+					"group": "1_gitlens@50"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToRepo",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(branch\\b(?=.*?\\b\\+(remote|tracking)\\b)|remote|repo-folder|repository|status:upstream(?!:none))\\b/",
+					"group": "1_gitlens@99"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToTag",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:tag\\b/",
+					"group": "1_gitlens@50"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToTag",
+					"when": "!listMultiSelection && webviewItem =~ /gitlens:tag\\b/",
+					"group": "1_gitlens@50"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToRepo",
+					"when": "!listMultiSelection && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)/",
+					"group": "1_gitlens@99"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlWithoutRange",
 					"when": "!listMultiSelection && gitlens:repos:withRemotes && viewItem =~ /gitlens:(file\\b(?=.*?\\b\\+committed\\b)|history:(file|line)|status:file)\\b/",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.copyRemoteFileUrlWithoutRange",
+					"when": "!listMultiSelection && gitlens:enabled && gitlens:repos:withRemotes && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/",
 					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlFrom",
 					"when": "!listMultiSelection && gitlens:repos:withRemotes && viewItem =~ /gitlens:(file\\b(?=.*?\\b\\+committed\\b)|history:(file|line)|status:file)\\b/",
 					"group": "2_gitlens@2"
-				},
-				{
-					"command": "gitlens.copyRemoteFileUrlWithoutRange",
-					"when": "!listMultiSelection && gitlens:enabled && gitlens:repos:withRemotes && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/",
-					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlFrom",
@@ -16116,24 +16126,19 @@
 					"group": "2_gitlens@25"
 				},
 				{
-					"command": "gitlens.copyDeepLinkToRepo",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:(branch\\b(?=.*?\\b\\+(remote|tracking)\\b)|remote|repo-folder|repository|status:upstream(?!:none))\\b/",
-					"group": "1_gitlens@99"
+					"command": "gitlens.copyRemoteBranchUrl",
+					"when": "!listMultiSelection && gitlens:repos:withRemotes && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)/",
+					"group": "2_gitlens@50"
 				},
 				{
-					"command": "gitlens.copyDeepLinkToTag",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:tag\\b/",
-					"group": "1_gitlens@50"
+					"command": "gitlens.graph.copyRemoteBranchUrl",
+					"when": "!listMultiSelection && gitlens:repos:withRemotes && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)/",
+					"group": "2_gitlens@50"
 				},
 				{
-					"command": "gitlens.graph.copyDeepLinkToTag",
-					"when": "!listMultiSelection && webviewItem =~ /gitlens:tag\\b/",
-					"group": "1_gitlens@50"
-				},
-				{
-					"command": "gitlens.graph.copyDeepLinkToRepo",
-					"when": "!listMultiSelection && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)/",
-					"group": "1_gitlens@99"
+					"command": "gitlens.copyRemoteComparisonUrl",
+					"when": "!listMultiSelection && gitlens:repos:withRemotes && viewItem =~ /gitlens:compare:(results(:commits|(?!:))|branch\\b(?=.*?\\b\\+comparing\\b))/",
+					"group": "2_gitlens@50"
 				},
 				{
 					"command": "gitlens.copyRemoteRepositoryUrl",
