@@ -145,7 +145,9 @@ export class IntegrationService implements Disposable {
 
 		const account = (await this.container.subscription.getSubscription()).account;
 		if (account == null) {
-			if (!(await this.container.subscription.loginOrSignUp(true, source))) return;
+			if (!(await this.container.subscription.loginOrSignUp(true, source))) {
+				return;
+			}
 		}
 
 		try {
@@ -246,9 +248,13 @@ export class IntegrationService implements Disposable {
 				await openUrl(this.container.getGkDevExchangeUri(exchangeToken, `connect?${query}`).toString(true));
 			} catch (ex) {
 				Logger.error(ex, scope);
-				if (!(await env.openExternal(this.container.getGkDevUri('connect', query)))) return false;
+				if (!(await env.openExternal(this.container.getGkDevUri('connect', query)))) {
+					return false;
+				}
 			}
-		} else if (!(await env.openExternal(this.container.getGkDevUri('connect', query)))) return false;
+		} else if (!(await env.openExternal(this.container.getGkDevUri('connect', query)))) {
+			return false;
+		}
 
 		const deferredCallback = promisifyDeferred<Uri, string | undefined>(
 			this.container.uri.onDidReceiveCloudIntegrationAuthenticationUri,
