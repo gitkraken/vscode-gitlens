@@ -16017,7 +16017,7 @@
 			"gitlens/share": [
 				{
 					"command": "gitlens.shareAsCloudPatch",
-					"when": "!listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:((commit|stash|compare:results(?!:)|)\\b|file\\b(?=.*?\\b\\+committed\\b))/",
+					"when": "!listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && viewItem =~ /gitlens:(commit|file\\b(?=.*?\\b\\+committed\\b)|stash|compare:results(?!:))\\b/",
 					"group": "1_a_gitlens@1"
 				},
 				{
