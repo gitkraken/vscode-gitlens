@@ -50,6 +50,7 @@ import { ensurePlusFeaturesEnabled } from '../utils';
 import { AuthenticationContext } from './authenticationConnection';
 import { authenticationProviderId, authenticationProviderScopes } from './authenticationProvider';
 import type { Organization } from './organization';
+import { getApplicablePromo } from './promos';
 import type { Subscription } from './subscription';
 import {
 	assertSubscriptionState,
@@ -746,8 +747,11 @@ export class SubscriptionService implements Disposable {
 		if (this._subscription.account == null) {
 			this.showPlans(source);
 		} else {
+			const promoCode = getApplicablePromo(this._subscription.state)?.code;
 			const activeOrgId = this._subscription.activeOrganization?.id;
-			const query = `source=gitlens&product=gitlens${activeOrgId != null ? `&org=${activeOrgId}` : ''}`;
+			const query = `source=gitlens&product=gitlens${promoCode != null ? `&promoCode=${promoCode}` : ''}${
+				activeOrgId != null ? `&org=${activeOrgId}` : ''
+			}`;
 			try {
 				const token = await this.container.accountAuthentication.getExchangeToken(
 					SubscriptionUpdatedUriPathPrefix,
@@ -1170,6 +1174,9 @@ export class SubscriptionService implements Disposable {
 
 		subscription.state = computeSubscriptionState(subscription);
 		assertSubscriptionState(subscription);
+
+		const promo = getApplicablePromo(subscription.state);
+		void setContext('gitlens:promo', promo?.key);
 
 		const previous = this._subscription as typeof this._subscription | undefined; // Can be undefined here, since we call this in the constructor
 		// Check the previous and new subscriptions are exactly the same

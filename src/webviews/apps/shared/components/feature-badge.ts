@@ -3,6 +3,7 @@ import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { Source } from '../../../../constants';
 import { Commands } from '../../../../constants';
+import { getApplicablePromo } from '../../../../plus/gk/account/promos';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import {
 	getSubscriptionPlanName,
@@ -122,8 +123,11 @@ export class GlFeatureBadge extends LitElement {
 			.popup-content .actions .special {
 				font-size: smaller;
 				margin-top: 0.8rem;
-				opacity: 0.6;
 				text-align: center;
+			}
+
+			.popup-content .actions .special-dim {
+				opacity: 0.6;
 			}
 
 			.hint {
@@ -332,6 +336,8 @@ export class GlFeatureBadge extends LitElement {
 	}
 
 	private renderUpgradeActions(leadin?: TemplateResult) {
+		const promo = this.state ? getApplicablePromo(this.state) : undefined;
+
 		return html`<div class="actions">
 			${leadin ?? nothing}
 			<gl-button
@@ -340,7 +346,11 @@ export class GlFeatureBadge extends LitElement {
 				href="${generateCommandLink(Commands.PlusUpgrade, this.source)}"
 				>Upgrade to Pro</gl-button
 			>
-			<p class="special">Special: <b>1st seat of Pro is now 50%+ off.</b><br /></p>
+			${promo?.description
+				? html`<p class="special ${promo.key === 'pro50' ? 'special-dim' : ''}">
+						${promo.descriptionIntro ?? 'Special'}: <b>${promo.description}</b><br />
+				  </p>`
+				: nothing}
 		</div>`;
 	}
 }

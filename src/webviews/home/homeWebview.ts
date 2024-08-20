@@ -1,8 +1,8 @@
 import { Disposable, workspace } from 'vscode';
 import type { ContextKeys } from '../../constants';
 import type { Container } from '../../container';
+import { getApplicablePromo } from '../../plus/gk/account/promos';
 import type { Subscription } from '../../plus/gk/account/subscription';
-import { isSubscriptionExpired, isSubscriptionPaid, isSubscriptionTrial } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { registerCommand } from '../../system/command';
 import { getContext, onDidChangeContext } from '../../system/context';
@@ -123,7 +123,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			...this.host.baseWebviewState,
 			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
-			promoStates: await this.getCanShowPromos(subscription),
+			promoKey: await this.getPromoKey(subscription),
 			subscription: subscription,
 			orgSettings: this.getOrgSettings(),
 			walkthroughCollapsed: this.getWalkthroughCollapsed(),
@@ -152,21 +152,9 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return this._hostedIntegrationConnected;
 	}
 
-	private async getCanShowPromos(subscription?: Subscription): Promise<Record<string, boolean>> {
-		const promos = {
-			hs2023: false,
-			pro50: false,
-		};
-
+	private async getPromoKey(subscription?: Subscription): Promise<string | undefined> {
 		const sub = subscription ?? (await this.container.subscription.getSubscription(true));
-		const expiresTime = new Date('2023-12-31T07:59:00.000Z').getTime(); // 2023-12-30 23:59:00 PST-0800
-		if (Date.now() < expiresTime && !isSubscriptionPaid(sub)) {
-			promos.hs2023 = true;
-		} else if (subscription != null && (isSubscriptionTrial(subscription) || isSubscriptionExpired(subscription))) {
-			promos.pro50 = true;
-		}
-
-		return promos;
+		return getApplicablePromo(sub.state)?.key;
 	}
 
 	private notifyDidChangeRepositories() {
@@ -185,7 +173,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		subscription ??= await this.container.subscription.getSubscription(true);
 
 		void this.host.notify(DidChangeSubscription, {
-			promoStates: await this.getCanShowPromos(subscription),
+			promoKey: await this.getPromoKey(subscription),
 			subscription: subscription,
 		});
 	}
