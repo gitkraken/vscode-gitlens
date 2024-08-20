@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Improves the branch comparisons in views to automatically select the base or target branch
 - Improves tooltips on branches, remotes, and worktrees in views
 
 ### Fixed
