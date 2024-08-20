@@ -147,70 +147,71 @@ export function flatten<T>(source: Iterable<Iterable<T>> | IterableIterator<Iter
 	return flatMap(source, i => i);
 }
 
-export function groupBy<T>(
+export function groupBy<T, K extends PropertyKey>(
 	source: Iterable<T> | IterableIterator<T>,
-	groupingKey: (item: T) => string,
+	getGroupingKey: (item: T) => K,
 ): Record<string, T[]> {
-	const groupings: Record<string, T[]> = Object.create(null);
+	const result: Record<K, T[]> = Object.create(null);
 
 	for (const current of source) {
-		const value = groupingKey(current);
-		const group = groupings[value];
-		if (group === undefined) {
-			groupings[value] = [current];
+		const key = getGroupingKey(current);
+
+		const group = result[key];
+		if (group == null) {
+			result[key] = [current];
 		} else {
 			group.push(current);
 		}
 	}
 
-	return groupings;
+	return result;
 }
 
 export function groupByMap<TKey, TValue>(
 	source: Iterable<TValue> | IterableIterator<TValue>,
-	groupingKey: (item: TValue) => TKey,
+	getGroupingKey: (item: TValue) => TKey,
 	options?: { filterNullGroups?: boolean },
 ): Map<TKey, TValue[]> {
-	const groupings = new Map<TKey, TValue[]>();
+	const result = new Map<TKey, TValue[]>();
 
 	const filterNullGroups = options?.filterNullGroups ?? false;
 
 	for (const current of source) {
-		const value = groupingKey(current);
-		if (value == null && filterNullGroups) continue;
+		const key = getGroupingKey(current);
+		if (key == null && filterNullGroups) continue;
 
-		const group = groupings.get(value);
-		if (group === undefined) {
-			groupings.set(value, [current]);
+		const group = result.get(key);
+		if (group == null) {
+			result.set(key, [current]);
 		} else {
 			group.push(current);
 		}
 	}
 
-	return groupings;
+	return result;
 }
 
 export function groupByFilterMap<TKey, TValue, TMapped>(
 	source: Iterable<TValue> | IterableIterator<TValue>,
-	groupingKey: (item: TValue) => TKey,
+	getGroupingKey: (item: TValue) => TKey,
 	predicateMapper: (item: TValue) => TMapped | null | undefined,
 ): Map<TKey, TMapped[]> {
-	const groupings = new Map<TKey, TMapped[]>();
+	const result = new Map<TKey, TMapped[]>();
 
 	for (const current of source) {
 		const mapped = predicateMapper(current);
 		if (mapped == null) continue;
 
-		const value = groupingKey(current);
-		const group = groupings.get(value);
-		if (group === undefined) {
-			groupings.set(value, [mapped]);
+		const key = getGroupingKey(current);
+		const group = result.get(key);
+		if (group == null) {
+			result.set(key, [mapped]);
 		} else {
 			group.push(mapped);
 		}
 	}
 
-	return groupings;
+	return result;
 }
 
 export function has<T>(source: Iterable<T> | IterableIterator<T>, item: T): boolean {
@@ -255,10 +256,10 @@ export function* map<T, TMapped>(
 }
 
 export function max(source: Iterable<number> | IterableIterator<number>): number;
-export function max<T>(source: Iterable<T> | IterableIterator<T>, selector: (item: T) => number): number;
-export function max<T>(source: Iterable<T> | IterableIterator<T>, selector?: (item: T) => number): number {
+export function max<T>(source: Iterable<T> | IterableIterator<T>, getValue: (item: T) => number): number;
+export function max<T>(source: Iterable<T> | IterableIterator<T>, getValue?: (item: T) => number): number {
 	let max = Number.NEGATIVE_INFINITY;
-	if (selector == null) {
+	if (getValue == null) {
 		for (const item of source as Iterable<number> | IterableIterator<number>) {
 			if (item > max) {
 				max = item;
@@ -266,7 +267,7 @@ export function max<T>(source: Iterable<T> | IterableIterator<T>, selector?: (it
 		}
 	} else {
 		for (const item of source) {
-			const value = selector(item);
+			const value = getValue(item);
 			if (value > max) {
 				max = value;
 			}
@@ -276,10 +277,10 @@ export function max<T>(source: Iterable<T> | IterableIterator<T>, selector?: (it
 }
 
 export function min(source: Iterable<number> | IterableIterator<number>): number;
-export function min<T>(source: Iterable<T> | IterableIterator<T>, selector: (item: T) => number): number;
-export function min<T>(source: Iterable<T> | IterableIterator<T>, selector?: (item: T) => number): number {
+export function min<T>(source: Iterable<T> | IterableIterator<T>, getValue: (item: T) => number): number;
+export function min<T>(source: Iterable<T> | IterableIterator<T>, getValue?: (item: T) => number): number {
 	let min = Number.POSITIVE_INFINITY;
-	if (selector == null) {
+	if (getValue == null) {
 		for (const item of source as Iterable<number> | IterableIterator<number>) {
 			if (item < min) {
 				min = item;
@@ -287,7 +288,7 @@ export function min<T>(source: Iterable<T> | IterableIterator<T>, selector?: (it
 		}
 	} else {
 		for (const item of source) {
-			const value = selector(item);
+			const value = getValue(item);
 			if (value < min) {
 				min = value;
 			}
@@ -315,12 +316,12 @@ export function some<T>(source: Iterable<T> | IterableIterator<T>, predicate: (i
 	return false;
 }
 
-export function sum<T>(source: Iterable<T> | IterableIterator<T> | undefined, predicate: (item: T) => number): number {
+export function sum<T>(source: Iterable<T> | IterableIterator<T> | undefined, getValue: (item: T) => number): number {
 	if (source == null) return 0;
 
 	let sum = 0;
 	for (const item of source) {
-		sum += predicate(item);
+		sum += getValue(item);
 	}
 	return sum;
 }
@@ -348,24 +349,24 @@ export function* union<T>(...sources: (Iterable<T> | IterableIterator<T> | undef
 
 export function uniqueBy<TKey, TValue>(
 	source: Iterable<TValue> | IterableIterator<TValue>,
-	uniqueKey: (item: TValue) => TKey,
+	getUniqueKey: (item: TValue) => TKey,
 	onDuplicate: (original: TValue, current: TValue) => TValue | void,
 ): IterableIterator<TValue> {
-	const uniques = new Map<TKey, TValue>();
+	const result = new Map<TKey, TValue>();
 
 	for (const current of source) {
-		const value = uniqueKey(current);
+		const key = getUniqueKey(current);
 
-		const original = uniques.get(value);
+		const original = result.get(key);
 		if (original === undefined) {
-			uniques.set(value, current);
+			result.set(key, current);
 		} else {
 			const updated = onDuplicate(original, current);
 			if (updated !== undefined) {
-				uniques.set(value, updated);
+				result.set(key, updated);
 			}
 		}
 	}
 
-	return uniques.values();
+	return result.values();
 }
