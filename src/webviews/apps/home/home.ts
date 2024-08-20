@@ -18,6 +18,7 @@ import '../shared/components/button';
 import '../shared/components/code-icon';
 import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
+import './svg-devExDays';
 
 export class HomeApp extends App<State> {
 	constructor() {
@@ -63,7 +64,7 @@ export class HomeApp extends App<State> {
 				break;
 
 			case DidChangeSubscription.is(msg):
-				this.state.promoStates = msg.params.promoStates;
+				this.state.promoKey = msg.params.promoKey;
 				this.state.subscription = msg.params.subscription;
 				this.setState(this.state);
 				this.updatePromos();
@@ -152,12 +153,11 @@ export class HomeApp extends App<State> {
 	}
 
 	private updatePromos() {
-		const {
-			promoStates: { hs2023, pro50 },
-		} = this.state;
+		const { promoKey } = this.state;
 
-		setElementVisibility('promo-hs2023', hs2023);
-		setElementVisibility('promo-pro50', pro50);
+		setElementVisibility('promo-hs2023', promoKey === 'hs2023');
+		setElementVisibility('promo-pro50', promoKey === 'pro50');
+		setElementVisibility('promo-devex-days', promoKey === 'devex-days');
 	}
 
 	private updateOrgSettings() {

@@ -2,6 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import type { Source } from '../../../../../constants';
 import { Commands } from '../../../../../constants';
+import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import { SubscriptionState } from '../../../../../plus/gk/account/subscription';
 import type { GlButton } from '../../../shared/components/button';
 import { linkStyles } from './vscode.css';
@@ -65,7 +66,7 @@ export class GlFeatureGatePlusState extends LitElement {
 				text-align: center;
 			}
 
-			:host([appearance='welcome']) .special {
+			:host([appearance='welcome']) .special-dim {
 				opacity: 0.6;
 			}
 		`,
@@ -100,6 +101,7 @@ export class GlFeatureGatePlusState extends LitElement {
 
 		this.hidden = false;
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
+		const promo = this.state ? getApplicablePromo(this.state) : undefined;
 
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:
@@ -167,7 +169,11 @@ export class GlFeatureGatePlusState extends LitElement {
 						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and other ` : ''}Pro
 						features.
 					</p>
-					<p class="special">Special: <b>1st seat of Pro is now 50%+ off.</b><br /></p>`;
+					${promo?.description
+						? html`<p class="special ${promo.key === 'pro50' ? 'special-dim' : ''}">
+								${promo.descriptionIntro ?? 'Special'}: <b>${promo.description}</b><br />
+						  </p>`
+						: nothing}`;
 
 			case SubscriptionState.FreePlusTrialReactivationEligible:
 				return html`
