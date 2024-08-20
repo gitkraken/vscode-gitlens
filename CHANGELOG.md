@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds DevEx Days promotion
+
+### Changed
+
+- Improves upgrade/purchase flow
+
 ## [15.3.0] - 2024-08-15
 
 ### Added
