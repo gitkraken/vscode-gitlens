@@ -1,13 +1,13 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { ViewShowBranchComparison } from '../../config';
-import type { Colors, StoredBranchComparison } from '../../constants';
+import type { Colors } from '../../constants';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { BranchIconStatus, GitBranch } from '../../git/models/branch';
+import { getTargetBranchName } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
-import { shortenRevision } from '../../git/models/reference';
 import { getHighlanderProviders } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
@@ -156,18 +156,21 @@ export class BranchNode
 			let pullRequest;
 			let pullRequestInsertIndex = 0;
 
-			function getPullRequestComparison(pr: PullRequest | null | undefined): StoredBranchComparison | undefined {
-				if (pr?.refs?.base == null && pr?.refs?.head == null) return undefined;
-
-				return {
-					ref: pr.refs.base.sha,
-					label: `${pr.refs.base.branch} (${shortenRevision(pr.refs.base.sha)})`,
-					notation: '...',
-					type: 'branch',
-					checkedFiles: [],
-				};
+			let comparison: CompareBranchNode | undefined;
+			let loadComparisonDefaultCompareWith = false;
+			if (this.options.showComparison !== false && this.view.type !== 'remotes') {
+				comparison = new CompareBranchNode(
+					this.uri,
+					this.view,
+					this,
+					branch,
+					this.options.showComparison,
+					this.splatted,
+				);
+				loadComparisonDefaultCompareWith = comparison.compareWith == null;
 			}
 
+			let prPromise: Promise<PullRequest | undefined> | undefined;
 			if (
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
@@ -177,7 +180,7 @@ export class BranchNode
 				pullRequest = this.getState('pullRequest');
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
 					onCompleted = defer<void>();
-					const prPromise = this.getAssociatedPullRequest(
+					prPromise = this.getAssociatedPullRequest(
 						branch,
 						this.root ? { include: ['opened', 'merged'] } : undefined,
 					);
@@ -202,18 +205,6 @@ export class BranchNode
 								0,
 								new PullRequestNode(this.view, this, pr, branch),
 							);
-
-							if (pr?.refs?.base != null && pr?.refs?.head != null) {
-								const comparisonNode = this.children.find((n): n is CompareBranchNode =>
-									n.is('compare-branch'),
-								);
-								if (comparisonNode != null) {
-									const comparison = getPullRequestComparison(pr);
-									if (comparison != null) {
-										await comparisonNode.setDefaultCompareWith(comparison);
-									}
-								}
-							}
 						}
 
 						// Refresh this node to add the pull request node or remove the spinner
@@ -231,6 +222,8 @@ export class BranchNode
 				mergeStatusResult,
 				rebaseStatusResult,
 				unpublishedCommitsResult,
+				baseResult,
+				targetResult,
 			] = await Promise.allSettled([
 				this.getLog(),
 				this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, branch.name),
@@ -251,6 +244,15 @@ export class BranchNode
 								  })
 								: undefined,
 					  )
+					: undefined,
+				loadComparisonDefaultCompareWith
+					? this.view.container.git.getBaseBranchName(this.branch.repoPath, this.branch.name)
+					: undefined,
+				loadComparisonDefaultCompareWith
+					? getTargetBranchName(this.view.container, this.branch, {
+							associatedPullRequest: prPromise,
+							timeout: 100,
+					  })
 					: undefined,
 			]);
 			const log = getSettledValue(logResult);
@@ -328,20 +330,46 @@ export class BranchNode
 				}
 			}
 
-			pullRequestInsertIndex = 0; //children.length;
+			pullRequestInsertIndex = 0;
 
-			if (this.options.showComparison !== false && this.view.type !== 'remotes') {
-				children.push(
-					new CompareBranchNode(
-						this.uri,
-						this.view,
-						this,
-						branch,
-						this.options.showComparison,
-						this.splatted,
-						getPullRequestComparison(pullRequest),
-					),
-				);
+			if (comparison != null) {
+				children.push(comparison);
+
+				if (loadComparisonDefaultCompareWith) {
+					const baseBranchName = getSettledValue(baseResult);
+					const targetMaybeResult = getSettledValue(targetResult);
+
+					let baseOrTargetBranchName: string | undefined;
+					if (targetMaybeResult?.paused) {
+						baseOrTargetBranchName = baseBranchName;
+					} else {
+						baseOrTargetBranchName = targetMaybeResult?.value ?? baseBranchName;
+					}
+
+					if (baseOrTargetBranchName != null) {
+						void comparison.setDefaultCompareWith({
+							ref: baseOrTargetBranchName,
+							label: baseOrTargetBranchName,
+							notation: '...',
+							type: 'branch',
+							checkedFiles: [],
+						});
+					}
+
+					if (targetMaybeResult?.paused) {
+						void targetMaybeResult.value.then(target => {
+							if (target == null) return;
+
+							void comparison.setDefaultCompareWith({
+								ref: target,
+								label: target,
+								notation: '...',
+								type: 'branch',
+								checkedFiles: [],
+							});
+						});
+					}
+				}
 			}
 
 			if (children.length !== 0) {

@@ -260,7 +260,11 @@ export function getRemoteNameFromBranchName(name: string): string {
 export async function getTargetBranchName(
 	container: Container,
 	branch: GitBranch,
-	options?: { cancellation?: CancellationToken; timeout?: number },
+	options?: {
+		associatedPullRequest?: Promise<PullRequest | undefined>;
+		cancellation?: CancellationToken;
+		timeout?: number;
+	},
 ): Promise<MaybePausedResult<string | undefined>> {
 	const targetBaseConfigKey: GitConfigKeys = `branch.${branch.name}.gk-target-base`;
 
@@ -278,7 +282,7 @@ export async function getTargetBranchName(
 	if (options?.cancellation?.isCancellationRequested) return { value: undefined, paused: false };
 
 	return pauseOnCancelOrTimeout(
-		branch?.getAssociatedPullRequest()?.then(pr => {
+		(options?.associatedPullRequest ?? branch?.getAssociatedPullRequest())?.then(pr => {
 			if (pr?.refs?.base == null) return undefined;
 
 			const name = `${branch.getRemoteName()}/${pr.refs.base.branch}`;
