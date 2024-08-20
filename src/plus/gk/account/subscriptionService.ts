@@ -747,16 +747,16 @@ export class SubscriptionService implements Disposable {
 			this.showPlans(source);
 		} else {
 			const activeOrgId = this._subscription.activeOrganization?.id;
-			const query = `source=gitlens${activeOrgId != null ? `&org=${activeOrgId}` : ''}`;
+			const query = `source=gitlens&product=gitlens${activeOrgId != null ? `&org=${activeOrgId}` : ''}`;
 			try {
 				const token = await this.container.accountAuthentication.getExchangeToken(
 					SubscriptionUpdatedUriPathPrefix,
 				);
-				const purchasePath = `purchase?${query}`;
+				const purchasePath = `purchase/checkout?${query}`;
 				void openUrl(this.container.getGkDevExchangeUri(token, purchasePath).toString(true));
 			} catch (ex) {
 				Logger.error(ex, scope);
-				void env.openExternal(this.container.getGkDevUri('purchase', query));
+				void env.openExternal(this.container.getGkDevUri('purchase/checkout', query));
 			}
 
 			take(
