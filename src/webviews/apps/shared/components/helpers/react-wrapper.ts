@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable @typescript-eslint/no-restricted-types */
 import type { EventName, Options } from '@lit/react';
 import { createComponent } from '@lit/react';
 import React from 'react';

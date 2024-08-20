@@ -179,10 +179,9 @@
 				"newlines-between": "never"
 			}
 		],
-		"@typescript-eslint/ban-types": [
+		"@typescript-eslint/no-restricted-types": [
 			"error",
 			{
-				"extendDefaults": false,
 				"types": {
 					"String": {
 						"message": "Use string instead",
@@ -216,6 +215,13 @@
 				}
 			}
 		],
+		// #region v8_2_defaultOverrides override breaking rules after migration from v7 to v8
+		"@typescript-eslint/no-unnecessary-type-parameters": "off", // causes `maximum call stack size exceeded`
+		"@typescript-eslint/no-empty-object-type": "off",
+		"@typescript-eslint/no-unsafe-function-type": "off",
+		"@typescript-eslint/use-unknown-in-catch-callback-variable": "off",
+		"@typescript-eslint/return-await": "off",
+		// #endregion v8_2_defaultOverrides
 		"@typescript-eslint/consistent-type-assertions": [
 			"error",
 			{
@@ -293,6 +299,7 @@
 			{
 				"args": "after-used",
 				"argsIgnorePattern": "^_",
+				"caughtErrors": "none",
 				"ignoreRestSiblings": true,
 				"varsIgnorePattern": "^_$"
 			}

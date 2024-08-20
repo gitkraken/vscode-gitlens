@@ -10,6 +10,7 @@ const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const esbuild = require('esbuild');
 const { ESLintLitePlugin } = require('@eamodio/eslint-lite-webpack-plugin');
+// const ESLintPlugin = require('eslint-webpack-plugin');
 const { generateFonts } = require('@twbs/fantasticon');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const fs = require('fs');
@@ -76,11 +77,12 @@ function getExtensionConfig(target, mode, env) {
 					cache: true,
 					cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
 					cacheStrategy: 'content',
-					overrideConfigFile: path.join(
-						__dirname,
-						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
-					),
+					configType: 'flat',
 				},
+				// overrideConfigFile: path.join(
+				// 	__dirname,
+				// 	target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.node.json',
+				// ),
 			}),
 		);
 	}
@@ -352,6 +354,7 @@ function getWebviewsConfig(mode, env) {
 				worker: true,
 				eslintOptions: {
 					cache: true,
+					configType: 'flat',
 					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
 					cacheStrategy: 'content',
 				},

@@ -22,6 +22,9 @@ import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
 import '../shared/components/promo';
 
+
+
+
 export class HomeApp extends App<State> {
 	constructor() {
 		super('HomeApp');

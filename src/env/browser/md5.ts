@@ -153,15 +153,15 @@ function md5blk(s: string) {
 
 function md51(s: string) {
 	const n = s.length;
-	let state = [1732584193, -271733879, -1732584194, 271733878];
+	const state = [1732584193, -271733879, -1732584194, 271733878];
 
 	let i;
 	for (i = 64; i <= n; i += 64) {
 		md5cycle(state, md5blk(s.substring(i - 64, i)));
 	}
 	s = s.substring(i - 64);
-	let length = s.length;
-	let tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+	const length = s.length;
+	const tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 	for (i = 0; i < length; i += 1) {
 		tail[i >> 2] |= s.charCodeAt(i) << (i % 4 << 3);
 	}
@@ -185,6 +185,7 @@ function md51(s: string) {
 	return state;
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const hex_chr = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
 function rhex(n: number) {
 	let s = '';
@@ -206,6 +207,7 @@ function hexToBinary(hex: string) {
 		bytes.push(parseInt(hex.substr(x, 2), 16));
 	}
 
+	// eslint-disable-next-line prefer-spread
 	return String.fromCharCode.apply(String, bytes);
 }
 
