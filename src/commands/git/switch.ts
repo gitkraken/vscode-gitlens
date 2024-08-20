@@ -34,6 +34,7 @@ interface Context {
 
 interface State {
 	repos: string | string[] | Repository | Repository[];
+	onWorkspaceChanging?: (() => Promise<void>) | (() => void);
 	reference: GitReference;
 	createBranch?: string;
 	fastForwardTo?: GitReference;
@@ -239,6 +240,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 												})} is linked to a worktree`,
 										  },
 								},
+								onWorkspaceChanging: state.onWorkspaceChanging,
 								repo: state.repos[0],
 								skipWorktreeConfirmations: state.skipWorktreeConfirmations,
 							},
@@ -321,6 +323,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 									createBranch:
 										result === 'switchToNewBranchViaWorktree' ? state.createBranch : undefined,
 									repo: state.repos[0],
+									onWorkspaceChanging: state.onWorkspaceChanging,
 									skipWorktreeConfirmations: state.skipWorktreeConfirmations,
 								},
 							},

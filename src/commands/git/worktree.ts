@@ -97,6 +97,7 @@ interface CreateState {
 		title?: string;
 	};
 
+	onWorkspaceChanging?: (() => Promise<void>) | (() => void);
 	skipWorktreeConfirmations?: boolean;
 }
 
@@ -132,6 +133,7 @@ interface OpenState {
 		};
 	};
 
+	onWorkspaceChanging?: (() => Promise<void>) | (() => void);
 	skipWorktreeConfirmations?: boolean;
 }
 
@@ -614,6 +616,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						openOnly: true,
 						overrides: { disallowBack: true },
 						skipWorktreeConfirmations: state.skipWorktreeConfirmations,
+						onWorkspaceChanging: state.onWorkspaceChanging,
 					} satisfies OpenStepState,
 					context,
 				);
@@ -993,6 +996,11 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					name = `${repo.name}: ${state.worktree.name}`;
 				} else {
 					name = state.worktree.name;
+				}
+
+				const location = convertOpenFlagsToLocation(state.flags);
+				if (location === 'currentWindow' || location === 'newWindow') {
+					await state.onWorkspaceChanging?.();
 				}
 
 				openWorkspace(state.worktree.uri, { location: convertOpenFlagsToLocation(state.flags), name: name });
