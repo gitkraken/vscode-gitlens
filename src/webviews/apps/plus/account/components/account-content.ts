@@ -2,6 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
+import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import type { Subscription } from '../../../../../plus/gk/account/subscription';
 import {
 	getSubscriptionPlanName,
@@ -122,8 +123,11 @@ export class AccountContent extends LitElement {
 			.special {
 				font-size: smaller;
 				margin-top: 0.8rem;
-				opacity: 0.6;
 				text-align: center;
+			}
+
+			.special-dim {
+				opacity: 0.6;
 			}
 		`,
 	];
@@ -242,6 +246,8 @@ export class AccountContent extends LitElement {
 	}
 
 	private renderAccountState() {
+		const promo = this.state ? getApplicablePromo(this.state) : undefined;
+
 		switch (this.state) {
 			case SubscriptionState.Paid:
 				return html`
@@ -295,7 +301,11 @@ export class AccountContent extends LitElement {
 					<button-container>
 						<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
 					</button-container>
-					<p class="special">Special: <b>1st seat of Pro is now 50%+ off.</b></p>
+					${promo?.description
+						? html`<p class="special ${promo.key === 'pro50' ? 'special-dim' : ''}">
+								${promo.descriptionIntro ?? 'Special'}: <b>${promo.description}</b><br />
+						  </p>`
+						: nothing}
 					${this.renderIncludesDevEx()}
 				`;
 			}
@@ -306,7 +316,11 @@ export class AccountContent extends LitElement {
 					<button-container>
 						<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
 					</button-container>
-					<p class="special">Special: <b>1st seat of Pro is now 50%+ off.</b></p>
+					${promo?.description
+						? html`<p class="${promo.key === 'pro50' ? 'special dim' : 'special dim'}">
+								${promo.descriptionIntro ?? 'Special'}: <b>${promo.description}</b><br />
+						  </p>`
+						: nothing}
 					${this.renderIncludesDevEx()}
 				`;
 

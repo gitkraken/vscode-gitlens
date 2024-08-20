@@ -703,6 +703,7 @@ export type ContextKeys = {
 	'gitlens:plus:required': boolean;
 	'gitlens:plus:state': SubscriptionState;
 	'gitlens:prerelease': boolean;
+	'gitlens:promo': string;
 	'gitlens:readonly': boolean;
 	'gitlens:repos:withRemotes': string[];
 	'gitlens:repos:withHostingIntegrations': string[];

@@ -7,7 +7,7 @@ export const scope: IpcScope = 'home';
 export interface State extends WebviewState {
 	repositories: DidChangeRepositoriesParams;
 	webroot?: string;
-	promoStates: Record<string, boolean>;
+	promoKey?: string;
 	subscription: Subscription;
 	orgSettings: {
 		drafts: boolean;
@@ -43,7 +43,7 @@ export const DidChangeIntegrationsConnections = new IpcNotification<DidChangeInt
 );
 
 export interface DidChangeSubscriptionParams {
-	promoStates: Record<string, boolean>;
+	promoKey: string | undefined;
 	subscription: Subscription;
 }
 export const DidChangeSubscription = new IpcNotification<DidChangeSubscriptionParams>(scope, 'subscription/didChange');
