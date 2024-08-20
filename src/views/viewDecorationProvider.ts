@@ -51,6 +51,8 @@ function provideViewNodeDecoration(uri: Uri, token: CancellationToken): FileDeco
 			return getStatusDecoration(uri, token);
 		case 'workspace':
 			return getWorkspaceDecoration(uri, token);
+		case 'worktree':
+			return getWorktreeDecoration(uri, token);
 	}
 
 	return undefined;
@@ -93,7 +95,7 @@ function getBranchDecoration(uri: Uri, _token: CancellationToken): FileDecoratio
 			break;
 		case 'missingUpstream':
 			decoration = {
-				badge: '\u00a0!',
+				badge: GlyphChars.Warning,
 				color: new ThemeColor('gitlens.decorations.branchMissingUpstreamForegroundColor' satisfies Colors),
 				tooltip: 'Missing Upstream',
 			};
@@ -311,6 +313,33 @@ function getWorkspaceDecoration(uri: Uri, _token: CancellationToken): FileDecora
 	return undefined;
 }
 
+interface WorktreeViewDecoration {
+	hasChanges?: boolean;
+	missing?: boolean;
+}
+
+function getWorktreeDecoration(uri: Uri, _token: CancellationToken): FileDecoration | undefined {
+	const state = getViewDecoration<'worktree'>(uri);
+
+	if (state?.missing) {
+		return {
+			badge: GlyphChars.Warning,
+			color: new ThemeColor('gitlens.decorations.worktreeMissingForegroundColor' satisfies Colors),
+			tooltip: '',
+		};
+	}
+
+	if (state?.hasChanges) {
+		return {
+			badge: '●',
+			color: new ThemeColor('gitlens.decorations.worktreeHasUncommittedChangesForegroundColor' as Colors),
+			tooltip: 'Has Uncommitted Changes',
+		};
+	}
+
+	return undefined;
+}
+
 type ViewDecorations = {
 	branch: BranchViewDecoration;
 	'commit-file': CommitFileViewDecoration;
@@ -319,6 +348,7 @@ type ViewDecorations = {
 	repository: RepositoryViewDecoration;
 	status: StatusViewDecoration;
 	workspace: WorkspaceViewDecoration;
+	worktree: WorktreeViewDecoration;
 };
 
 export function createViewDecorationUri<T extends keyof ViewDecorations>(type: T, state: ViewDecorations[T]): Uri {

@@ -1,8 +1,7 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { ViewFilesLayout, WorktreesViewConfig } from '../config';
-import type { Colors } from '../constants';
-import { Commands, GlyphChars, proBadge } from '../constants';
+import { Commands, proBadge } from '../constants';
 import type { Container } from '../container';
 import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
@@ -104,37 +103,6 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	constructor(container: Container) {
 		super(container, 'worktrees', 'Worktrees', 'worktreesView');
 
-		this.disposables.push(
-			window.registerFileDecorationProvider({
-				provideFileDecoration: (uri, _token) => {
-					if (uri.scheme !== 'gitlens-view' || uri.authority !== 'worktree') return undefined;
-
-					const [, status] = uri.path.split('/');
-					switch (status) {
-						case 'changes':
-							return {
-								badge: '●',
-								color: new ThemeColor(
-									'gitlens.decorations.worktreeHasUncommittedChangesForegroundColor' as Colors,
-								),
-								tooltip: 'Has Uncommitted Changes',
-							};
-
-						case 'missing':
-							return {
-								badge: GlyphChars.Warning,
-								color: new ThemeColor(
-									'gitlens.decorations.worktreeMissingForegroundColor' satisfies Colors,
-								),
-								tooltip: '',
-							};
-
-						default:
-							return undefined;
-					}
-				},
-			}),
-		);
 		this.description = proBadge;
 	}
 

@@ -1,4 +1,4 @@
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
@@ -16,6 +16,7 @@ import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
 import type { ViewsWithWorktrees } from '../viewBase';
+import { createViewDecorationUri } from '../viewDecorationProvider';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
@@ -355,11 +356,8 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				  ? new ThemeIcon('check')
 				  : icon;
 		item.tooltip = tooltip;
-		item.resourceUri = missing
-			? Uri.parse('gitlens-view://worktree/missing')
-			: hasChanges
-			  ? Uri.parse('gitlens-view://worktree/changes')
-			  : undefined;
+		item.resourceUri = createViewDecorationUri('worktree', { hasChanges: hasChanges, missing: missing });
+
 		return item;
 	}
 
