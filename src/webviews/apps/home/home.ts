@@ -18,7 +18,7 @@ import '../shared/components/button';
 import '../shared/components/code-icon';
 import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
-import './svg-devExDays';
+import '../shared/components/svg-devExDays';
 
 export class HomeApp extends App<State> {
 	constructor() {

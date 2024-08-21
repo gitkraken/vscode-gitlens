@@ -19,6 +19,7 @@ import { focusOutline } from './styles/lit/a11y.css';
 import { elementBase, linkBase } from './styles/lit/base.css';
 import './overlays/popover';
 import './overlays/tooltip';
+import './svg-devExDays';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -121,12 +122,12 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.popup-content .actions .special {
-				font-size: smaller;
 				margin-top: 0.8rem;
 				text-align: center;
 			}
 
 			.popup-content .actions .special-dim {
+				font-size: smaller;
 				opacity: 0.6;
 			}
 
@@ -348,6 +349,7 @@ export class GlFeatureBadge extends LitElement {
 			>
 			${promo?.description
 				? html`<p class="special ${promo.key === 'pro50' ? 'special-dim' : ''}">
+						${promo.key === 'devex-days' ? html`<gl-devex-days-svg></gl-devex-days-svg>` : nothing}
 						${promo.descriptionIntro ?? 'Special'}: <b>${promo.description}</b><br />
 				  </p>`
 				: nothing}

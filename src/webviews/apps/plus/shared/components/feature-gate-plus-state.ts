@@ -7,6 +7,7 @@ import { SubscriptionState } from '../../../../../plus/gk/account/subscription';
 import type { GlButton } from '../../../shared/components/button';
 import { linkStyles } from './vscode.css';
 import '../../../shared/components/button';
+import '../../../shared/components/svg-devExDays';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -62,11 +63,11 @@ export class GlFeatureGatePlusState extends LitElement {
 			}
 
 			.special {
-				font-size: smaller;
 				text-align: center;
 			}
 
 			:host([appearance='welcome']) .special-dim {
+				font-size: smaller;
 				opacity: 0.6;
 			}
 		`,
@@ -171,6 +172,7 @@ export class GlFeatureGatePlusState extends LitElement {
 					</p>
 					${promo?.description
 						? html`<p class="special ${promo.key === 'pro50' ? 'special-dim' : ''}">
+								${promo.key === 'devex-days' ? html`<gl-devex-days-svg></gl-devex-days-svg>` : nothing}
 								${promo.descriptionIntro ?? 'Special'}: <b>${promo.description}</b><br />
 						  </p>`
 						: nothing}`;
