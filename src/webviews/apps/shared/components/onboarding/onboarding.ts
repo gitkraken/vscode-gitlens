@@ -169,7 +169,11 @@ export class GlOnboarding<
 					info-title=${ifDefined(onboardingItem.infoTooltip)}
 					>${onboardingItem.title}
 				</gl-onboarding-item>
-				${repeat(onboardingItem.children ?? [], item => item.itemId, this.renderOnboardingItem.bind(this))}
+				${repeat(
+					onboardingItem.children ?? [],
+					item => item.itemId + String(item.disabled),
+					this.renderOnboardingItem.bind(this),
+				)}
 			</gl-onboarding-item-group>
 		`;
 	}

@@ -3,13 +3,18 @@ import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
+import { GlElement, observe } from '../element';
 
 @customElement('gl-onboarding-item')
-export class GlOnboardingItem extends LitElement {
+export class GlOnboardingItem extends GlElement {
 	static override readonly shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
 	};
+
+	override attachShadow(init: ShadowRootInit): ShadowRoot {
+		return super.attachShadow({ ...init, delegatesFocus: !this.disabled });
+	}
 
 	static override readonly styles = [
 		css`
