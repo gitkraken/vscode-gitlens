@@ -16,6 +16,7 @@ import { elementBase, linkBase } from '../../../shared/components/styles/lit/bas
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
+import '../../../shared/components/svg-devExDays';
 
 @customElement('account-content')
 export class AccountContent extends LitElement {
@@ -121,12 +122,12 @@ export class AccountContent extends LitElement {
 			}
 
 			.special {
-				font-size: smaller;
 				margin-top: 0.8rem;
 				text-align: center;
 			}
 
 			.special-dim {
+				font-size: smaller;
 				opacity: 0.6;
 			}
 		`,
@@ -303,6 +304,7 @@ export class AccountContent extends LitElement {
 					</button-container>
 					${promo?.description
 						? html`<p class="special ${promo.key === 'pro50' ? 'special-dim' : ''}">
+								${promo.key === 'devex-days' ? html`<gl-devex-days-svg></gl-devex-days-svg>` : nothing}
 								${promo.descriptionIntro ?? 'Special'}: <b>${promo.description}</b><br />
 						  </p>`
 						: nothing}
@@ -317,7 +319,8 @@ export class AccountContent extends LitElement {
 						<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
 					</button-container>
 					${promo?.description
-						? html`<p class="${promo.key === 'pro50' ? 'special dim' : 'special dim'}">
+						? html`<p class="special ${promo.key === 'pro50' ? 'special-dim' : ''}">
+								${promo.key === 'devex-days' ? html`<gl-devex-days-svg></gl-devex-days-svg>` : nothing}
 								${promo.descriptionIntro ?? 'Special'}: <b>${promo.description}</b><br />
 						  </p>`
 						: nothing}
