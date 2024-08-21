@@ -9,7 +9,7 @@ export class DevexDaysSvg extends LitElement {
 				max-width: 8rem;
 				height: auto;
 				vertical-align: text-bottom;
-				margin-inline-end: 0.4rem;
+				margin-inline-end: 0.2rem;
 			}
 		`,
 	];
