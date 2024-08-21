@@ -31,6 +31,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Removes status (ahead, behind, etc) decoration icons from branches in views
 
+## [15.3.1] - 2024-08-21
+
+### Added
+
+- Adds DevEx Days promotion
+
+### Changed
+
+- Improves upgrade/purchase flow
+
 ## [15.3.0] - 2024-08-15
 
 ### Added
@@ -5563,7 +5573,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v15.3.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v15.3.1...HEAD
+[15.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/v15.3.0...gitkraken:v15.3.1
 [15.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.3...gitkraken:v15.3.0
 [15.2.3]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.2...gitkraken:v15.2.3
 [15.2.2]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.1...gitkraken:v15.2.2
