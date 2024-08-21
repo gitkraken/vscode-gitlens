@@ -919,7 +919,7 @@ gl-feature-gate gl-feature-badge {
 		flex-direction: column;
 		height: calc(100vh - 2px); // shoot me -- the 2px is to stop the vertical scrollbar from showing up
 		gap: 0;
-		padding: 0.2rem 0.2rem 0;
+		padding: 0.1rem;
 	}
 
 	&__banners {
@@ -945,7 +945,6 @@ gl-feature-gate gl-feature-badge {
 		flex: none;
 		z-index: 101;
 		position: relative;
-		margin: -1px -1px 0 -1px;
 	}
 
 	&__footer {
