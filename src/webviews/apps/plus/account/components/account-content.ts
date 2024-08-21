@@ -2,6 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
+import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import type { Subscription } from '../../../../../plus/gk/account/subscription';
 import {
@@ -16,7 +17,7 @@ import { elementBase, linkBase } from '../../../shared/components/styles/lit/bas
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
-import '../../../shared/components/svg-devExDays';
+import '../../../shared/components/promo';
 
 @customElement('account-content')
 export class AccountContent extends LitElement {
@@ -247,7 +248,7 @@ export class AccountContent extends LitElement {
 	}
 
 	private renderAccountState() {
-		const promo = this.state ? getApplicablePromo(this.state) : undefined;
+		const promo = getApplicablePromo(this.state);
 
 		switch (this.state) {
 			case SubscriptionState.Paid:
@@ -302,13 +303,7 @@ export class AccountContent extends LitElement {
 					<button-container>
 						<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
 					</button-container>
-					${promo?.description
-						? html`<p class="special ${promo.key === 'pro50' ? 'special-dim' : ''}">
-								${promo.key === 'devex-days' ? html`<gl-devex-days-svg></gl-devex-days-svg>` : nothing}
-								${promo.descriptionIntro ?? 'Special'}: <b>${promo.description}</b><br />
-						  </p>`
-						: nothing}
-					${this.renderIncludesDevEx()}
+					${this.renderPromo(promo)} ${this.renderIncludesDevEx()}
 				`;
 			}
 
@@ -318,13 +313,7 @@ export class AccountContent extends LitElement {
 					<button-container>
 						<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
 					</button-container>
-					${promo?.description
-						? html`<p class="special ${promo.key === 'pro50' ? 'special-dim' : ''}">
-								${promo.key === 'devex-days' ? html`<gl-devex-days-svg></gl-devex-days-svg>` : nothing}
-								${promo.descriptionIntro ?? 'Special'}: <b>${promo.description}</b><br />
-						  </p>`
-						: nothing}
-					${this.renderIncludesDevEx()}
+					${this.renderPromo(promo)} ${this.renderIncludesDevEx()}
 				`;
 
 			case SubscriptionState.FreePlusTrialReactivationEligible:
@@ -360,5 +349,9 @@ export class AccountContent extends LitElement {
 				capabilities everywhere you work: IDE, desktop, browser, and terminal.
 			</p>
 		`;
+	}
+
+	private renderPromo(promo: Promo | undefined) {
+		return html`<gl-promo .promo=${promo}></gl-promo>`;
 	}
 }

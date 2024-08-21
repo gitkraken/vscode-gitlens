@@ -1,7 +1,6 @@
 import { Disposable, workspace } from 'vscode';
 import type { ContextKeys } from '../../constants';
 import type { Container } from '../../container';
-import { getApplicablePromo } from '../../plus/gk/account/promos';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { registerCommand } from '../../system/command';
@@ -123,7 +122,6 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			...this.host.baseWebviewState,
 			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
-			promoKey: await this.getPromoKey(subscription),
 			subscription: subscription,
 			orgSettings: this.getOrgSettings(),
 			walkthroughCollapsed: this.getWalkthroughCollapsed(),
@@ -152,11 +150,6 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return this._hostedIntegrationConnected;
 	}
 
-	private async getPromoKey(subscription?: Subscription): Promise<string | undefined> {
-		const sub = subscription ?? (await this.container.subscription.getSubscription(true));
-		return getApplicablePromo(sub.state)?.key;
-	}
-
 	private notifyDidChangeRepositories() {
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
 	}
@@ -173,7 +166,6 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		subscription ??= await this.container.subscription.getSubscription(true);
 
 		void this.host.notify(DidChangeSubscription, {
-			promoKey: await this.getPromoKey(subscription),
 			subscription: subscription,
 		});
 	}

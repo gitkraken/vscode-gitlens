@@ -3,6 +3,7 @@ import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { Source } from '../../../../constants';
 import { Commands } from '../../../../constants';
+import type { Promo } from '../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../plus/gk/account/promos';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import {
@@ -19,7 +20,7 @@ import { focusOutline } from './styles/lit/a11y.css';
 import { elementBase, linkBase } from './styles/lit/base.css';
 import './overlays/popover';
 import './overlays/tooltip';
-import './svg-devExDays';
+import './promo';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -118,17 +119,7 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.popup-content .actions gl-button:not(:first-child) {
-				margin-top: 0.6rem;
-			}
-
-			.popup-content .actions .special {
 				margin-top: 0.8rem;
-				text-align: center;
-			}
-
-			.popup-content .actions .special-dim {
-				font-size: smaller;
-				opacity: 0.6;
 			}
 
 			.hint {
@@ -337,7 +328,7 @@ export class GlFeatureBadge extends LitElement {
 	}
 
 	private renderUpgradeActions(leadin?: TemplateResult) {
-		const promo = this.state ? getApplicablePromo(this.state) : undefined;
+		const promo = getApplicablePromo(this.state);
 
 		return html`<div class="actions">
 			${leadin ?? nothing}
@@ -347,13 +338,12 @@ export class GlFeatureBadge extends LitElement {
 				href="${generateCommandLink(Commands.PlusUpgrade, this.source)}"
 				>Upgrade to Pro</gl-button
 			>
-			${promo?.description
-				? html`<p class="special ${promo.key === 'pro50' ? 'special-dim' : ''}">
-						${promo.key === 'devex-days' ? html`<gl-devex-days-svg></gl-devex-days-svg>` : nothing}
-						${promo.descriptionIntro ?? 'Special'}: <b>${promo.description}</b><br />
-				  </p>`
-				: nothing}
+			${this.renderPromo(promo)}
 		</div>`;
+	}
+
+	private renderPromo(promo: Promo | undefined) {
+		return html`<gl-promo .promo=${promo}></gl-promo>`;
 	}
 }
 

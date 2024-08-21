@@ -1,20 +1,108 @@
-import { css, html, LitElement } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { css, html, LitElement, nothing, svg } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import type { Promo } from '../../../../plus/gk/account/promos';
 
-@customElement('gl-devex-days-svg')
-export class DevexDaysSvg extends LitElement {
+@customElement('gl-promo')
+export class GlPromo extends LitElement {
+	static override styles = [
+		css`
+			:host {
+				display: block;
+			}
+
+			.promo {
+				margin: 0;
+				margin-top: 0.8rem;
+				text-align: center;
+			}
+
+			.header {
+				margin-right: 0.4rem;
+			}
+
+			.content {
+				font-size: smaller;
+			}
+
+			.muted {
+				opacity: 0.7;
+			}
+
+			.link {
+				display: block;
+				color: inherit;
+				max-width: 100%;
+				text-align: center;
+				text-decoration: none;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.link:hover {
+				color: inherit;
+				text-decoration: underline;
+			}
+		`,
+	];
+
+	@property({ type: Object })
+	promo: Promo | undefined;
+
+	@property({ reflect: true, type: String })
+	type: 'link' | 'info' = 'info';
+
+	override render() {
+		if (!this.promo) return;
+
+		const promoHtml = this.renderPromo(this.promo);
+		if (!promoHtml) return;
+
+		if (this.type === 'link') {
+			return html`<a
+				class="link"
+				href="${this.promo.command ?? 'command:gitlens.plus.upgrade'}"
+				title="${this.promo.linkTooltip}"
+				>${promoHtml}</a
+			>`;
+		}
+
+		return html`<p class="promo">${promoHtml}</p>`;
+	}
+
+	private renderPromo(promo: Promo) {
+		switch (promo.key) {
+			case 'devexdays24':
+				return html`<span class="header"><gl-svg-devexdays24-promo></gl-svg-devexdays24-promo>Sale:</span
+					><span class="content"><b>Save up to 80% on GitLens Pro</b> - lowest price of the year!</span>`;
+
+			case 'pro50':
+				if (this.type === 'link') {
+					return html`<span class="content"
+						>Special: <b>1st seat of Pro is now 50%+ off.</b> See your special price.</span
+					>`;
+				}
+
+				return html`<span class="content muted">Special: <b>1st seat of Pro is now 50%+ off</b></span>`;
+		}
+
+		return nothing;
+	}
+}
+
+@customElement('gl-svg-devexdays24-promo')
+export class GlSvgDevExDays24Promo extends LitElement {
 	static override styles = [
 		css`
 			svg {
 				max-width: 8rem;
 				height: auto;
 				vertical-align: text-bottom;
-				margin-inline-end: 0.2rem;
 			}
 		`,
 	];
 	override render() {
-		return html`
+		return svg`
 			<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
 			<!-- a-prettier-ignore -->
 			<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 138 25">

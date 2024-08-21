@@ -22,23 +22,7 @@
 		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
 		<div class="home__nav">
-			<div class="promo-banner promo-banner--eyebrow" id="promo-pro50" hidden>
-				<a
-					class="promo-banner__link"
-					href="command:gitlens.plus.upgrade"
-					title="Special: 1st seat of Pro is now 50%+ off. See your special price."
-					>Special: 1st seat of Pro is now 50%+ off. See your special price.</a
-				>
-			</div>
-			<div class="promo-banner promo-banner--eyebrow" id="promo-devex-days" hidden>
-				<a
-					class="promo-banner__link"
-					href="command:gitlens.plus.upgrade"
-					title="Sale: Save up to 80% on GitLens Pro - lowest price of the year!"
-					><gl-devex-days-svg></gl-devex-days-svg>Sale: Save up to 80% on GitLens Pro - lowest price of the
-					year!</a
-				>
-			</div>
+			<gl-promo class="promo-banner promo-banner--eyebrow" id="promo" type="link"></gl-promo>
 			<nav class="inline-nav" id="links" aria-label="Help and Resources">
 				<div class="inline-nav__group">
 					<gl-tooltip hoist>
@@ -156,25 +140,6 @@
 			<p data-requires="norepo">
 				<code-icon icon="question"></code-icon> Features which need a repository are currently unavailable
 			</p>
-			<div class="promo-banner" id="promo-hs2023" hidden>
-				<a
-					class="promo-banner__link"
-					href="https://gitkraken.com/hs23?utm_source=holiday_special&utm_medium=gitlens_banner&utm_campaign=holiday_special_2023"
-					aria-label="Holiday Special: 1st seat of Pro (plus the entire GitKraken DevEx platform) is now 50%+ off. Includes all Pro versions: GitLens, GitKraken Client, CLI, Browser Extension & more! See your special price."
-				>
-					<img
-						class="promo-banner__media is-dark"
-						src="#{webroot}/media/holiday-2023-small-dark.webp"
-						alt=""
-					/>
-					<img
-						class="promo-banner__media is-light"
-						src="#{webroot}/media/holiday-2023-small-light.webp"
-						alt=""
-					/><br />
-					1st seat of Pro (plus the entire GitKraken DevEx platform) is now 50%+ off. See your special price.
-				</a>
-			</div>
 			<div id="section-walkthrough" data-section-expand="walkthrough" class="alert">
 				<h1 class="alert__title">Get Started with GitLens</h1>
 				<div class="alert__description">
