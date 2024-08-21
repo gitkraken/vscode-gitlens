@@ -704,7 +704,7 @@ export type ContextKeys = {
 	'gitlens:plus:required': boolean;
 	'gitlens:plus:state': SubscriptionState;
 	'gitlens:prerelease': boolean;
-	'gitlens:promo': string;
+	'gitlens:promo': PromoKeys;
 	'gitlens:readonly': boolean;
 	'gitlens:repos:withRemotes': string[];
 	'gitlens:repos:withHostingIntegrations': string[];
@@ -840,6 +840,8 @@ export const keys = [
 	'escape',
 ] as const;
 export type Keys = (typeof keys)[number];
+
+export type PromoKeys = 'devexdays24' | 'pro50';
 
 export const enum Schemes {
 	DebugConsole = 'debug',

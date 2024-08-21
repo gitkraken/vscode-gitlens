@@ -112,43 +112,6 @@ ul {
 		color: var(--color-foreground--50);
 		margin-bottom: 0.2rem;
 	}
-
-	&__link {
-		display: inline-block;
-		font-size: 1.1rem;
-		font-weight: bold;
-		color: inherit;
-		text-align: center;
-		text-decoration: none;
-
-		&:hover {
-			color: inherit;
-			text-decoration: underline;
-		}
-	}
-
-	&--eyebrow &__link {
-		display: block;
-		white-space: nowrap;
-		font-weight: normal;
-		max-width: 100%;
-		text-overflow: ellipsis;
-		overflow: hidden;
-	}
-
-	&__media {
-		// width: 100%;
-		max-width: 9.9rem;
-		height: auto;
-
-		&.is-light {
-			display: var(--promo-banner-light-display, none);
-		}
-
-		&.is-dark {
-			display: var(--promo-banner-dark-display, none);
-		}
-	}
 }
 
 .home {
