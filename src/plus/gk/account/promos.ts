@@ -9,7 +9,7 @@ export interface Promo {
 	readonly startsOn?: number;
 
 	readonly command?: `command:${string}`;
-	readonly linkTooltip?: string;
+	readonly commandTooltip?: string;
 }
 
 // Must be ordered by applicable order
@@ -23,7 +23,7 @@ const promos: Promo[] = [
 			SubscriptionState.FreePlusTrialReactivationEligible,
 		],
 		expiresOn: new Date('2024-09-05T06:59:00.000Z').getTime(),
-		linkTooltip: 'Sale: Save up to 80% on GitLens Pro - lowest price of the year!',
+		commandTooltip: 'Sale: Save up to 80% on GitLens Pro - lowest price of the year!',
 	},
 	{
 		key: 'pro50',
@@ -34,7 +34,7 @@ const promos: Promo[] = [
 			SubscriptionState.FreePlusTrialExpired,
 			SubscriptionState.FreePlusTrialReactivationEligible,
 		],
-		linkTooltip: 'Special: 1st seat of Pro is now 50%+ off. See your special price.',
+		commandTooltip: 'Special: 1st seat of Pro is now 50%+ off. See your special price.',
 	},
 ];
 

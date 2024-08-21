@@ -62,7 +62,7 @@ export class GlPromo extends LitElement {
 			return html`<a
 				class="link"
 				href="${this.promo.command ?? 'command:gitlens.plus.upgrade'}"
-				title="${this.promo.linkTooltip}"
+				title="${this.promo.commandTooltip}"
 				>${promoHtml}</a
 			>`;
 		}
