@@ -1,6 +1,7 @@
 /*global*/
 import './home.scss';
 import type { Disposable } from 'vscode';
+import { getApplicablePromo } from '../../../plus/gk/account/promos';
 import type { State } from '../../home/protocol';
 import {
 	CollapseSectionCommand,
@@ -13,12 +14,13 @@ import type { IpcMessage } from '../../protocol';
 import { ExecuteCommand } from '../../protocol';
 import { App } from '../shared/appBase';
 import type { GlFeatureBadge } from '../shared/components/feature-badge';
+import type { GlPromo } from '../shared/components/promo';
 import { DOM } from '../shared/dom';
 import '../shared/components/button';
 import '../shared/components/code-icon';
 import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
-import '../shared/components/svg-devExDays';
+import '../shared/components/promo';
 
 export class HomeApp extends App<State> {
 	constructor() {
@@ -64,7 +66,6 @@ export class HomeApp extends App<State> {
 				break;
 
 			case DidChangeSubscription.is(msg):
-				this.state.promoKey = msg.params.promoKey;
 				this.state.subscription = msg.params.subscription;
 				this.setState(this.state);
 				this.updatePromos();
@@ -153,11 +154,10 @@ export class HomeApp extends App<State> {
 	}
 
 	private updatePromos() {
-		const { promoKey } = this.state;
+		const promo = getApplicablePromo(this.state.subscription.state);
 
-		setElementVisibility('promo-hs2023', promoKey === 'hs2023');
-		setElementVisibility('promo-pro50', promoKey === 'pro50');
-		setElementVisibility('promo-devex-days', promoKey === 'devex-days');
+		const $promo = document.getElementById('promo') as GlPromo;
+		$promo.promo = promo;
 	}
 
 	private updateOrgSettings() {

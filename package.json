@@ -17493,18 +17493,23 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22worktrees%22%7D)\n\nYour Pro trial has ended. Please upgrade for full access to Worktrees and other Pro features.",
+				"contents": "[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22worktrees%22%7D)",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Special: 1st seat of Pro is now 50%+ off.",
+				"contents": "Special: 1st seat of Pro is now 50%+ off",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Sale: Save up to 80% on GitLens Pro - lowest price of the year!",
-				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == devex-days"
+				"contents": "DevEx Days 24 Sale: Save up to 80% on GitLens Pro - lowest price of the year!",
+				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == devexdays24"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Your Pro trial has ended. Please upgrade for full access to Worktrees and other Pro features.",
+				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			},
 			{
 				"view": "gitlens.views.worktrees",
