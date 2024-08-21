@@ -84,6 +84,7 @@ export class GlGraphHover extends GlElement {
 	}
 
 	private previousSkidding: number | undefined;
+	private recalculated = false;
 
 	private onReposition() {
 		if (this.skidding == null || (this.placement !== `bottom-start` && this.placement !== `top-start`)) {
@@ -93,9 +94,10 @@ export class GlGraphHover extends GlElement {
 		switch (this.popup?.currentPlacement) {
 			case 'bottom-end':
 			case 'top-end':
-				if (this.previousSkidding == null) {
+				if (!this.recalculated && this.previousSkidding == null) {
 					this.previousSkidding = this.skidding;
 					this.skidding = -this.skidding * 5;
+					this.recalculated = true;
 				}
 				break;
 			default:
@@ -108,6 +110,7 @@ export class GlGraphHover extends GlElement {
 	}
 
 	reset() {
+		this.recalculated = false;
 		this.hoverMarkdownCache.clear();
 	}
 
@@ -153,6 +156,7 @@ export class GlGraphHover extends GlElement {
 	}
 
 	onRowUnhovered(row: GraphRow, relatedTarget: EventTarget | null) {
+		this.recalculated = false;
 		clearTimeout(this.unhoverTimer);
 
 		if (
