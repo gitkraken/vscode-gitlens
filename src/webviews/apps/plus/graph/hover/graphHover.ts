@@ -90,7 +90,7 @@ export class GlGraphHover extends GlElement {
 			return;
 		}
 
-		switch (this.popup.currentPlacement) {
+		switch (this.popup?.currentPlacement) {
 			case 'bottom-end':
 			case 'top-end':
 				if (this.previousSkidding == null) {
