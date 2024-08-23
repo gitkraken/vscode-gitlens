@@ -10,6 +10,8 @@ import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
+import type { RepositoryChangeEvent } from '../../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitTag } from '../../git/models/tag';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type { RepositoryIdentity } from '../../gk/models/repositoryIdentities';
@@ -1337,7 +1339,22 @@ export class DeepLinkService implements Disposable {
 
 						// Only proceed if the branch switch occurred in the current window. This is necessary because the switch flow may
 						// open a new window, and if it does, we need to end things here.
-						if ((await repo.getBranch())?.name === this._context.currentBranch) {
+						const didChangeBranch = await Promise.race([
+							new Promise<boolean>(resolve => setTimeout(() => resolve(false), 10000)),
+							new Promise<boolean>(resolve =>
+								once(repo.onDidChange)(async (e: RepositoryChangeEvent) => {
+									if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
+										if ((await repo.getBranch())?.name !== this._context.currentBranch) {
+											resolve(true);
+										} else {
+											resolve(false);
+										}
+									}
+								}),
+							),
+						]);
+
+						if (!didChangeBranch) {
 							action = DeepLinkServiceAction.DeepLinkResolved;
 							break;
 						}
