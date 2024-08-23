@@ -12,9 +12,11 @@ import {
 	AuthenticationRequiredError,
 	CancellationError,
 	RequestClientError,
+	RequestGoneError,
 	RequestNotFoundError,
 	RequestRateLimitError,
 	RequestsAreBlockedTemporarilyError,
+	RequestUnprocessableEntityError,
 } from '../../errors';
 import {
 	showIntegrationDisconnectedTooManyFailedRequestsWarningMessage,
@@ -228,6 +230,10 @@ export class ServerConnection implements Disposable {
 		switch (ex.status) {
 			case 404: // Not found
 				throw new RequestNotFoundError(ex);
+			case 410: // Gone
+				throw new RequestGoneError(ex);
+			case 422: // Unprocessable Entity
+				throw new RequestUnprocessableEntityError(ex);
 			case 401: // Unauthorized
 				throw new AuthenticationError('gitkraken', AuthenticationErrorReason.Unauthorized, ex);
 			case 429: //Too Many Requests

@@ -238,6 +238,22 @@ export class RequestRateLimitError extends Error {
 	}
 }
 
+export class RequestGoneError extends Error {
+	constructor(public readonly original: Error) {
+		super(original.message);
+
+		Error.captureStackTrace?.(this, RequestGoneError);
+	}
+}
+
+export class RequestUnprocessableEntityError extends Error {
+	constructor(public readonly original: Error) {
+		super(original.message);
+
+		Error.captureStackTrace?.(this, RequestUnprocessableEntityError);
+	}
+}
+
 export class RequestsAreBlockedTemporarilyError extends Error {
 	constructor() {
 		super('Requests are blocked');
