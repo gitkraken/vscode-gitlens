@@ -405,7 +405,7 @@ export class GlSearchInput extends GlElement {
 		window.requestAnimationFrame(() => {
 			this.updateHelpText();
 			// `@me` can be searched right away since it doesn't need additional text
-			if (token === '@me' || token === 'type:stash') {
+			if (token === '@me' || token === 'is:stash' || token === 'type:stash') {
 				this.debouncedOnSearchChanged();
 			}
 			this.input.focus();
@@ -503,7 +503,7 @@ export class GlSearchInput extends GlElement {
 								type="button"
 								@click="${() => this.handleInsertToken('type:stash')}"
 							>
-								Type <small>type:stash</small>
+								Type <small>type:stash or is:stash</small>
 							</button>
 						</menu-item>
 					</menu-list>
@@ -550,7 +550,9 @@ export class GlSearchInput extends GlElement {
 						? html`<span>Change: use a regex pattern, e.g. <code>change:update&#92;(param</code></span>`
 						: ''}
 					${this.helpType === 'type:'
-						? html`<span>Type: use <code>type:stash</code> to search only stashes</span>`
+						? html`<span
+								>Type: use <code>stash</code> to search only stashes, e.g. <code>type:stash</code></span
+						  >`
 						: ''}
 				</div>
 			</div>
