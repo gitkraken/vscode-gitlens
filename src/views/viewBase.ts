@@ -31,7 +31,8 @@ import type {
 	WorktreesViewConfig,
 } from '../config';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
-import type { TreeViewCommandSuffixesByViewType, TreeViewIds, TreeViewTypes } from '../constants';
+import type { TreeViewCommandSuffixesByViewType } from '../constants.commands';
+import type { TreeViewIds, TreeViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { executeCoreCommand } from '../system/command';
 import { configuration } from '../system/configuration';

@@ -1,7 +1,7 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import { resetAvatarCache } from '../avatars';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { QuickPickItemOfT } from '../quickpicks/items/common';
 import { createQuickPickSeparator } from '../quickpicks/items/common';

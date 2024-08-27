@@ -1,7 +1,7 @@
 import type { QuickPickItem } from 'vscode';
 import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
-import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants';
-import { Commands } from '../../constants';
+import { Commands } from '../../constants.commands';
+import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
 import { openFileAtRevision } from '../../git/actions/commit';

@@ -1,6 +1,6 @@
 import type { Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
-import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from '../constants';
+import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { updateRecordValue } from '../system/object';
 import type { Storage } from '../system/storage';

@@ -1,7 +1,8 @@
 import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
-import { Commands, GlyphChars } from '../../constants';
+import { GlyphChars } from '../../constants';
+import { Commands } from '../../constants.commands';
 import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';

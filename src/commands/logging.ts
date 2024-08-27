@@ -1,4 +1,4 @@
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { command } from '../system/command';
 import { configuration } from '../system/configuration';

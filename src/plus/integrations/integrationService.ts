@@ -1,8 +1,8 @@
 import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
 import { authentication, Disposable, env, EventEmitter, ProgressLocation, Uri, window } from 'vscode';
 import { isWeb } from '@env/platform';
-import type { Source } from '../../constants';
-import { sourceToContext } from '../../constants';
+import type { Source } from '../../constants.telemetry';
+import { sourceToContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { Account } from '../../git/models/author';
 import type { SearchedIssue } from '../../git/models/issue';

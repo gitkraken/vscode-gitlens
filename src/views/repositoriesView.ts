@@ -1,7 +1,7 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } from 'vscode';
 import { EventEmitter, ProgressLocation, window } from 'vscode';
 import type { RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { getRemoteNameFromBranchName } from '../git/models/branch';
 import type { GitCommit } from '../git/models/commit';

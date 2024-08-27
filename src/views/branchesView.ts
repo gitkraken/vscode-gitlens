@@ -1,7 +1,7 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { BranchesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';

@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { Disposable, ViewColumn } from 'vscode';
-import { Commands } from '../../../constants';
+import { Commands } from '../../../constants.commands';
 import { registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import type { ViewFileNode } from '../../../views/nodes/abstract/viewFileNode';

@@ -1,7 +1,7 @@
 import type { Event, QuickPickItem } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
 import type { Config } from '../config';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { registerCommand } from '../system/command';
 import { configuration } from '../system/configuration';

@@ -1,6 +1,7 @@
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
-import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
+import { GlyphChars, quickPickTitleMaxChars } from '../constants';
+import { Commands } from '../constants.commands';
 import { Container } from '../container';
 import type { PlusFeatures } from '../features';
 import * as BranchActions from '../git/actions/branch';

@@ -1,4 +1,4 @@
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitRemote } from '../git/models/remote';

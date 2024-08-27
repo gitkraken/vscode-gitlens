@@ -1,4 +1,4 @@
-import type { TreeViewFileNodeTypes } from '../../../constants';
+import type { TreeViewFileNodeTypes } from '../../../constants.views';
 import type { GitUri } from '../../../git/gitUri';
 import type { GitFile } from '../../../git/models/file';
 import type { View } from '../../viewBase';

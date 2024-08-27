@@ -1,8 +1,8 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { Source } from '../../../../constants';
-import { Commands } from '../../../../constants';
+import { Commands } from '../../../../constants.commands';
+import type { Source } from '../../../../constants.telemetry';
 import type { Promo } from '../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../plus/gk/account/promos';
 import type { Subscription } from '../../../../plus/gk/account/subscription';

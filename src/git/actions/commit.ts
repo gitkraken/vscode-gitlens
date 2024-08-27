@@ -9,7 +9,8 @@ import type { OpenWorkingFileCommandArgs } from '../../commands/openWorkingFile'
 import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit';
 import type { ShowQuickCommitFileCommandArgs } from '../../commands/showQuickCommitFile';
 import type { FileAnnotationType } from '../../config';
-import { Commands, GlyphChars } from '../../constants';
+import { GlyphChars } from '../../constants';
+import { Commands } from '../../constants.commands';
 import { Container } from '../../container';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';

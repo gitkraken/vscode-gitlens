@@ -1,5 +1,5 @@
 import { ViewColumn } from 'vscode';
-import { Commands } from '../../constants';
+import { Commands } from '../../constants.commands';
 import type { WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 

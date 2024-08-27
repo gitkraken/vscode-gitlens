@@ -1,6 +1,6 @@
 import { Disposable, ViewColumn } from 'vscode';
 import { isScm } from '../../../commands/base';
-import { Commands } from '../../../constants';
+import { Commands } from '../../../constants.commands';
 import type { Container } from '../../../container';
 import type { GitReference } from '../../../git/models/reference';
 import type { Repository } from '../../../git/models/repository';

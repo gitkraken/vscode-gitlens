@@ -1,4 +1,4 @@
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { GraphWebviewShowingArgs } from '../plus/webviews/graph/registration';
 import { command } from '../system/command';

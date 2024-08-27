@@ -8,8 +8,8 @@ import type {
 } from 'vscode';
 import { OverviewRulerLane, ThemeColor, Uri, window } from 'vscode';
 import type { Config } from '../config';
-import type { Colors } from '../constants';
 import { GlyphChars } from '../constants';
+import type { Colors } from '../constants.colors';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';

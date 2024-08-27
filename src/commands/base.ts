@@ -9,7 +9,8 @@ import type {
 } from 'vscode';
 import { commands, Disposable, Uri, window } from 'vscode';
 import type { ActionContext } from '../api/gitlens';
-import type { Commands, StoredNamedRef } from '../constants';
+import type { Commands } from '../constants.commands';
+import type { StoredNamedRef } from '../constants.storage';
 import type { GitBranch } from '../git/models/branch';
 import { isBranch } from '../git/models/branch';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';

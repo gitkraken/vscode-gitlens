@@ -4,7 +4,7 @@ import type { GitCommandsCommandArgs } from '../commands/gitCommands';
 import type { InspectCommandArgs } from '../commands/inspect';
 import type { ShowQuickBranchHistoryCommandArgs } from '../commands/showQuickBranchHistory';
 import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { PagedResult } from '../git/gitProvider';
 import type { GitBranch } from '../git/models/branch';

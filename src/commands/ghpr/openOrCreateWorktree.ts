@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
-import { Commands } from '../../constants';
+import { Commands } from '../../constants.commands';
 import type { Container } from '../../container';
 import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
 import { getLocalBranchByUpstream } from '../../git/models/branch';

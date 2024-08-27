@@ -1,7 +1,7 @@
 import { EventEmitter, Uri } from 'vscode';
 import { md5 } from '@env/crypto';
 import type { GravatarDefaultStyle } from './config';
-import type { StoredAvatar } from './constants';
+import type { StoredAvatar } from './constants.storage';
 import { Container } from './container';
 import type { CommitAuthor } from './git/models/author';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';

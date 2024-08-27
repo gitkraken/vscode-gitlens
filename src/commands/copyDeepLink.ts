@@ -1,6 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
-import type { StoredNamedRef } from '../constants';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
+import type { StoredNamedRef } from '../constants.storage';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { getBranchNameAndRemote } from '../git/models/branch';

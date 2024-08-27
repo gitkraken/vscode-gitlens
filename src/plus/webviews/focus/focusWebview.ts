@@ -1,7 +1,7 @@
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import { Disposable, Uri, window } from 'vscode';
 import type { GHPRPullRequest } from '../../../commands/ghpr/openOrCreateWorktree';
-import { Commands } from '../../../constants';
+import { Commands } from '../../../constants.commands';
 import type { Container } from '../../../container';
 import type { FeatureAccess, RepoFeatureAccess } from '../../../features';
 import { PlusFeatures } from '../../../features';

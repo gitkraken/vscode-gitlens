@@ -1,4 +1,4 @@
-import type { CustomEditorIds } from '../../constants';
+import type { CustomEditorIds } from '../../constants.views';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification } from '../protocol';
 

@@ -3,7 +3,8 @@ import type { OpenChangedFilesCommandArgs } from '../../commands/openChangedFile
 import type { OpenOnlyChangedFilesCommandArgs } from '../../commands/openOnlyChangedFiles';
 import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../../commands/quickCommand.buttons';
 import type { Keys } from '../../constants';
-import { Commands, GlyphChars } from '../../constants';
+import { GlyphChars } from '../../constants';
+import { Commands } from '../../constants.commands';
 import { Container } from '../../container';
 import { browseAtRevision } from '../../git/actions';
 import * as CommitActions from '../../git/actions/commit';

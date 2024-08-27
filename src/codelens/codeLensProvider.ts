@@ -18,7 +18,8 @@ import type { ShowQuickFileHistoryCommandArgs } from '../commands/showQuickFileH
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
 import type { CodeLensConfig, CodeLensLanguageScope } from '../config';
 import { CodeLensCommand } from '../config';
-import { Commands, trackableSchemes } from '../constants';
+import { trackableSchemes } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import type { GitBlame, GitBlameLines } from '../git/models/blame';

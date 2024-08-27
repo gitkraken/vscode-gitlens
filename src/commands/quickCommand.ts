@@ -1,5 +1,6 @@
 import type { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import type { Commands, Keys } from '../constants';
+import type { Keys } from '../constants';
+import type { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { createQuickPickSeparator } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';

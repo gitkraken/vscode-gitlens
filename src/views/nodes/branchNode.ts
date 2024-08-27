@@ -1,7 +1,7 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { ViewShowBranchComparison } from '../../config';
-import type { Colors } from '../../constants';
 import { GlyphChars } from '../../constants';
+import type { Colors } from '../../constants.colors';
 import type { GitUri } from '../../git/gitUri';
 import type { BranchIconStatus, GitBranch } from '../../git/models/branch';
 import { getTargetBranchName } from '../../git/models/branch';

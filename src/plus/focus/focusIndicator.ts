@@ -1,8 +1,9 @@
 import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
 import { Disposable, MarkdownString, StatusBarAlignment, ThemeColor, window } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
-import type { Colors } from '../../constants';
-import { Commands, previewBadge } from '../../constants';
+import { previewBadge } from '../../constants';
+import type { Colors } from '../../constants.colors';
+import { Commands } from '../../constants.commands';
 import type { Container } from '../../container';
 import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';

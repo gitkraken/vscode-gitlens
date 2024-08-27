@@ -1,7 +1,8 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { ViewFilesLayout, WorktreesViewConfig } from '../config';
-import { Commands, proBadge } from '../constants';
+import { proBadge } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';

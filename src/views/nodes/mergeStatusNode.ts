@@ -1,5 +1,5 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { Colors } from '../../constants';
+import type { Colors } from '../../constants.colors';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitMergeStatus } from '../../git/models/merge';

@@ -1,6 +1,6 @@
 import type { ColorTheme, Tab, TextDocument, TextDocumentShowOptions, TextEditor, WorkspaceFolder } from 'vscode';
 import { version as codeVersion, ColorThemeKind, env, Uri, ViewColumn, window, workspace } from 'vscode';
-import { ImageMimetypes, Schemes, trackableSchemes } from '../constants';
+import { imageMimetypes, Schemes, trackableSchemes } from '../constants';
 import { isGitUri } from '../git/gitUri';
 import { executeCoreCommand } from './command';
 import { configuration } from './configuration';
@@ -175,7 +175,7 @@ export function isTrackableTextEditor(editor: TextEditor): boolean {
 }
 
 export function isTrackableUri(uri: Uri): boolean {
-	return trackableSchemes.has(uri.scheme);
+	return trackableSchemes.has(uri.scheme as Schemes);
 }
 
 export function isVirtualUri(uri: Uri): boolean {
@@ -211,7 +211,7 @@ export async function openEditor(
 			uri = uri.documentUri();
 		}
 
-		if (background || (uri.scheme === Schemes.GitLens && ImageMimetypes[extname(uri.fsPath)])) {
+		if (background || (uri.scheme === Schemes.GitLens && imageMimetypes[extname(uri.fsPath)])) {
 			await executeCoreCommand('vscode.open', uri, { background: background, ...options });
 
 			return undefined;

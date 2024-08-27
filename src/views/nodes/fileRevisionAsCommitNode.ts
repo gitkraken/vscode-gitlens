@@ -1,8 +1,8 @@
 import type { CancellationToken, Command, Selection, Uri } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
-import type { Colors } from '../../constants';
-import { Commands } from '../../constants';
+import type { Colors } from '../../constants.colors';
+import { Commands } from '../../constants.commands';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';

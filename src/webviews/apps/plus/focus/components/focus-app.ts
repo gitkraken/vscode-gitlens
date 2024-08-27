@@ -13,7 +13,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
-import type { Source } from '../../../../../constants';
+import type { Source } from '../../../../../constants.telemetry';
 import type { State } from '../../../../../plus/webviews/focus/protocol';
 import { debounce } from '../../../../../system/function';
 import { themeProperties } from './gk-theme.css';

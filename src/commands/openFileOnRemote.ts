@@ -1,6 +1,7 @@
 import type { TextEditor, Uri } from 'vscode';
 import { Range } from 'vscode';
-import { Commands, GlyphChars } from '../constants';
+import { GlyphChars } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';

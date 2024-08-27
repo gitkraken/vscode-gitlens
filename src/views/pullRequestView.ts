@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { PullRequestViewConfig, ViewFilesLayout } from '../config';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitBranch } from '../git/models/branch';

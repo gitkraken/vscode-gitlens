@@ -2,7 +2,7 @@ import type { SourceControlResourceState } from 'vscode';
 import { env, Uri, window } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { isUncommitted } from '../git/models/reference';

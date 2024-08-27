@@ -6,7 +6,7 @@ import type {
 	WebviewTypes,
 	WebviewViewIds,
 	WebviewViewTypes,
-} from '../constants';
+} from '../constants.views';
 import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/configuration';
 
 export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;

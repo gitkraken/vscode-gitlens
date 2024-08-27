@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';

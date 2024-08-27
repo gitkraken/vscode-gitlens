@@ -8,7 +8,8 @@ import type {
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import { uuid } from '@env/crypto';
-import type { Commands, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants';
+import type { Commands } from '../constants.commands';
+import type { WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import { executeCoreCommand, registerCommand } from '../system/command';

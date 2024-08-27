@@ -1,5 +1,5 @@
 import { Disposable, ViewColumn } from 'vscode';
-import { Commands } from '../../../constants';
+import { Commands } from '../../../constants.commands';
 import { registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import type { WebviewPanelsProxy, WebviewsController } from '../../../webviews/webviewsController';

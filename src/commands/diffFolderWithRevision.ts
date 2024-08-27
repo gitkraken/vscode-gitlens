@@ -1,6 +1,7 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { FileType, Uri, workspace } from 'vscode';
-import { Commands, GlyphChars } from '../constants';
+import { GlyphChars } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { openFolderCompare } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';

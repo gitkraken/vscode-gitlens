@@ -1,6 +1,7 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
 import { Range, ViewColumn } from 'vscode';
-import { Commands, GlyphChars } from '../constants';
+import { GlyphChars } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';

@@ -1,6 +1,6 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import { Container } from '../container';
 import type { FocusCommandArgs } from '../plus/focus/focus';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
