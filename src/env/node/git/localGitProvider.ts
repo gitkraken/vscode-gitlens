@@ -183,7 +183,7 @@ import { configuration } from '../../../system/configuration';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function';
-import { filterMap as filterMapIterable, find, first, join, last, map, some } from '../../../system/iterable';
+import { filterMap as filterMapIterable, find, first, join, last, map, skip, some } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
 import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
@@ -2344,9 +2344,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const downstreamMap = new Map<string, string[]>();
 
 		let stdin: string | undefined;
+
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 		const stash = getSettledValue(stashResult);
-		if (stash != null && stash.commits.size !== 0) {
+		if (stash?.commits.size) {
 			stdin = join(
 				map(stash.commits.values(), c => c.sha.substring(0, 9)),
 				'\n',
@@ -3618,6 +3619,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				await this.getCurrentUser(repoPath),
 				limit,
 				false,
+				undefined,
 				undefined,
 				undefined,
 				hasMoreOverride,
@@ -5379,24 +5381,25 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push(...files);
 			}
 
+			const includeOnlyStashes = args.includes('--no-walk');
+
 			let stashes: Map<string, GitStashCommit> | undefined;
 			let stdin: string | undefined;
+
 			if (shas == null) {
-				const stash = await this.getStash(repoPath);
 				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
+				const stash = await this.getStash(repoPath);
 				if (stash?.commits.size) {
-					stashes = new Map();
+					stdin = '';
+					stashes = new Map(stash.commits);
 					for (const commit of stash.commits.values()) {
-						stashes.set(commit.sha, commit);
-						for (const p of commit.parents) {
+						stdin += `${commit.sha.substring(0, 9)}\n`;
+						// Include the stash's 2nd (index files) and 3rd (untracked files) parents
+						for (const p of skip(commit.parents, 1)) {
 							stashes.set(p, commit);
+							stdin += `${p.substring(0, 9)}\n`;
 						}
 					}
-
-					stdin = join(
-						map(stash.commits.values(), c => c.sha.substring(0, 9)),
-						'\n',
-					);
 				}
 			}
 
@@ -5419,6 +5422,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				false,
 				undefined,
 				stashes,
+				includeOnlyStashes,
 			);
 
 			if (log != null) {
@@ -5522,15 +5526,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
+			const includeOnlyStashes = searchArgs.includes('--no-walk');
 
-			const stash = await this.getStash(repoPath);
+			let stashes: Map<string, GitStashCommit> | undefined;
 			let stdin: string | undefined;
+
 			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
+			const stash = await this.getStash(repoPath);
 			if (stash?.commits.size) {
-				stdin = join(
-					map(stash.commits.values(), c => c.sha.substring(0, 9)),
-					'\n',
-				);
+				stdin = '';
+				stashes = new Map(stash.commits);
+				for (const commit of stash.commits.values()) {
+					stdin += `${commit.sha.substring(0, 9)}\n`;
+					// Include the stash's 2nd (index files) and 3rd (untracked files) parents
+					for (const p of skip(commit.parents, 1)) {
+						stashes.set(p, commit);
+						stdin += `${p.substring(0, 9)}\n`;
+					}
+				}
 			}
 
 			const args = [
@@ -5584,6 +5597,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				let count = total;
 
 				for (const r of refAndDateParser.parse(data)) {
+					if (includeOnlyStashes && !stashes?.has(r.sha)) continue;
+
 					if (results.has(r.sha)) {
 						limit--;
 						continue;

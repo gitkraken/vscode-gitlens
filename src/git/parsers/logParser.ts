@@ -408,6 +408,7 @@ export function parseGitLog(
 	reverse: boolean,
 	range: Range | undefined,
 	stashes?: Map<string, GitStashCommit>,
+	includeOnlyStashes?: boolean,
 	hasMoreOverride?: boolean,
 ): GitLog | undefined {
 	using sw = maybeStopWatch(`Git.parseLog(${repoPath}, fileName=${fileName}, sha=${sha})`, {
@@ -684,6 +685,8 @@ export function parseGitLog(
 							: undefined);
 				}
 				first = false;
+
+				if (includeOnlyStashes && !stashes?.has(entry.sha!)) continue;
 
 				const commit = commits.get(entry.sha!);
 				if (commit === undefined) {
