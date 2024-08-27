@@ -14,8 +14,10 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 	RequestRateLimitError,
+	RequestsAreBlockedTemporarilyError,
 } from '../../errors';
 import {
+	showIntegrationDisconnectedTooManyFailedRequestsWarningMessage,
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../messages';
@@ -150,6 +152,9 @@ export class ServerConnection implements Disposable {
 	}
 
 	private async gkFetch(url: RequestInfo, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
+		if (this.requestsAreBlocked) {
+			throw new RequestsAreBlockedTemporarilyError();
+		}
 		const scope = getLogScope();
 
 		try {
@@ -184,7 +189,6 @@ export class ServerConnection implements Disposable {
 					url = `${url}?${options.query}`;
 				}
 			}
-			// TODO@eamodio handle common response errors
 
 			return this.fetch(
 				url,
@@ -277,7 +281,23 @@ export class ServerConnection implements Disposable {
 		throw new AuthenticationRequiredError();
 	}
 
-	trackRequestException(): void {}
+	private requestExceptionCount = 0;
+	private requestsAreBlocked = false;
+
+	resetRequestExceptionCount(): void {
+		this.requestExceptionCount = 0;
+		this.requestsAreBlocked = false;
+	}
+
+	trackRequestException(): void {
+		this.requestExceptionCount++;
+
+		if (this.requestExceptionCount >= 5 && !this.requestsAreBlocked) {
+			void showIntegrationDisconnectedTooManyFailedRequestsWarningMessage('GitKraken');
+			this.requestsAreBlocked = true;
+			this.requestExceptionCount = 0;
+		}
+	}
 }
 
 export interface GraphQLRequest {

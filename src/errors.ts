@@ -237,3 +237,11 @@ export class RequestRateLimitError extends Error {
 		Error.captureStackTrace?.(this, RequestRateLimitError);
 	}
 }
+
+export class RequestsAreBlockedTemporarilyError extends Error {
+	constructor() {
+		super('Requests are blocked');
+
+		Error.captureStackTrace?.(this, RequestsAreBlockedTemporarilyError);
+	}
+}

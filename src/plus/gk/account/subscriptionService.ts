@@ -438,6 +438,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private async logoutCore(reset: boolean = false): Promise<void> {
+		this.connection.resetRequestExceptionCount();
 		this._lastValidatedDate = undefined;
 		if (this._validationTimer != null) {
 			clearInterval(this._validationTimer);
@@ -1148,6 +1149,7 @@ export class SubscriptionService implements Disposable {
 			}
 		}
 
+		this.connection.resetRequestExceptionCount();
 		return session;
 	}
 
