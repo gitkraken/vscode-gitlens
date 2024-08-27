@@ -1,12 +1,27 @@
-import type { CancellationToken, Disposable } from 'vscode';
-import { version as codeVersion, env, Uri } from 'vscode';
+import type { RequestError } from '@octokit/request-error';
+import type { CancellationToken } from 'vscode';
+import { version as codeVersion, env, Uri, window } from 'vscode';
 import type { HeadersInit, RequestInfo, RequestInit, Response } from '@env/fetch';
 import { fetch as _fetch, getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
+import type { Disposable } from '../../api/gitlens';
 import type { Container } from '../../container';
-import { AuthenticationRequiredError, CancellationError } from '../../errors';
+import {
+	AuthenticationError,
+	AuthenticationErrorReason,
+	AuthenticationRequiredError,
+	CancellationError,
+	ProviderRequestClientError,
+	ProviderRequestNotFoundError,
+	ProviderRequestRateLimitError,
+} from '../../errors';
+import {
+	showIntegrationRequestFailed500WarningMessage,
+	showIntegrationRequestTimedOutWarningMessage,
+} from '../../messages';
 import { memoize } from '../../system/decorators/memoize';
 import { Logger } from '../../system/logger';
+import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 
 interface FetchOptions {
@@ -180,8 +195,78 @@ export class ServerConnection implements Disposable {
 				options,
 			);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			this.handleGkRequestError('gitkraken', ex, scope);
 			throw ex;
+		}
+	}
+
+	private buildProviderRequestRateLimitError(token: string | undefined, ex: RequestError) {
+		let resetAt: number | undefined;
+
+		const reset = ex.response?.headers?.['x-ratelimit-reset'];
+		if (reset != null) {
+			resetAt = parseInt(reset, 10);
+			if (Number.isNaN(resetAt)) {
+				resetAt = undefined;
+			}
+		}
+		return new ProviderRequestRateLimitError(ex, token, resetAt);
+	}
+
+	private handleGkRequestError(
+		token: string | undefined,
+		ex: RequestError | (Error & { name: 'AbortError' }),
+		scope: LogScope | undefined,
+	): void {
+		if (ex instanceof CancellationError) throw ex;
+		if (ex.name === 'AbortError') throw new CancellationError(ex);
+
+		switch (ex.status) {
+			case 404: // Not found
+				throw new ProviderRequestNotFoundError(ex);
+			case 401: // Unauthorized
+				throw new AuthenticationError('gitkraken', AuthenticationErrorReason.Unauthorized, ex);
+			case 429: //Too Many Requests
+				this.trackRequestException();
+				throw this.buildProviderRequestRateLimitError(token, ex);
+			case 403: // Forbidden
+				if (ex.message.includes('rate limit')) {
+					this.trackRequestException();
+					throw this.buildProviderRequestRateLimitError(token, ex);
+				}
+				throw new AuthenticationError('gitkraken', AuthenticationErrorReason.Forbidden, ex);
+			case 500: // Internal Server Error
+				Logger.error(ex, scope);
+				if (ex.response != null) {
+					this.trackRequestException();
+					void showIntegrationRequestFailed500WarningMessage(
+						'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+					);
+				}
+				return;
+			case 502: // Bad Gateway
+				Logger.error(ex, scope);
+				if (ex.message.includes('timeout')) {
+					this.trackRequestException();
+					void showIntegrationRequestTimedOutWarningMessage('GitKraken');
+				}
+				break;
+			case 503: // Service Unavailable
+				Logger.error(ex, scope);
+				this.trackRequestException();
+				void showIntegrationRequestFailed500WarningMessage(
+					'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+				);
+				return;
+			default:
+				if (ex.status >= 400 && ex.status < 500) throw new ProviderRequestClientError(ex);
+				break;
+		}
+
+		if (Logger.isDebugging) {
+			void window.showErrorMessage(
+				`GitKraken request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
+			);
 		}
 	}
 
@@ -191,6 +276,8 @@ export class ServerConnection implements Disposable {
 
 		throw new AuthenticationRequiredError();
 	}
+
+	trackRequestException(): void {}
 }
 
 export interface GraphQLRequest {

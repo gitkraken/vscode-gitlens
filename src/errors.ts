@@ -229,7 +229,7 @@ export class ProviderRequestNotFoundError extends Error {
 export class ProviderRequestRateLimitError extends Error {
 	constructor(
 		public readonly original: Error,
-		public readonly token: string,
+		public readonly token: string | undefined,
 		public readonly resetAt: number | undefined,
 	) {
 		super(original.message);
