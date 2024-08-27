@@ -1,5 +1,5 @@
 import type { VSCodeAIModels } from './ai/vscodeProvider';
-import type { SupportedAIModels } from './constants';
+import type { SupportedAIModels } from './constants.ai';
 import type { ResourceDescriptor } from './plus/integrations/integration';
 import type { DateTimeFormat } from './system/date';
 import type { LogLevel } from './system/logger.constants';

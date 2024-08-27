@@ -1,6 +1,7 @@
 import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
 import { commands, QuickPickItemKind } from 'vscode';
-import type { Commands, Keys } from '../../constants';
+import type { Keys } from '../../constants';
+import type { Commands } from '../../constants.commands';
 
 declare module 'vscode' {
 	interface QuickPickItem {

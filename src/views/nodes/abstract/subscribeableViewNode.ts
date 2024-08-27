@@ -1,6 +1,6 @@
 import type { TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
-import type { TreeViewSubscribableNodeTypes } from '../../../constants';
+import type { TreeViewSubscribableNodeTypes } from '../../../constants.views';
 import type { GitUri } from '../../../git/gitUri';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';

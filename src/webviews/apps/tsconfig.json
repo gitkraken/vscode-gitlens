@@ -18,6 +18,7 @@
 		"../**/protocol.ts",
 		"../../config.ts",
 		"../../constants.ts",
+		"../../constants.*.ts",
 		"../../features.ts",
 		"../../subscription.ts",
 		"../../system/**/*",

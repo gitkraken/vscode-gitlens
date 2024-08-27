@@ -1,6 +1,6 @@
 import { ViewColumn } from 'vscode';
-import type { Sources } from '../../../constants';
-import { Commands } from '../../../constants';
+import { Commands } from '../../../constants.commands';
+import type { Sources } from '../../../constants.telemetry';
 import { executeCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { setContext } from '../../../system/context';

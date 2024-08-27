@@ -1,6 +1,6 @@
 import type { CancellationToken, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
 import { CancellationTokenSource, LanguageModelChatMessage, lm, window } from 'vscode';
-import type { TelemetryEvents } from '../constants';
+import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { configuration } from '../system/configuration';
 import { sum } from '../system/iterable';

@@ -1,8 +1,9 @@
 import type { Command, Selection } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
-import type { TreeViewRefFileNodeTypes } from '../../constants';
-import { Commands, Schemes } from '../../constants';
+import { Schemes } from '../../constants';
+import { Commands } from '../../constants.commands';
+import type { TreeViewRefFileNodeTypes } from '../../constants.views';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';

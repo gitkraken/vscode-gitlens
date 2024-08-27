@@ -22,8 +22,10 @@ import {
 } from 'vscode';
 import { getPlatform } from '@env/platform';
 import type { OpenWalkthroughCommandArgs } from '../../../commands/walkthroughs';
-import type { CoreColors, Source } from '../../../constants';
-import { Commands, urls } from '../../../constants';
+import { urls } from '../../../constants';
+import type { CoreColors } from '../../../constants.colors';
+import { Commands } from '../../../constants.commands';
+import type { Source } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { AccountValidationError } from '../../../errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';

@@ -1,7 +1,7 @@
 import type { MessageItem } from 'vscode';
 import { window } from 'vscode';
-import type { Source } from '../constants';
 import { urls } from '../constants';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { openUrl } from '../system/utils';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from './gk/account/subscription';

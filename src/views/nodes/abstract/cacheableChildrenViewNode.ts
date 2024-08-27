@@ -1,4 +1,4 @@
-import type { TreeViewNodeTypes } from '../../../constants';
+import type { TreeViewNodeTypes } from '../../../constants.views';
 import { debug } from '../../../system/decorators/log';
 import type { View } from '../../viewBase';
 import { disposeChildren } from '../../viewBase';

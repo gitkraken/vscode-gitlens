@@ -1,6 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { copyMessageToClipboard } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';

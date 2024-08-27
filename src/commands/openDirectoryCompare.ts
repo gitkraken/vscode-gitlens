@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { openDirectoryCompare } from '../git/actions/commit';
 import { showGenericErrorMessage } from '../messages';

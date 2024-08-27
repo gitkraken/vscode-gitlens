@@ -1,6 +1,7 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, Uri, window } from 'vscode';
-import { Commands, proBadge } from '../../../constants';
+import { proBadge } from '../../../constants';
+import { Commands } from '../../../constants.commands';
 import type { Container } from '../../../container';
 import type { CommitSelectedEvent, FileSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';

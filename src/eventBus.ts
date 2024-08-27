@@ -1,7 +1,7 @@
 import type { Disposable, Uri } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { ViewsConfigKeys } from './config';
-import type { CustomEditorIds, WebviewIds, WebviewViewIds } from './constants';
+import type { CustomEditorIds, WebviewIds, WebviewViewIds } from './constants.views';
 import type { GitCaches } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';

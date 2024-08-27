@@ -1,6 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { Source } from '../../../../constants';
+import type { Source } from '../../../../constants.telemetry';
 import type { SubscriptionState } from '../../../../plus/gk/account/subscription';
 import { isSubscriptionStatePaidOrTrial } from '../../../../plus/gk/account/subscription';
 import '../../plus/shared/components/feature-gate-plus-state';

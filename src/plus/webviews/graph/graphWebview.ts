@@ -16,8 +16,9 @@ import type {
 	GraphMinimapMarkersAdditionalTypes,
 	GraphScrollMarkersAdditionalTypes,
 } from '../../../config';
-import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants';
-import { Commands, GlyphChars } from '../../../constants';
+import { GlyphChars } from '../../../constants';
+import { Commands } from '../../../constants.commands';
+import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
 import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
 import type { CommitSelectedEvent } from '../../../eventBus';

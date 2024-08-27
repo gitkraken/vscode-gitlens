@@ -1,5 +1,5 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
-import type { Sources } from '../../../constants';
+import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';

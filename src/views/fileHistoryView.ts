@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import type { FileHistoryViewConfig } from '../config';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import { executeCommand } from '../system/command';

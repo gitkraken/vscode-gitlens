@@ -1,4 +1,5 @@
-import { Commands, GlyphChars } from '../constants';
+import { GlyphChars } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { createRevisionRange, shortenRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';

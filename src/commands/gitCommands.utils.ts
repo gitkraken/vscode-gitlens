@@ -1,4 +1,4 @@
-import type { RecentUsage } from '../constants';
+import type { StoredRecentUsage } from '../constants.storage';
 import type { Container } from '../container';
 import { FocusCommand } from '../plus/focus/focus';
 import { configuration } from '../system/configuration';
@@ -146,7 +146,7 @@ export class PickCommandStep implements QuickPickStep<QuickCommand> {
 	private async updateCommandUsage(id: string, timestamp: number) {
 		let usage = this.container.storage.getWorkspace(`gitComandPalette:usage`);
 		if (usage === undefined) {
-			usage = Object.create(null) as RecentUsage;
+			usage = Object.create(null) as StoredRecentUsage;
 		}
 
 		usage[id] = timestamp;

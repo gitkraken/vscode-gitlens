@@ -1,7 +1,8 @@
 import type { ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
-import type { Commands, CustomEditorTypes, WebviewTypes, WebviewViewTypes } from '../constants';
+import type { Commands } from '../constants.commands';
+import type { CustomEditorTypes, WebviewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { executeCommand, executeCoreCommand } from '../system/command';
 import { setContext } from '../system/context';

@@ -1,5 +1,5 @@
 import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
-import type { Colors } from '../../constants';
+import type { Colors } from '../../constants.colors';
 import type { ProviderReference } from './remoteProvider';
 
 export type IssueOrPullRequestType = 'issue' | 'pullrequest';

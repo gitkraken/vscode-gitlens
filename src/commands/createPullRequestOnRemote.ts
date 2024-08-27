@@ -1,5 +1,5 @@
 import { window } from 'vscode';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { getRemoteNameFromBranchName } from '../git/models/branch';
 import type { GitRemote } from '../git/models/remote';

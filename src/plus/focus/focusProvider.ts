@@ -6,7 +6,7 @@ import type {
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { md5 } from '@env/crypto';
-import { Commands } from '../../constants';
+import { Commands } from '../../constants.commands';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import { openComparisonChanges } from '../../git/actions/commit';

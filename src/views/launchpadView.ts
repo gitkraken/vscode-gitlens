@@ -2,7 +2,8 @@ import type { ConfigurationChangeEvent, MessageItem, TreeViewVisibilityChangeEve
 import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { LaunchpadViewConfig, ViewFilesLayout } from '../config';
-import { Commands, experimentalBadge } from '../constants';
+import { experimentalBadge } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { GitUri, unknownGitUri } from '../git/gitUri';

@@ -1,5 +1,5 @@
 import type { CancellationToken, Command, Disposable, Event, TreeItem } from 'vscode';
-import type { TreeViewNodeTypes } from '../../../constants';
+import type { TreeViewNodeTypes } from '../../../constants.views';
 import type { GitUri } from '../../../git/gitUri';
 import type { GitBranch } from '../../../git/models/branch';
 import type { GitCommit } from '../../../git/models/commit';

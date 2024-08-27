@@ -1,5 +1,5 @@
 /*global window document*/
-import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants';
+import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
 import { debounce } from '../../../system/function';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';

@@ -1,8 +1,8 @@
 import type { Disposable, TreeCheckboxChangeEvent } from 'vscode';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { ViewShowBranchComparison } from '../../config';
-import type { StoredBranchComparison, StoredBranchComparisons } from '../../constants';
 import { GlyphChars } from '../../constants';
+import type { StoredBranchComparison, StoredBranchComparisons } from '../../constants.storage';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import { createRevisionRange, shortenRevision } from '../../git/models/reference';

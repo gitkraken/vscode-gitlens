@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import type { Source } from '../../../../../constants';
-import { Commands } from '../../../../../constants';
+import { Commands } from '../../../../../constants.commands';
+import type { Source } from '../../../../../constants.telemetry';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import { SubscriptionState } from '../../../../../plus/gk/account/subscription';

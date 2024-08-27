@@ -1,8 +1,8 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { SearchAndCompareViewConfig, ViewFilesLayout } from '../config';
-import type { StoredNamedRef, StoredSearchAndCompareItem } from '../constants';
-import { Commands } from '../constants';
+import { Commands } from '../constants.commands';
+import type { StoredNamedRef, StoredSearchAndCompareItem } from '../constants.storage';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitLog } from '../git/models/log';

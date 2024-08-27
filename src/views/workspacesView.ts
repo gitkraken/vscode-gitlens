@@ -1,7 +1,8 @@
 import type { CancellationToken, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
-import { Commands, previewBadge, urls } from '../constants';
+import { previewBadge, urls } from '../constants';
+import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';

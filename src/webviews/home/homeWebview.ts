@@ -1,5 +1,5 @@
 import { Disposable, workspace } from 'vscode';
-import type { ContextKeys } from '../../constants';
+import type { ContextKeys } from '../../constants.context';
 import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';

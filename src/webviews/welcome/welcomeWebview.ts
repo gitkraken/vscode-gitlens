@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
-import type { ContextKeys } from '../../constants';
+import type { ContextKeys } from '../../constants.context';
 import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import { isSubscriptionPaid, SubscriptionState } from '../../plus/gk/account/subscription';

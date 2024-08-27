@@ -7,7 +7,9 @@ import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionC
 import type { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote';
 import { fromOutputLevel } from './config';
-import { Commands, SyncedStorageKeys, trackableSchemes } from './constants';
+import { trackableSchemes } from './constants';
+import { Commands } from './constants.commands';
+import { SyncedStorageKeys } from './constants.storage';
 import { Container } from './container';
 import { isGitUri } from './git/gitUri';
 import { getBranchNameWithoutRemote, isBranch } from './git/models/branch';

@@ -32,8 +32,8 @@ import {
 	UnpinQuickInputButton,
 	UnsnoozeQuickInputButton,
 } from '../../commands/quickCommand.buttons';
-import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants';
 import { previewBadge } from '../../constants';
+import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';

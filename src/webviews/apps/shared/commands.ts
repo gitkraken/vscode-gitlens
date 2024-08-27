@@ -1,4 +1,4 @@
-import type { Commands } from '../../../constants';
+import type { Commands } from '../../../constants.commands';
 
 export function createCommandLink(command: Commands | string, options?: { args?: string | Record<string, unknown> }) {
 	if (options?.args != null) {
