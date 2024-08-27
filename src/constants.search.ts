@@ -1,5 +1,6 @@
-export type NormalizedSearchOperators = 'message:' | 'author:' | 'commit:' | 'file:' | 'change:' | 'type:';
-export type SearchOperators = NormalizedSearchOperators | '' | '=:' | '@:' | '#:' | '?:' | '~:';
+type SearchOperatorsShortForm = '' | '=:' | '@:' | '#:' | '?:' | '~:';
+export type SearchOperatorsLongForm = 'message:' | 'author:' | 'commit:' | 'file:' | 'change:' | 'type:';
+export type SearchOperators = SearchOperatorsShortForm | SearchOperatorsLongForm;
 
 export const searchOperators = new Set<string>([
 	'',
@@ -16,7 +17,7 @@ export const searchOperators = new Set<string>([
 	'type:',
 ]);
 
-export const normalizeSearchOperatorsMap = new Map<SearchOperators, NormalizedSearchOperators>([
+export const searchOperatorsToLongFormMap = new Map<SearchOperators, SearchOperatorsLongForm>([
 	['', 'message:'],
 	['=:', 'message:'],
 	['message:', 'message:'],
@@ -33,6 +34,9 @@ export const normalizeSearchOperatorsMap = new Map<SearchOperators, NormalizedSe
 
 export const searchOperationRegex =
 	/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:|type:)\s?(?<value>".+?"|\S+}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change|type):)/g;
+
+export const searchOperationHelpRegex =
+	/(?:^|(\b|\s)*)((=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:|type:)(?:"[^"]*"?|\w*))(?:$|(\b|\s))/g;
 
 export interface SearchQuery {
 	query: string;

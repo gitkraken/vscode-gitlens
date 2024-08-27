@@ -1,39 +1,13 @@
 import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import type { SearchQuery } from '../../../../../constants.search';
+import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../../../../../constants.search';
+import { searchOperationHelpRegex, searchOperatorsToLongFormMap } from '../../../../../constants.search';
 import type { Deferrable } from '../../../../../system/function';
 import { debounce } from '../../../../../system/function';
 import { GlElement } from '../element';
 import type { PopMenu } from '../overlays/pop-menu';
 import '../code-icon';
 import '../overlays/tooltip';
-
-export type SearchOperators =
-	| '=:'
-	| 'message:'
-	| '@:'
-	| 'author:'
-	| '#:'
-	| 'commit:'
-	| '?:'
-	| 'file:'
-	| '~:'
-	| 'change:';
-
-export type HelpTypes = 'message:' | 'author:' | 'commit:' | 'file:' | 'change:';
-
-const operatorsHelpMap = new Map<SearchOperators, HelpTypes>([
-	['=:', 'message:'],
-	['message:', 'message:'],
-	['@:', 'author:'],
-	['author:', 'author:'],
-	['#:', 'commit:'],
-	['commit:', 'commit:'],
-	['?:', 'file:'],
-	['file:', 'file:'],
-	['~:', 'change:'],
-	['change:', 'change:'],
-]);
 
 export interface SearchNavigationEventDetail {
 	direction: 'first' | 'previous' | 'next' | 'last';
@@ -302,13 +276,21 @@ export class GlSearchInput extends GlElement {
 			color: var(--vscode-menu-selectionForeground);
 			background-color: var(--vscode-menu-selectionBackground);
 		}
+
+		code {
+			display: inline-block;
+			backdrop-filter: brightness(1.3);
+			border-radius: 3px;
+			padding: 0px 4px;
+			font-family: var(--vscode-editor-font-family);
+		}
 	`;
 
 	@query('input') input!: HTMLInputElement;
 	@query('pop-menu') popmenu!: PopMenu;
 
 	@state() errorMessage = '';
-	@state() helpType?: HelpTypes;
+	@state() helpType?: SearchOperatorsLongForm;
 
 	@property({ type: String }) label = 'Search';
 	@property({ type: String }) placeholder = 'Search...';
@@ -348,19 +330,16 @@ export class GlSearchInput extends GlElement {
 		const cursor = this.input?.selectionStart;
 		const value = this.value;
 		if (cursor != null && value.length !== 0 && value.includes(':')) {
-			const regex =
-				/(?:^|[\b\s]*)((=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)(?:"[^"]*"?|\w*))(?:$|[\b\s])/gi;
-
+			const regex = new RegExp(searchOperationHelpRegex, 'g');
 			let match;
 			do {
 				match = regex.exec(value);
 				if (match == null) break;
 
-				const [, part, op] = match;
+				const [, , part, op] = match;
 
-				// console.log('updateHelpText', cursor, match.index, match.index + part.trim().length, match);
-				if (cursor > match.index && cursor <= match.index + part.trim().length) {
-					this.helpType = operatorsHelpMap.get(op as SearchOperators);
+				if (cursor > match.index && cursor <= match.index + (part?.trim().length ?? 0)) {
+					this.helpType = searchOperatorsToLongFormMap.get(op as SearchOperators);
 					return;
 				}
 			} while (true);
@@ -426,10 +405,11 @@ export class GlSearchInput extends GlElement {
 		window.requestAnimationFrame(() => {
 			this.updateHelpText();
 			// `@me` can be searched right away since it doesn't need additional text
-			if (token === '@me') {
+			if (token === '@me' || token === 'type:stash') {
 				this.debouncedOnSearchChanged();
 			}
 			this.input.focus();
+			this.input.selectionStart = this.value.length;
 		});
 	}
 
@@ -517,6 +497,15 @@ export class GlSearchInput extends GlElement {
 								Change <small>change: or ~:</small>
 							</button>
 						</menu-item>
+						<menu-item role="none">
+							<button
+								class="menu-button"
+								type="button"
+								@click="${() => this.handleInsertToken('type:stash')}"
+							>
+								Type <small>type:stash</small>
+							</button>
+						</menu-item>
 					</menu-list>
 				</pop-menu>
 				<span slot="content">${this.label}</span>
@@ -541,23 +530,27 @@ export class GlSearchInput extends GlElement {
 					${this.errorMessage !== '' ? html`${this.errorMessage}${this.helpType ? html`<br />` : ''}` : ''}
 					${this.helpType === 'message:'
 						? html`<span
-								>Message: use quotes to search for phrases, e.g. message:"Updates dependencies"</span
+								>Message: use quotes to search for phrases, e.g.
+								<code>message:"Updates dependencies"</code></span
 						  >`
 						: ''}
 					${this.helpType === 'author:'
-						? html`<span>Author: use a user's account, e.g. author:eamodio</span>`
+						? html`<span>Author: use a user's account, e.g. <code>author:eamodio</code></span>`
 						: ''}
 					${this.helpType === 'commit:'
-						? html`<span>Commit: use a full or short Commit SHA, e.g. commit:4ce3a</span>`
+						? html`<span>Commit: use a full or short Commit SHA, e.g. <code>commit:4ce3a</code></span>`
 						: ''}
 					${this.helpType === 'file:'
 						? html`<span
-								>File: use a filename with extension, e.g. file:package.json, or a glob pattern, e.g.
-								file:*graph*</span
+								>File: use a filename with extension, e.g. <code>file:package.json</code>, or a glob
+								pattern, e.g. <code>file:*graph*</code></span
 						  >`
 						: ''}
 					${this.helpType === 'change:'
-						? html`<span>Change: use a regex pattern, e.g. change:update&#92;(param</span>`
+						? html`<span>Change: use a regex pattern, e.g. <code>change:update&#92;(param</code></span>`
+						: ''}
+					${this.helpType === 'type:'
+						? html`<span>Type: use <code>type:stash</code> to search only stashes</span>`
 						: ''}
 				</div>
 			</div>

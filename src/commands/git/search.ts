@@ -1,7 +1,7 @@
 import type { QuickInputButton, QuickPick } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
 import { GlyphChars } from '../../constants';
-import type { NormalizedSearchOperators, SearchOperators, SearchQuery } from '../../constants.search';
+import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../../constants.search';
 import { searchOperators } from '../../constants.search';
 import type { Container } from '../../container';
 import { showDetailsView } from '../../git/actions/commit';
@@ -95,6 +95,7 @@ const searchOperatorToTitleMap = new Map<SearchOperators, string>([
 	['file:', 'Search by File'],
 	['~:', 'Search by Changes'],
 	['change:', 'Search by Changes'],
+	['type:', 'Search by Type'],
 ]);
 
 type SearchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
@@ -312,7 +313,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 	}
 
 	private *pickSearchOperatorStep(state: SearchStepState, context: Context): StepResultGenerator<string> {
-		const items: QuickPickItemOfT<NormalizedSearchOperators>[] = [
+		const items: QuickPickItemOfT<SearchOperatorsLongForm>[] = [
 			{
 				label: searchOperatorToTitleMap.get('')!,
 				description: `pattern or message: pattern or =: pattern ${GlyphChars.Dash} use quotes to search for phrases`,
@@ -355,7 +356,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 		const matchAllButton = new MatchAllToggleQuickInputButton(state.matchAll);
 		const matchRegexButton = new MatchRegexToggleQuickInputButton(state.matchRegex);
 
-		const step = createPickStep<QuickPickItemOfT<NormalizedSearchOperators>>({
+		const step = createPickStep<QuickPickItemOfT<SearchOperatorsLongForm>>({
 			title: appendReposToTitle(context.title, state, context),
 			placeholder: 'e.g. "Updates dependencies" author:eamodio',
 			ignoreFocusOut: true,
@@ -427,7 +428,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 						{
 							label: 'Search for',
 							description: quickpick.value,
-							item: quickpick.value as NormalizedSearchOperators,
+							item: quickpick.value as SearchOperatorsLongForm,
 							picked: true,
 						},
 						...items,
@@ -453,7 +454,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 }
 
 async function updateSearchQuery(
-	item: QuickPickItemOfT<NormalizedSearchOperators>,
+	item: QuickPickItemOfT<SearchOperatorsLongForm>,
 	usePickers: { author?: boolean; file?: { type: 'file' | 'folder' } },
 	quickpick: QuickPick<any>,
 	step: QuickPickStep,

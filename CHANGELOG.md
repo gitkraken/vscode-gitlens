@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Changes the branch icon to a "repo" icon when the branch is in a worktree in views and quick pick menus
   - Adds an _Open in Worktree_ inline and context menu command and an _Open in Worktree in New Window_ context menu command to branches in views and on the _Commit Graph_
   - Removes the _Switch to Branch..._ inline and context menu command from branches in views and on the _Commit Graph_ when the branch is in a worktree
+- Adds ability to only search stashes when using `type:stash` in commit search via the _Commit Graph_, _Search & Compare_ view, or the _Search Commits_ command
 - Adds `...` inline command for stashes on the _GitLens Inspect_ view
 - Adds an "up-to-date" indicator dot to the branch icon of branches in views
 - Adds an "alt" _Pull_ command for the inline _Fetch_ command on branches in views
