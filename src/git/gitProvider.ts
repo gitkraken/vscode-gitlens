@@ -2,6 +2,7 @@ import type { CancellationToken, Disposable, Event, Range, TextDocument, Uri, Wo
 import type { Commit, InputBox } from '../@types/vscode.git';
 import type { ForcePushMode } from '../@types/vscode.git.enums';
 import type { GitConfigKeys } from '../constants';
+import type { SearchQuery } from '../constants.search';
 import type { Features } from '../features';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
@@ -24,7 +25,7 @@ import type { GitTag, TagSortOptions } from './models/tag';
 import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
-import type { GitSearch, SearchQuery } from './search';
+import type { GitSearch } from './search';
 
 export type GitCaches =
 	| 'branches'

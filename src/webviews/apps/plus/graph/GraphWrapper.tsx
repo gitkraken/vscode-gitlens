@@ -20,7 +20,7 @@ import type { FormEvent, MouseEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
-import type { SearchQuery } from '../../../../git/search';
+import type { SearchQuery } from '../../../../constants.search';
 import type { FocusCommandArgs } from '../../../../plus/focus/focus';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';

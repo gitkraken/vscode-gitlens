@@ -1,6 +1,6 @@
 import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import type { SearchQuery } from '../../../../../git/search';
+import type { SearchQuery } from '../../../../../constants.search';
 import type { Deferrable } from '../../../../../system/function';
 import { debounce } from '../../../../../system/function';
 import { GlElement } from '../element';

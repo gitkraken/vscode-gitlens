@@ -3,8 +3,8 @@ import type { CssVariables, GraphRef, GraphRefOptData, GraphRow } from '@gitkrak
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
 import type { GraphBranchesVisibility } from '../../../../config';
+import type { SearchQuery } from '../../../../constants.search';
 import type { GitGraphRowType } from '../../../../git/models/graph';
-import type { SearchQuery } from '../../../../git/search';
 import type {
 	DidSearchParams,
 	GraphAvatars,

@@ -14,6 +14,7 @@ import { isWeb } from '@env/platform';
 import { resetAvatarCache } from '../avatars';
 import type { GitConfigKeys } from '../constants';
 import { GlyphChars, Schemes } from '../constants';
+import type { SearchQuery } from '../constants.search';
 import type { Container } from '../container';
 import { AccessDeniedError, CancellationError, ProviderNotFoundError } from '../errors';
 import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
@@ -81,7 +82,7 @@ import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { RemoteProvider } from './remotes/remoteProvider';
-import type { GitSearch, SearchQuery } from './search';
+import type { GitSearch } from './search';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyDisposable = Object.freeze({

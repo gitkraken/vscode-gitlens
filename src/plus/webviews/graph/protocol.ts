@@ -23,6 +23,7 @@ import type {
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { Config, DateStyle, GraphBranchesVisibility } from '../../../config';
+import type { SearchQuery } from '../../../constants.search';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
@@ -35,7 +36,7 @@ import type {
 	GitTagReference,
 } from '../../../git/models/reference';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
-import type { GitSearchResultData, SearchQuery } from '../../../git/search';
+import type { GitSearchResultData } from '../../../git/search';
 import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
 import type { IpcScope, WebviewState } from '../../../webviews/protocol';
