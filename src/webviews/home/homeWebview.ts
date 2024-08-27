@@ -1,4 +1,5 @@
 import { Disposable, workspace } from 'vscode';
+import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { ContextKeys } from '../../constants.context';
 import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
@@ -117,12 +118,15 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
-		subscription ??= await this.container.subscription.getSubscription(true);
+		const subResult = await this.getSubscription(subscription);
+
 		return {
 			...this.host.baseWebviewState,
 			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
-			subscription: subscription,
+			subscription: subResult.subscription,
+			avatar: subResult.avatar,
+			organizationsCount: subResult.organizationsCount,
 			orgSettings: this.getOrgSettings(),
 			walkthroughCollapsed: this.getWalkthroughCollapsed(),
 			hasAnyIntegrationConnected: this.isAnyIntegrationConnected(),
@@ -150,6 +154,24 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return this._hostedIntegrationConnected;
 	}
 
+	private async getSubscription(subscription?: Subscription) {
+		subscription ??= await this.container.subscription.getSubscription(true);
+
+		let avatar;
+		if (subscription.account?.email) {
+			avatar = getAvatarUriFromGravatarEmail(subscription.account.email, 34).toString();
+		} else {
+			avatar = `${this.host.getWebRoot() ?? ''}/media/gitlens-logo.webp`;
+		}
+
+		return {
+			subscription: subscription,
+			avatar: avatar,
+			organizationsCount:
+				subscription != null ? ((await this.container.organizations.getOrganizations()) ?? []).length : 0,
+		};
+	}
+
 	private notifyDidChangeRepositories() {
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
 	}
@@ -163,10 +185,12 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async notifyDidChangeSubscription(subscription?: Subscription) {
-		subscription ??= await this.container.subscription.getSubscription(true);
+		const subResult = await this.getSubscription(subscription);
 
 		void this.host.notify(DidChangeSubscription, {
-			subscription: subscription,
+			subscription: subResult.subscription,
+			avatar: subResult.avatar,
+			organizationsCount: subResult.organizationsCount,
 		});
 	}
 

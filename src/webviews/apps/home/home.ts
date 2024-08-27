@@ -12,6 +12,7 @@ import {
 } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommand } from '../../protocol';
+import type { AccountContent } from '../plus/account/components/account-content';
 import { App } from '../shared/appBase';
 import type { GlFeatureBadge } from '../shared/components/feature-badge';
 import type { GlPromo } from '../shared/components/promo';
@@ -21,6 +22,7 @@ import '../shared/components/code-icon';
 import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
 import '../shared/components/promo';
+import '../plus/account/components/account-content';
 
 export class HomeApp extends App<State> {
 	constructor() {
@@ -67,20 +69,26 @@ export class HomeApp extends App<State> {
 
 			case DidChangeSubscription.is(msg):
 				this.state.subscription = msg.params.subscription;
+				this.state.avatar = msg.params.avatar;
+				this.state.organizationsCount = msg.params.organizationsCount;
+				this.state.timestamp = Date.now();
 				this.setState(this.state);
 				this.updatePromos();
 				this.updateSourceAndSubscription();
+				this.updateAccountSection();
 
 				break;
 
 			case DidChangeOrgSettings.is(msg):
 				this.state.orgSettings = msg.params.orgSettings;
+				this.state.timestamp = Date.now();
 				this.setState(this.state);
 				this.updateOrgSettings();
 				break;
 
 			case DidChangeIntegrationsConnections.is(msg):
 				this.state.hasAnyIntegrationConnected = msg.params.hasAnyIntegrationConnected;
+				this.state.timestamp = Date.now();
 				this.setState(this.state);
 				this.updateIntegrations();
 				break;
@@ -205,6 +213,17 @@ export class HomeApp extends App<State> {
 		this.updateOrgSettings();
 		this.updateCollapsedSections();
 		this.updateIntegrations();
+		this.updateAccountSection();
+	}
+
+	private updateAccountSection() {
+		const { subscription, avatar, organizationsCount } = this.state;
+
+		const $content = document.getElementById('account-content')! as AccountContent;
+
+		$content.image = avatar ?? '';
+		$content.subscription = subscription;
+		$content.organizationsCount = organizationsCount ?? 0;
 	}
 }
 
