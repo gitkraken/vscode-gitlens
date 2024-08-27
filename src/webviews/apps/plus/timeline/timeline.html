@@ -45,17 +45,17 @@
 				<div class="toolbox">
 					<div class="select-container">
 						<label for="periods">Timeframe</label>
-						<vscode-dropdown id="periods" name="periods" position="below">
-							<vscode-option value="7|D">1 week</vscode-option>
-							<vscode-option value="1|M">1 month</vscode-option>
-							<vscode-option value="3|M" selected="true">3 months</vscode-option>
-							<vscode-option value="6|M">6 months</vscode-option>
-							<vscode-option value="9|M">9 months</vscode-option>
-							<vscode-option value="1|Y">1 year</vscode-option>
-							<vscode-option value="2|Y">2 years</vscode-option>
-							<vscode-option value="4|Y">4 years</vscode-option>
-							<vscode-option value="all">Full history</vscode-option>
-						</vscode-dropdown>
+						<select id="periods" name="periods" position="below" class="gl-timeline-select">
+							<option value="7|D">1 week</option>
+							<option value="1|M">1 month</option>
+							<option value="3|M" selected="true">3 months</option>
+							<option value="6|M">6 months</option>
+							<option value="9|M">9 months</option>
+							<option value="1|Y">1 year</option>
+							<option value="2|Y">2 years</option>
+							<option value="4|Y">4 years</option>
+							<option value="all">Full history</option>
+						</select>
 					</div>
 					<gl-button
 						appearance="toolbar"
