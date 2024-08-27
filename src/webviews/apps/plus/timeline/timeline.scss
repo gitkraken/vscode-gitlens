@@ -21,6 +21,32 @@
 	--popover-bg: var(--color-background--darken-15);
 }
 
+.gl-timeline-select:focus {
+	outline-color: var(--vscode-list-focusOutline);
+}
+
+.gl-timeline-select {
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+	border: 1px solid var(--vscode-dropdown-border);
+	border-radius: calc(var(--corner-radius-round) * 1px);
+	cursor: pointer;
+	font-family: inherit;
+	min-height: 100%;
+	padding: 2px 26px 2px 8px;
+	background-color: var(--vscode-dropdown-background);
+	border-radius: 2px;
+	box-sizing: border-box;
+	color: var(--vscode-foreground);
+	font-family: var(--font-family);
+	height: 26px;
+	position: relative;
+	user-select: none;
+	outline: none;
+	vertical-align: top;
+}
+
 :root {
 	font-size: 62.5%;
 	font-family: var(--font-family);
@@ -152,11 +178,24 @@ h4 {
 	align-items: center;
 	justify-content: flex-end;
 	flex: 100% 0 1;
+	position: relative;
 
 	label {
 		margin: 0 1em 0 0.5rem;
 		font-size: var(--font-size);
 	}
+}
+
+.select-container::after {
+	font-family: codicon;
+	content: '\eab4';
+	font-size: 1.4rem;
+	pointer-events: none;
+	top: 50%;
+	right: 8px;
+	transform: translateY(-50%);
+	position: absolute;
+	color: var(--vscode-foreground);
 }
 
 #content {

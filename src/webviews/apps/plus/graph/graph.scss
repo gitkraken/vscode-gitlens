@@ -1223,11 +1223,12 @@ gl-feature-gate gl-feature-badge {
 
 .minimap-marker-swatch {
 	display: inline-block;
-	width: 1.6rem;
-	height: 1.6rem;
-	border-radius: 3px;
-	margin-right: 0.75rem;
-	vertical-align: bottom;
+	width: 1rem;
+	height: 1rem;
+	border-radius: 2px;
+	transform: scale(1.6);
+	margin-left: 0.3rem;
+	margin-right: 1rem;
 
 	&[data-marker='localBranches'] {
 		background-color: var(--color-graph-minimap-marker-local-branches);

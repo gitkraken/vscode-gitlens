@@ -16,7 +16,6 @@ import type {
 import GraphContainer, { CommitDateTimeSources, refZone } from '@gitkraken/gitkraken-components';
 import type { SlChangeEvent } from '@shoelace-style/shoelace';
 import { SlOption, SlSelect } from '@shoelace-style/shoelace/dist/react';
-import { VSCodeCheckbox, VSCodeRadio, VSCodeRadioGroup } from '@vscode/webview-ui-toolkit/react';
 import type { FormEvent, MouseEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
@@ -69,6 +68,7 @@ import type { IpcNotification } from '../../../protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
 import { createCommandLink } from '../../shared/commands';
 import { GlButton } from '../../shared/components/button.react';
+import { GlCheckbox } from '../../shared/components/checkbox';
 import { CodeIcon } from '../../shared/components/code-icon.react';
 import { GlConnect } from '../../shared/components/integrations/connect.react';
 import { GlMarkdown } from '../../shared/components/markdown/markdown.react';
@@ -76,6 +76,8 @@ import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/compone
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
 import { GlPopover } from '../../shared/components/overlays/popover.react';
 import { GlTooltip } from '../../shared/components/overlays/tooltip.react';
+import type { RadioGroup } from '../../shared/components/radio/radio-group';
+import { GlRadio, GlRadioGroup } from '../../shared/components/radio/radio.react';
 import { GlFeatureBadge } from '../../shared/components/react/feature-badge';
 import { GlFeatureGate } from '../../shared/components/react/feature-gate';
 import { GlIssuePullRequest } from '../../shared/components/react/issue-pull-request';
@@ -469,14 +471,12 @@ export function GraphWrapper({
 	const handleOnMinimapDataTypeChange = (e: Event | FormEvent<HTMLElement>) => {
 		if (graphConfig == null) return;
 
-		const $el = e.target as HTMLInputElement;
-		if ($el.value === 'commits') {
-			const minimapDataType = $el.checked ? 'commits' : 'lines';
-			if (graphConfig.minimapDataType === minimapDataType) return;
+		const $el = e.target as RadioGroup;
+		const minimapDataType = $el.value === 'lines' ? 'lines' : 'commits';
+		if (graphConfig.minimapDataType === minimapDataType) return;
 
-			setGraphConfig({ ...graphConfig, minimapDataType: minimapDataType });
-			onChangeGraphConfiguration?.({ minimapDataType: minimapDataType });
-		}
+		setGraphConfig({ ...graphConfig, minimapDataType: minimapDataType });
+		onChangeGraphConfiguration?.({ minimapDataType: minimapDataType });
 	};
 
 	const handleOnMinimapAdditionalTypesChange = (e: Event | FormEvent<HTMLElement>) => {
@@ -1343,54 +1343,54 @@ export function GraphWrapper({
 														placement="right"
 														content="Only follow the first parent of merge commits to provide a more linear history"
 													>
-														<VSCodeCheckbox
+														<GlCheckbox
 															value="onlyFollowFirstParent"
 															onChange={handleFilterChange}
 															defaultChecked={graphConfig?.onlyFollowFirstParent ?? false}
 														>
 															Simplify Merge History
-														</VSCodeCheckbox>
+														</GlCheckbox>
 													</GlTooltip>
 												</MenuItem>
 												<MenuDivider></MenuDivider>
 												<MenuItem role="none">
-													<VSCodeCheckbox
+													<GlCheckbox
 														value="remotes"
 														onChange={handleFilterChange}
 														defaultChecked={excludeTypes?.remotes ?? false}
 													>
 														Hide Remote-only Branches
-													</VSCodeCheckbox>
+													</GlCheckbox>
 												</MenuItem>
 												<MenuItem role="none">
-													<VSCodeCheckbox
+													<GlCheckbox
 														value="stashes"
 														onChange={handleFilterChange}
 														defaultChecked={excludeTypes?.stashes ?? false}
 													>
 														Hide Stashes
-													</VSCodeCheckbox>
+													</GlCheckbox>
 												</MenuItem>
 											</>
 										)}
 										<MenuItem role="none">
-											<VSCodeCheckbox
+											<GlCheckbox
 												value="tags"
 												onChange={handleFilterChange}
 												defaultChecked={excludeTypes?.tags ?? false}
 											>
 												Hide Tags
-											</VSCodeCheckbox>
+											</GlCheckbox>
 										</MenuItem>
 										<MenuDivider></MenuDivider>
 										<MenuItem role="none">
-											<VSCodeCheckbox
+											<GlCheckbox
 												value="mergeCommits"
 												onChange={handleFilterChange}
 												defaultChecked={graphConfig?.dimMergeCommits ?? false}
 											>
 												Dim Merge Commit Rows
-											</VSCodeCheckbox>
+											</GlCheckbox>
 										</MenuItem>
 									</MenuList>
 								</PopMenu>
@@ -1447,27 +1447,25 @@ export function GraphWrapper({
 										</button>
 										<MenuList slot="content">
 											<MenuLabel>Minimap</MenuLabel>
-											<MenuItem role="none">
-												<VSCodeRadioGroup
-													orientation="vertical"
-													value={graphConfig?.minimapDataType ?? 'commits'}
-												>
-													<VSCodeRadio
-														name="minimap-datatype"
-														value="commits"
-														onChange={handleOnMinimapDataTypeChange}
-													>
+											<GlRadioGroup
+												value={graphConfig?.minimapDataType ?? 'commits'}
+												onChange={handleOnMinimapDataTypeChange}
+											>
+												<MenuItem role="none">
+													<GlRadio name="minimap-datatype" value="commits">
 														Commits
-													</VSCodeRadio>
-													<VSCodeRadio name="minimap-datatype" value="lines">
+													</GlRadio>
+												</MenuItem>
+												<MenuItem role="none">
+													<GlRadio name="minimap-datatype" value="lines">
 														Lines Changed
-													</VSCodeRadio>
-												</VSCodeRadioGroup>
-											</MenuItem>
+													</GlRadio>
+												</MenuItem>
+											</GlRadioGroup>
 											<MenuDivider></MenuDivider>
 											<MenuLabel>Markers</MenuLabel>
 											<MenuItem role="none">
-												<VSCodeCheckbox
+												<GlCheckbox
 													value="localBranches"
 													onChange={handleOnMinimapAdditionalTypesChange}
 													defaultChecked={
@@ -1480,10 +1478,10 @@ export function GraphWrapper({
 														data-marker="localBranches"
 													></span>
 													Local Branches
-												</VSCodeCheckbox>
+												</GlCheckbox>
 											</MenuItem>
 											<MenuItem role="none">
-												<VSCodeCheckbox
+												<GlCheckbox
 													value="remoteBranches"
 													onChange={handleOnMinimapAdditionalTypesChange}
 													defaultChecked={
@@ -1496,10 +1494,10 @@ export function GraphWrapper({
 														data-marker="remoteBranches"
 													></span>
 													Remote Branches
-												</VSCodeCheckbox>
+												</GlCheckbox>
 											</MenuItem>
 											<MenuItem role="none">
-												<VSCodeCheckbox
+												<GlCheckbox
 													value="pullRequests"
 													onChange={handleOnMinimapAdditionalTypesChange}
 													defaultChecked={
@@ -1512,10 +1510,10 @@ export function GraphWrapper({
 														data-marker="pullRequests"
 													></span>
 													Pull Requests
-												</VSCodeCheckbox>
+												</GlCheckbox>
 											</MenuItem>
 											<MenuItem role="none">
-												<VSCodeCheckbox
+												<GlCheckbox
 													value="stashes"
 													onChange={handleOnMinimapAdditionalTypesChange}
 													defaultChecked={
@@ -1527,10 +1525,10 @@ export function GraphWrapper({
 														data-marker="stashes"
 													></span>
 													Stashes
-												</VSCodeCheckbox>
+												</GlCheckbox>
 											</MenuItem>
 											<MenuItem role="none">
-												<VSCodeCheckbox
+												<GlCheckbox
 													value="tags"
 													onChange={handleOnMinimapAdditionalTypesChange}
 													defaultChecked={
@@ -1539,7 +1537,7 @@ export function GraphWrapper({
 												>
 													<span className="minimap-marker-swatch" data-marker="tags"></span>
 													Tags
-												</VSCodeCheckbox>
+												</GlCheckbox>
 											</MenuItem>
 										</MenuList>
 									</PopMenu>

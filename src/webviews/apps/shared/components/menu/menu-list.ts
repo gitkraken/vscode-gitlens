@@ -12,6 +12,7 @@ export class MenuList extends LitElement {
 				width: max-content;
 				background-color: var(--vscode-menu-background);
 				border: 1px solid var(--vscode-menu-border);
+				padding-bottom: 0.6rem;
 			}
 		`,
 	];
