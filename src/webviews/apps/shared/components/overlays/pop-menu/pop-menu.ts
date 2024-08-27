@@ -1,19 +1,22 @@
-import { attr, css, customElement, FASTElement, html, observable, slotted, volatile } from '@microsoft/fast-element';
-import { hasNodes, nodeTypeFilter } from '../../helpers/slots';
-import { elementBase } from '../../styles/base';
-
-const template = html<PopMenu>`
-	<template role="combobox">
-		<slot ${slotted({ property: 'triggerNodes', filter: nodeTypeFilter(Node.ELEMENT_NODE) })} name="trigger"></slot>
-		<slot ${slotted({ property: 'contentNodes', filter: nodeTypeFilter(Node.ELEMENT_NODE) })} name="content"></slot>
-	</template>
-`;
+import { css, html } from 'lit';
+import { customElement, property, queryAssignedElements } from 'lit/decorators.js';
+import { classMap } from 'lit/directives/class-map.js';
+import { GlElement } from '../../element';
 
 const styles = css`
-	${elementBase}
-
 	:host {
 		position: relative;
+	}
+	:host {
+		box-sizing: border-box;
+	}
+	:host *,
+	:host *::before,
+	:host *::after {
+		box-sizing: inherit;
+	}
+	[hidden] {
+		display: none !important;
 	}
 
 	slot[name='content']::slotted(*)::before {
@@ -46,50 +49,34 @@ const styles = css`
 		z-index: 10000;
 	}
 
-	:host([position='left']) slot[name='content']::slotted(*) {
+	slot[name='content'][position='left']::slotted(*) {
 		left: 0;
 	}
 
-	:host([position='right']) slot[name='content']::slotted(*) {
+	slot[name='content'][position='right']::slotted(*) {
 		right: 0;
 	}
 
-	:host(:not([open])) slot[name='content']::slotted(*) {
+	slot[name='content']:not(.open)::slotted(*) {
 		display: none;
 	}
 `;
 
-@customElement({ name: 'pop-menu', template: template, styles: styles })
-export class PopMenu extends FASTElement {
-	@attr({ mode: 'boolean' })
+@customElement('pop-menu')
+export class PopMenu extends GlElement {
+	static override readonly styles = [styles];
+
+	@property({ type: Boolean })
 	open = false;
 
-	@attr()
+	@property()
 	position: 'left' | 'right' = 'left';
 
-	@observable
-	triggerNodes?: HTMLElement[];
+	@queryAssignedElements({ slot: 'trigger' })
+	triggerNodes!: Array<HTMLElement>;
 
-	@observable
-	contentNodes?: HTMLElement[];
-
-	@volatile
-	get triggerNode() {
-		if (!hasNodes(this.triggerNodes)) {
-			return;
-		}
-
-		return this.triggerNodes![0];
-	}
-
-	@volatile
-	get contentNode() {
-		if (!hasNodes(this.contentNodes)) {
-			return;
-		}
-
-		return this.contentNodes![0];
-	}
+	@queryAssignedElements({ slot: 'content' })
+	contentNodes!: Array<HTMLElement>;
 
 	private isTrackingOutside = false;
 	private _toggleHandler: ((e: MouseEvent) => void) | undefined;
@@ -97,7 +84,7 @@ export class PopMenu extends FASTElement {
 	override connectedCallback() {
 		super.connectedCallback();
 
-		this.updateToggle();
+		void this.updateToggle();
 		if (this._toggleHandler == null) {
 			this._toggleHandler = this.handleToggle.bind(this);
 		}
@@ -119,21 +106,22 @@ export class PopMenu extends FASTElement {
 		this.disposeTrackOutside();
 	}
 
-	handleToggle(e: MouseEvent) {
-		if (!e.composedPath().includes(this.triggerNode!)) return;
-
+	handleToggle() {
 		this.open = !this.open;
-		this.updateToggle();
+		void this.updateToggle();
 	}
 
-	updateToggle() {
-		if (this.triggerNode != null) {
-			this.triggerNode.ariaExpanded = this.open.toString();
+	async updateToggle() {
+		await this.updateComplete;
+		const triggerNode = this.triggerNodes[0];
+		if (triggerNode != null) {
+			triggerNode.ariaExpanded = this.open.toString();
 		}
+		const contentNode = this.contentNodes[0];
 		if (this.open) {
-			if (this.contentNode != null) {
+			if (contentNode != null) {
 				window.requestAnimationFrame(() => {
-					this.contentNode?.focus();
+					contentNode?.focus();
 				});
 			}
 			this.trackOutside();
@@ -192,5 +180,18 @@ export class PopMenu extends FASTElement {
 
 			this._webviewBlurEventHandler = undefined;
 		}
+	}
+
+	protected override render(): unknown {
+		return html`
+			<slot name="trigger"></slot>
+			<slot
+				name="content"
+				position=${this.position}
+				class=${classMap({
+					open: this.open,
+				})}
+			></slot>
+		`;
 	}
 }

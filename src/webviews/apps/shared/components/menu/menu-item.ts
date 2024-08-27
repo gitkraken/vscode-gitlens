@@ -12,7 +12,7 @@ export class MenuItem extends LitElement {
 				display: block;
 				font-family: inherit;
 				border: none;
-				padding: 0 0.6rem;
+				padding: 0.6rem;
 				cursor: pointer;
 				color: var(--vscode-menu-foreground);
 				background-color: var(--vscode-menu-background);
