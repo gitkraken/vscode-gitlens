@@ -1,7 +1,7 @@
 import { Commands } from '../constants.commands';
+import type { SearchQuery } from '../constants.search';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
-import type { SearchQuery } from '../git/search';
 import { command } from '../system/command';
 import { configuration } from '../system/configuration';
 import { SearchResultsNode } from '../views/nodes/searchResultsNode';

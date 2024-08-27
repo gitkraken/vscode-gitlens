@@ -12,6 +12,7 @@ import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git'
 import { getCachedAvatarUri } from '../../../avatars';
 import type { GitConfigKeys } from '../../../constants';
 import { GlyphChars, Schemes } from '../../../constants';
+import type { SearchQuery } from '../../../constants.search';
 import type { Container } from '../../../container';
 import { emojify } from '../../../emojis';
 import { CancellationError } from '../../../errors';
@@ -159,7 +160,7 @@ import { parseGitTags } from '../../../git/parsers/tagParser';
 import { parseGitLsFiles, parseGitTree } from '../../../git/parsers/treeParser';
 import { parseGitWorktrees } from '../../../git/parsers/worktreeParser';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
-import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../../git/search';
+import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
 import {
 	showBlameInvalidIgnoreRevsFileWarningMessage,

@@ -3,7 +3,7 @@ import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import type { Disposable } from 'vscode';
 import { isMac } from '@env/platform';
-import type { SearchQuery } from '../../../../../git/search';
+import type { SearchQuery } from '../../../../../constants.search';
 import { pluralize } from '../../../../../system/string';
 import { DOM } from '../../dom';
 import { GlElement } from '../element';

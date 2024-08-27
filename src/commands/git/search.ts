@@ -1,13 +1,14 @@
 import type { QuickInputButton, QuickPick } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
 import { GlyphChars } from '../../constants';
+import type { NormalizedSearchOperators, SearchOperators, SearchQuery } from '../../constants.search';
+import { searchOperators } from '../../constants.search';
 import type { Container } from '../../container';
 import { showDetailsView } from '../../git/actions/commit';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { Repository } from '../../git/models/repository';
-import type { NormalizedSearchOperators, SearchOperators, SearchQuery } from '../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQuery, searchOperators } from '../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
 import { showContributorsPicker } from '../../quickpicks/contributorsPicker';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { ActionQuickPickItem } from '../../quickpicks/items/common';

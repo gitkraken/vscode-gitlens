@@ -1,38 +1,9 @@
+import type { NormalizedSearchOperators, SearchOperators, SearchQuery } from '../constants.search';
+import { normalizeSearchOperatorsMap, searchOperationRegex } from '../constants.search';
+import type { StoredSearchQuery } from '../constants.storage';
 import type { GitRevisionReference } from './models/reference';
 import { isSha, shortenRevision } from './models/reference';
 import type { GitUser } from './models/user';
-
-export type NormalizedSearchOperators = 'message:' | 'author:' | 'commit:' | 'file:' | 'change:';
-export type SearchOperators = NormalizedSearchOperators | '' | '=:' | '@:' | '#:' | '?:' | '~:';
-
-export const searchOperators = new Set<string>([
-	'',
-	'=:',
-	'message:',
-	'@:',
-	'author:',
-	'#:',
-	'commit:',
-	'?:',
-	'file:',
-	'~:',
-	'change:',
-]);
-
-export interface SearchQuery {
-	query: string;
-	matchAll?: boolean;
-	matchCase?: boolean;
-	matchRegex?: boolean;
-}
-
-// Don't change this shape as it is persisted in storage
-export interface StoredSearchQuery {
-	pattern: string;
-	matchAll?: boolean;
-	matchCase?: boolean;
-	matchRegex?: boolean;
-}
 
 export interface GitSearchResultData {
 	date: number;
@@ -89,23 +60,6 @@ export function createSearchQueryForCommits(commits: GitRevisionReference[]): st
 export function createSearchQueryForCommits(refsOrCommits: (string | GitRevisionReference)[]) {
 	return refsOrCommits.map(r => `#:${typeof r === 'string' ? shortenRevision(r) : r.name}`).join(' ');
 }
-
-const normalizeSearchOperatorsMap = new Map<SearchOperators, NormalizedSearchOperators>([
-	['', 'message:'],
-	['=:', 'message:'],
-	['message:', 'message:'],
-	['@:', 'author:'],
-	['author:', 'author:'],
-	['#:', 'commit:'],
-	['commit:', 'commit:'],
-	['?:', 'file:'],
-	['file:', 'file:'],
-	['~:', 'change:'],
-	['change:', 'change:'],
-]);
-
-const searchOperationRegex =
-	/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)\s?(?<value>".+?"|\S+}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change):)/g;
 
 export function parseSearchQuery(search: SearchQuery): Map<NormalizedSearchOperators, Set<string>> {
 	const operations = new Map<NormalizedSearchOperators, Set<string>>();

@@ -1,11 +1,11 @@
 import type { TreeItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
 import { md5 } from '@env/crypto';
+import type { SearchQuery } from '../../constants.search';
 import { executeGitCommand } from '../../git/actions';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import type { CommitsQueryResults } from '../../git/queryResults';
-import type { SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';

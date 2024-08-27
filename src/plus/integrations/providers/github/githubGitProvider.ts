@@ -12,6 +12,7 @@ import { EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
 import { isWeb } from '@env/platform';
 import { CharCode, Schemes } from '../../../../constants';
+import type { SearchOperators, SearchQuery } from '../../../../constants.search';
 import type { Container } from '../../../../container';
 import { emojify } from '../../../../emojis';
 import {
@@ -84,13 +85,7 @@ import type { GitTreeEntry } from '../../../../git/models/tree';
 import type { GitUser } from '../../../../git/models/user';
 import { isUserMatch } from '../../../../git/models/user';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../git/remotes/remoteProviders';
-import type {
-	GitSearch,
-	GitSearchResultData,
-	GitSearchResults,
-	SearchOperators,
-	SearchQuery,
-} from '../../../../git/search';
+import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../git/search';
 import { configuration } from '../../../../system/configuration';
 import { setContext } from '../../../../system/context';

@@ -1,7 +1,6 @@
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config';
 import type { AIProviders } from './constants.ai';
 import type { Environment } from './container';
-import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './plus/gk/account/subscription';
 import type { Integration } from './plus/integrations/integration';
 import type { IntegrationId } from './plus/integrations/providers/models';
@@ -269,6 +268,13 @@ export interface StoredSearch {
 			  };
 	};
 	search: StoredSearchQuery;
+}
+
+export interface StoredSearchQuery {
+	pattern: string;
+	matchAll?: boolean;
+	matchCase?: boolean;
+	matchRegex?: boolean;
 }
 
 export type StoredSearchAndCompareItem = StoredComparison | StoredSearch;
