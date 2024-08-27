@@ -13,6 +13,8 @@ export interface State extends WebviewState {
 	};
 	walkthroughCollapsed: boolean;
 	hasAnyIntegrationConnected: boolean;
+	avatar?: string;
+	organizationsCount?: number;
 }
 
 // COMMANDS
@@ -43,6 +45,8 @@ export const DidChangeIntegrationsConnections = new IpcNotification<DidChangeInt
 
 export interface DidChangeSubscriptionParams {
 	subscription: Subscription;
+	avatar: string;
+	organizationsCount: number;
 }
 export const DidChangeSubscription = new IpcNotification<DidChangeSubscriptionParams>(scope, 'subscription/didChange');
 

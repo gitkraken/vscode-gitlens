@@ -21,75 +21,6 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<div class="home__nav">
-			<gl-promo class="promo-banner promo-banner--eyebrow" id="promo" type="link"></gl-promo>
-			<nav class="inline-nav" id="links" aria-label="Help and Resources">
-				<div class="inline-nav__group">
-					<gl-tooltip hoist>
-						<a
-							class="inline-nav__link inline-nav__link--text"
-							href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
-							aria-label="What's New"
-							><code-icon icon="megaphone"></code-icon><span>What's New</span></a
-						>
-						<span slot="content">What's New</span>
-					</gl-tooltip>
-					<gl-tooltip hoist>
-						<a
-							class="inline-nav__link inline-nav__link--text"
-							href="https://help.gitkraken.com/gitlens/gitlens-home/"
-							aria-label="Help Center"
-							><code-icon icon="question"></code-icon><span>Help</span></a
-						>
-						<span slot="content">Help Center</span>
-					</gl-tooltip>
-					<gl-tooltip hoist>
-						<a
-							class="inline-nav__link inline-nav__link--text"
-							href="https://github.com/gitkraken/vscode-gitlens/issues"
-							aria-label="Feedback"
-							><code-icon icon="feedback"></code-icon><span>Feedback</span></a
-						>
-						<span slot="content">Feedback</span>
-					</gl-tooltip>
-				</div>
-				<div class="inline-nav__group">
-					<gl-tooltip hoist>
-						<a
-							class="inline-nav__link"
-							href="https://github.com/gitkraken/vscode-gitlens/discussions"
-							aria-label="GitHub Discussions"
-							><code-icon icon="comment-discussion"></code-icon
-						></a>
-						<span slot="content">GitHub Discussions</span>
-					</gl-tooltip>
-					<gl-tooltip hoist>
-						<a
-							class="inline-nav__link"
-							href="https://github.com/gitkraken/vscode-gitlens"
-							aria-label="GitHub Repo"
-							><code-icon icon="github"></code-icon
-						></a>
-						<span slot="content">GitHub Repo</span>
-					</gl-tooltip>
-					<gl-tooltip hoist>
-						<a class="inline-nav__link" href="https://twitter.com/gitlens" aria-label="@gitlens on Twitter"
-							><code-icon icon="twitter"></code-icon
-						></a>
-						<span slot="content">@gitlens on Twitter</span>
-					</gl-tooltip>
-					<gl-tooltip hoist>
-						<a
-							class="inline-nav__link"
-							href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
-							aria-label="GitLens Website"
-							><code-icon icon="globe"></code-icon
-						></a>
-						<span slot="content">GitLens Website</span>
-					</gl-tooltip>
-				</div>
-			</nav>
-		</div>
 		<header class="home__header" id="header" hidden>
 			<div id="no-repo-alert" class="alert alert--info mb-0" aria-hidden="true" hidden>
 				<h1 class="alert__title">No repository detected</h1>
@@ -482,6 +413,83 @@
 				</div>
 			</nav>
 		</main>
+
+		<footer class="home__footer">
+			<account-content id="account-content">
+				<div class="home__nav">
+					<gl-promo class="promo-banner promo-banner--eyebrow" id="promo" type="link"></gl-promo>
+					<nav class="inline-nav" id="links" aria-label="Help and Resources">
+						<div class="inline-nav__group">
+							<gl-tooltip hoist>
+								<a
+									class="inline-nav__link inline-nav__link--text"
+									href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
+									aria-label="What's New"
+									><code-icon icon="megaphone"></code-icon><span>What's New</span></a
+								>
+								<span slot="content">What's New</span>
+							</gl-tooltip>
+							<gl-tooltip hoist>
+								<a
+									class="inline-nav__link inline-nav__link--text"
+									href="https://help.gitkraken.com/gitlens/gitlens-home/"
+									aria-label="Help Center"
+									><code-icon icon="question"></code-icon><span>Help</span></a
+								>
+								<span slot="content">Help Center</span>
+							</gl-tooltip>
+							<gl-tooltip hoist>
+								<a
+									class="inline-nav__link inline-nav__link--text"
+									href="https://github.com/gitkraken/vscode-gitlens/issues"
+									aria-label="Feedback"
+									><code-icon icon="feedback"></code-icon><span>Feedback</span></a
+								>
+								<span slot="content">Feedback</span>
+							</gl-tooltip>
+						</div>
+						<div class="inline-nav__group">
+							<gl-tooltip hoist>
+								<a
+									class="inline-nav__link"
+									href="https://github.com/gitkraken/vscode-gitlens/discussions"
+									aria-label="GitHub Discussions"
+									><code-icon icon="comment-discussion"></code-icon
+								></a>
+								<span slot="content">GitHub Discussions</span>
+							</gl-tooltip>
+							<gl-tooltip hoist>
+								<a
+									class="inline-nav__link"
+									href="https://github.com/gitkraken/vscode-gitlens"
+									aria-label="GitHub Repo"
+									><code-icon icon="github"></code-icon
+								></a>
+								<span slot="content">GitHub Repo</span>
+							</gl-tooltip>
+							<gl-tooltip hoist>
+								<a
+									class="inline-nav__link"
+									href="https://twitter.com/gitlens"
+									aria-label="@gitlens on Twitter"
+									><code-icon icon="twitter"></code-icon
+								></a>
+								<span slot="content">@gitlens on Twitter</span>
+							</gl-tooltip>
+							<gl-tooltip hoist>
+								<a
+									class="inline-nav__link"
+									href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
+									aria-label="GitLens Website"
+									><code-icon icon="globe"></code-icon
+								></a>
+								<span slot="content">GitLens Website</span>
+							</gl-tooltip>
+						</div>
+					</nav>
+				</div>
+			</account-content>
+		</footer>
 
 		#{endOfBody}
 	</body>
