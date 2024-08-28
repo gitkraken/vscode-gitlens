@@ -27,10 +27,12 @@ import {
 	ensurePullRequestRefs,
 	getComparisonRefsForPullRequest,
 	getOpenedPullRequestRepo,
+	getRepositoryIdentityForPullRequest,
 } from '../git/models/pullRequest';
 import { createReference, shortenRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showPatchesView } from '../plus/drafts/actions';
+import { getPullRequestBranchDeepLink } from '../plus/focus/focusProvider';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import { filterMap, mapAsync } from '../system/array';
 import {
@@ -47,6 +49,7 @@ import { log } from '../system/decorators/log';
 import { partial, sequentialize } from '../system/function';
 import type { OpenWorkspaceLocation } from '../system/utils';
 import { openUrl, openWorkspace, revealInFileExplorer } from '../system/utils';
+import { DeepLinkActionType } from '../uris/deepLinks/deepLink';
 import type { LaunchpadItemNode } from './launchpadView';
 import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ClipboardType } from './nodes/abstract/viewNode';
@@ -777,16 +780,31 @@ export class ViewCommands {
 	}
 
 	@log()
-	private async openInWorktree(node: BranchNode) {
-		if (!node.is('branch')) return;
-		return executeGitCommand({
-			command: 'switch',
-			state: {
-				repos: node.repo,
-				reference: node.branch,
-				skipWorktreeConfirmations: true,
-			},
-		});
+	private async openInWorktree(node: BranchNode | PullRequestNode | LaunchpadItemNode) {
+		if (!node.is('branch') && !node.is('pullrequest') && !node.is('launchpad-item')) return;
+
+		if (node.is('branch')) {
+			return executeGitCommand({
+				command: 'switch',
+				state: {
+					repos: node.repo,
+					reference: node.branch,
+					skipWorktreeConfirmations: true,
+				},
+			});
+		} else if (node.is('pullrequest') || node.is('launchpad-item')) {
+			const pr = node.pullRequest;
+			if (pr?.refs?.head == null) return Promise.resolve();
+			const repoIdentity = getRepositoryIdentityForPullRequest(pr);
+			if (repoIdentity.remote.url == null) return Promise.resolve();
+			const deepLink = getPullRequestBranchDeepLink(
+				this.container,
+				pr.refs.head.branch,
+				repoIdentity.remote.url,
+				DeepLinkActionType.SwitchToPullRequestWorktree,
+			);
+			return this.container.deepLinks.processDeepLinkUri(deepLink, false);
+		}
 	}
 
 	@log()

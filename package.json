@@ -14688,6 +14688,11 @@
 					"group": "1_gitlens_actions@99"
 				},
 				{
+					"command": "gitlens.views.openInWorktree",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
+					"group": "1_gitlens_actions@100"
+				},
+				{
 					"command": "gitlens.showInCommitGraph",
 					"when": "!listMultiSelection && viewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
 					"group": "3_gitlens_explore@1"
