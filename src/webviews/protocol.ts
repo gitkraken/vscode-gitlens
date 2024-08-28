@@ -105,7 +105,7 @@ export const DidChangeHostWindowFocusNotification = new IpcNotification<DidChang
 export interface DidChangeWebviewFocusParams {
 	focused: boolean;
 }
-export const DidChangeWebviewFocusNotfication = new IpcCommand<DidChangeWebviewFocusParams>(
+export const DidChangeWebviewFocusNotification = new IpcCommand<DidChangeWebviewFocusParams>(
 	'core',
 	'webview/focus/didChange',
 );

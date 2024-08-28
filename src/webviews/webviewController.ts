@@ -26,7 +26,7 @@ import type {
 } from './protocol';
 import {
 	DidChangeHostWindowFocusNotification,
-	DidChangeWebviewFocusNotfication as DidChangeWebviewFocusNotification,
+	DidChangeWebviewFocusNotification,
 	ExecuteCommand,
 	WebviewFocusChangedCommand,
 	WebviewReadyCommand,
