@@ -7415,6 +7415,12 @@
 				"icon": "$(empty-window)"
 			},
 			{
+				"command": "gitlens.graph.openInWorktree",
+				"title": "Open in Worktree",
+				"category": "GitLens",
+				"icon": "$(window)"
+			},
+			{
 				"command": "gitlens.views.openWorktreeInNewWindow.multi",
 				"title": "Open Worktrees in New Window",
 				"category": "GitLens",
@@ -11011,6 +11017,10 @@
 				},
 				{
 					"command": "gitlens.views.openWorktreeInNewWindow.multi",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openInWorktree",
 					"when": "false"
 				},
 				{
@@ -15567,6 +15577,11 @@
 					"command": "gitlens.graph.openWorktreeInNewWindow",
 					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)/",
 					"group": "1_gitlens_action@2"
+				},
+				{
+					"command": "gitlens.graph.openInWorktree",
+					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_action@3"
 				},
 				{
 					"command": "gitlens.graph.switchToAnotherBranch",
