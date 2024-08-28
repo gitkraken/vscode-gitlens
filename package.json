@@ -7397,6 +7397,12 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.openInWorktree",
+				"title": "Open in Worktree",
+				"category": "GitLens",
+				"icon": "$(window)"
+			},
+			{
 				"command": "gitlens.views.openWorktree",
 				"title": "Open Worktree",
 				"category": "GitLens",
@@ -10996,6 +11002,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.openInWorktree",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.openWorktreeInNewWindow",
 					"when": "false"
 				},
@@ -14041,6 +14051,11 @@
 					"command": "gitlens.views.openWorktreeInNewWindow",
 					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)(?!.*?\\b\\+closed\\b)/",
 					"group": "1_gitlens_action@2"
+				},
+				{
+					"command": "gitlens.views.openInWorktree",
+					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current|closed\\b)/",
+					"group": "1_gitlens_action@3"
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",

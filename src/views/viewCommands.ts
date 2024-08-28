@@ -11,7 +11,7 @@ import type { ViewShowBranchComparison } from '../config';
 import { GlyphChars } from '../constants';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
-import { browseAtRevision } from '../git/actions';
+import { browseAtRevision, executeGitCommand } from '../git/actions';
 import * as BranchActions from '../git/actions/branch';
 import * as CommitActions from '../git/actions/commit';
 import * as ContributorActions from '../git/actions/contributor';
@@ -363,6 +363,7 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.deleteWorktree', this.deleteWorktree, this);
 		registerViewCommand('gitlens.views.deleteWorktree.multi', this.deleteWorktree, this, true);
 		registerViewCommand('gitlens.views.openWorktree', this.openWorktree, this);
+		registerViewCommand('gitlens.views.openInWorktree', this.openInWorktree, this);
 		registerViewCommand('gitlens.views.revealRepositoryInExplorer', this.revealRepositoryInExplorer, this);
 		registerViewCommand('gitlens.views.revealWorktreeInExplorer', this.revealWorktreeInExplorer, this);
 		registerViewCommand(
@@ -773,6 +774,19 @@ export class ViewCommands {
 		}
 
 		openWorkspace(uri, options);
+	}
+
+	@log()
+	private async openInWorktree(node: BranchNode) {
+		if (!node.is('branch')) return;
+		return executeGitCommand({
+			command: 'switch',
+			state: {
+				repos: node.repo,
+				reference: node.branch,
+				skipWorktreeConfirmations: true,
+			},
+		});
 	}
 
 	@log()
