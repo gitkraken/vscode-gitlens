@@ -839,6 +839,14 @@ button:not([disabled]),
 			content: '\eb60';
 		}
 	}
+
+	&--worktree {
+		&::before {
+			// glicon-repositories-view
+			font-family: glicons;
+			content: '\f10e';
+		}
+	}
 }
 
 .titlebar {

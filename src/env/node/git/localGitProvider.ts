@@ -128,7 +128,7 @@ import type { GitTreeEntry } from '../../../git/models/tree';
 import type { GitUser } from '../../../git/models/user';
 import { isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
-import { getWorktreesByBranch } from '../../../git/models/worktree';
+import { getWorktreeId, getWorktreesByBranch } from '../../../git/models/worktree';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
 import { parseGitBranches } from '../../../git/parsers/branchParser';
 import {
@@ -2620,6 +2620,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							},
 						};
 
+						const worktree = worktreesByBranch?.get(branchId);
 						refHead = {
 							id: branchId,
 							name: tip,
@@ -2632,6 +2633,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 											id: getBranchId(repoPath, true, branch.upstream.name),
 									  }
 									: undefined,
+							worktreeId: worktree != null ? getWorktreeId(repoPath, worktree.name) : undefined,
 						};
 						refHeads.push(refHead);
 						if (branch?.upstream?.name != null) {

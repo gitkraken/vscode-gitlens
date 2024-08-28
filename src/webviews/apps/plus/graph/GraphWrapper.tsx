@@ -151,6 +151,7 @@ const createIconElements = (): Record<string, ReactElement> => {
 		'message',
 		'changes',
 		'files',
+		'worktree',
 	];
 
 	const miniIconList = ['upstream-ahead', 'upstream-behind'];
