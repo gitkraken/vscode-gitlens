@@ -11,7 +11,7 @@ import type {
 	IpcRequest,
 	WebviewFocusChangedParams,
 } from '../../protocol';
-import { DidChangeWebviewFocusNotfication, WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
+import { DidChangeWebviewFocusNotification, WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable } from './events';
 import type { HostIpcApi } from './ipc';
@@ -91,7 +91,7 @@ export abstract class App<
 					disposables.push(
 						this._hostIpc.onReceiveMessage(msg => {
 							switch (true) {
-								case DidChangeWebviewFocusNotfication.is(msg):
+								case DidChangeWebviewFocusNotification.is(msg):
 									window.dispatchEvent(
 										new CustomEvent(msg.params.focused ? 'webview-focus' : 'webview-blur'),
 									);
