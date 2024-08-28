@@ -14064,7 +14064,7 @@
 				},
 				{
 					"command": "gitlens.views.openInWorktree",
-					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current|closed\\b)/",
+					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current|closed|worktree\\b)/",
 					"group": "1_gitlens_action@3"
 				},
 				{
@@ -15580,7 +15580,7 @@
 				},
 				{
 					"command": "gitlens.graph.openInWorktree",
-					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current|worktree\\b)/",
 					"group": "1_gitlens_action@3"
 				},
 				{
