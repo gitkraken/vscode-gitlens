@@ -252,6 +252,10 @@ export async function getWorktreeForBranch(
 	return undefined;
 }
 
+export function getWorktreeId(repoPath: string, name: string): string {
+	return `${repoPath}|worktrees/${name}`;
+}
+
 export function isWorktree(worktree: any): worktree is GitWorktree {
 	return worktree instanceof GitWorktree;
 }
