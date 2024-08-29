@@ -979,7 +979,7 @@ gl-feature-gate gl-feature-badge {
 	&__header {
 		flex: none;
 		z-index: 101;
-		width: fit-content;
+		width: --webkit-fill-available;
 		position: relative;
 	}
 
@@ -1195,6 +1195,14 @@ gl-feature-gate gl-feature-badge {
 	position: absolute;
 	white-space: nowrap;
 	width: 1px;
+}
+
+menu-list#create-branch {
+	menu-item > a {
+		display: block;
+		color: var(--vscode-foreground);
+		text-decoration: none;
+	}
 }
 
 #opts-popover {

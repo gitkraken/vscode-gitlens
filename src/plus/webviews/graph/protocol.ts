@@ -95,7 +95,7 @@ export interface State extends WebviewState {
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
 	branchesVisibility?: GraphBranchesVisibility;
-	branchName?: string;
+	branch?: GitBranchReference;
 	branchState?: BranchState;
 	lastFetched?: Date;
 	selectedRows?: GraphSelectedRows;
