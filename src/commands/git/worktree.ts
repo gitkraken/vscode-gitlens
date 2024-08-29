@@ -926,21 +926,24 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	}
 
 	private *deleteCommandConfirmStep(state: DeleteStepState, context: Context): StepResultGenerator<DeleteFlags[]> {
+		context.title = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
+		const label = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
+		const description =
+			state.uris.length === 1
+				? `delete worktree in $(folder) ${getWorkspaceFriendlyPath(state.uris[0])}`
+				: 'delete worktrees';
+
 		const step: QuickPickStep<FlagsQuickPickItem<DeleteFlags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				createFlagsQuickPickItem<DeleteFlags>(state.flags, [], {
-					label: context.title,
-					detail: `Will delete ${pluralize('worktree', state.uris.length, {
-						only: state.uris.length === 1,
-					})}${state.uris.length === 1 ? ` in $(folder) ${getWorkspaceFriendlyPath(state.uris[0])}` : ''}`,
+					label: label,
+					detail: `Will ${description}`,
 				}),
 				createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force'], {
-					label: `Force ${context.title}`,
-					description: 'including ANY UNCOMMITTED changes',
-					detail: `Will forcibly delete ${pluralize('worktree', state.uris.length, {
-						only: state.uris.length === 1,
-					})} ${state.uris.length === 1 ? ` in $(folder) ${getWorkspaceFriendlyPath(state.uris[0])}` : ''}`,
+					label: `Force ${label}`,
+					description: 'includes ANY UNCOMMITTED changes',
+					detail: `Will forcibly ${description}`,
 				}),
 			],
 			context,
