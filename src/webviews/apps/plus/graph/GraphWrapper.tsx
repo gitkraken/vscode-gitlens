@@ -18,7 +18,9 @@ import type { SlChangeEvent } from '@shoelace-style/shoelace';
 import { SlOption, SlSelect } from '@shoelace-style/shoelace/dist/react';
 import type { FormEvent, MouseEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
+import type { BranchGitCommandArgs } from '../../../../commands/git/branch';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
+import { Commands } from '../../../../constants.commands';
 import type { SearchQuery } from '../../../../constants.search';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
@@ -267,7 +269,7 @@ export function GraphWrapper({
 	const [pagingHasMore, setPagingHasMore] = useState(state.paging?.hasMore ?? false);
 	const [isLoading, setIsLoading] = useState(state.loading);
 	const [styleProps, setStyleProps] = useState(state.theming);
-	const [branchName, setBranchName] = useState(state.branchName);
+	const [branch, setBranch] = useState(state.branch);
 	const [lastFetched, setLastFetched] = useState(state.lastFetched);
 	const [windowFocused, setWindowFocused] = useState(state.windowFocused);
 	const [allowed, setAllowed] = useState(state.allowed ?? false);
@@ -285,6 +287,7 @@ export function GraphWrapper({
 	const [workingTreeStats, setWorkingTreeStats] = useState(
 		state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 },
 	);
+	const branchName = branch?.name;
 
 	const minimap = useRef<GlGraphMinimapContainer | undefined>(undefined);
 	const hover = useRef<GlGraphHover | undefined>(undefined);
@@ -386,7 +389,7 @@ export function GraphWrapper({
 				if (!themingChanged) {
 					setStyleProps(state.theming);
 				}
-				setBranchName(state.branchName);
+				setBranch(state.branch);
 				setLastFetched(state.lastFetched);
 				setColumns(state.columns);
 				setRows(state.rows ?? []);
@@ -1267,6 +1270,96 @@ export function GraphWrapper({
 						)}
 					</div>
 					<div className="titlebar__group--last">
+						<span className="button-group">
+							<GlTooltip placement="bottom">
+								<a
+									className="action-button"
+									href={createCommandLink(Commands.GitCommandsBranch, {
+										args: {
+											state: { subcommand: 'create', flags: ['--switch'], reference: branch },
+											command: 'branch',
+											confirm: false,
+										} satisfies BranchGitCommandArgs,
+									})}
+								>
+									<span className="codicon codicon-git-branch-create action-button__icon"></span>
+								</a>
+								<span slot="content">
+									Create a branch from <i>{branchName}</i> and switch
+								</span>
+							</GlTooltip>
+							<GlTooltip placement="top" distance={7}>
+								<PopMenu position="right">
+									<button
+										type="button"
+										className="action-button"
+										slot="trigger"
+										aria-label="Minimap Options"
+									>
+										<span
+											className="codicon codicon-chevron-down action-button__more"
+											aria-hidden="true"
+										></span>
+									</button>
+									<MenuList slot="content" id="create-branch">
+										<MenuLabel>Create branch options</MenuLabel>
+										<MenuItem>
+											<a href={createCommandLink(Commands.GitCommandsBranchCreate)}>
+												Create Branch...
+											</a>
+										</MenuItem>
+										<MenuItem>
+											<a
+												href={createCommandLink(Commands.GitCommandsBranch, {
+													args: {
+														command: 'branch',
+														confirm: false,
+														state: { flags: [], reference: branch, subcommand: 'create' },
+													} satisfies BranchGitCommandArgs,
+												})}
+											>
+												Create Branch from <i>{branchName}</i>
+											</a>
+										</MenuItem>
+										<MenuItem>
+											<a
+												href={createCommandLink(Commands.GitCommandsBranch, {
+													args: {
+														command: 'branch',
+														confirm: false,
+														state: {
+															flags: ['--switch'],
+															reference: branch,
+															subcommand: 'create',
+														},
+													} satisfies BranchGitCommandArgs,
+												})}
+											>
+												Create from <i>{branchName}</i> & Switch to Branch
+											</a>
+										</MenuItem>
+										<MenuItem>
+											<a
+												href={createCommandLink(Commands.GitCommandsBranch, {
+													args: {
+														state: {
+															subcommand: 'create',
+															flags: ['--worktree'],
+															reference: branch,
+														},
+														command: 'branch',
+														confirm: false,
+													} satisfies BranchGitCommandArgs,
+												})}
+											>
+												Create Branch from <i>{branchName}</i> in New Worktree
+											</a>
+										</MenuItem>
+									</MenuList>
+								</PopMenu>
+								<span slot="content">Create branch options</span>
+							</GlTooltip>
+						</span>
 						<GlTooltip placement="bottom">
 							<a
 								href={`command:gitlens.showLaunchpad?${encodeURIComponent(
