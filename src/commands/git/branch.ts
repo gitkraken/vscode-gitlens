@@ -4,6 +4,7 @@ import type { GitBranchReference, GitReference } from '../../git/models/referenc
 import { getNameWithoutRemote, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
@@ -498,17 +499,14 @@ export class BranchGitCommand extends QuickCommand {
 
 			if (state.subcommand !== 'prune' && state.references.some(b => b.upstream != null)) {
 				confirmations.push(
+					createQuickPickSeparator(),
 					createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--remotes'], {
-						label: `${context.title} & Remote${
-							state.references.filter(b => !b.remote).length > 1 ? 's' : ''
-						}`,
+						label: 'Delete Local & Remote Branches',
 						description: '--remotes',
 						detail: `Will delete ${getReferenceLabel(state.references)} and any remote tracking branches`,
 					}),
 					createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force', '--remotes'], {
-						label: `Force ${context.title} & Remote${
-							state.references.filter(b => !b.remote).length > 1 ? 's' : ''
-						}`,
+						label: 'Force Delete Local & Remote Branches',
 						description: '--force --remotes',
 						detail: `Will forcibly delete ${getReferenceLabel(
 							state.references,
