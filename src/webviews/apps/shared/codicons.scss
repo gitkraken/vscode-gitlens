@@ -159,6 +159,15 @@
 .codicon-git-branch-create:before {
 	content: '\ea68';
 }
+.codicon-git-branch-create:after {
+	content: '\ea60';
+	position: absolute;
+	right: 0;
+	bottom: 0px;
+	font-size: 0.6em;
+	line-height: normal;
+	transform: translate(-50%, 0%);
+}
 .codicon-git-branch-delete:before {
 	content: '\ea68';
 }

@@ -93,7 +93,7 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 	) {
 		switch (context.command) {
 			case Commands.GitCommandsBranch:
-				return this.execute({ command: 'branch' });
+				return this.execute({ command: 'branch', ...args });
 			case Commands.GitCommandsBranchCreate:
 				return this.execute({ command: 'branch', state: { subcommand: 'create' } });
 			case Commands.GitCommandsBranchDelete:
