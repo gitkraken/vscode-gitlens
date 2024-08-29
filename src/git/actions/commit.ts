@@ -217,8 +217,16 @@ export async function openAllChangesInChangesEditor(
 	const resources: Parameters<typeof openChangesEditor>[0] = [];
 	for (const file of files) {
 		let rhs = file.status === 'D' ? undefined : (await git.getBestRevisionUri(refs.repoPath, file.path, refs.rhs))!;
-		if (rhs != null && refs.rhs === '') {
-			rhs = await git.getWorkingUri(refs.repoPath, rhs);
+		if (refs.rhs === '') {
+			if (rhs != null) {
+				rhs = await git.getWorkingUri(refs.repoPath, rhs);
+			} else {
+				rhs = Uri.from({
+					scheme: 'untitled',
+					authority: '',
+					path: git.getAbsoluteUri(file.path, refs.repoPath).fsPath,
+				});
+			}
 		}
 
 		const lhs =
@@ -226,7 +234,9 @@ export async function openAllChangesInChangesEditor(
 				? undefined
 				: (await git.getBestRevisionUri(refs.repoPath, file.originalPath ?? file.path, refs.lhs))!;
 
-		const uri = (file.status === 'D' ? lhs : rhs) ?? GitUri.fromFile(file, refs.repoPath);
+		const uri = (file.status === 'D' ? lhs : rhs) ?? git.getAbsoluteUri(file.path, refs.repoPath);
+		if (rhs?.scheme === 'untitled' && lhs == null) continue;
+
 		resources.push({ uri: uri, lhs: lhs, rhs: rhs });
 	}
 
