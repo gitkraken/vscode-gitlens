@@ -16,8 +16,7 @@ test.describe('Test GitLens Command Palette commands', () => {
 		await commandPaletteInput.waitFor({ state: 'visible', timeout: 5000 });
 		await commandPaletteInput.fill('> GitLens: Show Commit graph');
 		await page.waitForTimeout(1000);
-
-		await page.keyboard.press('Enter');
+		page.keyboard.press('Enter');
 
 		// Click on the first element (GitLens: Show Commit graph)
 		/*
