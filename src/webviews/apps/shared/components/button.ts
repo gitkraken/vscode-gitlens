@@ -48,6 +48,7 @@ export class GlButton extends LitElement {
 			}
 
 			.control {
+				box-sizing: border-box;
 				display: inline-flex;
 				flex-direction: row;
 				justify-content: center;
