@@ -345,6 +345,12 @@ button:not([disabled]),
 		overflow: hidden;
 	}
 
+	&__truncated {
+		width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
 	&.is-ahead {
 		background-color: var(--branch-status-ahead-background);
 
@@ -888,6 +894,13 @@ button:not([disabled]),
 		}
 	}
 
+	&__group--last {
+		display: flex;
+		gap: 0.5rem;
+		flex-shrink: 0;
+		width: auto;
+	}
+
 	&,
 	&__row {
 		justify-content: space-between;
@@ -966,6 +979,7 @@ gl-feature-gate gl-feature-badge {
 	&__header {
 		flex: none;
 		z-index: 101;
+		width: fit-content;
 		position: relative;
 	}
 

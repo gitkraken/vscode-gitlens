@@ -1107,7 +1107,7 @@ export function GraphWrapper({
 										) : (
 											''
 										)}
-										{branchName}
+										<span className="action-button__truncated">{branchName}</span>
 										<span
 											className="codicon codicon-chevron-down action-button__more"
 											aria-hidden="true"
@@ -1143,7 +1143,7 @@ export function GraphWrapper({
 							</>
 						)}
 					</div>
-					<div className="titlebar__group">
+					<div className="titlebar__group--last">
 						<GlTooltip placement="bottom">
 							<a
 								href={`command:gitlens.showLaunchpad?${encodeURIComponent(
