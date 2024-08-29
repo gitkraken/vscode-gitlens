@@ -237,8 +237,6 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 
 		await this.triggerChange();
 
-		await this.view.reveal(this.comparePicker, { focus: false, select: true });
-
 		if (prompt) {
 			await this.compareWithSelected(repoPath, ref2);
 		}

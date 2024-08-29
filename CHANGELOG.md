@@ -27,6 +27,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#3479](https://github.com/gitkraken/vscode-gitlens/issues/3479) - Tooltip flickering
+- Fixes [#3472](https://github.com/gitkraken/vscode-gitlens/issues/3472) - "Compare working tree with.." often flashes open then closes the menu
+- Fixes [#3448](https://github.com/gitkraken/vscode-gitlens/issues/3448) - "Select for Compare" on a Commit/Stash/etc causes the Search and Compare view to be forcibly shown
 - Fixes _Copy Remote Comparison URL_ command to not open the URL, just copy it
 
 ### Removed
