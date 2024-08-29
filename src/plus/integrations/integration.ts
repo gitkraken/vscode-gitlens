@@ -261,7 +261,7 @@ export abstract class IntegrationBase<
 				await this.ensureSession({ createIfNeeded: forceSync });
 				break;
 			case 'disconnected':
-				await this.disconnect({ silent: true });
+				await this.reset();
 				break;
 		}
 	}
