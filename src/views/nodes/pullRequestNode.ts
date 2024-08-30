@@ -140,8 +140,10 @@ export async function getPullRequestChildren(
 	repoOrPath?: Repository | string,
 ) {
 	let repo: Repository | undefined;
-	if (repoOrPath == null || typeof repoOrPath === 'string') {
+	if (repoOrPath == null) {
 		repo = await getOrOpenPullRequestRepository(view.container, pullRequest, { promptIfNeeded: true });
+	} else if (typeof repoOrPath === 'string') {
+		repo = view.container.git.getRepository(repoOrPath);
 	} else {
 		repo = repoOrPath;
 	}
