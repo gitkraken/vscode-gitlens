@@ -21,6 +21,7 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
+		<gl-home-app name="HomeView" placement="#{placement}" state="#{state}"></gl-home-app>
 		<header class="home__header" id="header" hidden>
 			<div id="no-repo-alert" class="alert alert--info mb-0" aria-hidden="true" hidden>
 				<h1 class="alert__title">No repository detected</h1>
