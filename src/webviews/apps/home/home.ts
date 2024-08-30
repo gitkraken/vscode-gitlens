@@ -1,5 +1,6 @@
 /*global*/
 import './home.scss';
+import { html } from 'lit';
 import type { Disposable } from 'vscode';
 import { getApplicablePromo } from '../../../plus/gk/account/promos';
 import type { State } from '../../home/protocol';
@@ -13,16 +14,29 @@ import {
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommand } from '../../protocol';
 import type { AccountContent } from '../plus/account/components/account-content';
+import { GlApp } from '../shared/app';
 import { App } from '../shared/appBase';
 import type { GlFeatureBadge } from '../shared/components/feature-badge';
 import type { GlPromo } from '../shared/components/promo';
 import { DOM } from '../shared/dom';
+import type { HostIpc } from '../shared/ipc';
+import { HomeStateProvider } from './stateProvider';
 import '../shared/components/button';
 import '../shared/components/code-icon';
 import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
 import '../shared/components/promo';
 import '../plus/account/components/account-content';
+
+export class GlHomeApp extends GlApp<State> {
+	protected override createStateProvider(state: State, ipc: HostIpc) {
+		return new HomeStateProvider(this, state, ipc);
+	}
+
+	override render() {
+		return html`<account-content id="account-content"></account-content>`;
+	}
+}
 
 export class HomeApp extends App<State> {
 	constructor() {
