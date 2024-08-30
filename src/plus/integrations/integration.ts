@@ -193,8 +193,9 @@ export abstract class IntegrationBase<
 		this._session = null;
 
 		if (connected) {
-			// Don't store the disconnected flag if this only for this current VS Code session (will be re-connected on next restart)
-			if (!options?.currentSessionOnly) {
+			// Don't store the disconnected flag if silently disconnecting or disconnecting this only for
+			// this current VS Code session (will be re-connected on next restart)
+			if (!options?.currentSessionOnly && !options?.silent) {
 				void this.container.storage.storeWorkspace(this.connectedKey, false);
 			}
 
