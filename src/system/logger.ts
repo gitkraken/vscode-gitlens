@@ -14,6 +14,7 @@ export interface LogChannelProvider {
 	readonly name: string;
 	createChannel(name: string): LogChannel;
 	toLoggable?(o: unknown): string | undefined;
+	sanitize?: (key: string, value: any) => any;
 }
 
 export interface LogChannel {
@@ -22,6 +23,11 @@ export interface LogChannel {
 	dispose?(): void;
 	show?(preserveFocus?: boolean): void;
 }
+
+const sanitizedKeys = new Set<string>(['accessToken', 'password', 'token']);
+const defaultSanitize = function (key: string, value: any): any {
+	return sanitizedKeys.has(key) ? `<${value}>` : value;
+};
 
 export const Logger = new (class Logger {
 	private output: LogChannel | undefined;
@@ -180,6 +186,8 @@ export const Logger = new (class Logger {
 
 	toLoggable(o: any, sanitize?: ((key: string, value: any) => any) | undefined): string {
 		if (typeof o !== 'object') return String(o);
+
+		sanitize ??= this.provider!.sanitize ?? defaultSanitize;
 
 		if (Array.isArray(o)) {
 			return `[${o.map(i => this.toLoggable(i, sanitize)).join(', ')}]`;
