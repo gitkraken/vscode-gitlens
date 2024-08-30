@@ -5,7 +5,6 @@ import type {
 	Event,
 	MessageItem,
 	StatusBarItem,
-	Uri,
 } from 'vscode';
 import {
 	authentication,
@@ -18,6 +17,7 @@ import {
 	ProgressLocation,
 	StatusBarAlignment,
 	ThemeColor,
+	Uri,
 	window,
 } from 'vscode';
 import { getPlatform } from '@env/platform';
@@ -110,7 +110,7 @@ export class SubscriptionService implements Disposable {
 					this.updateContext();
 				}
 			}),
-			container.uri.onDidReceiveSubscriptionUpdatedUri(this.onSubscriptionUpdatedUri, this),
+			container.uri.onDidReceiveSubscriptionUpdatedUri(this.checkUpdatedSubscription, this),
 			container.uri.onDidReceiveLoginUri(this.onLoginUri, this),
 		);
 
@@ -749,30 +749,56 @@ export class SubscriptionService implements Disposable {
 		if (this._subscription.account == null) {
 			this.showPlans(source);
 		} else {
+			// Do a pre-check-in to see if we've already upgraded to a paid plan.
+			try {
+				const session = await this.ensureSession(false);
+				if (session == null) return;
+
+				if ((await this.checkUpdatedSubscription()) === SubscriptionState.Paid) {
+					void this.showAccountView();
+					return;
+				}
+			} catch {}
+
 			const promoCode = getApplicablePromo(this._subscription.state)?.code;
 			const activeOrgId = this._subscription.activeOrganization?.id;
-			const query = `source=gitlens&product=gitlens${promoCode != null ? `&promoCode=${promoCode}` : ''}${
-				activeOrgId != null ? `&org=${activeOrgId}` : ''
-			}`;
+			const successUri = await env.asExternalUri(
+				Uri.parse(
+					`${env.uriScheme}://${this.container.context.extension.id}/${SubscriptionUpdatedUriPathPrefix}`,
+				),
+			);
+			const query = `source=gitlens&product=gitlens&success_uri=${encodeURIComponent(successUri.toString(true))}${
+				promoCode != null ? `&promoCode=${promoCode}` : ''
+			}${activeOrgId != null ? `&org=${activeOrgId}` : ''}`;
 			try {
 				const token = await this.container.accountAuthentication.getExchangeToken(
 					SubscriptionUpdatedUriPathPrefix,
 				);
 				const purchasePath = `purchase/checkout?${query}`;
-				void openUrl(this.container.getGkDevExchangeUri(token, purchasePath).toString(true));
+				if (!(await openUrl(this.container.getGkDevExchangeUri(token, purchasePath).toString(true)))) return;
 			} catch (ex) {
 				Logger.error(ex, scope);
-				void env.openExternal(this.container.getGkDevUri('purchase/checkout', query));
+				if (!(await env.openExternal(this.container.getGkDevUri('purchase/checkout', query)))) return;
 			}
 
-			take(
-				window.onDidChangeWindowState,
-				2,
-			)(e => {
-				if (e.focused && this._session != null) {
-					void this.checkInAndValidate(this._session, { force: true });
-				}
-			});
+			const refresh = await Promise.race([
+				new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000)),
+				new Promise<boolean>(resolve =>
+					take(
+						window.onDidChangeWindowState,
+						2,
+					)(e => {
+						if (e.focused) resolve(true);
+					}),
+				),
+				new Promise<boolean>(resolve =>
+					once(this.container.uri.onDidReceiveSubscriptionUpdatedUri)(() => resolve(false)),
+				),
+			]);
+
+			if (refresh) {
+				void this.checkUpdatedSubscription();
+			}
 		}
 		await this.showAccountView();
 	}
@@ -1451,13 +1477,15 @@ export class SubscriptionService implements Disposable {
 		void this.loginWithCode({ code: code, state: state ?? undefined }, { source: 'deeplink' });
 	}
 
-	async onSubscriptionUpdatedUri() {
-		if (this._session == null) return;
+	async checkUpdatedSubscription(): Promise<SubscriptionState | undefined> {
+		if (this._session == null) return undefined;
 		const oldSubscriptionState = this._subscription.state;
 		await this.checkInAndValidate(this._session, { force: true });
 		if (oldSubscriptionState !== this._subscription.state) {
 			void this.showPlanMessage({ source: 'subscription' });
 		}
+
+		return this._subscription.state;
 	}
 }
 
