@@ -21,7 +21,7 @@ export const test = base.extend<TestFixtures>({
 	page: async ({ vscodeVersion, createTmpDir }, use) => {
 		const defaultCachePath = await createTmpDir();
 		const vscodePath = await downloadAndUnzipVSCode(vscodeVersion);
-		testProjectPath = path.join(__dirname, '../../../');
+		testProjectPath = path.join(__dirname, '..', '..', '..');
 
 		const electronApp = await _electron.launch({
 			executablePath: vscodePath,
@@ -33,7 +33,7 @@ export const test = base.extend<TestFixtures>({
 				'--skip-welcome',
 				'--skip-release-notes',
 				'--disable-workspace-trust',
-				`--extensionDevelopmentPath=${path.join(__dirname, '../../../')}`,
+				`--extensionDevelopmentPath=${path.join(__dirname, '..', '..', '..')}`,
 				`--extensions-dir=${path.join(defaultCachePath, 'extensions')}`,
 				`--user-data-dir=${path.join(defaultCachePath, 'user-data')}`,
 				testProjectPath,
