@@ -42,7 +42,7 @@ import { GitUri } from '../../../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../../git/models/blame';
 import type { BranchSortOptions } from '../../../../git/models/branch';
 import { getBranchId, getBranchNameWithoutRemote, GitBranch, sortBranches } from '../../../../git/models/branch';
-import type { GitCommitLine } from '../../../../git/models/commit';
+import type { GitCommitLine, GitStashCommit } from '../../../../git/models/commit';
 import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
 import { deletedOrMissing, uncommitted } from '../../../../git/models/constants';
 import { GitContributor } from '../../../../git/models/contributor';
@@ -84,6 +84,7 @@ import { getTagId, GitTag, sortTags } from '../../../../git/models/tag';
 import type { GitTreeEntry } from '../../../../git/models/tree';
 import type { GitUser } from '../../../../git/models/user';
 import { isUserMatch } from '../../../../git/models/user';
+import type { GitWorktree } from '../../../../git/models/worktree';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../git/remotes/remoteProviders';
 import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../git/search';
@@ -1329,6 +1330,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			getSettledValue(currentUserResult),
 			avatars,
 			ids,
+			undefined,
+			undefined,
+			undefined,
 			{ ...options, useAvatars: useAvatars },
 		);
 	}
@@ -1346,6 +1350,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		currentUser: GitUser | undefined,
 		avatars: Map<string, string>,
 		ids: Set<string>,
+		stashes: Map<string, GitStashCommit> | undefined,
+		worktrees: GitWorktree[] | undefined,
+		worktreesByBranch: Map<string, GitWorktree> | undefined,
 		options?: {
 			branch?: string;
 			include?: { stats?: boolean };
@@ -1365,7 +1372,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				branches: branchMap,
 				remotes: remoteMap,
 				downstreams: downstreamMap,
-				worktreesByBranch: undefined,
+				stashes: stashes,
+				worktrees: worktrees,
+				worktreesByBranch: worktreesByBranch,
 				rows: [],
 			};
 		}
@@ -1380,7 +1389,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				branches: branchMap,
 				remotes: remoteMap,
 				downstreams: downstreamMap,
-				worktreesByBranch: undefined,
+				stashes: stashes,
+				worktrees: worktrees,
+				worktreesByBranch: worktreesByBranch,
 				rows: [],
 			};
 		}
@@ -1629,7 +1640,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			branches: branchMap,
 			remotes: remoteMap,
 			downstreams: downstreamMap,
-			worktreesByBranch: undefined,
+			stashes: stashes,
+			worktrees: worktrees,
+			worktreesByBranch: worktreesByBranch,
 			rows: rows,
 			id: options?.ref,
 
@@ -1653,6 +1666,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					currentUser,
 					avatars,
 					ids,
+					stashes,
+					worktrees,
+					worktreesByBranch,
 					options,
 				);
 			},
