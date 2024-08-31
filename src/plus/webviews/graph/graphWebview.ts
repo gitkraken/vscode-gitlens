@@ -23,6 +23,7 @@ import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
 import type { CommitSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
+import { executeGitCommand } from '../../../git/actions';
 import * as BranchActions from '../../../git/actions/branch';
 import {
 	getOrderedComparisonRefs,
@@ -612,6 +613,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.updateColumns(compactGraphColumnsSettings),
 			),
 
+			this.host.registerWebviewCommand('gitlens.graph.openInWorktree', this.openInWorktree),
 			this.host.registerWebviewCommand('gitlens.graph.openWorktree', this.openWorktree),
 			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.openWorktreeInNewWindow', item =>
 				this.openWorktree(item, { location: 'newWindow' }),
@@ -3483,6 +3485,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (commit == null) return;
 
 		return openOnlyChangedFiles(commit);
+	}
+
+	@log()
+	private async openInWorktree(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			await executeGitCommand({
+				command: 'switch',
+				state: {
+					repos: ref.repoPath,
+					reference: ref,
+					skipWorktreeConfirmations: true,
+				},
+			});
+		}
 	}
 
 	@log()

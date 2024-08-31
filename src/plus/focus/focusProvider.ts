@@ -546,23 +546,13 @@ export class FocusProvider implements Disposable {
 	private getItemBranchDeepLink(item: FocusItem, action?: DeepLinkActionType): Uri | undefined {
 		if (item.type !== 'pullrequest' || item.headRef == null || item.repoIdentity?.remote?.url == null)
 			return undefined;
-		const schemeOverride = configuration.get('deepLinks.schemeOverride');
-		const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
 
 		const branchName =
 			action == null && item.openRepository?.localBranch?.current
 				? item.openRepository.localBranch.name
 				: item.headRef.name;
 
-		// TODO: Get the proper pull URL from the provider, rather than tacking .git at the end of the
-		// url from the head ref.
-		return Uri.parse(
-			`${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
-				DeepLinkType.Repository
-			}/-/${DeepLinkType.Branch}/${branchName}?url=${encodeURIComponent(
-				ensureRemoteUrl(item.repoIdentity.remote.url),
-			)}${action != null ? `&action=${action}` : ''}`,
-		);
+		return getPullRequestBranchDeepLink(this.container, branchName, item.repoIdentity.remote.url, action);
 	}
 
 	private async getMatchingOpenRepository(
@@ -1036,6 +1026,25 @@ function ensureRemoteUrl(url: string) {
 	}
 
 	return url;
+}
+
+export function getPullRequestBranchDeepLink(
+	container: Container,
+	headRefBranchName: string,
+	remoteUrl: string,
+	action?: DeepLinkActionType,
+) {
+	const schemeOverride = configuration.get('deepLinks.schemeOverride');
+	const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
+	// TODO: Get the proper pull URL from the provider, rather than tacking .git at the end of the
+	// url from the head ref.
+	return Uri.parse(
+		`${scheme}://${container.context.extension.id}/${'link' satisfies UriTypes}/${DeepLinkType.Repository}/-/${
+			DeepLinkType.Branch
+		}/${headRefBranchName}?url=${encodeURIComponent(ensureRemoteUrl(remoteUrl))}${
+			action != null ? `&action=${action}` : ''
+		}`,
+	);
 }
 
 export function getFocusItemIdHash(item: FocusItem) {

@@ -7397,6 +7397,12 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.openInWorktree",
+				"title": "Open in Worktree",
+				"category": "GitLens",
+				"icon": "$(window)"
+			},
+			{
 				"command": "gitlens.views.openWorktree",
 				"title": "Open Worktree",
 				"category": "GitLens",
@@ -7407,6 +7413,12 @@
 				"title": "Open Worktree in New Window",
 				"category": "GitLens",
 				"icon": "$(empty-window)"
+			},
+			{
+				"command": "gitlens.graph.openInWorktree",
+				"title": "Open in Worktree",
+				"category": "GitLens",
+				"icon": "$(window)"
 			},
 			{
 				"command": "gitlens.views.openWorktreeInNewWindow.multi",
@@ -10996,11 +11008,19 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.openInWorktree",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.openWorktreeInNewWindow",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.openWorktreeInNewWindow.multi",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openInWorktree",
 					"when": "false"
 				},
 				{
@@ -14043,6 +14063,11 @@
 					"group": "1_gitlens_action@2"
 				},
 				{
+					"command": "gitlens.views.openInWorktree",
+					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current|closed|worktree\\b)/",
+					"group": "1_gitlens_action@3"
+				},
+				{
 					"command": "gitlens.views.switchToAnotherBranch",
 					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/",
 					"group": "1_gitlens_action@1"
@@ -14661,6 +14686,11 @@
 					"command": "gitlens.openPullRequestOnRemote",
 					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
 					"group": "1_gitlens_actions@99"
+				},
+				{
+					"command": "gitlens.views.openInWorktree",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
+					"group": "1_gitlens_actions@100"
 				},
 				{
 					"command": "gitlens.showInCommitGraph",
@@ -15552,6 +15582,11 @@
 					"command": "gitlens.graph.openWorktreeInNewWindow",
 					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)/",
 					"group": "1_gitlens_action@2"
+				},
+				{
+					"command": "gitlens.graph.openInWorktree",
+					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current|worktree\\b)/",
+					"group": "1_gitlens_action@3"
 				},
 				{
 					"command": "gitlens.graph.switchToAnotherBranch",
