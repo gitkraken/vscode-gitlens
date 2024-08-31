@@ -345,18 +345,32 @@ export async function getWorktreesByBranch(
 	if (repos == null) return worktreesByBranch;
 
 	async function addWorktrees(repo: Repository) {
-		const worktrees = await repo.getWorktrees();
-		for (const wt of worktrees) {
-			if (wt.branch == null || (!options?.includeMainWorktree && wt.main)) continue;
-
-			worktreesByBranch.set(wt.branch.id, wt);
-		}
+		groupWorktreesByBranch(await repo.getWorktrees(), {
+			includeMainWorktree: options?.includeMainWorktree,
+			worktreesByBranch: worktreesByBranch,
+		});
 	}
 
 	if (!Array.isArray(repos)) {
 		await addWorktrees(repos);
 	} else {
 		await Promise.allSettled(repos.map(async r => addWorktrees(r)));
+	}
+
+	return worktreesByBranch;
+}
+
+export function groupWorktreesByBranch(
+	worktrees: GitWorktree[],
+	options?: { includeMainWorktree?: boolean; worktreesByBranch?: Map<string, GitWorktree> },
+) {
+	const worktreesByBranch = options?.worktreesByBranch ?? new Map<string, GitWorktree>();
+	if (worktrees == null) return worktreesByBranch;
+
+	for (const wt of worktrees) {
+		if (wt.branch == null || (!options?.includeMainWorktree && wt.main)) continue;
+
+		worktreesByBranch.set(wt.branch.id, wt);
 	}
 
 	return worktreesByBranch;

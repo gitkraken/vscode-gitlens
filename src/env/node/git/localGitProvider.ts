@@ -128,7 +128,7 @@ import type { GitTreeEntry } from '../../../git/models/tree';
 import type { GitUser } from '../../../git/models/user';
 import { isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
-import { getWorktreeId, getWorktreesByBranch } from '../../../git/models/worktree';
+import { getWorktreeId, groupWorktreesByBranch } from '../../../git/models/worktree';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
 import { parseGitBranches } from '../../../git/parsers/branchParser';
 import {
@@ -2319,21 +2319,25 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const refParser = getRefParser();
 		const statsParser = getGraphStatsParser();
 
-		const [refResult, stashResult, branchesResult, remotesResult, currentUserResult, worktreesByBranchResult] =
+		const [refResult, stashResult, branchesResult, remotesResult, currentUserResult, worktreesResult] =
 			await Promise.allSettled([
 				this.git.log(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
 				this.getStash(repoPath),
 				this.getBranches(repoPath),
 				this.getRemotes(repoPath),
 				this.getCurrentUser(repoPath),
-				getWorktreesByBranch(this.container.git.getRepository(repoPath), { includeMainWorktree: true }),
+				this.container.git
+					.getWorktrees(repoPath)
+					.then(w => [w, groupWorktreesByBranch(w, { includeMainWorktree: true })]) satisfies Promise<
+					[GitWorktree[], Map<string, GitWorktree>]
+				>,
 			]);
 
 		const branches = getSettledValue(branchesResult)?.values;
 		const branchMap = branches != null ? new Map(branches.map(r => [r.name, r])) : new Map<string, GitBranch>();
 		const headBranch = branches?.find(b => b.current);
 		const headRefUpstreamName = headBranch?.upstream?.name;
-		const worktreesByBranch = getSettledValue(worktreesByBranchResult);
+		const [worktrees, worktreesByBranch] = getSettledValue(worktreesResult) ?? [[], new Map<string, GitWorktree>()];
 
 		let branchIdOfMainWorktree: string | undefined;
 		if (worktreesByBranch != null) {
@@ -2351,13 +2355,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const downstreamMap = new Map<string, string[]>();
 
+		let stashes: Map<string, GitStashCommit> | undefined;
 		let stdin: string | undefined;
 
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 		const stash = getSettledValue(stashResult);
 		if (stash?.commits.size) {
+			stashes = new Map(stash.commits);
 			stdin = join(
-				map(stash.commits.values(), c => c.sha.substring(0, 9)),
+				map(stashes.values(), c => c.sha.substring(0, 9)),
 				'\n',
 			);
 		}
@@ -2421,6 +2427,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									branches: branchMap,
 									remotes: remoteMap,
 									downstreams: downstreamMap,
+									stashes: stashes,
+									worktrees: worktrees,
 									worktreesByBranch: worktreesByBranch,
 									rows: [],
 								};
@@ -2444,6 +2452,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						branches: branchMap,
 						remotes: remoteMap,
 						downstreams: downstreamMap,
+						stashes: stashes,
+						worktrees: worktrees,
 						worktreesByBranch: worktreesByBranch,
 						rows: [],
 					};
@@ -2838,6 +2848,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				branches: branchMap,
 				remotes: remoteMap,
 				downstreams: downstreamMap,
+				stashes: stashes,
+				worktrees: worktrees,
 				worktreesByBranch: worktreesByBranch,
 				rows: rows,
 				id: sha,
