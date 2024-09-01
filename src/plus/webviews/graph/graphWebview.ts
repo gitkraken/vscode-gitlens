@@ -98,7 +98,7 @@ import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, disposableInterval } from '../../../system/function';
-import { find, last, map } from '../../../system/iterable';
+import { count, find, last, map } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import {
 	getSettledValue,
@@ -118,6 +118,7 @@ import type { ConnectionStateChangeEvent } from '../../integrations/integrationS
 import type {
 	BranchState,
 	DidChangeRefsVisibilityParams,
+	DidGetCountParams,
 	DidGetRowHoverParams,
 	DidSearchParams,
 	DoubleClickedParams,
@@ -190,6 +191,7 @@ import {
 	DidSearchNotification,
 	DoubleClickedCommandType,
 	EnsureRowRequest,
+	GetCountsRequest,
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
@@ -679,6 +681,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case EnsureRowRequest.is(e):
 				void this.onEnsureRowRequest(EnsureRowRequest, e);
 				break;
+			case GetCountsRequest.is(e):
+				void this.onGetCounts(GetCountsRequest, e);
+				break;
 			case GetMissingAvatarsCommand.is(e):
 				void this.onGetMissingAvatars(e.params);
 				break;
@@ -719,6 +724,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.onSelectionChanged(e.params);
 				break;
 		}
+	}
+	private async onGetCounts<T extends typeof GetCountsRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		let counts: DidGetCountParams;
+		if (this._graph != null) {
+			const tags = await this.container.git.getTags(this._graph.repoPath);
+			counts = {
+				branches: count(this._graph.branches?.values(), b => !b.remote),
+				remotes: this._graph.remotes.size,
+				stashes: this._graph.stashes?.size,
+				// Subtract the default worktree
+				worktrees: this._graph.worktrees != null ? this._graph.worktrees.length - 1 : undefined,
+				tags: tags.values.length,
+			};
+		} else {
+			counts = undefined;
+		}
+
+		void this.host.respond(requestType, msg, counts);
 	}
 
 	updateGraphConfig(params: UpdateGraphConfigurationParams) {
@@ -2161,6 +2184,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			scrollMarkerTypes: this.getScrollMarkerTypes(),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
+			sidebar: configuration.get('graph.sidebar.enabled') ?? true,
 		};
 		return config;
 	}
