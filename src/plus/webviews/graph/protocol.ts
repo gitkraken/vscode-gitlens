@@ -190,6 +190,7 @@ export interface GraphComponentConfig {
 	scrollRowPadding?: number;
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
+	sidebar: boolean;
 }
 
 export interface GraphColumnConfig {
@@ -221,12 +222,6 @@ export type UpdateStateCallback = (
 // COMMANDS
 
 export const ChooseRepositoryCommand = new IpcCommand(scope, 'chooseRepository');
-
-export interface ChooseRefParams {
-	alt: boolean;
-}
-export type DidChooseRefParams = { name: string; sha: string } | undefined;
-export const ChooseRefRequest = new IpcRequest<ChooseRefParams, DidChooseRefParams>(scope, 'chooseRef');
 
 export type DoubleClickedParams =
 	| {
@@ -307,6 +302,12 @@ export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scop
 
 // REQUESTS
 
+export interface ChooseRefParams {
+	alt: boolean;
+}
+export type DidChooseRefParams = { name: string; sha: string } | undefined;
+export const ChooseRefRequest = new IpcRequest<ChooseRefParams, DidChooseRefParams>(scope, 'chooseRef');
+
 export interface EnsureRowParams {
 	id: string;
 	select?: boolean;
@@ -316,6 +317,18 @@ export interface DidEnsureRowParams {
 	remapped?: string;
 }
 export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
+
+export interface GetCountParams {}
+export type DidGetCountParams =
+	| {
+			branches: number;
+			remotes: number;
+			stashes?: number;
+			tags: number;
+			worktrees?: number;
+	  }
+	| undefined;
+export const GetCountsRequest = new IpcRequest<GetCountParams, DidGetCountParams>(scope, 'counts');
 
 export type GetRowHoverParams = {
 	type: GitGraphRowType;
