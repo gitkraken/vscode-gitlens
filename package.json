@@ -17981,6 +17981,7 @@
 		"@gitkraken/gitkraken-components": "10.6.0",
 		"@gitkraken/provider-apis": "0.24.2",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
+		"@lit/context": "1.1.2",
 		"@lit/react": "1.0.5",
 		"@microsoft/fast-element": "1.13.0",
 		"@octokit/graphql": "8.1.1",

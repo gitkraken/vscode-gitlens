@@ -1,6 +1,7 @@
 import { LogInstanceNameFn } from './decorators/log';
 import type { LogLevel } from './logger.constants';
 import type { LogScope } from './logger.scope';
+import { padOrTruncateEnd } from './string';
 
 const enum OrderedLevel {
 	Off = 0,
@@ -87,7 +88,7 @@ export const Logger = new (class Logger {
 		}
 
 		if (this.isDebugging) {
-			console.log(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
+			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
 		}
 
 		if (this.output == null || this.level < OrderedLevel.Debug) return;
@@ -118,9 +119,20 @@ export const Logger = new (class Logger {
 
 		if (this.isDebugging) {
 			if (ex != null) {
-				console.error(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params, ex);
+				console.error(
+					`[${padOrTruncateEnd(this.provider!.name, 13)}]`,
+					this.timestamp,
+					message ?? '',
+					...params,
+					ex,
+				);
 			} else {
-				console.error(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
+				console.error(
+					`[${padOrTruncateEnd(this.provider!.name, 13)}]`,
+					this.timestamp,
+					message ?? '',
+					...params,
+				);
 			}
 		}
 
@@ -149,7 +161,7 @@ export const Logger = new (class Logger {
 		}
 
 		if (this.isDebugging) {
-			console.log(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
+			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
 		}
 
 		if (this.output == null || this.level < OrderedLevel.Info) return;

@@ -659,13 +659,15 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	endOfBody?: string,
 ) {
 	return html.replace(
-		/#{(head|body|endOfBody|webviewId|webviewInstanceId|placement|cspSource|cspNonce|root|webroot)}/g,
+		/#{(head|body|endOfBody|webviewId|webviewInstanceId|placement|cspSource|cspNonce|root|webroot|state)}/g,
 		(_substring: string, token: string) => {
 			switch (token) {
 				case 'head':
 					return head ?? '';
 				case 'body':
 					return body ?? '';
+				case 'state':
+					return bootstrap != null ? JSON.stringify(bootstrap).replace(/"/g, '&quot;') : '';
 				case 'endOfBody':
 					return `${
 						bootstrap != null
