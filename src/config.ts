@@ -414,6 +414,9 @@ export interface GraphConfig {
 	readonly showGhostRefsOnRowHover: boolean;
 	readonly showRemoteNames: boolean;
 	readonly showUpstreamStatus: boolean;
+	readonly sidebar: {
+		readonly enabled: boolean;
+	};
 	readonly statusBar: {
 		readonly enabled: boolean;
 	};

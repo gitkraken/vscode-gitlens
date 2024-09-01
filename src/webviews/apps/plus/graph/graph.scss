@@ -963,6 +963,7 @@ gl-feature-gate gl-feature-badge {
 		flex: 1 1 auto;
 		overflow: hidden;
 		position: relative;
+		display: flex;
 	}
 
 	&__main.is-gated {
@@ -970,6 +971,16 @@ gl-feature-gate gl-feature-badge {
 		pointer-events: none;
 	}
 }
+
+.gk-graph:not(.ref-zone) {
+	flex: 1 1 auto;
+	position: relative;
+}
+
+// Add when graph ref-zone "container" changes
+// .gk-graph.ref-zone {
+// 	position: absolute;
+// }
 
 .gk-graph .graph-header {
 	& .resizable-handle.horizontal {

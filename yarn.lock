@@ -517,12 +517,19 @@
   resolved "https://registry.yarnpkg.com/@lit/react/-/react-1.0.5.tgz#9c53a8d719f91ef7edca0bdd68f5589ea579ffc1"
   integrity sha512-RSHhrcuSMa4vzhqiTenzXvtQ6QDq3hSPsnHHO3jaPmmvVFeoNNm4DHoQ0zLdKAUvY3wP3tTENSUf7xpyVfrDEA==
 
-"@lit/reactive-element@^1.6.2 || ^2.0.0", "@lit/reactive-element@^2.0.4":
+"@lit/reactive-element@^1.0.0 || ^2.0.0", "@lit/reactive-element@^1.6.2 || ^2.0.0", "@lit/reactive-element@^2.0.4":
   version "2.0.4"
   resolved "https://registry.yarnpkg.com/@lit/reactive-element/-/reactive-element-2.0.4.tgz#8f2ed950a848016383894a26180ff06c56ae001b"
   integrity sha512-GFn91inaUa2oHLak8awSIigYz0cU0Payr1rcFsrkf5OJ5eSPxElyZfKh0f2p9FsTiZWXQdWGJeXZICEfXXYSXQ==
   dependencies:
     "@lit-labs/ssr-dom-shim" "^1.2.0"
+
+"@lit/task@1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@lit/task/-/task-1.0.1.tgz#7462aeaa973766822567f5ca90fe157404e8eb81"
+  integrity sha512-fVLDtmwCau8NywnFIXaJxsCZjzaIxnVq+cFRKYC1Y4tA4/0rMTvF6DLZZ2JE51BwzOluaKtgJX8x1QDsQtAaIw==
+  dependencies:
+    "@lit/reactive-element" "^1.0.0 || ^2.0.0"
 
 "@microsoft/fast-element@1.13.0", "@microsoft/fast-element@^1.12.0", "@microsoft/fast-element@^1.13.0":
   version "1.13.0"

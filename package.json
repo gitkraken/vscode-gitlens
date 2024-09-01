@@ -932,222 +932,6 @@
 				"title": "Commit Graph",
 				"order": 50,
 				"properties": {
-					"gitlens.graph.branchesVisibility": {
-						"type": "string",
-						"enum": [
-							"all",
-							"smart",
-							"current"
-						],
-						"enumDescriptions": [
-							"Shows all branches",
-							"Shows only relevant branches",
-							"Shows only the current branch"
-						],
-						"default": "all",
-						"markdownDescription": "Specifies the visibility of branches on the _Commit Graph_",
-						"scope": "window",
-						"order": 2
-					},
-					"gitlens.graph.allowMultiple": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Commit Graph_ in the editor area",
-						"scope": "window",
-						"order": 5
-					},
-					"gitlens.graph.defaultItemLimit": {
-						"type": "number",
-						"default": 500,
-						"markdownDescription": "Specifies the default number of items to show in the _Commit Graph_. Use 0 to specify no limit",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.graph.pageItemLimit": {
-						"type": "number",
-						"default": 200,
-						"markdownDescription": "Specifies the number of additional items to fetch when paginating in the _Commit Graph_. Use 0 to specify no limit",
-						"scope": "window",
-						"order": 11
-					},
-					"gitlens.graph.searchItemLimit": {
-						"type": "number",
-						"default": 100,
-						"markdownDescription": "Specifies the number of results to gather when searching in the _Commit Graph_. Use 0 to specify no limit",
-						"scope": "window",
-						"order": 12
-					},
-					"gitlens.graph.scrollMarkers.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show markers on the scrollbar in the _Commit Graph_",
-						"scope": "window",
-						"order": 13
-					},
-					"gitlens.graph.scrollMarkers.additionalTypes": {
-						"type": "array",
-						"default": [
-							"localBranches",
-							"stashes"
-						],
-						"items": {
-							"type": "string",
-							"enum": [
-								"localBranches",
-								"remoteBranches",
-								"pullRequests",
-								"stashes",
-								"tags"
-							],
-							"enumDescriptions": [
-								"Marks the location of local branches",
-								"Marks the location of remote branches",
-								"Marks the location of pull requests",
-								"Marks the location of stashes",
-								"Marks the location of tags"
-							]
-						},
-						"minItems": 0,
-						"maxItems": 5,
-						"uniqueItems": true,
-						"markdownDescription": "Specifies additional markers to show on the scrollbar in the _Commit Graph_",
-						"scope": "window",
-						"order": 14
-					},
-					"gitlens.graph.scrollRowPadding": {
-						"type": "number",
-						"default": 0,
-						"markdownDescription": "Specifies the number of rows from the edge at which the graph will scroll when using keyboard or search to change the selected row",
-						"scope": "window",
-						"order": 14
-					},
-					"gitlens.graph.showDetailsView": {
-						"type": [
-							"boolean",
-							"string"
-						],
-						"default": "selection",
-						"enum": [
-							false,
-							"open",
-							"selection"
-						],
-						"enumDescriptions": [
-							"Never shows the _Commit Details_ view automatically",
-							"Shows the _Commit Details_ view automatically only when opening the _Commit Graph_",
-							"Shows the _Commit Details_ view automatically when selection changes in the _Commit Graph_"
-						],
-						"markdownDescription": "Specifies when to show the _Commit Details_ view for the selected row in the _Commit Graph_",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.graph.showGhostRefsOnRowHover": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show a ghost branch / tag when hovering over or selecting a row in the _Commit Graph_",
-						"scope": "window",
-						"order": 21
-					},
-					"gitlens.graph.highlightRowsOnRefHover": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to highlight rows associated with the branch / tag when hovering over it in the _Commit Graph_",
-						"scope": "window",
-						"order": 22
-					},
-					"gitlens.graph.dimMergeCommits": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to dim (deemphasize) merge commit rows in the _Commit Graph_",
-						"scope": "window",
-						"order": 23
-					},
-					"gitlens.graph.showRemoteNames": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to show remote names on remote branches in the _Commit Graph_",
-						"scope": "window",
-						"order": 24
-					},
-					"gitlens.graph.avatars": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of author initials and remote icons in the _Commit Graph_",
-						"scope": "window",
-						"order": 25
-					},
-					"gitlens.graph.showUpstreamStatus": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show a local branch's upstream status in the _Commit Graph_",
-						"scope": "window",
-						"order": 26
-					},
-					"gitlens.graph.pullRequests.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show associated pull requests on remote branches in the _Commit Graph_. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window",
-						"order": 27
-					},
-					"gitlens.graph.commitOrdering": {
-						"type": "string",
-						"default": "date",
-						"enum": [
-							"date",
-							"author-date",
-							"topo"
-						],
-						"enumDescriptions": [
-							"Shows commits in reverse chronological order of the commit timestamp",
-							"Shows commits in reverse chronological order of the author timestamp",
-							"Shows commits in reverse chronological order of the commit timestamp, but avoids intermixing multiple lines of history"
-						],
-						"markdownDescription": "Specifies the order by which commits will be shown on the _Commit Graph_",
-						"scope": "window",
-						"order": 30
-					},
-					"gitlens.graph.onlyFollowFirstParent": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to only follow the first parent when showing commits on the _Commit Graph_",
-						"order": 31
-					},
-					"gitlens.graph.dateStyle": {
-						"type": [
-							"string",
-							"null"
-						],
-						"default": null,
-						"enum": [
-							"relative",
-							"absolute"
-						],
-						"enumDescriptions": [
-							"e.g. 1 day ago",
-							"e.g. July 25th, 2018 7:18pm"
-						],
-						"markdownDescription": "Specifies how dates will be displayed in the _Commit Graph_",
-						"scope": "window",
-						"order": 40
-					},
-					"gitlens.graph.dateFormat": {
-						"type": [
-							"string",
-							"null"
-						],
-						"default": null,
-						"markdownDescription": "Specifies how absolute dates will be formatted in the _Commit Graph_. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
-						"scope": "window",
-						"order": 41
-					},
-					"gitlens.graph.statusBar.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the _Commit Graph_ in the status bar",
-						"scope": "window",
-						"order": 50
-					},
 					"gitlens.graph.layout": {
 						"type": "string",
 						"default": "panel",
@@ -1161,7 +945,14 @@
 						],
 						"markdownDescription": "Specifies the preferred layout of the _Commit Graph_",
 						"scope": "window",
-						"order": 99
+						"order": 1
+					},
+					"gitlens.graph.allowMultiple": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Commit Graph_ in the editor area",
+						"scope": "window",
+						"order": 2
 					},
 					"gitlens.graph.minimap.enabled": {
 						"type": "boolean",
@@ -1214,6 +1005,222 @@
 						"markdownDescription": "Specifies additional markers to show on the minimap in the _Commit Graph_",
 						"scope": "window",
 						"order": 102
+					},
+					"gitlens.graph.scrollMarkers.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show markers on the scrollbar in the _Commit Graph_",
+						"scope": "window",
+						"order": 200
+					},
+					"gitlens.graph.scrollMarkers.additionalTypes": {
+						"type": "array",
+						"default": [
+							"localBranches",
+							"stashes"
+						],
+						"items": {
+							"type": "string",
+							"enum": [
+								"localBranches",
+								"remoteBranches",
+								"pullRequests",
+								"stashes",
+								"tags"
+							],
+							"enumDescriptions": [
+								"Marks the location of local branches",
+								"Marks the location of remote branches",
+								"Marks the location of pull requests",
+								"Marks the location of stashes",
+								"Marks the location of tags"
+							]
+						},
+						"minItems": 0,
+						"maxItems": 5,
+						"uniqueItems": true,
+						"markdownDescription": "Specifies additional markers to show on the scrollbar in the _Commit Graph_",
+						"scope": "window",
+						"order": 201
+					},
+					"gitlens.graph.sidebar.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show a sidebar on the _Commit Graph_",
+						"scope": "window",
+						"order": 300
+					},
+					"gitlens.graph.branchesVisibility": {
+						"type": "string",
+						"enum": [
+							"all",
+							"smart",
+							"current"
+						],
+						"enumDescriptions": [
+							"Shows all branches",
+							"Shows only relevant branches",
+							"Shows only the current branch"
+						],
+						"default": "all",
+						"markdownDescription": "Specifies the visibility of branches on the _Commit Graph_",
+						"scope": "window",
+						"order": 400
+					},
+					"gitlens.graph.showDetailsView": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"default": "selection",
+						"enum": [
+							false,
+							"open",
+							"selection"
+						],
+						"enumDescriptions": [
+							"Never shows the _Commit Details_ view automatically",
+							"Shows the _Commit Details_ view automatically only when opening the _Commit Graph_",
+							"Shows the _Commit Details_ view automatically when selection changes in the _Commit Graph_"
+						],
+						"markdownDescription": "Specifies when to show the _Commit Details_ view for the selected row in the _Commit Graph_",
+						"scope": "window",
+						"order": 500
+					},
+					"gitlens.graph.dateFormat": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies how absolute dates will be formatted in the _Commit Graph_. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
+						"scope": "window",
+						"order": 600
+					},
+					"gitlens.graph.dateStyle": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"enum": [
+							"relative",
+							"absolute"
+						],
+						"enumDescriptions": [
+							"e.g. 1 day ago",
+							"e.g. July 25th, 2018 7:18pm"
+						],
+						"markdownDescription": "Specifies how dates will be displayed in the _Commit Graph_",
+						"scope": "window",
+						"order": 601
+					},
+					"gitlens.graph.commitOrdering": {
+						"type": "string",
+						"default": "date",
+						"enum": [
+							"date",
+							"author-date",
+							"topo"
+						],
+						"enumDescriptions": [
+							"Shows commits in reverse chronological order of the commit timestamp",
+							"Shows commits in reverse chronological order of the author timestamp",
+							"Shows commits in reverse chronological order of the commit timestamp, but avoids intermixing multiple lines of history"
+						],
+						"markdownDescription": "Specifies the order by which commits will be shown on the _Commit Graph_",
+						"scope": "window",
+						"order": 602
+					},
+					"gitlens.graph.onlyFollowFirstParent": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to only follow the first parent when showing commits on the _Commit Graph_",
+						"order": 603
+					},
+					"gitlens.graph.dimMergeCommits": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to dim (deemphasize) merge commit rows in the _Commit Graph_",
+						"scope": "window",
+						"order": 700
+					},
+					"gitlens.graph.showUpstreamStatus": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show a local branch's upstream status in the _Commit Graph_",
+						"scope": "window",
+						"order": 701
+					},
+					"gitlens.graph.showRemoteNames": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show remote names on remote branches in the _Commit Graph_",
+						"scope": "window",
+						"order": 702
+					},
+					"gitlens.graph.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show associated pull requests on remote branches in the _Commit Graph_. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 703
+					},
+					"gitlens.graph.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of author initials and remote icons in the _Commit Graph_",
+						"scope": "window",
+						"order": 704
+					},
+					"gitlens.graph.showGhostRefsOnRowHover": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show a ghost branch / tag when hovering over or selecting a row in the _Commit Graph_",
+						"scope": "window",
+						"order": 750
+					},
+					"gitlens.graph.highlightRowsOnRefHover": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to highlight rows associated with the branch / tag when hovering over it in the _Commit Graph_",
+						"scope": "window",
+						"order": 751
+					},
+					"gitlens.graph.defaultItemLimit": {
+						"type": "number",
+						"default": 500,
+						"markdownDescription": "Specifies the default number of items to show in the _Commit Graph_. Use 0 to specify no limit",
+						"scope": "window",
+						"order": 800
+					},
+					"gitlens.graph.pageItemLimit": {
+						"type": "number",
+						"default": 200,
+						"markdownDescription": "Specifies the number of additional items to fetch when paginating in the _Commit Graph_. Use 0 to specify no limit",
+						"scope": "window",
+						"order": 801
+					},
+					"gitlens.graph.searchItemLimit": {
+						"type": "number",
+						"default": 100,
+						"markdownDescription": "Specifies the number of results to gather when searching in the _Commit Graph_. Use 0 to specify no limit",
+						"scope": "window",
+						"order": 802
+					},
+					"gitlens.graph.scrollRowPadding": {
+						"type": "number",
+						"default": 0,
+						"markdownDescription": "Specifies the number of rows from the edge at which the graph will scroll when using keyboard or search to change the selected row",
+						"scope": "window",
+						"order": 900
+					},
+					"gitlens.graph.statusBar.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the _Commit Graph_ in the status bar",
+						"scope": "window",
+						"order": 1000
 					}
 				}
 			},
@@ -17983,6 +17990,7 @@
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@lit/context": "1.1.2",
 		"@lit/react": "1.0.5",
+		"@lit/task": "1.0.1",
 		"@microsoft/fast-element": "1.13.0",
 		"@octokit/graphql": "8.1.1",
 		"@octokit/request": "9.1.1",

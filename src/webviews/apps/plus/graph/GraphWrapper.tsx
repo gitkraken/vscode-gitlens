@@ -85,6 +85,7 @@ import { formatDate, fromNow } from '../../shared/date';
 import { GlGraphHover } from './hover/graphHover.react';
 import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap';
 import { GlGraphMinimapContainer } from './minimap/minimap-container.react';
+import { GlGraphSideBar } from './sidebar/sidebar.react';
 
 export interface GraphWrapperProps {
 	nonce?: string;
@@ -1588,6 +1589,14 @@ export function GraphWrapper({
 			></GlGraphMinimapContainer>
 			<GlGraphHover ref={hover as any} id="commit-hover" distance={0} skidding={15}></GlGraphHover>
 			<main id="main" className="graph-app__main" aria-hidden={!allowed}>
+				<GlGraphSideBar
+					enabled={graphConfig?.sidebar}
+					include={
+						repo?.isVirtual
+							? ['branches', 'remotes', 'tags']
+							: ['branches', 'remotes', 'tags', 'stashes', 'worktrees']
+					}
+				></GlGraphSideBar>
 				{repo !== undefined ? (
 					<>
 						<GraphContainer

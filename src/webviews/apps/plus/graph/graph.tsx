@@ -54,7 +54,7 @@ import {
 	UpdateSelectionCommand,
 } from '../../../../plus/webviews/graph/protocol';
 import { Color, getCssVariable, mix, opacity } from '../../../../system/color';
-import { debug } from '../../../../system/decorators/log';
+import { debug, log } from '../../../../system/decorators/log';
 import { debounce } from '../../../../system/function';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import type { IpcMessage, IpcNotification } from '../../../protocol';
@@ -84,11 +84,10 @@ export class GraphApp extends App<State> {
 		super('GraphApp');
 	}
 
+	@log()
 	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 		// disposables.push(DOM.on(window, 'keyup', e => this.onKeyUp(e)));
-
-		this.log(`onBind()`);
 
 		this.ensureTheming(this.state);
 
