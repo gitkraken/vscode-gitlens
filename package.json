@@ -8826,6 +8826,13 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.sync",
+				"title": "Pull",
+				"category": "GitLens",
+				"icon": "$(gitlens-repo-sync)",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.graph.fetch",
 				"title": "Fetch",
 				"category": "GitLens",
@@ -11993,6 +12000,10 @@
 				},
 				{
 					"command": "gitlens.graph.pull",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.sync",
 					"when": "false"
 				},
 				{
@@ -15578,6 +15589,11 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
+					"command": "gitlens.graph.sync",
+					"when": "false",
+					"group": "1_gitlens_actions@2"
+				},
+				{
 					"command": "gitlens.graph.fetch",
 					"when": "gitlens:repos:withRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)(?!.*?\\b\\+closed\\b)/",
 					"group": "1_gitlens_actions@3"
@@ -15830,6 +15846,11 @@
 				{
 					"command": "gitlens.graph.pull",
 					"when": "webviewItem =~ /gitlens:upstreamStatus\\b/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.graph.sync",
+					"when": "sync",
 					"group": "1_gitlens_actions@2"
 				},
 				{
