@@ -9,6 +9,15 @@
 	outline-offset: -1px;
 }
 
+menu-list {
+	menu-item > a[href] {
+		text-decoration: none;
+		color: var(--vscode-foreground);
+		width: 100%;
+		display: inline-block;
+	}
+}
+
 .vscode-high-contrast,
 .vscode-dark {
 	--popover-bg: var(--color-background--lighten-15);

@@ -133,8 +133,8 @@ export class PullGitCommand extends QuickCommand<State> {
 				state.flags = result;
 			}
 
+			await this.execute(state as PullStepState);
 			endSteps(state);
-			void this.execute(state as PullStepState);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;

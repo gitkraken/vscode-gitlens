@@ -447,6 +447,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.push', this.push),
 			this.host.registerWebviewCommand('gitlens.graph.pull', this.pull),
 			this.host.registerWebviewCommand('gitlens.graph.fetch', this.fetch),
+			this.host.registerWebviewCommand('gitlens.graph.sync', this.sync),
 			this.host.registerWebviewCommand('gitlens.graph.publishBranch', this.publishBranch),
 			this.host.registerWebviewCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother),
 
@@ -2853,6 +2854,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private fetch(item?: GraphItemContext) {
 		const ref = item != null ? this.getGraphItemRef(item, 'branch') : undefined;
 		void RepoActions.fetch(this.repository, ref);
+	}
+
+	@log()
+	private async sync(item?: GraphItemContext) {
+		const ref = item != null ? this.getGraphItemRef(item, 'branch') : undefined;
+		await RepoActions.pull(this.repository, ref);
+		void RepoActions.push(this.repository, undefined, ref);
 	}
 
 	@log()
