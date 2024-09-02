@@ -17951,6 +17951,7 @@
 		"@swc/core": "1.7.28",
 		"@twbs/fantasticon": "3.0.0",
 		"@types/eslint__js": "8.42.3",
+		"@types/markdown-it": "^14.1.2",
 		"@types/mocha": "10.0.8",
 		"@types/node": "18.15.0",
 		"@types/react": "17.0.82",
