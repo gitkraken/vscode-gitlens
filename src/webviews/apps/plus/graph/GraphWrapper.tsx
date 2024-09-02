@@ -86,6 +86,7 @@ import { GlSearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
+import { GitActionsButtons } from './actions/gitActionsButtons';
 import { GlGraphHover } from './hover/graphHover.react';
 import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap';
 import { GlGraphMinimapContainer } from './minimap/minimap-container.react';
@@ -991,146 +992,6 @@ export function GraphWrapper({
 		onChangeSelection?.(rows);
 	};
 
-	const renderFetchAction = () => {
-		let action: 'fetch' | 'pull' | 'push' = 'fetch';
-		let icon = 'repo-fetch';
-		let label = 'Fetch';
-		let isBehind = false;
-		let isAhead = false;
-
-		const remote = branchState?.upstream ? (
-			<>
-				<span className="md-code">{branchState?.upstream}</span>
-			</>
-		) : (
-			'remote'
-		);
-
-		let tooltip;
-		if (branchState) {
-			isAhead = branchState.ahead > 0;
-			isBehind = branchState.behind > 0;
-
-			const branchPrefix = (
-				<>
-					<span className="md-code">{branchName}</span> is
-				</>
-			);
-
-			if (isBehind) {
-				action = 'pull';
-				icon = 'repo-pull';
-				label = 'Pull';
-				tooltip = (
-					<>
-						Pull {pluralize('commit', branchState.behind)} from {remote}
-						{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
-					</>
-				);
-				if (isAhead) {
-					tooltip = (
-						<>
-							{tooltip}
-							<hr />
-							{branchPrefix} {pluralize('commit', branchState.behind)} behind and{' '}
-							{pluralize('commit', branchState.ahead)} ahead of {remote}
-							{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
-						</>
-					);
-				} else {
-					tooltip = (
-						<>
-							{tooltip}
-							<hr />
-							{branchPrefix} {pluralize('commit', branchState.behind)} behind {remote}
-							{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
-						</>
-					);
-				}
-			} else if (isAhead) {
-				action = 'push';
-				icon = 'repo-push';
-				label = 'Push';
-				tooltip = (
-					<>
-						Push {pluralize('commit', branchState.ahead)} to {remote}
-						{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
-						<hr />
-						{branchPrefix} {pluralize('commit', branchState.ahead)} ahead of {remote}
-					</>
-				);
-			}
-		}
-
-		const lastFetchedDate = lastFetched && new Date(lastFetched);
-		const fetchedText = lastFetchedDate && lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
-
-		return (
-			<>
-				{(isBehind || isAhead) && (
-					<GlTooltip placement="bottom">
-						<a
-							href={createWebviewCommandLink(
-								`gitlens.graph.${action}`,
-								state.webviewId,
-								state.webviewInstanceId,
-							)}
-							className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
-						>
-							<span className={`glicon glicon-${icon} action-button__icon`}></span>
-							{label}
-							{(isAhead || isBehind) && (
-								<span>
-									<span className="pill action-button__pill">
-										{isBehind && (
-											<span>
-												{branchState!.behind}
-												<span className="codicon codicon-arrow-down"></span>
-											</span>
-										)}
-										{isAhead && (
-											<span>
-												{isBehind && <>&nbsp;&nbsp;</>}
-												{branchState!.ahead}
-												<span className="codicon codicon-arrow-up"></span>
-											</span>
-										)}
-									</span>
-								</span>
-							)}
-						</a>
-						<div slot="content" style={{ whiteSpace: 'break-spaces' }}>
-							{tooltip}
-							{fetchedText && (
-								<>
-									<hr /> Last fetched {fetchedText}
-								</>
-							)}
-						</div>
-					</GlTooltip>
-				)}
-				<GlTooltip placement="bottom">
-					<a
-						href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
-						className="action-button"
-					>
-						<span className="glicon glicon-repo-fetch action-button__icon"></span>
-						Fetch {fetchedText && <span className="action-button__small">({fetchedText})</span>}
-					</a>
-					<span slot="content" style={{ whiteSpace: 'break-spaces' }}>
-						Fetch from {remote}
-						{branchState?.provider?.name ? ` on ${branchState.provider?.name}` : ''}
-						{fetchedText && (
-							<>
-								<hr /> Last fetched {fetchedText}
-							</>
-						)}
-					</span>
-				</GlTooltip>
-			</>
-		);
-	};
-
 	return (
 		<>
 			<header className="titlebar graph-app__header">
@@ -1274,7 +1135,12 @@ export function GraphWrapper({
 								<span>
 									<span className="codicon codicon-chevron-right"></span>
 								</span>
-								{renderFetchAction()}
+								<GitActionsButtons
+									branchName={branchName}
+									branchState={branchState}
+									lastFetched={lastFetched}
+									state={state}
+								/>
 							</>
 						)}
 					</div>
