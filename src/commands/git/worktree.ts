@@ -18,6 +18,7 @@ import { uncommitted, uncommittedStaged } from '../../git/models/constants';
 import type { GitReference } from '../../git/models/reference';
 import {
 	getNameWithoutRemote,
+	getReferenceFromBranch,
 	getReferenceLabel,
 	isBranchReference,
 	isRevisionReference,
@@ -37,6 +38,7 @@ import type { Deferred } from '../../system/promise';
 import { pluralize, truncateLeft } from '../../system/string';
 import { getWorkspaceFriendlyPath, openWorkspace, revealInFileExplorer } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { getSteps } from '../gitCommands.utils';
 import type {
 	AsyncStepResultGenerator,
 	CustomStep,
@@ -101,7 +103,7 @@ interface CreateState {
 	skipWorktreeConfirmations?: boolean;
 }
 
-type DeleteFlags = '--force';
+type DeleteFlags = '--force' | '--delete-branches';
 
 interface DeleteState {
 	subcommand: 'delete';
@@ -837,6 +839,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			state.flags = [];
 		}
 
+		const branches = [];
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.uris == null || state.uris.length === 0) {
 				context.title = getTitle(state.subcommand);
@@ -868,10 +871,11 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				do {
 					retry = false;
 					const force = state.flags.includes('--force');
+					const deleteBranches = state.flags.includes('--delete-branches');
 
 					try {
+						const worktree = context.worktrees.find(wt => wt.uri.toString() === uri.toString());
 						if (force) {
-							const worktree = context.worktrees.find(wt => wt.uri.toString() === uri.toString());
 							let status;
 							try {
 								status = await worktree?.getStatus();
@@ -892,6 +896,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						}
 
 						await state.repo.deleteWorktree(uri, { force: force });
+						if (deleteBranches && worktree?.branch) {
+							branches.push(getReferenceFromBranch(worktree?.branch));
+						}
 					} catch (ex) {
 						skipHasChangesPrompt = false;
 
@@ -923,15 +930,31 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				} while (retry);
 			}
 		}
+		if (branches?.length) {
+			yield* getSteps(
+				this.container,
+				{
+					command: 'branch',
+					state: {
+						subcommand: 'delete',
+						repo: state.repo,
+						references: branches,
+					},
+				},
+				this.pickedVia,
+			);
+		}
 	}
 
 	private *deleteCommandConfirmStep(state: DeleteStepState, context: Context): StepResultGenerator<DeleteFlags[]> {
 		context.title = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
 		const label = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
+		const branchesLabel = state.uris.length === 1 ? 'Branch' : 'Branches';
 		const description =
 			state.uris.length === 1
 				? `delete worktree in $(folder) ${getWorkspaceFriendlyPath(state.uris[0])}`
 				: 'delete worktrees';
+		const branchesDescription = state.uris.length === 1 ? `and its branch` : 'and corresponding branches';
 
 		const step: QuickPickStep<FlagsQuickPickItem<DeleteFlags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
@@ -944,6 +967,15 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					label: `Force ${label}`,
 					description: 'includes ANY UNCOMMITTED changes',
 					detail: `Will forcibly ${description}`,
+				}),
+				createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--delete-branches'], {
+					label: `${label} & ${branchesLabel}`,
+					detail: `Will ${description} ${branchesDescription}`,
+				}),
+				createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force', '--delete-branches'], {
+					label: `Force ${label} & ${branchesLabel}`,
+					description: 'includes ANY UNCOMMITTED changes',
+					detail: `Will forcibly ${description} ${branchesDescription}`,
 				}),
 			],
 			context,
