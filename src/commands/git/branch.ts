@@ -3,6 +3,7 @@ import type { Container } from '../../container';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { getNameWithoutRemote, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
+import type { GitWorktree } from '../../git/models/worktree';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -422,7 +423,10 @@ export class BranchGitCommand extends QuickCommand {
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
-	private *deleteCommandSteps(state: DeleteStepState | PruneStepState, context: Context): StepResultGenerator<void> {
+	private async *deleteCommandSteps(
+		state: DeleteStepState | PruneStepState,
+		context: Context,
+	): AsyncStepResultGenerator<void> {
 		const prune = state.subcommand === 'prune';
 		if (state.flags == null) {
 			state.flags = [];
@@ -463,6 +467,29 @@ export class BranchGitCommand extends QuickCommand {
 			);
 
 			assertStateStepDeleteBranches(state);
+
+			const worktrees = await this.getWorktreesOfSelectedBranches(state);
+			if (worktrees.length) {
+				const result = yield* getSteps(
+					this.container,
+					{
+						command: 'worktree',
+						state: {
+							subcommand: 'delete',
+							repo: state.repo,
+							uris: worktrees.map(wt => wt.uri),
+							flags: ['--deleting-of-selected-branches'],
+						},
+					},
+					this.pickedVia,
+				);
+				if (result !== StepResultBreak) {
+					// we get here if it was a step back from the delete worktrees picker
+					state.counter--;
+					continue;
+				}
+			}
+
 			const result = yield* this.deleteCommandConfirmStep(state, context);
 			if (result === StepResultBreak) continue;
 
@@ -474,6 +501,20 @@ export class BranchGitCommand extends QuickCommand {
 				remote: state.flags.includes('--remotes'),
 			});
 		}
+	}
+
+	private async getWorktreesOfSelectedBranches(state: DeleteStepState | PruneStepState): Promise<GitWorktree[]> {
+		const worktrees = await state.repo.getWorktrees();
+
+		const refs = new Set<string>(
+			Array.isArray(state.references)
+				? state.references.map(r => r.name)
+				: state.references != null
+				  ? [state.references.name]
+				  : undefined,
+		);
+
+		return worktrees.filter(wt => wt.branch && refs.has(wt.branch.name));
 	}
 
 	private *deleteCommandConfirmStep(

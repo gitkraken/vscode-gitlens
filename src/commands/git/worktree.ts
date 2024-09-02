@@ -103,7 +103,7 @@ interface CreateState {
 	skipWorktreeConfirmations?: boolean;
 }
 
-type DeleteFlags = '--force' | '--delete-branches';
+type DeleteFlags = '--force' | '--delete-branches' | '--deleting-of-selected-branches';
 
 interface DeleteState {
 	subcommand: 'delete';
@@ -953,6 +953,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	private *deleteCommandConfirmStep(state: DeleteStepState, context: Context): StepResultGenerator<DeleteFlags[]> {
 		context.title = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
 		const label = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
+		const deletingOfSelectedBranches = state.flags.includes('--deleting-of-selected-branches');
+		const selectedBranchesLabelSuffix = !deletingOfSelectedBranches
+			? ''
+			: state.uris.length === 1
+			  ? ' of corresponding branch'
+			  : ' of corresponding branches';
 		const branchesLabel = state.uris.length === 1 ? 'Branch' : 'Branches';
 		const description =
 			state.uris.length === 1
@@ -964,23 +970,27 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				createFlagsQuickPickItem<DeleteFlags>(state.flags, [], {
-					label: label,
+					label: `${label}${selectedBranchesLabelSuffix}`,
 					detail: `Will ${description}`,
 				}),
 				createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force'], {
-					label: `Force ${label}`,
+					label: `Force ${label}${selectedBranchesLabelSuffix}`,
 					description: 'includes ANY UNCOMMITTED changes',
 					detail: `Will forcibly ${description}`,
 				}),
-				createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--delete-branches'], {
-					label: `${label} & ${branchesLabel}`,
-					detail: `Will ${description} ${branchesDescription}`,
-				}),
-				createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force', '--delete-branches'], {
-					label: `Force ${label} & ${branchesLabel}`,
-					description: 'includes ANY UNCOMMITTED changes',
-					detail: `Will forcibly ${description} ${branchesDescription}`,
-				}),
+				...(deletingOfSelectedBranches
+					? []
+					: [
+							createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--delete-branches'], {
+								label: `${label} & ${branchesLabel}`,
+								detail: `Will ${description} ${branchesDescription}`,
+							}),
+							createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force', '--delete-branches'], {
+								label: `Force ${label} & ${branchesLabel}`,
+								description: 'includes ANY UNCOMMITTED changes',
+								detail: `Will forcibly ${description} ${branchesDescription}`,
+							}),
+					  ]),
 			],
 			context,
 		);

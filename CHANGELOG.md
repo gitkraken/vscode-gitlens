@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds _Open Comparison on Remote_ command to branch comparisons in views
 - Adds _Open in Worktree_ context menu command to branches and pull requests in views and the _Commit Graph_
 - Adds an option to delete a worktree along with its branch from the _Git Delete Worktree_ command
+- When a branch is deleted in _Git Delete Branch_ command, its worktree is also deleted
 
 ### Changed
 
