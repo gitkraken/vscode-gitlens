@@ -83,6 +83,7 @@ import type { SearchNavigationEventDetail } from '../../shared/components/search
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
 import { GlGraphHover } from './hover/graphHover.react';
+import { Markdown } from './markdown/markdown';
 import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap';
 import { GlGraphMinimapContainer } from './minimap/minimap-container.react';
 import { GlGraphSideBar } from './sidebar/sidebar.react';
@@ -1604,6 +1605,8 @@ export function GraphWrapper({
 							avatarUrlByEmail={avatars}
 							columnsSettings={columns}
 							contexts={context}
+							// @ts-expect-error returnType of formatCommitMessage callback expects to be string, but it works fine with react element
+							formatCommitMessage={e => <Markdown>{e}</Markdown>}
 							cssVariables={styleProps?.cssVariables}
 							dimMergeCommits={graphConfig?.dimMergeCommits}
 							downstreamsByUpstream={downstreams}

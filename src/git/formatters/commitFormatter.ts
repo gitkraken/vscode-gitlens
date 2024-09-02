@@ -692,7 +692,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			message = encodeHtmlWeak(message);
 		}
 		if (outputFormat === 'markdown') {
-			message = escapeMarkdown(message, { quoted: true });
+			message = escapeMarkdown(message, { quoted: true, inlineBackticks: true });
 		}
 
 		if (this._options.messageAutolinks) {
