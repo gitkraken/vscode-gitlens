@@ -844,7 +844,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				context.title = getTitle(state.subcommand);
 
 				const result = yield* pickWorktreesStep(state, context, {
-					filter: wt => !wt.main || !wt.opened, // Can't delete the main or opened worktree
+					// Can't delete the main or opened worktree
+					excludeOpened: true,
+					filter: wt => !wt.main,
 					includeStatus: true,
 					picked: state.uris?.map(uri => uri.toString()),
 					placeholder: 'Choose worktrees to delete',
