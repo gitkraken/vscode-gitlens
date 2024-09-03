@@ -954,12 +954,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		context.title = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
 		const label = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
 		const deletingOfSelectedBranches = state.flags.includes('--deleting-of-selected-branches');
-		const selectedBranchesLabelSuffix = !deletingOfSelectedBranches
-			? ''
-			: state.uris.length === 1
-			  ? ' of corresponding branch'
-			  : ' of corresponding branches';
 		const branchesLabel = state.uris.length === 1 ? 'Branch' : 'Branches';
+		const selectedBranchesLabelSuffix = !deletingOfSelectedBranches ? '' : ` of ${branchesLabel}`;
 		const description =
 			state.uris.length === 1
 				? `delete worktree in $(folder) ${getWorkspaceFriendlyPath(state.uris[0])}`
