@@ -1870,12 +1870,14 @@ export function* pickWorktreesStep<
 	state: State,
 	context: Context,
 	{
+		excludeOpened,
 		filter,
 		includeStatus,
 		picked,
 		placeholder,
 		titleContext,
 	}: {
+		excludeOpened?: boolean;
 		filter?: (b: GitWorktree) => boolean;
 		includeStatus?: boolean;
 		picked?: string | string[];
@@ -1885,6 +1887,7 @@ export function* pickWorktreesStep<
 ): StepResultGenerator<GitWorktree[]> {
 	const items = getWorktrees(context.worktrees ?? state.repo, {
 		buttons: [OpenInNewWindowQuickInputButton, RevealInSideBarQuickInputButton],
+		excludeOpened: excludeOpened,
 		filter: filter,
 		includeStatus: includeStatus,
 		picked: picked,
