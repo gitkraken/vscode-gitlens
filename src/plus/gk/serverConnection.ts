@@ -192,7 +192,7 @@ export class ServerConnection implements Disposable {
 				}
 			}
 
-			return this.fetch(
+			const rsp = await this.fetch(
 				url,
 				{
 					...init,
@@ -200,6 +200,12 @@ export class ServerConnection implements Disposable {
 				},
 				options,
 			);
+			if (!rsp.ok) {
+				await this.handleGkUnsuccessfulResponse(rsp, scope);
+			} else {
+				this.resetRequestExceptionCount();
+			}
+			return rsp;
 		} catch (ex) {
 			this.handleGkRequestError('gitkraken', ex, scope);
 			throw ex;
@@ -217,6 +223,61 @@ export class ServerConnection implements Disposable {
 			}
 		}
 		return new RequestRateLimitError(ex, token, resetAt);
+	}
+
+	private async handleGkUnsuccessfulResponse(rsp: Response, scope: LogScope | undefined): Promise<void> {
+		// Too Many Requests
+		if (rsp.status == 429) {
+			this.trackRequestException();
+			return;
+		}
+
+		// Forbidden
+		if (rsp.status == 403) {
+			if (rsp.statusText.includes('rate limit')) {
+				this.trackRequestException();
+			}
+			return;
+		}
+
+		// Internal Server Error
+		if (rsp.status == 500) {
+			this.trackRequestException();
+			void showIntegrationRequestFailed500WarningMessage(
+				'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+			);
+			return;
+		}
+
+		const content = await rsp.text();
+
+		// Bad Gateway
+		if (rsp.status == 502) {
+			Logger.error(`GitKraken request failed: ${content} (${rsp.statusText})`, scope);
+			if (content.includes('timeout')) {
+				this.trackRequestException();
+				void showIntegrationRequestTimedOutWarningMessage('GitKraken');
+			}
+			return;
+		}
+
+		// Service Unavailable
+		if (rsp.status == 503) {
+			Logger.error(`GitKraken request failed: ${content} (${rsp.statusText})`, scope);
+			this.trackRequestException();
+			void showIntegrationRequestFailed500WarningMessage(
+				'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+			);
+			return;
+		}
+
+		if (rsp.status >= 400 && rsp.status < 500) {
+			return;
+		}
+
+		if (Logger.isDebugging) {
+			void window.showErrorMessage(`GitKraken request failed: ${content} (${rsp.statusText})`);
+		}
 	}
 
 	private handleGkRequestError(
