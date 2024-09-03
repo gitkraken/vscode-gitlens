@@ -103,7 +103,7 @@ interface CreateState {
 	skipWorktreeConfirmations?: boolean;
 }
 
-type DeleteFlags = '--force' | '--delete-branches' | '--deleting-of-selected-branches';
+type DeleteFlags = '--force' | '--delete-branches';
 
 interface DeleteState {
 	subcommand: 'delete';
@@ -111,6 +111,7 @@ interface DeleteState {
 	uris: Uri[];
 	flags: DeleteFlags[];
 
+	startingFromBranchDelete?: boolean;
 	overrides?: {
 		title?: string;
 	};
@@ -952,10 +953,15 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 	private *deleteCommandConfirmStep(state: DeleteStepState, context: Context): StepResultGenerator<DeleteFlags[]> {
 		context.title = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
+
 		const label = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
-		const deletingOfSelectedBranches = state.flags.includes('--deleting-of-selected-branches');
 		const branchesLabel = state.uris.length === 1 ? 'Branch' : 'Branches';
-		const selectedBranchesLabelSuffix = !deletingOfSelectedBranches ? '' : ` of ${branchesLabel}`;
+		let selectedBranchesLabelSuffix = '';
+		if (state.startingFromBranchDelete) {
+			selectedBranchesLabelSuffix = ` for ${branchesLabel}`;
+			context.title = `${context.title}${selectedBranchesLabelSuffix}`;
+		}
+
 		const description =
 			state.uris.length === 1
 				? `delete worktree in $(folder) ${getWorkspaceFriendlyPath(state.uris[0])}`
@@ -974,7 +980,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					description: 'includes ANY UNCOMMITTED changes',
 					detail: `Will forcibly ${description}`,
 				}),
-				...(deletingOfSelectedBranches
+				...(state.startingFromBranchDelete
 					? []
 					: [
 							createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--delete-branches'], {
