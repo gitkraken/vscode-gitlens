@@ -18,11 +18,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds an "alt" _Pull_ command for the inline _Fetch_ command on branches in views
 - Adds an "alt" _Fetch_ command for the inline _Pull_ command on branches in views
 - Adds _Open Comparison on Remote_ command to branch comparisons in views
+- Adds _Open in Worktree_ context menu command to branches and pull requests in views and the _Commit Graph_
 
 ### Changed
 
 - Improves the branch comparisons in views to automatically select the base or target branch
 - Improves tooltips on branches, remotes, and worktrees in views
+- Local branches with worktrees in the _Commit Graph_ now display a worktree icon and tooltip
+- _Upgrade to Pro_ flows now support redirects back to GitLens
 
 ### Fixed
 
@@ -31,6 +34,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3448](https://github.com/gitkraken/vscode-gitlens/issues/3448) - "Select for Compare" on a Commit/Stash/etc causes the Search and Compare view to be forcibly shown
 - Fixes an issue where pull requests in views could show the wrong comparison with the working tree when using worktrees
 - Fixes _Copy Remote Comparison URL_ command to not open the URL, just copy it
+- Fixes cloud integrations remaining disconnected after disconnecting and reconnecting to a GitKraken account
+- Fixes "switch" deep links sometimes failing to complete in cases where the switch occurs in the current window
 
 ### Removed
 
