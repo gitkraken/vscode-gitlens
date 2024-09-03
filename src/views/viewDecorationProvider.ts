@@ -59,7 +59,7 @@ function provideViewNodeDecoration(uri: Uri, token: CancellationToken): FileDeco
 }
 
 interface BranchViewDecoration {
-	status: GitBranchStatus;
+	status: GitBranchStatus | 'unpublished';
 	current?: boolean;
 	starred?: boolean;
 	worktree?: { opened: boolean };

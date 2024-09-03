@@ -26,14 +26,14 @@ export interface GitTrackingState {
 }
 
 export type GitBranchStatus =
+	| 'local'
+	| 'detached'
 	| 'ahead'
 	| 'behind'
 	| 'diverged'
-	| 'local'
-	| 'missingUpstream'
-	| 'remote'
 	| 'upToDate'
-	| 'unpublished';
+	| 'missingUpstream'
+	| 'remote';
 
 export interface BranchSortOptions {
 	current?: boolean;
@@ -93,6 +93,17 @@ export class GitBranch implements GitBranchReference {
 
 	get ref() {
 		return this.detached ? this.sha! : this.name;
+	}
+
+	get status(): GitBranchStatus {
+		if (this.remote) return 'remote';
+		if (this.upstream == null) return this.detached ? 'detached' : 'local';
+
+		if (this.upstream.missing) return 'missingUpstream';
+		if (this.state.ahead && this.state.behind) return 'diverged';
+		if (this.state.ahead) return 'ahead';
+		if (this.state.behind) return 'behind';
+		return 'upToDate';
 	}
 
 	@memoize<GitBranch['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
@@ -161,23 +172,6 @@ export class GitBranch implements GitBranchReference {
 		if (this.upstream != null) return getRemoteNameFromBranchName(this.upstream.name);
 
 		return undefined;
-	}
-
-	@memoize()
-	async getStatus(): Promise<GitBranchStatus> {
-		if (this.remote) return 'remote';
-
-		if (this.upstream != null) {
-			if (this.upstream.missing) return 'missingUpstream';
-			if (this.state.ahead && this.state.behind) return 'diverged';
-			if (this.state.ahead) return 'ahead';
-			if (this.state.behind) return 'behind';
-			return 'upToDate';
-		}
-
-		// If there are any remotes then say this is unpublished, otherwise local
-		const remotes = await this.container.git.getRemotes(this.repoPath);
-		return remotes.length ? 'unpublished' : 'local';
 	}
 
 	getTrackingStatus(options?: {
@@ -400,18 +394,6 @@ export async function getLocalBranchByUpstream(
 		) {
 			return branch;
 		}
-	}
-
-	return undefined;
-}
-
-export type BranchIconStatus = 'ahead' | 'behind' | 'diverged' | 'synced';
-export function getBranchIconStatus(branch: GitBranch): BranchIconStatus | undefined {
-	if (branch.upstream != null && !branch.upstream.missing) {
-		if (branch.state.ahead && branch.state.behind) return 'diverged';
-		if (branch.state.ahead) return 'ahead';
-		if (branch.state.behind) return 'behind';
-		return 'synced';
 	}
 
 	return undefined;

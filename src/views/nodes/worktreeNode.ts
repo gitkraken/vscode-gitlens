@@ -1,4 +1,5 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { IconPath } from '../../@types/vscode.iconpath';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
@@ -8,6 +9,7 @@ import { shortenRevision } from '../../git/models/reference';
 import { getHighlanderProviderName } from '../../git/models/remote';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
+import { getBranchIconPath } from '../../git/utils/branch-utils';
 import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
@@ -191,7 +193,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		this.splatted = false;
 
 		let description = '';
-		let icon: ThemeIcon | undefined;
+		let icon: IconPath | undefined;
 		let hasChanges = false;
 
 		const tooltip = new MarkdownString('', true);
@@ -229,7 +231,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 						branch?.getNameWithoutRemote() ?? branch?.name
 					}\`${indicators}${folder}`,
 				);
-				icon = new ThemeIcon('git-branch');
+				icon = getBranchIconPath(this.view.container, branch);
 
 				if (branch != null) {
 					if (!branch.remote) {

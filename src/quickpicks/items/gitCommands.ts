@@ -1,5 +1,5 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
-import { ThemeIcon, Uri } from 'vscode';
+import { ThemeIcon } from 'vscode';
 import type { GitCommandsCommandArgs } from '../../commands/gitCommands';
 import { getSteps } from '../../commands/gitCommands.utils';
 import { GlyphChars } from '../../constants';
@@ -7,7 +7,6 @@ import { Commands } from '../../constants.commands';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitBranch } from '../../git/models/branch';
-import { getBranchIconStatus } from '../../git/models/branch';
 import type { GitCommit, GitStashCommit } from '../../git/models/commit';
 import { isStash } from '../../git/models/commit';
 import type { GitReference } from '../../git/models/reference';
@@ -16,6 +15,8 @@ import type { GitRemote } from '../../git/models/remote';
 import { getRemoteUpstreamDescription } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { GitTag } from '../../git/models/tag';
+import { getBranchIconPath } from '../../git/utils/branch-utils';
+import { getWorktreeBranchIconPath } from '../../git/utils/worktree-utils';
 import { configuration } from '../../system/configuration';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
@@ -122,9 +123,6 @@ export async function createBranchQuickPickItem(
 		}
 	}
 
-	const iconStatus = getBranchIconStatus(branch);
-	const iconSuffix = iconStatus ? `-${iconStatus}` : '';
-
 	const checked =
 		options?.checked || (options?.checked == null && options?.current === 'checkmark' && branch.current);
 	const item: BranchQuickPickItem = {
@@ -140,22 +138,8 @@ export async function createBranchQuickPickItem(
 		iconPath: branch.starred
 			? new ThemeIcon('star-full')
 			: options?.worktree
-			  ? {
-						dark: Uri.file(
-							Container.instance.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
-						),
-						light: Uri.file(
-							Container.instance.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
-						),
-			    }
-			  : {
-						dark: Uri.file(
-							Container.instance.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
-						),
-						light: Uri.file(
-							Container.instance.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`),
-						),
-			    },
+			  ? getWorktreeBranchIconPath(Container.instance, branch)
+			  : getBranchIconPath(Container.instance, branch),
 	};
 
 	return item;
