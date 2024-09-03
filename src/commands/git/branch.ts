@@ -478,7 +478,7 @@ export class BranchGitCommand extends QuickCommand {
 							subcommand: 'delete',
 							repo: state.repo,
 							uris: worktrees.map(wt => wt.uri),
-							flags: ['--deleting-of-selected-branches'],
+							startingFromBranchDelete: true,
 						},
 					},
 					this.pickedVia,
