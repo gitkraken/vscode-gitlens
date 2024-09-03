@@ -3,7 +3,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
 import { pluralize } from '../../system/string';
-import type { GitTrackingState } from './branch';
+import type { GitBranchStatus, GitTrackingState } from './branch';
 import { formatDetachedHeadName, getRemoteNameFromBranchName, isDetachedHead } from './branch';
 import { GitCommit, GitCommitIdentity } from './commit';
 import { uncommitted, uncommittedStaged } from './constants';
@@ -62,12 +62,27 @@ export class GitStatus {
 	}
 
 	@memoize()
+	get hasWorkingTreeChanges() {
+		return this.files.some(f => f.workingTreeStatus != null);
+	}
+
+	@memoize()
 	get hasConflicts() {
 		return this.files.some(f => f.conflicted);
 	}
 
 	get ref() {
 		return this.detached ? this.sha : this.branch;
+	}
+
+	get branchStatus(): GitBranchStatus {
+		if (this.upstream == null) return this.detached ? 'detached' : 'local';
+
+		if (this.upstream.missing) return 'missingUpstream';
+		if (this.state.ahead && this.state.behind) return 'diverged';
+		if (this.state.ahead) return 'ahead';
+		if (this.state.behind) return 'behind';
+		return 'upToDate';
 	}
 
 	@memoize()

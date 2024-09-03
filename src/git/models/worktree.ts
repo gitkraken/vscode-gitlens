@@ -12,6 +12,7 @@ import { PageableResult } from '../../system/paging';
 import { normalizePath, relative } from '../../system/path';
 import { pad, sortCompare } from '../../system/string';
 import { getWorkspaceFriendlyPath } from '../../system/utils';
+import { getBranchIconPath } from '../utils/branch-utils';
 import type { GitBranch } from './branch';
 import { shortenRevision } from './reference';
 import type { Repository } from './repository';
@@ -187,7 +188,7 @@ export function createWorktreeQuickPickItem(
 			break;
 		case 'branch':
 			label = worktree.branch?.name ?? 'unknown';
-			iconPath = new ThemeIcon('git-branch');
+			iconPath = getBranchIconPath(Container.instance, worktree.branch);
 			break;
 		case 'detached':
 			label = shortenRevision(worktree.sha);

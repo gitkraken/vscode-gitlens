@@ -2,12 +2,12 @@ import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from '
 import { GlyphChars } from '../../constants';
 import { Features } from '../../features';
 import type { GitUri } from '../../git/gitUri';
-import type { BranchIconStatus } from '../../git/models/branch';
 import { GitBranch } from '../../git/models/branch';
 import { getHighlanderProviders } from '../../git/models/remote';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
+import { getRepositoryStatusIconPath } from '../../git/utils/repository-utils';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,
@@ -228,20 +228,11 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			}
 		}
 
-		let iconType: '' | '-cloud' | '-solid' = '';
-		let iconColor: '' | `-${NonNullable<BranchIconStatus>}` | '-changes' = '';
-
-		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
-		if (this.repo.closed) {
-			contextValue += '+closed';
-			iconType = '';
-		} else {
-			iconType = '-solid';
-		}
-
 		if (this.repo.virtual) {
 			contextValue += '+virtual';
-			iconType = '-cloud';
+		} else if (this.repo.closed) {
+			// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
+			contextValue += '+closed';
 		}
 
 		const status = await this._status;
@@ -283,14 +274,11 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					suffix: ` $(git-branch) ${status.upstream.name}${providerName ? ` on ${providerName}` : ''}`,
 				})}`;
 
-				iconColor = '-synced';
 				if (status.state.behind) {
 					contextValue += '+behind';
-					iconColor = '-behind';
 				}
 				if (status.state.ahead) {
 					contextValue += '+ahead';
-					iconColor = status.state.behind ? '-diverged' : '-ahead';
 				}
 			}
 
@@ -300,7 +288,6 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					prefix: '\n',
 					separator: '\n',
 				})}`;
-				iconColor = '-changes';
 			}
 		}
 
@@ -319,10 +306,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		item.description = `${description ?? ''}${
 			lastFetched ? `${pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''
 		}`;
-		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath(`images/dark/icon-repo${iconType}${iconColor}.svg`),
-			light: this.view.container.context.asAbsolutePath(`images/light/icon-repo${iconType}${iconColor}.svg`),
-		};
+		item.iconPath = getRepositoryStatusIconPath(this.view.container, this.repo, status);
 
 		if (workspace != null && !this.repo.closed) {
 			item.resourceUri = createViewDecorationUri('repository', { state: 'open', workspace: true });

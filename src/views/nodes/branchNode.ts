@@ -3,7 +3,7 @@ import type { ViewShowBranchComparison } from '../../config';
 import { GlyphChars } from '../../constants';
 import type { Colors } from '../../constants.colors';
 import type { GitUri } from '../../git/gitUri';
-import type { BranchIconStatus, GitBranch } from '../../git/models/branch';
+import type { GitBranch } from '../../git/models/branch';
 import { getTargetBranchName } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
@@ -12,6 +12,8 @@ import { getHighlanderProviders } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import type { GitWorktree } from '../../git/models/worktree';
+import { getBranchIconPath } from '../../git/utils/branch-utils';
+import { getWorktreeBranchIconPath } from '../../git/utils/worktree-utils';
 import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { log } from '../../system/decorators/log';
@@ -415,7 +417,7 @@ export class BranchNode
 		this.splatted = false;
 
 		const worktree = this.worktree;
-		const status = await this.branch.getStatus();
+		const status = this.branch.status;
 
 		let tooltip: string | MarkdownString = `$(git-branch) \`${this.branch.getNameWithoutRemote()}\`${
 			this.current
@@ -455,7 +457,6 @@ export class BranchNode
 
 		let iconColor: ThemeColor | undefined;
 		let description;
-		let iconSuffix: '' | `-${NonNullable<BranchIconStatus>}` = '';
 		if (!this.branch.remote) {
 			if (this.branch.upstream != null) {
 				let arrows = GlyphChars.Dash;
@@ -519,25 +520,21 @@ export class BranchNode
 					case 'ahead':
 						contextValue += '+ahead';
 						iconColor = new ThemeColor('gitlens.decorations.branchAheadForegroundColor' satisfies Colors);
-						iconSuffix = '-ahead';
 						break;
 					case 'behind':
 						contextValue += '+behind';
 						iconColor = new ThemeColor('gitlens.decorations.branchBehindForegroundColor' satisfies Colors);
-						iconSuffix = '-behind';
 						break;
 					case 'diverged':
 						contextValue += '+ahead+behind';
 						iconColor = new ThemeColor(
 							'gitlens.decorations.branchDivergedForegroundColor' satisfies Colors,
 						);
-						iconSuffix = '-diverged';
 						break;
 					case 'upToDate':
 						iconColor = new ThemeColor(
 							'gitlens.decorations.branchUpToDateForegroundColor' satisfies Colors,
 						);
-						iconSuffix = '-synced';
 						break;
 				}
 			} else {
@@ -586,26 +583,21 @@ export class BranchNode
 				: this.options.showAsCommits
 				  ? new ThemeIcon('git-commit', iconColor)
 				  : worktree != null
-				    ? {
-								dark: this.view.container.context.asAbsolutePath(
-									`images/dark/icon-repo${iconSuffix}.svg`,
-								),
-								light: this.view.container.context.asAbsolutePath(
-									`images/light/icon-repo${iconSuffix}.svg`,
-								),
-				      }
-				    : {
-								dark: this.view.container.context.asAbsolutePath(
-									`images/dark/icon-branch${iconSuffix}.svg`,
-								),
-								light: this.view.container.context.asAbsolutePath(
-									`images/light/icon-branch${iconSuffix}.svg`,
-								),
-				      };
+				    ? getWorktreeBranchIconPath(this.view.container, this.branch)
+				    : getBranchIconPath(this.view.container, this.branch);
 		item.tooltip = tooltip;
 
+		let localUnpublished = false;
+		if (status === 'local') {
+			// If there are any remotes then say this is unpublished, otherwise local
+			const remotes = await this.view.container.git.getRemotes(this.repoPath);
+			if (remotes.length) {
+				localUnpublished = true;
+			}
+		}
+
 		item.resourceUri = createViewDecorationUri('branch', {
-			status: status,
+			status: localUnpublished ? 'unpublished' : status,
 			current: this.current,
 			worktree: worktree != null ? { opened: worktree.opened } : undefined,
 			starred: this.branch.starred,
