@@ -839,7 +839,6 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			state.flags = [];
 		}
 
-		const branches = [];
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.uris == null || state.uris.length === 0) {
 				context.title = getTitle(state.subcommand);
@@ -864,6 +863,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			endSteps(state);
+
+			const branchesToDelete = [];
 
 			for (const uri of state.uris) {
 				let retry = false;
@@ -897,7 +898,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 						await state.repo.deleteWorktree(uri, { force: force });
 						if (deleteBranches && worktree?.branch) {
-							branches.push(getReferenceFromBranch(worktree?.branch));
+							branchesToDelete.push(getReferenceFromBranch(worktree?.branch));
 						}
 					} catch (ex) {
 						skipHasChangesPrompt = false;
@@ -929,20 +930,21 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					}
 				} while (retry);
 			}
-		}
-		if (branches?.length) {
-			yield* getSteps(
-				this.container,
-				{
-					command: 'branch',
-					state: {
-						subcommand: 'delete',
-						repo: state.repo,
-						references: branches,
+
+			if (branchesToDelete.length) {
+				yield* getSteps(
+					this.container,
+					{
+						command: 'branch',
+						state: {
+							subcommand: 'delete',
+							repo: state.repo,
+							references: branchesToDelete,
+						},
 					},
-				},
-				this.pickedVia,
-			);
+					this.pickedVia,
+				);
+			}
 		}
 	}
 
