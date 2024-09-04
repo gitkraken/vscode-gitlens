@@ -49,9 +49,6 @@ export const SyncButton = ({
 			</>
 		);
 		if (isAhead) {
-			action = 'sync';
-			icon = 'codicon codicon-repo-sync';
-			label = 'Sync';
 			tooltip = (
 				<>
 					{tooltip}
@@ -132,20 +129,6 @@ export const SyncButton = ({
 						</button>
 						<MenuList slot="content" style={{ width: 120 }}>
 							<MenuLabel>Git actions</MenuLabel>
-							<GlTooltip>
-								<MenuItem>
-									<a
-										href={createWebviewCommandLink(
-											'gitlens.graph.sync',
-											state.webviewId,
-											state.webviewInstanceId,
-										)}
-									>
-										Sync
-									</a>
-								</MenuItem>
-								<span slot="content">Run pull then push</span>
-							</GlTooltip>
 							<MenuItem>
 								<a
 									href={createWebviewCommandLink(
