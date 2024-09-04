@@ -9,7 +9,7 @@ export function getWorktreeBranchIconPath(container: Container, branch: GitBranc
 		case 'ahead':
 		case 'behind':
 		case 'diverged':
-			return getIconPathUris(container, `icon-repo${status}.svg`);
+			return getIconPathUris(container, `icon-repo-${status}.svg`);
 		case 'upToDate':
 			return getIconPathUris(container, `icon-repo-synced.svg`);
 		default:
