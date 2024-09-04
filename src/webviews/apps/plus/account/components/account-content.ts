@@ -1,10 +1,10 @@
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
-import type { Subscription } from '../../../../../plus/gk/account/subscription';
 import {
 	getSubscriptionPlanName,
 	getSubscriptionTimeRemaining,
@@ -12,7 +12,9 @@ import {
 	SubscriptionPlanId,
 	SubscriptionState,
 } from '../../../../../plus/gk/account/subscription';
+import type { State } from '../../../../../plus/webviews/account/protocol';
 import { pluralize } from '../../../../../system/string';
+import { stateContext } from '../../../home/context';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
@@ -151,19 +153,14 @@ export class AccountContent extends LitElement {
 		`,
 	];
 
-	@property()
-	image = '';
-
-	@property({ type: Number })
-	organizationsCount = 0;
-
-	@property({ attribute: false })
-	subscription?: Subscription;
+	@consume<State>({ context: stateContext, subscribe: true })
+	@state()
+	private _state!: State;
 
 	private get daysRemaining() {
-		if (this.subscription == null) return 0;
+		if (this._state.subscription == null) return 0;
 
-		return getSubscriptionTimeRemaining(this.subscription, 'days') ?? 0;
+		return getSubscriptionTimeRemaining(this._state.subscription, 'days') ?? 0;
 	}
 
 	get hasAccount() {
@@ -173,12 +170,12 @@ export class AccountContent extends LitElement {
 	get isReactivatedTrial() {
 		return (
 			this.state === SubscriptionState.FreePlusInTrial &&
-			(this.subscription?.plan.effective.trialReactivationCount ?? 0) > 0
+			(this._state.subscription?.plan.effective.trialReactivationCount ?? 0) > 0
 		);
 	}
 
 	private get planId() {
-		return this.subscription?.plan.actual.id ?? SubscriptionPlanId.Pro;
+		return this._state.subscription?.plan.actual.id ?? SubscriptionPlanId.Pro;
 	}
 
 	get planName() {
@@ -199,14 +196,14 @@ export class AccountContent extends LitElement {
 	}
 
 	private get state() {
-		return this.subscription?.state;
+		return this._state.subscription?.state;
 	}
 
 	override render() {
 		return html`<gl-accordion>
 			<div class="header" slot="header">
-				${this.hasAccount && this.image
-					? html`<img class="header__media" src=${this.image} />`
+				${this.hasAccount && this._state.avatar
+					? html`<img class="header__media" src=${this._state.avatar} />`
 					: html`<code-icon class="header__media" icon="gl-gitlens" size="30"></code-icon>`}
 				<span class="header__title">${this.planName}</span>
 				${when(
@@ -230,7 +227,7 @@ export class AccountContent extends LitElement {
 	}
 
 	private renderOrganization() {
-		const organization = this.subscription?.activeOrganization?.name ?? '';
+		const organization = this._state.subscription?.activeOrganization?.name ?? '';
 		if (!this.hasAccount || !organization) return nothing;
 
 		return html`
@@ -242,10 +239,10 @@ export class AccountContent extends LitElement {
 					<p class="org__title">${organization}</p>
 				</div>
 				${when(
-					this.organizationsCount > 1,
+					this._state.organizationsCount! > 1,
 					() =>
 						html`<div class="org__signout">
-							<span class="org__badge">+${this.organizationsCount - 1}</span>
+							<span class="org__badge">+${this._state.organizationsCount! - 1}</span>
 							<gl-button
 								appearance="toolbar"
 								href="command:gitlens.gk.switchOrganization"
