@@ -2856,11 +2856,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void RepoActions.fetch(this.repository, ref);
 	}
 
+	// @unimplemented
 	@log()
-	private async sync(item?: GraphItemContext) {
-		const ref = item != null ? this.getGraphItemRef(item, 'branch') : undefined;
-		await RepoActions.pull(this.repository, ref);
-		void RepoActions.push(this.repository, undefined, ref);
+	private sync(item?: GraphItemContext) {
+		throw new Error('unimplemented');
+		// const ref = item != null ? this.getGraphItemRef(item, 'branch') : undefined;
+		// await RepoActions.pull(this.repository, ref);
+		// void RepoActions.push(this.repository, undefined, ref);
 	}
 
 	@log()
