@@ -209,7 +209,11 @@ export class OrganizationService implements Disposable {
 		if (id == null) return undefined;
 
 		if (!this._organizationSettings?.has(id) || options?.force === true) {
-			const rsp = await this.connection.fetchApi(`v1/organizations/settings`, { method: 'GET' });
+			const rsp = await this.connection.fetchApi(
+				`v1/organizations/settings`,
+				{ method: 'GET' },
+				{ organizationId: id },
+			);
 			if (!rsp.ok) {
 				Logger.error(
 					'',
