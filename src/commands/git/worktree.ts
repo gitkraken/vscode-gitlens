@@ -965,8 +965,11 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		const description =
 			state.uris.length === 1
 				? `delete worktree in $(folder) ${getWorkspaceFriendlyPath(state.uris[0])}`
-				: 'delete worktrees';
-		const branchesDescription = state.uris.length === 1 ? `and its branch` : 'and corresponding branches';
+				: `delete ${state.uris.length} worktrees`;
+		const descriptionWithBranchDelete =
+			state.uris.length === 1
+				? 'delete the worktree and then prompt to delete the associated branch'
+				: `delete ${state.uris.length} worktrees and then prompt to delete the associated branches`;
 
 		const step: QuickPickStep<FlagsQuickPickItem<DeleteFlags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
@@ -983,14 +986,15 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				...(state.startingFromBranchDelete
 					? []
 					: [
+							createQuickPickSeparator<FlagsQuickPickItem<DeleteFlags>>(),
 							createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--delete-branches'], {
 								label: `${label} & ${branchesLabel}`,
-								detail: `Will ${description} ${branchesDescription}`,
+								detail: `Will ${descriptionWithBranchDelete}`,
 							}),
 							createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force', '--delete-branches'], {
 								label: `Force ${label} & ${branchesLabel}`,
 								description: 'includes ANY UNCOMMITTED changes',
-								detail: `Will forcibly ${description} ${branchesDescription}`,
+								detail: `Will forcibly ${descriptionWithBranchDelete}`,
 							}),
 					  ]),
 			],
