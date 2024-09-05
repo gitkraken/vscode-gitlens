@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#3514](https://github.com/gitkraken/vscode-gitlens/issues/3514) - Attempting to delete the main worktree's branch causes a invalid prompt to delete the main worktree
+- Fixes [#3518](https://github.com/gitkraken/vscode-gitlens/issues/3518) - Branches in worktrees are no longer collapsed into folder groupings
 
 ## [15.4.0] - 2024-09-04
 
