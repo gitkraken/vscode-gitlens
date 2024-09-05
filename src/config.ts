@@ -615,13 +615,16 @@ export interface ViewsCommonConfig {
 	};
 	readonly openChangesInMultiDiffEditor: boolean;
 	readonly pageItemLimit: number;
+	readonly showCurrentBranchOnTop: boolean;
 	readonly showRelativeDateMarkers: boolean;
 }
 
 export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
+	'collapseWorktreesWhenPossible',
 	'defaultItemLimit',
 	'formats',
 	'pageItemLimit',
+	'showCurrentBranchOnTop',
 	'showRelativeDateMarkers',
 ];
 

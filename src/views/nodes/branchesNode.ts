@@ -38,10 +38,12 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 			const branches = await this.repo.getBranches({
 				// only show local branches
 				filter: b => !b.remote,
-				sort: {
-					current: true,
-					openedWorktreesByBranch: getOpenedWorktreesByBranch(this.context.worktreesByBranch),
-				},
+				sort: this.view.config.showCurrentBranchOnTop
+					? {
+							current: true,
+							openedWorktreesByBranch: getOpenedWorktreesByBranch(this.context.worktreesByBranch),
+					  }
+					: { current: false },
 			});
 			if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 

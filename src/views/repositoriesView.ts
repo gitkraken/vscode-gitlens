@@ -258,6 +258,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 
 		return true;
 	}
+
 	protected override onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, `views.${this.configKey}.autoRefresh` as const)) {
 			void this.setAutoRefresh(configuration.get('views.repositories.autoRefresh'));
