@@ -485,6 +485,11 @@ export class BranchGitCommand extends QuickCommand {
 							repo: state.repo,
 							uris: worktrees.map(wt => wt.uri),
 							startingFromBranchDelete: true,
+							overrides: {
+								title: `Delete ${worktrees.length === 1 ? 'Worktree' : 'Worktrees'} for ${
+									worktrees.length === 1 ? 'Branch' : 'Branches'
+								}`,
+							},
 						},
 					},
 					this.pickedVia,
