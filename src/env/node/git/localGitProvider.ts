@@ -2326,7 +2326,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				this.getBranches(repoPath),
 				this.getRemotes(repoPath),
 				this.getCurrentUser(repoPath),
-				getWorktreesByBranch(this.container.git.getRepository(repoPath)),
+				getWorktreesByBranch(this.container.git.getRepository(repoPath), { includeMainWorktree: true }),
 			]);
 
 		const branches = getSettledValue(branchesResult)?.values;
@@ -2334,6 +2334,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const headBranch = branches?.find(b => b.current);
 		const headRefUpstreamName = headBranch?.upstream?.name;
 		const worktreesByBranch = getSettledValue(worktreesByBranchResult);
+
+		let branchIdOfMainWorktree: string | undefined;
+		if (worktreesByBranch != null) {
+			branchIdOfMainWorktree = find(worktreesByBranch, ([, wt]) => wt.main)?.[0];
+			if (branchIdOfMainWorktree != null) {
+				worktreesByBranch.delete(branchIdOfMainWorktree);
+			}
+		}
 
 		const currentUser = getSettledValue(currentUserResult);
 
@@ -2607,7 +2615,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						context = {
 							webviewItem: `gitlens:branch${head ? '+current' : ''}${
 								branch?.upstream != null ? '+tracking' : ''
-							}${worktreesByBranch?.has(branchId) ? '+worktree' : ''}`,
+							}${
+								worktreesByBranch?.has(branchId)
+									? '+worktree'
+									: branchIdOfMainWorktree === branchId
+									  ? '+main'
+									  : ''
+							}`,
 							webviewItemValue: {
 								type: 'branch',
 								ref: createReference(tip, repoPath, {

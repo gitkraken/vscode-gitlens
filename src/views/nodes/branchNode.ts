@@ -136,7 +136,8 @@ export class BranchNode
 	}
 
 	get worktree(): GitWorktree | undefined {
-		return this.context.worktreesByBranch?.get(this.branch.id);
+		const worktree = this.context.worktreesByBranch?.get(this.branch.id);
+		return worktree?.main ? undefined : worktree;
 	}
 
 	private _children: ViewNode[] | undefined;
@@ -449,6 +450,8 @@ export class BranchNode
 		}
 		if (worktree != null) {
 			contextValue += '+worktree';
+		} else if (this.context.worktreesByBranch?.get(this.branch.id)?.main) {
+			contextValue += '+main';
 		}
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
 		if (this.repo.closed) {

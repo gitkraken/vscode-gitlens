@@ -13968,12 +13968,12 @@
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(current|main)\\b)(?!.*?\\b\\+closed\\b)/",
 					"group": "inline@7"
 				},
 				{
 					"command": "gitlens.views.switchToBranch",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|closed|worktree)\\b)/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|closed|main|worktree)\\b)/",
 					"group": "inline@7"
 				},
 				{
@@ -14064,17 +14064,17 @@
 				},
 				{
 					"command": "gitlens.views.openInWorktree",
-					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|closed|worktree)\\b)/",
+					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|closed|main|worktree)\\b)/",
 					"group": "1_gitlens_action@3"
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
-					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/",
+					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(current|main)\\b)(?!.*?\\b\\+closed\\b)/",
 					"group": "1_gitlens_action@1"
 				},
 				{
 					"command": "gitlens.views.switchToBranch",
-					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|closed|worktree)\\b)/",
+					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|closed|main|worktree)\\b)/",
 					"group": "1_gitlens_action@1"
 				},
 				{
@@ -14119,12 +14119,12 @@
 				},
 				{
 					"command": "gitlens.views.deleteBranch",
-					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/",
+					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|main)\\b)(?!.*?\\b\\+closed\\b)/",
 					"group": "1_gitlens_actions@7"
 				},
 				{
 					"command": "gitlens.views.deleteBranch.multi",
-					"when": "listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/",
+					"when": "listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|main)\\b)(?!.*?\\b\\+closed\\b)/",
 					"group": "1_gitlens_actions@7"
 				},
 				{
@@ -15585,17 +15585,17 @@
 				},
 				{
 					"command": "gitlens.graph.openInWorktree",
-					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|worktree)\\b)/",
+					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|main|worktree)\\b)/",
 					"group": "1_gitlens_action@3"
 				},
 				{
 					"command": "gitlens.graph.switchToAnotherBranch",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(current|main)\\b)/",
 					"group": "1_gitlens_action@1"
 				},
 				{
 					"command": "gitlens.graph.switchToBranch",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|worktree)\\b)/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|main|worktree)\\b)/",
 					"group": "1_gitlens_action@1"
 				},
 				{
@@ -15640,7 +15640,7 @@
 				},
 				{
 					"command": "gitlens.graph.deleteBranch",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|main)\\b)/",
 					"group": "1_gitlens_actions@7"
 				},
 				{

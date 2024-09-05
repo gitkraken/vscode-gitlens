@@ -68,7 +68,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 			this.view.message = undefined;
 
 			// Get all the worktree branches (and track if they are opened) to pass along downstream, e.g. in the BranchNode to display an indicator
-			const worktreesByBranch = await getWorktreesByBranch(repositories);
+			const worktreesByBranch = await getWorktreesByBranch(repositories, { includeMainWorktree: true });
 			this.updateContext({
 				worktreesByBranch: worktreesByBranch?.size ? worktreesByBranch : undefined,
 			});
