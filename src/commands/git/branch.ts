@@ -4,10 +4,12 @@ import type { GitBranchReference, GitReference } from '../../git/models/referenc
 import { getNameWithoutRemote, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import type { GitWorktree } from '../../git/models/worktree';
+import { getWorktreesByBranch } from '../../git/models/worktree';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { ensureArray } from '../../system/array';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { getSteps } from '../gitCommands.utils';
@@ -437,6 +439,8 @@ export class BranchGitCommand extends QuickCommand {
 				state.references = [state.references];
 			}
 
+			const worktreesByBranch = await getWorktreesByBranch(state.repo, { includeMainWorktree: true });
+
 			if (
 				state.counter < 3 ||
 				state.references == null ||
@@ -445,7 +449,9 @@ export class BranchGitCommand extends QuickCommand {
 				context.title = getTitle('Branches', state.subcommand);
 
 				const result = yield* pickBranchesStep(state, context, {
-					filter: prune ? b => !b.current && Boolean(b.upstream?.missing) : b => !b.current,
+					filter: prune
+						? b => !b.current && Boolean(b.upstream?.missing) && !worktreesByBranch.get(b.id)?.main
+						: b => !b.current && !worktreesByBranch.get(b.id)?.main,
 					picked: state.references?.map(r => r.ref),
 					placeholder: prune
 						? 'Choose branches with missing upstreams to delete'
@@ -468,7 +474,7 @@ export class BranchGitCommand extends QuickCommand {
 
 			assertStateStepDeleteBranches(state);
 
-			const worktrees = await this.getWorktreesOfSelectedBranches(state);
+			const worktrees = this.getSelectedWorktrees(state, worktreesByBranch);
 			if (worktrees.length) {
 				const result = yield* getSteps(
 					this.container,
@@ -503,18 +509,20 @@ export class BranchGitCommand extends QuickCommand {
 		}
 	}
 
-	private async getWorktreesOfSelectedBranches(state: DeleteStepState | PruneStepState): Promise<GitWorktree[]> {
-		const worktrees = await state.repo.getWorktrees();
+	private getSelectedWorktrees(
+		state: DeleteStepState | PruneStepState,
+		worktreesByBranch: Map<string, GitWorktree>,
+	): GitWorktree[] {
+		const worktrees: GitWorktree[] = [];
 
-		const refs = new Set<string>(
-			Array.isArray(state.references)
-				? state.references.map(r => r.name)
-				: state.references != null
-				  ? [state.references.name]
-				  : undefined,
-		);
+		for (const ref of ensureArray(state.references)) {
+			const worktree = worktreesByBranch.get(ref.id!);
+			if (worktree != null && !worktree.main) {
+				worktrees.push(worktree);
+			}
+		}
 
-		return worktrees.filter(wt => wt.branch && refs.has(wt.branch.name));
+		return worktrees;
 	}
 
 	private *deleteCommandConfirmStep(

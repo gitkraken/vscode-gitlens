@@ -9,7 +9,7 @@ import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { showGenericErrorMessage } from '../messages';
 import { showRemoteProviderPicker } from '../quickpicks/remoteProviderPicker';
-import { ensure } from '../system/array';
+import { ensureArray } from '../system/array';
 import { command } from '../system/command';
 import { Logger } from '../system/logger';
 import { pad, splitSingle } from '../system/string';
@@ -88,7 +88,7 @@ export class OpenOnRemoteCommand extends Command {
 		}
 
 		try {
-			const resources = ensure(args.resource)!;
+			const resources = ensureArray(args.resource);
 			for (const resource of resources) {
 				await processResource.call(this, resource);
 			}

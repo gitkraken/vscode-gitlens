@@ -337,14 +337,17 @@ export function sortWorktrees(worktrees: GitWorktree[] | WorktreeQuickPickItem[]
 	}
 }
 
-export async function getWorktreesByBranch(repos: Repository | Repository[] | undefined) {
+export async function getWorktreesByBranch(
+	repos: Repository | Repository[] | undefined,
+	options?: { includeMainWorktree?: boolean },
+) {
 	const worktreesByBranch = new Map<string, GitWorktree>();
 	if (repos == null) return worktreesByBranch;
 
 	async function addWorktrees(repo: Repository) {
 		const worktrees = await repo.getWorktrees();
 		for (const wt of worktrees) {
-			if (wt.branch == null || wt.main) continue;
+			if (wt.branch == null || (!options?.includeMainWorktree && wt.main)) continue;
 
 			worktreesByBranch.set(wt.branch.id, wt);
 		}
