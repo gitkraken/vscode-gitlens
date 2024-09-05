@@ -1393,6 +1393,13 @@
 						"scope": "window",
 						"order": 1
 					},
+					"gitlens.views.showCurrentBranchOnTop": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to always show the current branch at the top of the views",
+						"scope": "window",
+						"order": 2
+					},
 					"gitlens.views.defaultItemLimit": {
 						"type": "number",
 						"default": 10,

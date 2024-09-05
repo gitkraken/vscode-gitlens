@@ -1,4 +1,4 @@
-import type { CancellationToken, Disposable } from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import { previewBadge, urls } from '../constants';
@@ -8,6 +8,7 @@ import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { openUrl, openWorkspace } from '../system/utils';
@@ -312,5 +313,27 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 				},
 			),
 		];
+	}
+
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+		const changed = super.filterConfigurationChanged(e);
+		if (
+			!changed &&
+			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateLocale') &&
+			!configuration.changed(e, 'defaultDateShortFormat') &&
+			!configuration.changed(e, 'defaultDateSource') &&
+			!configuration.changed(e, 'defaultDateStyle') &&
+			!configuration.changed(e, 'defaultGravatarsStyle') &&
+			!configuration.changed(e, 'defaultTimeFormat') &&
+			!configuration.changed(e, 'sortBranchesBy') &&
+			!configuration.changed(e, 'sortContributorsBy') &&
+			!configuration.changed(e, 'sortTagsBy') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
+		) {
+			return false;
+		}
+
+		return true;
 	}
 }
