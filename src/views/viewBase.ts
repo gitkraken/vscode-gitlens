@@ -78,6 +78,41 @@ export type View =
 	| WorkspacesView
 	| WorktreesView;
 
+// prettier-ignore
+type TreeViewByType = {
+	[T in TreeViewTypes]: T extends 'branches'
+		? BranchesView
+		: T extends 'commits'
+		? CommitsView
+		: T extends 'contributors'
+		? ContributorsView
+		: T extends 'drafts'
+		? DraftsView
+		: T extends 'fileHistory'
+		? FileHistoryView
+		: T extends 'launchpad'
+		? LaunchpadView
+		: T extends 'lineHistory'
+		? LineHistoryView
+		: T extends 'pullRequest'
+		? PullRequestView
+		: T extends 'remotes'
+		? RemotesView
+		: T extends 'repositories'
+		? RepositoriesView
+		: T extends 'searchAndCompare'
+		? SearchAndCompareView
+		: T extends 'stashes'
+		? StashesView
+		: T extends 'tags'
+		? TagsView
+		: T extends 'workspaces'
+		? WorkspacesView
+		: T extends 'worktrees'
+		? WorktreesView
+		: View;
+};
+
 export type ViewsWithBranches = BranchesView | CommitsView | RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithBranchesNode = BranchesView | RepositoriesView | WorkspacesView;
 export type ViewsWithCommits = Exclude<View, LineHistoryView | StashesView>;
@@ -124,6 +159,14 @@ export abstract class ViewBase<
 	>
 	implements TreeDataProvider<ViewNode>, Disposable
 {
+	is<T extends keyof TreeViewByType>(type: T): this is TreeViewByType[T] {
+		return this.type === (type as unknown as Type);
+	}
+
+	isAny<T extends (keyof TreeViewByType)[]>(...types: T): this is TreeViewByType[T[number]] {
+		return types.includes(this.type as unknown as T[number]);
+	}
+
 	get id(): TreeViewIds<Type> {
 		return `gitlens.views.${this.type}`;
 	}
