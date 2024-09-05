@@ -17,6 +17,7 @@ import { getWorktreeBranchIconPath } from '../../git/utils/worktree-utils';
 import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { log } from '../../system/decorators/log';
+import { memoize } from '../../system/decorators/memoize';
 import { map } from '../../system/iterable';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
@@ -107,7 +108,7 @@ export class BranchNode
 	}
 
 	private get avoidCompacting(): boolean {
-		return this.root || this.current || this.worktree != null || this.branch.detached || this.branch.starred;
+		return this.root || this.current || this.worktree?.opened || this.branch.detached || this.branch.starred;
 	}
 
 	compacted: boolean = false;
@@ -135,6 +136,7 @@ export class BranchNode
 		return this.avoidCompacting ? [this.branch.name] : this.branch.getNameWithoutRemote().split('/');
 	}
 
+	@memoize()
 	get worktree(): GitWorktree | undefined {
 		const worktree = this.context.worktreesByBranch?.get(this.branch.id);
 		return worktree?.main ? undefined : worktree;
