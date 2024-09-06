@@ -466,3 +466,5 @@ type SubscriptionEventData = {
 		Record<`previous.subscription.${string}`, string | number | boolean | undefined> &
 		Record<`previous.subscription.previewTrial.${string}`, string | number | boolean | undefined>
 >;
+
+export type TrackingContext = 'graph' | 'launchpad' | 'visual_file_history' | 'worktrees';

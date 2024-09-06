@@ -5,13 +5,13 @@ import type {
 } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
 import { uuid } from '@env/crypto';
+import type { TrackingContext } from '../../../constants.telemetry';
 import type { Container, Environment } from '../../../container';
 import { CancellationError } from '../../../errors';
 import { debug } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
 import type { ServerConnection } from '../serverConnection';
-import type { AuthenticationContext } from './authenticationConnection';
 import { AuthenticationConnection } from './authenticationConnection';
 
 interface StoredSession {
@@ -31,7 +31,7 @@ export const authenticationProviderScopes = ['gitlens'];
 export interface AuthenticationProviderOptions {
 	signUp?: boolean;
 	signIn?: { code: string; state?: string };
-	context?: AuthenticationContext;
+	context?: TrackingContext;
 }
 
 export class AccountAuthenticationProvider implements AuthenticationProvider, Disposable {
