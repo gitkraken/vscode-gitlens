@@ -268,6 +268,13 @@ export class GlFeatureBadge extends LitElement {
 					${this.renderUpgradeActions(html`<p>Please upgrade for full access to Pro features:</p>`)}`;
 				break;
 
+			case SubscriptionState.PaidExpired:
+				content = html`<p>
+						Your Pro license as ended. You can now only use Pro features on publicly-hosted repos.
+					</p>
+					${this.renderUpgradeActions(html`<p>Please upgrade for full access to Pro features:</p>`)}`;
+				break;
+
 			case SubscriptionState.ProTrialReactivationEligible:
 				content = html`<p>
 						Reactivate your Pro trial and experience all the new Pro features — free for another

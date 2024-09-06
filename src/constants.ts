@@ -179,6 +179,7 @@ export type WalkthroughSteps =
 	| 'pro-trial'
 	| 'pro-upgrade'
 	| 'pro-reactivate'
+	| 'pro-expired-reactivate'
 	| 'pro-paid'
 	| 'visualize'
 	| 'launchpad'

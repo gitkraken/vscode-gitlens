@@ -311,6 +311,12 @@ export class SubscriptionService implements Disposable {
 					step: 'pro-paid',
 				});
 				break;
+			case SubscriptionState.PaidExpired:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					...source,
+					step: 'pro-expired-reactivate',
+				});
+				break;
 		}
 	}
 
