@@ -425,8 +425,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			if (isRemoteBranch) {
 				state.createBranch = getNameWithoutRemote(state.reference);
 				const branch = await state.repo.getBranch(state.createBranch);
-				if (branch != null) {
-					state.createBranch = state.reference.name;
+				if (branch != null && !branch.remote) {
+					state.createBranch = branch.name;
 				}
 			}
 
