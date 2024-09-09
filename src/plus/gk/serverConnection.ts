@@ -19,9 +19,9 @@ import {
 	RequestUnprocessableEntityError,
 } from '../../errors';
 import {
-	showIntegrationDisconnectedTooManyFailedRequestsWarningMessage,
-	showIntegrationRequestFailed500WarningMessage,
-	showIntegrationRequestTimedOutWarningMessage,
+	showGkDisconnectedTooManyFailedRequestsWarningMessage,
+	showGkRequestFailed500WarningMessage,
+	showGkRequestTimedOutWarningMessage,
 } from '../../messages';
 import { memoize } from '../../system/decorators/memoize';
 import { Logger } from '../../system/logger';
@@ -243,7 +243,7 @@ export class ServerConnection implements Disposable {
 		// Internal Server Error
 		if (rsp.status == 500) {
 			this.trackRequestException();
-			void showIntegrationRequestFailed500WarningMessage(
+			void showGkRequestFailed500WarningMessage(
 				'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
 			);
 			return;
@@ -256,7 +256,7 @@ export class ServerConnection implements Disposable {
 			Logger.error(`GitKraken request failed: ${content} (${rsp.statusText})`, scope);
 			if (content.includes('timeout')) {
 				this.trackRequestException();
-				void showIntegrationRequestTimedOutWarningMessage('GitKraken');
+				void showGkRequestTimedOutWarningMessage();
 			}
 			return;
 		}
@@ -265,7 +265,7 @@ export class ServerConnection implements Disposable {
 		if (rsp.status == 503) {
 			Logger.error(`GitKraken request failed: ${content} (${rsp.statusText})`, scope);
 			this.trackRequestException();
-			void showIntegrationRequestFailed500WarningMessage(
+			void showGkRequestFailed500WarningMessage(
 				'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
 			);
 			return;
@@ -310,7 +310,7 @@ export class ServerConnection implements Disposable {
 				Logger.error(ex, scope);
 				if (ex.response != null) {
 					this.trackRequestException();
-					void showIntegrationRequestFailed500WarningMessage(
+					void showGkRequestFailed500WarningMessage(
 						'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
 					);
 				}
@@ -319,13 +319,13 @@ export class ServerConnection implements Disposable {
 				Logger.error(ex, scope);
 				if (ex.message.includes('timeout')) {
 					this.trackRequestException();
-					void showIntegrationRequestTimedOutWarningMessage('GitKraken');
+					void showGkRequestTimedOutWarningMessage();
 				}
 				break;
 			case 503: // Service Unavailable
 				Logger.error(ex, scope);
 				this.trackRequestException();
-				void showIntegrationRequestFailed500WarningMessage(
+				void showGkRequestFailed500WarningMessage(
 					'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
 				);
 				return;
@@ -360,7 +360,7 @@ export class ServerConnection implements Disposable {
 		this.requestExceptionCount++;
 
 		if (this.requestExceptionCount >= 5 && !this.requestsAreBlocked) {
-			void showIntegrationDisconnectedTooManyFailedRequestsWarningMessage('GitKraken');
+			void showGkDisconnectedTooManyFailedRequestsWarningMessage();
 			this.requestsAreBlocked = true;
 			this.requestExceptionCount = 0;
 		}
