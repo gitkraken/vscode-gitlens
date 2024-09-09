@@ -467,4 +467,5 @@ type SubscriptionEventData = {
 		Record<`previous.subscription.previewTrial.${string}`, string | number | boolean | undefined>
 >;
 
+/** Used to provide a "source context" to gk.dev for both tracking and customization purposes */
 export type TrackingContext = 'graph' | 'launchpad' | 'visual_file_history' | 'worktrees';

@@ -721,77 +721,72 @@ export class SubscriptionService implements Disposable {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'upgrade' }, source);
 		}
 
-		if (this._subscription.account == null) {
-			this.showPlans(source);
-		} else {
+		if (this._subscription.account != null) {
 			// Do a pre-check-in to see if we've already upgraded to a paid plan.
 			try {
 				const session = await this.ensureSession(false);
-				if (session == null) return;
-
-				if ((await this.checkUpdatedSubscription()) === SubscriptionState.Paid) {
-					void this.showAccountView();
-					return;
+				if (session != null) {
+					if ((await this.checkUpdatedSubscription()) === SubscriptionState.Paid) {
+						void this.showAccountView();
+						return;
+					}
 				}
 			} catch {}
-
-			const query = new URLSearchParams();
-			query.set('source', 'gitlens');
-			query.set('product', 'gitlens');
-
-			const successUri = await env.asExternalUri(
-				Uri.parse(
-					`${env.uriScheme}://${this.container.context.extension.id}/${SubscriptionUpdatedUriPathPrefix}`,
-				),
-			);
-			query.set('success_uri', successUri.toString(true));
-
-			const promoCode = getApplicablePromo(this._subscription.state)?.code;
-			if (promoCode != null) {
-				query.set('promoCode', promoCode);
-			}
-
-			const activeOrgId = this._subscription.activeOrganization?.id;
-			if (activeOrgId != null) {
-				query.set('org', activeOrgId);
-			}
-
-			const context = getTrackingContextFromSource(source);
-			if (context != null) {
-				query.set('context', context);
-			}
-
-			try {
-				const token = await this.container.accountAuthentication.getExchangeToken(
-					SubscriptionUpdatedUriPathPrefix,
-				);
-				const purchasePath = `purchase/checkout?${query.toString()}`;
-				if (!(await openUrl(this.container.getGkDevExchangeUri(token, purchasePath).toString(true)))) return;
-			} catch (ex) {
-				Logger.error(ex, scope);
-				if (!(await env.openExternal(this.container.getGkDevUri('purchase/checkout', query.toString()))))
-					return;
-			}
-
-			const refresh = await Promise.race([
-				new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000)),
-				new Promise<boolean>(resolve =>
-					take(
-						window.onDidChangeWindowState,
-						2,
-					)(e => {
-						if (e.focused) resolve(true);
-					}),
-				),
-				new Promise<boolean>(resolve =>
-					once(this.container.uri.onDidReceiveSubscriptionUpdatedUri)(() => resolve(false)),
-				),
-			]);
-
-			if (refresh) {
-				void this.checkUpdatedSubscription();
-			}
 		}
+
+		const query = new URLSearchParams();
+		query.set('source', 'gitlens');
+		query.set('product', 'gitlens');
+
+		const successUri = await env.asExternalUri(
+			Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${SubscriptionUpdatedUriPathPrefix}`),
+		);
+		query.set('success_uri', successUri.toString(true));
+
+		const promoCode = getApplicablePromo(this._subscription.state)?.code;
+		if (promoCode != null) {
+			query.set('promoCode', promoCode);
+		}
+
+		const activeOrgId = this._subscription.activeOrganization?.id;
+		if (activeOrgId != null) {
+			query.set('org', activeOrgId);
+		}
+
+		const context = getTrackingContextFromSource(source);
+		if (context != null) {
+			query.set('context', context);
+		}
+
+		try {
+			const token = await this.container.accountAuthentication.getExchangeToken(SubscriptionUpdatedUriPathPrefix);
+			const purchasePath = `purchase/checkout?${query.toString()}`;
+			if (!(await openUrl(this.container.getGkDevExchangeUri(token, purchasePath).toString(true)))) return;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			if (!(await env.openExternal(this.container.getGkDevUri('purchase/checkout', query.toString())))) return;
+		}
+
+		const refresh = await Promise.race([
+			new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000)),
+			new Promise<boolean>(resolve =>
+				take(
+					window.onDidChangeWindowState,
+					2,
+				)(e => {
+					if (e.focused) resolve(true);
+				}),
+			),
+			new Promise<boolean>(resolve =>
+				once(this.container.uri.onDidReceiveSubscriptionUpdatedUri)(() => resolve(false)),
+			),
+		]);
+
+		if (refresh) {
+			void this.checkUpdatedSubscription();
+		}
+
+		// TODO: Can we remove this?
 		await this.showAccountView();
 	}
 

@@ -1,5 +1,5 @@
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import { commands, Uri } from 'vscode';
+import { commands, ThemeIcon, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
 	AsyncStepResultGenerator,
@@ -21,6 +21,7 @@ import {
 	ConnectIntegrationButton,
 	FeedbackQuickInputButton,
 	LaunchpadSettingsQuickInputButton,
+	LearnAboutProQuickInputButton,
 	MergeQuickInputButton,
 	OpenOnGitHubQuickInputButton,
 	OpenOnGitLabQuickInputButton,
@@ -32,9 +33,11 @@ import {
 	UnpinQuickInputButton,
 	UnsnoozeQuickInputButton,
 } from '../../commands/quickCommand.buttons';
-import { previewBadge } from '../../constants';
+import { ensureAccessStep } from '../../commands/quickCommand.steps';
+import { proBadge, urls } from '../../constants';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
+import { PlusFeatures } from '../../features';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
@@ -45,6 +48,7 @@ import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
 import { openUrl } from '../../system/utils';
+import { getApplicablePromo } from '../gk/account/promos';
 import type { IntegrationId } from '../integrations/providers/models';
 import {
 	HostingIntegrationId,
@@ -109,6 +113,7 @@ interface Context {
 	collapsed: Map<FocusGroup, boolean>;
 	telemetryContext: LaunchpadTelemetryContext | undefined;
 	connectedIntegrations: Map<IntegrationId, boolean>;
+	showGraduationPromo: boolean;
 }
 
 interface GroupedFocusItem extends FocusItem {
@@ -147,7 +152,7 @@ export class FocusCommand extends QuickCommand<State> {
 	private readonly telemetryContext: LaunchpadTelemetryContext | undefined;
 
 	constructor(container: Container, args?: FocusCommandArgs) {
-		super(container, 'focus', 'focus', `GitLens Launchpad\u00a0\u00a0${previewBadge}`, {
+		super(container, 'focus', 'focus', `GitLens Launchpad\u00a0\u00a0${proBadge}`, {
 			description: 'focus on a pull request or issue',
 		});
 
@@ -217,6 +222,7 @@ export class FocusCommand extends QuickCommand<State> {
 			collapsed: collapsed,
 			telemetryContext: this.telemetryContext,
 			connectedIntegrations: await this.container.focus.getConnectedIntegrations(),
+			showGraduationPromo: false,
 		};
 
 		let opened = false;
@@ -257,6 +263,11 @@ export class FocusCommand extends QuickCommand<State> {
 
 				newlyConnected = Boolean(connected);
 			}
+
+			const result = yield* ensureAccessStep(state, context, PlusFeatures.Focus);
+			if (result === StepResultBreak) continue;
+
+			context.showGraduationPromo = getApplicablePromo(result.subscription.current.state, 'launchpad') != null;
 
 			await updateContextItems(this.container, context, { force: newlyConnected });
 
@@ -367,6 +378,16 @@ export class FocusCommand extends QuickCommand<State> {
 		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
 		const getItems = (result: FocusCategorizedResult) => {
 			const items: (FocusItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
+			if (context.showGraduationPromo) {
+				items.push(
+					createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, undefined, {
+						label: `Preview access of Launchpad will end on September 27th`,
+						detail: '$(blank) Upgrade before then to save 75% or more on GitLens Pro',
+						iconPath: new ThemeIcon('megaphone'),
+						buttons: [LearnAboutProQuickInputButton],
+					}),
+				);
+			}
 
 			if (result.items?.length) {
 				const uiGroups = groupAndSortFocusItems(result.items);
@@ -563,6 +584,11 @@ export class FocusCommand extends QuickCommand<State> {
 			},
 
 			onDidClickItemButton: async (quickpick, button, { group, item }) => {
+				if (button === LearnAboutProQuickInputButton) {
+					void openUrl(urls.proFeatures);
+					return;
+				}
+
 				if (!item) return;
 
 				switch (button) {
