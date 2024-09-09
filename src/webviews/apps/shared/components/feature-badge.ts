@@ -270,7 +270,7 @@ export class GlFeatureBadge extends LitElement {
 
 			case SubscriptionState.PaidExpired:
 				content = html`<p>
-						Your Pro license as ended. You can now only use Pro features on publicly-hosted repos.
+						Your Pro license has expired. You can now only use Pro features on publicly-hosted repos.
 					</p>
 					${this.renderUpgradeActions(html`<p>Please upgrade for full access to Pro features:</p>`)}`;
 				break;
