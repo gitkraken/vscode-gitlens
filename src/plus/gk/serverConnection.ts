@@ -11,9 +11,9 @@ import {
 	AuthenticationErrorReason,
 	AuthenticationRequiredError,
 	CancellationError,
-	ProviderRequestClientError,
-	ProviderRequestNotFoundError,
-	ProviderRequestRateLimitError,
+	RequestClientError,
+	RequestNotFoundError,
+	RequestRateLimitError,
 } from '../../errors';
 import {
 	showIntegrationRequestFailed500WarningMessage,
@@ -200,7 +200,7 @@ export class ServerConnection implements Disposable {
 		}
 	}
 
-	private buildProviderRequestRateLimitError(token: string | undefined, ex: RequestError) {
+	private buildRequestRateLimitError(token: string | undefined, ex: RequestError) {
 		let resetAt: number | undefined;
 
 		const reset = ex.response?.headers?.['x-ratelimit-reset'];
@@ -210,7 +210,7 @@ export class ServerConnection implements Disposable {
 				resetAt = undefined;
 			}
 		}
-		return new ProviderRequestRateLimitError(ex, token, resetAt);
+		return new RequestRateLimitError(ex, token, resetAt);
 	}
 
 	private handleGkRequestError(
@@ -223,16 +223,16 @@ export class ServerConnection implements Disposable {
 
 		switch (ex.status) {
 			case 404: // Not found
-				throw new ProviderRequestNotFoundError(ex);
+				throw new RequestNotFoundError(ex);
 			case 401: // Unauthorized
 				throw new AuthenticationError('gitkraken', AuthenticationErrorReason.Unauthorized, ex);
 			case 429: //Too Many Requests
 				this.trackRequestException();
-				throw this.buildProviderRequestRateLimitError(token, ex);
+				throw this.buildRequestRateLimitError(token, ex);
 			case 403: // Forbidden
 				if (ex.message.includes('rate limit')) {
 					this.trackRequestException();
-					throw this.buildProviderRequestRateLimitError(token, ex);
+					throw this.buildRequestRateLimitError(token, ex);
 				}
 				throw new AuthenticationError('gitkraken', AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
@@ -259,7 +259,7 @@ export class ServerConnection implements Disposable {
 				);
 				return;
 			default:
-				if (ex.status >= 400 && ex.status < 500) throw new ProviderRequestClientError(ex);
+				if (ex.status >= 400 && ex.status < 500) throw new RequestClientError(ex);
 				break;
 		}
 

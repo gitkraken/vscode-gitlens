@@ -12,9 +12,9 @@ import {
 	AuthenticationError,
 	AuthenticationErrorReason,
 	CancellationError,
-	ProviderRequestClientError,
-	ProviderRequestNotFoundError,
-	ProviderRequestRateLimitError,
+	RequestClientError,
+	RequestNotFoundError,
+	RequestRateLimitError,
 } from '../../../../errors';
 import type { PagedResult, RepositoryVisibility } from '../../../../git/gitProvider';
 import type { Account, UnidentifiedAuthor } from '../../../../git/models/author';
@@ -285,7 +285,7 @@ export class GitHubApi implements Disposable {
 				username: rsp.viewer.login ?? undefined,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -393,7 +393,7 @@ export class GitHubApi implements Disposable {
 						  : undefined,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -484,7 +484,7 @@ export class GitHubApi implements Disposable {
 				username: author.login ?? undefined,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -543,7 +543,7 @@ export class GitHubApi implements Disposable {
 				name: defaultBranch,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -615,7 +615,7 @@ export class GitHubApi implements Disposable {
 				state: fromGitHubIssueOrPullRequestState(issue.state),
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -675,7 +675,7 @@ export class GitHubApi implements Disposable {
 
 			return fromGitHubPullRequestLite(rsp.repository.pullRequest, provider);
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -764,7 +764,7 @@ export class GitHubApi implements Disposable {
 
 			return fromGitHubPullRequestLite(prs[0], provider);
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -849,7 +849,7 @@ export class GitHubApi implements Disposable {
 
 			return fromGitHubPullRequestLite(prs[0], provider);
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -938,7 +938,7 @@ export class GitHubApi implements Disposable {
 						: undefined,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -1021,7 +1021,7 @@ export class GitHubApi implements Disposable {
 
 			return { ranges: ranges, viewer: rsp.viewer?.name };
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return emptyBlameResult;
+			if (ex instanceof RequestNotFoundError) return emptyBlameResult;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1105,7 +1105,7 @@ export class GitHubApi implements Disposable {
 				values: refs.nodes,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
+			if (ex instanceof RequestNotFoundError) return emptyPagedResult;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1158,7 +1158,7 @@ export class GitHubApi implements Disposable {
 				files: result.files,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1266,7 +1266,7 @@ export class GitHubApi implements Disposable {
 
 			return branches;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return [];
+			if (ex instanceof RequestNotFoundError) return [];
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1320,7 +1320,7 @@ export class GitHubApi implements Disposable {
 			const count = rsp?.repository?.ref?.target.history.totalCount;
 			return count;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1400,7 +1400,7 @@ export class GitHubApi implements Disposable {
 
 			return branches;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return [];
+			if (ex instanceof RequestNotFoundError) return [];
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1549,7 +1549,7 @@ export class GitHubApi implements Disposable {
 				viewer: rsp?.viewer.name,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
+			if (ex instanceof RequestNotFoundError) return emptyPagedResult;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1588,7 +1588,7 @@ export class GitHubApi implements Disposable {
 					.reverse(),
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
+			if (ex instanceof RequestNotFoundError) return emptyPagedResult;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1655,7 +1655,7 @@ export class GitHubApi implements Disposable {
 			const commit = rsp.repository?.object;
 			return commit != null ? { values: [commit], viewer: rsp.viewer.name } : emptyPagedResult;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
+			if (ex instanceof RequestNotFoundError) return emptyPagedResult;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1750,7 +1750,7 @@ export class GitHubApi implements Disposable {
 				values: history.nodes,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1826,7 +1826,7 @@ export class GitHubApi implements Disposable {
 
 			return tags;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return [];
+			if (ex instanceof RequestNotFoundError) return [];
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1911,7 +1911,7 @@ export class GitHubApi implements Disposable {
 			const date = rsp?.repository?.object?.committer.date;
 			return date;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1941,7 +1941,7 @@ export class GitHubApi implements Disposable {
 
 			return rsp.data;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return [];
+			if (ex instanceof RequestNotFoundError) return [];
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -1986,7 +1986,7 @@ export class GitHubApi implements Disposable {
 
 			return rsp.repository?.defaultBranchRef?.name ?? undefined;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -2034,7 +2034,7 @@ export class GitHubApi implements Disposable {
 				id: rsp.viewer?.id,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -2073,7 +2073,7 @@ export class GitHubApi implements Disposable {
 
 			return result;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -2120,7 +2120,7 @@ export class GitHubApi implements Disposable {
 
 			return rsp.repository.visibility === 'PUBLIC' ? 'public' : 'private';
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -2212,7 +2212,7 @@ export class GitHubApi implements Disposable {
 				values: refs.nodes,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
+			if (ex instanceof RequestNotFoundError) return emptyPagedResult;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -2304,7 +2304,7 @@ export class GitHubApi implements Disposable {
 			);
 			return rsp?.repository?.object?.history.nodes?.[0]?.oid ?? undefined;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -2389,7 +2389,7 @@ export class GitHubApi implements Disposable {
 				values: commits,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -2461,7 +2461,7 @@ export class GitHubApi implements Disposable {
 				})),
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, undefined, scope);
 		}
@@ -2523,7 +2523,7 @@ export class GitHubApi implements Disposable {
 			if (ex instanceof GraphqlResponseError) {
 				switch (ex.errors?.[0]?.type) {
 					case 'NOT_FOUND':
-						throw new ProviderRequestNotFoundError(ex);
+						throw new RequestNotFoundError(ex);
 					case 'FORBIDDEN':
 						throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
 					case 'RATE_LIMITED': {
@@ -2537,7 +2537,7 @@ export class GitHubApi implements Disposable {
 							}
 						}
 
-						throw new ProviderRequestRateLimitError(ex, token, resetAt);
+						throw new RequestRateLimitError(ex, token, resetAt);
 					}
 				}
 
@@ -2668,7 +2668,7 @@ export class GitHubApi implements Disposable {
 			case 404: // Not found
 			case 410: // Gone
 			case 422: // Unprocessable Entity
-				throw new ProviderRequestNotFoundError(ex);
+				throw new RequestNotFoundError(ex);
 			// case 429: //Too Many Requests
 			case 401: // Unauthorized
 				throw new AuthenticationError('github', AuthenticationErrorReason.Unauthorized, ex);
@@ -2684,7 +2684,7 @@ export class GitHubApi implements Disposable {
 						}
 					}
 
-					throw new ProviderRequestRateLimitError(ex, token, resetAt);
+					throw new RequestRateLimitError(ex, token, resetAt);
 				}
 				throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
@@ -2721,7 +2721,7 @@ export class GitHubApi implements Disposable {
 				);
 				return;
 			default:
-				if (ex.status >= 400 && ex.status < 500) throw new ProviderRequestClientError(ex);
+				if (ex.status >= 400 && ex.status < 500) throw new RequestClientError(ex);
 				break;
 		}
 
