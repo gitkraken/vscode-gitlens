@@ -21,7 +21,7 @@ import type { GitStatus } from './status';
 export class GitWorktree {
 	constructor(
 		private readonly container: Container,
-		public readonly main: boolean,
+		public readonly isDefault: boolean,
 		public readonly type: 'bare' | 'branch' | 'detached',
 		public readonly repoPath: string,
 		public readonly uri: Uri,
@@ -339,14 +339,14 @@ export function sortWorktrees(worktrees: GitWorktree[] | WorktreeQuickPickItem[]
 
 export async function getWorktreesByBranch(
 	repos: Repository | Repository[] | undefined,
-	options?: { includeMainWorktree?: boolean },
+	options?: { includeDefault?: boolean },
 ) {
 	const worktreesByBranch = new Map<string, GitWorktree>();
 	if (repos == null) return worktreesByBranch;
 
 	async function addWorktrees(repo: Repository) {
 		groupWorktreesByBranch(await repo.getWorktrees(), {
-			includeMainWorktree: options?.includeMainWorktree,
+			includeDefault: options?.includeDefault,
 			worktreesByBranch: worktreesByBranch,
 		});
 	}
@@ -362,13 +362,13 @@ export async function getWorktreesByBranch(
 
 export function groupWorktreesByBranch(
 	worktrees: GitWorktree[],
-	options?: { includeMainWorktree?: boolean; worktreesByBranch?: Map<string, GitWorktree> },
+	options?: { includeDefault?: boolean; worktreesByBranch?: Map<string, GitWorktree> },
 ) {
 	const worktreesByBranch = options?.worktreesByBranch ?? new Map<string, GitWorktree>();
 	if (worktrees == null) return worktreesByBranch;
 
 	for (const wt of worktrees) {
-		if (wt.branch == null || (!options?.includeMainWorktree && wt.main)) continue;
+		if (wt.branch == null || (!options?.includeDefault && wt.isDefault)) continue;
 
 		worktreesByBranch.set(wt.branch.id, wt);
 	}

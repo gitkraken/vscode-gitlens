@@ -200,10 +200,10 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		tooltip.isTrusted = true;
 
 		const indicators =
-			this.worktree.main || this.worktree.opened
+			this.worktree.isDefault || this.worktree.opened
 				? ` \u00a0(${
-						this.worktree.main
-							? `_main${this.worktree.opened ? ', active_' : '_'}`
+						this.worktree.isDefault
+							? `_default${this.worktree.opened ? ', active_' : '_'}`
 							: this.worktree.opened
 							  ? '_active_'
 							  : ''
@@ -219,7 +219,9 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		switch (this.worktree.type) {
 			case 'bare':
 				icon = new ThemeIcon('folder');
-				tooltip.appendMarkdown(`${this.worktree.main ? '$(pass) ' : ''}Bare Worktree${indicators}${folder}`);
+				tooltip.appendMarkdown(
+					`${this.worktree.isDefault ? '$(pass) ' : ''}Bare Worktree${indicators}${folder}`,
+				);
 				break;
 
 			case 'branch': {
@@ -227,7 +229,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				this._branch = branch;
 
 				tooltip.appendMarkdown(
-					`${this.worktree.main ? '$(pass) ' : ''}Worktree for $(git-branch) \`${
+					`${this.worktree.isDefault ? '$(pass) ' : ''}Worktree for $(git-branch) \`${
 						branch?.getNameWithoutRemote() ?? branch?.name
 					}\`${indicators}${folder}`,
 				);
@@ -315,7 +317,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			case 'detached': {
 				icon = new ThemeIcon('git-commit');
 				tooltip.appendMarkdown(
-					`${this.worktree.main ? '$(pass) ' : ''}Detached Worktree at $(git-commit) ${shortenRevision(
+					`${this.worktree.isDefault ? '$(pass) ' : ''}Detached Worktree at $(git-commit) ${shortenRevision(
 						this.worktree.sha,
 					)}${indicators}${folder}`,
 				);
@@ -348,7 +350,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		const item = new TreeItem(this.worktree.name, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.description = description;
-		item.contextValue = `${ContextValues.Worktree}${this.worktree.main ? '+main' : ''}${
+		item.contextValue = `${ContextValues.Worktree}${this.worktree.isDefault ? '+default' : ''}${
 			this.worktree.opened ? '+active' : ''
 		}`;
 		item.iconPath =

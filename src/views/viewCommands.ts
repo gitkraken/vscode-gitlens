@@ -597,7 +597,7 @@ export class ViewCommands {
 		if (!node.is('worktree')) return undefined;
 
 		const worktrees = nodes?.length ? nodes.map(n => n.worktree) : [node.worktree];
-		const uris = worktrees.filter(w => !w.main && !w.opened).map(w => w.uri);
+		const uris = worktrees.filter(w => !w.isDefault && !w.opened).map(w => w.uri);
 		return WorktreeActions.remove(node.repoPath, uris);
 	}
 

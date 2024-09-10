@@ -2328,7 +2328,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				this.getCurrentUser(repoPath),
 				this.container.git
 					.getWorktrees(repoPath)
-					.then(w => [w, groupWorktreesByBranch(w, { includeMainWorktree: true })]) satisfies Promise<
+					.then(w => [w, groupWorktreesByBranch(w, { includeDefault: true })]) satisfies Promise<
 					[GitWorktree[], Map<string, GitWorktree>]
 				>,
 			]);
@@ -2341,7 +2341,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let branchIdOfMainWorktree: string | undefined;
 		if (worktreesByBranch != null) {
-			branchIdOfMainWorktree = find(worktreesByBranch, ([, wt]) => wt.main)?.[0];
+			branchIdOfMainWorktree = find(worktreesByBranch, ([, wt]) => wt.isDefault)?.[0];
 			if (branchIdOfMainWorktree != null) {
 				worktreesByBranch.delete(branchIdOfMainWorktree);
 			}
@@ -2629,7 +2629,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								worktreesByBranch?.has(branchId)
 									? '+worktree'
 									: branchIdOfMainWorktree === branchId
-									  ? '+main'
+									  ? '+checkedout'
 									  : ''
 							}`,
 							webviewItemValue: {
