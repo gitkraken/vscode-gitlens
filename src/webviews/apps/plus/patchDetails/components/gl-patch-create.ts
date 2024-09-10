@@ -774,7 +774,7 @@ export class GlPatchCreate extends GlTreeBase {
 		this.emit('gl-patch-file-open', {
 			...file,
 			showOptions: {
-				preview: false,
+				preview: !e.detail.dblClick,
 				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
 			},
 		});
@@ -787,7 +787,7 @@ export class GlPatchCreate extends GlTreeBase {
 		this.emit('gl-patch-file-stage', {
 			...file,
 			showOptions: {
-				preview: false,
+				preview: !e.detail.dblClick,
 				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
 			},
 		});
@@ -800,7 +800,7 @@ export class GlPatchCreate extends GlTreeBase {
 		this.emit('gl-patch-file-unstage', {
 			...file,
 			showOptions: {
-				preview: false,
+				preview: !e.detail.dblClick,
 				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
 			},
 		});

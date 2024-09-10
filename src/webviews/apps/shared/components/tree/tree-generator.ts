@@ -78,6 +78,7 @@ export class GlTreeGenerator extends GlElement {
 				.icon=${action.icon}
 				.label=${action.label}
 				@click=${(e: MouseEvent) => this.onTreeItemActionClicked(e, model, action)}
+				@dblclick=${(e: MouseEvent) => this.onTreeItemActionDblClicked(e, model, action)}
 			></action-item>`;
 		});
 	}
@@ -165,6 +166,19 @@ export class GlTreeGenerator extends GlElement {
 			context: model.context,
 			action: action,
 			dblClick: false,
+			altKey: e.altKey,
+			ctrlKey: e.ctrlKey,
+			metaKey: e.metaKey,
+		});
+	}
+
+	private onTreeItemActionDblClicked(e: MouseEvent, model: TreeModelFlat, action: TreeItemAction) {
+		e.stopPropagation();
+		this.emit('gl-tree-generated-item-action-clicked', {
+			node: model,
+			context: model.context,
+			action: action,
+			dblClick: true,
 			altKey: e.altKey,
 			ctrlKey: e.ctrlKey,
 			metaKey: e.metaKey,

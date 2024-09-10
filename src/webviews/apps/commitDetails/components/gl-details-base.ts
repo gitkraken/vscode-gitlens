@@ -429,7 +429,7 @@ export class GlDetailsBase extends LitElement {
 		const [file] = e.detail.context;
 		const event = new CustomEvent('file-open', {
 			detail: this.getEventDetail(file, {
-				preview: false,
+				preview: !e.detail.dblClick,
 				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
 			}),
 		});
@@ -442,7 +442,7 @@ export class GlDetailsBase extends LitElement {
 		const [file] = e.detail.context;
 		const event = new CustomEvent('file-open-on-remote', {
 			detail: this.getEventDetail(file, {
-				preview: false,
+				preview: !e.detail.dblClick,
 				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
 			}),
 		});
@@ -455,7 +455,7 @@ export class GlDetailsBase extends LitElement {
 		const [file] = e.detail.context;
 		const event = new CustomEvent('file-compare-working', {
 			detail: this.getEventDetail(file, {
-				preview: false,
+				preview: !e.detail.dblClick,
 				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
 			}),
 		});
@@ -468,7 +468,7 @@ export class GlDetailsBase extends LitElement {
 		const [file] = e.detail.context;
 		const event = new CustomEvent('file-compare-previous', {
 			detail: this.getEventDetail(file, {
-				preview: false,
+				preview: !e.detail.dblClick,
 				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
 			}),
 		});
@@ -491,7 +491,7 @@ export class GlDetailsBase extends LitElement {
 		const [file] = e.detail.context;
 		const event = new CustomEvent('file-stage', {
 			detail: this.getEventDetail(file, {
-				preview: false,
+				preview: !e.detail.dblClick,
 				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
 			}),
 		});
@@ -504,7 +504,7 @@ export class GlDetailsBase extends LitElement {
 		const [file] = e.detail.context;
 		const event = new CustomEvent('file-unstage', {
 			detail: this.getEventDetail(file, {
-				preview: false,
+				preview: !e.detail.dblClick,
 				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
 			}),
 		});
