@@ -439,7 +439,7 @@ export class BranchGitCommand extends QuickCommand {
 				state.references = [state.references];
 			}
 
-			const worktreesByBranch = await getWorktreesByBranch(state.repo, { includeMainWorktree: true });
+			const worktreesByBranch = await getWorktreesByBranch(state.repo, { includeDefault: true });
 
 			if (
 				state.counter < 3 ||
@@ -450,8 +450,8 @@ export class BranchGitCommand extends QuickCommand {
 
 				const result = yield* pickBranchesStep(state, context, {
 					filter: prune
-						? b => !b.current && Boolean(b.upstream?.missing) && !worktreesByBranch.get(b.id)?.main
-						: b => !b.current && !worktreesByBranch.get(b.id)?.main,
+						? b => !b.current && Boolean(b.upstream?.missing) && !worktreesByBranch.get(b.id)?.isDefault
+						: b => !b.current && !worktreesByBranch.get(b.id)?.isDefault,
 					picked: state.references?.map(r => r.ref),
 					placeholder: prune
 						? 'Choose branches with missing upstreams to delete'
@@ -522,7 +522,7 @@ export class BranchGitCommand extends QuickCommand {
 
 		for (const ref of ensureArray(state.references)) {
 			const worktree = worktreesByBranch.get(ref.id!);
-			if (worktree != null && !worktree.main) {
+			if (worktree != null && !worktree.isDefault) {
 				worktrees.push(worktree);
 			}
 		}

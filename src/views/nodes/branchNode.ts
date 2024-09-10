@@ -139,7 +139,7 @@ export class BranchNode
 	@memoize()
 	get worktree(): GitWorktree | undefined {
 		const worktree = this.context.worktreesByBranch?.get(this.branch.id);
-		return worktree?.main ? undefined : worktree;
+		return worktree?.isDefault ? undefined : worktree;
 	}
 
 	private _children: ViewNode[] | undefined;
@@ -452,8 +452,8 @@ export class BranchNode
 		}
 		if (worktree != null) {
 			contextValue += '+worktree';
-		} else if (this.context.worktreesByBranch?.get(this.branch.id)?.main) {
-			contextValue += '+main';
+		} else if (this.context.worktreesByBranch?.get(this.branch.id)?.isDefault) {
+			contextValue += '+checkedout';
 		}
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
 		if (this.repo.closed) {
