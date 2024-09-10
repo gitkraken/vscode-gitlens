@@ -972,7 +972,7 @@ gl-feature-gate gl-feature-badge {
 	}
 }
 
-.gk-graph:not(.ref-zone) {
+.gk-graph:not(.ref-zone):not([role='tooltip']) {
 	flex: 1 1 auto;
 	position: relative;
 }
