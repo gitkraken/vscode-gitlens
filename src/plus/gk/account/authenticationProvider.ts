@@ -3,7 +3,7 @@ import type {
 	AuthenticationProviderAuthenticationSessionsChangeEvent,
 	AuthenticationSession,
 } from 'vscode';
-import { authentication, Disposable, EventEmitter, window } from 'vscode';
+import { Disposable, EventEmitter, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Container, Environment } from '../../../container';
 import { CancellationError } from '../../../errors';
@@ -27,7 +27,6 @@ interface StoredSession {
 
 export const authenticationProviderId = 'gitlens+';
 export const authenticationProviderScopes = ['gitlens'];
-const authenticationLabel = 'GitKraken: GitLens';
 
 export interface AuthenticationProviderOptions {
 	signUp?: boolean;
@@ -57,9 +56,6 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 
 		this._disposable = Disposable.from(
 			this._authConnection,
-			authentication.registerAuthenticationProvider(authenticationProviderId, authenticationLabel, this, {
-				supportsMultipleAccounts: false,
-			}),
 			this.container.storage.onDidChangeSecrets(() => this.checkForUpdates()),
 		);
 	}

@@ -7,7 +7,6 @@ import type {
 	StatusBarItem,
 } from 'vscode';
 import {
-	authentication,
 	CancellationTokenSource,
 	version as codeVersion,
 	Disposable,
@@ -50,7 +49,7 @@ import { getSubscriptionFromCheckIn } from '../checkin';
 import type { ServerConnection } from '../serverConnection';
 import { ensurePlusFeaturesEnabled } from '../utils';
 import { AuthenticationContext } from './authenticationConnection';
-import { authenticationProviderId, authenticationProviderScopes } from './authenticationProvider';
+import { authenticationProviderScopes } from './authenticationProvider';
 import type { Organization } from './organization';
 import { getApplicablePromo } from './promos';
 import type { Subscription } from './subscription';
@@ -1053,10 +1052,7 @@ export class SubscriptionService implements Disposable {
 			if (options != null && createIfNeeded) {
 				this.container.accountAuthentication.setOptionsForScopes(authenticationProviderScopes, options);
 			}
-			session = await authentication.getSession(authenticationProviderId, authenticationProviderScopes, {
-				createIfNone: createIfNeeded,
-				silent: !createIfNeeded,
-			});
+			session = (await this.container.accountAuthentication.getSessions(authenticationProviderScopes))[0];
 		} catch (ex) {
 			session = null;
 			if (options != null && createIfNeeded) {
