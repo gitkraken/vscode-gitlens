@@ -152,7 +152,12 @@ export type StoredGKLicenseType =
 	| 'gitkraken_v1-teams'
 	| 'gitkraken_v1-hosted-enterprise'
 	| 'gitkraken_v1-self-hosted-enterprise'
-	| 'gitkraken_v1-standalone-enterprise';
+	| 'gitkraken_v1-standalone-enterprise'
+	| 'gitkraken-v1-pro'
+	| 'gitkraken-v1-teams'
+	| 'gitkraken-v1-hosted-enterprise'
+	| 'gitkraken-v1-self-hosted-enterprise'
+	| 'gitkraken-v1-standalone-enterprise';
 
 export interface StoredOrganization {
 	id: string;

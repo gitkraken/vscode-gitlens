@@ -44,7 +44,12 @@ export type GKLicenseType =
 	| 'gitkraken_v1-teams'
 	| 'gitkraken_v1-hosted-enterprise'
 	| 'gitkraken_v1-self-hosted-enterprise'
-	| 'gitkraken_v1-standalone-enterprise';
+	| 'gitkraken_v1-standalone-enterprise'
+	| 'gitkraken-v1-pro'
+	| 'gitkraken-v1-teams'
+	| 'gitkraken-v1-hosted-enterprise'
+	| 'gitkraken-v1-self-hosted-enterprise'
+	| 'gitkraken-v1-standalone-enterprise';
 
 export function getSubscriptionFromCheckIn(
 	data: GKCheckInResponse,
@@ -199,10 +204,12 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 		case 'gitlens-pro':
 		case 'bundle-pro':
 		case 'gitkraken_v1-pro':
+		case 'gitkraken-v1-pro':
 			return SubscriptionPlanId.Pro;
 		case 'gitlens-teams':
 		case 'bundle-teams':
 		case 'gitkraken_v1-teams':
+		case 'gitkraken-v1-teams':
 			return SubscriptionPlanId.Teams;
 		case 'gitlens-hosted-enterprise':
 		case 'gitlens-self-hosted-enterprise':
@@ -213,6 +220,9 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 		case 'gitkraken_v1-hosted-enterprise':
 		case 'gitkraken_v1-self-hosted-enterprise':
 		case 'gitkraken_v1-standalone-enterprise':
+		case 'gitkraken-v1-hosted-enterprise':
+		case 'gitkraken-v1-self-hosted-enterprise':
+		case 'gitkraken-v1-standalone-enterprise':
 			return SubscriptionPlanId.Enterprise;
 		default:
 			return SubscriptionPlanId.FreePlus;
