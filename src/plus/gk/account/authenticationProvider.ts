@@ -230,6 +230,20 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		}
 	}
 
+	public async getOrCreateSession(
+		scopes: string[],
+		createIfNeeded: boolean,
+	): Promise<AuthenticationSession | undefined> {
+		const session = (await this.getSessions(scopes))[0];
+		if (session != null) {
+			return session;
+		}
+		if (!createIfNeeded) {
+			return undefined;
+		}
+		return this.createSession(scopes);
+	}
+
 	private async createSessionForToken(token: string, scopes: string[]): Promise<AuthenticationSession> {
 		const userInfo = await this._authConnection.getAccountInfo(token);
 		return {

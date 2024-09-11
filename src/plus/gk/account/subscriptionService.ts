@@ -1052,7 +1052,10 @@ export class SubscriptionService implements Disposable {
 			if (options != null && createIfNeeded) {
 				this.container.accountAuthentication.setOptionsForScopes(authenticationProviderScopes, options);
 			}
-			session = (await this.container.accountAuthentication.getSessions(authenticationProviderScopes))[0];
+			session = await this.container.accountAuthentication.getOrCreateSession(
+				authenticationProviderScopes,
+				createIfNeeded,
+			);
 		} catch (ex) {
 			session = null;
 			if (options != null && createIfNeeded) {
