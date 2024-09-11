@@ -61,4 +61,8 @@ export const scrollableBase = css`
 		border-color: var(--vscode-scrollbarSlider-background);
 		transition: none;
 	}
+
+	:host-context(.preload) .scrollable {
+		transition: none;
+	}
 `;
