@@ -3,7 +3,7 @@ import type {
 	AuthenticationProviderAuthenticationSessionsChangeEvent,
 	AuthenticationSession,
 } from 'vscode';
-import { authentication, Disposable, EventEmitter, window } from 'vscode';
+import { Disposable, EventEmitter, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Container, Environment } from '../../../container';
 import { CancellationError } from '../../../errors';
@@ -27,7 +27,6 @@ interface StoredSession {
 
 export const authenticationProviderId = 'gitlens+';
 export const authenticationProviderScopes = ['gitlens'];
-const authenticationLabel = 'GitKraken: GitLens';
 
 export interface AuthenticationProviderOptions {
 	signUp?: boolean;
@@ -57,9 +56,6 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 
 		this._disposable = Disposable.from(
 			this._authConnection,
-			authentication.registerAuthenticationProvider(authenticationProviderId, authenticationLabel, this, {
-				supportsMultipleAccounts: false,
-			}),
 			this.container.storage.onDidChangeSecrets(() => this.checkForUpdates()),
 		);
 	}
@@ -232,6 +228,20 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 			Logger.debug(`Firing sessions changed event; added=${added.length}, removed=${removed.length}`);
 			this._onDidChangeSessions.fire({ added: added, removed: removed, changed: [] });
 		}
+	}
+
+	public async getOrCreateSession(
+		scopes: string[],
+		createIfNeeded: boolean,
+	): Promise<AuthenticationSession | undefined> {
+		const session = (await this.getSessions(scopes))[0];
+		if (session != null) {
+			return session;
+		}
+		if (!createIfNeeded) {
+			return undefined;
+		}
+		return this.createSession(scopes);
 	}
 
 	private async createSessionForToken(token: string, scopes: string[]): Promise<AuthenticationSession> {
