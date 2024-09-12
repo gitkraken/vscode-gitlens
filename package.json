@@ -1351,13 +1351,6 @@
 						"scope": "window",
 						"order": 160
 					},
-					"gitlens.launchpad.indicator.openInEditor": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to open _Launchpad_ as an editor tab when clicking on the status bar indicator",
-						"scope": "window",
-						"order": 170
-					},
 					"gitlens.launchpad.allowMultiple": {
 						"type": "boolean",
 						"default": true,
@@ -9915,7 +9908,7 @@
 				},
 				{
 					"command": "gitlens.launchpad.split",
-					"when": "gitlens:enabled && config.gitlens.launchpad.allowMultiple"
+					"when": "false && gitlens:enabled && config.gitlens.launchpad.allowMultiple"
 				},
 				{
 					"command": "gitlens.launchpad.indicator.toggle",
