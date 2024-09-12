@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [15.5.0] - 2024-09-12
+
 ### Added
 
 - Adds a `gitlens.views.showCurrentBranchOnTop` setting to specify whether the current branch is shown at the top of the views &mdash; closes [#3520](https://github.com/gitkraken/vscode-gitlens/issues/3520)
@@ -5608,7 +5610,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v15.4.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v15.5.0...HEAD
+[15.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v15.4.0...gitkraken:v15.5.0
 [15.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/v15.3.1...gitkraken:v15.4.0
 [15.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/v15.3.0...gitkraken:v15.3.1
 [15.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v15.2.3...gitkraken:v15.3.0
