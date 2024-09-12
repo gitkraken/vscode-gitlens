@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a `gitlens.views.showCurrentBranchOnTop` setting to specify whether the current branch is shown at the top of the views &mdash; closes [#3520](https://github.com/gitkraken/vscode-gitlens/issues/3520)
 
+### Changed
+
+- Refines the _Create Worktree_ command flow by proving a single confirmation for worktree creation based on whether the worktree is created for a new branch, an existing local branch on a worktree, or an existing local branch without a worktree.
+
 ### Fixed
 
 - Fixes [#3514](https://github.com/gitkraken/vscode-gitlens/issues/3514) - Attempting to delete the main worktree's branch causes a invalid prompt to delete the main worktree
