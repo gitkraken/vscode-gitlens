@@ -33,6 +33,7 @@ export function registerCommand(command: string, callback: CommandCallback, this
 				}
 			}
 			Container.instance.telemetry.sendEvent('command', { command: command, context: context });
+			void Container.instance.usage.track(`command:${command as Commands}:executed`);
 			callback.call(this, ...args);
 		},
 		thisArg,

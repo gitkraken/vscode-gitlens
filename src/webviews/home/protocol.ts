@@ -1,8 +1,29 @@
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { IpcScope, WebviewState } from '../protocol';
-import { IpcCommand, IpcNotification } from '../protocol';
+import { IpcNotification } from '../protocol';
 
 export const scope: IpcScope = 'home';
+
+export enum OnboardingItem {
+	repoHost = 'repoHost',
+	commitGraph = 'commitGraph',
+	sourceControl = 'sourceControl',
+	gitLens = 'gitLens',
+	inspect = 'inspect',
+	visualFileHistory = 'visualFileHistory',
+	launchpad = 'launchpad',
+	revisionHistory = 'revisionHistory',
+	allSidebarViews = 'allSidebarViews',
+	editorFeatures = 'editorFeatures',
+	blame = 'blame',
+	codeLens = 'codeLens',
+	fileAnnotations = 'fileAnnotations',
+	proFeatures = 'proFeatures',
+	tryTrial = 'tryTrial',
+	upgradeToPro = 'upgradeToPro',
+}
+
+export type OnboardingState = Partial<Record<`${OnboardingItem}Checked`, boolean>>;
 
 export interface State extends WebviewState {
 	repositories: DidChangeRepositoriesParams;
@@ -11,17 +32,15 @@ export interface State extends WebviewState {
 	orgSettings: {
 		drafts: boolean;
 	};
-	walkthroughCollapsed: boolean;
 	hasAnyIntegrationConnected: boolean;
+	onboardingState: undefined | OnboardingState;
+	repoHostConnected: boolean;
+	editorPreviewEnabled: boolean;
+	canEnableCodeLens: boolean;
+	canEnableLineBlame: boolean;
+	isOnboardingInitialized: boolean;
+	proFeaturesEnabled: boolean;
 }
-
-// COMMANDS
-
-export interface CollapseSectionParams {
-	section: string;
-	collapsed: boolean;
-}
-export const CollapseSectionCommand = new IpcCommand<CollapseSectionParams>(scope, 'section/collapse');
 
 // NOTIFICATIONS
 
@@ -39,6 +58,57 @@ export interface DidChangeIntegrationsParams {
 export const DidChangeIntegrationsConnections = new IpcNotification<DidChangeIntegrationsParams>(
 	scope,
 	'integrations/didChange',
+);
+
+export type DidChangeOnboardingStateParams = OnboardingState;
+export const DidChangeOnboardingState = new IpcNotification<DidChangeOnboardingStateParams>(
+	scope,
+	'onboarding/usage/didChange',
+);
+
+export interface DidChangeOnboardingEditorParams {
+	editorPreviewEnabled: boolean;
+}
+export const DidChangeOnboardingEditor = new IpcNotification<DidChangeOnboardingEditorParams>(
+	scope,
+	'onboarding/editor/didChange',
+);
+
+export const DidTogglePlusFeatures = new IpcNotification<boolean>(scope, 'onboarding/plus/toggle');
+
+export interface DidChangeCodeLensStateParams {
+	canBeEnabled: boolean;
+}
+export const DidChangeCodeLensState = new IpcNotification<DidChangeCodeLensStateParams>(
+	scope,
+	'onboarding/codelens/didToggle',
+);
+
+export interface DidChangeOnboardingIsInitializedParams {
+	isInitialized: boolean;
+}
+
+export const DidChangeOnboardingIsInitialized = new IpcNotification<DidChangeOnboardingIsInitializedParams>(
+	scope,
+	'onboarding/isInitialized/didChange',
+);
+
+export interface DidChangeLineBlameStateParams {
+	canBeEnabled: boolean;
+}
+
+export const DidChangeLineBlameState = new IpcNotification<DidChangeLineBlameStateParams>(
+	scope,
+	'onboarding/lineblame/didToggle',
+);
+
+export interface DidChangeOnboardingIntegrationParams {
+	onboardingState: OnboardingState;
+	repoHostConnected: boolean;
+}
+export const DidChangeOnboardingIntegration = new IpcNotification<DidChangeOnboardingIntegrationParams>(
+	scope,
+	'onboarding/integration/didChange',
 );
 
 export interface DidChangeSubscriptionParams {

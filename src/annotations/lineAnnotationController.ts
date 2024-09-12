@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, DecorationOptions, TextEditor, TextEditorDecorationType } from 'vscode';
-import { CancellationTokenSource, DecorationRangeBehavior, Disposable, Range, window } from 'vscode';
+import { CancellationTokenSource, DecorationRangeBehavior, Disposable, EventEmitter, Range, window } from 'vscode';
 import { GlyphChars, Schemes } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
@@ -33,6 +33,17 @@ export class LineAnnotationController implements Disposable {
 	private _editor: TextEditor | undefined;
 	private _enabled: boolean = false;
 
+	private set enabled(value: boolean) {
+		this._enabled = value;
+		this._onToggle.fire({ enabled: value });
+	}
+
+	get enabled() {
+		return this._enabled;
+	}
+
+	private _onToggle = new EventEmitter<{ enabled: boolean }>();
+
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			once(container.onReady)(this.onReady, this),
@@ -60,10 +71,10 @@ export class LineAnnotationController implements Disposable {
 
 		if (configuration.changed(e, 'currentLine.enabled')) {
 			if (configuration.get('currentLine.enabled')) {
-				this._enabled = true;
+				this.enabled = true;
 				this.resume();
 			} else {
-				this._enabled = false;
+				this.enabled = false;
 				this.setLineTracker(false);
 			}
 		}
@@ -73,7 +84,7 @@ export class LineAnnotationController implements Disposable {
 
 	private _suspended: boolean = false;
 	get suspended() {
-		return !this._enabled || this._suspended;
+		return !this.enabled || this._suspended;
 	}
 
 	@log()
@@ -133,15 +144,19 @@ export class LineAnnotationController implements Disposable {
 
 	@log({ args: false })
 	async toggle(editor: TextEditor | undefined) {
-		this._enabled = !(this._enabled && !this.suspended);
+		this.enabled = !(this.enabled && !this.suspended);
 
-		if (this._enabled) {
+		if (this.enabled) {
 			if (this.resume()) {
 				await this.refresh(editor);
 			}
 		} else if (this.suspend()) {
 			await this.refresh(editor);
 		}
+	}
+
+	get onToggle() {
+		return this._onToggle.event;
 	}
 
 	private clearAnnotations(editor: TextEditor | undefined) {
@@ -405,7 +420,6 @@ export class LineAnnotationController implements Disposable {
 
 			return;
 		}
-
 		this.container.lineTracker.unsubscribe(this);
 	}
 }
