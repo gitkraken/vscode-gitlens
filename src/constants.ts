@@ -124,7 +124,7 @@ export const keys = Object.freeze([
 ] as const);
 export type Keys = (typeof keys)[number];
 
-export type PromoKeys = 'devexdays24' | 'pro50';
+export type PromoKeys = 'launchpad' | 'launchpad-extended' | 'pro50';
 
 export const enum Schemes {
 	File = 'file',
@@ -152,24 +152,24 @@ export const trackableSchemes = Object.freeze(
 	]),
 );
 
+const utm = 'utm_source=gitlens-extension&utm_medium=in-app-links';
 export const urls = Object.freeze({
-	codeSuggest: 'https://gitkraken.com/solutions/code-suggest?utm_source=gitlens-extension&utm_medium=in-app-links',
-	cloudPatches: 'https://gitkraken.com/solutions/cloud-patches?utm_source=gitlens-extension&utm_medium=in-app-links',
-	graph: 'https://gitkraken.com/solutions/commit-graph?utm_source=gitlens-extension&utm_medium=in-app-links',
-	launchpad: 'https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links',
-	platform: 'https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links',
-	pricing: 'https://gitkraken.com/gitlens/pricing?utm_source=gitlens-extension&utm_medium=in-app-links',
-	proFeatures: 'https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links',
-	security: 'https://help.gitkraken.com/gitlens/security?utm_source=gitlens-extension&utm_medium=in-app-links',
-	workspaces: 'https://gitkraken.com/solutions/workspaces?utm_source=gitlens-extension&utm_medium=in-app-links',
+	codeSuggest: `https://gitkraken.com/solutions/code-suggest?${utm}`,
+	cloudPatches: `https://gitkraken.com/solutions/cloud-patches?${utm}`,
+	graph: `https://gitkraken.com/solutions/commit-graph?${utm}`,
+	launchpad: `https://gitkraken.com/solutions/launchpad?${utm}`,
+	platform: `https://gitkraken.com/devex?${utm}`,
+	pricing: `https://gitkraken.com/gitlens/pricing?${utm}`,
+	proFeatures: `https://gitkraken.com/gitlens/pro-features?${utm}`,
+	security: `https://help.gitkraken.com/gitlens/security?${utm}`,
+	workspaces: `https://gitkraken.com/solutions/workspaces?${utm}`,
 
-	cli: 'https://gitkraken.com/cli?utm_source=gitlens-extension&utm_medium=in-app-links',
-	browserExtension: 'https://gitkraken.com/browser-extension?utm_source=gitlens-extension&utm_medium=in-app-links',
-	desktop: 'https://gitkraken.com/git-client?utm_source=gitlens-extension&utm_medium=in-app-links',
+	cli: `https://gitkraken.com/cli?${utm}`,
+	browserExtension: `https://gitkraken.com/browser-extension?${utm}`,
+	desktop: `https://gitkraken.com/git-client?${utm}`,
 
 	releaseNotes: 'https://help.gitkraken.com/gitlens/gitlens-release-notes-current/',
-	releaseAnnouncement:
-		'https://www.gitkraken.com/blog/gitkraken-launches-devex-platform-acquires-codesee?utm_source=gitlens-extension&utm_medium=in-app-links',
+	releaseAnnouncement: `https://www.gitkraken.com/blog/gitkraken-launches-devex-platform-acquires-codesee?${utm}`,
 });
 
 export type WalkthroughSteps =

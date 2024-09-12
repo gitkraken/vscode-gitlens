@@ -15,42 +15,63 @@ export interface Promo {
 // Must be ordered by applicable order
 const promos: Promo[] = [
 	{
-		key: 'devexdays24',
-		code: 'DEVEXDAYS24',
+		key: 'launchpad',
+		code: 'GLLAUNCHPAD24',
 		states: [
+			SubscriptionState.Free,
+			SubscriptionState.FreeInPreviewTrial,
+			SubscriptionState.FreePreviewTrialExpired,
 			SubscriptionState.FreePlusInTrial,
 			SubscriptionState.FreePlusTrialExpired,
 			SubscriptionState.FreePlusTrialReactivationEligible,
 		],
-		expiresOn: new Date('2024-09-10T06:59:00.000Z').getTime(),
-		commandTooltip: 'Sale: Save up to 80% on GitLens Pro - lowest price of the year!',
+		expiresOn: new Date('2024-09-27T06:59:00.000Z').getTime(),
+		commandTooltip: 'Launchpad Sale: Save 75% or more on GitLens Pro',
+	},
+	{
+		key: 'launchpad-extended',
+		code: 'GLLAUNCHPAD24',
+		states: [
+			SubscriptionState.Free,
+			SubscriptionState.FreeInPreviewTrial,
+			SubscriptionState.FreePreviewTrialExpired,
+			SubscriptionState.FreePlusInTrial,
+			SubscriptionState.FreePlusTrialExpired,
+			SubscriptionState.FreePlusTrialReactivationEligible,
+		],
+		startsOn: new Date('2024-09-27T06:59:00.000Z').getTime(),
+		expiresOn: new Date('2024-10-14T06:59:00.000Z').getTime(),
+		commandTooltip: 'Launchpad Sale: Save 75% or more on GitLens Pro',
 	},
 	{
 		key: 'pro50',
 		states: [
 			SubscriptionState.Free,
 			SubscriptionState.FreeInPreviewTrial,
+			SubscriptionState.FreePreviewTrialExpired,
 			SubscriptionState.FreePlusInTrial,
 			SubscriptionState.FreePlusTrialExpired,
 			SubscriptionState.FreePlusTrialReactivationEligible,
 		],
-		commandTooltip: 'Special: 1st seat of Pro is now 50%+ off. See your special price.',
+		commandTooltip: 'Limited-Time Sale: Save 33% or more on your 1st seat of Pro. See your special price',
 	},
 ];
 
-export function getApplicablePromo(state: number | undefined): Promo | undefined {
+export function getApplicablePromo(state: number | undefined, key?: PromoKeys): Promo | undefined {
 	if (state == null) return undefined;
 
-	const now = Date.now();
 	for (const promo of promos) {
-		if (
-			(promo.states == null || promo.states.includes(state)) &&
-			(promo.expiresOn == null || promo.expiresOn > now) &&
-			(promo.startsOn == null || promo.startsOn < now)
-		) {
-			return promo;
-		}
+		if ((key == null || key === promo.key) && isPromoApplicable(promo, state)) return promo;
 	}
 
 	return undefined;
+}
+
+function isPromoApplicable(promo: Promo, state: number): boolean {
+	const now = Date.now();
+	return (
+		(promo.states == null || promo.states.includes(state)) &&
+		(promo.expiresOn == null || promo.expiresOn > now) &&
+		(promo.startsOn == null || promo.startsOn < now)
+	);
 }
