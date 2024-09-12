@@ -9,15 +9,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds a `gitlens.views.showCurrentBranchOnTop` setting to specify whether the current branch is shown at the top of the views &mdash; closes [#3520](https://github.com/gitkraken/vscode-gitlens/issues/3520)
+- Adds a sidebar to the _Commit Graph_
+  - Shows counts of branches, remotes, stashes, tags, and worktrees
+  - Clicking an item reveals its corresponding view
+  - Try out this new feature by setting `gitlens.graph.sidebar.enabled` to `true`
 
 ### Changed
 
-- Refines the _Create Worktree_ command flow by proving a single confirmation for worktree creation based on whether the worktree is created for a new branch, an existing local branch on a worktree, or an existing local branch without a worktree.
+- Preview access of Launchpad is ending on September 27th
+- Simplifies the _Create Worktree_ command flow by prompting to create a new branch only when necessary &mdash; closes [#3542](https://github.com/gitkraken/vscode-gitlens/issues/3542)
+- Removes the use of VS Code Authentication API for GitKraken accounts
 
 ### Fixed
 
 - Fixes [#3514](https://github.com/gitkraken/vscode-gitlens/issues/3514) - Attempting to delete the main worktree's branch causes a invalid prompt to delete the main worktree
 - Fixes [#3518](https://github.com/gitkraken/vscode-gitlens/issues/3518) - Branches in worktrees are no longer collapsed into folder groupings
+
+### Removed
+
+- Removes (disables) legacy "focus" editor
 
 ## [15.4.0] - 2024-09-04
 
