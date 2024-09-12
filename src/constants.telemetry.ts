@@ -237,7 +237,6 @@ export type TelemetryEvents = {
 		'config.launchpad.ignoredOrganizations': number;
 		'config.launchpad.ignoredRepositories': number;
 		'config.launchpad.indicator.enabled': boolean;
-		'config.launchpad.indicator.openInEditor': boolean;
 		'config.launchpad.indicator.icon': 'default' | 'group';
 		'config.launchpad.indicator.label': false | 'item' | 'counts';
 		'config.launchpad.indicator.useColors': boolean;

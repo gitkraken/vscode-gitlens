@@ -76,10 +76,7 @@ export class FocusIndicator implements Disposable {
 	private async onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'launchpad.indicator')) return;
 
-		if (
-			configuration.changed(e, 'launchpad.indicator.openInEditor') ||
-			configuration.changed(e, 'launchpad.indicator.label')
-		) {
+		if (configuration.changed(e, 'launchpad.indicator.label')) {
 			this.updateStatusBarCommand();
 		}
 
@@ -309,18 +306,16 @@ export class FocusIndicator implements Disposable {
 
 	private updateStatusBarCommand() {
 		const labelType = configuration.get('launchpad.indicator.label') ?? 'item';
-		this._statusBarFocus.command = configuration.get('launchpad.indicator.openInEditor')
-			? 'gitlens.showFocusPage'
-			: {
-					title: 'Open Launchpad',
-					command: Commands.ShowLaunchpad,
-					arguments: [
-						{
-							source: 'launchpad-indicator',
-							state: { selectTopItem: labelType === 'item' },
-						} satisfies Omit<FocusCommandArgs, 'command'>,
-					],
-			  };
+		this._statusBarFocus.command = {
+			title: 'Open Launchpad',
+			command: Commands.ShowLaunchpad,
+			arguments: [
+				{
+					source: 'launchpad-indicator',
+					state: { selectTopItem: labelType === 'item' },
+				} satisfies Omit<FocusCommandArgs, 'command'>,
+			],
+		};
 	}
 
 	private updateStatusBarWithItems(tooltip: MarkdownString, categorizedItems: FocusItem[] | undefined) {

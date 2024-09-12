@@ -918,7 +918,6 @@ export class FocusProvider implements Disposable {
 			'config.launchpad.ignoredOrganizations': cfg.ignoredOrganizations?.length ?? 0,
 			'config.launchpad.ignoredRepositories': cfg.ignoredRepositories?.length ?? 0,
 			'config.launchpad.indicator.enabled': cfg.indicator.enabled,
-			'config.launchpad.indicator.openInEditor': cfg.indicator.openInEditor,
 			'config.launchpad.indicator.icon': cfg.indicator.icon,
 			'config.launchpad.indicator.label': cfg.indicator.label,
 			'config.launchpad.indicator.useColors': cfg.indicator.useColors,

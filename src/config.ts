@@ -98,7 +98,6 @@ export interface Config {
 		readonly staleThreshold: number | null;
 		readonly indicator: {
 			readonly enabled: boolean;
-			readonly openInEditor: boolean;
 			readonly icon: 'default' | 'group';
 			readonly label: false | 'item' | 'counts';
 			readonly useColors: boolean;

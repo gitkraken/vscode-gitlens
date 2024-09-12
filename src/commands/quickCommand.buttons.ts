@@ -147,11 +147,6 @@ export const OpenOnWebQuickInputButton: QuickInputButton = {
 	tooltip: 'Open on gitkraken.dev',
 };
 
-export const OpenInEditorQuickInputButton: QuickInputButton = {
-	iconPath: new ThemeIcon('link-external'),
-	tooltip: 'Open in Editor',
-};
-
 export const LaunchpadSettingsQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('gear'),
 	tooltip: 'Launchpad Settings',
