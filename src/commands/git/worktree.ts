@@ -717,7 +717,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		type StepType = FlagsQuickPickItem<CreateFlags, CreateConfirmationChoice>;
 		const defaultOption = createFlagsQuickPickItem<CreateFlags, Uri>(
 			state.flags,
-			state.worktree ? ['-b'] : [],
+			state.createBranch ? ['-b'] : [],
 			{
 				label: isRemoteBranch
 					? 'Create Worktree for New Local Branch'
@@ -726,7 +726,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					  : context.title,
 				description: '',
 				detail: `Will create worktree in $(folder) ${
-					state.worktree ? recommendedNewBranchFriendlyPath : recommendedFriendlyPath
+					state.createBranch ? recommendedNewBranchFriendlyPath : recommendedFriendlyPath
 				}`,
 			},
 			recommendedRootUri,
