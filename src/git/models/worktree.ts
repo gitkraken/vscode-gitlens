@@ -219,7 +219,7 @@ export function createWorktreeQuickPickItem(
 export async function getWorktreeForBranch(
 	repo: Repository,
 	branchName: string,
-	upstreamNames: string | string[],
+	upstreamNames?: string | string[],
 	worktrees?: GitWorktree[],
 	branches?: PageableResult<GitBranch> | Map<unknown, GitBranch>,
 ): Promise<GitWorktree | undefined> {

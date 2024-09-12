@@ -26,6 +26,7 @@ import {
 } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { GitWorktree } from '../../git/models/worktree';
+import { getWorktreeForBranch } from '../../git/models/worktree';
 import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
@@ -86,6 +87,7 @@ type CreateFlags = '--force' | '-b' | '--detach' | '--direct';
 interface CreateState {
 	subcommand: 'create';
 	repo: string | Repository;
+	worktree?: GitWorktree;
 	uri: Uri;
 	reference?: GitReference;
 	addRemote?: { name: string; url: string };
@@ -410,6 +412,58 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				state.uri = context.defaultUri!;
 			}
 
+			state.worktree =
+				isBranchReference(state.reference) && !state.reference.remote
+					? await getWorktreeForBranch(state.repo, state.reference.name, undefined, context.worktrees)
+					: undefined;
+
+			const isRemoteBranch = isBranchReference(state.reference) && state.reference?.remote;
+			if ((isRemoteBranch || state.worktree != null) && !state.flags.includes('-b')) {
+				state.flags.push('-b');
+			}
+
+			if (isRemoteBranch) {
+				state.createBranch = getNameWithoutRemote(state.reference);
+				const branch = await state.repo.getBranch(state.createBranch);
+				if (branch != null && !branch.remote) {
+					state.createBranch = branch.name;
+				}
+			}
+
+			if (state.flags.includes('-b')) {
+				let createBranchOverride: string | undefined;
+				if (state.createBranch != null) {
+					let valid = await this.container.git.validateBranchOrTagName(state.repo.path, state.createBranch);
+					if (valid) {
+						const alreadyExists = await state.repo.getBranch(state.createBranch);
+						valid = alreadyExists == null;
+					}
+
+					if (!valid) {
+						createBranchOverride = state.createBranch;
+						state.createBranch = undefined;
+					}
+				}
+
+				if (state.createBranch == null) {
+					const result = yield* inputBranchNameStep(state, context, {
+						titleContext: ` and New Branch from ${getReferenceLabel(state.reference, {
+							capitalize: true,
+							icon: false,
+							label: state.reference.refType !== 'branch',
+						})}`,
+						value: createBranchOverride ?? getNameWithoutRemote(state.reference),
+					});
+					if (result === StepResultBreak) {
+						// Clear the flags, since we can backup after the confirm step below (which is non-standard)
+						state.flags = [];
+						continue;
+					}
+
+					state.createBranch = result;
+				}
+			}
+
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.createCommandConfirmStep(state, context);
 				if (result === StepResultBreak) continue;
@@ -455,51 +509,6 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			// Reset any confirmation overrides
 			state.confirm = true;
 			this._canSkipConfirmOverride = undefined;
-
-			const isRemoteBranch = state.reference?.refType === 'branch' && state.reference?.remote;
-			if (isRemoteBranch && !state.flags.includes('-b')) {
-				state.flags.push('-b');
-
-				state.createBranch = getNameWithoutRemote(state.reference);
-				const branch = await state.repo.getBranch(state.createBranch);
-				if (branch != null) {
-					state.createBranch = state.reference.name;
-				}
-			}
-
-			if (state.flags.includes('-b')) {
-				let createBranchOverride: string | undefined;
-				if (state.createBranch != null) {
-					let valid = await this.container.git.validateBranchOrTagName(state.repo.path, state.createBranch);
-					if (valid) {
-						const alreadyExists = await state.repo.getBranch(state.createBranch);
-						valid = alreadyExists == null;
-					}
-
-					if (!valid) {
-						createBranchOverride = state.createBranch;
-						state.createBranch = undefined;
-					}
-				}
-
-				if (state.createBranch == null) {
-					const result = yield* inputBranchNameStep(state, context, {
-						titleContext: ` and New Branch from ${getReferenceLabel(state.reference, {
-							capitalize: true,
-							icon: false,
-							label: state.reference.refType !== 'branch',
-						})}`,
-						value: createBranchOverride ?? state.createBranch ?? getNameWithoutRemote(state.reference),
-					});
-					if (result === StepResultBreak) {
-						// Clear the flags, since we can backup after the confirm step below (which is non-standard)
-						state.flags = [];
-						continue;
-					}
-
-					state.createBranch = result;
-				}
-			}
 
 			const uri = state.flags.includes('--direct')
 				? state.uri
@@ -708,7 +717,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		type StepType = FlagsQuickPickItem<CreateFlags, CreateConfirmationChoice>;
 		const defaultOption = createFlagsQuickPickItem<CreateFlags, Uri>(
 			state.flags,
-			[],
+			state.createBranch ? ['-b'] : [],
 			{
 				label: isRemoteBranch
 					? 'Create Worktree for New Local Branch'
@@ -716,34 +725,20 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					  ? 'Create Worktree for Branch'
 					  : context.title,
 				description: '',
-				detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
+				detail: `Will create worktree in $(folder) ${
+					state.createBranch ? recommendedNewBranchFriendlyPath : recommendedFriendlyPath
+				}`,
 			},
 			recommendedRootUri,
 		);
 
 		const confirmations: StepType[] = [];
 		if (!createDirectlyInFolder) {
-			if (!state.createBranch) {
-				if (state.skipWorktreeConfirmations) {
-					return [defaultOption.context, defaultOption.item];
-				}
-				confirmations.push(defaultOption);
+			if (!state.createBranch && state.skipWorktreeConfirmations) {
+				return [defaultOption.context, defaultOption.item];
 			}
 
-			confirmations.push(
-				createFlagsQuickPickItem<CreateFlags, Uri>(
-					state.flags,
-					['-b'],
-					{
-						label: isRemoteBranch
-							? 'Create Worktree for New Local Branch Named...'
-							: 'Create Worktree for New Branch Named...',
-						description: '',
-						detail: `Will create worktree in $(folder) ${recommendedNewBranchFriendlyPath}`,
-					},
-					recommendedRootUri,
-				),
-			);
+			confirmations.push(defaultOption);
 		} else {
 			if (!state.createBranch) {
 				confirmations.push(
