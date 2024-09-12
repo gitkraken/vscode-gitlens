@@ -48,6 +48,7 @@ import type { GKCheckInResponse } from '../checkin';
 import { getSubscriptionFromCheckIn } from '../checkin';
 import type { ServerConnection } from '../serverConnection';
 import { ensurePlusFeaturesEnabled } from '../utils';
+import { LoginUriPathPrefix } from './authenticationConnection';
 import { authenticationProviderScopes } from './authenticationProvider';
 import type { Organization } from './organization';
 import { getApplicablePromo } from './promos';
@@ -273,14 +274,18 @@ export class SubscriptionService implements Disposable {
 			const learn: MessageItem = { title: 'See Pro Features' };
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 			const result = await window.showInformationMessage(
-				`Welcome to your ${
-					effective.name
-				} Trial.\n\nYou must first verify your email. Once verified, you will have full access to Pro features for ${
-					days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
-				}.`,
+				isSubscriptionPaid(this._subscription)
+					? `You are now on the ${actual.name} plan. \n\nYou must first verify your email. Once verified, you will have full access to Pro features.`
+					: `Welcome to your ${
+							effective.name
+					  } Trial.\n\nYou must first verify your email. Once verified, you will have full access to Pro features for ${
+							days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
+					  }.`,
 				{
 					modal: true,
-					detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					detail: `Your ${
+						isSubscriptionPaid(this._subscription) ? 'plan' : 'trial'
+					} also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
 				},
 				verify,
 				learn,
@@ -727,7 +732,6 @@ export class SubscriptionService implements Disposable {
 				const session = await this.ensureSession(false);
 				if (session != null) {
 					if ((await this.checkUpdatedSubscription()) === SubscriptionState.Paid) {
-						void this.showAccountView();
 						return;
 					}
 				}
@@ -738,8 +742,14 @@ export class SubscriptionService implements Disposable {
 		query.set('source', 'gitlens');
 		query.set('product', 'gitlens');
 
+		const hasAccount = this._subscription.account != null;
+
 		const successUri = await env.asExternalUri(
-			Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${SubscriptionUpdatedUriPathPrefix}`),
+			Uri.parse(
+				`${env.uriScheme}://${this.container.context.extension.id}/${
+					hasAccount ? SubscriptionUpdatedUriPathPrefix : LoginUriPathPrefix
+				}`,
+			),
 		);
 		query.set('success_uri', successUri.toString(true));
 
@@ -759,35 +769,51 @@ export class SubscriptionService implements Disposable {
 		}
 
 		try {
-			const token = await this.container.accountAuthentication.getExchangeToken(SubscriptionUpdatedUriPathPrefix);
-			const purchasePath = `purchase/checkout?${query.toString()}`;
-			if (!(await openUrl(this.container.getGkDevExchangeUri(token, purchasePath).toString(true)))) return;
+			if (hasAccount) {
+				const token = await this.container.accountAuthentication.getExchangeToken(
+					SubscriptionUpdatedUriPathPrefix,
+				);
+				const purchasePath = `purchase/checkout?${query.toString()}`;
+				if (!(await openUrl(this.container.getGkDevExchangeUri(token, purchasePath).toString(true)))) return;
+			} else if (
+				!(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)))
+			) {
+				return;
+			}
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (!(await env.openExternal(this.container.getGkDevUri('purchase/checkout', query.toString())))) return;
+			if (!(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)))) {
+				return;
+			}
 		}
 
-		const refresh = await Promise.race([
-			new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000)),
-			new Promise<boolean>(resolve =>
-				take(
-					window.onDidChangeWindowState,
-					2,
-				)(e => {
-					if (e.focused) resolve(true);
-				}),
-			),
-			new Promise<boolean>(resolve =>
-				once(this.container.uri.onDidReceiveSubscriptionUpdatedUri)(() => resolve(false)),
-			),
-		]);
+		const completionPromises = [new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000))];
+
+		if (hasAccount) {
+			completionPromises.push(
+				new Promise<boolean>(resolve =>
+					take(
+						window.onDidChangeWindowState,
+						2,
+					)(e => {
+						if (e.focused) resolve(true);
+					}),
+				),
+				new Promise<boolean>(resolve =>
+					once(this.container.uri.onDidReceiveSubscriptionUpdatedUri)(() => resolve(false)),
+				),
+			);
+		} else {
+			completionPromises.push(
+				new Promise<boolean>(resolve => once(this.container.uri.onDidReceiveLoginUri)(() => resolve(false))),
+			);
+		}
+
+		const refresh = await Promise.race(completionPromises);
 
 		if (refresh) {
 			void this.checkUpdatedSubscription();
 		}
-
-		// TODO: Can we remove this?
-		await this.showAccountView();
 	}
 
 	@gate<SubscriptionService['validate']>(o => `${o?.force ?? false}`)
