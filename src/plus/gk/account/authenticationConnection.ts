@@ -2,6 +2,7 @@ import type { CancellationToken, Disposable, StatusBarItem } from 'vscode';
 import { CancellationTokenSource, env, StatusBarAlignment, Uri, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Response } from '@env/fetch';
+import type { TrackingContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { debug } from '../../../system/decorators/log';
 import type { DeferredEvent, DeferredEventExecutor } from '../../../system/event';
@@ -13,11 +14,6 @@ import type { ServerConnection } from '../serverConnection';
 
 export const LoginUriPathPrefix = 'login';
 export const AuthenticationUriPathPrefix = 'did-authenticate';
-export const enum AuthenticationContext {
-	Graph = 'graph',
-	Worktrees = 'worktrees',
-	VisualFileHistory = 'visual_file_history',
-}
 
 interface AccountInfo {
 	id: string;
@@ -71,7 +67,7 @@ export class AuthenticationConnection implements Disposable {
 		scopes: string[],
 		scopeKey: string,
 		signUp: boolean = false,
-		context?: AuthenticationContext,
+		context?: TrackingContext,
 	): Promise<string> {
 		this.updateStatusBarItem(true);
 

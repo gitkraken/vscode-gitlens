@@ -3,7 +3,8 @@ import { ThemeIcon } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Commands } from '../constants.commands';
 import { Container } from '../container';
-import type { PlusFeatures } from '../features';
+import type { FeatureAccess, RepoFeatureAccess } from '../features';
+import { PlusFeatures } from '../features';
 import * as BranchActions from '../git/actions/branch';
 import * as CommitActions from '../git/actions/commit';
 import * as ContributorActions from '../git/actions/contributor';
@@ -43,6 +44,7 @@ import type { GitWorktree, WorktreeQuickPickItem } from '../git/models/worktree'
 import { createWorktreeQuickPickItem, getWorktreesByBranch, sortWorktrees } from '../git/models/worktree';
 import { remoteUrlRegex } from '../git/parsers/remoteParser';
 import type { FocusCommandArgs } from '../plus/focus/focus';
+import { getApplicablePromo } from '../plus/gk/account/promos';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/account/subscription';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
@@ -98,6 +100,7 @@ import {
 	OpenRemoteResourceCommandQuickPickItem,
 } from '../quickpicks/remoteProviderPicker';
 import { filterMap, filterMapAsync, intersection, isStringArray } from '../system/array';
+import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { formatPath } from '../system/formatPath';
 import { debounce } from '../system/function';
@@ -106,6 +109,7 @@ import { Logger } from '../system/logger';
 import { getSettledValue } from '../system/promise';
 import { pad, pluralize, truncate } from '../system/string';
 import { openWorkspace } from '../system/utils';
+import { getIconPathUris } from '../system/vscode';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -136,6 +140,7 @@ import {
 	ShowDetailsViewQuickInputButton,
 	ShowTagsToggleQuickInputButton,
 } from './quickCommand.buttons';
+import type { OpenWalkthroughCommandArgs } from './walkthroughs';
 
 export function appendReposToTitle<
 	State extends { repo: Repository } | { repos: Repository[] },
@@ -2599,11 +2604,11 @@ function getShowRepositoryStatusStepItems<
 }
 
 export async function* ensureAccessStep<
-	State extends PartialStepState & { repo: Repository },
-	Context extends { repos: Repository[]; title: string },
->(state: State, context: Context, feature: PlusFeatures): AsyncStepResultGenerator<void> {
-	const access = await Container.instance.git.access(feature, state.repo.path);
-	if (access.allowed) return undefined;
+	State extends PartialStepState & { repo?: Repository },
+	Context extends { title: string },
+>(state: State, context: Context, feature: PlusFeatures): AsyncStepResultGenerator<FeatureAccess | RepoFeatureAccess> {
+	const access = await Container.instance.git.access(feature, state.repo?.path);
+	if (access.allowed) return access;
 
 	const directives: DirectiveQuickPickItem[] = [];
 	let placeholder: string;
@@ -2615,13 +2620,28 @@ export async function* ensureAccessStep<
 		);
 		placeholder = 'You must verify your email before you can continue';
 	} else {
-		if (access.subscription.required == null) return undefined;
+		if (access.subscription.required == null) return access;
+
+		let detail;
+		const promo = getApplicablePromo(access.subscription.current.state);
+		if (promo != null) {
+			// NOTE: Don't add a default case, so that if we add a new promo the build will break without handling it
+			switch (promo.key) {
+				case 'pro50':
+					detail = '$(star-full) Limited-Time Sale: Save 33% or more on your 1st seat of Pro';
+					break;
+				case 'launchpad':
+				case 'launchpad-extended':
+					detail = `$(rocket) Launchpad Sale: Save 75% or more on GitLens Pro`;
+					break;
+			}
+		}
 
 		placeholder = 'Pro feature — requires a trial or paid plan for use on privately-hosted repos';
 		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
 			placeholder = 'Pro feature — requires a paid plan for use on privately-hosted repos';
 			directives.push(
-				createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, true),
+				createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, true, { detail: detail }),
 				createQuickPickSeparator(),
 				createDirectiveQuickPickItem(Directive.Cancel),
 			);
@@ -2644,12 +2664,45 @@ export async function* ensureAccessStep<
 		}
 	}
 
+	switch (feature) {
+		case PlusFeatures.Focus:
+			directives.splice(
+				0,
+				0,
+				createDirectiveQuickPickItem(Directive.Cancel, undefined, {
+					label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
+					detail: 'Click to learn more about Launchpad',
+					iconPath: new ThemeIcon('rocket'),
+					onDidSelect: () =>
+						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+							step: 'launchpad',
+							source: 'launchpad',
+							detail: 'info',
+						}),
+				}),
+				createQuickPickSeparator(),
+			);
+			break;
+		case PlusFeatures.Worktrees:
+			directives.splice(
+				0,
+				0,
+				createDirectiveQuickPickItem(Directive.Noop, undefined, {
+					label: 'Worktrees minimize context switching by allowing simultaneous work on multiple branches',
+					iconPath: getIconPathUris(Container.instance, 'icon-repo.svg'),
+				}),
+			);
+			break;
+	}
+
 	const step = createPickStep<DirectiveQuickPickItem>({
-		title: appendReposToTitle(context.title, state, context),
+		title: context.title,
 		placeholder: placeholder,
 		items: directives,
+		buttons: [],
+		isConfirmationStep: true,
 	});
 
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;
+	return canPickStepContinue(step, state, selection) ? access : StepResultBreak;
 }

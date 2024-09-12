@@ -1,5 +1,4 @@
 import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
-import type { Subscription } from '../../plus/gk/account/subscription';
 
 export enum Directive {
 	Back,
@@ -31,13 +30,14 @@ export function createDirectiveQuickPickItem(
 		label?: string;
 		description?: string;
 		detail?: string;
+		buttons?: QuickPickItem['buttons'];
 		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon;
-		subscription?: Subscription;
 		onDidSelect?: () => void | Promise<void>;
 	},
 ) {
 	let label = options?.label;
 	let detail = options?.detail;
+	let description = options?.description;
 	if (label == null) {
 		switch (directive) {
 			case Directive.Back:
@@ -72,16 +72,21 @@ export function createDirectiveQuickPickItem(
 				break;
 			case Directive.RequiresPaidSubscription:
 				label = 'Upgrade to Pro';
-				detail = 'Upgrading to a paid plan is required to use this Pro feature';
+				if (detail != null) {
+					description ??= ' \u2014\u00a0\u00a0 a paid plan is required to use this Pro feature';
+				} else {
+					detail = 'Upgrading to a paid plan is required to use this Pro feature';
+				}
 				break;
 		}
 	}
 
 	const item: DirectiveQuickPickItem = {
 		label: label,
-		description: options?.description,
+		description: description,
 		detail: detail,
 		iconPath: options?.iconPath,
+		buttons: options?.buttons,
 		alwaysShow: true,
 		picked: picked,
 		directive: directive,

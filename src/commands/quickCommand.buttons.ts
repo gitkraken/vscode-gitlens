@@ -122,6 +122,11 @@ export const PickCommitToggleQuickInputButton = class extends ToggleQuickInputBu
 	}
 };
 
+export const LearnAboutProQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('info'),
+	tooltip: 'Learn about GitLens Pro',
+};
+
 export const MergeQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('merge'),
 	tooltip: 'Merge...',

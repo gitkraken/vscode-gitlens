@@ -24,7 +24,7 @@ import type { OpenWalkthroughCommandArgs } from '../../../commands/walkthroughs'
 import { urls } from '../../../constants';
 import type { CoreColors } from '../../../constants.colors';
 import { Commands } from '../../../constants.commands';
-import type { Source } from '../../../constants.telemetry';
+import type { Source, TrackingContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { AccountValidationError } from '../../../errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
@@ -48,7 +48,7 @@ import type { GKCheckInResponse } from '../checkin';
 import { getSubscriptionFromCheckIn } from '../checkin';
 import type { ServerConnection } from '../serverConnection';
 import { ensurePlusFeaturesEnabled } from '../utils';
-import { AuthenticationContext } from './authenticationConnection';
+import { LoginUriPathPrefix } from './authenticationConnection';
 import { authenticationProviderScopes } from './authenticationProvider';
 import type { Organization } from './organization';
 import { getApplicablePromo } from './promos';
@@ -274,14 +274,18 @@ export class SubscriptionService implements Disposable {
 			const learn: MessageItem = { title: 'See Pro Features' };
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 			const result = await window.showInformationMessage(
-				`Welcome to your ${
-					effective.name
-				} Trial.\n\nYou must first verify your email. Once verified, you will have full access to Pro features for ${
-					days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
-				}.`,
+				isSubscriptionPaid(this._subscription)
+					? `You are now on the ${actual.name} plan. \n\nYou must first verify your email. Once verified, you will have full access to Pro features.`
+					: `Welcome to your ${
+							effective.name
+					  } Trial.\n\nYou must first verify your email. Once verified, you will have full access to Pro features for ${
+							days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
+					  }.`,
 				{
 					modal: true,
-					detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					detail: `Your ${
+						isSubscriptionPaid(this._subscription) ? 'plan' : 'trial'
+					} also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
 				},
 				verify,
 				learn,
@@ -364,30 +368,7 @@ export class SubscriptionService implements Disposable {
 			);
 		}
 
-		let context: AuthenticationContext | undefined;
-		switch (source?.source) {
-			case 'graph':
-				context = AuthenticationContext.Graph;
-				break;
-			case 'timeline':
-				context = AuthenticationContext.VisualFileHistory;
-				break;
-			case 'git-commands':
-				if (
-					source.detail != null &&
-					typeof source.detail !== 'string' &&
-					(source.detail['action'] === 'worktree' ||
-						source.detail['step.title'] === 'Create Worktree' ||
-						source.detail['step.title'] === 'Open Worktree')
-				) {
-					context = AuthenticationContext.Worktrees;
-				}
-				break;
-			case 'worktrees':
-				context = AuthenticationContext.Worktrees;
-				break;
-		}
-
+		const context = getTrackingContextFromSource(source);
 		return this.loginCore({ signUp: signUp, source: source, context: context });
 	}
 
@@ -409,7 +390,7 @@ export class SubscriptionService implements Disposable {
 		signUp?: boolean;
 		source?: Source;
 		signIn?: { code: string; state?: string };
-		context?: AuthenticationContext;
+		context?: TrackingContext;
 	}): Promise<boolean> {
 		// Abort any waiting authentication to ensure we can start a new flow
 		await this.container.accountAuthentication.abort();
@@ -745,43 +726,71 @@ export class SubscriptionService implements Disposable {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'upgrade' }, source);
 		}
 
-		if (this._subscription.account == null) {
-			this.showPlans(source);
-		} else {
+		if (this._subscription.account != null) {
 			// Do a pre-check-in to see if we've already upgraded to a paid plan.
 			try {
 				const session = await this.ensureSession(false);
-				if (session == null) return;
-
-				if ((await this.checkUpdatedSubscription()) === SubscriptionState.Paid) {
-					void this.showAccountView();
-					return;
+				if (session != null) {
+					if ((await this.checkUpdatedSubscription()) === SubscriptionState.Paid) {
+						return;
+					}
 				}
 			} catch {}
+		}
 
-			const promoCode = getApplicablePromo(this._subscription.state)?.code;
-			const activeOrgId = this._subscription.activeOrganization?.id;
-			const successUri = await env.asExternalUri(
-				Uri.parse(
-					`${env.uriScheme}://${this.container.context.extension.id}/${SubscriptionUpdatedUriPathPrefix}`,
-				),
-			);
-			const query = `source=gitlens&product=gitlens&success_uri=${encodeURIComponent(successUri.toString(true))}${
-				promoCode != null ? `&promoCode=${promoCode}` : ''
-			}${activeOrgId != null ? `&org=${activeOrgId}` : ''}`;
-			try {
+		const query = new URLSearchParams();
+		query.set('source', 'gitlens');
+		query.set('product', 'gitlens');
+
+		const hasAccount = this._subscription.account != null;
+
+		const successUri = await env.asExternalUri(
+			Uri.parse(
+				`${env.uriScheme}://${this.container.context.extension.id}/${
+					hasAccount ? SubscriptionUpdatedUriPathPrefix : LoginUriPathPrefix
+				}`,
+			),
+		);
+		query.set('success_uri', successUri.toString(true));
+
+		const promoCode = getApplicablePromo(this._subscription.state)?.code;
+		if (promoCode != null) {
+			query.set('promoCode', promoCode);
+		}
+
+		const activeOrgId = this._subscription.activeOrganization?.id;
+		if (activeOrgId != null) {
+			query.set('org', activeOrgId);
+		}
+
+		const context = getTrackingContextFromSource(source);
+		if (context != null) {
+			query.set('context', context);
+		}
+
+		try {
+			if (hasAccount) {
 				const token = await this.container.accountAuthentication.getExchangeToken(
 					SubscriptionUpdatedUriPathPrefix,
 				);
-				const purchasePath = `purchase/checkout?${query}`;
+				const purchasePath = `purchase/checkout?${query.toString()}`;
 				if (!(await openUrl(this.container.getGkDevExchangeUri(token, purchasePath).toString(true)))) return;
-			} catch (ex) {
-				Logger.error(ex, scope);
-				if (!(await env.openExternal(this.container.getGkDevUri('purchase/checkout', query)))) return;
+			} else if (
+				!(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)))
+			) {
+				return;
 			}
+		} catch (ex) {
+			Logger.error(ex, scope);
+			if (!(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)))) {
+				return;
+			}
+		}
 
-			const refresh = await Promise.race([
-				new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000)),
+		const completionPromises = [new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000))];
+
+		if (hasAccount) {
+			completionPromises.push(
 				new Promise<boolean>(resolve =>
 					take(
 						window.onDidChangeWindowState,
@@ -793,13 +802,18 @@ export class SubscriptionService implements Disposable {
 				new Promise<boolean>(resolve =>
 					once(this.container.uri.onDidReceiveSubscriptionUpdatedUri)(() => resolve(false)),
 				),
-			]);
-
-			if (refresh) {
-				void this.checkUpdatedSubscription();
-			}
+			);
+		} else {
+			completionPromises.push(
+				new Promise<boolean>(resolve => once(this.container.uri.onDidReceiveLoginUri)(() => resolve(false))),
+			);
 		}
-		await this.showAccountView();
+
+		const refresh = await Promise.race(completionPromises);
+
+		if (refresh) {
+			void this.checkUpdatedSubscription();
+		}
 	}
 
 	@gate<SubscriptionService['validate']>(o => `${o?.force ?? false}`)
@@ -1007,7 +1021,7 @@ export class SubscriptionService implements Disposable {
 			force?: boolean;
 			signUp?: boolean;
 			signIn?: { code: string; state?: string };
-			context?: AuthenticationContext;
+			context?: TrackingContext;
 		},
 	): Promise<AuthenticationSession | undefined> {
 		if (this._sessionPromise != null) {
@@ -1043,7 +1057,7 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private async getOrCreateSession(
 		createIfNeeded: boolean,
-		options?: { signUp?: boolean; signIn?: { code: string; state?: string }; context?: AuthenticationContext },
+		options?: { signUp?: boolean; signIn?: { code: string; state?: string }; context?: TrackingContext },
 	): Promise<AuthenticationSession | null> {
 		const scope = getLogScope();
 
@@ -1453,7 +1467,7 @@ export class SubscriptionService implements Disposable {
 
 	onLoginUri(uri: Uri) {
 		const scope = getLogScope();
-		const queryParams: URLSearchParams = new URLSearchParams(uri.query);
+		const queryParams = new URLSearchParams(uri.query);
 		const code = queryParams.get('code');
 		const state = queryParams.get('state');
 		const context = queryParams.get('context');
@@ -1529,4 +1543,30 @@ function flattenSubscription(
 		'subscription.state': subscription.state,
 		'subscription.stateString': getSubscriptionStateString(subscription.state),
 	};
+}
+
+function getTrackingContextFromSource(source: Source | undefined): TrackingContext | undefined {
+	switch (source?.source) {
+		case 'graph':
+			return 'graph';
+		case 'launchpad':
+			return 'launchpad';
+		case 'timeline':
+			return 'visual_file_history';
+		case 'git-commands':
+			if (source.detail != null && typeof source.detail !== 'string' && 'action' in source.detail) {
+				switch (source.detail.action) {
+					case 'worktree':
+						return 'worktrees';
+					case 'focus':
+					case 'launchpad':
+						return 'launchpad';
+				}
+			}
+			break;
+		case 'worktrees':
+			return 'worktrees';
+	}
+
+	return undefined;
 }

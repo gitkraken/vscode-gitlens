@@ -248,11 +248,11 @@ export class IntegrationService implements Disposable {
 				await openUrl(this.container.getGkDevExchangeUri(exchangeToken, `connect?${query}`).toString(true));
 			} catch (ex) {
 				Logger.error(ex, scope);
-				if (!(await env.openExternal(this.container.getGkDevUri('connect', query)))) {
+				if (!(await openUrl(this.container.getGkDevUri('connect', query).toString(true)))) {
 					return false;
 				}
 			}
-		} else if (!(await env.openExternal(this.container.getGkDevUri('connect', query)))) {
+		} else if (!(await openUrl(this.container.getGkDevUri('connect', query).toString(true)))) {
 			return false;
 		}
 

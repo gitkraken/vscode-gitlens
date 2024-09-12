@@ -929,7 +929,7 @@
 			},
 			{
 				"id": "graph",
-				"title": "Commit Graph",
+				"title": "Commit Graph (ᴘʀᴏ)",
 				"order": 50,
 				"properties": {
 					"gitlens.graph.layout": {
@@ -1226,7 +1226,7 @@
 			},
 			{
 				"id": "focus",
-				"title": "Launchpad (Preview)",
+				"title": "Launchpad (ᴘʀᴏ)",
 				"order": 60,
 				"properties": {
 					"gitlens.launchpad.ignoredRepositories": {
@@ -1376,7 +1376,7 @@
 			},
 			{
 				"id": "cloud-patches",
-				"title": "Cloud Patches (Preview)",
+				"title": "Cloud Patches (ᴘʀᴇᴠɪᴇᴡ)",
 				"order": 70,
 				"properties": {
 					"gitlens.cloudPatches.enabled": {
@@ -1542,7 +1542,7 @@
 			},
 			{
 				"id": "launchpad-view",
-				"title": "Launchpad View",
+				"title": "Launchpad View (ᴇxᴘᴇʀɪᴍᴇɴᴛᴀʟ)",
 				"order": 101,
 				"properties": {
 					"gitlens.views.launchpad.enabled": {
@@ -2182,7 +2182,7 @@
 			},
 			{
 				"id": "visual-history",
-				"title": "Visual File History",
+				"title": "Visual File History (ᴘʀᴏ)",
 				"order": 155,
 				"properties": {
 					"gitlens.visualHistory.allowMultiple": {
@@ -2587,7 +2587,7 @@
 			},
 			{
 				"id": "worktrees-view",
-				"title": "Worktrees View",
+				"title": "Worktrees View (ᴘʀᴏ)",
 				"order": 210,
 				"properties": {
 					"gitlens.worktrees.promptForLocation": {
@@ -2897,7 +2897,7 @@
 			},
 			{
 				"id": "cloud-patches-view",
-				"title": "Cloud Patches View",
+				"title": "Cloud Patches View (ᴘʀᴇᴠɪᴇᴡ)",
 				"order": 240,
 				"properties": {
 					"gitlens.views.drafts.files.layout": {
@@ -3017,7 +3017,7 @@
 			},
 			{
 				"id": "workspaces-view",
-				"title": "GitKraken Workspaces View",
+				"title": "GitKraken Workspaces View (ᴘʀᴇᴠɪᴇᴡ)",
 				"order": 260,
 				"properties": {
 					"gitlens.views.workspaces.showBranchComparison": {
@@ -3654,7 +3654,7 @@
 			},
 			{
 				"id": "ai",
-				"title": "AI (Experimental)",
+				"title": "AI (ᴇxᴘᴇʀɪᴍᴇɴᴛᴀʟ)",
 				"order": 1000,
 				"properties": {
 					"gitlens.ai.experimental.generateCommitMessage.enabled": {
@@ -9911,7 +9911,7 @@
 				},
 				{
 					"command": "gitlens.showFocusPage",
-					"when": "gitlens:enabled"
+					"when": "false && gitlens:enabled"
 				},
 				{
 					"command": "gitlens.launchpad.split",
@@ -17590,13 +17590,13 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Special: 1st seat of Pro is now 50%+ off",
+				"contents": "Limited-time Sale: Save 33% or more on your 1st seat of Pro.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "DevEx Days 24 Sale: Save up to 80% on GitLens Pro - lowest price of the year!",
-				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == devexdays24"
+				"contents": "Launchpad Sale: Save 75% or more on GitLens Pro",
+				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo =~ /(launchpad|launchpad-extended)/"
 			},
 			{
 				"view": "gitlens.views.worktrees",
@@ -17899,7 +17899,7 @@
 					{
 						"id": "launchpad",
 						"title": "Unblock your team with Launchpad",
-						"description": "**Launchpad** ᴘʀᴇᴠɪᴇᴡ brings all of your GitHub pull requests into a unified, actionable list to better track work in progress, pending work, reviews, and more. Stay focused and take action on the most important items to keep your team unblocked. [Learn more](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links)\n\n[Open Launchpad](command:gitlens.showLaunchpad?%7B%22source%22%3A%22walkthrough%22%7D)",
+						"description": "**Launchpad** ᴘʀᴏ brings all of your GitHub pull requests into a unified, actionable list to better track work in progress, pending work, reviews, and more. Stay focused and take action on the most important items to keep your team unblocked. [Learn more](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links)\n\n[Open Launchpad](command:gitlens.showLaunchpad?%7B%22source%22%3A%22walkthrough%22%7D)",
 						"media": {
 							"altText": "Illustrations of Launchpad",
 							"svg": "walkthroughs/welcome/launchpad-quick.svg"

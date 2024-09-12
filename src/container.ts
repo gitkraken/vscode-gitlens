@@ -34,7 +34,6 @@ import type { GitHubApi } from './plus/integrations/providers/github/github';
 import type { GitLabApi } from './plus/integrations/providers/gitlab/gitlab';
 import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
-import { registerFocusWebviewCommands, registerFocusWebviewPanel } from './plus/webviews/focus/registration';
 import type { GraphWebviewShowingArgs } from './plus/webviews/graph/registration';
 import {
 	registerGraphWebviewCommands,
@@ -251,9 +250,10 @@ export class Container {
 		this._disposables.push((this._graphView = registerGraphWebviewView(this._webviews)));
 		this._disposables.push(new GraphStatusBarController(this));
 
-		const focusPanels = registerFocusWebviewPanel(this._webviews);
-		this._disposables.push(focusPanels);
-		this._disposables.push(registerFocusWebviewCommands(focusPanels));
+		// NOTE: Commenting out for now as we are deprecating this
+		// const focusPanels = registerFocusWebviewPanel(this._webviews);
+		// this._disposables.push(focusPanels);
+		// this._disposables.push(registerFocusWebviewCommands(focusPanels));
 
 		const timelinePanels = registerTimelineWebviewPanel(this._webviews);
 		this._disposables.push(timelinePanels);

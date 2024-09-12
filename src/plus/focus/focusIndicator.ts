@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
 import { Disposable, MarkdownString, StatusBarAlignment, ThemeColor, window } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
-import { previewBadge } from '../../constants';
+import { proBadge } from '../../constants';
 import type { Colors } from '../../constants.colors';
 import { Commands } from '../../constants.commands';
 import type { Container } from '../../container';
@@ -239,9 +239,7 @@ export class FocusIndicator implements Disposable {
 		tooltip.supportHtml = true;
 		tooltip.isTrusted = true;
 
-		tooltip.appendMarkdown(
-			`GitLens Launchpad ${previewBadge}\u00a0\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0\u00a0`,
-		);
+		tooltip.appendMarkdown(`GitLens Launchpad ${proBadge}\u00a0\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0\u00a0`);
 		tooltip.appendMarkdown(`[$(question)](command:gitlens.launchpad.indicator.action?%22info%22 "What is this?")`);
 		tooltip.appendMarkdown('\u00a0');
 		tooltip.appendMarkdown(`[$(gear)](command:workbench.action.openSettings?%22gitlens.launchpad%22 "Settings")`);

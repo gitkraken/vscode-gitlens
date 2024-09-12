@@ -18,6 +18,7 @@ import type { SearchQuery } from '../constants.search';
 import type { Container } from '../container';
 import { AccessDeniedError, CancellationError, ProviderNotFoundError } from '../errors';
 import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
+import { getApplicablePromo } from '../plus/gk/account/promos';
 import type { Subscription } from '../plus/gk/account/subscription';
 import { isSubscriptionPaidPlan, SubscriptionPlanId } from '../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
@@ -171,7 +172,7 @@ export class GitProviderService implements Disposable {
 
 		this._etag = Date.now();
 
-		this._accessCache.clear();
+		this.clearAccessCache();
 		this._reposVisibilityCache = undefined;
 
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
@@ -290,7 +291,7 @@ export class GitProviderService implements Disposable {
 
 	@debug()
 	onSubscriptionChanged(e: SubscriptionChangeEvent) {
-		this._accessCache.clear();
+		this.clearAccessCache();
 		this._subscription = e.current;
 	}
 
@@ -694,17 +695,22 @@ export class GitProviderService implements Disposable {
 		return this._subscription ?? (this._subscription = await this.container.subscription.getSubscription());
 	}
 
-	private _accessCache: Map<string, Promise<RepoFeatureAccess>> &
-		Map<undefined, Promise<FeatureAccess | RepoFeatureAccess>> = new Map();
+	private _accessCache = new Map<PlusFeatures | undefined, Promise<FeatureAccess>>();
+	private _accessCacheByRepo = new Map<string /* path */, Promise<RepoFeatureAccess>>();
+	private clearAccessCache(): void {
+		this._accessCache.clear();
+		this._accessCacheByRepo.clear();
+	}
+
 	async access(feature: PlusFeatures | undefined, repoPath: string | Uri): Promise<RepoFeatureAccess>;
 	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess>;
 	@debug({ exit: true })
 	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess> {
 		if (repoPath == null) {
-			let access = this._accessCache.get(undefined);
+			let access = this._accessCache.get(feature);
 			if (access == null) {
-				access = this.accessCore(feature, repoPath);
-				this._accessCache.set(undefined, access);
+				access = this.accessCore(feature);
+				this._accessCache.set(feature, access);
 			}
 			return access;
 		}
@@ -712,10 +718,10 @@ export class GitProviderService implements Disposable {
 		const { path } = this.getProvider(repoPath);
 		const cacheKey = path;
 
-		let access = this._accessCache.get(cacheKey);
+		let access = this._accessCacheByRepo.get(cacheKey);
 		if (access == null) {
 			access = this.accessCore(feature, repoPath);
-			this._accessCache.set(cacheKey, access);
+			this._accessCacheByRepo.set(cacheKey, access);
 		}
 
 		return access;
@@ -728,7 +734,7 @@ export class GitProviderService implements Disposable {
 	): Promise<FeatureAccess | RepoFeatureAccess>;
 	@debug({ exit: true })
 	private async accessCore(
-		_feature?: PlusFeatures,
+		feature?: PlusFeatures,
 		repoPath?: string | Uri,
 	): Promise<FeatureAccess | RepoFeatureAccess> {
 		const subscription = await this.getSubscription();
@@ -742,6 +748,14 @@ export class GitProviderService implements Disposable {
 			return { allowed: subscription.account?.verified !== false, subscription: { current: subscription } };
 		}
 
+		if (feature === 'focus') {
+			// If our launchpad graduation promo is active allow access for everyone
+			if (getApplicablePromo(subscription.state, 'launchpad')) {
+				return { allowed: true, subscription: { current: subscription } };
+			}
+			return { allowed: false, subscription: { current: subscription, required: SubscriptionPlanId.Pro } };
+		}
+
 		function getRepoAccess(
 			this: GitProviderService,
 			repoPath: string | Uri,
@@ -749,7 +763,7 @@ export class GitProviderService implements Disposable {
 		): Promise<RepoFeatureAccess> {
 			const { path: cacheKey } = this.getProvider(repoPath);
 
-			let access = force ? undefined : this._accessCache.get(cacheKey);
+			let access = force ? undefined : this._accessCacheByRepo.get(cacheKey);
 			if (access == null) {
 				access = this.visibility(repoPath).then(
 					visibility => {
@@ -771,7 +785,7 @@ export class GitProviderService implements Disposable {
 					() => ({ allowed: true, subscription: { current: subscription } }),
 				);
 
-				this._accessCache.set(cacheKey, access);
+				this._accessCacheByRepo.set(cacheKey, access);
 			}
 
 			return access;
