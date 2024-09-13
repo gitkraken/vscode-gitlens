@@ -210,30 +210,54 @@ export class ProviderNotFoundError extends Error {
 	}
 }
 
-export class ProviderRequestClientError extends Error {
+export class RequestClientError extends Error {
 	constructor(public readonly original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace?.(this, ProviderRequestClientError);
+		Error.captureStackTrace?.(this, RequestClientError);
 	}
 }
 
-export class ProviderRequestNotFoundError extends Error {
+export class RequestNotFoundError extends Error {
 	constructor(public readonly original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace?.(this, ProviderRequestNotFoundError);
+		Error.captureStackTrace?.(this, RequestNotFoundError);
 	}
 }
 
-export class ProviderRequestRateLimitError extends Error {
+export class RequestRateLimitError extends Error {
 	constructor(
 		public readonly original: Error,
-		public readonly token: string,
+		public readonly token: string | undefined,
 		public readonly resetAt: number | undefined,
 	) {
 		super(original.message);
 
-		Error.captureStackTrace?.(this, ProviderRequestRateLimitError);
+		Error.captureStackTrace?.(this, RequestRateLimitError);
+	}
+}
+
+export class RequestGoneError extends Error {
+	constructor(public readonly original: Error) {
+		super(original.message);
+
+		Error.captureStackTrace?.(this, RequestGoneError);
+	}
+}
+
+export class RequestUnprocessableEntityError extends Error {
+	constructor(public readonly original: Error) {
+		super(original.message);
+
+		Error.captureStackTrace?.(this, RequestUnprocessableEntityError);
+	}
+}
+
+export class RequestsAreBlockedTemporarilyError extends Error {
+	constructor() {
+		super('Requests are blocked');
+
+		Error.captureStackTrace?.(this, RequestsAreBlockedTemporarilyError);
 	}
 }

@@ -160,6 +160,30 @@ export function showRebaseSwitchToTextWarningMessage(): Promise<MessageItem | un
 	);
 }
 
+export function showGkDisconnectedTooManyFailedRequestsWarningMessage(): Promise<MessageItem | undefined> {
+	return showMessage(
+		'error',
+		`Requests to GitKraken have stopped being sent for this session, because of too many failed requests.`,
+		'suppressGkDisconnectedTooManyFailedRequestsWarningMessage',
+		undefined,
+		{
+			title: 'OK',
+		},
+	);
+}
+
+export function showGkRequestFailed500WarningMessage(message: string): Promise<MessageItem | undefined> {
+	return showMessage('error', message, 'suppressGkRequestFailed500Warning', undefined, {
+		title: 'OK',
+	});
+}
+
+export function showGkRequestTimedOutWarningMessage(): Promise<MessageItem | undefined> {
+	return showMessage('error', `GitKraken request timed out.`, 'suppressGkRequestTimedOutWarning', undefined, {
+		title: 'OK',
+	});
+}
+
 export function showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(
 	providerName: string,
 ): Promise<MessageItem | undefined> {

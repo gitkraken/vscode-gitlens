@@ -7,8 +7,8 @@ import type { Container } from '../../../container';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
-	ProviderRequestClientError,
-	ProviderRequestRateLimitError,
+	RequestClientError,
+	RequestRateLimitError,
 } from '../../../errors';
 import type { PagedResult } from '../../../git/gitProvider';
 import type { PullRequest, PullRequestMergeMethod } from '../../../git/models/pullRequest';
@@ -325,9 +325,9 @@ export class ProvidersApi {
 							}
 						}
 
-						throw new ProviderRequestRateLimitError(error, token, resetAt);
+						throw new RequestRateLimitError(error, token, resetAt);
 					} else if (error.response.status >= 400 && error.response.status < 500) {
-						throw new ProviderRequestClientError(error);
+						throw new RequestClientError(error);
 					}
 				}
 				throw error;

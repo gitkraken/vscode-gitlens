@@ -4,7 +4,7 @@ import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import type { Sources } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { AuthenticationError, CancellationError, ProviderRequestClientError } from '../../errors';
+import { AuthenticationError, CancellationError, RequestClientError } from '../../errors';
 import type { PagedResult } from '../../git/gitProvider';
 import type { Account, UnidentifiedAuthor } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
@@ -272,7 +272,7 @@ export abstract class IntegrationBase<
 
 		Logger.error(ex, scope);
 
-		if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
+		if (ex instanceof AuthenticationError || ex instanceof RequestClientError) {
 			this.trackRequestException();
 		}
 		return defaultValue;

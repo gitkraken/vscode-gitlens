@@ -10,9 +10,9 @@ import {
 	AuthenticationErrorReason,
 	CancellationError,
 	ProviderFetchError,
-	ProviderRequestClientError,
-	ProviderRequestNotFoundError,
-	ProviderRequestRateLimitError,
+	RequestClientError,
+	RequestNotFoundError,
+	RequestRateLimitError,
 } from '../../../../errors';
 import type { Account } from '../../../../git/models/author';
 import type { DefaultBranch } from '../../../../git/models/defaultBranch';
@@ -149,7 +149,7 @@ export class GitLabApi implements Disposable {
 				username: user.username || undefined,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -182,7 +182,7 @@ export class GitLabApi implements Disposable {
 				username: user.username || undefined,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -242,7 +242,7 @@ export class GitLabApi implements Disposable {
 				name: defaultBranch,
 			};
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -362,7 +362,7 @@ export class GitLabApi implements Disposable {
 
 			return undefined;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -516,7 +516,7 @@ export class GitLabApi implements Disposable {
 				pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
 			);
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -565,7 +565,7 @@ export class GitLabApi implements Disposable {
 
 			return fromGitLabMergeRequestREST(mrs[0], provider, { owner: owner, repo: repo });
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -616,7 +616,7 @@ export class GitLabApi implements Disposable {
 						: undefined,
 			} satisfies RepositoryMetadata;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -700,7 +700,7 @@ $search: String!
 
 			return users;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return [];
+			if (ex instanceof RequestNotFoundError) return [];
 
 			this.handleException(ex, provider, scope);
 			return [];
@@ -771,7 +771,7 @@ $search: String!
 			setLogScopeExit(scope, ` \u2022 projectId=${projectId}`);
 			return projectId;
 		} catch (ex) {
-			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+			if (ex instanceof RequestNotFoundError) return undefined;
 
 			this.handleException(ex, provider, scope);
 			return undefined;
@@ -902,7 +902,7 @@ $search: String!
 			case 404: // Not found
 			case 410: // Gone
 			case 422: // Unprocessable Entity
-				throw new ProviderRequestNotFoundError(ex);
+				throw new RequestNotFoundError(ex);
 			// case 429: //Too Many Requests
 			case 401: // Unauthorized
 				throw new AuthenticationError('gitlab', AuthenticationErrorReason.Unauthorized, ex);
@@ -918,7 +918,7 @@ $search: String!
 						}
 					}
 
-					throw new ProviderRequestRateLimitError(ex, token, resetAt);
+					throw new RequestRateLimitError(ex, token, resetAt);
 				}
 				throw new AuthenticationError('gitlab', AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
@@ -944,7 +944,7 @@ $search: String!
 				}
 				break;
 			default:
-				if (ex.status >= 400 && ex.status < 500) throw new ProviderRequestClientError(ex);
+				if (ex.status >= 400 && ex.status < 500) throw new RequestClientError(ex);
 				break;
 		}
 
