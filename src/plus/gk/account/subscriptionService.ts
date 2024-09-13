@@ -26,7 +26,7 @@ import type { CoreColors } from '../../../constants.colors';
 import { Commands } from '../../../constants.commands';
 import type { Source, TrackingContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
-import { AccountValidationError } from '../../../errors';
+import { AccountValidationError, RequestsAreBlockedTemporarilyError } from '../../../errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
@@ -418,6 +418,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private async logoutCore(reset: boolean = false): Promise<void> {
+		this.connection.resetRequestExceptionCount();
 		this._lastValidatedDate = undefined;
 		if (this._validationTimer != null) {
 			clearInterval(this._validationTimer);
@@ -497,24 +498,41 @@ export class SubscriptionService implements Disposable {
 		const session = await this.ensureSession(false);
 		if (session == null) return;
 
-		const rsp = await this.connection.fetchApi('user/reactivate-trial', {
-			method: 'POST',
-			body: JSON.stringify({ client: 'gitlens' }),
-		});
+		try {
+			const rsp = await this.connection.fetchApi('user/reactivate-trial', {
+				method: 'POST',
+				body: JSON.stringify({ client: 'gitlens' }),
+			});
 
-		if (!rsp.ok) {
-			if (rsp.status === 409) {
+			if (!rsp.ok) {
+				if (rsp.status === 409) {
+					void window.showErrorMessage(
+						'You are not eligible to reactivate your Pro trial. If you feel that is an error, please contact support.',
+						'OK',
+					);
+					return;
+				}
+
 				void window.showErrorMessage(
-					'You are not eligible to reactivate your Pro trial. If you feel that is an error, please contact support.',
+					`Unable to reactivate trial: (${rsp.status}) ${rsp.statusText}. Please try again. If this issue persists, please contact support.`,
+					'OK',
+				);
+				return;
+			}
+		} catch (ex) {
+			if (ex instanceof RequestsAreBlockedTemporarilyError) {
+				void window.showErrorMessage(
+					'Unable to reactivate trial: Too many failed requests. Please reload the window and try again.',
 					'OK',
 				);
 				return;
 			}
 
 			void window.showErrorMessage(
-				`Unable to reactivate trial: (${rsp.status}) ${rsp.statusText}. Please try again. If this issue persists, please contact support.`,
+				`Unable to reactivate trial. Please try again. If this issue persists, please contact support.`,
 				'OK',
 			);
+			Logger.error(ex, scope);
 			return;
 		}
 
@@ -1161,6 +1179,7 @@ export class SubscriptionService implements Disposable {
 			}
 		}
 
+		this.connection.resetRequestExceptionCount();
 		return session;
 	}
 
