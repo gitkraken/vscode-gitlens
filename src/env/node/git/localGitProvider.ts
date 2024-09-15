@@ -321,6 +321,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (e.changed(RepositoryChange.Heads, RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
 			this._branchesCache.delete(repo.path);
 			this._contributorsCache.delete(repo.path);
+			this._worktreesCache.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
