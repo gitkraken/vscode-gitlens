@@ -3,33 +3,69 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @lit/react version 1.0.5 (https://github.com/lit/lit)
-2. @microsoft/fast-element version 1.13.0 (https://github.com/Microsoft/fast)
-3. @octokit/graphql version 8.1.1 (https://github.com/octokit/graphql.js)
-4. @octokit/request version 9.1.1 (https://github.com/octokit/request.js)
-5. @octokit/types version 13.5.0 (https://github.com/octokit/types.ts)
-6. @opentelemetry/api version 1.9.0 (https://github.com/open-telemetry/opentelemetry-js)
-7. @opentelemetry/exporter-trace-otlp-http version 0.52.1 (https://github.com/open-telemetry/opentelemetry-js)
-8. @opentelemetry/sdk-trace-base version 1.25.1 (https://github.com/open-telemetry/opentelemetry-js)
-9. @shoelace-style/shoelace version 2.15.1 (https://github.com/shoelace-style/shoelace)
-10. @vscode/codicons version 0.0.36 (https://github.com/microsoft/vscode-codicons)
-11. @vscode/webview-ui-toolkit version 1.4.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
-12. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
-13. billboard.js version 3.12.4 (https://github.com/naver/billboard.js)
-14. fast-string-truncated-width version 1.1.0 (https://github.com/fabiospampinato/fast-string-truncated-width)
-15. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
-16. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-17. lit version 3.1.4 (https://github.com/lit/lit)
-18. marked version 12.0.2 (https://github.com/markedjs/marked)
-19. microsoft/vscode (https://github.com/microsoft/vscode)
-20. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
-21. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-22. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-23. react-dom version 16.8.4 (https://github.com/facebook/react)
-24. react version 16.8.4 (https://github.com/facebook/react)
-25. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
-26. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
-27. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
+1. @lit/context version 1.1.2 (https://github.com/lit/lit)
+2. @lit/react version 1.0.5 (https://github.com/lit/lit)
+3. @lit/task version 1.0.1 (https://github.com/lit/lit)
+4. @microsoft/fast-element version 1.13.0 (https://github.com/Microsoft/fast)
+5. @octokit/graphql version 8.1.1 (https://github.com/octokit/graphql.js)
+6. @octokit/request version 9.1.1 (https://github.com/octokit/request.js)
+7. @octokit/types version 13.5.0 (https://github.com/octokit/types.ts)
+8. @opentelemetry/api version 1.9.0 (https://github.com/open-telemetry/opentelemetry-js)
+9. @opentelemetry/exporter-trace-otlp-http version 0.52.1 (https://github.com/open-telemetry/opentelemetry-js)
+10. @opentelemetry/sdk-trace-base version 1.25.1 (https://github.com/open-telemetry/opentelemetry-js)
+11. @shoelace-style/shoelace version 2.15.1 (https://github.com/shoelace-style/shoelace)
+12. @vscode/codicons version 0.0.36 (https://github.com/microsoft/vscode-codicons)
+13. @vscode/webview-ui-toolkit version 1.4.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
+14. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
+15. billboard.js version 3.12.4 (https://github.com/naver/billboard.js)
+16. fast-string-truncated-width version 1.1.0 (https://github.com/fabiospampinato/fast-string-truncated-width)
+17. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+18. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
+19. lit version 3.1.4 (https://github.com/lit/lit)
+20. marked version 12.0.2 (https://github.com/markedjs/marked)
+21. microsoft/vscode (https://github.com/microsoft/vscode)
+22. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
+23. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+24. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+25. react-dom version 16.8.4 (https://github.com/facebook/react)
+26. react version 16.8.4 (https://github.com/facebook/react)
+27. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
+28. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
+29. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
+
+%% @lit/context NOTICES AND INFORMATION BEGIN HERE
+=========================================
+BSD 3-Clause License
+
+Copyright (c) 2021 Google LLC. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+=========================================
+END OF  @lit/context NOTICES AND INFORMATION
 
 %% @lit/react NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -63,6 +99,39 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =========================================
 END OF  @lit/react NOTICES AND INFORMATION
+
+%% @lit/task NOTICES AND INFORMATION BEGIN HERE
+=========================================
+BSD 3-Clause License
+
+Copyright (c) 2017 Google LLC. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+=========================================
+END OF  @lit/task NOTICES AND INFORMATION
 
 %% @microsoft/fast-element NOTICES AND INFORMATION BEGIN HERE
 =========================================

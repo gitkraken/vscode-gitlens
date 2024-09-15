@@ -4847,7 +4847,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 
-		return this.git.show<Buffer>(root, relativePath, ref, { encoding: 'buffer' });
+		return this.git.show<Buffer>(root, relativePath, ref, { encoding: 'buffer' }) as Promise<
+			Uint8Array | undefined
+		>;
 	}
 
 	@gate()
