@@ -101,11 +101,6 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 	}
 
 	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionCommandArgs) {
-		uri = getCommandUri(uri, editor);
-		if (uri == null) return;
-
-		const gitUri = await GitUri.fromUri(uri);
-
 		args = { ...args };
 		if (args.line == null) {
 			args.line = editor?.selection.active.line ?? 0;
@@ -113,6 +108,11 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.revisionUri == null) {
+				uri = getCommandUri(uri, editor);
+				if (uri == null) return;
+
+				const gitUri = await GitUri.fromUri(uri);
+
 				const log = this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath).then(
 					log =>
 						log ??
