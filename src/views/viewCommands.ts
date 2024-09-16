@@ -32,7 +32,7 @@ import {
 import { createReference, shortenRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showPatchesView } from '../plus/drafts/actions';
-import { getPullRequestBranchDeepLink } from '../plus/focus/focusProvider';
+import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import { filterMap, mapAsync } from '../system/array';
 import {

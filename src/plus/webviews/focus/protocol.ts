@@ -3,7 +3,7 @@ import type { IssueShape } from '../../../git/models/issue';
 import type { PullRequestShape } from '../../../git/models/pullRequest';
 import type { IpcScope, WebviewState } from '../../../webviews/protocol';
 import { IpcCommand, IpcNotification } from '../../../webviews/protocol';
-import type { EnrichedItem } from '../../focus/enrichmentService';
+import type { EnrichedItem } from '../../launchpad/enrichmentService';
 
 export const scope: IpcScope = 'focus';
 

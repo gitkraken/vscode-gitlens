@@ -748,7 +748,7 @@ export class GitProviderService implements Disposable {
 			return { allowed: subscription.account?.verified !== false, subscription: { current: subscription } };
 		}
 
-		if (feature === 'focus') {
+		if (feature === 'launchpad') {
 			// If our launchpad graduation promo is active allow access for everyone
 			if (getApplicablePromo(subscription.state, 'launchpad')) {
 				return { allowed: true, subscription: { current: subscription } };

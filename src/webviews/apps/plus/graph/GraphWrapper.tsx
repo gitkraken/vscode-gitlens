@@ -21,9 +21,9 @@ import React, { createElement, useEffect, useMemo, useRef, useState } from 'reac
 import { getPlatform } from '@env/platform';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
 import type { SearchQuery } from '../../../../constants.search';
-import type { FocusCommandArgs } from '../../../../plus/focus/focus';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
+import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad';
 import type {
 	DidEnsureRowParams,
 	DidGetRowHoverParams,
@@ -1272,7 +1272,7 @@ export function GraphWrapper({
 								href={`command:gitlens.showLaunchpad?${encodeURIComponent(
 									JSON.stringify({
 										source: 'graph',
-									} satisfies Omit<FocusCommandArgs, 'command'>),
+									} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 								)}`}
 								className="action-button"
 							>

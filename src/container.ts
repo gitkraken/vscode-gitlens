@@ -20,9 +20,6 @@ import { GitProviderService } from './git/gitProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPathMappingProvider';
 import { DraftService } from './plus/drafts/draftsService';
-import { EnrichmentService } from './plus/focus/enrichmentService';
-import { FocusIndicator } from './plus/focus/focusIndicator';
-import { FocusProvider } from './plus/focus/focusProvider';
 import { AccountAuthenticationProvider } from './plus/gk/account/authenticationProvider';
 import { OrganizationService } from './plus/gk/account/organizationService';
 import { SubscriptionService } from './plus/gk/account/subscriptionService';
@@ -32,6 +29,9 @@ import { IntegrationAuthenticationService } from './plus/integrations/authentica
 import { IntegrationService } from './plus/integrations/integrationService';
 import type { GitHubApi } from './plus/integrations/providers/github/github';
 import type { GitLabApi } from './plus/integrations/providers/gitlab/gitlab';
+import { EnrichmentService } from './plus/launchpad/enrichmentService';
+import { LaunchpadIndicator } from './plus/launchpad/launchpadIndicator';
+import { LaunchpadProvider } from './plus/launchpad/launchpadProvider';
 import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import type { GraphWebviewShowingArgs } from './plus/webviews/graph/registration';
@@ -193,7 +193,7 @@ export class Container {
 	private _disposables: Disposable[];
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
 	private _webviews: WebviewsController;
-	private _focusIndicator: FocusIndicator | undefined;
+	private _launchpadIndicator: LaunchpadIndicator | undefined;
 
 	private constructor(
 		context: ExtensionContext,
@@ -234,7 +234,7 @@ export class Container {
 		this._disposables.push((this._keyboard = new Keyboard()));
 		this._disposables.push((this._vsls = new VslsController(this)));
 		this._disposables.push((this._eventBus = new EventBus()));
-		this._disposables.push((this._focusProvider = new FocusProvider(this)));
+		this._disposables.push((this._launchpadProvider = new LaunchpadProvider(this)));
 
 		this._disposables.push((this._fileAnnotationController = new FileAnnotationController(this)));
 		this._disposables.push((this._lineAnnotationController = new LineAnnotationController(this)));
@@ -295,7 +295,7 @@ export class Container {
 		this._disposables.push((this._accountView = registerAccountWebviewView(this._webviews)));
 
 		if (configuration.get('launchpad.indicator.enabled')) {
-			this._disposables.push((this._focusIndicator = new FocusIndicator(this, this._focusProvider)));
+			this._disposables.push((this._launchpadIndicator = new LaunchpadIndicator(this, this._launchpadProvider)));
 		}
 
 		if (configuration.get('terminalLinks.enabled')) {
@@ -313,13 +313,15 @@ export class Container {
 				}
 
 				if (configuration.changed(e, 'launchpad.indicator.enabled')) {
-					this._focusIndicator?.dispose();
-					this._focusIndicator = undefined;
+					this._launchpadIndicator?.dispose();
+					this._launchpadIndicator = undefined;
 
 					this.telemetry.sendEvent('launchpad/indicator/hidden');
 
 					if (configuration.get('launchpad.indicator.enabled')) {
-						this._disposables.push((this._focusIndicator = new FocusIndicator(this, this._focusProvider)));
+						this._disposables.push(
+							(this._launchpadIndicator = new LaunchpadIndicator(this, this._launchpadProvider)),
+						);
 					}
 				}
 			}),
@@ -558,9 +560,9 @@ export class Container {
 		return this._fileHistoryView;
 	}
 
-	private readonly _focusProvider: FocusProvider;
-	get focus(): FocusProvider {
-		return this._focusProvider;
+	private readonly _launchpadProvider: LaunchpadProvider;
+	get launchpad(): LaunchpadProvider {
+		return this._launchpadProvider;
 	}
 
 	private readonly _git: GitProviderService;
