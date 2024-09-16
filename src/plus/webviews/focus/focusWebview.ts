@@ -33,10 +33,10 @@ import { PageableResult } from '../../../system/paging';
 import { getSettledValue } from '../../../system/promise';
 import type { IpcMessage } from '../../../webviews/protocol';
 import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProvider';
-import type { EnrichableItem, EnrichedItem } from '../../focus/enrichmentService';
-import { convertRemoteProviderToEnrichProvider } from '../../focus/enrichmentService';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import { getEntityIdentifierInput } from '../../integrations/providers/utils';
+import type { EnrichableItem, EnrichedItem } from '../../launchpad/enrichmentService';
+import { convertRemoteProviderToEnrichProvider } from '../../launchpad/enrichmentService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	OpenBranchParams,
@@ -440,7 +440,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	@debug()
 	private async getAccess(force?: boolean) {
 		if (force || this._access == null) {
-			this._access = await this.container.git.access(PlusFeatures.Focus);
+			this._access = await this.container.git.access(PlusFeatures.Launchpad);
 		}
 		return this._access;
 	}

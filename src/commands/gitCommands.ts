@@ -2,7 +2,7 @@ import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem }
 import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
 import { Commands } from '../constants.commands';
 import { Container } from '../container';
-import type { FocusCommandArgs } from '../plus/focus/focus';
+import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { command } from '../system/command';
 import { configuration } from '../system/configuration';
@@ -64,7 +64,7 @@ export type GitCommandsCommandArgs =
 	| SwitchGitCommandArgs
 	| TagGitCommandArgs
 	| WorktreeGitCommandArgs
-	| FocusCommandArgs;
+	| LaunchpadCommandArgs;
 
 export type GitCommandsCommandArgsWithCompletion = GitCommandsCommandArgs & { completion?: Deferred<void> };
 
@@ -217,7 +217,7 @@ export class GitCommandsCommand extends Command {
 				};
 				break;
 			case Commands.ShowLaunchpad:
-				args = { command: 'focus', ...args };
+				args = { command: 'launchpad', ...args };
 				break;
 		}
 

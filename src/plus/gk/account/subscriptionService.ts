@@ -1577,7 +1577,6 @@ function getTrackingContextFromSource(source: Source | undefined): TrackingConte
 				switch (source.detail.action) {
 					case 'worktree':
 						return 'worktrees';
-					case 'focus':
 					case 'launchpad':
 						return 'launchpad';
 				}

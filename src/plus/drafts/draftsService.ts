@@ -43,13 +43,13 @@ import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 import { getSettledValue } from '../../system/promise';
-import type { FocusItem } from '../focus/focusProvider';
 import type { OrganizationMember } from '../gk/account/organization';
 import type { SubscriptionAccount } from '../gk/account/subscription';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { IntegrationId } from '../integrations/providers/models';
 import { providersMetadata } from '../integrations/providers/models';
 import { getEntityIdentifierInput } from '../integrations/providers/utils';
+import type { LaunchpadItem } from '../launchpad/launchpadProvider';
 
 export interface ProviderAuth {
 	provider: IntegrationId;
@@ -820,13 +820,13 @@ export class DraftService implements Disposable {
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]>;
 	async getCodeSuggestions(
-		focusItem: FocusItem,
+		launchpadItem: LaunchpadItem,
 		integrationId: IntegrationId,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]>;
 	@log<DraftService['getCodeSuggestions']>({ args: { 0: i => i.id, 1: r => (isRepository(r) ? r.id : r) } })
 	async getCodeSuggestions(
-		item: PullRequest | FocusItem,
+		item: PullRequest | LaunchpadItem,
 		repositoryOrIntegrationId: Repository | IntegrationId,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]> {

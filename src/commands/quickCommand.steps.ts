@@ -43,9 +43,9 @@ import { sortTags } from '../git/models/tag';
 import type { GitWorktree, WorktreeQuickPickItem } from '../git/models/worktree';
 import { createWorktreeQuickPickItem, getWorktreesByBranch, sortWorktrees } from '../git/models/worktree';
 import { remoteUrlRegex } from '../git/parsers/remoteParser';
-import type { FocusCommandArgs } from '../plus/focus/focus';
 import { getApplicablePromo } from '../plus/gk/account/promos';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/account/subscription';
+import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
 	CommitBrowseRepositoryFromHereCommandQuickPickItem,
@@ -981,7 +981,7 @@ export function* pickBranchOrTagStepMultiRepo<
 		label: 'Choose a Pull Request...',
 		iconPath: new ThemeIcon('git-pull-request'),
 		alwaysShow: true,
-		item: createCrossCommandReference<Partial<FocusCommandArgs>>(Commands.ShowLaunchpad, {
+		item: createCrossCommandReference<Partial<LaunchpadCommandArgs>>(Commands.ShowLaunchpad, {
 			source: 'git-commands',
 		}),
 	};
@@ -2665,7 +2665,7 @@ export async function* ensureAccessStep<
 	}
 
 	switch (feature) {
-		case PlusFeatures.Focus:
+		case PlusFeatures.Launchpad:
 			directives.splice(
 				0,
 				0,

@@ -48,7 +48,7 @@ import {
 	PullRequestStatusCheckRollupState,
 } from '../../../git/models/pullRequest';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
-import type { EnrichableItem } from '../../focus/enrichmentService';
+import type { EnrichableItem } from '../../launchpad/enrichmentService';
 import type { Integration } from '../integration';
 import { getEntityIdentifierInput } from './utils';
 

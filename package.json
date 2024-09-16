@@ -50,7 +50,6 @@
 	"activationEvents": [
 		"onAuthenticationRequest:gitlens-gitkraken",
 		"onFileSystem:gitlens",
-		"onWebviewPanel:gitlens.focus",
 		"onWebviewPanel:gitlens.graph",
 		"onWebviewPanel:gitlens.patchDetails",
 		"onWebviewPanel:gitlens.settings",

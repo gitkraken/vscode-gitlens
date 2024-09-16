@@ -57,24 +57,24 @@ import {
 	SelfHostedIntegrationId,
 } from '../integrations/providers/models';
 import type {
-	FocusAction,
-	FocusActionCategory,
-	FocusCategorizedResult,
-	FocusGroup,
-	FocusItem,
-	FocusTargetAction,
-} from './focusProvider';
+	LaunchpadAction,
+	LaunchpadActionCategory,
+	LaunchpadCategorizedResult,
+	LaunchpadGroup,
+	LaunchpadItem,
+	LaunchpadTargetAction,
+} from './launchpadProvider';
 import {
-	countFocusItemGroups,
-	focusGroupIconMap,
-	focusGroupLabelMap,
-	focusGroups,
-	getFocusItemIdHash,
-	groupAndSortFocusItems,
-	supportedFocusIntegrations,
-} from './focusProvider';
+	countLaunchpadItemGroups,
+	getLaunchpadItemIdHash,
+	groupAndSortLaunchpadItems,
+	launchpadGroupIconMap,
+	launchpadGroupLabelMap,
+	launchpadGroups,
+	supportedLaunchpadIntegrations,
+} from './launchpadProvider';
 
-const actionGroupMap = new Map<FocusActionCategory, string[]>([
+const actionGroupMap = new Map<LaunchpadActionCategory, string[]>([
 	['mergeable', ['Ready to Merge', 'Ready to merge']],
 	['unassigned-reviewers', ['Unassigned Reviewers', 'You need to assign reviewers']],
 	['failed-checks', ['Failed Checks', 'You need to resolve the failing checks']],
@@ -88,8 +88,8 @@ const actionGroupMap = new Map<FocusActionCategory, string[]>([
 	['other', ['Other', `Opened by \${author} \${createdDateRelative}`]],
 ]);
 
-export interface FocusItemQuickPickItem extends QuickPickItemOfT<FocusItem> {
-	group: FocusGroup;
+export interface LaunchpadItemQuickPickItem extends QuickPickItemOfT<LaunchpadItem> {
+	group: LaunchpadGroup;
 }
 
 type ConnectMoreIntegrationsItem = QuickPickItem & {
@@ -107,36 +107,36 @@ function isConnectMoreIntegrationsItem(item: unknown): item is ConnectMoreIntegr
 }
 
 interface Context {
-	result: FocusCategorizedResult;
+	result: LaunchpadCategorizedResult;
 
 	title: string;
-	collapsed: Map<FocusGroup, boolean>;
+	collapsed: Map<LaunchpadGroup, boolean>;
 	telemetryContext: LaunchpadTelemetryContext | undefined;
 	connectedIntegrations: Map<IntegrationId, boolean>;
 	showGraduationPromo: boolean;
 }
 
-interface GroupedFocusItem extends FocusItem {
-	group: FocusGroup;
+interface GroupedLaunchpadItem extends LaunchpadItem {
+	group: LaunchpadGroup;
 }
 
 interface State {
-	item?: GroupedFocusItem;
-	action?: FocusAction | FocusTargetAction;
-	initialGroup?: FocusGroup;
+	item?: GroupedLaunchpadItem;
+	action?: LaunchpadAction | LaunchpadTargetAction;
+	initialGroup?: LaunchpadGroup;
 	selectTopItem?: boolean;
 }
 
-export interface FocusCommandArgs {
-	readonly command: 'focus';
+export interface LaunchpadCommandArgs {
+	readonly command: 'launchpad';
 	confirm?: boolean;
 	source?: Sources;
 	state?: Partial<State>;
 }
 
-type FocusStepState<T extends State = State> = RequireSome<StepState<T>, 'item'>;
+type LaunchpadStepState<T extends State = State> = RequireSome<StepState<T>, 'item'>;
 
-function assertsFocusStepState(state: StepState<State>): asserts state is FocusStepState {
+function assertsLaunchpadStepState(state: StepState<State>): asserts state is LaunchpadStepState {
 	if (state.item != null) return;
 
 	debugger;
@@ -145,15 +145,15 @@ function assertsFocusStepState(state: StepState<State>): asserts state is FocusS
 
 const instanceCounter = getScopedCounter();
 
-const defaultCollapsedGroups: FocusGroup[] = ['draft', 'other', 'snoozed'];
+const defaultCollapsedGroups: LaunchpadGroup[] = ['draft', 'other', 'snoozed'];
 
-export class FocusCommand extends QuickCommand<State> {
+export class LaunchpadCommand extends QuickCommand<State> {
 	private readonly source: Source;
 	private readonly telemetryContext: LaunchpadTelemetryContext | undefined;
 
-	constructor(container: Container, args?: FocusCommandArgs) {
-		super(container, 'focus', 'focus', `GitLens Launchpad\u00a0\u00a0${proBadge}`, {
-			description: 'focus on a pull request or issue',
+	constructor(container: Container, args?: LaunchpadCommandArgs) {
+		super(container, 'launchpad', 'launchpad', `GitLens Launchpad\u00a0\u00a0${proBadge}`, {
+			description: 'focus on a pull request',
 		});
 
 		if (
@@ -202,16 +202,16 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		let storedCollapsed = this.container.storage.get('launchpad:groups:collapsed') satisfies
-			| FocusGroup[]
+			| LaunchpadGroup[]
 			| undefined;
 		if (storedCollapsed == null) {
 			storedCollapsed = defaultCollapsedGroups;
 		}
 
-		const collapsed = new Map<FocusGroup, boolean>(storedCollapsed.map(g => [g, true]));
+		const collapsed = new Map<LaunchpadGroup, boolean>(storedCollapsed.map(g => [g, true]));
 		if (state.initialGroup != null) {
 			// set all to true except the initial group
-			for (const group of focusGroups) {
+			for (const group of launchpadGroups) {
 				collapsed.set(group, group !== state.initialGroup);
 			}
 		}
@@ -221,7 +221,7 @@ export class FocusCommand extends QuickCommand<State> {
 			title: this.title,
 			collapsed: collapsed,
 			telemetryContext: this.telemetryContext,
-			connectedIntegrations: await this.container.focus.getConnectedIntegrations(),
+			connectedIntegrations: await this.container.launchpad.getConnectedIntegrations(),
 			showGraduationPromo: false,
 		};
 
@@ -264,7 +264,7 @@ export class FocusCommand extends QuickCommand<State> {
 				newlyConnected = Boolean(connected);
 			}
 
-			const result = yield* ensureAccessStep(state, context, PlusFeatures.Focus);
+			const result = yield* ensureAccessStep(state, context, PlusFeatures.Launchpad);
 			if (result === StepResultBreak) continue;
 
 			context.showGraduationPromo = getApplicablePromo(result.subscription.current.state, 'launchpad') != null;
@@ -285,7 +285,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 				opened = true;
 
-				const result = yield* this.pickFocusItemStep(state, context, {
+				const result = yield* this.pickLaunchpadItemStep(state, context, {
 					picked: state.item?.graphQLId,
 					selectTopItem: state.selectTopItem,
 				});
@@ -309,11 +309,11 @@ export class FocusCommand extends QuickCommand<State> {
 				state.item = result;
 			}
 
-			assertsFocusStepState(state);
+			assertsLaunchpadStepState(state);
 
 			if (this.confirm(state.confirm)) {
 				this.sendItemActionTelemetry('select', state.item, state.item.group, context);
-				await this.container.focus.ensureFocusItemCodeSuggestions(state.item);
+				await this.container.launchpad.ensureLaunchpadItemCodeSuggestions(state.item);
 
 				const result = yield* this.confirmStep(state, context);
 				if (result === StepResultBreak) continue;
@@ -328,37 +328,37 @@ export class FocusCommand extends QuickCommand<State> {
 			if (typeof state.action === 'string') {
 				switch (state.action) {
 					case 'merge':
-						void this.container.focus.merge(state.item);
+						void this.container.launchpad.merge(state.item);
 						break;
 					case 'open':
-						this.container.focus.open(state.item);
+						this.container.launchpad.open(state.item);
 						break;
 					case 'soft-open':
-						this.container.focus.open(state.item);
+						this.container.launchpad.open(state.item);
 						state.counter = 2;
 						continue;
 					case 'switch':
 					case 'show-overview':
-						void this.container.focus.switchTo(state.item);
+						void this.container.launchpad.switchTo(state.item);
 						break;
 					case 'open-worktree':
-						void this.container.focus.switchTo(state.item, { skipWorktreeConfirmations: true });
+						void this.container.launchpad.switchTo(state.item, { skipWorktreeConfirmations: true });
 						break;
 					case 'switch-and-code-suggest':
 					case 'code-suggest':
-						void this.container.focus.switchTo(state.item, { startCodeSuggestion: true });
+						void this.container.launchpad.switchTo(state.item, { startCodeSuggestion: true });
 						break;
 					case 'open-changes':
-						void this.container.focus.openChanges(state.item);
+						void this.container.launchpad.openChanges(state.item);
 						break;
 					case 'open-in-graph':
-						void this.container.focus.openInGraph(state.item);
+						void this.container.launchpad.openInGraph(state.item);
 						break;
 				}
 			} else {
 				switch (state.action?.action) {
 					case 'open-suggestion': {
-						this.container.focus.openCodeSuggestion(state.item, state.action.target);
+						this.container.launchpad.openCodeSuggestion(state.item, state.action.target);
 						break;
 					}
 				}
@@ -370,14 +370,14 @@ export class FocusCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
-	private *pickFocusItemStep(
+	private *pickLaunchpadItemStep(
 		state: StepState<State>,
 		context: Context,
 		{ picked, selectTopItem }: { picked?: string; selectTopItem?: boolean },
-	): StepResultGenerator<GroupedFocusItem | ConnectMoreIntegrationsItem> {
+	): StepResultGenerator<GroupedLaunchpadItem | ConnectMoreIntegrationsItem> {
 		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
-		const getItems = (result: FocusCategorizedResult) => {
-			const items: (FocusItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
+		const getItems = (result: LaunchpadCategorizedResult) => {
+			const items: (LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
 			if (context.showGraduationPromo) {
 				items.push(
 					createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, undefined, {
@@ -390,8 +390,8 @@ export class FocusCommand extends QuickCommand<State> {
 			}
 
 			if (result.items?.length) {
-				const uiGroups = groupAndSortFocusItems(result.items);
-				const topItem: FocusItem | undefined =
+				const uiGroups = groupAndSortLaunchpadItems(result.items);
+				const topItem: LaunchpadItem | undefined =
 					!selectTopItem || picked != null
 						? undefined
 						: uiGroups.get('mergeable')?.[0] ||
@@ -406,7 +406,7 @@ export class FocusCommand extends QuickCommand<State> {
 						createDirectiveQuickPickItem(Directive.Reload, false, {
 							label: `$(${
 								context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
-							})\u00a0\u00a0${focusGroupIconMap.get(ui)!}\u00a0\u00a0${focusGroupLabelMap
+							})\u00a0\u00a0${launchpadGroupIconMap.get(ui)!}\u00a0\u00a0${launchpadGroupLabelMap
 								.get(ui)
 								?.toUpperCase()}`, //'\u00a0',
 							//detail: groupMap.get(group)?.[0].toUpperCase(),
@@ -513,7 +513,7 @@ export class FocusCommand extends QuickCommand<State> {
 		}
 
 		const updateItems = async (
-			quickpick: QuickPick<FocusItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
+			quickpick: QuickPick<LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
 		) => {
 			quickpick.busy = true;
 
@@ -572,7 +572,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 					case OpenOnWebQuickInputButton:
 						this.sendTitleActionTelemetry('open-on-gkdev', context);
-						void openUrl(this.container.focus.generateWebUrl());
+						void openUrl(this.container.launchpad.generateWebUrl());
 						break;
 
 					case RefreshQuickInputButton:
@@ -595,37 +595,37 @@ export class FocusCommand extends QuickCommand<State> {
 					case OpenOnGitHubQuickInputButton:
 					case OpenOnGitLabQuickInputButton:
 						this.sendItemActionTelemetry('soft-open', item, group, context);
-						this.container.focus.open(item);
+						this.container.launchpad.open(item);
 						break;
 
 					case SnoozeQuickInputButton:
 						this.sendItemActionTelemetry('snooze', item, group, context);
-						await this.container.focus.snooze(item);
+						await this.container.launchpad.snooze(item);
 						break;
 
 					case UnsnoozeQuickInputButton:
 						this.sendItemActionTelemetry('unsnooze', item, group, context);
-						await this.container.focus.unsnooze(item);
+						await this.container.launchpad.unsnooze(item);
 						break;
 
 					case PinQuickInputButton:
 						this.sendItemActionTelemetry('pin', item, group, context);
-						await this.container.focus.pin(item);
+						await this.container.launchpad.pin(item);
 						break;
 
 					case UnpinQuickInputButton:
 						this.sendItemActionTelemetry('unpin', item, group, context);
-						await this.container.focus.unpin(item);
+						await this.container.launchpad.unpin(item);
 						break;
 
 					case MergeQuickInputButton:
 						this.sendItemActionTelemetry('merge', item, group, context);
-						await this.container.focus.merge(item);
+						await this.container.launchpad.merge(item);
 						break;
 
 					case OpenWorktreeInNewWindowQuickInputButton:
 						this.sendItemActionTelemetry('open-worktree', item, group, context);
-						await this.container.focus.switchTo(item, { skipWorktreeConfirmations: true });
+						await this.container.launchpad.switchTo(item, { skipWorktreeConfirmations: true });
 						break;
 				}
 
@@ -645,13 +645,13 @@ export class FocusCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(
-		state: FocusStepState,
+		state: LaunchpadStepState,
 		context: Context,
-	): StepResultGenerator<FocusAction | FocusTargetAction> {
+	): StepResultGenerator<LaunchpadAction | LaunchpadTargetAction> {
 		const gitProviderWebButtons = getOpenOnGitProviderQuickInputButtons(state.item.provider.id);
 		const confirmations: (
-			| QuickPickItemOfT<FocusAction>
-			| QuickPickItemOfT<FocusTargetAction>
+			| QuickPickItemOfT<LaunchpadAction>
+			| QuickPickItemOfT<LaunchpadTargetAction>
 			| DirectiveQuickPickItem
 		)[] = [
 			createQuickPickSeparator(fromNow(state.item.updatedDate)),
@@ -669,7 +669,7 @@ export class FocusCommand extends QuickCommand<State> {
 				'soft-open',
 			),
 			createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }),
-			...this.getFocusItemInformationRows(state.item),
+			...this.getLaunchpadItemInformationRows(state.item),
 			createQuickPickSeparator('Actions'),
 		];
 
@@ -812,7 +812,7 @@ export class FocusCommand extends QuickCommand<State> {
 						case OpenOnGitHubQuickInputButton:
 						case OpenOnGitLabQuickInputButton:
 							this.sendItemActionTelemetry('soft-open', state.item, state.item.group, context);
-							this.container.focus.open(state.item);
+							this.container.launchpad.open(state.item);
 							break;
 						case OpenOnWebQuickInputButton:
 							this.sendItemActionTelemetry(
@@ -821,8 +821,8 @@ export class FocusCommand extends QuickCommand<State> {
 								state.item.group,
 								context,
 							);
-							if (isFocusTargetActionQuickPickItem(item)) {
-								this.container.focus.openCodeSuggestionInBrowser(item.item.target);
+							if (isLaunchpadTargetActionQuickPickItem(item)) {
+								this.container.launchpad.openCodeSuggestionInBrowser(item.item.target);
 							}
 							break;
 					}
@@ -840,7 +840,7 @@ export class FocusCommand extends QuickCommand<State> {
 	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
 		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [];
 
-		for (const integration of supportedFocusIntegrations) {
+		for (const integration of supportedLaunchpadIntegrations) {
 			if (context.connectedIntegrations.get(integration)) {
 				continue;
 			}
@@ -941,7 +941,7 @@ export class FocusCommand extends QuickCommand<State> {
 			quickpick.ignoreFocusOut = true;
 			const resume = freeze();
 			const connected = await this.container.integrations.connectCloudIntegrations(
-				{ integrationIds: supportedFocusIntegrations },
+				{ integrationIds: supportedLaunchpadIntegrations },
 				{
 					source: 'launchpad',
 				},
@@ -953,32 +953,35 @@ export class FocusCommand extends QuickCommand<State> {
 		return StepResultBreak;
 	}
 
-	private getFocusItemInformationRows(
-		item: FocusItem,
-	): (QuickPickItemOfT<FocusAction> | QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] {
+	private getLaunchpadItemInformationRows(
+		item: LaunchpadItem,
+	): (QuickPickItemOfT<LaunchpadAction> | QuickPickItemOfT<LaunchpadTargetAction> | DirectiveQuickPickItem)[] {
 		const information: (
-			| QuickPickItemOfT<FocusAction>
-			| QuickPickItemOfT<FocusTargetAction>
+			| QuickPickItemOfT<LaunchpadAction>
+			| QuickPickItemOfT<LaunchpadTargetAction>
 			| DirectiveQuickPickItem
 		)[] = [];
 		switch (item.actionableCategory) {
 			case 'mergeable':
 				information.push(
 					createQuickPickSeparator('Status'),
-					this.getFocusItemStatusInformation(item),
-					...this.getFocusItemReviewInformation(item),
+					this.getLaunchpadItemStatusInformation(item),
+					...this.getLaunchpadItemReviewInformation(item),
 				);
 				break;
 			case 'failed-checks':
 			case 'conflicts':
-				information.push(createQuickPickSeparator('Status'), this.getFocusItemStatusInformation(item));
+				information.push(createQuickPickSeparator('Status'), this.getLaunchpadItemStatusInformation(item));
 				break;
 			case 'unassigned-reviewers':
 			case 'needs-my-review':
 			case 'changes-requested':
 			case 'reviewer-commented':
 			case 'waiting-for-review':
-				information.push(createQuickPickSeparator('Reviewers'), ...this.getFocusItemReviewInformation(item));
+				information.push(
+					createQuickPickSeparator('Reviewers'),
+					...this.getLaunchpadItemReviewInformation(item),
+				);
 				break;
 			default:
 				break;
@@ -991,7 +994,7 @@ export class FocusCommand extends QuickCommand<State> {
 
 			information.push(
 				createQuickPickSeparator('Suggestions'),
-				...this.getFocusItemCodeSuggestionInformation(item),
+				...this.getLaunchpadItemCodeSuggestionInformation(item),
 			);
 		}
 
@@ -1002,7 +1005,7 @@ export class FocusCommand extends QuickCommand<State> {
 		return information;
 	}
 
-	private getFocusItemStatusInformation(item: FocusItem): QuickPickItemOfT<FocusAction> {
+	private getLaunchpadItemStatusInformation(item: LaunchpadItem): QuickPickItemOfT<LaunchpadAction> {
 		let status: string | undefined;
 		const base = item.baseRef?.name != null ? `$(git-branch) ${item.baseRef.name}` : '';
 		const ciStatus = item.headCommit?.buildStatuses?.[0].state;
@@ -1028,7 +1031,7 @@ export class FocusCommand extends QuickCommand<State> {
 		return createQuickPickItemOfT({ label: status, buttons: [...gitProviderWebButtons] }, 'soft-open');
 	}
 
-	private getFocusItemReviewInformation(item: FocusItem): QuickPickItemOfT<FocusAction>[] {
+	private getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOfT<LaunchpadAction>[] {
 		const gitProviderWebButtons = getOpenOnGitProviderQuickInputButtons(item.provider.id);
 		if (item.reviews == null || item.reviews.length === 0) {
 			return [
@@ -1039,7 +1042,7 @@ export class FocusCommand extends QuickCommand<State> {
 			];
 		}
 
-		const reviewInfo: QuickPickItemOfT<FocusAction>[] = [];
+		const reviewInfo: QuickPickItemOfT<LaunchpadAction>[] = [];
 
 		for (const review of item.reviews) {
 			const isCurrentUser = review.reviewer.username === item.currentViewer.username;
@@ -1075,14 +1078,14 @@ export class FocusCommand extends QuickCommand<State> {
 		return reviewInfo;
 	}
 
-	private getFocusItemCodeSuggestionInformation(
-		item: FocusItem,
-	): (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] {
+	private getLaunchpadItemCodeSuggestionInformation(
+		item: LaunchpadItem,
+	): (QuickPickItemOfT<LaunchpadTargetAction> | DirectiveQuickPickItem)[] {
 		if (item.codeSuggestions?.value == null || item.codeSuggestions.value.length === 0) {
 			return [];
 		}
 
-		const codeSuggestionInfo: (QuickPickItemOfT<FocusTargetAction> | DirectiveQuickPickItem)[] = [
+		const codeSuggestionInfo: (QuickPickItemOfT<LaunchpadTargetAction> | DirectiveQuickPickItem)[] = [
 			createDirectiveQuickPickItem(Directive.Noop, false, {
 				label: `$(gitlens-code-suggestion) ${pluralize('code suggestion', item.codeSuggestions.value.length)}`,
 			}),
@@ -1133,22 +1136,22 @@ export class FocusCommand extends QuickCommand<State> {
 
 	private sendItemActionTelemetry(
 		actionOrTargetAction:
-			| FocusAction
-			| FocusTargetAction
+			| LaunchpadAction
+			| LaunchpadTargetAction
 			| 'pin'
 			| 'unpin'
 			| 'snooze'
 			| 'unsnooze'
 			| 'open-suggestion-browser'
 			| 'select',
-		item: FocusItem,
-		group: FocusGroup,
+		item: LaunchpadItem,
+		group: LaunchpadGroup,
 		context: Context,
 	) {
 		if (!this.container.telemetry.enabled) return;
 
 		let action:
-			| FocusAction
+			| LaunchpadAction
 			| 'pin'
 			| 'unpin'
 			| 'snooze'
@@ -1169,7 +1172,7 @@ export class FocusCommand extends QuickCommand<State> {
 			{
 				...context.telemetryContext!,
 				action: action,
-				'item.id': getFocusItemIdHash(item),
+				'item.id': getLaunchpadItemIdHash(item),
 				'item.type': item.type,
 				'item.provider': item.provider.id,
 				'item.actionableCategory': item.actionableCategory,
@@ -1257,11 +1260,11 @@ function getIntegrationTitle(integrationId: string): string {
 }
 
 async function updateContextItems(container: Container, context: Context, options?: { force?: boolean }) {
-	context.result = await container.focus.getCategorizedItems(options);
+	context.result = await container.launchpad.getCategorizedItems(options);
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
 	}
-	context.connectedIntegrations = await container.focus.getConnectedIntegrations();
+	context.connectedIntegrations = await container.launchpad.getConnectedIntegrations();
 }
 
 function updateTelemetryContext(context: Context) {
@@ -1274,7 +1277,7 @@ function updateTelemetryContext(context: Context) {
 			'items.error': String(context.result.error),
 		};
 	} else {
-		const grouped = countFocusItemGroups(context.result.items);
+		const grouped = countLaunchpadItemGroups(context.result.items);
 
 		updatedContext = {
 			...context.telemetryContext,
@@ -1294,6 +1297,6 @@ function updateTelemetryContext(context: Context) {
 	context.telemetryContext = updatedContext;
 }
 
-function isFocusTargetActionQuickPickItem(item: any): item is QuickPickItemOfT<FocusTargetAction> {
+function isLaunchpadTargetActionQuickPickItem(item: any): item is QuickPickItemOfT<LaunchpadTargetAction> {
 	return item?.item?.action != null && item?.item?.target != null;
 }

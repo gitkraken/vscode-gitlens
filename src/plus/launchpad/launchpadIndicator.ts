@@ -12,36 +12,36 @@ import { wait } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import { HostingIntegrationId } from '../integrations/providers/models';
-import type { FocusCommandArgs } from './focus';
-import type { FocusGroup, FocusItem, FocusProvider, FocusRefreshEvent } from './focusProvider';
+import type { LaunchpadCommandArgs } from './launchpad';
+import type { LaunchpadGroup, LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
 import {
-	focusGroupIconMap,
-	focusPriorityGroups,
-	groupAndSortFocusItems,
-	supportedFocusIntegrations,
-} from './focusProvider';
+	groupAndSortLaunchpadItems,
+	launchpadGroupIconMap,
+	launchpadPriorityGroups,
+	supportedLaunchpadIntegrations,
+} from './launchpadProvider';
 
-type FocusIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load' | 'failed';
+type LaunchpadIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load' | 'failed';
 
-export class FocusIndicator implements Disposable {
+export class LaunchpadIndicator implements Disposable {
 	private readonly _disposable: Disposable;
-	private _categorizedItems: FocusItem[] | undefined;
+	private _categorizedItems: LaunchpadItem[] | undefined;
 	/** Tracks if this is the first state after startup */
 	private _firstStateAfterStartup: boolean = true;
 	private _hasRefreshed: boolean = false;
 	private _lastDataUpdate: Date | undefined;
 	private _lastRefreshPaused: Date | undefined;
 	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
-	private _state?: FocusIndicatorState;
-	private _statusBarFocus!: StatusBarItem;
+	private _state?: LaunchpadIndicatorState;
+	private _statusBarLaunchpad!: StatusBarItem;
 
 	constructor(
 		private readonly container: Container,
-		private readonly provider: FocusProvider,
+		private readonly provider: LaunchpadProvider,
 	) {
 		this._disposable = Disposable.from(
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
-			provider.onDidRefresh(this.onFocusRefreshed, this),
+			provider.onDidRefresh(this.onLaunchpadRefreshed, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChangeConnectionState(this.onConnectedIntegrationsChanged, this),
 			...this.registerCommands(),
@@ -52,7 +52,7 @@ export class FocusIndicator implements Disposable {
 
 	dispose() {
 		this.clearRefreshTimer();
-		this._statusBarFocus?.dispose();
+		this._statusBarLaunchpad?.dispose();
 		this._disposable.dispose();
 	}
 
@@ -68,7 +68,7 @@ export class FocusIndicator implements Disposable {
 	}
 
 	private async onConnectedIntegrationsChanged(e: ConnectionStateChangeEvent) {
-		if (supportedFocusIntegrations.includes(e.key as HostingIntegrationId)) {
+		if (supportedLaunchpadIntegrations.includes(e.key as HostingIntegrationId)) {
 			await this.maybeLoadData(true);
 		}
 	}
@@ -117,7 +117,7 @@ export class FocusIndicator implements Disposable {
 		}
 	}
 
-	private onFocusRefreshed(e: FocusRefreshEvent) {
+	private onLaunchpadRefreshed(e: LaunchpadRefreshEvent) {
 		this._hasRefreshed = true;
 		if (!this.pollingEnabled) {
 			this.updateStatusBarState('idle');
@@ -135,13 +135,13 @@ export class FocusIndicator implements Disposable {
 	}
 
 	private async onReady(): Promise<void> {
-		this._statusBarFocus = window.createStatusBarItem('gitlens.launchpad', StatusBarAlignment.Left, 10000 - 3);
-		this._statusBarFocus.name = 'GitLens Launchpad';
+		this._statusBarLaunchpad = window.createStatusBarItem('gitlens.launchpad', StatusBarAlignment.Left, 10000 - 3);
+		this._statusBarLaunchpad.name = 'GitLens Launchpad';
 
 		await this.maybeLoadData();
 		this.updateStatusBarCommand();
 
-		this._statusBarFocus.show();
+		this._statusBarLaunchpad.show();
 	}
 
 	private onWindowStateChanged(e: { focused: boolean }) {
@@ -226,7 +226,7 @@ export class FocusIndicator implements Disposable {
 		}
 	}
 
-	private updateStatusBarState(state: FocusIndicatorState, categorizedItems?: FocusItem[]) {
+	private updateStatusBarState(state: LaunchpadIndicatorState, categorizedItems?: LaunchpadItem[]) {
 		if (state !== 'load' && state === this._state) return;
 
 		this._state = state;
@@ -261,9 +261,9 @@ export class FocusIndicator implements Disposable {
 		switch (state) {
 			case 'idle':
 				this.clearRefreshTimer();
-				this._statusBarFocus.text = '$(rocket)';
-				this._statusBarFocus.tooltip = tooltip;
-				this._statusBarFocus.color = undefined;
+				this._statusBarLaunchpad.text = '$(rocket)';
+				this._statusBarLaunchpad.tooltip = tooltip;
+				this._statusBarLaunchpad.color = undefined;
 				break;
 
 			case 'disconnected':
@@ -272,18 +272,18 @@ export class FocusIndicator implements Disposable {
 					`\n\n---\n\n[Connect an integration](command:gitlens.showLaunchpad?%7B%22source%22%3A%22launchpad-indicator%22%7D "Connect an integration") to get started.`,
 				);
 
-				this._statusBarFocus.text = `$(rocket)$(gitlens-unplug) Launchpad`;
-				this._statusBarFocus.tooltip = tooltip;
-				this._statusBarFocus.color = undefined;
+				this._statusBarLaunchpad.text = `$(rocket)$(gitlens-unplug) Launchpad`;
+				this._statusBarLaunchpad.tooltip = tooltip;
+				this._statusBarLaunchpad.color = undefined;
 				break;
 
 			case 'loading':
 				this.startRefreshTimer(0);
 				tooltip.appendMarkdown('\n\n---\n\n$(loading~spin) Loading...');
 
-				this._statusBarFocus.text = '$(rocket)$(loading~spin)';
-				this._statusBarFocus.tooltip = tooltip;
-				this._statusBarFocus.color = undefined;
+				this._statusBarLaunchpad.text = '$(rocket)$(loading~spin)';
+				this._statusBarLaunchpad.tooltip = tooltip;
+				this._statusBarLaunchpad.color = undefined;
 				break;
 
 			case 'load':
@@ -294,9 +294,9 @@ export class FocusIndicator implements Disposable {
 				this.clearRefreshTimer();
 				tooltip.appendMarkdown('\n\n---\n\n$(alert) Unable to load items');
 
-				this._statusBarFocus.text = '$(rocket)$(alert)';
-				this._statusBarFocus.tooltip = tooltip;
-				this._statusBarFocus.color = undefined;
+				this._statusBarLaunchpad.text = '$(rocket)$(alert)';
+				this._statusBarLaunchpad.tooltip = tooltip;
+				this._statusBarLaunchpad.color = undefined;
 				break;
 		}
 
@@ -306,32 +306,32 @@ export class FocusIndicator implements Disposable {
 
 	private updateStatusBarCommand() {
 		const labelType = configuration.get('launchpad.indicator.label') ?? 'item';
-		this._statusBarFocus.command = {
+		this._statusBarLaunchpad.command = {
 			title: 'Open Launchpad',
 			command: Commands.ShowLaunchpad,
 			arguments: [
 				{
 					source: 'launchpad-indicator',
 					state: { selectTopItem: labelType === 'item' },
-				} satisfies Omit<FocusCommandArgs, 'command'>,
+				} satisfies Omit<LaunchpadCommandArgs, 'command'>,
 			],
 		};
 	}
 
-	private updateStatusBarWithItems(tooltip: MarkdownString, categorizedItems: FocusItem[] | undefined) {
+	private updateStatusBarWithItems(tooltip: MarkdownString, categorizedItems: LaunchpadItem[] | undefined) {
 		this.sendTelemetryFirstLoadEvent();
 
 		this._lastDataUpdate = new Date();
 		const useColors = configuration.get('launchpad.indicator.useColors');
-		const groups: FocusGroup[] = configuration.get('launchpad.indicator.groups') ?? [];
+		const groups: LaunchpadGroup[] = configuration.get('launchpad.indicator.groups') ?? [];
 		const labelType = configuration.get('launchpad.indicator.label') ?? 'item';
 		const iconType = configuration.get('launchpad.indicator.icon') ?? 'default';
 
 		let color: string | ThemeColor | undefined = undefined;
 		let priorityIcon: `$(${string})` | undefined;
-		let priorityItem: { item: FocusItem; groupLabel: string } | undefined;
+		let priorityItem: { item: LaunchpadItem; groupLabel: string } | undefined;
 
-		const groupedItems = groupAndSortFocusItems(categorizedItems);
+		const groupedItems = groupAndSortLaunchpadItems(categorizedItems);
 		const totalGroupedItems = Array.from(groupedItems.values()).reduce((total, group) => total + group.length, 0);
 
 		const hasImportantGroupsWithItems = groups.some(group => groupedItems.get(group)?.length);
@@ -352,7 +352,7 @@ export class FocusIndicator implements Disposable {
 					tooltip.appendMarkdown(`\n\n---\n\n`);
 				}
 
-				const icon = focusGroupIconMap.get(group)!;
+				const icon = launchpadGroupIconMap.get(group)!;
 				switch (group) {
 					case 'mergeable': {
 						priorityIcon ??= icon;
@@ -370,7 +370,7 @@ export class FocusIndicator implements Disposable {
 										initialGroup: 'mergeable',
 										selectTopItem: labelType === 'item',
 									},
-								} satisfies Omit<FocusCommandArgs, 'command'>),
+								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Ready to Merge in Launchpad")`,
 						);
 						break;
@@ -386,7 +386,7 @@ export class FocusIndicator implements Disposable {
 
 						const hasMultipleCategories = action.size > 1;
 
-						let item: FocusItem | undefined;
+						let item: LaunchpadItem | undefined;
 						let actionMessage = '';
 						let summaryMessage = '(';
 
@@ -430,7 +430,7 @@ export class FocusIndicator implements Disposable {
 								JSON.stringify({
 									source: 'launchpad-indicator',
 									state: { initialGroup: 'blocked', selectTopItem: labelType === 'item' },
-								} satisfies Omit<FocusCommandArgs, 'command'>),
+								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Blocked in Launchpad")`,
 						);
 						if (hasMultipleCategories) {
@@ -467,7 +467,7 @@ export class FocusIndicator implements Disposable {
 										initialGroup: 'follow-up',
 										selectTopItem: labelType === 'item',
 									},
-								} satisfies Omit<FocusCommandArgs, 'command'>),
+								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Follow-Up in Launchpad")`,
 						);
 						priorityItem ??= { item: items[0], groupLabel: 'requires follow-up' };
@@ -490,7 +490,7 @@ export class FocusIndicator implements Disposable {
 										initialGroup: 'needs-review',
 										selectTopItem: labelType === 'item',
 									},
-								} satisfies Omit<FocusCommandArgs, 'command'>),
+								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Needs Your Review in Launchpad")`,
 						);
 						priorityItem ??= { item: items[0], groupLabel: 'needs your review' };
@@ -514,10 +514,10 @@ export class FocusIndicator implements Disposable {
 			case 'counts':
 				labelSegment = '';
 				for (const group of groups) {
-					if (!focusPriorityGroups.includes(group)) continue;
+					if (!launchpadPriorityGroups.includes(group)) continue;
 
 					const count = groupedItems.get(group)?.length ?? 0;
-					const icon = focusGroupIconMap.get(group)!;
+					const icon = launchpadGroupIconMap.get(group)!;
 
 					labelSegment +=
 						!labelSegment && iconSegment === icon ? `\u00a0${count}` : `\u00a0\u00a0${icon} ${count}`;
@@ -529,9 +529,9 @@ export class FocusIndicator implements Disposable {
 				break;
 		}
 
-		this._statusBarFocus.text = `${iconSegment}${labelSegment}`;
-		this._statusBarFocus.tooltip = tooltip;
-		this._statusBarFocus.color = useColors ? color : undefined;
+		this._statusBarLaunchpad.text = `${iconSegment}${labelSegment}`;
+		this._statusBarLaunchpad.tooltip = tooltip;
+		this._statusBarLaunchpad.color = useColors ? color : undefined;
 	}
 
 	private registerCommands(): Disposable[] {
@@ -579,7 +579,7 @@ export class FocusIndicator implements Disposable {
 		];
 	}
 
-	private getPriorityItemLabel(item: FocusItem, groupLength?: number) {
+	private getPriorityItemLabel(item: LaunchpadItem, groupLength?: number) {
 		return `${item.repository != null ? `${item.repository.owner.login}/${item.repository.name}` : ''}#${item.id}${
 			groupLength != null && groupLength > 1
 				? ` and ${pluralize('pull request', groupLength - 1, { infix: ' other ' })}`

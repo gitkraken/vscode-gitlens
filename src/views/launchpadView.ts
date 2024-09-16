@@ -7,9 +7,13 @@ import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { GitUri, unknownGitUri } from '../git/gitUri';
-import type { FocusCommandArgs } from '../plus/focus/focus';
-import type { FocusGroup, FocusItem } from '../plus/focus/focusProvider';
-import { focusGroupIconMap, focusGroupLabelMap, groupAndSortFocusItems } from '../plus/focus/focusProvider';
+import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
+import type { LaunchpadGroup, LaunchpadItem } from '../plus/launchpad/launchpadProvider';
+import {
+	groupAndSortLaunchpadItems,
+	launchpadGroupIconMap,
+	launchpadGroupLabelMap,
+} from '../plus/launchpad/launchpadProvider';
 import { createCommand, executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
@@ -26,8 +30,8 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 	constructor(
 		view: LaunchpadView,
 		protected override readonly parent: ViewNode,
-		private readonly group: FocusGroup,
-		public readonly item: FocusItem,
+		private readonly group: LaunchpadGroup,
+		public readonly item: LaunchpadItem,
 	) {
 		const repoPath = item.openRepository?.repo?.path;
 
@@ -86,12 +90,16 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 			lpi.codeSuggestionsCount > 0 ? ` $(gitlens-code-suggestion) ${lpi.codeSuggestionsCount}` : ''
 		}`;
 		item.iconPath = lpi.author?.avatarUrl != null ? Uri.parse(lpi.author.avatarUrl) : undefined;
-		item.command = createCommand<[Omit<FocusCommandArgs, 'command'>]>(Commands.ShowLaunchpad, 'Open in Launchpad', {
-			source: 'launchpad-view',
-			state: {
-				item: { ...this.item, group: this.group },
-			},
-		} satisfies Omit<FocusCommandArgs, 'command'>);
+		item.command = createCommand<[Omit<LaunchpadCommandArgs, 'command'>]>(
+			Commands.ShowLaunchpad,
+			'Open in Launchpad',
+			{
+				source: 'launchpad-view',
+				state: {
+					item: { ...this.item, group: this.group },
+				},
+			} satisfies Omit<LaunchpadCommandArgs, 'command'>,
+		);
 
 		if (lpi.type === 'pullrequest') {
 			item.contextValue += '+pr';
@@ -117,28 +125,28 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 
 			this.view.message = undefined;
 
-			const hasIntegrations = await this.view.container.focus.hasConnectedIntegration();
+			const hasIntegrations = await this.view.container.launchpad.hasConnectedIntegration();
 			if (!hasIntegrations) {
 				return [];
 			}
 
 			try {
-				const result = await this.view.container.focus.getCategorizedItems();
+				const result = await this.view.container.launchpad.getCategorizedItems();
 				if (!result.items?.length) {
 					this.view.message = 'All done! Take a vacation.';
 					return [];
 				}
 
-				const uiGroups = groupAndSortFocusItems(result.items);
+				const uiGroups = groupAndSortLaunchpadItems(result.items);
 				for (const [ui, groupItems] of uiGroups) {
 					if (!groupItems.length) continue;
 
-					const icon = focusGroupIconMap.get(ui)!;
+					const icon = launchpadGroupIconMap.get(ui)!;
 
 					children.push(
 						new GroupingNode(
 							this.view,
-							focusGroupLabelMap.get(ui)!,
+							launchpadGroupLabelMap.get(ui)!,
 							groupItems.map(i => new LaunchpadItemNode(this.view, this, ui, i)),
 							TreeItemCollapsibleState.Collapsed,
 							undefined,
@@ -186,7 +194,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 		if (this._disposable == null) {
 			this._disposable = Disposable.from(
 				this.container.integrations.onDidChangeConnectionState(() => this.refresh(), this),
-				this.container.focus.onDidRefresh(() => this.refresh(), this),
+				this.container.launchpad.onDidRefresh(() => this.refresh(), this),
 			);
 		}
 
@@ -242,7 +250,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 				this.getQualifiedCommand('refresh'),
 				() =>
 					window.withProgress({ location: { viewId: this.id } }, () =>
-						this.container.focus.getCategorizedItems({ force: true }),
+						this.container.launchpad.getCategorizedItems({ force: true }),
 					),
 				this,
 			),

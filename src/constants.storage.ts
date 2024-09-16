@@ -68,7 +68,7 @@ export type GlobalStorage = {
 	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
-	'launchpad:groups:collapsed': StoredFocusGroup[];
+	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
@@ -287,7 +287,7 @@ export type StoredSearchAndCompareItems = Record<string, StoredSearchAndCompareI
 export type StoredStarred = Record<string, boolean>;
 export type StoredRecentUsage = Record<string, number>;
 
-export type StoredFocusGroup =
+export type StoredLaunchpadGroup =
 	| 'current-branch'
 	| 'pinned'
 	| 'mergeable'

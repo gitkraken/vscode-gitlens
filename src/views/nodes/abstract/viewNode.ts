@@ -12,8 +12,11 @@ import type { Repository } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
 import type { GitWorktree } from '../../../git/models/worktree';
 import type { Draft } from '../../../gk/models/drafts';
-import type { FocusGroup, FocusItem } from '../../../plus/focus/focusProvider';
-import { focusCategoryToGroupMap, sharedCategoryToFocusActionCategoryMap } from '../../../plus/focus/focusProvider';
+import type { LaunchpadGroup, LaunchpadItem } from '../../../plus/launchpad/launchpadProvider';
+import {
+	launchpadCategoryToGroupMap,
+	sharedCategoryToLaunchpadActionCategoryMap,
+} from '../../../plus/launchpad/launchpadProvider';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,
@@ -132,8 +135,8 @@ export interface AmbientContext {
 	readonly contributor?: GitContributor;
 	readonly draft?: Draft;
 	readonly file?: GitFile;
-	readonly launchpadGroup?: FocusGroup;
-	readonly launchpadItem?: FocusItem;
+	readonly launchpadGroup?: LaunchpadGroup;
+	readonly launchpadItem?: LaunchpadItem;
 	readonly pullRequest?: PullRequest;
 	readonly reflog?: GitReflogRecord;
 	readonly remote?: GitRemote;
@@ -188,8 +191,8 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 			uniqueness += `/${context.launchpadItem.type}/${context.launchpadItem.uuid}`;
 		}
 	} else if (context.launchpadItem != null) {
-		uniqueness += `/lp/${focusCategoryToGroupMap.get(
-			sharedCategoryToFocusActionCategoryMap.get(context.launchpadItem.suggestedActionCategory)!,
+		uniqueness += `/lp/${launchpadCategoryToGroupMap.get(
+			sharedCategoryToLaunchpadActionCategoryMap.get(context.launchpadItem.suggestedActionCategory)!,
 		)}/${context.launchpadItem.type}/${context.launchpadItem.uuid}`;
 	}
 	if (context.pullRequest != null) {

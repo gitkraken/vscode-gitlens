@@ -49,7 +49,7 @@ import {
 import type { EnrichableItem, EnrichedItem } from './enrichmentService';
 import { convertRemoteProviderIdToEnrichProvider, isEnrichableRemoteProviderId } from './enrichmentService';
 
-export const focusActionCategories = [
+export const launchpadActionCategories = [
 	'mergeable',
 	'unassigned-reviewers',
 	'failed-checks',
@@ -62,38 +62,36 @@ export const focusActionCategories = [
 	'draft',
 	'other',
 ] as const;
-export type FocusActionCategory = (typeof focusActionCategories)[number];
+export type LaunchpadActionCategory = (typeof launchpadActionCategories)[number];
 
-export const focusGroups = [
+export const launchpadGroups = [
 	'current-branch',
 	'pinned',
 	'mergeable',
 	'blocked',
 	'follow-up',
-	// 'needs-attention',
 	'needs-review',
 	'waiting-for-review',
 	'draft',
 	'other',
 	'snoozed',
 ] as const;
-export type FocusGroup = (typeof focusGroups)[number];
+export type LaunchpadGroup = (typeof launchpadGroups)[number];
 
-export const focusPriorityGroups = [
+export const launchpadPriorityGroups = [
 	'mergeable',
 	'blocked',
 	'follow-up',
 	'needs-review',
-] satisfies readonly FocusPriorityGroup[] as readonly FocusGroup[];
-export type FocusPriorityGroup = Extract<FocusGroup, 'mergeable' | 'blocked' | 'follow-up' | 'needs-review'>;
+] satisfies readonly LaunchpadPriorityGroup[] as readonly LaunchpadGroup[];
+export type LaunchpadPriorityGroup = Extract<LaunchpadGroup, 'mergeable' | 'blocked' | 'follow-up' | 'needs-review'>;
 
-export const focusGroupIconMap = new Map<FocusGroup, `$(${string})`>([
+export const launchpadGroupIconMap = new Map<LaunchpadGroup, `$(${string})`>([
 	['current-branch', '$(git-branch)'],
 	['pinned', '$(pinned)'],
 	['mergeable', '$(rocket)'],
 	['blocked', '$(error)'], //bracket-error
 	['follow-up', '$(report)'],
-	// ['needs-attention', '$(bell-dot)'], //comment-unresolved
 	['needs-review', '$(comment-unresolved)'], // feedback
 	['waiting-for-review', '$(gitlens-clock)'],
 	['draft', '$(git-pull-request-draft)'],
@@ -101,13 +99,12 @@ export const focusGroupIconMap = new Map<FocusGroup, `$(${string})`>([
 	['snoozed', '$(bell-slash)'],
 ]);
 
-export const focusGroupLabelMap = new Map<FocusGroup, string>([
+export const launchpadGroupLabelMap = new Map<LaunchpadGroup, string>([
 	['current-branch', 'Current Branch'],
 	['pinned', 'Pinned'],
 	['mergeable', 'Ready to Merge'],
 	['blocked', 'Blocked'],
 	['follow-up', 'Requires Follow-up'],
-	// ['needs-attention', 'Needs Your Attention'],
 	['needs-review', 'Needs Your Review'],
 	['waiting-for-review', 'Waiting for Review'],
 	['draft', 'Draft'],
@@ -115,8 +112,7 @@ export const focusGroupLabelMap = new Map<FocusGroup, string>([
 	['snoozed', 'Snoozed'],
 ]);
 
-export const focusCategoryToGroupMap = new Map<FocusActionCategory, FocusGroup>([
-	// ['pinned', 'pinned'],
+export const launchpadCategoryToGroupMap = new Map<LaunchpadActionCategory, LaunchpadGroup>([
 	['mergeable', 'mergeable'],
 	['conflicts', 'blocked'],
 	['failed-checks', 'blocked'],
@@ -128,10 +124,9 @@ export const focusCategoryToGroupMap = new Map<FocusActionCategory, FocusGroup>(
 	['waiting-for-review', 'waiting-for-review'],
 	['draft', 'draft'],
 	['other', 'other'],
-	// ['snoozed', 'snoozed'],
 ]);
 
-export const sharedCategoryToFocusActionCategoryMap = new Map<string, FocusActionCategory>([
+export const sharedCategoryToLaunchpadActionCategoryMap = new Map<string, LaunchpadActionCategory>([
 	['readyToMerge', 'mergeable'],
 	['unassignedReviewers', 'unassigned-reviewers'],
 	['failingCI', 'failed-checks'],
@@ -144,7 +139,7 @@ export const sharedCategoryToFocusActionCategoryMap = new Map<string, FocusActio
 	['other', 'other'],
 ]);
 
-export type FocusAction =
+export type LaunchpadAction =
 	| 'merge'
 	| 'open'
 	| 'soft-open'
@@ -156,12 +151,12 @@ export type FocusAction =
 	| 'open-changes'
 	| 'open-in-graph';
 
-export type FocusTargetAction = {
+export type LaunchpadTargetAction = {
 	action: 'open-suggestion';
 	target: string;
 };
 
-const prActionsMap = new Map<FocusActionCategory, FocusAction[]>([
+const prActionsMap = new Map<LaunchpadActionCategory, LaunchpadAction[]>([
 	['mergeable', ['merge']],
 	['unassigned-reviewers', ['open']],
 	['failed-checks', ['open']],
@@ -175,7 +170,7 @@ const prActionsMap = new Map<FocusActionCategory, FocusAction[]>([
 	['other', []],
 ]);
 
-export function getSuggestedActions(category: FocusActionCategory, isCurrentBranch: boolean): FocusAction[] {
+export function getSuggestedActions(category: LaunchpadActionCategory, isCurrentBranch: boolean): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
 	if (isCurrentBranch) {
 		actions.push('show-overview', 'open-changes', 'code-suggest', 'open-in-graph');
@@ -185,15 +180,15 @@ export function getSuggestedActions(category: FocusActionCategory, isCurrentBran
 	return actions;
 }
 
-export type FocusPullRequest = EnrichablePullRequest & ProviderActionablePullRequest;
+export type LaunchpadPullRequest = EnrichablePullRequest & ProviderActionablePullRequest;
 
-export type FocusItem = FocusPullRequest & {
+export type LaunchpadItem = LaunchpadPullRequest & {
 	currentViewer: Account;
 	codeSuggestionsCount: number;
 	codeSuggestions?: TimedResult<Draft[]>;
 	isNew: boolean;
-	actionableCategory: FocusActionCategory;
-	suggestedActions: FocusAction[];
+	actionableCategory: LaunchpadActionCategory;
+	suggestedActions: LaunchpadAction[];
 	openRepository?: OpenRepository;
 
 	underlyingPullRequest: PullRequest;
@@ -205,7 +200,7 @@ export type OpenRepository = {
 	localBranch?: GitBranch;
 };
 
-type CachedFocusPromise<T> = {
+type CachedLaunchpadPromise<T> = {
 	expiresAt: number;
 	promise: Promise<T | undefined>;
 };
@@ -217,18 +212,18 @@ type PullRequestsWithSuggestionCounts = {
 	suggestionCounts: TimedResult<CodeSuggestionCounts | undefined> | undefined;
 };
 
-export type FocusRefreshEvent = FocusCategorizedResult;
+export type LaunchpadRefreshEvent = LaunchpadCategorizedResult;
 
-export const supportedFocusIntegrations = [HostingIntegrationId.GitHub, HostingIntegrationId.GitLab];
-type SupportedFocusIntegrationIds = (typeof supportedFocusIntegrations)[number];
-function isSupportedFocusIntegrationId(id: string): id is SupportedFocusIntegrationIds {
-	return supportedFocusIntegrations.includes(id as SupportedFocusIntegrationIds);
+export const supportedLaunchpadIntegrations = [HostingIntegrationId.GitHub, HostingIntegrationId.GitLab];
+type SupportedLaunchpadIntegrationIds = (typeof supportedLaunchpadIntegrations)[number];
+function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLaunchpadIntegrationIds {
+	return supportedLaunchpadIntegrations.includes(id as SupportedLaunchpadIntegrationIds);
 }
 
-export type FocusCategorizedResult =
+export type LaunchpadCategorizedResult =
 	| {
-			items: FocusItem[];
-			timings?: FocusCategorizedTimings;
+			items: LaunchpadItem[];
+			timings?: LaunchpadCategorizedTimings;
 			error?: never;
 	  }
 	| {
@@ -236,19 +231,19 @@ export type FocusCategorizedResult =
 			items?: never;
 	  };
 
-export interface FocusCategorizedTimings {
+export interface LaunchpadCategorizedTimings {
 	prs: number | undefined;
 	codeSuggestionCounts: number | undefined;
 	enrichedItems: number | undefined;
 }
 
-export class FocusProvider implements Disposable {
+export class LaunchpadProvider implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange() {
 		return this._onDidChange.event;
 	}
 
-	private readonly _onDidRefresh = new EventEmitter<FocusRefreshEvent>();
+	private readonly _onDidRefresh = new EventEmitter<LaunchpadRefreshEvent>();
 	get onDidRefresh() {
 		return this._onDidRefresh.event;
 	}
@@ -267,20 +262,8 @@ export class FocusProvider implements Disposable {
 		this._disposable.dispose();
 	}
 
-	// private _issues: CachedFocusPromise<SearchedIssue[]> | undefined;
-	// private async getIssues(options?: { cancellation?: CancellationToken; force?: boolean }) {
-	// 	if (options?.force || this._issues == null || this._issues.expiresAt < Date.now()) {
-	// 		this._issues = {
-	// 			promise: this.container.integrations.getMyIssues([HostingIntegrationId.GitHub], options?.cancellation),
-	// 			expiresAt: Date.now() + cacheExpiration,
-	// 		};
-	// 	}
-
-	// 	return this._issues?.promise;
-	// }
-
-	private _prs: CachedFocusPromise<PullRequestsWithSuggestionCounts> | undefined;
-	@debug<FocusProvider['getPullRequestsWithSuggestionCounts']>({ args: { 0: o => `force=${o?.force}` } })
+	private _prs: CachedLaunchpadPromise<PullRequestsWithSuggestionCounts> | undefined;
+	@debug<LaunchpadProvider['getPullRequestsWithSuggestionCounts']>({ args: { 0: o => `force=${o?.force}` } })
 	private async getPullRequestsWithSuggestionCounts(options?: { cancellation?: CancellationToken; force?: boolean }) {
 		if (options?.force || this._prs == null || this._prs.expiresAt < Date.now()) {
 			this._prs = {
@@ -292,13 +275,13 @@ export class FocusProvider implements Disposable {
 		return this._prs?.promise;
 	}
 
-	@debug<FocusProvider['fetchPullRequestsWithSuggestionCounts']>({ args: false })
+	@debug<LaunchpadProvider['fetchPullRequestsWithSuggestionCounts']>({ args: false })
 	private async fetchPullRequestsWithSuggestionCounts(cancellation?: CancellationToken) {
 		const scope = getLogScope();
 
 		const [prsResult, subscriptionResult] = await Promise.allSettled([
 			withDurationAndSlowEventOnTimeout(
-				this.container.integrations.getMyPullRequests(supportedFocusIntegrations, cancellation, true),
+				this.container.integrations.getMyPullRequests(supportedLaunchpadIntegrations, cancellation, true),
 				'getMyPullRequests',
 				this.container,
 			),
@@ -334,8 +317,8 @@ export class FocusProvider implements Disposable {
 		return { prs: prs, suggestionCounts: suggestionCounts };
 	}
 
-	private _enrichedItems: CachedFocusPromise<TimedResult<EnrichedItem[]>> | undefined;
-	@debug<FocusProvider['getEnrichedItems']>({ args: { 0: o => `force=${o?.force}` } })
+	private _enrichedItems: CachedLaunchpadPromise<TimedResult<EnrichedItem[]>> | undefined;
+	@debug<LaunchpadProvider['getEnrichedItems']>({ args: { 0: o => `force=${o?.force}` } })
 	private async getEnrichedItems(options?: { cancellation?: CancellationToken; force?: boolean }) {
 		if (options?.force || this._enrichedItems == null || this._enrichedItems.expiresAt < Date.now()) {
 			this._enrichedItems = {
@@ -351,15 +334,15 @@ export class FocusProvider implements Disposable {
 		return this._enrichedItems?.promise;
 	}
 
-	private _codeSuggestions: Map<string, CachedFocusPromise<TimedResult<Draft[]>>> | undefined;
-	@debug<FocusProvider['getCodeSuggestions']>({
+	private _codeSuggestions: Map<string, CachedLaunchpadPromise<TimedResult<Draft[]>>> | undefined;
+	@debug<LaunchpadProvider['getCodeSuggestions']>({
 		args: { 0: i => `${i.id} (${i.provider.name} ${i.type})`, 1: o => `force=${o?.force}` },
 	})
-	private async getCodeSuggestions(item: FocusItem, options?: { force?: boolean }) {
+	private async getCodeSuggestions(item: LaunchpadItem, options?: { force?: boolean }) {
 		if (item.codeSuggestionsCount < 1) return undefined;
 
 		if (this._codeSuggestions == null || options?.force) {
-			this._codeSuggestions = new Map<string, CachedFocusPromise<TimedResult<Draft[]>>>();
+			this._codeSuggestions = new Map<string, CachedLaunchpadPromise<TimedResult<Draft[]>>>();
 		}
 
 		if (
@@ -368,7 +351,7 @@ export class FocusProvider implements Disposable {
 			this._codeSuggestions.get(item.uuid)!.expiresAt < Date.now()
 		) {
 			const providerId = item.provider.id;
-			if (!isSupportedFocusIntegrationId(providerId)) {
+			if (!isSupportedLaunchpadIntegrationId(providerId)) {
 				return undefined;
 			}
 
@@ -389,7 +372,6 @@ export class FocusProvider implements Disposable {
 
 	@log()
 	refresh() {
-		// this._issues = undefined;
 		this._prs = undefined;
 		this._enrichedItems = undefined;
 		this._codeSuggestions = undefined;
@@ -397,8 +379,8 @@ export class FocusProvider implements Disposable {
 		this._onDidChange.fire();
 	}
 
-	@log<FocusProvider['pin']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async pin(item: FocusItem) {
+	@log<LaunchpadProvider['pin']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
+	async pin(item: LaunchpadItem) {
 		item.viewer.pinned = true;
 		this._onDidChange.fire();
 
@@ -407,8 +389,8 @@ export class FocusProvider implements Disposable {
 		this._onDidChange.fire();
 	}
 
-	@log<FocusProvider['unpin']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async unpin(item: FocusItem) {
+	@log<LaunchpadProvider['unpin']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
+	async unpin(item: LaunchpadItem) {
 		item.viewer.pinned = false;
 		this._onDidChange.fire();
 
@@ -420,8 +402,8 @@ export class FocusProvider implements Disposable {
 		this._onDidChange.fire();
 	}
 
-	@log<FocusProvider['snooze']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async snooze(item: FocusItem) {
+	@log<LaunchpadProvider['snooze']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
+	async snooze(item: LaunchpadItem) {
 		item.viewer.snoozed = true;
 		this._onDidChange.fire();
 
@@ -430,8 +412,8 @@ export class FocusProvider implements Disposable {
 		this._onDidChange.fire();
 	}
 
-	@log<FocusProvider['unsnooze']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async unsnooze(item: FocusItem) {
+	@log<LaunchpadProvider['unsnooze']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
+	async unsnooze(item: LaunchpadItem) {
 		item.viewer.snoozed = false;
 		this._onDidChange.fire();
 
@@ -443,11 +425,11 @@ export class FocusProvider implements Disposable {
 		this._onDidChange.fire();
 	}
 
-	@log<FocusProvider['merge']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async merge(item: FocusItem): Promise<void> {
+	@log<LaunchpadProvider['merge']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
+	async merge(item: LaunchpadItem): Promise<void> {
 		if (item.graphQLId == null || item.headRef?.oid == null) return;
 		const integrationId = item.provider.id;
-		if (!isSupportedFocusIntegrationId(integrationId)) return;
+		if (!isSupportedLaunchpadIntegrationId(integrationId)) return;
 		const confirm = await window.showQuickPick(['Merge', 'Cancel'], {
 			placeHolder: `Are you sure you want to merge ${item.headRef?.name ?? 'this pull request'}${
 				item.baseRef?.name ? ` into ${item.baseRef.name}` : ''
@@ -460,15 +442,15 @@ export class FocusProvider implements Disposable {
 		this.refresh();
 	}
 
-	@log<FocusProvider['open']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	open(item: FocusItem): void {
+	@log<LaunchpadProvider['open']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
+	open(item: LaunchpadItem): void {
 		if (item.url == null) return;
 		void openUrl(item.url);
 		this._prs = undefined;
 	}
 
-	@log<FocusProvider['openCodeSuggestion']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	openCodeSuggestion(item: FocusItem, target: string) {
+	@log<LaunchpadProvider['openCodeSuggestion']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
+	openCodeSuggestion(item: LaunchpadItem, target: string) {
 		const draft = item.codeSuggestions?.value?.find(d => d.id === target);
 		if (draft == null) return;
 		this._codeSuggestions?.delete(item.uuid);
@@ -484,9 +466,9 @@ export class FocusProvider implements Disposable {
 		void openUrl(this.container.drafts.generateWebUrl(target));
 	}
 
-	@log<FocusProvider['switchTo']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
+	@log<LaunchpadProvider['switchTo']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
 	async switchTo(
-		item: FocusItem,
+		item: LaunchpadItem,
 		options?: { skipWorktreeConfirmations?: boolean; startCodeSuggestion?: boolean },
 	): Promise<void> {
 		if (item.openRepository?.localBranch?.current) {
@@ -513,8 +495,8 @@ export class FocusProvider implements Disposable {
 		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false);
 	}
 
-	@log<FocusProvider['openChanges']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async openChanges(item: FocusItem) {
+	@log<LaunchpadProvider['openChanges']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
+	async openChanges(item: LaunchpadItem) {
 		if (!item.openRepository?.localBranch?.current) return;
 
 		await this.switchTo(item);
@@ -532,8 +514,8 @@ export class FocusProvider implements Disposable {
 		}
 	}
 
-	@log<FocusProvider['openInGraph']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async openInGraph(item: FocusItem) {
+	@log<LaunchpadProvider['openInGraph']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
+	async openInGraph(item: LaunchpadItem) {
 		const deepLinkUrl = this.getItemBranchDeepLink(item);
 		if (deepLinkUrl == null) return;
 		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false);
@@ -543,7 +525,7 @@ export class FocusProvider implements Disposable {
 		return this.container.generateWebGkDevUrl('/launchpad');
 	}
 
-	private getItemBranchDeepLink(item: FocusItem, action?: DeepLinkActionType): Uri | undefined {
+	private getItemBranchDeepLink(item: LaunchpadItem, action?: DeepLinkActionType): Uri | undefined {
 		if (item.type !== 'pullrequest' || item.headRef == null || item.repoIdentity?.remote?.url == null)
 			return undefined;
 
@@ -576,7 +558,7 @@ export class FocusProvider implements Disposable {
 		return { repo: repo, remote: remote, localBranch: matchingLocalBranch };
 	}
 
-	private async getMatchingRemoteMap(actionableItems: FocusPullRequest[]) {
+	private async getMatchingRemoteMap(actionableItems: LaunchpadPullRequest[]) {
 		const uniqueRemoteUrls = new Set<string>();
 		for (const item of actionableItems) {
 			if (item.repoIdentity.remote.url != null) {
@@ -621,12 +603,12 @@ export class FocusProvider implements Disposable {
 		return repoRemotes;
 	}
 
-	@gate<FocusProvider['getCategorizedItems']>(o => `${o?.force ?? false}`)
-	@log<FocusProvider['getCategorizedItems']>({ args: { 0: o => `force=${o?.force}`, 1: false } })
+	@gate<LaunchpadProvider['getCategorizedItems']>(o => `${o?.force ?? false}`)
+	@log<LaunchpadProvider['getCategorizedItems']>({ args: { 0: o => `force=${o?.force}`, 1: false } })
 	async getCategorizedItems(
 		options?: { force?: boolean },
 		cancellation?: CancellationToken,
-	): Promise<FocusCategorizedResult> {
+	): Promise<LaunchpadCategorizedResult> {
 		const scope = getLogScope();
 
 		const fireRefresh = options?.force || this._prs == null;
@@ -659,7 +641,7 @@ export class FocusProvider implements Disposable {
 
 		// TODO: Since this is all repos we probably should order by repos you are a contributor on (or even filter out one you aren't)
 
-		let result: FocusCategorizedResult | undefined;
+		let result: LaunchpadCategorizedResult | undefined;
 
 		try {
 			if (prsWithCountsResult.status === 'rejected') {
@@ -716,14 +698,14 @@ export class FocusProvider implements Disposable {
 			// But since the code has changed it might be hard to find it, therefore I'm leaving the link here,
 			// because it's still relevant.
 			const myAccounts: Map<string, Account> =
-				await this.container.integrations.getMyCurrentAccounts(supportedFocusIntegrations);
+				await this.container.integrations.getMyCurrentAccounts(supportedLaunchpadIntegrations);
 
 			const inputPrs: (EnrichablePullRequest | undefined)[] = filteredPrs.map(pr => {
 				const providerPr = toProviderPullRequestWithUniqueId(pr.pullRequest);
 
 				const providerId = pr.pullRequest.provider.id;
 
-				if (!isSupportedFocusIntegrationId(providerId) || !isEnrichableRemoteProviderId(providerId)) {
+				if (!isSupportedLaunchpadIntegrationId(providerId) || !isEnrichableRemoteProviderId(providerId)) {
 					Logger.warn(`Unsupported provider ${providerId}`);
 					return undefined;
 				}
@@ -750,12 +732,12 @@ export class FocusProvider implements Disposable {
 			}) satisfies (EnrichablePullRequest | undefined)[];
 
 			// Note: The expected output of this is ActionablePullRequest[], but we are passing in EnrichablePullRequest,
-			// so we need to cast the output as FocusPullRequest[].
+			// so we need to cast the output as LaunchpadPullRequest[].
 			const actionableItems = this.getActionablePullRequests(
 				inputPrs.filter((i: EnrichablePullRequest | undefined): i is EnrichablePullRequest => i != null),
 				myAccounts,
 				{ enrichedItemsByUniqueId: enrichedItemsByEntityId },
-			) as FocusPullRequest[];
+			) as LaunchpadPullRequest[];
 
 			// Get the unique remote urls
 			const mappedRemotesPromise = await this.getMatchingRemoteMap(actionableItems);
@@ -764,10 +746,12 @@ export class FocusProvider implements Disposable {
 
 			// Map from shared category label to local actionable category, and get suggested actions
 			const categorized = await Promise.allSettled(
-				actionableItems.map<Promise<FocusItem>>(async item => {
+				actionableItems.map<Promise<LaunchpadItem>>(async item => {
 					const codeSuggestionsCount = suggestionCounts?.value?.[item.uuid]?.count ?? 0;
 
-					let actionableCategory = sharedCategoryToFocusActionCategoryMap.get(item.suggestedActionCategory)!;
+					let actionableCategory = sharedCategoryToLaunchpadActionCategoryMap.get(
+						item.suggestedActionCategory,
+					)!;
 					// category overrides
 					if (staleDate != null && item.updatedDate.getTime() < staleDate.getTime()) {
 						actionableCategory = 'other';
@@ -791,7 +775,7 @@ export class FocusProvider implements Disposable {
 						suggestedActions: suggestedActions,
 						openRepository: openRepository,
 						underlyingPullRequest: item.underlyingPullRequest,
-					} satisfies FocusItem;
+					} satisfies LaunchpadItem;
 				}),
 			);
 
@@ -844,17 +828,17 @@ export class FocusProvider implements Disposable {
 
 	private _groupedIds: Set<string> | undefined;
 
-	private isItemNewInGroup(item: FocusPullRequest, actionableCategory: FocusActionCategory) {
+	private isItemNewInGroup(item: LaunchpadPullRequest, actionableCategory: LaunchpadActionCategory) {
 		return (
 			this._groupedIds != null &&
-			!this._groupedIds.has(`${item.uuid}:${focusCategoryToGroupMap.get(actionableCategory)}`)
+			!this._groupedIds.has(`${item.uuid}:${launchpadCategoryToGroupMap.get(actionableCategory)}`)
 		);
 	}
 
-	private updateGroupedIds(items: FocusItem[]) {
+	private updateGroupedIds(items: LaunchpadItem[]) {
 		const groupedIds = new Set<string>();
 		for (const item of items) {
-			const group = focusCategoryToGroupMap.get(item.actionableCategory)!;
+			const group = launchpadCategoryToGroupMap.get(item.actionableCategory)!;
 			const key = `${item.uuid}:${group}`;
 			if (!groupedIds.has(key)) {
 				groupedIds.add(key);
@@ -865,7 +849,7 @@ export class FocusProvider implements Disposable {
 	}
 
 	async hasConnectedIntegration(): Promise<boolean> {
-		for (const integrationId of supportedFocusIntegrations) {
+		for (const integrationId of supportedLaunchpadIntegrations) {
 			const integration = await this.container.integrations.get(integrationId);
 			if (integration.maybeConnected ?? (await integration.isConnected())) {
 				return true;
@@ -879,7 +863,7 @@ export class FocusProvider implements Disposable {
 	async getConnectedIntegrations(): Promise<Map<IntegrationId, boolean>> {
 		const connected = new Map<IntegrationId, boolean>();
 		await Promise.allSettled(
-			supportedFocusIntegrations.map(async integrationId => {
+			supportedLaunchpadIntegrations.map(async integrationId => {
 				const integration = await this.container.integrations.get(integrationId);
 				connected.set(integrationId, integration.maybeConnected ?? (await integration.isConnected()));
 			}),
@@ -889,11 +873,11 @@ export class FocusProvider implements Disposable {
 		return connected;
 	}
 
-	@log<FocusProvider['ensureFocusItemCodeSuggestions']>({
+	@log<LaunchpadProvider['ensureLaunchpadItemCodeSuggestions']>({
 		args: { 0: i => `${i.id} (${i.provider.name} ${i.type})`, 1: o => `force=${o?.force}` },
 	})
-	async ensureFocusItemCodeSuggestions(
-		item: FocusItem,
+	async ensureLaunchpadItemCodeSuggestions(
+		item: LaunchpadItem,
 		options?: { force?: boolean },
 	): Promise<TimedResult<Draft[]> | undefined> {
 		item.codeSuggestions ??= await this.getCodeSuggestions(item, options);
@@ -937,7 +921,7 @@ export class FocusProvider implements Disposable {
 	}
 
 	private async onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
-		if (isSupportedFocusIntegrationId(e.key)) {
+		if (isSupportedLaunchpadIntegrationId(e.key)) {
 			if (e.reason === 'connected') {
 				void setContext('gitlens:launchpad:connect', false);
 			} else {
@@ -947,11 +931,11 @@ export class FocusProvider implements Disposable {
 	}
 }
 
-export function groupAndSortFocusItems(items?: FocusItem[]) {
-	if (items == null || items.length === 0) return new Map<FocusGroup, FocusItem[]>();
-	const grouped = new Map<FocusGroup, FocusItem[]>(focusGroups.map(g => [g, []]));
+export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]) {
+	if (items == null || items.length === 0) return new Map<LaunchpadGroup, LaunchpadItem[]>();
+	const grouped = new Map<LaunchpadGroup, LaunchpadItem[]>(launchpadGroups.map(g => [g, []]));
 
-	sortFocusItems(items);
+	sortLaunchpadItems(items);
 
 	for (const item of items) {
 		if (item.viewer.snoozed) {
@@ -969,7 +953,7 @@ export function groupAndSortFocusItems(items?: FocusItem[]) {
 		if (item.isDraft) {
 			grouped.get('draft')!.push(item);
 		} else {
-			const group = focusCategoryToGroupMap.get(item.actionableCategory)!;
+			const group = launchpadCategoryToGroupMap.get(item.actionableCategory)!;
 			grouped.get(group)!.push(item);
 		}
 	}
@@ -980,11 +964,11 @@ export function groupAndSortFocusItems(items?: FocusItem[]) {
 	return grouped;
 }
 
-export function countFocusItemGroups(items?: FocusItem[]) {
-	if (items == null || items.length === 0) return new Map<FocusGroup, number>();
-	const grouped = new Map<FocusGroup, number>(focusGroups.map(g => [g, 0]));
+export function countLaunchpadItemGroups(items?: LaunchpadItem[]) {
+	if (items == null || items.length === 0) return new Map<LaunchpadGroup, number>();
+	const grouped = new Map<LaunchpadGroup, number>(launchpadGroups.map(g => [g, 0]));
 
-	function incrementGroup(group: FocusGroup) {
+	function incrementGroup(group: LaunchpadGroup) {
 		grouped.set(group, (grouped.get(group) ?? 0) + 1);
 	}
 
@@ -1003,18 +987,19 @@ export function countFocusItemGroups(items?: FocusItem[]) {
 		if (item.isDraft) {
 			incrementGroup('draft');
 		} else {
-			incrementGroup(focusCategoryToGroupMap.get(item.actionableCategory)!);
+			incrementGroup(launchpadCategoryToGroupMap.get(item.actionableCategory)!);
 		}
 	}
 
 	return grouped;
 }
 
-export function sortFocusItems(items: FocusItem[]) {
+export function sortLaunchpadItems(items: LaunchpadItem[]) {
 	return items.sort(
 		(a, b) =>
 			(a.viewer.pinned ? -1 : 1) - (b.viewer.pinned ? -1 : 1) ||
-			focusActionCategories.indexOf(a.actionableCategory) - focusActionCategories.indexOf(b.actionableCategory) ||
+			launchpadActionCategories.indexOf(a.actionableCategory) -
+				launchpadActionCategories.indexOf(b.actionableCategory) ||
 			b.updatedDate.getTime() - a.updatedDate.getTime(),
 	);
 }
@@ -1046,7 +1031,7 @@ export function getPullRequestBranchDeepLink(
 	);
 }
 
-export function getFocusItemIdHash(item: FocusItem) {
+export function getLaunchpadItemIdHash(item: LaunchpadItem) {
 	return md5(item.uuid);
 }
 
