@@ -10,13 +10,13 @@ import {
 	// ConsoleSpanExporter,
 	SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import {
-	SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
-	SEMRESATTRS_DEVICE_ID,
-	SEMRESATTRS_OS_TYPE,
-	SEMRESATTRS_SERVICE_NAME,
-	SEMRESATTRS_SERVICE_VERSION,
-} from '@opentelemetry/semantic-conventions';
+	ATTR_DEPLOYMENT_ENVIRONMENT,
+	ATTR_DEPLOYMENT_ENVIRONMENT_NAME,
+	ATTR_DEVICE_ID,
+	ATTR_OS_TYPE,
+} from '@opentelemetry/semantic-conventions/incubating';
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { TelemetryContext, TelemetryProvider } from './telemetry';
 
@@ -29,11 +29,12 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 	constructor(context: TelemetryContext, agent?: HttpsProxyAgent, debugging?: boolean) {
 		this.provider = new BasicTracerProvider({
 			resource: new Resource({
-				[SEMRESATTRS_SERVICE_NAME]: 'gitlens',
-				[SEMRESATTRS_SERVICE_VERSION]: context.extensionVersion,
-				[SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: context.env,
-				[SEMRESATTRS_DEVICE_ID]: context.machineId,
-				[SEMRESATTRS_OS_TYPE]: context.platform,
+				[ATTR_SERVICE_NAME]: 'gitlens',
+				[ATTR_SERVICE_VERSION]: context.extensionVersion,
+				[ATTR_DEPLOYMENT_ENVIRONMENT]: context.env,
+				[ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: context.env,
+				[ATTR_DEVICE_ID]: context.machineId,
+				[ATTR_OS_TYPE]: context.platform,
 				'extension.id': context.extensionId,
 				'session.id': context.sessionId,
 				language: context.language,
