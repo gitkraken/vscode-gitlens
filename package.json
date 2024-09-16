@@ -18040,7 +18040,7 @@
 		"eslint-cli": "1.1.1",
 		"eslint-import-resolver-typescript": "3.6.3",
 		"eslint-plugin-anti-trojan-source": "1.1.1",
-		"eslint-plugin-import": "2.30.0",
+		"eslint-plugin-import-x": "4.2.1",
 		"eslint-plugin-lit": "1.15.0",
 		"eslint-plugin-wc": "2.1.1",
 		"fork-ts-checker-webpack-plugin": "6.5.3",
