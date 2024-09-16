@@ -96,7 +96,7 @@ export class GlGraphSideBar extends LitElement {
 					this.requestUpdate();
 					break;
 
-				case GetCountsRequest.is(msg):
+				case GetCountsRequest.response.is(msg):
 					this._counts = Promise.resolve(msg.params as Counts);
 					this.requestUpdate();
 					break;
