@@ -3751,8 +3751,15 @@ async function formatRepositories(repositories: Repository[]): Promise<GraphRepo
 				id: r.id,
 				name: r.name,
 				path: r.path,
+				provider: remote?.provider
+					? {
+							name: remote.provider.name,
+							connected: connected,
+							icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
+							url: remote.provider.url({ type: RemoteResourceType.Repo }),
+					  }
+					: undefined,
 				isVirtual: r.provider.virtual,
-				isConnected: connected,
 			};
 		}),
 	);

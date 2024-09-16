@@ -151,7 +151,12 @@ export interface GraphRepository {
 	name: string;
 	path: string;
 	isVirtual: boolean;
-	isConnected: boolean;
+	provider?: {
+		name: string;
+		connected: boolean;
+		icon?: string;
+		url?: string;
+	};
 }
 
 export interface GraphCommitIdentity {
