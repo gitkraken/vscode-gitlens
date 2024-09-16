@@ -838,7 +838,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			};
 		} catch (ex) {
 			debugger;
-			Logger.error(scope, ex);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}

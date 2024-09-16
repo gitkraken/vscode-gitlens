@@ -66,7 +66,7 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 
 			return currentMessage ? `${currentMessage}\n\n${message}` : message;
 		} catch (ex) {
-			Logger.error(scope, ex);
+			Logger.error(ex, scope);
 
 			if (ex instanceof Error && ex.message.startsWith('No changes')) {
 				void window.showInformationMessage('No changes to generate a commit message from.');
