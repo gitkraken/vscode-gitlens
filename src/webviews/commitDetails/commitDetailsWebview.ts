@@ -1690,7 +1690,7 @@ export class CommitDetailsWebviewProvider
 					state: await this.getState(context),
 				});
 			} catch (ex) {
-				Logger.error(scope, ex);
+				Logger.error(ex, scope);
 				debugger;
 			}
 		});

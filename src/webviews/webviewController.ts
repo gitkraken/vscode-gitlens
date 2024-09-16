@@ -569,7 +569,7 @@ export class WebviewController<
 				},
 				ex => {
 					clearTimeout(timeout);
-					Logger.error(scope, ex);
+					Logger.error(ex, scope);
 					debugger;
 					return false;
 				},
