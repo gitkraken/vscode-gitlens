@@ -516,7 +516,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				})} in the Repositories view...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
@@ -575,7 +575,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				})} in the Repositories view...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
@@ -601,7 +601,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				title: `Revealing contributor '${contributor.name} in the Repositories view...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findContributor(contributor, token);
 				if (node == null) return undefined;
 
@@ -627,7 +627,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				title: `Revealing remote '${remote.name}' in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findRemote(remote, token);
 				if (node == null) return undefined;
 
@@ -677,7 +677,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				})} in the Repositories view...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findStash(stash, token);
 				if (node !== undefined) {
 					await this.reveal(node, options);
@@ -736,7 +736,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				})} in the Repositories view...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findTag(tag, token);
 				if (node == null) return undefined;
 
@@ -792,7 +792,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				title: `Revealing worktree '${worktree.name}' in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findWorktree(worktree, token);
 				if (node == null) return undefined;
 

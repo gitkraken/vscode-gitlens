@@ -137,9 +137,9 @@ export async function showNewOrSelectBranchPicker(
 		});
 
 		if (pick === createNewBranch) {
-			return showNewBranchPicker(title, 'Enter a name for the new branch', repository);
+			return await showNewBranchPicker(title, 'Enter a name for the new branch', repository);
 		} else if (pick === selectExistingBranch) {
-			return showBranchPicker(title, 'Select an existing branch', repository);
+			return await showBranchPicker(title, 'Select an existing branch', repository);
 		}
 
 		return undefined;

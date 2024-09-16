@@ -161,7 +161,7 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 			localFileUri = getSharedLocalWorkspaceMappingFileUri();
 			data = await workspace.fs.readFile(localFileUri);
 			if (data?.length) return JSON.parse(data.toString()) as LocalWorkspaceFileData;
-		} catch (ex) {
+		} catch (_ex) {
 			// Fall back to using legacy location for file
 			try {
 				localFileUri = getSharedLegacyLocalWorkspaceMappingFileUri();
@@ -185,7 +185,7 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 		try {
 			data = await workspace.fs.readFile(uri);
 			codeWorkspaceFileContents = JSON.parse(data.toString()) as CodeWorkspaceFileContents;
-		} catch (error) {
+		} catch (_ex) {
 			codeWorkspaceFileContents = { folders: [], settings: {} };
 		}
 
@@ -221,7 +221,7 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 		try {
 			data = await workspace.fs.readFile(uri);
 			codeWorkspaceFileContents = JSON.parse(data.toString()) as CodeWorkspaceFileContents;
-		} catch (error) {
+		} catch (_ex) {
 			return false;
 		}
 
@@ -232,8 +232,8 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify(codeWorkspaceFileContents)));
 		try {
 			await workspace.fs.writeFile(uri, outputData);
-		} catch (error) {
-			Logger.error(error, 'updateCodeWorkspaceFileSettings');
+		} catch (_ex) {
+			Logger.error(_ex, 'updateCodeWorkspaceFileSettings');
 			return false;
 		}
 

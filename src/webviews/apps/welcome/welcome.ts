@@ -75,7 +75,7 @@ export class WelcomeApp extends App<State> {
 		return true;
 	}
 
-	private onFeatureToggled(e: Event, target: HTMLElement) {
+	private onFeatureToggled(_e: Event, target: HTMLElement) {
 		const feature = target.dataset.feature;
 		if (!feature) return;
 

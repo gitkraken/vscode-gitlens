@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated */
 import type { Range } from 'vscode';
 import type { Container } from '../../container';
 import { filterMap } from '../../system/array';
@@ -818,7 +819,6 @@ export function parseGitLogSimple(
 	skip: number,
 	skipRef?: string,
 ): [string | undefined, string | undefined, GitFileIndexStatus | undefined] {
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	using _sw = maybeStopWatch('Git.parseLogSimple', { log: false, logLevel: 'debug' });
 
 	let ref;
@@ -859,7 +859,6 @@ export function parseGitLogSimpleRenamed(
 	data: string,
 	originalFileName: string,
 ): [string | undefined, string | undefined, GitFileIndexStatus | undefined] {
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	using _sw = maybeStopWatch('Git.parseLogSimpleRenamed', { log: false, logLevel: 'debug' });
 
 	let match = logFileSimpleRenamedRegex.exec(data);

@@ -213,7 +213,7 @@ function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16):
 
 async function getAvatarUriFromRemoteProvider(
 	avatar: Avatar,
-	key: string,
+	_key: string,
 	email: string,
 	repoPathOrCommit: string | { ref: string; repoPath: string },
 	{ size = 16 }: { size?: number } = {},

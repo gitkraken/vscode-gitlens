@@ -323,7 +323,6 @@ export interface DidEnsureRowParams {
 }
 export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
 
-export interface GetCountParams {}
 export type DidGetCountParams =
 	| {
 			branches: number;
@@ -333,7 +332,7 @@ export type DidGetCountParams =
 			worktrees?: number;
 	  }
 	| undefined;
-export const GetCountsRequest = new IpcRequest<GetCountParams, DidGetCountParams>(scope, 'counts');
+export const GetCountsRequest = new IpcRequest<void, DidGetCountParams>(scope, 'counts');
 
 export type GetRowHoverParams = {
 	type: GitGraphRowType;

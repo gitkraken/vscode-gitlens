@@ -515,7 +515,7 @@ export abstract class EditorCommand implements Disposable {
 		this._disposable.dispose();
 	}
 
-	private executeCore(command: string, editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
+	private executeCore(_command: string, editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
 		return this.execute(editor, edit, ...args);
 	}
 

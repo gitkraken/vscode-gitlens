@@ -132,7 +132,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 				title: `Revealing workspace ${workspaceId} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findWorkspaceNode(workspaceId, token);
 				if (node == null) return undefined;
 

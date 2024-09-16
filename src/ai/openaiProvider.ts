@@ -403,7 +403,7 @@ Do not make any assumptions or invent details that are not supported by the code
 		}
 
 		try {
-			return fetch(url, {
+			return await fetch(url, {
 				headers: {
 					Accept: 'application/json',
 					'Content-Type': 'application/json',

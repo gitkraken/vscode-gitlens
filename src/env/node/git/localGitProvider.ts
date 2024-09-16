@@ -1257,7 +1257,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const scope = getLogScope();
 
 		try {
-			return this.git.clone(url, parentPath);
+			return await this.git.clone(url, parentPath);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			void showGenericErrorMessage(`Unable to clone '${url}'`);
@@ -1344,7 +1344,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				)
 			)?.trim();
 
-			return this.getCommit(repoPath, sha);
+			return await this.getCommit(repoPath, sha);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -1354,7 +1354,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// Delete the temporary index file
 			try {
 				await fs.rm(tempDir, { recursive: true });
-			} catch (ex) {
+			} catch (_ex) {
 				debugger;
 			}
 		}
@@ -2190,7 +2190,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					}
 
 					return { values: parseGitBranches(this.container, data, repoPath!) };
-				} catch (ex) {
+				} catch (_ex) {
 					this._branchesCache.delete(repoPath!);
 
 					return emptyPagedResult;
@@ -2960,7 +2960,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					}
 
 					return [...contributors.values()];
-				} catch (ex) {
+				} catch (_ex) {
 					contributorsCache?.delete(key);
 
 					return [];
@@ -3430,7 +3430,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				hunk: hunk,
 				line: hunkLine,
 			};
-		} catch (ex) {
+		} catch (_ex) {
 			return undefined;
 		}
 	}
@@ -3451,7 +3451,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			const files = parseGitDiffNameStatusFiles(data, repoPath);
 			return files == null || files.length === 0 ? undefined : files;
-		} catch (ex) {
+		} catch (_ex) {
 			return undefined;
 		}
 	}
@@ -5006,7 +5006,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				try {
 					const data = await this.git.tag(repoPath!);
 					return { values: parseGitTags(data, repoPath!) };
-				} catch (ex) {
+				} catch (_ex) {
 					this._tagsCache.delete(repoPath!);
 
 					return emptyPagedResult;
@@ -5501,7 +5501,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			return log;
-		} catch (ex) {
+		} catch (_ex) {
 			return undefined;
 		}
 	}
@@ -5666,7 +5666,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				};
 			}
 
-			return searchForCommitsCore.call(this, limit);
+			return await searchForCommitsCore.call(this, limit);
 		} catch (ex) {
 			if (ex instanceof GitSearchError) {
 				throw ex;

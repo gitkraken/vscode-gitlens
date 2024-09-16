@@ -141,7 +141,7 @@ export function isCustomConfigKey(key: string): key is CustomConfigPath {
 }
 
 export function assertsConfigKeyValue<T extends ConfigPath>(
-	key: T,
+	_key: T,
 	value: unknown,
 ): asserts value is ConfigPathValue<T> {
 	// Noop

@@ -752,7 +752,7 @@ export function* pickBranchStep<
 		placeholder: count => (!count ? `No branches found in ${state.repo.formattedName}` : placeholder),
 		matchOnDetail: true,
 		items: items,
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
 			}
@@ -811,7 +811,7 @@ export function* pickBranchesStep<
 			!count ? emptyPlaceholder ?? `No branches found in ${state.repo.formattedName}` : placeholder,
 		matchOnDetail: true,
 		items: items,
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
 			}
@@ -889,7 +889,7 @@ export function* pickBranchOrTagStep<
 		selectValueWhenShown: true,
 		items: items,
 		additionalButtons: [...(additionalButtons ?? []), showTagsButton],
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === PickCommitQuickInputButton) {
 				context.pickCommitForItem = true;
 				return true;
@@ -1023,7 +1023,7 @@ export function* pickBranchOrTagStepMultiRepo<
 			createNewBranchItem.item = quickpick.value;
 			return true;
 		},
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (typeof item === 'string' || isCrossCommandReference(item)) return;
 
 			if (button === RevealInSideBarQuickInputButton) {
@@ -1172,7 +1172,7 @@ export async function* pickCommitStep<
 			...(showInSideBar?.button != null ? [showInSideBar?.button] : []),
 			...(log?.hasMore ? [LoadMoreQuickInputButton] : []),
 		],
-		onDidClickItemButton: (quickpick, button, item) => {
+		onDidClickItemButton: (_quickpick, button, item) => {
 			if (CommandQuickPickItem.is(item)) return;
 
 			switch (button) {
@@ -1306,7 +1306,7 @@ export function* pickCommitsStep<
 			return getItems(log);
 		},
 		additionalButtons: [...(log?.hasMore ? [LoadMoreQuickInputButton] : [])],
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			switch (button) {
 				case ShowDetailsViewQuickInputButton:
 					void CommitActions.showDetailsView(item, { pin: false, preserveFocus: true });
@@ -1369,7 +1369,7 @@ export function* pickContributorsStep<
 		placeholder: placeholder,
 		matchOnDescription: true,
 		items: getItems(),
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void ContributorActions.reveal(item, { select: true, focus: false, expand: true });
 			}
@@ -1440,7 +1440,7 @@ export function* pickRemoteStep<
 		placeholder: count => (!count ? `No remotes found in ${state.repo.formattedName}` : placeholder),
 		matchOnDetail: true,
 		items: items,
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void RemoteActions.reveal(item, { select: true, focus: false, expand: true });
 			}
@@ -1494,7 +1494,7 @@ export function* pickRemotesStep<
 		matchOnDetail: true,
 		items: items,
 
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void RemoteActions.reveal(item, { select: true, focus: false, expand: true });
 			}
@@ -1539,7 +1539,7 @@ export async function* pickRepositoryStep<
 							}),
 						),
 				  ),
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void RepositoryActions.reveal(item.path, context.associatedView, {
 					select: true,
@@ -1608,7 +1608,7 @@ export async function* pickRepositoriesStep<
 							),
 						),
 				  ),
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void RepositoryActions.reveal(item.path, context.associatedView, {
 					select: true,
@@ -1782,7 +1782,7 @@ export function* pickTagsStep<
 		placeholder: count => (!count ? `No tags found in ${state.repo.formattedName}` : placeholder),
 		matchOnDetail: true,
 		items: items,
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void TagActions.reveal(item, {
 					select: true,
@@ -1844,7 +1844,7 @@ export function* pickWorktreeStep<
 		placeholder: count => (!count ? `No worktrees found in ${state.repo.formattedName}` : placeholder),
 		matchOnDetail: true,
 		items: items,
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			switch (button) {
 				case OpenInNewWindowQuickInputButton:
 					openWorkspace(item.uri, { location: 'newWindow' });
@@ -1908,7 +1908,7 @@ export function* pickWorktreesStep<
 		placeholder: count => (!count ? `No worktrees found in ${state.repo.formattedName}` : placeholder),
 		matchOnDetail: true,
 		items: items,
-		onDidClickItemButton: (quickpick, button, { item }) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			switch (button) {
 				case OpenInNewWindowQuickInputButton:
 					openWorkspace(item.uri, { location: 'newWindow' });
@@ -1953,7 +1953,7 @@ export function* showCommitOrStashStep<
 			ignoreFocusOut: true,
 			items: getShowCommitOrStashStepItems(state),
 			// additionalButtons: [ShowDetailsView, RevealInSideBar],
-			onDidClickItemButton: (quickpick, button, _item) => {
+			onDidClickItemButton: (_quickpick, button, _item) => {
 				switch (button) {
 					case ShowDetailsViewQuickInputButton:
 						if (isStashReference(state.reference)) {
@@ -2241,7 +2241,7 @@ export function* showCommitOrStashFilesStep<
 		] as (CommitFilesQuickPickItem | CommitFileQuickPickItem)[],
 		matchOnDescription: true,
 		// additionalButtons: [ShowDetailsView, RevealInSideBar],
-		onDidClickItemButton: (quickpick, button, _item) => {
+		onDidClickItemButton: (_quickpick, button, _item) => {
 			switch (button) {
 				case ShowDetailsViewQuickInputButton:
 					if (isStashReference(state.reference)) {
@@ -2307,7 +2307,7 @@ export function* showCommitOrStashFileStep<
 		items: getShowCommitOrStashFileStepItems(state),
 		matchOnDescription: true,
 		// additionalButtons: [ShowDetailsView, RevealInSideBar],
-		onDidClickItemButton: (quickpick, button, _item) => {
+		onDidClickItemButton: (_quickpick, button, _item) => {
 			switch (button) {
 				case ShowDetailsViewQuickInputButton:
 					if (isStashReference(state.reference)) {
@@ -2459,7 +2459,7 @@ export function* showRepositoryStatusStep<
 		ignoreFocusOut: true,
 		items: getShowRepositoryStatusStepItems(state, context),
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async (quickpick, key, item) => {
+		onDidPressKey: async (_quickpick, key, item) => {
 			await item.onDidPressKey(key);
 		},
 	});

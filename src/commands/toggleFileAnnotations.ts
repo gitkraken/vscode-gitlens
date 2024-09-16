@@ -15,7 +15,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 		super([Commands.ClearFileAnnotations, Commands.ComputingFileAnnotations]);
 	}
 
-	async execute(editor: TextEditor | undefined, edit: TextEditorEdit, uri?: Uri): Promise<void> {
+	async execute(editor: TextEditor | undefined, _edit: TextEditorEdit, uri?: Uri): Promise<void> {
 		editor = getValidEditor(editor, uri);
 		if (editor == null) return;
 

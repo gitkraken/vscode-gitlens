@@ -402,7 +402,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 		const baseUri = Uri.parse(pullRequest.refs!.base.url);
 		const localUri = searchedPullRequestWithRemote.repoAndRemote.repo.uri;
-		return executeCommand<GHPRPullRequest>(Commands.OpenOrCreateWorktreeForGHPR, {
+		return executeCommand<GHPRPullRequest, void>(Commands.OpenOrCreateWorktreeForGHPR, {
 			base: {
 				repositoryCloneUrl: {
 					repositoryName: pullRequest.refs!.base.repo,

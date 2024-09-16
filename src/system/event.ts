@@ -90,7 +90,7 @@ export function promisifyDeferred<T, U>(
 			disposable.dispose();
 			return value;
 		},
-		reason => {
+		(reason: unknown) => {
 			disposable.dispose();
 			throw reason;
 		},

@@ -755,7 +755,7 @@ export class CommitDetailsWebviewProvider
 		const {
 			pr: { url },
 		} = this.pullRequestContext;
-		return executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
+		return executeCommand<OpenPullRequestOnRemoteCommandArgs, void>(Commands.OpenPullRequestOnRemote, {
 			pr: { url: url },
 			clipboard: clipboard,
 		});

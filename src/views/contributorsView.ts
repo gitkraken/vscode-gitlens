@@ -303,7 +303,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 				title: `Revealing contributor '${contributor.name}' in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findContributor(contributor, token);
 				if (node == null) return undefined;
 

@@ -15,7 +15,7 @@ declare global {
 		'gl-feature-gate-plus-state': GlFeatureGatePlusState;
 	}
 
-	interface GlobalEventHandlersEventMap {}
+	// interface GlobalEventHandlersEventMap {}
 }
 
 @customElement('gl-feature-gate-plus-state')

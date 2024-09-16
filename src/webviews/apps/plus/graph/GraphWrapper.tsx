@@ -878,7 +878,7 @@ export function GraphWrapper({
 		});
 	};
 
-	const computeSelectionContext = (active: GraphRow, rows: GraphRow[]) => {
+	const computeSelectionContext = (_active: GraphRow, rows: GraphRow[]) => {
 		if (rows.length <= 1) {
 			setSelectionContexts(undefined);
 			return;

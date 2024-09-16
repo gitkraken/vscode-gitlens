@@ -27,7 +27,7 @@ declare global {
 		'gl-feature-badge': GlFeatureBadge;
 	}
 
-	interface GlobalEventHandlersEventMap {}
+	// interface GlobalEventHandlersEventMap {}
 }
 
 @customElement('gl-feature-badge')

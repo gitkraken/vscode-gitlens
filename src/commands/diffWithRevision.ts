@@ -111,7 +111,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 				picked: gitUri.sha,
 				keyboard: {
 					keys: ['right', 'alt+right', 'ctrl+right'],
-					onDidPressKey: async (key, item) => {
+					onDidPressKey: async (_key, item) => {
 						await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 							repoPath: gitUri.repoPath,
 							lhs: {

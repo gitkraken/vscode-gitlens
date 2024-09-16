@@ -40,6 +40,7 @@ interface LogOptions<T extends (...arg: any) => any> {
 export const LogInstanceNameFn = Symbol('logInstanceNameFn');
 
 export function logName<T>(fn: (c: T, name: string) => string) {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 	return (target: Function) => {
 		(target as any)[LogInstanceNameFn] = fn;
 	};
@@ -88,7 +89,8 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 	const logFn: (message: string, ...params: any[]) => void = debug ? Logger.debug : Logger.log;
 	const logLevel = debugging ? 'debug' : 'info';
 
-	return (target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
+	return (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 		let fn: Function | undefined;
 		let fnKey: string | undefined;
 		if (typeof descriptor.value === 'function') {
@@ -190,7 +192,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 			if (singleLine || timed || exitFn != null) {
 				const start = timed ? hrtime() : undefined;
 
-				const logError = (ex: Error) => {
+				const logError = (ex: unknown) => {
 					const timing = start !== undefined ? ` [${getDurationMilliseconds(start)}ms]` : '';
 					if (singleLine) {
 						Logger.error(

@@ -122,7 +122,7 @@ export class HomeApp extends App<State> {
 		this.updateCollapsedSections(!this.state.walkthroughCollapsed);
 	}
 
-	private onSectionExpandClicked(e: MouseEvent, target: HTMLElement) {
+	private onSectionExpandClicked(_e: MouseEvent, target: HTMLElement) {
 		const section = target.dataset.sectionExpand;
 		if (section !== 'walkthrough') {
 			return;

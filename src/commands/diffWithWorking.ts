@@ -107,7 +107,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 				placeholder: 'Choose another working file to open',
 				keyboard: {
 					keys: ['right', 'alt+right', 'ctrl+right'],
-					onDidPressKey: async (key, uri) => {
+					onDidPressKey: async (_key, uri) => {
 						await findOrOpenEditor(uri, { ...args.showOptions, preserveFocus: true, preview: true });
 					},
 				},

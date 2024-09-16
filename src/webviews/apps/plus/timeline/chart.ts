@@ -306,8 +306,9 @@ export class TimelineChart implements Disposable {
 				});
 			}
 
-			return this._loading.promise;
-		} catch (ex) {
+			// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+			return await this._loading.promise;
+		} catch (_ex) {
 			debugger;
 		}
 	}
@@ -461,7 +462,7 @@ export class TimelineChart implements Disposable {
 		return config;
 	}
 
-	private getTooltipName(name: string, ratio: number, id: string, index: number) {
+	private getTooltipName(name: string, _ratio: number, id: string, index: number) {
 		if (id === 'additions' || /*id === 'changes' ||*/ id === 'deletions') return name;
 
 		const date = new Date(this._chart!.data(id)[0].values[index].x);
@@ -478,7 +479,7 @@ export class TimelineChart implements Disposable {
 		return `${commit.author}, ${formattedDate}`;
 	}
 
-	private getTooltipValue(value: unknown, ratio: number, id: string, index: number): string {
+	private getTooltipValue(value: unknown, _ratio: number, id: string, index: number): string {
 		if (id === 'additions' || /*id === 'changes' ||*/ id === 'deletions') {
 			return value === 0 ? undefined! : (value as string);
 		}

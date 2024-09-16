@@ -646,7 +646,7 @@ export async function openFileAtRevision(
 				placeholder: 'Choose a file revision to open',
 				keyboard: {
 					keys: ['right', 'alt+right', 'ctrl+right'],
-					onDidPressKey: async (key, uri) => {
+					onDidPressKey: async (_key, uri) => {
 						await findOrOpenEditor(uri, { ...opts, preserveFocus: true, preview: true });
 					},
 				},

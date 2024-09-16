@@ -50,13 +50,13 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 						  )
 						: await this.container.git.getBlameForRange(gitUri, editor.selection);
 					if (blame === undefined) {
-						return showFileNotUnderSourceControlWarningMessage('Unable to find commits');
+						return void showFileNotUnderSourceControlWarningMessage('Unable to find commits');
 					}
 
 					args.refs = [...filterMap(blame.commits.values(), c => (c.isUncommitted ? undefined : c.ref))];
 				} catch (ex) {
 					Logger.error(ex, 'ShowCommitsInViewCommand', 'getBlameForRange');
-					return showGenericErrorMessage('Unable to find commits');
+					return void showGenericErrorMessage('Unable to find commits');
 				}
 			} else {
 				if (gitUri.sha == null) return undefined;

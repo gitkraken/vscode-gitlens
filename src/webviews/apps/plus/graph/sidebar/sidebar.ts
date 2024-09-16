@@ -116,7 +116,7 @@ export class GlGraphSideBar extends LitElement {
 			const ipc = this._ipc;
 			if (ipc != null) {
 				async function fetch() {
-					const rsp = await ipc.sendRequest(GetCountsRequest, {});
+					const rsp = await ipc.sendRequest(GetCountsRequest, undefined);
 					return rsp as Counts;
 				}
 				this._counts = fetch();

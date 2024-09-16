@@ -284,7 +284,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			} else {
 				this.component.generate = undefined;
 			}
-		} catch (ex) {
+		} catch (_ex) {
 			this.component.generate = { error: { message: 'Error retrieving content' } };
 		}
 	}
@@ -366,7 +366,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			} else {
 				this.component.explain = undefined;
 			}
-		} catch (ex) {
+		} catch (_ex) {
 			this.component.explain = { error: { message: 'Error retrieving content' } };
 		}
 	}

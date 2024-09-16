@@ -398,12 +398,12 @@ export class WorkspacesService implements Disposable {
 		if (parentUri == null || cancellation?.isCancellationRequested) return undefined;
 
 		try {
-			return this.container.git.findRepositories(parentUri, {
+			return await this.container.git.findRepositories(parentUri, {
 				cancellation: cancellation,
 				depth: 1,
 				silent: true,
 			});
-		} catch (ex) {
+		} catch (_ex) {
 			return undefined;
 		}
 	}

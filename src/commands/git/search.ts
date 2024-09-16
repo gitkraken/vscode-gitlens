@@ -232,7 +232,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					ignoreFocusOut: true,
 					log: await context.resultsPromise,
 					onDidLoadMore: log => (context.resultsPromise = Promise.resolve(log)),
-					placeholder: (context, log) =>
+					placeholder: (_context, log) =>
 						log == null
 							? `No results for ${state.query}`
 							: `${pluralize('result', log.count, {
@@ -374,7 +374,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				await updateSearchQuery(item, {}, quickpick, step, state, context);
 				return false;
 			},
-			onDidClickButton: (quickpick, button) => {
+			onDidClickButton: (_quickpick, button) => {
 				if (button === matchCaseButton) {
 					state.matchCase = !state.matchCase;
 					matchCaseButton.on = state.matchCase;

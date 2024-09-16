@@ -279,7 +279,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				})} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
@@ -308,7 +308,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				})} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 

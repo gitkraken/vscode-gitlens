@@ -103,7 +103,7 @@ export type Environment = 'dev' | 'staging' | 'production';
 export class Container {
 	static #instance: Container | undefined;
 	static #proxy = new Proxy<Container>({} as Container, {
-		get: function (target, prop) {
+		get: function (_target, prop) {
 			// In case anyone has cached this instance
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 			if (Container.#instance != null) return (Container.#instance as any)[prop];

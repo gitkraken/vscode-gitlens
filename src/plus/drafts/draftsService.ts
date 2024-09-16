@@ -842,7 +842,7 @@ export class DraftService implements Disposable {
 				isArchived: options?.includeArchived != null ? options.includeArchived : true,
 			});
 			return drafts;
-		} catch (e) {
+		} catch (_ex) {
 			return [];
 		}
 	}
