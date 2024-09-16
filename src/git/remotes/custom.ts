@@ -14,6 +14,11 @@ export class CustomRemote extends RemoteProvider {
 		this.urls = urls;
 	}
 
+	protected override get issueLinkPattern(): string {
+		// TODO: if it's ok, think about passing issue link to cfg.urls or using optional
+		throw new Error('Method not implemented.');
+	}
+
 	get id(): RemoteProviderId {
 		return 'custom';
 	}

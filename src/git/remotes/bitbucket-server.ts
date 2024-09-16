@@ -16,13 +16,18 @@ export class BitbucketServerRemote extends RemoteProvider {
 		super(domain, path, protocol, name, custom);
 	}
 
+	protected override get issueLinkPattern(): string {
+		return `${this.baseUrl}/issues/<num>`;
+	}
+
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
+				...super.autolinks,
 				{
 					prefix: 'issue #',
-					url: `${this.baseUrl}/issues/<num>`,
+					url: this.issueLinkPattern,
 					title: `Open Issue #<num> on ${this.name}`,
 
 					type: 'issue',

@@ -92,6 +92,7 @@ export interface CacheableAutolinkReference extends AutolinkReference {
 	messageHtmlRegex?: RegExp;
 	messageMarkdownRegex?: RegExp;
 	messageRegex?: RegExp;
+	branchNameRegex?: RegExp;
 }
 
 export interface DynamicAutolinkReference {
@@ -155,6 +156,11 @@ export class Autolinks implements Disposable {
 		}
 	}
 
+	async getAutolinks(
+		branchName: string,
+		remote?: GitRemote,
+		options?: { isBranchName: true },
+	): Promise<Map<string, Autolink>>;
 	async getAutolinks(message: string, remote?: GitRemote): Promise<Map<string, Autolink>>;
 	async getAutolinks(
 		message: string,
@@ -169,9 +175,9 @@ export class Autolinks implements Disposable {
 		},
 	})
 	async getAutolinks(
-		message: string,
+		messageOrBranchName: string,
 		remote?: GitRemote,
-		options?: { excludeCustom?: boolean },
+		options?: { excludeCustom?: boolean; isBranchName?: boolean },
 	): Promise<Map<string, Autolink>> {
 		const refsets: [
 			ProviderReference | undefined,
@@ -212,26 +218,52 @@ export class Autolinks implements Disposable {
 
 		const autolinks = new Map<string, Autolink>();
 
+		const matchRef = (ref: RequireSome<CacheableAutolinkReference, 'messageRegex' | 'branchNameRegex'>) =>
+			options?.isBranchName
+				? ref.branchNameRegex.exec(messageOrBranchName)
+				: ref.messageRegex.exec(messageOrBranchName);
+
 		let match;
 		let num;
 		for (const [provider, refs] of refsets) {
 			for (const ref of refs) {
 				if (!isCacheable(ref)) {
 					if (isDynamic(ref)) {
-						ref.parse(message, autolinks);
+						ref.parse(messageOrBranchName, autolinks);
 					}
 					continue;
+				}
+
+				if (ref.referenceType) {
+					if (ref.referenceType !== 'branchName' && options?.isBranchName) {
+						continue;
+					}
+					if (ref.referenceType !== 'message' && !options?.isBranchName) {
+						continue;
+					}
 				}
 
 				ensureCachedRegex(ref, 'plaintext');
 
 				do {
-					match = ref.messageRegex.exec(message);
-					if (match == null) break;
+					match = matchRef(ref);
+					if (!match?.groups) break;
 
-					[, , , num] = match;
+					num = match.groups.issueKeyNumber;
+					let key = num;
+					if (autolinks.has(key)) {
+						const prevAutolink = autolinks.get(key)!;
+						if (!ref.prefix) {
+							continue;
+						} else if (!prevAutolink.prefix && ref.prefix) {
+							/** override */
+						} else {
+							// add more autolinks
+							key = ref.prefix + num;
+						}
+					}
 
-					autolinks.set(num, {
+					autolinks.set(key, {
 						provider: provider,
 						id: num,
 						prefix: ref.prefix,
@@ -615,27 +647,30 @@ function ensureCachedRegex(
 function ensureCachedRegex(
 	ref: CacheableAutolinkReference,
 	outputFormat: 'plaintext',
-): asserts ref is RequireSome<CacheableAutolinkReference, 'messageRegex'>;
+): asserts ref is RequireSome<CacheableAutolinkReference, 'messageRegex' | 'branchNameRegex'>;
 function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html' | 'markdown' | 'plaintext') {
 	// Regexes matches the ref prefix followed by a token (e.g. #1234)
 	if (outputFormat === 'markdown' && ref.messageMarkdownRegex == null) {
 		// Extra `\\\\` in `\\\\\\[` is because the markdown is escaped
 		ref.messageMarkdownRegex = new RegExp(
-			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix)))}(${
-				ref.alphanumeric ? '\\w' : '\\d'
-			}+))\\b`,
+			`(^|\\s|\\(|\\[|\\{)(?<issueKeyNumber>${escapeRegex(
+				encodeHtmlWeak(escapeMarkdown(ref.prefix)),
+			)}(?<issueKeyNumber>${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
 	} else if (outputFormat === 'html' && ref.messageHtmlRegex == null) {
 		ref.messageHtmlRegex = new RegExp(
-			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
+			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(?<issueKeyNumber>${
+				ref.alphanumeric ? '\\w' : '\\d'
+			}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
 	} else if (ref.messageRegex == null) {
 		ref.messageRegex = new RegExp(
-			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(ref.prefix)}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
+			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(ref.prefix)}(?<issueKeyNumber>${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
+		ref.branchNameRegex = new RegExp(`(^|\\-|_)(?<prefix>${ref.prefix})(?<issueKeyNumber>\\d+)`, 'gi');
 	}
 
 	return true;

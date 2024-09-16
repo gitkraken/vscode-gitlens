@@ -253,6 +253,7 @@ export interface Config {
 
 export type AnnotationsToggleMode = 'file' | 'window';
 export type AutolinkType = 'issue' | 'pullrequest';
+export type AutolinkReferenceType = 'message' | 'branchName';
 
 export interface AutolinkReference {
 	readonly prefix: string;
@@ -260,6 +261,9 @@ export interface AutolinkReference {
 	readonly title?: string;
 	readonly alphanumeric?: boolean;
 	readonly ignoreCase?: boolean;
+
+	/** used to split some autolinks logic, consider that default undefined value means that the autolink is applicable for all reference types */
+	readonly referenceType?: AutolinkReferenceType;
 
 	readonly type?: AutolinkType;
 	readonly description?: string;

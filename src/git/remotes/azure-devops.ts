@@ -56,15 +56,20 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		this.project = repoProject;
 	}
 
+	protected override get issueLinkPattern(): string {
+		const workUrl = this.baseUrl.replace(gitRegex, '/');
+		return `${workUrl}/_workitems/edit/<num>`;
+	}
+
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			// Strip off any `_git` part from the repo url
-			const workUrl = this.baseUrl.replace(gitRegex, '/');
 			this._autolinks = [
+				...super.autolinks,
 				{
 					prefix: '#',
-					url: `${workUrl}/_workitems/edit/<num>`,
+					url: this.issueLinkPattern,
 					title: `Open Work Item #<num> on ${this.name}`,
 
 					type: 'issue',

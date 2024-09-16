@@ -34,6 +34,11 @@ export class GerritRemote extends RemoteProvider {
 		super(domain, path, protocol, name, custom);
 	}
 
+	protected override get issueLinkPattern(): string {
+		// TODO: if it's ok, think about passing issue link to cfg.urls or using optional
+		throw new Error('Method not implemented.');
+	}
+
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {

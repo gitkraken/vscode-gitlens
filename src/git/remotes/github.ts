@@ -33,20 +33,25 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		return this.custom ? `${this.protocol}://${this.domain}/api/v3` : `https://api.${this.domain}`;
 	}
 
+	protected override get issueLinkPattern(): string {
+		return `${this.baseUrl}/issues/<num>`;
+	}
+
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
+				...super.autolinks,
 				{
 					prefix: '#',
-					url: `${this.baseUrl}/issues/<num>`,
+					url: this.issueLinkPattern,
 					title: `Open Issue or Pull Request #<num> on ${this.name}`,
 
 					description: `${this.name} Issue or Pull Request #<num>`,
 				},
 				{
 					prefix: 'gh-',
-					url: `${this.baseUrl}/issues/<num>`,
+					url: this.issueLinkPattern,
 					title: `Open Issue or Pull Request #<num> on ${this.name}`,
 					ignoreCase: true,
 
