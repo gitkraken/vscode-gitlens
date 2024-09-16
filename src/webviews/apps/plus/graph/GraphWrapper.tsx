@@ -1134,31 +1134,31 @@ export function GraphWrapper({
 			<header className="titlebar graph-app__header">
 				<div className="titlebar__row titlebar__row--wrap">
 					<div className="titlebar__group">
-						{repo && branchState?.provider?.url && (
+						{repo?.provider?.url && (
 							<>
 								<GlTooltip placement="bottom">
 									<a
-										href={branchState.provider.url}
+										href={repo.provider.url}
 										className="action-button"
 										style={{ marginRight: '-0.5rem' }}
-										aria-label={`Open Repository on ${branchState.provider.name}`}
+										aria-label={`Open Repository on ${repo.provider.name}`}
 									>
 										<span
 											className={
-												branchState.provider.icon === 'cloud'
+												repo.provider.icon === 'cloud'
 													? 'codicon codicon-cloud action-button__icon'
-													: `glicon glicon-provider-${branchState.provider.icon} action-button__icon`
+													: `glicon glicon-provider-${repo.provider.icon} action-button__icon`
 											}
 											aria-hidden="true"
 										></span>
 									</a>
-									<span slot="content">Open Repository on {branchState.provider.name}</span>
+									<span slot="content">Open Repository on {repo.provider.name}</span>
 								</GlTooltip>
-								{repo.isConnected !== true && (
+								{repo?.provider?.connected !== true && (
 									<GlConnect
 										type="action"
 										connected={false}
-										integration={branchState.provider.name}
+										integration={repo.provider.name}
 										connectUrl={createCommandLink('gitlens.plus.cloudIntegrations.connect', {
 											args: {
 												source: 'graph',
