@@ -4,7 +4,6 @@
 .vscode-test/**
 .vscode-test-web/**
 .yarn/**
-dist/webviews/*.css
 docs/**
 emoji/**
 images/docs/sponsors/**
