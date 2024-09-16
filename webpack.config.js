@@ -323,7 +323,7 @@ function getWebviewsConfig(mode, env) {
 		getHtmlPlugin('account', true, mode, env),
 		getHtmlPlugin('patchDetails', true, mode, env),
 		getCspHtmlPlugin(mode, env),
-		new InlineChunkHtmlPlugin(HtmlPlugin, mode === 'production' ? ['\\.css$'] : []),
+		// new InlineChunkHtmlPlugin(HtmlPlugin, mode === 'production' ? ['\\.css$'] : []),
 		new CopyPlugin({
 			patterns: [
 				{
