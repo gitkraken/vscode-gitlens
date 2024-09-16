@@ -52,8 +52,8 @@ async function generateThirdpartyNotices(packages) {
 
 		const index = key.lastIndexOf('@');
 		if (index !== -1) {
-			name = key.substr(0, index);
-			version = key.substr(index + 1);
+			name = key.substring(0, index);
+			version = key.substring(index + 1);
 		} else {
 			name = key;
 		}

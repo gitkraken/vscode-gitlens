@@ -119,11 +119,11 @@ export function shortenRevision(
 		const [, rev, suffix] = match;
 
 		if (suffix != null) {
-			return `${rev.substr(0, len)}${suffix}`;
+			return `${rev.substring(0, len)}${suffix}`;
 		}
 	}
 
-	return ref.substr(0, len);
+	return ref.substring(0, len);
 }
 
 export interface GitBranchReference {
@@ -395,7 +395,7 @@ export function getReferenceLabel(
 					if (options.expand && ref.message) {
 						message = `${ref.number != null ? `#${ref.number}: ` : ''}${
 							ref.message.length > 20
-								? `${ref.message.substring(0, 20).trimRight()}${GlyphChars.Ellipsis}`
+								? `${ref.message.substring(0, 20).trimEnd()}${GlyphChars.Ellipsis}`
 								: ref.message
 						}`;
 					}
@@ -412,13 +412,13 @@ export function getReferenceLabel(
 					if (options.expand && ref.message) {
 						message =
 							ref.message.length > 20
-								? ` (${ref.message.substring(0, 20).trimRight()}${GlyphChars.Ellipsis})`
+								? ` (${ref.message.substring(0, 20).trimEnd()}${GlyphChars.Ellipsis})`
 								: ` (${ref.message})`;
 					}
 
 					let prefix;
 					if (options.expand && options.label && isShaParent(ref.ref)) {
-						refName = ref.name.endsWith('^') ? ref.name.substr(0, ref.name.length - 1) : ref.name;
+						refName = ref.name.endsWith('^') ? ref.name.substring(0, ref.name.length - 1) : ref.name;
 						if (options?.quoted) {
 							refName = `'${refName}'`;
 						}

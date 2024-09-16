@@ -47,11 +47,11 @@ export class GitReflogRecord {
 		if (this._selector == null || this._selector.length === 0) return '';
 
 		if (this._selector.startsWith('refs/heads')) {
-			return this._selector.substr(11);
+			return this._selector.substring(11);
 		}
 
 		if (this._selector.startsWith('refs/remotes')) {
-			return this._selector.substr(13);
+			return this._selector.substring(13);
 		}
 
 		return this._selector;

@@ -3010,7 +3010,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 					[, key, value] = match;
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-					user[key as 'name' | 'email'] = ` ${value}`.substr(1);
+					user[key as 'name' | 'email'] = ` ${value}`.substring(1);
 				} while (true);
 			} else {
 				user.name =
@@ -3151,7 +3151,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				if (match == null) return undefined;
 
 				const [, branch] = match;
-				return `${remote}/${branch.substr('refs/heads/'.length)}`;
+				return `${remote}/${branch.substring('refs/heads/'.length)}`;
 			} catch {}
 		}
 
@@ -4281,7 +4281,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				if (branch.startsWith('refs/heads/')) {
-					branch = branch.substr(11).trim();
+					branch = branch.substring(11).trim();
 				}
 
 				const [branchTipsResult, tagTipsResult] = await Promise.allSettled([

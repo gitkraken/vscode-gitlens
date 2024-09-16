@@ -540,7 +540,7 @@ class RebaseEditor extends App<State> {
 		const $sha = document.createElement('a');
 		$sha.classList.add('entry-sha', 'icon--commit');
 		$sha.href = state.commands.commit.replace(this.commitTokenRegex, commit?.sha ?? entry.sha);
-		$sha.textContent = entry.sha.substr(0, 7);
+		$sha.textContent = entry.sha.substring(0, 7);
 		$content.appendChild($sha);
 
 		return [$entry, tabIndex];

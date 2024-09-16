@@ -85,7 +85,7 @@ export class GiteaRemote extends RemoteProvider {
 			if (index !== -1) {
 				const sha = path.substring(offset, index);
 				if (isSha(sha)) {
-					const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
+					const uri = repository.toAbsoluteUri(path.substring(index), { validate: options?.validate });
 					if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 				}
 			}
@@ -99,7 +99,7 @@ export class GiteaRemote extends RemoteProvider {
 			index = offset;
 			do {
 				branch = path.substring(offset, index);
-				possibleBranches.set(branch, path.substr(index));
+				possibleBranches.set(branch, path.substring(index));
 
 				index = path.indexOf('/', index + 1);
 			} while (index < path.length && index !== -1);

@@ -89,7 +89,7 @@ export function parseGitWorktrees(
 				break;
 			case 'branch':
 				// Strip off refs/heads/
-				entry.branch = value.substr(11);
+				entry.branch = value.substring(11);
 				break;
 			case 'detached':
 				entry.detached = true;

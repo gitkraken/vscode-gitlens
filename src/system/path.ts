@@ -103,7 +103,7 @@ export function isChild(pathOrUri: string | Uri, base: string | Uri): boolean {
 		return (
 			isDescendant(pathOrUri, base) &&
 			(typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.path)
-				.substr(base.length + (base.charCodeAt(base.length - 1) === slash ? 0 : 1))
+				.substring(base.length + (base.charCodeAt(base.length - 1) === slash ? 0 : 1))
 				.split('/').length === 1
 		);
 	}
@@ -111,7 +111,7 @@ export function isChild(pathOrUri: string | Uri, base: string | Uri): boolean {
 	return (
 		isDescendant(pathOrUri, base) &&
 		(typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.path)
-			.substr(base.path.length + (base.path.charCodeAt(base.path.length - 1) === slash ? 0 : 1))
+			.substring(base.path.length + (base.path.charCodeAt(base.path.length - 1) === slash ? 0 : 1))
 			.split('/').length === 1
 	);
 }

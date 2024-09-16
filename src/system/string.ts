@@ -544,7 +544,7 @@ export function splitLast(s: string, splitter: string) {
 	const index = s.lastIndexOf(splitter);
 	if (index === -1) return [s];
 
-	return [s.substr(index), s.substring(0, index - 1)];
+	return [s.substring(index), s.substring(0, index - 1)];
 }
 
 export function splitSingle(s: string, splitter: string) {

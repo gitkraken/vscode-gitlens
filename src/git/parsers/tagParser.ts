@@ -37,16 +37,16 @@ export function parseGitTags(data: string, repoPath: string): GitTag[] {
 		[, name, ref1, ref2, date, commitDate, message] = match;
 
 		// Strip off refs/tags/
-		name = name.substr(10);
+		name = name.substring(10);
 
 		tags.push(
 			new GitTag(
 				repoPath,
 				name,
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				` ${ref1 || ref2}`.substr(1),
+				` ${ref1 || ref2}`.substring(1),
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				` ${message}`.substr(1),
+				` ${message}`.substring(1),
 				date ? new Date(date) : undefined,
 				commitDate == null || commitDate.length === 0 ? undefined : new Date(commitDate),
 			),

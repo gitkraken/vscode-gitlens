@@ -243,7 +243,7 @@ export class VslsHostService implements Disposable {
 			} else {
 				sharedUri = sharedUri.with({
 					authority: '',
-					path: sharedPath.substr(0, sharedPath.length - localPath.length),
+					path: sharedPath.substring(0, sharedPath.length - localPath.length),
 				});
 			}
 		} else if (!sharedPath.startsWith('/~')) {
@@ -296,7 +296,7 @@ export class VslsHostService implements Disposable {
 			if (typeof arg === 'string') {
 				// If we are the "root" workspace, then we need to remove the leading slash off the path (otherwise it will not be treated as a relative path)
 				if (isRootWorkspace && leadingSlashRegex.test(arg[0])) {
-					args.splice(i, 1, arg.substr(1));
+					args.splice(i, 1, arg.substring(1));
 				}
 
 				if (this._sharedPathsRegex?.test(arg)) {
@@ -325,7 +325,7 @@ export class VslsHostService implements Disposable {
 		let localPath = localUri.path;
 		const sharedPath = sharedUri.path;
 		if (localPath.endsWith(sharedPath)) {
-			localPath = localPath.substr(0, localPath.length - sharedPath.length);
+			localPath = localPath.substring(0, localPath.length - sharedPath.length);
 		}
 
 		if (localPath.charCodeAt(localPath.length - 1) === slash) {

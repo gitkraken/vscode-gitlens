@@ -392,7 +392,7 @@ export class SettingsApp extends App<State> {
 		const token = `\${${element.dataset.token}}`;
 		let selectionStart = input.selectionStart;
 		if (selectionStart != null) {
-			input.value = `${input.value.substring(0, selectionStart)}${token}${input.value.substr(
+			input.value = `${input.value.substring(0, selectionStart)}${token}${input.value.substring(
 				input.selectionEnd ?? selectionStart,
 			)}`;
 
@@ -774,7 +774,7 @@ export class SettingsApp extends App<State> {
 		const href = element.getAttribute('href');
 		if (href == null) return;
 
-		const anchor = href.substr(1);
+		const anchor = href.substring(1);
 		this.scrollToAnchor(anchor, 'smooth');
 
 		e.stopPropagation();

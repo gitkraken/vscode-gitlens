@@ -217,7 +217,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		if (index !== -1) {
 			const sha = path.substring(1, index);
 			if (isSha(sha)) {
-				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
+				const uri = repository.toAbsoluteUri(path.substring(index), { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 			}
 		}
@@ -230,7 +230,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 			index = path.lastIndexOf('/', index - 1);
 			branch = path.substring(1, index);
 
-			possibleBranches.set(branch, path.substr(index));
+			possibleBranches.set(branch, path.substring(index));
 		} while (index > 0);
 
 		if (possibleBranches.size !== 0) {
