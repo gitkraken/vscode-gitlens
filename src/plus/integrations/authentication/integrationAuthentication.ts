@@ -100,7 +100,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 			if (sessionJSON) {
 				storedSession = JSON.parse(sessionJSON);
 			}
-		} catch (ex) {
+		} catch (_ex) {
 			try {
 				await this.deleteSecret(key);
 			} catch {}

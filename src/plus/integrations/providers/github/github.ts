@@ -2485,7 +2485,7 @@ export class GitHubApi implements Disposable {
 			const rsp = await this.request(provider, token, 'GET /meta', options, scope);
 			const v = (rsp?.data as unknown as { installed_version: string | null | undefined })?.installed_version;
 			version = v ? fromString(v) : null;
-		} catch (ex) {
+		} catch (_ex) {
 			debugger;
 			version = null;
 		}

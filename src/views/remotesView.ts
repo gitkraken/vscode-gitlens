@@ -295,7 +295,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				})} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
@@ -324,7 +324,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				})} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
@@ -350,7 +350,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				title: `Revealing remote '${remote.name}' in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findRemote(remote, token);
 				if (node == null) return undefined;
 

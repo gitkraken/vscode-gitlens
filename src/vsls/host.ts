@@ -157,7 +157,7 @@ export class VslsHostService implements Disposable {
 		if (typeof data === 'string') {
 			// Convert local paths to shared paths
 			if (this._localPathsRegex != null && data.length > 0) {
-				data = data.replace(this._localPathsRegex, (match, local: string) => {
+				data = data.replace(this._localPathsRegex, (_match, local: string) => {
 					const shared = this._localToSharedPaths.get(normalizePath(local));
 					return shared != null ? shared : local;
 				});
@@ -187,7 +187,7 @@ export class VslsHostService implements Disposable {
 		if (this._localPathsRegex != null && data.length > 0) {
 			// Convert local paths to shared paths
 			data = data.map(d =>
-				d.replace(this._localPathsRegex!, (match, local: string) => {
+				d.replace(this._localPathsRegex!, (_match, local: string) => {
 					const shared = this._localToSharedPaths.get(normalizePath(local));
 					return shared != null ? shared : local;
 				}),
@@ -261,7 +261,7 @@ export class VslsHostService implements Disposable {
 		if (cwd != null && cwd.length > 0 && this._sharedToLocalPaths != null) {
 			// This is all so ugly, but basically we are converting shared paths to local paths
 			if (this._sharedPathsRegex?.test(cwd)) {
-				cwd = normalizePath(cwd).replace(this._sharedPathsRegex, (match, shared: string) => {
+				cwd = normalizePath(cwd).replace(this._sharedPathsRegex, (_match, shared: string) => {
 					if (!isRootWorkspace) {
 						isRootWorkspace = shared === '/~0';
 					}
@@ -303,7 +303,7 @@ export class VslsHostService implements Disposable {
 					args.splice(
 						i,
 						1,
-						normalizePath(arg).replace(this._sharedPathsRegex, (match, shared: string) => {
+						normalizePath(arg).replace(this._sharedPathsRegex, (_match, shared: string) => {
 							const local = this._sharedToLocalPaths.get(shared);
 							return local != null ? local : shared;
 						}),

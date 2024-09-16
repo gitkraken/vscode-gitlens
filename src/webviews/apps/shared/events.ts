@@ -74,7 +74,7 @@ export class Emitter<T> {
 					} else {
 						listener[0].call(listener[1], event);
 					}
-				} catch (e) {
+				} catch (_ex) {
 					debugger;
 				}
 			}

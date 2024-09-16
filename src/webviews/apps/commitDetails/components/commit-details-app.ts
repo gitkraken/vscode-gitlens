@@ -604,7 +604,7 @@ export class GlCommitDetailsApp extends LitElement {
 			} else {
 				this.explain = undefined;
 			}
-		} catch (ex) {
+		} catch (_ex) {
 			this.explain = { error: { message: 'Error retrieving content' } };
 		}
 	}
@@ -632,7 +632,7 @@ export class GlCommitDetailsApp extends LitElement {
 			} else {
 				this.generate = undefined;
 			}
-		} catch (ex) {
+		} catch (_ex) {
 			this.generate = { error: { message: 'Error retrieving content' } };
 		}
 		this.requestUpdate('generate');

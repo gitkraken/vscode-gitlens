@@ -179,43 +179,6 @@
 				"newlines-between": "never"
 			}
 		],
-		"@typescript-eslint/ban-types": [
-			"error",
-			{
-				"extendDefaults": false,
-				"types": {
-					"String": {
-						"message": "Use string instead",
-						"fixWith": "string"
-					},
-					"Boolean": {
-						"message": "Use boolean instead",
-						"fixWith": "boolean"
-					},
-					"Number": {
-						"message": "Use number instead",
-						"fixWith": "number"
-					},
-					"Symbol": {
-						"message": "Use symbol instead",
-						"fixWith": "symbol"
-					},
-					// "Function": {
-					// 	"message": "The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape."
-					// },
-					"Object": {
-						"message": "The `Object` type actually means \"any non-nullish value\", so it is marginally better than `unknown`.\n- If you want a type meaning \"any object\", you probably want `Record<string, unknown>` instead.\n- If you want a type meaning \"any value\", you probably want `unknown` instead."
-					},
-					"{}": {
-						"message": "`{}` actually means \"any non-nullish value\".\n- If you want a type meaning \"any object\", you probably want `object` or `Record<string, unknown>` instead.\n- If you want a type meaning \"any value\", you probably want `unknown` instead.",
-						"fixWith": "object"
-					}
-					// "object": {
-					// 	"message": "The `object` type is currently hard to use ([see this issue](https://github.com/microsoft/TypeScript/issues/21732)).\nConsider using `Record<string, unknown>` instead, as it allows you to more easily inspect and use the keys."
-					// }
-				}
-			}
-		],
 		"@typescript-eslint/consistent-type-assertions": [
 			"error",
 			{
@@ -274,6 +237,8 @@
 			"error",
 			{ "ignoreArrowShorthand": true, "ignoreVoidOperator": true }
 		],
+		"@typescript-eslint/no-duplicate-type-constituents": "off", // Can't control `undefined` so its too noisy
+		"@typescript-eslint/no-empty-object-type": ["error", { "allowInterfaces": "with-single-extends" }],
 		"@typescript-eslint/no-explicit-any": "off",
 		"@typescript-eslint/no-inferrable-types": ["warn", { "ignoreParameters": true, "ignoreProperties": true }],
 		"@typescript-eslint/no-invalid-void-type": "off", // Seems to error on `void` return types
@@ -282,6 +247,7 @@
 		"@typescript-eslint/no-redundant-type-constituents": "off",
 		"@typescript-eslint/no-unnecessary-condition": "off",
 		"@typescript-eslint/no-unnecessary-boolean-literal-compare": "off",
+		"@typescript-eslint/no-unnecessary-type-parameters": "off", // https://github.com/typescript-eslint/typescript-eslint/issues/9705
 		"@typescript-eslint/no-unsafe-argument": "off",
 		"@typescript-eslint/no-unsafe-assignment": "off",
 		"@typescript-eslint/no-unsafe-call": "off",
@@ -291,10 +257,13 @@
 		"@typescript-eslint/no-unused-vars": [
 			"warn",
 			{
-				"args": "after-used",
+				"args": "all",
 				"argsIgnorePattern": "^_",
-				"ignoreRestSiblings": true,
-				"varsIgnorePattern": "^_$"
+				"caughtErrors": "all",
+				"caughtErrorsIgnorePattern": "^_",
+				"destructuredArrayIgnorePattern": "^_",
+				"varsIgnorePattern": "^_",
+				"ignoreRestSiblings": true
 			}
 		],
 		"@typescript-eslint/no-use-before-define": ["error", { "functions": false, "classes": false }],

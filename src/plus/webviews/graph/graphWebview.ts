@@ -3010,7 +3010,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			sha = await this.container.git.resolveReference(ref.repoPath, sha, undefined, { force: true });
 		}
 
-		return executeCommand<CopyShaToClipboardCommandArgs>(Commands.CopyShaToClipboard, {
+		return executeCommand<CopyShaToClipboardCommandArgs, void>(Commands.CopyShaToClipboard, {
 			sha: sha,
 		});
 	}
@@ -3097,7 +3097,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		const { title, description } = splitGitCommitMessage(ref.message);
-		return executeCommand<CreatePatchCommandArgs>(Commands.CreateCloudPatch, {
+		return executeCommand<CreatePatchCommandArgs, void>(Commands.CreateCloudPatch, {
 			to: ref.ref,
 			repoPath: ref.repoPath,
 			title: title,

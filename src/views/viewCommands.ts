@@ -1193,7 +1193,7 @@ export class ViewCommands {
 			rhsUri = await this.container.git.getWorkingUri(repoPath, lhsUri);
 		}
 
-		return executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+		return executeCommand<DiffWithCommandArgs, void>(Commands.DiffWith, {
 			repoPath: repoPath,
 			lhs: {
 				sha: lhsRef,

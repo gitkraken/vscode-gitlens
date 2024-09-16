@@ -214,7 +214,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 				})} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findStash(stash, token);
 				if (node == null) return undefined;
 

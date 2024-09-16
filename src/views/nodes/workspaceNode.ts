@@ -83,7 +83,7 @@ export class WorkspaceNode extends SubscribeableViewNode<
 						),
 					);
 				}
-			} catch (ex) {
+			} catch (_ex) {
 				this.children = undefined;
 				return [new MessageNode(this.view, this, 'Failed to load repositories')];
 			}

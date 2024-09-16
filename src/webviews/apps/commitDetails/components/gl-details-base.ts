@@ -211,7 +211,7 @@ export class GlDetailsBase extends LitElement {
 	}
 
 	protected createFileTreeModel(
-		mode: Mode,
+		_mode: Mode,
 		files: Files,
 		isTree = false,
 		compact = true,

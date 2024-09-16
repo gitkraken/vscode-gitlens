@@ -1281,7 +1281,7 @@ export class PatchDetailsWebviewProvider
 			);
 
 			this._context.draftUserState = { users: users, selections: userSelections };
-		} catch (ex) {
+		} catch (_ex) {
 			debugger;
 		}
 	}

@@ -140,7 +140,7 @@ export abstract class IntegrationBase<
 	async connect(source: Sources): Promise<boolean> {
 		try {
 			return Boolean(await this.ensureSession({ createIfNeeded: true, source: source }));
-		} catch (ex) {
+		} catch (_ex) {
 			return false;
 		}
 	}
@@ -1178,7 +1178,7 @@ export abstract class HostingIntegration<
 		}
 
 		try {
-			return api.getPullRequestsForRepos(providerId, reposOrRepoIds, {
+			return await api.getPullRequestsForRepos(providerId, reposOrRepoIds, {
 				...getPullRequestsOptions,
 				cursor: options?.cursor,
 				baseUrl: options?.customUrl,

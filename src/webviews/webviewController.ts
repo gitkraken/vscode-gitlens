@@ -567,7 +567,7 @@ export class WebviewController<
 					clearTimeout(timeout);
 					return s;
 				},
-				ex => {
+				(ex: unknown) => {
 					clearTimeout(timeout);
 					Logger.error(ex, scope);
 					debugger;

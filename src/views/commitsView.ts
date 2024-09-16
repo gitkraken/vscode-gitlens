@@ -382,7 +382,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 				})} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 

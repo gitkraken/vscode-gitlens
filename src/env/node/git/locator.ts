@@ -72,16 +72,16 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 async function findGitDarwin(): Promise<GitLocation> {
 	try {
 		const path = (await run<string>('which', ['git'], 'utf8')).trim();
-		if (path !== '/usr/bin/git') return findSpecificGit(path);
+		if (path !== '/usr/bin/git') return await findSpecificGit(path);
 
 		try {
 			await run<string>('xcode-select', ['-p'], 'utf8');
-			return findSpecificGit(path);
+			return await findSpecificGit(path);
 		} catch (ex) {
 			if (ex.code === 2) {
-				return Promise.reject(new UnableToFindGitError(ex));
+				return await Promise.reject(new UnableToFindGitError(ex));
 			}
-			return findSpecificGit(path);
+			return await findSpecificGit(path);
 		}
 	} catch (ex) {
 		return Promise.reject(
@@ -114,7 +114,7 @@ export async function findGitPath(
 		}
 
 		try {
-			return any(...paths.map(p => findSpecificGit(p)));
+			return await any(...paths.map(p => findSpecificGit(p)));
 		} catch (ex) {
 			throw new UnableToFindGitError(ex);
 		}
@@ -134,7 +134,7 @@ export async function findGitPath(
 				case 'win32':
 					return await findGitWin32();
 				default:
-					return Promise.reject(new UnableToFindGitError());
+					return await Promise.reject(new UnableToFindGitError());
 			}
 		} catch (ex) {
 			return Promise.reject(

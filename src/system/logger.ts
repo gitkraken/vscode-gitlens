@@ -292,6 +292,7 @@ function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 	}
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 export function getLoggableName(instance: Function | object) {
 	let ctor;
 	if (typeof instance === 'function') {

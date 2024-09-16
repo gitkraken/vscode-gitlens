@@ -10,7 +10,7 @@ declare global {
 		'gl-feature-gate': GlFeatureGate;
 	}
 
-	interface GlobalEventHandlersEventMap {}
+	// interface GlobalEventHandlersEventMap {}
 }
 
 @customElement('gl-feature-gate')

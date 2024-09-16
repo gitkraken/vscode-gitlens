@@ -254,7 +254,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				title: `Revealing worktree '${worktree.name}' in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findWorktree(worktree, token);
 				if (node == null) return undefined;
 

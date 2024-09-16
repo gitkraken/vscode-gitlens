@@ -1,6 +1,7 @@
 import { Uri } from 'vscode';
 import type { Branded } from './brand';
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 export type Serialized<T> = T extends Function
 	? never
 	: T extends Date

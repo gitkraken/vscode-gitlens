@@ -3364,7 +3364,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				};
 			}
 
-			return searchForCommitsCore.call(this, options?.limit);
+			return await searchForCommitsCore.call(this, options?.limit);
 		} catch (ex) {
 			if (ex instanceof GitSearchError) {
 				throw ex;
@@ -3736,7 +3736,7 @@ async function ensureProviderLoaded<T extends (uri: Uri) => any>(
 					await ensuringProvider;
 					retrying = true;
 					continue;
-				} catch (ex) {
+				} catch (_ex) {
 					debugger;
 				}
 			}

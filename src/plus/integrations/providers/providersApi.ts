@@ -339,7 +339,7 @@ export class ProvidersApi {
 	}
 
 	async getPagedResult<T>(
-		provider: ProviderInfo,
+		_provider: ProviderInfo,
 		args: any,
 		providerFn:
 			| ((
@@ -517,7 +517,7 @@ export class ProvidersApi {
 		const azureToken = options?.isPAT ? token : this.getAzurePATForOAuthToken(token);
 
 		try {
-			return this.getPagedResult<ProviderAzureProject>(
+			return await this.getPagedResult<ProviderAzureProject>(
 				provider,
 				{ namespace: namespace, ...options },
 				provider.getAzureProjectsForResourceFn,

@@ -155,7 +155,7 @@ export class GlGraphHover extends GlElement {
 		}
 	}
 
-	onRowUnhovered(row: GraphRow, relatedTarget: EventTarget | null) {
+	onRowUnhovered(_row: GraphRow, relatedTarget: EventTarget | null) {
 		this.recalculated = false;
 		clearTimeout(this.unhoverTimer);
 

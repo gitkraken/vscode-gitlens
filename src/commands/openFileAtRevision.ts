@@ -192,7 +192,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						picked: gitUri.sha,
 						keyboard: {
 							keys: ['right', 'alt+right', 'ctrl+right'],
-							onDidPressKey: async (key, item) => {
+							onDidPressKey: async (_key, item) => {
 								await openFileAtRevision(item.item.file!, item.item, {
 									annotationType: args.annotationType,
 									line: args.line,

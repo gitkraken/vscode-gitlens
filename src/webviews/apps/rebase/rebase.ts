@@ -104,6 +104,7 @@ class RebaseEditor extends App<State> {
 			onMove: e => !e.related.classList.contains('entry--base'),
 		});
 
+		// eslint-disable-next-line @typescript-eslint/no-deprecated
 		if (window.navigator.platform.startsWith('Mac')) {
 			let $shortcut = document.querySelector<HTMLSpanElement>('[data-action="start"] .shortcut')!;
 			$shortcut.textContent = 'Cmd+Enter';
@@ -231,9 +232,9 @@ class RebaseEditor extends App<State> {
 					}
 				}
 			}),
-			DOM.on('li[data-sha]', 'focus', (e, target: HTMLLIElement) => this.onSelectionChanged(target.dataset.sha)),
-			DOM.on('select[data-sha]', 'input', (e, target: HTMLSelectElement) => this.onSelectChanged(target)),
-			DOM.on('input[data-action="reorder"]', 'input', (e, target: HTMLInputElement) =>
+			DOM.on('li[data-sha]', 'focus', (_e, target: HTMLLIElement) => this.onSelectionChanged(target.dataset.sha)),
+			DOM.on('select[data-sha]', 'input', (_e, target: HTMLSelectElement) => this.onSelectChanged(target)),
+			DOM.on('input[data-action="reorder"]', 'input', (_e, target: HTMLInputElement) =>
 				this.onOrderChanged(target),
 			),
 		);

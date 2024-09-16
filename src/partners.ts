@@ -43,7 +43,7 @@ export async function installExtension<T>(
 			tokenSource.cancel();
 		}, timeout);
 
-		return extension;
+		return await extension;
 	} catch {
 		tokenSource.cancel();
 		return undefined;

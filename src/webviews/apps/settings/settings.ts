@@ -90,28 +90,28 @@ export class SettingsApp extends App<State> {
 		const disposables = super.onBind?.() ?? [];
 
 		disposables.push(
-			DOM.on('input[type=checkbox][data-setting]', 'change', (e, target: HTMLInputElement) =>
+			DOM.on('input[type=checkbox][data-setting]', 'change', (_e, target: HTMLInputElement) =>
 				this.onInputChecked(target),
 			),
 			DOM.on(
 				'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
 				'blur',
-				(e, target: HTMLInputElement) => this.onInputBlurred(target),
+				(_e, target: HTMLInputElement) => this.onInputBlurred(target),
 			),
 			DOM.on(
 				'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
 				'focus',
-				(e, target: HTMLInputElement) => this.onInputFocused(target),
+				(_e, target: HTMLInputElement) => this.onInputFocused(target),
 			),
 			DOM.on(
 				'input[type=text][data-setting][data-setting-preview], input[type=number][data-setting][data-setting-preview]',
 				'input',
-				(e, target: HTMLInputElement) => this.onInputChanged(target),
+				(_e, target: HTMLInputElement) => this.onInputChanged(target),
 			),
-			DOM.on('button[data-setting-clear]', 'click', (e, target: HTMLButtonElement) =>
+			DOM.on('button[data-setting-clear]', 'click', (_e, target: HTMLButtonElement) =>
 				this.onButtonClicked(target),
 			),
-			DOM.on('select[data-setting]', 'change', (e, target: HTMLSelectElement) => this.onInputSelected(target)),
+			DOM.on('select[data-setting]', 'change', (_e, target: HTMLSelectElement) => this.onInputSelected(target)),
 			DOM.on('.token[data-token]', 'mousedown', (e, target: HTMLElement) => this.onTokenMouseDown(target, e)),
 			DOM.on('.section--collapsible>.section__header', 'click', (e, target: HTMLInputElement) =>
 				this.onSectionHeaderClicked(target, e),

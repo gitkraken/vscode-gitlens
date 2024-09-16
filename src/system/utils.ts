@@ -218,7 +218,7 @@ export async function openEditor(
 		}
 
 		const document = await workspace.openTextDocument(uri);
-		return window.showTextDocument(document, {
+		return await window.showTextDocument(document, {
 			preserveFocus: false,
 			preview: true,
 			viewColumn: ViewColumn.Active,

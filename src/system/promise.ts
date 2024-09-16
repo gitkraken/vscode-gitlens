@@ -12,8 +12,12 @@ export function any<T>(...promises: Promise<T>[]): Promise<T> {
 		};
 
 		let errors: Error[];
-		const onRejected = (ex: Error) => {
+		const onRejected = (ex: unknown) => {
 			if (settled) return;
+			if (!(ex instanceof Error)) {
+				debugger;
+				return;
+			}
 
 			if (errors == null) {
 				errors = [ex];
@@ -43,8 +47,8 @@ export async function* asSettled<T>(promises: Promise<T>[]): AsyncIterable<Promi
 							({ index: i, value: v, status: 'fulfilled' }) as unknown as PromiseFulfilledResult<T> & {
 								index: number;
 							},
-						e =>
-							({ index: i, reason: e, status: 'rejected' }) as unknown as PromiseRejectedResult & {
+						(ex: unknown) =>
+							({ index: i, reason: ex, status: 'rejected' }) as unknown as PromiseRejectedResult & {
 								index: number;
 							},
 					),
@@ -124,7 +128,7 @@ export function cancellable<T>(
 
 				resolve(promise);
 			},
-			ex => {
+			(ex: unknown) => {
 				fulfilled = true;
 				disposeCancellation?.dispose();
 				disposeTimeout?.dispose();

@@ -23,6 +23,7 @@ type Observer = {
 	afterFirstUpdate?: boolean;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 const observersForClass = new WeakMap<Function, Observer[]>();
 export function observe<T extends GlElement>(keys: keyof T | (keyof T)[], options?: { afterFirstUpdate?: boolean }) {
 	return function (target: T, _propertyKey: string, descriptor: PropertyDescriptor) {
