@@ -64,7 +64,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 
 		const index = message.indexOf('Co-authored-by: ');
 		if (index !== -1) {
-			message = message.substring(0, index - 1).trimRight();
+			message = message.substring(0, index - 1).trimEnd();
 		}
 
 		if (state.contributors != null && !Array.isArray(state.contributors)) {

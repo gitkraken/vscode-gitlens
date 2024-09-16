@@ -306,7 +306,7 @@ export function getLoggableName(instance: Function | object) {
 
 	// Strip webpack module name (since I never name classes with an _)
 	const index = name.indexOf('_');
-	name = index === -1 ? name : name.substr(index + 1);
+	name = index === -1 ? name : name.substring(index + 1);
 
 	if (ctor?.[LogInstanceNameFn] != null) {
 		name = ctor[LogInstanceNameFn](instance, name);

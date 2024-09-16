@@ -1676,7 +1676,7 @@ export class Git {
 
 				try {
 					const data = await this.symbolic_ref(repoPath, 'refs/remotes/origin/HEAD');
-					if (data != null) return [data.trim().substr('origin/'.length), undefined];
+					if (data != null) return [data.trim().substring('origin/'.length), undefined];
 				} catch (ex) {
 					if (/is not a symbolic ref/.test(ex.stderr)) {
 						try {
@@ -1685,7 +1685,7 @@ export class Git {
 								const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
 								if (match != null) {
 									const [, branch] = match;
-									return [branch.substr('refs/heads/'.length), undefined];
+									return [branch.substring('refs/heads/'.length), undefined];
 								}
 							}
 						} catch {}

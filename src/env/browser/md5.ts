@@ -203,7 +203,7 @@ function hexToBinary(hex: string) {
 	const length = hex.length;
 
 	for (let x = 0; x < length - 1; x += 2) {
-		bytes.push(parseInt(hex.substr(x, 2), 16));
+		bytes.push(parseInt(hex.substring(x, x + 2), 16));
 	}
 
 	return String.fromCharCode.apply(String, bytes);

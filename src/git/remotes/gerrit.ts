@@ -104,14 +104,14 @@ export class GerritRemote extends RemoteProvider {
 		if (index !== -1) {
 			const sha = path.substring(1, index);
 			if (isSha(sha) || sha == 'HEAD') {
-				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
+				const uri = repository.toAbsoluteUri(path.substring(index), { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine };
 			}
 		}
 
 		// Check for a link with branch (and deal with branch names with /)
 		if (path.startsWith('/refs/heads/')) {
-			const branchPath = path.substr('/refs/heads/'.length);
+			const branchPath = path.substring('/refs/heads/'.length);
 
 			let branch;
 			const possibleBranches = new Map<string, string>();
@@ -120,7 +120,7 @@ export class GerritRemote extends RemoteProvider {
 				index = branchPath.lastIndexOf('/', index - 1);
 				branch = branchPath.substring(1, index);
 
-				possibleBranches.set(branch, branchPath.substr(index));
+				possibleBranches.set(branch, branchPath.substring(index));
 			} while (index > 0);
 
 			if (possibleBranches.size !== 0) {
@@ -141,7 +141,7 @@ export class GerritRemote extends RemoteProvider {
 
 		// Check for a link with tag (and deal with tag names with /)
 		if (path.startsWith('/refs/tags/')) {
-			const tagPath = path.substr('/refs/tags/'.length);
+			const tagPath = path.substring('/refs/tags/'.length);
 
 			let tag;
 			const possibleTags = new Map<string, string>();
@@ -150,7 +150,7 @@ export class GerritRemote extends RemoteProvider {
 				index = tagPath.lastIndexOf('/', index - 1);
 				tag = tagPath.substring(1, index);
 
-				possibleTags.set(tag, tagPath.substr(index));
+				possibleTags.set(tag, tagPath.substring(index));
 			} while (index > 0);
 
 			if (possibleTags.size !== 0) {

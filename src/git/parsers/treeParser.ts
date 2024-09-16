@@ -25,12 +25,12 @@ export function parseGitTree(data: string | undefined, ref: string): GitTreeEntr
 		trees.push({
 			ref: ref,
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			oid: oid == null || oid.length === 0 ? '' : ` ${oid}`.substr(1),
+			oid: oid == null || oid.length === 0 ? '' : ` ${oid}`.substring(1),
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			path: filePath == null || filePath.length === 0 ? '' : ` ${filePath}`.substr(1),
+			path: filePath == null || filePath.length === 0 ? '' : ` ${filePath}`.substring(1),
 			size: Number(size) || 0,
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			type: (type == null || type.length === 0 ? '' : ` ${type}`.substr(1)) as 'blob' | 'tree',
+			type: (type == null || type.length === 0 ? '' : ` ${type}`.substring(1)) as 'blob' | 'tree',
 		});
 	} while (true);
 
@@ -59,11 +59,11 @@ export function parseGitLsFiles(data: string | undefined): GitLsFilesEntry[] {
 
 		files.push({
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			mode: mode == null || mode.length === 0 ? '' : ` ${mode}`.substr(1),
+			mode: mode == null || mode.length === 0 ? '' : ` ${mode}`.substring(1),
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			oid: oid == null || oid.length === 0 ? '' : ` ${oid}`.substr(1),
+			oid: oid == null || oid.length === 0 ? '' : ` ${oid}`.substring(1),
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			path: filePath == null || filePath.length === 0 ? '' : ` ${filePath}`.substr(1),
+			path: filePath == null || filePath.length === 0 ? '' : ` ${filePath}`.substring(1),
 			stage: parseInt(stage, 10),
 		});
 	} while (true);

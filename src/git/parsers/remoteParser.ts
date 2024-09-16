@@ -35,11 +35,11 @@ export function parseGitRemotes(
 		[, name, url, type] = match;
 
 		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-		name = ` ${name}`.substr(1);
+		name = ` ${name}`.substring(1);
 		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-		url = ` ${url}`.substr(1);
+		url = ` ${url}`.substring(1);
 		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-		type = ` ${type}`.substr(1);
+		type = ` ${type}`.substring(1);
 
 		[scheme, domain, path] = parseGitRemoteUrl(url);
 

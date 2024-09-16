@@ -712,9 +712,9 @@ function parseRebaseTodoEntries(contentsOrDocument: string | TextDocument): Reba
 			index: match.index,
 			action: rebaseActionsMap.get(action) ?? 'pick',
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			sha: ` ${sha}`.substr(1),
+			sha: ` ${sha}`.substring(1),
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			message: message == null || message.length === 0 ? '' : ` ${message}`.substr(1),
+			message: message == null || message.length === 0 ? '' : ` ${message}`.substring(1),
 		});
 	} while (true);
 
