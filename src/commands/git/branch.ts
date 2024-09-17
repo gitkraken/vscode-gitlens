@@ -378,6 +378,7 @@ export class BranchGitCommand extends QuickCommand {
 							subcommand: 'create',
 							reference: state.reference,
 							createBranch: state.name,
+							repo: state.repo,
 						},
 					},
 					this.pickedVia,
