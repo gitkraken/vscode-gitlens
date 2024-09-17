@@ -135,6 +135,12 @@ export interface BranchState extends GitTrackingState {
 		icon?: string;
 		url?: string;
 	};
+	issueLinks?: {
+		url: string;
+		type?: string;
+		title: string;
+		tooltip?: string;
+	}[];
 	pr?: PullRequestShape;
 }
 

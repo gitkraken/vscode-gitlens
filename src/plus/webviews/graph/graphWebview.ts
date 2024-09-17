@@ -1,5 +1,6 @@
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, env, window } from 'vscode';
+import { Autolink } from '../../../annotations/autolinks';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
 import { parseCommandContext } from '../../../commands/base';
@@ -95,7 +96,7 @@ import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, disposableInterval } from '../../../system/function';
-import { count, find, last, map } from '../../../system/iterable';
+import { count, find, flatMap, last, map } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import {
 	getSettledValue,
@@ -2359,25 +2360,37 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const branch = getSettledValue(branchResult);
 		if (branch != null) {
 			branchState = { ...branch.state };
+			const [remoteResult] = await Promise.allSettled([branch.getRemote()]);
+			const remote = getSettledValue(remoteResult);
+
+			if (remote?.provider != null) {
+				branchState.provider = {
+					name: remote.provider.name,
+					icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
+					url: remote.provider.url({ type: RemoteResourceType.Repo }),
+				};
+			}
+			const autolinks = await this.container.autolinks.getAutolinks(branch.name, remote, {
+				isBranchName: true,
+			});
+			if (autolinks.size) {
+				const tm = new Map<string, string>();
+				branchState.issueLinks = [
+					...flatMap(autolinks, ([, { url, id, prefix, title, type, tokenize }]) => [
+						{ url: url, type: type, title: tokenize?.(id, 'markdown', tm) ?? prefix + id, tooltip: title },
+					]),
+				];
+				console.log({ tm: tm });
+			}
 
 			if (branch.upstream != null) {
 				branchState.upstream = branch.upstream.name;
 
 				const cancellation = this.createCancellation('state');
 
-				const [remoteResult, prResult] = await Promise.allSettled([
-					branch.getRemote(),
+				const [prResult] = await Promise.allSettled([
 					pauseOnCancelOrTimeout(branch.getAssociatedPullRequest(), cancellation.token, 100),
 				]);
-
-				const remote = getSettledValue(remoteResult);
-				if (remote?.provider != null) {
-					branchState.provider = {
-						name: remote.provider.name,
-						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
-						url: remote.provider.url({ type: RemoteResourceType.Repo }),
-					};
-				}
 
 				const maybePr = getSettledValue(prResult);
 				if (maybePr?.paused) {

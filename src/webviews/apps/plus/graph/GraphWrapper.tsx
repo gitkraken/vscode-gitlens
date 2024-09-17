@@ -1129,6 +1129,8 @@ export function GraphWrapper({
 		);
 	};
 
+	console.log({ branchState: branchState });
+
 	return (
 		<>
 			<header className="titlebar graph-app__header">
@@ -1191,6 +1193,16 @@ export function GraphWrapper({
 								<span>
 									<span className="codicon codicon-chevron-right"></span>
 								</span>
+								{branchState?.issueLinks?.length && (
+									<GlPopover placement="bottom">
+										<button slot="anchor" type="button" className="action-button">
+											<a href={branchState?.issueLinks[0].url}>
+												{branchState?.issueLinks[0].title}
+											</a>
+										</button>
+										<div slot="content">{branchState?.issueLinks[0].tooltip}</div>
+									</GlPopover>
+								)}
 								{branchState?.pr && (
 									<GlPopover placement="bottom">
 										<button slot="anchor" type="button" className="action-button">
