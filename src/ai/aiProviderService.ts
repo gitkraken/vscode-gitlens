@@ -43,13 +43,11 @@ interface AIProviderConstructor<Provider extends AIProviders = AIProviders> {
 }
 
 const _supportedProviderTypes = new Map<AIProviders, AIProviderConstructor>([
+	...(supportedInVSCodeVersion('language-models') ? [['vscode', VSCodeAIProvider]] : ([] as any)),
 	['openai', OpenAIProvider],
 	['anthropic', AnthropicProvider],
 	['gemini', GeminiProvider],
 ]);
-if (supportedInVSCodeVersion('language-models')) {
-	_supportedProviderTypes.set('vscode', VSCodeAIProvider);
-}
 
 export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {
 	readonly id: Provider;

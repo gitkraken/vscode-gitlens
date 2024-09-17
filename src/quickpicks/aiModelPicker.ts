@@ -33,7 +33,7 @@ export async function showAIModelPicker(
 		items.push({
 			label: m.name,
 			iconPath: picked ? new ThemeIcon('check') : new ThemeIcon('blank'),
-			// description: m.provider.name,
+			// description: ` ~${formatNumeric(m.maxTokens)} tokens`,
 			model: m,
 			picked: picked,
 		} satisfies ModelQuickPickItem);
