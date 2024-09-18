@@ -34,7 +34,9 @@ import {
 	UnsnoozeQuickInputButton,
 } from '../../commands/quickCommand.buttons';
 import { ensureAccessStep } from '../../commands/quickCommand.steps';
+import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge, urls } from '../../constants';
+import { Commands } from '../../constants.commands';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
@@ -42,6 +44,7 @@ import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { executeCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
@@ -838,7 +841,20 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		state: StepState<State>,
 		context: Context,
 	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
-		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [];
+		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [
+			createDirectiveQuickPickItem(Directive.Cancel, undefined, {
+				label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
+				detail: 'Click to learn more about Launchpad',
+				iconPath: new ThemeIcon('rocket'),
+				onDidSelect: () =>
+					void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+						step: 'launchpad',
+						source: 'launchpad',
+						detail: 'info',
+					}),
+			}),
+			createQuickPickSeparator(),
+		];
 
 		for (const integration of supportedLaunchpadIntegrations) {
 			if (context.connectedIntegrations.get(integration)) {
@@ -876,7 +892,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			`${this.title} \u00a0\u2022\u00a0 Connect an Integration`,
 			confirmations,
 			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
-			{ placeholder: 'Launchpad requires a connected integration', ignoreFocusOut: false },
+			{ placeholder: 'Connect an integration to get started with Launchpad', buttons: [], ignoreFocusOut: false },
 		);
 
 		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
@@ -905,12 +921,25 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		const step = this.createConfirmStep(
 			`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
 			[
+				createDirectiveQuickPickItem(Directive.Cancel, undefined, {
+					label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
+					detail: 'Click to learn more about Launchpad',
+					iconPath: new ThemeIcon('rocket'),
+					onDidSelect: () =>
+						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+							step: 'launchpad',
+							source: 'launchpad',
+							detail: 'info',
+						}),
+				}),
+				createQuickPickSeparator(),
 				createQuickPickItemOfT(
 					{
 						label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
 						detail: hasConnectedIntegration
-							? 'Add additional integrations to view their pull requests in Launchpad'
-							: 'Launchpad organizes your pull requests into actionable groups to keep your team unblocked',
+							? 'Connect additional integrations to view their pull requests in Launchpad'
+							: 'Connect an integration to accelerate your PR reviews',
+						picked: true,
 					},
 					true,
 				),
@@ -918,8 +947,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
 			{
 				placeholder: hasConnectedIntegration
-					? 'Add additional integrations to Launchpad'
-					: 'Launchpad requires a connected integration',
+					? 'Connect additional integrations to Launchpad'
+					: 'Connect an integration to get started with Launchpad',
+				buttons: [],
 				ignoreFocusOut: true,
 			},
 		);
