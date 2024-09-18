@@ -2370,13 +2370,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					url: remote.provider.url({ type: RemoteResourceType.Repo }),
 				};
 			}
-			const autolinks = await this.container.autolinks.getAutolinks(branch.name, remote, {
-				isBranchName: true,
-			});
-			if (autolinks.size) {
+			const autolinks = await this.container.autolinks.getBranchAutolinks(branch.name, remote);
+			if (autolinks?.length) {
 				const tm = new Map<string, string>();
 				branchState.issueLinks = [
-					...flatMap(autolinks, ([, { url, id, prefix, title, type, tokenize }]) => [
+					...flatMap(autolinks, ({ url, id, prefix, title, type, tokenize }) => [
 						{ url: url, type: type, title: tokenize?.(id, 'markdown', tm) ?? prefix + id, tooltip: title },
 					]),
 				];

@@ -119,6 +119,19 @@ function isCacheable(ref: AutolinkReference | DynamicAutolinkReference): ref is 
 	return 'prefix' in ref && ref.prefix != null && 'url' in ref && ref.url != null;
 }
 
+type RefSet = [
+	ProviderReference | undefined,
+	(AutolinkReference | DynamicAutolinkReference)[] | CacheableAutolinkReference[],
+];
+
+type ComparingAutolinkSet = {
+	/** the place where the autolink is found from start-like symbol (/|_) */
+	index: number;
+	/** the place where the autolink is found from start */
+	startIndex: number;
+	autolink: Autolink;
+};
+
 export class Autolinks implements Disposable {
 	protected _disposable: Disposable | undefined;
 	private _references: CacheableAutolinkReference[] = [];
@@ -156,35 +169,11 @@ export class Autolinks implements Disposable {
 		}
 	}
 
-	async getAutolinks(
-		branchName: string,
-		remote?: GitRemote,
-		options?: { isBranchName: true },
-	): Promise<Map<string, Autolink>>;
-	async getAutolinks(message: string, remote?: GitRemote): Promise<Map<string, Autolink>>;
-	async getAutolinks(
-		message: string,
-		remote: GitRemote,
-		// eslint-disable-next-line @typescript-eslint/unified-signatures
-		options?: { excludeCustom?: boolean },
-	): Promise<Map<string, Autolink>>;
-	@debug<Autolinks['getAutolinks']>({
-		args: {
-			0: '<message>',
-			1: false,
-		},
-	})
-	async getAutolinks(
-		messageOrBranchName: string,
-		remote?: GitRemote,
-		options?: { excludeCustom?: boolean; isBranchName?: boolean },
-	): Promise<Map<string, Autolink>> {
-		const refsets: [
-			ProviderReference | undefined,
-			(AutolinkReference | DynamicAutolinkReference)[] | CacheableAutolinkReference[],
-		][] = [];
-		// Connected integration autolinks
-		await Promise.allSettled(
+	/**
+	 * put connected integration autolinks to mutable refsets
+	 */
+	private async collectIntegrationAutolinks(refsets: RefSet[]) {
+		return await Promise.allSettled(
 			supportedAutolinkIntegrations.map(async integrationId => {
 				const integration = await this.container.integrations.get(integrationId);
 				const autoLinks = await integration.autolinks();
@@ -193,8 +182,10 @@ export class Autolinks implements Disposable {
 				}
 			}),
 		);
+	}
 
-		// Remote-specific autolinks and remote integration autolinks
+	/** put remote-specific autolinks and remote integration autolinks to mutable refsets */
+	private async collectRemoteAutolinks(remote: GitRemote | undefined, refsets: RefSet[]) {
 		if (remote?.provider != null) {
 			const autoLinks = [];
 			const integrationAutolinks = await (await remote.getIntegration())?.autolinks();
@@ -209,19 +200,125 @@ export class Autolinks implements Disposable {
 				refsets.push([remote.provider, autoLinks]);
 			}
 		}
+	}
 
-		// Custom-configured autolinks
-		if (this._references.length && (remote?.provider == null || !options?.excludeCustom)) {
+	/** put custom-configured autolinks to mutable refsets */
+	private collectCustomAutolinks(remote: GitRemote | undefined, refsets: RefSet[]) {
+		if (this._references.length && remote?.provider == null) {
 			refsets.push([undefined, this._references]);
 		}
+	}
+
+	/**
+	 * it should always return non-0 result that means a probability of the autolink `b` is more relevant of the autolink `a`
+	 */
+	private compareAutolinks(a: ComparingAutolinkSet, b: ComparingAutolinkSet) {
+		// consider that if the number is in the start, it's the most relevant link
+		if (b.index === 0) {
+			return 1;
+		}
+		if (a.index === 0) {
+			return -1;
+		}
+		// maybe it worths to use some weight function instead.
+		return (
+			b.autolink.prefix.length - a.autolink.prefix.length ||
+			-(b.startIndex - a.startIndex) ||
+			-(b.index - a.index)
+		);
+	}
+
+	/**
+	 * returns sorted list of autolinks. the first is matched as the most relevant
+	 */
+	async getBranchAutolinks(
+		branchName: string,
+		remote?: GitRemote,
+		options?: { excludeCustom: boolean },
+	): Promise<undefined | Autolink[]> {
+		const refsets: RefSet[] = [];
+		await this.collectIntegrationAutolinks(refsets);
+		await this.collectRemoteAutolinks(remote, refsets);
+		if (!options?.excludeCustom) this.collectCustomAutolinks(remote, refsets);
+		if (refsets.length === 0) return undefined;
+
+		let autolinks = new Map<string, ComparingAutolinkSet>();
+
+		let match;
+		let num;
+		for (const [provider, refs] of refsets) {
+			for (const ref of refs) {
+				if (!isCacheable(ref)) {
+					continue;
+				}
+				if (ref.type === 'pullrequest' || (ref.referenceType && ref.referenceType !== 'branchName')) {
+					continue;
+				}
+
+				ensureCachedRegex(ref, 'plaintext');
+				const matches = branchName.matchAll(ref.branchNameRegex);
+				do {
+					match = matches.next();
+					if (!match.value?.groups) break;
+
+					num = match?.value?.groups.issueKeyNumber;
+					let index = match.value.index;
+					const linkUrl = ref.url?.replace(numRegex, num);
+					// strange case (I would say synthetic), but if we parse the link twice, use the most relevant of them
+					if (autolinks.has(linkUrl)) {
+						index = Math.min(index, autolinks.get(linkUrl)!.index);
+					}
+					autolinks.set(linkUrl, {
+						index,
+						// TODO: calc the distance from the nearest start-like symbol
+						startIndex: 0,
+						autolink: {
+							provider: provider,
+							id: num,
+							prefix: ref.prefix,
+							url: linkUrl,
+							title: ref.title?.replace(numRegex, num),
+
+							type: ref.type,
+							description: ref.description?.replace(numRegex, num),
+							descriptor: ref.descriptor,
+						},
+					});
+				} while (!match.done);
+			}
+		}
+
+		return [...autolinks.values()]
+			.flat()
+			.sort(this.compareAutolinks)
+			.map(x => x.autolink);
+	}
+
+	async getAutolinks(message: string, remote?: GitRemote): Promise<Map<string, Autolink>>;
+	async getAutolinks(
+		message: string,
+		remote: GitRemote,
+		// eslint-disable-next-line @typescript-eslint/unified-signatures
+		options?: { excludeCustom?: boolean },
+	): Promise<Map<string, Autolink>>;
+	@debug<Autolinks['getAutolinks']>({
+		args: {
+			0: '<message>',
+			1: false,
+		},
+	})
+	async getAutolinks(
+		message: string,
+		remote?: GitRemote,
+		options?: { excludeCustom?: boolean; isBranchName?: boolean },
+	): Promise<Map<string, Autolink>> {
+		const refsets: RefSet[] = [];
+		await this.collectIntegrationAutolinks(refsets);
+		await this.collectRemoteAutolinks(remote, refsets);
+		if (!options?.excludeCustom) this.collectCustomAutolinks(remote, refsets);
 		if (refsets.length === 0) return emptyAutolinkMap;
 
 		const autolinks = new Map<string, Autolink>();
-
-		const matchRef = (ref: RequireSome<CacheableAutolinkReference, 'messageRegex' | 'branchNameRegex'>) =>
-			options?.isBranchName
-				? ref.branchNameRegex.exec(messageOrBranchName)
-				: ref.messageRegex.exec(messageOrBranchName);
 
 		let match;
 		let num;
@@ -229,41 +326,20 @@ export class Autolinks implements Disposable {
 			for (const ref of refs) {
 				if (!isCacheable(ref)) {
 					if (isDynamic(ref)) {
-						ref.parse(messageOrBranchName, autolinks);
+						ref.parse(message, autolinks);
 					}
 					continue;
-				}
-
-				if (ref.referenceType) {
-					if (ref.referenceType !== 'branchName' && options?.isBranchName) {
-						continue;
-					}
-					if (ref.referenceType !== 'message' && !options?.isBranchName) {
-						continue;
-					}
 				}
 
 				ensureCachedRegex(ref, 'plaintext');
 
 				do {
-					match = matchRef(ref);
+					match = ref.messageRegex.exec(message);
 					if (!match?.groups) break;
 
 					num = match.groups.issueKeyNumber;
-					let key = num;
-					if (autolinks.has(key)) {
-						const prevAutolink = autolinks.get(key)!;
-						if (!ref.prefix) {
-							continue;
-						} else if (!prevAutolink.prefix && ref.prefix) {
-							/** override */
-						} else {
-							// add more autolinks
-							key = ref.prefix + num;
-						}
-					}
 
-					autolinks.set(key, {
+					autolinks.set(num, {
 						provider: provider,
 						id: num,
 						prefix: ref.prefix,
@@ -670,7 +746,10 @@ function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html'
 			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(ref.prefix)}(?<issueKeyNumber>${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
-		ref.branchNameRegex = new RegExp(`(^|\\-|_)(?<prefix>${ref.prefix})(?<issueKeyNumber>\\d+)`, 'gi');
+		ref.branchNameRegex = new RegExp(
+			`(^|\\-|_|\\.|\\/)(?<prefix>${ref.prefix})(?<issueKeyNumber>\\d+)($|\\-|_|\\.|\\/)`,
+			'gi',
+		);
 	}
 
 	return true;
