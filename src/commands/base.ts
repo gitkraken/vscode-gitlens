@@ -25,8 +25,8 @@ import { Repository } from '../git/models/repository';
 import type { GitTag } from '../git/models/tag';
 import { isTag } from '../git/models/tag';
 import { CloudWorkspace, LocalWorkspace } from '../plus/workspaces/models';
-import { registerCommand } from '../system/command';
 import { sequentialize } from '../system/function';
+import { registerCommand } from '../system/vscode/command';
 import { ViewNode } from '../views/nodes/abstract/viewNode';
 import { ViewRefFileNode, ViewRefNode } from '../views/nodes/abstract/viewRefNode';
 

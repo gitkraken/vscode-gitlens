@@ -14,7 +14,7 @@ import { getNameFromRemoteResource, RemoteResourceType } from '../git/models/rem
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { filterMap } from '../system/array';
 import { getSettledValue } from '../system/promise';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import { CommandQuickPickItem } from './items/common';
 
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {

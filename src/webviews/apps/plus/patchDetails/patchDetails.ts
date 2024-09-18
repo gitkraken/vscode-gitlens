@@ -34,7 +34,7 @@ import {
 	UpdatePreferencesCommand,
 } from '../../../../plus/webviews/patchDetails/protocol';
 import { debounce } from '../../../../system/function';
-import type { Serialized } from '../../../../system/serialize';
+import type { Serialized } from '../../../../system/vscode/serialize';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommand } from '../../../protocol';
 import { App } from '../../shared/appBase';

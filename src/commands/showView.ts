@@ -1,7 +1,7 @@
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { GraphWebviewShowingArgs } from '../plus/webviews/graph/registration';
-import { command } from '../system/command';
+import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
 import { Command } from './base';
 

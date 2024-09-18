@@ -5,10 +5,10 @@ import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { filterMap } from '../system/array';
-import { command } from '../system/command';
 import { UriComparer } from '../system/comparers';
 import { Logger } from '../system/logger';
-import { findOrOpenEditors } from '../system/utils';
+import { command } from '../system/vscode/command';
+import { findOrOpenEditors } from '../system/vscode/utils';
 import { Command } from './base';
 
 export interface OpenOnlyChangedFilesCommandArgs {

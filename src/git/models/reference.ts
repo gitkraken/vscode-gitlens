@@ -1,6 +1,6 @@
 import { GlyphChars } from '../../constants';
-import { configuration } from '../../system/configuration';
 import { capitalize } from '../../system/string';
+import { configuration } from '../../system/vscode/configuration';
 import type { GitBranch } from './branch';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName, getRemoteNameSlashIndex } from './branch';
 import type { GitCommit, GitStashCommit } from './commit';

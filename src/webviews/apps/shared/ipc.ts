@@ -2,8 +2,8 @@
 import { getScopedCounter } from '../../../system/counter';
 import { debug, logName } from '../../../system/decorators/log';
 import { getLogScope, getNewLogScope } from '../../../system/logger.scope';
-import type { Serialized } from '../../../system/serialize';
 import { maybeStopWatch } from '../../../system/stopwatch';
+import type { Serialized } from '../../../system/vscode/serialize';
 import type { IpcCallParamsType, IpcCallResponseParamsType, IpcCommand, IpcMessage, IpcRequest } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable, Event } from './events';

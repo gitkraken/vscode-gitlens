@@ -6,7 +6,7 @@ import type { Container } from '../container';
 import { Features } from '../features';
 import { push } from '../git/actions/stash';
 import { GitUri } from '../git/gitUri';
-import { command } from '../system/command';
+import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
 import {
 	Command,

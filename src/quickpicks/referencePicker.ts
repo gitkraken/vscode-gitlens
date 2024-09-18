@@ -11,8 +11,8 @@ import type { BranchSortOptions, GitBranch } from '../git/models/branch';
 import type { GitReference } from '../git/models/reference';
 import { isBranchReference, isRevisionReference, isTagReference } from '../git/models/reference';
 import type { GitTag, TagSortOptions } from '../git/models/tag';
-import type { KeyboardScope } from '../system/keyboard';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import type { KeyboardScope } from '../system/vscode/keyboard';
+import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitCommands';
 import { createRefQuickPickItem } from './items/gitCommands';
 

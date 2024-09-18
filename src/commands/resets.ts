@@ -5,8 +5,8 @@ import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { QuickPickItemOfT } from '../quickpicks/items/common';
 import { createQuickPickSeparator } from '../quickpicks/items/common';
-import { command } from '../system/command';
-import { configuration } from '../system/configuration';
+import { command } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import { Command } from './base';
 
 const resetTypes = [

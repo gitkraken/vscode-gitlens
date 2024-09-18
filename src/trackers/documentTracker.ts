@@ -16,13 +16,13 @@ import type { GitUri } from '../git/gitUri';
 import { isGitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { configuration } from '../system/configuration';
-import { setContext } from '../system/context';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
-import { findTextDocument, getResourceContextKeyValue, isVisibleDocument } from '../system/utils';
+import { configuration } from '../system/vscode/configuration';
+import { setContext } from '../system/vscode/context';
+import { findTextDocument, getResourceContextKeyValue, isVisibleDocument } from '../system/vscode/utils';
 import type { TrackedGitDocument } from './trackedDocument';
 import { createTrackedGitDocument } from './trackedDocument';
 

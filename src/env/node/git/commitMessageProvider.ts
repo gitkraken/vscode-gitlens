@@ -6,10 +6,10 @@ import type {
 	Repository as ScmGitRepository,
 } from '../../../@types/vscode.git';
 import type { Container } from '../../../container';
-import { configuration } from '../../../system/configuration';
 import { log } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
+import { configuration } from '../../../system/vscode/configuration';
 
 class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 	icon: ThemeIcon = new ThemeIcon('sparkle');

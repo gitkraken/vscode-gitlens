@@ -1,6 +1,6 @@
 import type { IconPath } from '../../@types/vscode.iconpath';
 import type { Container } from '../../container';
-import { getIconPathUris } from '../../system/vscode';
+import { getIconPathUris } from '../../system/vscode/vscode';
 import type { Repository } from '../models/repository';
 import type { GitStatus } from '../models/status';
 

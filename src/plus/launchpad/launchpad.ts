@@ -44,13 +44,13 @@ import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { executeCommand } from '../../system/command';
-import { configuration } from '../../system/configuration';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
-import { openUrl } from '../../system/utils';
+import { executeCommand } from '../../system/vscode/command';
+import { configuration } from '../../system/vscode/configuration';
+import { openUrl } from '../../system/vscode/utils';
 import { getApplicablePromo } from '../gk/account/promos';
 import type { IntegrationId } from '../integrations/providers/models';
 import {

@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import type { Branded } from './brand';
+import type { Branded } from '../brand';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 export type Serialized<T> = T extends Function

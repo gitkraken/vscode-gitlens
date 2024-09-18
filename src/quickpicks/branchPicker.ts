@@ -3,7 +3,7 @@ import { window } from 'vscode';
 import { getBranches } from '../commands/quickCommand.steps';
 import type { GitBranch } from '../git/models/branch';
 import type { Repository } from '../git/models/repository';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import type { BranchQuickPickItem } from './items/gitCommands';
 
 export async function showBranchPicker(

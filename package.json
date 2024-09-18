@@ -18009,7 +18009,7 @@
 		"sortablejs": "1.15.0"
 	},
 	"devDependencies": {
-		"@eamodio/eslint-lite-webpack-plugin": "0.0.8",
+		"@eamodio/eslint-lite-webpack-plugin": "0.1.0",
 		"@eslint/js": "9.10.0",
 		"@playwright/test": "1.47.1",
 		"@swc/core": "1.7.26",

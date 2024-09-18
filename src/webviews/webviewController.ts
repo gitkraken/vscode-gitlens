@@ -4,8 +4,6 @@ import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vs
 import type { Commands } from '../constants.commands';
 import type { CustomEditorTypes, WebviewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
-import { executeCommand, executeCoreCommand } from '../system/command';
-import { setContext } from '../system/context';
 import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
@@ -13,6 +11,8 @@ import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
 import { isPromise, pauseOnCancelOrTimeout } from '../system/promise';
 import { maybeStopWatch } from '../system/stopwatch';
+import { executeCommand, executeCoreCommand } from '../system/vscode/command';
+import { setContext } from '../system/vscode/context';
 import type { WebviewContext } from '../system/webview';
 import type {
 	IpcCallMessageType,

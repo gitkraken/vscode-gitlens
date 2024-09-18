@@ -175,15 +175,15 @@
   resolved "https://registry.yarnpkg.com/@discoveryjs/json-ext/-/json-ext-0.5.7.tgz#1d572bfbbe14b7704e0ba0f39b74815b84870d70"
   integrity sha512-dBVuXR082gk3jsFp7Rd/JI4kytwGHecnCoTtXFb7DB6CNHp4rg5k1bhg0nWdLGLnOV71lmDzGQaLMy8iPLY0pw==
 
-"@eamodio/eslint-lite-webpack-plugin@0.0.8":
-  version "0.0.8"
-  resolved "https://registry.yarnpkg.com/@eamodio/eslint-lite-webpack-plugin/-/eslint-lite-webpack-plugin-0.0.8.tgz#1a2009f44b6128e98a27a9faa2db51e28b8ad74f"
-  integrity sha512-GAT5uR5L8FIJSznusLmskNDBQPgOTaygEXuSVEPBaifLT0GTOuWxBxxYqOukeYQta6YgJ9lfNSH9SoBkco2p2A==
+"@eamodio/eslint-lite-webpack-plugin@0.1.0":
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/@eamodio/eslint-lite-webpack-plugin/-/eslint-lite-webpack-plugin-0.1.0.tgz#3a270b3214e9afbafb4f2138974e54e6c77891c3"
+  integrity sha512-iMN1Z9Z/UGxM3Zp9oP1aloz6Z0gSXnJHunDisAJbWad4IXg5o/41on7ZHFy1i3EviaXV0oVWykJW/xCT9l50JQ==
   dependencies:
-    "@types/eslint" "^8.44.8"
+    "@types/eslint" "^9.6.1"
     "@types/webpack" "^5.28.5"
     fast-glob "^3.3.2"
-    minimatch "^9.0.3"
+    minimatch "^10.0.1"
 
 "@esbuild/aix-ppc64@0.23.1":
   version "0.23.1"
@@ -998,18 +998,10 @@
   dependencies:
     "@types/d3-selection" "*"
 
-"@types/eslint@*":
+"@types/eslint@*", "@types/eslint@^9.6.1":
   version "9.6.1"
   resolved "https://registry.yarnpkg.com/@types/eslint/-/eslint-9.6.1.tgz#d5795ad732ce81715f27f75da913004a56751584"
   integrity sha512-FXx2pKgId/WyYo2jXw63kk7/+TY7u7AziEJxJAnSFzHlqTAS3Ync6SvgYAN/k4/PQpnnVuzoMuVnByKK2qp0ag==
-  dependencies:
-    "@types/estree" "*"
-    "@types/json-schema" "*"
-
-"@types/eslint@^8.44.8":
-  version "8.56.12"
-  resolved "https://registry.yarnpkg.com/@types/eslint/-/eslint-8.56.12.tgz#1657c814ffeba4d2f84c0d4ba0f44ca7ea1ca53a"
-  integrity sha512-03ruubjWyOHlmljCVoxSuNDdmfZDzsrrz0P2LeJsOXr+ZwFQ+0yQIwNCwt/GYhV7Z31fgtXJTAEs+FYlEL851g==
   dependencies:
     "@types/estree" "*"
     "@types/json-schema" "*"
@@ -1022,9 +1014,9 @@
     "@types/eslint" "*"
 
 "@types/estree@*", "@types/estree@^1.0.5":
-  version "1.0.5"
-  resolved "https://registry.yarnpkg.com/@types/estree/-/estree-1.0.5.tgz#a6ce3e556e00fd9895dd872dd172ad0d4bd687f4"
-  integrity sha512-/kYRxGDLWzHOB7q+wtSUQlFrtcdUccpfy+X+9iMBpHK8QLLhx2wIPYuS5DYtR9Wa/YlZAbIovy7qVdB1Aq6Lyw==
+  version "1.0.6"
+  resolved "https://registry.yarnpkg.com/@types/estree/-/estree-1.0.6.tgz#628effeeae2064a1b4e79f78e81d87b7e5fc7b50"
+  integrity sha512-AYnb1nQyY49te+VRAVgmzfcgjYS91mY5P0TKUDCLEM+gNnA+3T6rWITXRLYCpahpqSQbN5cE+gHpnPyXjHWxcw==
 
 "@types/glob@^7.1.1":
   version "7.2.0"
@@ -5072,7 +5064,7 @@ mini-css-extract-plugin@2.9.1:
     schema-utils "^4.0.0"
     tapable "^2.2.1"
 
-minimatch@^10.0.0:
+minimatch@^10.0.0, minimatch@^10.0.1:
   version "10.0.1"
   resolved "https://registry.yarnpkg.com/minimatch/-/minimatch-10.0.1.tgz#ce0521856b453c86e25f2c4c0d03e6ff7ddc440b"
   integrity sha512-ethXTt3SGGR+95gudmqJ1eNhRO7eGEGIgYA9vnPatK4/etz2MEVDno5GMCibdMTuBMyElzIlgxMna3K94XDIDQ==

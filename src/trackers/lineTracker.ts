@@ -6,7 +6,7 @@ import { debug } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
-import { isTrackableTextEditor } from '../system/utils';
+import { isTrackableTextEditor } from '../system/vscode/utils';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,

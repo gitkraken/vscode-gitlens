@@ -3,8 +3,8 @@ import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/command';
 import { Logger } from '../system/logger';
+import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
 

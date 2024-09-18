@@ -1,8 +1,8 @@
 import { env, Range, Uri, window } from 'vscode';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
-import { command } from '../system/command';
-import { openEditor } from '../system/utils';
+import { command } from '../system/vscode/command';
+import { openEditor } from '../system/vscode/utils';
 import { Command } from './base';
 
 @command()

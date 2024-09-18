@@ -19,9 +19,9 @@ import type { IntegrationId } from '../plus/integrations/providers/models';
 import { getProviderIdFromEntityIdentifier } from '../plus/integrations/providers/utils';
 import type { Change, CreateDraft } from '../plus/webviews/patchDetails/protocol';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/command';
 import { map } from '../system/iterable';
 import { Logger } from '../system/logger';
+import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,

@@ -10,7 +10,7 @@ import type { Repository } from '../../git/models/repository';
 import type { Draft, DraftVisibility } from '../../gk/models/drafts';
 import type { Change, DraftUserSelection } from '../../plus/webviews/patchDetails/protocol';
 import type { DateTimeFormat } from '../../system/date';
-import type { Serialized } from '../../system/serialize';
+import type { Serialized } from '../../system/vscode/serialize';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 

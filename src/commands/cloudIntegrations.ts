@@ -2,7 +2,7 @@ import { Commands } from '../constants.commands';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { SupportedCloudIntegrationIds } from '../plus/integrations/authentication/models';
-import { command } from '../system/command';
+import { command } from '../system/vscode/command';
 import { Command } from './base';
 
 export interface ManageCloudIntegrationsCommandArgs extends Source {}

@@ -1,8 +1,8 @@
 import type { ConfigurationChangeEvent, ConfigurationScope, Event, ExtensionContext } from 'vscode';
 import { ConfigurationTarget, EventEmitter, workspace } from 'vscode';
-import type { Config, CoreConfig } from '../config';
-import { extensionPrefix } from '../constants';
-import { areEqual } from './object';
+import type { Config, CoreConfig } from '../../config';
+import { extensionPrefix } from '../../constants';
+import { areEqual } from '../object';
 
 interface ConfigurationOverrides {
 	get<T extends ConfigPath>(section: T, value: ConfigPathValue<T>): ConfigPathValue<T>;

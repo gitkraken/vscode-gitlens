@@ -5,9 +5,9 @@ import type { Container } from '../container';
 import type { GitRevisionReference } from '../git/models/reference';
 import type { GitTreeEntry } from '../git/models/tree';
 import { filterMap } from '../system/iterable';
-import type { KeyboardScope } from '../system/keyboard';
-import { splitPath } from '../system/path';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import type { KeyboardScope } from '../system/vscode/keyboard';
+import { splitPath } from '../system/vscode/path';
+import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import type { QuickPickItemOfT } from './items/common';
 
 export type RevisionQuickPickItem = QuickPickItemOfT<GitTreeEntry>;

@@ -3,10 +3,10 @@ import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type { ContributorSorting, GravatarDefaultStyle } from '../../config';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import { sortCompare } from '../../system/string';
+import { configuration } from '../../system/vscode/configuration';
 import type { GitUser } from './user';
 
 export class GitContributor {

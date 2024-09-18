@@ -3,7 +3,7 @@ import { window } from 'vscode';
 import { urls } from '../constants';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
-import { openUrl } from '../system/utils';
+import { openUrl } from '../system/vscode/utils';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from './gk/account/subscription';
 
 export async function ensurePaidPlan(

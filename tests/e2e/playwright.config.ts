@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
-import { TestOptions } from './tests/baseTest';
 
+// eslint-disable-next-line import-x/no-default-export
 export default defineConfig({
 	use: {
 		headless: true, // Ensure headless mode is enabled

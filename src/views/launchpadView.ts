@@ -14,8 +14,8 @@ import {
 	launchpadGroupIconMap,
 	launchpadGroupLabelMap,
 } from '../plus/launchpad/launchpadProvider';
-import { createCommand, executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
+import { createCommand, executeCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import type { ClipboardType, ViewNode } from './nodes/abstract/viewNode';
 import { ContextValues, getViewNodeId } from './nodes/abstract/viewNode';

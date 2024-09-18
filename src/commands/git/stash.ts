@@ -12,10 +12,10 @@ import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { getContext } from '../../system/context';
-import { formatPath } from '../../system/formatPath';
 import { Logger } from '../../system/logger';
 import { pad } from '../../system/string';
+import { getContext } from '../../system/vscode/context';
+import { formatPath } from '../../system/vscode/formatPath';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { getSteps } from '../gitCommands.utils';
 import type {

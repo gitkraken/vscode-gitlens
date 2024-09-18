@@ -10,9 +10,9 @@ import { showGenericErrorMessage } from '../messages';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { showRemotePicker } from '../quickpicks/remotePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/command';
 import { Logger } from '../system/logger';
 import { normalizePath } from '../system/path';
+import { command } from '../system/vscode/command';
 import { DeepLinkType, deepLinkTypeToString, refTypeToDeepLinkType } from '../uris/deepLinks/deepLink';
 import type { CommandContext } from './base';
 import {

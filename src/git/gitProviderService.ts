@@ -26,9 +26,6 @@ import type { HostingIntegration } from '../plus/integrations/integration';
 import type { RepoComparisonKey } from '../repositories';
 import { asRepoComparisonKey, Repositories } from '../repositories';
 import { joinUnique } from '../system/array';
-import { registerCommand } from '../system/command';
-import { configuration } from '../system/configuration';
-import { setContext } from '../system/context';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
@@ -36,11 +33,15 @@ import { debounce } from '../system/function';
 import { count, filter, first, flatMap, groupByFilterMap, groupByMap, join, map, some } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
-import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
+import { getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import type { Deferred } from '../system/promise';
 import { asSettled, defer, getDeferredPromiseIfPending, getSettledValue } from '../system/promise';
 import { sortCompare } from '../system/string';
 import { VisitedPathsTrie } from '../system/trie';
+import { registerCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
+import { setContext } from '../system/vscode/context';
+import { getBestPath } from '../system/vscode/path';
 import type {
 	GitCaches,
 	GitDir,

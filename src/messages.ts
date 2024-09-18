@@ -6,10 +6,10 @@ import { Commands } from './constants.commands';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
-import { executeCommand } from './system/command';
-import { configuration } from './system/configuration';
 import { Logger } from './system/logger';
-import { openUrl } from './system/utils';
+import { executeCommand } from './system/vscode/command';
+import { configuration } from './system/vscode/configuration';
+import { openUrl } from './system/vscode/utils';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(
 	ex: BlameIgnoreRevsFileError | BlameIgnoreRevsFileBadRevisionError,

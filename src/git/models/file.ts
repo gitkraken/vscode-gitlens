@@ -3,9 +3,9 @@ import { ThemeIcon } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
-import { formatPath } from '../../system/formatPath';
-import { relativeDir, splitPath } from '../../system/path';
 import { pad, pluralize } from '../../system/string';
+import { formatPath } from '../../system/vscode/formatPath';
+import { relativeDir, splitPath } from '../../system/vscode/path';
 import type { GitCommit } from './commit';
 
 export declare type GitFileStatus = GitFileConflictStatus | GitFileIndexStatus | GitFileWorkingTreeStatus;

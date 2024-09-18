@@ -7,7 +7,7 @@ import type { GitProviderDescriptor } from '../../../git/gitProvider';
 import type { Repository } from '../../../git/models/repository';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
-import { addVslsPrefixIfNeeded } from '../../../system/path';
+import { addVslsPrefixIfNeeded } from '../../../system/vscode/path';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
 

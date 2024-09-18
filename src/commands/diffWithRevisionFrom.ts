@@ -7,9 +7,9 @@ import { isBranchReference, shortenRevision } from '../git/models/reference';
 import { showNoRepositoryWarningMessage } from '../messages';
 import { showStashPicker } from '../quickpicks/commitPicker';
 import { showReferencePicker } from '../quickpicks/referencePicker';
-import { command, executeCommand } from '../system/command';
 import { basename } from '../system/path';
 import { pad } from '../system/string';
+import { command, executeCommand } from '../system/vscode/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
 

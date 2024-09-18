@@ -9,15 +9,15 @@ import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { PullRequest } from '../git/models/pullRequest';
 import { detailsMessage } from '../hovers/hovers';
-import { asCommand } from '../system/command';
-import { configuration } from '../system/configuration';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import type { MaybePausedResult } from '../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../system/promise';
-import { isTrackableTextEditor } from '../system/utils';
+import { asCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
+import { isTrackableTextEditor } from '../system/vscode/utils';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
 
 export class StatusBarController implements Disposable {

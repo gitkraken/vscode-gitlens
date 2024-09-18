@@ -8,7 +8,7 @@ import type { GitLog } from '../git/models/log';
 import type { GitReference } from '../git/models/reference';
 import type { GitTag } from '../git/models/tag';
 import type { CommandQuickPickItem } from '../quickpicks/items/common';
-import { command } from '../system/command';
+import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCachedCommand, getCommandUri } from './base';
 

@@ -5,7 +5,7 @@ import type { Container } from '../container';
 import { createQuickPickSeparator } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirective } from '../quickpicks/items/directive';
-import { configuration } from '../system/configuration';
+import { configuration } from '../system/vscode/configuration';
 
 export interface CustomStep<T = unknown> {
 	type: 'custom';

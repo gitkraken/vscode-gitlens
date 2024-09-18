@@ -2,7 +2,7 @@ import type { Container } from '../../container';
 import type { GitCommandOptions } from '../../git/commandOptions';
 import type { GitProvider } from '../../git/gitProvider';
 import type { IntegrationAuthenticationService } from '../../plus/integrations/authentication/integrationAuthentication';
-import { configuration } from '../../system/configuration';
+import { configuration } from '../../system/vscode/configuration';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import { Git } from './git/git';
 import { LocalGitProvider } from './git/localGitProvider';

@@ -6,8 +6,8 @@ import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
 import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/command';
 import { Logger } from '../system/logger';
+import { command } from '../system/vscode/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface OpenRevisionFileCommandArgs {

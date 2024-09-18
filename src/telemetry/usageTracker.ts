@@ -3,7 +3,7 @@ import { EventEmitter } from 'vscode';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { updateRecordValue } from '../system/object';
-import type { Storage } from '../system/storage';
+import type { Storage } from '../system/vscode/storage';
 
 export interface TrackedUsage {
 	count: number;

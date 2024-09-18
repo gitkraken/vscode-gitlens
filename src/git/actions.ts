@@ -2,8 +2,8 @@ import type { Uri } from 'vscode';
 import type { BrowseRepoAtRevisionCommandArgs } from '../commands/browseRepoAtRevision';
 import type { GitCommandsCommandArgs, GitCommandsCommandArgsWithCompletion } from '../commands/gitCommands';
 import { Commands } from '../constants.commands';
-import { executeCommand, executeEditorCommand } from '../system/command';
 import { defer } from '../system/promise';
+import { executeCommand, executeEditorCommand } from '../system/vscode/command';
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
 	const deferred = defer<void>();

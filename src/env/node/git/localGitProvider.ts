@@ -178,8 +178,6 @@ import type {
 	GraphTagContextValue,
 } from '../../../plus/webviews/graph/protocol';
 import { countStringLength, filterMap } from '../../../system/array';
-import { TimedCancellationSource } from '../../../system/cancellation';
-import { configuration } from '../../../system/configuration';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function';
@@ -190,21 +188,21 @@ import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
 import {
 	commonBaseIndex,
 	dirname,
-	getBestPath,
 	isAbsolute,
 	isFolderGlob,
 	joinPaths,
 	maybeUri,
 	normalizePath,
 	pathEquals,
-	relative,
-	splitPath,
 } from '../../../system/path';
 import type { PromiseOrValue } from '../../../system/promise';
 import { any, asSettled, getSettledValue } from '../../../system/promise';
 import { equalsIgnoreCase, getDurationMilliseconds, interpolate, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
+import { TimedCancellationSource } from '../../../system/vscode/cancellation';
+import { configuration } from '../../../system/vscode/configuration';
+import { getBestPath, relative, splitPath } from '../../../system/vscode/path';
 import { serializeWebviewItemContext } from '../../../system/webview';
 import type { CachedBlame, CachedDiff, CachedLog, TrackedGitDocument } from '../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../trackers/trackedDocument';

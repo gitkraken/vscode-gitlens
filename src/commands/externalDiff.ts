@@ -9,9 +9,9 @@ import { isUncommitted } from '../git/models/reference';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { filterMap } from '../system/array';
-import { command } from '../system/command';
-import { configuration } from '../system/configuration';
 import { Logger } from '../system/logger';
+import { command } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import type { CommandContext } from './base';
 import { Command, isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './base';
 

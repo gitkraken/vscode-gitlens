@@ -5,9 +5,9 @@ import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
 import { createSearchQueryForCommits } from '../git/search';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
-import { command } from '../system/command';
 import { filterMap } from '../system/iterable';
 import { Logger } from '../system/logger';
+import { command } from '../system/vscode/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface ShowCommitsInViewCommandArgs {

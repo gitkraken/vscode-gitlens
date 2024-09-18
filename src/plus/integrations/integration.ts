@@ -17,13 +17,13 @@ import type {
 } from '../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
-import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { first } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
+import { configuration } from '../../system/vscode/configuration';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationService,

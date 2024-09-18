@@ -1,11 +1,11 @@
-import { test, expect } from './baseTest';
+import { expect, test } from './baseTest';
 
 test.describe('Test GitLens Command Palette commands', () => {
 	test('should open commit graph with the command', async ({ page }) => {
 		// Close any open tabs to ensure a clean state
 		const welcomePageTab = page.locator('div[role="tab"][aria-label="Welcome to GitLens"]');
 		await welcomePageTab.waitFor({ state: 'visible', timeout: 5000 });
-		welcomePageTab.locator('div.tab-actions .action-item a.codicon-close').click();
+		void welcomePageTab.locator('div.tab-actions .action-item a.codicon-close').click();
 
 		// Open the command palette by clicking on the View menu and selecting Command Palette
 		const commandPalette = page.locator('div[id="workbench.parts.titlebar"] .command-center-quick-pick');
@@ -16,7 +16,7 @@ test.describe('Test GitLens Command Palette commands', () => {
 		await commandPaletteInput.waitFor({ state: 'visible', timeout: 5000 });
 		await commandPaletteInput.fill('> GitLens: Show Commit graph');
 		await page.waitForTimeout(1000);
-		page.keyboard.press('Enter');
+		void page.keyboard.press('Enter');
 
 		// Click on the first element (GitLens: Show Commit graph)
 		/*

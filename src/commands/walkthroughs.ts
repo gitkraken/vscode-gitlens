@@ -2,8 +2,8 @@ import type { WalkthroughSteps } from '../constants';
 import { Commands } from '../constants.commands';
 import type { Source, Sources } from '../constants.telemetry';
 import type { Container } from '../container';
-import { command } from '../system/command';
-import { openWalkthrough as openWalkthroughCore } from '../system/utils';
+import { command } from '../system/vscode/command';
+import { openWalkthrough as openWalkthroughCore } from '../system/vscode/utils';
 import { Command } from './base';
 
 @command()

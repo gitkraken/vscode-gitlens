@@ -1,9 +1,9 @@
 import { Disposable, window } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../../avatars';
 import type { Container } from '../../../container';
-import { registerCommand } from '../../../system/command';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
+import { registerCommand } from '../../../system/vscode/command';
 import type { WebviewHost, WebviewProvider } from '../../../webviews/webviewProvider';
 import type { Subscription } from '../../gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';

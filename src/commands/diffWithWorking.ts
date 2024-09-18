@@ -7,9 +7,9 @@ import { deletedOrMissing, uncommittedStaged } from '../git/models/constants';
 import { createReference } from '../git/models/reference';
 import { showGenericErrorMessage } from '../messages';
 import { showRevisionFilesPicker } from '../quickpicks/revisionFilesPicker';
-import { command, executeCommand } from '../system/command';
 import { Logger } from '../system/logger';
-import { findOrOpenEditor } from '../system/utils';
+import { command, executeCommand } from '../system/vscode/command';
+import { findOrOpenEditor } from '../system/vscode/utils';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
 

@@ -1,10 +1,10 @@
 import { Disposable, window } from 'vscode';
 import type { Container } from '../../../container';
-import { setContext } from '../../../system/context';
 import { gate } from '../../../system/decorators/gate';
 import { once } from '../../../system/function';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
+import { setContext } from '../../../system/vscode/context';
 import type { ServerConnection } from '../serverConnection';
 import type {
 	FullOrganization,

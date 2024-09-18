@@ -15,7 +15,7 @@ import type {
 } from '../../../../../plus/webviews/patchDetails/protocol';
 import { debounce } from '../../../../../system/function';
 import { flatCount } from '../../../../../system/iterable';
-import type { Serialized } from '../../../../../system/serialize';
+import type { Serialized } from '../../../../../system/vscode/serialize';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,

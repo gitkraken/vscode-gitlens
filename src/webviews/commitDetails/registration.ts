@@ -1,5 +1,5 @@
 import type { CommitSelectedEvent } from '../../eventBus';
-import type { Serialized } from '../../system/serialize';
+import type { Serialized } from '../../system/vscode/serialize';
 import type { WebviewsController } from '../webviewsController';
 import type { ShowWipArgs, State } from './protocol';
 

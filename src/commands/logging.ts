@@ -1,7 +1,7 @@
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
-import { command } from '../system/command';
-import { configuration } from '../system/configuration';
+import { command } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import { Command } from './base';
 
 @command()

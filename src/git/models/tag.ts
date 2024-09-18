@@ -1,10 +1,10 @@
 import type { TagSorting } from '../../config';
 import { Container } from '../../container';
-import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import { getLoggableName } from '../../system/logger';
 import { sortCompare } from '../../system/string';
+import { configuration } from '../../system/vscode/configuration';
 import type { GitReference, GitTagReference } from './reference';
 
 export interface TagSortOptions {

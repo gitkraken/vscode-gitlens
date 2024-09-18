@@ -5,11 +5,11 @@ import type { StoredAvatar } from './constants.storage';
 import { Container } from './container';
 import type { CommitAuthor } from './git/models/author';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
-import { configuration } from './system/configuration';
-import { getContext } from './system/context';
 import { debounce } from './system/function';
 import { filterMap } from './system/iterable';
 import { base64, equalsIgnoreCase } from './system/string';
+import { configuration } from './system/vscode/configuration';
+import { getContext } from './system/vscode/context';
 import type { ContactPresenceStatus } from './vsls/vsls';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)

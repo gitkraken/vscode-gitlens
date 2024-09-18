@@ -23,17 +23,17 @@ import {
 import type { AnnotationsToggleMode, FileAnnotationType } from '../config';
 import type { Colors, CoreColors } from '../constants.colors';
 import type { Container } from '../container';
-import { registerCommand } from '../system/command';
-import { configuration } from '../system/configuration';
-import { setContext } from '../system/context';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { find } from '../system/iterable';
-import type { KeyboardScope } from '../system/keyboard';
 import { basename } from '../system/path';
-import { getResourceContextKeyValue, isTrackableTextEditor } from '../system/utils';
+import { registerCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
+import { setContext } from '../system/vscode/context';
+import type { KeyboardScope } from '../system/vscode/keyboard';
+import { getResourceContextKeyValue, isTrackableTextEditor } from '../system/vscode/utils';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,

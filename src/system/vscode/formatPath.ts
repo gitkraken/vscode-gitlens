@@ -1,6 +1,7 @@
 import type { Uri } from 'vscode';
-import { basename, getBestPath, relativeDir } from './path';
-import { truncateLeft, truncateMiddle } from './string';
+import { basename } from '../path';
+import { truncateLeft, truncateMiddle } from '../string';
+import { getBestPath, relativeDir } from './path';
 
 export function formatPath(
 	pathOrUri: string | Uri,

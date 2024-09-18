@@ -7,7 +7,7 @@ import type { RemoteResource } from '../git/models/remoteResource';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command, executeCommand } from '../system/command';
+import { command, executeCommand } from '../system/vscode/command';
 import { Command } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 

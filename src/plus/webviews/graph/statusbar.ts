@@ -2,9 +2,9 @@ import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
 import { Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
 import { Commands } from '../../../constants.commands';
 import type { Container } from '../../../container';
-import { configuration } from '../../../system/configuration';
-import { getContext, onDidChangeContext } from '../../../system/context';
 import { once } from '../../../system/function';
+import { configuration } from '../../../system/vscode/configuration';
+import { getContext, onDidChangeContext } from '../../../system/vscode/context';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import { arePlusFeaturesEnabled } from '../../gk/utils';
 

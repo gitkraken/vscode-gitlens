@@ -2,7 +2,7 @@ import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
-import { command } from '../system/command';
+import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasFileCommit } from './base';
 

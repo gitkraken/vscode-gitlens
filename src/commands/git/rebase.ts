@@ -9,7 +9,7 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
-import { getEditorCommand } from '../../system/utils';
+import { getEditorCommand } from '../../system/vscode/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,

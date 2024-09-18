@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { splitPath } from '../../../system/path';
+import { splitPath } from '../../../system/vscode/command';
 
 describe('Path Test Suite', () => {
 	function assertSplitPath(actual: [string, string], expected: [string, string]) {
