@@ -11,7 +11,7 @@ import type { GitBranch } from '../git/models/branch';
 import { getBranchNameWithoutRemote } from '../git/models/branch';
 import { createReference } from '../git/models/reference';
 import type { GitTag } from '../git/models/tag';
-import { configuration } from '../system/configuration';
+import { configuration } from '../system/vscode/configuration';
 
 const commandsRegexShared =
 	/\b(g(?:it)?\b\s*)\b(branch|checkout|cherry-pick|fetch|grep|log|merge|pull|push|rebase|reset|revert|show|stash|status|tag)\b/gi;

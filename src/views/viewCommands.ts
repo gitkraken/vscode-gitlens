@@ -35,6 +35,8 @@ import { showPatchesView } from '../plus/drafts/actions';
 import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import { filterMap, mapAsync } from '../system/array';
+import { log } from '../system/decorators/log';
+import { partial, sequentialize } from '../system/function';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -42,13 +44,11 @@ import {
 	executeCoreGitCommand,
 	executeEditorCommand,
 	registerCommand,
-} from '../system/command';
-import { configuration } from '../system/configuration';
-import { setContext } from '../system/context';
-import { log } from '../system/decorators/log';
-import { partial, sequentialize } from '../system/function';
-import type { OpenWorkspaceLocation } from '../system/utils';
-import { openUrl, openWorkspace, revealInFileExplorer } from '../system/utils';
+} from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
+import { setContext } from '../system/vscode/context';
+import type { OpenWorkspaceLocation } from '../system/vscode/utils';
+import { openUrl, openWorkspace, revealInFileExplorer } from '../system/vscode/utils';
 import { DeepLinkActionType } from '../uris/deepLinks/deepLink';
 import type { LaunchpadItemNode } from './launchpadView';
 import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';

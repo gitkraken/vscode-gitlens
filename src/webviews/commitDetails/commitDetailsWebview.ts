@@ -48,9 +48,6 @@ import { getEntityIdentifierInput } from '../../plus/integrations/providers/util
 import { confirmDraftStorage, ensureAccount } from '../../plus/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import type { Change } from '../../plus/webviews/patchDetails/protocol';
-import { executeCommand, executeCoreCommand, executeCoreGitCommand, registerCommand } from '../../system/command';
-import { configuration } from '../../system/configuration';
-import { getContext, onDidChangeContext } from '../../system/context';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
@@ -59,8 +56,16 @@ import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { MRU } from '../../system/mru';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
-import type { Serialized } from '../../system/serialize';
-import { serialize } from '../../system/serialize';
+import {
+	executeCommand,
+	executeCoreCommand,
+	executeCoreGitCommand,
+	registerCommand,
+} from '../../system/vscode/command';
+import { configuration } from '../../system/vscode/configuration';
+import { getContext, onDidChangeContext } from '../../system/vscode/context';
+import type { Serialized } from '../../system/vscode/serialize';
+import { serialize } from '../../system/vscode/serialize';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { IpcCallMessageType, IpcMessage } from '../protocol';
 import { updatePendingContext } from '../webviewController';

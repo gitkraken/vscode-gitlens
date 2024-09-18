@@ -1,10 +1,10 @@
 import { ViewColumn } from 'vscode';
 import { Commands } from '../../../constants.commands';
 import type { Sources } from '../../../constants.telemetry';
-import { executeCommand } from '../../../system/command';
-import { configuration } from '../../../system/configuration';
-import { setContext } from '../../../system/context';
-import type { Serialized } from '../../../system/serialize';
+import { executeCommand } from '../../../system/vscode/command';
+import { configuration } from '../../../system/vscode/configuration';
+import { setContext } from '../../../system/vscode/context';
+import type { Serialized } from '../../../system/vscode/serialize';
 import type { WebviewPanelShowCommandArgs, WebviewsController } from '../../../webviews/webviewsController';
 import type { CreateDraft, State, ViewDraft } from './protocol';
 

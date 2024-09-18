@@ -9,7 +9,7 @@ import type { DeferredEvent, DeferredEventExecutor } from '../../../system/event
 import { promisifyDeferred } from '../../../system/event';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
-import { openUrl } from '../../../system/utils';
+import { openUrl } from '../../../system/vscode/utils';
 import type { ServerConnection } from '../serverConnection';
 
 export const LoginUriPathPrefix = 'login';

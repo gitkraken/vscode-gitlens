@@ -7,7 +7,8 @@ import { debug, log } from '../system/decorators/log';
 import { join } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
-import { isVslsRoot, normalizePath } from '../system/path';
+import { normalizePath } from '../system/path';
+import { isVslsRoot } from '../system/vscode/path';
 import type {
 	GetRepositoriesForUriRequest,
 	GetRepositoriesForUriResponse,

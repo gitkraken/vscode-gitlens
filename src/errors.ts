@@ -1,6 +1,6 @@
 import type { Response } from '@env/fetch';
 import type { Uri } from 'vscode';
-// eslint-disable-next-line no-restricted-imports
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { CancellationError as _CancellationError } from 'vscode';
 import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/account/subscription';
 import { isSubscriptionPaidPlan } from './plus/gk/account/subscription';

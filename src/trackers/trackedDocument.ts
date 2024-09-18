@@ -4,13 +4,13 @@ import { GitUri } from '../git/gitUri';
 import type { GitBlame } from '../git/models/blame';
 import type { GitDiffFile } from '../git/models/diff';
 import type { GitLog } from '../git/models/log';
-import { configuration } from '../system/configuration';
 import { debug, logName } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
-import { getEditorIfVisible, isActiveDocument, isVisibleDocument } from '../system/utils';
+import { configuration } from '../system/vscode/configuration';
+import { getEditorIfVisible, isActiveDocument, isVisibleDocument } from '../system/vscode/utils';
 import type { DocumentBlameStateChangeEvent, GitDocumentTracker } from './documentTracker';
 
 interface CachedItem<T> {

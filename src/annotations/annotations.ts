@@ -14,8 +14,8 @@ import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import { scale, toRgba } from '../system/color';
-import { configuration } from '../system/configuration';
 import { getWidth, interpolate, pad } from '../system/string';
+import { configuration } from '../system/vscode/configuration';
 import type { BlameFontOptions } from './gutterBlameAnnotationProvider';
 
 export interface ComputedHeatmap {

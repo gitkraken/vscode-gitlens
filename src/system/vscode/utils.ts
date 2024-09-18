@@ -1,12 +1,13 @@
 import type { ColorTheme, Tab, TextDocument, TextDocumentShowOptions, TextEditor, WorkspaceFolder } from 'vscode';
 import { version as codeVersion, ColorThemeKind, env, Uri, ViewColumn, window, workspace } from 'vscode';
-import { imageMimetypes, Schemes, trackableSchemes } from '../constants';
-import { isGitUri } from '../git/gitUri';
+import { imageMimetypes, Schemes, trackableSchemes } from '../../constants';
+import { isGitUri } from '../../git/gitUri';
+import { Logger } from '../logger';
+import { extname, normalizePath } from '../path';
+import { satisfies } from '../version';
 import { executeCoreCommand } from './command';
 import { configuration } from './configuration';
-import { Logger } from './logger';
-import { extname, normalizePath, relative } from './path';
-import { satisfies } from './version';
+import { relative } from './path';
 
 export function findTextDocument(uri: Uri): TextDocument | undefined {
 	const normalizedUri = uri.toString();

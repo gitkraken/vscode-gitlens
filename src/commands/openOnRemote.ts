@@ -10,9 +10,9 @@ import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { showGenericErrorMessage } from '../messages';
 import { showRemoteProviderPicker } from '../quickpicks/remoteProviderPicker';
 import { ensureArray } from '../system/array';
-import { command } from '../system/command';
 import { Logger } from '../system/logger';
 import { pad, splitSingle } from '../system/string';
+import { command } from '../system/vscode/command';
 import { Command } from './base';
 
 export type OpenOnRemoteCommandArgs =

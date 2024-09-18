@@ -9,10 +9,10 @@ import { isSha } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showGenericErrorMessage } from '../messages';
 import { showReferencePicker } from '../quickpicks/referencePicker';
-import { command, executeCommand } from '../system/command';
 import { UriComparer } from '../system/comparers';
 import { Logger } from '../system/logger';
 import { pad, splitSingle } from '../system/string';
+import { command, executeCommand } from '../system/vscode/command';
 import { StatusFileNode } from '../views/nodes/statusFileNode';
 import type { CommandContext } from './base';
 import {

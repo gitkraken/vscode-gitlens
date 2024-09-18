@@ -32,7 +32,6 @@ import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../../../messages';
-import { configuration } from '../../../../system/configuration';
 import { debug } from '../../../../system/decorators/log';
 import { uniqueBy } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
@@ -42,6 +41,7 @@ import { maybeStopWatch } from '../../../../system/stopwatch';
 import { base64 } from '../../../../system/string';
 import type { Version } from '../../../../system/version';
 import { fromString, satisfies } from '../../../../system/version';
+import { configuration } from '../../../../system/vscode/configuration';
 import type {
 	GitHubBlame,
 	GitHubBlameRange,

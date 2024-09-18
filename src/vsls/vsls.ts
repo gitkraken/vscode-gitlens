@@ -3,13 +3,13 @@ import { Disposable, extensions, workspace } from 'vscode';
 import type { LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls';
 import { Schemes } from '../constants';
 import type { Container } from '../container';
-import { configuration } from '../system/configuration';
-import { setContext } from '../system/context';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
 import type { Deferred } from '../system/promise';
 import { defer } from '../system/promise';
+import { configuration } from '../system/vscode/configuration';
+import { setContext } from '../system/vscode/context';
 import { VslsGuestService } from './guest';
 import { VslsHostService } from './host';
 

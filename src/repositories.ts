@@ -4,8 +4,9 @@ import { Schemes } from './constants';
 import type { RevisionUriData } from './git/gitProvider';
 import { decodeGitLensRevisionUriAuthority } from './git/gitUri';
 import type { Repository } from './git/models/repository';
-import { addVslsPrefixIfNeeded, normalizePath } from './system/path';
+import { normalizePath } from './system/path';
 import { UriTrie } from './system/trie';
+import { addVslsPrefixIfNeeded } from './system/vscode/path';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
 // import { CharCode } from './string';
 

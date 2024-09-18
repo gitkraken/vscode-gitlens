@@ -9,9 +9,9 @@ import { PullRequest } from '../../git/models/pullRequest';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
 import { IssueIntegrationId } from '../../plus/integrations/providers/models';
-import type { ConfigPath, CoreConfigPath } from '../../system/configuration';
-import { configuration } from '../../system/configuration';
 import { map } from '../../system/iterable';
+import type { ConfigPath, CoreConfigPath } from '../../system/vscode/configuration';
+import { configuration } from '../../system/vscode/configuration';
 import type { CustomConfigPath, IpcMessage } from '../protocol';
 import {
 	assertsConfigKeyValue,

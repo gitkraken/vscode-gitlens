@@ -1,11 +1,11 @@
 import { Disposable } from 'vscode';
-import type { Keys } from '../constants';
-import { extensionPrefix, keys } from '../constants';
+import type { Keys } from '../../constants';
+import { extensionPrefix, keys } from '../../constants';
+import { log } from '../decorators/log';
+import { Logger } from '../logger';
+import { getLogScope, setLogScopeExit } from '../logger.scope';
 import { registerCommand } from './command';
 import { setContext } from './context';
-import { log } from './decorators/log';
-import { Logger } from './logger';
-import { getLogScope, setLogScopeExit } from './logger.scope';
 
 export declare interface KeyCommand {
 	onDidPressKey?(key: Keys): void | Promise<void>;

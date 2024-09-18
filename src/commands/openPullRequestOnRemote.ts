@@ -2,8 +2,8 @@ import { env, window } from 'vscode';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { shortenRevision } from '../git/models/reference';
-import { command } from '../system/command';
-import { openUrl } from '../system/utils';
+import { command } from '../system/vscode/command';
+import { openUrl } from '../system/vscode/utils';
 import type { CommandContext } from './base';
 import { Command } from './base';
 

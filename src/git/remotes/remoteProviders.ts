@@ -1,7 +1,7 @@
 import type { RemotesConfig } from '../../config';
 import type { Container } from '../../container';
-import { configuration } from '../../system/configuration';
 import { Logger } from '../../system/logger';
+import { configuration } from '../../system/vscode/configuration';
 import { AzureDevOpsRemote } from './azure-devops';
 import { BitbucketRemote } from './bitbucket';
 import { BitbucketServerRemote } from './bitbucket-server';
