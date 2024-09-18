@@ -36,10 +36,20 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		this._name = name;
 	}
 
-	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
-		return [];
-	}
+	protected abstract get issueLinkPattern(): string;
 
+	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+		return [
+			{
+				url: this.issueLinkPattern,
+				prefix: '',
+				title: `Open Issue #<num> on ${this.name}`,
+				referenceType: 'branchName',
+				alphanumeric: false,
+				ignoreCase: true,
+			},
+		];
+	}
 	get avatarUri(): Uri | undefined {
 		return undefined;
 	}
