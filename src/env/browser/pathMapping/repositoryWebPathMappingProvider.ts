@@ -7,11 +7,11 @@ export class RepositoryWebPathMappingProvider implements RepositoryPathMappingPr
 
 	dispose() {}
 
-	async getLocalRepoPaths(_options: {
+	getLocalRepoPaths(_options: {
 		remoteUrl?: string;
 		repoInfo?: { provider?: string; owner?: string; repoName?: string };
 	}): Promise<string[]> {
-		return [];
+		return Promise.resolve([]);
 	}
 
 	async writeLocalRepoPath(

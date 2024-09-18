@@ -1,3 +1,4 @@
+import { uuid } from '@env/crypto';
 import type {
 	CancellationToken,
 	WebviewOptions,
@@ -7,7 +8,6 @@ import type {
 	WebviewViewResolveContext,
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import { uuid } from '@env/crypto';
 import type { Commands } from '../constants.commands';
 import type { WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';

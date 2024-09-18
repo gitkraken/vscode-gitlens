@@ -1,8 +1,8 @@
+import { getProxyAgent } from '@env/fetch';
+import { getPlatform } from '@env/platform';
 import type { AttributeValue, Span, TimeInput } from '@opentelemetry/api';
 import type { Disposable } from 'vscode';
 import { version as codeVersion, env } from 'vscode';
-import { getProxyAgent } from '@env/fetch';
-import { getPlatform } from '@env/platform';
 import type { Source, TelemetryEvents, TelemetryGlobalContext } from '../constants.telemetry';
 import type { Container } from '../container';
 import { configuration } from '../system/configuration';

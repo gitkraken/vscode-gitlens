@@ -1,11 +1,10 @@
 {
-	"extends": "./tsconfig.base.json",
-	"compilerOptions": {
-		"paths": {
-			"@env/*": ["src/env/node/*"]
-		},
-		"tsBuildInfoFile": "tsconfig.tsbuildinfo"
-	},
-	"include": ["src/**/*"],
-	"exclude": ["src/test/**/*", "src/webviews/apps/**/*", "src/env/browser/**/*"]
+	"files": [],
+	"references": [
+		{ "path": "./tsconfig.node.json" },
+		{ "path": "./tsconfig.browser.json" },
+		{ "path": "./src/webviews/apps/tsconfig.json" },
+		{ "path": "./tests/e2e/tsconfig.json" }
+		// { "path": "./tsconfig.test.json" }
+	]
 }

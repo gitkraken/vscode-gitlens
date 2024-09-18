@@ -1,5 +1,5 @@
-import type { Uri } from 'vscode';
 import { isLinux } from '@env/platform';
+import type { Uri } from 'vscode';
 import { filterMap } from './iterable';
 import { normalizePath as _normalizePath } from './path';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies

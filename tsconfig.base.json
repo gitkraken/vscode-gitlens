@@ -22,6 +22,5 @@
 		"target": "es2022",
 		"useDefineForClassFields": true,
 		"useUnknownInCatchVariables": false
-	},
-	"include": ["src/**/*"]
+	}
 }

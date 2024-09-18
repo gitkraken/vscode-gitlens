@@ -1,6 +1,6 @@
+import { getSupportedGitProviders, getSupportedRepositoryPathMappingProvider } from '@env/providers';
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode, Uri } from 'vscode';
-import { getSupportedGitProviders, getSupportedRepositoryPathMappingProvider } from '@env/providers';
 import type { AIProviderService } from './ai/aiProviderService';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';

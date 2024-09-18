@@ -1,3 +1,4 @@
+import { isWeb } from '@env/platform';
 import type {
 	CancellationToken,
 	ConfigurationChangeEvent,
@@ -10,7 +11,6 @@ import type {
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
 import { Disposable, EventEmitter, FileType, ProgressLocation, Uri, window, workspace } from 'vscode';
-import { isWeb } from '@env/platform';
 import { resetAvatarCache } from '../avatars';
 import type { GitConfigKeys } from '../constants';
 import { GlyphChars, Schemes } from '../constants';

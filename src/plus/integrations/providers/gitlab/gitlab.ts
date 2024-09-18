@@ -1,9 +1,9 @@
-import type { HttpsProxyAgent } from 'https-proxy-agent';
-import type { CancellationToken, Disposable } from 'vscode';
-import { Uri, window } from 'vscode';
 import type { RequestInit, Response } from '@env/fetch';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
+import type { HttpsProxyAgent } from 'https-proxy-agent';
+import type { CancellationToken, Disposable } from 'vscode';
+import { Uri, window } from 'vscode';
 import type { Container } from '../../../../container';
 import {
 	AuthenticationError,

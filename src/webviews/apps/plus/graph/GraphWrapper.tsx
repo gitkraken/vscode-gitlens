@@ -1,3 +1,4 @@
+import { getPlatform } from '@env/platform';
 import type {
 	CommitType,
 	GraphColumnMode,
@@ -18,7 +19,6 @@ import { SlOption, SlSelect } from '@shoelace-style/shoelace/dist/react';
 import { VSCodeCheckbox, VSCodeRadio, VSCodeRadioGroup } from '@vscode/webview-ui-toolkit/react';
 import type { FormEvent, MouseEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
-import { getPlatform } from '@env/platform';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
 import type { SearchQuery } from '../../../../constants.search';
 import type { Subscription } from '../../../../plus/gk/account/subscription';

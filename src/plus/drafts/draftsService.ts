@@ -1,7 +1,7 @@
+import type { HeadersInit } from '@env/fetch';
 import type { EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { Disposable } from 'vscode';
-import type { HeadersInit } from '@env/fetch';
 import { getAvatarUri } from '../../avatars';
 import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';

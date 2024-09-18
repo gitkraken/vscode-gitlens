@@ -1,6 +1,6 @@
+import { isLinux } from '@env/platform';
 import type { Event, FileChangeEvent, FileStat, FileSystemProvider, Uri } from 'vscode';
 import { Disposable, EventEmitter, FileSystemError, FileType, workspace } from 'vscode';
-import { isLinux } from '@env/platform';
 import { Schemes } from '../constants';
 import type { Container } from '../container';
 import { debug } from '../system/decorators/log';

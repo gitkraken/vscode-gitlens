@@ -1,3 +1,4 @@
+import { getPlatform } from '@env/platform';
 import type {
 	AuthenticationProviderAuthenticationSessionsChangeEvent,
 	AuthenticationSession,
@@ -19,7 +20,6 @@ import {
 	Uri,
 	window,
 } from 'vscode';
-import { getPlatform } from '@env/platform';
 import type { OpenWalkthroughCommandArgs } from '../../../commands/walkthroughs';
 import { urls } from '../../../constants';
 import type { CoreColors } from '../../../constants.colors';

@@ -1,5 +1,5 @@
-import { EventEmitter, Uri } from 'vscode';
 import { md5 } from '@env/crypto';
+import { EventEmitter, Uri } from 'vscode';
 import type { GravatarDefaultStyle } from './config';
 import type { StoredAvatar } from './constants.storage';
 import { Container } from './container';

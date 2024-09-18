@@ -1,6 +1,6 @@
+import { git, gitLogStreamTo } from '@env/providers';
 import type { CancellationToken, WorkspaceFoldersChangeEvent } from 'vscode';
 import { Disposable, Uri, workspace } from 'vscode';
-import { git, gitLogStreamTo } from '@env/providers';
 import type { LiveShare, SharedService } from '../@types/vsls';
 import type { Container } from '../container';
 import { debug, log } from '../system/decorators/log';

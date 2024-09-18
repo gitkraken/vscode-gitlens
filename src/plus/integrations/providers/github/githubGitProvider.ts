@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await */
+import { encodeUtf8Hex } from '@env/hex';
+import { isWeb } from '@env/platform';
 import type {
 	AuthenticationSession,
 	CancellationToken,
@@ -9,8 +11,6 @@ import type {
 	WorkspaceFolder,
 } from 'vscode';
 import { EventEmitter, FileType, Uri, window, workspace } from 'vscode';
-import { encodeUtf8Hex } from '@env/hex';
-import { isWeb } from '@env/platform';
 import { CharCode, Schemes } from '../../../../constants';
 import type { SearchOperators, SearchQuery } from '../../../../constants.search';
 import type { Container } from '../../../../container';
