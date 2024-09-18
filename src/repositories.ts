@@ -1,5 +1,5 @@
-import type { Uri } from 'vscode';
 import { isLinux } from '@env/platform';
+import type { Uri } from 'vscode';
 import { Schemes } from './constants';
 import type { RevisionUriData } from './git/gitProvider';
 import { decodeGitLensRevisionUriAuthority } from './git/gitUri';

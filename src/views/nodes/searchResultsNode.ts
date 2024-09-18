@@ -1,6 +1,6 @@
+import { md5 } from '@env/crypto';
 import type { TreeItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
-import { md5 } from '@env/crypto';
 import type { SearchQuery } from '../../constants.search';
 import { executeGitCommand } from '../../git/actions';
 import { GitUri } from '../../git/gitUri';

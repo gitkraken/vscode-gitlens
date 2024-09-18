@@ -1,10 +1,10 @@
+import { uuid } from '@env/crypto';
 import type {
 	AuthenticationProvider,
 	AuthenticationProviderAuthenticationSessionsChangeEvent,
 	AuthenticationSession,
 } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
-import { uuid } from '@env/crypto';
 import type { TrackingContext } from '../../../constants.telemetry';
 import type { Container, Environment } from '../../../container';
 import { CancellationError } from '../../../errors';

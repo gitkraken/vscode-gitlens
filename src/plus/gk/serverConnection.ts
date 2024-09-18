@@ -1,9 +1,9 @@
-import type { RequestError } from '@octokit/request-error';
-import type { CancellationToken } from 'vscode';
-import { version as codeVersion, env, Uri, window } from 'vscode';
 import type { HeadersInit, RequestInfo, RequestInit, Response } from '@env/fetch';
 import { fetch as _fetch, getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
+import type { RequestError } from '@octokit/request-error';
+import type { CancellationToken } from 'vscode';
+import { version as codeVersion, env, Uri, window } from 'vscode';
 import type { Disposable } from '../../api/gitlens';
 import type { Container } from '../../container';
 import {

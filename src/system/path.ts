@@ -1,7 +1,7 @@
 // eslint-disable-next-line no-restricted-imports
 import { isAbsolute as _isAbsolute, basename, dirname } from 'path';
-import { Uri } from 'vscode';
 import { isLinux, isWindows } from '@env/platform';
+import { Uri } from 'vscode';
 import { Schemes } from '../constants';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
 // import { CharCode } from './string';

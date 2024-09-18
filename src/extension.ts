@@ -1,7 +1,7 @@
-import type { ExtensionContext } from 'vscode';
-import { version as codeVersion, env, ExtensionMode, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { isWeb } from '@env/platform';
+import type { ExtensionContext } from 'vscode';
+import { version as codeVersion, env, ExtensionMode, Uri, window, workspace } from 'vscode';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
 import type { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';

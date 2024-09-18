@@ -23,7 +23,6 @@ test/**
 .browserslistrc
 .eslintcache
 .eslintignore
-.eslintrc*.json
 .fantasticonrc.js
 .git-blame-ignore-revs
 .gitattributes
@@ -36,6 +35,7 @@ BACKERS.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 esbuild.mjs
+eslint.config.mjs
 README.pre.md
 svgo.config.js
 tsconfig*.json

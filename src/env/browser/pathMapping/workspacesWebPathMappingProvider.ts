@@ -1,14 +1,14 @@
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import type { LocalWorkspaceFileData, WorkspaceAutoAddSetting } from '../../../plus/workspaces/models';
 import type { WorkspacesPathMappingProvider } from '../../../plus/workspaces/workspacesPathMappingProvider';
 
 export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingProvider {
-	async getCloudWorkspaceRepoPath(_cloudWorkspaceId: string, _repoId: string): Promise<string | undefined> {
-		return undefined;
+	getCloudWorkspaceRepoPath(_cloudWorkspaceId: string, _repoId: string): Promise<string | undefined> {
+		return Promise.resolve(undefined);
 	}
 
-	async getCloudWorkspaceCodeWorkspacePath(_cloudWorkspaceId: string): Promise<string | undefined> {
-		return undefined;
+	getCloudWorkspaceCodeWorkspacePath(_cloudWorkspaceId: string): Promise<string | undefined> {
+		return Promise.resolve(undefined);
 	}
 
 	async removeCloudWorkspaceCodeWorkspaceFilePath(_cloudWorkspaceId: string): Promise<void> {}
@@ -18,8 +18,8 @@ export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingPr
 		_codeWorkspaceFilePath: string,
 	): Promise<void> {}
 
-	async confirmCloudWorkspaceCodeWorkspaceFilePath(_cloudWorkspaceId: string): Promise<boolean> {
-		return false;
+	confirmCloudWorkspaceCodeWorkspaceFilePath(_cloudWorkspaceId: string): Promise<boolean> {
+		return Promise.resolve(false);
 	}
 
 	async writeCloudWorkspaceRepoDiskPathToMap(
@@ -28,22 +28,22 @@ export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingPr
 		_repoLocalPath: string,
 	): Promise<void> {}
 
-	async getLocalWorkspaceData(): Promise<LocalWorkspaceFileData> {
-		return { workspaces: {} };
+	getLocalWorkspaceData(): Promise<LocalWorkspaceFileData> {
+		return Promise.resolve({ workspaces: {} });
 	}
 
-	async writeCodeWorkspaceFile(
+	writeCodeWorkspaceFile(
 		_uri: Uri,
 		_workspaceRepoFilePaths: string[],
 		_options?: { workspaceId?: string; workspaceAutoAddSetting?: WorkspaceAutoAddSetting },
 	): Promise<boolean> {
-		return false;
+		return Promise.resolve(false);
 	}
 
-	async updateCodeWorkspaceFileSettings(
+	updateCodeWorkspaceFileSettings(
 		_uri: Uri,
 		_options: { workspaceAutoAddSetting?: WorkspaceAutoAddSetting },
 	): Promise<boolean> {
-		return false;
+		return Promise.resolve(false);
 	}
 }

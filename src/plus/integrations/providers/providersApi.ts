@@ -1,8 +1,8 @@
-import ProviderApis from '@gitkraken/provider-apis';
-import { version as codeVersion, env } from 'vscode';
 import type { Response as FetchResponse } from '@env/fetch';
 import { fetch as _fetch, getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
+import ProviderApis from '@gitkraken/provider-apis';
+import { version as codeVersion, env } from 'vscode';
 import type { Container } from '../../../container';
 import {
 	AuthenticationError,

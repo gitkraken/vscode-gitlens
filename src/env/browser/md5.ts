@@ -153,15 +153,15 @@ function md5blk(s: string) {
 
 function md51(s: string) {
 	const n = s.length;
-	let state = [1732584193, -271733879, -1732584194, 271733878];
+	const state = [1732584193, -271733879, -1732584194, 271733878];
 
 	let i;
 	for (i = 64; i <= n; i += 64) {
 		md5cycle(state, md5blk(s.substring(i - 64, i)));
 	}
 	s = s.substring(i - 64);
-	let length = s.length;
-	let tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+	const length = s.length;
+	const tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 	for (i = 0; i < length; i += 1) {
 		tail[i >> 2] |= s.charCodeAt(i) << (i % 4 << 3);
 	}
@@ -185,11 +185,11 @@ function md51(s: string) {
 	return state;
 }
 
-const hex_chr = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
+const hexChr = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
 function rhex(n: number) {
 	let s = '';
 	for (let j = 0; j < 4; j += 1) {
-		s += hex_chr[(n >> (j * 8 + 4)) & 0x0f] + hex_chr[(n >> (j * 8)) & 0x0f];
+		s += hexChr[(n >> (j * 8 + 4)) & 0x0f] + hexChr[(n >> (j * 8)) & 0x0f];
 	}
 	return s;
 }
@@ -206,10 +206,11 @@ function hexToBinary(hex: string) {
 		bytes.push(parseInt(hex.substring(x, x + 2), 16));
 	}
 
-	return String.fromCharCode.apply(String, bytes);
+	return String.fromCharCode(...bytes);
 }
 
 export function md5(s: string, encoding: 'base64' | 'hex' = 'hex') {
 	const h = hex(md51(s));
-	return encoding === 'hex' ? h : btoa(hexToBinary(h));
+	// eslint-disable-next-line @typescript-eslint/no-deprecated
+	return encoding === 'hex' ? h : globalThis.btoa(hexToBinary(h));
 }

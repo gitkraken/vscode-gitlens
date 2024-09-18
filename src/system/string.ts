@@ -1,10 +1,10 @@
+import { hrtime } from '@env/hrtime';
 import type {
 	WidthOptions as StringWidthOptions,
 	TruncationOptions as StringWidthTruncationOptions,
 	Result as TruncatedStringWidthResult,
 } from 'fast-string-truncated-width';
 import getTruncatedStringWidth from 'fast-string-truncated-width';
-import { hrtime } from '@env/hrtime';
 import { CharCode } from '../constants';
 
 export { fromBase64, base64 } from '@env/base64';
