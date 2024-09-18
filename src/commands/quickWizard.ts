@@ -31,7 +31,6 @@ import type { StatusGitCommandArgs } from './git/status';
 import type { SwitchGitCommandArgs } from './git/switch';
 import type { TagGitCommandArgs } from './git/tag';
 import type { WorktreeGitCommandArgs } from './git/worktree';
-import { PickCommandStep } from './gitCommands.utils';
 import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
 import { isCustomStep, isQuickCommand, isQuickInputStep, isQuickPickStep, StepResultBreak } from './quickCommand';
 import {
@@ -40,11 +39,12 @@ import {
 	WillConfirmForcedQuickInputButton,
 	WillConfirmToggleQuickInputButton,
 } from './quickCommand.buttons';
+import { PickCommandStep } from './quickWizard.utils';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 const showLoadingSymbol = Symbol('ShowLoading');
 
-export type GitCommandsCommandArgs =
+export type QuickWizardCommandArgs =
 	| BranchGitCommandArgs
 	| CherryPickGitCommandArgs
 	| CoAuthorsGitCommandArgs
@@ -66,10 +66,10 @@ export type GitCommandsCommandArgs =
 	| WorktreeGitCommandArgs
 	| LaunchpadCommandArgs;
 
-export type GitCommandsCommandArgsWithCompletion = GitCommandsCommandArgs & { completion?: Deferred<void> };
+export type QuickWizardCommandArgsWithCompletion = QuickWizardCommandArgs & { completion?: Deferred<void> };
 
 @command()
-export class GitCommandsCommand extends Command {
+export class QuickWizardCommand extends Command {
 	private startedWith: 'menu' | 'command' = 'menu';
 
 	constructor(private readonly container: Container) {
@@ -113,7 +113,7 @@ export class GitCommandsCommand extends Command {
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: GitCommandsCommandArgsWithCompletion) {
+	protected override preExecute(context: CommandContext, args?: QuickWizardCommandArgsWithCompletion) {
 		switch (context.command) {
 			case Commands.GitCommandsBranch:
 				args = { command: 'branch' };
@@ -225,7 +225,7 @@ export class GitCommandsCommand extends Command {
 	}
 
 	@log({ args: false, scoped: true, singleLine: true, timed: false })
-	async execute(args?: GitCommandsCommandArgsWithCompletion) {
+	async execute(args?: QuickWizardCommandArgsWithCompletion) {
 		const commandsStep = new PickCommandStep(this.container, args);
 
 		const command = args?.command != null ? commandsStep.find(args.command) : undefined;
@@ -879,7 +879,7 @@ export class GitCommandsCommand extends Command {
 
 									case Directive.SignIn: {
 										const result = await Container.instance.subscription.loginOrSignUp(false, {
-											source: 'git-commands',
+											source: 'quick-wizard',
 											detail: {
 												action: commandsStep.command?.key,
 												'step.title': step.title,
@@ -891,7 +891,7 @@ export class GitCommandsCommand extends Command {
 
 									case Directive.StartPreview:
 										await Container.instance.subscription.startPreviewTrial({
-											source: 'git-commands',
+											source: 'quick-wizard',
 											detail: {
 												action: commandsStep.command?.key,
 												'step.title': step.title,
@@ -902,7 +902,7 @@ export class GitCommandsCommand extends Command {
 
 									case Directive.RequiresVerification: {
 										const result = await Container.instance.subscription.resendVerification({
-											source: 'git-commands',
+											source: 'quick-wizard',
 											detail: {
 												action: commandsStep.command?.key,
 												'step.title': step.title,
@@ -914,7 +914,7 @@ export class GitCommandsCommand extends Command {
 
 									case Directive.StartProTrial: {
 										const result = await Container.instance.subscription.loginOrSignUp(true, {
-											source: 'git-commands',
+											source: 'quick-wizard',
 											detail: {
 												action: commandsStep.command?.key,
 												'step.title': step.title,
@@ -926,7 +926,7 @@ export class GitCommandsCommand extends Command {
 
 									case Directive.RequiresPaidSubscription:
 										void Container.instance.subscription.upgrade({
-											source: 'git-commands',
+											source: 'quick-wizard',
 											detail: {
 												action: commandsStep.command?.key,
 												'step.title': step.title,

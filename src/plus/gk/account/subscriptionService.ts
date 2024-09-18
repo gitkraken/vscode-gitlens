@@ -1572,7 +1572,7 @@ function getTrackingContextFromSource(source: Source | undefined): TrackingConte
 			return 'launchpad';
 		case 'timeline':
 			return 'visual_file_history';
-		case 'git-commands':
+		case 'quick-wizard':
 			if (source.detail != null && typeof source.detail !== 'string' && 'action' in source.detail) {
 				switch (source.detail.action) {
 					case 'worktree':

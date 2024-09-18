@@ -23,7 +23,7 @@ import './commands/diffWithWorking';
 import './commands/externalDiff';
 import './commands/generateCommitMessage';
 import './commands/ghpr/openOrCreateWorktree';
-import './commands/gitCommands';
+import './commands/quickWizard';
 import './commands/inviteToLiveShare';
 import './commands/inspect';
 import './commands/logging';

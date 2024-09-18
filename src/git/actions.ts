@@ -1,13 +1,13 @@
 import type { Uri } from 'vscode';
 import type { BrowseRepoAtRevisionCommandArgs } from '../commands/browseRepoAtRevision';
-import type { GitCommandsCommandArgs, GitCommandsCommandArgsWithCompletion } from '../commands/gitCommands';
+import type { QuickWizardCommandArgs, QuickWizardCommandArgsWithCompletion } from '../commands/quickWizard';
 import { Commands } from '../constants.commands';
 import { defer } from '../system/promise';
 import { executeCommand, executeEditorCommand } from '../system/vscode/command';
 
-export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
+export async function executeGitCommand(args: QuickWizardCommandArgs): Promise<void> {
 	const deferred = defer<void>();
-	void (await executeCommand<GitCommandsCommandArgsWithCompletion>(Commands.GitCommands, {
+	void (await executeCommand<QuickWizardCommandArgsWithCompletion>(Commands.GitCommands, {
 		...args,
 		completion: deferred,
 	}));

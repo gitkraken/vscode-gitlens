@@ -982,7 +982,7 @@ export function* pickBranchOrTagStepMultiRepo<
 		iconPath: new ThemeIcon('git-pull-request'),
 		alwaysShow: true,
 		item: createCrossCommandReference<Partial<LaunchpadCommandArgs>>(Commands.ShowLaunchpad, {
-			source: 'git-commands',
+			source: 'quick-wizard',
 		}),
 	};
 

@@ -22,8 +22,8 @@ import { StatusGitCommand } from './git/status';
 import { SwitchGitCommand } from './git/switch';
 import { TagGitCommand } from './git/tag';
 import { WorktreeGitCommand } from './git/worktree';
-import type { GitCommandsCommandArgs } from './gitCommands';
 import type { QuickCommand, QuickPickStep, StepGenerator } from './quickCommand';
+import type { QuickWizardCommandArgs } from './quickWizard';
 
 function* nullSteps(): StepGenerator {
 	/* noop */
@@ -31,7 +31,7 @@ function* nullSteps(): StepGenerator {
 
 export function getSteps(
 	container: Container,
-	args: GitCommandsCommandArgs,
+	args: QuickWizardCommandArgs,
 	pickedVia: 'menu' | 'command',
 ): StepGenerator {
 	const commandsStep = new PickCommandStep(container, args);
@@ -56,7 +56,7 @@ export class PickCommandStep implements QuickPickStep<QuickCommand> {
 
 	constructor(
 		private readonly container: Container,
-		args?: GitCommandsCommandArgs,
+		args?: QuickWizardCommandArgs,
 	) {
 		const hasVirtualFolders = getContext('gitlens:hasVirtualFolders', false);
 		const readonly =

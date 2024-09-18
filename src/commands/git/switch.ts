@@ -13,7 +13,6 @@ import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { isStringArray } from '../../system/array';
 import { executeCommand } from '../../system/vscode/command';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { getSteps } from '../gitCommands.utils';
 import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';
 import { canPickStepContinue, endSteps, isCrossCommandReference, QuickCommand, StepResultBreak } from '../quickCommand';
 import {
@@ -22,6 +21,7 @@ import {
 	pickBranchOrTagStepMultiRepo,
 	pickRepositoriesStep,
 } from '../quickCommand.steps';
+import { getSteps } from '../quickWizard.utils';
 
 interface Context {
 	repos: Repository[];

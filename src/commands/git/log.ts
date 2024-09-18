@@ -9,10 +9,10 @@ import { Repository } from '../../git/models/repository';
 import { pad } from '../../system/string';
 import { formatPath } from '../../system/vscode/formatPath';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { getSteps } from '../gitCommands.utils';
 import type { PartialStepState, StepGenerator, StepResult } from '../quickCommand';
 import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
 import { pickBranchOrTagStep, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
+import { getSteps } from '../quickWizard.utils';
 
 interface Context {
 	repos: Repository[];
