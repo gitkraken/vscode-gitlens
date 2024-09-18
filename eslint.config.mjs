@@ -43,67 +43,7 @@ export default ts.config(
 			'no-loop-func': 'error',
 			'no-mixed-spaces-and-tabs': 'off',
 			'no-restricted-globals': ['error', 'process'],
-			'no-restricted-imports': [
-				'error',
-				{
-					paths: [
-						'assert',
-						'buffer',
-						'child_process',
-						'cluster',
-						'crypto',
-						'dgram',
-						'dns',
-						'domain',
-						'events',
-						'freelist',
-						'fs',
-						'http',
-						'https',
-						'module',
-						'net',
-						'os',
-						'path',
-						'process',
-						'punycode',
-						'querystring',
-						'readline',
-						'repl',
-						'smalloc',
-						'stream',
-						'string_decoder',
-						'sys',
-						'timers',
-						'tls',
-						'tracing',
-						'tty',
-						'url',
-						'util',
-						'vm',
-						'zlib',
-					],
-					patterns: [
-						{
-							group: ['**/env/**/*'],
-							message: 'Use @env/ instead',
-						},
-						{
-							group: ['src/*'],
-							message: 'Use relative paths instead',
-						},
-						{
-							group: ['react-dom'],
-							importNames: ['Container'],
-							message: 'Use our Container instead',
-						},
-						{
-							group: ['vscode'],
-							importNames: ['CancellationError'],
-							message: 'Use our CancellationError instead',
-						},
-					],
-				},
-			],
+			'no-restricted-imports': 'off',
 			'no-return-assign': 'error',
 			'no-return-await': 'warn',
 			'no-self-compare': 'error',
@@ -239,6 +179,67 @@ export default ts.config(
 			'@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
 			'@typescript-eslint/no-non-null-assertion': 'off',
 			'@typescript-eslint/no-redundant-type-constituents': 'off',
+			'@typescript-eslint/no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						'assert',
+						'buffer',
+						'child_process',
+						'cluster',
+						'crypto',
+						'dgram',
+						'dns',
+						'domain',
+						'events',
+						'freelist',
+						'fs',
+						'http',
+						'https',
+						'module',
+						'net',
+						'os',
+						'path',
+						'process',
+						'punycode',
+						'querystring',
+						'readline',
+						'repl',
+						'smalloc',
+						'stream',
+						'string_decoder',
+						'sys',
+						'timers',
+						'tls',
+						'tracing',
+						'tty',
+						'url',
+						'util',
+						'vm',
+						'zlib',
+					],
+					patterns: [
+						{
+							group: ['**/env/**/*'],
+							message: 'Use @env/ instead',
+						},
+						{
+							group: ['src/*'],
+							message: 'Use relative paths instead',
+						},
+						{
+							group: ['react-dom'],
+							importNames: ['Container'],
+							message: 'Use our Container instead',
+						},
+						{
+							group: ['vscode'],
+							importNames: ['CancellationError'],
+							message: 'Use our CancellationError instead',
+						},
+					],
+				},
+			],
 			'@typescript-eslint/no-unnecessary-condition': 'off',
 			'@typescript-eslint/no-unnecessary-boolean-literal-compare': 'off',
 			'@typescript-eslint/no-unnecessary-type-parameters': 'off', // https://github.com/typescript-eslint/typescript-eslint/issues/9705
@@ -308,7 +309,7 @@ export default ts.config(
 	{
 		files: ['src/env/node/**/*'],
 		rules: {
-			'no-restricted-imports': [
+			'@typescript-eslint/no-restricted-imports': [
 				'error',
 				{
 					patterns: [
@@ -320,6 +321,11 @@ export default ts.config(
 							group: ['react-dom'],
 							importNames: ['Container'],
 							message: 'Use our Container instead',
+						},
+						{
+							group: ['vscode'],
+							importNames: ['CancellationError'],
+							message: 'Use our CancellationError instead',
 						},
 					],
 				},
@@ -349,7 +355,24 @@ export default ts.config(
 		name: 'webviews',
 		...litConfigs['flat/recommended'],
 		...wcConfigs['flat/recommended'],
-		files: ['src/webviews/apps/**/*', 'src/env/browser/**/*'],
+		// Keep in sync with `src/webviews/apps/tsconfig.json`
+		files: [
+			'src/webviews/apps/**/*',
+			'src/@types/**/*',
+			'src/env/browser/**/*',
+			'src/plus/gk/account/promos.ts',
+			'src/plus/gk/account/subscription.ts',
+			'src/plus/webviews/**/protocol.ts',
+			'src/webviews/protocol.ts',
+			'src/webviews/**/protocol.ts',
+			'src/config.ts',
+			'src/constants.ts',
+			'src/constants.*.ts',
+			'src/features.ts',
+			'src/subscription.ts',
+			'src/system/*.ts',
+			'src/system/decorators/log.ts',
+		],
 		languageOptions: {
 			globals: {
 				...globals.browser,
@@ -363,6 +386,29 @@ export default ts.config(
 				},
 				projectService: true,
 			},
+		},
+		rules: {
+			'@typescript-eslint/no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: ['src/*'],
+							message: 'Use relative paths instead',
+						},
+						{
+							group: ['react-dom'],
+							importNames: ['Container'],
+							message: 'Use our Container instead',
+						},
+						{
+							group: ['vscode'],
+							message: "Can't use vscode in webviews",
+							allowTypeImports: true,
+						},
+					],
+				},
+			],
 		},
 		settings: {
 			wc: {
@@ -389,6 +435,9 @@ export default ts.config(
 				},
 				projectService: true,
 			},
+		},
+		rules: {
+			'@typescript-eslint/no-restricted-imports': 'off',
 		},
 	},
 	// {

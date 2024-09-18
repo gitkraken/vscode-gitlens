@@ -1,8 +1,8 @@
 import type { StoredRecentUsage } from '../constants.storage';
 import type { Container } from '../container';
 import { LaunchpadCommand } from '../plus/launchpad/launchpad';
-import { configuration } from '../system/configuration';
-import { getContext } from '../system/context';
+import { configuration } from '../system/vscode/configuration';
+import { getContext } from '../system/vscode/context';
 import { BranchGitCommand } from './git/branch';
 import { CherryPickGitCommand } from './git/cherry-pick';
 import { CoAuthorsGitCommand } from './git/coauthors';

@@ -4,7 +4,7 @@ import { Container } from '../container';
 import type { Repository } from '../git/models/repository';
 import { filterMapAsync } from '../system/array';
 import { map } from '../system/iterable';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import { CommandQuickPickItem } from './items/common';
 import type { RepositoryQuickPickItem } from './items/gitCommands';
 import { createRepositoryQuickPickItem } from './items/gitCommands';

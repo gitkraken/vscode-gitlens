@@ -1,7 +1,7 @@
 import { ThemeIcon } from 'vscode';
 import type { IconPath } from '../../@types/vscode.iconpath';
 import type { Container } from '../../container';
-import { getIconPathUris } from '../../system/vscode';
+import { getIconPathUris } from '../../system/vscode/vscode';
 import type { GitBranch } from '../models/branch';
 
 export function getBranchIconPath(container: Container, branch: GitBranch | undefined): IconPath {

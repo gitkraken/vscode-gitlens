@@ -33,11 +33,12 @@ import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { configuration } from '../../system/configuration';
-import { basename, isDescendant } from '../../system/path';
+import { basename } from '../../system/path';
 import type { Deferred } from '../../system/promise';
 import { pluralize, truncateLeft } from '../../system/string';
-import { getWorkspaceFriendlyPath, openWorkspace, revealInFileExplorer } from '../../system/utils';
+import { configuration } from '../../system/vscode/configuration';
+import { isDescendant } from '../../system/vscode/path';
+import { getWorkspaceFriendlyPath, openWorkspace, revealInFileExplorer } from '../../system/vscode/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { getSteps } from '../gitCommands.utils';
 import type {

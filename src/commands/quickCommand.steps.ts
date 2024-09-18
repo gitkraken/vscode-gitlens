@@ -100,16 +100,16 @@ import {
 	OpenRemoteResourceCommandQuickPickItem,
 } from '../quickpicks/remoteProviderPicker';
 import { filterMap, filterMapAsync, intersection, isStringArray } from '../system/array';
-import { executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
-import { formatPath } from '../system/formatPath';
 import { debounce } from '../system/function';
 import { first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { getSettledValue } from '../system/promise';
 import { pad, pluralize, truncate } from '../system/string';
-import { openWorkspace } from '../system/utils';
-import { getIconPathUris } from '../system/vscode';
+import { executeCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
+import { formatPath } from '../system/vscode/formatPath';
+import { openWorkspace } from '../system/vscode/utils';
+import { getIconPathUris } from '../system/vscode/vscode';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type {
 	AsyncStepResultGenerator,

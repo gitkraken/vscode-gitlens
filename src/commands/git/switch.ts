@@ -11,7 +11,7 @@ import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { isStringArray } from '../../system/array';
-import { executeCommand } from '../../system/command';
+import { executeCommand } from '../../system/vscode/command';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { getSteps } from '../gitCommands.utils';
 import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';

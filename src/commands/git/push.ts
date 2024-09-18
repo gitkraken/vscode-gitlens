@@ -9,9 +9,9 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
-import { configuration } from '../../system/configuration';
 import { fromNow } from '../../system/date';
 import { pad, pluralize } from '../../system/string';
+import { configuration } from '../../system/vscode/configuration';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,

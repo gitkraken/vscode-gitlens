@@ -5,7 +5,7 @@ import type { Disposable } from 'vscode';
 import { version as codeVersion, env } from 'vscode';
 import type { Source, TelemetryEvents, TelemetryGlobalContext } from '../constants.telemetry';
 import type { Container } from '../container';
-import { configuration } from '../system/configuration';
+import { configuration } from '../system/vscode/configuration';
 
 export interface TelemetryContext {
 	env: string;

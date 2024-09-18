@@ -3,10 +3,10 @@ import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
-import { command, executeCoreCommand } from '../system/command';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
-import { openWorkspace } from '../system/utils';
+import { command, executeCoreCommand } from '../system/vscode/command';
+import { openWorkspace } from '../system/vscode/utils';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
 

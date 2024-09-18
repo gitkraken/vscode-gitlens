@@ -2,7 +2,7 @@ import type { Uri } from 'vscode';
 import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
-import type { OpenWorkspaceLocation } from '../../system/utils';
+import type { OpenWorkspaceLocation } from '../../system/vscode/utils';
 
 export type UriTypes = 'link';
 

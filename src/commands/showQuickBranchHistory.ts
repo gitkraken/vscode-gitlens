@@ -5,7 +5,7 @@ import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
 import type { GitReference } from '../git/models/reference';
 import { createReference } from '../git/models/reference';
-import { command } from '../system/command';
+import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCachedCommand, getCommandUri } from './base';
 

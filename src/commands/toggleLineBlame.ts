@@ -2,8 +2,8 @@ import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/command';
 import { Logger } from '../system/logger';
+import { command } from '../system/vscode/command';
 import { ActiveEditorCommand } from './base';
 
 @command()

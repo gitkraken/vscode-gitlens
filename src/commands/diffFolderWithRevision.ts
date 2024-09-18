@@ -10,9 +10,9 @@ import { showGenericErrorMessage } from '../messages';
 import { showCommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/command';
 import { Logger } from '../system/logger';
 import { pad } from '../system/string';
+import { command } from '../system/vscode/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface DiffFolderWithRevisionCommandArgs {

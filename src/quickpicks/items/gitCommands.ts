@@ -17,9 +17,9 @@ import type { Repository } from '../../git/models/repository';
 import type { GitTag } from '../../git/models/tag';
 import { getBranchIconPath } from '../../git/utils/branch-utils';
 import { getWorktreeBranchIconPath } from '../../git/utils/worktree-utils';
-import { configuration } from '../../system/configuration';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
+import { configuration } from '../../system/vscode/configuration';
 import type { QuickPickItemOfT } from './common';
 import { CommandQuickPickItem } from './common';
 

@@ -5,8 +5,8 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command, executeCoreCommand } from '../system/command';
 import { Logger } from '../system/logger';
+import { command, executeCoreCommand } from '../system/vscode/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface GenerateCommitMessageCommandArgs {

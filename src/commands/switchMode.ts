@@ -2,10 +2,10 @@ import { ConfigurationTarget } from 'vscode';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { showModePicker } from '../quickpicks/modePicker';
-import { command } from '../system/command';
-import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
+import { command } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import { Command } from './base';
 
 @command()

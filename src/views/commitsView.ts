@@ -15,12 +15,12 @@ import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '..
 import type { GitUser } from '../git/models/user';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { createCommand, executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
-import { setContext } from '../system/context';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { disposableInterval } from '../system/function';
+import { createCommand, executeCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
+import { setContext } from '../system/vscode/context';
 import type { UsageChangeEvent } from '../telemetry/usageTracker';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';

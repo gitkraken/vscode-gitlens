@@ -25,14 +25,14 @@ import type { GitUri } from '../git/gitUri';
 import type { GitBlame, GitBlameLines } from '../git/models/blame';
 import type { GitCommit } from '../git/models/commit';
 import { RemoteResourceType } from '../git/models/remoteResource';
-import { asCommand, executeCoreCommand } from '../system/command';
-import { configuration } from '../system/configuration';
 import { is, once } from '../system/function';
 import { filterMap, find, first, join, map } from '../system/iterable';
 import { getLoggableName, Logger } from '../system/logger';
 import { startLogScope } from '../system/logger.scope';
 import { pluralize } from '../system/string';
-import { isVirtualUri } from '../system/utils';
+import { asCommand, executeCoreCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
+import { isVirtualUri } from '../system/vscode/utils';
 
 class GitRecentChangeCodeLens extends CodeLens {
 	constructor(

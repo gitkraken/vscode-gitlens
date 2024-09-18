@@ -1,11 +1,11 @@
 import type { Command as CoreCommand, Disposable, Uri } from 'vscode';
 import { commands } from 'vscode';
-import type { Action, ActionContext } from '../api/gitlens';
-import type { Command } from '../commands/base';
-import type { CoreCommands, CoreGitCommands, TreeViewCommands } from '../constants.commands';
-import { Commands } from '../constants.commands';
-import { Container } from '../container';
-import { isWebviewContext } from './webview';
+import type { Action, ActionContext } from '../../api/gitlens';
+import type { Command } from '../../commands/base';
+import type { CoreCommands, CoreGitCommands, TreeViewCommands } from '../../constants.commands';
+import { Commands } from '../../constants.commands';
+import { Container } from '../../container';
+import { isWebviewContext } from '../webview';
 
 export type CommandCallback = Parameters<typeof commands.registerCommand>[1];
 

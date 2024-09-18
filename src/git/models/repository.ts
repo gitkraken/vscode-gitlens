@@ -11,8 +11,6 @@ import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../mess
 import type { HostingIntegration } from '../../plus/integrations/integration';
 import type { RepoComparisonKey } from '../../repositories';
 import { asRepoComparisonKey } from '../../repositories';
-import { executeActionCommand } from '../../system/command';
-import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
@@ -24,6 +22,8 @@ import { getLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
+import { executeActionCommand } from '../../system/vscode/command';
+import { configuration } from '../../system/vscode/configuration';
 import type { GitDir, GitProviderDescriptor, GitRepositoryCaches, PagingOptions } from '../gitProvider';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { GitSearch } from '../search';

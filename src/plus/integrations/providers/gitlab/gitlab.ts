@@ -24,13 +24,13 @@ import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../../../messages';
-import { configuration } from '../../../../system/configuration';
 import { debug } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import { equalsIgnoreCase } from '../../../../system/string';
+import { configuration } from '../../../../system/vscode/configuration';
 import type {
 	GitLabCommit,
 	GitLabIssue,

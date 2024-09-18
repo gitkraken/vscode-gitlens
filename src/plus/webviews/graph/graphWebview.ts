@@ -91,9 +91,6 @@ import { getSearchQueryComparisonKey } from '../../../git/search';
 import { splitGitCommitMessage } from '../../../git/utils/commit-utils';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
-import { executeActionCommand, executeCommand, executeCoreCommand, registerCommand } from '../../../system/command';
-import { configuration } from '../../../system/configuration';
-import { getContext, onDidChangeContext } from '../../../system/context';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
@@ -105,8 +102,16 @@ import {
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
 } from '../../../system/promise';
-import type { OpenWorkspaceLocation } from '../../../system/utils';
-import { isDarkTheme, isLightTheme, openWorkspace } from '../../../system/utils';
+import {
+	executeActionCommand,
+	executeCommand,
+	executeCoreCommand,
+	registerCommand,
+} from '../../../system/vscode/command';
+import { configuration } from '../../../system/vscode/configuration';
+import { getContext, onDidChangeContext } from '../../../system/vscode/context';
+import type { OpenWorkspaceLocation } from '../../../system/vscode/utils';
+import { isDarkTheme, isLightTheme, openWorkspace } from '../../../system/vscode/utils';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
 import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../../webviews/protocol';

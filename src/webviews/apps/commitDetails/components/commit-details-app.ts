@@ -3,8 +3,8 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { ViewFilesLayout } from '../../../../config';
-import type { Serialized } from '../../../../system/serialize';
 import { pluralize } from '../../../../system/string';
+import type { Serialized } from '../../../../system/vscode/serialize';
 import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
 import {
 	ChangeReviewModeCommand,

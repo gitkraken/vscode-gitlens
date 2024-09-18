@@ -7,7 +7,7 @@ import type { ResourceDescriptor } from '../../plus/integrations/integration';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { getSettledValue } from '../../system/promise';
-import { openUrl } from '../../system/utils';
+import { openUrl } from '../../system/vscode/utils';
 import type { ProviderReference } from '../models/remoteProvider';
 import type { RemoteResource } from '../models/remoteResource';
 import { RemoteResourceType } from '../models/remoteResource';

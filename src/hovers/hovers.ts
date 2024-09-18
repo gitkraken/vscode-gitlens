@@ -14,8 +14,8 @@ import type { PullRequest } from '../git/models/pullRequest';
 import { isUncommittedStaged, shortenRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import { configuration } from '../system/configuration';
 import { getSettledValue, pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/promise';
+import { configuration } from '../system/vscode/configuration';
 
 export async function changesMessage(
 	container: Container,

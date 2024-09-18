@@ -9,9 +9,9 @@ import { createReference, getReferenceFromBranch } from '../../git/models/refere
 import type { GitRemote } from '../../git/models/remote';
 import { getWorktreeForBranch } from '../../git/models/worktree';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
-import { command } from '../../system/command';
 import { Logger } from '../../system/logger';
 import { waitUntilNextTick } from '../../system/promise';
+import { command } from '../../system/vscode/command';
 import { Command } from '../base';
 
 interface GHPRPullRequestNode {

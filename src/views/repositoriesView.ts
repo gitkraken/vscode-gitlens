@@ -16,10 +16,10 @@ import type {
 import { getReferenceLabel } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { GitWorktree } from '../git/models/worktree';
-import { executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
-import { setContext } from '../system/context';
 import { gate } from '../system/decorators/gate';
+import { executeCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
+import { setContext } from '../system/vscode/context';
 import { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';

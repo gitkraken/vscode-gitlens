@@ -3,8 +3,8 @@ import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'v
 import { getAvatarUri } from '../../avatars';
 import type { GitUri } from '../../git/gitUri';
 import type { Draft } from '../../gk/models/drafts';
-import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
+import { configuration } from '../../system/vscode/configuration';
 import type { DraftsView } from '../draftsView';
 import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';

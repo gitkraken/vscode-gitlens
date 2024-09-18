@@ -1,5 +1,5 @@
 /*global*/
-import type { Serialized } from '../../../system/serialize';
+import type { Serialized } from '../../../system/vscode/serialize';
 import type { State } from '../../commitDetails/protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';

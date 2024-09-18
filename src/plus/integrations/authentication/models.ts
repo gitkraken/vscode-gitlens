@@ -1,5 +1,5 @@
 import type { AuthenticationSession } from 'vscode';
-import { configuration } from '../../../system/configuration';
+import { configuration } from '../../../system/vscode/configuration';
 import type { IntegrationId } from '../providers/models';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 

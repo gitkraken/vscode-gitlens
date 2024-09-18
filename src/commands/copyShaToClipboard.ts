@@ -5,10 +5,10 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { shortenRevision } from '../git/models/reference';
 import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/command';
-import { configuration } from '../system/configuration';
 import { first } from '../system/iterable';
 import { Logger } from '../system/logger';
+import { command } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,

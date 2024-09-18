@@ -1,14 +1,14 @@
 import type { Disposable, Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
 import { EventEmitter } from 'vscode';
-import { extensionPrefix } from '../constants';
+import { extensionPrefix } from '../../constants';
 import type {
 	DeprecatedGlobalStorage,
 	DeprecatedWorkspaceStorage,
 	GlobalStorage,
 	SecretKeys,
 	WorkspaceStorage,
-} from '../constants.storage';
-import { debug } from './decorators/log';
+} from '../../constants.storage';
+import { debug } from '../decorators/log';
 
 type GlobalStorageKeys = keyof (GlobalStorage & DeprecatedGlobalStorage);
 type WorkspaceStorageKeys = keyof (WorkspaceStorage & DeprecatedWorkspaceStorage);

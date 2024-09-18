@@ -2,9 +2,10 @@
 import type { Range } from 'vscode';
 import type { Container } from '../../container';
 import { filterMap } from '../../system/array';
-import { normalizePath, relative } from '../../system/path';
+import { normalizePath } from '../../system/path';
 import { maybeStopWatch } from '../../system/stopwatch';
 import { getLines } from '../../system/string';
+import { relative } from '../../system/vscode/path';
 import type { GitCommitLine, GitStashCommit } from '../models/commit';
 import { GitCommit, GitCommitIdentity } from '../models/commit';
 import { uncommitted } from '../models/constants';

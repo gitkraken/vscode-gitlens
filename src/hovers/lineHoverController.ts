@@ -2,10 +2,10 @@ import type { CancellationToken, ConfigurationChangeEvent, Position, TextDocumen
 import { Disposable, Hover, languages, Range, window } from 'vscode';
 import type { Container } from '../container';
 import { UriComparer } from '../system/comparers';
-import { configuration } from '../system/configuration';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
+import { configuration } from '../system/vscode/configuration';
 import type { LinesChangeEvent } from '../trackers/lineTracker';
 import { changesMessage, detailsMessage } from './hovers';
 

@@ -8,10 +8,10 @@ import { isCommit } from '../git/models/commit';
 import { deletedOrMissing } from '../git/models/constants';
 import { isShaLike, isUncommitted, shortenRevision } from '../git/models/reference';
 import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/command';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
-import { openDiffEditor } from '../system/utils';
+import { command } from '../system/vscode/command';
+import { openDiffEditor } from '../system/vscode/utils';
 import { Command } from './base';
 
 export interface DiffWithCommandArgsRevision {
