@@ -1,5 +1,5 @@
-import { Uri } from 'vscode';
 import { decodeUtf8Hex, encodeUtf8Hex } from '@env/hex';
+import { Uri } from 'vscode';
 import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { Schemes } from '../constants';
 import { Container } from '../container';

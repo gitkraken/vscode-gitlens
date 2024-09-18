@@ -53,6 +53,8 @@ module.exports =
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(target, mode, env) {
+	const tsConfigPath = path.join(__dirname, `tsconfig.${target === 'webworker' ? 'browser' : 'node'}.json`);
+
 	/**
 	 * @type WebpackConfig['plugins'] | any
 	 */
@@ -62,7 +64,7 @@ function getExtensionConfig(target, mode, env) {
 			async: false,
 			formatter: 'basic',
 			typescript: {
-				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
+				configFile: tsConfigPath,
 			},
 		}),
 	];
@@ -76,10 +78,6 @@ function getExtensionConfig(target, mode, env) {
 					cache: true,
 					cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
 					cacheStrategy: 'content',
-					overrideConfigFile: path.join(
-						__dirname,
-						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
-					),
 				},
 			}),
 		);
@@ -219,19 +217,13 @@ function getExtensionConfig(target, mode, env) {
 									format: 'esm',
 									implementation: esbuild,
 									target: ['es2022', 'chrome114', 'node18.15.0'],
-									tsconfig: path.join(
-										__dirname,
-										target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
-									),
+									tsconfig: tsConfigPath,
 								},
 						  }
 						: {
 								loader: 'ts-loader',
 								options: {
-									configFile: path.join(
-										__dirname,
-										target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
-									),
+									configFile: tsConfigPath,
 									experimentalWatchApi: true,
 									transpileOnly: true,
 								},
@@ -284,6 +276,7 @@ function getExtensionConfig(target, mode, env) {
  */
 function getWebviewsConfig(mode, env) {
 	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
+	const tsConfigPath = path.join(basePath, 'tsconfig.json');
 
 	/** @type WebpackConfig['plugins'] | any */
 	const plugins = [
@@ -305,7 +298,7 @@ function getWebviewsConfig(mode, env) {
 			async: false,
 			formatter: 'basic',
 			typescript: {
-				configFile: path.join(basePath, 'tsconfig.json'),
+				configFile: tsConfigPath,
 			},
 		}),
 		new WebpackRequireFromPlugin({
@@ -492,13 +485,13 @@ function getWebviewsConfig(mode, env) {
 									format: 'esm',
 									implementation: esbuild,
 									target: ['es2021', 'chrome114'],
-									tsconfig: path.join(basePath, 'tsconfig.json'),
+									tsconfig: tsConfigPath,
 								},
 						  }
 						: {
 								loader: 'ts-loader',
 								options: {
-									configFile: path.join(basePath, 'tsconfig.json'),
+									configFile: tsConfigPath,
 									experimentalWatchApi: true,
 									transpileOnly: true,
 								},

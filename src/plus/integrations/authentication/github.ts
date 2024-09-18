@@ -1,6 +1,6 @@
+import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { Disposable, QuickInputButton } from 'vscode';
 import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
-import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';

@@ -1,6 +1,6 @@
+import { isWeb } from '@env/platform';
 import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
 import { authentication, Disposable, env, EventEmitter, ProgressLocation, Uri, window } from 'vscode';
-import { isWeb } from '@env/platform';
 import type { Source } from '../../constants.telemetry';
 import { sourceToContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
