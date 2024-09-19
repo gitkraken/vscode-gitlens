@@ -23,7 +23,7 @@ This project incorporates components from the projects listed below.
 18. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
 19. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
 20. lit version 3.2.0 (https://github.com/lit/lit)
-21. marked version 12.0.2 (https://github.com/markedjs/marked)
+21. marked version 14.1.2 (https://github.com/markedjs/marked)
 22. microsoft/vscode (https://github.com/microsoft/vscode)
 23. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
 24. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
