@@ -3,27 +3,27 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @lit/context version 1.1.2 (https://github.com/lit/lit)
-2. @lit/react version 1.0.5 (https://github.com/lit/lit)
-3. @lit/task version 1.0.1 (https://github.com/lit/lit)
-4. @microsoft/fast-element version 1.13.0 (https://github.com/Microsoft/fast)
-5. @microsoft/fast-foundation version 2.49.6 (https://github.com/Microsoft/fast)
-6. @microsoft/fast-react-wrapper version 0.3.24 (https://github.com/Microsoft/fast)
-7. @octokit/graphql version 8.1.1 (https://github.com/octokit/graphql.js)
-8. @octokit/request-error version 6.1.4 (https://github.com/octokit/request-error.js)
-9. @octokit/request version 9.1.3 (https://github.com/octokit/request.js)
-10. @octokit/types version 13.5.0 (https://github.com/octokit/types.ts)
-11. @opentelemetry/api version 1.9.0 (https://github.com/open-telemetry/opentelemetry-js)
-12. @opentelemetry/exporter-trace-otlp-http version 0.53.0 (https://github.com/open-telemetry/opentelemetry-js)
-13. @opentelemetry/resources version 1.26.0 (https://github.com/open-telemetry/opentelemetry-js)
-14. @opentelemetry/sdk-trace-base version 1.26.0 (https://github.com/open-telemetry/opentelemetry-js)
-15. @opentelemetry/semantic-conventions version 1.27.0 (https://github.com/open-telemetry/opentelemetry-js)
-16. @shoelace-style/shoelace version 2.16.0 (https://github.com/shoelace-style/shoelace)
-17. @vscode/codicons version 0.0.36 (https://github.com/microsoft/vscode-codicons)
-18. @vscode/webview-ui-toolkit version 1.4.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
-19. ansi-regex version 6.1.0 (https://github.com/chalk/ansi-regex)
-20. billboard.js version 3.13.0 (https://github.com/naver/billboard.js)
-21. fast-string-truncated-width version 1.1.0 (https://github.com/fabiospampinato/fast-string-truncated-width)
+1. @gk-nzaytsev/fast-string-truncated-width version 1.1.0 (https://github.com/nzaytsev/fast-string-truncated-width)
+2. @lit/context version 1.1.2 (https://github.com/lit/lit)
+3. @lit/react version 1.0.5 (https://github.com/lit/lit)
+4. @lit/task version 1.0.1 (https://github.com/lit/lit)
+5. @microsoft/fast-element version 1.13.0 (https://github.com/Microsoft/fast)
+6. @microsoft/fast-foundation version 2.49.6 (https://github.com/Microsoft/fast)
+7. @microsoft/fast-react-wrapper version 0.3.24 (https://github.com/Microsoft/fast)
+8. @octokit/graphql version 8.1.1 (https://github.com/octokit/graphql.js)
+9. @octokit/request-error version 6.1.4 (https://github.com/octokit/request-error.js)
+10. @octokit/request version 9.1.3 (https://github.com/octokit/request.js)
+11. @octokit/types version 13.5.0 (https://github.com/octokit/types.ts)
+12. @opentelemetry/api version 1.9.0 (https://github.com/open-telemetry/opentelemetry-js)
+13. @opentelemetry/exporter-trace-otlp-http version 0.53.0 (https://github.com/open-telemetry/opentelemetry-js)
+14. @opentelemetry/resources version 1.26.0 (https://github.com/open-telemetry/opentelemetry-js)
+15. @opentelemetry/sdk-trace-base version 1.26.0 (https://github.com/open-telemetry/opentelemetry-js)
+16. @opentelemetry/semantic-conventions version 1.27.0 (https://github.com/open-telemetry/opentelemetry-js)
+17. @shoelace-style/shoelace version 2.16.0 (https://github.com/shoelace-style/shoelace)
+18. @vscode/codicons version 0.0.36 (https://github.com/microsoft/vscode-codicons)
+19. @vscode/webview-ui-toolkit version 1.4.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
+20. ansi-regex version 6.1.0 (https://github.com/chalk/ansi-regex)
+21. billboard.js version 3.13.0 (https://github.com/naver/billboard.js)
 22. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
 23. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
 24. lit version 3.2.0 (https://github.com/lit/lit)
@@ -38,6 +38,33 @@ This project incorporates components from the projects listed below.
 33. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
 34. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
 35. tslib version 2.7.0 (https://github.com/Microsoft/tslib)
+
+%% @gk-nzaytsev/fast-string-truncated-width NOTICES AND INFORMATION BEGIN HERE
+=========================================
+The MIT License (MIT)
+
+Copyright (c) 2024-present Fabio Spampinato
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+=========================================
+END OF  @gk-nzaytsev/fast-string-truncated-width NOTICES AND INFORMATION
 
 %% @lit/context NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -1916,33 +1943,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =========================================
 END OF  billboard.js NOTICES AND INFORMATION
-
-%% fast-string-truncated-width NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License (MIT)
-
-Copyright (c) 2024-present Fabio Spampinato
-
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-the rights to use, copy, modify, merge, publish, distribute, sublicense,
-and/or sell copies of the Software, and to permit persons to whom the
-Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-=========================================
-END OF  fast-string-truncated-width NOTICES AND INFORMATION
 
 %% https-proxy-agent NOTICES AND INFORMATION BEGIN HERE
 =========================================
