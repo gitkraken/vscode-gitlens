@@ -4,14 +4,14 @@
 @import '../shared/icons';
 
 body {
-	&.vscode-light {
-		background-color: var(--color-background--darken-05);
-	}
-
 	font-family: var(--vscode-font-family);
 	font-weight: var(--vscode-font-weight);
 	font-size: var(--vscode-font-size) !important;
 	line-height: 1.4;
+
+	&.vscode-light {
+		background-color: var(--color-background--darken-05);
+	}
 }
 
 header {
@@ -477,14 +477,13 @@ section {
 
 .section__hint {
 	flex: 0 1 auto;
+	color: var(--color-foreground--75);
+	font-weight: 200;
+	margin: 0;
 
 	* {
 		word-break: break-word;
 	}
-
-	color: var(--color-foreground--75);
-	font-weight: 200;
-	margin: 0;
 
 	b {
 		font-weight: 400;

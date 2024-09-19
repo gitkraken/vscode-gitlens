@@ -688,12 +688,12 @@ button:not([disabled]),
 		}
 	}
 	&--warning {
+		color: #de9b43;
 		:before {
 			// codicon-vm
 			font-family: codicon;
 			content: '\ea6c';
 		}
-		color: #de9b43;
 	}
 	&--added {
 		&::before {
