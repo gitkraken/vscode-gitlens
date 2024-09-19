@@ -624,26 +624,19 @@ export class LaunchpadProvider implements Disposable {
 			staleDate.setDate(staleDate.getDate() - staleThreshold);
 		}
 
-		const enrichedItemsPromise = this.getEnrichedItems({ force: options?.force, cancellation: cancellation });
-
-		if (this.container.git.isDiscoveringRepositories) {
-			await this.container.git.isDiscoveringRepositories;
-		}
-
-		if (cancellation?.isCancellationRequested) throw new CancellationError();
-
-		const [enrichedItemsResult, prsWithCountsResult] = await Promise.allSettled([
-			enrichedItemsPromise,
-			this.getPullRequestsWithSuggestionCounts({ force: options?.force, cancellation: cancellation }),
-		]);
-
-		if (cancellation?.isCancellationRequested) throw new CancellationError();
-
 		// TODO: Since this is all repos we probably should order by repos you are a contributor on (or even filter out one you aren't)
 
 		let result: LaunchpadCategorizedResult | undefined;
 
 		try {
+			const [_, enrichedItemsResult, prsWithCountsResult] = await Promise.allSettled([
+				this.container.git.isDiscoveringRepositories,
+				this.getEnrichedItems({ force: options?.force, cancellation: cancellation }),
+				this.getPullRequestsWithSuggestionCounts({ force: options?.force, cancellation: cancellation }),
+			]);
+
+			if (cancellation?.isCancellationRequested) throw new CancellationError();
+
 			if (prsWithCountsResult.status === 'rejected') {
 				Logger.error(prsWithCountsResult.reason, scope, 'Failed to get pull requests with suggestion counts');
 				result = {
