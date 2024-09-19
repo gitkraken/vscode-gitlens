@@ -7,8 +7,6 @@ import type { Repository } from './git/models/repository';
 import { normalizePath } from './system/path';
 import { UriTrie } from './system/trie';
 import { addVslsPrefixIfNeeded } from './system/vscode/path';
-// TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
-// import { CharCode } from './string';
 
 const slash = 47; //CharCode.Slash;
 

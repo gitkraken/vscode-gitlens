@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Adds vscode-test to run unit-tests &mdash; closes [#3570](https://github.com/gitkraken/vscode-gitlens/issues/3570)
+
 ### Fixed
 
 - Fixes [#3592](https://github.com/gitkraken/vscode-gitlens/issues/3592) - Connecting to an integration via Remotes view (but likely others) doesn't work

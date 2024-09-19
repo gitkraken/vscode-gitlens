@@ -4,7 +4,7 @@
 		{ "path": "./tsconfig.node.json" },
 		{ "path": "./tsconfig.browser.json" },
 		{ "path": "./src/webviews/apps/tsconfig.json" },
-		{ "path": "./tests/e2e/tsconfig.json" }
-		// { "path": "./tsconfig.test.json" }
+		{ "path": "./tests/e2e/tsconfig.json" },
+		{ "path": "./tsconfig.test.json" }
 	]
 }

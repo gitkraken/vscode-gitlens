@@ -440,12 +440,24 @@ export default ts.config(
 			'@typescript-eslint/no-restricted-imports': 'off',
 		},
 	},
-	// {
-	// 	name: 'tests:unit',
-	// 	files: ['src/test/**/*'],
-	// 	rules: {
-	// 		'no-restricted-imports': 'off',
-	// 		'@typescript-eslint/no-unused-vars': 'off',
-	// 	},
-	// },
+	{
+		name: 'tests:unit',
+		files: ['**/__tests__/**', 'src/test/suite/**'],
+		rules: {
+			'no-restricted-imports': 'off',
+			'@typescript-eslint/no-restricted-imports': 'off',
+			'@typescript-eslint/no-unused-vars': 'off',
+			'no-restricted-syntax': [
+				'error',
+				{
+					message: "Don't forget to remove .only from test suites",
+					selector: 'CallExpression MemberExpression[object.name="suite"][property.name="only"]',
+				},
+				{
+					message: "Don't forget to remove .only from tests",
+					selector: 'CallExpression MemberExpression[object.name="test"][property.name="only"]',
+				},
+			],
+		},
+	},
 );

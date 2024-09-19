@@ -3,8 +3,8 @@ import type {
 	WidthOptions as StringWidthOptions,
 	TruncationOptions as StringWidthTruncationOptions,
 	Result as TruncatedStringWidthResult,
-} from 'fast-string-truncated-width';
-import getTruncatedStringWidth from 'fast-string-truncated-width';
+} from '@gk-nzaytsev/fast-string-truncated-width';
+import getTruncatedStringWidth from '@gk-nzaytsev/fast-string-truncated-width';
 import { CharCode } from '../constants';
 
 export { fromBase64, base64 } from '@env/base64';
