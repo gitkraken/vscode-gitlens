@@ -2,7 +2,7 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { until } from 'lit/directives/until.js';
-import type { RendererObject } from 'marked';
+import type { RendererObject, RendererThis, Tokens } from 'marked';
 import { marked } from 'marked';
 import type { ThemeIcon } from 'vscode';
 
@@ -116,34 +116,7 @@ export class GLMarkdown extends LitElement {
 
 function getMarkdownRenderer(): RendererObject {
 	return {
-		// heading: function (text: string, level: number, raw: string, slugger: any): string {
-		// 	level = Math.min(6, level);
-		// 	const id = slugger.slug(text);
-		// 	const hlinks = null;
-
-		// 	let content;
-
-		// 	if (hlinks === null) {
-		// 		// No heading links
-		// 		content = text;
-		// 	} else {
-		// 		content = `<a href="#${id}" class="anchor">`;
-
-		// 		if (hlinks === '') {
-		// 			// Heading content is the link
-		// 			content += `${text}</a>`;
-		// 		} else {
-		// 			// Headings are prepended with a linked symbol
-		// 			content += `${hlinks}</a>${text}`;
-		// 		}
-		// 	}
-
-		// 	return `
-		// 		<h${level} id="${id}">
-		// 			${content}
-		// 		</h${level}>`;
-		// },
-		image: (href: string | null, title: string | null, text: string): string => {
+		image: function (this: RendererThis, { href, title, text }: Tokens.Image): string {
 			let dimensions: string[] = [];
 			let attributes: string[] = [];
 			if (href) {
@@ -161,27 +134,24 @@ function getMarkdownRenderer(): RendererObject {
 			}
 			return `<img ${attributes.join(' ')}>`;
 		},
-
-		paragraph: (text: string): string => {
+		paragraph: function (this: RendererThis, { tokens }: Tokens.Paragraph): string {
+			const text = this.parser.parseInline(tokens);
 			return `<p>${text}</p>`;
 		},
-
-		link: (href: string, title: string | null | undefined, text: string): string | false => {
-			if (typeof href !== 'string') {
-				return '';
-			}
+		link: function (this: RendererThis, { href, title, tokens }: Tokens.Link): string | false {
+			if (typeof href !== 'string') return '';
 
 			// Remove markdown escapes. Workaround for https://github.com/chjj/marked/issues/829
+			let text = this.parser.parseInline(tokens);
 			if (href === text) {
 				// raw link case
 				text = removeMarkdownEscapes(text);
 			}
 
 			title = typeof title === 'string' ? escapeDoubleQuotes(removeMarkdownEscapes(title)) : '';
-			href = removeMarkdownEscapes(href);
 
 			// HTML Encode href
-			href = href
+			href = removeMarkdownEscapes(href)
 				.replace(/&/g, '&amp;')
 				.replace(/</g, '&lt;')
 				.replace(/>/g, '&gt;')
@@ -190,17 +160,15 @@ function getMarkdownRenderer(): RendererObject {
 
 			return `<a href="${href}" title="${title || href}" draggable="false">${text}</a>`;
 		},
-
-		code: function (code: string, infostring: string | undefined, _escaped: boolean): string {
+		code: function (this: RendererThis, { text, lang }: Tokens.Code): string {
 			// Remote code may include characters that need to be escaped to be visible in HTML
-			code = code.replace(/</g, '&lt;');
-			return `<pre class="language-${infostring}"><code>${code}</code></pre>`;
+			text = text.replace(/</g, '&lt;');
+			return `<pre class="language-${lang}"><code>${text}</code></pre>`;
 		},
-
-		codespan: function (code: string): string {
+		codespan: function (this: RendererThis, { text }: Tokens.Codespan): string {
 			// Remote code may include characters that need to be escaped to be visible in HTML
-			code = code.replace(/</g, '&lt;');
-			return `<code>${code}</code>`;
+			text = text.replace(/</g, '&lt;');
+			return `<code>${text}</code>`;
 		},
 	};
 }
