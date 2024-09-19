@@ -225,7 +225,11 @@ export class IntegrationService implements Disposable {
 			for (const integrationId of integrationIds) {
 				const cloudIntegrationType = toCloudIntegrationType[integrationId];
 				if (cloudIntegrationType == null) {
-					Logger.error(`Attempting to connect unsupported cloud integration type: ${integrationId}`);
+					Logger.error(
+						undefined,
+						scope,
+						`Attempting to connect unsupported cloud integration type: ${integrationId}`,
+					);
 				} else {
 					cloudIntegrationTypes.push(cloudIntegrationType);
 				}
