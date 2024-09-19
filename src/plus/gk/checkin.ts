@@ -1,7 +1,13 @@
 import { SubscriptionPlanId } from '../../constants.subscription';
 import type { Organization } from './account/organization';
 import type { Subscription } from './account/subscription';
-import { getSubscriptionPlan, getSubscriptionPlanPriority } from './account/subscription';
+import {
+	computeSubscriptionState,
+	getSubscriptionPlan,
+	getSubscriptionPlanPriority,
+	SubscriptionPlanId,
+	SubscriptionState,
+} from './account/subscription';
 
 export type GKLicenses = Partial<Record<GKLicenseType, GKLicense>>;
 
@@ -69,9 +75,7 @@ export function getSubscriptionFromCheckIn(
 
 	let effectiveLicenses = Object.entries(data.licenses.effectiveLicenses) as [GKLicenseType, GKLicense][];
 	let paidLicenses = Object.entries(data.licenses.paidLicenses) as [GKLicenseType, GKLicense][];
-	paidLicenses = paidLicenses.filter(
-		license => license[1].latestStatus !== 'expired' && license[1].latestStatus !== 'cancelled',
-	);
+	paidLicenses = paidLicenses.filter(license => license[1].latestStatus !== 'cancelled');
 	if (paidLicenses.length > 1) {
 		paidLicenses.sort(
 			(a, b) =>
@@ -179,7 +183,18 @@ export function getSubscriptionFromCheckIn(
 		);
 	}
 
-	if (effective == null || getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id)) {
+	const isActualLicenseExpired =
+		computeSubscriptionState({
+			plan: {
+				actual: actual,
+				effective: actual,
+			},
+			account: account,
+		}) === SubscriptionState.PaidExpired;
+	if (
+		effective == null ||
+		(getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id) && !isActualLicenseExpired)
+	) {
 		effective = { ...actual };
 	}
 
