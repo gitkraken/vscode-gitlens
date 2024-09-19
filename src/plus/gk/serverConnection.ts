@@ -226,57 +226,57 @@ export class ServerConnection implements Disposable {
 	}
 
 	private async handleGkUnsuccessfulResponse(rsp: Response, scope: LogScope | undefined): Promise<void> {
-		// Too Many Requests
-		if (rsp.status == 429) {
-			this.trackRequestException();
-			return;
-		}
-
-		// Forbidden
-		if (rsp.status == 403) {
-			if (rsp.statusText.includes('rate limit')) {
+		let content;
+		switch (rsp.status) {
+			// Forbidden
+			case 403:
+				if (rsp.statusText.includes('rate limit')) {
+					this.trackRequestException();
+				}
+				return;
+			// Too Many Requests
+			case 429:
 				this.trackRequestException();
-			}
-			return;
-		}
-
-		// Internal Server Error
-		if (rsp.status == 500) {
-			this.trackRequestException();
-			void showGkRequestFailed500WarningMessage(
-				'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
-			);
-			return;
-		}
-
-		const content = await rsp.text();
-
-		// Bad Gateway
-		if (rsp.status == 502) {
-			Logger.error(`GitKraken request failed: ${content} (${rsp.statusText})`, scope);
-			if (content.includes('timeout')) {
+				return;
+			// Internal Server Error
+			case 500:
 				this.trackRequestException();
-				void showGkRequestTimedOutWarningMessage();
+				void showGkRequestFailed500WarningMessage(
+					'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+				);
+				return;
+			// Bad Gateway
+			case 502: {
+				// Be sure to clone the response so we don't impact any upstream consumers
+				content = await rsp.clone().text();
+
+				Logger.error(undefined, scope, `GitKraken request failed: ${content} (${rsp.statusText})`);
+				if (content.includes('timeout')) {
+					this.trackRequestException();
+					void showGkRequestTimedOutWarningMessage();
+				}
+				return;
 			}
-			return;
+			// Service Unavailable
+			case 503: {
+				// Be sure to clone the response so we don't impact any upstream consumers
+				content = await rsp.clone().text();
+
+				Logger.error(undefined, scope, `GitKraken request failed: ${content} (${rsp.statusText})`);
+				this.trackRequestException();
+				void showGkRequestFailed500WarningMessage(
+					'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+				);
+				return;
+			}
 		}
 
-		// Service Unavailable
-		if (rsp.status == 503) {
-			Logger.error(`GitKraken request failed: ${content} (${rsp.statusText})`, scope);
-			this.trackRequestException();
-			void showGkRequestFailed500WarningMessage(
-				'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
-			);
-			return;
-		}
-
-		if (rsp.status >= 400 && rsp.status < 500) {
-			return;
-		}
+		if (rsp.status >= 400 && rsp.status < 500) return;
 
 		if (Logger.isDebugging) {
-			void window.showErrorMessage(`GitKraken request failed: ${content} (${rsp.statusText})`);
+			// Be sure to clone the response so we don't impact any upstream consumers
+			content ??= await rsp.clone().text();
+			void window.showErrorMessage(`DEBUGGING: GitKraken request failed: ${content} (${rsp.statusText})`);
 		}
 	}
 
@@ -336,7 +336,7 @@ export class ServerConnection implements Disposable {
 
 		if (Logger.isDebugging) {
 			void window.showErrorMessage(
-				`GitKraken request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
+				`DEBUGGING: GitKraken request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
 			);
 		}
 	}
