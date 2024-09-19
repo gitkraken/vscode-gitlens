@@ -251,7 +251,7 @@ export class LaunchpadIndicator implements Disposable {
 		) {
 			tooltip.appendMarkdown('\n\n---\n\n');
 			tooltip.appendMarkdown(
-				'[Launchpad](command:gitlens.launchpad.indicator.action?%info%22 "Learn about Launchpad") organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
+				'[Launchpad](command:gitlens.launchpad.indicator.action?%22info%22 "Learn about Launchpad") organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
 			);
 			tooltip.appendMarkdown(
 				"\n\nIt's always accessible using the `GitLens: Open Launchpad` command from the Command Palette.",
