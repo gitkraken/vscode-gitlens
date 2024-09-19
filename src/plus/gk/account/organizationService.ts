@@ -79,7 +79,11 @@ export class OrganizationService implements Disposable {
 
 			if (!rsp.ok) {
 				debugger;
-				Logger.error('', scope, `Unable to get organizations; status=(${rsp.status}): ${rsp.statusText}`);
+				Logger.error(
+					undefined,
+					scope,
+					`Unable to get organizations; status=(${rsp.status}): ${rsp.statusText}`,
+				);
 
 				void window.showErrorMessage(`Unable to get organizations; Status: ${rsp.statusText}`, 'OK');
 

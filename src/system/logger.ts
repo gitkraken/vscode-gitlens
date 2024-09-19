@@ -326,7 +326,7 @@ export const defaultLogProvider: LogProvider = {
 	log: (logLevel: LogLevel, scope: LogScope | undefined, message: string, ...params: any[]) => {
 		switch (logLevel) {
 			case 'error':
-				Logger.error('', scope, message, ...params);
+				Logger.error(undefined, scope, message, ...params);
 				break;
 			case 'warn':
 				Logger.warn(scope, message, ...params);

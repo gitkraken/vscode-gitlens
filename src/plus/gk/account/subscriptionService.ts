@@ -1499,7 +1499,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (code == null) {
-			Logger.error(`No code provided. Link: ${uri.toString(true)}`, scope);
+			Logger.error(undefined, scope, `No code provided. Link: ${uri.toString(true)}`);
 			void window.showErrorMessage(
 				`Unable to ${contextMessage} with that link. Please try clicking the link again. If this issue persists, please contact support.`,
 			);
