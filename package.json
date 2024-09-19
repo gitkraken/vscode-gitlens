@@ -18054,7 +18054,7 @@
 		"mocha": "10.7.3",
 		"playwright": "1.47.1",
 		"prettier": "3.1.0",
-		"sass": "1.77.6",
+		"sass": "1.79.1",
 		"sass-loader": "16.0.1",
 		"schema-utils": "4.2.0",
 		"sharp": "0.32.6",

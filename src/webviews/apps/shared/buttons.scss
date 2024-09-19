@@ -46,6 +46,11 @@
 }
 
 .button--flat {
+	transition:
+		background-color 250ms,
+		border-color 250ms,
+		color 250ms;
+
 	.vscode-light & {
 		border: 1px solid rgba(0, 0, 0, 0.6);
 		color: black;
@@ -54,10 +59,6 @@
 		border: 1px solid rgba(255, 255, 255, 0.6);
 		color: white;
 	}
-	transition:
-		background-color 250ms,
-		border-color 250ms,
-		color 250ms;
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
@@ -161,6 +162,11 @@
 }
 
 .button--flat-subtle {
+	transition:
+		background-color 250ms,
+		border-color 250ms,
+		color 250ms;
+
 	.vscode-light & {
 		border: 1px solid rgba(0, 0, 0, 0.2);
 		color: rgba(0, 0, 0, 0.6);
@@ -169,10 +175,6 @@
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		color: rgba(255, 255, 255, 0.6);
 	}
-	transition:
-		background-color 250ms,
-		border-color 250ms,
-		color 250ms;
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
