@@ -7,3 +7,4 @@ images/icons/template/icons-contribution.hbs
 images/icons/template/mapping.json
 images/icons/template/styles.hbs
 src/emojis.generated.ts
+pnpm-lock.yaml
