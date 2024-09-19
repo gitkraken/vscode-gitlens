@@ -38,6 +38,9 @@ export abstract class GlApp<
 	private _focused?: boolean;
 	private _inputFocused?: boolean;
 	private _sendWebviewFocusChangedCommandDebounced!: Deferrable<(params: WebviewFocusChangedParams) => void>;
+	private _stateProvider!: Disposable;
+
+	protected abstract createStateProvider(state: State, ipc: HostIpc): Disposable;
 
 	override connectedCallback() {
 		super.connectedCallback();
@@ -53,6 +56,7 @@ export abstract class GlApp<
 
 		this._ipc = new HostIpc(this.name);
 		this.disposables.push(
+			(this._stateProvider = this.createStateProvider(this.state, this._ipc)),
 			this._ipc.onReceiveMessage(msg => {
 				switch (true) {
 					case DidChangeWebviewFocusNotification.is(msg):
