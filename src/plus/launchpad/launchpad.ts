@@ -370,6 +370,89 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		{ picked, selectTopItem }: { picked?: string; selectTopItem?: boolean },
 	): StepResultGenerator<GroupedLaunchpadItem | ConnectMoreIntegrationsItem> {
 		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
+
+		const buildGroupHeading = (
+			ui: LaunchpadGroup,
+			groupLength: number,
+		): [DirectiveQuickPickItem, DirectiveQuickPickItem] => {
+			return [
+				createQuickPickSeparator(groupLength ? groupLength.toString() : undefined),
+				createDirectiveQuickPickItem(Directive.Reload, false, {
+					label: `$(${
+						context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
+					})\u00a0\u00a0${launchpadGroupIconMap.get(ui)!}\u00a0\u00a0${launchpadGroupLabelMap
+						.get(ui)
+						?.toUpperCase()}`, //'\u00a0',
+					//detail: groupMap.get(group)?.[0].toUpperCase(),
+					onDidSelect: () => {
+						const collapsed = !context.collapsed.get(ui);
+						context.collapsed.set(ui, collapsed);
+						if (state.initialGroup == null) {
+							void this.container.storage.store(
+								'launchpad:groups:collapsed',
+								Array.from(context.collapsed.keys()).filter(g => context.collapsed.get(g)),
+							);
+						}
+
+						if (this.container.telemetry.enabled) {
+							updateTelemetryContext(context);
+							this.container.telemetry.sendEvent(
+								'launchpad/groupToggled',
+								{
+									...context.telemetryContext!,
+									group: ui,
+									collapsed: collapsed,
+								},
+								this.source,
+							);
+						}
+					},
+				}),
+			];
+		};
+
+		const buildLaunchpadQuickPickItem = (
+			i: LaunchpadItem,
+			ui: LaunchpadGroup,
+			topItem: LaunchpadItem | undefined,
+		): LaunchpadItemQuickPickItem => {
+			const buttons = [];
+
+			if (i.actionableCategory === 'mergeable') {
+				buttons.push(MergeQuickInputButton);
+			}
+
+			buttons.push(
+				i.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
+				i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
+			);
+
+			buttons.push(...getOpenOnGitProviderQuickInputButtons(i.provider.id));
+
+			if (!i.openRepository?.localBranch?.current) {
+				buttons.push(OpenWorktreeInNewWindowQuickInputButton);
+			}
+
+			return {
+				label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
+				// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
+				description: `\u00a0 ${i.repository.owner.login}/${i.repository.name}#${i.id} \u00a0 ${
+					i.codeSuggestionsCount > 0 ? ` $(gitlens-code-suggestion) ${i.codeSuggestionsCount}` : ''
+				} \u00a0 ${i.isNew ? '(New since last view)' : ''}`,
+				detail: `      ${i.viewer.pinned ? '$(pinned) ' : ''}${
+					i.isDraft && ui !== 'draft' ? '$(git-pull-request-draft) ' : ''
+				}${
+					i.actionableCategory === 'other' ? '' : `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
+				}${fromNow(i.updatedDate)} by @${i.author!.username}`,
+
+				buttons: buttons,
+				iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
+				item: i,
+				picked: i.graphQLId === picked || i.graphQLId === topItem?.graphQLId,
+				group: ui,
+			};
+		};
+
 		const getItems = (result: LaunchpadCategorizedResult) => {
 			const items: (LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
 
@@ -385,86 +468,11 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				for (const [ui, groupItems] of uiGroups) {
 					if (!groupItems.length) continue;
 
-					items.push(
-						createQuickPickSeparator(groupItems.length ? groupItems.length.toString() : undefined),
-						createDirectiveQuickPickItem(Directive.Reload, false, {
-							label: `$(${
-								context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
-							})\u00a0\u00a0${launchpadGroupIconMap.get(ui)!}\u00a0\u00a0${launchpadGroupLabelMap
-								.get(ui)
-								?.toUpperCase()}`, //'\u00a0',
-							//detail: groupMap.get(group)?.[0].toUpperCase(),
-							onDidSelect: () => {
-								const collapsed = !context.collapsed.get(ui);
-								context.collapsed.set(ui, collapsed);
-								if (state.initialGroup == null) {
-									void this.container.storage.store(
-										'launchpad:groups:collapsed',
-										Array.from(context.collapsed.keys()).filter(g => context.collapsed.get(g)),
-									);
-								}
-
-								if (this.container.telemetry.enabled) {
-									updateTelemetryContext(context);
-									this.container.telemetry.sendEvent(
-										'launchpad/groupToggled',
-										{
-											...context.telemetryContext!,
-											group: ui,
-											collapsed: collapsed,
-										},
-										this.source,
-									);
-								}
-							},
-						}),
-					);
+					items.push(...buildGroupHeading(ui, groupItems.length));
 
 					if (context.collapsed.get(ui)) continue;
 
-					items.push(
-						...groupItems.map(i => {
-							const buttons = [];
-
-							if (i.actionableCategory === 'mergeable') {
-								buttons.push(MergeQuickInputButton);
-							}
-
-							buttons.push(
-								i.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
-								i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
-							);
-
-							buttons.push(...getOpenOnGitProviderQuickInputButtons(i.provider.id));
-
-							if (!i.openRepository?.localBranch?.current) {
-								buttons.push(OpenWorktreeInNewWindowQuickInputButton);
-							}
-
-							return {
-								label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
-								// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
-								description: `\u00a0 ${i.repository.owner.login}/${i.repository.name}#${i.id} \u00a0 ${
-									i.codeSuggestionsCount > 0
-										? ` $(gitlens-code-suggestion) ${i.codeSuggestionsCount}`
-										: ''
-								} \u00a0 ${i.isNew ? '(New since last view)' : ''}`,
-								detail: `      ${i.viewer.pinned ? '$(pinned) ' : ''}${
-									i.isDraft && ui !== 'draft' ? '$(git-pull-request-draft) ' : ''
-								}${
-									i.actionableCategory === 'other'
-										? ''
-										: `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
-								}${fromNow(i.updatedDate)} by @${i.author!.username}`,
-
-								buttons: buttons,
-								iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
-								item: i,
-								picked: i.graphQLId === picked || i.graphQLId === topItem?.graphQLId,
-								group: ui,
-							};
-						}),
-					);
+					items.push(...groupItems.map(i => buildLaunchpadQuickPickItem(i, ui, topItem)));
 				}
 			}
 
