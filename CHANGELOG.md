@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds tooltip to the badge indicating additional GK Orgs &mdash; closes [#3521](https://github.com/gitkraken/vscode-gitlens/issues/3521)
+
 ### Fixed
 
 - Fixes [#3582](https://github.com/gitkraken/vscode-gitlens/issues/3582) - "Delete Branch" option is sometimes unexpectedly missing

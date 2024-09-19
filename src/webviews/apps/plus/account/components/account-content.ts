@@ -1,7 +1,9 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
+import type { Organization } from '../../../../../plus/gk/account/organization';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import type { Subscription } from '../../../../../plus/gk/account/subscription';
@@ -16,6 +18,7 @@ import { pluralize } from '../../../../../system/string';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
+import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/promo';
 
@@ -112,6 +115,20 @@ export class AccountContent extends LitElement {
 				color: var(--color-foreground--65);
 				background-color: var(--vscode-toolbar-hoverBackground);
 				border-radius: 50%;
+				cursor: pointer;
+			}
+
+			.account__badge:hover {
+				background-color: var(--vscode-toolbar-activeBackground);
+			}
+
+			.account__badge-tooltip ul {
+				padding-left: 18px;
+			}
+
+			.account__badge-tooltip ul,
+			.account__badge-tooltip ul li {
+				margin: 0;
 			}
 
 			.repo-access {
@@ -137,8 +154,8 @@ export class AccountContent extends LitElement {
 	@property()
 	image = '';
 
-	@property({ type: Number })
-	organizationsCount = 0;
+	@property({ attribute: false })
+	organizations: Organization[] = [];
 
 	@property({ attribute: false })
 	subscription?: Subscription;
@@ -201,7 +218,10 @@ export class AccountContent extends LitElement {
 				</div>
 				<div class="account__details">
 					<p class="account__title">${this.subscription?.account?.name ?? ''}</p>
-					${when(this.organizationsCount === 0, () => html`<p class="account__access">${this.planName}</p>`)}
+					${when(
+						this.organizations.length === 0,
+						() => html`<p class="account__access">${this.planName}</p>`,
+					)}
 				</div>
 				<div class="account__signout">
 					<gl-button
@@ -230,10 +250,25 @@ export class AccountContent extends LitElement {
 					<p class="account__access">${this.planName}</p>
 				</div>
 				${when(
-					this.organizationsCount > 1,
+					this.organizations.length > 1,
 					() =>
 						html`<div class="account__signout">
-							<span class="account__badge">+${this.organizationsCount - 1}</span>
+							<gl-tooltip>
+								<span class="account__badge">+${this.organizations.length - 1}</span>
+								<div slot="content" class="account__badge-tooltip">
+									<span
+										>You are a part of
+										${pluralize('organization', this.organizations.length)}:</span
+									>
+									<ul>
+										${repeat(
+											this.organizations,
+											x => x.id,
+											x => html`<li>${x.name}</li>`,
+										)}
+									</ul>
+								</div>
+							</gl-tooltip>
 							<gl-button
 								appearance="toolbar"
 								href="command:gitlens.gk.switchOrganization"

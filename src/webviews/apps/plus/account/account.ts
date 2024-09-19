@@ -35,7 +35,7 @@ export class AccountApp extends App<State> {
 			case DidChangeSubscriptionNotification.is(msg):
 				this.state.subscription = msg.params.subscription;
 				this.state.avatar = msg.params.avatar;
-				this.state.organizationsCount = msg.params.organizationsCount;
+				this.state.organizations = msg.params.organizations;
 				this.state.timestamp = Date.now();
 				this.setState(this.state);
 				this.updateState();
@@ -59,13 +59,13 @@ export class AccountApp extends App<State> {
 	}
 
 	private updateState() {
-		const { subscription, avatar, organizationsCount } = this.state;
+		const { subscription, avatar, organizations } = this.state;
 
 		const $content = document.getElementById('account-content')! as AccountContent;
 
 		$content.image = avatar ?? '';
 		$content.subscription = subscription;
-		$content.organizationsCount = organizationsCount ?? 0;
+		$content.organizations = organizations ?? [];
 	}
 }
 

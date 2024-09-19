@@ -77,10 +77,11 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 			avatar = `${this.host.getWebRoot() ?? ''}/media/gitlens-logo.webp`;
 		}
 
+		const organizations = await this.container.organizations.getOrganizations();
 		return {
 			subscription: sub,
 			avatar: avatar,
-			organizationsCount: ((await this.container.organizations.getOrganizations()) ?? []).length,
+			organizations: organizations ?? [],
 		};
 	}
 
@@ -92,7 +93,7 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 			webroot: this.host.getWebRoot(),
 			subscription: subscriptionResult.subscription,
 			avatar: subscriptionResult.avatar,
-			organizationsCount: subscriptionResult.organizationsCount,
+			organizations: subscriptionResult.organizations,
 		};
 	}
 
