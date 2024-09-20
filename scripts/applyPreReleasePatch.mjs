@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
-const fs = require('fs');
+import fs from 'fs';
+import pkg from '../package.json' assert { type: 'json' };
 
 // Patch README
 const insert = fs.readFileSync('./README.pre.md', { encoding: 'utf8' });
@@ -10,11 +11,10 @@ if (insert.trim().length !== 0) {
 
 // Patch package.json
 const date = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-let packageJSON = require('../package.json');
 
-packageJSON = JSON.stringify(
+let packageJSON = JSON.stringify(
 	{
-		...packageJSON,
+		...pkg,
 		version: `${String(date.getFullYear())}.${date.getMonth() + 1}.${date.getDate()}${String(
 			date.getHours(),
 		).padStart(2, '0')}`,

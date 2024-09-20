@@ -1,24 +1,28 @@
-const { exec } = require('child_process');
-const fs = require('fs');
-const readline = require('readline');
-const path = require('path');
+import { exec } from 'child_process';
+import { readFileSync, writeFileSync } from 'fs';
+import { createInterface } from 'readline';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const versionRegex = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/;
 
 const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
 console.log(changelogPath);
-let data = fs.readFileSync(changelogPath, 'utf8');
+let data = readFileSync(changelogPath, 'utf8');
 
 // Find the current version number
 const match = /\[unreleased\]: https:\/\/github\.com\/gitkraken\/vscode-gitlens\/compare\/v(.+)\.\.\.HEAD/.exec(data);
 const currentVersion = match?.[1];
 if (currentVersion == null || versionRegex.test(currentVersion) === false) {
 	console.error('Unable to find current version number.');
-	return;
+	currentVersion = '0.0.0';
 }
 
 // Create readline interface for getting input from user
-const rl = readline.createInterface({
+const rl = createInterface({
 	input: process.stdin,
 	output: process.stdout,
 });
@@ -52,7 +56,7 @@ rl.question(`Enter the new version number (format x.x.x, current is ${currentVer
 	data = data.replace(match[0], `${unreleasedLink}\n${newVersionLink}`);
 
 	// Writing the updated version data to CHANGELOG
-	fs.writeFileSync(changelogPath, data);
+	writeFileSync(changelogPath, data);
 
 	// Stage CHANGELOG
 	exec('git add CHANGELOG.md', err => {

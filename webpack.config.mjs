@@ -1,50 +1,58 @@
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
-const { spawnSync } = require('child_process');
-const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
-const CircularDependencyPlugin = require('circular-dependency-plugin');
-const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
-const CopyPlugin = require('copy-webpack-plugin');
-const CspHtmlPlugin = require('csp-html-webpack-plugin');
-const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
-const esbuild = require('esbuild');
-const { ESLintLitePlugin } = require('@eamodio/eslint-lite-webpack-plugin');
-const { generateFonts } = require('@twbs/fantasticon');
-const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
-const fs = require('fs');
-const HtmlPlugin = require('html-webpack-plugin');
-const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
-const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const path = require('path');
-const { validate } = require('schema-utils');
-const TerserPlugin = require('terser-webpack-plugin');
-const { DefinePlugin, optimize, WebpackError } = require('webpack');
-const WebpackRequireFromPlugin = require('webpack-require-from');
+import { spawnSync } from 'child_process';
+import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
+import CircularDependencyPlugin from 'circular-dependency-plugin';
+import { CleanWebpackPlugin as CleanPlugin } from 'clean-webpack-plugin';
+import CopyPlugin from 'copy-webpack-plugin';
+import CspHtmlPlugin from 'csp-html-webpack-plugin';
+import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
+import esbuild from 'esbuild';
+import { ESLintLitePlugin } from '@eamodio/eslint-lite-webpack-plugin';
+import { generateFonts } from '@twbs/fantasticon';
+import ForkTsCheckerPlugin from 'fork-ts-checker-webpack-plugin';
+import fs from 'fs';
+import HtmlPlugin from 'html-webpack-plugin';
+import ImageMinimizerPlugin from 'image-minimizer-webpack-plugin';
+import MiniCssExtractPlugin from 'mini-css-extract-plugin';
+import path from 'path';
+import { validate } from 'schema-utils';
+import TerserPlugin from 'terser-webpack-plugin';
+import webpack from 'webpack';
+import WebpackRequireFromPlugin from 'webpack-require-from';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
-module.exports =
-	/**
-	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean } | undefined } env
-	 * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
-	 * @returns { WebpackConfig[] }
-	 */
-	function (env, argv) {
-		const mode = argv.mode || 'none';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-		env = {
-			analyzeBundle: false,
-			analyzeDeps: false,
-			esbuild: true,
-			skipLint: false,
-			...env,
-		};
+const { DefinePlugin, optimize, WebpackError } = webpack;
 
-		return [
-			getExtensionConfig('node', mode, env),
-			getExtensionConfig('webworker', mode, env),
-			getWebviewsConfig(mode, env),
-		];
+const require = createRequire(import.meta.url);
+
+/**
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean } | undefined } env
+ * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
+ * @returns { WebpackConfig[] }
+ */
+export default function (env, argv) {
+	const mode = argv.mode || 'none';
+
+	env = {
+		analyzeBundle: false,
+		analyzeDeps: false,
+		esbuild: true,
+		skipLint: false,
+		...env,
 	};
+
+	return [
+		getExtensionConfig('node', mode, env),
+		getExtensionConfig('webworker', mode, env),
+		getWebviewsConfig(mode, env),
+	];
+}
 
 /**
  * @param { 'node' | 'webworker' } target

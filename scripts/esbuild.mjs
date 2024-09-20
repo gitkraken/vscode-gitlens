@@ -3,9 +3,10 @@ import { sassPlugin } from 'esbuild-sass-plugin';
 import * as fs from 'fs';
 import * as path from 'path';
 import { minify } from 'terser';
-import { URL } from 'url';
+import { fileURLToPath } from 'url';
 
-const __dirname = new URL('.', import.meta.url).pathname.substring(1);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.join(path.dirname(__filename), '..');
 
 const args = process.argv.slice(2);
 
