@@ -112,6 +112,11 @@ export interface RepositoryVisibilityInfo {
 	remotesHash?: string;
 }
 
+export interface BranchContributorOverview {
+	readonly owner?: GitContributor;
+	readonly contributors?: GitContributor[];
+}
+
 export interface GitProviderRepository {
 	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
@@ -179,6 +184,7 @@ export interface GitProviderRepository {
 			sort?: boolean | BranchSortOptions | undefined;
 		},
 	): Promise<PagedResult<GitBranch>>;
+	getBranchContributorOverview?(repoPath: string, ref: string): Promise<BranchContributorOverview | undefined>;
 	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
 	getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined>;
 	getCommitBranches(

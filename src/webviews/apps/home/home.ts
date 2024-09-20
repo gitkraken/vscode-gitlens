@@ -12,6 +12,8 @@ import type { HostIpc } from '../shared/ipc';
 import { homeBaseStyles, homeStyles } from './home.css';
 import { HomeStateProvider } from './stateProvider';
 import '../plus/shared/components/home-account-content';
+import '../plus/home/components/launchpad';
+import '../plus/home/components/overview';
 import './components/feature-nav';
 import './components/home-nav';
 import './components/repo-alerts';
@@ -56,6 +58,8 @@ export class GlHomeApp extends GlApp<State> {
 				<gl-repo-alerts class="home__header"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
 					<gl-onboarding></gl-onboarding>
+					<gl-launchpad></gl-launchpad>
+					<gl-overview></gl-overview>
 					<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>
 				</main>
 
