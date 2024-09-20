@@ -117,7 +117,7 @@ export const homeStyles = css`
 		color: var(--color-foreground--50);
 	}
 
-	account-content {
+	gl-home-account-content {
 		margin-bottom: 0;
 	}
 `;
