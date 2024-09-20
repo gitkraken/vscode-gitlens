@@ -1,6 +1,6 @@
-const { defineConfig } = require('@vscode/test-cli');
+import { defineConfig } from '@vscode/test-cli';
 
-module.exports = defineConfig([
+export default defineConfig([
 	{
 		mocha: {
 			ui: 'bdd',

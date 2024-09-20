@@ -178,9 +178,6 @@ importers:
       clean-webpack-plugin:
         specifier: 4.0.0
         version: 4.0.0(webpack@5.94.0(@swc/core@1.7.26)(esbuild@0.23.1)(webpack-cli@5.1.4))
-      concurrently:
-        specifier: 9.0.1
-        version: 9.0.1
       copy-webpack-plugin:
         specifier: 12.0.2
         version: 12.0.2(webpack@5.94.0(@swc/core@1.7.26)(esbuild@0.23.1)(webpack-cli@5.1.4))
@@ -202,6 +199,9 @@ importers:
       esbuild-loader:
         specifier: 4.2.2
         version: 4.2.2(webpack@5.94.0(@swc/core@1.7.26)(esbuild@0.23.1)(webpack-cli@5.1.4))
+      esbuild-node-externals:
+        specifier: 1.14.0
+        version: 1.14.0(esbuild@0.23.1)
       esbuild-sass-plugin:
         specifier: 3.3.1
         version: 3.3.1(esbuild@0.23.1)(sass-embedded@1.77.8)
@@ -280,9 +280,6 @@ importers:
       ts-loader:
         specifier: 9.5.1
         version: 9.5.1(typescript@5.6.2)(webpack@5.94.0(@swc/core@1.7.26)(esbuild@0.23.1)(webpack-cli@5.1.4))
-      tsc-alias:
-        specifier: 1.8.10
-        version: 1.8.10
       typescript:
         specifier: 5.6.2
         version: 5.6.2
@@ -1400,10 +1397,6 @@ packages:
     resolution: {integrity: sha512-Dxr6QJj/RdU/hCaBjOfxW+q6lyuVE6JFWIrAUpuOOhoJJoQ99cUn3igRaHVB5P9WrgFVN0FfArM3x0cueOU8ng==}
     engines: {node: '>=0.10.0'}
 
-  array-union@2.1.0:
-    resolution: {integrity: sha512-HGyxoOTYUyCM6stUe6EJgnd4EoewAI7zMdfqO+kGjnlZmBDz/cR5pf8r/cR4Wq60sL/p0IkcjUEEPwS3GFrIyw==}
-    engines: {node: '>=8'}
-
   array-union@3.0.1:
     resolution: {integrity: sha512-1OvF9IbWwaeiM9VhzYXVQacMibxpXOMYVNIvMtKRyX9SImBXpKcFr8XvFDeEslCyuH/t6KRt7HEO94AlP8Iatw==}
     engines: {node: '>=12'}
@@ -1753,11 +1746,6 @@ packages:
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
-
-  concurrently@9.0.1:
-    resolution: {integrity: sha512-wYKvCd/f54sTXJMSfV6Ln/B8UrfLBKOYa+lzc6CHay3Qek+LorVSBdMVfyewFhRbH0Rbabsk4D+3PL/VjQ5gzg==}
-    engines: {node: '>=18'}
-    hasBin: true
 
   console-control-strings@1.1.0:
     resolution: {integrity: sha512-ty/fTekppD2fIwRvnZAVdeOiGd1c7YXEixbgJTNzqcxJWKQnjJ/V1bNEEE6hygpM3WjwHFUVK6HTjWSzV4a8sQ==}
@@ -2268,6 +2256,12 @@ packages:
     peerDependencies:
       webpack: ^4.40.0 || ^5.0.0
 
+  esbuild-node-externals@1.14.0:
+    resolution: {integrity: sha512-jMWnTlCII3cLEjR5+u0JRSTJuP+MgbjEHKfwSIAI41NgLQ0ZjfzjchlbEn0r7v2u5gCBMSEYvYlkO7GDG8gG3A==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      esbuild: 0.23.1
+
   esbuild-sass-plugin@3.3.1:
     resolution: {integrity: sha512-SnO1ls+d52n6j8gRRpjexXI8MsHEaumS0IdDHaYM29Y6gakzZYMls6i9ql9+AWMSQk/eryndmUpXEgT34QrX1A==}
     peerDependencies:
@@ -2620,10 +2614,6 @@ packages:
   globalthis@1.0.4:
     resolution: {integrity: sha512-DpLKbNU4WylpxJykQujfCcwYWiV/Jhm50Goo0wrVILAv5jOr9d+H+UR3PhSCD2rCCEIg0uc+G+muBTwD54JhDQ==}
     engines: {node: '>= 0.4'}
-
-  globby@11.1.0:
-    resolution: {integrity: sha512-jhIXaOzy1sb8IyocaruWSn1TjmnBVs8Ayhcy83rmxNJ8q2uWKCAj3CnJY+KpGSXCueAPc0i05kVvVKtP1t9S3g==}
-    engines: {node: '>=10'}
 
   globby@12.2.0:
     resolution: {integrity: sha512-wiSuFQLZ+urS9x2gGPl1H5drc5twabmm4m2gTR27XDFyjUHJUNsS8o/2aKyIF6IoBaR630atdher0XJ5g6OMmA==}
@@ -3496,10 +3486,6 @@ packages:
   mute-stream@0.0.8:
     resolution: {integrity: sha512-nnbWWOkoWyUsTjKrhgD0dcz22mdkSnpYqbEjIm2nhwhuxlSkpywJmBo8h0ZqJdkp73mb90SssHkN4rsRaBAfAA==}
 
-  mylas@2.1.13:
-    resolution: {integrity: sha512-+MrqnJRtxdF+xngFfUUkIMQrUUL0KsxbADUkn23Z/4ibGg192Q+z+CQyiYwvWTsYjJygmMR8+w3ZDa98Zh6ESg==}
-    engines: {node: '>=12.0.0'}
-
   nan@2.20.0:
     resolution: {integrity: sha512-bk3gXBZDGILuuo/6sKtr0DQmSThYHLtNCdSdXk9YkxD/jK6X2vmCyyXBBxyqZ4XcnzTyYEAThfX3DCEnLf6igw==}
 
@@ -3814,10 +3800,6 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  plimit-lit@1.6.1:
-    resolution: {integrity: sha512-B7+VDyb8Tl6oMJT9oSO2CW8XC/T4UcJGrwOVoNGwOQsQYhlpfajmrMj5xeejqaASq3V/EqThyOeATEOMuSEXiA==}
-    engines: {node: '>=12'}
-
   possible-typed-array-names@1.0.0:
     resolution: {integrity: sha512-d7Uw+eZoloe0EHDIYoe+bQ5WXnGMOpmiZFTuMWCwpjzzkL2nTjcKiAk4hh8TjnGye2TwWOk3UXucZ+3rbmBa8Q==}
     engines: {node: '>= 0.4'}
@@ -4110,10 +4092,6 @@ packages:
   qs@6.13.0:
     resolution: {integrity: sha512-+38qI9SOr8tfZ4QmJNplMUxqjbe7LKvvZgWdExBOmd+egZTtjLB67Gu0HRX3u/XOq7UU2Nx6nsjvS16Z9uwfpg==}
     engines: {node: '>=0.6'}
-
-  queue-lit@1.5.2:
-    resolution: {integrity: sha512-tLc36IOPeMAubu8BkW8YDBV+WyIgKlYU7zUNs0J5Vk9skSZ4JfGlPOqplP0aHdfv7HL0B2Pg6nwiq60Qc6M2Hw==}
-    engines: {node: '>=12'}
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
@@ -4544,9 +4522,6 @@ packages:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
 
-  shell-quote@1.8.1:
-    resolution: {integrity: sha512-6j1W9l1iAs/4xYBI1SYOVZyFcCis9b4KCLQ8fgAGG07QvzaRLVVRQvAy85yNmmZSjYjg4MWh4gNvlPujU/5LpA==}
-
   side-channel@1.0.6:
     resolution: {integrity: sha512-fDW/EZ6Q9RiO8eFG8Hj+7u/oW+XrPTIChwCOM2+th2A6OblDtYYIpve9m+KvI9Z4C9qSEXlaGR6bTEYHReuglA==}
     engines: {node: '>= 0.4'}
@@ -4570,10 +4545,6 @@ packages:
   sirv@2.0.4:
     resolution: {integrity: sha512-94Bdh3cC2PKrbgSOUqTiGPWVZeSiXfKOVZNJniWoqrWrRkB1CJzBU3NEbiTsPcYy1lDsANA/THzS+9WBiy5nfQ==}
     engines: {node: '>= 10'}
-
-  slash@3.0.0:
-    resolution: {integrity: sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==}
-    engines: {node: '>=8'}
 
   slash@4.0.0:
     resolution: {integrity: sha512-3dOsAHXXUkQTpOYcoAxLIorMTp4gIQr5IW3iVb7A7lFIp0VHhnynm9izx6TssdrIcVIESAlVjtnO2K8bg+Coew==}
@@ -4860,10 +4831,6 @@ packages:
   tr46@0.0.3:
     resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
 
-  tree-kill@1.2.2:
-    resolution: {integrity: sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==}
-    hasBin: true
-
   treeify@1.1.0:
     resolution: {integrity: sha512-1m4RA7xVAJrSGrrXGs0L3YTwyvBs2S8PbRHaLZAkFw7JR8oIFwYtysxlBZhYIa7xSyiYJKZ3iGrrk55cGA3i9A==}
     engines: {node: '>=0.6'}
@@ -4884,10 +4851,6 @@ packages:
     peerDependencies:
       typescript: '*'
       webpack: ^5.0.0
-
-  tsc-alias@1.8.10:
-    resolution: {integrity: sha512-Ibv4KAWfFkFdKJxnWfVtdOmB0Zi1RJVxcbPGiCDsFpCQSsmpWyuzHG3rQyI5YkobWwxFPEyQfu1hdo4qLG2zPw==}
-    hasBin: true
 
   tsconfig-paths@3.15.0:
     resolution: {integrity: sha512-2Ac2RgzDe/cn48GvOe3M+o82pEFewD3UPbyoUHHdKasHwJKjds4fLXWf/Ux5kATBKN20oaFGu+jbElp1pos0mg==}
@@ -6425,8 +6388,6 @@ snapshots:
     dependencies:
       array-uniq: 1.0.3
 
-  array-union@2.1.0: {}
-
   array-union@3.0.1: {}
 
   array-uniq@1.0.3: {}
@@ -6852,16 +6813,6 @@ snapshots:
   composed-offset-position@0.0.4: {}
 
   concat-map@0.0.1: {}
-
-  concurrently@9.0.1:
-    dependencies:
-      chalk: 4.1.2
-      lodash: 4.17.21
-      rxjs: 7.8.1
-      shell-quote: 1.8.1
-      supports-color: 8.1.1
-      tree-kill: 1.2.2
-      yargs: 17.7.2
 
   console-control-strings@1.1.0: {}
 
@@ -7449,6 +7400,12 @@ snapshots:
       webpack: 5.94.0(@swc/core@1.7.26)(esbuild@0.23.1)(webpack-cli@5.1.4)
       webpack-sources: 1.4.3
 
+  esbuild-node-externals@1.14.0(esbuild@0.23.1):
+    dependencies:
+      esbuild: 0.23.1
+      find-up: 5.0.0
+      tslib: 2.7.0
+
   esbuild-sass-plugin@3.3.1(esbuild@0.23.1)(sass-embedded@1.77.8):
     dependencies:
       esbuild: 0.23.1
@@ -7899,15 +7856,6 @@ snapshots:
       define-properties: 1.2.1
       gopd: 1.0.1
     optional: true
-
-  globby@11.1.0:
-    dependencies:
-      array-union: 2.1.0
-      dir-glob: 3.0.1
-      fast-glob: 3.3.2
-      ignore: 5.3.2
-      merge2: 1.4.1
-      slash: 3.0.0
 
   globby@12.2.0:
     dependencies:
@@ -8880,8 +8828,6 @@ snapshots:
 
   mute-stream@0.0.8: {}
 
-  mylas@2.1.13: {}
-
   nan@2.20.0: {}
 
   nanoid@3.3.7: {}
@@ -9198,10 +9144,6 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.2
 
-  plimit-lit@1.6.1:
-    dependencies:
-      queue-lit: 1.5.2
-
   possible-typed-array-names@1.0.0:
     optional: true
 
@@ -9493,8 +9435,6 @@ snapshots:
   qs@6.13.0:
     dependencies:
       side-channel: 1.0.6
-
-  queue-lit@1.5.2: {}
 
   queue-microtask@1.2.3: {}
 
@@ -9928,8 +9868,6 @@ snapshots:
 
   shebang-regex@3.0.0: {}
 
-  shell-quote@1.8.1: {}
-
   side-channel@1.0.6:
     dependencies:
       call-bind: 1.0.7
@@ -9958,8 +9896,6 @@ snapshots:
       '@polka/url': 1.0.0-next.27
       mrmime: 2.0.0
       totalist: 3.0.1
-
-  slash@3.0.0: {}
 
   slash@4.0.0: {}
 
@@ -10268,8 +10204,6 @@ snapshots:
 
   tr46@0.0.3: {}
 
-  tree-kill@1.2.2: {}
-
   treeify@1.1.0: {}
 
   trim-newlines@4.1.1: {}
@@ -10287,15 +10221,6 @@ snapshots:
       source-map: 0.7.4
       typescript: 5.6.2
       webpack: 5.94.0(@swc/core@1.7.26)(esbuild@0.23.1)(webpack-cli@5.1.4)
-
-  tsc-alias@1.8.10:
-    dependencies:
-      chokidar: 3.6.0
-      commander: 9.5.0
-      globby: 11.1.0
-      mylas: 2.1.13
-      normalize-path: 3.0.0
-      plimit-lit: 1.6.1
 
   tsconfig-paths@3.15.0:
     dependencies:
