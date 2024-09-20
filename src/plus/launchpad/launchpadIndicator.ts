@@ -598,3 +598,98 @@ export class LaunchpadIndicator implements Disposable {
 		return this.container.storage.get('launchpad:indicator:hasInteracted') != null;
 	}
 }
+
+export interface LaunchpadSummaryResult {
+	total: number;
+	groups: LaunchpadGroup[];
+	hasGroupedItems: boolean;
+
+	mergeable?: {
+		total: number;
+	};
+
+	blocked?: {
+		total: number;
+
+		blocked: number;
+		conflicts: number;
+		failedChecks: number;
+		unassignedReviewers: number;
+	};
+
+	followUp?: {
+		total: number;
+	};
+	needsReview?: {
+		total: number;
+	};
+
+	snoozed?: {
+		total: number;
+		items: LaunchpadItem[];
+	};
+	pinned?: {
+		total: number;
+		items: LaunchpadItem[];
+	};
+}
+
+export function generateLaunchpadSummary(
+	items: LaunchpadItem[] | undefined,
+	groups: LaunchpadGroup[],
+): LaunchpadSummaryResult {
+	const groupedItems = groupAndSortLaunchpadItems(items);
+	const total = Array.from(groupedItems.values()).reduce((total, group) => total + group.length, 0);
+	const hasGroupedItems = groups.some(group => groupedItems.get(group)?.length);
+
+	if (total === 0 || !hasGroupedItems) {
+		return { total: total, groups: groups, hasGroupedItems: false };
+	}
+
+	const result: LaunchpadSummaryResult = { total: total, groups: groups, hasGroupedItems: hasGroupedItems };
+
+	for (const group of groups) {
+		const itemsInGroup = groupedItems.get(group);
+		if (!itemsInGroup?.length) continue;
+
+		switch (group) {
+			case 'mergeable':
+				result.mergeable = { total: itemsInGroup.length };
+				break;
+			case 'blocked': {
+				const grouped = groupByMap(itemsInGroup, i =>
+					i.actionableCategory === 'failed-checks' ||
+					i.actionableCategory === 'conflicts' ||
+					i.actionableCategory === 'unassigned-reviewers'
+						? i.actionableCategory
+						: 'blocked',
+				);
+
+				result.blocked = {
+					total: itemsInGroup.length,
+
+					blocked: grouped.get('blocked')?.length ?? 0,
+					conflicts: grouped.get('conflicts')?.length ?? 0,
+					failedChecks: grouped.get('failed-checks')?.length ?? 0,
+					unassignedReviewers: grouped.get('unassigned-reviewers')?.length ?? 0,
+				};
+
+				break;
+			}
+			case 'follow-up':
+				result.followUp = { total: itemsInGroup.length };
+				break;
+			case 'needs-review':
+				result.needsReview = { total: itemsInGroup.length };
+				break;
+			case 'snoozed':
+				result.snoozed = { items: itemsInGroup, total: itemsInGroup.length };
+				break;
+			case 'pinned':
+				result.pinned = { items: itemsInGroup, total: itemsInGroup.length };
+				break;
+		}
+	}
+
+	return result;
+}
