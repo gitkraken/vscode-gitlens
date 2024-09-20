@@ -19,7 +19,7 @@ This project incorporates components from the projects listed below.
 14. @opentelemetry/resources version 1.26.0 (https://github.com/open-telemetry/opentelemetry-js)
 15. @opentelemetry/sdk-trace-base version 1.26.0 (https://github.com/open-telemetry/opentelemetry-js)
 16. @opentelemetry/semantic-conventions version 1.27.0 (https://github.com/open-telemetry/opentelemetry-js)
-17. @shoelace-style/shoelace version 2.16.0 (https://github.com/shoelace-style/shoelace)
+17. @shoelace-style/shoelace version 2.17.0 (https://github.com/shoelace-style/shoelace)
 18. @vscode/codicons version 0.0.36 (https://github.com/microsoft/vscode-codicons)
 19. @vscode/webview-ui-toolkit version 1.4.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
 20. ansi-regex version 6.1.0 (https://github.com/chalk/ansi-regex)
