@@ -2,6 +2,7 @@ import { Uri, window } from 'vscode';
 import { Schemes } from '../../constants';
 import { Container } from '../../container';
 import type { RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
+import type { EnrichablePullRequest } from '../../plus/integrations/providers/models';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import type { LeftRightCommitCountResult } from '../gitProvider';
@@ -414,4 +415,61 @@ export async function getOpenedPullRequestRepo(
 
 	const repo = await getOrOpenPullRequestRepository(container, pr, { promptIfNeeded: true });
 	return repo;
+}
+
+export type PullRequestURLIdentity = {
+	ownerAndRepo?: string;
+	prNumber?: string;
+};
+
+export function getPullRequestIdentityValuesFromSearch(search: string): PullRequestURLIdentity {
+	let ownerAndRepo: string | undefined = undefined;
+	let prNumber: string | undefined = undefined;
+
+	let match = search.match(/([^/]+\/[^/]+)\/pull\/(\d+)/); // with org and rep name
+	if (match != null) {
+		ownerAndRepo = match[1];
+		prNumber = match[2];
+	}
+
+	if (prNumber == null) {
+		match = search.match(/(?:\/|^)pull\/(\d+)/); // without repo name
+		if (match != null) {
+			prNumber = match[1];
+		}
+	}
+
+	if (prNumber == null) {
+		match = search.match(/(?:\/)(\d+)/); // any number starting with "/"
+		if (match != null) {
+			prNumber = match[1];
+		}
+	}
+
+	if (prNumber == null) {
+		match = search.match(/^#?(\d+)$/); // just a number or with a leading "#"
+		if (match != null) {
+			prNumber = match[1];
+		}
+	}
+
+	return { ownerAndRepo: ownerAndRepo, prNumber: prNumber };
+}
+
+export function doesPullRequestSatisfyRepositoryURLIdentity(
+	pr: EnrichablePullRequest | undefined,
+	{ ownerAndRepo, prNumber }: PullRequestURLIdentity,
+): boolean {
+	if (pr == null) {
+		return false;
+	}
+	const satisfiesPrNumber = prNumber != null && pr.number === parseInt(prNumber, 10);
+	if (!satisfiesPrNumber) {
+		return false;
+	}
+	const satisfiesOwnerAndRepo = ownerAndRepo != null && pr.repoIdentity.name === ownerAndRepo;
+	if (!satisfiesOwnerAndRepo) {
+		return false;
+	}
+	return true;
 }

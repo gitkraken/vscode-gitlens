@@ -42,6 +42,10 @@ import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.i
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
+import {
+	doesPullRequestSatisfyRepositoryURLIdentity,
+	getPullRequestIdentityValuesFromSearch,
+} from '../../git/models/pullRequest';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
@@ -540,11 +544,52 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				RefreshQuickInputButton,
 			],
 			onDidChangeValue: quickpick => {
+				const { value } = quickpick;
 				const hideGroups = Boolean(quickpick.value?.length);
 
 				if (groupsHidden !== hideGroups) {
 					groupsHidden = hideGroups;
 					quickpick.items = hideGroups ? items.filter(i => !isDirectiveQuickPickItem(i)) : items;
+				}
+				const activeLaunchpadItems = quickpick.activeItems.filter(
+					(i): i is LaunchpadItemQuickPickItem => 'item' in i && !i.alwaysShow,
+				);
+
+				let updated = false;
+				for (const item of quickpick.items) {
+					if (item.alwaysShow) {
+						item.alwaysShow = false;
+						updated = true;
+					}
+				}
+				if (updated) {
+					// Force quickpick to update by changing the items object:
+					quickpick.items = [...quickpick.items];
+				}
+
+				if (!value?.length || activeLaunchpadItems.length) {
+					// Nothing to search
+					return true;
+				}
+
+				const prUrlIdentity = getPullRequestIdentityValuesFromSearch(value);
+				if (prUrlIdentity.prNumber != null) {
+					const launchpadItems = quickpick.items.filter((i): i is LaunchpadItemQuickPickItem => 'item' in i);
+					let item = launchpadItems.find(i =>
+						// perform strict match first
+						doesPullRequestSatisfyRepositoryURLIdentity(i.item, prUrlIdentity),
+					);
+					if (item == null) {
+						// Haven't found full match, so let's at least find something with the same pr number
+						item = launchpadItems.find(i => i.item.id === prUrlIdentity.prNumber);
+					}
+					if (item != null) {
+						if (!item.alwaysShow) {
+							item.alwaysShow = true;
+							// Force quickpick to update by changing the items object:
+							quickpick.items = [...quickpick.items];
+						}
+					}
 				}
 
 				return true;
