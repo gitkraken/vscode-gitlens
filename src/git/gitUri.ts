@@ -1,4 +1,4 @@
-import { decodeUtf8Hex, encodeUtf8Hex } from '@env/hex';
+import { decodeUtf8Hex } from '@env/hex';
 import { Uri } from 'vscode';
 import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { Schemes } from '../constants';
@@ -10,14 +10,14 @@ import { memoize } from '../system/decorators/memoize';
 import { basename, normalizePath } from '../system/path';
 import { formatPath } from '../system/vscode/formatPath';
 import { getBestPath, relativeDir, splitPath } from '../system/vscode/path';
-// import { CharCode } from '../system/string';
 import { isVirtualUri } from '../system/vscode/utils';
 import type { RevisionUriData } from './gitProvider';
+import { decodeGitLensRevisionUriAuthority } from './gitUri.authority';
 import { uncommittedStaged } from './models/constants';
 import type { GitFile } from './models/file';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from './models/reference';
 
-const slash = 47; //CharCode.Slash;
+const slash = 47; //slash;
 
 export interface GitCommitish {
 	fileName?: string;
@@ -335,14 +335,6 @@ export const unknownGitUri = Object.freeze(new GitUri());
 
 export function isGitUri(uri: any): uri is GitUri {
 	return uri instanceof GitUri;
-}
-
-export function decodeGitLensRevisionUriAuthority<T>(authority: string): T {
-	return JSON.parse(decodeUtf8Hex(authority)) as T;
-}
-
-export function encodeGitLensRevisionUriAuthority<T>(metadata: T): string {
-	return encodeUtf8Hex(JSON.stringify(metadata));
 }
 
 function decodeRemoteHubAuthority<T>(uri: Uri): { scheme: string; metadata: T | undefined } {

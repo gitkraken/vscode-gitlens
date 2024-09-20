@@ -56,7 +56,8 @@ import type {
 	RevisionUriData,
 	ScmRepository,
 } from '../../../git/gitProvider';
-import { encodeGitLensRevisionUriAuthority, GitUri, isGitUri } from '../../../git/gitUri';
+import { GitUri, isGitUri } from '../../../git/gitUri';
+import { encodeGitLensRevisionUriAuthority } from '../../../git/gitUri.authority';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../git/models/blame';
 import type { BranchSortOptions } from '../../../git/models/branch';
 import {
