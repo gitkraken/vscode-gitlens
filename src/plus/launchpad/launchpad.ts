@@ -53,6 +53,10 @@ import { interpolate, pluralize } from '../../system/string';
 import { executeCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
+import {
+	doesPullRequestSatisfyGitHubRepositoryURLIdentity,
+	getPullRequestIdentityValuesFromSearch,
+} from '../integrations/providers/github';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
 import type {
 	LaunchpadAction,
@@ -545,6 +549,46 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				if (groupsHidden !== hideGroups) {
 					groupsHidden = hideGroups;
 					quickpick.items = hideGroups ? items.filter(i => !isDirectiveQuickPickItem(i)) : items;
+				}
+				const { value } = quickpick;
+				const activeLaunchpadItems = quickpick.activeItems.filter(
+					(i): i is LaunchpadItemQuickPickItem => 'item' in i && !i.alwaysShow,
+				);
+
+				let updated = false;
+				for (const item of quickpick.items) {
+					if (item.alwaysShow) {
+						item.alwaysShow = false;
+						updated = true;
+					}
+				}
+				if (updated) {
+					// Force quickpick to update by changing the items object:
+					quickpick.items = [...quickpick.items];
+				}
+
+				if (value?.length && !activeLaunchpadItems.length) {
+					const prUrlIdentity = getPullRequestIdentityValuesFromSearch(value);
+					if (prUrlIdentity.prNumber != null) {
+						const launchpadItems = quickpick.items.filter(
+							(i): i is LaunchpadItemQuickPickItem => 'item' in i,
+						);
+						let item = launchpadItems.find(i =>
+							// perform strict match first
+							doesPullRequestSatisfyGitHubRepositoryURLIdentity(i.item, prUrlIdentity),
+						);
+						if (item == null) {
+							// Haven't found full match, so let's at least find something with the same pr number
+							item = launchpadItems.find(i => i.item.id === prUrlIdentity.prNumber);
+						}
+						if (item != null) {
+							if (!item.alwaysShow) {
+								item.alwaysShow = true;
+								// Force quickpick to update by changing the items object:
+								quickpick.items = [...quickpick.items];
+							}
+						}
+					}
 				}
 
 				return true;
