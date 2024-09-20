@@ -6,6 +6,8 @@
 
 Enhance your workflows with powerful Git functionality like in-editor blame annotations, hovers, CodeLens, and more—all fully customizable within VS Code. Try GitLens Pro's advanced workflows that accelerate PR reviews, provide rich interactive Git actions, and enhance collaboration for you and your team.
 
+> 💡 **After September 27th, Launchpad will require GitLens Pro**. [Upgrade to Pro](https://gitkraken.dev/purchase/checkout?source=gitlens&product=gitlens&promoCode=GLLAUNCHPAD24&context=marketplace) before then and save more than 75%. 💡
+
 ## Getting Started
 
 Install GitLens by clicking `Install` on the banner above, or from the Extensions side bar in VS Code by searching for GitLens.
