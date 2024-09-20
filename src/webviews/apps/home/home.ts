@@ -12,7 +12,7 @@ import '../shared/components/code-icon';
 import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
 import '../shared/components/promo';
-import '../plus/account/components/account-content';
+import '../plus/shared/components/home-account-content';
 import './components/feature-nav';
 import './components/home-nav';
 import './components/repo-alerts';
@@ -38,9 +38,9 @@ export class GlHomeApp extends GlApp<State> {
 				</main>
 
 				<footer class="home__footer">
-					<account-content id="account-content">
+					<gl-home-account-content id="account-content">
 						<gl-home-nav class="home__nav"></gl-home-nav>
-					</account-content>
+					</gl-home-account-content>
 				</footer>
 			</div>
 		`;
