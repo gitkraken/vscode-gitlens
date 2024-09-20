@@ -317,3 +317,23 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHoste
 		return super.connect(source);
 	}
 }
+
+const GitHubPullRequestUrlRegex = /github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/;
+export function getPullRequestIdentityValuesFromSearch(search: string): { ownerAndRepo?: string; prNumber?: string } {
+	let match = search.match(GitHubPullRequestUrlRegex);
+	let ownerAndRepo: string | undefined = undefined;
+	let prNumber: string | undefined = undefined;
+	if (match != null) {
+		ownerAndRepo = match[1];
+		prNumber = match[2];
+	}
+
+	if (prNumber == null) {
+		match = search.match(/(?:#|\/)(\d+)/);
+		if (match != null) {
+			prNumber = match[1];
+		}
+	}
+
+	return { ownerAndRepo: ownerAndRepo, prNumber: prNumber };
+}
