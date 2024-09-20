@@ -6,14 +6,14 @@ import { CollapseSectionCommand } from '../../../home/protocol';
 import { ipcContext } from '../../shared/context';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
-import { alertStyles, buttonStyles } from '../home.css';
+import { alertStyles, buttonStyles, homeBaseStyles } from '../home.css';
 import '../../shared/components/button';
 import '../../shared/components/code-icon';
 import '../../shared/components/overlays/tooltip';
 
 @customElement('gl-onboarding')
 export class GlOnboarding extends LitElement {
-	static override styles = [alertStyles, buttonStyles];
+	static override styles = [alertStyles, homeBaseStyles, buttonStyles];
 
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()

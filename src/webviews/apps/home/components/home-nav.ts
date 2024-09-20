@@ -5,7 +5,7 @@ import { getApplicablePromo } from '../../../../plus/gk/account/promos';
 import type { State } from '../../../home/protocol';
 import { linkBase } from '../../shared/components/styles/lit/base.css';
 import { stateContext } from '../context';
-import { inlineNavStyles } from '../home.css';
+import { homeBaseStyles, inlineNavStyles } from '../home.css';
 import '../../shared/components/code-icon';
 import '../../shared/components/overlays/tooltip';
 import '../../shared/components/promo';
@@ -14,6 +14,7 @@ import '../../shared/components/promo';
 export class GlHomeNav extends LitElement {
 	static override styles = [
 		linkBase,
+		homeBaseStyles,
 		inlineNavStyles,
 		css`
 			:host {

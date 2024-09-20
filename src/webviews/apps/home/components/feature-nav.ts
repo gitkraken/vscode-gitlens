@@ -6,11 +6,11 @@ import type { State } from '../../../home/protocol';
 import { GlElement } from '../../shared/components/element';
 import { linkBase } from '../../shared/components/styles/lit/base.css';
 import { stateContext } from '../context';
-import { navListStyles } from '../home.css';
+import { homeBaseStyles, navListStyles } from '../home.css';
 
 @customElement('gl-feature-nav')
 export class GlFeatureNav extends GlElement {
-	static override styles = [linkBase, navListStyles, css``];
+	static override styles = [linkBase, homeBaseStyles, navListStyles, css``];
 
 	@property({ type: Object })
 	private badgeSource = { source: 'home', detail: 'badge' };

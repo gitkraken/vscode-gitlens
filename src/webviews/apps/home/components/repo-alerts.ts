@@ -6,17 +6,34 @@ import type { State } from '../../../home/protocol';
 import { GlElement } from '../../shared/components/element';
 import { linkBase } from '../../shared/components/styles/lit/base.css';
 import { stateContext } from '../context';
-import { alertStyles } from '../home.css';
+import { alertStyles, homeBaseStyles } from '../home.css';
 import '../../shared/components/button';
 
 @customElement('gl-repo-alerts')
 export class GlRepoAlerts extends GlElement {
 	static override styles = [
 		linkBase,
+		homeBaseStyles,
 		alertStyles,
 		css`
 			.alert {
 				margin-bottom: 0;
+			}
+
+			.centered {
+				text-align: center;
+			}
+
+			.one-line {
+				white-space: nowrap;
+			}
+
+			gl-button.is-basic {
+				max-width: 300px;
+				width: 100%;
+			}
+			gl-button.is-basic + gl-button.is-basic {
+				margin-top: 1rem;
 			}
 		`,
 	];

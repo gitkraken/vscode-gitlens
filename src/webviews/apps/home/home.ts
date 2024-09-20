@@ -4,14 +4,10 @@ import { html } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import type { State } from '../../home/protocol';
 import { GlApp } from '../shared/app';
+import { scrollableBase } from '../shared/components/styles/lit/base.css';
 import type { HostIpc } from '../shared/ipc';
-import { homeStyles } from './home.css';
+import { homeBaseStyles, homeStyles } from './home.css';
 import { HomeStateProvider } from './stateProvider';
-import '../shared/components/button';
-import '../shared/components/code-icon';
-import '../shared/components/feature-badge';
-import '../shared/components/overlays/tooltip';
-import '../shared/components/promo';
 import '../plus/shared/components/home-account-content';
 import './components/feature-nav';
 import './components/home-nav';
@@ -20,7 +16,7 @@ import './components/onboarding';
 
 @customElement('gl-home-app')
 export class GlHomeApp extends GlApp<State> {
-	static override styles = [homeStyles];
+	static override styles = [homeBaseStyles, scrollableBase, homeStyles];
 
 	private badgeSource = { source: 'home', detail: 'badge' };
 
