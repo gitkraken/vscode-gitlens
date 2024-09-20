@@ -3,14 +3,29 @@ import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { ContextKeys } from '../../constants.context';
 import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
+import type { BranchContributorOverview } from '../../git/gitProvider';
+import { sortBranches } from '../../git/models/branch';
+import type { PullRequest } from '../../git/models/pullRequest';
+import type { GitStatus } from '../../git/models/status';
+import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/models/worktree';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
+import { getLaunchpadSummary } from '../../plus/launchpad/utils';
+import { map } from '../../system/iterable';
+import { getSettledValue } from '../../system/promise';
 import { registerCommand } from '../../system/vscode/command';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
-import type { CollapseSectionParams, DidChangeRepositoriesParams, State } from './protocol';
+import type {
+	CollapseSectionParams,
+	DidChangeRepositoriesParams,
+	GetOverviewBranch,
+	GetOverviewBranches,
+	GetOverviewResponse,
+	State,
+} from './protocol';
 import {
 	CollapseSectionCommand,
 	DidChangeIntegrationsConnections,
@@ -20,6 +35,8 @@ import {
 	DidChangeWalkthroughProgress,
 	DidFocusAccount,
 	DismissWalkthroughSection,
+	GetLaunchpadSummary,
+	GetOverview,
 } from './protocol';
 import type { HomeWebviewShowingArgs } from './registration';
 
@@ -99,7 +116,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		];
 	}
 
-	onMessageReceived(e: IpcMessage) {
+	async onMessageReceived(e: IpcMessage) {
 		switch (true) {
 			case CollapseSectionCommand.is(e):
 				this.onCollapseSection(e.params);
@@ -107,6 +124,237 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			case DismissWalkthroughSection.is(e):
 				this.dismissWalkthrough();
 				break;
+			case GetLaunchpadSummary.is(e):
+				void this.host.respond(GetLaunchpadSummary, e, await getLaunchpadSummary(this.container));
+				break;
+			case GetOverview.is(e): {
+				const repo = this.container.git.highlander;
+				if (repo == null) {
+					void this.host.respond(GetOverview, e, undefined);
+					break;
+				}
+
+				const [branchesResult, worktreesResult] = await Promise.allSettled([
+					repo.git.getBranches({ filter: b => !b.remote }),
+					repo.git.getWorktrees(),
+				]);
+
+				const branches = getSettledValue(branchesResult)?.values ?? [];
+				const worktrees = getSettledValue(worktreesResult) ?? [];
+				const worktreesByBranch = groupWorktreesByBranch(worktrees);
+
+				sortBranches(branches, {
+					current: true,
+					orderBy: 'date:desc',
+					openedWorktreesByBranch: getOpenedWorktreesByBranch(worktreesByBranch),
+				});
+
+				const overviewBranches: GetOverviewBranches = {
+					active: [],
+					recent: [],
+					stale: [],
+				};
+
+				const prPromises = new Map<string, Promise<PullRequest | undefined>>();
+				const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
+				const contributorPromises = new Map<string, Promise<BranchContributorOverview | undefined>>();
+
+				const recentThreshold = Date.now() - 1000 * 60 * 60 * 24 * 14;
+				const staleThreshold = Date.now() - 1000 * 60 * 60 * 24 * 365;
+
+				for (const branch of branches) {
+					const wt = worktreesByBranch.get(branch.id);
+					const worktree: GetOverviewBranch['worktree'] = wt
+						? { name: wt.name, uri: wt.uri.toString() }
+						: undefined;
+
+					const timestamp = branch.date?.getTime();
+					if (branch.current || wt?.opened) {
+						prPromises.set(branch.id, branch.getAssociatedPullRequest());
+						if (wt != null) {
+							statusPromises.set(branch.id, wt.getStatus());
+						}
+						contributorPromises.set(
+							branch.id,
+							this.container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
+						);
+
+						overviewBranches.active.push({
+							id: branch.id,
+							name: branch.name,
+							opened: true,
+							timestamp: timestamp,
+							state: branch.state,
+							status: branch.status,
+							upstream: branch.upstream,
+							worktree: worktree,
+						});
+
+						continue;
+					}
+
+					if (timestamp != null && timestamp > recentThreshold) {
+						prPromises.set(branch.id, branch.getAssociatedPullRequest());
+						if (wt != null) {
+							statusPromises.set(branch.id, wt.getStatus());
+						}
+						contributorPromises.set(
+							branch.id,
+							this.container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
+						);
+
+						overviewBranches.recent.push({
+							id: branch.id,
+							name: branch.name,
+							opened: false,
+							timestamp: timestamp,
+							state: branch.state,
+							status: branch.status,
+							upstream: branch.upstream,
+							worktree: worktree,
+						});
+
+						continue;
+					}
+				}
+
+				sortBranches(branches, {
+					missingUpstream: true,
+					orderBy: 'date:asc',
+				});
+				for (const branch of branches) {
+					if (overviewBranches.stale.length > 9) break;
+
+					const timestamp = branch.date?.getTime();
+					if (branch.upstream?.missing || (timestamp != null && timestamp < staleThreshold)) {
+						const wt = worktreesByBranch.get(branch.id);
+						const worktree: GetOverviewBranch['worktree'] = wt
+							? { name: wt.name, uri: wt.uri.toString() }
+							: undefined;
+
+						if (!branch.upstream?.missing) {
+							prPromises.set(branch.id, branch.getAssociatedPullRequest());
+						}
+						if (wt != null) {
+							statusPromises.set(branch.id, wt.getStatus());
+						}
+						contributorPromises.set(
+							branch.id,
+							this.container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
+						);
+
+						overviewBranches.stale.push({
+							id: branch.id,
+							name: branch.name,
+							opened: false,
+							timestamp: timestamp,
+							state: branch.state,
+							status: branch.status,
+							upstream: branch.upstream,
+							worktree: worktree,
+						});
+
+						continue;
+					}
+				}
+
+				const [prResults, statusResults, contributorResults] = await Promise.allSettled([
+					Promise.allSettled(
+						map(prPromises, ([id, pr]) => pr.then<[string, PullRequest | undefined]>(pr => [id, pr])),
+					),
+					Promise.allSettled(
+						map(statusPromises, ([id, status]) =>
+							status.then<[string, GitStatus | undefined]>(status => [id, status]),
+						),
+					),
+					Promise.allSettled(
+						map(contributorPromises, ([id, overview]) =>
+							overview.then<[string, BranchContributorOverview | undefined]>(overview => [id, overview]),
+						),
+					),
+				]);
+				const prs = new Map(
+					getSettledValue(prResults)
+						?.filter(r => r.status === 'fulfilled')
+						.map(r => [
+							r.value[0],
+							r.value[1]
+								? {
+										id: r.value[1].id,
+										title: r.value[1].title,
+										state: r.value[1].state,
+										url: r.value[1].url,
+								  }
+								: undefined,
+						]),
+				);
+
+				const statuses = new Map(
+					getSettledValue(statusResults)
+						?.filter(r => r.status === 'fulfilled')
+						.map(r => [r.value[0], r.value[1]]),
+				);
+
+				const contributors = new Map(
+					getSettledValue(contributorResults)
+						?.filter(r => r.status === 'fulfilled')
+						.map(r => [r.value[0], r.value[1]]),
+				);
+
+				for (const branch of [
+					...overviewBranches.active,
+					...overviewBranches.recent,
+					...overviewBranches.stale,
+				]) {
+					const pr = prs.get(branch.id);
+					branch.pr = pr;
+
+					const status = statuses.get(branch.id);
+					if (status != null) {
+						branch.workingTreeState = status.getDiffStatus();
+					}
+
+					const contributor = contributors.get(branch.id);
+					if (contributor != null) {
+						const owner = contributor.owner ?? contributor.contributors?.[0];
+						if (owner != null) {
+							branch.owner = {
+								name: owner.name ?? '',
+								email: owner.email ?? '',
+								current: owner.current,
+								timestamp: owner.date?.getTime(),
+								count: owner.count,
+								stats: owner.stats,
+								avatarUrl: (await owner.getAvatarUri())?.toString(),
+							};
+						}
+						const contributors = contributor?.contributors
+							? await Promise.all(
+									contributor.contributors.map(async c => ({
+										name: c.name ?? '',
+										email: c.email ?? '',
+										current: c.current,
+										timestamp: c.date?.getTime(),
+										count: c.count,
+										stats: c.stats,
+										avatarUrl: (await c.getAvatarUri())?.toString(),
+									})),
+							  )
+							: undefined;
+						branch.contributors = contributors;
+					}
+				}
+
+				const result: GetOverviewResponse = {
+					repository: {
+						name: repo.name,
+						branches: overviewBranches,
+					},
+				};
+
+				void this.host.respond(GetOverview, e, result);
+				break;
+			}
 		}
 	}
 
