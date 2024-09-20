@@ -8,6 +8,8 @@ GitLens supercharges your Git experience in VS Code. Maintaining focus is critic
 
 GitLens sets itself apart from other Git tools through its deep level of integration, versatility, and ease of use. GitLens sits directly within your editor, reducing context switching and promoting a more efficient workflow. We know Git is hard and strive to make it as easy as possible while also going beyond the basics with rich visualizations and step-by-step guidance and safety, just to name a few.
 
+> 💡 **After September 27th, Launchpad will require GitLens Pro**. [Upgrade to Pro](https://gitkraken.dev/purchase/checkout?source=gitlens&product=gitlens&promoCode=GLLAUNCHPAD24&context=marketplace) before then and save more than 75%. 💡
+
 ## Getting Started
 
 <p>
