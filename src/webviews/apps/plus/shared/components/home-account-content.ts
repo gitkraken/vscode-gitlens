@@ -16,11 +16,11 @@ import { pluralize } from '../../../../../system/string';
 import type { State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
+import '../../../shared/components/accordion/accordion';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/promo';
-import '../../../shared/components/accordion/accordion';
 
 @customElement('gl-home-account-content')
 export class GLHomeAccountContent extends LitElement {
@@ -142,6 +142,7 @@ export class GLHomeAccountContent extends LitElement {
 				color: var(--color-foreground--65);
 				background-color: var(--vscode-toolbar-hoverBackground);
 				border-radius: 50%;
+				margin-right: 0.6rem;
 			}
 
 			.account > :first-child {
@@ -149,6 +150,11 @@ export class GLHomeAccountContent extends LitElement {
 			}
 			.account > :last-child {
 				margin-block-end: 0;
+			}
+
+			hr {
+				border: none;
+				border-top: 1px solid var(--color-foreground--25);
 			}
 		`,
 	];
@@ -242,14 +248,21 @@ export class GLHomeAccountContent extends LitElement {
 					this._state.organizationsCount! > 1,
 					() =>
 						html`<div class="org__signout">
-							<span class="org__badge">+${this._state.organizationsCount! - 1}</span>
 							<gl-button
 								appearance="toolbar"
 								href="command:gitlens.gk.switchOrganization"
-								tooltip="Switch Organization"
-								aria-label="Switch Organization"
+								aria-label="Switch Active Organization"
+								><span class="org__badge">+${this._state.organizationsCount! - 1}</span
 								><code-icon icon="arrow-swap"></code-icon
-							></gl-button>
+								><span slot="tooltip"
+									>Switch Active Organization
+									<hr />
+									You are in
+									${pluralize('organization', this._state.organizationsCount! - 1, {
+										infix: ' other ',
+									})}</span
+								></gl-button
+							>
 						</div>`,
 				)}
 			</div>
