@@ -33,7 +33,8 @@ import { registerCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
 import type { KeyboardScope } from '../system/vscode/keyboard';
-import { getResourceContextKeyValue, isTrackableTextEditor } from '../system/vscode/utils';
+import { ResourceSet } from '../system/vscode/map';
+import { isTrackableTextEditor } from '../system/vscode/utils';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
@@ -327,8 +328,8 @@ export class FileAnnotationController implements Disposable {
 		debouncedRestore(editor);
 	}
 
-	private readonly _annotatedUris = new Set<string>();
-	private readonly _computingUris = new Set<string>();
+	private readonly _annotatedUris = new ResourceSet();
+	private readonly _computingUris = new ResourceSet();
 
 	async onProviderEditorStatusChanged(editor: TextEditor | undefined, status: AnnotationStatus | undefined) {
 		if (editor == null) return;
@@ -345,20 +346,16 @@ export class FileAnnotationController implements Disposable {
 		} else {
 			windowStatus = undefined;
 
-			let key = getResourceContextKeyValue(editor.document.uri);
-			if (typeof key !== 'string') {
-				key = await key;
-			}
-
+			const uri = editor.document.uri;
 			switch (status) {
 				case 'computing':
-					if (!this._annotatedUris.has(key)) {
-						this._annotatedUris.add(key);
+					if (!this._annotatedUris.has(uri)) {
+						this._annotatedUris.add(uri);
 						changed = true;
 					}
 
-					if (!this._computingUris.has(key)) {
-						this._computingUris.add(key);
+					if (!this._computingUris.has(uri)) {
+						this._computingUris.add(uri);
 						changed = true;
 					}
 
@@ -366,29 +363,29 @@ export class FileAnnotationController implements Disposable {
 				case 'computed': {
 					const provider = this.getProvider(editor);
 					if (provider == null) {
-						if (this._annotatedUris.has(key)) {
-							this._annotatedUris.delete(key);
+						if (this._annotatedUris.has(uri)) {
+							this._annotatedUris.delete(uri);
 							changed = true;
 						}
-					} else if (!this._annotatedUris.has(key)) {
-						this._annotatedUris.add(key);
+					} else if (!this._annotatedUris.has(uri)) {
+						this._annotatedUris.add(uri);
 						changed = true;
 					}
 
-					if (this._computingUris.has(key)) {
-						this._computingUris.delete(key);
+					if (this._computingUris.has(uri)) {
+						this._computingUris.delete(uri);
 						changed = true;
 					}
 					break;
 				}
 				default:
-					if (this._annotatedUris.has(key)) {
-						this._annotatedUris.delete(key);
+					if (this._annotatedUris.has(uri)) {
+						this._annotatedUris.delete(uri);
 						changed = true;
 					}
 
-					if (this._computingUris.has(key)) {
-						this._computingUris.delete(key);
+					if (this._computingUris.has(uri)) {
+						this._computingUris.delete(uri);
 						changed = true;
 					}
 					break;
