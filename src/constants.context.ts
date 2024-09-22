@@ -1,3 +1,4 @@
+import type { Uri } from 'vscode';
 import type { AnnotationStatus } from './annotations/annotationProvider';
 import type { Keys, PromoKeys } from './constants';
 import type { CustomEditorTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
@@ -26,10 +27,10 @@ export type ContextKeys = {
 	'gitlens:repos:withHostingIntegrations': string[];
 	'gitlens:repos:withHostingIntegrationsConnected': string[];
 	'gitlens:schemes:trackable': string[];
-	'gitlens:tabs:annotated': string[];
-	'gitlens:tabs:annotated:computing': string[];
-	'gitlens:tabs:blameable': string[];
-	'gitlens:tabs:tracked': string[];
+	'gitlens:tabs:annotated': Uri[];
+	'gitlens:tabs:annotated:computing': Uri[];
+	'gitlens:tabs:blameable': Uri[];
+	'gitlens:tabs:tracked': Uri[];
 	'gitlens:untrusted': boolean;
 	'gitlens:views:canCompare': boolean;
 	'gitlens:views:canCompare:file': boolean;
