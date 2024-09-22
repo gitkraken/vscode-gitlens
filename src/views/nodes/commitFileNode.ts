@@ -1,6 +1,7 @@
-import type { Command, Selection } from 'vscode';
+import type { Command, Selection, TextDocumentShowOptions } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
+import type { OpenFileAtRevisionCommandArgs } from '../../commands/openFileAtRevision';
 import { Schemes } from '../../constants';
 import { Commands } from '../../constants.commands';
 import type { TreeViewRefFileNodeTypes } from '../../constants.views';
@@ -176,14 +177,30 @@ export abstract class CommitFileNodeBase<
 			line = this.options?.selection?.active.line ?? 0;
 		}
 
+		const showOptions: TextDocumentShowOptions = {
+			preserveFocus: true,
+			preview: true,
+		};
+
+		const filesConfig = this.view.config.files;
+		if ('openDiffOnClick' in filesConfig && filesConfig.openDiffOnClick === false) {
+			const commandArgs: OpenFileAtRevisionCommandArgs = {
+				revisionUri: GitUri.fromFile(this.file, this.commit.repoPath, this.ref.ref),
+				line: line,
+				showOptions: showOptions,
+			};
+			return {
+				title: 'Open File',
+				command: Commands.OpenFileAtRevision,
+				arguments: [commandArgs],
+			};
+		}
+
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: this.commit,
 			uri: GitUri.fromFile(this.file, this.commit.repoPath),
 			line: line,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
-			},
+			showOptions: showOptions,
 		};
 		return {
 			title: 'Open Changes with Previous Revision',

@@ -2863,6 +2863,13 @@
 						"scope": "window",
 						"order": 22
 					},
+					"gitlens.views.searchAndCompare.files.openDiffOnClick": {
+						"type": "boolean",
+						"default": "true",
+						"markdownDescription": "Specifies whether to open the diff view or the file itself when clicking on a file in the _Search & Compare_ view",
+						"scope": "window",
+						"order": 23
+					},
 					"gitlens.views.searchAndCompare.files.icon": {
 						"type": "string",
 						"default": "type",
