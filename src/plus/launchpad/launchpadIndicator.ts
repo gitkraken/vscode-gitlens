@@ -11,7 +11,7 @@ import { pluralize } from '../../system/string';
 import { executeCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
-import { HostingIntegrationId } from '../integrations/providers/models';
+import type { HostingIntegrationId } from '../integrations/providers/models';
 import type { LaunchpadCommandArgs } from './launchpad';
 import type { LaunchpadGroup, LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
 import {
@@ -561,14 +561,6 @@ export class LaunchpadIndicator implements Disposable {
 						);
 						if (action === hide) {
 							void configuration.updateEffective('launchpad.indicator.enabled', false);
-						}
-						break;
-					}
-					case 'connectGitHub': {
-						const github = await this.container.integrations?.get(HostingIntegrationId.GitHub);
-						if (github == null) break;
-						if (!(github.maybeConnected ?? (await github.isConnected()))) {
-							void github.connect('launchpad-indicator');
 						}
 						break;
 					}
