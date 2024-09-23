@@ -136,7 +136,6 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
-	// TODO: Remove `integrationId` flow from this because we always use "connectIntegrations" for that
 	async manageCloudIntegrations(source: Source | undefined) {
 		const scope = getLogScope();
 		if (this.container.telemetry.enabled) {
