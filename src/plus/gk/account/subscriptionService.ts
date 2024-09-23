@@ -640,7 +640,7 @@ export class SubscriptionService implements Disposable {
 	async showAccountView(silent: boolean = false): Promise<void> {
 		if (silent && !configuration.get('plusFeatures.enabled', undefined, true)) return;
 
-		if (!this.container.accountView.visible) {
+		if (!this.container.homeView.visible) {
 			await executeCommand(Commands.ShowAccountView);
 		}
 	}

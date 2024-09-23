@@ -33,7 +33,6 @@ import { EnrichmentService } from './plus/launchpad/enrichmentService';
 import { LaunchpadIndicator } from './plus/launchpad/launchpadIndicator';
 import { LaunchpadProvider } from './plus/launchpad/launchpadProvider';
 import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
-import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import type { GraphWebviewShowingArgs } from './plus/webviews/graph/registration';
 import {
 	registerGraphWebviewCommands,
@@ -293,7 +292,6 @@ export class Container {
 		this._disposables.push((this._workspacesView = new WorkspacesView(this)));
 
 		this._disposables.push((this._homeView = registerHomeWebviewView(this._webviews)));
-		this._disposables.push((this._accountView = registerAccountWebviewView(this._webviews)));
 
 		if (configuration.get('launchpad.indicator.enabled')) {
 			this._disposables.push((this._launchpadIndicator = new LaunchpadIndicator(this, this._launchpadProvider)));
@@ -386,11 +384,6 @@ export class Container {
 	private _accountAuthentication: AccountAuthenticationProvider;
 	get accountAuthentication() {
 		return this._accountAuthentication;
-	}
-
-	private readonly _accountView: WebviewViewProxy<[]>;
-	get accountView() {
-		return this._accountView;
 	}
 
 	private readonly _actionRunners: ActionRunners;

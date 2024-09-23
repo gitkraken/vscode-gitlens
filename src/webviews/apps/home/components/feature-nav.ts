@@ -2,6 +2,7 @@ import { consume } from '@lit/context';
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { Source } from '../../../../constants.telemetry';
 import type { State } from '../../../home/protocol';
 import { GlElement } from '../../shared/components/element';
 import { linkBase } from '../../shared/components/styles/lit/base.css';
@@ -13,7 +14,7 @@ export class GlFeatureNav extends GlElement {
 	static override styles = [linkBase, homeBaseStyles, navListStyles, css``];
 
 	@property({ type: Object })
-	private badgeSource = { source: 'home', detail: 'badge' };
+	private badgeSource: Source = { source: 'home', detail: 'badge' };
 
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
