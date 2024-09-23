@@ -72,6 +72,9 @@ export function getEditorCommand() {
 		case 'VSCodium':
 			editor = 'codium --wait --reuse-window';
 			break;
+		case 'Cursor':
+			editor = 'cursor --wait --reuse-window';
+			break;
 		default:
 			editor = 'code --wait --reuse-window';
 			break;
