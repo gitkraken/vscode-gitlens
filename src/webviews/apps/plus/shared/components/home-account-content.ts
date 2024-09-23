@@ -1,6 +1,6 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
 import type { Promo } from '../../../../../plus/gk/account/promos';
@@ -15,6 +15,7 @@ import {
 import { pluralize } from '../../../../../system/string';
 import type { State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
+import type { GlAccordion } from '../../../shared/components/accordion/accordion';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
 import '../../../shared/components/accordion/accordion';
 import '../../../shared/components/button';
@@ -159,6 +160,9 @@ export class GLHomeAccountContent extends LitElement {
 		`,
 	];
 
+	@query('#accordion')
+	private accordionEl!: GlAccordion;
+
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
 	private _state!: State;
@@ -206,7 +210,7 @@ export class GLHomeAccountContent extends LitElement {
 	}
 
 	override render() {
-		return html`<gl-accordion>
+		return html`<gl-accordion id="accordion">
 			<div class="header" slot="header">
 				${this.hasAccount && this._state.avatar
 					? html`<img class="header__media" src=${this._state.avatar} />`
@@ -394,5 +398,14 @@ export class GLHomeAccountContent extends LitElement {
 
 	private renderPromo(promo: Promo | undefined) {
 		return html`<gl-promo .promo=${promo}></gl-promo>`;
+	}
+
+	override focus() {
+		this.accordionEl.focus();
+	}
+
+	show() {
+		this.accordionEl.open = true;
+		this.accordionEl.focus();
 	}
 }
