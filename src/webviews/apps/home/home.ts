@@ -1,10 +1,13 @@
 /*global*/
 import './home.scss';
 import { html } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, query } from 'lit/decorators.js';
 import type { State } from '../../home/protocol';
+import { DidFocusAccount } from '../../home/protocol';
+import type { GLHomeAccountContent } from '../plus/shared/components/home-account-content';
 import { GlApp } from '../shared/app';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
+import type { Disposable } from '../shared/events';
 import type { HostIpc } from '../shared/ipc';
 import { homeBaseStyles, homeStyles } from './home.css';
 import { HomeStateProvider } from './stateProvider';
@@ -17,11 +20,33 @@ import './components/onboarding';
 @customElement('gl-home-app')
 export class GlHomeApp extends GlApp<State> {
 	static override styles = [homeBaseStyles, scrollableBase, homeStyles];
+	private disposable: Disposable | undefined;
+
+	@query('#account-content')
+	private accountContentEl!: GLHomeAccountContent;
 
 	private badgeSource = { source: 'home', detail: 'badge' };
 
 	protected override createStateProvider(state: State, ipc: HostIpc) {
 		return new HomeStateProvider(this, state, ipc);
+	}
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		this.disposable = this._ipc.onReceiveMessage(msg => {
+			switch (true) {
+				case DidFocusAccount.is(msg):
+					this.accountContentEl.show();
+					break;
+			}
+		});
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+
+		this.disposable?.dispose();
 	}
 
 	override render() {

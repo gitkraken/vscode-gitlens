@@ -2,6 +2,7 @@ import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { GraphWebviewShowingArgs } from '../plus/webviews/graph/registration';
 import { command } from '../system/vscode/command';
+import type { HomeWebviewShowingArgs } from '../webviews/home/registration';
 import type { CommandContext } from './base';
 import { Command } from './base';
 
@@ -39,7 +40,10 @@ export class ShowViewCommand extends Command {
 		const command = context.command as Commands;
 		switch (command) {
 			case Commands.ShowAccountView:
-				return this.container.accountView.show();
+				return this.container.homeView.show(
+					undefined,
+					...([{ focusAccount: true }, ...args] as HomeWebviewShowingArgs),
+				);
 			case Commands.ShowBranchesView:
 				return this.container.branchesView.show();
 			case Commands.ShowCommitDetailsView:
@@ -55,7 +59,7 @@ export class ShowViewCommand extends Command {
 			case Commands.ShowGraphView:
 				return this.container.graphView.show(undefined, ...(args as GraphWebviewShowingArgs));
 			case Commands.ShowHomeView:
-				return this.container.homeView.show();
+				return this.container.homeView.show(undefined, ...(args as HomeWebviewShowingArgs));
 			case Commands.ShowLaunchpadView:
 				return this.container.launchpadView.show();
 			case Commands.ShowLineHistoryView:
