@@ -69,6 +69,8 @@ export class AuthenticationConnection implements Disposable {
 		signUp: boolean = false,
 		context?: TrackingContext,
 	): Promise<string> {
+		const scope = getLogScope();
+
 		this.updateStatusBarItem(true);
 
 		// Include a state parameter here to prevent CSRF attacks
@@ -88,6 +90,8 @@ export class AuthenticationConnection implements Disposable {
 		);
 
 		if (!(await openUrl(uri.toString(true)))) {
+			Logger.error(undefined, scope, 'Opening login URL failed');
+
 			this._pendingStates.delete(scopeKey);
 			this.updateStatusBarItem(false);
 			throw new Error('Cancelled');
@@ -103,11 +107,7 @@ export class AuthenticationConnection implements Disposable {
 			this._deferredCodeExchanges.set(scopeKey, deferredCodeExchange);
 		}
 
-		if (this._cancellationSource != null) {
-			this._cancellationSource.cancel();
-			this._cancellationSource = undefined;
-		}
-
+		this._cancellationSource?.cancel();
 		this._cancellationSource = new CancellationTokenSource();
 
 		try {
@@ -126,6 +126,9 @@ export class AuthenticationConnection implements Disposable {
 
 			const token = await this.getTokenFromCodeAndState(code, gkstate, scopeKey);
 			return token;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
 		} finally {
 			this._cancellationSource?.cancel();
 			this._cancellationSource = undefined;
