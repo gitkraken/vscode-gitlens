@@ -39,6 +39,7 @@ import type {
 	ScmRepository,
 } from '../../../../git/gitProvider';
 import { GitUri } from '../../../../git/gitUri';
+import { decodeRemoteHubAuthority } from '../../../../git/gitUri.authority';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../../git/models/blame';
 import type { BranchSortOptions } from '../../../../git/models/branch';
 import { getBranchId, getBranchNameWithoutRemote, GitBranch, sortBranches } from '../../../../git/models/branch';
@@ -103,7 +104,7 @@ import { serializeWebviewItemContext } from '../../../../system/webview';
 import type { CachedBlame, CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
 import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub';
-import { getRemoteHubApi, HeadType } from '../../../remotehub';
+import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub';
 import type {
 	GraphBranchContextValue,
 	GraphItemContext,
@@ -116,6 +117,7 @@ import type {
 } from '../../authentication/integrationAuthentication';
 import { HostingIntegrationId } from '../models';
 import type { GitHubApi } from './github';
+import type { GitHubBranch } from './models';
 import { fromCommitFileStatus } from './models';
 
 const doubleQuoteRegex = /"/g;
@@ -924,7 +926,36 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const {
 			values: [branch],
 		} = await this.getBranches(repoPath, { filter: b => b.current });
-		return branch;
+		if (branch != null) return branch;
+
+		try {
+			const { metadata } = await this.ensureRepositoryContext(repoPath!);
+
+			const revision = await metadata.getRevision();
+			switch (revision.type) {
+				case HeadType.Tag:
+				case HeadType.Commit:
+					return new GitBranch(
+						this.container,
+						repoPath!,
+						revision.name,
+						false,
+						true,
+						undefined,
+						revision.revision,
+						undefined,
+						undefined,
+						undefined,
+						true,
+					);
+			}
+
+			return undefined;
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, getLogScope());
+			return undefined;
+		}
 	}
 
 	@log({ args: { 1: false } })
@@ -946,10 +977,38 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				try {
 					const { metadata, github, session } = await this.ensureRepositoryContext(repoPath!);
 
-					const revision = await metadata.getRevision();
-					const current = revision.type === 0 /* HeadType.Branch */ ? revision.name : undefined;
-
 					const branches: GitBranch[] = [];
+
+					function addBranches(container: Container, branch: GitHubBranch, current: boolean) {
+						const date = new Date(
+							configuration.get('advanced.commitOrdering') === 'author-date'
+								? branch.target.authoredDate
+								: branch.target.committedDate,
+						);
+						const ref = branch.target.oid;
+
+						branches.push(
+							new GitBranch(container, repoPath!, branch.name, false, current, date, ref, {
+								name: `origin/${branch.name}`,
+								missing: false,
+							}),
+							new GitBranch(container, repoPath!, `origin/${branch.name}`, true, false, date, ref),
+						);
+					}
+
+					let currentBranch: string | undefined;
+
+					const revision = await metadata.getRevision();
+					switch (revision.type) {
+						case HeadType.Branch:
+							currentBranch = revision.name;
+							break;
+						case HeadType.RemoteBranch: {
+							const index = revision.name.indexOf(':');
+							currentBranch = index === -1 ? revision.name : revision.name.substring(index + 1);
+							break;
+						}
+					}
 
 					let cursor = options?.paging?.cursor;
 					const loadAll = cursor == null;
@@ -963,37 +1022,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						);
 
 						for (const branch of result.values) {
-							const date = new Date(
-								configuration.get('advanced.commitOrdering') === 'author-date'
-									? branch.target.authoredDate
-									: branch.target.committedDate,
-							);
-							const ref = branch.target.oid;
-
-							branches.push(
-								new GitBranch(
-									this.container,
-									repoPath!,
-									branch.name,
-									false,
-									branch.name === current,
-									date,
-									ref,
-									{
-										name: `origin/${branch.name}`,
-										missing: false,
-									},
-								),
-								new GitBranch(
-									this.container,
-									repoPath!,
-									`origin/${branch.name}`,
-									true,
-									false,
-									date,
-									ref,
-								),
-							);
+							addBranches(this.container, branch, branch.name === currentBranch);
 						}
 
 						if (!result.paging?.more || !loadAll) return { ...result, values: branches };
@@ -3434,6 +3463,18 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const metadata = await ensureProviderLoaded(uri, remotehub, uri => remotehub?.getMetadata(uri));
 		if (metadata?.provider.id !== 'github') {
 			throw new OpenVirtualRepositoryError(repoPath, OpenVirtualRepositoryErrorReason.NotAGitHubRepository);
+		}
+
+		const data = decodeRemoteHubAuthority<GitHubAuthorityMetadata>(uri.authority);
+		// If the virtual repository is opened to a PR, then we need to ensure the owner is the owner of the current branch
+		if (data.metadata?.ref?.type === RepositoryRefType.PullRequest) {
+			const revision = await metadata.getRevision();
+			if (revision.type === HeadType.RemoteBranch) {
+				const [remote] = revision.name.split(':');
+				if (remote !== metadata.repo.owner) {
+					metadata.repo.owner = remote;
+				}
+			}
 		}
 
 		let github;

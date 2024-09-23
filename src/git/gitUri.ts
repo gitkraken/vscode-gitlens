@@ -1,4 +1,3 @@
-import { decodeUtf8Hex } from '@env/hex';
 import { Uri } from 'vscode';
 import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { Schemes } from '../constants';
@@ -12,7 +11,7 @@ import { formatPath } from '../system/vscode/formatPath';
 import { getBestPath, relativeDir, splitPath } from '../system/vscode/path';
 import { isVirtualUri } from '../system/vscode/utils';
 import type { RevisionUriData } from './gitProvider';
-import { decodeGitLensRevisionUriAuthority } from './gitUri.authority';
+import { decodeGitLensRevisionUriAuthority, decodeRemoteHubAuthority } from './gitUri.authority';
 import { uncommittedStaged } from './models/constants';
 import type { GitFile } from './models/file';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from './models/reference';
@@ -93,7 +92,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			const [, owner, repo] = uri.path.split('/', 3);
 			this.repoPath = uri.with({ path: `/${owner}/${repo}` }).toString();
 
-			const data = decodeRemoteHubAuthority<GitHubAuthorityMetadata>(uri);
+			const data = decodeRemoteHubAuthority<GitHubAuthorityMetadata>(uri.authority);
 
 			let ref = data.metadata?.ref?.id;
 			if (commitOrRepoPath != null && typeof commitOrRepoPath !== 'string') {
@@ -335,18 +334,4 @@ export const unknownGitUri = Object.freeze(new GitUri());
 
 export function isGitUri(uri: any): uri is GitUri {
 	return uri instanceof GitUri;
-}
-
-function decodeRemoteHubAuthority<T>(uri: Uri): { scheme: string; metadata: T | undefined } {
-	const [scheme, encoded] = uri.authority.split('+');
-
-	let metadata: T | undefined;
-	if (encoded) {
-		try {
-			const data = JSON.parse(decodeUtf8Hex(encoded));
-			metadata = data as T;
-		} catch {}
-	}
-
-	return { scheme: scheme, metadata: metadata };
 }
