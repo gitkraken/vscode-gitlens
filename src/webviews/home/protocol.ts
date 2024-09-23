@@ -54,3 +54,5 @@ export interface DidChangeOrgSettingsParams {
 	orgSettings: State['orgSettings'];
 }
 export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');
+
+export const DidFocusAccount = new IpcNotification<undefined>(scope, 'account/didFocus');

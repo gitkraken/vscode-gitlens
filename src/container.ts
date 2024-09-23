@@ -91,6 +91,7 @@ import {
 	registerCommitDetailsWebviewView,
 	registerGraphDetailsWebviewView,
 } from './webviews/commitDetails/registration';
+import type { HomeWebviewShowingArgs } from './webviews/home/registration';
 import { registerHomeWebviewView } from './webviews/home/registration';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
@@ -628,7 +629,7 @@ export class Container {
 		return this._graphView;
 	}
 
-	private readonly _homeView: WebviewViewProxy<[]>;
+	private readonly _homeView: WebviewViewProxy<HomeWebviewShowingArgs>;
 	get homeView() {
 		return this._homeView;
 	}

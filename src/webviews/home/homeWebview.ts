@@ -7,7 +7,8 @@ import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscription
 import { registerCommand } from '../../system/vscode/command';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
 import type { IpcMessage } from '../protocol';
-import type { WebviewHost, WebviewProvider } from '../webviewProvider';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
+import type { WebviewShowOptions } from '../webviewsController';
 import type { CollapseSectionParams, DidChangeRepositoriesParams, State } from './protocol';
 import {
 	CollapseSectionCommand,
@@ -15,7 +16,9 @@ import {
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidFocusAccount,
 } from './protocol';
+import type { HomeWebviewShowingArgs } from './registration';
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {
@@ -23,8 +26,9 @@ const emptyDisposable = Object.freeze({
 	},
 });
 
-export class HomeWebviewProvider implements WebviewProvider<State> {
+export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
+	private _pendingFocusAccount = false;
 
 	constructor(
 		private readonly container: Container,
@@ -43,6 +47,23 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	dispose() {
 		this._disposable.dispose();
+	}
+
+	onShowing(
+		loading: boolean,
+		_options?: WebviewShowOptions,
+		...args: WebviewShowingArgs<HomeWebviewShowingArgs, State>
+	) {
+		const [arg] = args as HomeWebviewShowingArgs;
+		if (arg?.focusAccount === true) {
+			if (!loading && this.host.ready && this.host.visible) {
+				queueMicrotask(() => void this.host.notify(DidFocusAccount, undefined));
+				return true;
+			}
+			this._pendingFocusAccount = true;
+		}
+
+		return true;
 	}
 
 	private onChangeConnectionState() {
@@ -71,6 +92,14 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	onReloaded() {
 		this.notifyDidChangeRepositories();
+	}
+
+	onReady() {
+		if (this._pendingFocusAccount === true) {
+			this._pendingFocusAccount = false;
+
+			void this.host.notify(DidFocusAccount, undefined);
+		}
 	}
 
 	private onCollapseSection(params: CollapseSectionParams) {

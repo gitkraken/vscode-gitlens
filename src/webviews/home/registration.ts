@@ -1,8 +1,10 @@
 import type { WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 
+export type HomeWebviewShowingArgs = [{ focusAccount: boolean }];
+
 export function registerHomeWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State>(
+	return controller.registerWebviewView<State, State, HomeWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.home',
 			fileName: 'home.html',
