@@ -1,6 +1,6 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
-import type { QuickWizardCommandArgs } from '../../commands/quickWizard';
+import type { GitWizardCommandArgs } from '../../commands/gitWizard';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { GlyphChars } from '../../constants';
 import { Commands } from '../../constants.commands';
@@ -23,10 +23,10 @@ import { configuration } from '../../system/vscode/configuration';
 import type { QuickPickItemOfT } from './common';
 import { CommandQuickPickItem } from './common';
 
-export class GitCommandQuickPickItem extends CommandQuickPickItem<[QuickWizardCommandArgs]> {
-	constructor(label: string, args: QuickWizardCommandArgs);
-	constructor(item: QuickPickItem, args: QuickWizardCommandArgs);
-	constructor(labelOrItem: string | QuickPickItem, args: QuickWizardCommandArgs) {
+export class GitWizardQuickPickItem extends CommandQuickPickItem<[GitWizardCommandArgs]> {
+	constructor(label: string, args: GitWizardCommandArgs);
+	constructor(item: QuickPickItem, args: GitWizardCommandArgs);
+	constructor(labelOrItem: string | QuickPickItem, args: GitWizardCommandArgs) {
 		super(labelOrItem, undefined, Commands.GitCommands, [args], { suppressKeyPress: true });
 	}
 

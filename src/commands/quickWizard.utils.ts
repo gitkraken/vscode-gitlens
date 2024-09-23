@@ -23,7 +23,7 @@ import { SwitchGitCommand } from './git/switch';
 import { TagGitCommand } from './git/tag';
 import { WorktreeGitCommand } from './git/worktree';
 import type { QuickCommand, QuickPickStep, StepGenerator } from './quickCommand';
-import type { QuickWizardCommandArgs } from './quickWizard';
+import type { AnyQuickWizardCommandArgs } from './quickWizard.base';
 
 function* nullSteps(): StepGenerator {
 	/* noop */
@@ -31,32 +31,33 @@ function* nullSteps(): StepGenerator {
 
 export function getSteps(
 	container: Container,
-	args: QuickWizardCommandArgs,
+	args: AnyQuickWizardCommandArgs,
 	pickedVia: 'menu' | 'command',
 ): StepGenerator {
-	const commandsStep = new PickCommandStep(container, args);
+	const rootStep = new QuickWizardRootStep(container, args);
 
-	const command = commandsStep.find(args.command);
+	const command = rootStep.find(args.command);
 	if (command == null) return nullSteps();
 
-	commandsStep.setCommand(command, pickedVia);
+	rootStep.setCommand(command, pickedVia);
 
 	return command.executeSteps();
 }
 
-export class PickCommandStep implements QuickPickStep<QuickCommand> {
+export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 	readonly type = 'pick';
 	readonly buttons = [];
-	private readonly hiddenItems: QuickCommand[];
 	ignoreFocusOut = false;
 	readonly items: QuickCommand[];
 	readonly matchOnDescription = true;
-	readonly placeholder = 'Choose a git command';
-	readonly title = 'GitLens';
+	readonly placeholder: string = 'Choose a command';
+	readonly title: string = 'GitLens';
+
+	private readonly hiddenItems: QuickCommand[];
 
 	constructor(
 		private readonly container: Container,
-		args?: QuickWizardCommandArgs,
+		args?: AnyQuickWizardCommandArgs,
 	) {
 		const hasVirtualFolders = getContext('gitlens:hasVirtualFolders', false);
 		const readonly =
@@ -101,7 +102,7 @@ export class PickCommandStep implements QuickPickStep<QuickCommand> {
 		].filter(<T>(i: T | undefined): i is T => i != null);
 
 		if (configuration.get('gitCommands.sortBy') === 'usage') {
-			const usage = this.container.storage.getWorkspace('gitComandPalette:usage');
+			const usage = container.storage.getWorkspace('gitComandPalette:usage');
 			if (usage != null) {
 				this.items.sort((a, b) => (usage[b.key] ?? 0) - (usage[a.key] ?? 0));
 			}

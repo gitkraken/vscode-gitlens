@@ -5,7 +5,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
-import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
+import { GitWizardQuickPickItem } from '../../quickpicks/items/gitWizard';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator } from '../quickCommand';
 import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
@@ -181,7 +181,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 				const result = yield* showCommitOrStashStep(state, context);
 				if (result === StepResultBreak) continue;
 
-				if (result instanceof GitCommandQuickPickItem) {
+				if (result instanceof GitWizardQuickPickItem) {
 					const r = yield* result.executeSteps(this.pickedVia);
 					state.counter--;
 					if (r === StepResultBreak) {
@@ -227,7 +227,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 				continue;
 			}
 
-			if (result instanceof GitCommandQuickPickItem) {
+			if (result instanceof GitWizardQuickPickItem) {
 				yield* result.executeSteps(this.pickedVia);
 				state.counter--;
 

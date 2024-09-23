@@ -83,7 +83,7 @@ import type {
 	RemoteQuickPickItem,
 	RepositoryQuickPickItem,
 	TagQuickPickItem,
-} from '../quickpicks/items/gitCommands';
+} from '../quickpicks/items/gitWizard';
 import {
 	createBranchQuickPickItem,
 	createCommitQuickPickItem,
@@ -92,8 +92,8 @@ import {
 	createRepositoryQuickPickItem,
 	createStashQuickPickItem,
 	createTagQuickPickItem,
-	GitCommandQuickPickItem,
-} from '../quickpicks/items/gitCommands';
+	GitWizardQuickPickItem,
+} from '../quickpicks/items/gitWizard';
 import type { ReferencesQuickPickItem } from '../quickpicks/referencePicker';
 import {
 	CopyRemoteResourceCommandQuickPickItem,
@@ -1938,8 +1938,8 @@ export function* showCommitOrStashStep<
 >(
 	state: State,
 	context: Context,
-): StepResultGenerator<CommitFilesQuickPickItem | GitCommandQuickPickItem | CommandQuickPickItem> {
-	const step: QuickPickStep<CommitFilesQuickPickItem | GitCommandQuickPickItem | CommandQuickPickItem> =
+): StepResultGenerator<CommitFilesQuickPickItem | GitWizardQuickPickItem | CommandQuickPickItem> {
+	const step: QuickPickStep<CommitFilesQuickPickItem | GitWizardQuickPickItem | CommandQuickPickItem> =
 		createPickStep({
 			title: appendReposToTitle(
 				getReferenceLabel(state.reference, {
@@ -2005,7 +2005,7 @@ async function getShowCommitOrStashStepItems<
 	if (isStash(state.reference)) {
 		items.push(
 			createQuickPickSeparator('Actions'),
-			new GitCommandQuickPickItem('Apply Stash...', {
+			new GitWizardQuickPickItem('Apply Stash...', {
 				command: 'stash',
 				state: {
 					subcommand: 'apply',
@@ -2013,7 +2013,7 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-			new GitCommandQuickPickItem('Rename Stash...', {
+			new GitWizardQuickPickItem('Rename Stash...', {
 				command: 'stash',
 				state: {
 					subcommand: 'rename',
@@ -2021,7 +2021,7 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-			new GitCommandQuickPickItem('Drop Stash...', {
+			new GitWizardQuickPickItem('Drop Stash...', {
 				command: 'stash',
 				state: {
 					subcommand: 'drop',
@@ -2068,7 +2068,7 @@ async function getShowCommitOrStashStepItems<
 				// TODO@eamodio Add Undo commit, if HEAD & unpushed
 
 				items.push(
-					new GitCommandQuickPickItem('Push to Commit...', {
+					new GitWizardQuickPickItem('Push to Commit...', {
 						command: 'push',
 						state: {
 							repos: state.repo,
@@ -2079,21 +2079,21 @@ async function getShowCommitOrStashStepItems<
 			}
 
 			items.push(
-				new GitCommandQuickPickItem('Revert Commit...', {
+				new GitWizardQuickPickItem('Revert Commit...', {
 					command: 'revert',
 					state: {
 						repo: state.repo,
 						references: [state.reference],
 					},
 				}),
-				new GitCommandQuickPickItem(`Reset ${branch?.name ?? 'Current Branch'} to Commit...`, {
+				new GitWizardQuickPickItem(`Reset ${branch?.name ?? 'Current Branch'} to Commit...`, {
 					command: 'reset',
 					state: {
 						repo: state.repo,
 						reference: state.reference,
 					},
 				}),
-				new GitCommandQuickPickItem(`Reset ${branch?.name ?? 'Current Branch'} to Previous Commit...`, {
+				new GitWizardQuickPickItem(`Reset ${branch?.name ?? 'Current Branch'} to Previous Commit...`, {
 					command: 'reset',
 					state: {
 						repo: state.repo,
@@ -2107,7 +2107,7 @@ async function getShowCommitOrStashStepItems<
 			);
 		} else {
 			items.push(
-				new GitCommandQuickPickItem('Cherry Pick Commit...', {
+				new GitWizardQuickPickItem('Cherry Pick Commit...', {
 					command: 'cherry-pick',
 					state: {
 						repo: state.repo,
@@ -2118,14 +2118,14 @@ async function getShowCommitOrStashStepItems<
 		}
 
 		items.push(
-			new GitCommandQuickPickItem(`Rebase ${branch?.name ?? 'Current Branch'} onto Commit...`, {
+			new GitWizardQuickPickItem(`Rebase ${branch?.name ?? 'Current Branch'} onto Commit...`, {
 				command: 'rebase',
 				state: {
 					repo: state.repo,
 					reference: state.reference,
 				},
 			}),
-			new GitCommandQuickPickItem('Switch to Commit...', {
+			new GitWizardQuickPickItem('Switch to Commit...', {
 				command: 'switch',
 				state: {
 					repos: [state.repo],
@@ -2134,7 +2134,7 @@ async function getShowCommitOrStashStepItems<
 			}),
 
 			createQuickPickSeparator(),
-			new GitCommandQuickPickItem('Create Branch at Commit...', {
+			new GitWizardQuickPickItem('Create Branch at Commit...', {
 				command: 'branch',
 				state: {
 					subcommand: 'create',
@@ -2142,7 +2142,7 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-			new GitCommandQuickPickItem('Create Tag at Commit...', {
+			new GitWizardQuickPickItem('Create Tag at Commit...', {
 				command: 'tag',
 				state: {
 					subcommand: 'create',
@@ -2524,7 +2524,7 @@ function getShowRepositoryStatusStepItems<
 
 		if (context.status.state.behind !== 0) {
 			items.push(
-				new GitCommandQuickPickItem(
+				new GitWizardQuickPickItem(
 					`$(cloud-download) ${pluralize('commit', context.status.state.behind)} behind`,
 					{
 						command: 'log',
@@ -2542,19 +2542,16 @@ function getShowRepositoryStatusStepItems<
 
 		if (context.status.state.ahead !== 0) {
 			items.push(
-				new GitCommandQuickPickItem(
-					`$(cloud-upload) ${pluralize('commit', context.status.state.ahead)} ahead`,
-					{
-						command: 'log',
-						state: {
-							repo: state.repo,
-							reference: createReference(
-								createRevisionRange(context.status.upstream?.name, context.status.ref, '..'),
-								state.repo.path,
-							),
-						},
+				new GitWizardQuickPickItem(`$(cloud-upload) ${pluralize('commit', context.status.state.ahead)} ahead`, {
+					command: 'log',
+					state: {
+						repo: state.repo,
+						reference: createReference(
+							createRevisionRange(context.status.upstream?.name, context.status.ref, '..'),
+							state.repo.path,
+						),
 					},
-				),
+				}),
 			);
 		}
 	} else {
