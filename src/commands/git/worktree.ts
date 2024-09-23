@@ -735,7 +735,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		const confirmations: StepType[] = [];
 		if (!createDirectlyInFolder) {
-			if (!state.createBranch && state.skipWorktreeConfirmations) {
+			if (state.skipWorktreeConfirmations) {
 				return [defaultOption.context, defaultOption.item];
 			}
 
