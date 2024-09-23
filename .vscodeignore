@@ -1,3 +1,4 @@
+.devcontainer/**
 .github/**
 .vscode/**
 .vscode-clean/**
@@ -17,6 +18,7 @@ resources/**
 scripts/**
 src/**
 test/**
+tests/**
 **/*.map
 **/*.pdn
 **/*.js.LICENSE.txt

@@ -13,6 +13,7 @@ export default defineConfig({
 		timeout: 60000, // 1 minute
 	},
 	globalSetup: './setup',
+	outputDir: '../../out/test-results',
 	projects: [
 		{
 			name: 'VSCode stable',
