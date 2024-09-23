@@ -1753,7 +1753,6 @@ export class GitProviderService implements Disposable {
 		repoPath: string | Uri,
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
-			branch?: string;
 			include?: { stats?: boolean };
 			limit?: number;
 			ref?: string;

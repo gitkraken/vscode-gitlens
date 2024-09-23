@@ -1280,7 +1280,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
-			branch?: string;
 			include?: { stats?: boolean };
 			limit?: number;
 			ref?: string;

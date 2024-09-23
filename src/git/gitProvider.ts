@@ -285,7 +285,6 @@ export interface GitProvider extends Disposable {
 		repoPath: string,
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
-			branch?: string;
 			include?: { stats?: boolean };
 			limit?: number;
 			ref?: string;
