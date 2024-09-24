@@ -1,10 +1,10 @@
-import { expect, test } from './baseTest';
+import { expect, MaxTimeout, test } from './baseTest';
 
 test.describe('Test GitLens Command Palette commands', () => {
 	test('should open commit graph with the command', async ({ page }) => {
 		// Close any open tabs to ensure a clean state
 		const welcomePageTab = page.locator('div[role="tab"][aria-label="Welcome to GitLens"]');
-		await welcomePageTab.waitFor({ state: 'visible', timeout: 5000 });
+		await welcomePageTab.waitFor({ state: 'visible', timeout: MaxTimeout });
 		void welcomePageTab.locator('div.tab-actions .action-item a.codicon-close').click();
 
 		// Open the command palette by clicking on the View menu and selecting Command Palette
@@ -13,7 +13,7 @@ test.describe('Test GitLens Command Palette commands', () => {
 
 		// Wait for the command palette input to be visible and fill it
 		const commandPaletteInput = page.locator('.quick-input-box input');
-		await commandPaletteInput.waitFor({ state: 'visible', timeout: 5000 });
+		await commandPaletteInput.waitFor({ state: 'visible', timeout: MaxTimeout });
 		await commandPaletteInput.fill('> GitLens: Show Commit graph');
 		await page.waitForTimeout(1000);
 		void page.keyboard.press('Enter');
@@ -21,7 +21,7 @@ test.describe('Test GitLens Command Palette commands', () => {
 		// Click on the first element (GitLens: Show Commit graph)
 		/*
 		const commandPaletteFirstLine = page.locator('.quick-input-widget .monaco-list .monaco-list-row.focused');
-		await commandPaletteFirstLine.waitFor({ state: 'visible', timeout: 5000 });
+		await commandPaletteFirstLine.waitFor({ state: 'visible', timeout: MaxTimeout });
 		await commandPaletteFirstLine.click();
 		*/
 		// Graph should be opened
