@@ -61,7 +61,12 @@ export const test = base.extend<TestFixtures>({
 			await fs.promises.cp(logPath, logOutputPath, { recursive: true });
 		}
 	},
-	createTmpDir: async (_, use) => {
+	// Next line is necessary because of how Playwright works. It expect a destructured pattern here:
+	// https://github.com/microsoft/playwright/issues/14590#issuecomment-1911734641
+	// https://github.com/microsoft/playwright/issues/21566#issuecomment-1464858235
+
+	// eslint-disable-next-line no-empty-pattern
+	createTmpDir: async ({}, use) => {
 		const tempDirs: string[] = [];
 		await use(async () => {
 			const tempDir = await fs.promises.realpath(await fs.promises.mkdtemp(path.join(os.tmpdir(), 'gltest-')));
