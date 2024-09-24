@@ -17936,7 +17936,6 @@
 		"build:webviews": "webpack --mode development --config-name webviews",
 		"build:icons": "pnpm run icons:svgo && pnpm run fantasticon && pnpm run icons:apply",
 		"build:tests": "node ./scripts/esbuild.tests.mjs --mode development",
-		"build:tests:e2e": "tsc -p tsconfig.test.json && tsc-alias -p tsconfig.test.json",
 		"bundle": "webpack --mode production",
 		"bundle:extension": "webpack --mode production --config-name extension:node",
 		"clean": "pnpx rimraf dist out .vscode-test .vscode-test-web .eslintcache* tsconfig*.tsbuildinfo",
@@ -18017,7 +18016,7 @@
 		"@eamodio/eslint-lite-webpack-plugin": "0.1.0",
 		"@eslint/js": "9.11.1",
 		"@playwright/test": "1.47.2",
-		"@swc/core": "1.7.26",
+		"@swc/core": "1.7.28",
 		"@twbs/fantasticon": "3.0.0",
 		"@types/eslint__js": "8.42.3",
 		"@types/mocha": "10.0.8",
@@ -18038,7 +18037,7 @@
 		"css-loader": "7.1.2",
 		"css-minimizer-webpack-plugin": "7.0.0",
 		"cssnano-preset-advanced": "7.0.6",
-		"esbuild": "0.23.1",
+		"esbuild": "0.24.0",
 		"esbuild-loader": "4.2.2",
 		"esbuild-node-externals": "1.14.0",
 		"esbuild-sass-plugin": "3.3.1",
@@ -18058,7 +18057,7 @@
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.9.1",
 		"mocha": "10.7.3",
-		"playwright": "1.47.1",
+		"playwright": "1.47.2",
 		"prettier": "3.1.0",
 		"sass": "1.79.3",
 		"sass-loader": "16.0.2",
@@ -18067,7 +18066,6 @@
 		"svgo": "3.3.2",
 		"terser-webpack-plugin": "5.3.10",
 		"ts-loader": "9.5.1",
-		"tsc-alias": "1.8.10",
 		"typescript": "5.6.2",
 		"typescript-eslint": "8.7.0",
 		"webpack": "5.94.0",
@@ -18077,11 +18075,11 @@
 		"webpack-require-from": "1.8.6"
 	},
 	"resolutions": {
-		"esbuild": "0.23.1",
+		"esbuild": "0.24.0",
 		"iconv-lite": "0.6.3",
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5",
 		"tslib": "2.7.0"
 	},
-	"packageManager": "pnpm@9.10.0"
+	"packageManager": "pnpm@9.11.0+sha256.1c0e33f70e5df9eede84a357bdfa0b1f9dba6e58194628d48a1055756f553754"
 }
