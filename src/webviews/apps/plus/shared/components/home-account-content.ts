@@ -219,7 +219,7 @@ export class GLHomeAccountContent extends LitElement {
 				${when(
 					this.hasAccount,
 					() => html`
-						<span class="header__actions" hidden>
+						<span class="header__actions">
 							<gl-button
 								appearance="toolbar"
 								href="command:gitlens.plus.logout"
@@ -288,11 +288,7 @@ export class GLHomeAccountContent extends LitElement {
 								appearance="secondary"
 								full
 								href="command:gitlens.plus.cloudIntegrations.manage?%7B%22source%22%3A%22account%22%7D"
-								hidden
 								>Integrations</gl-button
-							>
-							<gl-button appearance="secondary" full href="command:gitlens.plus.logout"
-								>Sign Out</gl-button
 							>
 						</button-container>
 						<p>
