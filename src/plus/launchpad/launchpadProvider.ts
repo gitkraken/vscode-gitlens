@@ -1018,7 +1018,7 @@ export function getPullRequestBranchDeepLink(
 	return Uri.parse(
 		`${scheme}://${container.context.extension.id}/${'link' satisfies UriTypes}/${DeepLinkType.Repository}/-/${
 			DeepLinkType.Branch
-		}/${headRefBranchName}?url=${encodeURIComponent(ensureRemoteUrl(remoteUrl))}${
+		}/${encodeURIComponent(headRefBranchName)}?url=${encodeURIComponent(ensureRemoteUrl(remoteUrl))}${
 			action != null ? `&action=${action}` : ''
 		}`,
 	);
