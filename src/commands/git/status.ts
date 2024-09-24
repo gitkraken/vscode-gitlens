@@ -4,7 +4,7 @@ import { createReference, getReferenceLabel } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
-import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
+import { GitWizardQuickPickItem } from '../../quickpicks/items/gitWizard';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
@@ -105,7 +105,7 @@ export class StatusGitCommand extends QuickCommand<State> {
 				continue;
 			}
 
-			if (result instanceof GitCommandQuickPickItem) {
+			if (result instanceof GitWizardQuickPickItem) {
 				const r = yield* result.executeSteps(this.pickedVia);
 				state.counter--;
 				if (r === StepResultBreak) {

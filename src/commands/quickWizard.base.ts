@@ -1,37 +1,15 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
-import { Commands } from '../constants.commands';
+import type { Commands } from '../constants.commands';
 import { Container } from '../container';
-import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { log } from '../system/decorators/log';
 import type { Deferred } from '../system/promise';
 import { isPromise } from '../system/promise';
-import { command } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import type { KeyMapping } from '../system/vscode/keyboard';
-import type { CommandContext } from './base';
 import { Command } from './base';
-import type { BranchGitCommandArgs } from './git/branch';
-import type { CherryPickGitCommandArgs } from './git/cherry-pick';
-import type { CoAuthorsGitCommandArgs } from './git/coauthors';
-import type { FetchGitCommandArgs } from './git/fetch';
-import type { LogGitCommandArgs } from './git/log';
-import type { MergeGitCommandArgs } from './git/merge';
-import type { PullGitCommandArgs } from './git/pull';
-import type { PushGitCommandArgs } from './git/push';
-import type { RebaseGitCommandArgs } from './git/rebase';
-import type { RemoteGitCommandArgs } from './git/remote';
-import type { ResetGitCommandArgs } from './git/reset';
-import type { RevertGitCommandArgs } from './git/revert';
-import type { SearchGitCommandArgs } from './git/search';
-import type { ShowGitCommandArgs } from './git/show';
-import type { StashGitCommandArgs } from './git/stash';
-import type { StatusGitCommandArgs } from './git/status';
-import type { SwitchGitCommandArgs } from './git/switch';
-import type { TagGitCommandArgs } from './git/tag';
-import type { WorktreeGitCommandArgs } from './git/worktree';
-import { PickCommandStep } from './gitCommands.utils';
+import type { GitWizardCommandArgs } from './gitWizard';
 import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
 import { isCustomStep, isQuickCommand, isQuickInputStep, isQuickPickStep, StepResultBreak } from './quickCommand';
 import {
@@ -40,204 +18,41 @@ import {
 	WillConfirmForcedQuickInputButton,
 	WillConfirmToggleQuickInputButton,
 } from './quickCommand.buttons';
+import type { QuickWizardCommandArgs } from './quickWizard';
+import { QuickWizardRootStep } from './quickWizard.utils';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 const showLoadingSymbol = Symbol('ShowLoading');
 
-export type GitCommandsCommandArgs =
-	| BranchGitCommandArgs
-	| CherryPickGitCommandArgs
-	| CoAuthorsGitCommandArgs
-	| FetchGitCommandArgs
-	| LogGitCommandArgs
-	| MergeGitCommandArgs
-	| PullGitCommandArgs
-	| PushGitCommandArgs
-	| RebaseGitCommandArgs
-	| RemoteGitCommandArgs
-	| ResetGitCommandArgs
-	| RevertGitCommandArgs
-	| SearchGitCommandArgs
-	| ShowGitCommandArgs
-	| StashGitCommandArgs
-	| StatusGitCommandArgs
-	| SwitchGitCommandArgs
-	| TagGitCommandArgs
-	| WorktreeGitCommandArgs
-	| LaunchpadCommandArgs;
+export type AnyQuickWizardCommandArgs = QuickWizardCommandArgs | GitWizardCommandArgs;
 
-export type GitCommandsCommandArgsWithCompletion = GitCommandsCommandArgs & { completion?: Deferred<void> };
+export type QuickWizardCommandArgsWithCompletion<T extends AnyQuickWizardCommandArgs = AnyQuickWizardCommandArgs> =
+	T & { completion?: Deferred<void> };
 
-@command()
-export class GitCommandsCommand extends Command {
+export abstract class QuickWizardCommandBase extends Command {
 	private startedWith: 'menu' | 'command' = 'menu';
 
-	constructor(private readonly container: Container) {
-		super([
-			Commands.GitCommands,
-			Commands.GitCommandsBranch,
-			Commands.GitCommandsBranchCreate,
-			Commands.GitCommandsBranchDelete,
-			Commands.GitCommandsBranchPrune,
-			Commands.GitCommandsBranchRename,
-			Commands.GitCommandsCheckout,
-			Commands.GitCommandsCherryPick,
-			Commands.GitCommandsHistory,
-			Commands.GitCommandsMerge,
-			Commands.GitCommandsRebase,
-			Commands.GitCommandsRemote,
-			Commands.GitCommandsRemoteAdd,
-			Commands.GitCommandsRemotePrune,
-			Commands.GitCommandsRemoteRemove,
-			Commands.GitCommandsReset,
-			Commands.GitCommandsRevert,
-			Commands.GitCommandsShow,
-			Commands.GitCommandsStash,
-			Commands.GitCommandsStashDrop,
-			Commands.GitCommandsStashList,
-			Commands.GitCommandsStashPop,
-			Commands.GitCommandsStashPush,
-			Commands.GitCommandsStashRename,
-			Commands.GitCommandsStatus,
-			Commands.GitCommandsSwitch,
-			Commands.GitCommandsTag,
-			Commands.GitCommandsTagCreate,
-			Commands.GitCommandsTagDelete,
-			Commands.GitCommandsWorktree,
-			Commands.GitCommandsWorktreeCreate,
-			Commands.GitCommandsWorktreeDelete,
-			Commands.GitCommandsWorktreeOpen,
-
-			Commands.CopyWorkingChangesToWorktree,
-			Commands.ShowLaunchpad,
-		]);
-	}
-
-	protected override preExecute(context: CommandContext, args?: GitCommandsCommandArgsWithCompletion) {
-		switch (context.command) {
-			case Commands.GitCommandsBranch:
-				args = { command: 'branch' };
-				break;
-			case Commands.GitCommandsBranchCreate:
-				args = { command: 'branch', state: { subcommand: 'create' } };
-				break;
-			case Commands.GitCommandsBranchDelete:
-				args = { command: 'branch', state: { subcommand: 'delete' } };
-				break;
-			case Commands.GitCommandsBranchPrune:
-				args = { command: 'branch', state: { subcommand: 'prune' } };
-				break;
-			case Commands.GitCommandsBranchRename:
-				args = { command: 'branch', state: { subcommand: 'rename' } };
-				break;
-			case Commands.GitCommandsCherryPick:
-				args = { command: 'cherry-pick' };
-				break;
-			case Commands.GitCommandsHistory:
-				args = { command: 'log' };
-				break;
-			case Commands.GitCommandsMerge:
-				args = { command: 'merge' };
-				break;
-			case Commands.GitCommandsRebase:
-				args = { command: 'rebase' };
-				break;
-			case Commands.GitCommandsRemote:
-				args = { command: 'remote' };
-				break;
-			case Commands.GitCommandsRemoteAdd:
-				args = { command: 'remote', state: { subcommand: 'add' } };
-				break;
-			case Commands.GitCommandsRemotePrune:
-				args = { command: 'remote', state: { subcommand: 'prune' } };
-				break;
-			case Commands.GitCommandsRemoteRemove:
-				args = { command: 'remote', state: { subcommand: 'remove' } };
-				break;
-			case Commands.GitCommandsReset:
-				args = { command: 'reset' };
-				break;
-			case Commands.GitCommandsRevert:
-				args = { command: 'revert' };
-				break;
-			case Commands.GitCommandsShow:
-				args = { command: 'show' };
-				break;
-			case Commands.GitCommandsStash:
-				args = { command: 'stash' };
-				break;
-			case Commands.GitCommandsStashDrop:
-				args = { command: 'stash', state: { subcommand: 'drop' } };
-				break;
-			case Commands.GitCommandsStashList:
-				args = { command: 'stash', state: { subcommand: 'list' } };
-				break;
-			case Commands.GitCommandsStashPop:
-				args = { command: 'stash', state: { subcommand: 'pop' } };
-				break;
-			case Commands.GitCommandsStashPush:
-				args = { command: 'stash', state: { subcommand: 'push' } };
-				break;
-			case Commands.GitCommandsStashRename:
-				args = { command: 'stash', state: { subcommand: 'rename' } };
-				break;
-			case Commands.GitCommandsStatus:
-				args = { command: 'status' };
-				break;
-			case Commands.GitCommandsSwitch:
-			case Commands.GitCommandsCheckout:
-				args = { command: 'switch' };
-				break;
-			case Commands.GitCommandsTag:
-				args = { command: 'tag' };
-				break;
-			case Commands.GitCommandsTagCreate:
-				args = { command: 'tag', state: { subcommand: 'create' } };
-				break;
-			case Commands.GitCommandsTagDelete:
-				args = { command: 'tag', state: { subcommand: 'delete' } };
-				break;
-			case Commands.GitCommandsWorktree:
-				args = { command: 'worktree' };
-				break;
-			case Commands.GitCommandsWorktreeCreate:
-				args = { command: 'worktree', state: { subcommand: 'create' } };
-				break;
-			case Commands.GitCommandsWorktreeDelete:
-				args = { command: 'worktree', state: { subcommand: 'delete' } };
-				break;
-			case Commands.GitCommandsWorktreeOpen:
-				args = { command: 'worktree', state: { subcommand: 'open' } };
-				break;
-
-			case Commands.CopyWorkingChangesToWorktree:
-				args = {
-					command: 'worktree',
-					state: { subcommand: 'copy-changes', changes: { type: 'working-tree' } },
-				};
-				break;
-			case Commands.ShowLaunchpad:
-				args = { command: 'launchpad', ...args };
-				break;
-		}
-
-		return this.execute(args);
+	constructor(
+		protected readonly container: Container,
+		command: Commands | Commands[],
+	) {
+		super(command);
 	}
 
 	@log({ args: false, scoped: true, singleLine: true, timed: false })
-	async execute(args?: GitCommandsCommandArgsWithCompletion) {
-		const commandsStep = new PickCommandStep(this.container, args);
+	async execute(args?: QuickWizardCommandArgsWithCompletion) {
+		const rootStep = new QuickWizardRootStep(this.container, args);
 
-		const command = args?.command != null ? commandsStep.find(args.command) : undefined;
+		const command = args?.command != null ? rootStep.find(args.command) : undefined;
 		this.startedWith = command != null ? 'command' : 'menu';
 
 		let ignoreFocusOut;
 
 		let step: QuickPickStep | QuickInputStep | CustomStep | undefined;
 		if (command == null) {
-			step = commandsStep;
+			step = rootStep;
 		} else {
-			step = await this.showLoadingIfNeeded(command, this.getCommandStep(command, commandsStep));
+			step = await this.showLoadingIfNeeded(command, this.getCommandStep(command, rootStep));
 		}
 
 		// If this is the first step, don't honor the step's setting
@@ -247,8 +62,8 @@ export class GitCommandsCommand extends Command {
 
 		while (step != null) {
 			// If we are trying to back up to the menu and have a starting command, then just reset to the starting command
-			if (step === commandsStep && command != null) {
-				step = await this.getCommandStep(command, commandsStep);
+			if (step === rootStep && command != null) {
+				step = await this.getCommandStep(command, rootStep);
 				continue;
 			}
 
@@ -257,7 +72,7 @@ export class GitCommandsCommand extends Command {
 			}
 
 			if (isQuickPickStep(step)) {
-				step = await this.showPickStep(step, commandsStep);
+				step = await this.showPickStep(step, rootStep);
 				if (step?.ignoreFocusOut === true) {
 					ignoreFocusOut = true;
 				}
@@ -266,7 +81,7 @@ export class GitCommandsCommand extends Command {
 			}
 
 			if (isQuickInputStep(step)) {
-				step = await this.showInputStep(step, commandsStep);
+				step = await this.showInputStep(step, rootStep);
 				if (step?.ignoreFocusOut === true) {
 					ignoreFocusOut = true;
 				}
@@ -275,7 +90,7 @@ export class GitCommandsCommand extends Command {
 			}
 
 			if (isCustomStep(step)) {
-				step = await this.showCustomStep(step, commandsStep);
+				step = await this.showCustomStep(step, rootStep);
 				if (step?.ignoreFocusOut === true) {
 					ignoreFocusOut = true;
 				}
@@ -379,8 +194,8 @@ export class GitCommandsCommand extends Command {
 		return buttons;
 	}
 
-	private async getCommandStep(command: QuickCommand, commandsStep: PickCommandStep) {
-		commandsStep.setCommand(command, 'command');
+	private async getCommandStep(command: QuickCommand, rootStep: QuickWizardRootStep) {
+		rootStep.setCommand(command, 'command');
 
 		// Ensure we've finished discovering repositories before continuing
 		if (this.container.git.isDiscoveringRepositories != null) {
@@ -412,23 +227,23 @@ export class GitCommandsCommand extends Command {
 		return next.value;
 	}
 
-	private async showCustomStep(step: CustomStep, commandsStep: PickCommandStep) {
+	private async showCustomStep(step: CustomStep, rootStep: QuickWizardRootStep) {
 		const result = await step.show(step);
 		if (result === StepResultBreak) return undefined;
 
 		if (isDirective(result)) {
 			switch (result) {
 				case Directive.Back:
-					return (await commandsStep?.command?.previous()) ?? commandsStep;
+					return (await rootStep?.command?.previous()) ?? rootStep;
 				case Directive.Noop:
 				case Directive.Reload:
-					return commandsStep.command?.retry();
+					return rootStep.command?.retry();
 				case Directive.Cancel:
 				default:
 					return undefined;
 			}
 		} else {
-			return this.nextStep(commandsStep.command!, result);
+			return this.nextStep(rootStep.command!, result);
 		}
 		// switch (result.directive) {
 		// 	case 'back':
@@ -444,7 +259,7 @@ export class GitCommandsCommand extends Command {
 		// }
 	}
 
-	private async showInputStep(step: QuickInputStep, commandsStep: PickCommandStep) {
+	private async showInputStep(step: QuickInputStep, rootStep: QuickWizardRootStep) {
 		const input = window.createInputBox();
 		input.ignoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut') ? true : step.ignoreFocusOut ?? false;
 
@@ -457,9 +272,9 @@ export class GitCommandsCommand extends Command {
 					if (step.disallowBack === true) return;
 
 					input.value = '';
-					if (commandsStep.command != null) {
+					if (rootStep.command != null) {
 						input.busy = true;
-						resolve((await commandsStep.command.previous()) ?? commandsStep);
+						resolve((await rootStep.command.previous()) ?? rootStep);
 					}
 				};
 
@@ -492,15 +307,15 @@ export class GitCommandsCommand extends Command {
 						if (e instanceof ToggleQuickInputButton && e.onDidClick != null) {
 							const result = e.onDidClick(input);
 
-							input.buttons = this.getButtons(step, commandsStep.command);
+							input.buttons = this.getButtons(step, rootStep.command);
 
 							if ((await result) === true) {
-								resolve(commandsStep.command?.retry());
+								resolve(rootStep.command?.retry());
 								return;
 							}
 
 							if (isPromise(result)) {
-								input.buttons = this.getButtons(step, commandsStep.command);
+								input.buttons = this.getButtons(step, rootStep.command);
 							}
 
 							return;
@@ -508,9 +323,9 @@ export class GitCommandsCommand extends Command {
 
 						if (step.onDidClickButton != null) {
 							const result = step.onDidClickButton(input, e);
-							input.buttons = this.getButtons(step, commandsStep.command);
+							input.buttons = this.getButtons(step, rootStep.command);
 							if ((await result) === true) {
-								resolve(commandsStep.command?.retry());
+								resolve(rootStep.command?.retry());
 							}
 						}
 					}),
@@ -534,11 +349,11 @@ export class GitCommandsCommand extends Command {
 						input.validationMessage = message;
 					}),
 					input.onDidAccept(async () => {
-						resolve(await this.nextStep(commandsStep.command!, input.value, input));
+						resolve(await this.nextStep(rootStep.command!, input.value, input));
 					}),
 				);
 
-				input.buttons = this.getButtons(step, commandsStep.command);
+				input.buttons = this.getButtons(step, rootStep.command);
 				input.title = step.title;
 				input.placeholder = step.placeholder;
 				input.prompt = step.prompt;
@@ -571,7 +386,7 @@ export class GitCommandsCommand extends Command {
 		}
 	}
 
-	private async showPickStep(step: QuickPickStep, commandsStep: PickCommandStep) {
+	private async showPickStep(step: QuickPickStep, rootStep: QuickWizardRootStep) {
 		const quickpick = window.createQuickPick();
 		quickpick.ignoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut')
 			? true
@@ -586,9 +401,9 @@ export class GitCommandsCommand extends Command {
 					if (step.disallowBack === true) return;
 
 					quickpick.value = '';
-					if (commandsStep.command != null) {
+					if (rootStep.command != null) {
 						quickpick.busy = true;
-						resolve((await commandsStep.command.previous()) ?? commandsStep);
+						resolve((await rootStep.command.previous()) ?? rootStep);
 					}
 				}
 
@@ -657,7 +472,7 @@ export class GitCommandsCommand extends Command {
 					}),
 					quickpick.onDidTriggerItemButton(async e => {
 						if ((await step.onDidClickItemButton?.(quickpick, e.button, e.item)) === true) {
-							resolve(await this.nextStep(commandsStep.command!, [e.item], quickpick));
+							resolve(await this.nextStep(rootStep.command!, [e.item], quickpick));
 						}
 					}),
 					quickpick.onDidTriggerButton(async e => {
@@ -675,7 +490,7 @@ export class GitCommandsCommand extends Command {
 
 						if (e instanceof ToggleQuickInputButton && e.onDidClick != null) {
 							let activeCommand: QuickCommand | undefined;
-							if (commandsStep.command == null && quickpick.activeItems.length !== 0) {
+							if (rootStep.command == null && quickpick.activeItems.length !== 0) {
 								const active = quickpick.activeItems[0];
 								if (isQuickCommand(active)) {
 									activeCommand = active;
@@ -686,11 +501,11 @@ export class GitCommandsCommand extends Command {
 
 							quickpick.buttons = this.getButtons(
 								activeCommand?.value && !isCustomStep(activeCommand.value) ? activeCommand.value : step,
-								activeCommand ?? commandsStep.command,
+								activeCommand ?? rootStep.command,
 							);
 
 							if ((await result) === true) {
-								resolve(commandsStep.command?.retry());
+								resolve(rootStep.command?.retry());
 								return;
 							}
 
@@ -699,7 +514,7 @@ export class GitCommandsCommand extends Command {
 									activeCommand?.value && !isCustomStep(activeCommand.value)
 										? activeCommand.value
 										: step,
-									activeCommand ?? commandsStep.command,
+									activeCommand ?? rootStep.command,
 								);
 							}
 
@@ -708,10 +523,10 @@ export class GitCommandsCommand extends Command {
 
 						if (step.onDidClickButton != null) {
 							const resultPromise = step.onDidClickButton(quickpick, e);
-							quickpick.buttons = this.getButtons(step, commandsStep.command);
+							quickpick.buttons = this.getButtons(step, rootStep.command);
 							const result = await resultPromise;
 							if (result === true) {
-								resolve(commandsStep.command?.retry());
+								resolve(rootStep.command?.retry());
 							} else if (result !== false && result != null) {
 								resolve(result.value);
 							}
@@ -753,11 +568,11 @@ export class GitCommandsCommand extends Command {
 								}
 
 								let items;
-								if (commandsStep.command == null) {
-									const command = commandsStep.find(quickpick.value.trim(), true);
+								if (rootStep.command == null) {
+									const command = rootStep.find(quickpick.value.trim(), true);
 									if (command == null) return;
 
-									commandsStep.setCommand(command, this.startedWith);
+									rootStep.setCommand(command, this.startedWith);
 								} else {
 									const cmd = quickpick.value.trim().toLowerCase();
 									const item = (await step.items).find(
@@ -768,7 +583,7 @@ export class GitCommandsCommand extends Command {
 									items = [item];
 								}
 
-								resolve(await this.nextStep(commandsStep.command!, items, quickpick));
+								resolve(await this.nextStep(rootStep.command!, items, quickpick));
 								return;
 							}
 						}
@@ -776,7 +591,7 @@ export class GitCommandsCommand extends Command {
 						// Assume there is no matches (since there is no activeItems)
 						if (
 							!quickpick.canSelectMany &&
-							commandsStep.command != null &&
+							rootStep.command != null &&
 							e.trim().length !== 0 &&
 							(overrideItems || quickpick.activeItems.length === 0)
 						) {
@@ -806,7 +621,7 @@ export class GitCommandsCommand extends Command {
 							firstActiveChange = false;
 						}
 
-						if (commandsStep.command != null || quickpick.activeItems.length === 0) return;
+						if (rootStep.command != null || quickpick.activeItems.length === 0) return;
 
 						const command = quickpick.activeItems[0];
 						if (!isQuickCommand(command)) return;
@@ -833,7 +648,7 @@ export class GitCommandsCommand extends Command {
 
 								if (step.onDidAccept == null) {
 									if (step.allowEmpty) {
-										resolve(await this.nextStep(commandsStep.command!, [], quickpick));
+										resolve(await this.nextStep(rootStep.command!, [], quickpick));
 									}
 
 									return;
@@ -842,7 +657,7 @@ export class GitCommandsCommand extends Command {
 								quickpick.busy = true;
 
 								if (await step.onDidAccept(quickpick)) {
-									resolve(await this.nextStep(commandsStep.command!, value, quickpick));
+									resolve(await this.nextStep(rootStep.command!, value, quickpick));
 								}
 
 								quickpick.busy = false;
@@ -874,61 +689,61 @@ export class GitCommandsCommand extends Command {
 										return;
 
 									case Directive.Reload:
-										resolve(await commandsStep.command?.retry());
+										resolve(await rootStep.command?.retry());
 										return;
 
 									case Directive.SignIn: {
 										const result = await Container.instance.subscription.loginOrSignUp(false, {
-											source: 'git-commands',
+											source: 'quick-wizard',
 											detail: {
-												action: commandsStep.command?.key,
+												action: rootStep.command?.key,
 												'step.title': step.title,
 											},
 										});
-										resolve(result ? await commandsStep.command?.retry() : undefined);
+										resolve(result ? await rootStep.command?.retry() : undefined);
 										return;
 									}
 
 									case Directive.StartPreview:
 										await Container.instance.subscription.startPreviewTrial({
-											source: 'git-commands',
+											source: 'quick-wizard',
 											detail: {
-												action: commandsStep.command?.key,
+												action: rootStep.command?.key,
 												'step.title': step.title,
 											},
 										});
-										resolve(await commandsStep.command?.retry());
+										resolve(await rootStep.command?.retry());
 										return;
 
 									case Directive.RequiresVerification: {
 										const result = await Container.instance.subscription.resendVerification({
-											source: 'git-commands',
+											source: 'quick-wizard',
 											detail: {
-												action: commandsStep.command?.key,
+												action: rootStep.command?.key,
 												'step.title': step.title,
 											},
 										});
-										resolve(result ? await commandsStep.command?.retry() : undefined);
+										resolve(result ? await rootStep.command?.retry() : undefined);
 										return;
 									}
 
 									case Directive.StartProTrial: {
 										const result = await Container.instance.subscription.loginOrSignUp(true, {
-											source: 'git-commands',
+											source: 'quick-wizard',
 											detail: {
-												action: commandsStep.command?.key,
+												action: rootStep.command?.key,
 												'step.title': step.title,
 											},
 										});
-										resolve(result ? await commandsStep.command?.retry() : undefined);
+										resolve(result ? await rootStep.command?.retry() : undefined);
 										return;
 									}
 
 									case Directive.RequiresPaidSubscription:
 										void Container.instance.subscription.upgrade({
-											source: 'git-commands',
+											source: 'quick-wizard',
 											detail: {
-												action: commandsStep.command?.key,
+												action: rootStep.command?.key,
 												'step.title': step.title,
 											},
 										});
@@ -938,11 +753,11 @@ export class GitCommandsCommand extends Command {
 							}
 						}
 
-						if (commandsStep.command == null) {
+						if (rootStep.command == null) {
 							const [command] = items;
 							if (!isQuickCommand(command)) return;
 
-							commandsStep.setCommand(command, this.startedWith);
+							rootStep.setCommand(command, this.startedWith);
 						}
 
 						if (!quickpick.canSelectMany) {
@@ -957,7 +772,7 @@ export class GitCommandsCommand extends Command {
 							}
 						}
 
-						resolve(await this.nextStep(commandsStep.command!, items as QuickPickItem[], quickpick));
+						resolve(await this.nextStep(rootStep.command!, items as QuickPickItem[], quickpick));
 					}),
 				);
 
@@ -1001,12 +816,12 @@ export class GitCommandsCommand extends Command {
 				}
 
 				// If we are starting over clear the previously active command
-				if (commandsStep.command != null && step === commandsStep) {
-					commandsStep.setCommand(undefined, 'menu');
+				if (rootStep.command != null && step === rootStep) {
+					rootStep.setCommand(undefined, 'menu');
 				}
 
 				// Needs to be after we reset the command
-				quickpick.buttons = this.getButtons(step, commandsStep.command);
+				quickpick.buttons = this.getButtons(step, rootStep.command);
 
 				if (!shown) {
 					// If we set the value before showing the quickpick, VS Code will select the entire value

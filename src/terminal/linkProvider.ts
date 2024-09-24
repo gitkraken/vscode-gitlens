@@ -1,6 +1,6 @@
 import type { Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
 import { commands, window } from 'vscode';
-import type { GitCommandsCommandArgs } from '../commands/gitCommands';
+import type { GitWizardCommandArgs } from '../commands/gitWizard';
 import type { InspectCommandArgs } from '../commands/inspect';
 import type { ShowQuickBranchHistoryCommandArgs } from '../commands/showQuickBranchHistory';
 import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit';
@@ -62,14 +62,14 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 			if (match != null) {
 				const [_, git, command] = match;
 
-				const link: GitTerminalLink<GitCommandsCommandArgs> = {
+				const link: GitTerminalLink<GitWizardCommandArgs> = {
 					startIndex: match.index + git.length,
 					length: command.length,
 					tooltip: 'Open in Git Command Palette',
 					command: {
 						command: Commands.GitCommands,
 						args: {
-							command: command as GitCommandsCommandArgs['command'],
+							command: command as GitWizardCommandArgs['command'],
 						},
 					},
 				};
@@ -146,7 +146,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 
 			if (!shaRegex.test(ref)) {
 				if (rangeRegex.test(ref)) {
-					const link: GitTerminalLink<GitCommandsCommandArgs> = {
+					const link: GitTerminalLink<GitWizardCommandArgs> = {
 						startIndex: match.index,
 						length: ref.length,
 						tooltip: 'Show Commits',

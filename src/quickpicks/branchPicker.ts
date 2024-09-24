@@ -4,7 +4,7 @@ import { getBranches } from '../commands/quickCommand.steps';
 import type { GitBranch } from '../git/models/branch';
 import type { Repository } from '../git/models/repository';
 import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
-import type { BranchQuickPickItem } from './items/gitCommands';
+import type { BranchQuickPickItem } from './items/gitWizard';
 
 export async function showBranchPicker(
 	title: string | undefined,

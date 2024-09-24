@@ -6,8 +6,8 @@ import { filterMapAsync } from '../system/array';
 import { map } from '../system/iterable';
 import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import { CommandQuickPickItem } from './items/common';
-import type { RepositoryQuickPickItem } from './items/gitCommands';
-import { createRepositoryQuickPickItem } from './items/gitCommands';
+import type { RepositoryQuickPickItem } from './items/gitWizard';
+import { createRepositoryQuickPickItem } from './items/gitWizard';
 
 export async function getBestRepositoryOrShowPicker(
 	uri: Uri | undefined,

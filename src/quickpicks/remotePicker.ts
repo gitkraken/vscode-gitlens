@@ -3,8 +3,8 @@ import { window } from 'vscode';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quickCommand.buttons';
 import type { GitRemote } from '../git/models/remote';
 import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
-import type { RemoteQuickPickItem } from './items/gitCommands';
-import { createRemoteQuickPickItem } from './items/gitCommands';
+import type { RemoteQuickPickItem } from './items/gitWizard';
+import { createRemoteQuickPickItem } from './items/gitWizard';
 
 export async function showRemotePicker(
 	title: string | undefined,

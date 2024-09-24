@@ -19,7 +19,6 @@ import { configuration } from '../../system/vscode/configuration';
 import { getContext } from '../../system/vscode/context';
 import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { getSteps } from '../gitCommands.utils';
 import type {
 	PartialStepState,
 	QuickPickStep,
@@ -44,6 +43,7 @@ import {
 	ShowResultsInSideBarQuickInputButton,
 } from '../quickCommand.buttons';
 import { appendReposToTitle, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
+import { getSteps } from '../quickWizard.utils';
 
 const UseAuthorPickerQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('person-add'),

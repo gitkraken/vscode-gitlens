@@ -12,7 +12,6 @@ import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { ensureArray } from '../../system/array';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { getSteps } from '../gitCommands.utils';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -38,6 +37,7 @@ import {
 	pickBranchStep,
 	pickRepositoryStep,
 } from '../quickCommand.steps';
+import { getSteps } from '../quickWizard.utils';
 
 interface Context {
 	repos: Repository[];
