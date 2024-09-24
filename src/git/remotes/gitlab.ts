@@ -327,7 +327,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 		} while (index > 0);
 
 		if (possibleBranches.size !== 0) {
-			const { values: branches } = await repository.getBranches({
+			const { values: branches } = await repository.git.getBranches({
 				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 			});
 			for (const branch of branches) {

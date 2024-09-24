@@ -61,7 +61,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const tags = await child.repo.getTags();
+			const tags = await child.repo.git.getTags();
 			if (tags.values.length === 0) {
 				this.view.message = 'No tags could be found.';
 				this.view.title = 'Tags';

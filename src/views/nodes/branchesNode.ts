@@ -35,7 +35,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const branches = await this.repo.getBranches({
+			const branches = await this.repo.git.getBranches({
 				// only show local branches
 				filter: b => !b.remote,
 				sort: this.view.config.showCurrentBranchOnTop
@@ -89,7 +89,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 		const item = new TreeItem('Branches', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Branches;
-		if (await this.repo.hasRemotes()) {
+		if ((await this.repo.git.getRemotes()).length) {
 			item.contextValue += '+remotes';
 		}
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.

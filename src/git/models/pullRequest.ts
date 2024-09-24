@@ -377,7 +377,7 @@ export async function ensurePullRequestRemote(
 	const prRemoteUrl = identity.remote.url.replace(/\.git$/, '');
 
 	let found = false;
-	for (const remote of await repo.getRemotes()) {
+	for (const remote of await repo.git.getRemotes()) {
 		if (remote.matches(prRemoteUrl)) {
 			found = true;
 			break;

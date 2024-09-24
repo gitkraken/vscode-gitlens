@@ -35,7 +35,7 @@ export class CreatePullRequestOnRemoteCommand extends Command {
 		if (repo == null) return;
 
 		if (args == null) {
-			const branch = await repo.getBranch();
+			const branch = await repo.git.getBranch();
 			if (branch?.upstream == null) {
 				void window.showErrorMessage(
 					`Unable to create a pull request for branch \`${branch?.name}\` because it has no upstream branch`,
@@ -51,11 +51,11 @@ export class CreatePullRequestOnRemoteCommand extends Command {
 			};
 		}
 
-		const compareRemote = await repo.getRemote(args.remote);
+		const compareRemote = await repo.git.getRemote(args.remote);
 		if (compareRemote?.provider == null) return;
 
 		const providerId = compareRemote.provider.id;
-		const remotes = (await repo.getRemotes({
+		const remotes = (await repo.git.getRemotes({
 			filter: r => r.provider?.id === providerId,
 			sort: true,
 		})) as GitRemote<RemoteProvider>[];

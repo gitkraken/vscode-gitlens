@@ -68,7 +68,7 @@ export abstract class RepositoryFolderNode<
 	async getTreeItem(): Promise<TreeItem> {
 		this.splatted = false;
 
-		const branch = await this.repo.getBranch();
+		const branch = await this.repo.git.getBranch();
 		const ahead = (branch?.state.ahead ?? 0) > 0;
 		const behind = (branch?.state.behind ?? 0) > 0;
 

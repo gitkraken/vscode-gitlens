@@ -233,7 +233,7 @@ export class BranchNode
 				this.getLog(),
 				this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, branch.name),
 				this.options.showStatus && branch.current
-					? this.view.container.git.getStatusForRepo(this.uri.repoPath)
+					? this.view.container.git.getStatus(this.uri.repoPath)
 					: undefined,
 				this.options.showStatus && branch.current
 					? this.view.container.git.getMergeStatus(this.uri.repoPath!)
@@ -281,7 +281,7 @@ export class BranchNode
 						this,
 						branch,
 						mergeStatus,
-						status ?? (await this.view.container.git.getStatusForRepo(this.uri.repoPath)),
+						status ?? (await this.view.container.git.getStatus(this.uri.repoPath)),
 						this.root,
 					),
 				);
@@ -296,7 +296,7 @@ export class BranchNode
 						this,
 						branch,
 						rebaseStatus,
-						status ?? (await this.view.container.git.getStatusForRepo(this.uri.repoPath)),
+						status ?? (await this.view.container.git.getStatus(this.uri.repoPath)),
 						this.root,
 					),
 				);

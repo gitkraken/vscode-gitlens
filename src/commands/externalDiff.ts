@@ -88,7 +88,7 @@ export class ExternalDiffCommand extends Command {
 				const repository = await getRepositoryOrShowPicker('Open All Changes (difftool)');
 				if (repository == null) return undefined;
 
-				const status = await this.container.git.getStatusForRepo(repository.uri);
+				const status = await this.container.git.getStatus(repository.uri);
 				if (status == null) {
 					return window.showInformationMessage("The repository doesn't have any changes");
 				}

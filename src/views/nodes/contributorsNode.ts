@@ -57,7 +57,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 
 			const stats = this.options?.stats ?? configuration.get('views.contributors.showStatistics');
 
-			const contributors = await this.repo.getContributors({
+			const contributors = await this.repo.git.getContributors({
 				all: all,
 				merges: this.options?.showMergeCommits,
 				ref: ref,

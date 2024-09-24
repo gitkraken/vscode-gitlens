@@ -29,7 +29,7 @@ export class OpenOnlyChangedFilesCommand extends Command {
 				const repository = await getRepositoryOrShowPicker('Open Changed & Close Unchanged Files');
 				if (repository == null) return;
 
-				const status = await this.container.git.getStatusForRepo(repository.uri);
+				const status = await this.container.git.getStatus(repository.uri);
 				if (status == null) {
 					void window.showWarningMessage('Unable to open changed & close unchanged files');
 

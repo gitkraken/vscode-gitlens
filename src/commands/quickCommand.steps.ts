@@ -195,16 +195,17 @@ export async function getRemotes(
 ): Promise<RemoteQuickPickItem[]> {
 	if (repo == null) return [];
 
-	const remotes = (await repo.getRemotes(options?.filter != null ? { filter: options.filter } : undefined)).map(r =>
-		createRemoteQuickPickItem(
-			r,
-			options?.picked != null &&
-				(typeof options.picked === 'string' ? r.name === options.picked : options.picked.includes(r.name)),
-			{
-				buttons: options?.buttons,
-				upstream: true,
-			},
-		),
+	const remotes = (await repo.git.getRemotes(options?.filter != null ? { filter: options.filter } : undefined)).map(
+		r =>
+			createRemoteQuickPickItem(
+				r,
+				options?.picked != null &&
+					(typeof options.picked === 'string' ? r.name === options.picked : options.picked.includes(r.name)),
+				{
+					buttons: options?.buttons,
+					upstream: true,
+				},
+			),
 	);
 	return remotes;
 }
@@ -242,7 +243,8 @@ export async function getWorktrees(
 		picked?: string | string[];
 	},
 ): Promise<WorktreeQuickPickItem[]> {
-	const worktrees = repoOrWorktrees instanceof Repository ? await repoOrWorktrees.getWorktrees() : repoOrWorktrees;
+	const worktrees =
+		repoOrWorktrees instanceof Repository ? await repoOrWorktrees.git.getWorktrees() : repoOrWorktrees;
 
 	const items = await filterMapAsync(worktrees, async w => {
 		if ((excludeOpened && w.opened) || filter?.(w) === false) return undefined;
@@ -306,12 +308,12 @@ export async function getBranchesAndOrTags(
 		const [worktreesByBranchResult, branchesResult, tagsResult] = await Promise.allSettled([
 			include.includes('branches') ? getWorktreesByBranch(repo) : undefined,
 			include.includes('branches')
-				? repo.getBranches({
+				? repo.git.getBranches({
 						filter: filter?.branches,
 						sort: typeof sort === 'boolean' ? sort : sort?.branches,
 				  })
 				: undefined,
-			include.includes('tags') ? repo.getTags({ filter: filter?.tags, sort: true }) : undefined,
+			include.includes('tags') ? repo.git.getTags({ filter: filter?.tags, sort: true }) : undefined,
 		]);
 
 		worktreesByBranch = getSettledValue(worktreesByBranchResult);
@@ -324,7 +326,7 @@ export async function getBranchesAndOrTags(
 			include.includes('branches')
 				? Promise.allSettled(
 						repos.map(r =>
-							r.getBranches({
+							r.git.getBranches({
 								filter: filter?.branches,
 								sort: typeof sort === 'boolean' ? sort : sort?.branches,
 							}),
@@ -334,7 +336,10 @@ export async function getBranchesAndOrTags(
 			include.includes('tags')
 				? Promise.allSettled(
 						repos.map(r =>
-							r.getTags({ filter: filter?.tags, sort: typeof sort === 'boolean' ? sort : sort?.tags }),
+							r.git.getTags({
+								filter: filter?.tags,
+								sort: typeof sort === 'boolean' ? sort : sort?.tags,
+							}),
 						),
 				  )
 				: undefined,
@@ -567,7 +572,7 @@ export async function* inputBranchNameStep<
 					return [false, `'${value}' isn't a valid branch name`];
 				}
 
-				const alreadyExists = await state.repo.getBranch(value);
+				const alreadyExists = await state.repo.git.getBranch(value);
 				if (alreadyExists) {
 					return [false, `A branch named '${value}' already exists`];
 				}
@@ -583,7 +588,7 @@ export async function* inputBranchNameStep<
 					return [false, `'${value}' isn't a valid branch name`];
 				}
 
-				const alreadyExists = await repo.getBranch(value);
+				const alreadyExists = await repo.git.getBranch(value);
 				if (alreadyExists) {
 					return [false, `A branch named '${value}' already exists`];
 				}
@@ -624,7 +629,7 @@ export async function* inputRemoteNameStep<
 			if (!valid) return [false, `'${value}' isn't a valid remote name`];
 
 			if ('repo' in state) {
-				const alreadyExists = (await state.repo.getRemotes({ filter: r => r.name === value })).length !== 0;
+				const alreadyExists = (await state.repo.git.getRemotes({ filter: r => r.name === value })).length !== 0;
 				if (alreadyExists) {
 					return [false, `A remote named '${value}' already exists`];
 				}

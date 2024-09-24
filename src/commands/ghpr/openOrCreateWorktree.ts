@@ -86,7 +86,7 @@ export class OpenOrCreateWorktreeCommand extends Command {
 		const remoteUrl = remoteUri.toString();
 		const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
 
-		const remotes = await repo.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
+		const remotes = await repo.git.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
 		const remote = remotes[0] as GitRemote | undefined;
 
 		let addRemote: { name: string; url: string } | undefined;

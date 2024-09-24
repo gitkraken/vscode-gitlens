@@ -112,51 +112,10 @@ export interface RepositoryVisibilityInfo {
 	remotesHash?: string;
 }
 
-export interface GitProvider extends Disposable {
-	get onDidChange(): Event<void>;
-	get onDidChangeRepository(): Event<RepositoryChangeEvent>;
-	get onDidCloseRepository(): Event<RepositoryCloseEvent>;
-	get onDidOpenRepository(): Event<RepositoryOpenEvent>;
-
-	readonly descriptor: GitProviderDescriptor;
-	readonly supportedSchemes: Set<string>;
-
-	discoverRepositories(
-		uri: Uri,
-		options?: { cancellation?: CancellationToken; depth?: number; silent?: boolean },
-	): Promise<Repository[]>;
-	updateContext?(): void;
-	openRepository(
-		folder: WorkspaceFolder | undefined,
-		uri: Uri,
-		root: boolean,
-		suspended?: boolean,
-		closed?: boolean,
-	): Repository[];
-	openRepositoryInitWatcher?(): RepositoryInitWatcher;
-
-	supports(feature: Features): Promise<boolean>;
-	visibility(
-		repoPath: string,
-		remotes?: GitRemote[],
-	): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]>;
-
-	getOpenScmRepositories(): Promise<ScmRepository[]>;
-	getScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
-	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
-
-	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined;
-	getAbsoluteUri(pathOrUri: string | Uri, base: string | Uri): Uri;
-	getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined>;
-	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string;
-	getRevisionUri(repoPath: string, path: string, ref: string): Uri;
-	// getRootUri(pathOrUri: string | Uri): Uri;
-	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
-
+export interface GitProviderRepository {
 	addRemote(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
 	pruneRemote(repoPath: string, name: string): Promise<void>;
 	removeRemote(repoPath: string, name: string): Promise<void>;
-	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
 	applyUnreachableCommitForPatch?(
 		repoPath: string,
 		ref: string,
@@ -172,7 +131,6 @@ export interface GitProvider extends Disposable {
 		ref: string,
 		options?: { createBranch?: string | undefined } | { path?: string | undefined },
 	): Promise<void>;
-	clone?(url: string, parentPath: string): Promise<string | undefined>;
 	createUnreachableCommitForPatch?(
 		repoPath: string,
 		contents: string,
@@ -180,6 +138,7 @@ export interface GitProvider extends Disposable {
 		message: string,
 	): Promise<GitCommit | undefined>;
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
+
 	fetch(
 		repoPath: string,
 		options?: {
@@ -206,52 +165,7 @@ export interface GitProvider extends Disposable {
 			publish?: { remote: string };
 		},
 	): Promise<void>;
-	findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined>;
-	getLeftRightCommitCount(
-		repoPath: string,
-		range: GitRevisionRange,
-		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
-	): Promise<LeftRightCommitCountResult | undefined>;
-	/**
-	 * Returns the blame of a file
-	 * @param uri Uri of the file to blame
-	 * @param document Optional TextDocument to blame the contents of if dirty
-	 */
-	getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined>;
-	/**
-	 * Returns the blame of a file, using the editor contents (for dirty editors)
-	 * @param uri Uri of the file to blame
-	 * @param contents Contents from the editor to use
-	 */
-	getBlameContents(uri: GitUri, contents: string): Promise<GitBlame | undefined>;
-	/**
-	 * Returns the blame of a single line
-	 * @param uri Uri of the file to blame
-	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
-	 * @param document Optional TextDocument to blame the contents of if dirty
-	 * @param options.forceSingleLine Forces blame to be for the single line (rather than the whole file)
-	 */
-	getBlameForLine(
-		uri: GitUri,
-		editorLine: number,
-		document?: TextDocument | undefined,
-		options?: { forceSingleLine?: boolean },
-	): Promise<GitBlameLine | undefined>;
-	/**
-	 * Returns the blame of a single line, using the editor contents (for dirty editors)
-	 * @param uri Uri of the file to blame
-	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
-	 * @param contents Contents from the editor to use
-	 */
-	getBlameForLineContents(
-		uri: GitUri,
-		editorLine: number,
-		contents: string,
-		options?: { forceSingleLine?: boolean },
-	): Promise<GitBlameLine | undefined>;
-	getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined>;
-	getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined>;
-	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined;
+
 	getBranch(repoPath: string): Promise<GitBranch | undefined>;
 	getBranches(
 		repoPath: string,
@@ -319,33 +233,6 @@ export interface GitProvider extends Disposable {
 		options?: { context?: number; uris?: Uri[] },
 	): Promise<GitDiff | undefined>;
 	getDiffFiles?(repoPath: string | Uri, contents: string): Promise<GitDiffFiles | undefined>;
-	/**
-	 * Returns a file diff between two commits
-	 * @param uri Uri of the file to diff
-	 * @param ref1 Commit to diff from
-	 * @param ref2 Commit to diff to
-	 */
-	getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiffFile | undefined>;
-	/**
-	 * Returns a file diff between a commit and the specified contents
-	 * @param uri Uri of the file to diff
-	 * @param ref Commit to diff from
-	 * @param contents Contents to use for the diff
-	 */
-	getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiffFile | undefined>;
-	/**
-	 * Returns a line diff between two commits
-	 * @param uri Uri of the file to diff
-	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
-	 * @param ref1 Commit to diff from
-	 * @param ref2 Commit to diff to
-	 */
-	getDiffForLine(
-		uri: GitUri,
-		editorLine: number,
-		ref1: string | undefined,
-		ref2?: string,
-	): Promise<GitDiffLine | undefined>;
 	getDiffStatus(
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
@@ -356,6 +243,11 @@ export interface GitProvider extends Disposable {
 	getFirstCommitSha?(repoPath: string): Promise<string | undefined>;
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
+	getLeftRightCommitCount(
+		repoPath: string,
+		range: GitRevisionRange,
+		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
+	): Promise<LeftRightCommitCountResult | undefined>;
 	getLog(
 		repoPath: string,
 		options?: {
@@ -436,12 +328,15 @@ export interface GitProvider extends Disposable {
 			skip?: number | undefined;
 		},
 	): Promise<GitReflog | undefined>;
-	getRemotes(repoPath: string | undefined, options?: { sort?: boolean }): Promise<GitRemote[]>;
+	getRemotes(
+		repoPath: string | undefined,
+		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
+	): Promise<GitRemote[]>;
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
+	getStatus(repoPath: string | undefined): Promise<GitStatus | undefined>;
 	getStatusForFile(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
 	getStatusForFiles(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;
-	getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined>;
 	getTags(
 		repoPath: string | undefined,
 		options?: {
@@ -462,10 +357,7 @@ export interface GitProvider extends Disposable {
 	): Promise<boolean>;
 
 	hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean>;
-	hasUnsafeRepositories?(): boolean;
 	isAncestorOf(repoPath: string, ref1: string, ref2: string): Promise<boolean>;
-	isTrackable(uri: Uri): boolean;
-	isTracked(uri: Uri): Promise<boolean>;
 
 	getDiffTool(repoPath?: string): Promise<string | undefined>;
 	openDiffTool(
@@ -539,7 +431,123 @@ export interface GitProvider extends Disposable {
 	): Promise<void>;
 	getWorktrees?(repoPath: string): Promise<GitWorktree[]>;
 	getWorktreesDefaultUri?(repoPath: string): Promise<Uri | undefined>;
-	deleteWorktree?(repoPath: string, path: string, options?: { force?: boolean }): Promise<void>;
+	deleteWorktree?(repoPath: string, path: string | Uri, options?: { force?: boolean }): Promise<void>;
+}
+
+export interface GitProvider extends GitProviderRepository, Disposable {
+	get onDidChange(): Event<void>;
+	get onDidChangeRepository(): Event<RepositoryChangeEvent>;
+	get onDidCloseRepository(): Event<RepositoryCloseEvent>;
+	get onDidOpenRepository(): Event<RepositoryOpenEvent>;
+
+	readonly descriptor: GitProviderDescriptor;
+	readonly supportedSchemes: Set<string>;
+
+	discoverRepositories(
+		uri: Uri,
+		options?: { cancellation?: CancellationToken; depth?: number; silent?: boolean },
+	): Promise<Repository[]>;
+	updateContext?(): void;
+	openRepository(
+		folder: WorkspaceFolder | undefined,
+		uri: Uri,
+		root: boolean,
+		suspended?: boolean,
+		closed?: boolean,
+	): Repository[];
+	openRepositoryInitWatcher?(): RepositoryInitWatcher;
+
+	supports(feature: Features): Promise<boolean>;
+	visibility(
+		repoPath: string,
+		remotes?: GitRemote[],
+	): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]>;
+
+	getOpenScmRepositories(): Promise<ScmRepository[]>;
+	getScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
+	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
+
+	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined;
+	findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined>;
+	getAbsoluteUri(pathOrUri: string | Uri, base: string | Uri): Uri;
+	getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined>;
+	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string;
+	getRevisionUri(repoPath: string, path: string, ref: string): Uri;
+	// getRootUri(pathOrUri: string | Uri): Uri;
+	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
+
+	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
+	clone?(url: string, parentPath: string): Promise<string | undefined>;
+	/**
+	 * Returns the blame of a file
+	 * @param uri Uri of the file to blame
+	 * @param document Optional TextDocument to blame the contents of if dirty
+	 */
+	getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined>;
+	/**
+	 * Returns the blame of a file, using the editor contents (for dirty editors)
+	 * @param uri Uri of the file to blame
+	 * @param contents Contents from the editor to use
+	 */
+	getBlameContents(uri: GitUri, contents: string): Promise<GitBlame | undefined>;
+	/**
+	 * Returns the blame of a single line
+	 * @param uri Uri of the file to blame
+	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param document Optional TextDocument to blame the contents of if dirty
+	 * @param options.forceSingleLine Forces blame to be for the single line (rather than the whole file)
+	 */
+	getBlameForLine(
+		uri: GitUri,
+		editorLine: number,
+		document?: TextDocument | undefined,
+		options?: { forceSingleLine?: boolean },
+	): Promise<GitBlameLine | undefined>;
+	/**
+	 * Returns the blame of a single line, using the editor contents (for dirty editors)
+	 * @param uri Uri of the file to blame
+	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param contents Contents from the editor to use
+	 */
+	getBlameForLineContents(
+		uri: GitUri,
+		editorLine: number,
+		contents: string,
+		options?: { forceSingleLine?: boolean },
+	): Promise<GitBlameLine | undefined>;
+	getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined>;
+	getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined>;
+	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined;
+	/**
+	 * Returns a file diff between two commits
+	 * @param uri Uri of the file to diff
+	 * @param ref1 Commit to diff from
+	 * @param ref2 Commit to diff to
+	 */
+	getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiffFile | undefined>;
+	/**
+	 * Returns a file diff between a commit and the specified contents
+	 * @param uri Uri of the file to diff
+	 * @param ref Commit to diff from
+	 * @param contents Contents to use for the diff
+	 */
+	getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiffFile | undefined>;
+	/**
+	 * Returns a line diff between two commits
+	 * @param uri Uri of the file to diff
+	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param ref1 Commit to diff from
+	 * @param ref2 Commit to diff to
+	 */
+	getDiffForLine(
+		uri: GitUri,
+		editorLine: number,
+		ref1: string | undefined,
+		ref2?: string,
+	): Promise<GitDiffLine | undefined>;
+	hasUnsafeRepositories?(): boolean;
+	isTrackable(uri: Uri): boolean;
+	isTracked(uri: Uri): Promise<boolean>;
 }
 
 export interface RevisionUriData {

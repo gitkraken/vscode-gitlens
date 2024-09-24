@@ -93,7 +93,7 @@ export class GitWorktree {
 			// eslint-disable-next-line no-async-promise-executor
 			this._statusPromise = new Promise(async (resolve, reject) => {
 				try {
-					const status = await Container.instance.git.getStatusForRepo(this.uri.fsPath);
+					const status = await Container.instance.git.getStatus(this.uri.fsPath);
 					this._status = status;
 					resolve(status);
 				} catch (ex) {
@@ -228,13 +228,13 @@ export async function getWorktreeForBranch(
 		upstreamNames = [upstreamNames];
 	}
 
-	worktrees ??= await repo.getWorktrees();
+	worktrees ??= await repo.git.getWorktrees();
 	for (const worktree of worktrees) {
 		if (worktree.branch?.name === branchName) return worktree;
 
 		if (upstreamNames == null || worktree.branch == null) continue;
 
-		branches ??= new PageableResult<GitBranch>(p => repo.getBranches(p != null ? { paging: p } : undefined));
+		branches ??= new PageableResult<GitBranch>(p => repo.git.getBranches(p != null ? { paging: p } : undefined));
 		for await (const branch of branches.values()) {
 			if (branch.name === worktree.branch.name) {
 				if (
@@ -346,7 +346,7 @@ export async function getWorktreesByBranch(
 	if (repos == null) return worktreesByBranch;
 
 	async function addWorktrees(repo: Repository) {
-		groupWorktreesByBranch(await repo.getWorktrees(), {
+		groupWorktreesByBranch(await repo.git.getWorktrees(), {
 			includeDefault: options?.includeDefault,
 			worktreesByBranch: worktreesByBranch,
 		});

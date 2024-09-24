@@ -34,7 +34,7 @@ import { registerViewCommand } from './viewCommands';
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
-			const branch = await this.repo.getBranch();
+			const branch = await this.repo.git.getBranch();
 			if (branch == null) {
 				this.view.message = 'No commits could be found.';
 
@@ -159,7 +159,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const branch = await child.repo.getBranch();
+			const branch = await child.repo.git.getBranch();
 			if (branch != null) {
 				const lastFetched = (await child.repo.getLastFetched()) ?? 0;
 

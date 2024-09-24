@@ -82,7 +82,7 @@ export class StatusGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			context.status = (await state.repo.getStatus())!;
+			context.status = (await state.repo.git.getStatus())!;
 			if (context.status == null) return;
 
 			context.title = `${this.title}${pad(GlyphChars.Dot, 2, 2)}${getReferenceLabel(

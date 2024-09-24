@@ -200,7 +200,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				const repository = this.container.git.getRepository(this._context.uri);
 				if (repository == null) return;
 
-				const commit = await repository.getCommit(e.params.data.id);
+				const commit = await repository.git.getCommit(e.params.data.id);
 				if (commit == null) return;
 
 				this.container.events.fire(

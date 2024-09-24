@@ -1283,7 +1283,7 @@ export class CommitDetailsWebviewProvider
 		repository: Repository,
 		branchName: string,
 	): Promise<{ branch: GitBranch; pullRequest: PullRequest | undefined; codeSuggestions: Draft[] } | undefined> {
-		const branch = await repository.getBranch(branchName);
+		const branch = await repository.git.getBranch(branchName);
 		if (branch == null) return undefined;
 
 		if (this.mode === 'commit') {
@@ -1515,7 +1515,7 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private async getWipChange(repository: Repository): Promise<WipChange | undefined> {
-		const status = await this.container.git.getStatusForRepo(repository.path);
+		const status = await this.container.git.getStatus(repository.path);
 		if (status == null) return undefined;
 
 		const files: GitFileChangeShape[] = [];

@@ -309,7 +309,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
 
 		let remote: GitRemote | undefined;
-		[remote] = await repo.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
+		[remote] = await repo.git.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
 		let remoteBranchName;
 		if (remote != null) {
 			remoteBranchName = `${remote.name}/${ref}`;
@@ -330,7 +330,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				fetch: true,
 				reveal: false,
 			});
-			[remote] = await repo.getRemotes({ filter: r => r.url === remoteUrl });
+			[remote] = await repo.git.getRemotes({ filter: r => r.url === remoteUrl });
 			if (remote == null) return;
 
 			remoteBranchName = `${remote.name}/${ref}`;
@@ -602,7 +602,9 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			const repos = [];
 			const disposables = [];
 			for (const repo of this.container.git.openRepositories) {
-				const remoteWithIntegration = await repo.getBestRemoteWithIntegration({ includeDisconnected: true });
+				const remoteWithIntegration = await repo.git.getBestRemoteWithIntegration({
+					includeDisconnected: true,
+				});
 				if (
 					remoteWithIntegration == null ||
 					repos.findIndex(repo => repo.remote === remoteWithIntegration) > -1
@@ -687,14 +689,14 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 					let branches = branchesByRepo.get(entry.repoAndRemote.repo);
 					if (branches == null) {
 						branches = new PageableResult<GitBranch>(paging =>
-							entry.repoAndRemote.repo.getBranches(paging != null ? { paging: paging } : undefined),
+							entry.repoAndRemote.repo.git.getBranches(paging != null ? { paging: paging } : undefined),
 						);
 						branchesByRepo.set(entry.repoAndRemote.repo, branches);
 					}
 
 					let worktrees = worktreesByRepo.get(entry.repoAndRemote.repo);
 					if (worktrees == null) {
-						worktrees = await entry.repoAndRemote.repo.getWorktrees();
+						worktrees = await entry.repoAndRemote.repo.git.getWorktrees();
 						worktreesByRepo.set(entry.repoAndRemote.repo, worktrees);
 					}
 

@@ -78,7 +78,7 @@ export class StashSaveCommand extends Command {
 			const repo = await this.container.git.getOrOpenRepository(uris[0]);
 
 			args.repoPath = repo?.path;
-			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.supports(Features.StashOnlyStaged) : false;
+			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports(Features.StashOnlyStaged) : false;
 			if (args.keepStaged == null && !hasStaged) {
 				args.keepStaged = true;
 			}
@@ -117,7 +117,7 @@ export class StashSaveCommand extends Command {
 			const repo = await this.container.git.getOrOpenRepository(uris[0]);
 
 			args.repoPath = repo?.path;
-			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.supports(Features.StashOnlyStaged) : false;
+			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports(Features.StashOnlyStaged) : false;
 			if (args.keepStaged == null && !hasStaged) {
 				args.keepStaged = true;
 			}
