@@ -47,7 +47,9 @@ export interface IntegrationAuthenticationProvider extends Disposable {
 	deleteSession(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void>;
 	getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
+		options?:
+			| { createIfNeeded?: boolean; forceNewSession?: boolean; sync?: never; source?: Sources }
+			| { createIfNeeded?: never; forceNewSession?: never; sync: boolean; source?: Sources },
 	): Promise<ProviderAuthenticationSession | undefined>;
 	get onDidChange(): Event<void>;
 }
@@ -73,7 +75,21 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 	protected abstract fetchOrCreateSession(
 		storedSession: ProviderAuthenticationSession | undefined,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; refreshIfExpired?: boolean; source?: Sources },
+		options?:
+			| {
+					createIfNeeded?: boolean;
+					forceNewSession?: boolean;
+					sync?: never;
+					refreshIfExpired?: boolean;
+					source?: Sources;
+			  }
+			| {
+					createIfNeeded?: never;
+					forceNewSession?: never;
+					sync: boolean;
+					refreshIfExpired?: boolean;
+					source?: Sources;
+			  },
 	): Promise<ProviderAuthenticationSession | undefined>;
 
 	protected abstract deleteAllSecrets(sessionId: string): Promise<void>;
@@ -129,7 +145,9 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 	@debug()
 	async getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
+		options?:
+			| { createIfNeeded?: boolean; forceNewSession?: boolean; sync?: never; source?: Sources }
+			| { createIfNeeded?: never; forceNewSession?: never; sync: boolean; source?: Sources },
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const sessionId = this.getSessionId(descriptor);
 
@@ -254,13 +272,27 @@ export abstract class CloudIntegrationAuthenticationProvider<
 	protected override async fetchOrCreateSession(
 		storedSession: ProviderAuthenticationSession | undefined,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; refreshIfExpired?: boolean; source?: Sources },
+		options?:
+			| {
+					createIfNeeded?: boolean;
+					forceNewSession?: boolean;
+					sync?: never;
+					refreshIfExpired?: boolean;
+					source?: Sources;
+			  }
+			| {
+					createIfNeeded?: never;
+					forceNewSession?: never;
+					sync: boolean;
+					refreshIfExpired?: boolean;
+					source?: Sources;
+			  },
 	): Promise<ProviderAuthenticationSession | undefined> {
 		// TODO: This is a stopgap to make sure we're not hammering the api on automatic calls to get the session.
 		// Ultimately we want to timestamp calls to syncCloudIntegrations and use that to determine whether we should
 		// make the call or not.
 		let session =
-			options?.refreshIfExpired || options?.createIfNeeded || options?.forceNewSession
+			options?.refreshIfExpired || options?.createIfNeeded || options?.forceNewSession || options?.sync
 				? await this.fetchSession(descriptor)
 				: undefined;
 

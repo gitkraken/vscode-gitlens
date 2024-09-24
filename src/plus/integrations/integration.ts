@@ -259,7 +259,9 @@ export abstract class IntegrationBase<
 					forceSync = true;
 				}
 
-				await this.ensureSession({ createIfNeeded: forceSync });
+				// sync option, rather than createIfNeeded, makes sure we don't call connectCloudIntegrations and open a gkdev window
+				// if there was no session or some problem fetching/refreshing the existing session from the cloud api
+				await this.ensureSession({ sync: forceSync });
 				break;
 			case 'disconnected':
 				await this.disconnect({ silent: true });
@@ -295,16 +297,26 @@ export abstract class IntegrationBase<
 	}
 
 	@gate()
-	private async ensureSession(options: {
-		createIfNeeded?: boolean;
-		forceNewSession?: boolean;
-		source?: Sources;
-	}): Promise<ProviderAuthenticationSession | undefined> {
-		const { createIfNeeded, forceNewSession, source } = options;
+	private async ensureSession(
+		options:
+			| {
+					createIfNeeded?: boolean;
+					forceNewSession?: boolean;
+					sync?: never;
+					source?: Sources;
+			  }
+			| {
+					createIfNeeded?: never;
+					forceNewSession?: never;
+					sync: boolean;
+					source?: Sources;
+			  },
+	): Promise<ProviderAuthenticationSession | undefined> {
+		const { createIfNeeded, forceNewSession, source, sync } = options;
 		if (this._session != null) return this._session;
 		if (!configuration.get('integrations.enabled')) return undefined;
 
-		if (createIfNeeded) {
+		if (createIfNeeded || sync) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);
 		} else if (this.container.storage.getWorkspace(this.connectedKey) === false) {
 			return undefined;
@@ -313,11 +325,16 @@ export abstract class IntegrationBase<
 		let session: ProviderAuthenticationSession | undefined | null;
 		try {
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			session = await authProvider.getSession(this.authProviderDescriptor, {
-				createIfNeeded: createIfNeeded,
-				forceNewSession: forceNewSession,
-				source: source,
-			});
+			session = await authProvider.getSession(
+				this.authProviderDescriptor,
+				sync
+					? { sync: sync, source: source }
+					: {
+							createIfNeeded: createIfNeeded,
+							forceNewSession: forceNewSession,
+							source: source,
+					  },
+			);
 		} catch (ex) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);
 
@@ -328,7 +345,7 @@ export abstract class IntegrationBase<
 			session = null;
 		}
 
-		if (session === undefined && !createIfNeeded) {
+		if (session === undefined && !createIfNeeded && !sync) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);
 		}
 
