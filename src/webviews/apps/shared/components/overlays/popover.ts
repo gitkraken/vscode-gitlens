@@ -97,21 +97,25 @@ export class GlPopover extends GlElement {
 		.popover[data-current-placement^='top']::part(arrow) {
 			border-top-width: 0;
 			border-left-width: 0;
+			clip-path: polygon(0 50%, 100% 0, 100% 100%, 0 100%);
 		}
 
 		.popover[data-current-placement^='bottom']::part(arrow) {
 			border-bottom-width: 0;
 			border-right-width: 0;
+			clip-path: polygon(0 0, 100% 0, 100% 50%, 0 100%);
 		}
 
 		.popover[data-current-placement^='left']::part(arrow) {
 			border-bottom-width: 0;
 			border-left-width: 0;
+			clip-path: polygon(0 0, 100% 0, 100% 100%, 70% 100%, 0 30%);
 		}
 
 		.popover[data-current-placement^='right']::part(arrow) {
 			border-top-width: 0;
 			border-right-width: 0;
+			clip-path: polygon(0 0, 0 100%, 100% 100%, 100% 70%, 30% 0);
 		}
 
 		.popover__body {
