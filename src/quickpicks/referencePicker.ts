@@ -13,8 +13,8 @@ import { isBranchReference, isRevisionReference, isTagReference } from '../git/m
 import type { GitTag, TagSortOptions } from '../git/models/tag';
 import type { KeyboardScope } from '../system/vscode/keyboard';
 import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
-import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitCommands';
-import { createRefQuickPickItem } from './items/gitCommands';
+import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitWizard';
+import { createRefQuickPickItem } from './items/gitWizard';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 

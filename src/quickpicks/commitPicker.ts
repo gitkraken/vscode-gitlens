@@ -13,8 +13,8 @@ import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import { CommandQuickPickItem } from './items/common';
 import type { DirectiveQuickPickItem } from './items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from './items/directive';
-import type { CommitQuickPickItem } from './items/gitCommands';
-import { createCommitQuickPickItem, createStashQuickPickItem } from './items/gitCommands';
+import type { CommitQuickPickItem } from './items/gitWizard';
+import { createCommitQuickPickItem, createStashQuickPickItem } from './items/gitWizard';
 
 type Item = CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem;
 
