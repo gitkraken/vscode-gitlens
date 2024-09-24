@@ -183,7 +183,7 @@ export class GitProviderService implements Disposable {
 				for (const repo of added) {
 					const remoteProviders = new Set<string>();
 
-					const remotes = await repo.getRemotes();
+					const remotes = await repo.git.getRemotes();
 					for (const remote of remotes) {
 						remoteProviders.add(remote.provider?.id ?? 'unknown');
 					}
@@ -1101,7 +1101,7 @@ export class GitProviderService implements Disposable {
 				let hasSupportedIntegration = false;
 				let hasConnectedIntegration = false;
 
-				const remotes = await repo.getRemotes();
+				const remotes = await repo.git.getRemotes();
 				for (const remote of remotes) {
 					remoteProviders.add(remote.provider?.id ?? 'unknown');
 					reposWithRemotes.add(repo.uri.toString());
@@ -1563,7 +1563,14 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getBranch(repoPath: string | Uri | undefined): Promise<GitBranch | undefined> {
+	async getBranch(repoPath: string | Uri | undefined, name?: string): Promise<GitBranch | undefined> {
+		if (name != null) {
+			const {
+				values: [branch],
+			} = await this.getBranches(repoPath, { filter: b => b.name === name });
+			return branch;
+		}
+
 		if (repoPath == null) return undefined;
 
 		const { provider, path } = this.getProvider(repoPath);
@@ -2172,9 +2179,22 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	async getRemote(
+		repoPath: string | Uri,
+		name: string,
+		_cancellation?: CancellationToken,
+	): Promise<GitRemote | undefined> {
+		if (repoPath == null) return undefined;
+
+		const { provider, path } = this.getProvider(repoPath);
+		const remotes = await provider.getRemotes(path);
+		return remotes.find(r => r.name === name);
+	}
+
+	@log()
 	async getRemotes(
 		repoPath: string | Uri,
-		options?: { sort?: boolean },
+		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
 		_cancellation?: CancellationToken,
 	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
@@ -2410,7 +2430,7 @@ export class GitProviderService implements Disposable {
 		options?: { validate?: boolean },
 	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined> {
 		for (const repo of this.openRepositories) {
-			for (const remote of await repo.getRemotes()) {
+			for (const remote of await repo.git.getRemotes()) {
 				const local = await remote?.provider?.getLocalInfoFromRemoteUri(repo, uri, options);
 				if (local != null) return local;
 			}
@@ -2429,6 +2449,14 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	async getStatus(repoPath: string | Uri | undefined): Promise<GitStatus | undefined> {
+		if (repoPath == null) return undefined;
+
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getStatus(path);
+	}
+
+	@log()
 	async getStatusForFile(repoPath: string | Uri, uri: Uri): Promise<GitStatusFile | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getStatusForFile(path, uri);
@@ -2441,11 +2469,11 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getStatusForRepo(repoPath: string | Uri | undefined): Promise<GitStatus | undefined> {
-		if (repoPath == null) return undefined;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getStatusForRepo(path);
+	async getTag(repoPath: string | Uri | undefined, name: string): Promise<GitTag | undefined> {
+		const {
+			values: [tag],
+		} = await this.getTags(repoPath, { filter: t => t.name === name });
+		return tag;
 	}
 
 	@log({ args: { 1: false } })
@@ -2524,26 +2552,6 @@ export class GitProviderService implements Disposable {
 
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.hasCommitBeenPushed(path, ref);
-	}
-
-	@log({ exit: true })
-	async hasRemotes(repoPath: string | Uri | undefined): Promise<boolean> {
-		if (repoPath == null) return false;
-
-		const repository = this.getRepository(repoPath);
-		if (repository == null) return false;
-
-		return repository.hasRemotes();
-	}
-
-	@log({ exit: true })
-	async hasTrackingBranch(repoPath: string | undefined): Promise<boolean> {
-		if (repoPath == null) return false;
-
-		const repository = this.getRepository(repoPath);
-		if (repository == null) return false;
-
-		return repository.hasUpstreamBranch();
 	}
 
 	@log({ exit: true })
@@ -2825,7 +2833,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	deleteWorktree(repoPath: string | Uri, path: string, options?: { force?: boolean }): Promise<void> {
+	deleteWorktree(repoPath: string | Uri, path: string | Uri, options?: { force?: boolean }): Promise<void> {
 		const { provider, path: rp } = this.getProvider(repoPath);
 		return Promise.resolve(provider.deleteWorktree?.(rp, path, options));
 	}

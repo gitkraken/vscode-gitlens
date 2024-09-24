@@ -164,6 +164,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return this._onDidOpenRepository.event;
 	}
 
+	private readonly _branchCache = new Map<string, Promise<GitBranch | undefined>>();
 	private readonly _branchesCache = new Map<string, Promise<PagedResult<GitBranch>>>();
 	private readonly _repoInfoCache = new Map<string, RepositoryInfo>();
 	private readonly _tagsCache = new Map<string, Promise<PagedResult<GitTag>>>();
@@ -204,6 +205,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// 	this._branchesCache.delete(repo.path);
 		// }
 
+		this._branchCache.delete(repo.path);
 		this._branchesCache.delete(repo.path);
 		this._tagsCache.delete(repo.path);
 		this._repoInfoCache.delete(repo.path);
@@ -472,6 +474,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		...caches: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
 	) {
 		if (caches.length === 0 || caches.includes('branches')) {
+			this._branchCache.delete(repoPath);
 			this._branchesCache.delete(repoPath);
 		}
 
@@ -487,6 +490,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log({ singleLine: true })
 	private resetCaches(...caches: GitCaches[]): void {
 		if (caches.length === 0 || caches.includes('branches')) {
+			this._branchCache.clear();
 			this._branchesCache.clear();
 		}
 
@@ -922,40 +926,50 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getBranch(repoPath: string | undefined): Promise<GitBranch | undefined> {
-		const {
-			values: [branch],
-		} = await this.getBranches(repoPath, { filter: b => b.current });
-		if (branch != null) return branch;
+	async getBranch(repoPath: string): Promise<GitBranch | undefined> {
+		let branchPromise = this._branchCache.get(repoPath);
+		if (branchPromise == null) {
+			async function load(this: GitHubGitProvider): Promise<GitBranch | undefined> {
+				const {
+					values: [branch],
+				} = await this.getBranches(repoPath, { filter: b => b.current });
+				if (branch != null) return branch;
 
-		try {
-			const { metadata } = await this.ensureRepositoryContext(repoPath!);
+				try {
+					const { metadata } = await this.ensureRepositoryContext(repoPath);
 
-			const revision = await metadata.getRevision();
-			switch (revision.type) {
-				case HeadType.Tag:
-				case HeadType.Commit:
-					return new GitBranch(
-						this.container,
-						repoPath!,
-						revision.name,
-						false,
-						true,
-						undefined,
-						revision.revision,
-						undefined,
-						undefined,
-						undefined,
-						true,
-					);
+					const revision = await metadata.getRevision();
+					switch (revision.type) {
+						case HeadType.Tag:
+						case HeadType.Commit:
+							return new GitBranch(
+								this.container,
+								repoPath,
+								revision.name,
+								false,
+								true,
+								undefined,
+								revision.revision,
+								undefined,
+								undefined,
+								undefined,
+								true,
+							);
+					}
+
+					return undefined;
+				} catch (ex) {
+					debugger;
+					Logger.error(ex, getLogScope());
+					return undefined;
+				}
 			}
 
-			return undefined;
-		} catch (ex) {
-			debugger;
-			Logger.error(ex, getLogScope());
-			return undefined;
+			branchPromise = load.call(this);
+			this._branchCache.set(repoPath, branchPromise);
 		}
+
+		return branchPromise;
 	}
 
 	@log({ args: { 1: false } })
@@ -2765,7 +2779,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log({ args: { 1: false } })
-	async getRemotes(repoPath: string | undefined, _options?: { sort?: boolean }): Promise<GitRemote[]> {
+	async getRemotes(
+		repoPath: string | undefined,
+		_options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
+	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
 		const providers = loadRemoteProviders(configuration.get('remotes', null));
@@ -2817,7 +2834,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined> {
+	async getStatus(repoPath: string | undefined): Promise<GitStatus | undefined> {
 		if (repoPath == null) return undefined;
 
 		const context = await this.ensureRepositoryContext(repoPath);

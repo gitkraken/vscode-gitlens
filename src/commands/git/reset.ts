@@ -110,7 +110,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.destination == null) {
-				const branch = await state.repo.getBranch();
+				const branch = await state.repo.git.getBranch();
 				if (branch == null) break;
 
 				context.destination = branch;

@@ -267,9 +267,7 @@ export async function getTargetBranchName(
 	if (options?.cancellation?.isCancellationRequested) return { value: undefined, paused: false };
 
 	if (targetBase != null) {
-		const [targetBranch] = (
-			await container.git.getBranches(branch.repoPath, { filter: b => b.name === targetBase })
-		).values;
+		const targetBranch = await container.git.getBranch(branch.repoPath, targetBase);
 		if (targetBranch != null) return { value: targetBranch.name, paused: false };
 	}
 
@@ -385,7 +383,7 @@ export async function getLocalBranchByUpstream(
 		qualifiedRemoteBranchName = `remotes/${remoteBranchName}`;
 	}
 
-	branches ??= new PageableResult<GitBranch>(p => repo.getBranches(p != null ? { paging: p } : undefined));
+	branches ??= new PageableResult<GitBranch>(p => repo.git.getBranches(p != null ? { paging: p } : undefined));
 	for await (const branch of branches.values()) {
 		if (
 			!branch.remote &&

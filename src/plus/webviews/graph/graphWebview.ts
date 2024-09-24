@@ -1338,7 +1338,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const repo = this.repository;
 		if (repo == null) return undefined;
 
-		const branch = await repo.getBranch();
+		const branch = await repo.git.getBranch();
 		if (branch == null) return undefined;
 
 		const pr = await branch.getAssociatedPullRequest();
@@ -1403,7 +1403,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const cancellation = this.createCancellation('search');
 
 			try {
-				search = await this.repository.searchCommits(e.search, {
+				search = await this.repository.git.searchCommits(e.search, {
 					limit: configuration.get('graph.searchItemLimit') ?? 100,
 					ordering: configuration.get('graph.commitOrdering'),
 					cancellation: cancellation.token,
@@ -1493,7 +1493,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (!msg.params.alt) {
 			let branch = find(this._graph!.branches.values(), b => b.current);
 			if (branch == null) {
-				branch = await this.repository.getBranch();
+				branch = await this.repository.git.getBranch();
 			}
 			if (branch != null) {
 				pick = branch;
@@ -2266,7 +2266,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getWorkingTreeStats(): Promise<GraphWorkingTreeStats | undefined> {
 		if (this.repository == null || this.container.git.repositoryCount === 0) return undefined;
 
-		const status = await this.container.git.getStatusForRepo(this.repository.path);
+		const status = await this.container.git.getStatus(this.repository.path);
 		const workingTreeStatus = status?.getDiffStatus();
 		return {
 			added: workingTreeStatus?.added ?? 0,
@@ -2327,7 +2327,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const promises = Promise.allSettled([
 			this.getGraphAccess(),
 			this.getWorkingTreeStats(),
-			this.repository.getBranch(),
+			this.repository.git.getBranch(),
 			this.repository.getLastFetched(),
 		]);
 
@@ -3271,7 +3271,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const { ref } = item.webviewItemValue;
 
 			const repo = this.container.git.getRepository(ref.repoPath);
-			const branch = await repo?.getBranch(ref.name);
+			const branch = await repo?.git.getBranch(ref.name);
 			const remote = await branch?.getRemote();
 
 			return executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
@@ -3742,7 +3742,7 @@ async function formatRepositories(repositories: Repository[]): Promise<GraphRepo
 
 	return Promise.all(
 		repositories.map(async r => {
-			const remote = await r.getBestRemoteWithIntegration();
+			const remote = await r.git.getBestRemoteWithIntegration();
 
 			// const integration = await remote?.getIntegration();
 			// const connected = integration ? integration?.maybeConnected ?? (await integration?.isConnected()) : false;

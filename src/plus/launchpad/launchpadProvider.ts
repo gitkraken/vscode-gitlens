@@ -572,7 +572,7 @@ export class LaunchpadProvider implements Disposable {
 		async function matchRemotes(repo: Repository) {
 			if (uniqueRemoteUrls.size === 0) return;
 
-			const remotes = await repo.getRemotes();
+			const remotes = await repo.git.getRemotes();
 
 			for (const remote of remotes) {
 				if (uniqueRemoteUrls.size === 0) return;

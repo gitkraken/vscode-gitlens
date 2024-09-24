@@ -273,6 +273,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this._onDidOpenRepository.event;
 	}
 
+	private readonly _branchCache = new Map<string, Promise<GitBranch | undefined>>();
 	private readonly _branchesCache = new Map<string, Promise<PagedResult<GitBranch>>>();
 	private readonly _contributorsCache = new Map<string, Map<string, Promise<GitContributor[]>>>();
 	private readonly _mergeStatusCache = new Map<string, Promise<GitMergeStatus | undefined>>();
@@ -318,6 +319,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		if (e.changed(RepositoryChange.Heads, RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
+			this._branchCache.delete(repo.path);
 			this._branchesCache.delete(repo.path);
 			this._contributorsCache.delete(repo.path);
 			this._worktreesCache.delete(repo.path);
@@ -332,10 +334,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		if (e.changed(RepositoryChange.Merge, RepositoryChangeComparisonMode.Any)) {
+			this._branchCache.delete(repo.path);
 			this._mergeStatusCache.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) {
+			this._branchCache.delete(repo.path);
 			this._rebaseStatusCache.delete(repo.path);
 		}
 
@@ -1109,7 +1113,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		if (options?.stash) {
 			// Stash any changes first
-			const status = await this.getStatusForRepo(repoPath);
+			const status = await this.getStatus(repoPath);
 			if (status?.files?.length) {
 				if (options.stash === 'prompt') {
 					const confirm = { title: 'Stash Changes' };
@@ -1364,6 +1368,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const cachesToClear = [];
 
 		if (!caches.length || caches.includes('branches')) {
+			cachesToClear.push(this._branchCache);
 			cachesToClear.push(this._branchesCache);
 		}
 
@@ -2096,43 +2101,56 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@gate()
 	@log()
 	async getBranch(repoPath: string): Promise<GitBranch | undefined> {
-		let {
-			values: [branch],
-		} = await this.getBranches(repoPath, { filter: b => b.current });
-		if (branch != null) return branch;
+		let branchPromise = this.useCaching ? this._branchCache.get(repoPath) : undefined;
+		if (branchPromise == null) {
+			async function load(this: LocalGitProvider): Promise<GitBranch | undefined> {
+				let {
+					values: [branch],
+				} = await this.getBranches(repoPath, { filter: b => b.current });
+				if (branch != null) return branch;
 
-		const commitOrdering = configuration.get('advanced.commitOrdering');
+				const commitOrdering = configuration.get('advanced.commitOrdering');
 
-		const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering);
-		if (data == null) return undefined;
+				const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering);
+				if (data == null) return undefined;
 
-		const [name, upstream] = data[0].split('\n');
-		if (isDetachedHead(name)) {
-			const [rebaseStatusResult, committerDateResult] = await Promise.allSettled([
-				this.getRebaseStatus(repoPath),
-				this.git.log__recent_committerdate(repoPath, commitOrdering),
-			]);
+				const [name, upstream] = data[0].split('\n');
+				if (isDetachedHead(name)) {
+					const [rebaseStatusResult, committerDateResult] = await Promise.allSettled([
+						this.getRebaseStatus(repoPath),
+						this.git.log__recent_committerdate(repoPath, commitOrdering),
+					]);
 
-			const committerDate = getSettledValue(committerDateResult);
-			const rebaseStatus = getSettledValue(rebaseStatusResult);
+					const committerDate = getSettledValue(committerDateResult);
+					const rebaseStatus = getSettledValue(rebaseStatusResult);
 
-			branch = new GitBranch(
-				this.container,
-				repoPath,
-				rebaseStatus?.incoming.name ?? name,
-				false,
-				true,
-				committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
-				data[1],
-				upstream ? { name: upstream, missing: false } : undefined,
-				undefined,
-				undefined,
-				undefined,
-				rebaseStatus != null,
-			);
+					branch = new GitBranch(
+						this.container,
+						repoPath,
+						rebaseStatus?.incoming.name ?? name,
+						false,
+						true,
+						committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
+						data[1],
+						upstream ? { name: upstream, missing: false } : undefined,
+						undefined,
+						undefined,
+						undefined,
+						rebaseStatus != null,
+					);
+				}
+
+				return branch;
+			}
+
+			branchPromise = load.call(this);
+
+			if (this.useCaching) {
+				this._branchCache.set(repoPath, branchPromise);
+			}
 		}
 
-		return branch;
+		return branchPromise;
 	}
 
 	@log({ args: { 1: false } })
@@ -4797,7 +4815,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log({ args: { 1: false } })
-	async getRemotes(repoPath: string | undefined, options?: { sort?: boolean }): Promise<GitRemote[]> {
+	async getRemotes(
+		repoPath: string | undefined,
+		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
+	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
 		const scope = getLogScope();
@@ -4832,7 +4853,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		const remotes = await remotesPromise;
+		let remotes = await remotesPromise;
+		if (options?.filter != null) {
+			remotes = remotes.filter(options.filter);
+		}
+
 		if (options?.sort) {
 			sortRemotes(remotes);
 		}
@@ -4936,7 +4961,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getStatusForFile(repoPath: string, pathOrUri: string | Uri): Promise<GitStatusFile | undefined> {
-		const status = await this.getStatusForRepo(repoPath);
+		const status = await this.getStatus(repoPath);
 		if (!status?.files.length) return undefined;
 
 		const [relativePath] = splitPath(pathOrUri, repoPath);
@@ -4952,7 +4977,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		relativePath = relativePath.substring(0, relativePath.length - 1);
-		const status = await this.getStatusForRepo(repoPath);
+		const status = await this.getStatus(repoPath);
 		if (!status?.files.length) return undefined;
 
 		const files = status.files.filter(f => f.path.startsWith(relativePath));
@@ -4960,7 +4985,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined> {
+	async getStatus(repoPath: string | undefined): Promise<GitStatus | undefined> {
 		if (repoPath == null) return undefined;
 
 		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
@@ -5933,7 +5958,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async deleteWorktree(repoPath: string, path: string, options?: { force?: boolean }) {
+	async deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean }) {
 		const scope = getLogScope();
 
 		await this.ensureGitVersion(
@@ -5943,7 +5968,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		);
 
 		try {
-			await this.git.worktree__remove(repoPath, normalizePath(path), options);
+			await this.git.worktree__remove(
+				repoPath,
+				normalizePath(typeof path === 'string' ? path : path.fsPath),
+				options,
+			);
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['worktrees'] });
 		} catch (ex) {
 			Logger.error(ex, scope);
