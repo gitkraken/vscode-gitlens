@@ -78,7 +78,7 @@ export class RepositoryIdentityService implements Disposable {
 			// As a fallback, try to match using the repo id.
 			for (const repo of this.container.git.repositories) {
 				if (remoteDomain != null && remotePath != null) {
-					const matchingRemotes = await repo.getRemotes({
+					const matchingRemotes = await repo.git.getRemotes({
 						filter: r => r.matches(remoteDomain, remotePath),
 					});
 					if (matchingRemotes.length > 0) {
@@ -145,7 +145,7 @@ export class RepositoryIdentityService implements Disposable {
 	) {
 		const repoPath = repo.uri.fsPath;
 
-		const remotes = await repo.getRemotes();
+		const remotes = await repo.git.getRemotes();
 		for (const remote of remotes) {
 			const remoteUrl = remote.provider?.url({ type: RemoteResourceType.Repo });
 			if (remoteUrl != null) {

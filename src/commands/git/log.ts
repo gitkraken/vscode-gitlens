@@ -118,7 +118,7 @@ export class LogGitCommand extends QuickCommand<State> {
 			assertStateStepRepository(state);
 
 			if (state.reference === 'HEAD') {
-				const branch = await state.repo.getBranch();
+				const branch = await state.repo.git.getBranch();
 				state.reference = branch;
 			}
 

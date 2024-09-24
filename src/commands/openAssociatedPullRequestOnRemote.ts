@@ -40,7 +40,7 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 				});
 				if (repo == null) return;
 
-				const branch = await repo?.getBranch();
+				const branch = await repo?.git.getBranch();
 				const pr = await branch?.getAssociatedPullRequest({ expiryOverride: true });
 
 				args =

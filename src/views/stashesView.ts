@@ -60,7 +60,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const stash = await child.repo.getStash();
+			const stash = await child.repo.git.getStash();
 			if (stash == null || stash.commits.size === 0) {
 				this.view.message = 'No stashes could be found.';
 				this.view.title = 'Stashes';

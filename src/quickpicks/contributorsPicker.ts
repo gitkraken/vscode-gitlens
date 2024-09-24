@@ -78,7 +78,7 @@ export async function showContributorsPicker(
 		quickpick.busy = true;
 		quickpick.show();
 
-		const contributors = await repository.getContributors();
+		const contributors = await repository.git.getContributors();
 		if (!deferred.pending) return;
 
 		const items = await Promise.all(

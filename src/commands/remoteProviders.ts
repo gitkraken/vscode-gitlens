@@ -54,7 +54,7 @@ export class ConnectRemoteProviderCommand extends Command {
 			const repos = new Map<Repository, GitRemote<RemoteProvider>>();
 
 			for (const repo of this.container.git.openRepositories) {
-				const remote = await repo.getBestRemoteWithIntegration({ includeDisconnected: true });
+				const remote = await repo.git.getBestRemoteWithIntegration({ includeDisconnected: true });
 				if (remote?.provider != null) {
 					repos.set(repo, remote);
 				}
@@ -149,7 +149,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 			const repos = new Map<Repository, GitRemote<RemoteProvider>>();
 
 			for (const repo of this.container.git.openRepositories) {
-				const remote = await repo.getBestRemoteWithIntegration({ includeDisconnected: false });
+				const remote = await repo.git.getBestRemoteWithIntegration({ includeDisconnected: false });
 				if (remote != null) {
 					repos.set(repo, remote);
 				}
