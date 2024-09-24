@@ -5840,7 +5840,7 @@
 			},
 			{
 				"command": "gitlens.showAccountView",
-				"title": "Show Account View",
+				"title": "Show Account on Home",
 				"category": "GitLens"
 			},
 			{
@@ -8090,12 +8090,6 @@
 				"icon": "$(refresh)"
 			},
 			{
-				"command": "gitlens.views.account.refresh",
-				"title": "Refresh",
-				"category": "GitLens",
-				"icon": "$(refresh)"
-			},
-			{
 				"command": "gitlens.views.launchpad.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -9943,7 +9937,7 @@
 				},
 				{
 					"command": "gitlens.showAccountView",
-					"when": "gitlens:enabled"
+					"when": "false"
 				},
 				{
 					"command": "gitlens.showInCommitGraph",
@@ -11487,10 +11481,6 @@
 				},
 				{
 					"command": "gitlens.views.home.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.account.refresh",
 					"when": "false"
 				},
 				{
@@ -13331,11 +13321,6 @@
 				{
 					"command": "gitlens.views.home.refresh",
 					"when": "view =~ /^gitlens\\.views\\.home/",
-					"group": "navigation@99"
-				},
-				{
-					"command": "gitlens.views.account.refresh",
-					"when": "view =~ /^gitlens\\.views\\.account/",
 					"group": "navigation@99"
 				},
 				{
@@ -17642,15 +17627,6 @@
 					"icon": "$(gitlens-workspaces-view)",
 					"initialSize": 2,
 					"visibility": "visible"
-				},
-				{
-					"type": "webview",
-					"id": "gitlens.views.account",
-					"name": "GitKraken Account",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-gitlens)",
-					"initialSize": 1,
-					"visibility": "collapsed"
 				}
 			],
 			"gitlensInspect": [

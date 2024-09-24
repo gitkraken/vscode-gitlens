@@ -22,14 +22,7 @@ export type TreeViewIds<T extends TreeViewTypes = TreeViewTypes> = `gitlens.view
 export type WebviewTypes = 'focus' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome';
 export type WebviewIds = `gitlens.${WebviewTypes}`;
 
-export type WebviewViewTypes =
-	| 'account'
-	| 'commitDetails'
-	| 'graph'
-	| 'graphDetails'
-	| 'home'
-	| 'patchDetails'
-	| 'timeline';
+export type WebviewViewTypes = 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'patchDetails' | 'timeline';
 export type WebviewViewIds<T extends WebviewViewTypes = WebviewViewTypes> = `gitlens.views.${T}`;
 
 export type ViewTypes = TreeViewTypes | WebviewViewTypes;
@@ -72,7 +65,7 @@ export const viewIdsByDefaultContainerId = new Map<ViewContainerIds | CoreViewCo
 		'workbench.view.extension.gitlensInspect',
 		['commitDetails', 'fileHistory', 'lineHistory', 'timeline', 'searchAndCompare'],
 	],
-	['workbench.view.extension.gitlens', ['home', 'workspaces', 'account']],
+	['workbench.view.extension.gitlens', ['home', 'workspaces']],
 ]);
 
 export type TreeViewRefNodeTypes = 'branch' | 'commit' | 'stash' | 'tag';
