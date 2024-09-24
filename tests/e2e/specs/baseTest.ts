@@ -16,6 +16,8 @@ type TestFixtures = TestOptions & {
 	createTmpDir: () => Promise<string>;
 };
 
+export const MaxTimeout = 10000;
+
 let testProjectPath: string;
 export const test = base.extend<TestFixtures>({
 	vscodeVersion: ['insiders', { option: true }],
