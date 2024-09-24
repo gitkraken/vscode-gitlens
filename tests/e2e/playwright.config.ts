@@ -22,4 +22,5 @@ export default defineConfig({
 			},
 		},
 	],
+	testMatch: 'specs/*.test.ts',
 });
