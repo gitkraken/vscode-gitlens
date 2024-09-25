@@ -518,6 +518,7 @@ export class LaunchpadProvider implements Disposable {
 	async openInGraph(item: LaunchpadItem) {
 		const deepLinkUrl = this.getItemBranchDeepLink(item);
 		if (deepLinkUrl == null) return;
+
 		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false);
 	}
 
@@ -526,8 +527,9 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	private getItemBranchDeepLink(item: LaunchpadItem, action?: DeepLinkActionType): Uri | undefined {
-		if (item.type !== 'pullrequest' || item.headRef == null || item.repoIdentity?.remote?.url == null)
+		if (item.type !== 'pullrequest' || item.headRef == null || item.repoIdentity?.remote?.url == null) {
 			return undefined;
+		}
 
 		const branchName =
 			action == null && item.openRepository?.localBranch?.current

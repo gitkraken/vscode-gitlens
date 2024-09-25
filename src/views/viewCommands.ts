@@ -792,11 +792,15 @@ export class ViewCommands {
 					skipWorktreeConfirmations: true,
 				},
 			});
-		} else if (node.is('pullrequest') || node.is('launchpad-item')) {
+		}
+
+		if (node.is('pullrequest') || node.is('launchpad-item')) {
 			const pr = node.pullRequest;
 			if (pr?.refs?.head == null) return Promise.resolve();
+
 			const repoIdentity = getRepositoryIdentityForPullRequest(pr);
 			if (repoIdentity.remote.url == null) return Promise.resolve();
+
 			const deepLink = getPullRequestBranchDeepLink(
 				this.container,
 				pr.refs.head.branch,
