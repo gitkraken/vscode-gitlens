@@ -39,6 +39,8 @@ export type RepoGitProviderService = Pick<
 		[K in keyof GitProviderService]: RemoveFirstArg<GitProviderService[K]>;
 	},
 	| keyof GitProviderRepository
+	| 'branchCreate'
+	| 'branchRename'
 	| 'getBestRemoteWithIntegration'
 	| 'getBranch'
 	| 'getRemote'
@@ -558,11 +560,6 @@ export class Repository implements Disposable {
 		await this.git.addRemote(name, url, options);
 		const [remote] = await this.git.getRemotes({ filter: r => r.url === url });
 		return remote;
-	}
-
-	@log()
-	branch(...args: string[]) {
-		void this.runTerminalCommand('branch', ...args);
 	}
 
 	@log()

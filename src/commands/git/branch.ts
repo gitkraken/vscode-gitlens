@@ -393,7 +393,7 @@ export class BranchGitCommand extends QuickCommand {
 			if (state.flags.includes('--switch')) {
 				await state.repo.switch(state.reference.ref, { createBranch: state.name });
 			} else {
-				state.repo.branch(...state.flags, state.name, state.reference.ref);
+				await state.repo.git.branchCreate(state.name, state.reference.ref);
 			}
 		}
 	}
@@ -614,7 +614,7 @@ export class BranchGitCommand extends QuickCommand {
 			state.flags = result;
 
 			endSteps(state);
-			state.repo.branch(...state.flags, state.reference.ref, state.name);
+			await state.repo.git.branchRename(state.reference.ref, state.name);
 		}
 	}
 

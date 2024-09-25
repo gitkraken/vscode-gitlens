@@ -26,6 +26,7 @@ import {
 import { Features } from '../../../../features';
 import { GitSearchError } from '../../../../git/errors';
 import type {
+	GitBranchOptions,
 	GitCaches,
 	GitProvider,
 	LeftRightCommitCountResult,
@@ -442,6 +443,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getWorkingUri(repoPath: string, uri: Uri) {
 		return this.createVirtualUri(repoPath, undefined, uri.path);
 	}
+
+	@log()
+	async branch(_repoPath: string, _options: GitBranchOptions): Promise<void> {}
 
 	@log()
 	async branchContainsCommit(_repoPath: string, _name: string, _ref: string): Promise<boolean> {

@@ -112,6 +112,17 @@ export interface RepositoryVisibilityInfo {
 	remotesHash?: string;
 }
 
+export type GitBranchOptions = {
+	rename?: {
+		old: string;
+		new: string;
+	};
+	create?: {
+		name: string;
+		startRef: string;
+	};
+};
+
 export interface GitProviderRepository {
 	addRemote?(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
 	pruneRemote?(repoPath: string, name: string): Promise<void>;
@@ -477,6 +488,7 @@ export interface GitProvider extends GitProviderRepository, Disposable {
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 
 	applyChangesToWorkingFile?(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
+	branch(_repoPath: string, _options: GitBranchOptions): Promise<void>;
 	clone?(url: string, parentPath: string): Promise<string | undefined>;
 	/**
 	 * Returns the blame of a file
