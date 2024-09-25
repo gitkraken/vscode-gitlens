@@ -250,11 +250,6 @@ export class Container {
 		this._disposables.push((this._graphView = registerGraphWebviewView(this._webviews)));
 		this._disposables.push(new GraphStatusBarController(this));
 
-		// NOTE: Commenting out for now as we are deprecating this
-		// const focusPanels = registerFocusWebviewPanel(this._webviews);
-		// this._disposables.push(focusPanels);
-		// this._disposables.push(registerFocusWebviewCommands(focusPanels));
-
 		const timelinePanels = registerTimelineWebviewPanel(this._webviews);
 		this._disposables.push(timelinePanels);
 		this._disposables.push(registerTimelineWebviewCommands(timelinePanels));
