@@ -72,8 +72,7 @@ import { GlCheckbox } from '../../shared/components/checkbox';
 import { CodeIcon } from '../../shared/components/code-icon.react';
 import { GlConnect } from '../../shared/components/integrations/connect.react';
 import { GlMarkdown } from '../../shared/components/markdown/markdown.react';
-import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
-import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
+import { MenuDivider, MenuItem, MenuLabel } from '../../shared/components/menu/react';
 import { GlPopover } from '../../shared/components/overlays/popover.react';
 import { GlTooltip } from '../../shared/components/overlays/tooltip.react';
 import type { RadioGroup } from '../../shared/components/radio/radio-group';
@@ -1325,77 +1324,83 @@ export function GraphWrapper({
 									<SlOption value="current">Current Branch</SlOption>
 								</SlSelect>
 							</GlTooltip>
-							<GlTooltip placement="top">
-								<PopMenu>
-									<button type="button" className="action-button" slot="trigger">
+							<GlPopover
+								className="popover"
+								placement="bottom-start"
+								trigger="focus"
+								arrow={false}
+								distance={0}
+							>
+								<GlTooltip placement="top" slot="anchor">
+									<button type="button" className="action-button">
 										<span className={`codicon codicon-filter${hasFilters ? '-filled' : ''}`}></span>
 										<span
 											className="codicon codicon-chevron-down action-button__more"
 											aria-hidden="true"
 										></span>
 									</button>
-									<MenuList slot="content">
-										<MenuLabel>Graph Filters</MenuLabel>
-										{repo?.isVirtual !== true && (
-											<>
-												<MenuItem role="none">
-													<GlTooltip
-														placement="right"
-														content="Only follow the first parent of merge commits to provide a more linear history"
-													>
-														<GlCheckbox
-															value="onlyFollowFirstParent"
-															onChange={handleFilterChange}
-															defaultChecked={graphConfig?.onlyFollowFirstParent ?? false}
-														>
-															Simplify Merge History
-														</GlCheckbox>
-													</GlTooltip>
-												</MenuItem>
-												<MenuDivider></MenuDivider>
-												<MenuItem role="none">
+									<span slot="content">Graph Filtering</span>
+								</GlTooltip>
+								<div slot="content">
+									<MenuLabel>Graph Filters</MenuLabel>
+									{repo?.isVirtual !== true && (
+										<>
+											<MenuItem role="none">
+												<GlTooltip
+													placement="right"
+													content="Only follow the first parent of merge commits to provide a more linear history"
+												>
 													<GlCheckbox
-														value="remotes"
+														value="onlyFollowFirstParent"
 														onChange={handleFilterChange}
-														defaultChecked={excludeTypes?.remotes ?? false}
+														defaultChecked={graphConfig?.onlyFollowFirstParent ?? false}
 													>
-														Hide Remote-only Branches
+														Simplify Merge History
 													</GlCheckbox>
-												</MenuItem>
-												<MenuItem role="none">
-													<GlCheckbox
-														value="stashes"
-														onChange={handleFilterChange}
-														defaultChecked={excludeTypes?.stashes ?? false}
-													>
-														Hide Stashes
-													</GlCheckbox>
-												</MenuItem>
-											</>
-										)}
-										<MenuItem role="none">
-											<GlCheckbox
-												value="tags"
-												onChange={handleFilterChange}
-												defaultChecked={excludeTypes?.tags ?? false}
-											>
-												Hide Tags
-											</GlCheckbox>
-										</MenuItem>
-										<MenuDivider></MenuDivider>
-										<MenuItem role="none">
-											<GlCheckbox
-												value="mergeCommits"
-												onChange={handleFilterChange}
-												defaultChecked={graphConfig?.dimMergeCommits ?? false}
-											>
-												Dim Merge Commit Rows
-											</GlCheckbox>
-										</MenuItem>
-									</MenuList>
-								</PopMenu>
-								<span slot="content">Graph Filtering</span>
-							</GlTooltip>
+												</GlTooltip>
+											</MenuItem>
+											<MenuDivider></MenuDivider>
+											<MenuItem role="none">
+												<GlCheckbox
+													value="remotes"
+													onChange={handleFilterChange}
+													defaultChecked={excludeTypes?.remotes ?? false}
+												>
+													Hide Remote-only Branches
+												</GlCheckbox>
+											</MenuItem>
+											<MenuItem role="none">
+												<GlCheckbox
+													value="stashes"
+													onChange={handleFilterChange}
+													defaultChecked={excludeTypes?.stashes ?? false}
+												>
+													Hide Stashes
+												</GlCheckbox>
+											</MenuItem>
+										</>
+									)}
+									<MenuItem role="none">
+										<GlCheckbox
+											value="tags"
+											onChange={handleFilterChange}
+											defaultChecked={excludeTypes?.tags ?? false}
+										>
+											Hide Tags
+										</GlCheckbox>
+									</MenuItem>
+									<MenuDivider></MenuDivider>
+									<MenuItem role="none">
+										<GlCheckbox
+											value="mergeCommits"
+											onChange={handleFilterChange}
+											defaultChecked={graphConfig?.dimMergeCommits ?? false}
+										>
+											Dim Merge Commit Rows
+										</GlCheckbox>
+									</MenuItem>
+								</div>
+							</GlPopover>
 							<span>
 								<span className="action-divider"></span>
 							</span>
@@ -1432,117 +1437,110 @@ export function GraphWrapper({
 									</button>
 									<span slot="content">Toggle Minimap</span>
 								</GlTooltip>
-								<GlTooltip placement="top" distance={7}>
-									<PopMenu position="right">
-										<button
-											type="button"
-											className="action-button"
-											slot="trigger"
-											aria-label="Minimap Options"
-										>
+								<GlPopover
+									className="popover"
+									placement="bottom-end"
+									trigger="focus"
+									arrow={false}
+									distance={0}
+								>
+									<GlTooltip placement="top" distance={7} slot="anchor">
+										<button type="button" className="action-button" aria-label="Minimap Options">
 											<span
 												className="codicon codicon-chevron-down action-button__more"
 												aria-hidden="true"
 											></span>
 										</button>
-										<MenuList slot="content">
-											<MenuLabel>Minimap</MenuLabel>
+										<span slot="content">Minimap Options</span>
+									</GlTooltip>
+									<div slot="content">
+										<MenuLabel>Minimap</MenuLabel>
+										<MenuItem role="none">
 											<GlRadioGroup
 												value={graphConfig?.minimapDataType ?? 'commits'}
 												onChange={handleOnMinimapDataTypeChange}
 											>
-												<MenuItem role="none">
-													<GlRadio name="minimap-datatype" value="commits">
-														Commits
-													</GlRadio>
-												</MenuItem>
-												<MenuItem role="none">
-													<GlRadio name="minimap-datatype" value="lines">
-														Lines Changed
-													</GlRadio>
-												</MenuItem>
+												<GlRadio name="minimap-datatype" value="commits">
+													Commits
+												</GlRadio>
+												<GlRadio name="minimap-datatype" value="lines">
+													Lines Changed
+												</GlRadio>
 											</GlRadioGroup>
-											<MenuDivider></MenuDivider>
-											<MenuLabel>Markers</MenuLabel>
-											<MenuItem role="none">
-												<GlCheckbox
-													value="localBranches"
-													onChange={handleOnMinimapAdditionalTypesChange}
-													defaultChecked={
-														graphConfig?.minimapMarkerTypes?.includes('localBranches') ??
-														false
-													}
-												>
-													<span
-														className="minimap-marker-swatch"
-														data-marker="localBranches"
-													></span>
-													Local Branches
-												</GlCheckbox>
-											</MenuItem>
-											<MenuItem role="none">
-												<GlCheckbox
-													value="remoteBranches"
-													onChange={handleOnMinimapAdditionalTypesChange}
-													defaultChecked={
-														graphConfig?.minimapMarkerTypes?.includes('remoteBranches') ??
-														true
-													}
-												>
-													<span
-														className="minimap-marker-swatch"
-														data-marker="remoteBranches"
-													></span>
-													Remote Branches
-												</GlCheckbox>
-											</MenuItem>
-											<MenuItem role="none">
-												<GlCheckbox
-													value="pullRequests"
-													onChange={handleOnMinimapAdditionalTypesChange}
-													defaultChecked={
-														graphConfig?.minimapMarkerTypes?.includes('pullRequests') ??
-														true
-													}
-												>
-													<span
-														className="minimap-marker-swatch"
-														data-marker="pullRequests"
-													></span>
-													Pull Requests
-												</GlCheckbox>
-											</MenuItem>
-											<MenuItem role="none">
-												<GlCheckbox
-													value="stashes"
-													onChange={handleOnMinimapAdditionalTypesChange}
-													defaultChecked={
-														graphConfig?.minimapMarkerTypes?.includes('stashes') ?? false
-													}
-												>
-													<span
-														className="minimap-marker-swatch"
-														data-marker="stashes"
-													></span>
-													Stashes
-												</GlCheckbox>
-											</MenuItem>
-											<MenuItem role="none">
-												<GlCheckbox
-													value="tags"
-													onChange={handleOnMinimapAdditionalTypesChange}
-													defaultChecked={
-														graphConfig?.minimapMarkerTypes?.includes('tags') ?? true
-													}
-												>
-													<span className="minimap-marker-swatch" data-marker="tags"></span>
-													Tags
-												</GlCheckbox>
-											</MenuItem>
-										</MenuList>
-									</PopMenu>
-									<span slot="content">Minimap Options</span>
-								</GlTooltip>
+										</MenuItem>
+										<MenuDivider></MenuDivider>
+										<MenuLabel>Markers</MenuLabel>
+										<MenuItem role="none">
+											<GlCheckbox
+												value="localBranches"
+												onChange={handleOnMinimapAdditionalTypesChange}
+												defaultChecked={
+													graphConfig?.minimapMarkerTypes?.includes('localBranches') ?? false
+												}
+											>
+												<span
+													className="minimap-marker-swatch"
+													data-marker="localBranches"
+												></span>
+												Local Branches
+											</GlCheckbox>
+										</MenuItem>
+										<MenuItem role="none">
+											<GlCheckbox
+												value="remoteBranches"
+												onChange={handleOnMinimapAdditionalTypesChange}
+												defaultChecked={
+													graphConfig?.minimapMarkerTypes?.includes('remoteBranches') ?? true
+												}
+											>
+												<span
+													className="minimap-marker-swatch"
+													data-marker="remoteBranches"
+												></span>
+												Remote Branches
+											</GlCheckbox>
+										</MenuItem>
+										<MenuItem role="none">
+											<GlCheckbox
+												value="pullRequests"
+												onChange={handleOnMinimapAdditionalTypesChange}
+												defaultChecked={
+													graphConfig?.minimapMarkerTypes?.includes('pullRequests') ?? true
+												}
+											>
+												<span
+													className="minimap-marker-swatch"
+													data-marker="pullRequests"
+												></span>
+												Pull Requests
+											</GlCheckbox>
+										</MenuItem>
+										<MenuItem role="none">
+											<GlCheckbox
+												value="stashes"
+												onChange={handleOnMinimapAdditionalTypesChange}
+												defaultChecked={
+													graphConfig?.minimapMarkerTypes?.includes('stashes') ?? false
+												}
+											>
+												<span className="minimap-marker-swatch" data-marker="stashes"></span>
+												Stashes
+											</GlCheckbox>
+										</MenuItem>
+										<MenuItem role="none">
+											<GlCheckbox
+												value="tags"
+												onChange={handleOnMinimapAdditionalTypesChange}
+												defaultChecked={
+													graphConfig?.minimapMarkerTypes?.includes('tags') ?? true
+												}
+											>
+												<span className="minimap-marker-swatch" data-marker="tags"></span>
+												Tags
+											</GlCheckbox>
+										</MenuItem>
+									</div>
+								</GlPopover>
 							</span>
 						</div>
 					</div>
