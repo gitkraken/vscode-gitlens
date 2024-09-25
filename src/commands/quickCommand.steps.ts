@@ -1267,8 +1267,9 @@ export function* pickCommitsStep<
 	},
 ): StepResultGenerator<GitRevisionReference[]> {
 	async function getItems(log: GitLog | undefined) {
-		if (log == null)
+		if (log == null) {
 			return [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)];
+		}
 
 		const items = [];
 
