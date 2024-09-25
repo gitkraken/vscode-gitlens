@@ -33,7 +33,7 @@ import { registerCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
 import type { KeyboardScope } from '../system/vscode/keyboard';
-import { ResourceSet } from '../system/vscode/map';
+import { UriSet } from '../system/vscode/uriMap';
 import { isTrackableTextEditor } from '../system/vscode/utils';
 import type {
 	DocumentBlameStateChangeEvent,
@@ -328,8 +328,8 @@ export class FileAnnotationController implements Disposable {
 		debouncedRestore(editor);
 	}
 
-	private readonly _annotatedUris = new ResourceSet();
-	private readonly _computingUris = new ResourceSet();
+	private readonly _annotatedUris = new UriSet();
+	private readonly _computingUris = new UriSet();
 
 	async onProviderEditorStatusChanged(editor: TextEditor | undefined, status: AnnotationStatus | undefined) {
 		if (editor == null) return;

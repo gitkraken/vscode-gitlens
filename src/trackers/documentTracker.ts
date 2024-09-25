@@ -22,7 +22,7 @@ import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
-import { ResourceSet } from '../system/vscode/map';
+import { UriSet } from '../system/vscode/uriMap';
 import { findTextDocument, isVisibleDocument } from '../system/vscode/utils';
 import type { TrackedGitDocument } from './trackedDocument';
 import { createTrackedGitDocument } from './trackedDocument';
@@ -415,8 +415,8 @@ export class GitDocumentTracker implements Disposable {
 		(tracked ?? (await docPromise))?.dispose();
 	}
 
-	private readonly _openUrisBlameable = new ResourceSet();
-	private readonly _openUrisTracked = new ResourceSet();
+	private readonly _openUrisBlameable = new UriSet();
+	private readonly _openUrisTracked = new UriSet();
 	private _updateContextDebounced: Deferrable<() => void> | undefined;
 
 	updateContext(uri: Uri, blameable: boolean, tracked: boolean) {
