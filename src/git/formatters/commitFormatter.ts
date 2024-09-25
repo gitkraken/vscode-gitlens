@@ -78,6 +78,8 @@ export interface CommitFormatOptions extends FormatOptions {
 		agoOrDate?: TokenOptions;
 		agoOrDateShort?: TokenOptions;
 		author?: TokenOptions;
+		authorFirst?: TokenOptions;
+		authorLast?: TokenOptions;
 		authorAgo?: TokenOptions;
 		authorAgoOrDate?: TokenOptions;
 		authorAgoOrDateShort?: TokenOptions;
@@ -201,8 +203,21 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get author(): string {
-		let { name, email } = this._item.author;
-		const author = this._padOrTruncate(name, this._options.tokenOptions.author);
+		return this.formatAuthor(this._item.author.name, this._item.author.email, this._options.tokenOptions.author);
+	}
+
+	get authorFirst(): string {
+		const [first] = this._item.author.name.split(' ');
+		return this.formatAuthor(first, this._item.author.email, this._options.tokenOptions.authorFirst);
+	}
+
+	get authorLast(): string {
+		const [first, last] = this._item.author.name.split(' ');
+		return this.formatAuthor(last || first, this._item.author.email, this._options.tokenOptions.authorLast);
+	}
+
+	private formatAuthor(name: string, email: string | undefined, tokenOptions: TokenOptions | undefined): string {
+		const author = this._padOrTruncate(name, tokenOptions);
 
 		switch (this._options.outputFormat) {
 			case 'markdown':
