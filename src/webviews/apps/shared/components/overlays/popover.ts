@@ -177,6 +177,9 @@ export class GlPopover extends GlElement {
 	@property({ reflect: true, type: Boolean })
 	open: boolean = false;
 
+	@property({ reflect: true, type: Boolean })
+	arrow: boolean = true;
+
 	/** The distance in pixels from which to offset the popover along its target. */
 	@property({ type: Number })
 	skidding = 0;
@@ -389,7 +392,7 @@ export class GlPopover extends GlElement {
 			flip-padding="3"
 			flip
 			shift
-			arrow
+			?arrow=${this.arrow}
 			hover-bridge
 		>
 			<div slot="anchor" aria-describedby="popover">
