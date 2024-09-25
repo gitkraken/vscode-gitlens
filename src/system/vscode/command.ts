@@ -32,7 +32,22 @@ export function registerCommand(command: string, callback: CommandCallback, this
 					}
 				}
 			}
-			Container.instance.telemetry.sendEvent('command', { command: command, context: context });
+
+			Container.instance.telemetry.sendEvent('command', {
+				command: command,
+				context: context,
+				'context.mode': context?.mode,
+				'context.submode': context?.submode,
+			});
+
+			if (command.startsWith('gitlens.graph.')) {
+				Container.instance.telemetry.sendEvent('graph/command', {
+					command: command,
+					'context.mode': context?.mode,
+					'context.submode': context?.submode,
+				});
+			}
+
 			callback.call(this, ...args);
 		},
 		thisArg,
@@ -43,10 +58,24 @@ export function registerWebviewCommand(command: string, callback: CommandCallbac
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {
+			const webview = isWebviewContext(args[0]) ? args[0].webview : undefined;
+
 			Container.instance.telemetry.sendEvent('command', {
 				command: command,
-				webview: isWebviewContext(args[0]) ? args[0].webview : '<missing>',
+				webview: webview ?? '<missing>',
 			});
+
+			if (
+				webview === 'gitlens.graph' ||
+				webview === 'gitlens.views.graph' ||
+				command.startsWith('gitlens.graph.')
+			) {
+				Container.instance.telemetry.sendEvent('graph/command', {
+					command: command,
+					webview: webview ?? '<missing>',
+				});
+			}
+
 			callback.call(this, ...args);
 		},
 		thisArg,
