@@ -1,64 +1,58 @@
 import { html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, queryAssignedElements } from 'lit/decorators.js';
 import { GlElement, observe } from '../element';
 import type { Radio } from './radio';
 import { radioStyles } from './radio.css';
 
 import '../code-icon';
 
-@customElement('gl-radio-group')
+export const tagName = 'gl-radio-group';
+
+@customElement(tagName)
 export class RadioGroup extends GlElement {
 	static override readonly styles = [radioStyles];
 
-	@property({ type: Boolean })
-	disabled: boolean;
+	@property({ type: Boolean, reflect: true })
+	disabled: boolean = false;
 
 	@property({ type: String })
-	value: string | null = null;
-
-	constructor() {
-		super();
-		this.disabled = false;
-	}
+	value?: string;
 
 	@observe(['value', 'disabled'])
 	private handleValueChange() {
-		Object.values(this.radioElements).forEach(radio => {
-			if (radio) {
-				radio.checked = radio.value === this.value;
-				radio.disabled = this.disabled;
+		this.updateRadioElements();
+	}
+
+	@queryAssignedElements({ flatten: true })
+	private radioEls!: Radio[];
+
+	override firstUpdated() {
+		this.role = 'group';
+	}
+
+	private updateRadioElements(updateParentGroup = false) {
+		this.radioEls.forEach(radio => {
+			if (updateParentGroup) {
+				radio.parentGroup = this;
 			}
+			radio.checked = radio.value === this.value;
+			radio.disabled = this.disabled;
 		});
+	}
+
+	override render() {
+		return html`<slot @slotchange=${() => this.updateRadioElements(true)}></slot>`;
 	}
 
 	setValue(value: string) {
 		this.value = value;
-		const event = new Event('gl-change-value');
+		const event = new CustomEvent('gl-change-value');
 		this.dispatchEvent(event);
 	}
+}
 
-	renderCheck() {
-		return html` <code-icon icon="check"></code-icon> `;
-	}
-	private radioElements: Partial<Record<string, Radio>> = {};
-
-	subscribeRadioElement(element: Radio) {
-		if (this.radioElements[element.value]) {
-			console.warn(
-				'be sure if you do not have the same value of radio in one group',
-				element,
-				this.radioElements,
-			);
-		}
-		this.radioElements[element.value] = element;
-		element.checked = element.value === this.value;
-		element.disabled = this.disabled;
-	}
-	unsubscribeRadioElement(element: Radio) {
-		this.radioElements[element.value] = undefined;
-	}
-
-	override render() {
-		return html`<slot></slot>`;
+declare global {
+	interface HTMLElementTagNameMap {
+		[tagName]: RadioGroup;
 	}
 }

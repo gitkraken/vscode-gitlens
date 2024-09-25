@@ -1,74 +1,68 @@
 import { html } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import { when } from 'lit/directives/when.js';
-import { GlElement, observe } from '../element';
+import { customElement, property } from 'lit/decorators.js';
+import { GlElement } from '../element';
+import { checkboxBaseStyles } from '../forms/checkbox.css';
 import type { RadioGroup } from './radio-group';
 import { radioStyles } from './radio.css';
 
 import '../code-icon';
 
-@customElement('gl-radio')
+export const tagName = 'gl-radio';
+
+@customElement(tagName)
 export class Radio extends GlElement {
-	static override readonly styles = [radioStyles];
+	static override shadowRootOptions: ShadowRootInit = {
+		...GlElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
 
-	@property({ type: Boolean })
-	disabled: boolean;
+	static override readonly styles = [checkboxBaseStyles, radioStyles];
+
+	@property({ type: Boolean, reflect: true })
+	disabled: boolean = false;
 
 	@property({ type: String })
-	value: string = '';
+	value?: string;
 
-	@property({ type: String })
-	name: string = '';
+	@property({ type: String, reflect: true })
+	name?: string;
 
-	@state()
+	@property({ type: Boolean, attribute: false })
 	checked: boolean = false;
 
-	private _parentGroup: RadioGroup | null = null;
-	private set parentGroup(value: RadioGroup | null) {
+	private _parentGroup: RadioGroup | undefined = undefined;
+	@property({ type: Object, attribute: false })
+	set parentGroup(value: RadioGroup | undefined) {
 		this._parentGroup = value;
 	}
-	private get parentGroup(): RadioGroup {
-		if (!this._parentGroup) {
-			console.error('Do not use radio without radio-group');
-			throw new Error('Do not use radio without radio-group');
-		}
+	get parentGroup() {
 		return this._parentGroup;
 	}
 
-	constructor() {
-		super();
-		this.disabled = false;
-	}
-
 	handleClick() {
-		this.parentGroup.setValue(this.value);
+		if (this.value) {
+			this.parentGroup?.setValue(this.value);
+		}
 	}
 
 	renderCircle() {
-		return html` <code-icon icon="circle-filled"></code-icon> `;
-	}
+		if (!this.checked) return undefined;
 
-	override connectedCallback(): void {
-		this.parentGroup = this.closest<RadioGroup>('gl-radio-group');
-		super.connectedCallback();
-	}
-
-	@observe(['value'])
-	private subscribeElement() {
-		if (this.value) this.parentGroup.subscribeRadioElement(this);
-	}
-
-	override disconnectedCallback(): void {
-		this.parentGroup.unsubscribeRadioElement(this);
-		super.disconnectedCallback();
+		return html`<code-icon icon="circle-filled"></code-icon>`;
 	}
 
 	override render() {
 		console.log('render', this.value, this.checked);
 		return html`<label ?aria-disabled=${this.disabled}
-			><button .disabled=${this.disabled} @click=${this.handleClick}></button>
-			<div class="control">${when(this.checked, this.renderCircle.bind(this))}</div>
-			<slot></slot>
+			><button class="input" .disabled=${this.disabled} @click=${this.handleClick}></button>
+			<div class="control">${this.renderCircle()}</div>
+			<slot class="label-text"></slot>
 		</label>`;
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		[tagName]: Radio;
 	}
 }
