@@ -30,6 +30,8 @@ import {
 	GitPullRequestState,
 } from '@gitkraken/provider-apis';
 import type { GitProvider } from '@gitkraken/provider-apis/dist/providers/gitProvider';
+import type { IntegrationId } from '../../../constants.integrations';
+import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Account as UserAccount } from '../../../git/models/author';
 import type { IssueMember, SearchedIssue } from '../../../git/models/issue';
 import { RepositoryAccessLevel } from '../../../git/models/issue';
@@ -68,25 +70,6 @@ export const ProviderBuildStatusState = GitBuildStatusState;
 export type ProviderRequestFunction = RequestFunction;
 export type ProviderRequestResponse<T> = Response<T>;
 export type ProviderRequestOptions = RequestOptions;
-
-export type IntegrationId = HostingIntegrationId | IssueIntegrationId | SelfHostedIntegrationId;
-
-export enum HostingIntegrationId {
-	GitHub = 'github',
-	GitLab = 'gitlab',
-	Bitbucket = 'bitbucket',
-	AzureDevOps = 'azureDevOps',
-}
-
-export enum IssueIntegrationId {
-	Jira = 'jira',
-	Trello = 'trello',
-}
-
-export enum SelfHostedIntegrationId {
-	GitHubEnterprise = 'github-enterprise',
-	GitLabSelfHosted = 'gitlab-self-hosted',
-}
 
 const selfHostedIntegrationIds: SelfHostedIntegrationId[] = [
 	SelfHostedIntegrationId.GitHubEnterprise,

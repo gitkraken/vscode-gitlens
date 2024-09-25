@@ -1,6 +1,7 @@
 import { getSupportedWorkspacesPathMappingProvider } from '@env/providers';
 import type { CancellationToken, Event, MessageItem, QuickPickItem } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { SubscriptionState } from '../../constants.subscription';
 import type { Container } from '../../container';
 import type { GitRemote } from '../../git/models/remote';
 import { RemoteResourceType } from '../../git/models/remoteResource';
@@ -10,7 +11,6 @@ import { log } from '../../system/decorators/log';
 import { normalizePath } from '../../system/path';
 import type { OpenWorkspaceLocation } from '../../system/vscode/utils';
 import { openWorkspace } from '../../system/vscode/utils';
-import { SubscriptionState } from '../gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
 import type { ServerConnection } from '../gk/serverConnection';
 import type {

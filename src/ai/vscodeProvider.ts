@@ -11,7 +11,6 @@ import { cloudPatchMessageSystemPrompt, codeSuggestMessageSystemPrompt, commitMe
 
 const provider = { id: 'vscode', name: 'VS Code Provided' } as const;
 
-export type VSCodeAIModels = `${string}:${string}`;
 type VSCodeAIModel = AIModel<typeof provider.id> & { vendor: string; selector: LanguageModelChatSelector };
 export function isVSCodeAIModel(model: AIModel): model is AIModel<typeof provider.id> {
 	return model.provider.id === provider.id;

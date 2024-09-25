@@ -2,6 +2,8 @@ import type { CancellationToken, Event, MessageItem } from 'vscode';
 import { EventEmitter, window } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
+import type { IntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
+import { HostingIntegrationId } from '../../constants.integrations';
 import type { Sources } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { AuthenticationError, CancellationError, RequestClientError } from '../../errors';
@@ -33,8 +35,6 @@ import type { ProviderAuthenticationSession } from './authentication/models';
 import type {
 	GetIssuesOptions,
 	GetPullRequestsOptions,
-	IntegrationId,
-	IssueIntegrationId,
 	PagedProjectInput,
 	PagedRepoInput,
 	ProviderAccount,
@@ -42,9 +42,8 @@ import type {
 	ProviderPullRequest,
 	ProviderRepoInput,
 	ProviderReposInput,
-	SelfHostedIntegrationId,
 } from './providers/models';
-import { HostingIntegrationId, IssueFilter, PagingMode, PullRequestFilter } from './providers/models';
+import { IssueFilter, PagingMode, PullRequestFilter } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
 
 export type IntegrationResult<T> =

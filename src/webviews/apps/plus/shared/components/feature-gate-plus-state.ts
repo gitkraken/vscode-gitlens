@@ -1,10 +1,10 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { Commands } from '../../../../../constants.commands';
+import { SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
-import { SubscriptionState } from '../../../../../plus/gk/account/subscription';
 import type { GlButton } from '../../../shared/components/button';
 import { linkStyles } from './vscode.css';
 import '../../../shared/components/button';

@@ -7,6 +7,8 @@ import type {
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { Commands } from '../../constants.commands';
+import type { IntegrationId } from '../../constants.integrations';
+import { HostingIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import { openComparisonChanges } from '../../git/actions/commit';
@@ -35,15 +37,10 @@ import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
 import type { IntegrationResult } from '../integrations/integration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
-import type {
-	EnrichablePullRequest,
-	IntegrationId,
-	ProviderActionablePullRequest,
-} from '../integrations/providers/models';
+import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
 	fromProviderPullRequest,
 	getActionablePullRequests,
-	HostingIntegrationId,
 	toProviderPullRequestWithUniqueId,
 } from '../integrations/providers/models';
 import type { EnrichableItem, EnrichedItem } from './enrichmentService';

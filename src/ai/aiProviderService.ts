@@ -1,6 +1,6 @@
 import type { CancellationToken, Disposable, MessageItem, ProgressOptions, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import type { AIModels, AIProviders, SupportedAIModels } from '../constants.ai';
+import type { AIModels, AIProviders, SupportedAIModels, VSCodeAIModels } from '../constants.ai';
 import type { AIGenerateDraftEventData, Sources, TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
@@ -19,7 +19,6 @@ import type { TelemetryService } from '../telemetry/telemetry';
 import { AnthropicProvider } from './anthropicProvider';
 import { GeminiProvider } from './geminiProvider';
 import { OpenAIProvider } from './openaiProvider';
-import type { VSCodeAIModels } from './vscodeProvider';
 import { isVSCodeAIModel, VSCodeAIProvider } from './vscodeProvider';
 
 export interface AIModel<

@@ -3,14 +3,13 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
+import { SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import {
 	getSubscriptionPlanName,
 	getSubscriptionTimeRemaining,
 	hasAccountFromSubscriptionState,
-	SubscriptionPlanId,
-	SubscriptionState,
 } from '../../../../../plus/gk/account/subscription';
 import { pluralize } from '../../../../../system/string';
 import type { State } from '../../../../home/protocol';

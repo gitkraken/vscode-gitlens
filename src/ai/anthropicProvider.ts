@@ -1,6 +1,7 @@
 import { fetch } from '@env/fetch';
 import type { CancellationToken } from 'vscode';
 import { window } from 'vscode';
+import type { AnthropicModels } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
@@ -24,15 +25,6 @@ function isLegacyModel(model: AnthropicModel): model is LegacyModel {
 function isSupportedModel(model: AnthropicModel): model is SupportedModel {
 	return !isLegacyModel(model);
 }
-
-export type AnthropicModels =
-	| 'claude-instant-1'
-	| 'claude-2'
-	| 'claude-2.1'
-	| 'claude-3-opus-20240229'
-	| 'claude-3-sonnet-20240229'
-	| 'claude-3-5-sonnet-20240620'
-	| 'claude-3-haiku-20240307';
 
 type AnthropicModel = AIModel<typeof provider.id>;
 

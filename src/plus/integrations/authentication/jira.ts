@@ -1,4 +1,4 @@
-import { IssueIntegrationId } from '../providers/models';
+import { IssueIntegrationId } from '../../../constants.integrations';
 import { CloudIntegrationAuthenticationProvider } from './integrationAuthentication';
 
 export class JiraAuthenticationProvider extends CloudIntegrationAuthenticationProvider<IssueIntegrationId.Jira> {

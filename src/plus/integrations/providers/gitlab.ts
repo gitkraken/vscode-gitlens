@@ -1,5 +1,6 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { window } from 'vscode';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
@@ -22,12 +23,7 @@ import type {
 import { HostingIntegration } from '../integration';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
 import type { ProviderPullRequest } from './models';
-import {
-	HostingIntegrationId,
-	ProviderPullRequestReviewState,
-	providersMetadata,
-	SelfHostedIntegrationId,
-} from './models';
+import { ProviderPullRequestReviewState, providersMetadata } from './models';
 import type { ProvidersApi } from './providersApi';
 
 const metadata = providersMetadata[HostingIntegrationId.GitLab];
