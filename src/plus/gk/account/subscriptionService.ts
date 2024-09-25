@@ -814,7 +814,9 @@ export class SubscriptionService implements Disposable {
 						window.onDidChangeWindowState,
 						2,
 					)(e => {
-						if (e.focused) resolve(true);
+						if (e.focused) {
+							resolve(true);
+						}
 					}),
 				),
 				new Promise<boolean>(resolve =>

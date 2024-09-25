@@ -3713,7 +3713,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		]);
 
 		ref = getSettledValue(branchResults)?.values[0]?.sha ?? getSettledValue(tagResults)?.values[0]?.sha;
-		if (ref == null) debugger;
+		if (ref == null) {
+			debugger;
+		}
 
 		return ref;
 	}

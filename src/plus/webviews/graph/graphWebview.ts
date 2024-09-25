@@ -3695,8 +3695,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		switch (refType) {
 			case 'branch':
-				if (!isGraphItemRefContext(item, 'branch') && !isGraphItemTypedContext(item, 'upstreamStatus'))
+				if (!isGraphItemRefContext(item, 'branch') && !isGraphItemTypedContext(item, 'upstreamStatus')) {
 					return { active: undefined, selection: [] };
+				}
 				break;
 			case 'revision':
 				if (!isGraphItemRefContext(item, 'revision')) return { active: undefined, selection: [] };

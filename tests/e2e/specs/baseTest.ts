@@ -75,6 +75,8 @@ export const test = base.extend<TestFixtures>({
 			tempDirs.push(tempDir);
 			return tempDir;
 		});
-		for (const tempDir of tempDirs) await fs.promises.rm(tempDir, { recursive: true });
+		for (const tempDir of tempDirs) {
+			await fs.promises.rm(tempDir, { recursive: true });
+		}
 	},
 });

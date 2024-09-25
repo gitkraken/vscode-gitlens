@@ -104,9 +104,9 @@ export class LaunchpadIndicator implements Disposable {
 	private async maybeLoadData(forceIfConnected: boolean = false) {
 		if (this.pollingEnabled) {
 			if (await this.provider.hasConnectedIntegration()) {
-				if (this._state === 'load' && this._categorizedItems != null && !forceIfConnected)
+				if (this._state === 'load' && this._categorizedItems != null && !forceIfConnected) {
 					this.updateStatusBarState('load', this._categorizedItems);
-				else {
+				} else {
 					this.updateStatusBarState('loading');
 				}
 			} else {
