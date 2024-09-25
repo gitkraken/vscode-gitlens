@@ -1,7 +1,7 @@
 import type { CancellationToken, Disposable, MessageItem, ProgressOptions, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { AIModels, AIProviders, SupportedAIModels } from '../constants.ai';
-import type { AIGenerateDraftEvent, Sources, TelemetryEvents } from '../constants.telemetry';
+import type { AIGenerateDraftEventData, Sources, TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import type { GitCommit } from '../git/models/commit';
@@ -285,7 +285,7 @@ export class AIProviderService implements Disposable {
 
 	async generateDraftMessage(
 		changesOrRepoOrPath: string[] | Repository | Uri,
-		sourceContext: { source: Sources; type: AIGenerateDraftEvent['draftType'] },
+		sourceContext: { source: Sources; type: AIGenerateDraftEventData['draftType'] },
 		options?: {
 			cancellation?: CancellationToken;
 			context?: string;

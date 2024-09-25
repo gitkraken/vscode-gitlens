@@ -94,10 +94,10 @@ export type TelemetryEvents = {
 	'ai/explain': {
 		type: 'change';
 		changeType: 'wip' | 'stash' | 'commit' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
-	} & AIEventBase;
+	} & AIEventDataBase;
 
 	/** Sent when generating summaries from commits, stashes, patches, etc. */
-	'ai/generate': (AIGenerateCommitEvent | AIGenerateDraftEvent) & AIEventBase;
+	'ai/generate': (AIGenerateCommitEventData | AIGenerateDraftEventData) & AIEventDataBase;
 
 	/** Sent when connecting to one or more cloud-based integrations*/
 	'cloudIntegrations/connecting': {
@@ -193,18 +193,12 @@ export type TelemetryEvents = {
 	};
 
 	/** Sent when a GitLens command is executed */
-	command:
-		| {
-				command: Commands.GitCommands;
-				context?: { mode?: string; submode?: string };
-		  }
-		| {
-				command: string;
-				context?: undefined;
-				webview?: string;
-		  };
+	command: CommandEventData;
 	/** Sent when a VS Code command is executed by a GitLens provided action */
 	'command/core': { command: string };
+
+	/** Sent when a "Graph" command is executed */
+	'graph/command': Omit<CommandEventData, 'context'>;
 
 	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/title/action': LaunchpadEventData & {
@@ -389,7 +383,7 @@ export type TelemetryEvents = {
 	};
 };
 
-type AIEventBase = {
+type AIEventDataBase = {
 	'model.id': AIModels;
 	'model.provider.id': AIProviders;
 	'model.provider.name': string;
@@ -401,14 +395,31 @@ type AIEventBase = {
 	'failed.error'?: string;
 };
 
-export type AIGenerateCommitEvent = {
+export type AIGenerateCommitEventData = {
 	type: 'commitMessage';
 };
 
-export type AIGenerateDraftEvent = {
+export type AIGenerateDraftEventData = {
 	type: 'draftMessage';
 	draftType: 'patch' | 'stash' | 'suggested_pr_change';
 };
+
+export type CommandEventData =
+	| {
+			command: Commands.GitCommands;
+			/** @deprecated Nested objects should not be used in telemetry */
+			context?: { mode?: string; submode?: string };
+			'context.mode'?: string;
+			'context.submode'?: string;
+			webview?: string;
+	  }
+	| {
+			command: string;
+			context?: never;
+			'context.mode'?: never;
+			'context.submode'?: never;
+			webview?: string;
+	  };
 
 export type LaunchpadTelemetryContext = LaunchpadEventData;
 
