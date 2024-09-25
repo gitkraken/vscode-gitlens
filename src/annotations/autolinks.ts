@@ -15,8 +15,9 @@ import { debug } from '../system/decorators/log';
 import { encodeUrl } from '../system/encoding';
 import { join, map } from '../system/iterable';
 import { Logger } from '../system/logger';
+import { escapeMarkdown } from '../system/markdown';
 import type { MaybePausedResult } from '../system/promise';
-import { capitalize, encodeHtmlWeak, escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
+import { capitalize, encodeHtmlWeak, escapeRegex, getSuperscript } from '../system/string';
 import { configuration } from '../system/vscode/configuration';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
