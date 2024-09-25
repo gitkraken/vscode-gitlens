@@ -1,8 +1,8 @@
 import { reactWrapper } from '../helpers/react-wrapper';
-import { Checkbox } from './checkbox';
+import { Checkbox, tagName } from './checkbox';
 
 export const GlCheckbox = reactWrapper(Checkbox, {
-	tagName: 'gl-checkbox',
+	tagName: tagName,
 	events: {
 		onChange: 'gl-change-value',
 	},
