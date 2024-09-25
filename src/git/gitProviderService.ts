@@ -19,6 +19,7 @@ import { SubscriptionPlanId } from '../constants.subscription';
 import type { Container } from '../container';
 import { AccessDeniedError, CancellationError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors';
 import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
+import { showGenericErrorMessage } from '../messages';
 import { getApplicablePromo } from '../plus/gk/account/promos';
 import type { Subscription } from '../plus/gk/account/subscription';
 import { isSubscriptionPaidPlan } from '../plus/gk/account/subscription';
@@ -44,6 +45,7 @@ import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
 import { getBestPath } from '../system/vscode/path';
 import type {
+	GitBranchOptions,
 	GitCaches,
 	GitDir,
 	GitProvider,
@@ -1336,6 +1338,38 @@ export class GitProviderService implements Disposable {
 		}
 
 		return provider.applyUnreachableCommitForPatch(path, ref, options);
+	}
+
+	@log()
+	branchCreate(repoPath: string, name: string, startRef: string): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		try {
+			return provider.branch(path, {
+				create: {
+					name: name,
+					startRef: startRef,
+				},
+			});
+		} catch (ex) {
+			Logger.error(ex);
+			return showGenericErrorMessage('Unable to create branch');
+		}
+	}
+
+	@log()
+	branchRename(repoPath: string, oldName: string, newName: string): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		try {
+			return provider.branch(path, {
+				rename: {
+					old: oldName,
+					new: newName,
+				},
+			});
+		} catch (ex) {
+			Logger.error(ex);
+			return showGenericErrorMessage('Unable to rename branch');
+		}
 	}
 
 	@log()
