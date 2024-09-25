@@ -1,13 +1,13 @@
 import { reactWrapper } from '../helpers/react-wrapper';
-import { Radio } from './radio';
-import { RadioGroup } from './radio-group';
+import { Radio, tagName as radioTagName } from './radio';
+import { RadioGroup, tagName as radioGroupTagName } from './radio-group';
 
 export const GlRadio = reactWrapper(Radio, {
-	tagName: 'gl-radio',
+	tagName: radioTagName,
 });
 
 export const GlRadioGroup = reactWrapper(RadioGroup, {
-	tagName: 'gl-radio-group',
+	tagName: radioGroupTagName,
 	events: {
 		onChange: 'gl-change-value',
 	},
