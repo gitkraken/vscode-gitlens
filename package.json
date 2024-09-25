@@ -48,7 +48,6 @@
 		"multi-root ready"
 	],
 	"activationEvents": [
-		"onAuthenticationRequest:gitlens-gitkraken",
 		"onFileSystem:gitlens",
 		"onWebviewPanel:gitlens.graph",
 		"onWebviewPanel:gitlens.patchDetails",
@@ -1224,7 +1223,7 @@
 				}
 			},
 			{
-				"id": "focus",
+				"id": "launchpad",
 				"title": "Launchpad (ᴘʀᴏ)",
 				"order": 60,
 				"properties": {
@@ -5780,18 +5779,6 @@
 				"icon": "$(rocket)"
 			},
 			{
-				"command": "gitlens.showFocusPage",
-				"title": "Open Launchpad in Editor",
-				"category": "GitLens",
-				"icon": "$(rocket)"
-			},
-			{
-				"command": "gitlens.launchpad.split",
-				"title": "Split Launchpad in Editor",
-				"category": "GitLens",
-				"icon": "$(split-horizontal)"
-			},
-			{
 				"command": "gitlens.launchpad.indicator.toggle",
 				"title": "Toggle Launchpad Indicator",
 				"category": "GitLens",
@@ -8798,12 +8785,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.launchpad.refresh",
-				"title": "Refresh",
-				"category": "GitLens",
-				"icon": "$(refresh)"
-			},
-			{
 				"command": "gitlens.graph.switchToEditorLayout",
 				"title": "Prefer Commit Graph in Editor",
 				"category": "GitLens",
@@ -9894,14 +9875,6 @@
 				{
 					"command": "gitlens.showLaunchpadView",
 					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showFocusPage",
-					"when": "false && gitlens:enabled"
-				},
-				{
-					"command": "gitlens.launchpad.split",
-					"when": "false && gitlens:enabled && config.gitlens.launchpad.allowMultiple"
 				},
 				{
 					"command": "gitlens.launchpad.indicator.toggle",
@@ -12036,10 +12009,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.launchpad.refresh",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.graph.copyRemoteBranchUrl",
 					"when": "false"
 				},
@@ -12654,16 +12623,6 @@
 					"group": "navigation@-98"
 				},
 				{
-					"command": "gitlens.launchpad.refresh",
-					"when": "activeWebviewPanelId === gitlens.focus",
-					"group": "navigation@-98"
-				},
-				{
-					"command": "gitlens.launchpad.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.launchpad.allowMultiple",
-					"group": "navigation@-97"
-				},
-				{
 					"command": "gitlens.graph.split",
 					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.graph && config.gitlens.graph.allowMultiple",
 					"group": "navigation@-97"
@@ -12704,11 +12663,6 @@
 					"submenu": "gitlens/editor/history",
 					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history && resourceScheme in gitlens:schemes:trackable",
 					"group": "2_a_gitlens_open_file@1"
-				},
-				{
-					"command": "gitlens.launchpad.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.launchpad.allowMultiple",
-					"group": "6_split_in_group_gitlens@2"
 				},
 				{
 					"command": "gitlens.graph.split",
