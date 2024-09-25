@@ -7,6 +7,8 @@ import { debounce } from '../../../../../system/function';
 import { GlElement } from '../element';
 import type { PopMenu } from '../overlays/pop-menu';
 import '../code-icon';
+import '../menu';
+import '../overlays/pop-menu';
 import '../overlays/tooltip';
 
 export interface SearchNavigationEventDetail {
