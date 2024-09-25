@@ -6,7 +6,6 @@ import type {
 } from '@gk-nzaytsev/fast-string-truncated-width';
 import getTruncatedStringWidth from '@gk-nzaytsev/fast-string-truncated-width';
 import { CharCode } from '../constants';
-import { escapeTripleBackticks } from './markdown';
 
 export { fromBase64, base64 } from '@env/base64';
 
@@ -129,44 +128,6 @@ export function encodeHtmlWeak(s: string | undefined): string | undefined {
 				return c;
 		}
 	});
-}
-
-const escapeMarkdownRegex = /[\\*_{}[\]()#+\-.!]/g;
-const unescapeMarkdownRegex = /\\([\\`*_{}[\]()#+\-.!])/g;
-
-const escapeMarkdownHeaderRegex = /^===/gm;
-const unescapeMarkdownHeaderRegex = /^\u200b===/gm;
-
-// const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
-const markdownQuotedRegex = /\r?\n/g;
-const markdownBacktickRegex = /`/g;
-
-export function escapeMarkdown(s: string, options: { quoted?: boolean; inlineBackticks?: boolean } = {}): string {
-	s = s
-		// Escape markdown
-		.replace(escapeMarkdownRegex, '\\$&')
-		// Escape markdown header (since the above regex won't match it)
-		.replace(escapeMarkdownHeaderRegex, '\u200b===');
-
-	if (options.inlineBackticks) {
-		s = escapeTripleBackticks(s);
-	} else {
-		s = s.replace(markdownBacktickRegex, '\\$&');
-	}
-	if (!options.quoted) return s;
-
-	// Keep under the same block-quote but with line breaks
-	return s.trim().replace(markdownQuotedRegex, '\t\\\n>  ');
-}
-
-export function unescapeMarkdown(s: string): string {
-	return (
-		s
-			// Unescape markdown
-			.replace(unescapeMarkdownRegex, '$1')
-			// Unescape markdown header
-			.replace(unescapeMarkdownHeaderRegex, '===')
-	);
 }
 
 export function escapeRegex(s: string) {
