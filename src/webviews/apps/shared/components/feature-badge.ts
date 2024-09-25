@@ -2,6 +2,7 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { Commands } from '../../../../constants.commands';
+import { SubscriptionPlanId, SubscriptionState } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
 import type { Promo } from '../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../plus/gk/account/promos';
@@ -11,8 +12,6 @@ import {
 	getSubscriptionTimeRemaining,
 	isSubscriptionPaid,
 	isSubscriptionStateTrial,
-	SubscriptionPlanId,
-	SubscriptionState,
 } from '../../../../plus/gk/account/subscription';
 import { pluralize } from '../../../../system/string';
 import type { GlPopover } from './overlays/popover';

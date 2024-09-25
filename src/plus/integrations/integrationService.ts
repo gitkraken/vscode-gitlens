@@ -1,6 +1,8 @@
 import { isWeb } from '@env/platform';
 import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
 import { authentication, Disposable, env, EventEmitter, ProgressLocation, Uri, window } from 'vscode';
+import type { IntegrationId, SupportedCloudIntegrationIds } from '../../constants.integrations';
+import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Source } from '../../constants.telemetry';
 import { sourceToContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
@@ -19,7 +21,6 @@ import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthentication';
-import type { SupportedCloudIntegrationIds } from './authentication/models';
 import {
 	CloudIntegrationAuthenticationUriPathPrefix,
 	getSupportedCloudIntegrationIds,
@@ -41,13 +42,7 @@ import type {
 	SupportedIssueIntegrationIds,
 	SupportedSelfHostedIntegrationIds,
 } from './integration';
-import type { IntegrationId } from './providers/models';
-import {
-	HostingIntegrationId,
-	isSelfHostedIntegrationId,
-	IssueIntegrationId,
-	SelfHostedIntegrationId,
-} from './providers/models';
+import { isSelfHostedIntegrationId } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
 
 export interface ConnectionStateChangeEvent {

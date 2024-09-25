@@ -1,53 +1,8 @@
 import type { AIModels, AIProviders } from './constants.ai';
 import type { Commands } from './constants.commands';
-import type { SubscriptionState } from './plus/gk/account/subscription';
-import type { SupportedCloudIntegrationIds } from './plus/integrations/authentication/models';
-import type { IntegrationId } from './plus/integrations/providers/models';
-import type { TelemetryEventData } from './telemetry/telemetry';
-import type { TrackedUsageKeys } from './telemetry/usageTracker';
-
-export type Sources =
-	| 'account'
-	| 'code-suggest'
-	| 'cloud-patches'
-	| 'commandPalette'
-	| 'deeplink'
-	| 'graph'
-	| 'home'
-	| 'inspect'
-	| 'inspect-overview'
-	| 'integrations'
-	| 'launchpad'
-	| 'launchpad-indicator'
-	| 'launchpad-view'
-	| 'notification'
-	| 'patchDetails'
-	| 'prompt'
-	| 'quick-wizard'
-	| 'remoteProvider'
-	| 'settings'
-	| 'timeline'
-	| 'trial-indicator'
-	| 'scm-input'
-	| 'subscription'
-	| 'walkthrough'
-	| 'welcome'
-	| 'worktrees';
-
-export type LoginContext = 'start_trial';
-
-export type ConnectIntegrationContext = 'launchpad';
-
-export type Context = LoginContext | ConnectIntegrationContext;
-
-export interface Source {
-	source: Sources;
-	detail?: string | TelemetryEventData;
-}
-
-export const sourceToContext: { [source in Sources]?: Context } = {
-	launchpad: 'launchpad',
-};
+import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
+import type { SubscriptionState } from './constants.subscription';
+import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
 
 export type TelemetryGlobalContext = {
 	'cloudIntegrations.connected.count': number;
@@ -97,7 +52,7 @@ export type TelemetryEvents = {
 	} & AIEventDataBase;
 
 	/** Sent when generating summaries from commits, stashes, patches, etc. */
-	'ai/generate': (AIGenerateCommitEventData | AIGenerateDraftEventData) & AIEventDataBase;
+	'ai/generate': AIGenerateCommitEventData | AIGenerateDraftEventData;
 
 	/** Sent when connecting to one or more cloud-based integrations*/
 	'cloudIntegrations/connecting': {
@@ -397,12 +352,12 @@ type AIEventDataBase = {
 
 export type AIGenerateCommitEventData = {
 	type: 'commitMessage';
-};
+} & AIEventDataBase;
 
 export type AIGenerateDraftEventData = {
 	type: 'draftMessage';
 	draftType: 'patch' | 'stash' | 'suggested_pr_change';
-};
+} & AIEventDataBase;
 
 export type CommandEventData =
 	| {
@@ -477,5 +432,66 @@ type SubscriptionEventData = {
 		Record<`previous.subscription.previewTrial.${string}`, string | number | boolean | undefined>
 >;
 
+export type LoginContext = 'start_trial';
+export type ConnectIntegrationContext = 'launchpad';
+export type Context = LoginContext | ConnectIntegrationContext;
 /** Used to provide a "source context" to gk.dev for both tracking and customization purposes */
 export type TrackingContext = 'graph' | 'launchpad' | 'visual_file_history' | 'worktrees';
+
+export type Sources =
+	| 'account'
+	| 'code-suggest'
+	| 'cloud-patches'
+	| 'commandPalette'
+	| 'deeplink'
+	| 'graph'
+	| 'home'
+	| 'inspect'
+	| 'inspect-overview'
+	| 'integrations'
+	| 'launchpad'
+	| 'launchpad-indicator'
+	| 'launchpad-view'
+	| 'notification'
+	| 'patchDetails'
+	| 'prompt'
+	| 'quick-wizard'
+	| 'remoteProvider'
+	| 'settings'
+	| 'timeline'
+	| 'trial-indicator'
+	| 'scm-input'
+	| 'subscription'
+	| 'walkthrough'
+	| 'welcome'
+	| 'worktrees';
+
+export type Source = {
+	source: Sources;
+	detail?: string | TelemetryEventData;
+};
+
+export const sourceToContext: { [source in Sources]?: Context } = {
+	launchpad: 'launchpad',
+};
+
+export declare type AttributeValue =
+	| string
+	| number
+	| boolean
+	| Array<null | undefined | string>
+	| Array<null | undefined | number>
+	| Array<null | undefined | boolean>;
+export type TelemetryEventData = Record<string, AttributeValue | null | undefined>;
+
+export type TrackedUsage = {
+	count: number;
+	firstUsedAt: number;
+	lastUsedAt: number;
+};
+
+export type TrackedUsageFeatures =
+	| `${WebviewTypes}Webview`
+	| `${TreeViewTypes | WebviewViewTypes}View`
+	| `${CustomEditorTypes}Editor`;
+export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown`;

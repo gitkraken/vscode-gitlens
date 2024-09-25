@@ -1,8 +1,8 @@
+import type { IntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
 import type { ServerConnection } from '../../gk/serverConnection';
-import type { IntegrationId } from '../providers/models';
 import type { CloudIntegrationAuthenticationSession, CloudIntegrationConnection } from './models';
 import { toCloudIntegrationType } from './models';
 

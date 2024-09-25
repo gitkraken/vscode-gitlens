@@ -6,6 +6,8 @@ export const previewBadge = 'ᴘʀᴇᴠɪᴇᴡ';
 export const proBadge = 'ᴘʀᴏ';
 export const proBadgeSuperscript = 'ᴾᴿᴼ';
 
+export type AnnotationStatus = 'computing' | 'computed';
+
 export const enum CharCode {
 	/**
 	 * The `#` character.
@@ -123,8 +125,6 @@ export const keys = Object.freeze([
 	'escape',
 ] as const);
 export type Keys = (typeof keys)[number];
-
-export type PromoKeys = 'launchpad' | 'launchpad-extended' | 'pro50';
 
 export const enum Schemes {
 	File = 'file',

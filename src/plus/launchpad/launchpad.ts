@@ -37,6 +37,8 @@ import { ensureAccessStep } from '../../commands/quickCommand.steps';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge, urls } from '../../constants';
 import { Commands } from '../../constants.commands';
+import type { IntegrationId } from '../../constants.integrations';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
@@ -52,13 +54,7 @@ import { executeCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
 import { getApplicablePromo } from '../gk/account/promos';
-import type { IntegrationId } from '../integrations/providers/models';
-import {
-	HostingIntegrationId,
-	ProviderBuildStatusState,
-	ProviderPullRequestReviewState,
-	SelfHostedIntegrationId,
-} from '../integrations/providers/models';
+import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
 import type {
 	LaunchpadAction,
 	LaunchpadActionCategory,

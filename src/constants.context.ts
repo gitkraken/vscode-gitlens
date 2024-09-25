@@ -1,8 +1,7 @@
 import type { Uri } from 'vscode';
-import type { AnnotationStatus } from './annotations/annotationProvider';
-import type { Keys, PromoKeys } from './constants';
+import type { AnnotationStatus, Keys } from './constants';
+import type { PromoKeys, SubscriptionPlanId, SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
-import type { SubscriptionPlanId, SubscriptionState } from './plus/gk/account/subscription';
 
 export type ContextKeys = {
 	'gitlens:debugging': boolean;

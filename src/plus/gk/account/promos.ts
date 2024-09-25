@@ -1,5 +1,5 @@
-import type { PromoKeys } from '../../../constants';
-import { SubscriptionState } from './subscription';
+import type { PromoKeys } from '../../../constants.subscription';
+import { SubscriptionState } from '../../../constants.subscription';
 
 export interface Promo {
 	readonly key: PromoKeys;

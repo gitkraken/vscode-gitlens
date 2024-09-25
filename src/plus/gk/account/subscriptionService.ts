@@ -24,6 +24,7 @@ import type { OpenWalkthroughCommandArgs } from '../../../commands/walkthroughs'
 import { urls } from '../../../constants';
 import type { CoreColors } from '../../../constants.colors';
 import { Commands } from '../../../constants.commands';
+import { SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
 import type { Source, TrackingContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { AccountValidationError, RequestsAreBlockedTemporarilyError } from '../../../errors';
@@ -65,8 +66,6 @@ import {
 	isSubscriptionInProTrial,
 	isSubscriptionPaid,
 	isSubscriptionTrial,
-	SubscriptionPlanId,
-	SubscriptionState,
 	SubscriptionUpdatedUriPathPrefix,
 } from './subscription';
 

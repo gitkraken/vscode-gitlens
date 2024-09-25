@@ -1,10 +1,10 @@
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config';
 import type { AIProviders } from './constants.ai';
+import type { IntegrationId } from './constants.integrations';
+import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
 import type { Environment } from './container';
 import type { Subscription } from './plus/gk/account/subscription';
 import type { Integration } from './plus/integrations/integration';
-import type { IntegrationId } from './plus/integrations/providers/models';
-import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
 
 export type SecretKeys =

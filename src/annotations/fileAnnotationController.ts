@@ -21,6 +21,7 @@ import {
 	workspace,
 } from 'vscode';
 import type { AnnotationsToggleMode, FileAnnotationType } from '../config';
+import type { AnnotationStatus } from '../constants';
 import type { Colors, CoreColors } from '../constants.colors';
 import type { Container } from '../container';
 import { debug, log } from '../system/decorators/log';
@@ -40,12 +41,7 @@ import type {
 	DocumentDirtyIdleTriggerEvent,
 	DocumentDirtyStateChangeEvent,
 } from '../trackers/documentTracker';
-import type {
-	AnnotationContext,
-	AnnotationProviderBase,
-	AnnotationStatus,
-	TextEditorCorrelationKey,
-} from './annotationProvider';
+import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
 import { getEditorCorrelationKey } from './annotationProvider';
 import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
 

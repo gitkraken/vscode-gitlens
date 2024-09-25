@@ -1,14 +1,13 @@
 import type { TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent } from 'vscode';
 import { Disposable, window } from 'vscode';
 import type { FileAnnotationType } from '../config';
+import type { AnnotationStatus } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../system/logger';
 import type { Deferred } from '../system/promise';
 import { defer } from '../system/promise';
 import type { TrackedGitDocument } from '../trackers/trackedDocument';
 import type { Decoration } from './annotations';
-
-export type AnnotationStatus = 'computing' | 'computed';
 
 export interface AnnotationContext {
 	selection?: { sha?: string; line?: never } | { sha?: never; line?: number } | false;

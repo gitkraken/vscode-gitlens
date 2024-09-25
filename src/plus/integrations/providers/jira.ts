@@ -1,13 +1,14 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import type { DynamicAutolinkReference } from '../../../annotations/autolinks';
 import type { AutolinkReference } from '../../../config';
+import { IssueIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
 import { filterMap, flatten } from '../../../system/iterable';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
 import type { ResourceDescriptor } from '../integration';
 import { IssueIntegration } from '../integration';
-import { IssueFilter, IssueIntegrationId, providersMetadata, toAccount, toSearchedIssue } from './models';
+import { IssueFilter, providersMetadata, toAccount, toSearchedIssue } from './models';
 
 const metadata = providersMetadata[IssueIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });

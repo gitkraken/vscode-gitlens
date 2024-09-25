@@ -1,4 +1,5 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
+import { HostingIntegrationId } from '../../../constants.integrations';
 import type { PagedResult } from '../../../git/gitProvider';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -15,7 +16,7 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { ResourceDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
 import type { ProviderRepository } from './models';
-import { HostingIntegrationId, providersMetadata } from './models';
+import { providersMetadata } from './models';
 
 const metadata = providersMetadata[HostingIntegrationId.AzureDevOps];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });

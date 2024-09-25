@@ -1,6 +1,7 @@
+import { SubscriptionPlanId } from '../../constants.subscription';
 import type { Organization } from './account/organization';
 import type { Subscription } from './account/subscription';
-import { getSubscriptionPlan, getSubscriptionPlanPriority, SubscriptionPlanId } from './account/subscription';
+import { getSubscriptionPlan, getSubscriptionPlanPriority } from './account/subscription';
 
 export interface GKCheckInResponse {
 	readonly user: GKUser;

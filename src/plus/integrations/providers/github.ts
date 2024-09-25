@@ -1,4 +1,5 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
@@ -19,7 +20,7 @@ import type {
 } from '../authentication/integrationAuthentication';
 import type { SupportedIntegrationIds } from '../integration';
 import { HostingIntegration } from '../integration';
-import { HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
+import { providersMetadata } from './models';
 import type { ProvidersApi } from './providersApi';
 
 const metadata = providersMetadata[HostingIntegrationId.GitHub];

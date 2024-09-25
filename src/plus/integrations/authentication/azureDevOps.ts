@@ -1,7 +1,7 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
+import { HostingIntegrationId } from '../../../constants.integrations';
 import { base64 } from '../../../system/string';
-import { HostingIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
 import { LocalIntegrationAuthenticationProvider } from './integrationAuthentication';
 import type { ProviderAuthenticationSession } from './models';

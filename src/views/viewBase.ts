@@ -32,6 +32,7 @@ import type {
 } from '../config';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
 import type { TreeViewCommandSuffixesByViewType } from '../constants.commands';
+import type { TrackedUsageFeatures } from '../constants.telemetry';
 import type { TreeViewIds, TreeViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { debug, log } from '../system/decorators/log';
@@ -42,7 +43,6 @@ import { getLogScope } from '../system/logger.scope';
 import { cancellable, isPromise } from '../system/promise';
 import { executeCoreCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
-import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { BranchesView } from './branchesView';
 import type { CommitsView } from './commitsView';
 import type { ContributorsView } from './contributorsView';

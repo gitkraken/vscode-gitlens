@@ -1,9 +1,10 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
 import type { ContextKeys } from '../../constants.context';
+import { SubscriptionState } from '../../constants.subscription';
 import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
-import { isSubscriptionPaid, SubscriptionState } from '../../plus/gk/account/subscription';
+import { isSubscriptionPaid } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { configuration } from '../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';

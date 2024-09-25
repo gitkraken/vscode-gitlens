@@ -1,7 +1,7 @@
 import { Commands } from '../constants.commands';
+import type { SupportedCloudIntegrationIds } from '../constants.integrations';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
-import type { SupportedCloudIntegrationIds } from '../plus/integrations/authentication/models';
 import { command } from '../system/vscode/command';
 import { Command } from './base';
 

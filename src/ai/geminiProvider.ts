@@ -1,6 +1,7 @@
 import { fetch } from '@env/fetch';
 import type { CancellationToken } from 'vscode';
 import { window } from 'vscode';
+import type { GeminiModels } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
@@ -13,7 +14,6 @@ import { cloudPatchMessageSystemPrompt, codeSuggestMessageSystemPrompt, commitMe
 
 const provider = { id: 'gemini', name: 'Google' } as const;
 
-export type GeminiModels = 'gemini-1.0-pro' | 'gemini-1.5-pro-latest' | 'gemini-1.5-flash-latest';
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [
 	{

@@ -2,8 +2,7 @@
 import './settings.scss';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations';
 import type { AutolinkReference } from '../../../config';
-import type { SupportedCloudIntegrationIds } from '../../../plus/integrations/authentication/models';
-import type { IssueIntegrationId } from '../../../plus/integrations/providers/models';
+import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
 import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
 import type { State } from '../../settings/protocol';

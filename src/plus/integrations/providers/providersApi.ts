@@ -3,6 +3,8 @@ import { fetch as _fetch, getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
 import ProviderApis from '@gitkraken/provider-apis';
 import { version as codeVersion, env } from 'vscode';
+import type { IntegrationId } from '../../../constants.integrations';
+import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
 import {
 	AuthenticationError,
@@ -31,7 +33,6 @@ import type {
 	GetPullRequestsOptions,
 	GetReposForAzureProjectFn,
 	GetReposOptions,
-	IntegrationId,
 	IssueFilter,
 	PageInfo,
 	PagingMode,
@@ -52,7 +53,7 @@ import type {
 	Providers,
 	PullRequestFilter,
 } from './models';
-import { HostingIntegrationId, IssueIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
+import { providersMetadata } from './models';
 
 export class ProvidersApi {
 	private readonly providers: Providers;

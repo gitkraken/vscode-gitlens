@@ -1,7 +1,13 @@
 import type { AuthenticationSession } from 'vscode';
+import type { IntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
+import {
+	HostingIntegrationId,
+	IssueIntegrationId,
+	SelfHostedIntegrationId,
+	supportedCloudIntegrationIds,
+	supportedCloudIntegrationIdsExperimental,
+} from '../../../constants.integrations';
 import { configuration } from '../../../system/vscode/configuration';
-import type { IntegrationId } from '../providers/models';
-import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../providers/models';
 
 export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly cloud: boolean;
@@ -31,15 +37,6 @@ export type CloudIntegrationType = 'jira' | 'trello' | 'gitlab' | 'github' | 'bi
 export type CloudIntegrationAuthType = 'oauth' | 'pat';
 
 export const CloudIntegrationAuthenticationUriPathPrefix = 'did-authenticate-cloud-integration';
-
-const supportedCloudIntegrationIds = [IssueIntegrationId.Jira];
-const supportedCloudIntegrationIdsExperimental = [
-	IssueIntegrationId.Jira,
-	HostingIntegrationId.GitHub,
-	HostingIntegrationId.GitLab,
-];
-
-export type SupportedCloudIntegrationIds = (typeof supportedCloudIntegrationIdsExperimental)[number];
 
 export function getSupportedCloudIntegrationIds(): SupportedCloudIntegrationIds[] {
 	return configuration.get('cloudIntegrations.enabled', undefined, true)

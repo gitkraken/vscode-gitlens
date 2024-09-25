@@ -4,6 +4,7 @@ import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge } from '../../constants';
 import type { Colors } from '../../constants.colors';
 import { Commands } from '../../constants.commands';
+import type { HostingIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { groupByMap } from '../../system/iterable';
 import { wait } from '../../system/promise';
@@ -11,7 +12,6 @@ import { pluralize } from '../../system/string';
 import { executeCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
-import type { HostingIntegrationId } from '../integrations/providers/models';
 import type { LaunchpadCommandArgs } from './launchpad';
 import type { LaunchpadGroup, LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
 import {

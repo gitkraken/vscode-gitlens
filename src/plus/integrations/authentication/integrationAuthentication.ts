@@ -1,19 +1,15 @@
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { CancellationToken, Disposable, Event, Uri } from 'vscode';
 import { authentication, EventEmitter, window } from 'vscode';
+import type { IntegrationId } from '../../../constants.integrations';
+import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { IntegrationAuthenticationKeys } from '../../../constants.storage';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { DeferredEventExecutor } from '../../../system/event';
-import type { IntegrationId } from '../providers/models';
-import {
-	HostingIntegrationId,
-	IssueIntegrationId,
-	SelfHostedIntegrationId,
-	supportedIntegrationIds,
-} from '../providers/models';
+import { supportedIntegrationIds } from '../providers/models';
 import type { ProviderAuthenticationSession } from './models';
 import { isSupportedCloudIntegrationId } from './models';
 

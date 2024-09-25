@@ -12,6 +12,7 @@ import type {
 } from 'vscode';
 import { EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { CharCode, Schemes } from '../../../../constants';
+import { HostingIntegrationId } from '../../../../constants.integrations';
 import type { SearchOperators, SearchQuery } from '../../../../constants.search';
 import type { Container } from '../../../../container';
 import { emojify } from '../../../../emojis';
@@ -115,7 +116,6 @@ import type {
 	IntegrationAuthenticationService,
 	IntegrationAuthenticationSessionDescriptor,
 } from '../../authentication/integrationAuthentication';
-import { HostingIntegrationId } from '../models';
 import type { GitHubApi } from './github';
 import type { GitHubBranch } from './models';
 import { fromCommitFileStatus } from './models';

@@ -17866,6 +17866,7 @@
 		"build:webviews": "webpack --mode development --config-name webviews",
 		"build:icons": "pnpm run icons:svgo && pnpm run fantasticon && pnpm run icons:apply",
 		"build:tests": "node ./scripts/esbuild.tests.mjs --mode development",
+		"generate:docs:telemetry": "node ./scripts/generate-telemetry-docs.mjs",
 		"bundle": "webpack --mode production",
 		"bundle:extension": "webpack --mode production --config-name extension:node",
 		"clean": "pnpx rimraf --glob dist out .vscode-test .vscode-test-web .eslintcache* tsconfig*.tsbuildinfo",

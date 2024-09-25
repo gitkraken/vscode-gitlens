@@ -1,16 +1,9 @@
 // NOTE@eamodio This file is referenced in the webviews to we can't use anything vscode or other imports that aren't available in the webviews
+import { SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
 import { getDateDifference } from '../../../system/date';
 import type { Organization } from './organization';
 
 export const SubscriptionUpdatedUriPathPrefix = 'did-update-subscription';
-
-export const enum SubscriptionPlanId {
-	Free = 'free',
-	FreePlus = 'free+',
-	Pro = 'pro',
-	Teams = 'teams',
-	Enterprise = 'enterprise',
-}
 
 export type FreeSubscriptionPlans = Extract<SubscriptionPlanId, SubscriptionPlanId.Free | SubscriptionPlanId.FreePlus>;
 export type PaidSubscriptionPlans = Exclude<SubscriptionPlanId, SubscriptionPlanId.Free | SubscriptionPlanId.FreePlus>;
@@ -54,27 +47,6 @@ export interface SubscriptionAccount {
 export interface SubscriptionPreviewTrial {
 	readonly startedOn: string;
 	readonly expiresOn: string;
-}
-
-// NOTE: Pay attention to gitlens:plus:state in package.json when modifying this enum
-// NOTE: This is reported in telemetry so we should NOT change the values
-export const enum SubscriptionState {
-	/** Indicates a user who hasn't verified their email address yet */
-	VerificationRequired = -1,
-	/** Indicates a Free user who hasn't yet started the preview trial */
-	Free = 0,
-	/** Indicates a Free user who is in preview trial */
-	FreeInPreviewTrial = 1,
-	/** Indicates a Free user who's preview has expired trial */
-	FreePreviewTrialExpired = 2,
-	/** Indicates a Free+ user with a completed trial */
-	FreePlusInTrial = 3,
-	/** Indicates a Free+ user who's trial has expired and is not yet eligible for reactivation */
-	FreePlusTrialExpired = 4,
-	/** Indicated a Free+ user who's trial has expired and is eligible for reactivation */
-	FreePlusTrialReactivationEligible = 5,
-	/** Indicates a Paid user */
-	Paid = 6,
 }
 
 export function getSubscriptionStateString(state: SubscriptionState | undefined): string {
