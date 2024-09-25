@@ -7,7 +7,7 @@ import { marked } from 'marked';
 import type { ThemeIcon } from 'vscode';
 
 @customElement('gl-markdown')
-export class GLMarkdown extends LitElement {
+export class GlMarkdown extends LitElement {
 	static override styles = css`
 		a,
 		a code {
