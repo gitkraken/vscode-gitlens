@@ -7393,7 +7393,7 @@
 				"command": "gitlens.views.openInWorktree",
 				"title": "Open in Worktree",
 				"category": "GitLens",
-				"icon": "$(window)"
+				"icon": "$(empty-window)"
 			},
 			{
 				"command": "gitlens.views.openWorktree",
@@ -14607,35 +14607,35 @@
 					"group": "inline@2"
 				},
 				{
-					"command": "gitlens.views.openPullRequestComparison",
-					"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
-					"group": "inline@3"
-				},
-				{
 					"command": "gitlens.openPullRequestOnRemote",
 					"when": "viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
-					"group": "inline@99",
+					"group": "inline@98",
 					"alt": "gitlens.copyRemotePullRequestUrl"
-				},
-				{
-					"command": "gitlens.views.openPullRequestChanges",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && config.multiDiffEditor.experimental.enabled",
-					"group": "1_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.openPullRequest",
-					"when": "!listMultiSelection && gitlens:action:openPullRequest > 1 && viewItem =~ /gitlens:pullrequest\\b/",
-					"group": "1_gitlens_actions@98"
-				},
-				{
-					"command": "gitlens.openPullRequestOnRemote",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
-					"group": "1_gitlens_actions@99"
 				},
 				{
 					"command": "gitlens.views.openInWorktree",
 					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
-					"group": "1_gitlens_actions@100"
+					"group": "inline@99"
+				},
+				{
+					"command": "gitlens.views.openPullRequest",
+					"when": "!listMultiSelection && gitlens:action:openPullRequest > 1 && viewItem =~ /gitlens:pullrequest\\b/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.openInWorktree",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.openPullRequestChanges",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && config.multiDiffEditor.experimental.enabled",
+					"group": "2_gitlens_quickopen@1"
+				},
+				{
+					"command": "gitlens.openPullRequestOnRemote",
+					"when": "!listMultiSelection && viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
+					"group": "2_gitlens_quickopen@2"
 				},
 				{
 					"command": "gitlens.showInCommitGraph",
