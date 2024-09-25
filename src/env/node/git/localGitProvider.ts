@@ -39,6 +39,7 @@ import {
 	WorktreeDeleteErrorReason,
 } from '../../../git/errors';
 import type {
+	GitBranchOptions,
 	GitCaches,
 	GitDir,
 	GitProvider,
@@ -1228,6 +1229,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				ex,
 			);
 		}
+	}
+
+	@log()
+	async branch(repoPath: string, options: GitBranchOptions): Promise<void> {
+		if (options?.create != null) {
+			return this.git.branch(repoPath, options.create.name, options.create.startRef);
+		}
+
+		if (options?.rename != null) {
+			return this.git.branch(repoPath, '-m', options.rename.old, options.rename.new);
+		}
+
+		throw new Error('Invalid branch options');
 	}
 
 	@log()
