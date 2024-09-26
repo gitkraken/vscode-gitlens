@@ -868,7 +868,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log()
 	async stashApply(stashName: string, options?: { deleteAfter?: boolean }) {
-		await this.git.stashApply(stashName, options);
+		await this.git.applyStash(stashName, options);
 
 		this.fireChange(RepositoryChange.Stash);
 	}
@@ -876,7 +876,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log()
 	async stashDelete(stashName: string, ref?: string) {
-		await this.git.stashDelete(stashName, ref);
+		await this.git.deleteStash(stashName, ref);
 
 		this.fireChange(RepositoryChange.Stash);
 	}
@@ -884,7 +884,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log()
 	async stashRename(stashName: string, ref: string, message: string, stashOnRef?: string) {
-		await this.git.stashRename(stashName, ref, message, stashOnRef);
+		await this.git.renameStash(stashName, ref, message, stashOnRef);
 
 		this.fireChange(RepositoryChange.Stash);
 	}
@@ -896,7 +896,7 @@ export class Repository implements Disposable {
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void> {
-		await this.git.stashSave(message, uris, options);
+		await this.git.saveStash(message, uris, options);
 
 		this.fireChange(RepositoryChange.Stash);
 	}
@@ -904,7 +904,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log()
 	async stashSaveSnapshot(message?: string): Promise<void> {
-		await this.git.stashSaveSnapshot(message);
+		await this.git.saveStashSnapshot(message);
 
 		this.fireChange(RepositoryChange.Stash);
 	}

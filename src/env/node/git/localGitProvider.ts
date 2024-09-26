@@ -5769,7 +5769,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async stashApply(repoPath: string, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
+	async applyStash(repoPath: string, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
 		try {
 			await this.git.stash__apply(repoPath, stashName, Boolean(options?.deleteAfter));
 		} catch (ex) {
@@ -5798,13 +5798,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async stashDelete(repoPath: string, stashName: string, ref?: string): Promise<void> {
+	async deleteStash(repoPath: string, stashName: string, ref?: string): Promise<void> {
 		await this.git.stash__delete(repoPath, stashName, ref);
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
 
 	@log()
-	async stashRename(
+	async renameStash(
 		repoPath: string,
 		stashName: string,
 		ref: string,
@@ -5815,8 +5815,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
 
-	@log<LocalGitProvider['stashSave']>({ args: { 2: uris => uris?.length } })
-	async stashSave(
+	@log<LocalGitProvider['saveStash']>({ args: { 2: uris => uris?.length } })
+	async saveStash(
 		repoPath: string,
 		message?: string,
 		uris?: Uri[],
@@ -5863,7 +5863,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async stashSaveSnapshot(repoPath: string, message?: string): Promise<void> {
+	async saveStashSnapshot(repoPath: string, message?: string): Promise<void> {
 		const id = await this.git.stash__create(repoPath);
 		if (id == null) return;
 
