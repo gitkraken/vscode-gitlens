@@ -39,8 +39,6 @@ export type RepoGitProviderService = Pick<
 		[K in keyof GitProviderService]: RemoveFirstArg<GitProviderService[K]>;
 	},
 	| keyof GitProviderRepository
-	| 'branchCreate'
-	| 'branchRename'
 	| 'getBestRemoteWithIntegration'
 	| 'getBranch'
 	| 'getRemote'
