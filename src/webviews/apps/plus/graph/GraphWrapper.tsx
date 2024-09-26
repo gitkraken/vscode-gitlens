@@ -1353,7 +1353,7 @@ export function GraphWrapper({
 													<GlCheckbox
 														value="onlyFollowFirstParent"
 														onChange={handleFilterChange}
-														defaultChecked={graphConfig?.onlyFollowFirstParent ?? false}
+														checked={graphConfig?.onlyFollowFirstParent ?? false}
 													>
 														Simplify Merge History
 													</GlCheckbox>
@@ -1364,7 +1364,7 @@ export function GraphWrapper({
 												<GlCheckbox
 													value="remotes"
 													onChange={handleFilterChange}
-													defaultChecked={excludeTypes?.remotes ?? false}
+													checked={excludeTypes?.remotes ?? false}
 												>
 													Hide Remote-only Branches
 												</GlCheckbox>
@@ -1373,7 +1373,7 @@ export function GraphWrapper({
 												<GlCheckbox
 													value="stashes"
 													onChange={handleFilterChange}
-													defaultChecked={excludeTypes?.stashes ?? false}
+													checked={excludeTypes?.stashes ?? false}
 												>
 													Hide Stashes
 												</GlCheckbox>
@@ -1384,7 +1384,7 @@ export function GraphWrapper({
 										<GlCheckbox
 											value="tags"
 											onChange={handleFilterChange}
-											defaultChecked={excludeTypes?.tags ?? false}
+											checked={excludeTypes?.tags ?? false}
 										>
 											Hide Tags
 										</GlCheckbox>
@@ -1394,7 +1394,7 @@ export function GraphWrapper({
 										<GlCheckbox
 											value="mergeCommits"
 											onChange={handleFilterChange}
-											defaultChecked={graphConfig?.dimMergeCommits ?? false}
+											checked={graphConfig?.dimMergeCommits ?? false}
 										>
 											Dim Merge Commit Rows
 										</GlCheckbox>
@@ -1474,7 +1474,7 @@ export function GraphWrapper({
 											<GlCheckbox
 												value="localBranches"
 												onChange={handleOnMinimapAdditionalTypesChange}
-												defaultChecked={
+												checked={
 													graphConfig?.minimapMarkerTypes?.includes('localBranches') ?? false
 												}
 											>
@@ -1489,7 +1489,7 @@ export function GraphWrapper({
 											<GlCheckbox
 												value="remoteBranches"
 												onChange={handleOnMinimapAdditionalTypesChange}
-												defaultChecked={
+												checked={
 													graphConfig?.minimapMarkerTypes?.includes('remoteBranches') ?? true
 												}
 											>
@@ -1504,7 +1504,7 @@ export function GraphWrapper({
 											<GlCheckbox
 												value="pullRequests"
 												onChange={handleOnMinimapAdditionalTypesChange}
-												defaultChecked={
+												checked={
 													graphConfig?.minimapMarkerTypes?.includes('pullRequests') ?? true
 												}
 											>
@@ -1519,9 +1519,7 @@ export function GraphWrapper({
 											<GlCheckbox
 												value="stashes"
 												onChange={handleOnMinimapAdditionalTypesChange}
-												defaultChecked={
-													graphConfig?.minimapMarkerTypes?.includes('stashes') ?? false
-												}
+												checked={graphConfig?.minimapMarkerTypes?.includes('stashes') ?? false}
 											>
 												<span className="minimap-marker-swatch" data-marker="stashes"></span>
 												Stashes
@@ -1531,9 +1529,7 @@ export function GraphWrapper({
 											<GlCheckbox
 												value="tags"
 												onChange={handleOnMinimapAdditionalTypesChange}
-												defaultChecked={
-													graphConfig?.minimapMarkerTypes?.includes('tags') ?? true
-												}
+												checked={graphConfig?.minimapMarkerTypes?.includes('tags') ?? true}
 											>
 												<span className="minimap-marker-swatch" data-marker="tags"></span>
 												Tags

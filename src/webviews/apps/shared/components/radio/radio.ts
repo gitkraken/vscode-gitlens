@@ -27,7 +27,7 @@ export class Radio extends GlElement {
 	@property({ type: String, reflect: true })
 	name?: string;
 
-	@property({ type: Boolean, attribute: false })
+	@property({ type: Boolean, reflect: true })
 	checked: boolean = false;
 
 	private _parentGroup: RadioGroup | undefined = undefined;
