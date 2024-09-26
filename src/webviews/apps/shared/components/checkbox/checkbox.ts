@@ -1,8 +1,7 @@
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { GlElement, observe } from '../element';
+import { GlElement } from '../element';
 import { checkboxBaseStyles } from '../forms/checkbox.css';
-import { checkboxStyles } from './checkbox.css';
 
 import '../code-icon';
 
@@ -15,7 +14,7 @@ export class Checkbox extends GlElement {
 		delegatesFocus: true,
 	};
 
-	static override readonly styles = [checkboxBaseStyles, checkboxStyles];
+	static override readonly styles = [checkboxBaseStyles];
 
 	@property({ type: Boolean, reflect: true })
 	disabled: boolean = false;
@@ -34,13 +33,7 @@ export class Checkbox extends GlElement {
 
 	constructor() {
 		super();
-		this.disabled = false;
 		this._defaultChecked = this.checked;
-	}
-
-	@observe(['defaultChecked'], { afterFirstUpdate: true })
-	private initChecked() {
-		this.checked = this.defaultChecked;
 	}
 
 	handleChange(e: Event) {
