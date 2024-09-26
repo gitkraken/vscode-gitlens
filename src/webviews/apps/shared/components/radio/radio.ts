@@ -52,7 +52,6 @@ export class Radio extends GlElement {
 	}
 
 	override render() {
-		console.log('render', this.value, this.checked);
 		return html`<label ?aria-disabled=${this.disabled}
 			><button class="input" .disabled=${this.disabled} @click=${this.handleClick}></button>
 			<div class="control">${this.renderCircle()}</div>
