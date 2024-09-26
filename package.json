@@ -17938,8 +17938,7 @@
 		"path-browserify": "1.0.1",
 		"react": "16.8.4",
 		"react-dom": "16.8.4",
-		"sortablejs": "1.15.0",
-		"tslib": "2.7.0"
+		"sortablejs": "1.15.0"
 	},
 	"devDependencies": {
 		"@eamodio/eslint-lite-webpack-plugin": "0.1.0",
@@ -18007,8 +18006,7 @@
 		"esbuild": "0.24.0",
 		"iconv-lite": "0.6.3",
 		"node-fetch": "2.7.0",
-		"semver-regex": "4.0.5",
-		"tslib": "2.7.0"
+		"semver-regex": "4.0.5"
 	},
 	"packageManager": "pnpm@9.11.0+sha256.1c0e33f70e5df9eede84a357bdfa0b1f9dba6e58194628d48a1055756f553754"
 }
