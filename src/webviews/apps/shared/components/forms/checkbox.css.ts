@@ -2,21 +2,35 @@ import { css } from 'lit';
 
 export const checkboxBaseStyles = css`
 	:host {
+		--checkbox-foreground: var(--vscode-checkbox-foreground);
+		--checkbox-background: var(--vscode-checkbox-background);
+		--checkbox-border: var(--vscode-checkbox-border);
+		--checkbox-checked-foreground: var(--vscode-inputOption-activeForeground);
+		--checkbox-checked-background: var(--vscode-inputOption-activeBackground);
+		--checkbox-checked-border: var(--vscode-inputOption-activeBorder);
+		--checkbox-active-background: var(--vscode-checkbox-selectBackground);
+		--checkbox-active-border: var(--vscode-checkbox-selectBorder);
+		--checkbox-hover-background: var(--vscode-inputOption-hoverBackground);
+		--checkbox-radius: 3px;
+		--checkbox-border-width: 1px;
+		--checkbox-size: 1.6rem;
+		--checkbox-spacing: 1rem;
+
 		display: block;
 		margin-block: 0.8rem;
 	}
 
 	label {
 		display: flex;
-		gap: var(--label-spacing);
+		gap: var(--checkbox-spacing);
 		align-items: center;
-		color: var(--vscode-checkbox-foreground);
 		user-select: none;
 		white-space: nowrap;
 		cursor: pointer;
+		color: var(--checkbox-foreground);
 	}
 
-	label[aria-disabled] {
+	:host([disabled]) label {
 		cursor: default;
 		opacity: 0.5;
 	}
@@ -24,7 +38,7 @@ export const checkboxBaseStyles = css`
 	.label-text {
 		display: block;
 		line-height: normal;
-		margin-inline-end: var(--label-spacing);
+		margin-inline-end: var(--checkbox-spacing);
 	}
 
 	.input {
@@ -38,28 +52,34 @@ export const checkboxBaseStyles = css`
 		align-items: center;
 		justify-content: center;
 		position: relative;
-		width: var(--control-size);
-		height: var(--control-size);
+		width: var(--checkbox-size);
+		height: var(--checkbox-size);
 		box-sizing: border-box;
-		border-radius: var(--control-corner-radius);
-		border: var(--control-border-width) solid var(--vscode-checkbox-border);
-		background: var(--vscode-checkbox-background);
+		border-radius: var(--checkbox-radius);
+		color: var(--checkbox-foreground);
+		background: var(--checkbox-background);
+		border: var(--checkbox-border-width, 1px) solid var(--vscode-checkbox-border);
 	}
 
-	label:not([aria-disabled]) .input:hover + .control {
-		background: var(--vscode-checkbox-background);
-		border-color: var(--vscode-checkbox-border);
+	.input:hover + .control {
+		background-color: var(--checkbox-hover-background);
 	}
 
-	label:not([aria-disabled]) .input:focus-visible + .control,
-	label:not([aria-disabled]) .input:focus + .control {
+	.input:focus-visible + .control,
+	.input:focus + .control {
 		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: 2px;
 	}
 
-	label:not([aria-disabled]):active .input + .control,
-	label:not([aria-disabled]) .input:active + .control {
-		background: var(--vscode-checkbox-background);
-		border-color: var(--vscode-focusBorder);
+	.input:active + .control {
+		background-color: var(--checkbox-active-background);
+		border-color: var(--checkbox-active-border);
+	}
+
+	:host([checked]) .control {
+		color: var(--checkbox-checked-foreground);
+		background-color: var(--checkbox-checked-background);
+		border-color: var(--checkbox-checked-border);
 	}
 
 	code-icon {
