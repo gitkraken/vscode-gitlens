@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Change `branch create` and `branch rename` terminal-run commands into normal commands
+- Changes how GitLens handles creating and renaming branches to avoid using the terminal &mdash; refs [#3528](https://github.com/gitkraken/vscode-gitlens/issues/3528)
 
 ### Fixed
 

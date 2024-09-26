@@ -5,11 +5,13 @@ import { getNameWithoutRemote, getReferenceLabel, isRevisionReference } from '..
 import { Repository } from '../../git/models/repository';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getWorktreesByBranch } from '../../git/models/worktree';
+import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { ensureArray } from '../../system/array';
+import { Logger } from '../../system/logger';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
@@ -393,7 +395,13 @@ export class BranchGitCommand extends QuickCommand {
 			if (state.flags.includes('--switch')) {
 				await state.repo.switch(state.reference.ref, { createBranch: state.name });
 			} else {
-				await state.repo.git.branchCreate(state.name, state.reference.ref);
+				try {
+					await state.repo.git.createBranch(state.name, state.reference.ref);
+				} catch (ex) {
+					Logger.error(ex);
+					// TODO likely need some better error handling here
+					return showGenericErrorMessage('Unable to create branch');
+				}
 			}
 		}
 	}
@@ -614,7 +622,13 @@ export class BranchGitCommand extends QuickCommand {
 			state.flags = result;
 
 			endSteps(state);
-			await state.repo.git.branchRename(state.reference.ref, state.name);
+			try {
+				await state.repo.git.renameBranch(state.reference.ref, state.name);
+			} catch (ex) {
+				Logger.error(ex);
+				// TODO likely need some better error handling here
+				return showGenericErrorMessage('Unable to rename branch');
+			}
 		}
 	}
 
