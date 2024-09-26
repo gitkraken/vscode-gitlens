@@ -1,12 +1,7 @@
 import { SubscriptionPlanId } from '../../constants.subscription';
 import type { Organization } from './account/organization';
 import type { Subscription } from './account/subscription';
-import {
-	getSubscriptionPlan,
-	getSubscriptionPlanPriority,
-	isSubscriptionExpired,
-	SubscriptionPlanId,
-} from './account/subscription';
+import { getSubscriptionPlan, getSubscriptionPlanPriority, isSubscriptionExpired } from './account/subscription';
 
 export type GKLicenses = Partial<Record<GKLicenseType, GKLicense>>;
 
@@ -136,14 +131,21 @@ export function getSubscriptionFromCheckIn(
 		organizationId != null ? paidLicensesByOrganizationId.get(organizationId) ?? bestPaidLicense : bestPaidLicense;
 	if (chosenPaidLicense != null) {
 		const [licenseType, license] = chosenPaidLicense;
+		const latestStartDate = new Date(license.latestStartDate);
+		const latestEndDate = new Date(license.latestEndDate);
+		const today = new Date();
 		actual = getSubscriptionPlan(
 			convertLicenseTypeToPlanId(licenseType),
 			isBundleLicenseType(licenseType),
 			license.reactivationCount ?? 0,
 			license.organizationId,
-			new Date(license.latestStartDate),
-			new Date(license.latestEndDate),
-			license.latestStatus === 'trial' || license.latestStatus === 'in_trial',
+			latestStartDate,
+			latestEndDate,
+			undefined,
+			undefined,
+			(license.latestStatus === 'in_trial' || license.latestStatus === 'trial') &&
+				latestEndDate > today &&
+				today > latestStartDate,
 		);
 	}
 
@@ -161,6 +163,7 @@ export function getSubscriptionFromCheckIn(
 			undefined,
 			undefined,
 			data.nextOptInDate,
+			false,
 		);
 	}
 
@@ -171,6 +174,9 @@ export function getSubscriptionFromCheckIn(
 			: bestEffectiveLicense;
 	if (chosenEffectiveLicense != null) {
 		const [licenseType, license] = chosenEffectiveLicense;
+		const latestStartDate = new Date(license.latestStartDate);
+		const latestEndDate = new Date(license.latestEndDate);
+		const today = new Date();
 		effective = getSubscriptionPlan(
 			convertLicenseTypeToPlanId(licenseType),
 			isBundleLicenseType(licenseType),
@@ -180,7 +186,9 @@ export function getSubscriptionFromCheckIn(
 			new Date(license.latestEndDate),
 			license.latestStatus === 'cancelled',
 			license.nextOptInDate ?? data.nextOptInDate,
-			license.latestStatus === 'trial' || license.latestStatus === 'in_trial',
+			(license.latestStatus === 'in_trial' || license.latestStatus === 'trial') &&
+				latestEndDate > today &&
+				today > latestStartDate,
 		);
 	}
 

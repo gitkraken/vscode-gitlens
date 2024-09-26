@@ -20,7 +20,7 @@ import type { Container } from '../container';
 import { AccessDeniedError, CancellationError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors';
 import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
 import type { Subscription } from '../plus/gk/account/subscription';
-import { isSubscriptionExpired, isSubscriptionPaidPlan, SubscriptionPlanId } from '../plus/gk/account/subscription';
+import { isSubscriptionExpired, isSubscriptionPaidPlan } from '../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
 import type { HostingIntegration } from '../plus/integrations/integration';
 import type { RepoComparisonKey } from '../repositories';
