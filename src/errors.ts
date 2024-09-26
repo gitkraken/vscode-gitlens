@@ -210,6 +210,14 @@ export class ProviderNotFoundError extends Error {
 	}
 }
 
+export class ProviderNotSupportedError extends Error {
+	constructor(provider: string) {
+		super(`Action is not supported on the ${provider} provider.`);
+
+		Error.captureStackTrace?.(this, ProviderNotSupportedError);
+	}
+}
+
 export class RequestClientError extends Error {
 	constructor(public readonly original: Error) {
 		super(original.message);

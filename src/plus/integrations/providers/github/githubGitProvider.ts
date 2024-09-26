@@ -64,7 +64,7 @@ import type {
 import type { GitLog } from '../../../../git/models/log';
 import type { GitMergeStatus } from '../../../../git/models/merge';
 import type { GitRebaseStatus } from '../../../../git/models/rebase';
-import type { GitBranchReference, GitReference, GitRevisionRange } from '../../../../git/models/reference';
+import type { GitReference, GitRevisionRange } from '../../../../git/models/reference';
 import {
 	createReference,
 	createRevisionRange,
@@ -78,7 +78,6 @@ import type { GitReflog } from '../../../../git/models/reflog';
 import { getRemoteIconUri, getVisibilityCacheKey, GitRemote } from '../../../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../../../git/models/repository';
 import { Repository } from '../../../../git/models/repository';
-import type { GitStash } from '../../../../git/models/stash';
 import type { GitStatusFile } from '../../../../git/models/status';
 import { GitStatus } from '../../../../git/models/status';
 import type { TagSortOptions } from '../../../../git/models/tag';
@@ -445,28 +444,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async addRemote(_repoPath: string, _name: string, _url: string, _options?: { fetch?: boolean }): Promise<void> {}
-
-	@log()
-	async pruneRemote(_repoPath: string, _name: string): Promise<void> {}
-
-	@log()
-	async removeRemote(_repoPath: string, _name: string): Promise<void> {}
-
-	@log()
-	async applyChangesToWorkingFile(_uri: GitUri, _ref1?: string, _ref2?: string): Promise<void> {}
-
-	@log()
 	async branchContainsCommit(_repoPath: string, _name: string, _ref: string): Promise<boolean> {
 		return false;
 	}
-
-	@log()
-	async checkout(
-		_repoPath: string,
-		_ref: string,
-		_options?: { createBranch?: string } | { path?: string },
-	): Promise<void> {}
 
 	@log({ singleLine: true })
 	private resetCache(
@@ -507,29 +487,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async excludeIgnoredUris(_repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		return uris;
 	}
-
-	// @gate()
-	@log()
-	async fetch(
-		_repoPath: string,
-		_options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
-	): Promise<void> {}
-
-	@log()
-	async pull(
-		_repoPath: string,
-		_options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean },
-	): Promise<void> {}
-
-	@log()
-	async push(
-		_repoPath: string,
-		_options?: {
-			reference?: GitReference;
-			force?: boolean;
-			publish?: { remote: string };
-		},
-	): Promise<void> {}
 
 	@gate()
 	@debug()
@@ -2817,12 +2774,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return workspace.fs.readFile(uri);
 	}
 
-	// @gate()
-	@log()
-	async getStash(_repoPath: string | undefined): Promise<GitStash | undefined> {
-		return undefined;
-	}
-
 	@log()
 	async getStatusForFile(_repoPath: string, _uri: Uri): Promise<GitStatusFile | undefined> {
 		return undefined;
@@ -3083,21 +3034,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const stats = await workspace.fs.stat(providerUri);
 		return stats != null;
 	}
-
-	@log()
-	async getDiffTool(_repoPath?: string): Promise<string | undefined> {
-		return undefined;
-	}
-
-	@log()
-	async openDiffTool(
-		_repoPath: string,
-		_uri: Uri,
-		_options?: { ref1?: string; ref2?: string; staged?: boolean; tool?: string },
-	): Promise<void> {}
-
-	@log()
-	async openDirectoryCompare(_repoPath: string, _ref1: string, _ref2?: string, _tool?: string): Promise<void> {}
 
 	@log()
 	async resolveReference(

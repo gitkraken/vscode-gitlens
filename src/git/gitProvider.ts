@@ -113,9 +113,9 @@ export interface RepositoryVisibilityInfo {
 }
 
 export interface GitProviderRepository {
-	addRemote(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
-	pruneRemote(repoPath: string, name: string): Promise<void>;
-	removeRemote(repoPath: string, name: string): Promise<void>;
+	addRemote?(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
+	pruneRemote?(repoPath: string, name: string): Promise<void>;
+	removeRemote?(repoPath: string, name: string): Promise<void>;
 	applyUnreachableCommitForPatch?(
 		repoPath: string,
 		ref: string,
@@ -126,7 +126,7 @@ export interface GitProviderRepository {
 			stash?: boolean | 'prompt';
 		},
 	): Promise<void>;
-	checkout(
+	checkout?(
 		repoPath: string,
 		ref: string,
 		options?: { createBranch?: string | undefined } | { path?: string | undefined },
@@ -139,7 +139,7 @@ export interface GitProviderRepository {
 	): Promise<GitCommit | undefined>;
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
 
-	fetch(
+	fetch?(
 		repoPath: string,
 		options?: {
 			all?: boolean | undefined;
@@ -149,7 +149,7 @@ export interface GitProviderRepository {
 			remote?: string | undefined;
 		},
 	): Promise<void>;
-	pull(
+	pull?(
 		repoPath: string,
 		options?: {
 			branch?: GitBranchReference | undefined;
@@ -157,7 +157,7 @@ export interface GitProviderRepository {
 			tags?: boolean | undefined;
 		},
 	): Promise<void>;
-	push(
+	push?(
 		repoPath: string,
 		options?: {
 			reference?: GitReference | undefined;
@@ -333,7 +333,7 @@ export interface GitProviderRepository {
 		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
 	): Promise<GitRemote[]>;
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
-	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
+	getStash?(repoPath: string | undefined): Promise<GitStash | undefined>;
 	getStatus(repoPath: string | undefined): Promise<GitStatus | undefined>;
 	getStatusForFile(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
 	getStatusForFiles(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;
@@ -359,8 +359,8 @@ export interface GitProviderRepository {
 	hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean>;
 	isAncestorOf(repoPath: string, ref1: string, ref2: string): Promise<boolean>;
 
-	getDiffTool(repoPath?: string): Promise<string | undefined>;
-	openDiffTool(
+	getDiffTool?(repoPath?: string): Promise<string | undefined>;
+	openDiffTool?(
 		repoPath: string,
 		uri: Uri,
 		options?: {
@@ -370,7 +370,7 @@ export interface GitProviderRepository {
 			tool?: string | undefined;
 		},
 	): Promise<void>;
-	openDirectoryCompare(repoPath: string, ref1: string, ref2?: string, tool?: string): Promise<void>;
+	openDirectoryCompare?(repoPath: string, ref1: string, ref2?: string, tool?: string): Promise<void>;
 
 	resolveReference(
 		repoPath: string,
@@ -413,16 +413,16 @@ export interface GitProviderRepository {
 	unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
 
-	stashApply?(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;
-	stashDelete?(repoPath: string, stashName: string, ref?: string): Promise<void>;
-	stashRename?(repoPath: string, stashName: string, ref: string, message: string, stashOnRef?: string): Promise<void>;
-	stashSave?(
+	applyStash?(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;
+	deleteStash?(repoPath: string, stashName: string, ref?: string): Promise<void>;
+	renameStash?(repoPath: string, stashName: string, ref: string, message: string, stashOnRef?: string): Promise<void>;
+	saveStash?(
 		repoPath: string,
 		message?: string,
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void>;
-	stashSaveSnapshot?(repoPath: string, message?: string): Promise<void>;
+	saveStashSnapshot?(repoPath: string, message?: string): Promise<void>;
 
 	createWorktree?(
 		repoPath: string,
@@ -476,7 +476,7 @@ export interface GitProvider extends GitProviderRepository, Disposable {
 	// getRootUri(pathOrUri: string | Uri): Uri;
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 
-	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
+	applyChangesToWorkingFile?(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
 	clone?(url: string, parentPath: string): Promise<string | undefined>;
 	/**
 	 * Returns the blame of a file

@@ -17,7 +17,7 @@ import { GlyphChars, Schemes } from '../constants';
 import type { SearchQuery } from '../constants.search';
 import { SubscriptionPlanId } from '../constants.subscription';
 import type { Container } from '../container';
-import { AccessDeniedError, CancellationError, ProviderNotFoundError } from '../errors';
+import { AccessDeniedError, CancellationError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors';
 import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
 import { getApplicablePromo } from '../plus/gk/account/promos';
 import type { Subscription } from '../plus/gk/account/subscription';
@@ -1290,24 +1290,32 @@ export class GitProviderService implements Disposable {
 	@log()
 	addRemote(repoPath: string | Uri, name: string, url: string, options?: { fetch?: boolean }): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
+		if (provider.addRemote == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
 		return provider.addRemote(path, name, url, options);
 	}
 
 	@log()
 	pruneRemote(repoPath: string | Uri, name: string): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
+		if (provider.pruneRemote == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
 		return provider.pruneRemote(path, name);
 	}
 
 	@log()
 	removeRemote(repoPath: string | Uri, name: string): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
+		if (provider.removeRemote == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
 		return provider.removeRemote(path, name);
 	}
 
 	@log()
 	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void> {
 		const { provider } = this.getProvider(uri);
+		if (provider.applyChangesToWorkingFile == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
 		return provider.applyChangesToWorkingFile(uri, ref1, ref2);
 	}
 
@@ -1323,7 +1331,11 @@ export class GitProviderService implements Disposable {
 		},
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.applyUnreachableCommitForPatch?.(path, ref, options);
+		if (provider.applyUnreachableCommitForPatch == null) {
+			throw new ProviderNotSupportedError(provider.descriptor.name);
+		}
+
+		return provider.applyUnreachableCommitForPatch(path, ref, options);
 	}
 
 	@log()
@@ -1333,6 +1345,8 @@ export class GitProviderService implements Disposable {
 		options?: { createBranch?: string } | { path?: string },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
+		if (provider.checkout == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
 		return provider.checkout(path, ref, options);
 	}
 
@@ -1350,7 +1364,11 @@ export class GitProviderService implements Disposable {
 		message: string,
 	): Promise<GitCommit | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.createUnreachableCommitForPatch?.(path, contents, baseRef, message);
+		if (provider.createUnreachableCommitForPatch == null) {
+			throw new ProviderNotSupportedError(provider.descriptor.name);
+		}
+
+		return provider.createUnreachableCommitForPatch(path, contents, baseRef, message);
 	}
 
 	@log({ singleLine: true })
@@ -1375,6 +1393,8 @@ export class GitProviderService implements Disposable {
 		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
+		if (provider.fetch == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
 		return provider.fetch(path, options);
 	}
 
@@ -1407,6 +1427,8 @@ export class GitProviderService implements Disposable {
 	@log()
 	pull(repoPath: string | Uri, options?: { rebase?: boolean; tags?: boolean }): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
+		if (provider.pull == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
 		return provider.pull(path, options);
 	}
 
@@ -1442,6 +1464,8 @@ export class GitProviderService implements Disposable {
 		options?: { reference?: GitReference; force?: boolean; publish?: { remote: string } },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
+		if (provider.push == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
 		return provider.push(path, options);
 	}
 
@@ -2446,7 +2470,7 @@ export class GitProviderService implements Disposable {
 		if (repoPath == null) return undefined;
 
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getStash(path);
+		return provider.getStash?.(path);
 	}
 
 	@log()
@@ -2598,22 +2622,28 @@ export class GitProviderService implements Disposable {
 		if (repoPath == null) return undefined;
 
 		const { provider, path } = this.getProvider(repoPath);
+		if (provider.getDiffTool == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
 		return provider.getDiffTool(path);
 	}
 
 	@log()
-	async openDiffTool(
+	openDiffTool(
 		repoPath: string | Uri,
 		uri: Uri,
 		options?: { ref1?: string; ref2?: string; staged?: boolean; tool?: string },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
+		if (provider.openDiffTool == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
 		return provider.openDiffTool(path, uri, options);
 	}
 
 	@log()
-	async openDirectoryCompare(repoPath: string | Uri, ref1: string, ref2?: string, tool?: string): Promise<void> {
+	openDirectoryCompare(repoPath: string | Uri, ref1: string, ref2?: string, tool?: string): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
+		if (provider.openDirectoryCompare == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
 		return provider.openDirectoryCompare(path, ref1, ref2, tool);
 	}
 
@@ -2754,19 +2784,23 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async stashApply(repoPath: string | Uri, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
+	applyStash(repoPath: string | Uri, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.stashApply?.(path, stashName, options);
+		if (provider.applyStash == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.applyStash(path, stashName, options);
 	}
 
 	@log()
-	async stashDelete(repoPath: string | Uri, stashName: string, ref?: string): Promise<void> {
+	deleteStash(repoPath: string | Uri, stashName: string, ref?: string): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.stashDelete?.(path, stashName, ref);
+		if (provider.deleteStash == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.deleteStash(path, stashName, ref);
 	}
 
 	@log()
-	async stashRename(
+	renameStash(
 		repoPath: string | Uri,
 		stashName: string,
 		ref: string,
@@ -2774,24 +2808,30 @@ export class GitProviderService implements Disposable {
 		stashOnRef?: string,
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.stashRename?.(path, stashName, ref, message, stashOnRef);
+		if (provider.renameStash == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.renameStash(path, stashName, ref, message, stashOnRef);
 	}
 
-	@log<GitProviderService['stashSave']>({ args: { 2: uris => uris?.length } })
-	async stashSave(
+	@log<GitProviderService['saveStash']>({ args: { 2: uris => uris?.length } })
+	saveStash(
 		repoPath: string | Uri,
 		message?: string,
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.stashSave?.(path, message, uris, options);
+		if (provider.saveStash == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.saveStash(path, message, uris, options);
 	}
 
 	@log()
-	async stashSaveSnapshot(repoPath: string | Uri, message?: string): Promise<void> {
+	saveStashSnapshot(repoPath: string | Uri, message?: string): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.stashSaveSnapshot?.(path, message);
+		if (provider.saveStashSnapshot == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.saveStashSnapshot(path, message);
 	}
 
 	@log()
@@ -2801,7 +2841,9 @@ export class GitProviderService implements Disposable {
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
 	): Promise<void> {
 		const { provider, path: rp } = this.getProvider(repoPath);
-		return Promise.resolve(provider.createWorktree?.(rp, path, options));
+		if (provider.createWorktree == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.createWorktree(rp, path, options);
 	}
 
 	@log()
@@ -2809,8 +2851,7 @@ export class GitProviderService implements Disposable {
 		repoPath: string | Uri,
 		predicate: (w: GitWorktree) => boolean,
 	): Promise<GitWorktree | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return ((await provider.getWorktrees?.(path)) ?? []).find(predicate);
+		return (await this.getWorktrees(repoPath)).find(predicate);
 	}
 
 	@log()
@@ -2836,7 +2877,9 @@ export class GitProviderService implements Disposable {
 	@log()
 	deleteWorktree(repoPath: string | Uri, path: string | Uri, options?: { force?: boolean }): Promise<void> {
 		const { provider, path: rp } = this.getProvider(repoPath);
-		return Promise.resolve(provider.deleteWorktree?.(rp, path, options));
+		if (provider.deleteWorktree == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.deleteWorktree(rp, path, options);
 	}
 
 	@log()
