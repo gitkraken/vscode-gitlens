@@ -717,7 +717,7 @@ export class SubscriptionService implements Disposable {
 				...this._subscription.plan,
 				effective: getSubscriptionPlan(SubscriptionPlanId.Pro, false, 0, undefined, startedOn, expiresOn),
 			},
-			previewTrial: newPreviewTrial,
+			previewTrial: previewTrial,
 		});
 
 		setTimeout(async () => {
