@@ -5662,6 +5662,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.plus.simulateSubscriptionState",
+				"title": "Simulate Subscription State (Debugging)",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.plus.restoreSubscriptionState",
+				"title": "Restore Subscription State (Debugging)",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.gk.switchOrganization",
 				"title": "Switch Organization...",
 				"category": "GitLens"
@@ -9791,6 +9801,14 @@
 				{
 					"command": "gitlens.plus.refreshRepositoryAccess",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.plus.simulateSubscriptionState",
+					"when": "gitlens:enabled && gitlens:debugging"
+				},
+				{
+					"command": "gitlens.plus.restoreSubscriptionState",
+					"when": "gitlens:enabled && gitlens:debugging"
 				},
 				{
 					"command": "gitlens.gk.switchOrganization",

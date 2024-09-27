@@ -68,6 +68,9 @@ function getExtensionConfig(target, mode, env) {
 	 */
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['!dist/webviews/**'] }),
+		new DefinePlugin({
+			DEBUG: mode === 'development',
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
 			formatter: 'basic',
