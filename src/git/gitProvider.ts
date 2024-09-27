@@ -120,6 +120,11 @@ export interface BranchContributorOverview {
 export interface GitProviderRepository {
 	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
+	deleteBranch?(
+		repoPath: string,
+		branches: GitBranchReference | GitBranchReference[],
+		options?: { force?: boolean; remote?: boolean },
+	): Promise<void>;
 	createTag?(repoPath: string, name: string, ref: string, message?: string): Promise<void>;
 	deleteTag?(repoPath: string, name: string): Promise<void>;
 	addRemote?(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;

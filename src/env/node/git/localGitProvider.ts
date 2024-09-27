@@ -1286,6 +1286,57 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
+	async deleteBranch(
+		repoPath: string,
+		branches: GitBranchReference[],
+		options: { force?: boolean; remote?: boolean },
+	): Promise<void> {
+		const localBranches = branches.filter((b: GitBranchReference) => !b.remote);
+		if (localBranches.length !== 0) {
+			const args = ['--delete'];
+			if (options.force) {
+				args.push('--force');
+			}
+
+			await this.git.branch(repoPath, ...args, ...branches.map((b: GitBranchReference) => b.ref));
+
+			if (options.remote) {
+				const trackingBranches = localBranches.filter(b => b.upstream != null);
+				if (trackingBranches.length !== 0) {
+					const branchesByOrigin = groupByMap(trackingBranches, b =>
+						getRemoteNameFromBranchName(b.upstream!.name),
+					);
+
+					for (const [remote, branches] of branchesByOrigin.entries()) {
+						await this.git.push(repoPath, {
+							delete: {
+								remote: remote,
+								branches: branches.map(b => getBranchNameWithoutRemote(b.upstream!.name)),
+							},
+						});
+					}
+				}
+			}
+		}
+
+		const remoteBranches = branches.filter((b: GitBranchReference) => b.remote);
+		if (remoteBranches.length !== 0) {
+			const branchesByOrigin = groupByMap(remoteBranches, b => getRemoteNameFromBranchName(b.name));
+
+			for (const [remote, branches] of branchesByOrigin.entries()) {
+				await this.git.push(repoPath, {
+					delete: {
+						remote: remote,
+						branches: branches.map((b: GitBranchReference) =>
+							b.remote ? getBranchNameWithoutRemote(b.name) : b.name,
+						),
+					},
+				});
+			}
+		}
+	}
+
+	@log()
 	async createTag(repoPath: string, name: string, ref: string, message?: string): Promise<void> {
 		try {
 			await this.git.tag(repoPath, name, ref, ...(message != null && message.length > 0 ? ['-m', message] : []));

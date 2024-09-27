@@ -558,10 +558,17 @@ export class BranchGitCommand extends QuickCommand {
 			state.flags = result;
 
 			endSteps(state);
-			state.repo.branchDelete(state.references, {
-				force: state.flags.includes('--force'),
-				remote: state.flags.includes('--remotes'),
-			});
+
+			try {
+				await state.repo.git.deleteBranch(state.references, {
+					force: state.flags.includes('--force'),
+					remote: state.flags.includes('--remotes'),
+				});
+			} catch (ex) {
+				Logger.error(ex);
+				// TODO likely need some better error handling here
+				return showGenericErrorMessage('Unable to delete branch');
+			}
 		}
 	}
 

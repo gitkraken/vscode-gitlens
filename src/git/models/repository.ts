@@ -15,7 +15,7 @@ import { debug, log, logName } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
-import { filter, groupByMap, join, map, min, some } from '../../system/iterable';
+import { filter, join, map, min, some } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
@@ -26,9 +26,9 @@ import { configuration } from '../../system/vscode/configuration';
 import type { GitProviderDescriptor, GitProviderRepository } from '../gitProvider';
 import type { GitProviderService } from '../gitProviderService';
 import type { GitBranch } from './branch';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch';
-import type { GitBranchReference, GitReference } from './reference';
+import type { GitBranchReference, GitReference, GitTagReference } from './reference';
 import { getNameWithoutRemote, isBranchReference } from './reference';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch';
 import type { GitRemote } from './remote';
 import type { GitWorktree } from './worktree';
 
@@ -589,49 +589,6 @@ export class Repository implements Disposable {
 		await this.git.addRemote(name, url, options);
 		const [remote] = await this.git.getRemotes({ filter: r => r.url === url });
 		return remote;
-	}
-
-	@log()
-	branchDelete(branches: GitBranchReference | GitBranchReference[], options?: { force?: boolean; remote?: boolean }) {
-		if (!Array.isArray(branches)) {
-			branches = [branches];
-		}
-
-		const localBranches = branches.filter(b => !b.remote);
-		if (localBranches.length !== 0) {
-			const args = ['--delete'];
-			if (options?.force) {
-				args.push('--force');
-			}
-			void this.runTerminalCommand('branch', ...args, ...branches.map(b => b.ref));
-
-			if (options?.remote) {
-				const trackingBranches = localBranches.filter(b => b.upstream != null);
-				if (trackingBranches.length !== 0) {
-					const branchesByOrigin = groupByMap(trackingBranches, b =>
-						getRemoteNameFromBranchName(b.upstream!.name),
-					);
-
-					for (const [remote, branches] of branchesByOrigin.entries()) {
-						void this.runTerminalCommand(
-							'push',
-							'-d',
-							remote,
-							...branches.map(b => getBranchNameWithoutRemote(b.upstream!.name)),
-						);
-					}
-				}
-			}
-		}
-
-		const remoteBranches = branches.filter(b => b.remote);
-		if (remoteBranches.length !== 0) {
-			const branchesByOrigin = groupByMap(remoteBranches, b => getRemoteNameFromBranchName(b.name));
-
-			for (const [remote, branches] of branchesByOrigin.entries()) {
-				void this.runTerminalCommand('push', '-d', remote, ...branches.map(b => getNameWithoutRemote(b)));
-			}
-		}
 	}
 
 	@log()

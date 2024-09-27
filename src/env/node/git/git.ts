@@ -12,6 +12,8 @@ import { GitErrorHandling } from '../../../git/commandOptions';
 import {
 	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
+	BranchError,
+	BranchErrorReason,
 	CherryPickError,
 	CherryPickErrorReason,
 	FetchError,
@@ -520,7 +522,7 @@ export class Git {
 		}
 	}
 
-	branch(repoPath: string, ...args: string[]) {
+	async branch(repoPath: string, ...args: string[]): Promise<void> {
 		return this.git<string>({ cwd: repoPath }, 'branch', ...args);
 	}
 
@@ -976,6 +978,10 @@ export class Git {
 			publish?: boolean;
 			remote?: string;
 			upstream?: string;
+			delete?: {
+				remote: string;
+				branches: string[];
+			};
 		},
 	): Promise<void> {
 		const params = ['push'];
@@ -1001,8 +1007,10 @@ export class Git {
 			} else {
 				params.push(options.remote, options.branch);
 			}
-		} else if (options.remote) {
+		} else if (options.remote != null) {
 			params.push(options.remote);
+		} else if (options.delete != null) {
+			params.push('-d', options.delete.remote, ...options.delete.branches);
 		}
 
 		try {
