@@ -19,7 +19,7 @@ const models: GeminiModel[] = [
 	{
 		id: 'gemini-1.5-pro-latest',
 		name: 'Gemini 1.5 Pro',
-		maxTokens: 1048576,
+		maxTokens: 2097152,
 		provider: provider,
 		default: true,
 	},
