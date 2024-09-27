@@ -75,6 +75,10 @@ const textDecoder = new TextDecoder('utf8');
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export const GitErrors = {
+	noRemoteReference: /unable to delete '.+?': remote ref does not exist/i,
+	invalidBranchName: /fatal: '.+?' is not a valid branch name/i,
+	branchAlreadyExists: /fatal: A branch named '.+?' already exists/i,
+	branchNotFullyMerged: /error: The branch '.+?' is not fully merged/i,
 	badRevision: /bad revision '(.*?)'/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
 	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
@@ -523,7 +527,34 @@ export class Git {
 	}
 
 	async branch(repoPath: string, ...args: string[]): Promise<void> {
-		return this.git<string>({ cwd: repoPath }, 'branch', ...args);
+		try {
+			await this.git<string>({ cwd: repoPath }, 'branch', ...args);
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			let reason: BranchErrorReason = BranchErrorReason.Other;
+			switch (true) {
+				case GitErrors.noRemoteReference.test(msg) || GitErrors.noRemoteReference.test(ex.stderr ?? ''):
+					reason = BranchErrorReason.NoRemoteReference;
+					break;
+				case GitErrors.invalidBranchName.test(msg) || GitErrors.invalidBranchName.test(ex.stderr ?? ''):
+					reason = BranchErrorReason.InvalidBranchName;
+					break;
+				case GitErrors.branchAlreadyExists.test(msg) || GitErrors.branchAlreadyExists.test(ex.stderr ?? ''):
+					reason = BranchErrorReason.BranchAlreadyExists;
+					break;
+				case GitErrors.branchNotFullyMerged.test(msg) || GitErrors.branchNotFullyMerged.test(ex.stderr ?? ''):
+					reason = BranchErrorReason.BranchNotFullyMerged;
+					break;
+				case GitErrors.branchNotYetBorn.test(msg) || GitErrors.branchNotYetBorn.test(ex.stderr ?? ''):
+					reason = BranchErrorReason.BranchNotYetBorn;
+					break;
+				case GitErrors.branchFastForwardRejected.test(msg) ||
+					GitErrors.branchFastForwardRejected.test(ex.stderr ?? ''):
+					reason = BranchErrorReason.BranchFastForwardRejected;
+					break;
+			}
+			throw new BranchError(reason, ex);
+		}
 	}
 
 	branch__set_upstream(repoPath: string, branch: string, remote: string, remoteBranch: string) {

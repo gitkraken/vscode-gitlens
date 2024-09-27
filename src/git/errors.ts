@@ -218,6 +218,60 @@ export class PushError extends Error {
 	}
 }
 
+export const enum BranchErrorReason {
+	BranchAlreadyExists,
+	BranchNotFullyMerged,
+	NoRemoteReference,
+	InvalidBranchName,
+	Other,
+}
+
+export class BranchError extends Error {
+	static is(ex: unknown, reason?: BranchErrorReason): ex is BranchError {
+		return ex instanceof BranchError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: BranchErrorReason | undefined;
+
+	constructor(reason?: BranchErrorReason, original?: Error, branch?: string);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | BranchErrorReason | undefined, original?: Error, branch?: string) {
+		let message;
+		const baseMessage = `Unable to perform action on branch${branch ? ` '${branch}'` : ''}`;
+		let reason: BranchErrorReason | undefined;
+		if (messageOrReason == null) {
+			message = baseMessage;
+		} else if (typeof messageOrReason === 'string') {
+			message = messageOrReason;
+			reason = undefined;
+		} else {
+			reason = messageOrReason;
+			switch (reason) {
+				case BranchErrorReason.BranchAlreadyExists:
+					message = `${baseMessage} because it already exists.`;
+					break;
+				case BranchErrorReason.BranchNotFullyMerged:
+					message = `${baseMessage} because it is not fully merged.`;
+					break;
+				case BranchErrorReason.NoRemoteReference:
+					message = `${baseMessage} because the remote reference does not exist.`;
+					break;
+				case BranchErrorReason.InvalidBranchName:
+					message = `${baseMessage} because the branch name is invalid.`;
+					break;
+				default:
+					message = baseMessage;
+			}
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		Error.captureStackTrace?.(this, BranchError);
+	}
+}
+
 export const enum PullErrorReason {
 	Conflict,
 	GitIdentity,
