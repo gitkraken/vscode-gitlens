@@ -477,17 +477,6 @@ export class DeepLinkService implements Disposable {
 		return openLocationResult?.action;
 	}
 
-	private async showFetchPrompt(): Promise<boolean> {
-		const fetch: QuickPickItem = { label: 'Fetch' };
-		const cancel: QuickPickItem = { label: 'Cancel' };
-		const result = await window.showQuickPick([fetch, createQuickPickSeparator<QuickPickItem>(), cancel], {
-			title: 'Locating Link Target',
-			placeHolder: 'Unable to find the link target(s), would you like to fetch from the remote?',
-		});
-
-		return result === fetch;
-	}
-
 	private async showAddRemotePrompt(remoteUrl: string, existingRemoteNames: string[]): Promise<string | undefined> {
 		const add: QuickPickItem = { label: 'Add Remote' };
 		const cancel: QuickPickItem = { label: 'Cancel' };
@@ -1025,11 +1014,6 @@ export class DeepLinkService implements Disposable {
 					if (!repo || !remote) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Missing repository or remote.';
-						break;
-					}
-
-					if (!(await this.showFetchPrompt())) {
-						action = DeepLinkServiceAction.DeepLinkCancelled;
 						break;
 					}
 
