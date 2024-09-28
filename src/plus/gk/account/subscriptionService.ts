@@ -703,12 +703,7 @@ export class SubscriptionService implements Disposable {
 		// Don't overwrite a trial that is already in progress
 		if (isSubscriptionInProTrial(this._subscription)) return;
 
-		const {
-			previewTrial: newPreviewTrial,
-			days,
-			startedOn,
-			expiresOn,
-		} = getPreviewTrialAndDays(this.container.debugging);
+		const { previewTrial: newPreviewTrial, days, startedOn, expiresOn } = getPreviewTrialAndDays();
 		previewTrial = newPreviewTrial;
 
 		this.changeSubscription({

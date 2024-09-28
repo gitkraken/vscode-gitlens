@@ -119,7 +119,7 @@ class AccountDebug {
 					),
 				},
 			};
-			const { previewTrial: simulatedPreviewTrial } = getPreviewTrialAndDays(this.container.debugging);
+			const { previewTrial: simulatedPreviewTrial } = getPreviewTrialAndDays();
 			if (subscriptionState === SubscriptionState.FreePreviewTrialExpired) {
 				simulatedPreviewTrial.startedOn = new Date(Date.now() - 2000).toISOString();
 				simulatedPreviewTrial.expiresOn = new Date(Date.now() - 1000).toISOString();
