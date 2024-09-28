@@ -5,8 +5,6 @@ import { getNewLogScope } from '../../../system/logger.scope';
 import { padOrTruncateEnd } from '../../../system/string';
 import type { HostIpc } from './ipc';
 
-declare const DEBUG: boolean;
-
 export class LoggerContext {
 	private readonly scope: LogScope;
 

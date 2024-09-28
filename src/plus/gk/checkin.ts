@@ -3,11 +3,13 @@ import type { Organization } from './account/organization';
 import type { Subscription } from './account/subscription';
 import { getSubscriptionPlan, getSubscriptionPlanPriority } from './account/subscription';
 
+export type GKLicenses = Partial<Record<GKLicenseType, GKLicense>>;
+
 export interface GKCheckInResponse {
 	readonly user: GKUser;
 	readonly licenses: {
-		readonly paidLicenses: Record<GKLicenseType, GKLicense>;
-		readonly effectiveLicenses: Record<GKLicenseType, GKLicense>;
+		readonly paidLicenses: GKLicenses;
+		readonly effectiveLicenses: GKLicenses;
 	};
 	readonly nextOptInDate?: string;
 }

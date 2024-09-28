@@ -151,6 +151,8 @@ export const enum Commands {
 	PlusStartPreviewTrial = 'gitlens.plus.startPreviewTrial',
 	PlusUpgrade = 'gitlens.plus.upgrade',
 	PlusValidate = 'gitlens.plus.validate',
+	PlusSimulateSubscriptionState = 'gitlens.plus.simulateSubscriptionState',
+	PlusRestoreSubscriptionState = 'gitlens.plus.restoreSubscriptionState',
 	QuickOpenFileHistory = 'gitlens.quickOpenFileHistory',
 	RefreshLaunchpad = 'gitlens.launchpad.refresh',
 	RefreshGraph = 'gitlens.graph.refresh',
