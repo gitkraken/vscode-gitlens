@@ -29,7 +29,7 @@ import type { Source, TrackingContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { AccountValidationError, RequestsAreBlockedTemporarilyError } from '../../../errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
-import { createFromDateDelta, fromNow } from '../../../system/date';
+import { fromNow } from '../../../system/date';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { take } from '../../../system/event';
@@ -48,7 +48,7 @@ import { openUrl } from '../../../system/vscode/utils';
 import type { GKCheckInResponse } from '../checkin';
 import { getSubscriptionFromCheckIn } from '../checkin';
 import type { ServerConnection } from '../serverConnection';
-import { ensurePlusFeaturesEnabled } from '../utils';
+import { ensurePlusFeaturesEnabled, getPreviewTrialAndDays } from '../utils';
 import { LoginUriPathPrefix } from './authenticationConnection';
 import { authenticationProviderScopes } from './authenticationProvider';
 import type { Organization } from './organization';
@@ -171,6 +171,21 @@ export class SubscriptionService implements Disposable {
 			...this.registerCommands(),
 		);
 		this.updateContext();
+		if (DEBUG) {
+			void import(/* webpackChunkName: "__debug__" */ './__debug__accountDebug').then(m =>
+				m.registerAccountDebug(this.container, {
+					getSession: () => {
+						return this._session;
+					},
+					getSubscription: () => {
+						return this._subscription;
+					},
+					onDidCheckIn: this._onDidCheckIn,
+					changeSubscription: this.changeSubscription.bind(this),
+					getStoredSubscription: this.getStoredSubscription.bind(this),
+				}),
+			);
+		}
 	}
 
 	private onRepositoriesChanged(_e: RepositoriesChangeEvent): void {
@@ -688,24 +703,8 @@ export class SubscriptionService implements Disposable {
 		// Don't overwrite a trial that is already in progress
 		if (isSubscriptionInProTrial(this._subscription)) return;
 
-		const startedOn = new Date();
-
-		let days: number;
-		let expiresOn = new Date(startedOn);
-		if (this.container.debugging) {
-			expiresOn = createFromDateDelta(expiresOn, { minutes: 1 });
-			days = 0;
-		} else {
-			// Normalize the date to just before midnight on the same day
-			expiresOn.setHours(23, 59, 59, 999);
-			expiresOn = createFromDateDelta(expiresOn, { days: 3 });
-			days = 3;
-		}
-
-		previewTrial = {
-			startedOn: startedOn.toISOString(),
-			expiresOn: expiresOn.toISOString(),
-		};
+		const { previewTrial: newPreviewTrial, days, startedOn, expiresOn } = getPreviewTrialAndDays();
+		previewTrial = newPreviewTrial;
 
 		this.changeSubscription({
 			...this._subscription,
@@ -1263,7 +1262,9 @@ export class SubscriptionService implements Disposable {
 			this.container.telemetry.sendEvent(previous == null ? 'subscription' : 'subscription/changed', data);
 		});
 
-		void this.storeSubscription(subscription);
+		if (options?.store !== false) {
+			void this.storeSubscription(subscription);
+		}
 
 		this._subscription = subscription;
 		this._etag = Date.now();

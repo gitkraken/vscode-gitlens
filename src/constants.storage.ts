@@ -112,11 +112,13 @@ export interface Stored<T, SchemaVersion extends number = 1> {
 	timestamp?: number;
 }
 
+export type StoredGKLicenses = Partial<Record<StoredGKLicenseType, StoredGKLicense>>;
+
 export interface StoredGKCheckInResponse {
 	user: StoredGKUser;
 	licenses: {
-		paidLicenses: Record<StoredGKLicenseType, StoredGKLicense>;
-		effectiveLicenses: Record<StoredGKLicenseType, StoredGKLicense>;
+		paidLicenses: StoredGKLicenses;
+		effectiveLicenses: StoredGKLicenses;
 	};
 }
 
