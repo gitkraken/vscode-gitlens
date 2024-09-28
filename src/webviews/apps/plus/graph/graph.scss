@@ -443,7 +443,7 @@ button:not([disabled]),
 	font-family: inherit;
 	background-color: transparent;
 	border: none;
-	color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
+	color: var(--color-graph-text-disabled, hsla(0deg, 0%, 100%, 0.4));
 	height: var(--column-button-height);
 	cursor: pointer;
 	background-color: var(--color-graph-actionbar-background);
@@ -977,7 +977,7 @@ gl-feature-gate gl-feature-badge {
 	}
 }
 
-.gk-graph:not(.ref-zone):not([role='tooltip']) {
+gk-graph:not(.ref-zone):not([role='tooltip']) {
 	flex: 1 1 auto;
 	position: relative;
 }
@@ -987,7 +987,7 @@ gl-feature-gate gl-feature-badge {
 // 	position: absolute;
 // }
 
-.gk-graph .graph-header {
+gk-graph .graph-header {
 	& .resizable-handle.horizontal {
 		--sash-size: 4px;
 		--sash-hover-size: 4px;
@@ -1053,7 +1053,7 @@ gl-feature-gate gl-feature-badge {
 
 	.button {
 		background-color: var(--color-graph-actionbar-background);
-		color: var(--color-graph-text-disabled, hsla(0deg, 0%, 100%, 0.4));
+		color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
 		border-radius: 3px;
 
 		&:hover {
@@ -1078,7 +1078,7 @@ gl-feature-gate gl-feature-badge {
 }
 
 .graph-app:not(:hover) {
-	.gk-graph .graph-header {
+	gk-graph .graph-header {
 		& .resizable-handle.horizontal:before {
 			display: none;
 		}
@@ -1196,8 +1196,8 @@ gl-feature-gate gl-feature-badge {
 	}
 }
 
-.gk-graph .tooltip,
-.gk-graph.tooltip {
+gk-graph .tooltip,
+gk-graph.tooltip {
 	font-size: var(--vscode-font-size) !important;
 	font-family: var(--vscode-font-family) !important;
 	font-weight: normal !important;
