@@ -30,7 +30,7 @@ export interface Autolink {
 	prefix: string;
 	title?: string;
 	url: string;
-
+	alphanumeric?: boolean
 	type?: AutolinkType;
 	description?: string;
 
@@ -238,7 +238,7 @@ export class Autolinks implements Disposable {
 						prefix: ref.prefix,
 						url: ref.url?.replace(numRegex, num),
 						title: ref.title?.replace(numRegex, num),
-
+						alphanumeric: ref.alphanumeric,
 						type: ref.type,
 						description: ref.description?.replace(numRegex, num),
 						descriptor: ref.descriptor,
