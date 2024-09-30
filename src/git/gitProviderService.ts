@@ -655,6 +655,16 @@ export class GitProviderService implements Disposable {
 			if (added.length) {
 				// Defer the event trigger enough to let everything unwind
 				queueMicrotask(() => this.fireRepositoriesChanged(added));
+				for (const addedRepo of added) {
+					try {
+						await this.container.repositoryIdentity.addFoundRepositoryToMap(
+							addedRepo,
+							await this.container.repositoryIdentity.getRepositoryIdentity(addedRepo),
+						);
+					} catch (ex) {
+						Logger.error('Could not add discovered repository to identity map: ', ex);
+					}
+				}
 			}
 		} finally {
 			queueMicrotask(() => {
@@ -2427,6 +2437,16 @@ export class GitProviderService implements Disposable {
 				if (added.length) {
 					// Send a notification that the repositories changed
 					queueMicrotask(() => this.fireRepositoriesChanged(added));
+					for (const addedRepo of added) {
+						try {
+							await this.container.repositoryIdentity.addFoundRepositoryToMap(
+								addedRepo,
+								await this.container.repositoryIdentity.getRepositoryIdentity(addedRepo),
+							);
+						} catch (ex) {
+							Logger.error('Could not add found repository to identity map: ', ex);
+						}
+					}
 				}
 
 				repository = repositories.length === 1 ? repositories[0] : this.getRepository(uri);

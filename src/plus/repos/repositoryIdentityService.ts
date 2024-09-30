@@ -25,6 +25,17 @@ export class RepositoryIdentityService implements Disposable {
 		return this.locateRepository(identity, options);
 	}
 
+	async getRepositoryIdentity(repository: Repository): Promise<RepositoryIdentityDescriptor | undefined> {
+		const firstCommitSha = await this.container.git.getFirstCommitSha(repository.uri);
+		const bestRemote = await this.container.git.getBestRemoteWithProvider(repository.uri);
+		return {
+			name: repository.name,
+			initialCommitSha: firstCommitSha,
+			remote: bestRemote,
+			provider: bestRemote?.provider?.providerDesc,
+		};
+	}
+
 	@log()
 	private async locateRepository<T extends string | GkProviderId>(
 		identity: RepositoryIdentityDescriptor<T>,
@@ -139,7 +150,7 @@ export class RepositoryIdentityService implements Disposable {
 		return foundRepo;
 	}
 
-	private async addFoundRepositoryToMap<T extends string | GkProviderId>(
+	async addFoundRepositoryToMap<T extends string | GkProviderId>(
 		repo: Repository,
 		identity?: RepositoryIdentityDescriptor<T>,
 	) {
