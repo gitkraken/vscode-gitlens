@@ -52,6 +52,7 @@ export class GlHomeApp extends GlApp<State> {
 	override render() {
 		return html`
 			<div class="home scrollable">
+				<gl-home-nav class="home__nav"></gl-home-nav>
 				<gl-repo-alerts class="home__header"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
 					<gl-onboarding></gl-onboarding>
@@ -59,9 +60,7 @@ export class GlHomeApp extends GlApp<State> {
 				</main>
 
 				<footer class="home__footer">
-					<gl-home-account-content id="account-content">
-						<gl-home-nav class="home__nav"></gl-home-nav>
-					</gl-home-account-content>
+					<gl-home-account-content id="account-content"> </gl-home-account-content>
 				</footer>
 			</div>
 		`;

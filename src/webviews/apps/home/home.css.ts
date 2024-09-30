@@ -57,8 +57,6 @@ export const homeStyles = css`
 	}
 	.home__nav {
 		flex: none;
-		padding: 0;
-		margin-block: 0.6rem -1rem;
 	}
 	.home__footer {
 		flex: none;
@@ -66,6 +64,10 @@ export const homeStyles = css`
 
 	gl-home-account-content {
 		margin-bottom: 0;
+	}
+
+	gl-repo-alerts:not([has-alerts]) {
+		display: none;
 	}
 `;
 
@@ -127,6 +129,9 @@ export const inlineNavStyles = css`
 	.promo-banner--eyebrow {
 		color: var(--color-foreground--50);
 		margin-bottom: 0.2rem;
+	}
+	.promo-banner:not([has-promo]) {
+		display: none;
 	}
 `;
 

@@ -1,6 +1,6 @@
 import { consume } from '@lit/context';
 import { css, html } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../../home/protocol';
 import { GlElement } from '../../shared/components/element';
@@ -37,6 +37,11 @@ export class GlRepoAlerts extends GlElement {
 			}
 		`,
 	];
+
+	@property({ type: Boolean, reflect: true, attribute: 'has-alerts' })
+	get hasAlerts() {
+		return this.alertVisibility.header;
+	}
 
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
