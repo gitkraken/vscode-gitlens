@@ -1043,7 +1043,7 @@
 					},
 					"gitlens.graph.sidebar.enabled": {
 						"type": "boolean",
-						"default": false,
+						"default": true,
 						"markdownDescription": "Specifies whether to show a sidebar on the _Commit Graph_",
 						"scope": "window",
 						"order": 300
