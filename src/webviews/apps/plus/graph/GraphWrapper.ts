@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { consume } from '@lit/context';
 import type { State } from '../../../../plus/webviews/graph/protocol';
 import { stateContext } from './context';
-import { GraphContainer } from '@gitkraken/gitkraken-components';
+import './graph-container';
 import { GlTooltip } from '../../shared/components/overlays/tooltip.react';
 import { GlPopover } from '../../shared/components/overlays/popover.react';
 import { GlButton } from '../../shared/components/button.react';
