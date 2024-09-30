@@ -52,6 +52,11 @@ export class GlPromo extends LitElement {
 	@property({ reflect: true, type: String })
 	type: 'link' | 'info' = 'info';
 
+	@property({ reflect: true, type: Boolean, attribute: 'has-promo' })
+	get hasPromo() {
+		return this.promo != null;
+	}
+
 	override render() {
 		if (!this.promo) return;
 
