@@ -2,10 +2,10 @@ import { getSupportedGitProviders, getSupportedRepositoryPathMappingProvider } f
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode, Uri } from 'vscode';
 import type { AIProviderService } from './ai/aiProviderService';
-import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { ActionRunners } from './api/actionRunners';
+import { Autolinks } from './autolinks';
 import { setDefaultGravatarsStyle } from './avatars';
 import { CacheProvider } from './cache';
 import { GitCodeLensController } from './codelens/codeLensController';

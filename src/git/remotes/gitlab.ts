@@ -1,6 +1,5 @@
 import type { Range, Uri } from 'vscode';
-import type { Autolink, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
+import type { Autolink, AutolinkReference, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../autolinks';
 import { GlyphChars } from '../../constants';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { GitLabRepositoryDescriptor } from '../../plus/integrations/providers/gitlab';
@@ -41,6 +40,8 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 				{
 					prefix: '#',
 					url: `${this.baseUrl}/-/issues/<num>`,
+					alphanumeric: false,
+					ignoreCase: false,
 					title: `Open Issue #<num> on ${this.name}`,
 
 					type: 'issue',
@@ -49,6 +50,8 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 				{
 					prefix: '!',
 					url: `${this.baseUrl}/-/merge_requests/<num>`,
+					alphanumeric: false,
+					ignoreCase: false,
 					title: `Open Merge Request !<num> on ${this.name}`,
 
 					type: 'pullrequest',
@@ -135,6 +138,8 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 								id: num,
 								prefix: `${ownerAndRepo}#`,
 								url: `${this.protocol}://${this.domain}/${ownerAndRepo}/-/issues/${num}`,
+								alphanumeric: false,
+								ignoreCase: true,
 								title: `Open Issue #<num> from ${ownerAndRepo} on ${this.name}`,
 
 								type: 'issue',
@@ -235,6 +240,8 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 								id: num,
 								prefix: `${ownerAndRepo}!`,
 								url: `${this.protocol}://${this.domain}/${ownerAndRepo}/-/merge_requests/${num}`,
+								alphanumeric: false,
+								ignoreCase: true,
 								title: `Open Merge Request !<num> from ${ownerAndRepo} on ${this.name}`,
 
 								type: 'pullrequest',

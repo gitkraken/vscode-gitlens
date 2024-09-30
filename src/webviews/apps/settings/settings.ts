@@ -1,7 +1,7 @@
 /*global document IntersectionObserver*/
 import './settings.scss';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations';
-import type { AutolinkReference } from '../../../config';
+import type { AutolinkConfig } from '../../../config';
 import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
 import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
@@ -836,7 +836,7 @@ export class SettingsApp extends App<State> {
 			</div>
 		`;
 
-		const autolinkTemplate = (index: number, autolink?: AutolinkReference, isNew = false, renderHelp = true) => `
+		const autolinkTemplate = (index: number, autolink?: AutolinkConfig, isNew = false, renderHelp = true) => `
 			<div class="setting${isNew ? ' hidden" data-region="autolink' : ''}">
 				<div class="setting__group">
 					<div class="setting__input setting__input--short setting__input--with-actions">

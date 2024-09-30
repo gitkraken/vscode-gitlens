@@ -1,5 +1,4 @@
 import type { SupportedAIModels, VSCodeAIModels } from './constants.ai';
-import type { ResourceDescriptor } from './plus/integrations/integration';
 import type { DateTimeFormat } from './system/date';
 import type { LogLevel } from './system/logger.constants';
 
@@ -18,7 +17,7 @@ export interface Config {
 			};
 		};
 	};
-	readonly autolinks: AutolinkReference[] | null;
+	readonly autolinks: AutolinkConfig[] | null;
 	readonly blame: {
 		readonly avatars: boolean;
 		readonly compact: boolean;
@@ -251,18 +250,17 @@ export interface Config {
 }
 
 export type AnnotationsToggleMode = 'file' | 'window';
-export type AutolinkType = 'issue' | 'pullrequest';
 
-export interface AutolinkReference {
+export interface AutolinkConfig {
+	/** Short prefix to match to generate autolinks for the external resource */
 	readonly prefix: string;
+	/** URL of the external resource to link to */
 	readonly url: string;
-	readonly title?: string;
-	readonly alphanumeric?: boolean;
-	readonly ignoreCase?: boolean;
-
-	readonly type?: AutolinkType;
-	readonly description?: string;
-	readonly descriptor?: ResourceDescriptor;
+	/** Whether alphanumeric characters should be allowed in `<num>` */
+	readonly alphanumeric: boolean;
+	/** Whether case should be ignored when matching the prefix */
+	readonly ignoreCase: boolean;
+	readonly title: string | null;
 }
 
 export type BlameHighlightLocations = 'gutter' | 'line' | 'overview';

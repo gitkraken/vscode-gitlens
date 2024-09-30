@@ -1,6 +1,5 @@
 import type { Range, Uri } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { Brand, Unbrand } from '../../system/brand';
 import { isSha } from '../models/reference';
@@ -23,6 +22,8 @@ export class BitbucketServerRemote extends RemoteProvider {
 				{
 					prefix: 'issue #',
 					url: `${this.baseUrl}/issues/<num>`,
+					alphanumeric: false,
+					ignoreCase: true,
 					title: `Open Issue #<num> on ${this.name}`,
 
 					type: 'issue',
@@ -30,6 +31,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 				},
 				{
 					prefix: 'pull request #',
+					alphanumeric: false,
 					ignoreCase: true,
 					url: `${this.baseUrl}/pull-requests/<num>`,
 					title: `Open Pull Request #<num> on ${this.name}`,

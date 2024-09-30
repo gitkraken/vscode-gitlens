@@ -1,6 +1,5 @@
 import type { Range, Uri } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
@@ -41,8 +40,9 @@ export class GerritRemote extends RemoteProvider {
 				{
 					prefix: 'Change-Id: ',
 					url: `${this.baseReviewUrl}/q/<num>`,
-					title: `Open Change #<num> on ${this.name}`,
 					alphanumeric: true,
+					ignoreCase: true,
+					title: `Open Change #<num> on ${this.name}`,
 
 					description: `${this.name} Change #<num>`,
 				},

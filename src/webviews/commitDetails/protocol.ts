@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import type { Autolink } from '../../annotations/autolinks';
+import type { Autolink } from '../../autolinks';
 import type { Config, DateStyle } from '../../config';
 import type { Sources } from '../../constants.telemetry';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';

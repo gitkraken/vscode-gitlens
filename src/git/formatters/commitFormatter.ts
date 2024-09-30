@@ -1,11 +1,11 @@
 import type { Uri } from 'vscode';
-import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import type {
 	Action,
 	ActionContext,
 	HoverCommandsActionContext,
 	OpenPullRequestActionContext,
 } from '../../api/gitlens';
+import type { MaybeEnrichedAutolink } from '../../autolinks';
 import { getPresenceDataUri } from '../../avatars';
 import { Command } from '../../commands/base';
 import { DiffWithCommand } from '../../commands/diffWith';
