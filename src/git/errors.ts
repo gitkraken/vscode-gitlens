@@ -249,16 +249,16 @@ export class BranchError extends Error {
 			reason = messageOrReason;
 			switch (reason) {
 				case BranchErrorReason.BranchAlreadyExists:
-					message = `${baseMessage} because it already exists.`;
+					message = `${baseMessage} because it already exists`;
 					break;
 				case BranchErrorReason.BranchNotFullyMerged:
-					message = `${baseMessage} because it is not fully merged.`;
+					message = `${baseMessage} because it is not fully merged`;
 					break;
 				case BranchErrorReason.NoRemoteReference:
-					message = `${baseMessage} because the remote reference does not exist.`;
+					message = `${baseMessage} because the remote reference does not exist`;
 					break;
 				case BranchErrorReason.InvalidBranchName:
-					message = `${baseMessage} because the branch name is invalid.`;
+					message = `${baseMessage} because the branch name is invalid`;
 					break;
 				default:
 					message = baseMessage;

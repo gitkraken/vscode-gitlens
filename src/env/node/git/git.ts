@@ -171,6 +171,15 @@ function getStdinUniqueKey(): number {
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
 
+const branchErrorAndReason = [
+	[GitErrors.noRemoteReference, BranchErrorReason.NoRemoteReference],
+	[GitErrors.invalidBranchName, BranchErrorReason.InvalidBranchName],
+	[GitErrors.branchAlreadyExists, BranchErrorReason.BranchAlreadyExists],
+	[GitErrors.branchNotFullyMerged, BranchErrorReason.BranchNotFullyMerged],
+	[GitErrors.branchNotYetBorn, BranchErrorReason.BranchNotYetBorn],
+	[GitErrors.branchFastForwardRejected, BranchErrorReason.BranchFastForwardRejected],
+];
+
 const tagErrorAndReason: [RegExp, TagErrorReason][] = [
 	[GitErrors.tagAlreadyExists, TagErrorReason.TagAlreadyExists],
 	[GitErrors.tagNotFound, TagErrorReason.TagNotFound],
@@ -531,29 +540,12 @@ export class Git {
 			await this.git<string>({ cwd: repoPath }, 'branch', ...args);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
-			let reason: BranchErrorReason = BranchErrorReason.Other;
-			switch (true) {
-				case GitErrors.noRemoteReference.test(msg) || GitErrors.noRemoteReference.test(ex.stderr ?? ''):
-					reason = BranchErrorReason.NoRemoteReference;
-					break;
-				case GitErrors.invalidBranchName.test(msg) || GitErrors.invalidBranchName.test(ex.stderr ?? ''):
-					reason = BranchErrorReason.InvalidBranchName;
-					break;
-				case GitErrors.branchAlreadyExists.test(msg) || GitErrors.branchAlreadyExists.test(ex.stderr ?? ''):
-					reason = BranchErrorReason.BranchAlreadyExists;
-					break;
-				case GitErrors.branchNotFullyMerged.test(msg) || GitErrors.branchNotFullyMerged.test(ex.stderr ?? ''):
-					reason = BranchErrorReason.BranchNotFullyMerged;
-					break;
-				case GitErrors.branchNotYetBorn.test(msg) || GitErrors.branchNotYetBorn.test(ex.stderr ?? ''):
-					reason = BranchErrorReason.BranchNotYetBorn;
-					break;
-				case GitErrors.branchFastForwardRejected.test(msg) ||
-					GitErrors.branchFastForwardRejected.test(ex.stderr ?? ''):
-					reason = BranchErrorReason.BranchFastForwardRejected;
-					break;
+			for (const [error, reason] of branchErrorAndReason) {
+				if (error.test(msg) || error.test(ex.stderr ?? '')) {
+					throw new BranchError(reason, ex);
+				}
 			}
-			throw new BranchError(reason, ex);
+			throw new BranchError(BranchErrorReason.Other, ex);
 		}
 	}
 
@@ -1038,9 +1030,9 @@ export class Git {
 			} else {
 				params.push(options.remote, options.branch);
 			}
-		} else if (options.remote != null) {
+		} else if (options.remote) {
 			params.push(options.remote);
-		} else if (options.delete != null) {
+		} else if (options.delete) {
 			params.push('-d', options.delete.remote, ...options.delete.branches);
 		}
 
