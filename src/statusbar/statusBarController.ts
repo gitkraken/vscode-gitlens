@@ -15,7 +15,7 @@ import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import type { MaybePausedResult } from '../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../system/promise';
-import { asCommand } from '../system/vscode/command';
+import { createCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import { isTrackableTextEditor } from '../system/vscode/utils';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
@@ -299,34 +299,30 @@ export class StatusBarController implements Disposable {
 				break;
 			case StatusBarCommand.ToggleFileChanges: {
 				if (commit.file != null) {
-					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
-						title: 'Toggle File Changes',
-						command: Commands.ToggleFileChanges,
-						arguments: [
-							commit.file.uri,
-							{
-								type: 'changes',
-								context: { sha: commit.sha, only: false, selection: false },
-							},
-						],
-					});
+					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
+						Commands.ToggleFileChanges,
+						'Toggle File Changes',
+						commit.file.uri,
+						{
+							type: 'changes',
+							context: { sha: commit.sha, only: false, selection: false },
+						},
+					);
 				}
 				actionTooltip = 'Click to Toggle File Changes';
 				break;
 			}
 			case StatusBarCommand.ToggleFileChangesOnly: {
 				if (commit.file != null) {
-					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
-						title: 'Toggle File Changes',
-						command: Commands.ToggleFileChanges,
-						arguments: [
-							commit.file.uri,
-							{
-								type: 'changes',
-								context: { sha: commit.sha, only: true, selection: false },
-							},
-						],
-					});
+					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
+						Commands.ToggleFileChanges,
+						'Toggle File Changes',
+						commit.file.uri,
+						{
+							type: 'changes',
+							context: { sha: commit.sha, only: true, selection: false },
+						},
+					);
 				}
 				actionTooltip = 'Click to Toggle File Changes';
 				break;
