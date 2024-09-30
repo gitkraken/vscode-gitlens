@@ -26,11 +26,10 @@ export class RepositoryIdentityService implements Disposable {
 	}
 
 	async getRepositoryIdentity(repository: Repository): Promise<RepositoryIdentityDescriptor> {
-		const firstCommitSha = await this.container.git.getFirstCommitSha(repository.uri);
 		const bestRemote = await this.container.git.getBestRemoteWithProvider(repository.uri);
 		return {
 			name: repository.name,
-			initialCommitSha: firstCommitSha,
+			initialCommitSha: await this.container.git.getFirstCommitSha(repository.uri),
 			remote: bestRemote,
 			provider: bestRemote?.provider?.providerDesc,
 		};
