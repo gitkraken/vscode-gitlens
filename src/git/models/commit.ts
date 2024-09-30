@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import type { EnrichedAutolink } from '../../annotations/autolinks';
+import type { EnrichedAutolink } from '../../autolinks';
 import { getAvatarUri, getCachedAvatarUri } from '../../avatars';
 import type { GravatarDefaultStyle } from '../../config';
 import { GlyphChars } from '../../constants';
