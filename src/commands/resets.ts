@@ -13,7 +13,6 @@ const resetTypes = [
 	'ai',
 	'avatars',
 	'integrations',
-	'plus',
 	'repositoryAccess',
 	'suppressedWarnings',
 	'usageTracking',
@@ -74,19 +73,6 @@ export class ResetCommand extends Command {
 			},
 		];
 
-		if (this.container.debugging) {
-			items.splice(
-				0,
-				0,
-				{
-					label: 'Subscription Reset',
-					detail: 'Resets the stored subscription',
-					item: 'plus',
-				},
-				createQuickPickSeparator(),
-			);
-		}
-
 		// create a quick pick with options to clear all the different resets that GitLens supports
 		const pick = await window.showQuickPick<ResetQuickPickItem>(items, {
 			title: 'Reset Stored Data',
@@ -94,7 +80,6 @@ export class ResetCommand extends Command {
 		});
 
 		if (pick?.item == null) return;
-		if (pick.item === 'plus' && !this.container.debugging) return;
 
 		const confirm: MessageItem = { title: 'Reset' };
 		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
@@ -168,10 +153,6 @@ export class ResetCommand extends Command {
 
 			case 'integrations':
 				await this.container.integrations.reset();
-				break;
-
-			case 'plus':
-				await this.container.subscription.logout(true, undefined);
 				break;
 
 			case 'repositoryAccess':

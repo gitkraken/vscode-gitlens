@@ -48,7 +48,7 @@ import { openUrl } from '../../../system/vscode/utils';
 import type { GKCheckInResponse } from '../checkin';
 import { getSubscriptionFromCheckIn } from '../checkin';
 import type { ServerConnection } from '../serverConnection';
-import { ensurePlusFeaturesEnabled, getPreviewTrialAndDays } from '../utils';
+import { ensurePlusFeaturesEnabled } from '../utils';
 import { LoginUriPathPrefix } from './authenticationConnection';
 import { authenticationProviderScopes } from './authenticationProvider';
 import type { Organization } from './organization';
@@ -57,6 +57,8 @@ import type { Subscription } from './subscription';
 import {
 	assertSubscriptionState,
 	computeSubscriptionState,
+	getCommunitySubscription,
+	getPreviewSubscription,
 	getSubscriptionPlan,
 	getSubscriptionPlanName,
 	getSubscriptionStateString,
@@ -144,7 +146,7 @@ export class SubscriptionService implements Disposable {
 		if (session != null && e.removed?.some(s => s.id === session.id)) {
 			this._session = undefined;
 			this._sessionPromise = undefined;
-			void this.logout(undefined, undefined);
+			void this.logout(undefined);
 			return;
 		}
 
@@ -171,20 +173,53 @@ export class SubscriptionService implements Disposable {
 			...this.registerCommands(),
 		);
 		this.updateContext();
+
 		if (DEBUG) {
-			void import(/* webpackChunkName: "__debug__" */ './__debug__accountDebug').then(m =>
+			void import(/* webpackChunkName: "__debug__" */ './__debug__accountDebug').then(m => {
+				let restore: { session: AuthenticationSession | null | undefined } | undefined;
+
+				function setSession(this: SubscriptionService, session: AuthenticationSession | null | undefined) {
+					this._sessionPromise = undefined;
+					if (session === this._session) return;
+
+					const previous = this._session;
+					this._session = session;
+
+					// Replace the next `onAuthenticationChanged` handler to avoid our own trigger below
+					const fn = this.onAuthenticationChanged;
+					// eslint-disable-next-line @typescript-eslint/require-await
+					this.onAuthenticationChanged = async () => {
+						this.onAuthenticationChanged = fn;
+					};
+
+					// @ts-expect-error - fragile, but don't want to expose this as it is only for debugging
+					this.container.accountAuthentication._onDidChangeSessions.fire({
+						added: previous == null && session != null ? [session] : [],
+						removed: previous != null && session == null ? [previous] : [],
+						changed: previous != null && session != null ? [session] : [],
+					});
+				}
+
 				m.registerAccountDebug(this.container, {
-					getSession: () => {
-						return this._session;
+					getSubscription: () => this._subscription,
+					overrideSession: (session: AuthenticationSession | null | undefined) => {
+						restore ??= { session: this._session };
+
+						setSession.call(this, session);
 					},
-					getSubscription: () => {
-						return this._subscription;
+					restoreSession: () => {
+						if (restore == null) return;
+
+						const { session } = restore;
+						restore = undefined;
+
+						setSession.call(this, session);
 					},
 					onDidCheckIn: this._onDidCheckIn,
 					changeSubscription: this.changeSubscription.bind(this),
 					getStoredSubscription: this.getStoredSubscription.bind(this),
-				}),
-			);
+				});
+			});
 		}
 	}
 
@@ -198,7 +233,7 @@ export class SubscriptionService implements Disposable {
 		return [
 			registerCommand(Commands.PlusLogin, (src?: Source) => this.loginOrSignUp(false, src)),
 			registerCommand(Commands.PlusSignUp, (src?: Source) => this.loginOrSignUp(true, src)),
-			registerCommand(Commands.PlusLogout, (src?: Source) => this.logout(undefined, src)),
+			registerCommand(Commands.PlusLogout, (src?: Source) => this.logout(src)),
 			registerCommand(Commands.GKSwitchOrganization, () => this.switchOrganization()),
 
 			registerCommand(Commands.PlusManage, (src?: Source) => this.manage(src)),
@@ -394,7 +429,7 @@ export class SubscriptionService implements Disposable {
 
 		const session = await this.ensureSession(false);
 		if (session != null) {
-			await this.logout(undefined, source);
+			await this.logout(source);
 		}
 
 		return this.loginCore({ signIn: authentication, source: source });
@@ -423,15 +458,15 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async logout(reset: boolean = false, source: Source | undefined): Promise<void> {
+	async logout(source: Source | undefined): Promise<void> {
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'sign-out' }, source);
 		}
 
-		return this.logoutCore(reset);
+		return this.logoutCore();
 	}
 
-	private async logoutCore(reset: boolean = false): Promise<void> {
+	private async logoutCore(): Promise<void> {
 		this.connection.resetRequestExceptionCount();
 		this._lastValidatedDate = undefined;
 		if (this._validationTimer != null) {
@@ -450,37 +485,7 @@ export class SubscriptionService implements Disposable {
 			void this.container.accountAuthentication.removeSessionsByScopes(authenticationProviderScopes);
 		}
 
-		if (reset && this.container.debugging) {
-			this.changeSubscription(undefined);
-
-			return;
-		}
-
-		this.changeSubscription({
-			...this._subscription,
-			plan: {
-				actual: getSubscriptionPlan(
-					SubscriptionPlanId.Free,
-					false,
-					0,
-					undefined,
-					this._subscription.plan?.actual?.startedOn != null
-						? new Date(this._subscription.plan.actual.startedOn)
-						: undefined,
-				),
-				effective: getSubscriptionPlan(
-					SubscriptionPlanId.Free,
-					false,
-					0,
-					undefined,
-					this._subscription.plan?.effective?.startedOn != null
-						? new Date(this._subscription.plan.actual.startedOn)
-						: undefined,
-				),
-			},
-			account: undefined,
-			activeOrganization: undefined,
-		});
+		this.changeSubscription(getCommunitySubscription(this._subscription));
 	}
 
 	@log()
@@ -676,7 +681,7 @@ export class SubscriptionService implements Disposable {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'start-preview-trial' }, source);
 		}
 
-		let { plan, previewTrial } = this._subscription;
+		const { plan, previewTrial } = this._subscription;
 		if (previewTrial != null) {
 			void this.showAccountView();
 
@@ -703,17 +708,9 @@ export class SubscriptionService implements Disposable {
 		// Don't overwrite a trial that is already in progress
 		if (isSubscriptionInProTrial(this._subscription)) return;
 
-		const { previewTrial: newPreviewTrial, days, startedOn, expiresOn } = getPreviewTrialAndDays();
-		previewTrial = newPreviewTrial;
-
-		this.changeSubscription({
-			...this._subscription,
-			plan: {
-				...this._subscription.plan,
-				effective: getSubscriptionPlan(SubscriptionPlanId.Pro, false, 0, undefined, startedOn, expiresOn),
-			},
-			previewTrial: previewTrial,
-		});
+		const days = 3;
+		const subscription = getPreviewSubscription(days, this._subscription);
+		this.changeSubscription(subscription);
 
 		setTimeout(async () => {
 			const confirm: MessageItem = { title: 'Continue' };

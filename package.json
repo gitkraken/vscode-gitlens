@@ -5662,13 +5662,8 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.plus.simulateSubscriptionState",
-				"title": "Simulate Subscription State (Debugging)",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.plus.restoreSubscriptionState",
-				"title": "Restore Subscription State (Debugging)",
+				"command": "gitlens.plus.simulateSubscription",
+				"title": "Simulate Subscription (Debugging)",
 				"category": "GitLens"
 			},
 			{
@@ -9803,11 +9798,7 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.plus.simulateSubscriptionState",
-					"when": "gitlens:enabled && gitlens:debugging"
-				},
-				{
-					"command": "gitlens.plus.restoreSubscriptionState",
+					"command": "gitlens.plus.simulateSubscription",
 					"when": "gitlens:enabled && gitlens:debugging"
 				},
 				{
