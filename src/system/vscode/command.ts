@@ -1,7 +1,8 @@
-import type { Command as CoreCommand, Disposable, Uri } from 'vscode';
+import type { Disposable, Command as ICommand, Uri } from 'vscode';
 import { commands } from 'vscode';
 import type { Action, ActionContext } from '../../api/gitlens';
 import type { Command } from '../../commands/base';
+import type { CodeLensCommand } from '../../config';
 import type { CoreCommands, CoreGitCommands, TreeViewCommands } from '../../constants.commands';
 import { Commands } from '../../constants.commands';
 import { Container } from '../../container';
@@ -86,21 +87,15 @@ export function registerCommands(container: Container): Disposable[] {
 	return registrableCommands.map(c => new c(container));
 }
 
-export function asCommand<T extends unknown[]>(
-	command: Omit<CoreCommand, 'arguments'> & { arguments: [...T] },
-): CoreCommand {
-	return command;
-}
-
 export function executeActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>) {
 	return commands.executeCommand(`${Commands.ActionPrefix}${action}`, { ...args, type: action });
 }
 
 export function createCommand<T extends unknown[]>(
-	command: Commands | TreeViewCommands,
+	command: Commands | CodeLensCommand | TreeViewCommands,
 	title: string,
 	...args: T
-): CoreCommand {
+): ICommand {
 	return {
 		command: command,
 		title: title,
@@ -115,7 +110,7 @@ export function executeCommand<T extends [...unknown[]] = [], U = any>(command: 
 	return commands.executeCommand<U>(command, ...args);
 }
 
-export function createCoreCommand<T extends unknown[]>(command: CoreCommands, title: string, ...args: T): CoreCommand {
+export function createCoreCommand<T extends unknown[]>(command: CoreCommands, title: string, ...args: T): ICommand {
 	return {
 		command: command,
 		title: title,
@@ -148,7 +143,7 @@ export function createCoreGitCommand<T extends unknown[]>(
 	command: CoreGitCommands,
 	title: string,
 	...args: T
-): CoreCommand {
+): ICommand {
 	return {
 		command: command,
 		title: title,
