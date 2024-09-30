@@ -52,7 +52,9 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 			if (message == null) return;
 
 			void executeCoreCommand('workbench.view.scm');
-			scmRepo.inputBox.value = currentMessage ? `${currentMessage}\n\n${message}` : message;
+			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${message.summary}\n\n${
+				message.body
+			}`;
 		} catch (ex) {
 			Logger.error(ex, 'GenerateCommitMessageCommand');
 

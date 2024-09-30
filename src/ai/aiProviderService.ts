@@ -200,22 +200,22 @@ export class AIProviderService implements Disposable {
 		changes: string[],
 		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
-	): Promise<string | undefined>;
+	): Promise<{ summary: string; body: string } | undefined>;
 	async generateCommitMessage(
 		repoPath: Uri,
 		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
-	): Promise<string | undefined>;
+	): Promise<{ summary: string; body: string } | undefined>;
 	async generateCommitMessage(
 		repository: Repository,
 		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
-	): Promise<string | undefined>;
+	): Promise<{ summary: string; body: string } | undefined>;
 	async generateCommitMessage(
 		changesOrRepoOrPath: string[] | Repository | Uri,
 		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
-	): Promise<string | undefined> {
+	): Promise<{ summary: string; body: string } | undefined> {
 		const changes: string | undefined = await this.getChanges(changesOrRepoOrPath);
 		if (changes == null) return undefined;
 
@@ -264,7 +264,8 @@ export class AIProviderService implements Disposable {
 			payload['output.length'] = result?.length;
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, duration: Date.now() - start }, source);
 
-			return result;
+			if (result == null) return undefined;
+			return parseGeneratedMessage(result);
 		} catch (ex) {
 			this.container.telemetry.sendEvent(
 				'ai/generate',
@@ -291,7 +292,7 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 			codeSuggestion?: boolean;
 		},
-	): Promise<string | undefined> {
+	): Promise<{ summary: string; body: string } | undefined> {
 		const changes: string | undefined = await this.getChanges(changesOrRepoOrPath);
 		if (changes == null) return undefined;
 
@@ -342,7 +343,8 @@ export class AIProviderService implements Disposable {
 			payload['output.length'] = result?.length;
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, duration: Date.now() - start }, source);
 
-			return result;
+			if (result == null) return undefined;
+			return parseGeneratedMessage(result);
 		} catch (ex) {
 			this.container.telemetry.sendEvent(
 				'ai/generate',
@@ -633,16 +635,26 @@ export async function getApiKey(
 	return apiKey;
 }
 
-export function extractDraftMessage(
-	message: string,
-	splitter = '\n\n',
-): { title: string; description: string | undefined } {
-	const firstBreak = message.indexOf(splitter) ?? 0;
-	const title = firstBreak > -1 ? message.substring(0, firstBreak) : message;
-	const description = firstBreak > -1 ? message.substring(firstBreak + splitter.length) : undefined;
+function parseGeneratedMessage(result: string): { summary: string; body: string } {
+	let summary = result.match(/<summary>\s?([\s\S]*?)\s?<\/summary>/)?.[1];
+	let body = result.match(/<body>\s?([\s\S]*?)\s?<\/body>/)?.[1];
+
+	result = result.trim();
+	if ((summary == null || body == null) && result) {
+		debugger;
+
+		const index = result.indexOf('\n');
+		if (index === -1) {
+			summary = '';
+			body = result;
+		} else {
+			summary = result.substring(0, index);
+			body = result.substring(index + 1);
+		}
+	}
 
 	return {
-		title: title,
-		description: description,
+		summary: summary ?? '',
+		body: body ?? '',
 	};
 }
