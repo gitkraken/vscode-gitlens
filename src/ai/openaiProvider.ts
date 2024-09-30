@@ -6,11 +6,19 @@ import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import { sum } from '../system/iterable';
+import { interpolate } from '../system/string';
 import { configuration } from '../system/vscode/configuration';
 import type { Storage } from '../system/vscode/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
-import { cloudPatchMessageSystemPrompt, codeSuggestMessageSystemPrompt, commitMessageSystemPrompt } from './prompts';
+import {
+	generateCloudPatchMessageSystemPrompt,
+	generateCloudPatchMessageUserPrompt,
+	generateCodeSuggestMessageSystemPrompt,
+	generateCodeSuggestMessageUserPrompt,
+	generateCommitMessageSystemPrompt,
+	generateCommitMessageUserPrompt,
+} from './prompts';
 
 const provider = { id: 'openai', name: 'OpenAI' } as const;
 
@@ -138,9 +146,10 @@ export class OpenAIProvider implements AIProvider<typeof provider.id> {
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
+			type: 'commit' | 'cloud-patch' | 'code-suggestion';
 			systemPrompt: string;
-			customPrompt: string;
-			contextName: string;
+			userPrompt: string;
+			customInstructions?: string;
 		},
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
@@ -150,8 +159,6 @@ export class OpenAIProvider implements AIProvider<typeof provider.id> {
 		let retries = 0;
 		let maxCodeCharacters = getMaxCharacters(model, 2600);
 		while (true) {
-			const code = diff.substring(0, maxCodeCharacters);
-
 			const request: OpenAIChatCompletionRequest = {
 				model: model.id,
 				messages: [
@@ -161,19 +168,11 @@ export class OpenAIProvider implements AIProvider<typeof provider.id> {
 					},
 					{
 						role: 'user',
-						content: `Here is the code diff to use to generate the ${promptConfig.contextName}:\n\n${code}`,
-					},
-					...(options?.context
-						? [
-								{
-									role: 'user' as const,
-									content: `Here is additional context which should be taken into account when generating the ${promptConfig.contextName}:\n\n${options.context}`,
-								},
-						  ]
-						: []),
-					{
-						role: 'user',
-						content: promptConfig.customPrompt,
+						content: interpolate(promptConfig.userPrompt, {
+							diff: diff.substring(0, maxCodeCharacters),
+							context: options?.context ?? '',
+							instructions: promptConfig.customInstructions ?? '',
+						}),
 					},
 				],
 			};
@@ -185,12 +184,12 @@ export class OpenAIProvider implements AIProvider<typeof provider.id> {
 			if (!rsp.ok) {
 				if (rsp.status === 404) {
 					throw new Error(
-						`Unable to generate ${promptConfig.contextName}: Your API key doesn't seem to have access to the selected '${model.id}' model`,
+						`Unable to generate ${promptConfig.type} message: Your API key doesn't seem to have access to the selected '${model.id}' model`,
 					);
 				}
 				if (rsp.status === 429) {
 					throw new Error(
-						`Unable to generate ${promptConfig.contextName}: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
+						`Unable to generate ${promptConfig.type} message: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
 					);
 				}
 
@@ -207,7 +206,7 @@ export class OpenAIProvider implements AIProvider<typeof provider.id> {
 				}
 
 				throw new Error(
-					`Unable to generate ${promptConfig.contextName}: (${this.name}:${rsp.status}) ${
+					`Unable to generate ${promptConfig.type} message: (${this.name}:${rsp.status}) ${
 						json?.error?.message || rsp.statusText
 					}`,
 				);
@@ -235,27 +234,28 @@ export class OpenAIProvider implements AIProvider<typeof provider.id> {
 			codeSuggestion?: boolean | undefined;
 		},
 	): Promise<string | undefined> {
-		let customPrompt =
-			options?.codeSuggestion === true
-				? configuration.get('experimental.generateCodeSuggestionMessagePrompt')
-				: configuration.get('experimental.generateCloudPatchMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
+		let codeSuggestion;
+		if (options != null) {
+			({ codeSuggestion, ...options } = options ?? {});
 		}
 
 		return this.generateMessage(
 			model,
 			diff,
 			reporting,
-			{
-				systemPrompt:
-					options?.codeSuggestion === true ? codeSuggestMessageSystemPrompt : cloudPatchMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName:
-					options?.codeSuggestion === true
-						? 'code suggestion title and description'
-						: 'cloud patch title and description',
-			},
+			codeSuggestion
+				? {
+						type: 'code-suggestion',
+						systemPrompt: generateCodeSuggestMessageSystemPrompt,
+						userPrompt: generateCodeSuggestMessageUserPrompt,
+						customInstructions: configuration.get('experimental.generateCodeSuggestionMessagePrompt'),
+				  }
+				: {
+						type: 'cloud-patch',
+						systemPrompt: generateCloudPatchMessageSystemPrompt,
+						userPrompt: generateCloudPatchMessageUserPrompt,
+						customInstructions: configuration.get('experimental.generateCloudPatchMessagePrompt'),
+				  },
 			options,
 		);
 	}
@@ -266,19 +266,15 @@ export class OpenAIProvider implements AIProvider<typeof provider.id> {
 		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
-		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
-		}
-
 		return this.generateMessage(
 			model,
 			diff,
 			reporting,
 			{
-				systemPrompt: commitMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName: 'commit message',
+				type: 'commit',
+				systemPrompt: generateCommitMessageSystemPrompt,
+				userPrompt: generateCommitMessageUserPrompt,
+				customInstructions: configuration.get('experimental.generateCommitMessagePrompt'),
 			},
 			options,
 		);
