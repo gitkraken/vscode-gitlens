@@ -1,6 +1,6 @@
 // NOTE@eamodio This file is referenced in the webviews to we can't use anything vscode or other imports that aren't available in the webviews
 import { SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
-import { getDateDifference } from '../../../system/date';
+import { createFromDateDelta, getDateDifference } from '../../../system/date';
 import type { Organization } from './organization';
 
 export const SubscriptionUpdatedUriPathPrefix = 'did-update-subscription';
@@ -251,3 +251,56 @@ export function hasAccountFromSubscriptionState(state: SubscriptionState | undef
 export function assertSubscriptionState(
 	subscription: Optional<Subscription, 'state'>,
 ): asserts subscription is Subscription {}
+
+export function getCommunitySubscription(subscription?: Subscription): Subscription {
+	return {
+		...subscription,
+		plan: {
+			actual: getSubscriptionPlan(
+				SubscriptionPlanId.Free,
+				false,
+				0,
+				undefined,
+				subscription?.plan?.actual?.startedOn != null
+					? new Date(subscription.plan.actual.startedOn)
+					: undefined,
+			),
+			effective: getSubscriptionPlan(
+				SubscriptionPlanId.Free,
+				false,
+				0,
+				undefined,
+				subscription?.plan?.actual?.startedOn != null
+					? new Date(subscription.plan.actual.startedOn)
+					: undefined,
+			),
+		},
+		account: undefined,
+		activeOrganization: undefined,
+		state: SubscriptionState.Free,
+	};
+}
+
+export function getPreviewSubscription(days: number, subscription?: Subscription): Subscription {
+	const startedOn = new Date();
+
+	let expiresOn = new Date(startedOn);
+	if (days !== 0) {
+		// Normalize the date to just before midnight on the same day
+		expiresOn.setHours(23, 59, 59, 999);
+		expiresOn = createFromDateDelta(expiresOn, { days: days });
+	}
+
+	subscription ??= getCommunitySubscription();
+	return {
+		...subscription,
+		plan: {
+			...subscription.plan,
+			effective: getSubscriptionPlan(SubscriptionPlanId.Pro, false, 0, undefined, startedOn, expiresOn),
+		},
+		previewTrial: {
+			startedOn: startedOn.toISOString(),
+			expiresOn: expiresOn.toISOString(),
+		},
+	};
+}
