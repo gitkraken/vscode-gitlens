@@ -126,7 +126,7 @@ export class IntegrationService implements Disposable {
 	}
 
 	private onDidChangeSubscription(e: SubscriptionChangeEvent) {
-		// TODO is this correct?
+		// When logging out, disconnect all connected cloud integrations
 		if (e.current?.account == null) {
 			void this.syncCloudIntegrations(false);
 		}
