@@ -1,7 +1,6 @@
 import type { Range } from 'vscode';
 import { Uri } from 'vscode';
-import type { Autolink, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
+import type { Autolink, AutolinkReference, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../autolinks';
 import { GlyphChars } from '../../constants';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { GitHubRepositoryDescriptor } from '../../plus/integrations/providers/github';
@@ -41,6 +40,8 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 				{
 					prefix: '#',
 					url: `${this.baseUrl}/issues/<num>`,
+					alphanumeric: false,
+					ignoreCase: false,
 					title: `Open Issue or Pull Request #<num> on ${this.name}`,
 
 					description: `${this.name} Issue or Pull Request #<num>`,
@@ -48,8 +49,9 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 				{
 					prefix: 'gh-',
 					url: `${this.baseUrl}/issues/<num>`,
-					title: `Open Issue or Pull Request #<num> on ${this.name}`,
+					alphanumeric: false,
 					ignoreCase: true,
+					title: `Open Issue or Pull Request #<num> on ${this.name}`,
 
 					description: `${this.name} Issue or Pull Request #<num>`,
 				},
@@ -138,6 +140,8 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 								id: num,
 								prefix: `${ownerAndRepo}#`,
 								url: `${this.protocol}://${this.domain}/${ownerAndRepo}/issues/${num}`,
+								alphanumeric: false,
+								ignoreCase: true,
 								title: `Open Issue or Pull Request #<num> from ${ownerAndRepo} on ${this.name}`,
 
 								description: `${this.name} Issue or Pull Request ${ownerAndRepo}#${num}`,

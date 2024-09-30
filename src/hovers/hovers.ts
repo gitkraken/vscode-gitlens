@@ -1,6 +1,6 @@
 import type { CancellationToken, TextDocument } from 'vscode';
 import { MarkdownString } from 'vscode';
-import type { EnrichedAutolink } from '../annotations/autolinks';
+import type { EnrichedAutolink } from '../autolinks';
 import { DiffWithCommand } from '../commands/diffWith';
 import { ShowQuickCommitCommand } from '../commands/showQuickCommit';
 import { GlyphChars } from '../constants';

@@ -3410,7 +3410,7 @@
 							"properties": {
 								"prefix": {
 									"type": "string",
-									"description": "Specifies the short prefix to use to generate autolinks for the external resource"
+									"description": "Specifies the short prefix to match to generate autolinks for the external resource, e.g. `GH-` or `JIRA-`"
 								},
 								"title": {
 									"type": [

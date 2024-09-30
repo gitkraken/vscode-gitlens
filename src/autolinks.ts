@@ -1,40 +1,50 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
-import type { AutolinkReference, AutolinkType } from '../config';
-import { GlyphChars } from '../constants';
-import type { IntegrationId } from '../constants.integrations';
-import { IssueIntegrationId } from '../constants.integrations';
-import type { Container } from '../container';
-import type { IssueOrPullRequest } from '../git/models/issue';
-import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/models/issue';
-import type { GitRemote } from '../git/models/remote';
-import type { ProviderReference } from '../git/models/remoteProvider';
-import type { ResourceDescriptor } from '../plus/integrations/integration';
-import { fromNow } from '../system/date';
-import { debug } from '../system/decorators/log';
-import { encodeUrl } from '../system/encoding';
-import { join, map } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { escapeMarkdown } from '../system/markdown';
-import type { MaybePausedResult } from '../system/promise';
-import { capitalize, encodeHtmlWeak, escapeRegex, getSuperscript } from '../system/string';
-import { configuration } from '../system/vscode/configuration';
+import { GlyphChars } from './constants';
+import type { IntegrationId } from './constants.integrations';
+import { IssueIntegrationId } from './constants.integrations';
+import type { Container } from './container';
+import type { IssueOrPullRequest } from './git/models/issue';
+import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from './git/models/issue';
+import type { GitRemote } from './git/models/remote';
+import type { ProviderReference } from './git/models/remoteProvider';
+import type { ResourceDescriptor } from './plus/integrations/integration';
+import { fromNow } from './system/date';
+import { debug } from './system/decorators/log';
+import { encodeUrl } from './system/encoding';
+import { join, map } from './system/iterable';
+import { Logger } from './system/logger';
+import { escapeMarkdown } from './system/markdown';
+import type { MaybePausedResult } from './system/promise';
+import { capitalize, encodeHtmlWeak, escapeRegex, getSuperscript } from './system/string';
+import { configuration } from './system/vscode/configuration';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 
 const numRegex = /<num>/g;
 
-export interface Autolink {
+export type AutolinkType = 'issue' | 'pullrequest';
+
+export interface AutolinkReference {
+	/** Short prefix to match to generate autolinks for the external resource */
+	readonly prefix: string;
+	/** URL of the external resource to link to */
+	readonly url: string;
+	/** Whether alphanumeric characters should be allowed in `<num>` */
+	readonly alphanumeric: boolean;
+	/** Whether case should be ignored when matching the prefix */
+	readonly ignoreCase: boolean;
+	readonly title: string | undefined;
+
+	readonly type?: AutolinkType;
+	readonly description?: string;
+	readonly descriptor?: ResourceDescriptor;
+}
+
+export interface Autolink extends AutolinkReference {
 	provider?: ProviderReference;
 	id: string;
-	prefix: string;
-	title?: string;
-	url: string;
-	alphanumeric?: boolean
-	type?: AutolinkType;
-	description?: string;
 
-	descriptor?: ResourceDescriptor;
 	tokenize?:
 		| ((
 				text: string,
@@ -69,8 +79,10 @@ export function serializeAutolink(value: Autolink): Autolink {
 			: undefined,
 		id: value.id,
 		prefix: value.prefix,
-		title: value.title,
 		url: value.url,
+		alphanumeric: value.alphanumeric,
+		ignoreCase: value.ignoreCase,
+		title: value.title,
 		type: value.type,
 		description: value.description,
 		descriptor: value.descriptor,
@@ -140,18 +152,12 @@ export class Autolinks implements Disposable {
 			this._references =
 				autolinks
 					?.filter(a => a.prefix && a.url)
-					/**
-					 * Only allow properties defined by {@link AutolinkReference}
-					 */
 					?.map(a => ({
 						prefix: a.prefix,
 						url: a.url,
-						title: a.title,
-						alphanumeric: a.alphanumeric,
-						ignoreCase: a.ignoreCase,
-						type: a.type,
-						description: a.description,
-						descriptor: a.descriptor,
+						alphanumeric: a.alphanumeric ?? false,
+						ignoreCase: a.ignoreCase ?? false,
+						title: a.title ?? undefined,
 					})) ?? [];
 		}
 	}
@@ -237,8 +243,9 @@ export class Autolinks implements Disposable {
 						id: num,
 						prefix: ref.prefix,
 						url: ref.url?.replace(numRegex, num),
-						title: ref.title?.replace(numRegex, num),
 						alphanumeric: ref.alphanumeric,
+						ignoreCase: ref.ignoreCase,
+						title: ref.title?.replace(numRegex, num),
 						type: ref.type,
 						description: ref.description?.replace(numRegex, num),
 						descriptor: ref.descriptor,
