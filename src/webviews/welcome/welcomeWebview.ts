@@ -102,7 +102,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 	private async getTrialOrPaidState(subscription?: Subscription): Promise<boolean> {
 		const sub = subscription ?? (await this.container.subscription.getSubscription(true));
 
-		if ([SubscriptionState.FreePlusInTrial, SubscriptionState.Paid].includes(sub.state)) {
+		if ([SubscriptionState.ProTrial, SubscriptionState.Paid].includes(sub.state)) {
 			return true;
 		}
 

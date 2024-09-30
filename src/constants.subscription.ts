@@ -1,30 +1,33 @@
+export const proPreviewLengthInDays = 3;
+export const proTrialLengthInDays = 7;
+
 export type PromoKeys = 'launchpad' | 'launchpad-extended' | 'pro50';
 
 export const enum SubscriptionPlanId {
-	Free = 'free',
-	FreePlus = 'free+',
+	Community = 'community',
+	CommunityWithAccount = 'community-with-account',
 	Pro = 'pro',
 	Teams = 'teams',
 	Enterprise = 'enterprise',
 }
 
-// NOTE: Pay attention to gitlens:plus:state in package.json when modifying this enum
+// NOTE: Pay attention to gitlens:plus:state in the `package.json` when modifying this enum
 // NOTE: This is reported in telemetry so we should NOT change the values
 export const enum SubscriptionState {
 	/** Indicates a user who hasn't verified their email address yet */
 	VerificationRequired = -1,
-	/** Indicates a Free user who hasn't yet started the preview trial */
-	Free = 0,
-	/** Indicates a Free user who is in preview trial */
-	FreeInPreviewTrial = 1,
-	/** Indicates a Free user who's preview has expired trial */
-	FreePreviewTrialExpired = 2,
-	/** Indicates a Free+ user with a completed trial */
-	FreePlusInTrial = 3,
-	/** Indicates a Free+ user who's trial has expired and is not yet eligible for reactivation */
-	FreePlusTrialExpired = 4,
-	/** Indicated a Free+ user who's trial has expired and is eligible for reactivation */
-	FreePlusTrialReactivationEligible = 5,
-	/** Indicates a Paid user */
+	/** Indicates an account-less Community (free) user who hasn't started a Pro preview */
+	Community = 0,
+	/** Indicates an account-less Community (free) user who is in a Pro preview */
+	ProPreview = 1,
+	/** Indicates an account-less Community (free) user who's Pro preview has expired */
+	ProPreviewExpired = 2,
+	/** Indicates a Pro user who is in a Pro trial */
+	ProTrial = 3,
+	/** Indicates a Pro user who's Pro trial has expired, has an account, and is not yet eligible for reactivation */
+	ProTrialExpired = 4,
+	/** Indicated a Pro user who's Pro trial has expired, has an account, and is eligible for reactivation */
+	ProTrialReactivationEligible = 5,
+	/** Indicates a Pro/Teams/Enterprise paid user */
 	Paid = 6,
 }

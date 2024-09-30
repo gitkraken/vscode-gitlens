@@ -145,7 +145,7 @@ export function getSubscriptionFromCheckIn(
 
 	if (actual == null) {
 		actual = getSubscriptionPlan(
-			SubscriptionPlanId.FreePlus,
+			SubscriptionPlanId.CommunityWithAccount,
 			false,
 			0,
 			undefined,
@@ -228,7 +228,7 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 		case 'gitkraken-v1-standalone-enterprise':
 			return SubscriptionPlanId.Enterprise;
 		default:
-			return SubscriptionPlanId.FreePlus;
+			return SubscriptionPlanId.CommunityWithAccount;
 	}
 }
 
