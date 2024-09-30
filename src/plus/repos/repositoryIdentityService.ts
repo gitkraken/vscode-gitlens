@@ -7,6 +7,7 @@ import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type { GkProviderId, RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
 import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
 import { log } from '../../system/decorators/log';
+import { getSettledValue } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';
 
 export class RepositoryIdentityService implements Disposable {
@@ -26,10 +27,15 @@ export class RepositoryIdentityService implements Disposable {
 	}
 
 	async getRepositoryIdentity(repository: Repository): Promise<RepositoryIdentityDescriptor> {
-		const bestRemote = await this.container.git.getBestRemoteWithProvider(repository.uri);
+		const [bestRemotePromise, initialCommitShaPromise] = await Promise.allSettled([
+			this.container.git.getBestRemoteWithProvider(repository.uri),
+			this.container.git.getFirstCommitSha(repository.uri),
+		]);
+		const bestRemote = getSettledValue(bestRemotePromise);
+
 		return {
 			name: repository.name,
-			initialCommitSha: await this.container.git.getFirstCommitSha(repository.uri),
+			initialCommitSha: getSettledValue(initialCommitShaPromise),
 			remote: bestRemote,
 			provider: bestRemote?.provider?.providerDesc,
 		};
@@ -154,6 +160,7 @@ export class RepositoryIdentityService implements Disposable {
 		identity?: RepositoryIdentityDescriptor<T>,
 	) {
 		const repoPath = repo.uri.fsPath;
+		const repoIdentity = identity ?? (await this.getRepositoryIdentity(repo));
 
 		const remotes = await repo.git.getRemotes();
 		for (const remote of remotes) {
@@ -164,16 +171,16 @@ export class RepositoryIdentityService implements Disposable {
 		}
 
 		if (
-			identity?.provider?.id != null &&
-			identity?.provider?.repoDomain != null &&
-			identity?.provider?.repoName != null
+			repoIdentity?.provider?.id != null &&
+			repoIdentity?.provider?.repoDomain != null &&
+			repoIdentity?.provider?.repoName != null
 		) {
 			await this.container.repositoryPathMapping.writeLocalRepoPath(
 				{
 					repoInfo: {
-						provider: identity.provider.id,
-						owner: identity.provider.repoDomain,
-						repoName: identity.provider.repoName,
+						provider: repoIdentity.provider.id,
+						owner: repoIdentity.provider.repoDomain,
+						repoName: repoIdentity.provider.repoName,
 					},
 				},
 				repoPath,

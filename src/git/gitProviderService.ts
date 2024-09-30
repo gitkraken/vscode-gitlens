@@ -2448,10 +2448,7 @@ export class GitProviderService implements Disposable {
 		const scope = getLogScope();
 		for (const repo of repos) {
 			try {
-				await this.container.repositoryIdentity.addFoundRepositoryToMap(
-					repo,
-					await this.container.repositoryIdentity.getRepositoryIdentity(repo),
-				);
+				await this.container.repositoryIdentity.addFoundRepositoryToMap(repo);
 			} catch (ex) {
 				Logger.error(ex, scope);
 			}
