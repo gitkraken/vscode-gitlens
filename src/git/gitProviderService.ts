@@ -655,16 +655,7 @@ export class GitProviderService implements Disposable {
 			if (added.length) {
 				// Defer the event trigger enough to let everything unwind
 				queueMicrotask(() => this.fireRepositoriesChanged(added));
-				for (const addedRepo of added) {
-					try {
-						await this.container.repositoryIdentity.addFoundRepositoryToMap(
-							addedRepo,
-							await this.container.repositoryIdentity.getRepositoryIdentity(addedRepo),
-						);
-					} catch (ex) {
-						Logger.error('Could not add discovered repository to identity map: ', ex);
-					}
-				}
+				queueMicrotask(() => this.writeAddedReposToPathMap(added));
 			}
 		} finally {
 			queueMicrotask(() => {
@@ -2437,16 +2428,7 @@ export class GitProviderService implements Disposable {
 				if (added.length) {
 					// Send a notification that the repositories changed
 					queueMicrotask(() => this.fireRepositoriesChanged(added));
-					for (const addedRepo of added) {
-						try {
-							await this.container.repositoryIdentity.addFoundRepositoryToMap(
-								addedRepo,
-								await this.container.repositoryIdentity.getRepositoryIdentity(addedRepo),
-							);
-						} catch (ex) {
-							Logger.error('Could not add found repository to identity map: ', ex);
-						}
-					}
+					queueMicrotask(() => this.writeAddedReposToPathMap(added));
 				}
 
 				repository = repositories.length === 1 ? repositories[0] : this.getRepository(uri);
@@ -2458,6 +2440,22 @@ export class GitProviderService implements Disposable {
 		}
 
 		return promise;
+	}
+
+	@gate()
+	@log()
+	async writeAddedReposToPathMap(repos: Repository[]): Promise<void> {
+		const scope = getLogScope();
+		for (const repo of repos) {
+			try {
+				await this.container.repositoryIdentity.addFoundRepositoryToMap(
+					repo,
+					await this.container.repositoryIdentity.getRepositoryIdentity(repo),
+				);
+			} catch (ex) {
+				Logger.error(ex, scope);
+			}
+		}
 	}
 
 	@log()
