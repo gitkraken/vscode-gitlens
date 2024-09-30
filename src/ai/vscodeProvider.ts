@@ -3,11 +3,18 @@ import { CancellationTokenSource, LanguageModelChatMessage, lm, window } from 'v
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { sum } from '../system/iterable';
-import { capitalize } from '../system/string';
+import { capitalize, interpolate } from '../system/string';
 import { configuration } from '../system/vscode/configuration';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getMaxCharacters } from './aiProviderService';
-import { cloudPatchMessageSystemPrompt, codeSuggestMessageSystemPrompt, commitMessageSystemPrompt } from './prompts';
+import {
+	generateCloudPatchMessageSystemPrompt,
+	generateCloudPatchMessageUserPrompt,
+	generateCodeSuggestMessageSystemPrompt,
+	generateCodeSuggestMessageUserPrompt,
+	generateCommitMessageSystemPrompt,
+	generateCommitMessageUserPrompt,
+} from './prompts';
 
 const provider = { id: 'vscode', name: 'VS Code Provided' } as const;
 
@@ -43,9 +50,10 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
+			type: 'commit' | 'cloud-patch' | 'code-suggestion';
 			systemPrompt: string;
-			customPrompt: string;
-			contextName: string;
+			userPrompt: string;
+			customInstructions?: string;
 		},
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
@@ -66,21 +74,15 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 		try {
 			while (true) {
-				const code = diff.substring(0, maxCodeCharacters);
-
 				const messages: LanguageModelChatMessage[] = [
 					LanguageModelChatMessage.User(promptConfig.systemPrompt),
 					LanguageModelChatMessage.User(
-						`Here is the code diff to use to generate the ${promptConfig.contextName}:\n\n${code}`,
+						interpolate(promptConfig.userPrompt, {
+							diff: diff.substring(0, maxCodeCharacters),
+							context: options?.context ?? '',
+							instructions: promptConfig.customInstructions ?? '',
+						}),
 					),
-					...(options?.context
-						? [
-								LanguageModelChatMessage.User(
-									`Here is additional context which should be taken into account when generating the ${promptConfig.contextName}:\n\n${options.context}`,
-								),
-						  ]
-						: []),
-					LanguageModelChatMessage.User(promptConfig.customPrompt),
 				];
 
 				reporting['retry.count'] = retries;
@@ -118,7 +120,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					}
 
 					throw new Error(
-						`Unable to generate commit message: (${getPossessiveForm(model.provider.name)}:${
+						`Unable to generate ${promptConfig.type} message: (${getPossessiveForm(model.provider.name)}:${
 							ex.code
 						}) ${message}`,
 					);
@@ -139,33 +141,29 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 			codeSuggestion?: boolean | undefined;
 		},
 	): Promise<string | undefined> {
-		let customPrompt =
-			options?.codeSuggestion === true
-				? configuration.get('experimental.generateCodeSuggestionMessagePrompt')
-				: configuration.get('experimental.generateCloudPatchMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
+		let codeSuggestion;
+		if (options != null) {
+			({ codeSuggestion, ...options } = options ?? {});
 		}
 
 		return this.generateMessage(
 			model,
 			diff,
 			reporting,
-			{
-				systemPrompt:
-					options?.codeSuggestion === true ? codeSuggestMessageSystemPrompt : cloudPatchMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName:
-					options?.codeSuggestion === true
-						? 'code suggestion title and description'
-						: 'cloud patch title and description',
-			},
-			options != null
+			codeSuggestion
 				? {
-						cancellation: options.cancellation,
-						context: options.context,
+						type: 'code-suggestion',
+						systemPrompt: generateCodeSuggestMessageSystemPrompt,
+						userPrompt: generateCodeSuggestMessageUserPrompt,
+						customInstructions: configuration.get('experimental.generateCodeSuggestionMessagePrompt'),
 				  }
-				: undefined,
+				: {
+						type: 'cloud-patch',
+						systemPrompt: generateCloudPatchMessageSystemPrompt,
+						userPrompt: generateCloudPatchMessageUserPrompt,
+						customInstructions: configuration.get('experimental.generateCloudPatchMessagePrompt'),
+				  },
+			options,
 		);
 	}
 
@@ -178,19 +176,15 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 			context?: string | undefined;
 		},
 	): Promise<string | undefined> {
-		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
-		}
-
 		return this.generateMessage(
 			model,
 			diff,
 			reporting,
 			{
-				systemPrompt: commitMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName: 'commit message',
+				type: 'commit',
+				systemPrompt: generateCommitMessageSystemPrompt,
+				userPrompt: generateCommitMessageUserPrompt,
+				customInstructions: configuration.get('experimental.generateCommitMessagePrompt'),
 			},
 			options,
 		);
