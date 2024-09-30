@@ -116,8 +116,8 @@ export class WorkspacesService implements Disposable {
 
 		let filteredSharedWorkspaceCount = 0;
 		const isPlusEnabled =
-			subscription.state === SubscriptionState.FreeInPreviewTrial ||
-			subscription.state === SubscriptionState.FreePlusInTrial ||
+			subscription.state === SubscriptionState.ProPreview ||
+			subscription.state === SubscriptionState.ProTrial ||
 			subscription.state === SubscriptionState.Paid;
 
 		if (workspaces?.length) {

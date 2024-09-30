@@ -3,11 +3,12 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
-import { SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
+import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import {
 	getSubscriptionPlanName,
+	getSubscriptionStateName,
 	getSubscriptionTimeRemaining,
 	hasAccountFromSubscriptionState,
 } from '../../../../../plus/gk/account/subscription';
@@ -178,7 +179,7 @@ export class GLHomeAccountContent extends LitElement {
 
 	get isReactivatedTrial() {
 		return (
-			this.state === SubscriptionState.FreePlusInTrial &&
+			this.state === SubscriptionState.ProTrial &&
 			(this._state.subscription?.plan.effective.trialReactivationCount ?? 0) > 0
 		);
 	}
@@ -188,20 +189,7 @@ export class GLHomeAccountContent extends LitElement {
 	}
 
 	get planName() {
-		switch (this.state) {
-			case SubscriptionState.Free:
-			case SubscriptionState.FreePreviewTrialExpired:
-			case SubscriptionState.FreePlusTrialExpired:
-			case SubscriptionState.FreePlusTrialReactivationEligible:
-				return 'GitKraken Free';
-			case SubscriptionState.FreeInPreviewTrial:
-			case SubscriptionState.FreePlusInTrial:
-				return 'GitKraken Pro (Trial)';
-			case SubscriptionState.VerificationRequired:
-				return `${getSubscriptionPlanName(this.planId)} (Unverified)`;
-			default:
-				return getSubscriptionPlanName(this.planId);
-		}
+		return getSubscriptionStateName(this.state, this.planId);
 	}
 
 	private get state() {
@@ -215,6 +203,18 @@ export class GLHomeAccountContent extends LitElement {
 					? html`<img class="header__media" src=${this._state.avatar} />`
 					: html`<code-icon class="header__media" icon="gl-gitlens" size="30"></code-icon>`}
 				<span class="header__title">${this.planName}</span>
+				${when(
+					this.state === SubscriptionState.ProTrialReactivationEligible,
+					() => html`
+						<gl-button
+							appearance="secondary"
+							tight
+							href="command:gitlens.plus.reactivateProTrial"
+							tooltip="Reactivate your Pro trial for another ${pluralize('day', proTrialLengthInDays)}"
+							>Reactivate Pro Trial</gl-button
+						>
+					`,
+				)}
 				${when(
 					this.hasAccount,
 					() => html`
@@ -292,8 +292,9 @@ export class GLHomeAccountContent extends LitElement {
 						</button-container>
 						<p>
 							Your ${getSubscriptionPlanName(this.planId)} plan provides full access to all Pro features
-							and our <a href="${urls.platform}">DevEx platform</a>, unleashing powerful Git visualization
-							&amp; productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.
+							and the <a href="${urls.platform}">GitKraken DevEx platform</a>, unleashing powerful Git
+							visualization &amp; productivity capabilities everywhere you work: IDE, desktop, browser,
+							and terminal.
 						</p>
 					</div>
 				`;
@@ -311,7 +312,7 @@ export class GLHomeAccountContent extends LitElement {
 					</div>
 				`;
 
-			case SubscriptionState.FreePlusInTrial: {
+			case SubscriptionState.ProTrial: {
 				const days = this.daysRemaining;
 
 				return html`
@@ -338,7 +339,7 @@ export class GLHomeAccountContent extends LitElement {
 				`;
 			}
 
-			case SubscriptionState.FreePlusTrialExpired:
+			case SubscriptionState.ProTrialExpired:
 				return html`
 					<div class="account">
 						<p>Your Pro trial has ended. You can now only use Pro features on publicly-hosted repos.</p>
@@ -349,14 +350,21 @@ export class GLHomeAccountContent extends LitElement {
 					</div>
 				`;
 
-			case SubscriptionState.FreePlusTrialReactivationEligible:
+			case SubscriptionState.ProTrialReactivationEligible:
 				return html`
 					<div class="account">
 						<p>
-							Reactivate your Pro trial and experience all the new Pro features — free for another 7 days!
+							Reactivate your Pro trial and experience all the new Pro features — free for another
+							${pluralize('day', proTrialLengthInDays)}!
 						</p>
 						<button-container>
-							<gl-button full href="command:gitlens.plus.reactivateProTrial"
+							<gl-button
+								full
+								href="command:gitlens.plus.reactivateProTrial"
+								tooltip="Reactivate your Pro trial for another ${pluralize(
+									'day',
+									proTrialLengthInDays,
+								)}"
 								>Reactivate Pro Trial</gl-button
 							>
 						</button-container>
@@ -368,14 +376,14 @@ export class GLHomeAccountContent extends LitElement {
 				return html`
 					<div class="account">
 						<p>
-							Sign up for access to Pro features and our
-							<a href="${urls.platform}">DevEx platform</a>, or
+							Sign up for access to Pro features and the
+							<a href="${urls.platform}">GitKraken DevEx platform</a>, or
 							<a href="command:gitlens.plus.login">sign in</a>.
 						</p>
 						<button-container>
 							<gl-button full href="command:gitlens.plus.signUp">Sign Up</gl-button>
 						</button-container>
-						<p>Signing up starts your free 7-day Pro trial.</p>
+						<p>Signing up starts your free ${proTrialLengthInDays}-day Pro trial.</p>
 						${this.renderIncludesDevEx()}
 					</div>
 				`;
@@ -385,7 +393,7 @@ export class GLHomeAccountContent extends LitElement {
 	private renderIncludesDevEx() {
 		return html`
 			<p>
-				Includes access to our <a href="${urls.platform}">DevEx platform</a>, unleashing powerful Git
+				Includes access to the <a href="${urls.platform}">GitKraken DevEx platform</a>, unleashing powerful Git
 				visualization &amp; productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.
 			</p>
 		`;

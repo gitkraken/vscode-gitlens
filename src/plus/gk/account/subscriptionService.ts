@@ -24,7 +24,12 @@ import type { OpenWalkthroughCommandArgs } from '../../../commands/walkthroughs'
 import { urls } from '../../../constants';
 import type { CoreColors } from '../../../constants.colors';
 import { Commands } from '../../../constants.commands';
-import { SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
+import {
+	proPreviewLengthInDays,
+	proTrialLengthInDays,
+	SubscriptionPlanId,
+	SubscriptionState,
+} from '../../../constants.subscription';
 import type { Source, TrackingContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { AccountValidationError, RequestsAreBlockedTemporarilyError } from '../../../errors';
@@ -274,27 +279,27 @@ export class SubscriptionService implements Disposable {
 		const subscription = await this.getSubscription();
 		switch (subscription.state) {
 			case SubscriptionState.VerificationRequired:
-			case SubscriptionState.Free:
-			case SubscriptionState.FreeInPreviewTrial:
-			case SubscriptionState.FreePreviewTrialExpired:
+			case SubscriptionState.Community:
+			case SubscriptionState.ProPreview:
+			case SubscriptionState.ProPreviewExpired:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
 					step: 'pro-features',
 				});
 				break;
-			case SubscriptionState.FreePlusInTrial:
+			case SubscriptionState.ProTrial:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
 					step: 'pro-trial',
 				});
 				break;
-			case SubscriptionState.FreePlusTrialExpired:
+			case SubscriptionState.ProTrialExpired:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
 					step: 'pro-upgrade',
 				});
 				break;
-			case SubscriptionState.FreePlusTrialReactivationEligible:
+			case SubscriptionState.ProTrialReactivationEligible:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
 					step: 'pro-reactivate',
@@ -317,7 +322,7 @@ export class SubscriptionService implements Disposable {
 		} = this._subscription;
 
 		if (account?.verified === false) {
-			const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 7;
+			const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? proTrialLengthInDays;
 
 			const verify: MessageItem = { title: 'Resend Email' };
 			const learn: MessageItem = { title: 'See Pro Features' };
@@ -334,7 +339,7 @@ export class SubscriptionService implements Disposable {
 					modal: true,
 					detail: `Your ${
 						isSubscriptionPaid(this._subscription) ? 'plan' : 'trial'
-					} also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
+					} also includes access to the GitKraken DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
 				},
 				verify,
 				learn,
@@ -353,7 +358,7 @@ export class SubscriptionService implements Disposable {
 				`You are now on the ${actual.name} plan and have full access to Pro features.`,
 				{
 					modal: true,
-					detail: 'Your plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					detail: 'Your plan also includes access to the GitKraken DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
 				},
 				learn,
 				confirm,
@@ -373,7 +378,7 @@ export class SubscriptionService implements Disposable {
 				}.`,
 				{
 					modal: true,
-					detail: 'Your trial also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					detail: 'Your trial also includes access to the GitKraken DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
 				},
 				confirm,
 				learn,
@@ -390,7 +395,7 @@ export class SubscriptionService implements Disposable {
 				`You are now on the ${actual.name} plan.`,
 				{
 					modal: true,
-					detail: 'You only have access to Pro features on publicly-hosted repos. For full access to Pro features, please upgrade to a paid plan.\nA paid plan also includes access to our DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					detail: 'You only have access to Pro features on publicly-hosted repos. For full access to Pro features, please upgrade to a paid plan.\nA paid plan also includes access to the GitKraken DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
 				},
 				upgrade,
 				learn,
@@ -685,12 +690,12 @@ export class SubscriptionService implements Disposable {
 		if (previewTrial != null) {
 			void this.showAccountView();
 
-			if (plan.effective.id === SubscriptionPlanId.Free) {
+			if (plan.effective.id === SubscriptionPlanId.Community) {
 				const signUp: MessageItem = { title: 'Start Pro Trial' };
 				const signIn: MessageItem = { title: 'Sign In' };
 				const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					'Do you want to start your free 7-day Pro trial for full access to Pro features?',
+					`Do you want to start your free ${proTrialLengthInDays}-day Pro trial for full access to Pro features?`,
 					{ modal: true },
 					signUp,
 					signIn,
@@ -708,7 +713,7 @@ export class SubscriptionService implements Disposable {
 		// Don't overwrite a trial that is already in progress
 		if (isSubscriptionInProTrial(this._subscription)) return;
 
-		const days = 3;
+		const days = proPreviewLengthInDays;
 		const subscription = getPreviewSubscription(days, this._subscription);
 		this.changeSubscription(subscription);
 
@@ -718,7 +723,7 @@ export class SubscriptionService implements Disposable {
 			const result = await window.showInformationMessage(
 				`You can now preview local Pro features for ${
 					days < 1 ? '1 day' : pluralize('day', days)
-				}, or [start your free 7-day Pro trial](command:gitlens.plus.signUp "Start Pro Trial") for full access to Pro features.`,
+				}, or [start your free ${proTrialLengthInDays}-day Pro trial](command:gitlens.plus.signUp "Start Pro Trial") for full access to Pro features.`,
 				confirm,
 				learn,
 			);
@@ -877,7 +882,7 @@ export class SubscriptionService implements Disposable {
 		const result = await pauseOnCancelOrTimeout(validating, undefined, 3000);
 		if (result.paused) {
 			return window.withProgress(
-				{ location: ProgressLocation.Notification, title: 'Validating your GitKraken account...' },
+				{ location: ProgressLocation.Notification, title: 'Validating your account...' },
 				() => result.value,
 			);
 		}
@@ -1146,7 +1151,7 @@ export class SubscriptionService implements Disposable {
 						queueMicrotask(async () => {
 							const confirm: MessageItem = { title: 'Retry Sign In' };
 							const result = await window.showErrorMessage(
-								`Unable to sign in to your (${name}) GitKraken account. Please try again. If this issue persists, please contact support.${
+								`Unable to sign in to your (${name}) account. Please try again. If this issue persists, please contact support.${
 									unauthorized ? '' : ` Error=${ex.message}`
 								}`,
 								confirm,
@@ -1168,7 +1173,7 @@ export class SubscriptionService implements Disposable {
 
 					// if ((ex.original as any)?.code !== 'ENOTFOUND') {
 					// 	void window.showErrorMessage(
-					// 		`Unable to sign in to your (${name}) GitKraken account right now. Please try again in a few minutes. If this issue persists, please contact support. Error=${ex.message}`,
+					// 		`Unable to sign in to your (${name}) account right now. Please try again in a few minutes. If this issue persists, please contact support. Error=${ex.message}`,
 					// 		'OK',
 					// 	);
 					// }
@@ -1188,11 +1193,11 @@ export class SubscriptionService implements Disposable {
 		if (subscription == null) {
 			subscription = {
 				plan: {
-					actual: getSubscriptionPlan(SubscriptionPlanId.Free, false, 0, undefined),
-					effective: getSubscriptionPlan(SubscriptionPlanId.Free, false, 0, undefined),
+					actual: getSubscriptionPlan(SubscriptionPlanId.Community, false, 0, undefined),
+					effective: getSubscriptionPlan(SubscriptionPlanId.Community, false, 0, undefined),
 				},
 				account: undefined,
-				state: SubscriptionState.Free,
+				state: SubscriptionState.Community,
 			};
 		}
 
@@ -1329,7 +1334,7 @@ export class SubscriptionService implements Disposable {
 			state,
 		} = this._subscription;
 
-		void setContext('gitlens:plus', actual.id != SubscriptionPlanId.Free ? actual.id : undefined);
+		void setContext('gitlens:plus', actual.id != SubscriptionPlanId.Community ? actual.id : undefined);
 		void setContext('gitlens:plus:state', state);
 	}
 
@@ -1371,7 +1376,7 @@ export class SubscriptionService implements Disposable {
 			state,
 		} = this._subscription;
 
-		if (effective.id === SubscriptionPlanId.Free) {
+		if (effective.id === SubscriptionPlanId.Community) {
 			this._statusBarSubscription?.dispose();
 			this._statusBarSubscription = undefined;
 			return;
@@ -1392,7 +1397,7 @@ export class SubscriptionService implements Disposable {
 			);
 		}
 
-		this._statusBarSubscription.name = 'GitKraken Subscription';
+		this._statusBarSubscription.name = 'GitLens Subscription';
 		this._statusBarSubscription.command = Commands.ShowAccountView;
 
 		if (account?.verified === false) {
@@ -1408,8 +1413,7 @@ export class SubscriptionService implements Disposable {
 			);
 		} else {
 			const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
-			const isReactivatedTrial =
-				state === SubscriptionState.FreePlusInTrial && effective.trialReactivationCount > 0;
+			const isReactivatedTrial = state === SubscriptionState.ProTrial && effective.trialReactivationCount > 0;
 
 			this._statusBarSubscription.text = `${effective.name} (Trial)`;
 			this._statusBarSubscription.tooltip = new MarkdownString(
@@ -1419,7 +1423,7 @@ export class SubscriptionService implements Disposable {
 								infix: ' more ',
 						  })} in your **${effective.name}** trial.`
 						: `You have ${pluralize('day', remaining ?? 0)} remaining in your **${effective.name}** trial.`
-				} Once your trial ends, you'll need a paid plan for full access to [Pro features](command:gitlens.openWalkthrough?%7B%22step%22%3A%22pro-trial%22,%22source%22%3A%22prompt%22%7D).\n\nYour trial also includes access to our [DevEx platform](${
+				} Once your trial ends, you'll need a paid plan for full access to [Pro features](command:gitlens.openWalkthrough?%7B%22step%22%3A%22pro-trial%22,%22source%22%3A%22prompt%22%7D).\n\nYour trial also includes access to the [GitKraken DevEx platform](${
 					urls.platform
 				}), unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
 				true,
@@ -1452,7 +1456,7 @@ export class SubscriptionService implements Disposable {
 
 		const pick = await window.showQuickPick(picks, {
 			title: 'Switch Organization',
-			placeHolder: 'Select the active organization for your GitKraken account',
+			placeHolder: 'Select the active organization for your account',
 		});
 
 		const currentActiveOrganization = this._subscription?.activeOrganization;

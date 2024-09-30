@@ -279,7 +279,7 @@ Use the `Generate Commit Message` command from the Source Control view's context
 
 # Ready for GitLens Pro?
 
-When you're ready to unlock the full potential of GitLens and our [DevEx platform](https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links) and enjoy all the benefits on your privately-hosted repos, consider upgrading to GitLens Pro. With GitLens Pro, you'll gain access to [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) on privately-hosted repos.
+When you're ready to unlock the full potential of GitLens and the [GitKrakenDevEx platform](https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links) and enjoy all the benefits on your privately-hosted repos, consider upgrading to GitLens Pro. With GitLens Pro, you'll gain access to [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) on privately-hosted repos.
 
 To learn more about the pricing and the additional features offered with GitLens Pro, visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing?utm_source=gitlens-extension&utm_medium=in-app-links). Upgrade to GitLens Pro today and take your Git workflow to the next level!
 

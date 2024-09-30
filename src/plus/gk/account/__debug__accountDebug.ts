@@ -1,7 +1,7 @@
 import type { Disposable } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
 import { Commands } from '../../../constants.commands';
-import { SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
+import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
 import type { Container } from '../../../container';
 import type { QuickPickItemOfT } from '../../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common';
@@ -28,13 +28,13 @@ export function registerAccountDebug(container: Container, service: Subscription
 type SimulateQuickPickItem = QuickPickItemOfT<
 	| { state: null; reactivatedTrial?: never; expiredPaid?: never; planId?: never }
 	| {
-			state: Exclude<SubscriptionState, SubscriptionState.FreePlusInTrial | SubscriptionState.Paid>;
+			state: Exclude<SubscriptionState, SubscriptionState.ProTrial | SubscriptionState.Paid>;
 			reactivatedTrial?: never;
 			expiredPaid?: never;
 			planId?: never;
 	  }
 	| {
-			state: SubscriptionState.FreePlusInTrial;
+			state: SubscriptionState.ProTrial;
 			reactivatedTrial?: boolean;
 			expiredPaid?: never;
 			planId?: never;
@@ -69,20 +69,20 @@ class AccountDebug {
 					label: 'Community',
 					description: 'Community, no account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Free },
+					item: { state: SubscriptionState.Community },
 				},
 				createQuickPickSeparator('Preview'),
 				{
 					label: 'Pro Preview',
 					description: 'Pro, no account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.FreeInPreviewTrial },
+					item: { state: SubscriptionState.ProPreview },
 				},
 				{
 					label: 'Pro Preview (Expired)',
 					description: 'Community, no account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.FreePreviewTrialExpired },
+					item: { state: SubscriptionState.ProPreviewExpired },
 				},
 				createQuickPickSeparator('Account'),
 				{
@@ -96,14 +96,14 @@ class AccountDebug {
 					label: 'Pro Trial',
 					description: 'Pro, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.FreePlusInTrial },
+					item: { state: SubscriptionState.ProTrial },
 				},
 				{
 					label: 'Pro Trial (Reactivated)',
 					description: 'Pro, account',
 					iconPath: new ThemeIcon('blank'),
 					item: {
-						state: SubscriptionState.FreePlusInTrial,
+						state: SubscriptionState.ProTrial,
 						reactivatedTrial: true,
 					},
 				},
@@ -111,13 +111,13 @@ class AccountDebug {
 					label: 'Pro Trial (Expired)',
 					description: 'Community, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.FreePlusTrialExpired },
+					item: { state: SubscriptionState.ProTrialExpired },
 				},
 				{
 					label: 'Pro Trial (Reactivation Eligible)',
 					description: 'Community, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.FreePlusTrialReactivationEligible },
+					item: { state: SubscriptionState.ProTrialReactivationEligible },
 				},
 				createQuickPickSeparator('Paid'),
 				{
@@ -229,15 +229,15 @@ class AccountDebug {
 		const { state, reactivatedTrial, expiredPaid, planId } = item;
 
 		switch (state) {
-			case SubscriptionState.Free:
-			case SubscriptionState.FreeInPreviewTrial:
-			case SubscriptionState.FreePreviewTrialExpired:
+			case SubscriptionState.Community:
+			case SubscriptionState.ProPreview:
+			case SubscriptionState.ProPreviewExpired:
 				this.service.overrideSession(null);
 
 				this.service.changeSubscription(
-					state === SubscriptionState.Free
+					state === SubscriptionState.Community
 						? undefined
-						: getPreviewSubscription(state === SubscriptionState.FreePreviewTrialExpired ? 0 : 3),
+						: getPreviewSubscription(state === SubscriptionState.ProPreviewExpired ? 0 : 3),
 					{ store: false },
 				);
 				return false;
@@ -329,7 +329,7 @@ function getSimulatedTrialLicenseResponse(
 	organizationId?: string,
 	type: GKLicenseType = 'gitkraken_v1-pro',
 	status: 'active-new' | 'active-reactivated' | 'expired' | 'expired-reactivatable' = 'active-new',
-	durationDays: number = 7,
+	durationDays: number = proTrialLengthInDays,
 ): GKLicenses {
 	const tenSeconds = 10 * 1000;
 	const oneDay = 24 * 60 * 60 * 1000;
@@ -380,20 +380,20 @@ function getSimulatedCheckInResponse(
 			: {};
 	let trialLicenseStatus: 'active-new' | 'active-reactivated' | 'expired' | 'expired-reactivatable' = 'active-new';
 	switch (targetSubscriptionState) {
-		case SubscriptionState.FreePlusTrialExpired:
+		case SubscriptionState.ProTrialExpired:
 			trialLicenseStatus = 'expired';
 			break;
-		case SubscriptionState.FreePlusTrialReactivationEligible:
+		case SubscriptionState.ProTrialReactivationEligible:
 			trialLicenseStatus = 'expired-reactivatable';
 			break;
-		case SubscriptionState.FreePlusInTrial:
+		case SubscriptionState.ProTrial:
 			trialLicenseStatus = options?.trial?.reactivatedTrial ? 'active-reactivated' : 'active-new';
 			break;
 	}
 	const trialLicenseData =
-		targetSubscriptionState === SubscriptionState.FreePlusInTrial ||
-		targetSubscriptionState === SubscriptionState.FreePlusTrialExpired ||
-		targetSubscriptionState === SubscriptionState.FreePlusTrialReactivationEligible
+		targetSubscriptionState === SubscriptionState.ProTrial ||
+		targetSubscriptionState === SubscriptionState.ProTrialExpired ||
+		targetSubscriptionState === SubscriptionState.ProTrialReactivationEligible
 			? getSimulatedTrialLicenseResponse(
 					options?.organizationId,
 					targetSubscriptionType,
@@ -408,7 +408,7 @@ function getSimulatedCheckInResponse(
 			effectiveLicenses: trialLicenseData,
 		},
 		nextOptInDate:
-			targetSubscriptionState === SubscriptionState.FreePlusTrialReactivationEligible
+			targetSubscriptionState === SubscriptionState.ProTrialReactivationEligible
 				? tenSecondsAgo.toISOString()
 				: undefined,
 	};

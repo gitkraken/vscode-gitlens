@@ -1,4 +1,5 @@
 import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
+import { proPreviewLengthInDays, proTrialLengthInDays } from '../../constants.subscription';
 
 export enum Directive {
 	Back,
@@ -60,11 +61,11 @@ export function createDirectiveQuickPickItem(
 				break;
 			case Directive.StartPreview:
 				label = 'Continue';
-				detail = 'Continuing gives you 3 days to preview this and other local Pro features';
+				detail = `Continuing gives you ${proPreviewLengthInDays} days to preview this and other local Pro features`;
 				break;
 			case Directive.StartProTrial:
 				label = 'Start Pro Trial';
-				detail = 'Start your free 7-day Pro trial for full access to Pro features';
+				detail = `Start your free ${proTrialLengthInDays}-day Pro trial for full access to Pro features`;
 				break;
 			case Directive.RequiresVerification:
 				label = 'Resend Email';

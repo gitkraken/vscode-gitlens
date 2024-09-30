@@ -1,10 +1,11 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { Commands } from '../../../../../constants.commands';
-import { SubscriptionState } from '../../../../../constants.subscription';
+import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
+import { pluralize } from '../../../../../system/string';
 import type { GlButton } from '../../../shared/components/button';
 import { linkStyles } from './vscode.css';
 import '../../../shared/components/button';
@@ -116,7 +117,7 @@ export class GlFeatureGatePlusState extends LitElement {
 					<p>You must verify your email before you can continue.</p>
 				`;
 
-			case SubscriptionState.Free:
+			case SubscriptionState.Community:
 				return html`
 					<gl-button
 						appearance="${appearance}"
@@ -129,14 +130,14 @@ export class GlFeatureGatePlusState extends LitElement {
 						Pro features.<br />
 						${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features
 						<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
-							>start your free 7-day Pro trial</a
+							>start your free ${proTrialLengthInDays}-day Pro trial</a
 						>
 						or
 						<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.
 					</p>
 				`;
 
-			case SubscriptionState.FreePreviewTrialExpired:
+			case SubscriptionState.ProPreviewExpired:
 				return html`
 					<gl-button
 						appearance="${appearance}"
@@ -144,14 +145,14 @@ export class GlFeatureGatePlusState extends LitElement {
 						>Start Pro Trial</gl-button
 					>
 					<p>
-						Start your free 7-day Pro trial to try
+						Start your free ${proTrialLengthInDays}-day Pro trial to try
 						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and other ` : ''}Pro
 						features, or
 						<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.
 					</p>
 				`;
 
-			case SubscriptionState.FreePlusTrialExpired:
+			case SubscriptionState.ProTrialExpired:
 				return html` <gl-button
 						appearance="${appearance}"
 						href="${generateCommandLink(Commands.PlusUpgrade, this.source)}"
@@ -164,7 +165,7 @@ export class GlFeatureGatePlusState extends LitElement {
 						features.
 					</p>`;
 
-			case SubscriptionState.FreePlusTrialReactivationEligible:
+			case SubscriptionState.ProTrialReactivationEligible:
 				return html`
 					<gl-button
 						appearance="${appearance}"
@@ -174,7 +175,7 @@ export class GlFeatureGatePlusState extends LitElement {
 					<p>
 						Reactivate your Pro trial and experience
 						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and ` : ''}all the new
-						Pro features — free for another 7 days!
+						Pro features — free for another ${pluralize('day', proTrialLengthInDays)}!
 					</p>
 				`;
 		}
