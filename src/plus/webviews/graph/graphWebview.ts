@@ -2361,6 +2361,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (branch != null) {
 			branchState = { ...branch.state };
 
+			const worktreesByBranch = data?.worktreesByBranch ?? (await getWorktreesByBranch(this.repository));
+			branchState.worktree = worktreesByBranch?.has(branch.id) ?? false;
+
 			if (branch.upstream != null) {
 				branchState.upstream = branch.upstream.name;
 

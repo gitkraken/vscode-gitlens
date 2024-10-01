@@ -1236,7 +1236,14 @@ export function GraphWrapper({
 										aria-label="Switch to Another Branch..."
 									>
 										{!branchState?.pr ? (
-											<span className="codicon codicon-git-branch" aria-hidden="true"></span>
+											branchState?.worktree ? (
+												<span
+													className="glicon glicon-repositories-view"
+													aria-hidden="true"
+												></span>
+											) : (
+												<span className="codicon codicon-git-branch" aria-hidden="true"></span>
+											)
 										) : (
 											''
 										)}
@@ -1252,6 +1259,7 @@ export function GraphWrapper({
 											<hr />
 											<span className="codicon codicon-git-branch" aria-hidden="true"></span>{' '}
 											<span className="md-code">{branchName}</span>
+											{branchState?.worktree ? <i> (in a worktree)</i> : ''}
 										</span>
 									</div>
 								</GlPopover>

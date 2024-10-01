@@ -137,6 +137,7 @@ export interface BranchState extends GitTrackingState {
 		url?: string;
 	};
 	pr?: PullRequestShape;
+	worktree?: boolean;
 }
 
 export type GraphWorkingTreeStats = WorkDirStats;
