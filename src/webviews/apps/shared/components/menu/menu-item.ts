@@ -37,11 +37,25 @@ export class MenuItem extends LitElement {
 				color: var(--vscode-menu-selectionForeground);
 				background-color: var(--vscode-menu-background);
 			}
+
+			:host([href]) {
+				padding-inline: 0;
+			}
+
+			a {
+				display: block;
+				color: inherit;
+				text-decoration: none;
+				padding: 0 0.6rem;
+			}
 		`,
 	];
 
 	@property({ type: Boolean, reflect: true })
 	disabled = false;
+
+	@property({ reflect: true })
+	href?: string;
 
 	@property({ reflect: true })
 	override role = 'option';
@@ -57,6 +71,9 @@ export class MenuItem extends LitElement {
 	}
 
 	override render() {
+		if (this.href) {
+			return html`<a href=${this.href}><slot></slot></a>`;
+		}
 		return html`<slot></slot>`;
 	}
 }
