@@ -447,7 +447,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.push', this.push),
 			this.host.registerWebviewCommand('gitlens.graph.pull', this.pull),
 			this.host.registerWebviewCommand('gitlens.graph.fetch', this.fetch),
-			this.host.registerWebviewCommand('gitlens.graph.sync', this.sync),
+			this.host.registerWebviewCommand('gitlens.graph.pushWithForce', this.forcePush),
 			this.host.registerWebviewCommand('gitlens.graph.publishBranch', this.publishBranch),
 			this.host.registerWebviewCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother),
 
@@ -2856,13 +2856,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void RepoActions.fetch(this.repository, ref);
 	}
 
-	// @unimplemented
 	@log()
-	private sync(item?: GraphItemContext) {
-		throw new Error('unimplemented');
-		// const ref = item != null ? this.getGraphItemRef(item, 'branch') : undefined;
-		// await RepoActions.pull(this.repository, ref);
-		// void RepoActions.push(this.repository, undefined, ref);
+	private forcePush(item?: GraphItemContext) {
+		this.push(item, true);
 	}
 
 	@log()
@@ -2872,9 +2868,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private push(item?: GraphItemContext) {
+	private push(item?: GraphItemContext, force?: boolean) {
 		const ref = item != null ? this.getGraphItemRef(item) : undefined;
-		void RepoActions.push(this.repository, undefined, ref);
+		void RepoActions.push(this.repository, force, ref);
 	}
 
 	@log()
