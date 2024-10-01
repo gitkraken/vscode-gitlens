@@ -1158,7 +1158,7 @@ export function GraphWrapper({
 										} satisfies BranchGitCommandArgs,
 									})}
 								>
-									<span className="codicon codicon-git-branch-create action-button__icon"></span>
+									<span className="codicon codicon-custom-git-branch-create action-button__icon"></span>
 								</a>
 								<span slot="content">
 									Create a branch from <i>{branchName}</i> and switch
@@ -1171,13 +1171,8 @@ export function GraphWrapper({
 								arrow={false}
 								distance={0}
 							>
-								<GlTooltip placement="top" distance={7}>
-									<button
-										type="button"
-										className="action-button"
-										slot="trigger"
-										aria-label="Minimap Options"
-									>
+								<GlTooltip placement="top" distance={7} slot="anchor">
+									<button type="button" className="action-button" aria-label="Minimap Options">
 										<span
 											className="codicon codicon-chevron-down action-button__more"
 											aria-hidden="true"
