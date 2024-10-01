@@ -90,4 +90,36 @@ export class CloudIntegrationService {
 
 		return (await tokenRsp.json())?.data as Promise<CloudIntegrationAuthenticationSession | undefined>;
 	}
+
+	async disconnect(id: IntegrationId): Promise<boolean> {
+		const scope = getLogScope();
+
+		const cloudIntegrationType = toCloudIntegrationType[id];
+		if (cloudIntegrationType == null) {
+			Logger.error(undefined, scope, `Unsupported cloud integration type: ${id}`);
+			return false;
+		}
+
+		const tokenRsp = await this.connection.fetchGkDevApi(
+			`v1/provider-tokens/${cloudIntegrationType}`,
+			{ method: 'DELETE' },
+			{ organizationId: false },
+		);
+		if (!tokenRsp.ok) {
+			const error = (await tokenRsp.json())?.error;
+			const errorMessage = typeof error === 'string' ? error : (error?.message as string) ?? tokenRsp.statusText;
+			if (error != null) {
+				Logger.error(undefined, scope, `Failed to disconnect ${id} token from cloud: ${errorMessage}`);
+			}
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('cloudIntegrations/disconnect/failed', {
+					code: tokenRsp.status,
+					'integration.id': id,
+				});
+			}
+			return false;
+		}
+
+		return true;
+	}
 }
