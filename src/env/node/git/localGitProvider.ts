@@ -1298,8 +1298,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push('--force');
 			}
 
-			await this.git.branch(repoPath, ...args, ...branches.map((b: GitBranchReference) => b.ref));
-
 			if (options.remote) {
 				const trackingBranches = localBranches.filter(b => b.upstream != null);
 				if (trackingBranches.length !== 0) {
@@ -1308,17 +1306,43 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					);
 
 					for (const [remote, branches] of branchesByOrigin.entries()) {
-						await this.git.push(repoPath, {
-							delete: {
-								remote: remote,
-								branches: branches.map(b => getBranchNameWithoutRemote(b.upstream!.name)),
-							},
+						const remoteCommitByBranch: Map<string, string> = {};
+						branches.forEach(async b => {
+							remoteCommit = await this.git.rev_list(repoPath, `refs/remotes/${remote}/${b.ref}`, {
+								maxResults: 1,
+							});
+							remoteCommitByBranch[b.ref] = remoteCommit;
 						});
+
+						await this.git.branch(
+							repoPath,
+							'--delete',
+							'--remotes',
+							...branches.map((b: GitBranchReference) => `${remote}/${b.ref}`),
+						);
+
+						try {
+							await this.git.branch(repoPath, ...args, ...branches.map((b: GitBranchReference) => b.ref));
+							await this.git.push(repoPath, {
+								delete: {
+									remote: remote,
+									branches: branches.map(b => getBranchNameWithoutRemote(b.upstream!.name)),
+								},
+							});
+						} catch (ex) {
+							// If it fails, restore the remote branches
+							remoteCommitByBranch.forEach(async (branch, commit) => {
+								await this.git.update_ref(repoPath, `refs/remotes/${remote}/${branch}`, commit);
+								await this.git.branch__set_upstream(repoPath, branch, remote, branch);
+							});
+							throw ex;
+						}
 					}
 				}
 			}
 		}
 
+		const remoteBranches = branches.filter((b: GitBranchReference) => b.remote);
 		if (remoteBranches.length !== 0) {
 			const branchesByOrigin = groupByMap(remoteBranches, b => getRemoteNameFromBranchName(b.name));
 
