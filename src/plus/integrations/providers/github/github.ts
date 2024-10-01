@@ -2874,9 +2874,15 @@ export class GitHubApi implements Disposable {
 			}
 
 			// Hack for now, ultimately this should be passed in
-			const ignoredOrgs = configuration.get('launchpad.ignoredOrganizations') ?? [];
-			if (ignoredOrgs.length) {
-				search += ` -org:${ignoredOrgs.join(' -org:')}`;
+			const enabledOrgs = configuration.get('launchpad.includedOrganizations') ?? [];
+			if (enabledOrgs.length) {
+				search += ` org:${enabledOrgs.join(' org:')}`;
+			} else {
+				// Hack for now, ultimately this should be passed in
+				const ignoredOrgs = configuration.get('launchpad.ignoredOrganizations') ?? [];
+				if (ignoredOrgs.length) {
+					search += ` -org:${ignoredOrgs.join(' -org:')}`;
+				}
 			}
 
 			const rsp = await this.graphql<SearchResult>(
