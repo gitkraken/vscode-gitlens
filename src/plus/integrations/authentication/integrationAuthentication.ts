@@ -267,7 +267,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 	}
 
 	protected override async fetchOrCreateSession(
-		storedSession: ProviderAuthenticationSession | undefined,
+		_storedSession: ProviderAuthenticationSession | undefined,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?:
 			| {
@@ -285,6 +285,11 @@ export abstract class CloudIntegrationAuthenticationProvider<
 					source?: Sources;
 			  },
 	): Promise<ProviderAuthenticationSession | undefined> {
+		if (options?.forceNewSession) {
+			await this.disconnectSession();
+			void this.connectCloudIntegration(false, options?.source);
+			return undefined;
+		}
 		// TODO: This is a stopgap to make sure we're not hammering the api on automatic calls to get the session.
 		// Ultimately we want to timestamp calls to syncCloudIntegrations and use that to determine whether we should
 		// make the call or not.
@@ -293,10 +298,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 				? await this.fetchSession(descriptor)
 				: undefined;
 
-		if (shouldForceNewSession(storedSession, session, options)) {
-			// TODO: gk.dev doesn't yet support forcing a new session, so the user will need to disconnect and reconnect
-			void this.connectCloudIntegration(false, options?.source);
-		} else if (shouldCreateSession(session, options)) {
+		if (shouldCreateSession(session, options)) {
 			const connected = await this.connectCloudIntegration(true, options?.source);
 			if (!connected) return undefined;
 			session = await this.getSession(descriptor, { source: options?.source });
@@ -355,6 +357,16 @@ export abstract class CloudIntegrationAuthenticationProvider<
 			cloud: true,
 			expiresAt: new Date(session.expiresIn * 1000 + Date.now()),
 		};
+	}
+
+	private async disconnectSession(): Promise<boolean> {
+		const loggedIn = await this.container.subscription.getAuthenticationSession(false);
+		if (!loggedIn) return false;
+
+		const cloudIntegrations = await this.container.cloudIntegrations;
+		if (cloudIntegrations == null) return false;
+
+		return cloudIntegrations.disconnect(this.authProviderId);
 	}
 
 	private async openCompletionInput(cancellationToken: CancellationToken) {
@@ -567,19 +579,6 @@ function convertStoredSessionToSession(
 		cloud: storedSession.cloud ?? cloudIfMissing,
 		expiresAt: storedSession.expiresAt ? new Date(storedSession.expiresAt) : undefined,
 	};
-}
-
-function shouldForceNewSession(
-	storedSession: ProviderAuthenticationSession | undefined,
-	newSession: ProviderAuthenticationSession | undefined,
-	options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
-) {
-	return (
-		options?.forceNewSession &&
-		storedSession != null &&
-		newSession != null &&
-		storedSession.accessToken === newSession.accessToken
-	);
 }
 
 function shouldCreateSession(
