@@ -4,7 +4,11 @@ import type { Container } from '../../container';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
-import type { GkProviderId, RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
+import type {
+	GkProviderId,
+	RepositoryIdentityDescriptor,
+	RepositoryIdentityProviderDescriptor,
+} from '../../gk/models/repositoryIdentities';
 import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
 import { log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
@@ -26,7 +30,9 @@ export class RepositoryIdentityService implements Disposable {
 		return this.locateRepository(identity, options);
 	}
 
-	async getRepositoryIdentity(repository: Repository): Promise<RepositoryIdentityDescriptor> {
+	async getRepositoryIdentity<T extends string | GkProviderId>(
+		repository: Repository,
+	): Promise<RepositoryIdentityDescriptor<T>> {
 		const [bestRemotePromise, initialCommitShaPromise] = await Promise.allSettled([
 			this.container.git.getBestRemoteWithProvider(repository.uri),
 			this.container.git.getFirstCommitSha(repository.uri),
@@ -37,7 +43,7 @@ export class RepositoryIdentityService implements Disposable {
 			name: repository.name,
 			initialCommitSha: getSettledValue(initialCommitShaPromise),
 			remote: bestRemote,
-			provider: bestRemote?.provider?.providerDesc,
+			provider: bestRemote?.provider?.providerDesc as RepositoryIdentityProviderDescriptor<T>,
 		};
 	}
 
@@ -148,21 +154,29 @@ export class RepositoryIdentityService implements Disposable {
 				(await this.container.git.validateReference(locatedRepo.uri, identity.initialCommitSha))
 			) {
 				foundRepo = locatedRepo;
-				await this.addFoundRepositoryToMap(foundRepo, identity);
+				await this.addRepositoryToPathMap(foundRepo, identity);
 			}
 		}
 
 		return foundRepo;
 	}
 
-	async addFoundRepositoryToMap<T extends string | GkProviderId>(
+	async addRepositoryToPathMap<T extends string | GkProviderId>(
 		repo: Repository,
 		identity?: RepositoryIdentityDescriptor<T>,
 	) {
-		const repoPath = repo.uri.fsPath;
-		const repoIdentity = identity ?? (await this.getRepositoryIdentity(repo));
+		if (repo.virtual) return;
 
-		const remotes = await repo.git.getRemotes();
+		const [identityResult, remotesResult] = await Promise.allSettled([
+			identity == null ? this.getRepositoryIdentity<T>(repo) : undefined,
+			repo.git.getRemotes(),
+		]);
+
+		identity ??= getSettledValue(identityResult);
+		const remotes = getSettledValue(remotesResult) ?? [];
+
+		const repoPath = repo.uri.fsPath;
+
 		for (const remote of remotes) {
 			const remoteUrl = remote.provider?.url({ type: RemoteResourceType.Repo });
 			if (remoteUrl != null) {
@@ -171,16 +185,16 @@ export class RepositoryIdentityService implements Disposable {
 		}
 
 		if (
-			repoIdentity?.provider?.id != null &&
-			repoIdentity?.provider?.repoDomain != null &&
-			repoIdentity?.provider?.repoName != null
+			identity?.provider?.id != null &&
+			identity?.provider?.repoDomain != null &&
+			identity?.provider?.repoName != null
 		) {
 			await this.container.repositoryPathMapping.writeLocalRepoPath(
 				{
 					repoInfo: {
-						provider: repoIdentity.provider.id,
-						owner: repoIdentity.provider.repoDomain,
-						repoName: repoIdentity.provider.repoName,
+						provider: identity.provider.id,
+						owner: identity.provider.repoDomain,
+						repoName: identity.provider.repoName,
 					},
 				},
 				repoPath,
