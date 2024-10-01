@@ -244,7 +244,13 @@ export class IntegrationService implements Disposable {
 		if (account != null) {
 			try {
 				const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
-				await openUrl(this.container.getGkDevExchangeUri(exchangeToken, `connect?${query}`).toString(true));
+				if (
+					!(await openUrl(
+						this.container.getGkDevExchangeUri(exchangeToken, `connect?${query}`).toString(true),
+					))
+				) {
+					return false;
+				}
 			} catch (ex) {
 				Logger.error(ex, scope);
 				if (!(await openUrl(this.container.getGkDevUri('connect', query).toString(true)))) {
