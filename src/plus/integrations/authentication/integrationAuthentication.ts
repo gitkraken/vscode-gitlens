@@ -147,12 +147,13 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const sessionId = this.getSessionId(descriptor);
 
-		const storedSession = await this.restoreSession(sessionId);
-
-		let session = storedSession;
+		let session;
+		let storedSession;
 		if (options?.forceNewSession) {
-			session = undefined;
 			await this.deleteAllSecrets(sessionId);
+		} else {
+			storedSession = await this.restoreSession(sessionId);
+			session = storedSession;
 		}
 
 		const isExpiredSession = session?.expiresAt != null && new Date(session.expiresAt).getTime() < Date.now();
