@@ -27,6 +27,7 @@ import {
 	ensurePullRequestRefs,
 	getComparisonRefsForPullRequest,
 	getOpenedPullRequestRepo,
+	getOrOpenPullRequestRepository,
 	getRepositoryIdentityForPullRequest,
 } from '../git/models/pullRequest';
 import { createReference, shortenRevision } from '../git/models/reference';
@@ -807,7 +808,11 @@ export class ViewCommands {
 				repoIdentity.remote.url,
 				DeepLinkActionType.SwitchToPullRequestWorktree,
 			);
-			return this.container.deepLinks.processDeepLinkUri(deepLink, false);
+
+			const prRepo = await getOrOpenPullRequestRepository(this.container, pr, {
+				skipVirtual: true,
+			});
+			return this.container.deepLinks.processDeepLinkUri(deepLink, false, prRepo);
 		}
 	}
 
