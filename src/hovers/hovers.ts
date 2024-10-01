@@ -77,7 +77,7 @@ export async function changesMessage(
 		const compareUris = await commit.getPreviousComparisonUrisForLine(editorLine, documentRef);
 		if (compareUris?.previous == null) return undefined;
 
-		message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
+		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
 			lhs: {
 				sha: compareUris.previous.sha ?? '',
 				uri: compareUris.previous.documentUri(),
@@ -97,7 +97,7 @@ export async function changesMessage(
 				  })}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
 				: `  &nbsp;[$(git-commit) ${shortenRevision(
 						compareUris.previous.sha || '',
-				  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+				  )}](${ShowQuickCommitCommand.createMarkdownCommandLink(
 						compareUris.previous.sha || '',
 				  )} "Show Commit") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
 
@@ -110,9 +110,14 @@ export async function changesMessage(
 				  })}_`
 				: `[$(git-commit) ${shortenRevision(
 						compareUris.current.sha || '',
-				  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(compareUris.current.sha || '')} "Show Commit")`;
+				  )}](${ShowQuickCommitCommand.createMarkdownCommandLink(
+						compareUris.current.sha || '',
+				  )} "Show Commit")`;
 	} else {
-		message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(commit, editorLine)} "Open Changes")`;
+		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(
+			commit,
+			editorLine,
+		)} "Open Changes")`;
 
 		if (previousSha === null) {
 			previousSha = await commit.getPreviousSha();
@@ -120,12 +125,12 @@ export async function changesMessage(
 		if (previousSha) {
 			previous = `  &nbsp;[$(git-commit) ${shortenRevision(
 				previousSha,
-			)}](${ShowQuickCommitCommand.getMarkdownCommandArgs(previousSha)} "Show Commit") &nbsp;${
+			)}](${ShowQuickCommitCommand.createMarkdownCommandLink(previousSha)} "Show Commit") &nbsp;${
 				GlyphChars.ArrowLeftRightLong
 			}&nbsp;`;
 		}
 
-		current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+		current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitCommand.createMarkdownCommandLink(
 			commit.sha,
 		)} "Show Commit")`;
 	}
@@ -156,7 +161,7 @@ export async function localChangesMessage(
 		const file = await fromCommit.findFile(uri);
 		if (file == null) return undefined;
 
-		message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
+		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
 			lhs: {
 				sha: fromCommit.sha,
 				uri: GitUri.fromFile(file, uri.repoPath!, undefined, true).toFileUri(),
@@ -169,7 +174,7 @@ export async function localChangesMessage(
 			line: editorLine,
 		})} "Open Changes")`;
 
-		previous = `[$(git-commit) ${fromCommit.shortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+		previous = `[$(git-commit) ${fromCommit.shortSha}](${ShowQuickCommitCommand.createMarkdownCommandLink(
 			fromCommit.sha,
 		)} "Show Commit")`;
 
