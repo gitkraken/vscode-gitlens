@@ -14,7 +14,10 @@ export class QuickWizardCommand extends QuickWizardCommandBase {
 		super(container, [Commands.ShowLaunchpad]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: QuickWizardCommandArgsWithCompletion) {
+	protected override preExecute(
+		context: CommandContext,
+		args?: QuickWizardCommandArgsWithCompletion<QuickWizardCommandArgs>,
+	) {
 		switch (context.command) {
 			case Commands.ShowLaunchpad:
 				return this.execute({ command: 'launchpad', ...args });
