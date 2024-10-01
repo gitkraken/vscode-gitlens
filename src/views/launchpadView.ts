@@ -103,7 +103,10 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 
 		if (lpi.type === 'pullrequest') {
 			item.contextValue += '+pr';
-			item.tooltip = getPullRequestTooltip(lpi.underlyingPullRequest);
+			item.tooltip = getPullRequestTooltip(lpi.underlyingPullRequest, {
+				idPrefix: `${lpi.repository.owner.login}/${lpi.repository.name}`,
+				codeSuggestionsCount: lpi.codeSuggestionsCount,
+			});
 		}
 
 		return item;
