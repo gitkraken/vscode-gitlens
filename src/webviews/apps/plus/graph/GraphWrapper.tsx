@@ -1288,8 +1288,14 @@ export function GraphWrapper({
 									Create a branch from <i>{branchName}</i> and switch
 								</span>
 							</GlTooltip>
-							<GlTooltip placement="top" distance={7}>
-								<PopMenu position="right">
+							<GlPopover
+								className="popover"
+								placement="bottom-start"
+								trigger="focus"
+								arrow={false}
+								distance={0}
+							>
+								<GlTooltip placement="top" distance={7}>
 									<button
 										type="button"
 										className="action-button"
@@ -1301,64 +1307,56 @@ export function GraphWrapper({
 											aria-hidden="true"
 										></span>
 									</button>
-									<MenuList slot="content" id="create-branch">
-										<MenuLabel>Create branch options</MenuLabel>
-										<MenuItem>
-											<a href={createCommandLink(Commands.GitCommandsBranchCreate)}>
-												Create Branch...
-											</a>
-										</MenuItem>
-										<MenuItem>
-											<a
-												href={createCommandLink(Commands.GitCommandsBranch, {
-													args: {
-														command: 'branch',
-														confirm: false,
-														state: { flags: [], reference: branch, subcommand: 'create' },
-													} satisfies BranchGitCommandArgs,
-												})}
-											>
-												Create Branch from <i>{branchName}</i>
-											</a>
-										</MenuItem>
-										<MenuItem>
-											<a
-												href={createCommandLink(Commands.GitCommandsBranch, {
-													args: {
-														command: 'branch',
-														confirm: false,
-														state: {
-															flags: ['--switch'],
-															reference: branch,
-															subcommand: 'create',
-														},
-													} satisfies BranchGitCommandArgs,
-												})}
-											>
-												Create from <i>{branchName}</i> & Switch to Branch
-											</a>
-										</MenuItem>
-										<MenuItem>
-											<a
-												href={createCommandLink(Commands.GitCommandsBranch, {
-													args: {
-														state: {
-															subcommand: 'create',
-															flags: ['--worktree'],
-															reference: branch,
-														},
-														command: 'branch',
-														confirm: false,
-													} satisfies BranchGitCommandArgs,
-												})}
-											>
-												Create Branch from <i>{branchName}</i> in New Worktree
-											</a>
-										</MenuItem>
-									</MenuList>
-								</PopMenu>
-								<span slot="content">Create branch options</span>
-							</GlTooltip>
+									<span slot="content">Create branch options</span>
+								</GlTooltip>
+								<div slot="content">
+									<MenuLabel>Create branch options</MenuLabel>
+									<MenuItem href={createCommandLink(Commands.GitCommandsBranchCreate)}>
+										Create Branch...
+									</MenuItem>
+									<MenuItem
+										href={createCommandLink(Commands.GitCommandsBranch, {
+											args: {
+												command: 'branch',
+												confirm: false,
+												state: { flags: [], reference: branch, subcommand: 'create' },
+											} satisfies BranchGitCommandArgs,
+										})}
+									>
+										Create Branch from <i>{branchName}</i>
+									</MenuItem>
+									<MenuItem
+										href={createCommandLink(Commands.GitCommandsBranch, {
+											args: {
+												command: 'branch',
+												confirm: false,
+												state: {
+													flags: ['--switch'],
+													reference: branch,
+													subcommand: 'create',
+												},
+											} satisfies BranchGitCommandArgs,
+										})}
+									>
+										Create from <i>{branchName}</i> & Switch to Branch
+									</MenuItem>
+									<MenuItem
+										href={createCommandLink(Commands.GitCommandsBranch, {
+											args: {
+												state: {
+													subcommand: 'create',
+													flags: ['--worktree'],
+													reference: branch,
+												},
+												command: 'branch',
+												confirm: false,
+											} satisfies BranchGitCommandArgs,
+										})}
+									>
+										Create Branch from <i>{branchName}</i> in New Worktree
+									</MenuItem>
+								</div>
+							</GlPopover>
 						</span>
 						<GlTooltip placement="bottom">
 							<a
