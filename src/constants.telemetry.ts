@@ -65,6 +65,12 @@ export type TelemetryEvents = {
 		'integration.connected.ids': string | undefined;
 	};
 
+	/** Sent when disconnecting a provider from the api fails*/
+	'cloudIntegrations/disconnect/failed': {
+		code: number | undefined;
+		'integration.id': string | undefined;
+	};
+
 	/** Sent when getting connected providers from the api fails*/
 	'cloudIntegrations/getConnections/failed': {
 		code: number | undefined;
