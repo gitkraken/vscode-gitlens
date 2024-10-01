@@ -10,7 +10,7 @@ import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
-import type { RepositoryChangeEvent } from '../../git/models/repository';
+import type { Repository, RepositoryChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitTag } from '../../git/models/tag';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
@@ -100,7 +100,7 @@ export class DeepLinkService implements Disposable {
 		};
 	}
 
-	private setContextFromDeepLink(link: DeepLink, url: string) {
+	private setContextFromDeepLink(link: DeepLink, url: string, repo?: Repository) {
 		this._context = {
 			...this._context,
 			mainId: link.mainId,
@@ -115,9 +115,14 @@ export class DeepLinkService implements Disposable {
 			action: link.action,
 			params: link.params,
 		};
+
+		if (repo != null) {
+			this._context.repo = repo;
+			this._context.repoPath = repo.path;
+		}
 	}
 
-	async processDeepLinkUri(uri: Uri, useProgress: boolean = true) {
+	async processDeepLinkUri(uri: Uri, useProgress: boolean = true, repo?: Repository) {
 		const link = parseDeepLinkUri(uri);
 		if (link == null) return;
 
@@ -150,7 +155,7 @@ export class DeepLinkService implements Disposable {
 				return;
 			}
 
-			this.setContextFromDeepLink(link, uri.toString());
+			this.setContextFromDeepLink(link, uri.toString(), repo);
 
 			await this.processDeepLink(undefined, useProgress);
 		}
@@ -499,6 +504,9 @@ export class DeepLinkService implements Disposable {
 		return remoteName;
 	}
 
+	// TODO @axosoft-ramint: Move all the logic for matching a repo, prompting to add repo, matching remote, etc. for a target (branch, PR, etc.)
+	// to a separate service where it can be used outside of the context of deep linking. Then the deep link service should leverage it,
+	// and we should stop using deep links to process things like Launchpad switch actions, Open in Worktree command, etc.
 	private async processDeepLink(
 		initialAction: DeepLinkServiceAction = DeepLinkServiceAction.DeepLinkEventFired,
 		useProgress: boolean = true,
@@ -660,7 +668,7 @@ export class DeepLinkService implements Disposable {
 				}
 				case DeepLinkServiceState.RepoMatch:
 				case DeepLinkServiceState.AddedRepoMatch: {
-					if (repo != null && repoOpenUri != null && repoOpenLocation != null) {
+					if (repo != null) {
 						action = DeepLinkServiceAction.RepoMatched;
 						break;
 					}
