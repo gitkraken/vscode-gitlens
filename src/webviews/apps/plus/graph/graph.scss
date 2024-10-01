@@ -1197,14 +1197,6 @@ gl-feature-gate gl-feature-badge {
 	width: 1px;
 }
 
-menu-list#create-branch {
-	menu-item > a {
-		display: block;
-		color: var(--vscode-foreground);
-		text-decoration: none;
-	}
-}
-
 #opts-popover {
 	font-size: var(--vscode-font-size);
 	font-family: var(--vscode-font-family);
