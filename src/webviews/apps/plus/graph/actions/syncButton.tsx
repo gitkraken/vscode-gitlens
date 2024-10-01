@@ -3,8 +3,8 @@ import React from 'react';
 import type { BranchState, State } from '../../../../../plus/webviews/graph/protocol';
 import { pluralize } from '../../../../../system/string';
 import { createWebviewCommandLink } from '../../../../../system/webview';
-import { MenuItem, MenuLabel, MenuList } from '../../../shared/components/menu/react';
-import { PopMenu } from '../../../shared/components/overlays/pop-menu/react';
+import { MenuItem, MenuLabel } from '../../../shared/components/menu/react';
+import { GlPopover } from '../../../shared/components/overlays/popover.react';
 import { GlTooltip } from '../../../shared/components/overlays/tooltip.react';
 
 export const SyncButton = ({
@@ -119,42 +119,29 @@ export const SyncButton = ({
 				</div>
 			</GlTooltip>
 			{isAhead && isBehind && (
-				<GlTooltip placement="top" distance={7}>
-					<PopMenu position="right">
-						<button type="button" className="action-button" slot="trigger" aria-label="Minimap Options">
+				<GlPopover className="popover" placement="bottom-start" trigger="focus" arrow={false} distance={0}>
+					<GlTooltip placement="top" slot="anchor">
+						<button type="button" className="action-button" aria-label="Branch Actions">
 							<span
 								className="codicon codicon-chevron-down action-button__more"
 								aria-hidden="true"
 							></span>
 						</button>
-						<MenuList slot="content" style={{ width: 120 }}>
-							<MenuLabel>Git actions</MenuLabel>
-							<MenuItem>
-								<a
-									href={createWebviewCommandLink(
-										'gitlens.graph.pull',
-										state.webviewId,
-										state.webviewInstanceId,
-									)}
-								>
-									Pull...
-								</a>
-							</MenuItem>
-							<MenuItem>
-								<a
-									href={createWebviewCommandLink(
-										'gitlens.graph.push',
-										state.webviewId,
-										state.webviewInstanceId,
-									)}
-								>
-									Push...
-								</a>
-							</MenuItem>
-						</MenuList>
-					</PopMenu>
-					<span slot="content">Git Sync Options</span>
-				</GlTooltip>
+						<span slot="content">Branch Actions</span>
+					</GlTooltip>
+					<div slot="content">
+						<MenuLabel>Branch actions</MenuLabel>
+						<MenuItem
+							href={createWebviewCommandLink(
+								'gitlens.graph.pushWithForce',
+								state.webviewId,
+								state.webviewInstanceId,
+							)}
+						>
+							Push (force)
+						</MenuItem>
+					</div>
+				</GlPopover>
 			)}
 		</span>
 	);

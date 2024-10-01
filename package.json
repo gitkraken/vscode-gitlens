@@ -8826,10 +8826,10 @@
 				"enablement": "!operationInProgress"
 			},
 			{
-				"command": "gitlens.graph.sync",
-				"title": "Pull",
+				"command": "gitlens.graph.pushWithForce",
+				"title": "Push (force)",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-sync)",
+				"icon": "$(gitlens-repo-force-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -12003,7 +12003,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.sync",
+					"command": "gitlens.graph.pushWithForce",
 					"when": "false"
 				},
 				{
@@ -15589,11 +15589,6 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
-					"command": "gitlens.graph.sync",
-					"when": "false",
-					"group": "1_gitlens_actions@2"
-				},
-				{
 					"command": "gitlens.graph.fetch",
 					"when": "gitlens:repos:withRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)(?!.*?\\b\\+closed\\b)/",
 					"group": "1_gitlens_actions@3"
@@ -15846,11 +15841,6 @@
 				{
 					"command": "gitlens.graph.pull",
 					"when": "webviewItem =~ /gitlens:upstreamStatus\\b/",
-					"group": "1_gitlens_actions@2"
-				},
-				{
-					"command": "gitlens.graph.sync",
-					"when": "sync",
 					"group": "1_gitlens_actions@2"
 				},
 				{
