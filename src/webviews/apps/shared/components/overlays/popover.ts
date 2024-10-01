@@ -49,6 +49,23 @@ declare global {
 	}
 }
 
+/**
+ * @tag gl-popover
+ *
+ * @slot anchor - The element that triggers the popover
+ * @slot content - The content of the popover
+ *
+ * @csspart base - Styles the sl-popup element itself
+ * @csspart arrow - Styles the arrow's container
+ * @csspart popup - Styles the popup's container
+ * @csspart body - Styles the element that wraps the content slot
+ *
+ * @fires gl-popover-show - Fired when the popover is shown
+ * @fires gl-popover-after-show - Fired after the popover is shown
+ * @fires gl-popover-hide - Fired when the popover is hidden
+ * @fires gl-popover-after-hide - Fired after the popover is hidden
+ */
+
 @customElement('gl-popover')
 export class GlPopover extends GlElement {
 	static override shadowRootOptions: ShadowRootInit = {
