@@ -286,7 +286,10 @@ export abstract class CloudIntegrationAuthenticationProvider<
 			  },
 	): Promise<ProviderAuthenticationSession | undefined> {
 		if (options?.forceNewSession) {
-			await this.disconnectSession();
+			if (!(await this.disconnectSession())) {
+				return undefined;
+			}
+
 			void this.connectCloudIntegration(false, options?.source);
 			return undefined;
 		}
