@@ -744,17 +744,8 @@ export class IntegrationService implements Disposable {
 		await this.container.storage.deleteWithPrefix('provider:authentication:skip');
 	}
 
-	supports(remoteId: RemoteProviderId): boolean {
-		switch (remoteId) {
-			case 'azure-devops':
-			case 'bitbucket':
-			case 'github':
-			case 'gitlab':
-				return true;
-			case 'bitbucket-server':
-			default:
-				return false;
-		}
+	supports(remoteProviderId: RemoteProviderId): boolean {
+		return remoteProviderIdToIntegrationId(remoteProviderId) != null;
 	}
 
 	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
@@ -794,5 +785,24 @@ export class IntegrationService implements Disposable {
 		domain?: string,
 	): IntegrationKey {
 		return isSelfHostedIntegrationId(id) ? (`${id}:${domain}` as const) : id;
+	}
+}
+
+export function remoteProviderIdToIntegrationId(
+	remoteProviderId: RemoteProviderId,
+): SupportedCloudIntegrationIds | undefined {
+	switch (remoteProviderId) {
+		// TODO: Uncomment when we support these integrations
+		// case 'azure-devops':
+		// 	return HostingIntegrationId.AzureDevOps;
+		// case 'bitbucket':
+		// 	return HostingIntegrationId.Bitbucket;
+		case 'github':
+			return HostingIntegrationId.GitHub;
+		case 'gitlab':
+			return HostingIntegrationId.GitLab;
+		case 'bitbucket-server':
+		default:
+			return undefined;
 	}
 }

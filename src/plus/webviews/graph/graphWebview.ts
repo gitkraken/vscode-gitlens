@@ -120,6 +120,7 @@ import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../../w
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../integrations/integrationService';
+import { remoteProviderIdToIntegrationId } from '../../integrations/integrationService';
 import type {
 	BranchState,
 	DidChangeRefsVisibilityParams,
@@ -3741,34 +3742,34 @@ type GraphItemRefs<T> = {
 async function formatRepositories(repositories: Repository[]): Promise<GraphRepository[]> {
 	if (repositories.length === 0) return Promise.resolve([]);
 
-	return Promise.all(
-		repositories.map(async r => {
-			const remote = await r.git.getBestRemoteWithIntegration();
-
-			// const integration = await remote?.getIntegration();
-			// const connected = integration ? integration?.maybeConnected ?? (await integration?.isConnected()) : false;
-			let connected = false;
-			if (remote?.maybeIntegrationConnected) {
-				connected = true;
-			}
+	const result = await Promise.allSettled(
+		repositories.map<Promise<GraphRepository>>(async repo => {
+			const remotes = await repo.git.getBestRemotesWithProviders();
+			const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
 
 			return {
-				formattedName: r.formattedName,
-				id: r.id,
-				name: r.name,
-				path: r.path,
+				formattedName: repo.formattedName,
+				id: repo.id,
+				name: repo.name,
+				path: repo.path,
 				provider: remote?.provider
 					? {
 							name: remote.provider.name,
-							connected: connected,
+							integration: remote.hasIntegration()
+								? {
+										id: remoteProviderIdToIntegrationId(remote.provider.id)!,
+										connected: remote.maybeIntegrationConnected ?? false,
+								  }
+								: undefined,
 							icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
 							url: remote.provider.url({ type: RemoteResourceType.Repo }),
 					  }
 					: undefined,
-				isVirtual: r.provider.virtual,
+				isVirtual: repo.provider.virtual,
 			};
 		}),
 	);
+	return result.map(r => getSettledValue(r)).filter(r => r != null);
 }
 
 function isGraphItemContext(item: unknown): item is GraphItemContext {

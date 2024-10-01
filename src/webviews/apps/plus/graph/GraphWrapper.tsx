@@ -18,6 +18,7 @@ import type { SlChangeEvent } from '@shoelace-style/shoelace';
 import { SlOption, SlSelect } from '@shoelace-style/shoelace/dist/react';
 import type { FormEvent, MouseEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
 import type { Commands } from '../../../../constants.commands';
 import type { SearchQuery } from '../../../../constants.search';
@@ -1155,17 +1156,16 @@ export function GraphWrapper({
 									</a>
 									<span slot="content">Open Repository on {repo.provider.name}</span>
 								</GlTooltip>
-								{repo?.provider?.connected !== true && (
+								{repo?.provider?.integration?.connected === false && (
 									<GlConnect
 										type="action"
 										connected={false}
 										integration={repo.provider.name}
-										connectUrl={createCommandLink(
+										connectUrl={createCommandLink<ConnectCloudIntegrationsCommandArgs>(
 											'gitlens.plus.cloudIntegrations.connect' as Commands,
 											{
-												args: {
-													source: 'graph',
-												},
+												integrationIds: [repo.provider.integration.id],
+												source: 'graph',
 											},
 										)}
 									></GlConnect>

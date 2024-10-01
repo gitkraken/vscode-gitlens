@@ -2204,7 +2204,7 @@ export class GitProviderService implements Disposable {
 		const includeDisconnected = options?.includeDisconnected ?? false;
 		for (const r of remotes) {
 			if (r.hasIntegration()) {
-				const integration = await this.container.integrations.getByRemote(r);
+				const integration = await r.getIntegration();
 				if (integration != null) {
 					if (options?.filter?.(r, integration) === false) continue;
 
