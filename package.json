@@ -1237,6 +1237,16 @@
 						"scope": "window",
 						"order": 10
 					},
+					"gitlens.launchpad.includedOrganizations": {
+						"type": "array",
+						"default": [],
+						"items": {
+							"type": "string"
+						},
+						"markdownDescription": "Specifies the organizations to include in the _Launchpad_. If empty, all organizations are included",
+						"scope": "window",
+						"order": 11
+					},
 					"gitlens.launchpad.ignoredOrganizations": {
 						"type": "array",
 						"default": [],
@@ -1245,7 +1255,7 @@
 						},
 						"markdownDescription": "Specifies the organizations to ignore in the _Launchpad_",
 						"scope": "window",
-						"order": 11
+						"order": 12
 					},
 					"gitlens.launchpad.staleThreshold": {
 						"type": [

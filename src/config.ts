@@ -91,6 +91,7 @@ export interface Config {
 	};
 	readonly launchpad: {
 		readonly allowMultiple: boolean;
+		readonly includedOrganizations: string[];
 		readonly ignoredOrganizations: string[];
 		readonly ignoredRepositories: string[];
 		readonly staleThreshold: number | null;
