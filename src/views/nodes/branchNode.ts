@@ -422,16 +422,23 @@ export class BranchNode
 		const worktree = this.worktree;
 		const status = this.branch.status;
 
+		const suffixes = [];
+		if (this.current) {
+			if (this.branch.rebasing) {
+				suffixes.push('rebasing');
+			}
+			suffixes.push('current branch');
+		}
+		if (worktree) {
+			if (worktree.opened && !this.current) {
+				suffixes.push('in an opened worktree');
+			} else {
+				suffixes.push('in a worktree');
+			}
+		}
+
 		let tooltip: string | MarkdownString = `$(git-branch) \`${this.branch.getNameWithoutRemote()}\`${
-			this.current
-				? this.branch.rebasing
-					? ' \u00a0(_current, rebasing_)'
-					: ' \u00a0(_current_)'
-				: worktree?.opened
-				  ? ' \u00a0(_worktree, opened_)'
-				  : worktree
-				    ? ' \u00a0(_worktree_)'
-				    : ''
+			suffixes.length ? ` \u00a0(_${suffixes.join(', ')}_)` : ''
 		}`;
 
 		let contextValue: string = ContextValues.Branch;
