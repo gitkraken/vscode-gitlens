@@ -8,7 +8,6 @@ import type {
 	TimelineItem,
 } from 'vscode';
 import { commands, Disposable, Uri, window } from 'vscode';
-import type { ActionContext } from '../api/gitlens';
 import type { Commands } from '../constants.commands';
 import type { StoredNamedRef } from '../constants.storage';
 import type { GitBranch } from '../git/models/branch';
@@ -284,14 +283,6 @@ function isGitTimelineItem(item: any): item is GitTimelineItem {
 }
 
 export abstract class Command implements Disposable {
-	static getMarkdownCommandArgsCore<T>(
-		command: Commands | `${Commands.ActionPrefix}${ActionContext['type']}`,
-		args: T,
-	): string {
-		// Since we are using the command in a markdown link, we need to escape ()'s so they don't get interpreted as markdown
-		return `command:${command}?${encodeURIComponent(JSON.stringify(args)).replace(/([()])/g, '\\$1')}`;
-	}
-
 	protected readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: false };
 
 	private readonly _disposable: Disposable;

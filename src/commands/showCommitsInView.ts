@@ -5,6 +5,7 @@ import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
 import { createSearchQueryForCommits } from '../git/search';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
+import { createMarkdownCommandLink } from '../system/commands';
 import { filterMap } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { command } from '../system/vscode/command';
@@ -17,11 +18,11 @@ export interface ShowCommitsInViewCommandArgs {
 
 @command()
 export class ShowCommitsInViewCommand extends ActiveEditorCommand {
-	static getMarkdownCommandArgs(sha: string, repoPath: string): string;
-	static getMarkdownCommandArgs(args: ShowCommitsInViewCommandArgs): string;
-	static getMarkdownCommandArgs(argsOrSha: ShowCommitsInViewCommandArgs | string, repoPath?: string): string {
+	static createMarkdownCommandLink(sha: string, repoPath: string): string;
+	static createMarkdownCommandLink(args: ShowCommitsInViewCommandArgs): string;
+	static createMarkdownCommandLink(argsOrSha: ShowCommitsInViewCommandArgs | string, repoPath?: string): string {
 		const args = typeof argsOrSha === 'string' ? { refs: [argsOrSha], repoPath: repoPath } : argsOrSha;
-		return super.getMarkdownCommandArgsCore<ShowCommitsInViewCommandArgs>(Commands.ShowCommitsInView, args);
+		return createMarkdownCommandLink<ShowCommitsInViewCommandArgs>(Commands.ShowCommitsInView, args);
 	}
 
 	constructor(private readonly container: Container) {

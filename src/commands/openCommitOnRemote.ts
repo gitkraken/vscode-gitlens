@@ -11,6 +11,7 @@ import {
 	showGenericErrorMessage,
 } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { command, executeCommand } from '../system/vscode/command';
 import type { CommandContext } from './base';
@@ -30,11 +31,11 @@ export interface OpenCommitOnRemoteCommandArgs {
 
 @command()
 export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
-	static getMarkdownCommandArgs(sha: string): string;
-	static getMarkdownCommandArgs(args: OpenCommitOnRemoteCommandArgs): string;
-	static getMarkdownCommandArgs(argsOrSha: OpenCommitOnRemoteCommandArgs | string): string {
+	static createMarkdownCommandLink(sha: string): string;
+	static createMarkdownCommandLink(args: OpenCommitOnRemoteCommandArgs): string;
+	static createMarkdownCommandLink(argsOrSha: OpenCommitOnRemoteCommandArgs | string): string {
 		const args: OpenCommitOnRemoteCommandArgs = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
-		return super.getMarkdownCommandArgsCore<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitOnRemote, args);
+		return createMarkdownCommandLink<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitOnRemote, args);
 	}
 
 	constructor(private readonly container: Container) {

@@ -638,7 +638,7 @@ async function parseRebaseTodo(
 	}
 
 	const defaultDateFormat = configuration.get('defaultDateFormat');
-	const command = InspectCommand.getMarkdownCommandArgs(`\${commit}`, context.repoPath);
+	const command = InspectCommand.createMarkdownCommandLink(`\${commit}`, context.repoPath);
 
 	const ontoCommit = onto ? context.commits?.find(c => c.sha.startsWith(onto)) : undefined;
 

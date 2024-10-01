@@ -19,6 +19,7 @@ import { SlOption, SlSelect } from '@shoelace-style/shoelace/dist/react';
 import type { FormEvent, MouseEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
+import type { Commands } from '../../../../constants.commands';
 import type { SearchQuery } from '../../../../constants.search';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
@@ -61,12 +62,12 @@ import {
 	DidFetchNotification,
 	DidSearchNotification,
 } from '../../../../plus/webviews/graph/protocol';
+import { createCommandLink } from '../../../../system/commands';
 import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
 import { pluralize } from '../../../../system/string';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type { IpcNotification } from '../../../protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
-import { createCommandLink } from '../../shared/commands';
 import { GlButton } from '../../shared/components/button.react';
 import { GlCheckbox } from '../../shared/components/checkbox';
 import { CodeIcon } from '../../shared/components/code-icon.react';
@@ -1159,11 +1160,14 @@ export function GraphWrapper({
 										type="action"
 										connected={false}
 										integration={repo.provider.name}
-										connectUrl={createCommandLink('gitlens.plus.cloudIntegrations.connect', {
-											args: {
-												source: 'graph',
+										connectUrl={createCommandLink(
+											'gitlens.plus.cloudIntegrations.connect' as Commands,
+											{
+												args: {
+													source: 'graph',
+												},
 											},
-										})}
+										)}
 									></GlConnect>
 								)}
 							</>
