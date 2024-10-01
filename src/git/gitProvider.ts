@@ -120,7 +120,7 @@ export interface BranchContributorOverview {
 export interface GitProviderRepository {
 	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
-	deleteBranch?(
+	deleteBranches?(
 		repoPath: string,
 		branches: GitBranchReference | GitBranchReference[],
 		options?: { force?: boolean; remote?: boolean },

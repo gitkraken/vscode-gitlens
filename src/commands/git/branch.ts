@@ -561,7 +561,7 @@ export class BranchGitCommand extends QuickCommand {
 			endSteps(state);
 
 			try {
-				await state.repo.git.deleteBranch(state.references, {
+				await state.repo.git.deleteBranches(state.references, {
 					force: state.flags.includes('--force'),
 					remote: state.flags.includes('--remotes'),
 				});
