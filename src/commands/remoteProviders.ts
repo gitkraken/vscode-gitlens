@@ -134,7 +134,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 		super(Commands.DisconnectRemoteProvider);
 	}
 
-	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: DisconnectRemoteProviderCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name, repoPath: context.node.remote.repoPath };
 		}
