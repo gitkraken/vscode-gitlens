@@ -295,6 +295,20 @@ button:not([disabled]),
 	.codicon[class*='codicon-graph-line'] {
 		transform: translateY(1px);
 	}
+	.codicon-custom-git-branch-create {
+		&:before {
+			content: '\ea68';
+		}
+		&:after {
+			content: '\ea60';
+			position: absolute;
+			right: 0;
+			bottom: 0;
+			font-size: 0.6em;
+			line-height: normal;
+			transform: translate(-50%, 0%);
+		}
+	}
 
 	&__pill {
 		.is-ahead & {
@@ -970,7 +984,7 @@ gl-feature-gate gl-feature-badge {
 	&__header {
 		flex: none;
 		z-index: 101;
-		width: --webkit-fill-available;
+		width: fit-content;
 		position: relative;
 	}
 
