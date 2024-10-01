@@ -23,6 +23,7 @@ import type {
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { Config, DateStyle, GraphBranchesVisibility } from '../../../config';
+import type { SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import type { SearchQuery } from '../../../constants.search';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
@@ -153,7 +154,10 @@ export interface GraphRepository {
 	isVirtual: boolean;
 	provider?: {
 		name: string;
-		connected: boolean;
+		integration?: {
+			id: SupportedCloudIntegrationIds;
+			connected: boolean;
+		};
 		icon?: string;
 		url?: string;
 	};
