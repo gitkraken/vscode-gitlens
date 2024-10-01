@@ -16,7 +16,11 @@ import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
 import { getLocalBranchByUpstream } from '../../git/models/branch';
 import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
-import { getComparisonRefsForPullRequest, getRepositoryIdentityForPullRequest } from '../../git/models/pullRequest';
+import {
+	getComparisonRefsForPullRequest,
+	getOrOpenPullRequestRepository,
+	getRepositoryIdentityForPullRequest,
+} from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
@@ -488,8 +492,11 @@ export class LaunchpadProvider implements Disposable {
 		);
 		if (deepLinkUrl == null) return;
 
+		const prRepo = await getOrOpenPullRequestRepository(this.container, item.underlyingPullRequest, {
+			skipVirtual: true,
+		});
 		this._codeSuggestions?.delete(item.uuid);
-		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false);
+		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false, prRepo);
 	}
 
 	@log<LaunchpadProvider['openChanges']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })

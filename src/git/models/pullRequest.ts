@@ -309,7 +309,7 @@ export function getVirtualUriForPullRequest(pr: PullRequest): Uri | undefined {
 export async function getOrOpenPullRequestRepository(
 	container: Container,
 	pr: PullRequest,
-	options?: { promptIfNeeded?: boolean },
+	options?: { promptIfNeeded?: boolean; skipVirtual?: boolean },
 ): Promise<Repository | undefined> {
 	const identity = getRepositoryIdentityForPullRequest(pr);
 	let repo = await container.repositoryIdentity.getRepository(identity, {
@@ -318,7 +318,7 @@ export async function getOrOpenPullRequestRepository(
 		prompt: false,
 	});
 
-	if (repo == null) {
+	if (repo == null && !options?.skipVirtual) {
 		const virtualUri = getVirtualUriForPullRequest(pr);
 		if (virtualUri != null) {
 			repo = await container.git.getOrOpenRepository(virtualUri, { closeOnOpen: true, detectNested: false });
