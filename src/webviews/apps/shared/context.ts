@@ -1,10 +1,9 @@
 import { createContext } from '@lit/context';
-import type { TimeInput } from '@opentelemetry/api';
-import type { Source, TelemetryEvents } from '../../../constants.telemetry';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
 import { getNewLogScope } from '../../../system/logger.scope';
 import { padOrTruncateEnd } from '../../../system/string';
+import type { TelemetrySendEventParams } from '../../protocol';
 import { TelemetrySendEventCommand } from '../../protocol';
 import type { Disposable } from './events';
 import type { HostIpc } from './ipc';
@@ -47,20 +46,8 @@ export class TelemetryContext implements Disposable {
 		this.ipc = ipc;
 	}
 
-	sendEvent<T extends keyof TelemetryEvents>(
-		name: T,
-		data?: TelemetryEvents[T],
-		source?: Source,
-		startTime?: TimeInput,
-		endTime?: TimeInput,
-	): void {
-		this.ipc.sendCommand(TelemetrySendEventCommand, {
-			name: name,
-			data: data,
-			source: source,
-			startTime: startTime,
-			endTime: endTime,
-		});
+	sendEvent(detail: TelemetrySendEventParams): void {
+		this.ipc.sendCommand(TelemetrySendEventCommand, detail);
 	}
 
 	dispose(): void {
