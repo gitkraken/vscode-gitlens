@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds monospace formatting in commit messages &mdash; closes [#2350](https://github.com/gitkraken/vscode-gitlens/issues/2350)
 - Adds a new `${authorFirst}` and `${authorLast}` commit formatting tokens that can be used in inline blame, commit hovers, etc &mdash; closes [#2980](https://github.com/gitkraken/vscode-gitlens/issues/2980)
 - Adds a way to force push from the Graph
+- Adds a new `gitlens.launchpad.includedOrganizations` setting to specify which organizations to include in _Launchpad_ &mdash; closes [#3550](https://github.com/gitkraken/vscode-gitlens/issues/3550)
 
 ### Changed
 
@@ -20,6 +21,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves repository locating when using Launchpad &mdash; closes [#3633](https://github.com/gitkraken/vscode-gitlens/issues/3633)
 - Improves unnecessary prompting for certain deeplink and Launchpad workflows
 - Changes to automatically record repository path location when opening repositories &mdash; closes [#3635](https://github.com/gitkraken/vscode-gitlens/issues/3635)
+- Improves _Switch_, _Open in Worktree_, and deep link flows:
+  - Reduces prompts for locating repositories which the user has previously opened &mdash; closes [#3555](https://github.com/gitkraken/vscode-gitlens/issues/3555)
+  - Improves automatic detection of matching repositories for pull requests &mdash; closes [#3627](https://github.com/gitkraken/vscode-gitlens/issues/3627)
+  - Automatically fetches from the repository when needed rather than prompting the user
 
 ### Fixed
 
@@ -30,8 +35,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3573](https://github.com/gitkraken/vscode-gitlens/issues/3573) - 'Create Branch in Worktree' option in 'Create Branch' shows a repo picker if you have multiple repos open
 - Fixes [#3612](https://github.com/gitkraken/vscode-gitlens/issues/3612) - Prevents cloud integration sync process from opening gkdev connect page/flow
 - Fixes [#3519](https://github.com/gitkraken/vscode-gitlens/issues/3519) - Add fallback/cutoff to our backend calls similar to how we handle GitHub queries
+- Fixes [#3608](https://github.com/gitkraken/vscode-gitlens/issues/3608) - Integration connection page opening on every launch of VS Code and on profile change
+- Fixes [#3618](https://github.com/gitkraken/vscode-gitlens/issues/3618) -Reauthentication not working for cloud integrations
 - Fixes an issue where virtual repositories for GitHub PRs from forks wouldn't load properly
 - Fixes an issue where deleting a worktree would not always remove the worktree from the view
+- Fixes actions not working on Launchpad items with special characters in their branch name
+- Fixes _Open in Worktree_ command sometimes showing an unnecessary worktree confirmation step
+- Fixes some instances where the progress notification lingers after canceling when connecting an integration
 
 ### Engineering
 
