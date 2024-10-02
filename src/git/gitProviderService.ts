@@ -1378,19 +1378,15 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	deleteBranches(
+	deleteBranch(
 		repoPath: string,
-		branches: GitBranchReference | GitBranchReference[],
+		branch: GitBranchReference,
 		options?: { force?: boolean; remote?: boolean },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		if (provider.deleteBranches == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+		if (provider.deleteBranch == null) throw new ProviderNotSupportedError(provider.descriptor.name);
 
-		if (!Array.isArray(branches)) {
-			branches = [branches];
-		}
-
-		return provider.deleteBranches(path, branches, {
+		return provider.deleteBranch(path, branch, {
 			force: options?.force,
 			remote: options?.remote,
 		});

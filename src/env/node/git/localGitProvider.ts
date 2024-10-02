@@ -1286,77 +1286,51 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async deleteBranches(
+	async deleteBranch(
 		repoPath: string,
-		branches: GitBranchReference[],
+		branch: GitBranchReference,
 		options: { force?: boolean; remote?: boolean },
 	): Promise<void> {
-		const localBranches = branches.filter((b: GitBranchReference) => !b.remote);
-		if (localBranches.length !== 0) {
-			const args = ['--delete'];
-			if (options.force) {
-				args.push('--force');
-			}
-
-			if (options.remote) {
-				const trackingBranches = localBranches.filter(b => b.upstream != null);
-				if (trackingBranches.length !== 0) {
-					const branchesByOrigin = groupByMap(trackingBranches, b =>
-						getRemoteNameFromBranchName(b.upstream!.name),
-					);
-
-					for (const [remote, branches] of branchesByOrigin.entries()) {
-						const remoteCommitByBranch: Map<string, string> = {};
-						branches.forEach(async b => {
-							remoteCommit = await this.git.rev_list(repoPath, `refs/remotes/${remote}/${b.ref}`, {
-								maxResults: 1,
-							});
-							remoteCommitByBranch[b.ref] = remoteCommit;
-						});
-
-						await this.git.branch(
-							repoPath,
-							'--delete',
-							'--remotes',
-							...branches.map((b: GitBranchReference) => `${remote}/${b.ref}`),
-						);
-
-						try {
-							await this.git.branch(repoPath, ...args, ...branches.map((b: GitBranchReference) => b.ref));
-							await this.git.push(repoPath, {
-								delete: {
-									remote: remote,
-									branches: branches.map(b => getBranchNameWithoutRemote(b.upstream!.name)),
-								},
-							});
-						} catch (ex) {
-							// If it fails, restore the remote branches
-							remoteCommitByBranch.forEach(async (branch, commit) => {
-								await this.git.update_ref(repoPath, `refs/remotes/${remote}/${branch}`, commit);
-								await this.git.branch__set_upstream(repoPath, branch, remote, branch);
-							});
-							throw ex;
-						}
-					}
-				}
-			}
+		if (branch.remote) {
+			return this.git.push(repoPath, {
+				delete: {
+					remote: getRemoteNameFromBranchName(branch.name),
+					branch: branch.remote ? getBranchNameWithoutRemote(branch.name) : branch.name,
+				},
+			});
 		}
 
-		const remoteBranches = branches.filter((b: GitBranchReference) => b.remote);
-		if (remoteBranches.length !== 0) {
-			const branchesByOrigin = groupByMap(remoteBranches, b => getRemoteNameFromBranchName(b.name));
-
-			for (const [remote, branches] of branchesByOrigin.entries()) {
-				await this.git.push(repoPath, {
-					delete: {
-						remote: remote,
-						branches: branches.map((b: GitBranchReference) =>
-							b.remote ? getBranchNameWithoutRemote(b.name) : b.name,
-						),
-					},
-				});
-			}
+		const args = ['--delete'];
+		if (options.force) {
+			args.push('--force');
 		}
+
+		if (!options.remote || !branch.upstream) {
+			return this.git.branch(repoPath, ...args, branch.ref);
+		}
+
+		const remote = getRemoteNameFromBranchName(branch.upstream.name);
+		remoteCommit = await this.git.rev_list(repoPath, `refs/remotes/${remote}/${branch.ref}`, {
+			maxResults: 1,
+		});
+
+		await this.git.branch(repoPath, '--delete', '--remotes', `${remote}/${branch.ref}`);
+
+		try {
+			await this.git.branch(repoPath, ...args, branch.ref);
+		} catch (ex) {
+			// If it fails, restore the remote branch
+			await this.git.update_ref(repoPath, `refs/remotes/${remote}/${branch.ref}`, commit);
+			await this.git.branch__set_upstream(repoPath, branch, remote, branch);
+			throw ex;
+		}
+
+		await this.git.push(repoPath, {
+			delete: {
+				remote: remote,
+				branch: getBranchNameWithoutRemote(branch.upstream.name),
+			},
+		});
 	}
 
 	@log()

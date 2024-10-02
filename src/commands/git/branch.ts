@@ -428,7 +428,7 @@ export class BranchGitCommand extends QuickCommand {
 				} catch (ex) {
 					Logger.error(ex);
 					// TODO likely need some better error handling here
-					return showGenericErrorMessage(new BranchError(ex.reason, ex, state.name).message);
+					return showGenericErrorMessage(ex.WithBranch(state.name));
 				}
 			}
 		}
@@ -560,17 +560,17 @@ export class BranchGitCommand extends QuickCommand {
 
 			endSteps(state);
 
-			try {
-				await state.repo.git.deleteBranches(state.references, {
-					force: state.flags.includes('--force'),
-					remote: state.flags.includes('--remotes'),
-				});
-			} catch (ex) {
-				Logger.error(ex);
-				// TODO likely need some better error handling here
-				return showGenericErrorMessage(
-					new BranchError(ex.reason, ex, state.references.map(r => r.name).join(', ')).message,
-				);
+			for (const ref of state.references) {
+				try {
+					await state.repo.git.deleteBranch(ref, {
+						force: state.flags.includes('--force'),
+						remote: state.flags.includes('--remotes'),
+					});
+				} catch (ex) {
+					Logger.error(ex);
+					// TODO likely need some better error handling here
+					return showGenericErrorMessage(ex.WithBranch(ref.name));
+				}
 			}
 		}
 	}
@@ -679,7 +679,7 @@ export class BranchGitCommand extends QuickCommand {
 			} catch (ex) {
 				Logger.error(ex);
 				// TODO likely need some better error handling here
-				return showGenericErrorMessage(new BranchError(ex.reason, ex, state.name).message);
+				return showGenericErrorMessage(ex.WithBranch(state.name));
 			}
 		}
 	}
