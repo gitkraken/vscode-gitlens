@@ -13943,7 +13943,7 @@
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(current|checkedout)\\b)(?!.*?\\b\\+closed\\b)/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/",
 					"group": "inline@7"
 				},
 				{
@@ -13953,7 +13953,7 @@
 				},
 				{
 					"command": "gitlens.views.openWorktree",
-					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)(?!.*?\\b\\+closed\\b)/",
+					"when": "!gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)(?!.*?\\b\\+(current|closed|opened)\\b)/",
 					"group": "inline@7",
 					"alt": "gitlens.views.openWorktreeInNewWindow"
 				},
@@ -14029,12 +14029,12 @@
 				},
 				{
 					"command": "gitlens.views.openWorktree",
-					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)(?!.*?\\b\\+closed\\b)/",
+					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)(?!.*?\\b\\+(current|closed|opened)\\b)/",
 					"group": "1_gitlens_action@1"
 				},
 				{
 					"command": "gitlens.views.openWorktreeInNewWindow",
-					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)(?!.*?\\b\\+closed\\b)/",
+					"when": "!listMultiSelection && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)(?!.*?\\b\\+(current|closed|opened)\\b)/",
 					"group": "1_gitlens_action@2"
 				},
 				{
@@ -14044,7 +14044,7 @@
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
-					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(current|checkedout)\\b)(?!.*?\\b\\+closed\\b)/",
+					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/",
 					"group": "1_gitlens_action@1"
 				},
 				{
