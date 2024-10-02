@@ -237,38 +237,39 @@ export class BranchError extends Error {
 	constructor(reason?: BranchErrorReason, original?: Error, branch?: string);
 	constructor(message?: string, original?: Error);
 	constructor(messageOrReason: string | BranchErrorReason | undefined, original?: Error, branch?: string) {
-		let message;
-		const baseMessage = `Unable to perform action on branch${branch ? ` '${branch}'` : ''}`;
 		let reason: BranchErrorReason | undefined;
-		if (messageOrReason == null) {
-			message = baseMessage;
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
-		} else {
-			reason = messageOrReason;
-			switch (reason) {
-				case BranchErrorReason.BranchAlreadyExists:
-					message = `${baseMessage} because it already exists`;
-					break;
-				case BranchErrorReason.BranchNotFullyMerged:
-					message = `${baseMessage} because it is not fully merged`;
-					break;
-				case BranchErrorReason.NoRemoteReference:
-					message = `${baseMessage} because the remote reference does not exist`;
-					break;
-				case BranchErrorReason.InvalidBranchName:
-					message = `${baseMessage} because the branch name is invalid`;
-					break;
-				default:
-					message = baseMessage;
-			}
+		if (typeof messageOrReason !== 'string') {
+			reason = messageOrReason as BranchErrorReason;
 		}
+
+		const message =
+			typeof messageOrReason === 'string' ? messageOrReason : BranchError.buildBranchErrorMessage(reason, branch);
 		super(message);
 
 		this.original = original;
 		this.reason = reason;
 		Error.captureStackTrace?.(this, BranchError);
+	}
+
+	private static buildBranchErrorMessage(reason?: BranchErrorReason, branch?: string): string {
+		const baseMessage = `Unable to perform action on branch${branch ? ` '${branch}'` : ''}`;
+		switch (reason) {
+			case BranchErrorReason.BranchAlreadyExists:
+				return `${baseMessage} because it already exists`;
+			case BranchErrorReason.BranchNotFullyMerged:
+				return `${baseMessage} because it is not fully merged`;
+			case BranchErrorReason.NoRemoteReference:
+				return `${baseMessage} because the remote reference does not exist`;
+			case BranchErrorReason.InvalidBranchName:
+				return `${baseMessage} because the branch name is invalid`;
+			default:
+				return baseMessage;
+		}
+	}
+
+	WithBranch(branchName: string): this {
+		this.message = BranchError.buildBranchErrorMessage(this.reason, branchName);
+		return this;
 	}
 }
 
