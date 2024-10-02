@@ -1,7 +1,5 @@
 /*global window document*/
 import { ContextProvider } from '@lit/context';
-import type { TimeInput } from '@opentelemetry/api';
-import type { Source, TelemetryEvents } from '../../../constants.telemetry';
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
 import { debounce } from '../../../system/function';
 import type { LogScope } from '../../../system/logger.scope';
@@ -13,17 +11,13 @@ import type {
 	IpcRequest,
 	WebviewFocusChangedParams,
 } from '../../protocol';
-import {
-	DidChangeWebviewFocusNotification,
-	TelemetrySendEventCommand,
-	WebviewFocusChangedCommand,
-	WebviewReadyCommand,
-} from '../../protocol';
-import { ipcContext, loggerContext, LoggerContext } from './context';
+import { DidChangeWebviewFocusNotification, WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
+import { ipcContext, loggerContext, LoggerContext, telemetryContext, TelemetryContext } from './context';
 import { DOM } from './dom';
 import type { Disposable } from './events';
 import type { HostIpcApi } from './ipc';
 import { getHostIpcApi, HostIpc } from './ipc';
+import { telemetryEventName } from './telemetry';
 import type { ThemeChangeEvent } from './theme';
 import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme';
 
@@ -36,6 +30,7 @@ export abstract class App<
 	private readonly _api: HostIpcApi;
 	private readonly _hostIpc: HostIpc;
 	private readonly _logger: LoggerContext;
+	protected readonly _telemetry: TelemetryContext;
 
 	protected state: State;
 	protected readonly placement: 'editor' | 'view';
@@ -61,10 +56,17 @@ export abstract class App<
 		this._hostIpc = new HostIpc(this.appName);
 		disposables.push(this._hostIpc);
 
+		this._telemetry = new TelemetryContext(this._hostIpc);
+		disposables.push(this._telemetry);
+
 		new ContextProvider(document.body, { context: ipcContext, initialValue: this._hostIpc });
 		new ContextProvider(document.body, {
 			context: loggerContext,
 			initialValue: this._logger,
+		});
+		new ContextProvider(document.body, {
+			context: telemetryContext,
+			initialValue: this._telemetry,
 		});
 
 		if (this.state != null) {
@@ -120,6 +122,12 @@ export abstract class App<
 				disposables?.forEach(d => d.dispose());
 				this.bindDisposables?.forEach(d => d.dispose());
 				this.bindDisposables = undefined;
+			}),
+		);
+
+		disposables.push(
+			DOM.on(window, telemetryEventName, e => {
+				this._telemetry.sendEvent(e.detail);
 			}),
 		);
 
@@ -196,22 +204,6 @@ export abstract class App<
 		params: IpcCallParamsType<T>,
 	): Promise<IpcCallResponseParamsType<T>> {
 		return this._hostIpc.sendRequest(requestType, params);
-	}
-
-	protected sendTelemetryEvent<T extends keyof TelemetryEvents>(
-		name: T,
-		data?: TelemetryEvents[T],
-		source?: Source,
-		startTime?: TimeInput,
-		endTime?: TimeInput,
-	): void {
-		this._hostIpc.sendCommand(TelemetrySendEventCommand, {
-			name: name,
-			data: data,
-			source: source,
-			startTime: startTime,
-			endTime: endTime,
-		});
 	}
 
 	protected setState(state: Partial<State>) {
