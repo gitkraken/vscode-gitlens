@@ -141,7 +141,9 @@ abstract class CreatePatchCommandBase extends Command {
 			repo.uri,
 			args?.to ?? uncommitted,
 			args?.from ?? 'HEAD',
-			args?.uris?.length ? { uris: args.uris } : undefined,
+			args?.uris?.length
+				? { uris: args.uris }
+				: { includeUntracked: args?.to != null || args?.to === uncommitted },
 		);
 	}
 

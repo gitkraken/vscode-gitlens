@@ -3194,7 +3194,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		to: string,
 		from?: string,
-		options?: { context?: number; uris?: Uri[] },
+		options?:
+			| { context?: number; includeUntracked?: never; uris?: never }
+			| { context?: number; includeUntracked?: never; uris: Uri[] }
+			| { context?: number; includeUntracked: boolean; uris?: never },
 	): Promise<GitDiff | undefined> {
 		const scope = getLogScope();
 		const params = [`-U${options?.context ?? 3}`];
@@ -3228,8 +3231,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			params.push(from, to);
 		}
 
+		let untrackedPaths: string[] | undefined;
+
 		if (options?.uris) {
 			params.push('--', ...options.uris.map(u => u.fsPath));
+		} else if (options?.includeUntracked && to === uncommitted) {
+			const status = await this.getStatus(repoPath);
+			untrackedPaths = status?.untrackedChanges.map(f => f.path);
+			if (untrackedPaths?.length) {
+				await this.stageFiles(repoPath, untrackedPaths, { intentToAdd: true });
+			}
 		}
 
 		let data;
@@ -3239,6 +3250,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			debugger;
 			Logger.error(ex, scope);
 			return undefined;
+		} finally {
+			if (untrackedPaths != null) {
+				await this.unstageFiles(repoPath, untrackedPaths);
+			}
 		}
 
 		const diff: GitDiff = { contents: data, from: from, to: to };
@@ -5753,29 +5768,58 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void> {
-		await this.git.add(repoPath, typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0]);
+	async stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void> {
+		await this.git.add(
+			repoPath,
+			[typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0]],
+			options?.intentToAdd ? '-N' : '-A',
+		);
 	}
 
 	@log()
-	async stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void> {
+	async stageFiles(
+		repoPath: string,
+		pathOrUri: string[] | Uri[],
+		options?: { intentToAdd?: boolean },
+	): Promise<void> {
 		await this.git.add(
 			repoPath,
-			typeof directoryOrUri === 'string' ? directoryOrUri : splitPath(directoryOrUri, repoPath)[0],
+			pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0])),
+			options?.intentToAdd ? '-N' : '-A',
+		);
+	}
+
+	@log()
+	async stageDirectory(
+		repoPath: string,
+		directoryOrUri: string | Uri,
+		options?: { intentToAdd?: boolean },
+	): Promise<void> {
+		await this.git.add(
+			repoPath,
+			[typeof directoryOrUri === 'string' ? directoryOrUri : splitPath(directoryOrUri, repoPath)[0]],
+			options?.intentToAdd ? '-N' : '-A',
 		);
 	}
 
 	@log()
 	async unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void> {
-		await this.git.reset(repoPath, typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0]);
+		await this.git.reset(repoPath, [typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0]]);
+	}
+
+	@log()
+	async unstageFiles(repoPath: string, pathOrUri: string[] | Uri[]): Promise<void> {
+		await this.git.reset(
+			repoPath,
+			pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0])),
+		);
 	}
 
 	@log()
 	async unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void> {
-		await this.git.reset(
-			repoPath,
+		await this.git.reset(repoPath, [
 			typeof directoryOrUri === 'string' ? directoryOrUri : splitPath(directoryOrUri, repoPath)[0],
-		);
+		]);
 	}
 
 	@log()

@@ -1142,10 +1142,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			if (!state.changes.contents || !state.changes.baseSha) {
-				const diff = await this.container.git.getDiff(
-					state.repo.uri,
+				const diff = await state.repo.git.getDiff(
 					state.changes.type === 'index' ? uncommittedStaged : uncommitted,
 					'HEAD',
+					{ includeUntracked: state.changes.type !== 'index' },
 				);
 				if (!diff?.contents) {
 					void window.showErrorMessage(`No changes to copy`);

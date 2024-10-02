@@ -347,8 +347,8 @@ export class Git {
 
 	// Git commands
 
-	add(repoPath: string | undefined, pathspec: string) {
-		return this.git<string>({ cwd: repoPath }, 'add', '-A', '--', pathspec);
+	add(repoPath: string | undefined, pathspecs: string[], ...args: string[]) {
+		return this.git<string>({ cwd: repoPath }, 'add', ...args, '--', ...pathspecs);
 	}
 
 	apply(repoPath: string | undefined, patch: string, options: { allowConflicts?: boolean } = {}) {
@@ -1570,8 +1570,8 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, 'remote', 'get-url', remote);
 	}
 
-	reset(repoPath: string | undefined, fileName: string) {
-		return this.git<string>({ cwd: repoPath }, 'reset', '-q', '--', fileName);
+	reset(repoPath: string | undefined, pathspecs: string[]) {
+		return this.git<string>({ cwd: repoPath }, 'reset', '-q', '--', ...pathspecs);
 	}
 
 	async rev_list(
