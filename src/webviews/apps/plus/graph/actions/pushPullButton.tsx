@@ -3,11 +3,9 @@ import React from 'react';
 import type { BranchState, State } from '../../../../../plus/webviews/graph/protocol';
 import { pluralize } from '../../../../../system/string';
 import { createWebviewCommandLink } from '../../../../../system/webview';
-import { MenuItem, MenuLabel } from '../../../shared/components/menu/react';
-import { GlPopover } from '../../../shared/components/overlays/popover.react';
 import { GlTooltip } from '../../../shared/components/overlays/tooltip.react';
 
-export const SyncButton = ({
+export const PushPullButton = ({
 	branchState,
 	state,
 	fetchedText,
@@ -20,17 +18,21 @@ export const SyncButton = ({
 	branchName: string | undefined;
 	remote: ReactNode;
 }) => {
-	const isBehind = Boolean(branchState?.behind);
-	const isAhead = Boolean(branchState?.ahead);
-	const hasChanges = isAhead || isBehind;
-	if (!hasChanges || !branchState) {
+	let isBehind = false;
+	let isAhead = false;
+	if (branchState) {
+		isBehind = branchState.behind > 0;
+		isAhead = branchState.ahead > 0;
+	}
+
+	if (!branchState || (!isAhead && !isBehind)) {
 		return null;
 	}
 
-	let action: 'pull' | 'push' | 'sync' = 'sync';
-	let icon = 'codicon codicon-repo-sync';
-	let label = 'Fetch';
-	let tooltip;
+	let action: 'pull' | 'push';
+	let icon: string;
+	let label: string;
+	let tooltip: ReactNode;
 
 	const branchPrefix = (
 		<>
@@ -68,7 +70,7 @@ export const SyncButton = ({
 				</>
 			);
 		}
-	} else if (isAhead) {
+	} else {
 		action = 'push';
 		icon = 'glicon glicon-repo-push';
 		label = 'Push';
@@ -83,7 +85,7 @@ export const SyncButton = ({
 	}
 
 	return (
-		<span className="button-group">
+		<>
 			<GlTooltip placement="bottom">
 				<a
 					href={createWebviewCommandLink(`gitlens.graph.${action}`, state.webviewId, state.webviewInstanceId)}
@@ -119,30 +121,21 @@ export const SyncButton = ({
 				</div>
 			</GlTooltip>
 			{isAhead && isBehind && (
-				<GlPopover className="popover" placement="bottom-start" trigger="focus" arrow={false} distance={0}>
-					<GlTooltip placement="top" slot="anchor">
-						<button type="button" className="action-button" aria-label="Branch Actions">
-							<span
-								className="codicon codicon-chevron-down action-button__more"
-								aria-hidden="true"
-							></span>
-						</button>
-						<span slot="content">Branch Actions</span>
-					</GlTooltip>
-					<div slot="content">
-						<MenuLabel>Branch actions</MenuLabel>
-						<MenuItem
-							href={createWebviewCommandLink(
-								'gitlens.graph.pushWithForce',
-								state.webviewId,
-								state.webviewInstanceId,
-							)}
-						>
-							Push (force)
-						</MenuItem>
-					</div>
-				</GlPopover>
+				<GlTooltip placement="top" slot="anchor">
+					<a
+						href={createWebviewCommandLink(
+							'gitlens.graph.pushWithForce',
+							state.webviewId,
+							state.webviewInstanceId,
+						)}
+						className="action-button"
+						aria-label="Push (force)"
+					>
+						<span className="codicon codicon-repo-force-push" aria-hidden="true"></span>
+					</a>
+					<span slot="content">Push (force)</span>
+				</GlTooltip>
 			)}
-		</span>
+		</>
 	);
 };

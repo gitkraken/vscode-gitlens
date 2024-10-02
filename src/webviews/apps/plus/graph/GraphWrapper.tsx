@@ -65,7 +65,6 @@ import {
 } from '../../../../plus/webviews/graph/protocol';
 import { createCommandLink } from '../../../../system/commands';
 import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
-import { pluralize } from '../../../../system/string';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type { IpcNotification } from '../../../protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
