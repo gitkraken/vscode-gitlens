@@ -21,7 +21,7 @@ import React, { createElement, useEffect, useMemo, useRef, useState } from 'reac
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
-import type { Commands } from '../../../../constants.commands';
+import { Commands } from '../../../../constants.commands';
 import type { SearchQuery } from '../../../../constants.search';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
@@ -1146,20 +1146,20 @@ export function GraphWrapper({
 						)}
 					</div>
 					<div className="titlebar__group">
-							<GlTooltip placement="bottom">
-								<a
-									className="action-button"
-									href={createCommandLink(Commands.GitCommandsBranch, {
-										args: {
-												state: {
-													subcommand: 'create',
-													reference: branch,
-												},
-												command: 'branch',
+						<GlTooltip placement="bottom">
+							<a
+								className="action-button"
+								href={createCommandLink(Commands.GitCommandsBranch, {
+									args: {
+										state: {
+											subcommand: 'create',
+											reference: branch,
+										},
+										command: 'branch',
 										confirm: true,
-											} satisfies BranchGitCommandArgs,
-										})}
-									>
+									} satisfies BranchGitCommandArgs,
+								})}
+							>
 								<span className="codicon codicon-custom-git-branch-create action-button__icon"></span>
 							</a>
 							<span slot="content">Create new branch</span>
