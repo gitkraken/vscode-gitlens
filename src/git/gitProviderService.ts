@@ -1872,7 +1872,10 @@ export class GitProviderService implements Disposable {
 		repoPath: string | Uri,
 		to: string,
 		from?: string,
-		options?: { context?: number; uris?: Uri[] },
+		options?:
+			| { context?: number; includeUntracked?: never; uris?: never }
+			| { context?: number; includeUntracked?: never; uris: Uri[] }
+			| { context?: number; includeUntracked: boolean; uris?: never },
 	): Promise<GitDiff | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getDiff?.(path, to, from, options);
@@ -2786,36 +2789,64 @@ export class GitProviderService implements Disposable {
 		return provider.validateReference(path, ref);
 	}
 
-	stageFile(repoPath: string | Uri, path: string): Promise<void>;
-	stageFile(repoPath: string | Uri, uri: Uri): Promise<void>;
+	stageFile(repoPath: string | Uri, path: string, options?: { intentToAdd?: boolean }): Promise<void>;
+	stageFile(repoPath: string | Uri, uri: Uri, options?: { intentToAdd?: boolean }): Promise<void>;
 	@log()
-	stageFile(repoPath: string | Uri, pathOrUri: string | Uri): Promise<void> {
+	async stageFile(
+		repoPath: string | Uri,
+		pathOrUri: string | Uri,
+		options?: { intentToAdd?: boolean },
+	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.stageFile(path, pathOrUri);
+		return provider.stageFile?.(path, pathOrUri, options);
 	}
 
-	stageDirectory(repoPath: string | Uri, directory: string): Promise<void>;
-	stageDirectory(repoPath: string | Uri, uri: Uri): Promise<void>;
+	stageFiles(repoPath: string | Uri, path: string[], options?: { intentToAdd?: boolean }): Promise<void>;
+	stageFiles(repoPath: string | Uri, uri: Uri[], options?: { intentToAdd?: boolean }): Promise<void>;
 	@log()
-	stageDirectory(repoPath: string | Uri, directoryOrUri: string | Uri): Promise<void> {
+	async stageFiles(
+		repoPath: string | Uri,
+		pathOrUri: string[] | Uri[],
+		options?: { intentToAdd?: boolean },
+	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.stageDirectory(path, directoryOrUri);
+		return provider.stageFiles?.(path, pathOrUri, options);
+	}
+
+	stageDirectory(repoPath: string | Uri, directory: string, options?: { intentToAdd?: boolean }): Promise<void>;
+	stageDirectory(repoPath: string | Uri, uri: Uri, options?: { intentToAdd?: boolean }): Promise<void>;
+	@log()
+	async stageDirectory(
+		repoPath: string | Uri,
+		directoryOrUri: string | Uri,
+		options?: { intentToAdd?: boolean },
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.stageDirectory?.(path, directoryOrUri, options);
 	}
 
 	unstageFile(repoPath: string | Uri, path: string): Promise<void>;
 	unstageFile(repoPath: string | Uri, uri: Uri): Promise<void>;
 	@log()
-	unstageFile(repoPath: string | Uri, pathOrUri: string | Uri): Promise<void> {
+	async unstageFile(repoPath: string | Uri, pathOrUri: string | Uri): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.unstageFile(path, pathOrUri);
+		return provider.unstageFile?.(path, pathOrUri);
+	}
+
+	unstageFiles(repoPath: string | Uri, path: string[]): Promise<void>;
+	unstageFiles(repoPath: string | Uri, uri: Uri[]): Promise<void>;
+	@log()
+	async unstageFiles(repoPath: string | Uri, pathOrUri: string[] | Uri[]): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.unstageFiles?.(path, pathOrUri);
 	}
 
 	unstageDirectory(repoPath: string | Uri, directory: string): Promise<void>;
 	unstageDirectory(repoPath: string | Uri, uri: Uri): Promise<void>;
 	@log()
-	unstageDirectory(repoPath: string | Uri, directoryOrUri: string | Uri): Promise<void> {
+	async unstageDirectory(repoPath: string | Uri, directoryOrUri: string | Uri): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.unstageDirectory(path, directoryOrUri);
+		return provider.unstageDirectory?.(path, directoryOrUri);
 	}
 
 	@log()

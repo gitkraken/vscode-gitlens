@@ -3365,18 +3365,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return true;
 	}
 
-	@log()
-	async stageFile(_repoPath: string, _pathOrUri: string | Uri): Promise<void> {}
-
-	@log()
-	async stageDirectory(_repoPath: string, _directoryOrUri: string | Uri): Promise<void> {}
-
-	@log()
-	async unstageFile(_repoPath: string, _pathOrUri: string | Uri): Promise<void> {}
-
-	@log()
-	async unstageDirectory(_repoPath: string, _directoryOrUri: string | Uri): Promise<void> {}
-
 	@gate()
 	private async ensureRepositoryContext(
 		repoPath: string,

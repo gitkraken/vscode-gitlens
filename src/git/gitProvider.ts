@@ -234,7 +234,10 @@ export interface GitProviderRepository {
 		repoPath: string | Uri,
 		to: string,
 		from?: string,
-		options?: { context?: number; uris?: Uri[] },
+		options?:
+			| { context?: number; includeUntracked?: never; uris?: never }
+			| { context?: number; includeUntracked?: never; uris: Uri[] }
+			| { context?: number; includeUntracked: boolean; uris?: never },
 	): Promise<GitDiff | undefined>;
 	getDiffFiles?(repoPath: string | Uri, contents: string): Promise<GitDiffFiles | undefined>;
 	getDiffStatus(
@@ -412,10 +415,12 @@ export interface GitProviderRepository {
 	validatePatch?(repoPath: string | undefined, contents: string): Promise<boolean>;
 	validateReference(repoPath: string, ref: string): Promise<boolean>;
 
-	stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
-	stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
-	unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
-	unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
+	stageFile?(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
+	stageFiles?(repoPath: string, pathOrUri: string[] | Uri[], options?: { intentToAdd?: boolean }): Promise<void>;
+	stageDirectory?(repoPath: string, directoryOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
+	unstageFile?(repoPath: string, pathOrUri: string | Uri): Promise<void>;
+	unstageFiles?(repoPath: string, pathOrUri: string[] | Uri[]): Promise<void>;
+	unstageDirectory?(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
 
 	applyStash?(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;
 	deleteStash?(repoPath: string, stashName: string, ref?: string): Promise<void>;
