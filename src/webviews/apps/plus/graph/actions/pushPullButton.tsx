@@ -129,11 +129,14 @@ export const PushPullButton = ({
 							state.webviewInstanceId,
 						)}
 						className="action-button"
-						aria-label="Push (force)"
+						aria-label="Force Push"
 					>
 						<span className="codicon codicon-repo-force-push" aria-hidden="true"></span>
 					</a>
-					<span slot="content">Push (force)</span>
+					<span slot="content">
+						Force Push {pluralize('commit', branchState.ahead)} to {remote}
+						{branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}
+					</span>
 				</GlTooltip>
 			)}
 		</>
