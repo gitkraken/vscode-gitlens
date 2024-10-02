@@ -7,7 +7,7 @@ import { debounce } from '../../../system/function';
 import type { WebviewFocusChangedParams } from '../../protocol';
 import { DidChangeWebviewFocusNotification, WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
 import { GlElement } from './components/element';
-import { ipcContext, loggerContext, LoggerContext } from './context';
+import { ipcContext, LoggerContext, loggerContext, telemetryContext, TelemetryContext } from './context';
 import type { Disposable } from './events';
 import { HostIpc } from './ipc';
 
@@ -30,6 +30,9 @@ export abstract class GlApp<
 
 	@provide({ context: loggerContext })
 	protected _logger!: LoggerContext;
+
+	@provide({ context: telemetryContext })
+	protected _telemetry!: TelemetryContext;
 
 	@property({ type: Object })
 	state!: State;
@@ -65,6 +68,7 @@ export abstract class GlApp<
 				}
 			}),
 			this._ipc,
+			(this._telemetry = new TelemetryContext(this._ipc)),
 		);
 		this._ipc.sendCommand(WebviewReadyCommand, undefined);
 
