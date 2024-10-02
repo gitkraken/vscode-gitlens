@@ -2,7 +2,7 @@ import React from 'react';
 import type { BranchState, State } from '../../../../../plus/webviews/graph/protocol';
 import { fromNow } from '../../../../../system/date';
 import { FetchButton } from './fetchButton';
-import { SyncButton } from './syncButton';
+import { PushPullButton } from './pushPullButton';
 
 export const GitActionsButtons = ({
 	branchState,
@@ -22,7 +22,7 @@ export const GitActionsButtons = ({
 
 	return (
 		<>
-			<SyncButton
+			<PushPullButton
 				branchState={branchState}
 				state={state}
 				fetchedText={fetchedText}
