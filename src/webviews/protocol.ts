@@ -1,4 +1,6 @@
+import type { TimeInput } from '@opentelemetry/api';
 import type { Config } from '../config';
+import type { Source, TelemetryEvents } from '../constants.telemetry';
 import type {
 	CustomEditorIds,
 	CustomEditorTypes,
@@ -91,6 +93,15 @@ export interface UpdateConfigurationParams {
 	uri?: string;
 }
 export const UpdateConfigurationCommand = new IpcCommand<UpdateConfigurationParams>('core', 'configuration/update');
+
+export interface TelemetrySendEventParams<T extends keyof TelemetryEvents = keyof TelemetryEvents> {
+	name: T;
+	data?: TelemetryEvents[T];
+	source?: Source;
+	startTime?: TimeInput;
+	endTime?: TimeInput;
+}
+export const TelemetrySendEventCommand = new IpcCommand<TelemetrySendEventParams>('core', 'telemetry/sendEvent');
 
 // NOTIFICATIONS
 

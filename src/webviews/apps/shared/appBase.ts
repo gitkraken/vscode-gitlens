@@ -1,5 +1,7 @@
 /*global window document*/
 import { ContextProvider } from '@lit/context';
+import type { TimeInput } from '@opentelemetry/api';
+import type { Source, TelemetryEvents } from '../../../constants.telemetry';
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
 import { debounce } from '../../../system/function';
 import type { LogScope } from '../../../system/logger.scope';
@@ -11,7 +13,12 @@ import type {
 	IpcRequest,
 	WebviewFocusChangedParams,
 } from '../../protocol';
-import { DidChangeWebviewFocusNotification, WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
+import {
+	DidChangeWebviewFocusNotification,
+	TelemetrySendEventCommand,
+	WebviewFocusChangedCommand,
+	WebviewReadyCommand,
+} from '../../protocol';
 import { ipcContext, loggerContext, LoggerContext } from './context';
 import { DOM } from './dom';
 import type { Disposable } from './events';
@@ -189,6 +196,22 @@ export abstract class App<
 		params: IpcCallParamsType<T>,
 	): Promise<IpcCallResponseParamsType<T>> {
 		return this._hostIpc.sendRequest(requestType, params);
+	}
+
+	protected sendTelemetryEvent<T extends keyof TelemetryEvents>(
+		name: T,
+		data?: TelemetryEvents[T],
+		source?: Source,
+		startTime?: TimeInput,
+		endTime?: TimeInput,
+	): void {
+		this._hostIpc.sendCommand(TelemetrySendEventCommand, {
+			name: name,
+			data: data,
+			source: source,
+			startTime: startTime,
+			endTime: endTime,
+		});
 	}
 
 	protected setState(state: Partial<State>) {

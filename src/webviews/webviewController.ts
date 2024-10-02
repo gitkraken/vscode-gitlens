@@ -28,6 +28,7 @@ import {
 	DidChangeHostWindowFocusNotification,
 	DidChangeWebviewFocusNotification,
 	ExecuteCommand,
+	TelemetrySendEventCommand,
 	WebviewFocusChangedCommand,
 	WebviewReadyCommand,
 } from './protocol';
@@ -385,6 +386,10 @@ export class WebviewController<
 				} else {
 					void executeCommand(e.params.command as Commands);
 				}
+				break;
+
+			case TelemetrySendEventCommand.is(e):
+				this.container.telemetry.sendEvent(e.params.name, e.params.data, e.params.source);
 				break;
 
 			default:
