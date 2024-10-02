@@ -1145,90 +1145,25 @@ export function GraphWrapper({
 							</>
 						)}
 					</div>
-					<div className="titlebar__group--last">
-						<span className="button-group">
+					<div className="titlebar__group">
 							<GlTooltip placement="bottom">
 								<a
 									className="action-button"
 									href={createCommandLink(Commands.GitCommandsBranch, {
 										args: {
-											state: { subcommand: 'create', flags: ['--switch'], reference: branch },
-											command: 'branch',
-											confirm: false,
-										} satisfies BranchGitCommandArgs,
-									})}
-								>
-									<span className="codicon codicon-custom-git-branch-create action-button__icon"></span>
-								</a>
-								<span slot="content">
-									Create a branch from <i>{branchName}</i> and switch
-								</span>
-							</GlTooltip>
-							<GlPopover
-								className="popover"
-								placement="bottom-start"
-								trigger="focus"
-								arrow={false}
-								distance={0}
-							>
-								<GlTooltip placement="top" distance={7} slot="anchor">
-									<button type="button" className="action-button" aria-label="Minimap Options">
-										<span
-											className="codicon codicon-chevron-down action-button__more"
-											aria-hidden="true"
-										></span>
-									</button>
-									<span slot="content">Create branch options</span>
-								</GlTooltip>
-								<div slot="content">
-									<MenuLabel>Create branch options</MenuLabel>
-									<MenuItem href={createCommandLink(Commands.GitCommandsBranchCreate)}>
-										Create Branch...
-									</MenuItem>
-									<MenuItem
-										href={createCommandLink(Commands.GitCommandsBranch, {
-											args: {
-												command: 'branch',
-												confirm: false,
-												state: { flags: [], reference: branch, subcommand: 'create' },
-											} satisfies BranchGitCommandArgs,
-										})}
-									>
-										Create Branch from <i>{branchName}</i>
-									</MenuItem>
-									<MenuItem
-										href={createCommandLink(Commands.GitCommandsBranch, {
-											args: {
-												command: 'branch',
-												confirm: false,
-												state: {
-													flags: ['--switch'],
-													reference: branch,
-													subcommand: 'create',
-												},
-											} satisfies BranchGitCommandArgs,
-										})}
-									>
-										Create from <i>{branchName}</i> & Switch to Branch
-									</MenuItem>
-									<MenuItem
-										href={createCommandLink(Commands.GitCommandsBranch, {
-											args: {
 												state: {
 													subcommand: 'create',
-													flags: ['--worktree'],
 													reference: branch,
 												},
 												command: 'branch',
-												confirm: false,
+										confirm: true,
 											} satisfies BranchGitCommandArgs,
 										})}
 									>
-										Create Branch from <i>{branchName}</i> in New Worktree
-									</MenuItem>
-								</div>
-							</GlPopover>
-						</span>
+								<span className="codicon codicon-custom-git-branch-create action-button__icon"></span>
+							</a>
+							<span slot="content">Create new branch</span>
+						</GlTooltip>
 						<GlTooltip placement="bottom">
 							<a
 								href={`command:gitlens.showLaunchpad?${encodeURIComponent(
