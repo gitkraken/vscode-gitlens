@@ -1149,20 +1149,21 @@ export function GraphWrapper({
 						<GlTooltip placement="bottom">
 							<a
 								className="action-button"
-								href={createCommandLink(Commands.GitCommandsBranch, {
-									args: {
-										state: {
-											subcommand: 'create',
-											reference: branch,
-										},
-										command: 'branch',
-										confirm: true,
-									} satisfies BranchGitCommandArgs,
+								href={createCommandLink<BranchGitCommandArgs>(Commands.GitCommandsBranch, {
+									state: {
+										subcommand: 'create',
+										reference: branch,
+									},
+									command: 'branch',
+									confirm: true,
 								})}
 							>
 								<span className="codicon codicon-custom-git-branch-create action-button__icon"></span>
 							</a>
-							<span slot="content">Create new branch</span>
+							<span slot="content">
+								Create New Branch from <span className="codicon codicon-git-branch"></span>
+								<span className="md-code">{branchName}</span>
+							</span>
 						</GlTooltip>
 						<GlTooltip placement="bottom">
 							<a
