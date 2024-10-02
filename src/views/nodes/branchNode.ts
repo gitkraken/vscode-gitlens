@@ -442,8 +442,10 @@ export class BranchNode
 		}`;
 
 		let contextValue: string = ContextValues.Branch;
+		let checkedout = false;
 		if (this.current) {
 			contextValue += '+current';
+			checkedout = true;
 		}
 		if (this.branch.remote) {
 			contextValue += '+remote';
@@ -459,7 +461,15 @@ export class BranchNode
 		}
 		if (worktree != null) {
 			contextValue += '+worktree';
+			checkedout = true;
+
+			if (worktree.opened) {
+				contextValue += '+opened';
+			}
 		} else if (this.context.worktreesByBranch?.get(this.branch.id)?.isDefault) {
+			checkedout = true;
+		}
+		if (checkedout) {
 			contextValue += '+checkedout';
 		}
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
