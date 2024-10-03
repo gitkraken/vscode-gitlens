@@ -177,6 +177,13 @@ export type TelemetryEvents = {
 	'graph/search': { types: string; duration: number };
 	'graph/visibility/changed': { branchesVisibility: GraphBranchesVisibility };
 
+	/** Sent when the user interacts with the visual file history */
+	'timeline/period/change': { period: string };
+	'timeline/chart/selectCommit': undefined;
+	'timeline/chart/toggleLegend': undefined;
+	'timeline/openInEditor': undefined;
+	'timeline/editorChanged': undefined;
+
 	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/title/action': LaunchpadEventData & {
 		action: 'feedback' | 'open-on-gkdev' | 'refresh' | 'settings' | 'connect';

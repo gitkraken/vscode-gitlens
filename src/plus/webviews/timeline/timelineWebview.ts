@@ -162,6 +162,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 						if (this._context.uri == null) return;
 
 						void executeCommand(Commands.ShowInTimeline, this._context.uri);
+						this.container.telemetry.sendEvent('timeline/openInEditor', undefined);
 					},
 					this,
 				),
@@ -214,6 +215,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 					{ source: this.host.id },
 				);
 
+				this.container.telemetry.sendEvent('timeline/chart/selectCommit', undefined);
+
 				if (!this.container.commitDetailsView.ready) {
 					void this.container.commitDetailsView.show({ preserveFocus: true }, {
 						commit: commit,
@@ -227,6 +230,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			case UpdatePeriodCommand.is(e):
 				if (this.updatePendingContext({ period: e.params.period })) {
 					this.updateState(true);
+					this.container.telemetry.sendEvent('timeline/period/change', { period: e.params.period });
 				}
 				break;
 		}
@@ -245,6 +249,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		if (!this.updatePendingEditor(editor)) return;
 
 		this.updateState();
+		this.container.telemetry.sendEvent('timeline/editorChanged', undefined);
 	}
 
 	@debug({ args: false })
