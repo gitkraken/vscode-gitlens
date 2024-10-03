@@ -252,7 +252,7 @@ export class BranchError extends Error {
 	}
 
 	private static buildBranchErrorMessage(reason?: BranchErrorReason, branch?: string): string {
-		const baseMessage = `Unable to perform action on branch${branch ? ` '${branch}'` : ''}`;
+		const baseMessage = `Unable to perform action ${branch ? `with branch '${branch}'` : 'on branch'}`;
 		switch (reason) {
 			case BranchErrorReason.BranchAlreadyExists:
 				return `${baseMessage} because it already exists`;
