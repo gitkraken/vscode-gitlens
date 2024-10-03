@@ -2,7 +2,6 @@ import { ProgressLocation, window } from 'vscode';
 import type { Container } from '../../container';
 import type { GitReference } from '../../git/models/reference';
 import {
-	getNameWithoutRemote,
 	getReferenceLabel,
 	getReferenceTypeLabel,
 	isBranchReference,

@@ -1,7 +1,7 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
 import type { GitReference, GitTagReference } from '../../git/models/reference';
-import { getNameWithoutRemote, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
+import { getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
