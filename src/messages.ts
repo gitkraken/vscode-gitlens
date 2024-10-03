@@ -138,6 +138,18 @@ export function showGitVersionUnsupportedErrorMessage(
 	);
 }
 
+export async function showGitBranchNotFullyMergedPrompt(branchName: string) {
+	const confirm = { title: 'Retry with --force flag' };
+	const result = await showMessage(
+		'warn',
+		`Unable to delete branch '${branchName}'. It is not fully merged.`,
+		'suppressGitBranchNotFullyMergedWarning',
+		{ title: "Don't Show Again" },
+		confirm,
+	);
+	return result === confirm;
+}
+
 export async function showPreReleaseExpiredErrorMessage(version: string) {
 	const upgrade = { title: 'Upgrade' };
 	const switchToRelease = { title: 'Switch to Release Version' };
