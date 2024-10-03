@@ -916,6 +916,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private onColumnsChanged(e: UpdateColumnsParams) {
 		this.updateColumns(e.config);
+
+		for (const [key, _value] of Object.entries(e.config)) {
+			this.container.telemetry.sendEvent('graph/column/changed', {
+				column: key,
+			});
+		}
 	}
 
 	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {
@@ -1331,6 +1337,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		await this.updateGraphWithMoreRows(this._graph, e.id, this._search);
+		this.container.telemetry.sendEvent('graph/row/more', {
+			duration: 0,
+		});
 		void this.notifyDidChangeRows(sendSelectedRows);
 	}
 
@@ -1353,6 +1362,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onSearchRequest<T extends typeof SearchRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		try {
 			const results = await this.getSearchResults(msg.params);
+			this.container.telemetry.sendEvent('graph/search', {
+				types: '',
+				duration: 0,
+			});
 			void this.host.respond(requestType, msg, results);
 		} catch (ex) {
 			void this.host.respond(requestType, msg, {
@@ -1483,6 +1496,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (pick == null) return;
 
 		this.repository = pick;
+		this.container.telemetry.sendEvent('graph/repository/change');
 	}
 
 	async onChooseRef<T extends typeof ChooseRefRequest>(requestType: T, msg: IpcCallMessageType<T>) {
@@ -2763,6 +2777,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
+		if (branchesVisibility != null) {
+			this.container.telemetry.sendEvent('graph/visibility/changed', {
+				branchesVisibility: branchesVisibility,
+			});
+		}
+
 		void this.updateFiltersByRepo(repoPath, {
 			branchesVisibility: branchesVisibility,
 			includeOnlyRefs: storedIncludeOnlyRefs,
@@ -2779,6 +2799,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		excludeTypes = updateRecordValue(excludeTypes, key, value);
+
+		this.container.telemetry.sendEvent('graph/exclude/toggle', {
+			key: key,
+			value: value,
+		});
 
 		void this.updateFiltersByRepo(repoPath, { excludeTypes: excludeTypes });
 		void this.notifyDidChangeRefsVisibility();
