@@ -138,7 +138,7 @@ export function showGitVersionUnsupportedErrorMessage(
 	);
 }
 
-export async function showGitBranchNotFullyMergedPrompt(branchName: string) {
+export async function showGitBranchNotFullyMergedPrompt(branchName: string): Promise<boolean> {
 	const confirm = { title: 'Retry with --force flag' };
 	const result = await showMessage(
 		'warn',

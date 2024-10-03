@@ -1,6 +1,6 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
-import { BranchError } from '../../git/errors';
+import { BranchError, BranchErrorReason } from '../../git/errors';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import {
 	getNameWithoutRemote,
@@ -11,7 +11,7 @@ import {
 import { Repository } from '../../git/models/repository';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getWorktreesByBranch } from '../../git/models/worktree';
-import { showGenericErrorMessage } from '../../messages';
+import { showGenericErrorMessage, showGitBranchNotFullyMergedPrompt } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -569,7 +569,23 @@ export class BranchGitCommand extends QuickCommand {
 				} catch (ex) {
 					// TODO likely need some better error handling here
 					Logger.error(ex);
-					return showGenericErrorMessage(ex);
+					if (ex instanceof BranchError && ex.reason === BranchErrorReason.BranchNotFullyMerged) {
+						const shouldRetryWithForce = await showGitBranchNotFullyMergedPrompt(ref.name);
+						if (shouldRetryWithForce) {
+							try {
+								await state.repo.git.deleteBranch(ref, {
+									force: true,
+									remote: state.flags.includes('--remotes'),
+								});
+							} catch (ex) {
+								Logger.error(ex);
+								await showGenericErrorMessage(ex);
+							}
+						}
+						continue;
+					}
+
+					await showGenericErrorMessage(ex);
 				}
 			}
 		}
