@@ -25,7 +25,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Improves automatic detection of matching repositories for pull requests &mdash; closes [#3627](https://github.com/gitkraken/vscode-gitlens/issues/3627)
   - Automatically fetches the repository when needed rather than prompting the user
 - Improves the integration connection indicator and connection button on the _Commit Graph_ &mdash; closes [#3538](https://github.com/gitkraken/vscode-gitlens/issues/3538)
-- Changes to automatically record repository path location when opening repositories &mdash; closes [#3635](https://github.com/gitkraken/vscode-gitlens/issues/3635)
 
 ### Fixed
 
