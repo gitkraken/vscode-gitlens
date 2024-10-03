@@ -78,7 +78,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return [
 			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
 			registerCommand(
-				`${this.host.id}.account.refresh`,
+				`${this.host.id}.account.resync`,
 				() => this.container.subscription.validate({ force: true }),
 				this,
 			),

@@ -221,10 +221,10 @@ export class GLHomeAccountContent extends LitElement {
 						<span class="header__actions">
 							<gl-button
 								appearance="toolbar"
-								href="command:gitlens.views.home.account.refresh"
-								tooltip="Refresh"
-								aria-label="Refresh"
-								><code-icon icon="refresh"></code-icon
+								href="command:gitlens.views.home.account.resync"
+								tooltip="Synchronize Account Status"
+								aria-label="Synchronize Account Status"
+								><code-icon icon="sync"></code-icon
 							></gl-button>
 							<gl-button
 								appearance="toolbar"
