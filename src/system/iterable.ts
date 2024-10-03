@@ -316,12 +316,20 @@ export function some<T>(source: Iterable<T> | IterableIterator<T>, predicate: (i
 	return false;
 }
 
-export function sum<T>(source: Iterable<T> | IterableIterator<T> | undefined, getValue: (item: T) => number): number {
+export function sum<T extends number>(source: Iterable<T> | IterableIterator<T> | undefined): number;
+export function sum<T>(source: Iterable<T> | IterableIterator<T> | undefined, getValue: (item: T) => number): number;
+export function sum<T>(source: Iterable<T> | IterableIterator<T> | undefined, getValue?: (item: T) => number): number {
 	if (source == null) return 0;
 
 	let sum = 0;
-	for (const item of source) {
-		sum += getValue(item);
+	if (getValue == null) {
+		for (const item of source as Iterable<number> | IterableIterator<number>) {
+			sum += item;
+		}
+	} else {
+		for (const item of source) {
+			sum += getValue(item);
+		}
 	}
 	return sum;
 }
