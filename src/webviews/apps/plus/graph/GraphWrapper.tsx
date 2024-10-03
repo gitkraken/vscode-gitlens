@@ -72,7 +72,7 @@ import { DidChangeHostWindowFocusNotification } from '../../../protocol';
 import { GlButton } from '../../shared/components/button.react';
 import { GlCheckbox } from '../../shared/components/checkbox';
 import { CodeIcon } from '../../shared/components/code-icon.react';
-import { GlConnect } from '../../shared/components/integrations/connect.react';
+import { GlIndicator } from '../../shared/components/indicators/indicator.react';
 import { GlMarkdown } from '../../shared/components/markdown/markdown.react';
 import { MenuDivider, MenuItem, MenuLabel } from '../../shared/components/menu/react';
 import { GlPopover } from '../../shared/components/overlays/popover.react';
@@ -1000,12 +1000,13 @@ export function GraphWrapper({
 					<div className="titlebar__group">
 						{repo?.provider?.url && (
 							<>
-								<GlTooltip placement="bottom">
+								<GlPopover placement="bottom">
 									<a
 										href={repo.provider.url}
 										className="action-button"
 										style={{ marginRight: '-0.5rem' }}
 										aria-label={`Open Repository on ${repo.provider.name}`}
+										slot="anchor"
 									>
 										<span
 											className={
@@ -1014,23 +1015,75 @@ export function GraphWrapper({
 													: `glicon glicon-provider-${repo.provider.icon} action-button__icon`
 											}
 											aria-hidden="true"
-										></span>
+										>
+											{repo.provider.integration?.connected && (
+												<GlIndicator
+													style={{
+														marginLeft: '-0.2rem',
+														// @ts-expect-error React doesn't like that we are setting a custom css prop
+														'--gl-indicator-color': 'green',
+														'--gl-indicator-size': '0.4rem',
+													}}
+												></GlIndicator>
+											)}
+										</span>
 									</a>
-									<span slot="content">Open Repository on {repo.provider.name}</span>
-								</GlTooltip>
+									<span slot="content">
+										Open Repository on {repo.provider.name}
+										<hr />
+										{repo.provider.integration?.connected ? (
+											<span>
+												<span
+													style={{ marginTop: '-3px' }}
+													className="codicon codicon-check"
+													aria-hidden="true"
+												></span>{' '}
+												Connected to {repo.provider.name}
+											</span>
+										) : (
+											repo.provider.integration?.connected === false && (
+												<>
+													<span
+														style={{ marginTop: '-3px' }}
+														className="codicon codicon-plug"
+														aria-hidden="true"
+													></span>{' '}
+													<a
+														href={createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+															'gitlens.plus.cloudIntegrations.connect' as Commands,
+															{
+																integrationIds: [repo.provider.integration.id],
+																source: 'graph',
+															},
+														)}
+													>
+														Connect to {repo.provider.name}
+													</a>
+													<span> &mdash; not connected</span>
+												</>
+											)
+										)}
+									</span>
+								</GlPopover>
 								{repo?.provider?.integration?.connected === false && (
-									<GlConnect
-										type="action"
-										connected={false}
-										integration={repo.provider.name}
-										connectUrl={createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+									<GlButton
+										appearance="toolbar"
+										href={createCommandLink<ConnectCloudIntegrationsCommandArgs>(
 											'gitlens.plus.cloudIntegrations.connect' as Commands,
 											{
 												integrationIds: [repo.provider.integration.id],
 												source: 'graph',
 											},
 										)}
-									></GlConnect>
+									>
+										<CodeIcon icon="plug" style={{ color: 'var(--titlebar-fg)' }}></CodeIcon>
+										<span slot="tooltip">
+											Connect to {repo.provider.name}
+											<hr />
+											View pull requests and issues in the Commit Graph, Launchpad, autolinks, and
+											more
+										</span>
+									</GlButton>
 								)}
 							</>
 						)}
