@@ -300,7 +300,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 								icon: false,
 								label: state.reference.refType !== 'branch',
 							})}`,
-							value: state.createBranch ?? getNameWithoutRemote(state.reference),
+							value: state.createBranch,
 						});
 
 						this._canConfirmOverride = undefined;
