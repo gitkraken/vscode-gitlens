@@ -1,3 +1,4 @@
+import type { GraphBranchesVisibility } from './config';
 import type { AIModels, AIProviders } from './constants.ai';
 import type { Commands } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
@@ -161,6 +162,20 @@ export type TelemetryEvents = {
 
 	/** Sent when a "Graph" command is executed */
 	'graph/command': Omit<CommandEventData, 'context'>;
+
+	/** Sent when the user interacts with the graph */
+	'graph/column/changed': { column: string /* column props */ };
+	'graph/exclude/toggle': { key: string; value: boolean };
+	'graph/jump-to-ref': { alt: boolean };
+	'graph/minimap/daySelected': undefined;
+	'graph/repository/change': undefined;
+	'graph/repository/openOnRemote': undefined;
+	'graph/row/hover': undefined;
+	'graph/row/more': { duration: number };
+	'graph/row/selected': { rows: number };
+	'graph/sidebar/action': { action: string };
+	'graph/search': { types: string; duration: number };
+	'graph/visibility/changed': { branchesVisibility: GraphBranchesVisibility };
 
 	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/title/action': LaunchpadEventData & {

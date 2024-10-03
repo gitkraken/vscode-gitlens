@@ -9,6 +9,7 @@ import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry';
 
 interface Icon {
 	type: IconTypes;
@@ -147,7 +148,7 @@ export class GlGraphSideBar extends LitElement {
 		if (this.include != null && !this.include.includes(icon.type)) return;
 
 		return html`<gl-tooltip placement="right" content="${icon.tooltip}">
-			<a class="item" href="command:${icon.command}">
+			<a class="item" href="command:${icon.command}" @click=${() => this.sendTelemetry(icon.command)}>
 				<code-icon icon="${icon.icon}"></code-icon>
 				${this._countsTask.render({
 					pending: () =>
@@ -159,6 +160,13 @@ export class GlGraphSideBar extends LitElement {
 				})}
 			</a>
 		</gl-tooltip>`;
+	}
+
+	private sendTelemetry(command: string) {
+		emitTelemetrySentEvent(this, {
+			name: 'graph/sidebar/action',
+			data: { action: command },
+		});
 	}
 }
 
