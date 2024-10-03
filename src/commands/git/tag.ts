@@ -260,7 +260,7 @@ export class TagGitCommand extends QuickCommand<State> {
 						capitalize: true,
 						icon: false,
 					})}`,
-					value: state.name ?? getNameWithoutRemote(state.reference),
+					value: state.name,
 				});
 				if (result === StepResultBreak) continue;
 

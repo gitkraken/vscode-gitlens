@@ -453,7 +453,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							icon: false,
 							label: state.reference.refType !== 'branch',
 						})}`,
-						value: createBranchOverride ?? getNameWithoutRemote(state.reference),
+						value: createBranchOverride,
 					});
 					if (result === StepResultBreak) {
 						// Clear the flags, since we can backup after the confirm step below (which is non-standard)
