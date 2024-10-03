@@ -8092,12 +8092,6 @@
 				"icon": "$(refresh)"
 			},
 			{
-				"command": "gitlens.views.home.account.refresh",
-				"title": "Refresh",
-				"category": "GitLens",
-				"icon": "$(refresh)"
-			},
-			{
 				"command": "gitlens.views.launchpad.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -11486,10 +11480,6 @@
 				},
 				{
 					"command": "gitlens.views.home.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.home.account.refresh",
 					"when": "false"
 				},
 				{
