@@ -75,7 +75,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	registerCommands(): Disposable[] {
-		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this)];
+		return [
+			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
+			registerCommand(
+				`${this.host.id}.account.resync`,
+				() => this.container.subscription.validate({ force: true }),
+				this,
+			),
+		];
 	}
 
 	onMessageReceived(e: IpcMessage) {
