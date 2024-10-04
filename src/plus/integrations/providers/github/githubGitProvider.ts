@@ -47,6 +47,7 @@ import { getBranchId, getBranchNameWithoutRemote, GitBranch, sortBranches } from
 import type { GitCommitLine, GitStashCommit } from '../../../../git/models/commit';
 import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
 import { deletedOrMissing, uncommitted } from '../../../../git/models/constants';
+import type { GitContributorStats } from '../../../../git/models/contributor';
 import { GitContributor } from '../../../../git/models/contributor';
 import type { GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../../../git/models/diff';
 import type { GitFile } from '../../../../git/models/file';
@@ -1701,6 +1702,34 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			Logger.error(ex, scope);
 			debugger;
 			return [];
+		}
+	}
+
+	@log()
+	async getContributorsStats(
+		repoPath: string,
+		_options?: { merges?: boolean; since?: string },
+	): Promise<GitContributorStats | undefined> {
+		if (repoPath == null) return undefined;
+
+		const scope = getLogScope();
+
+		try {
+			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
+
+			const results = await github.getContributors(session.accessToken, metadata.repo.owner, metadata.repo.name);
+
+			const contributions = results.map(c => c.contributions).sort((a, b) => b - a);
+
+			const result: GitContributorStats = {
+				count: contributions.length,
+				contributions: contributions,
+			};
+			return result;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
+			return undefined;
 		}
 	}
 

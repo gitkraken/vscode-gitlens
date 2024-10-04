@@ -3,6 +3,7 @@ import type { Commands } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { GitContributionTiers } from './git/models/contributor';
 
 export type TelemetryGlobalContext = {
 	'cloudIntegrations.connected.count': number;
@@ -288,15 +289,17 @@ export type TelemetryEvents = {
 		'repository.folder.scheme': string | undefined;
 		'repository.provider.id': string;
 		'repository.remoteProviders': string;
-	};
+		'repository.contributors.count': number | undefined;
+		'repository.contributors.avgPerContributor': number | undefined;
+	} & Record<`repository.contributors.distribution.${GitContributionTiers}`, number>;
 	/** Sent when a repository's visibility is first requested */
 	'repository/visibility': {
-		'repository.visibility': 'private' | 'public' | 'local' | undefined;
 		'repository.id': string | undefined;
 		'repository.scheme': string | undefined;
 		'repository.closed': boolean | undefined;
 		'repository.folder.scheme': string | undefined;
 		'repository.provider.id': string | undefined;
+		'repository.visibility': 'private' | 'public' | 'local' | undefined;
 	};
 
 	/** Sent when the subscription is loaded */
