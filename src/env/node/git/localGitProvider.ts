@@ -72,6 +72,7 @@ import {
 import type { GitStashCommit } from '../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/constants';
+import type { GitContributorStats } from '../../../git/models/contributor';
 import { GitContributor } from '../../../git/models/contributor';
 import type {
 	GitDiff,
@@ -2914,6 +2915,46 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	setConfig(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void> {
 		return this.git.config__set(key, value, repoPath);
+	}
+
+	@log()
+	async getContributorsStats(
+		repoPath: string,
+		options?: { merges?: boolean; since?: string },
+	): Promise<GitContributorStats | undefined> {
+		if (repoPath == null) return undefined;
+
+		const scope = getLogScope();
+
+		const args = ['shortlog', '-s', '--all'];
+		if (!options?.merges) {
+			args.push('--no-merges');
+		}
+		if (options?.since) {
+			args.push(`--since=${options.since}`);
+		}
+
+		try {
+			const data = await this.git.git<string>({ cwd: repoPath }, ...args);
+			if (data == null) return undefined;
+
+			const contributions = data
+				.split('\n')
+				.map(line => parseInt(line.trim().split('\t', 1)[0], 10))
+				.filter(c => !isNaN(c))
+				.sort((a, b) => b - a);
+
+			const result: GitContributorStats = {
+				count: contributions.length,
+				contributions: contributions,
+			};
+			return result;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
+
+			return undefined;
+		}
 	}
 
 	@log()

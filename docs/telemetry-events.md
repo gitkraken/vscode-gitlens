@@ -140,6 +140,17 @@ or
 }
 ```
 
+### cloudIntegrations/disconnect/failed
+
+> Sent when disconnecting a provider from the api fails
+
+```typescript
+{
+  'code': number,
+  'integration.id': string
+}
+```
+
 ### cloudIntegrations/getConnections/failed
 
 > Sent when getting connected providers from the api fails
@@ -431,6 +442,7 @@ or
 ```typescript
 {
   'config.launchpad.staleThreshold': number,
+  'config.launchpad.includedOrganizations': number,
   'config.launchpad.ignoredOrganizations': number,
   'config.launchpad.ignoredRepositories': number,
   'config.launchpad.indicator.enabled': false | true,
@@ -825,7 +837,15 @@ void
   'repository.closed': false | true,
   'repository.folder.scheme': string,
   'repository.provider.id': string,
-  'repository.remoteProviders': string
+  'repository.remoteProviders': string,
+  'repository.contributors.count': number,
+  'repository.contributors.avgPerContributor': number,
+  'repository.contributors.distribution.[1]': number,
+  'repository.contributors.distribution.[2-5]': number,
+  'repository.contributors.distribution.[6-10]': number,
+  'repository.contributors.distribution.[11-50]': number,
+  'repository.contributors.distribution.[51-100]': number,
+  'repository.contributors.distribution.[101+]': number
 }
 ```
 
@@ -835,12 +855,12 @@ void
 
 ```typescript
 {
-  'repository.visibility': 'private' | 'public' | 'local',
   'repository.id': string,
   'repository.scheme': string,
   'repository.closed': false | true,
   'repository.folder.scheme': string,
-  'repository.provider.id': string
+  'repository.provider.id': string,
+  'repository.visibility': 'private' | 'public' | 'local'
 }
 ```
 

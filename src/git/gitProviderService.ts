@@ -31,7 +31,7 @@ import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
-import { count, filter, first, flatMap, groupByFilterMap, groupByMap, join, map, some } from '../system/iterable';
+import { count, filter, first, flatMap, groupByFilterMap, groupByMap, join, map, some, sum } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
@@ -64,7 +64,8 @@ import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
 import type { BranchSortOptions, GitBranch } from './models/branch';
 import { GitCommit, GitCommitIdentity } from './models/commit';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from './models/constants';
-import type { GitContributor } from './models/contributor';
+import type { GitContributor, GitContributorStats } from './models/contributor';
+import { calculateDistribution } from './models/contributor';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitGraph } from './models/graph';
@@ -180,24 +181,40 @@ export class GitProviderService implements Disposable {
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 
 		if (added?.length && this.container.telemetry.enabled) {
-			setTimeout(async () => {
-				for (const repo of added) {
-					const remoteProviders = new Set<string>();
+			setTimeout(() => {
+				void Promise.allSettled(
+					added.map(async repo => {
+						const [remotesResult, contributorsStatsResult] = await Promise.allSettled([
+							repo.git.getRemotes(),
+							repo.git.getContributorsStats({ since: '1.year.ago' }),
+						]);
 
-					const remotes = await repo.git.getRemotes();
-					for (const remote of remotes) {
-						remoteProviders.add(remote.provider?.id ?? 'unknown');
-					}
+						const remotes = getSettledValue(remotesResult) ?? [];
 
-					this.container.telemetry.sendEvent('repository/opened', {
-						'repository.id': repo.idHash,
-						'repository.scheme': repo.uri.scheme,
-						'repository.closed': repo.closed,
-						'repository.folder.scheme': repo.folder?.uri.scheme,
-						'repository.provider.id': repo.provider.id,
-						'repository.remoteProviders': join(remoteProviders, ','),
-					});
-				}
+						const remoteProviders = new Set<string>();
+						for (const remote of remotes) {
+							remoteProviders.add(remote.provider?.id ?? 'unknown');
+						}
+
+						const stats = getSettledValue(contributorsStatsResult);
+						const avgPerContributor = stats?.count
+							? Math.round(sum(stats.contributions) / stats.count)
+							: undefined;
+						const distribution = calculateDistribution(stats, 'repository.contributors.distribution.');
+
+						this.container.telemetry.sendEvent('repository/opened', {
+							'repository.id': repo.idHash,
+							'repository.scheme': repo.uri.scheme,
+							'repository.closed': repo.closed,
+							'repository.folder.scheme': repo.folder?.uri.scheme,
+							'repository.provider.id': repo.provider.id,
+							'repository.remoteProviders': join(remoteProviders, ','),
+							'repository.contributors.count': stats?.count,
+							'repository.contributors.avgPerContributor': avgPerContributor,
+							...distribution,
+						});
+					}),
+				);
 			}, 0);
 		}
 	}
@@ -1833,6 +1850,17 @@ export class GitProviderService implements Disposable {
 	async setConfig(repoPath: string | Uri, key: GitConfigKeys, value: string | undefined): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.setConfig?.(path, key, value);
+	}
+
+	@log()
+	async getContributorsStats(
+		repoPath: string,
+		options?: { merges?: boolean; since?: string },
+	): Promise<GitContributorStats | undefined> {
+		if (repoPath == null) return undefined;
+
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getContributorsStats(path, options);
 	}
 
 	@log()

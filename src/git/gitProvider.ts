@@ -8,7 +8,7 @@ import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
 import type { BranchSortOptions, GitBranch } from './models/branch';
 import type { GitCommit } from './models/commit';
-import type { GitContributor } from './models/contributor';
+import type { GitContributor, GitContributorStats } from './models/contributor';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitGraph } from './models/graph';
@@ -218,6 +218,10 @@ export interface GitProviderRepository {
 	): Promise<string[]>;
 	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
 	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
+	getContributorsStats(
+		repoPath: string,
+		options?: { merges?: boolean; since?: string },
+	): Promise<GitContributorStats | undefined>;
 	getContributors(
 		repoPath: string,
 		options?: {
