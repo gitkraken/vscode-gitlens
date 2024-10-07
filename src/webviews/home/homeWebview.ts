@@ -53,17 +53,17 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		loading: boolean,
 		_options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<HomeWebviewShowingArgs, State>
-	) {
+	): [boolean, Record<`context.${string}`, string | number | boolean> | undefined] {
 		const [arg] = args as HomeWebviewShowingArgs;
 		if (arg?.focusAccount === true) {
 			if (!loading && this.host.ready && this.host.visible) {
 				queueMicrotask(() => void this.host.notify(DidFocusAccount, undefined));
-				return true;
+				return [true, undefined];
 			}
 			this._pendingFocusAccount = true;
 		}
 
-		return true;
+		return [true, undefined];
 	}
 
 	private onChangeConnectionState() {

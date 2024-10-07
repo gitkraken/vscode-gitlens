@@ -3,7 +3,14 @@ import type { AIModels, AIProviders } from './constants.ai';
 import type { Commands } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
-import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type {
+	CustomEditorTypes,
+	TreeViewTypes,
+	WebviewIds,
+	WebviewTypes,
+	WebviewViewIds,
+	WebviewViewTypes,
+} from './constants.views';
 import type { GitContributionTiers } from './git/models/contributor';
 
 export type TelemetryGlobalContext = {
@@ -370,7 +377,26 @@ export type TelemetryEvents = {
 			| 'integrations'
 			| 'more';
 	};
-};
+} & Record<
+	`${WebviewTypes | WebviewViewTypes}/showAborted`,
+	{
+		id: WebviewIds | WebviewViewIds;
+		instanceId: string | undefined;
+		host: 'editor' | 'view';
+		duration: number;
+		loading: boolean;
+	}
+> &
+	Record<
+		`${WebviewTypes | WebviewViewTypes}/shown`,
+		{
+			id: WebviewIds | WebviewViewIds;
+			instanceId: string | undefined;
+			host: 'editor' | 'view';
+			duration: number;
+			loading: boolean;
+		} & Record<`context.${string}`, string | number | boolean>
+	>;
 
 type AIEventDataBase = {
 	'model.id': AIModels;
