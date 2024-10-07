@@ -114,7 +114,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		loading: boolean,
 		_options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<TimelineWebviewShowingArgs, State>
-	): boolean {
+	): [boolean, Record<`context.${string}`, string | number | boolean> | undefined] {
 		const [arg] = args;
 		if (arg != null) {
 			if (arg instanceof Uri) {
@@ -138,7 +138,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			this.updateState();
 		}
 
-		return true;
+		return [true, undefined];
 	}
 
 	includeBootstrap(): Promise<State> {

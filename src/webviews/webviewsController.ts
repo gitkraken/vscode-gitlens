@@ -29,6 +29,7 @@ export interface WebviewPanelDescriptor {
 	readonly title: string;
 	readonly contextKeyPrefix: `gitlens:webview:${WebviewTypes}`;
 	readonly trackingFeature: TrackedUsageFeatures;
+	readonly type: WebviewTypes;
 	readonly plusFeature: boolean;
 	readonly column?: ViewColumn;
 	readonly webviewOptions?: WebviewOptions;
@@ -79,6 +80,7 @@ export interface WebviewViewDescriptor {
 	readonly title: string;
 	readonly contextKeyPrefix: `gitlens:webviewView:${WebviewViewTypes}`;
 	readonly trackingFeature: TrackedUsageFeatures;
+	readonly type: WebviewViewTypes;
 	readonly plusFeature: boolean;
 	readonly webviewOptions?: WebviewOptions;
 	readonly webviewHostOptions?: {

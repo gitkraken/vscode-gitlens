@@ -13,6 +13,7 @@ export function registerWelcomeWebviewPanel(controller: WebviewsController) {
 			title: 'Welcome to GitLens',
 			contextKeyPrefix: `gitlens:webview:welcome`,
 			trackingFeature: 'welcomeWebview',
+			type: 'welcome',
 			plusFeature: false,
 			column: ViewColumn.Active,
 			webviewHostOptions: {

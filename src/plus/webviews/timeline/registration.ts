@@ -19,6 +19,7 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 			title: 'Visual File History',
 			contextKeyPrefix: `gitlens:webview:timeline`,
 			trackingFeature: 'timelineWebview',
+			type: 'timeline',
 			plusFeature: true,
 			column: ViewColumn.Active,
 			webviewHostOptions: {
@@ -44,6 +45,7 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 			title: 'Visual File History',
 			contextKeyPrefix: `gitlens:webviewView:timeline`,
 			trackingFeature: 'timelineView',
+			type: 'timeline',
 			plusFeature: true,
 			webviewHostOptions: {
 				retainContextWhenHidden: false,
