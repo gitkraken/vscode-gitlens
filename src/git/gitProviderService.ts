@@ -184,9 +184,10 @@ export class GitProviderService implements Disposable {
 			setTimeout(() => {
 				void Promise.allSettled(
 					added.map(async repo => {
+						const since = '1.year.ago';
 						const [remotesResult, contributorsStatsResult] = await Promise.allSettled([
 							repo.git.getRemotes(),
-							repo.git.getContributorsStats({ since: '1.year.ago' }),
+							repo.git.getContributorsStats({ since: since }),
 						]);
 
 						const remotes = getSettledValue(remotesResult) ?? [];
@@ -197,9 +198,13 @@ export class GitProviderService implements Disposable {
 						}
 
 						const stats = getSettledValue(contributorsStatsResult);
-						const avgPerContributor = stats?.count
-							? Math.round(sum(stats.contributions) / stats.count)
-							: undefined;
+
+						let commits;
+						let avgPerContributor;
+						if (stats != null) {
+							commits = sum(stats.contributions);
+							avgPerContributor = Math.round(commits / stats.count);
+						}
 						const distribution = calculateDistribution(stats, 'repository.contributors.distribution.');
 
 						this.container.telemetry.sendEvent('repository/opened', {
@@ -209,8 +214,10 @@ export class GitProviderService implements Disposable {
 							'repository.folder.scheme': repo.folder?.uri.scheme,
 							'repository.provider.id': repo.provider.id,
 							'repository.remoteProviders': join(remoteProviders, ','),
+							'repository.contributors.commits.count': commits,
+							'repository.contributors.commits.avgPerContributor': avgPerContributor,
 							'repository.contributors.count': stats?.count,
-							'repository.contributors.avgPerContributor': avgPerContributor,
+							'repository.contributors.since': since,
 							...distribution,
 						});
 					}),
