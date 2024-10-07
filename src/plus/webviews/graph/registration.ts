@@ -33,6 +33,7 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 			title: 'Commit Graph',
 			contextKeyPrefix: `gitlens:webview:graph`,
 			trackingFeature: 'graphWebview',
+			type: 'graph',
 			plusFeature: true,
 			column: ViewColumn.Active,
 			webviewHostOptions: {
@@ -56,6 +57,7 @@ export function registerGraphWebviewView(controller: WebviewsController) {
 			title: 'Commit Graph',
 			contextKeyPrefix: `gitlens:webviewView:graph`,
 			trackingFeature: 'graphView',
+			type: 'graph',
 			plusFeature: true,
 			webviewHostOptions: {
 				retainContextWhenHidden: true,

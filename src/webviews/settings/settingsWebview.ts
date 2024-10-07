@@ -95,7 +95,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: SettingsWebviewShowingArgs
-	): boolean | Promise<boolean> {
+	): [boolean, Record<`context.${string}`, string | number | boolean> | undefined] {
 		const anchor = args[0];
 		if (anchor && typeof anchor === 'string') {
 			if (!loading && this.host.ready && this.host.visible) {
@@ -106,13 +106,13 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 							scrollBehavior: 'smooth',
 						}),
 				);
-				return true;
+				return [true, undefined];
 			}
 
 			this._pendingJumpToAnchor = anchor;
 		}
 
-		return true;
+		return [true, undefined];
 	}
 
 	onActiveChanged(active: boolean): void {

@@ -356,7 +356,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		loading: boolean,
 		_options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<GraphWebviewShowingArgs, State>
-	): Promise<boolean> {
+	): Promise<[boolean, Record<`context.${string}`, string | number | boolean> | undefined]> {
 		this._firstSelection = true;
 
 		this._etag = this.container.git.etag;
@@ -386,7 +386,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (this._graph != null) {
 				if (this._graph?.ids.has(id)) {
 					void this.notifyDidChangeSelection();
-					return true;
+					return [true, undefined];
 				}
 
 				void this.onGetMoreRows({ id: id }, true);
@@ -412,7 +412,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		return true;
+		return [true, undefined];
 	}
 
 	onRefresh(force?: boolean) {

@@ -30,6 +30,7 @@ export function registerPatchDetailsWebviewView(controller: WebviewsController) 
 			title: 'Patch',
 			contextKeyPrefix: `gitlens:webviewView:patchDetails`,
 			trackingFeature: 'patchDetailsView',
+			type: 'patchDetails',
 			plusFeature: true,
 			webviewHostOptions: {
 				retainContextWhenHidden: false,
@@ -66,6 +67,7 @@ export function registerPatchDetailsWebviewPanel(controller: WebviewsController)
 			title: 'Patch',
 			contextKeyPrefix: `gitlens:webview:patchDetails`,
 			trackingFeature: 'patchDetailsWebview',
+			type: 'patchDetails',
 			plusFeature: true,
 			column: ViewColumn.Active,
 			webviewHostOptions: {

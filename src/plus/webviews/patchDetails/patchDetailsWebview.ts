@@ -187,7 +187,7 @@ export class PatchDetailsWebviewProvider
 		_loading: boolean,
 		options: WebviewShowOptions,
 		...args: PatchDetailsWebviewShowingArgs
-	): Promise<boolean> {
+	): Promise<[boolean, Record<`context.${string}`, string | number | boolean> | undefined]> {
 		const [arg] = args;
 		if (arg?.mode === 'view' && arg.draft != null) {
 			await this.updateViewDraftState(arg.draft);
@@ -201,9 +201,9 @@ export class PatchDetailsWebviewProvider
 			this.updateCreateDraftState(create);
 		}
 
-		if (options?.preserveVisibility && !this.host.visible) return false;
+		if (options?.preserveVisibility && !this.host.visible) return [false, undefined];
 
-		return true;
+		return [true, undefined];
 	}
 
 	includeBootstrap(): Promise<Serialized<State>> {

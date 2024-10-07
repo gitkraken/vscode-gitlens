@@ -26,7 +26,9 @@ export interface WebviewProvider<State, SerializedState = State, ShowingArgs ext
 		loading: boolean,
 		options: WebviewShowOptions,
 		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
-	): boolean | Promise<boolean>;
+	):
+		| [boolean, Record<`context.${string}`, string | number | boolean> | undefined]
+		| Promise<[boolean, Record<`context.${string}`, string | number | boolean> | undefined]>;
 	registerCommands?(): Disposable[];
 
 	includeBootstrap?(): SerializedState | Promise<SerializedState>;

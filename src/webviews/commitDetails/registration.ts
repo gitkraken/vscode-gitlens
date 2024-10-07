@@ -13,6 +13,7 @@ export function registerCommitDetailsWebviewView(controller: WebviewsController)
 			title: 'Inspect',
 			contextKeyPrefix: `gitlens:webviewView:commitDetails`,
 			trackingFeature: 'commitDetailsView',
+			type: 'commitDetails',
 			plusFeature: false,
 			webviewHostOptions: {
 				retainContextWhenHidden: false,
@@ -35,6 +36,7 @@ export function registerGraphDetailsWebviewView(controller: WebviewsController) 
 			title: 'Commit Graph Inspect',
 			contextKeyPrefix: `gitlens:webviewView:graphDetails`,
 			trackingFeature: 'graphDetailsView',
+			type: 'graphDetails',
 			plusFeature: false,
 			webviewHostOptions: {
 				retainContextWhenHidden: false,

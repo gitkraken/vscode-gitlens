@@ -226,12 +226,15 @@ export class CommitDetailsWebviewProvider
 		_loading: boolean,
 		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<CommitDetailsWebviewShowingArgs, Serialized<State>>
-	): Promise<boolean> {
+	): Promise<[boolean, Record<`context.${string}`, string | number | boolean> | undefined]> {
 		const [arg] = args;
 		if ((arg as ShowWipArgs)?.type === 'wip') {
-			return this.onShowingWip(arg as ShowWipArgs);
+			return [await this.onShowingWip(arg as ShowWipArgs), undefined];
 		}
-		return this.onShowingCommit(arg as Partial<CommitSelectedEvent['data']> | undefined, options);
+		return [
+			await this.onShowingCommit(arg as Partial<CommitSelectedEvent['data']> | undefined, options),
+			undefined,
+		];
 	}
 
 	private get inReview(): boolean {

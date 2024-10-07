@@ -11,6 +11,7 @@ export function registerHomeWebviewView(controller: WebviewsController) {
 			title: 'Home',
 			contextKeyPrefix: `gitlens:webviewView:home`,
 			trackingFeature: 'homeView',
+			type: 'home',
 			plusFeature: false,
 			webviewHostOptions: {
 				retainContextWhenHidden: false,
