@@ -289,8 +289,10 @@ export type TelemetryEvents = {
 		'repository.folder.scheme': string | undefined;
 		'repository.provider.id': string;
 		'repository.remoteProviders': string;
+		'repository.contributors.commits.count': number | undefined;
+		'repository.contributors.commits.avgPerContributor': number | undefined;
 		'repository.contributors.count': number | undefined;
-		'repository.contributors.avgPerContributor': number | undefined;
+		'repository.contributors.since': '1.year.ago';
 	} & Record<`repository.contributors.distribution.${GitContributionTiers}`, number>;
 	/** Sent when a repository's visibility is first requested */
 	'repository/visibility': {
