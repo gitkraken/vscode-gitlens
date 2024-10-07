@@ -917,11 +917,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private onColumnsChanged(e: UpdateColumnsParams) {
 		this.updateColumns(e.config);
 
-		for (const [key, _value] of Object.entries(e.config)) {
-			this.container.telemetry.sendEvent('graph/column/changed', {
-				column: key,
-			});
+		const sendEvent: Record<`column.${string}`, boolean | string | number> = {};
+		for (const [key, config] of Object.entries(e.config)) {
+			for (const [prop, value] of Object.entries(config)) {
+				sendEvent[`column.${key}.${prop}`] = value;
+			}
 		}
+		this.container.telemetry.sendEvent('graph/columns/changed', sendEvent);
 	}
 
 	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {

@@ -171,7 +171,7 @@ export type TelemetryEvents = {
 	'graph/command': Omit<CommandEventData, 'context'>;
 
 	/** Sent when the user interacts with the graph */
-	'graph/column/changed': { column: string /* column props */ };
+	'graph/columns/changed': Record<`column.${string}`, boolean | string | number>;
 	'graph/exclude/toggle': { key: string; value: boolean };
 	'graph/jumpToRef': { alt: boolean };
 	'graph/minimap/daySelected': undefined;
