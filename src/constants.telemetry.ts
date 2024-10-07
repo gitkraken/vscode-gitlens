@@ -173,7 +173,7 @@ export type TelemetryEvents = {
 	/** Sent when the user interacts with the graph */
 	'graph/column/changed': { column: string /* column props */ };
 	'graph/exclude/toggle': { key: string; value: boolean };
-	'graph/jump-to-ref': { alt: boolean };
+	'graph/jumpToRef': { alt: boolean };
 	'graph/minimap/daySelected': undefined;
 	'graph/repository/change': undefined;
 	'graph/repository/openOnRemote': undefined;
