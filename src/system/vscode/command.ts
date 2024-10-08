@@ -128,7 +128,7 @@ export function executeCoreCommand<T extends [...unknown[]] = [], U = any>(
 	...args: T
 ): Thenable<U> {
 	if (
-		command != 'setContext' &&
+		command !== 'setContext' &&
 		command !== 'vscode.executeDocumentSymbolProvider' &&
 		command !== 'vscode.changes' &&
 		command !== 'vscode.diff' &&

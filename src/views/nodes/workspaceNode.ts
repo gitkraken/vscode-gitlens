@@ -122,7 +122,7 @@ export class WorkspaceNode extends SubscribeableViewNode<
 
 		item.id = this.id;
 		item.contextValue = contextValue;
-		item.iconPath = new ThemeIcon(this.workspace.type == 'cloud' ? 'cloud' : 'folder');
+		item.iconPath = new ThemeIcon(this.workspace.type === 'cloud' ? 'cloud' : 'folder');
 		item.tooltip = `${this.workspace.name}\n${
 			cloud ? `Cloud Workspace ${this.workspace.shared ? '(Shared)' : ''}` : 'Local Workspace'
 		}${cloud && this.workspace.provider != null ? `\nProvider: ${this.workspace.provider}` : ''}`;

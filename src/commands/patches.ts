@@ -71,7 +71,7 @@ abstract class CreatePatchCommandBase extends Command {
 				}
 
 				const to =
-					resourcesByGroup.size == 1 && resourcesByGroup.has(ScmResourceGroupType.Index)
+					resourcesByGroup.size === 1 && resourcesByGroup.has(ScmResourceGroupType.Index)
 						? uncommittedStaged
 						: uncommitted;
 				args = {

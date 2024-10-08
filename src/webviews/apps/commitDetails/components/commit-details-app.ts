@@ -183,7 +183,7 @@ export class GlCommitDetailsApp extends LitElement {
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		if (changedProperties.has('state')) {
 			this.updateDocumentProperties();
-			if (this.state?.inReview != null && this.state.inReview != this.draftState.inReview) {
+			if (this.state?.inReview != null && this.state.inReview !== this.draftState.inReview) {
 				this.draftState.inReview = this.state.inReview;
 			}
 		}

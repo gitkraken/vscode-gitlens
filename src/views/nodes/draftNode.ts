@@ -66,7 +66,7 @@ export class DraftNode extends ViewNode<'draft', ViewsWithCommits | DraftsView> 
 		}
 
 		item.iconPath =
-			avatarUri ?? new ThemeIcon(this.draft.type == 'suggested_pr_change' ? 'gitlens-code-suggestion' : 'cloud');
+			avatarUri ?? new ThemeIcon(this.draft.type === 'suggested_pr_change' ? 'gitlens-code-suggestion' : 'cloud');
 
 		item.tooltip = new MarkdownString(
 			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\nCreated ${

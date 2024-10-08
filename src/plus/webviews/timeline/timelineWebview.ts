@@ -475,7 +475,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 }
 
 function getPeriodDate(period: Period): Date | undefined {
-	if (period == 'all') return undefined;
+	if (period === 'all') return undefined;
 
 	const [number, unit] = period.split('|');
 

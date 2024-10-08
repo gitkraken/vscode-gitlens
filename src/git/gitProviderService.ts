@@ -925,7 +925,7 @@ export class GitProviderService implements Disposable {
 		if (visibilityInfo == null) return true;
 
 		if (visibilityInfo.visibility === 'public') {
-			if (remotes.length == 0 || !remotes.some(r => r.remoteKey === visibilityInfo.remotesHash)) {
+			if (remotes.length === 0 || !remotes.some(r => r.remoteKey === visibilityInfo.remotesHash)) {
 				void this.clearRepoVisibilityCache([key]);
 				return false;
 			}

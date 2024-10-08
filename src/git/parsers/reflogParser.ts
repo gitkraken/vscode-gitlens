@@ -67,7 +67,7 @@ export function parseGitRefLog(
 				if (
 					head != null &&
 					headDate === recordDate &&
-					headSha == record.sha &&
+					headSha === record.sha &&
 					reflogHEADRegex.test(record.selector)
 				) {
 					record.update(sha, head);

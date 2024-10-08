@@ -681,7 +681,7 @@ export function GraphWrapper({
 			iterations++;
 
 			// Indicates a boundary and we need to load more results
-			if (searchIndex == -1) {
+			if (searchIndex === -1) {
 				if (next) {
 					if (searchQuery != null && results?.paging?.hasMore) {
 						setSearching(true);

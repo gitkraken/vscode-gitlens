@@ -78,12 +78,12 @@ export class GitStatus {
 
 	@memoize()
 	get hasUntrackedChanges() {
-		return this.files.some(f => f.workingTreeStatus == GitFileWorkingTreeStatus.Untracked);
+		return this.files.some(f => f.workingTreeStatus === GitFileWorkingTreeStatus.Untracked);
 	}
 
 	@memoize()
 	get untrackedChanges() {
-		return this.files.filter(f => f.workingTreeStatus == GitFileWorkingTreeStatus.Untracked);
+		return this.files.filter(f => f.workingTreeStatus === GitFileWorkingTreeStatus.Untracked);
 	}
 
 	@memoize()

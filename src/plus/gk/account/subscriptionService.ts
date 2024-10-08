@@ -1334,7 +1334,7 @@ export class SubscriptionService implements Disposable {
 			state,
 		} = this._subscription;
 
-		void setContext('gitlens:plus', actual.id != SubscriptionPlanId.Community ? actual.id : undefined);
+		void setContext('gitlens:plus', actual.id !== SubscriptionPlanId.Community ? actual.id : undefined);
 		void setContext('gitlens:plus:state', state);
 	}
 
