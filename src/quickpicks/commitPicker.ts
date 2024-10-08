@@ -5,6 +5,7 @@ import { Container } from '../container';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
 import type { GitStash } from '../git/models/stash';
+import { filterMap } from '../system/array';
 import { filter, map } from '../system/iterable';
 import { isPromise } from '../system/promise';
 import { configuration } from '../system/vscode/configuration';
@@ -80,11 +81,19 @@ export async function showCommitPicker(
 			items.push(...options.showOtherReferences);
 		}
 
-		for await (const item of map(log.commits.values(), async commit =>
-			createCommitQuickPickItem(commit, options?.picked === commit.ref, { compact: true, icon: 'avatar' }),
-		)) {
-			items.push(item);
-		}
+		items.push(
+			...filterMap(
+				await Promise.allSettled(
+					map(log.commits.values(), async commit =>
+						createCommitQuickPickItem(commit, options?.picked === commit.ref, {
+							compact: true,
+							icon: 'avatar',
+						}),
+					),
+				),
+				r => (r.status === 'fulfilled' ? r.value : undefined),
+			),
+		);
 
 		if (log.hasMore) {
 			items.push(createDirectiveQuickPickItem(Directive.LoadMore));

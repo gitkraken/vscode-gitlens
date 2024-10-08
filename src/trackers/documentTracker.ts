@@ -495,7 +495,8 @@ export class GitDocumentTracker implements Disposable {
 	}) {
 		if (this._documentMap.size === 0) return;
 
-		for await (const doc of this._documentMap.values()) {
+		for (const d of this._documentMap.values()) {
+			const doc = await d;
 			const repoPath = doc.uri.repoPath?.toLocaleLowerCase();
 			if (repoPath == null) continue;
 

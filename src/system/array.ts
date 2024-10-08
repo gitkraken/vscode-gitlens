@@ -34,18 +34,6 @@ export function ensureArray<T>(source: T | T[] | undefined): T[] | undefined {
 	return source == null ? undefined : Array.isArray(source) ? source : [source];
 }
 
-export async function filterAsync<T>(source: T[], predicate: (item: T) => Promise<boolean>): Promise<T[]> {
-	const predicates = source.map<Promise<[boolean, T]>>(i => predicate(i).then(r => [r, i]));
-
-	const filtered = [];
-	for await (const [include, item] of predicates) {
-		if (!include) continue;
-
-		filtered.push(item);
-	}
-	return filtered;
-}
-
 export function filterMap<T, TMapped>(
 	source: T[],
 	predicateMapper: (item: T, index: number) => TMapped | null | undefined,
@@ -58,21 +46,6 @@ export function filterMap<T, TMapped>(
 		}
 		return accumulator;
 	}, []);
-}
-
-export async function filterMapAsync<T, TMapped>(
-	source: T[],
-	predicateMapper: (item: T) => Promise<TMapped | null | undefined>,
-): Promise<TMapped[]> {
-	const items = source.map(predicateMapper);
-
-	const filteredAndMapped = [];
-	for await (const item of items) {
-		if (item == null) continue;
-
-		filteredAndMapped.push(item);
-	}
-	return filteredAndMapped;
 }
 
 export function findLastIndex<T>(source: T[], predicate: (value: T, index: number, obj: T[]) => boolean): number {
@@ -204,22 +177,6 @@ export function unique<T>(source: readonly T[]): T[] {
 
 export function joinUnique<T>(source: readonly T[], separator: string): string {
 	return join(new Set(source), separator);
-}
-
-export async function mapAsync<T, TMapped>(
-	source: T[],
-	mapper: (item: T) => TMapped | Promise<TMapped>,
-	predicate?: (item: TMapped) => boolean,
-): Promise<NonNullable<TMapped>[]> {
-	const items = source.map(mapper);
-
-	const mapped = [];
-	for await (const item of items) {
-		if (item == null || (predicate != null && !predicate(item))) continue;
-
-		mapped.push(item);
-	}
-	return mapped;
 }
 
 export function splitAt<T>(source: T[], index: number): [T[], T[]] {

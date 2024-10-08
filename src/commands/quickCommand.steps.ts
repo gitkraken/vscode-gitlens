@@ -99,7 +99,7 @@ import {
 	CopyRemoteResourceCommandQuickPickItem,
 	OpenRemoteResourceCommandQuickPickItem,
 } from '../quickpicks/remoteProviderPicker';
-import { filterMap, filterMapAsync, intersection, isStringArray } from '../system/array';
+import { filterMap, intersection, isStringArray } from '../system/array';
 import { debounce } from '../system/function';
 import { first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
@@ -246,33 +246,38 @@ export async function getWorktrees(
 	const worktrees =
 		repoOrWorktrees instanceof Repository ? await repoOrWorktrees.git.getWorktrees() : repoOrWorktrees;
 
-	const items = await filterMapAsync(worktrees, async w => {
-		if ((excludeOpened && w.opened) || filter?.(w) === false) return undefined;
+	const items = filterMap(
+		await Promise.allSettled(
+			map(worktrees, async w => {
+				if ((excludeOpened && w.opened) || filter?.(w) === false) return undefined;
 
-		let missing = false;
-		let status;
-		if (includeStatus) {
-			try {
-				status = await w.getStatus();
-			} catch (ex) {
-				Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
-				missing = true;
-			}
-		}
+				let missing = false;
+				let status;
+				if (includeStatus) {
+					try {
+						status = await w.getStatus();
+					} catch (ex) {
+						Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
+						missing = true;
+					}
+				}
 
-		return createWorktreeQuickPickItem(
-			w,
-			picked != null &&
-				(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
-			missing,
-			{
-				buttons: buttons,
-				includeStatus: includeStatus,
-				path: true,
-				status: status,
-			},
-		);
-	});
+				return createWorktreeQuickPickItem(
+					w,
+					picked != null &&
+						(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
+					missing,
+					{
+						buttons: buttons,
+						includeStatus: includeStatus,
+						path: true,
+						status: status,
+					},
+				);
+			}),
+		),
+		r => (r.status === 'fulfilled' ? r.value : undefined),
+	);
 
 	return sortWorktrees(items);
 }
@@ -1128,21 +1133,23 @@ export async function* pickCommitStep<
 			buttons.splice(0, 0, OpenChangesViewQuickInputButton);
 		}
 
-		const items = [];
-
-		for await (const item of map(log.commits.values(), async commit =>
-			createCommitQuickPickItem(
-				commit,
-				picked != null && (typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
-				{
-					buttons: buttons,
-					compact: true,
-					icon: 'avatar',
-				},
+		const items: (CommitQuickPickItem | DirectiveQuickPickItem)[] = filterMap(
+			await Promise.allSettled(
+				map(log.commits.values(), async commit =>
+					createCommitQuickPickItem(
+						commit,
+						picked != null &&
+							(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+						{
+							buttons: buttons,
+							compact: true,
+							icon: 'avatar',
+						},
+					),
+				),
 			),
-		)) {
-			items.push(item);
-		}
+			r => (r.status === 'fulfilled' ? r.value : undefined),
+		);
 
 		if (log.hasMore) {
 			items.push(createDirectiveQuickPickItem(Directive.LoadMore));
@@ -1271,21 +1278,23 @@ export function* pickCommitsStep<
 			return [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)];
 		}
 
-		const items = [];
-
-		for await (const item of map(log.commits.values(), async commit =>
-			createCommitQuickPickItem(
-				commit,
-				picked != null && (typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
-				{
-					buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
-					compact: true,
-					icon: 'avatar',
-				},
+		const items = filterMap(
+			await Promise.allSettled(
+				map(log.commits.values(), async commit =>
+					createCommitQuickPickItem(
+						commit,
+						picked != null &&
+							(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+						{
+							buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
+							compact: true,
+							icon: 'avatar',
+						},
+					),
+				),
 			),
-		)) {
-			items.push(item);
-		}
+			r => (r.status === 'fulfilled' ? r.value : undefined),
+		);
 
 		// Since this is multi-select, we can't have a "Load more" item
 		// if (log.hasMore) {
