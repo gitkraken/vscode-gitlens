@@ -25,7 +25,6 @@ export const enum ReferencesQuickPickIncludes {
 	HEAD = 1 << 3,
 
 	BranchesAndTags = Branches | Tags,
-	// eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member
 	All = Branches | Tags | WorkingTree | HEAD,
 }
 

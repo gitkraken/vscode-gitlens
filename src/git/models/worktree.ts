@@ -228,6 +228,15 @@ export async function getWorktreeForBranch(
 		upstreamNames = [upstreamNames];
 	}
 
+	function matches(branch: GitBranch): boolean {
+		return (
+			branch.upstream?.name != null &&
+			(upstreamNames!.includes(branch.upstream.name) ||
+				(branch.upstream.name.startsWith('remotes/') &&
+					upstreamNames!.includes(branch.upstream.name.substring(8))))
+		);
+	}
+
 	worktrees ??= await repo.git.getWorktrees();
 	for (const worktree of worktrees) {
 		if (worktree.branch?.name === branchName) return worktree;
@@ -235,18 +244,21 @@ export async function getWorktreeForBranch(
 		if (upstreamNames == null || worktree.branch == null) continue;
 
 		branches ??= new PageableResult<GitBranch>(p => repo.git.getBranches(p != null ? { paging: p } : undefined));
-		for await (const branch of branches.values()) {
-			if (branch.name === worktree.branch.name) {
-				if (
-					branch.upstream?.name != null &&
-					(upstreamNames.includes(branch.upstream.name) ||
-						(branch.upstream.name.startsWith('remotes/') &&
-							upstreamNames.includes(branch.upstream.name.substring(8))))
-				) {
-					return worktree;
-				}
 
-				break;
+		const values = branches.values();
+		if (Symbol.asyncIterator in values) {
+			for await (const branch of values) {
+				if (branch.name === worktree.branch.name) {
+					if (matches(branch)) return worktree;
+					break;
+				}
+			}
+		} else {
+			for (const branch of values) {
+				if (branch.name === worktree.branch.name) {
+					if (matches(branch)) return worktree;
+					break;
+				}
 			}
 		}
 	}

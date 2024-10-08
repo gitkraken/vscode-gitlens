@@ -35,9 +35,10 @@ import { RemoteResourceType } from '../git/models/remoteResource';
 import { showPatchesView } from '../plus/drafts/actions';
 import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
-import { filterMap, mapAsync } from '../system/array';
+import { filterMap } from '../system/array';
 import { log } from '../system/decorators/log';
 import { partial, sequentialize } from '../system/function';
+import { join, map } from '../system/iterable';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -1590,13 +1591,13 @@ async function copyNode(type: ClipboardType, active: ViewNode | undefined, selec
 	selection = Array.isArray(selection) ? selection : active != null ? [active] : [];
 	if (selection.length === 0) return;
 
-	const data = (
-		await mapAsync(
-			selection,
-			n => n.toClipboard?.(type),
-			s => Boolean(s?.trim()),
-		)
-	).join('\n');
+	const data = join(
+		filterMap(await Promise.allSettled(map(selection, n => n.toClipboard?.(type))), r =>
+			r.status === 'fulfilled' && r.value?.trim() ? r.value : undefined,
+		),
+		'\n',
+	);
+
 	await env.clipboard.writeText(data);
 }
 
@@ -1630,13 +1631,13 @@ async function openNodeUrl(active: ViewNode | undefined, selection: ViewNode[]):
 	}
 }
 
-function getNodeUrls(active: ViewNode | undefined, selection: ViewNode[]): Promise<string[]> {
+async function getNodeUrls(active: ViewNode | undefined, selection: ViewNode[]): Promise<string[]> {
 	selection = Array.isArray(selection) ? selection : active != null ? [active] : [];
 	if (selection.length === 0) return Promise.resolve([]);
 
-	return mapAsync(
-		selection,
-		n => n.getUrl?.(),
-		s => Boolean(s?.trim()),
-	);
+	return [
+		...filterMap(await Promise.allSettled(map(selection, n => n.getUrl?.())), r =>
+			r.status === 'fulfilled' && r.value?.trim() ? r.value : undefined,
+		),
+	];
 }

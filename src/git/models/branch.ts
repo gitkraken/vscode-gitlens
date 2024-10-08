@@ -384,13 +384,23 @@ export async function getLocalBranchByUpstream(
 	}
 
 	branches ??= new PageableResult<GitBranch>(p => repo.git.getBranches(p != null ? { paging: p } : undefined));
-	for await (const branch of branches.values()) {
-		if (
+
+	function matches(branch: GitBranch): boolean {
+		return (
 			!branch.remote &&
 			branch.upstream?.name != null &&
-			(branch.upstream.name === remoteBranchName || branch.upstream.name === qualifiedRemoteBranchName)
-		) {
-			return branch;
+			(branch.upstream.name === remoteBranchName || branch.upstream.name === qualifiedRemoteBranchName!)
+		);
+	}
+
+	const values = branches.values();
+	if (Symbol.asyncIterator in values) {
+		for await (const branch of values) {
+			if (matches(branch)) return branch;
+		}
+	} else {
+		for (const branch of values) {
+			if (matches(branch)) return branch;
 		}
 	}
 

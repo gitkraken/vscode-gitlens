@@ -115,7 +115,7 @@ export class IntegrationService implements Disposable {
 		return connectedIntegrations;
 	}
 
-	private *getSupportedCloudIntegrations() {
+	private async *getSupportedCloudIntegrations() {
 		for (const id of getSupportedCloudIntegrationIds()) {
 			yield this.get(id);
 		}
