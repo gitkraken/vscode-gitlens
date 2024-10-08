@@ -5,10 +5,10 @@
 [GitLens](https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links 'Learn more about GitLens') is a powerful [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com) built and maintained by GitKraken.
 
 
-- **GitLens** is a free extension that enables to you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more. Customizable to your environment and seamlessly integrated within VS Code.
+- **GitLens** is a free extension that enables to you track code changes and who made them, with in-editor blame annotations, hovers, CodeLens, and much more - all seamlessly integrated and customizable within VS Code.
 
 
-- **GitLens Pro** unlocks new workflows and features that enable you to accelerate PR workflows, action interactive Git visuals, and further reduce context switching. You can trial GitLens Pro for free after installing GitLens.
+- **GitLens Pro** unlocks new workflows that enable you to accelerate PR reviews, access interactive Git visuals, and further reduce context switching. You can try GitLens Pro for free after installing GitLens.
 ## Getting Started
 
 Install GitLens by clicking `Install` on the banner above, or from the Extensions side bar in VS Code by searching for GitLens. 
@@ -19,17 +19,17 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 
 - Use `Switch to Pre-Release Version` on the extension banner to be the first to experience new features.
 
-> Have questions or concerns? Communicate directly with our engineering team in our [GitHub Discussion](https://github.com/gitkraken/vscode-gitlens/issues) page. Having a positive experience with GitLens? Feel free to [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens&ssr=false#review-details). 
+> Have questions or concerns? Let our engineering team know directly though our [GitHub Discussions](https://github.com/gitkraken/vscode-gitlens/discussions) page. Having a positive experience with GitLens? Feel free to [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens&ssr=false#review-details). 
 
 ## GitLens and GitLens Pro
 
 
-**GitLens** helps you understand how code changed and by whom our popular in-editor blame annotations, hovers, and much more. Codelens adds contextual and actionable authorship information at the top of each file. Explore the history of a file to see how the code evolved over time with Revision Navigation. 
+**GitLens** helps you understand how code changed and by whom with our popular in-editor blame annotations, hovers, CodeLens, and much more. CodeLens adds contextual and actionable authorship information at the top of each file. Explore the history of a file to see how the code evolved over time with Revision Navigation. 
 
 **GitLens Pro** unlocks further features and workflows that enable you to:
 
 - Accelerate PR reviews in a clean, actionable PR hub with GitLens Pro’s Launchpad.
-- Execute commands directly from actionable visuals. Much more than a visual graph, interact and search your code history with the GitLens Commit Graph. 
+- Execute commands directly from actionable visuals. Much more than a visual graph, the Commit Graph allows you interact and search your code history with the GitLens Commit Graph. 
 - Streamline collaboration via integrations with Github, GitLab, Bitbucket, Azure DevOps and more. Minimize tedius context switching and view PRs right in VS Code with Launchpad. Connect Jira, GitHub Issues, GitLab Issues, and more to autolink Jira issues or tickets in your commits. 
 
 You may test out GitLens Pro for free. You can also purchase GitLens Pro through a GitKraken account [paid plan](https://www.gitkraken.com/gitlens/pricing), which is required for privately-hosted repos. All features are free to use on all repos, **except** for features:
@@ -54,6 +54,8 @@ You may test out GitLens Pro for free. You can also purchase GitLens Pro through
 
 
 # Discover Powerful Workflows
+
+GitLens , workflows to streamline how you interact with and collaborate on code all without having to leave your editor. 
 
 Quickly glimpse into when, why, and by whom a line or code block was changed. Zero-in on the most important changes and effortlessly navigate through history to gain further insights as to how a file or individual line's code evolved. Visualize code authorship at a glance via Git blame annotations and Git CodeLens. Seamlessly explore Git repositories with the visually-rich Commit Graph. Gain valuable insights via GitLens Inspect, and much more.
 
