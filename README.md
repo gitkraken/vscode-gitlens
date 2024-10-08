@@ -24,21 +24,18 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 ## GitLens and GitLens Pro
 
 
-**GitLens** helps you understand how code changed and by whom with our popular in-editor blame annotations, hovers, CodeLens, and much more. CodeLens adds contextual and actionable authorship information at the top of each file. Explore the history of a file to see how the code evolved over time with Revision Navigation. 
+**GitLens** helps you understand how code changed and by whom with our popular in-editor blame annotations, hovers, CodeLens, and much more. CodeLens adds contextual and actionable authorship at the top of each file. Explore the history of a file to see how the code evolved over time with Revision Navigation. 
 
 **GitLens Pro** unlocks further features and workflows that enable you to:
 
-- Accelerate PR reviews in a clean, actionable PR hub with GitLens Pro’s Launchpad.
-- Execute commands directly from actionable visuals. Much more than a visual graph, the Commit Graph allows you interact and search your code history to understand who did what when. 
-- Streamline collaboration - Integrate with GitHub, GitLab, Bitbucket, Azure DevOps and more to mnimize tedius context switching and view PRs right in VS Code with Launchpad. Connect Jira, GitHub Issues, GitLab Issues, and more to autolink issues and tickets in your commits. 
+- Accelerate PR reviews in a clean, actionable PR hub with Launchpad.
+- Execute powerful graph actions directly from the Commit Graph that allow you to rebase, merge, and manage commits seamlessly. Advanced search and filtering capabilities allow you to find commits, branches, and files easily. 
+- Streamline collaboration by integrating with GitHub, GitLab, Bitbucket and more to minimize context switching. View PRs right in VS Code with Launchpad.
 
-You may test out GitLens Pro for free. You can also purchase GitLens Pro through a GitKraken account [paid plan](https://www.gitkraken.com/gitlens/pricing), which is required for privately-hosted repos. All features are free to use on all repos, **except** for features:
+Try GitLens Pro for free. When you're ready, purchase GitLens Pro through a GitKraken [paid plan](https://www.gitkraken.com/gitlens/pricing), which is required for privately-hosted repos. All features are free to use on all repos, **except** for features:
 
-- marked with a `Pro` require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos
-- marked with a `Preview` require a GitKraken account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
-
-
-
+- marked with a `Pro` require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos.
+- marked with a `Preview` require a GitKraken account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc.
 
 
 
