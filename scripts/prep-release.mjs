@@ -66,7 +66,7 @@ rl.question(`Enter the new version number (format x.x.x, current is ${currentVer
 		}
 
 		// Call 'pnpm version' to commit and create the tag
-		exec(`pnpm version ${version} -m "Bumps to v%s"`, err => {
+		exec(`pnpm version ${version} -m "Bumps to v%s" -f`, err => {
 			if (err) {
 				console.error(`'pnpm version' failed: ${err}`);
 				return;
