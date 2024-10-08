@@ -2,6 +2,7 @@ import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showGenericErrorMessage } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
@@ -73,7 +74,17 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 				);
 				if (pick == null || pick instanceof CommandQuickPickItem) return;
 
-				args.branch = pick.ref;
+				if (pick.refType === 'branch') {
+					if (pick.remote || (pick.upstream != null && !pick.upstream.missing)) {
+						const name = pick.remote ? pick.name : pick.upstream!.name;
+						args.branch = getBranchNameWithoutRemote(name);
+						args.remote = getRemoteNameFromBranchName(name);
+					} else {
+						args.branch = pick.name;
+					}
+				} else {
+					args.branch = pick.ref;
+				}
 			}
 
 			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
