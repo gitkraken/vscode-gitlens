@@ -32,10 +32,7 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 - Execute commands directly from actionable visuals. Much more than a visual graph, interact and search your code history with the GitLens Commit Graph. 
 - Streamline collaboration via integrations with Github, GitLab, Bitbucket, Azure DevOps and more. Minimize tedius context switching and view PRs right in VS Code with Launchpad. Connect Jira, GitHub Issues, GitLab Issues, and more to autolink Jira issues or tickets in your commits. 
 
-You may test out GitLens Pro for free. You can also purchase GitLens Pro through a GitKraken account [paid plan](https://www.gitkraken.com/gitlens/pricing), which is required for privately-hosted repos. 
-
-
-All features are free to use on all repos, **except** for features,
+You may test out GitLens Pro for free. You can also purchase GitLens Pro through a GitKraken account [paid plan](https://www.gitkraken.com/gitlens/pricing), which is required for privately-hosted repos. All features are free to use on all repos, **except** for features:
 
 - marked with a `Pro` require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos
 - marked with a `Preview` require a GitKraken account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
