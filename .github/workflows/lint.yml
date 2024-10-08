@@ -1,0 +1,18 @@
+name: ESLint
+on:
+    pull_request:
+        branches: ['*']
+        types:
+            - opened
+            - reopened
+            - synchronize
+            - ready_for_review
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - name: Install modules
+              run: npm i -g pnpm@9 && pnpm install
+            - name: Run ESLint
+              run: pnpm run lint
