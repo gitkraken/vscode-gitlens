@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes [#3650](https://github.com/gitkraken/vscode-gitlens/issues/3650) - "Create & Switch to Local Branch" from remote branch no longer prefills local branch name to match remote branch name
+
 ## [15.6.0] - 2024-10-07
 
 ### Added
