@@ -1,4 +1,4 @@
-import { WebviewIds, WebviewViewIds } from '../constants.views';
+import type { WebviewIds, WebviewViewIds } from '../constants.views';
 
 export function createWebviewCommandLink(
 	command: `${WebviewIds | WebviewViewIds}.${string}`,
