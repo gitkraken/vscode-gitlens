@@ -1,7 +1,12 @@
 import { ProgressLocation, window } from 'vscode';
 import type { Container } from '../../container';
 import type { GitReference } from '../../git/models/reference';
-import { getReferenceLabel, getReferenceTypeLabel, isBranchReference } from '../../git/models/reference';
+import {
+	getNameWithoutRemote,
+	getReferenceLabel,
+	getReferenceTypeLabel,
+	isBranchReference,
+} from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
@@ -295,7 +300,11 @@ export class SwitchGitCommand extends QuickCommand<State> {
 								icon: false,
 								label: state.reference.refType !== 'branch',
 							})}`,
-							value: state.createBranch,
+							value:
+								state.createBranch ?? // if it's a remote branch, pre-fill the name
+								(isBranchReference(state.reference) && state.reference.remote
+									? getNameWithoutRemote(state.reference)
+									: undefined),
 						});
 
 						this._canConfirmOverride = undefined;

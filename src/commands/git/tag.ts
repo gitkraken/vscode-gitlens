@@ -1,7 +1,12 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
 import type { GitReference, GitTagReference } from '../../git/models/reference';
-import { getReferenceLabel, isRevisionReference } from '../../git/models/reference';
+import {
+	getNameWithoutRemote,
+	getReferenceLabel,
+	isRevisionReference,
+	isTagReference,
+} from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -260,7 +265,9 @@ export class TagGitCommand extends QuickCommand<State> {
 						capitalize: true,
 						icon: false,
 					})}`,
-					value: state.name,
+					value:
+						state.name ?? // if it's not a tag, pre-fill the name
+						(!isTagReference(state.reference) ? getNameWithoutRemote(state.reference) : undefined),
 				});
 				if (result === StepResultBreak) continue;
 

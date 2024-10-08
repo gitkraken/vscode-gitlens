@@ -1,7 +1,12 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import { getReferenceLabel, isRevisionReference } from '../../git/models/reference';
+import {
+	getNameWithoutRemote,
+	getReferenceLabel,
+	isBranchReference,
+	isRevisionReference,
+} from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getWorktreesByBranch } from '../../git/models/worktree';
@@ -361,7 +366,11 @@ export class BranchGitCommand extends QuickCommand {
 						icon: false,
 						label: state.reference.refType !== 'branch',
 					})}`,
-					value: state.name,
+					value:
+						state.name ?? // if it's a remote branch, pre-fill the name
+						(isBranchReference(state.reference) && state.reference.remote
+							? getNameWithoutRemote(state.reference)
+							: undefined),
 				});
 				if (result === StepResultBreak) continue;
 
