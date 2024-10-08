@@ -580,189 +580,118 @@ export function truncateMiddle(s: string, truncateTo: number, ellipsis: string =
 
 // Below adapted from https://github.com/pieroxy/lz-string
 
-const keyStrBase64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-const baseReverseDic: Record<string, Record<string, number>> = {};
-function getBaseValue(alphabet: string, character: string | number) {
-	if (!baseReverseDic[alphabet]) {
-		baseReverseDic[alphabet] = {};
-		for (let i = 0; i < alphabet.length; i++) {
-			baseReverseDic[alphabet][alphabet.charAt(i)] = i;
-		}
-	}
-	return baseReverseDic[alphabet][character];
-}
+// Pre-computed from:
+// const base64ReverseMap = new Uint8Array(123);
+// const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+// for (let i = 0; i < base64Chars.length; i++) {
+// 	base64ReverseMap[base64Chars.charCodeAt(i)] = i;
+// }
+
+const base64ReverseMap = new Uint8Array([
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 62, 0, 0, 0, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 0, 0, 0, 64, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7,
+	8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 0, 0, 0, 0, 0, 0, 26, 27, 28, 29, 30, 31, 32,
+	33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
+]);
 
 export function decompressFromBase64LZString(input: string | undefined) {
 	if (input == null || input === '') return '';
-	return (
-		_decompressLZString(input.length, 32, (index: number) => getBaseValue(keyStrBase64, input.charAt(index))) ?? ''
-	);
+
+	const result = _decompressLZString(input, 32) ?? '';
+	return result;
 }
 
-function _decompressLZString(length: number, resetValue: any, getNextValue: (index: number) => number) {
-	const dictionary = [];
-	let next;
-	let enlargeIn = 4;
-	let dictSize = 4;
-	let numBits = 3;
-	let entry: any = '';
-	const result = [];
-	let i;
-	let w: any;
-	let bits;
-	let resb;
-	let maxpower;
-	let power;
-	let c;
-	const data = { val: getNextValue(0), position: resetValue, index: 1 };
+function _decompressLZString(input: string, resetValue: number) {
+	const dictionary = new Array<string>(4096);
+	dictionary[0] = '0';
+	dictionary[1] = '1';
+	dictionary[2] = '2';
 
-	for (i = 0; i < 3; i += 1) {
-		dictionary[i] = i;
-	}
+	const result: string[] = [];
+	const length = input.length;
 
-	bits = 0;
-	maxpower = Math.pow(2, 2);
-	power = 1;
-	while (power != maxpower) {
-		resb = data.val & data.position;
-		data.position >>= 1;
-		if (data.position == 0) {
-			data.position = resetValue;
-			data.val = getNextValue(data.index++);
-		}
-		bits |= (resb > 0 ? 1 : 0) * power;
-		power <<= 1;
-	}
+	let val = base64ReverseMap[input.charCodeAt(0)];
+	let position = resetValue;
+	let index = 1;
 
-	const fromCharCode = String.fromCharCode;
+	function readBits(maxpower: number): number {
+		let bits = 0;
+		let power = 1;
+		do {
+			bits |= Number((val & position) > 0) * power;
+			power <<= 1;
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	switch ((next = bits)) {
-		case 0:
-			bits = 0;
-			maxpower = Math.pow(2, 8);
-			power = 1;
-			while (power != maxpower) {
-				resb = data.val & data.position;
-				data.position >>= 1;
-				if (data.position == 0) {
-					data.position = resetValue;
-					data.val = getNextValue(data.index++);
-				}
-				bits |= (resb > 0 ? 1 : 0) * power;
-				power <<= 1;
+			position >>= 1;
+			if (position === 0) {
+				position = resetValue;
+				val = base64ReverseMap[input.charCodeAt(index++)];
 			}
-			c = fromCharCode(bits);
+		} while (power !== maxpower);
+
+		return bits;
+	}
+
+	let c = readBits(4);
+
+	switch (c) {
+		case 0:
+			c = readBits(256);
 			break;
 		case 1:
-			bits = 0;
-			maxpower = Math.pow(2, 16);
-			power = 1;
-			while (power != maxpower) {
-				resb = data.val & data.position;
-				data.position >>= 1;
-				if (data.position == 0) {
-					data.position = resetValue;
-					data.val = getNextValue(data.index++);
-				}
-				bits |= (resb > 0 ? 1 : 0) * power;
-				power <<= 1;
-			}
-			c = fromCharCode(bits);
+			c = readBits(65536);
 			break;
 		case 2:
 			return '';
 	}
-	dictionary[3] = c;
-	w = c;
-	result.push(c);
-	while (true) {
-		if (data.index > length) {
-			return '';
-		}
 
-		bits = 0;
-		maxpower = Math.pow(2, numBits);
-		power = 1;
-		while (power != maxpower) {
-			resb = data.val & data.position;
-			data.position >>= 1;
-			if (data.position == 0) {
-				data.position = resetValue;
-				data.val = getNextValue(data.index++);
-			}
-			bits |= (resb > 0 ? 1 : 0) * power;
-			power <<= 1;
-		}
+	let w = String.fromCharCode(c);
+	dictionary[3] = w;
+	result.push(w);
 
-		switch ((c = bits)) {
+	let dictSize = 4;
+	let enlargeIn = 4;
+	let numBits = 3;
+
+	while (index <= length) {
+		c = readBits(1 << numBits);
+
+		switch (c) {
 			case 0:
-				bits = 0;
-				maxpower = Math.pow(2, 8);
-				power = 1;
-				while (power != maxpower) {
-					resb = data.val & data.position;
-					data.position >>= 1;
-					if (data.position == 0) {
-						data.position = resetValue;
-						data.val = getNextValue(data.index++);
-					}
-					bits |= (resb > 0 ? 1 : 0) * power;
-					power <<= 1;
-				}
-
-				dictionary[dictSize++] = fromCharCode(bits);
-				c = dictSize - 1;
+				c = readBits(256);
+				dictionary[dictSize] = String.fromCharCode(c);
+				c = dictSize++;
 				enlargeIn--;
 				break;
 			case 1:
-				bits = 0;
-				maxpower = Math.pow(2, 16);
-				power = 1;
-				while (power != maxpower) {
-					resb = data.val & data.position;
-					data.position >>= 1;
-					if (data.position == 0) {
-						data.position = resetValue;
-						data.val = getNextValue(data.index++);
-					}
-					bits |= (resb > 0 ? 1 : 0) * power;
-					power <<= 1;
-				}
-				dictionary[dictSize++] = fromCharCode(bits);
-				c = dictSize - 1;
+				c = readBits(65536);
+				dictionary[dictSize] = String.fromCharCode(c);
+				c = dictSize++;
 				enlargeIn--;
 				break;
 			case 2:
 				return result.join('');
 		}
 
-		if (enlargeIn == 0) {
-			enlargeIn = Math.pow(2, numBits);
-			numBits++;
+		if (enlargeIn === 0) {
+			enlargeIn = 1 << numBits++;
 		}
 
-		if (dictionary[c]) {
-			entry = dictionary[c]!;
-		} else if (c === dictSize) {
-			// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
-			entry = w + w.charAt(0);
-		} else {
-			return undefined;
+		let entry = dictionary[c];
+		if (entry === undefined) {
+			if (c !== dictSize) return undefined;
+
+			entry = w + w[0];
 		}
+
 		result.push(entry);
-
-		// Add w+entry[0] to the dictionary.
-
-		// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
-		dictionary[dictSize++] = w + entry.charAt(0);
+		dictionary[dictSize++] = w + entry[0];
 		enlargeIn--;
-
 		w = entry;
 
-		if (enlargeIn == 0) {
-			enlargeIn = Math.pow(2, numBits);
-			numBits++;
+		if (enlargeIn === 0) {
+			enlargeIn = 1 << numBits++;
 		}
 	}
+
+	return undefined;
 }
