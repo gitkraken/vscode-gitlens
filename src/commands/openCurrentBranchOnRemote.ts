@@ -2,6 +2,7 @@ import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -26,15 +27,35 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 
 		try {
 			const branch = await repository.git.getBranch();
-			if (branch?.name) {
+			if (branch?.detached) {
 				void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
 					resource: {
-						type: RemoteResourceType.Branch,
-						branch: branch.name || 'HEAD',
+						type: RemoteResourceType.Commit,
+						sha: branch.sha ?? 'HEAD',
 					},
 					repoPath: repository.path,
 				}));
+
+				return;
 			}
+
+			let branchName;
+			let remoteName;
+			if (branch?.upstream != null && !branch.upstream.missing) {
+				branchName = getBranchNameWithoutRemote(branch.upstream.name);
+				remoteName = getRemoteNameFromBranchName(branch.upstream.name);
+			} else if (branch != null) {
+				branchName = branch.name;
+			}
+
+			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+				resource: {
+					type: RemoteResourceType.Branch,
+					branch: branchName ?? 'HEAD',
+				},
+				remote: remoteName,
+				repoPath: repository.path,
+			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenCurrentBranchOnRemoteCommand');
 			void showGenericErrorMessage('Unable to open branch on remote provider');

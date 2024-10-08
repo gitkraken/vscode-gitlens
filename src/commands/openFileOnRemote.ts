@@ -179,10 +179,11 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					if (pick == null) return;
 
 					if (pick.refType === 'branch') {
-						if (pick.remote) {
-							args.branchOrTag = getBranchNameWithoutRemote(pick.name);
+						if (pick.remote || (pick.upstream != null && !pick.upstream.missing)) {
+							const name = pick.remote ? pick.name : pick.upstream!.name;
+							args.branchOrTag = getBranchNameWithoutRemote(name);
 
-							const remoteName = getRemoteNameFromBranchName(pick.name);
+							const remoteName = getRemoteNameFromBranchName(name);
 							const remote = remotes.find(r => r.name === remoteName);
 							if (remote != null) {
 								remotes = [remote];
