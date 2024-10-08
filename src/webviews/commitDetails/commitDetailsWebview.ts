@@ -243,8 +243,8 @@ export class CommitDetailsWebviewProvider
 
 	async onShowingWip(arg: ShowWipArgs, options?: WebviewShowOptions): Promise<boolean> {
 		this.updatePendingContext({ source: arg.source });
-		const shouldChangeReview = arg.inReview != null && this.inReview != arg.inReview;
-		if (this.mode != 'wip' || (arg.repository != null && this._context.wip?.repo != arg.repository)) {
+		const shouldChangeReview = arg.inReview != null && this.inReview !== arg.inReview;
+		if (this.mode !== 'wip' || (arg.repository != null && this._context.wip?.repo !== arg.repository)) {
 			if (shouldChangeReview) {
 				this.updatePendingContext({ inReview: arg.inReview });
 			}
@@ -857,7 +857,7 @@ export class CommitDetailsWebviewProvider
 
 	updateHasAccount(subscription: Subscription) {
 		const hasAccount = subscription.account != null;
-		if (this._context.hasAccount == hasAccount) return;
+		if (this._context.hasAccount === hasAccount) return;
 
 		this._context.hasAccount = hasAccount;
 		void this.host.notify(DidChangeHasAccountNotification, { hasAccount: hasAccount });

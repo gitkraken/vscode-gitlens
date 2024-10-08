@@ -24,6 +24,7 @@ export default ts.config(
 		rules: {
 			'anti-trojan-source/no-bidi': 'error',
 			curly: ['error', 'multi-line', 'consistent'],
+			eqeqeq: ['error', 'always', { null: 'ignore' }],
 			'no-constant-condition': ['warn', { checkLoops: false }],
 			'no-constant-binary-expression': 'error',
 			'no-caller': 'error',

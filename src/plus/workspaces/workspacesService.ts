@@ -630,8 +630,8 @@ export class WorkspacesService implements Disposable {
 			if (!workspaceProvider) return;
 
 			if (
-				workspaceProvider == CloudWorkspaceProviderInputType.GitHubEnterprise ||
-				workspaceProvider == CloudWorkspaceProviderInputType.GitLabSelfHosted
+				workspaceProvider === CloudWorkspaceProviderInputType.GitHubEnterprise ||
+				workspaceProvider === CloudWorkspaceProviderInputType.GitLabSelfHosted
 			) {
 				hostUrl = await new Promise<string | undefined>(resolve => {
 					disposables.push(
@@ -656,7 +656,7 @@ export class WorkspacesService implements Disposable {
 				if (!hostUrl) return;
 			}
 
-			if (workspaceProvider == CloudWorkspaceProviderInputType.Azure) {
+			if (workspaceProvider === CloudWorkspaceProviderInputType.Azure) {
 				azureOrganizationName = await new Promise<string | undefined>(resolve => {
 					disposables.push(
 						input.onDidHide(() => resolve(undefined)),
@@ -773,7 +773,7 @@ export class WorkspacesService implements Disposable {
 			{ title: 'Confirm' },
 			{ title: 'Cancel', isCloseAffordance: true },
 		);
-		if (confirmation == null || confirmation.title == 'Cancel') return;
+		if (confirmation == null || confirmation.title === 'Cancel') return;
 		try {
 			const response = await this._workspacesApi.deleteWorkspace(workspaceId);
 			if (response?.data?.delete_project?.id === workspaceId) {
@@ -990,7 +990,7 @@ export class WorkspacesService implements Disposable {
 			{ title: 'Confirm' },
 			{ title: 'Cancel', isCloseAffordance: true },
 		);
-		if (confirmation == null || confirmation.title == 'Cancel') return;
+		if (confirmation == null || confirmation.title === 'Cancel') return;
 		try {
 			const response = await this._workspacesApi.removeReposFromWorkspace(workspaceId, [
 				{ owner: descriptor.provider_organization_id, repoName: descriptor.name },
@@ -1152,7 +1152,7 @@ export class WorkspacesService implements Disposable {
 				{ title: 'Continue' },
 				{ title: 'Cancel', isCloseAffordance: true },
 			);
-			if (confirmation == null || confirmation.title == 'Cancel') return;
+			if (confirmation == null || confirmation.title === 'Cancel') return;
 		}
 
 		// Have the user choose a name and location for the new workspace file
@@ -1270,7 +1270,7 @@ export class WorkspacesService implements Disposable {
 				{ title: 'Cancel', isCloseAffordance: true },
 			);
 
-			if (create == null || create.title == 'Cancel') return;
+			if (create == null || create.title === 'Cancel') return;
 			return void this.saveAsCodeWorkspaceFile(workspaceId);
 		}
 
@@ -1284,7 +1284,7 @@ export class WorkspacesService implements Disposable {
 				{ title: 'Cancel', isCloseAffordance: true },
 			);
 
-			if (openLocationChoice == null || openLocationChoice.title == 'Cancel') return;
+			if (openLocationChoice == null || openLocationChoice.title === 'Cancel') return;
 			openLocation = openLocationChoice.location ?? 'newWindow';
 		}
 

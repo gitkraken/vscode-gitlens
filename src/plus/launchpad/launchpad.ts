@@ -546,7 +546,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			onDidChangeValue: quickpick => {
 				const hideGroups = Boolean(quickpick.value?.length);
 
-				if (groupsHidden != hideGroups) {
+				if (groupsHidden !== hideGroups) {
 					groupsHidden = hideGroups;
 					quickpick.items = hideGroups ? items.filter(i => !isDirectiveQuickPickItem(i)) : items;
 				}

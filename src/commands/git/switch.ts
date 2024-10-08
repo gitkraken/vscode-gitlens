@@ -1,11 +1,7 @@
 import { ProgressLocation, window } from 'vscode';
 import type { Container } from '../../container';
 import type { GitReference } from '../../git/models/reference';
-import {
-	getReferenceLabel,
-	getReferenceTypeLabel,
-	isBranchReference,
-} from '../../git/models/reference';
+import { getReferenceLabel, getReferenceTypeLabel, isBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
@@ -170,7 +166,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 					continue;
 				}
 
-				if (typeof result == 'string') {
+				if (typeof result === 'string') {
 					yield* getSteps(
 						this.container,
 						{

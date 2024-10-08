@@ -103,7 +103,7 @@ export class GerritRemote extends RemoteProvider {
 		let index = path.indexOf('/', 1);
 		if (index !== -1) {
 			const sha = path.substring(1, index);
-			if (isSha(sha) || sha == 'HEAD') {
+			if (isSha(sha) || sha === 'HEAD') {
 				const uri = repository.toAbsoluteUri(path.substring(index), { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine };
 			}

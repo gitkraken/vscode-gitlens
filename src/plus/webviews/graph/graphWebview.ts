@@ -1327,7 +1327,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				if (type === 'upstream') {
 					const upstream = branch?.upstream;
 
-					if (upstream == null || upstream == undefined || upstream.missing) {
+					if (upstream == null || upstream.missing) {
 						metadata.upstream = null;
 						this._refsMetadata.set(id, metadata);
 						continue;
