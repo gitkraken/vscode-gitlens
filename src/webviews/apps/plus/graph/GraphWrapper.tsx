@@ -67,7 +67,7 @@ import {
 import { createCommandLink } from '../../../../system/commands';
 import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
 import { createWebviewCommandLink } from '../../../../system/webview';
-import type { IpcNotification } from '../../../protocol';
+import type { IpcNotification, TelemetrySendEventParams } from '../../../protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
 import { GlButton } from '../../shared/components/button.react';
 import { GlCheckbox } from '../../shared/components/checkbox';
@@ -466,7 +466,9 @@ export function GraphWrapper({
 
 		graphRef.current?.selectCommits([sha], false, true);
 
-		queueMicrotask(() => e.target && emitTelemetrySentEvent(e.target, { name: 'graph/minimap/daySelected' }));
+		queueMicrotask(
+			() => e.target && emitTelemetrySentEvent(e.target, { name: 'graph/minimap/daySelected', data: {} }),
+		);
 	};
 
 	const handleOnMinimapToggle = (_e: React.MouseEvent) => {
@@ -1011,7 +1013,12 @@ export function GraphWrapper({
 										aria-label={`Open Repository on ${repo.provider.name}`}
 										slot="anchor"
 										onClick={e =>
-											emitTelemetrySentEvent(e.target, { name: 'graph/repository/openOnRemote' })
+											emitTelemetrySentEvent<
+												TelemetrySendEventParams<'graph/repository/openOnRemote'>
+											>(e.target, {
+												name: 'graph/repository/openOnRemote',
+												data: {},
+											})
 										}
 									>
 										<span

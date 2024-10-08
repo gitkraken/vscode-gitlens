@@ -48,7 +48,7 @@ type FlattenJoin<T extends object, P extends string | undefined> = {
 		    };
 }[keyof T];
 
-type Flatten<
+export type Flatten<
 	T extends object | null | undefined,
 	P extends string | undefined,
 	JoinArrays extends boolean,

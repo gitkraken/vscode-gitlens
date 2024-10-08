@@ -1,17 +1,11 @@
-import type { GraphBranchesVisibility } from './config';
+import type { GraphBranchesVisibility, GraphConfig } from './config';
 import type { AIModels, AIProviders } from './constants.ai';
 import type { Commands } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
-import type {
-	CustomEditorTypes,
-	TreeViewTypes,
-	WebviewIds,
-	WebviewTypes,
-	WebviewViewIds,
-	WebviewViewTypes,
-} from './constants.views';
+import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
 import type { GitContributionTiers } from './git/models/contributor';
+import type { Flatten } from './system/object';
 
 export type TelemetryGlobalContext = {
 	'cloudIntegrations.connected.count': number;
@@ -170,19 +164,21 @@ export type TelemetryEvents = {
 	/** Sent when a "Graph" command is executed */
 	'graph/command': Omit<CommandEventData, 'context'>;
 
+	'graph/shown': WebviewShownEventData & GraphShownEventData;
+
 	/** Sent when the user interacts with the graph */
 	'graph/columns/changed': Record<`column.${string}`, boolean | string | number>;
-	'graph/exclude/toggle': { key: string; value: boolean };
+	'graph/exclude/toggled': { key: string; value: boolean };
 	'graph/jumpToRef': { alt: boolean };
 	'graph/minimap/daySelected': undefined;
-	'graph/repository/change': undefined;
-	'graph/repository/openOnRemote': undefined;
-	'graph/row/hover': undefined;
-	'graph/row/more': { duration: number };
+	'graph/repository/changed': undefined;
+	'graph/repository/openOnRemote': WebviewEventData;
+	'graph/row/hovered': undefined;
 	'graph/row/selected': { rows: number };
+	'graph/rows/loaded': { duration: number; rows: number };
 	'graph/sidebar/action': { action: string };
-	'graph/search': { types: string; duration: number };
-	'graph/visibility/changed': { branchesVisibility: GraphBranchesVisibility };
+	'graph/searched': { types: string; duration: number; matches: number };
+	'graph/branchesVisibility/changed': { branchesVisibility: GraphBranchesVisibility };
 
 	/** Sent when the user interacts with the visual file history */
 	'timeline/period/change': { period: string };
@@ -311,12 +307,7 @@ export type TelemetryEvents = {
 	};
 
 	/** Sent when a repository is opened */
-	'repository/opened': {
-		'repository.id': string;
-		'repository.scheme': string;
-		'repository.closed': boolean;
-		'repository.folder.scheme': string | undefined;
-		'repository.provider.id': string;
+	'repository/opened': RepositoryEventData & {
 		'repository.remoteProviders': string;
 		'repository.contributors.commits.count': number | undefined;
 		'repository.contributors.commits.avgPerContributor': number | undefined;
@@ -324,12 +315,7 @@ export type TelemetryEvents = {
 		'repository.contributors.since': '1.year.ago';
 	} & Record<`repository.contributors.distribution.${GitContributionTiers}`, number>;
 	/** Sent when a repository's visibility is first requested */
-	'repository/visibility': {
-		'repository.id': string | undefined;
-		'repository.scheme': string | undefined;
-		'repository.closed': boolean | undefined;
-		'repository.folder.scheme': string | undefined;
-		'repository.provider.id': string | undefined;
+	'repository/visibility': Partial<RepositoryEventData> & {
 		'repository.visibility': 'private' | 'public' | 'local' | undefined;
 	};
 
@@ -377,25 +363,10 @@ export type TelemetryEvents = {
 			| 'integrations'
 			| 'more';
 	};
-} & Record<
-	`${WebviewTypes | WebviewViewTypes}/showAborted`,
-	{
-		id: WebviewIds | WebviewViewIds;
-		instanceId: string | undefined;
-		host: 'editor' | 'view';
-		duration: number;
-		loading: boolean;
-	}
-> &
+} & Record<`${WebviewTypes | WebviewViewTypes}/showAborted`, WebviewShownEventData> &
 	Record<
-		`${WebviewTypes | WebviewViewTypes}/shown`,
-		{
-			id: WebviewIds | WebviewViewIds;
-			instanceId: string | undefined;
-			host: 'editor' | 'view';
-			duration: number;
-			loading: boolean;
-		} & Record<`context.${string}`, string | number | boolean>
+		`${Exclude<WebviewTypes | WebviewViewTypes, 'graph'>}/shown`,
+		WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>
 	>;
 
 type AIEventDataBase = {
@@ -471,6 +442,30 @@ type LaunchpadGroups =
 	| 'other'
 	| 'snoozed';
 
+type FlattenedGraphConfig = {
+	[K in keyof Flatten<GraphConfig, 'context.config', true>]: Flatten<GraphConfig, 'context.config', true>[K];
+};
+type GraphContextEventData = {} & WebviewTelemetryContext &
+	Partial<{
+		[K in keyof RepositoryEventData as `context.${K}`]: RepositoryEventData[K];
+	}>;
+
+type GraphShownEventData = GraphContextEventData &
+	FlattenedGraphConfig &
+	Partial<Record<`context.column.${string}.visible`, boolean>> &
+	Partial<Record<`context.column.${string}.mode`, string>>;
+
+export type GraphTelemetryContext = GraphContextEventData;
+export type GraphShownTelemetryContext = GraphShownEventData;
+
+type RepositoryEventData = {
+	'repository.id': string;
+	'repository.scheme': string;
+	'repository.closed': boolean;
+	'repository.folder.scheme': string | undefined;
+	'repository.provider.id': string;
+};
+
 type SubscriptionEventData = {
 	'subscription.state'?: SubscriptionState;
 	'subscription.status'?:
@@ -491,6 +486,18 @@ type SubscriptionEventData = {
 		Record<`previous.subscription.${string}`, string | number | boolean | undefined> &
 		Record<`previous.subscription.previewTrial.${string}`, string | number | boolean | undefined>
 >;
+
+type WebviewEventData = {
+	id: string;
+	instanceId: string | undefined;
+	host: 'editor' | 'view';
+};
+export type WebviewTelemetryContext = WebviewEventData;
+
+type WebviewShownEventData = WebviewEventData & {
+	duration: number;
+	loading: boolean;
+};
 
 export type LoginContext = 'start_trial';
 export type ConnectIntegrationContext = 'launchpad';

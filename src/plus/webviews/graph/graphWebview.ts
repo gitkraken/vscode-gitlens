@@ -19,6 +19,7 @@ import type {
 import { GlyphChars } from '../../../constants';
 import { Commands } from '../../../constants.commands';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
+import type { GraphShownTelemetryContext, GraphTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
 import type { CommitSelectedEvent } from '../../../eventBus';
@@ -87,7 +88,7 @@ import {
 } from '../../../git/models/repository';
 import { getWorktreesByBranch } from '../../../git/models/worktree';
 import type { GitSearch } from '../../../git/search';
-import { getSearchQueryComparisonKey } from '../../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
 import { splitGitCommitMessage } from '../../../git/utils/commit-utils';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
@@ -96,12 +97,13 @@ import { debug, log } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, disposableInterval } from '../../../system/function';
 import { count, find, last, map } from '../../../system/iterable';
-import { updateRecordValue } from '../../../system/object';
+import { flatten, updateRecordValue } from '../../../system/object';
 import {
 	getSettledValue,
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
 } from '../../../system/promise';
+import { Stopwatch } from '../../../system/stopwatch';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -159,6 +161,7 @@ import type {
 	GraphRefMetadataType,
 	GraphRepository,
 	GraphScrollMarkerTypes,
+	GraphSearchResults,
 	GraphSelectedRows,
 	GraphStashContextValue,
 	GraphTagContextValue,
@@ -352,11 +355,48 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.repository != null ? [this.repository] : [];
 	}
 
+	getTelemetryContext(): GraphTelemetryContext {
+		return {
+			...this.host.getTelemetryContext(),
+			'context.repository.id': this.repository?.idHash,
+			'context.repository.scheme': this.repository?.uri.scheme,
+			'context.repository.closed': this.repository?.closed,
+			'context.repository.folder.scheme': this.repository?.folder?.uri.scheme,
+			'context.repository.provider.id': this.repository?.provider.id,
+		};
+	}
+
+	getShownTelemetryContext(): GraphShownTelemetryContext {
+		const columnContext: Partial<{
+			[K in Extract<keyof GraphShownTelemetryContext, `context.column.${string}`>]: GraphShownTelemetryContext[K];
+		}> = {};
+		const columns = this.getColumns();
+		if (columns != null) {
+			for (const [name, config] of Object.entries(columns)) {
+				if (!config.isHidden) {
+					columnContext[`context.column.${name}.visible`] = true;
+				}
+				if (config.mode != null) {
+					columnContext[`context.column.${name}.mode`] = config.mode;
+				}
+			}
+		}
+
+		const cfg = flatten(configuration.get('graph'), 'context.config', { joinArrays: true });
+		const context: GraphShownTelemetryContext = {
+			...this.getTelemetryContext(),
+			...columnContext,
+			...cfg,
+		};
+
+		return context;
+	}
+
 	async onShowing(
 		loading: boolean,
 		_options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<GraphWebviewShowingArgs, State>
-	): Promise<[boolean, Record<`context.${string}`, string | number | boolean> | undefined]> {
+	): Promise<[boolean, Record<`context.${string}`, string | number | boolean | undefined> | undefined]> {
 		this._firstSelection = true;
 
 		this._etag = this.container.git.etag;
@@ -386,7 +426,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (this._graph != null) {
 				if (this._graph?.ids.has(id)) {
 					void this.notifyDidChangeSelection();
-					return [true, undefined];
+					return [true, this.getShownTelemetryContext()];
 				}
 
 				void this.onGetMoreRows({ id: id }, true);
@@ -412,7 +452,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		return [true, undefined];
+		return [true, this.getShownTelemetryContext()];
 	}
 
 	onRefresh(force?: boolean) {
@@ -1338,9 +1378,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
+		using sw = new Stopwatch(`GraohWebviewProvider.onGetMoreRows(${this.host.id})`);
 		await this.updateGraphWithMoreRows(this._graph, e.id, this._search);
-		this.container.telemetry.sendEvent('graph/row/more', {
-			duration: 0,
+		this.container.telemetry.sendEvent('graph/rows/loaded', {
+			duration: sw.elapsed(),
+			rows: this._graph.rows.length ?? 0,
 		});
 		void this.notifyDidChangeRows(sendSelectedRows);
 	}
@@ -1363,10 +1405,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@debug()
 	private async onSearchRequest<T extends typeof SearchRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		try {
+			using sw = new Stopwatch(`GraphWebviewProvider.onSearchRequest(${this.host.id})`);
 			const results = await this.getSearchResults(msg.params);
-			this.container.telemetry.sendEvent('graph/search', {
-				types: '',
-				duration: 0,
+			const query = msg.params.search ? parseSearchQuery(msg.params.search) : undefined;
+			const types = new Set<string>();
+			if (query != null) {
+				for (const [_, values] of query) {
+					values.forEach(v => types.add(v));
+				}
+			}
+			this.container.telemetry.sendEvent('graph/searched', {
+				types: [...types].join(','),
+				duration: sw.elapsed(),
+				matches: (results.results as GraphSearchResults)?.count ?? 0,
 			});
 			void this.host.respond(requestType, msg, results);
 		} catch (ex) {
@@ -1498,7 +1549,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (pick == null) return;
 
 		this.repository = pick;
-		this.container.telemetry.sendEvent('graph/repository/change');
+		this.container.telemetry.sendEvent('graph/repository/changed');
 	}
 
 	async onChooseRef<T extends typeof ChooseRefRequest>(requestType: T, msg: IpcCallMessageType<T>) {
@@ -2780,7 +2831,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		if (branchesVisibility != null) {
-			this.container.telemetry.sendEvent('graph/visibility/changed', {
+			this.container.telemetry.sendEvent('graph/branchesVisibility/changed', {
 				branchesVisibility: branchesVisibility,
 			});
 		}
@@ -2802,7 +2853,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		excludeTypes = updateRecordValue(excludeTypes, key, value);
 
-		this.container.telemetry.sendEvent('graph/exclude/toggle', {
+		this.container.telemetry.sendEvent('graph/exclude/toggled', {
 			key: key,
 			value: value,
 		});

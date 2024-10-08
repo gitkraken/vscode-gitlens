@@ -335,6 +335,179 @@ or
 }
 ```
 
+### graph/shown
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true,
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string,
+  'context.config.allowMultiple': false | true,
+  'context.config.avatars': false | true,
+  'context.config.branchesVisibility': 'all' | 'smart' | 'current',
+  'context.config.commitOrdering': 'date' | 'author-date' | 'topo',
+  'context.config.dateFormat': string,
+  'context.config.dateStyle': 'absolute' | 'relative',
+  'context.config.defaultItemLimit': number,
+  'context.config.dimMergeCommits': false | true,
+  'context.config.highlightRowsOnRefHover': false | true,
+  'context.config.layout': 'editor' | 'panel',
+  'context.config.minimap.enabled': false | true,
+  'context.config.minimap.dataType': 'commits' | 'lines',
+  'context.config.minimap.additionalTypes': string,
+  'context.config.onlyFollowFirstParent': false | true,
+  'context.config.pageItemLimit': number,
+  'context.config.pullRequests.enabled': false | true,
+  'context.config.scrollMarkers.enabled': false | true,
+  'context.config.scrollMarkers.additionalTypes': string,
+  'context.config.scrollRowPadding': number,
+  'context.config.searchItemLimit': number,
+  'context.config.showDetailsView': false | 'open' | 'selection',
+  'context.config.showGhostRefsOnRowHover': false | true,
+  'context.config.showRemoteNames': false | true,
+  'context.config.showUpstreamStatus': false | true,
+  'context.config.sidebar.enabled': false | true,
+  'context.config.statusBar.enabled': false | true
+}
+```
+
+### graph/columns/changed
+
+> Sent when the user interacts with the graph
+
+```typescript
+{}
+```
+
+### graph/exclude/toggled
+
+```typescript
+{
+  'key': string,
+  'value': false | true
+}
+```
+
+### graph/jumpToRef
+
+```typescript
+{
+  'alt': false | true
+}
+```
+
+### graph/minimap/daySelected
+
+```typescript
+undefined
+```
+
+### graph/repository/changed
+
+```typescript
+undefined
+```
+
+### graph/repository/openOnRemote
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view'
+}
+```
+
+### graph/row/hovered
+
+```typescript
+undefined
+```
+
+### graph/row/selected
+
+```typescript
+{
+  'rows': number
+}
+```
+
+### graph/rows/loaded
+
+```typescript
+{
+  'duration': number,
+  'rows': number
+}
+```
+
+### graph/sidebar/action
+
+```typescript
+{
+  'action': string
+}
+```
+
+### graph/searched
+
+```typescript
+{
+  'types': string,
+  'duration': number,
+  'matches': number
+}
+```
+
+### graph/branchesVisibility/changed
+
+```typescript
+{
+  'branchesVisibility': 'all' | 'smart' | 'current'
+}
+```
+
+### timeline/period/change
+
+> Sent when the user interacts with the visual file history
+
+```typescript
+{
+  'period': string
+}
+```
+
+### timeline/chart/selectCommit
+
+```typescript
+undefined
+```
+
+### timeline/chart/toggleLegend
+
+```typescript
+undefined
+```
+
+### timeline/openInEditor
+
+```typescript
+undefined
+```
+
+### timeline/editorChanged
+
+```typescript
+undefined
+```
+
 ### launchpad/title/action
 
 > Sent when the user takes an action on a launchpad item
@@ -345,7 +518,7 @@ or
   'initialState.group': string,
   'initialState.selectTopItem': false | true,
   'items.error': string,
-  'action': 'feedback' | 'open-on-gkdev' | 'refresh' | 'settings' | 'connect'
+  'action': 'settings' | 'feedback' | 'open-on-gkdev' | 'refresh' | 'connect'
 }
 ```
 
@@ -381,7 +554,7 @@ or
   'groups.draft.collapsed': false | true,
   'groups.other.collapsed': false | true,
   'groups.snoozed.collapsed': false | true,
-  'action': 'feedback' | 'open-on-gkdev' | 'refresh' | 'settings' | 'connect'
+  'action': 'settings' | 'feedback' | 'open-on-gkdev' | 'refresh' | 'connect'
 }
 ```
 
@@ -757,7 +930,7 @@ void
   'repository.visibility': 'private' | 'public' | 'local',
   'repoPrivacy': 'private' | 'public' | 'local',
   'filesChanged': number,
-  'source': 'settings' | 'code-suggest' | 'account' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'graph' | 'home' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'notification' | 'patchDetails' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'timeline' | 'trial-indicator' | 'scm-input' | 'subscription' | 'walkthrough' | 'welcome' | 'worktrees'
+  'source': 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome' | 'home' | 'code-suggest' | 'account' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'trial-indicator' | 'scm-input' | 'subscription' | 'walkthrough' | 'worktrees'
 }
 ```
 
@@ -911,7 +1084,7 @@ or
 
 ```typescript
 {
-  'usage.key': 'settingsWebview:shown' | 'graphWebview:shown' | 'patchDetailsWebview:shown' | 'timelineWebview:shown' | 'welcomeWebview:shown' | 'launchpadView:shown' | 'worktreesView:shown' | 'branchesView:shown' | 'commitsView:shown' | 'contributorsView:shown' | 'draftsView:shown' | 'fileHistoryView:shown' | 'lineHistoryView:shown' | 'pullRequestView:shown' | 'remotesView:shown' | 'repositoriesView:shown' | 'searchAndCompareView:shown' | 'stashesView:shown' | 'tagsView:shown' | 'workspacesView:shown' | 'graphView:shown' | 'homeView:shown' | 'patchDetailsView:shown' | 'timelineView:shown' | 'commitDetailsView:shown' | 'graphDetailsView:shown' | 'rebaseEditor:shown',
+  'usage.key': 'graphWebview:shown' | 'patchDetailsWebview:shown' | 'settingsWebview:shown' | 'timelineWebview:shown' | 'welcomeWebview:shown' | 'graphView:shown' | 'patchDetailsView:shown' | 'timelineView:shown' | 'commitDetailsView:shown' | 'graphDetailsView:shown' | 'homeView:shown' | 'commitsView:shown' | 'stashesView:shown' | 'tagsView:shown' | 'launchpadView:shown' | 'worktreesView:shown' | 'branchesView:shown' | 'contributorsView:shown' | 'draftsView:shown' | 'fileHistoryView:shown' | 'lineHistoryView:shown' | 'pullRequestView:shown' | 'remotesView:shown' | 'repositoriesView:shown' | 'searchAndCompareView:shown' | 'workspacesView:shown' | 'rebaseEditor:shown',
   'usage.count': number
 }
 ```
@@ -923,6 +1096,186 @@ or
 ```typescript
 {
   'step': 'integrations' | 'launchpad' | 'get-started' | 'core-features' | 'pro-features' | 'pro-trial' | 'pro-upgrade' | 'pro-reactivate' | 'pro-paid' | 'visualize' | 'code-collab' | 'more'
+}
+```
+
+### graph/showAborted
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### patchDetails/showAborted
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### settings/showAborted
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### timeline/showAborted
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### welcome/showAborted
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### commitDetails/showAborted
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### graphDetails/showAborted
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### home/showAborted
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### patchDetails/shown
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### settings/shown
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### timeline/shown
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### welcome/shown
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### commitDetails/shown
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### graphDetails/shown
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
+}
+```
+
+### home/shown
+
+```typescript
+{
+  'id': string,
+  'instanceId': string,
+  'host': 'editor' | 'view',
+  'duration': number,
+  'loading': false | true
 }
 ```
 

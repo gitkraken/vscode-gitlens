@@ -2,6 +2,7 @@ import { getNonce } from '@env/crypto';
 import type { ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import type { Commands } from '../constants.commands';
+import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { getScopedCounter } from '../system/counter';
@@ -197,6 +198,14 @@ export class WebviewController<
 		this._initializing = undefined;
 	}
 
+	getTelemetryContext(): WebviewTelemetryContext {
+		return {
+			id: this.id,
+			instanceId: this.instanceId,
+			host: this.isHost('editor') ? ('editor' as const) : ('view' as const),
+		};
+	}
+
 	isHost(type: 'editor'): this is WebviewPanelController<State, SerializedState, ShowingArgs>;
 	isHost(type: 'view'): this is WebviewViewController<State, SerializedState, ShowingArgs>;
 	isHost(
@@ -282,9 +291,7 @@ export class WebviewController<
 		}
 
 		const eventBase = {
-			id: this.id,
-			instanceId: this.instanceId,
-			host: this.isHost('editor') ? ('editor' as const) : ('view' as const),
+			...this.getTelemetryContext(),
 			loading: loading,
 		};
 
@@ -409,7 +416,11 @@ export class WebviewController<
 				break;
 
 			case TelemetrySendEventCommand.is(e):
-				this.container.telemetry.sendEvent(e.params.name, e.params.data, e.params.source);
+				this.container.telemetry.sendEvent(
+					e.params.name,
+					{ ...e.params.data, ...(this.provider.getTelemetryContext?.() ?? this.getTelemetryContext()) },
+					e.params.source,
+				);
 				break;
 
 			default:
