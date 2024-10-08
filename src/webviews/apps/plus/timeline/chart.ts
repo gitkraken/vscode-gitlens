@@ -506,10 +506,10 @@ export class TimelineChart implements Disposable {
 		});
 	}
 
-	private onToggleLegend(id: string) {
-		console.log('timeline/chart/toggleLegend', id);
+	private onToggleLegend(_id: string) {
 		emitTelemetrySentEvent(this.$container, {
 			name: 'timeline/chart/toggleLegend',
+			data: {},
 		});
 	}
 }

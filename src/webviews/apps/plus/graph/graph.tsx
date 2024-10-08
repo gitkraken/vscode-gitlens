@@ -570,7 +570,7 @@ export class GraphApp extends App<State> {
 				type: row.type as GitGraphRowType,
 				id: row.sha,
 			});
-			this._telemetry.sendEvent({ name: 'graph/row/hover' });
+			this._telemetry.sendEvent({ name: 'graph/row/hovered', data: {} });
 			return request;
 		} catch (ex) {
 			return { id: row.sha, markdown: { status: 'rejected' as const, reason: ex } };
