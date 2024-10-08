@@ -2,8 +2,6 @@
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"incremental": false,
-		"module": "CommonJS",
-		"moduleResolution": "Node",
 		"outDir": "out/tests",
 		"paths": {
 			"@env/*": ["src/env/node/*"]
