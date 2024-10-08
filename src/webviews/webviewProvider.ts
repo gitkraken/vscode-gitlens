@@ -1,4 +1,5 @@
 import type { Disposable, Uri, ViewBadge } from 'vscode';
+import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { WebviewContext } from '../system/webview';
 import type {
 	IpcCallMessageType,
@@ -22,13 +23,15 @@ export interface WebviewProvider<State, SerializedState = State, ShowingArgs ext
 	 */
 	canReuseInstance?(...args: WebviewShowingArgs<ShowingArgs, SerializedState>): boolean | undefined;
 	getSplitArgs?(): WebviewShowingArgs<ShowingArgs, SerializedState>;
+	getTelemetryContext?(): Record<`context.${string}`, string | number | boolean | undefined> &
+		WebviewTelemetryContext;
 	onShowing?(
 		loading: boolean,
 		options: WebviewShowOptions,
 		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 	):
-		| [boolean, Record<`context.${string}`, string | number | boolean> | undefined]
-		| Promise<[boolean, Record<`context.${string}`, string | number | boolean> | undefined]>;
+		| [boolean, Record<`context.${string}`, string | number | boolean | undefined> | undefined]
+		| Promise<[boolean, Record<`context.${string}`, string | number | boolean | undefined> | undefined]>;
 	registerCommands?(): Disposable[];
 
 	includeBootstrap?(): SerializedState | Promise<SerializedState>;
@@ -73,6 +76,7 @@ export interface WebviewHost<
 	clearPendingIpcNotifications(): void;
 	sendPendingIpcNotifications(): void;
 
+	getTelemetryContext(): WebviewTelemetryContext;
 	isHost(type: 'editor'): this is WebviewHost<WebviewPanelDescriptor>;
 	isHost(type: 'view'): this is WebviewHost<WebviewViewDescriptor>;
 
