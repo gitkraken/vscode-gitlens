@@ -1153,8 +1153,8 @@ export async function groupRepositories(repositories: Repository[]): Promise<Map
 	// Group worktree repos under the common repo when the common repo is also in the list
 	const result = new Map<string, { repo: Repository; worktrees: Map<string, Repository> }>();
 	for (const [, repo] of repos) {
-		const commonUri = await repo.getCommonRepositoryUri();
-		if (commonUri == null) {
+		let commonRepo = await repo.getCommonRepository();
+		if (commonRepo == null) {
 			if (result.has(repo.id)) {
 				debugger;
 			}
@@ -1162,8 +1162,7 @@ export async function groupRepositories(repositories: Repository[]): Promise<Map
 			continue;
 		}
 
-		const commonId = asRepoComparisonKey(commonUri);
-		const commonRepo = repos.get(commonId);
+		commonRepo = repos.get(commonRepo.id);
 		if (commonRepo == null) {
 			if (result.has(repo.id)) {
 				debugger;
