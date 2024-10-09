@@ -17785,8 +17785,104 @@
 			{
 				"id": "welcome",
 				"title": "Get Started with GitLens",
-				"description": "Discover and personalize features that supercharge your Git experience",
+				"description": "Get Started with GitLens Pro",
 				"steps": [
+					{
+						"id": "welcome-in-trial",
+						"title": "Welcome to GitLens",
+						"description": "Hope you're enjoying trial etc...",
+						"media": {
+							"markdown": "walkthroughs/welcome/welcome-in-trial.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:gettingStarted == true"
+						],
+						"when": "false && (gitlens:plus:state == 1 || gitlens:plus:state == 3)"
+					},
+					{
+						"id": "welcome-paid",
+						"title": "Welcome to GitLens | How to be successful",
+						"description": "Here's how to maximize your ux...",
+						"media": {
+							"markdown": "walkthroughs/welcome/welcome-paid.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:gettingStarted == true"
+						],
+						"when": "false && gitlens:plus:state == 6"
+					},
+					{
+						"id": "welcome-in-trial-expired",
+						"title": "Welcome to GitLens | Community vs. Pro",
+						"description": "Welcome back",
+						"media": {
+							"markdown": "walkthroughs/welcome/welcome-in-trial-expired"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:gettingStarted == true"
+						],
+						"when": "false && (gitlens:plus:state == 4 || gitlens:plus:state == 5 || gitlens:plus:state == 2)"
+					},
+					{
+						"id": "get-started-community",
+						"title": "Welcome to GitLens | Community vs. Pro",
+						"description": "Get Started with GitLens Pro",
+						"media": {
+							"markdown": "walkthroughs/welcome/get-started-community.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:gettingStarted == true"
+						],
+						"when": "false && gitlens:plus:state <= 0"
+					},
+					{
+						"id": "visualize-code-history",
+						"title": "Visualize Code History",
+						"description": "",
+						"media": {
+							"markdown": "walkthroughs/welcome/visualize-code-history.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:visualizeCodeHistory == true"
+						],
+						"when": "false"
+					},
+					{
+						"id": "accelerate-pr-reviews",
+						"title": "Accelerate PR Reviews",
+						"description": "",
+						"media": {
+							"markdown": "walkthroughs/welcome/accelerate-pr-reviews.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:prReviews == true"
+						],
+						"when": "false"
+					},
+					{
+						"id": "streamline-collaboration",
+						"title": "Streamline Collaboration",
+						"description": "",
+						"media": {
+							"markdown": "walkthroughs/welcome/streamline-collaboration.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:streamlineCollaboration == true"
+						],
+						"when": "false"
+					},
+					{
+						"id": "improve-workflows-with-integrations",
+						"title": "Improve Workflows With Integrations",
+						"description": "",
+						"media": {
+							"markdown": "walkthroughs/welcome/improve-workflows-with-integrations.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:integrations == true"
+						],
+						"when": "false"
+					},
 					{
 						"id": "get-started",
 						"title": "Welcome & Overview",

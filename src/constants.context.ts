@@ -2,6 +2,7 @@ import type { Uri } from 'vscode';
 import type { AnnotationStatus, Keys } from './constants';
 import type { PromoKeys, SubscriptionPlanId, SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 
 export type ContextKeys = {
 	'gitlens:debugging': boolean;
@@ -48,4 +49,5 @@ export type ContextKeys = {
 } & Record<`gitlens:action:${string}`, number> &
 	Record<`gitlens:key:${Keys}`, boolean> &
 	Record<`gitlens:webview:${WebviewTypes | CustomEditorTypes}:visible`, boolean> &
-	Record<`gitlens:webviewView:${WebviewViewTypes}:visible`, boolean>;
+	Record<`gitlens:webviewView:${WebviewViewTypes}:visible`, boolean> &
+	Record<`gitlens:walkthroughState:${WalkthroughContextKeys}`, boolean>;
