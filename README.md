@@ -50,7 +50,7 @@ Try GitLens Pro for free. When you're ready, purchase GitLens Pro through a GitK
 | [License](#license 'Jump to License')
 
 
-# Discover Powerful Workflows
+# Discover Powerful Workflows (---everything in this section and below is still a WIP---)
 
 The rich features of GitLens help you and your team tackle three key workflows:
 
