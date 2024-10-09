@@ -665,10 +665,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		return value;
 	}
 
-	private *createCommandConfirmStep(
+	private async *createCommandConfirmStep(
 		state: CreateStepState,
 		context: Context,
-	): StepResultGenerator<[CreateConfirmationChoice, CreateFlags[]]> {
+	): AsyncStepResultGenerator<[CreateConfirmationChoice, CreateFlags[]]> {
 		/**
 		 * Here are the rules for creating the recommended path for the new worktree:
 		 *
@@ -682,18 +682,18 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			createDirectlyInFolder = true;
 		}
 
-		const pickedUri = context.pickedSpecificFolder ?? context.pickedRootFolder ?? state.uri;
-		const pickedFriendlyPath = truncateLeft(getWorkspaceFriendlyPath(pickedUri), 60);
+		let pickedUri = context.pickedSpecificFolder ?? context.pickedRootFolder ?? state.uri;
 
 		let recommendedRootUri;
 
-		const repoUri = state.repo.uri;
+		const repoUri = (await state.repo.getCommonRepositoryUri()) ?? state.repo.uri;
 		const trailer = `${basename(repoUri.path)}.worktrees`;
 
 		if (repoUri.toString() !== pickedUri.toString()) {
 			if (isDescendant(pickedUri, repoUri)) {
 				recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
 			} else if (basename(pickedUri.path) === trailer) {
+				pickedUri = Uri.joinPath(pickedUri, '..');
 				recommendedRootUri = pickedUri;
 			} else {
 				recommendedRootUri = Uri.joinPath(pickedUri, trailer);
@@ -704,6 +704,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			createDirectlyInFolder = false;
 		}
 
+		const pickedFriendlyPath = truncateLeft(getWorkspaceFriendlyPath(pickedUri), 60);
 		const branchName = state.reference != null ? getNameWithoutRemote(state.reference) : undefined;
 
 		const recommendedFriendlyPath = `<root>/${truncateLeft(
