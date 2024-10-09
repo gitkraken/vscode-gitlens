@@ -2968,7 +2968,8 @@ export class GitProviderService implements Disposable {
 		if (defaultUri != null) return defaultUri;
 
 		// If we don't have a default set, default it to the parent folder of the repo folder
-		defaultUri = this.getRepository(rp)?.uri;
+		const repo = this.getRepository(rp);
+		defaultUri = (await repo?.getCommonRepositoryUri()) ?? repo?.uri;
 		if (defaultUri != null) {
 			defaultUri = Uri.joinPath(defaultUri, '..');
 		}
