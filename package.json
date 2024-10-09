@@ -4303,6 +4303,7 @@
 								"clipboard": true,
 								"compare": true,
 								"history": true,
+								"patch": true,
 								"remote": true,
 								"share": true,
 								"stash": true
