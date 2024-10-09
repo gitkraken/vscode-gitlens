@@ -953,11 +953,16 @@ export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]) {
 
 		if (item.isDraft) {
 			grouped.get('draft')!.push(item);
-		} else {
-			const group = launchpadCategoryToGroupMap.get(item.actionableCategory)!;
+		}
+
+		const group = launchpadCategoryToGroupMap.get(item.actionableCategory)!;
+		if (!item.isDraft || group === 'needs-review') {
 			grouped.get(group)!.push(item);
 		}
 	}
+
+	// Re-sort needs review category so draft items are at the bottom
+	grouped.get('needs-review')!.sort((a, b) => (a.isDraft ? 1 : -1) - (b.isDraft ? 1 : -1));
 
 	// Re-sort pinned and draft groups by updated date
 	grouped.get('pinned')!.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
