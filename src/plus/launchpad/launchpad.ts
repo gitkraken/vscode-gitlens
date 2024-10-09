@@ -465,6 +465,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 										: ''
 								} \u00a0 ${i.isNew ? '(New since last view)' : ''}`,
 								detail: `      ${i.viewer.pinned ? '$(pinned) ' : ''}${
+									i.isDraft && ui !== 'draft' ? '$(git-pull-request-draft) ' : ''
+								}${
 									i.actionableCategory === 'other'
 										? ''
 										: `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
