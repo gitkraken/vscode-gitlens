@@ -348,3 +348,40 @@ export const navListStyles = css`
 		top: -8px;
 	}
 `;
+
+export const walkthroughProgressStyles = css`
+	progress.walkthrough-progress::-webkit-progress-bar {
+		background-color: unset;
+	}
+	progress.walkthrough-progress.finished::-webkit-progress-value {
+		background: unset;
+	}
+	progress.walkthrough-progress::-webkit-progress-value {
+		background: var(--vscode-progressBar-background, blue);
+		transition: 0.1s ease-in;
+	}
+	progress.walkthrough-progress {
+		position: absolute;
+		top: 0;
+		pointer-events: none;
+		border-radius: 0;
+		width: 100%;
+		left: 0;
+		background: unset;
+		height: 3px;
+		flex: 1;
+		z-index: 2;
+	}
+	span.badge {
+		display: inline-block;
+		width: 6px;
+		aspect-ratio: 1 / 1;
+		border-radius: 50%;
+		background-color: var(--vscode-progressBar-background, blue);
+		transform: translateY(-1px);
+		margin-left: 2px;
+	}
+	gl-button {
+		position: relative;
+	}
+`;
