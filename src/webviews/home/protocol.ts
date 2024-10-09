@@ -15,6 +15,7 @@ export interface State extends WebviewState {
 	hasAnyIntegrationConnected: boolean;
 	avatar?: string;
 	organizationsCount?: number;
+	walkthroughProgress: number;
 }
 
 // COMMANDS
@@ -34,6 +35,14 @@ export interface DidChangeRepositoriesParams {
 	trusted: boolean;
 }
 export const DidChangeRepositories = new IpcNotification<DidChangeRepositoriesParams>(scope, 'repositories/didChange');
+
+export interface DidChangeProgressParams {
+	progress: number;
+}
+export const DidChangeWalkthroughProgress = new IpcNotification<DidChangeProgressParams>(
+	scope,
+	'walkthroughProgress/didChange',
+);
 
 export interface DidChangeIntegrationsParams {
 	hasAnyIntegrationConnected: boolean;

@@ -30,6 +30,10 @@ export class UsageTracker implements Disposable {
 		return this.storage.get('usages')?.[key];
 	}
 
+	isUsed(key: TrackedUsageKeys): boolean {
+		return Boolean(this.get(key)?.firstUsedAt);
+	}
+
 	async reset(key?: TrackedUsageKeys): Promise<void> {
 		let usages = this.storage.get('usages');
 		if (usages == null) return;
