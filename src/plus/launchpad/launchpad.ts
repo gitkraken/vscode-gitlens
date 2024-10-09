@@ -723,7 +723,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
-								label: 'Switch to Branch or Worktree',
+								label: 'Switch to Branch',
 								detail: 'Will checkout the branch, create or open a worktree',
 							},
 							action,
