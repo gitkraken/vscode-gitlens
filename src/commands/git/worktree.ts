@@ -689,7 +689,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		const repoUri = (await state.repo.getCommonRepositoryUri()) ?? state.repo.uri;
 		const trailer = `${basename(repoUri.path)}.worktrees`;
 
-		if (repoUri.toString() !== pickedUri.toString()) {
+		if (context.pickedRootFolder != null) {
+			recommendedRootUri = context.pickedRootFolder;
+		} else if (repoUri.toString() !== pickedUri.toString()) {
 			if (isDescendant(pickedUri, repoUri)) {
 				recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
 			} else if (basename(pickedUri.path) === trailer) {
@@ -707,11 +709,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		const pickedFriendlyPath = truncateLeft(getWorkspaceFriendlyPath(pickedUri), 60);
 		const branchName = state.reference != null ? getNameWithoutRemote(state.reference) : undefined;
 
-		const recommendedFriendlyPath = `<root>/${truncateLeft(
-			`${trailer}/${branchName?.replace(/\\/g, '/') ?? ''}`,
-			65,
-		)}`;
-		const recommendedNewBranchFriendlyPath = `<root>/${trailer}/${state.createBranch || '<new-branch-name>'}`;
+		const recommendedFriendlyPath = `<root>/${truncateLeft(branchName?.replace(/\\/g, '/') ?? '', 65)}`;
+		const recommendedNewBranchFriendlyPath = `<root>/${state.createBranch || '<new-branch-name>'}`;
 
 		const isBranch = isBranchReference(state.reference);
 		const isRemoteBranch = isBranchReference(state.reference) && state.reference?.remote;
@@ -788,7 +787,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					[],
 					{
 						label: 'Change Root Folder...',
-						description: `$(folder) ${truncateLeft(pickedFriendlyPath, 65)}`,
+						description: `$(folder) ${truncateLeft(
+							context.pickedRootFolder ? pickedFriendlyPath : `${pickedFriendlyPath}/${trailer}`,
+							65,
+						)}`,
 						picked: false,
 					},
 					'changeRoot',
