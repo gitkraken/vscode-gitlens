@@ -32,7 +32,7 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 - Execute powerful graph actions directly from the Commit Graph that allow you to rebase, merge, and manage commits seamlessly. Advanced search and filtering capabilities allow you to find commits, branches, and files easily. 
 - Streamline collaboration by integrating with GitHub, GitLab, Bitbucket and more to minimize context switching. View PRs right in VS Code with Launchpad.
 
-Try GitLens Pro for free. When you're ready, purchase GitLens Pro through a GitKraken [paid plan](https://www.gitkraken.com/gitlens/pricing), which is required for privately-hosted repos. All features are free to use on all repos, **except** for features:
+Try GitLens Pro for free. When you're ready, you can purchase GitLens Pro through a GitKraken [paid plan](https://www.gitkraken.com/gitlens/pricing), which is required for privately-hosted repos. All features are free to use on all repos, **except** for features:
 
 - marked with a `Pro` require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos.
 - marked with a `Preview` require a GitKraken account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc.
