@@ -1052,6 +1052,8 @@ void
 
 ### subscription/action
 
+> Sent when the user takes an action on the subscription
+
 ```typescript
 {
   'action': 'sign-up' | 'sign-in' | 'sign-out' | 'manage' | 'reactivate' | 'resend-verification' | 'pricing' | 'start-preview-trial' | 'upgrade'
