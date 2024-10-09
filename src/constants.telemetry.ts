@@ -321,6 +321,8 @@ export type TelemetryEvents = {
 
 	/** Sent when the subscription is loaded */
 	subscription: SubscriptionEventData;
+
+	/** Sent when the user takes an action on the subscription */
 	'subscription/action':
 		| {
 				action:
