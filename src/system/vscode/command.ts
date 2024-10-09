@@ -48,7 +48,7 @@ export function registerCommand(command: string, callback: CommandCallback, this
 					'context.submode': context?.submode,
 				});
 			}
-
+			void Container.instance.usage.track(`command:${command as Commands}:executed`);
 			callback.call(this, ...args);
 		},
 		thisArg,

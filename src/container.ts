@@ -62,6 +62,7 @@ import { Keyboard } from './system/vscode/keyboard';
 import type { Storage } from './system/vscode/storage';
 import { TelemetryService } from './telemetry/telemetry';
 import { UsageTracker } from './telemetry/usageTracker';
+import { WalkthroughStateProvider } from './telemetry/walkthroughStateProvider';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
 import { GitDocumentTracker } from './trackers/documentTracker';
 import { LineTracker } from './trackers/lineTracker';
@@ -211,6 +212,7 @@ export class Container {
 			(this._storage = storage),
 			(this._telemetry = new TelemetryService(this)),
 			(this._usage = new UsageTracker(this, storage)),
+			(this._walkthrough = new WalkthroughStateProvider(this)),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 		];
 
@@ -777,6 +779,11 @@ export class Container {
 	private readonly _usage: UsageTracker;
 	get usage(): UsageTracker {
 		return this._usage;
+	}
+
+	private readonly _walkthrough: WalkthroughStateProvider;
+	get walkthrough(): WalkthroughStateProvider {
+		return this._walkthrough;
 	}
 
 	private readonly _version: string;
