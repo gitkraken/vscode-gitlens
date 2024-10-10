@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3651](https://github.com/gitkraken/vscode-gitlens/issues/3651) - "Open on Remote (Web)" does not use tracked branch name
 - Fixes [#3657](https://github.com/gitkraken/vscode-gitlens/issues/3657) - Creating a worktree from within a worktree chooses the wrong path
 - Fixes [#3090](https://github.com/gitkraken/vscode-gitlens/issues/3090) - Manually created empty bare clone repositories in a trusted directory crash worktree view since LocalGitProvider.findRepositoryUri returns just ".git" &mdash; thanks to [PR #3092](https://github.com/gitkraken/vscode-gitlens/pull/3092) by Dawn Hwang ([@hwangh95](https://github.com/hwangh95))
+- Fixes [#3667](https://github.com/gitkraken/vscode-gitlens/issues/3667) - Makes Launchpad search by repo name
 
 ## [15.6.0] - 2024-10-07
 
