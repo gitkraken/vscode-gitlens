@@ -383,7 +383,8 @@ or
 > Sent when the user interacts with the graph
 
 ```typescript
-{}
+{
+}
 ```
 
 ### graph/exclude/toggled
@@ -406,13 +407,13 @@ or
 ### graph/minimap/daySelected
 
 ```typescript
-undefined
+undefined;
 ```
 
 ### graph/repository/changed
 
 ```typescript
-undefined
+undefined;
 ```
 
 ### graph/repository/openOnRemote
@@ -428,7 +429,7 @@ undefined
 ### graph/row/hovered
 
 ```typescript
-undefined
+undefined;
 ```
 
 ### graph/row/selected
@@ -487,25 +488,25 @@ undefined
 ### timeline/chart/selectCommit
 
 ```typescript
-undefined
+undefined;
 ```
 
 ### timeline/chart/toggleLegend
 
 ```typescript
-undefined
+undefined;
 ```
 
 ### timeline/openInEditor
 
 ```typescript
-undefined
+undefined;
 ```
 
 ### timeline/editorChanged
 
 ```typescript
-undefined
+undefined;
 ```
 
 ### launchpad/title/action
@@ -960,7 +961,7 @@ void
 {
   'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'jira' | 'trello' | 'github-enterprise' | 'gitlab-self-hosted',
   'hostingProvider.key': string,
-  // @deprecated: 
+  // @deprecated:
   'remoteProviders.key': string
 }
 ```
@@ -973,7 +974,7 @@ void
 {
   'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'jira' | 'trello' | 'github-enterprise' | 'gitlab-self-hosted',
   'hostingProvider.key': string,
-  // @deprecated: 
+  // @deprecated:
   'remoteProviders.key': string
 }
 ```
@@ -1280,4 +1281,3 @@ or
   'loading': false | true
 }
 ```
-
