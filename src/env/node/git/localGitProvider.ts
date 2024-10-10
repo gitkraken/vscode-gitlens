@@ -179,6 +179,7 @@ import type {
 	GraphItemRefGroupContext,
 	GraphTagContextValue,
 } from '../../../plus/webviews/graph/protocol';
+import { asRepoComparisonKey } from '../../../repositories';
 import { countStringLength, filterMap } from '../../../system/array';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
@@ -721,6 +722,26 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let rootPath;
 		let canonicalRootPath;
 
+		function isUntrackedRepo(container: Container, uri: Uri, root: boolean): boolean {
+			const comparisonId = asRepoComparisonKey(uri);
+			if (repositories.some(r => r.id === comparisonId)) {
+				Logger.log(scope, `found ${root ? 'root ' : ''}repository in '${uri.fsPath}'; skipping - duplicate`);
+				return false;
+			}
+
+			const repo = container.git.getRepository(uri);
+			if (repo != null) {
+				if (repo.closed && silent === false) {
+					repo.closed = false;
+				}
+				Logger.log(scope, `found ${root ? 'root ' : ''}repository in '${uri.fsPath}'; skipping - already open`);
+				return false;
+			}
+
+			Logger.log(scope, `found ${root ? 'root ' : ''}repository in '${uri.fsPath}'`);
+			return true;
+		}
+
 		const uri = await this.findRepositoryUri(rootUri, true);
 		if (uri != null) {
 			rootPath = normalizePath(uri.fsPath);
@@ -730,8 +751,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				canonicalRootPath = normalizePath(canonicalUri.fsPath);
 			}
 
-			Logger.log(scope, `found root repository in '${uri.fsPath}'`);
-			repositories.push(...this.openRepository(folder, uri, true, undefined, silent));
+			if (isUntrackedRepo(this.container, uri, true)) {
+				repositories.push(...this.openRepository(folder, uri, true, undefined, silent));
+			}
 		}
 
 		if (depth <= 0 || cancellation?.isCancellationRequested) return repositories;
@@ -788,8 +810,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const rp = await this.findRepositoryUri(Uri.file(p), true);
 			if (rp == null) continue;
 
-			Logger.log(scope, `found repository in '${rp.fsPath}'`);
-			repositories.push(...this.openRepository(folder, rp, false, undefined, silent));
+			if (isUntrackedRepo(this.container, rp, false)) {
+				repositories.push(...this.openRepository(folder, rp, false, undefined, silent));
+			}
 		}
 
 		return repositories;
