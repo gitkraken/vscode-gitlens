@@ -1,10 +1,11 @@
-import type { GraphBranchesVisibility, GraphConfig } from './config';
+import type { Config, GraphBranchesVisibility, GraphConfig } from './config';
 import type { AIModels, AIProviders } from './constants.ai';
 import type { Commands } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
 import type { GitContributionTiers } from './git/models/contributor';
+import type { Period } from './plus/webviews/timeline/protocol';
 import type { Flatten } from './system/object';
 
 export type TelemetryGlobalContext = {
@@ -161,31 +162,67 @@ export type TelemetryEvents = {
 	/** Sent when a VS Code command is executed by a GitLens provided action */
 	'command/core': { command: string };
 
-	/** Sent when a "Graph" command is executed */
+	/** Sent when the Inspect view is shown */
+	'commitDetails/shown': WebviewShownEventData & InspectShownEventData;
+	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
+	'commitDetails/mode/changed': {
+		'mode.old': 'wip' | 'commit';
+		'mode.new': 'wip' | 'commit';
+	} & InspectContextEventData;
+
+	/** Sent when the Commit Graph is shown */
+	'graph/shown': WebviewShownEventData & GraphShownEventData;
+	/** Sent when a Commit Graph command is executed */
 	'graph/command': Omit<CommandEventData, 'context'>;
 
-	'graph/shown': WebviewShownEventData & GraphShownEventData;
+	/** Sent when the user clicks on the Jump to HEAD/Reference (alt) header button on the Commit Graph */
+	'graph/action/jumpTo': { target: 'HEAD' | 'choose' } & GraphContextEventData;
+	/** Sent when the user clicks on the "Jump to HEAD"/"Jump to Reference" (alt) header button on the Commit Graph */
+	'graph/action/openRepoOnRemote': GraphContextEventData;
+	/** Sent when the user clicks on the "Open Repository on Remote" header button on the Commit Graph */
+	'graph/action/sidebar': { action: string } & GraphContextEventData;
 
-	/** Sent when the user interacts with the graph */
-	'graph/columns/changed': Record<`column.${string}`, boolean | string | number>;
-	'graph/exclude/toggled': { key: string; value: boolean };
-	'graph/jumpToRef': { alt: boolean };
-	'graph/minimap/daySelected': undefined;
-	'graph/repository/changed': undefined;
-	'graph/repository/openOnRemote': WebviewEventData;
-	'graph/row/hovered': undefined;
-	'graph/row/selected': { rows: number };
-	'graph/rows/loaded': { duration: number; rows: number };
-	'graph/sidebar/action': { action: string };
-	'graph/searched': { types: string; duration: number; matches: number };
-	'graph/branchesVisibility/changed': { branchesVisibility: GraphBranchesVisibility };
+	/** Sent when the user changes the "branches visibility" on the Commit Graph */
+	'graph/branchesVisibility/changed': {
+		'branchesVisibility.old': GraphBranchesVisibility;
+		'branchesVisibility.new': GraphBranchesVisibility;
+	} & GraphContextEventData;
+	/** Sent when the user changes the columns on the Commit Graph */
+	'graph/columns/changed': Record<`column.${string}`, boolean | string | number> & GraphContextEventData;
+	/** Sent when the user changes the filters on the Commit Graph */
+	'graph/filters/changed': { key: string; value: boolean } & GraphContextEventData;
+	/** Sent when the user selects (clicks on) a day on the minimap on the Commit Graph */
+	'graph/minimap/day/selected': GraphContextEventData;
+	/** Sent when the user changes the current repository on the Commit Graph */
+	'graph/repository/changed': RepositoryEventData & GraphContextEventData;
 
-	/** Sent when the user interacts with the visual file history */
-	'timeline/period/change': { period: string };
-	'timeline/chart/selectCommit': undefined;
-	'timeline/chart/toggleLegend': undefined;
-	'timeline/openInEditor': undefined;
-	'timeline/editorChanged': undefined;
+	/** Sent when the user hovers over a row on the Commit Graph */
+	'graph/row/hovered': GraphContextEventData;
+	/** Sent when the user selects (clicks on) a row or rows on the Commit Graph */
+	'graph/row/selected': { rows: number } & GraphContextEventData;
+	/** Sent when rows are loaded into the Commit Graph */
+	'graph/rows/loaded': { duration: number; rows: number } & GraphContextEventData;
+	/** Sent when a search was performed on the Commit Graph */
+	'graph/searched': { types: string; duration: number; matches: number } & GraphContextEventData;
+
+	/** Sent when the Graph Details view is shown */
+	'graphDetails/shown': WebviewShownEventData & InspectShownEventData;
+	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
+	'graphDetails/mode/changed': {
+		'mode.old': 'wip' | 'commit';
+		'mode.new': 'wip' | 'commit';
+	} & InspectContextEventData;
+
+	/** Sent when the Commit Graph is shown */
+	'timeline/shown': WebviewShownEventData & TimelineShownEventData;
+	/** Sent when the user changes the period (timeframe) on the visual file history */
+	'timeline/action/openInEditor': TimelineContextEventData;
+	/** Sent when the editor changes on the visual file history */
+	'timeline/editor/changed': TimelineContextEventData;
+	/** Sent when the user changes the period (timeframe) on the visual file history */
+	'timeline/period/changed': { 'period.old': Period | undefined; 'period.new': Period } & TimelineContextEventData;
+	/** Sent when the user selects (clicks on) a commit on the visual file history */
+	'timeline/commit/selected': TimelineContextEventData;
 
 	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/title/action': LaunchpadEventData & {
@@ -367,7 +404,7 @@ export type TelemetryEvents = {
 	};
 } & Record<`${WebviewTypes | WebviewViewTypes}/showAborted`, WebviewShownEventData> &
 	Record<
-		`${Exclude<WebviewTypes | WebviewViewTypes, 'graph'>}/shown`,
+		`${Exclude<WebviewTypes | WebviewViewTypes, 'commitDetails' | 'graph' | 'graphDetails' | 'timeline'>}/shown`,
 		WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>
 	>;
 
@@ -444,21 +481,53 @@ type LaunchpadGroups =
 	| 'other'
 	| 'snoozed';
 
-type FlattenedGraphConfig = {
-	[K in keyof Flatten<GraphConfig, 'context.config', true>]: Flatten<GraphConfig, 'context.config', true>[K];
+type FlattenedContextConfig<T extends object> = {
+	[K in keyof Flatten<T, 'context.config', true>]: Flatten<T, 'context.config', true>[K];
 };
 type GraphContextEventData = {} & WebviewTelemetryContext &
 	Partial<{
 		[K in keyof RepositoryEventData as `context.${K}`]: RepositoryEventData[K];
 	}>;
-
 type GraphShownEventData = GraphContextEventData &
-	FlattenedGraphConfig &
+	FlattenedContextConfig<GraphConfig> &
 	Partial<Record<`context.column.${string}.visible`, boolean>> &
 	Partial<Record<`context.column.${string}.mode`, string>>;
 
 export type GraphTelemetryContext = GraphContextEventData;
 export type GraphShownTelemetryContext = GraphShownEventData;
+
+type InspectContextEventData = (
+	| ({
+			'context.mode': 'wip';
+			'context.attachedTo': 'graph' | 'default';
+			'context.autolinks': number;
+			'context.inReview': boolean;
+			'context.codeSuggestions': number;
+	  } & Partial<{
+			[K in keyof RepositoryEventData as `context.${K}`]: RepositoryEventData[K];
+	  }>)
+	| {
+			'context.mode': 'commit';
+			'context.attachedTo': 'graph' | 'default';
+			'context.autolinks': number;
+			'context.pinned': boolean;
+			'context.type': 'commit' | 'stash' | undefined;
+			'context.uncommitted': boolean;
+	  }
+) &
+	WebviewTelemetryContext;
+type InspectShownEventData = InspectContextEventData & FlattenedContextConfig<Config['views']['commitDetails']>;
+
+export type InspectTelemetryContext = InspectContextEventData;
+export type InspectShownTelemetryContext = InspectShownEventData;
+
+type TimelineContextEventData = {
+	'context.period': string | undefined;
+} & WebviewTelemetryContext;
+type TimelineShownEventData = TimelineContextEventData & FlattenedContextConfig<Config['visualHistory']>;
+
+export type TimelineTelemetryContext = TimelineContextEventData;
+export type TimelineShownTelemetryContext = TimelineShownEventData;
 
 type RepositoryEventData = {
 	'repository.id': string;
@@ -490,16 +559,31 @@ type SubscriptionEventData = {
 >;
 
 type WebviewEventData = {
-	id: string;
-	instanceId: string | undefined;
-	host: 'editor' | 'view';
+	'context.webview.id': string;
+	'context.webview.type': string;
+	'context.webview.instanceId': string | undefined;
+	'context.webview.host': 'editor' | 'view';
 };
 export type WebviewTelemetryContext = WebviewEventData;
 
-type WebviewShownEventData = WebviewEventData & {
+/** Remaps TelemetryEvents to remove the host webview context when the event is sent from a webview app itself (not the host) */
+export type TelemetryEventsFromWebviewApp = {
+	[K in keyof TelemetryEvents]: Omit<
+		TelemetryEvents[K],
+		keyof (K extends `commitDetails/${string}` | `graphDetails/${string}`
+			? InspectTelemetryContext
+			: K extends `graph/${string}`
+			  ? GraphTelemetryContext
+			  : K extends `timeline/${string}`
+			    ? TimelineTelemetryContext
+			    : WebviewTelemetryContext)
+	>;
+};
+
+type WebviewShownEventData = {
 	duration: number;
 	loading: boolean;
-};
+} & WebviewEventData;
 
 export type LoginContext = 'start_trial';
 export type ConnectIntegrationContext = 'launchpad';

@@ -581,7 +581,7 @@ export class GraphApp extends App<State> {
 		try {
 			// Assuming we have a command to get the ref details
 			const rsp = await this.sendRequest(ChooseRefRequest, { alt: alt });
-			this._telemetry.sendEvent({ name: 'graph/jumpToRef', data: { alt: alt } });
+			this._telemetry.sendEvent({ name: 'graph/action/jumpTo', data: { alt: alt } });
 			return rsp;
 		} catch {
 			return undefined;

@@ -5,7 +5,7 @@ import { getAvatarUri } from '../../../avatars';
 import { GlyphChars, previewBadge } from '../../../constants';
 import { Commands } from '../../../constants.commands';
 import type { ContextKeys } from '../../../constants.context';
-import type { Sources } from '../../../constants.telemetry';
+import type { Sources, WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
@@ -181,6 +181,12 @@ export class PatchDetailsWebviewProvider
 		}
 
 		return false;
+	}
+
+	getTelemetryContext(): WebviewTelemetryContext {
+		return {
+			...this.host.getTelemetryContext(),
+		};
 	}
 
 	async onShowing(

@@ -23,8 +23,7 @@ export interface WebviewProvider<State, SerializedState = State, ShowingArgs ext
 	 */
 	canReuseInstance?(...args: WebviewShowingArgs<ShowingArgs, SerializedState>): boolean | undefined;
 	getSplitArgs?(): WebviewShowingArgs<ShowingArgs, SerializedState>;
-	getTelemetryContext?(): Record<`context.${string}`, string | number | boolean | undefined> &
-		WebviewTelemetryContext;
+	getTelemetryContext(): Record<`context.${string}`, string | number | boolean | undefined> & WebviewTelemetryContext;
 	onShowing?(
 		loading: boolean,
 		options: WebviewShowOptions,

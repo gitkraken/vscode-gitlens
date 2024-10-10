@@ -1,6 +1,7 @@
 import { Disposable, workspace } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { ContextKeys } from '../../constants.context';
+import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
@@ -47,6 +48,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	dispose() {
 		this._disposable.dispose();
+	}
+
+	getTelemetryContext(): WebviewTelemetryContext {
+		return {
+			...this.host.getTelemetryContext(),
+		};
 	}
 
 	onShowing(

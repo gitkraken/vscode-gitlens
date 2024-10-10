@@ -1,10 +1,14 @@
+import type { TelemetryEvents } from '../../../constants.telemetry';
 import type { TelemetrySendEventParams } from '../../protocol';
 
 export const telemetryEventName = 'gl-telemetry-fired';
 
-export function emitTelemetrySentEvent<T extends TelemetrySendEventParams>(el: EventTarget, params: T) {
+export function emitTelemetrySentEvent<T extends keyof TelemetryEvents>(
+	el: EventTarget,
+	params: TelemetrySendEventParams<T>,
+) {
 	el.dispatchEvent(
-		new CustomEvent<T>(telemetryEventName, {
+		new CustomEvent<TelemetrySendEventParams<T>>(telemetryEventName, {
 			bubbles: true,
 			detail: params,
 		}),

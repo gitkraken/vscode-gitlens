@@ -322,35 +322,131 @@ or
 }
 ```
 
-### graph/command
+### commitDetails/shown
 
-> Sent when a "Graph" command is executed
-
-```typescript
-{
-  'command': string,
-  'context.mode': string,
-  'context.submode': string,
-  'webview': string
-}
-```
-
-### graph/shown
+> Sent when the Inspect view is shown
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
   'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.mode': 'wip',
+  'context.attachedTo': 'graph' | 'default',
+  'context.autolinks': number,
+  'context.inReview': false | true,
+  'context.codeSuggestions': number,
   'context.repository.id': string,
   'context.repository.scheme': string,
   'context.repository.closed': false | true,
   'context.repository.folder.scheme': string,
   'context.repository.provider.id': string,
-  'context.config.allowMultiple': false | true,
   'context.config.avatars': false | true,
+  'context.config.files.compact': false | true,
+  'context.config.files.icon': 'status' | 'type',
+  'context.config.files.layout': 'auto' | 'list' | 'tree',
+  'context.config.files.threshold': number,
+  'context.config.autolinks.enabled': false | true,
+  'context.config.autolinks.enhanced': false | true,
+  'context.config.pullRequests.enabled': false | true
+}
+```
+
+or
+
+```typescript
+{
+  'duration': number,
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.mode': 'commit',
+  'context.attachedTo': 'graph' | 'default',
+  'context.autolinks': number,
+  'context.pinned': false | true,
+  'context.type': 'stash' | 'commit',
+  'context.uncommitted': false | true,
+  'context.config.avatars': false | true,
+  'context.config.files.compact': false | true,
+  'context.config.files.icon': 'status' | 'type',
+  'context.config.files.layout': 'auto' | 'list' | 'tree',
+  'context.config.files.threshold': number,
+  'context.config.autolinks.enabled': false | true,
+  'context.config.autolinks.enhanced': false | true,
+  'context.config.pullRequests.enabled': false | true
+}
+```
+
+### commitDetails/mode/changed
+
+> Sent when the user changes the selected tab (mode) on the Graph Details view
+
+```typescript
+{
+  'mode.old': 'wip' | 'commit',
+  'mode.new': 'wip' | 'commit',
+  'context.mode': 'wip',
+  'context.attachedTo': 'graph' | 'default',
+  'context.autolinks': number,
+  'context.inReview': false | true,
+  'context.codeSuggestions': number,
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
+}
+```
+
+or
+
+```typescript
+{
+  'mode.old': 'wip' | 'commit',
+  'mode.new': 'wip' | 'commit',
+  'context.mode': 'commit',
+  'context.attachedTo': 'graph' | 'default',
+  'context.autolinks': number,
+  'context.pinned': false | true,
+  'context.type': 'stash' | 'commit',
+  'context.uncommitted': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
+}
+```
+
+### graph/shown
+
+> Sent when the Commit Graph is shown
+
+```typescript
+{
+  'duration': number,
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string,
+  'context.config.avatars': false | true,
+  'context.config.pullRequests.enabled': false | true,
+  'context.config.layout': 'editor' | 'panel',
+  'context.config.allowMultiple': false | true,
   'context.config.branchesVisibility': 'all' | 'smart' | 'current',
   'context.config.commitOrdering': 'date' | 'author-date' | 'topo',
   'context.config.dateFormat': string,
@@ -358,13 +454,11 @@ or
   'context.config.defaultItemLimit': number,
   'context.config.dimMergeCommits': false | true,
   'context.config.highlightRowsOnRefHover': false | true,
-  'context.config.layout': 'editor' | 'panel',
   'context.config.minimap.enabled': false | true,
   'context.config.minimap.dataType': 'commits' | 'lines',
   'context.config.minimap.additionalTypes': string,
   'context.config.onlyFollowFirstParent': false | true,
   'context.config.pageItemLimit': number,
-  'context.config.pullRequests.enabled': false | true,
   'context.config.scrollMarkers.enabled': false | true,
   'context.config.scrollMarkers.additionalTypes': string,
   'context.config.scrollRowPadding': number,
@@ -378,135 +472,430 @@ or
 }
 ```
 
-### graph/columns/changed
+### graph/command
 
-> Sent when the user interacts with the graph
+> Sent when a Commit Graph command is executed
 
 ```typescript
 {
+  'command': string,
+  'context.mode': string,
+  'context.submode': string,
+  'webview': string
 }
 ```
 
-### graph/exclude/toggled
+### graph/action/jumpTo
+
+> Sent when the user clicks on the Jump to HEAD/Reference (alt) header button on the Commit Graph
 
 ```typescript
 {
-  'key': string,
-  'value': false | true
+  'target': 'HEAD' | 'choose',
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
 }
 ```
 
-### graph/jumpToRef
+### graph/action/openRepoOnRemote
+
+> Sent when the user clicks on the "Jump to HEAD"/"Jump to Reference" (alt) header button on the Commit Graph
 
 ```typescript
 {
-  'alt': false | true
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
 }
 ```
 
-### graph/minimap/daySelected
+### graph/action/sidebar
 
-```typescript
-undefined;
-```
-
-### graph/repository/changed
-
-```typescript
-undefined;
-```
-
-### graph/repository/openOnRemote
+> Sent when the user clicks on the "Open Repository on Remote" header button on the Commit Graph
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view'
-}
-```
-
-### graph/row/hovered
-
-```typescript
-undefined;
-```
-
-### graph/row/selected
-
-```typescript
-{
-  'rows': number
-}
-```
-
-### graph/rows/loaded
-
-```typescript
-{
-  'duration': number,
-  'rows': number
-}
-```
-
-### graph/sidebar/action
-
-```typescript
-{
-  'action': string
-}
-```
-
-### graph/searched
-
-```typescript
-{
-  'types': string,
-  'duration': number,
-  'matches': number
+  'action': string,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
 }
 ```
 
 ### graph/branchesVisibility/changed
 
-```typescript
-{
-  'branchesVisibility': 'all' | 'smart' | 'current'
-}
-```
-
-### timeline/period/change
-
-> Sent when the user interacts with the visual file history
+> Sent when the user changes the "branches visibility" on the Commit Graph
 
 ```typescript
 {
-  'period': string
+  'branchesVisibility.old': 'all' | 'smart' | 'current',
+  'branchesVisibility.new': 'all' | 'smart' | 'current',
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
 }
 ```
 
-### timeline/chart/selectCommit
+### graph/columns/changed
+
+> Sent when the user changes the columns on the Commit Graph
 
 ```typescript
-undefined;
+{
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
+}
 ```
 
-### timeline/chart/toggleLegend
+### graph/filters/changed
+
+> Sent when the user changes the filters on the Commit Graph
 
 ```typescript
-undefined;
+{
+  'key': string,
+  'value': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
+}
 ```
 
-### timeline/openInEditor
+### graph/minimap/day/selected
+
+> Sent when the user selects (clicks on) a day on the minimap on the Commit Graph
 
 ```typescript
-undefined;
+{
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
+}
 ```
 
-### timeline/editorChanged
+### graph/repository/changed
+
+> Sent when the user changes the current repository on the Commit Graph
 
 ```typescript
-undefined;
+{
+  'repository.id': string,
+  'repository.scheme': string,
+  'repository.closed': false | true,
+  'repository.folder.scheme': string,
+  'repository.provider.id': string,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
+}
+```
+
+### graph/row/hovered
+
+> Sent when the user hovers over a row on the Commit Graph
+
+```typescript
+{
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
+}
+```
+
+### graph/row/selected
+
+> Sent when the user selects (clicks on) a row or rows on the Commit Graph
+
+```typescript
+{
+  'rows': number,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
+}
+```
+
+### graph/rows/loaded
+
+> Sent when rows are loaded into the Commit Graph
+
+```typescript
+{
+  'duration': number,
+  'rows': number,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
+}
+```
+
+### graph/searched
+
+> Sent when a search was performed on the Commit Graph
+
+```typescript
+{
+  'types': string,
+  'duration': number,
+  'matches': number,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string
+}
+```
+
+### graphDetails/shown
+
+> Sent when the Graph Details view is shown
+
+```typescript
+{
+  'duration': number,
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.mode': 'wip',
+  'context.attachedTo': 'graph' | 'default',
+  'context.autolinks': number,
+  'context.inReview': false | true,
+  'context.codeSuggestions': number,
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string,
+  'context.config.avatars': false | true,
+  'context.config.files.compact': false | true,
+  'context.config.files.icon': 'status' | 'type',
+  'context.config.files.layout': 'auto' | 'list' | 'tree',
+  'context.config.files.threshold': number,
+  'context.config.autolinks.enabled': false | true,
+  'context.config.autolinks.enhanced': false | true,
+  'context.config.pullRequests.enabled': false | true
+}
+```
+
+or
+
+```typescript
+{
+  'duration': number,
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.mode': 'commit',
+  'context.attachedTo': 'graph' | 'default',
+  'context.autolinks': number,
+  'context.pinned': false | true,
+  'context.type': 'stash' | 'commit',
+  'context.uncommitted': false | true,
+  'context.config.avatars': false | true,
+  'context.config.files.compact': false | true,
+  'context.config.files.icon': 'status' | 'type',
+  'context.config.files.layout': 'auto' | 'list' | 'tree',
+  'context.config.files.threshold': number,
+  'context.config.autolinks.enabled': false | true,
+  'context.config.autolinks.enhanced': false | true,
+  'context.config.pullRequests.enabled': false | true
+}
+```
+
+### graphDetails/mode/changed
+
+> Sent when the user changes the selected tab (mode) on the Graph Details view
+
+```typescript
+{
+  'mode.old': 'wip' | 'commit',
+  'mode.new': 'wip' | 'commit',
+  'context.mode': 'wip',
+  'context.attachedTo': 'graph' | 'default',
+  'context.autolinks': number,
+  'context.inReview': false | true,
+  'context.codeSuggestions': number,
+  'context.repository.id': string,
+  'context.repository.scheme': string,
+  'context.repository.closed': false | true,
+  'context.repository.folder.scheme': string,
+  'context.repository.provider.id': string,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
+}
+```
+
+or
+
+```typescript
+{
+  'mode.old': 'wip' | 'commit',
+  'mode.new': 'wip' | 'commit',
+  'context.mode': 'commit',
+  'context.attachedTo': 'graph' | 'default',
+  'context.autolinks': number,
+  'context.pinned': false | true,
+  'context.type': 'stash' | 'commit',
+  'context.uncommitted': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
+}
+```
+
+### timeline/shown
+
+> Sent when the Commit Graph is shown
+
+```typescript
+{
+  'duration': number,
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.period': string,
+  'context.config.allowMultiple': false | true,
+  'context.config.queryLimit': number
+}
+```
+
+### timeline/action/openInEditor
+
+> Sent when the user changes the period (timeframe) on the visual file history
+
+```typescript
+{
+  'context.period': string,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
+}
+```
+
+### timeline/editor/changed
+
+> Sent when the editor changes on the visual file history
+
+```typescript
+{
+  'context.period': string,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
+}
+```
+
+### timeline/period/changed
+
+> Sent when the user changes the period (timeframe) on the visual file history
+
+```typescript
+{
+  'period.old': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'period.new': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.period': string,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
+}
+```
+
+### timeline/commit/selected
+
+> Sent when the user selects (clicks on) a commit on the visual file history
+
+```typescript
+{
+  'context.period': string,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
+}
 ```
 
 ### launchpad/title/action
@@ -961,7 +1350,7 @@ void
 {
   'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'jira' | 'trello' | 'github-enterprise' | 'gitlab-self-hosted',
   'hostingProvider.key': string,
-  // @deprecated:
+  // @deprecated: 
   'remoteProviders.key': string
 }
 ```
@@ -974,7 +1363,7 @@ void
 {
   'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'jira' | 'trello' | 'github-enterprise' | 'gitlab-self-hosted',
   'hostingProvider.key': string,
-  // @deprecated:
+  // @deprecated: 
   'remoteProviders.key': string
 }
 ```
@@ -1106,11 +1495,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
 
@@ -1118,11 +1508,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
 
@@ -1130,11 +1521,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
 
@@ -1142,11 +1534,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
 
@@ -1154,11 +1547,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
 
@@ -1166,11 +1560,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
 
@@ -1178,11 +1573,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
 
@@ -1190,11 +1586,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
 
@@ -1202,11 +1599,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
 
@@ -1214,23 +1612,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
-}
-```
-
-### timeline/shown
-
-```typescript
-{
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
-  'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
 
@@ -1238,35 +1625,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
-}
-```
-
-### commitDetails/shown
-
-```typescript
-{
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
-  'duration': number,
-  'loading': false | true
-}
-```
-
-### graphDetails/shown
-
-```typescript
-{
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
-  'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
 
@@ -1274,10 +1638,12 @@ or
 
 ```typescript
 {
-  'id': string,
-  'instanceId': string,
-  'host': 'editor' | 'view',
   'duration': number,
-  'loading': false | true
+  'loading': false | true,
+  'context.webview.id': string,
+  'context.webview.type': string,
+  'context.webview.instanceId': string,
+  'context.webview.host': 'editor' | 'view'
 }
 ```
+

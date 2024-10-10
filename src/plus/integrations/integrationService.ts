@@ -135,7 +135,11 @@ export class IntegrationService implements Disposable {
 	async manageCloudIntegrations(source: Source | undefined) {
 		const scope = getLogScope();
 		if (this.container.telemetry.enabled) {
-			this.container.telemetry.sendEvent('cloudIntegrations/settingsOpened', undefined, source);
+			this.container.telemetry.sendEvent(
+				'cloudIntegrations/settingsOpened',
+				{ 'integration.id': undefined },
+				source,
+			);
 		}
 
 		const account = (await this.container.subscription.getSubscription()).account;

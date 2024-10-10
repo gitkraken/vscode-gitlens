@@ -2,6 +2,7 @@ import type { TextEditor } from 'vscode';
 import { Disposable, Uri, window } from 'vscode';
 import { proBadge } from '../../../constants';
 import { Commands } from '../../../constants.commands';
+import type { TimelineShownTelemetryContext, TimelineTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { CommitSelectedEvent, FileSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
@@ -15,6 +16,7 @@ import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { filter } from '../../../system/iterable';
+import { flatten } from '../../../system/object';
 import { executeCommand, registerCommand } from '../../../system/vscode/command';
 import { configuration } from '../../../system/vscode/configuration';
 import { hasVisibleTrackableTextEditor, isTrackableTextEditor } from '../../../system/vscode/utils';
@@ -110,11 +112,18 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		return this._context.uri != null ? [this._context.uri] : [];
 	}
 
+	getTelemetryContext(): TimelineTelemetryContext {
+		return {
+			...this.host.getTelemetryContext(),
+			'context.period': this._context.period,
+		};
+	}
+
 	onShowing(
 		loading: boolean,
 		_options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<TimelineWebviewShowingArgs, State>
-	): [boolean, Record<`context.${string}`, string | number | boolean> | undefined] {
+	): [boolean, TimelineShownTelemetryContext] {
 		const [arg] = args;
 		if (arg != null) {
 			if (arg instanceof Uri) {
@@ -138,7 +147,16 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			this.updateState();
 		}
 
-		return [true, undefined];
+		const cfg = flatten(configuration.get('visualHistory'), 'context.config', { joinArrays: true });
+
+		return [
+			true,
+			{
+				...this.getTelemetryContext(),
+				...cfg,
+				'context.period': this._context.period,
+			},
+		];
 	}
 
 	includeBootstrap(): Promise<State> {
@@ -162,7 +180,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 						if (this._context.uri == null) return;
 
 						void executeCommand(Commands.ShowInTimeline, this._context.uri);
-						this.container.telemetry.sendEvent('timeline/openInEditor', undefined);
+						this.container.telemetry.sendEvent('timeline/action/openInEditor', this.getTelemetryContext());
 					},
 					this,
 				),
@@ -215,7 +233,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 					{ source: this.host.id },
 				);
 
-				this.container.telemetry.sendEvent('timeline/chart/selectCommit', undefined);
+				this.container.telemetry.sendEvent('timeline/commit/selected', this.getTelemetryContext());
 
 				if (!this.container.commitDetailsView.ready) {
 					void this.container.commitDetailsView.show({ preserveFocus: true }, {
@@ -227,12 +245,19 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 				break;
 			}
-			case UpdatePeriodCommand.is(e):
+			case UpdatePeriodCommand.is(e): {
+				const currentPeriod = this._context.period;
+
 				if (this.updatePendingContext({ period: e.params.period })) {
 					this.updateState(true);
-					this.container.telemetry.sendEvent('timeline/period/change', { period: e.params.period });
+					this.container.telemetry.sendEvent('timeline/period/changed', {
+						...this.getTelemetryContext(),
+						'period.old': currentPeriod,
+						'period.new': e.params.period,
+					});
 				}
 				break;
+			}
 		}
 	}
 
@@ -249,7 +274,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		if (!this.updatePendingEditor(editor)) return;
 
 		this.updateState();
-		this.container.telemetry.sendEvent('timeline/editorChanged', undefined);
+		this.container.telemetry.sendEvent('timeline/editor/changed', this.getTelemetryContext());
 	}
 
 	@debug({ args: false })
