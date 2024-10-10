@@ -48,17 +48,17 @@ export class ServerConnection implements Disposable {
 
 	@memoize()
 	private get baseApiUri(): Uri {
+		if (this.container.prereleaseOrDebugging) {
+			const url: string | undefined = configuration.getAny('gitkraken.url.api');
+			if (url) return Uri.parse(url);
+		}
+
 		if (this.container.env === 'staging') {
 			return Uri.parse('https://stagingapi.gitkraken.com');
 		}
 
 		if (this.container.env === 'dev') {
 			return Uri.parse('https://devapi.gitkraken.com');
-		}
-
-		if (this.container.env === 'local') {
-			const url: string | undefined = configuration.getAny('gitkraken.url.api');
-			return Uri.parse(url ?? 'http://localhost:3000');
 		}
 
 		return Uri.parse('https://api.gitkraken.com');
@@ -70,17 +70,17 @@ export class ServerConnection implements Disposable {
 
 	@memoize()
 	private get baseGkDevApiUri(): Uri {
+		if (this.container.prereleaseOrDebugging) {
+			const url: string | undefined = configuration.getAny('gitkraken.url.gkdev.api');
+			if (url) return Uri.parse(url);
+		}
+
 		if (this.container.env === 'staging') {
 			return Uri.parse('https://staging-api.gitkraken.dev');
 		}
 
 		if (this.container.env === 'dev') {
 			return Uri.parse('https://dev-api.gitkraken.dev');
-		}
-
-		if (this.container.env === 'local') {
-			const url: string | undefined = configuration.getAny('gitkraken.url.gkdev.api');
-			return Uri.parse(url ?? 'http://localhost:3000');
 		}
 
 		return Uri.parse('https://api.gitkraken.dev');
