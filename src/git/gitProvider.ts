@@ -115,7 +115,11 @@ export interface RepositoryVisibilityInfo {
 export interface GitProviderRepository {
 	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
-
+	deleteBranch?(
+		repoPath: string,
+		branches: GitBranchReference,
+		options?: { force?: boolean; remote?: boolean },
+	): Promise<void>;
 	addRemote?(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
 	pruneRemote?(repoPath: string, name: string): Promise<void>;
 	removeRemote?(repoPath: string, name: string): Promise<void>;
