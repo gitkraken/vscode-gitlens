@@ -98,7 +98,7 @@ import type { WebviewViewProxy } from './webviews/webviewsController';
 import { WebviewsController } from './webviews/webviewsController';
 import { registerWelcomeWebviewPanel } from './webviews/welcome/registration';
 
-export type Environment = 'dev' | 'staging' | 'production';
+export type Environment = 'local' | 'dev' | 'staging' | 'production';
 
 export class Container {
 	static #instance: Container | undefined;
@@ -527,6 +527,7 @@ export class Container {
 	get env(): Environment {
 		if (this.prereleaseOrDebugging) {
 			const env = configuration.getAny('gitkraken.env');
+			if (env === 'local') return 'local';
 			if (env === 'dev') return 'dev';
 			if (env === 'staging') return 'staging';
 		}
@@ -925,6 +926,11 @@ export class Container {
 
 		if (this.env === 'dev') {
 			return Uri.parse('https://dev.gitkraken.dev');
+		}
+
+		if (this.env === 'local') {
+			const url: string | undefined = configuration.getAny('gitkraken.url.gkdev.base');
+			return Uri.parse(url ?? 'http://localhost:3000');
 		}
 
 		return Uri.parse('https://gitkraken.dev');
