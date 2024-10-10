@@ -48,6 +48,7 @@ import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
+import { Debouncer } from '../../system/debouncer';
 import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
 import { executeCommand } from '../../system/vscode/command';
@@ -146,6 +147,8 @@ function assertsLaunchpadStepState(state: StepState<State>): asserts state is La
 const instanceCounter = getScopedCounter();
 
 const defaultCollapsedGroups: LaunchpadGroup[] = ['draft', 'other', 'snoozed'];
+
+const searchDebouncer = new Debouncer(500);
 
 export class LaunchpadCommand extends QuickCommand<State> {
 	private readonly source: Source;
@@ -556,7 +559,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
-			onDidChangeValue: async quickpick => {
+			onDidChangeValue: quickpick => {
 				const hideGroups = Boolean(quickpick.value?.length);
 
 				if (groupsHidden !== hideGroups) {
@@ -580,25 +583,27 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				}
 
 				if (value?.length && !activeLaunchpadItems.length) {
-					const { prNumber } = getPullRequestIdentityValuesFromSearch(value);
-					if (prNumber != null) {
-						const launchpadItems = quickpick.items.filter(
-							(i): i is LaunchpadItemQuickPickItem => 'item' in i,
-						);
-						const item = launchpadItems.find(i => i.item.id === prNumber);
-						if (item != null) {
-							if (!item.alwaysShow) {
-								item.alwaysShow = true;
-								// This is a hack because the quickpick doesn't update until you change the items
-								quickpick.items = [...quickpick.items];
+					void searchDebouncer.debounce(async () => {
+						const { prNumber } = getPullRequestIdentityValuesFromSearch(value);
+						if (prNumber != null) {
+							const launchpadItems = quickpick.items.filter(
+								(i): i is LaunchpadItemQuickPickItem => 'item' in i,
+							);
+							const item = launchpadItems.find(i => i.item.id === prNumber);
+							if (item != null) {
+								if (!item.alwaysShow) {
+									item.alwaysShow = true;
+									// This is a hack because the quickpick doesn't update until you change the items
+									quickpick.items = [...quickpick.items];
+								}
+								// We have found an item that matches to the URL.
+								// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
+								return;
 							}
-							// We have found an item that matches to the URL.
-							// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
-							return true;
 						}
-					}
-					// Nothing is found above, so let's perform search in the API:
-					await updateItems(quickpick, value);
+						// Nothing is found above, so let's perform search in the API:
+						await updateItems(quickpick, value);
+					});
 				}
 
 				return true;
