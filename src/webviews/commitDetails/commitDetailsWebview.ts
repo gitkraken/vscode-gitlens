@@ -219,6 +219,41 @@ export class CommitDetailsWebviewProvider
 		this._wipSubscription?.subscription.dispose();
 	}
 
+	getTelemetryContext() {
+		return {
+			...this.host.getTelemetryContext(),
+			...this.getModeTelemetryContext(),
+		};
+	}
+
+	getModeTelemetryContext() {
+		const context: Record<`context.${string}`, string | number | boolean | undefined> = {
+			'context.mode': this.mode,
+		};
+
+		if (this.mode === 'wip') {
+			context['context.autolinks'] = this._context.wip?.pullRequest != null;
+			context['context.overview.inReview'] = this._context.inReview;
+			context['context.overview.codeSuggestions'] = this._context.wip?.codeSuggestions?.length ?? 0;
+			if (this._context.wip?.repo != null) {
+				const { idHash, uri, closed, folder, provider } = this._context.wip.repo;
+				context['context.overview.repository.id'] = idHash;
+				context['context.overview.repository.scheme'] = uri.scheme;
+				context['context.overview.repository.closed'] = closed;
+				context['context.overview.repository.folder.scheme'] = folder?.uri.scheme;
+				context['context.overview.repository.provider.id'] = provider.id;
+			}
+		} else {
+			context['context.autolinks'] =
+				this._context.pullRequest != null ||
+				(this._context.autolinkedIssues != null && this._context.autolinkedIssues.length > 0);
+			context['context.inspect.pinned'] = this._context.pinned;
+			context['context.inspect.uncommitted'] = this._context.commit?.isUncommitted ?? false;
+		}
+
+		return context;
+	}
+
 	private _skipNextRefreshOnVisibilityChange = false;
 	private _shouldRefreshPullRequestDetails = false;
 
@@ -233,7 +268,7 @@ export class CommitDetailsWebviewProvider
 		}
 		return [
 			await this.onShowingCommit(arg as Partial<CommitSelectedEvent['data']> | undefined, options),
-			undefined,
+			this.getTelemetryContext(),
 		];
 	}
 
