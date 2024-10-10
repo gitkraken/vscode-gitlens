@@ -1,7 +1,6 @@
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
-import { extractDraftMessage } from '../../ai/aiProviderService';
 import type { MaybeEnrichedAutolink } from '../../autolinks';
 import { serializeAutolink } from '../../autolinks';
 import { getAvatarUri } from '../../avatars';
@@ -1158,16 +1157,19 @@ export class CommitDetailsWebviewProvider
 			// const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			// if (commit == null) throw new Error('Unable to find commit');
 
-			const summary = await (
+			const message = await (
 				await this.container.ai
 			)?.generateDraftMessage(
 				repo,
 				{ source: 'inspect', type: 'suggested_pr_change' },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
-			if (summary == null) throw new Error('Error retrieving content');
+			if (message == null) throw new Error('Error retrieving content');
 
-			params = extractDraftMessage(summary);
+			params = {
+				title: message.summary,
+				description: message.body,
+			};
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
