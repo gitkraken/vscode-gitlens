@@ -54,6 +54,7 @@ import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
+import { createAsyncDebouncer } from '../../system/vscode/asyncDebouncer';
 import { executeCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
@@ -149,6 +150,7 @@ const instanceCounter = getScopedCounter();
 const defaultCollapsedGroups: LaunchpadGroup[] = ['draft', 'other', 'snoozed'];
 
 export class LaunchpadCommand extends QuickCommand<State> {
+	private readonly updateItemsDebouncer = createAsyncDebouncer(500);
 	private readonly source: Source;
 	private readonly telemetryContext: LaunchpadTelemetryContext | undefined;
 
@@ -520,13 +522,16 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		) => {
 			const search = quickpick.value;
 			quickpick.busy = true;
-
 			try {
-				await updateContextItems(this.container, context, { force: true, search: search });
-
-				const { items, placeholder } = getItemsAndPlaceholder();
-				quickpick.placeholder = placeholder;
-				quickpick.items = items;
+				await this.updateItemsDebouncer(async cancellationToken => {
+					await updateContextItems(this.container, context, { force: true, search: search });
+					if (cancellationToken.isCancellationRequested) {
+						return;
+					}
+					const { items, placeholder } = getItemsAndPlaceholder(Boolean(search));
+					quickpick.placeholder = placeholder;
+					quickpick.items = items;
+				});
 			} finally {
 				quickpick.busy = false;
 			}
@@ -572,6 +577,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 				if (!value?.length || activeLaunchpadItems.length) {
 					// Nothing to search
+					this.updateItemsDebouncer.cancel();
 					return true;
 				}
 
@@ -593,13 +599,14 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							quickpick.items = [...quickpick.items];
 							// We have found an item that matches to the URL.
 							// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
+							this.updateItemsDebouncer.cancel();
 							return true;
 						}
 						// Nothing is found above, so let's perform search in the API:
 						await updateItems(quickpick);
 					}
 				}
-
+				this.updateItemsDebouncer.cancel();
 				return true;
 			},
 			onDidClickButton: async (quickpick, button) => {
