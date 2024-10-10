@@ -4,11 +4,9 @@
 
 [GitLens](https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links 'Learn more about GitLens') is a powerful [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com) built and maintained by GitKraken.
 
-
-- **GitLens** is a free extension that enables to you track code changes and who made them, with in-editor blame annotations, hovers, CodeLens, and much more - all seamlessly integrated and customizable within VS Code.
-
-
-- **GitLens Pro** unlocks new workflows that enable you to accelerate PR reviews, access interactive Git visuals, and further reduce context switching. You can try GitLens Pro for free after installing GitLens.
+GitLens (Quick TL:DR)
+- Mention GitLens, then how GitLens Pro is an addition. Maybe one paragraph. There are two editions. 
+- **GitLens** is an extension that enables to you track code changes and who made them, with in-editor blame annotations, hovers, CodeLens, and much more - all seamlessly integrated and customizable within VS Code.**GitLens Pro** is an edition to GitLens..... unlocks new workflows that enable you to accelerate PR reviews, access interactive Git visuals, and further reduce context switching. You can try GitLens Pro for free after installing GitLens.
 ## Getting Started
 
 Install GitLens by clicking `Install` on the banner above, or from the Extensions side bar in VS Code by searching for GitLens. 
@@ -21,10 +19,10 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 
 > Have questions or concerns? Communicate with our engineering team directly though our [GitHub Discussions](https://github.com/gitkraken/vscode-gitlens/discussions) page. Having a positive experience with GitLens? Feel free to [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens&ssr=false#review-details). 
 
-## GitLens and GitLens Pro
+## GitLens Editions: Free and Pro
 
 
-**GitLens** helps you understand how code changed and by whom with our popular in-editor blame annotations, hovers, CodeLens, and much more. CodeLens adds contextual and actionable authorship at the top of each file. Explore the history of a file to see how the code evolved over time with Revision Navigation. 
+**GitLens Free** is free and helps you understand how code changed and by whom with our popular in-editor blame annotations, hovers, CodeLens, and much more. CodeLens adds contextual and actionable authorship at the top of each file. Explore the history of a file to see how the code evolved over time with Revision Navigation. 
 
 **GitLens Pro** unlocks further features and workflows that enable you to:
 
