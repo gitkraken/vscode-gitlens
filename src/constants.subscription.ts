@@ -30,4 +30,6 @@ export const enum SubscriptionState {
 	ProTrialReactivationEligible = 5,
 	/** Indicates a Pro/Teams/Enterprise paid user */
 	Paid = 6,
+	/** Indicates a Paid user who's license has expired */
+	PaidExpired = 7,
 }
