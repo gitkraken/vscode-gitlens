@@ -27,6 +27,7 @@ import { memoize } from '../../system/decorators/memoize';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
+import { configuration } from '../../system/vscode/configuration';
 
 interface FetchOptions {
 	cancellation?: CancellationToken;
@@ -47,6 +48,11 @@ export class ServerConnection implements Disposable {
 
 	@memoize()
 	private get baseApiUri(): Uri {
+		if (this.container.prereleaseOrDebugging) {
+			const url: string | undefined = configuration.getAny('gitkraken.url.api');
+			if (url) return Uri.parse(url);
+		}
+
 		if (this.container.env === 'staging') {
 			return Uri.parse('https://stagingapi.gitkraken.com');
 		}
@@ -64,6 +70,11 @@ export class ServerConnection implements Disposable {
 
 	@memoize()
 	private get baseGkDevApiUri(): Uri {
+		if (this.container.prereleaseOrDebugging) {
+			const url: string | undefined = configuration.getAny('gitkraken.url.gkdev.api');
+			if (url) return Uri.parse(url);
+		}
+
 		if (this.container.env === 'staging') {
 			return Uri.parse('https://staging-api.gitkraken.dev');
 		}
