@@ -536,6 +536,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		const step = createPickStep({
 			title: context.title,
 			placeholder: placeholder,
+			matchOnDescription: true,
 			matchOnDetail: true,
 			items: items,
 			buttons: [
