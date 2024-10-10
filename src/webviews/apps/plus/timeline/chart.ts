@@ -8,7 +8,6 @@ import { defer } from '../../../../system/promise';
 import { formatDate, fromNow } from '../../shared/date';
 import type { Disposable, Event } from '../../shared/events';
 import { Emitter } from '../../shared/events';
-import { emitTelemetrySentEvent } from '../../shared/telemetry';
 
 export interface DataPointClickEvent {
 	data: {
@@ -413,9 +412,6 @@ export class TimelineChart implements Disposable {
 				show: !this.compact,
 				// hide: this.compact ? [...this._authorsByIndex.values()] : undefined,
 				padding: 10,
-				item: {
-					onclick: this.onToggleLegend.bind(this),
-				},
 			},
 			point: {
 				sensitivity: 'radius',
@@ -503,13 +499,6 @@ export class TimelineChart implements Disposable {
 				id: commit.commit,
 				selected: true, //selected?.[0]?.id === d.id,
 			},
-		});
-	}
-
-	private onToggleLegend(_id: string) {
-		emitTelemetrySentEvent(this.$container, {
-			name: 'timeline/chart/toggleLegend',
-			data: {},
 		});
 	}
 }

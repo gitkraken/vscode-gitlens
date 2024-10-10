@@ -200,9 +200,10 @@ export class WebviewController<
 
 	getTelemetryContext(): WebviewTelemetryContext {
 		return {
-			id: this.id,
-			instanceId: this.instanceId,
-			host: this.isHost('editor') ? ('editor' as const) : ('view' as const),
+			'context.webview.id': this.id,
+			'context.webview.type': this.descriptor.type,
+			'context.webview.instanceId': this.instanceId,
+			'context.webview.host': this.isHost('editor') ? ('editor' as const) : ('view' as const),
 		};
 	}
 

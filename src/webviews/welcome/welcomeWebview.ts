@@ -2,6 +2,7 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
 import type { ContextKeys } from '../../constants.context';
 import { SubscriptionState } from '../../constants.subscription';
+import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import { isSubscriptionPaid } from '../../plus/gk/account/subscription';
@@ -39,6 +40,12 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 
 	dispose() {
 		this._disposable.dispose();
+	}
+
+	getTelemetryContext(): WebviewTelemetryContext {
+		return {
+			...this.host.getTelemetryContext(),
+		};
 	}
 
 	includeBootstrap(): Promise<State> {

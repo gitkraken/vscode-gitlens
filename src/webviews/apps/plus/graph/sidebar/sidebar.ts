@@ -163,8 +163,8 @@ export class GlGraphSideBar extends LitElement {
 	}
 
 	private sendTelemetry(command: string) {
-		emitTelemetrySentEvent(this, {
-			name: 'graph/sidebar/action',
+		emitTelemetrySentEvent<'graph/action/sidebar'>(this, {
+			name: 'graph/action/sidebar',
 			data: { action: command },
 		});
 	}

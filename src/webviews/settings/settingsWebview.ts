@@ -2,6 +2,7 @@ import type { ConfigurationChangeEvent, ViewColumn } from 'vscode';
 import { ConfigurationTarget, Disposable, workspace } from 'vscode';
 import { extensionPrefix } from '../../constants';
 import { IssueIntegrationId } from '../../constants.integrations';
+import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
@@ -46,6 +47,12 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 
 	dispose() {
 		this._disposable.dispose();
+	}
+
+	getTelemetryContext(): WebviewTelemetryContext {
+		return {
+			...this.host.getTelemetryContext(),
+		};
 	}
 
 	onSubscriptionChanged(e: SubscriptionChangeEvent) {

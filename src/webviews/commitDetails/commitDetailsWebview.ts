@@ -11,7 +11,7 @@ import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPull
 import { Commands } from '../../constants.commands';
 import type { ContextKeys } from '../../constants.context';
 import { IssueIntegrationId } from '../../constants.integrations';
-import type { Sources } from '../../constants.telemetry';
+import type { InspectTelemetryContext, Sources } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { CommitSelectedEvent } from '../../eventBus';
 import { executeGitCommand } from '../../git/actions';
@@ -219,36 +219,35 @@ export class CommitDetailsWebviewProvider
 		this._wipSubscription?.subscription.dispose();
 	}
 
-	getTelemetryContext() {
-		return {
-			...this.host.getTelemetryContext(),
-			...this.getModeTelemetryContext(),
-		};
-	}
-
-	getModeTelemetryContext() {
-		const context: Record<`context.${string}`, string | number | boolean | undefined> = {
-			'context.mode': this.mode,
-		};
-
+	getTelemetryContext(): InspectTelemetryContext {
+		let context: InspectTelemetryContext;
 		if (this.mode === 'wip') {
-			context['context.autolinks'] = this._context.wip?.pullRequest != null;
-			context['context.overview.inReview'] = this._context.inReview;
-			context['context.overview.codeSuggestions'] = this._context.wip?.codeSuggestions?.length ?? 0;
-			if (this._context.wip?.repo != null) {
-				const { idHash, uri, closed, folder, provider } = this._context.wip.repo;
-				context['context.overview.repository.id'] = idHash;
-				context['context.overview.repository.scheme'] = uri.scheme;
-				context['context.overview.repository.closed'] = closed;
-				context['context.overview.repository.folder.scheme'] = folder?.uri.scheme;
-				context['context.overview.repository.provider.id'] = provider.id;
-			}
+			const repo = this._context.wip?.repo;
+			context = {
+				...this.host.getTelemetryContext(),
+				'context.attachedTo': this.options.attachedTo,
+				'context.mode': this.mode,
+				'context.autolinks': this._context.wip?.pullRequest != null ? 1 : 0,
+				'context.inReview': this._context.inReview,
+				'context.codeSuggestions': this._context.wip?.codeSuggestions?.length ?? 0,
+				'context.repository.id': repo?.idHash,
+				'context.repository.scheme': repo?.uri.scheme,
+				'context.repository.closed': repo?.closed,
+				'context.repository.folder.scheme': repo?.folder?.uri.scheme,
+				'context.repository.provider.id': repo?.provider.id,
+			};
 		} else {
-			context['context.autolinks'] =
-				this._context.pullRequest != null ||
-				(this._context.autolinkedIssues != null && this._context.autolinkedIssues.length > 0);
-			context['context.inspect.pinned'] = this._context.pinned;
-			context['context.inspect.uncommitted'] = this._context.commit?.isUncommitted ?? false;
+			context = {
+				...this.host.getTelemetryContext(),
+				'context.attachedTo': this.options.attachedTo,
+				'context.mode': this.mode,
+				'context.autolinks':
+					(this._context.pullRequest != null ? 1 : 0) + (this._context.autolinkedIssues?.length ?? 0),
+				'context.pinned': this._context.pinned,
+				'context.type':
+					this._context.commit == null ? undefined : isStash(this._context.commit) ? 'stash' : 'commit',
+				'context.uncommitted': this._context.commit?.isUncommitted ?? false,
+			};
 		}
 
 		return context;
@@ -261,11 +260,12 @@ export class CommitDetailsWebviewProvider
 		_loading: boolean,
 		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<CommitDetailsWebviewShowingArgs, Serialized<State>>
-	): Promise<[boolean, Record<`context.${string}`, string | number | boolean> | undefined]> {
+	): Promise<[boolean, InspectTelemetryContext]> {
 		const [arg] = args;
 		if ((arg as ShowWipArgs)?.type === 'wip') {
-			return [await this.onShowingWip(arg as ShowWipArgs), undefined];
+			return [await this.onShowingWip(arg as ShowWipArgs), this.getTelemetryContext()];
 		}
+
 		return [
 			await this.onShowingCommit(arg as Partial<CommitSelectedEvent['data']> | undefined, options),
 			this.getTelemetryContext(),
@@ -1866,6 +1866,8 @@ export class CommitDetailsWebviewProvider
 	private switchMode(params: SwitchModeParams) {
 		if (this.mode === params.mode) return;
 
+		const currentMode = this.mode;
+
 		let repo;
 		if (params.mode === 'wip') {
 			let { repoPath } = params;
@@ -1880,6 +1882,15 @@ export class CommitDetailsWebviewProvider
 		}
 
 		void this.setMode(params.mode, repo);
+
+		this.container.telemetry.sendEvent(
+			`${this.options.attachedTo ? 'graphDetails' : 'commitDetails'}/mode/changed`,
+			{
+				...this.getTelemetryContext(),
+				'mode.old': currentMode,
+				'mode.new': params.mode,
+			},
+		);
 	}
 
 	private async openFileComparisonWithWorking(params: ExecuteFileActionParams) {
