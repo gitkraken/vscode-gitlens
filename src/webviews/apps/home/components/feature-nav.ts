@@ -8,6 +8,9 @@ import { GlElement } from '../../shared/components/element';
 import { linkBase } from '../../shared/components/styles/lit/base.css';
 import { stateContext } from '../context';
 import { homeBaseStyles, navListStyles } from '../home.css';
+import '../../shared/components/code-icon';
+import '../../shared/components/feature-badge';
+import '../../shared/components/overlays/tooltip';
 
 @customElement('gl-feature-nav')
 export class GlFeatureNav extends GlElement {
