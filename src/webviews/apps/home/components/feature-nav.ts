@@ -152,7 +152,6 @@ export class GlFeatureNav extends GlElement {
 						.subscription=${this._state.subscription}
 						placement="left"
 						class="nav-list__access"
-						preview
 					></gl-feature-badge>
 				</div>
 				<div class="nav-list__item">
