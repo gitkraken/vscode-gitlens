@@ -2634,20 +2634,8 @@ export async function* ensureAccessStep<
 	} else {
 		if (access.subscription.required == null) return access;
 
-		let detail;
-		const promo = getApplicablePromo(access.subscription.current.state);
-		if (promo != null) {
-			// NOTE: Don't add a default case, so that if we add a new promo the build will break without handling it
-			switch (promo.key) {
-				case 'pro50':
-					detail = '$(star-full) Limited-Time Sale: Save 33% or more on your 1st seat of Pro';
-					break;
-				case 'launchpad':
-				case 'launchpad-extended':
-					detail = `$(rocket) Launchpad Sale: Save 75% or more on GitLens Pro`;
-					break;
-			}
-		}
+		const promo = getApplicablePromo(access.subscription.current.state, 'gate');
+		const detail = promo?.quickpick.detail;
 
 		placeholder = 'Pro feature — requires a trial or paid plan for use on privately-hosted repos';
 		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {

@@ -266,7 +266,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			const result = yield* ensureAccessStep(state, context, PlusFeatures.Launchpad);
 			if (result === StepResultBreak) continue;
 
-			context.showGraduationPromo = getApplicablePromo(result.subscription.current.state, 'launchpad') != null;
+			context.showGraduationPromo =
+				getApplicablePromo(result.subscription.current.state, undefined, 'launchpad') != null;
 
 			await updateContextItems(this.container, context, { force: newlyConnected });
 

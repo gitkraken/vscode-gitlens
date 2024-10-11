@@ -280,7 +280,7 @@ export class GLHomeAccountContent extends LitElement {
 	}
 
 	private renderAccountState() {
-		const promo = getApplicablePromo(this.state);
+		const promo = getApplicablePromo(this.state, 'account');
 
 		switch (this.state) {
 			case SubscriptionState.Paid:
