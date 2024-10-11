@@ -263,7 +263,7 @@ export class GlFeatureBadge extends LitElement {
 
 			case SubscriptionState.ProTrialExpired:
 				content = html`<p>
-						Your Pro trial as ended. You can now only use Pro features on publicly-hosted repos.
+						Your Pro trial has ended. You can now only use Pro features on publicly-hosted repos.
 					</p>
 					${this.renderUpgradeActions(html`<p>Please upgrade for full access to Pro features:</p>`)}`;
 				break;
@@ -329,7 +329,7 @@ export class GlFeatureBadge extends LitElement {
 	}
 
 	private renderUpgradeActions(leadin?: TemplateResult) {
-		const promo = getApplicablePromo(this.state);
+		const promo = getApplicablePromo(this.state, 'badge');
 
 		return html`<div class="actions">
 			${leadin ?? nothing}

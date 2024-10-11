@@ -30,7 +30,7 @@ export class GlHomeNav extends LitElement {
 	override render() {
 		return html`
 			<gl-promo
-				.promo=${getApplicablePromo(this._state.subscription.state)}
+				.promo=${getApplicablePromo(this._state.subscription.state, 'home')}
 				class="promo-banner promo-banner--eyebrow"
 				id="promo"
 				type="link"

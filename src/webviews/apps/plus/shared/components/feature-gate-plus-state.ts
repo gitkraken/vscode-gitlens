@@ -95,7 +95,7 @@ export class GlFeatureGatePlusState extends LitElement {
 
 		this.hidden = false;
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
-		const promo = this.state ? getApplicablePromo(this.state) : undefined;
+		const promo = this.state ? getApplicablePromo(this.state, 'gate') : undefined;
 
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:

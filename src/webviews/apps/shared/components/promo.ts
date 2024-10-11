@@ -1,5 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import type { Promo } from '../../../../plus/gk/account/promos';
 
 @customElement('gl-promo')
@@ -67,7 +68,7 @@ export class GlPromo extends LitElement {
 			return html`<a
 				class="link"
 				href="${this.promo.command ?? 'command:gitlens.plus.upgrade'}"
-				title="${this.promo.commandTooltip}"
+				title="${ifDefined(this.promo.command?.tooltip)}"
 				>${promoHtml}</a
 			>`;
 		}
