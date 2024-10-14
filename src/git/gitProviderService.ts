@@ -19,7 +19,6 @@ import { SubscriptionPlanId } from '../constants.subscription';
 import type { Container } from '../container';
 import { AccessDeniedError, CancellationError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors';
 import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
-import { getApplicablePromo } from '../plus/gk/account/promos';
 import type { Subscription } from '../plus/gk/account/subscription';
 import { isSubscriptionPaidPlan } from '../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
@@ -778,10 +777,6 @@ export class GitProviderService implements Disposable {
 		}
 
 		if (feature === 'launchpad') {
-			// If our launchpad graduation promo is active allow access for everyone
-			if (getApplicablePromo(subscription.state, undefined, 'launchpad')) {
-				return { allowed: true, subscription: { current: subscription } };
-			}
 			return { allowed: false, subscription: { current: subscription, required: SubscriptionPlanId.Pro } };
 		}
 

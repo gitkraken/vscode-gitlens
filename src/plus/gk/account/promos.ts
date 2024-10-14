@@ -21,23 +21,6 @@ export interface Promo {
 // Must be ordered by applicable order
 const promos: Promo[] = [
 	{
-		key: 'launchpad',
-		code: 'GLLAUNCHPAD24',
-		states: [
-			SubscriptionState.Community,
-			SubscriptionState.ProPreview,
-			SubscriptionState.ProPreviewExpired,
-			SubscriptionState.ProTrial,
-			SubscriptionState.ProTrialExpired,
-			SubscriptionState.ProTrialReactivationEligible,
-		],
-		expiresOn: new Date('2024-09-27T06:59:00.000Z').getTime(),
-		command: { tooltip: 'Launchpad Sale: Save 75% or more on GitLens Pro' },
-		quickpick: {
-			detail: '$(rocket) Launchpad Sale: Save 75% or more on GitLens Pro',
-		},
-	},
-	{
 		key: 'launchpad-extended',
 		code: 'GLLAUNCHPAD24',
 		states: [
@@ -50,9 +33,28 @@ const promos: Promo[] = [
 		],
 		startsOn: new Date('2024-09-27T06:59:00.000Z').getTime(),
 		expiresOn: new Date('2024-10-14T06:59:00.000Z').getTime(),
-		command: { tooltip: 'Launchpad Sale: Save 75% or more on GitLens Pro' },
+		command: { tooltip: 'Launchpad sale: Save 75% or more on GitLens Pro' },
 		quickpick: {
-			detail: '$(rocket) Launchpad Sale: Save 75% or more on GitLens Pro',
+			detail: '$(rocket) Launchpad sale: Save 75% or more on GitLens Pro',
+		},
+	},
+	{
+		key: 'devexdays',
+		code: 'DEXEXDAYS24',
+		states: [
+			SubscriptionState.Community,
+			SubscriptionState.ProPreview,
+			SubscriptionState.ProPreviewExpired,
+			SubscriptionState.ProTrial,
+			SubscriptionState.ProTrialExpired,
+			SubscriptionState.ProTrialReactivationEligible,
+		],
+		startsOn: new Date('2024-10-13T06:59:00.000Z').getTime(),
+		expiresOn: new Date('2024-11-05T06:59:00.000Z').getTime(),
+		command: { tooltip: 'Limited-Time sale: Save up to 80% off GitLens Pro' },
+		locations: ['account', 'badge', 'gate'],
+		quickpick: {
+			detail: '$(star-full) Limited-Time sale: Save up to 80% off GitLens Pro',
 		},
 	},
 	{
@@ -65,9 +67,9 @@ const promos: Promo[] = [
 			SubscriptionState.ProTrialExpired,
 			SubscriptionState.ProTrialReactivationEligible,
 		],
-		command: { tooltip: 'Limited-Time Sale: Save 33% or more on your 1st seat of Pro. See your special price' },
+		command: { tooltip: 'Limited-Time sale: Save 33% or more on your 1st seat of Pro. See your special price' },
 		quickpick: {
-			detail: '$(star-full) Limited-Time Sale: Save 33% or more on your 1st seat of Pro',
+			detail: '$(star-full) Limited-Time sale: Save 33% or more on your 1st seat of Pro',
 		},
 	},
 ];

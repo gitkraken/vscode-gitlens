@@ -81,13 +81,17 @@ export class GlPromo extends LitElement {
 		switch (promo.key) {
 			case 'pro50':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Limited-Time Sale: <b>Save 33% or more on your 1st seat of Pro.</b></span
+					>Limited-Time sale: <b>Save 33% or more</b> on your 1st seat of Pro</span
 				>`;
 
-			case 'launchpad':
 			case 'launchpad-extended':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Launchpad Sale: <b>Save 75% or more on GitLens Pro.</b></span
+					>Launchpad sale: <b>Save 75% or more</b> on GitLens Pro</span
+				>`;
+
+			case 'devexdays':
+				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
+					>Limited-time sale: <b>Save up to 80%</b> on GitLen Pro</span
 				>`;
 		}
 	}
