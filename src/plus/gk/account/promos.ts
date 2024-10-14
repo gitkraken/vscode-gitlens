@@ -40,7 +40,7 @@ const promos: Promo[] = [
 	},
 	{
 		key: 'devexdays',
-		code: 'DEXEXDAYS24',
+		code: 'DEVEXDAYS24',
 		states: [
 			SubscriptionState.Community,
 			SubscriptionState.ProPreview,
