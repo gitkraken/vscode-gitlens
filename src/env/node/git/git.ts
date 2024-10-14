@@ -77,6 +77,7 @@ export const GitErrors = {
 	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
 	commitChangesFirst: /Please, commit your changes before you can/i,
 	conflict: /^CONFLICT \([^)]+\): \b/m,
+	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
 	invalidObjectName: /invalid object name: (.*)\s/i,
 	invalidObjectNameList: /could not open object name list: (.*)\s/i,
 	noFastForward: /\(non-fast-forward\)/i,
