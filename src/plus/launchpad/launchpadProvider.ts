@@ -19,6 +19,7 @@ import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequ
 import {
 	getComparisonRefsForPullRequest,
 	getOrOpenPullRequestRepository,
+	getPullRequestIdentityValuesFromSearch,
 	getRepositoryIdentityForPullRequest,
 } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
@@ -41,6 +42,7 @@ import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
 import type { IntegrationResult } from '../integrations/integration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
+import type { GitHubRepositoryDescriptor } from '../integrations/providers/github';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
 	fromProviderPullRequest,
@@ -316,6 +318,34 @@ export class LaunchpadProvider implements Disposable {
 		}
 
 		return { prs: prs, suggestionCounts: suggestionCounts };
+	}
+
+	private async getSearchedPullRequests(search: string) {
+		const { ownerAndRepo, prNumber } = getPullRequestIdentityValuesFromSearch(search);
+		let result: TimedResult<SearchedPullRequest[] | undefined> | undefined;
+
+		if (prNumber != null) {
+			if (ownerAndRepo != null) {
+				// TODO: This needs to be generalized to work outside of GitHub
+				const integration = await this.container.integrations.get(HostingIntegrationId.GitHub);
+				const [owner, repo] = ownerAndRepo.split('/', 2);
+				const descriptor: GitHubRepositoryDescriptor = {
+					key: ownerAndRepo,
+					owner: owner,
+					name: repo,
+				};
+				const pr = await withDurationAndSlowEventOnTimeout(
+					integration?.getPullRequest(descriptor, prNumber),
+					'getPullRequest',
+					this.container,
+				);
+				if (pr?.value != null) {
+					result = { value: [{ pullRequest: pr.value, reasons: [] }], duration: pr.duration };
+					return { prs: result, suggestionCounts: undefined };
+				}
+			}
+		}
+		return { prs: undefined, suggestionCounts: undefined };
 	}
 
 	private _enrichedItems: CachedLaunchpadPromise<TimedResult<EnrichedItem[]>> | undefined;
@@ -618,12 +648,12 @@ export class LaunchpadProvider implements Disposable {
 	@gate<LaunchpadProvider['getCategorizedItems']>(o => `${o?.force ?? false}`)
 	@log<LaunchpadProvider['getCategorizedItems']>({ args: { 0: o => `force=${o?.force}`, 1: false } })
 	async getCategorizedItems(
-		options?: { force?: boolean },
+		options?: { force?: boolean; search?: string },
 		cancellation?: CancellationToken,
 	): Promise<LaunchpadCategorizedResult> {
 		const scope = getLogScope();
 
-		const fireRefresh = options?.force || this._prs == null;
+		const fireRefresh = !options?.search && (options?.force || this._prs == null);
 
 		const ignoredRepositories = new Set(
 			(configuration.get('launchpad.ignoredRepositories') ?? []).map(r => r.toLowerCase()),
@@ -644,7 +674,9 @@ export class LaunchpadProvider implements Disposable {
 			const [_, enrichedItemsResult, prsWithCountsResult] = await Promise.allSettled([
 				this.container.git.isDiscoveringRepositories,
 				this.getEnrichedItems({ force: options?.force, cancellation: cancellation }),
-				this.getPullRequestsWithSuggestionCounts({ force: options?.force, cancellation: cancellation }),
+				options?.search
+					? this.getSearchedPullRequests(options.search)
+					: this.getPullRequestsWithSuggestionCounts({ force: options?.force, cancellation: cancellation }),
 			]);
 
 			if (cancellation?.isCancellationRequested) throw new CancellationError();
@@ -758,7 +790,7 @@ export class LaunchpadProvider implements Disposable {
 						item.suggestedActionCategory,
 					)!;
 					// category overrides
-					if (staleDate != null && item.updatedDate.getTime() < staleDate.getTime()) {
+					if (!options?.search && staleDate != null && item.updatedDate.getTime() < staleDate.getTime()) {
 						actionableCategory = 'other';
 					} else if (codeSuggestionsCount > 0 && item.viewer.isAuthor) {
 						actionableCategory = 'code-suggestions';
@@ -794,7 +826,10 @@ export class LaunchpadProvider implements Disposable {
 			};
 			return result;
 		} finally {
-			this.updateGroupedIds(result?.items ?? []);
+			if (!options?.search) {
+				this.updateGroupedIds(result?.items ?? []);
+			}
+
 			if (result != null && fireRefresh) {
 				this._onDidRefresh.fire(result);
 			}
@@ -1065,7 +1100,12 @@ const slowEventTimeout = 1000 * 30; // 30 seconds
 
 function withDurationAndSlowEventOnTimeout<T>(
 	promise: Promise<T>,
-	name: 'getMyPullRequests' | 'getCodeSuggestionCounts' | 'getCodeSuggestions' | 'getEnrichedItems',
+	name:
+		| 'getPullRequest'
+		| 'getMyPullRequests'
+		| 'getCodeSuggestionCounts'
+		| 'getCodeSuggestions'
+		| 'getEnrichedItems',
 	container: Container,
 ): Promise<TimedResult<T>> {
 	return timedWithSlowThreshold(promise, {
