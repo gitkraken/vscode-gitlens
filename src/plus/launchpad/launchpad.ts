@@ -454,6 +454,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				item: i,
 				picked: i.graphQLId === picked || i.graphQLId === topItem?.graphQLId,
 				group: ui,
+				alwaysShow: i.isSearched,
 			};
 		};
 
@@ -512,11 +513,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 		const updateItems = async (
 			quickpick: QuickPick<LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
+			search?: string,
 		) => {
 			quickpick.busy = true;
 
 			try {
-				await updateContextItems(this.container, context, { force: true });
+				await updateContextItems(this.container, context, { force: true, search: search });
 
 				const { items, placeholder } = getItemsAndPlaceholder();
 				quickpick.placeholder = placeholder;
@@ -543,7 +545,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
-			onDidChangeValue: quickpick => {
+			onDidChangeValue: async quickpick => {
 				const hideGroups = Boolean(quickpick.value?.length);
 
 				if (groupsHidden !== hideGroups) {
@@ -587,7 +589,14 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								// Force quickpick to update by changing the items object:
 								quickpick.items = [...quickpick.items];
 							}
+							// We have found an item that matches to the URL.
+							// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
+							return true;
 						}
+						// Nothing is found above, so let's perform search in the API:
+						await updateItems(quickpick, value);
+						quickpick.items = quickpick.items.filter((i): i is LaunchpadItemQuickPickItem => 'item' in i);
+						groupsHidden = true;
 					}
 				}
 
@@ -1325,8 +1334,17 @@ function getIntegrationTitle(integrationId: string): string {
 	}
 }
 
-async function updateContextItems(container: Container, context: Context, options?: { force?: boolean }) {
-	context.result = await container.launchpad.getCategorizedItems(options);
+async function updateContextItems(
+	container: Container,
+	context: Context,
+	options?: { force?: boolean; search?: string },
+) {
+	const result = await container.launchpad.getCategorizedItems(options);
+	if (options?.search != null) {
+		context.result = container.launchpad.mergeSearchedCategorizedItems(context.result, result);
+	} else {
+		context.result = result;
+	}
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
 	}
