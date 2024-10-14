@@ -1305,7 +1305,7 @@ void
 ```typescript
 {
   'timeout': number,
-  'operation': 'getMyPullRequests' | 'getCodeSuggestions' | 'getEnrichedItems' | 'getCodeSuggestionCounts',
+  'operation': 'getPullRequest' | 'getMyPullRequests' | 'getCodeSuggestions' | 'getEnrichedItems' | 'getCodeSuggestionCounts',
   'duration': number
 }
 ```

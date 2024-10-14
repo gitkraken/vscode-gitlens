@@ -419,6 +419,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			i: LaunchpadItem,
 			ui: LaunchpadGroup,
 			topItem: LaunchpadItem | undefined,
+			alwaysShow: boolean | undefined,
 		): LaunchpadItemQuickPickItem => {
 			const buttons = [];
 
@@ -449,6 +450,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					i.actionableCategory === 'other' ? '' : `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
 				}${fromNow(i.updatedDate)} by @${i.author!.username}`,
 
+				alwaysShow: alwaysShow,
 				buttons: buttons,
 				iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
 				item: i,
@@ -457,7 +459,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			};
 		};
 
-		const getItems = (result: LaunchpadCategorizedResult) => {
+		const getItems = (result: LaunchpadCategorizedResult, isSearching?: boolean) => {
 			const items: (LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
 
 			if (result.items?.length) {
@@ -472,18 +474,21 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				for (const [ui, groupItems] of uiGroups) {
 					if (!groupItems.length) continue;
 
-					items.push(...buildGroupHeading(ui, groupItems.length));
+					if (!isSearching) {
+						items.push(...buildGroupHeading(ui, groupItems.length));
+						if (context.collapsed.get(ui)) {
+							continue;
+						}
+					}
 
-					if (context.collapsed.get(ui)) continue;
-
-					items.push(...groupItems.map(i => buildLaunchpadQuickPickItem(i, ui, topItem)));
+					items.push(...groupItems.map(i => buildLaunchpadQuickPickItem(i, ui, topItem, isSearching)));
 				}
 			}
 
 			return items;
 		};
 
-		function getItemsAndPlaceholder() {
+		function getItemsAndPlaceholder(isSearching?: boolean) {
 			if (context.result.error != null) {
 				return {
 					placeholder: `Unable to load items (${
@@ -506,17 +511,18 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 			return {
 				placeholder: 'Choose an item to focus on',
-				items: getItems(context.result),
+				items: getItems(context.result, isSearching),
 			};
 		}
 
 		const updateItems = async (
 			quickpick: QuickPick<LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
 		) => {
+			const search = quickpick.value;
 			quickpick.busy = true;
 
 			try {
-				await updateContextItems(this.container, context, { force: true });
+				await updateContextItems(this.container, context, { force: true, search: search });
 
 				const { items, placeholder } = getItemsAndPlaceholder();
 				quickpick.placeholder = placeholder;
@@ -527,8 +533,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		};
 
 		const { items, placeholder } = getItemsAndPlaceholder();
-
-		let groupsHidden = false;
+		const nonGroupedItems = items.filter(i => !isDirectiveQuickPickItem(i));
 
 		const step = createPickStep({
 			title: context.title,
@@ -543,29 +548,27 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
-			onDidChangeValue: quickpick => {
+			onDidChangeValue: async quickpick => {
 				const { value } = quickpick;
-				const hideGroups = Boolean(quickpick.value?.length);
-
-				if (groupsHidden !== hideGroups) {
-					groupsHidden = hideGroups;
-					quickpick.items = hideGroups ? items.filter(i => !isDirectiveQuickPickItem(i)) : items;
-				}
-				const activeLaunchpadItems = quickpick.activeItems.filter(
-					(i): i is LaunchpadItemQuickPickItem => 'item' in i && !i.alwaysShow,
-				);
+				const hideGroups = Boolean(value?.length);
+				const consideredItems = hideGroups ? nonGroupedItems : items;
 
 				let updated = false;
-				for (const item of quickpick.items) {
+				for (const item of consideredItems) {
 					if (item.alwaysShow) {
 						item.alwaysShow = false;
 						updated = true;
 					}
 				}
-				if (updated) {
-					// Force quickpick to update by changing the items object:
-					quickpick.items = [...quickpick.items];
-				}
+
+				// By doing the following we make sure we operate with the PRs that belong to Launchpad initially.
+				// Also, when we re-create the array, we make sure that `alwaysShow` updates are applied.
+				quickpick.items =
+					updated && quickpick.items === consideredItems ? [...consideredItems] : consideredItems;
+
+				const activeLaunchpadItems = quickpick.activeItems.filter(
+					(i): i is LaunchpadItemQuickPickItem => 'item' in i,
+				);
 
 				if (!value?.length || activeLaunchpadItems.length) {
 					// Nothing to search
@@ -588,7 +591,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							item.alwaysShow = true;
 							// Force quickpick to update by changing the items object:
 							quickpick.items = [...quickpick.items];
+							// We have found an item that matches to the URL.
+							// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
+							return true;
 						}
+						// Nothing is found above, so let's perform search in the API:
+						await updateItems(quickpick);
 					}
 				}
 
@@ -1377,7 +1385,11 @@ function getIntegrationTitle(integrationId: string): string {
 	}
 }
 
-async function updateContextItems(container: Container, context: Context, options?: { force?: boolean }) {
+async function updateContextItems(
+	container: Container,
+	context: Context,
+	options?: { force?: boolean; search?: string },
+) {
 	context.result = await container.launchpad.getCategorizedItems(options);
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
