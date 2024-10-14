@@ -53,7 +53,6 @@ import { interpolate, pluralize } from '../../system/string';
 import { executeCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
-import { getApplicablePromo } from '../gk/account/promos';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
 import type {
 	LaunchpadAction,
@@ -112,7 +111,6 @@ interface Context {
 	collapsed: Map<LaunchpadGroup, boolean>;
 	telemetryContext: LaunchpadTelemetryContext | undefined;
 	connectedIntegrations: Map<IntegrationId, boolean>;
-	showGraduationPromo: boolean;
 }
 
 interface GroupedLaunchpadItem extends LaunchpadItem {
@@ -221,7 +219,6 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			collapsed: collapsed,
 			telemetryContext: this.telemetryContext,
 			connectedIntegrations: await this.container.launchpad.getConnectedIntegrations(),
-			showGraduationPromo: false,
 		};
 
 		let opened = false;
@@ -265,9 +262,6 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 			const result = yield* ensureAccessStep(state, context, PlusFeatures.Launchpad);
 			if (result === StepResultBreak) continue;
-
-			context.showGraduationPromo =
-				getApplicablePromo(result.subscription.current.state, undefined, 'launchpad') != null;
 
 			await updateContextItems(this.container, context, { force: newlyConnected });
 
@@ -378,16 +372,6 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
 		const getItems = (result: LaunchpadCategorizedResult) => {
 			const items: (LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
-			if (context.showGraduationPromo) {
-				items.push(
-					createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, undefined, {
-						label: `Preview access of Launchpad will end on September 27th`,
-						detail: '$(blank) Upgrade before then to save 75% or more on GitLens Pro',
-						iconPath: new ThemeIcon('megaphone'),
-						buttons: [LearnAboutProQuickInputButton],
-					}),
-				);
-			}
 
 			if (result.items?.length) {
 				const uiGroups = groupAndSortLaunchpadItems(result.items);

@@ -17552,13 +17552,18 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Limited-time Sale: Save 33% or more on your 1st seat of Pro.",
+				"contents": "Limited-time sale: Save 33% or more on your 1st seat of Pro.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Launchpad Sale: Save 75% or more on GitLens Pro",
-				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo =~ /(launchpad|launchpad-extended)/"
+				"contents": "Launchpad sale: Save 75% or more on GitLens Pro",
+				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == launchpad-extended"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Limited-time sale: Save up to 80% on GitLen Pro",
+				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == devexdays"
 			},
 			{
 				"view": "gitlens.views.worktrees",
