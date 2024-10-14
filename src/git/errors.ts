@@ -449,7 +449,8 @@ export class WorktreeCreateError extends Error {
 
 export const enum WorktreeDeleteErrorReason {
 	HasChanges,
-	MainWorkingTree,
+	DefaultWorkingTree,
+	DirectoryNotEmpty,
 }
 
 export class WorktreeDeleteError extends Error {
@@ -476,8 +477,8 @@ export class WorktreeDeleteError extends Error {
 				case WorktreeDeleteErrorReason.HasChanges:
 					message = 'Unable to delete worktree because there are uncommitted changes';
 					break;
-				case WorktreeDeleteErrorReason.MainWorkingTree:
-					message = 'Unable to delete worktree because it is a main working tree';
+				case WorktreeDeleteErrorReason.DefaultWorkingTree:
+					message = 'Cannot delete worktree because it is the default working tree';
 					break;
 			}
 		}

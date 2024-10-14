@@ -1,3 +1,4 @@
+import { exec } from 'child_process';
 import { promises as fs, readdir, realpath } from 'fs';
 import { homedir, hostname, tmpdir, userInfo } from 'os';
 import path, { resolve as resolvePath } from 'path';
@@ -6081,27 +6082,78 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			' Please install a more recent version of Git and try again.',
 		);
 
+		path = normalizePath(typeof path === 'string' ? path : path.fsPath);
 		try {
-			await this.git.worktree__remove(
-				repoPath,
-				normalizePath(typeof path === 'string' ? path : path.fsPath),
-				options,
-			);
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['worktrees'] });
+			await this.git.worktree__remove(repoPath, path, options);
 		} catch (ex) {
 			Logger.error(ex, scope);
 
 			const msg = String(ex);
 
 			if (GitErrors.mainWorkingTree.test(msg)) {
-				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.MainWorkingTree, ex);
+				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.DefaultWorkingTree, ex);
 			}
 
 			if (GitErrors.uncommittedChanges.test(msg)) {
 				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.HasChanges, ex);
 			}
 
+			if (GitErrors.failedToDeleteDirectoryNotEmpty.test(msg)) {
+				Logger.warn(
+					scope,
+					`Failed to fully delete worktree '${path}' because it is not empty. Attempting to delete it manually.`,
+					scope,
+				);
+				try {
+					await fs.rm(path, { force: true, recursive: true });
+					return;
+				} catch (ex) {
+					if (isWindows) {
+						const match = /EPERM: operation not permitted, unlink '(.*?)'/i.exec(ex.message);
+						if (match != null) {
+							Logger.warn(
+								scope,
+								`Failed to manually delete '${path}' because it is in use. Attempting to forcefully delete it.`,
+								scope,
+							);
+
+							function deleteInUseSymlink(symlink: string) {
+								return new Promise((resolve, reject) => {
+									exec(`del "${symlink}"`, (ex, stdout, stderr) => {
+										if (ex) {
+											reject(ex instanceof Error ? ex : new Error(ex));
+										} else if (stderr) {
+											reject(new Error(stderr));
+										} else {
+											resolve(stdout);
+										}
+									});
+								});
+							}
+
+							const [, file] = match;
+							try {
+								await deleteInUseSymlink(file);
+								await fs.rm(path, { force: true, recursive: true, maxRetries: 1, retryDelay: 1 });
+								return;
+							} catch (ex) {
+								Logger.error(
+									ex,
+									scope,
+									`Failed to forcefully delete '${path}' because it is in use.`,
+									scope,
+								);
+							}
+						}
+					}
+
+					throw new WorktreeDeleteError(WorktreeDeleteErrorReason.DirectoryNotEmpty, ex);
+				}
+			}
+
 			throw new WorktreeDeleteError(undefined, ex);
+		} finally {
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['worktrees'] });
 		}
 	}
 

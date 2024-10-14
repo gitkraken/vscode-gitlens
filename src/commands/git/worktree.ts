@@ -5,6 +5,7 @@ import { proBadge, proBadgeSuperscript } from '../../constants';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import { PlusFeatures } from '../../features';
+import { executeGitCommand } from '../../git/actions';
 import { convertLocationToOpenFlags, convertOpenFlagsToLocation, reveal } from '../../git/actions/worktree';
 import {
 	ApplyPatchCommitError,
@@ -15,7 +16,7 @@ import {
 	WorktreeDeleteErrorReason,
 } from '../../git/errors';
 import { uncommitted, uncommittedStaged } from '../../git/models/constants';
-import type { GitReference } from '../../git/models/reference';
+import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import {
 	getNameWithoutRemote,
 	getReferenceFromBranch,
@@ -69,7 +70,6 @@ import {
 	pickWorktreesStep,
 	pickWorktreeStep,
 } from '../quickCommand.steps';
-import { getSteps } from '../quickWizard.utils';
 
 interface Context {
 	repos: Repository[];
@@ -864,20 +864,20 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			state.flags = result;
 
-			endSteps(state);
-
-			const branchesToDelete = [];
+			const branchesToDelete: GitBranchReference[] = [];
 
 			for (const uri of state.uris) {
-				let retry = false;
 				let skipHasChangesPrompt = false;
-				do {
-					retry = false;
-					const force = state.flags.includes('--force');
-					const deleteBranches = state.flags.includes('--delete-branches');
+				let succeeded = false;
+
+				const deleteBranches = state.flags.includes('--delete-branches');
+				let force = state.flags.includes('--force');
+				const worktree = context.worktrees.find(wt => wt.uri.toString() === uri.toString());
+
+				while (true) {
+					succeeded = false;
 
 					try {
-						const worktree = context.worktrees.find(wt => wt.uri.toString() === uri.toString());
 						if (force) {
 							let status;
 							try {
@@ -899,16 +899,35 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						}
 
 						await state.repo.git.deleteWorktree(uri, { force: force });
-						if (deleteBranches && worktree?.branch) {
-							branchesToDelete.push(getReferenceFromBranch(worktree?.branch));
-						}
+						succeeded = true;
 					} catch (ex) {
 						skipHasChangesPrompt = false;
 
 						if (WorktreeDeleteError.is(ex)) {
-							if (ex.reason === WorktreeDeleteErrorReason.MainWorkingTree) {
-								void window.showErrorMessage('Unable to delete the main worktree');
-							} else if (!force) {
+							if (ex.reason === WorktreeDeleteErrorReason.DefaultWorkingTree) {
+								void window.showErrorMessage('Cannot delete the default worktree.');
+								break;
+							}
+
+							if (ex.reason === WorktreeDeleteErrorReason.DirectoryNotEmpty) {
+								const openFolder: MessageItem = { title: 'Open Folder' };
+								const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+								const result = await window.showErrorMessage(
+									`Unable to fully clean up the delete worktree in '${uri.fsPath}' because the folder is not empty.`,
+									{ modal: true },
+									openFolder,
+									confirm,
+								);
+
+								if (result === openFolder) {
+									void revealInFileExplorer(uri);
+								}
+
+								succeeded = true;
+								break;
+							}
+
+							if (!force) {
 								const confirm: MessageItem = { title: 'Force Delete' };
 								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 								const result = await window.showErrorMessage(
@@ -921,31 +940,39 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								);
 
 								if (result === confirm) {
-									state.flags.push('--force');
-									retry = true;
+									force = true;
 									skipHasChangesPrompt = ex.reason === WorktreeDeleteErrorReason.HasChanges;
+									continue;
 								}
+
+								break;
 							}
-						} else {
-							void showGenericErrorMessage(`Unable to delete worktree in '${uri.fsPath}.`);
 						}
+
+						void showGenericErrorMessage(`Unable to delete worktree in '${uri.fsPath}. ex=${String(ex)}`);
 					}
-				} while (retry);
+
+					break;
+				}
+
+				if (succeeded && deleteBranches && worktree?.branch) {
+					branchesToDelete.push(getReferenceFromBranch(worktree?.branch));
+				}
 			}
 
+			endSteps(state);
+
 			if (branchesToDelete.length) {
-				yield* getSteps(
-					this.container,
-					{
-						command: 'branch',
-						state: {
-							subcommand: 'delete',
-							repo: state.repo,
-							references: branchesToDelete,
-						},
+				// Don't use `getSteps` here because this is a whole new flow, a
+				// and because of the modals above it won't even work (since the modals will trigger the quick pick to hide)
+				void executeGitCommand({
+					command: 'branch',
+					state: {
+						subcommand: 'delete',
+						repo: state.repo,
+						references: branchesToDelete,
 					},
-					this.pickedVia,
-				);
+				});
 			}
 		}
 	}
