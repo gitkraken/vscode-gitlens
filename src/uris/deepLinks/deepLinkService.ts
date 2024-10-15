@@ -33,12 +33,14 @@ import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceC
 import {
 	AccountDeepLinkTypes,
 	DeepLinkActionType,
+	DeepLinkCommandTypeToCommand,
 	DeepLinkServiceAction,
 	DeepLinkServiceState,
 	deepLinkStateToProgress,
 	deepLinkStateTransitionTable,
 	DeepLinkType,
 	deepLinkTypeToString,
+	isDeepLinkCommandType,
 	PaidDeepLinkTypes,
 	parseDeepLinkUri,
 } from './deepLink';
@@ -658,6 +660,9 @@ export class DeepLinkService implements Disposable {
 							break;
 						case DeepLinkType.Workspace:
 							action = DeepLinkServiceAction.LinkIsWorkspaceType;
+							break;
+						case DeepLinkType.Command:
+							action = DeepLinkServiceAction.LinkIsCommandType;
 							break;
 						default:
 							action = DeepLinkServiceAction.LinkIsRepoType;
@@ -1381,6 +1386,24 @@ export class DeepLinkService implements Disposable {
 						repository: repo,
 						source: 'launchpad',
 					} satisfies ShowWipArgs);
+					action = DeepLinkServiceAction.DeepLinkResolved;
+					break;
+				}
+				case DeepLinkServiceState.RunCommand: {
+					if (mainId == null || !isDeepLinkCommandType(mainId)) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Invalid command type.';
+						break;
+					}
+
+					const command = DeepLinkCommandTypeToCommand.get(mainId);
+					if (command == null) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Invalid command.';
+						break;
+					}
+
+					await executeCommand(command, { source: 'deeplink' });
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}

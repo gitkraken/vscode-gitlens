@@ -1,4 +1,5 @@
 import type { Uri } from 'vscode';
+import { Commands } from '../../constants.commands';
 import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
@@ -8,6 +9,7 @@ export type UriTypes = 'link';
 
 export enum DeepLinkType {
 	Branch = 'b',
+	Command = 'command',
 	Commit = 'c',
 	Comparison = 'compare',
 	Draft = 'drafts',
@@ -16,6 +18,20 @@ export enum DeepLinkType {
 	Tag = 't',
 	Workspace = 'workspace',
 }
+
+export enum DeepLinkCommandType {
+	Launchpad = 'launchpad',
+	Walkthrough = 'walkthrough',
+}
+
+export function isDeepLinkCommandType(type: string): type is DeepLinkCommandType {
+	return Object.values(DeepLinkCommandType).includes(type as DeepLinkCommandType);
+}
+
+export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, Commands>([
+	[DeepLinkCommandType.Launchpad, Commands.ShowLaunchpad],
+	[DeepLinkCommandType.Walkthrough, Commands.OpenWalkthrough],
+]);
 
 export enum DeepLinkActionType {
 	Switch = 'switch',
@@ -31,6 +47,8 @@ export function deepLinkTypeToString(type: DeepLinkType): string {
 	switch (type) {
 		case DeepLinkType.Branch:
 			return 'Branch';
+		case DeepLinkType.Command:
+			return 'Command';
 		case DeepLinkType.Commit:
 			return 'Commit';
 		case DeepLinkType.Comparison:
@@ -169,14 +187,20 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				params: urlParams,
 			};
 		}
-
-		case DeepLinkType.Workspace:
+		case DeepLinkType.Workspace: {
 			return {
 				type: DeepLinkType.Workspace,
 				mainId: mainId,
 				params: urlParams,
 			};
-
+		}
+		case DeepLinkType.Command: {
+			return {
+				type: DeepLinkType.Command,
+				mainId: mainId,
+				params: urlParams,
+			};
+		}
 		default:
 			return undefined;
 	}
@@ -206,6 +230,7 @@ export const enum DeepLinkServiceState {
 	OpenFile,
 	OpenInspect,
 	SwitchToRef,
+	RunCommand,
 }
 
 export const enum DeepLinkServiceAction {
@@ -215,6 +240,7 @@ export const enum DeepLinkServiceAction {
 	DeepLinkResolved,
 	DeepLinkStored,
 	DeepLinkErrored,
+	LinkIsCommandType,
 	LinkIsRepoType,
 	LinkIsDraftType,
 	LinkIsWorkspaceType,
@@ -282,6 +308,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	[DeepLinkServiceState.TypeMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.LinkIsCommandType]: DeepLinkServiceState.RunCommand,
 		[DeepLinkServiceAction.LinkIsRepoType]: DeepLinkServiceState.RepoMatch,
 		[DeepLinkServiceAction.LinkIsDraftType]: DeepLinkServiceState.OpenDraft,
 		[DeepLinkServiceAction.LinkIsWorkspaceType]: DeepLinkServiceState.OpenWorkspace,
@@ -392,6 +419,11 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
+	[DeepLinkServiceState.RunCommand]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
 };
 
 export interface DeepLinkProgress {
@@ -422,4 +454,5 @@ export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.OpenFile]: { message: 'Opening file...', increment: 90 },
 	[DeepLinkServiceState.OpenInspect]: { message: 'Opening inspect...', increment: 90 },
 	[DeepLinkServiceState.SwitchToRef]: { message: 'Switching to ref...', increment: 90 },
+	[DeepLinkServiceState.RunCommand]: { message: 'Running command...', increment: 90 },
 };
