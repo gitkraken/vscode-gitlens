@@ -4,12 +4,12 @@
 
 [GitLens](https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links 'Learn more about GitLens') is a powerful [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com) built and maintained by GitKraken.
 
-GitLens (Quick TL:DR)
-- Mention GitLens, then how GitLens Pro is an addition. Maybe one paragraph. There are two editions. 
-- **GitLens** is an extension that enables to you track code changes and who made them, with in-editor blame annotations, hovers, CodeLens, and much more - all seamlessly integrated and customizable within VS Code.**GitLens Pro** is an edition to GitLens..... unlocks new workflows that enable you to accelerate PR reviews, access interactive Git visuals, and further reduce context switching. You can try GitLens Pro for free after installing GitLens.
+Enhance your workflows with powerful Git functionality like in-editor blame annotations, hovers, CodeLens, and more—all fully customizable within VS Code. When you’re ready, GitLens Pro takes it even further by unlocking advanced workflows. With Pro, you can accelerate PR reviews, access rich interactive Git actions, and enhance collaboration for you and your team.
+
+After installing GitLens, you can explore GitLens Pro for free and experience the additional features firsthand.
 ## Getting Started
 
-Install GitLens by clicking `Install` on the banner above, or from the Extensions side bar in VS Code by searching for GitLens. 
+Install GitLens by clicking `Install` on the banner above, or from the Extensions side bar in VS Code by searching for GitLens.
 
 <p>
   <a title="Watch the GitLens Getting Started video" href="https://www.youtube.com/watch?v=UQPb73Zz9qk"><img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/get-started-video.png" alt="Watch the GitLens Getting Started video" /></a>
@@ -17,23 +17,22 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 
 - Use `Switch to Pre-Release Version` on the extension banner to be the first to experience new features.
 
-> Have questions or concerns? Communicate with our engineering team directly though our [GitHub Discussions](https://github.com/gitkraken/vscode-gitlens/discussions) page. Having a positive experience with GitLens? Feel free to [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens&ssr=false#review-details). 
+> Have questions or concerns? Talk to our engineering team directly though our [GitHub Discussions](https://github.com/gitkraken/vscode-gitlens/discussions) page. Having a positive experience with GitLens? Feel free to [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens&ssr=false#review-details).
 
 ## GitLens Editions: Free and Pro
 
+**GitLens Free** gives you powerful tools to understand how your code has evolved and by whom, all at no cost. With popular features like in-editor blame annotations, hovers, and CodeLens, you can see actionable authorship details at the top of each file. Track the history of any file over time using Revision Navigation to gain deeper insights into code changes.
 
-**GitLens Free** is free and helps you understand how code changed and by whom with our popular in-editor blame annotations, hovers, CodeLens, and much more. CodeLens adds contextual and actionable authorship at the top of each file. Explore the history of a file to see how the code evolved over time with Revision Navigation. 
+**GitLens Pro** takes your workflow to the next level by unlocking advanced features and seamless integrations:
 
-**GitLens Pro** unlocks further features and workflows that enable you to:
+- **Accelerate PR reviews** with Launchpad, a clean and actionable PR hub built directly into VS Code.
+- **Manage commits effortlessly** using the Commit Graph, where you can execute advanced actions like rebase, merge, and more. With powerful search and filtering, quickly locate commits, branches, or files.
+- **Enhance collaboration** by integrating with platforms like GitHub, GitLab, and Bitbucket, reducing context switching. View and manage PRs directly in VS Code through Launchpad.
 
-- Accelerate PR reviews in a clean, actionable PR hub with Launchpad.
-- Execute powerful graph actions directly from the Commit Graph that allow you to rebase, merge, and manage commits seamlessly. Advanced search and filtering capabilities allow you to find commits, branches, and files easily. 
-- Streamline collaboration by integrating with GitHub, GitLab, Bitbucket and more to minimize context switching. View PRs right in VS Code with Launchpad.
+You can try GitLens Pro for free. When you're ready to upgrade, a GitKraken [paid plan](https://www.gitkraken.com/gitlens/pricing) is required for privately-hosted repos. All features remain free for public repos, but for private repos:
 
-Try GitLens Pro for free. When you're ready, you can purchase GitLens Pro through a GitKraken [paid plan](https://www.gitkraken.com/gitlens/pricing), which is required for privately-hosted repos. All features are free to use on all repos, **except** for features:
-
-- marked with a `Pro` require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos.
-- marked with a `Preview` require a GitKraken account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc.
+- Features marked with `Pro` require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing).
+- Features labeled `Preview` require a GitKraken account, with access based on your [plan](https://www.gitkraken.com/gitlens/pricing) (e.g., Free, Pro, etc.).
 
 
 
@@ -52,7 +51,7 @@ Try GitLens Pro for free. When you're ready, you can purchase GitLens Pro throug
 
 The rich features of GitLens help you and your team tackle three key workflows:
 
-- [**Interactive Code History**](#blame-codelens-and-hovers) &mdash; Go beyond mere visualizations and be able to action commands from the GitLens Commit Graph, such as rebasing, creating branches, and reverting changes. Rich search capabilities allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change. 
+- [**Interactive Code History**](#blame-codelens-and-hovers) &mdash; Go beyond mere visualizations and be able to action commands from the GitLens Commit Graph, such as rebasing, creating branches, and reverting changes. Rich search capabilities allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.
 
 - [**Accelerate PR Reviews**](#file-annotations) &mdash; ______ _____ ______. With Launchpad, you have a PR hug that allows you to manage GitHub PRs by status, helping you quickly prioritize tasks in your workflow and identify bottlenecks —all within VS Code. Integrate your Github or host provider to minimize context switching and streamline your PR workflows right in VS code with GitLens.Work on multiple branches simultaneously—hotfixes, new features, or experiments—without disrupting your main workspace.
 
