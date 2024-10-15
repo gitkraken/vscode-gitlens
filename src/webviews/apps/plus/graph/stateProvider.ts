@@ -1,4 +1,4 @@
-import { ContextProvider } from '@lit/context';
+import { ContextProvider, createContext } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
 import type { State } from '../../../../plus/webviews/graph/protocol';
 import {
@@ -21,7 +21,8 @@ import {
 } from '../../../../plus/webviews/graph/protocol';
 import type { Disposable } from '../../shared/events';
 import type { HostIpc } from '../../shared/ipc';
-import { stateContext } from './context';
+
+export const stateContext = createContext<State>('graph-state');
 
 type ReactiveElementHost = Partial<ReactiveControllerHost> & HTMLElement;
 

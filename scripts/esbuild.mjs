@@ -140,7 +140,7 @@ async function buildGraphWebview(mode) {
 
 	const result = await esbuild.build({
 		bundle: true,
-		entryPoints: ['src/webviews/apps/plus/graph/graph.tsx'],
+		entryPoints: ['src/webviews/apps/plus/graph/graph.ts'],
 		entryNames: '[dir]/graph',
 		alias: {
 			'@env': path.resolve(__dirname, 'src', 'env', 'browser'),

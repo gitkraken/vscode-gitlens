@@ -394,7 +394,7 @@ function getWebviewsConfig(mode, env) {
 		context: basePath,
 		entry: {
 			commitDetails: './commitDetails/commitDetails.ts',
-			graph: './plus/graph/graph.tsx',
+			graph: './plus/graph/graph.ts',
 			home: './home/home.ts',
 			rebase: './rebase/rebase.ts',
 			settings: './settings/settings.ts',
