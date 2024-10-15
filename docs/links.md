@@ -22,6 +22,10 @@ This document covers the various VSCode link formats that work with GitLens, alo
 
 - [Login](#login 'Jump to Login')
 
+### Other Links
+
+- [Command](#command 'Jump to Command')
+
 ## Notation
 
 The following are used in link notation in this document:
@@ -249,3 +253,27 @@ _vscode://eamodio.gitlens/login?code={code}(&state={state})(&context={context})_
 #### Example Usage
 
 External sources, such as GitKraken web pages, can use these links internally to get you into GitLens and logged in to your GitKraken account.
+
+## Other Links
+
+### Command
+
+#### Description
+
+Used to run a GitLens command.
+
+#### Format
+
+_{prefix}/command/{command}_
+
+#### References
+
+- _{command}_ is the name of the command to run. Currently supported values include:
+
+  - _launchpad_ - Runs the `GitLens: Show Launchpad` command.
+
+  - _walkthrough_ - Runs the `GitLens: Open Walkthrough` command.
+
+#### Example Usage
+
+External sources, such as GitKraken web pages, can use these links to directly run a GitLens command - for example, to show the Launchpad.
