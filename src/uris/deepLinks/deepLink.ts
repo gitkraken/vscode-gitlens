@@ -30,7 +30,7 @@ export function isDeepLinkCommandType(type: string): type is DeepLinkCommandType
 
 export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, Commands>([
 	[DeepLinkCommandType.Launchpad, Commands.ShowLaunchpad],
-	[DeepLinkCommandType.Walkthrough, Commands.OpenWalkthrough],
+	[DeepLinkCommandType.Walkthrough, Commands.GetStarted],
 ]);
 
 export enum DeepLinkActionType {
