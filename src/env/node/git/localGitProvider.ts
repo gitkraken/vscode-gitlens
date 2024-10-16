@@ -1270,7 +1270,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			await this.git.tag(repoPath, name, ref, ...(message?.length !== 0 ? ['-m', message] : []));
 		} catch (ex) {
 			if (ex instanceof TagError) {
-				throw ex.WithTag(name);
+				throw ex.WithTag(name).WithAction('create');
 			}
 
 			throw ex;
@@ -1283,7 +1283,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			await this.git.tag(repoPath, '-d', name);
 		} catch (ex) {
 			if (ex instanceof TagError) {
-				throw ex.WithTag(name);
+				throw ex.WithTag(name).WithAction('delete');
 			}
 
 			throw ex;
