@@ -51,16 +51,30 @@ You can try GitLens Pro for free. When you're ready to upgrade, a GitKraken [pai
 
 There are a variety of features in GitLens - below are the three most popular workflows users are leveraging to improve their developer productivity:
 
-- [**Interactive Code History**](#blame-codelens-and-hovers) &mdash; Get the context you need instantly with in-editor blame, hovers, and file annotations. That's just the start - the GitLens Commit Graph is our interactive repo visual that allows you to rebase, create branches, revert changes, and much more right from the graph. The only graph with rich search capabilities - search by a specific commit, message, author, changed file or files, or even a specific code change.
+- [**Interactive Code History**](#blame-codelens-and-hovers) &mdash; Get the context you need instantly with blame, hovers, file annotations, and more. That's just the start - the GitLens Commit Graph is an interactive visual that allows you to create branches, rebase, revert, and much more right from the graph; all with a rich search feature. 
 
-- [**Accelerate PR Reviews**](#file-annotations) &mdash; A hub that allows you to manage all your PRs by status, Launchpad allows you to seamlessly prioritize tasks and identify bottlenecks - all within VS Code. Reduce context switching and streamline your PR workflows when you integrate your Github or host provider. Work on multiple branches simultaneously with Worktrees — hotfixes, new features, or experiments without disrupting your main workspace.
+- [**Accelerate PR Reviews**](#file-annotations) &mdash; Reduce context switching and manage all your PRs in one place with Launchpad. Prioritize tasks and identify bottlenecks right in VS Code when you integrate your Github or host provider. Work on multiple branches at once without disrupting your main workspace with Worktrees.   
 
 - [**Streamline Collaboration**](#revision-navigation) &mdash; GitLens is more than a solo dev tool - it's built to improve team collaboration. With Cloud Patches, share and discuss suggested changes directly with any other GitLens or GitKraken DevEx Suite User – whether related to files in a PR or beyond. 
 
 
-# Visualize Code History
+# Interactive Code History
 
-2 sentence intro goes here. Loren ipsum ____ ____
+It's about more than moce visuals in today's dev environment. Interact with relevant code context with in-editor blame, hovers, file annotations, and more. The GitLens Commit Graph more than a graph; it's action-oriented and allows you to rebase, branch, revert, and more. The only graph with rich search capabilities - search by a specific commit, message, author, changed file or files, or even a specific code change.
+
+[RELOCATE RESPECTIVE FEATURES HERE UNDER THIS WORKFLOW]
+
+# Accelerate PR Reviews
+
+PR Reviews can take time and require context switching between GitHub, email, and your IDE. We built Launchpad so you can consolidate PRs into an actionable hub where you can manage all your PRs in one place. Seamlessly prioritize tasks and identify bottlenecks - all within VS Code when you integrate your Github or host provider. Work on multiple branches simultaneously with Worktrees — hotfixes, new features, or experiments without disrupting your main workspace.
+
+[RELOCATE RESPECTIVE FEATURES HERE UNDER THIS WORKFLOW]
+
+# Streamline Collaboration
+
+GitLens is more than a solo dev tool - it's built to improve team collaboration. With Cloud Patches, share and discuss suggested changes directly with any other GitLens or GitKraken DevEx Suite User – whether related to files in a PR or beyond. 
+
+[RELOCATE RESPECTIVE FEATURES HERE UNDER THIS WORKFLOW]
 
 ## Blame, CodeLens, and Hovers
 
