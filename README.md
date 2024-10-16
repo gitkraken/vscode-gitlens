@@ -49,13 +49,13 @@ You can try GitLens Pro for free. When you're ready to upgrade, a GitKraken [pai
 
 # Discover Powerful Workflows (---everything in this section and below is still a WIP---)
 
-The rich features of GitLens help you and your team tackle three key workflows:
+There are a variety of features in GitLens - below are the three most popular workflows users are leveraging to improve their developer productivity:
 
-- [**Interactive Code History**](#blame-codelens-and-hovers) &mdash; Go beyond mere visualizations and be able to action commands from the GitLens Commit Graph, such as rebasing, creating branches, and reverting changes. Rich search capabilities allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.
+- [**Interactive Code History**](#blame-codelens-and-hovers) &mdash; Get the context you need instantly with in-editor blame, hovers, and file annotations. That's just the start - the GitLens Commit Graph is our interactive repo visual that allows you to rebase, create branches, revert changes, and much more right from the graph. The only graph with rich search capabilities - search by a specific commit, message, author, changed file or files, or even a specific code change.
 
-- [**Accelerate PR Reviews**](#file-annotations) &mdash; ______ _____ ______. With Launchpad, you have a PR hug that allows you to manage GitHub PRs by status, helping you quickly prioritize tasks in your workflow and identify bottlenecks —all within VS Code. Integrate your Github or host provider to minimize context switching and streamline your PR workflows right in VS code with GitLens.Work on multiple branches simultaneously—hotfixes, new features, or experiments—without disrupting your main workspace.
+- [**Accelerate PR Reviews**](#file-annotations) &mdash; A hub that allows you to manage all your PRs by status, Launchpad allows you to seamlessly prioritize tasks and identify bottlenecks - all within VS Code. Reduce context switching and streamline your PR workflows when you integrate your Github or host provider. Work on multiple branches simultaneously with Worktrees — hotfixes, new features, or experiments without disrupting your main workspace.
 
-- [**Streamline Collaboration**](#revision-navigation) &mdash; Explore the history of a file to see how the code evolved over time.
+- [**Streamline Collaboration**](#revision-navigation) &mdash; GitLens is more than a solo dev tool - it's built to improve team collaboration. With Cloud Patches, share and discuss suggested changes directly with any other GitLens or GitKraken DevEx Suite User – whether related to files in a PR or beyond. 
 
 
 # Visualize Code History
