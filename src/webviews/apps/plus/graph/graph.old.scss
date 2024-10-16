@@ -1,0 +1,1227 @@
+@use '../../shared/styles/theme';
+@import '../../shared/base';
+@import '../../shared/codicons';
+@import '../../shared/glicons';
+@import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
+
+@mixin focusStyles() {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.vscode-high-contrast,
+.vscode-dark {
+	--popover-bg: var(--color-background--lighten-15);
+	--titlebar-bg: var(--color-background--lighten-075);
+}
+
+.vscode-high-contrast-light,
+.vscode-light {
+	--popover-bg: var(--color-background--darken-15);
+	--titlebar-bg: var(--color-background--darken-075);
+}
+
+:root {
+	--titlebar-fg: var(--color-foreground--65);
+	--color-graph-contrast-border: var(--vscode-list-focusOutline);
+	--color-graph-selected-row: var(--vscode-list-activeSelectionBackground);
+	--color-graph-hover-row: var(--vscode-list-hoverBackground);
+	--color-graph-text-selected-row: var(--vscode-list-activeSelectionForeground);
+	--color-graph-text-dimmed-selected: color-mix(
+		in srgb,
+		transparent 50%,
+		var(--vscode-list-activeSelectionForeground)
+	);
+	--color-graph-text-selected: var(--vscode-editor-foreground, var(--vscode-foreground));
+	--color-graph-text-dimmed: color-mix(in srgb, transparent 80%, var(--color-graph-text-selected));
+	--color-graph-actionbar-selectedBackground: var(--vscode-toolbar-hoverBackground);
+
+	--color-graph-text-hovered: var(--vscode-list-hoverForeground);
+	--color-graph-text-normal: color-mix(in srgb, transparent 15%, var(--color-graph-text-selected));
+	--color-graph-text-secondary: color-mix(in srgb, transparent 35%, var(--color-graph-text-selected));
+	--color-graph-text-disabled: color-mix(in srgb, transparent 50%, var(--color-graph-text-selected));
+
+	--color-graph-stats-added: var(--vscode-gitlens-graphChangesColumnAddedColor);
+	--color-graph-stats-deleted: var(--vscode-gitlens-graphChangesColumnDeletedColor);
+	--color-graph-stats-files: var(--vscode-gitDecoration-modifiedResourceForeground);
+
+	--color-graph-minimap-line0: var(--vscode-progressBar-background);
+	--color-graph-minimap-focusLine: var(--vscode-foreground);
+	--color-graph-minimap-visibleAreaBackground: var(--vscode-scrollbarSlider-background);
+
+	--color-graph-minimap-marker-head: var(--vscode-gitlens-graphMinimapMarkerHeadColor);
+	--color-graph-scroll-marker-head: var(--vscode-gitlens-graphScrollMarkerHeadColor);
+	--color-graph-minimap-marker-upstream: var(--vscode-gitlens-graphMinimapMarkerUpstreamColor);
+	--color-graph-scroll-marker-upstream: var(--vscode-gitlens-graphScrollMarkerUpstreamColor);
+	--color-graph-minimap-marker-highlights: var(--vscode-gitlens-graphMinimapMarkerHighlightsColor);
+	--color-graph-scroll-marker-highlights: var(--vscode-gitlens-graphScrollMarkerHighlightsColor);
+	--color-graph-minimap-marker-local-branches: var(--vscode-gitlens-graphMinimapMarkerLocalBranchesColor);
+	--color-graph-scroll-marker-local-branches: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor);
+	--color-graph-minimap-marker-pull-requests: var(--vscode-gitlens-graphMinimapMarkerPullRequestsColor);
+	--color-graph-scroll-marker-pull-requests: var(--vscode-gitlens-graphScrollMarkerPullRequestsColor);
+	--color-graph-minimap-marker-remote-branches: var(--vscode-gitlens-graphMinimapMarkerRemoteBranchesColor);
+	--color-graph-scroll-marker-remote-branches: var(--vscode-gitlens-graphScrollMarkerRemoteBranchesColor);
+	--color-graph-minimap-marker-stashes: var(--vscode-gitlens-graphMinimapMarkerStashesColor);
+	--color-graph-scroll-marker-stashes: var(--vscode-gitlens-graphScrollMarkerStashesColor);
+	--color-graph-minimap-marker-tags: var(--vscode-gitlens-graphMinimapMarkerTagsColor);
+	--color-graph-scroll-marker-tags: var(--vscode-gitlens-graphScrollMarkerTagsColor);
+
+	--color-graph-minimap-tip-headBackground: var(--color-graph-scroll-marker-head);
+	--color-graph-minimap-tip-headBorder: var(--color-graph-scroll-marker-head);
+	--color-graph-minimap-tip-headForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-minimap-tip-highlightBackground: var(--color-graph-scroll-marker-highlights);
+	--color-graph-minimap-tip-highlightBorder: var(--color-graph-scroll-marker-highlights);
+	--color-graph-minimap-tip-highlightForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-minimap-tip-branchBackground: var(--color-graph-scroll-marker-local-branches);
+	--color-graph-minimap-tip-branchBorder: var(--color-graph-scroll-marker-local-branches);
+	--color-graph-minimap-tip-branchForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-minimap-tip-remoteBackground: var(--color-graph-scroll-marker-remote-branches);
+	--color-graph-minimap-tip-remoteBorder: var(--color-graph-scroll-marker-remote-branches);
+	--color-graph-minimap-tip-remoteForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-scroll-marker-selection: var(--vscode-editorCursor-foreground);
+	--color-graph-minimap-marker-selection: var(--color-graph-scroll-marker-selection);
+
+	--color-graph-minimap-tip-stashBackground: var(--color-graph-scroll-marker-stashes);
+	--color-graph-minimap-tip-stashBorder: var(--color-graph-scroll-marker-stashes);
+	--color-graph-minimap-tip-stashForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-minimap-pullRequestBackground: var(--color-graph-scroll-marker-pull-requests);
+	--color-graph-minimap-pullRequestBorder: var(--color-graph-scroll-marker-pull-requests);
+	--color-graph-minimap-pullRequestForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-minimap-tip-tagBackground: var(--color-graph-scroll-marker-tags);
+	--color-graph-minimap-tip-tagBorder: var(--color-graph-scroll-marker-tags);
+	--color-graph-minimap-tip-tagForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-minimap-tip-upstreamBackground: var(--color-graph-scroll-marker-upstream);
+	--color-graph-minimap-tip-upstreamBorder: var(--color-graph-scroll-marker-upstream);
+	--color-graph-minimap-tip-upstreamForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--graph-stats-bar-height: 40%;
+	--graph-stats-bar-border-radius: 3px;
+
+	--branch-status-ahead-foreground: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
+	--branch-status-behind-foreground: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
+	--branch-status-both-foreground: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
+
+	--graph-column-scrollbar-thickness: 14px;
+}
+
+:root:has(.vscode-dark, .vscode-high-contrast) {
+	--graph-theme-opacity-factor: '1';
+
+	--color-graph-actionbar-background: color-mix(in srgb, #fff 5%, var(--color-background));
+	--color-graph-background: color-mix(in srgb, #fff 5%, var(--color-background));
+	--color-graph-background2: color-mix(in srgb, #fff 10%, var(--color-background));
+}
+
+:root:has(.vscode-light, .vscode-high-contrast-light) {
+	--graph-theme-opacity-factor: '0.5';
+
+	--color-graph-actionbar-background: color-mix(in srgb, #000 5%, var(--color-background));
+	--color-graph-background: color-mix(in srgb, #000 5%, var(--color-background));
+	--color-graph-background2: color-mix(in srgb, #000 10%, var(--color-background));
+}
+
+body {
+	.vertical_scrollbar,
+	.horizontal_scrollbar {
+		border-color: transparent;
+		transition: border-color 1s linear;
+	}
+
+	&:hover,
+	&:focus-within {
+		.vertical_scrollbar,
+		.horizontal_scrollbar {
+			transition: border-color 0.1s linear;
+			border-color: var(--vscode-scrollbarSlider-background);
+		}
+	}
+}
+
+::-webkit-scrollbar {
+	width: var(--graph-column-scrollbar-thickness);
+	height: var(--graph-column-scrollbar-thickness);
+}
+
+::-webkit-scrollbar-corner {
+	background-color: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: transparent;
+	border-color: inherit;
+	border-right-style: inset;
+	border-right-width: calc(100vw + 100vh);
+	border-radius: unset !important;
+
+	&:hover {
+		border-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+
+	&:active {
+		border-color: var(--vscode-scrollbarSlider-activeBackground);
+	}
+}
+
+a {
+	text-decoration: none;
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+a,
+button:not([disabled]),
+[tabindex]:not([tabindex='-1']) {
+	&:focus {
+		@include focusStyles();
+	}
+}
+
+// -------------------------------------
+// START CHOPPING OUT
+// -------------------------------------
+
+// Ahead/Behind pill - X
+.pill {
+	display: inline-block;
+	padding: 0.2rem 0.5rem;
+	border-radius: 0.5rem;
+	font-size: 1rem;
+	font-weight: 500;
+	line-height: 1.2;
+	text-transform: uppercase;
+	color: var(--vscode-foreground);
+	background-color: var(--vscode-editorWidget-background);
+
+	.codicon[class*='codicon-'] {
+		font-size: inherit !important;
+		line-height: inherit !important;
+	}
+}
+
+// nuke
+.badge {
+	font-size: 1rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	color: var(--color-foreground);
+
+	&.is-help {
+		cursor: help;
+	}
+
+	small {
+		font-size: inherit;
+		opacity: 0.6;
+		font-weight: 400;
+	}
+
+	&-container {
+		position: relative;
+	}
+
+	&-popover {
+		width: max-content;
+		right: 0;
+		top: 100%;
+		white-space: normal;
+	}
+
+	&:not(:hover) + &-popover {
+		display: none;
+	}
+}
+
+// need this - X
+.popover::part(body) {
+	padding: 0;
+	font-size: var(--vscode-font-size);
+}
+
+// header - X
+.jump-to-ref {
+	--button-foreground: var(--color-foreground);
+}
+
+// actionButtonStyles -	X
+.action-button {
+	position: relative;
+	appearance: none;
+	font-family: inherit;
+	font-size: 1.2rem;
+	line-height: 2.2rem;
+	// background-color: var(--color-graph-actionbar-background);
+	background-color: transparent;
+	border: none;
+	color: inherit;
+	color: var(--color-foreground);
+	padding: 0 0.75rem;
+	cursor: pointer;
+	border-radius: 3px;
+	height: auto;
+
+	display: grid;
+	grid-auto-flow: column;
+	grid-gap: 0.5rem;
+	gap: 0.5rem;
+	max-width: fit-content;
+
+	&[disabled] {
+		pointer-events: none;
+		cursor: default;
+		opacity: 1;
+	}
+
+	&:hover {
+		background-color: var(--color-graph-actionbar-selectedBackground);
+		color: var(--color-foreground);
+		text-decoration: none;
+	}
+
+	&[aria-checked] {
+		border: 1px solid transparent;
+	}
+
+	&[aria-checked='true'] {
+		background-color: var(--vscode-inputOption-activeBackground);
+		color: var(--vscode-inputOption-activeForeground);
+		border-color: var(--vscode-inputOption-activeBorder);
+	}
+
+	.codicon[class*='codicon-'],
+	.glicon[class*='glicon-'] {
+		line-height: 2.2rem;
+		vertical-align: bottom;
+	}
+
+	.codicon[class*='codicon-graph-line'] {
+		transform: translateY(1px);
+	}
+
+	&__pill {
+		.is-ahead & {
+			background-color: var(--branch-status-ahead-pill-background);
+		}
+		.is-behind & {
+			background-color: var(--branch-status-behind-pill-background);
+		}
+		.is-ahead.is-behind & {
+			background-color: var(--branch-status-both-pill-background);
+		}
+	}
+
+	&__more,
+	&__more.codicon[class*='codicon-'] {
+		font-size: 1rem;
+		margin-right: -0.25rem;
+	}
+
+	&__more.codicon[class*='codicon-']::before {
+		margin-left: -0.25rem;
+	}
+
+	&__indicator {
+		position: absolute;
+		bottom: 0.2rem;
+		right: 1.5rem;
+		display: block;
+		width: 0.8rem;
+		height: 0.8rem;
+		border-radius: 100%;
+		background-color: var(--vscode-progressBar-background);
+	}
+
+	&__small {
+		font-size: smaller;
+		opacity: 0.6;
+		text-overflow: ellipsis;
+		overflow: hidden;
+	}
+
+	&.is-ahead {
+		background-color: var(--branch-status-ahead-background);
+
+		&:hover {
+			background-color: var(--branch-status-ahead-hover-background);
+		}
+	}
+	&.is-behind {
+		background-color: var(--branch-status-behind-background);
+
+		&:hover {
+			background-color: var(--branch-status-behind-hover-background);
+		}
+	}
+	&.is-ahead.is-behind {
+		background-color: var(--branch-status-both-background);
+
+		&:hover {
+			background-color: var(--branch-status-both-hover-background);
+		}
+	}
+}
+
+// nuke
+.action-button--narrow {
+	padding: 0;
+	width: 2.4rem;
+	height: 2.4rem;
+	text-align: center;
+
+	.codicon[class*='codicon-graph-line'] {
+		transform: translateX(2px);
+	}
+}
+
+// wrapper - X
+.action-divider {
+	display: inline-block;
+	width: 0.1rem;
+	height: 2.2rem;
+	vertical-align: middle;
+	background-color: var(--titlebar-fg);
+	opacity: 0.4;
+	margin: {
+		// left: 0.2rem;
+		right: 0.2rem;
+	}
+}
+
+// wrapper - X
+.button-group {
+	display: flex;
+	flex-direction: row;
+	align-items: stretch;
+
+	&:hover,
+	&:focus-within {
+		background-color: var(--color-graph-actionbar-selectedBackground);
+		border-radius: 3px;
+	}
+
+	> *:not(:first-child),
+	> *:not(:first-child) .action-button {
+		display: flex;
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+	}
+
+	> *:not(:first-child) .action-button {
+		padding-left: 0.5rem;
+		padding-right: 0.5rem;
+		height: 100%;
+	}
+
+	// > *:not(:last-child),
+	// > *:not(:last-child) .action-button {
+	// 	padding-right: 0.5rem;
+	// }
+
+	&:hover > *:not(:last-child),
+	&:active > *:not(:last-child),
+	&:focus-within > *:not(:last-child),
+	&:hover > *:not(:last-child) .action-button,
+	&:active > *:not(:last-child) .action-button,
+	&:focus-within > *:not(:last-child) .action-button {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	// > *:not(:first-child) {
+	// 	border-left: 0.1rem solid var(--titlebar-fg);
+	// }
+}
+
+// nuke
+.repo-access {
+	font-size: 1.1em;
+	margin-right: 0.2rem;
+
+	&:not(.is-pro) {
+		filter: grayscale(1) brightness(0.7);
+	}
+}
+
+// nuke
+.columns-settings {
+	--column-button-height: 19px;
+
+	appearance: none;
+	font-family: inherit;
+	background-color: transparent;
+	border: none;
+	color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
+	height: var(--column-button-height);
+	cursor: pointer;
+	background-color: var(--color-graph-actionbar-background);
+	text-align: left;
+	border-radius: 3px;
+
+	&:hover {
+		background-color: var(--vscode-toolbar-hoverBackground);
+		color: var(--color-foreground);
+	}
+
+	&:focus {
+		@include focusStyles;
+	}
+
+	&[disabled] {
+		pointer-events: none;
+		opacity: 0.5;
+	}
+
+	.codicon[class*='codicon-'] {
+		font-size: 1.1rem;
+		position: relative;
+	}
+}
+
+// graph container - X
+.gk-graph.bs-tooltip {
+	z-index: 1040;
+}
+
+// graph container - X
+// TODO: move this to host-side
+.graph-icon {
+	font: normal normal normal 14px/1 codicon;
+	display: inline-block;
+	text-decoration: none;
+	text-rendering: auto;
+	text-align: center;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	user-select: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+
+	vertical-align: middle;
+	line-height: 2rem;
+	letter-spacing: normal;
+
+	&.mini-icon {
+		font-size: 1rem;
+		line-height: 1.6rem;
+	}
+}
+
+// graph container - X
+.icon {
+	&--head {
+		&::before {
+			// codicon-vm
+			font-family: codicon;
+			content: '\ea7a';
+		}
+	}
+	&--remote {
+		&::before {
+			// codicon-cloud
+			font-family: codicon;
+			content: '\ebaa';
+		}
+	}
+	&--remote-github,
+	&--remote-githubEnterprise {
+		&::before {
+			// codicon-github-inverted
+			font-family: codicon;
+			content: '\eba1';
+		}
+	}
+	&--remote-gitlab,
+	&--remote-gitlabSelfHosted {
+		&::before {
+			// glicon-provider-gitlab
+			font-family: 'glicons';
+			content: '\f123';
+		}
+	}
+	&--remote-bitbucket,
+	&--remote-bitbucketServer {
+		&::before {
+			// glicon-provider-bitbucket
+			font-family: 'glicons';
+			content: '\f11f';
+		}
+	}
+	&--remote-azureDevops {
+		&::before {
+			// glicon-provider-azdo
+			font-family: 'glicons';
+			content: '\f11e';
+		}
+	}
+	&--tag {
+		&::before {
+			// codicon-tag
+			font-family: codicon;
+			content: '\ea66';
+		}
+	}
+	&--stash {
+		&::before {
+			// codicon-inbox
+			font-family: codicon;
+			content: '\eb09';
+		}
+	}
+	&--check {
+		&::before {
+			// codicon-check
+			font-family: codicon;
+			content: '\eab2';
+		}
+	}
+	&--warning {
+		color: #de9b43;
+		:before {
+			// codicon-vm
+			font-family: codicon;
+			content: '\ea6c';
+		}
+	}
+	&--added {
+		&::before {
+			// codicon-add
+			font-family: codicon;
+			content: '\ea60';
+		}
+	}
+	&--modified {
+		&::before {
+			// codicon-edit
+			font-family: codicon;
+			content: '\ea73';
+		}
+	}
+	&--deleted {
+		&::before {
+			// codicon-dash
+			font-family: codicon;
+			content: '\eacc';
+		}
+	}
+	&--renamed {
+		&::before {
+			// codicon-file
+			font-family: codicon;
+			content: '\eb60';
+		}
+	}
+	&--resolved {
+		&::before {
+			// codicon-pass-filled
+			font-family: codicon;
+			content: '\ebb3';
+		}
+	}
+	&--hide {
+		&::before {
+			// codicon-eye-closed
+			font-family: codicon;
+			content: '\eae7';
+		}
+	}
+	&--show {
+		&::before {
+			// codicon-eye
+			font-family: codicon;
+			content: '\ea70';
+		}
+	}
+	&--pull-request {
+		&::before {
+			// codicon-git-pull-request
+			font-family: codicon;
+			content: '\ea64';
+		}
+	}
+	&--upstream-ahead {
+		&::before {
+			// codicon-arrow-up
+			font-family: codicon;
+			content: '\eaa1';
+		}
+	}
+	&--upstream-behind {
+		&::before {
+			// codicon-arrow-down
+			font-family: codicon;
+			content: '\ea9a';
+		}
+	}
+	&--settings {
+		&::before {
+			// codicon-settings-gear
+			font-family: codicon;
+			content: '\eb51';
+		}
+	}
+	&--branch {
+		&::before {
+			// codicon-git-branch
+			font-family: codicon;
+			content: '\ea68';
+			top: 0px;
+			margin: 0 0 0 0;
+		}
+	}
+
+	&--graph {
+		&::before {
+			// glicon-graph
+			font-family: glicons;
+			content: '\f102';
+		}
+	}
+
+	&--commit {
+		&::before {
+			// codicon-git-commit
+			font-family: codicon;
+			content: '\eafc';
+			top: 0px;
+			margin: 0 0 0 0;
+		}
+	}
+
+	&--author {
+		&::before {
+			// codicon-account
+			font-family: codicon;
+			content: '\eb99';
+		}
+	}
+
+	&--datetime {
+		&::before {
+			// glicon-clock
+			font-family: glicons;
+			content: '\f11d';
+		}
+	}
+
+	&--message {
+		&::before {
+			// codicon-comment
+			font-family: codicon;
+			content: '\ea6b';
+		}
+	}
+
+	&--changes {
+		&::before {
+			// codicon-request-changes
+			font-family: codicon;
+			content: '\eb43';
+		}
+	}
+
+	&--files {
+		&::before {
+			// codicon-file
+			font-family: codicon;
+			content: '\eb60';
+		}
+	}
+
+	&--worktree {
+		&::before {
+			// glicon-repositories-view
+			font-family: glicons;
+			content: '\f10e';
+		}
+	}
+}
+
+// titleBarStyles - X
+.titlebar {
+	background: var(--titlebar-bg);
+	color: var(--titlebar-fg);
+	padding: {
+		left: 0.8rem;
+		right: 0.8rem;
+		top: 0.6rem;
+		bottom: 0.6rem;
+	}
+	font-size: 1.3rem;
+	flex-wrap: wrap;
+
+	&,
+	&__row,
+	&__group {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 0.5rem;
+
+		> * {
+			margin: 0;
+		}
+	}
+
+	&,
+	&__row {
+		justify-content: space-between;
+	}
+
+	&__row {
+		flex: 0 0 100%;
+
+		&--wrap {
+			display: grid;
+			grid-auto-flow: column;
+			justify-content: start;
+			grid-template-columns: minmax(min-content, 1fr) min-content;
+		}
+	}
+
+	&__group {
+		flex: auto 1 1;
+	}
+
+	&__row--wrap &__group {
+		white-space: nowrap;
+	}
+
+	&__debugging {
+		> * {
+			display: inline-block;
+		}
+	}
+
+	gl-feature-badge {
+		color: var(--color-foreground);
+	}
+}
+
+// move to gate - X
+gl-feature-gate gl-feature-badge {
+	vertical-align: super;
+	margin-left: 0.4rem;
+	margin-right: 0.4rem;
+}
+
+.graph-app {
+	// X
+	--fs-1: 1.1rem;
+	--fs-2: 1.3rem;
+
+	padding: 0;
+	overflow: hidden;
+
+	// X
+	&__container {
+		display: flex;
+		flex-direction: column;
+		height: calc(100vh - 2px); // shoot me -- the 2px is to stop the vertical scrollbar from showing up
+		gap: 0;
+		padding: 0.1rem;
+	}
+
+	// nuke
+	&__banners {
+		flex: none;
+		padding: 0.5rem;
+		z-index: 2000;
+
+		&:empty {
+			display: none;
+		}
+
+		> *:not(:first-child) {
+			margin-top: 0.5rem;
+		}
+	}
+
+	// nuke
+	&__gate {
+		// top: 34px; /* height of the header bar */
+		padding-top: 34px;
+	}
+
+	// X
+	&__header {
+		flex: none;
+		z-index: 101;
+		position: relative;
+	}
+
+	// nuke
+	&__footer {
+		flex: none;
+	}
+
+	&__main {
+		flex: 1 1 auto;
+		overflow: hidden;
+		position: relative;
+		display: flex;
+	}
+
+	&__main.is-gated {
+		position: relative;
+		pointer-events: none;
+	}
+}
+
+// move to graph container
+.gk-graph:not(.ref-zone):not([role='tooltip']) {
+	flex: 1 1 auto;
+	position: relative;
+}
+
+// Add when graph ref-zone "container" changes
+// .gk-graph.ref-zone {
+// 	position: absolute;
+// }
+
+// move to graph container
+.gk-graph .graph-header {
+	& .resizable-handle.horizontal {
+		--sash-size: 4px;
+		--sash-hover-size: 4px;
+
+		border-right: none !important;
+		width: var(--sash-size) !important;
+		height: 100vh !important;
+		z-index: 1000;
+
+		&:after {
+			content: '';
+			border-left: 1px solid var(--titlebar-fg);
+			position: absolute;
+			top: 0.3rem;
+			left: 0.1rem;
+			height: 1.6rem;
+			width: var(--sash-size);
+			opacity: 0.3;
+
+			transition: border-color 0.1s ease-out;
+		}
+
+		&:before {
+			content: '';
+			pointer-events: none;
+			position: absolute;
+			width: 100%;
+			height: 100vh;
+			transition: background-color 0.1s ease-out;
+			background: transparent;
+
+			width: var(--sash-hover-size);
+			left: calc(50% - var(--sash-hover-size) / 2);
+		}
+
+		&:hover,
+		&:active {
+			&:before {
+				transition-delay: 0.2s;
+				background-color: var(--vscode-sash-hoverBorder);
+			}
+
+			&:after {
+				transition-delay: 0.2s;
+				border-left-color: var(--vscode-sash-hoverBorder);
+			}
+		}
+
+		&:active:after {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: -100vw;
+			width: 200vw;
+			height: 100vh;
+			z-index: 1000;
+		}
+	}
+
+	.columns-btn {
+		margin-top: 0.1rem;
+	}
+
+	.button {
+		background-color: var(--color-graph-actionbar-background);
+		color: var(--color-graph-text-disabled, hsla(0deg, 0%, 100%, 0.4));
+		border-radius: 3px;
+
+		&:hover {
+			background-color: var(--vscode-toolbar-hoverBackground);
+			color: var(--color-foreground);
+		}
+
+		&:focus {
+			@include focusStyles;
+		}
+
+		&.active,
+		&.active:hover {
+			background-color: var(--vscode-toolbar-activeBackground);
+			color: var(--color-foreground);
+		}
+	}
+
+	.graph-icon {
+		color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
+	}
+}
+
+// move to graph container
+.graph-app:not(:hover) {
+	.gk-graph .graph-header {
+		& .resizable-handle.horizontal:before {
+			display: none;
+		}
+	}
+}
+
+// move to graph container
+.graph-container {
+	& .resizable-handle.horizontal {
+		display: none;
+	}
+
+	& .node.stash-node .graph-icon {
+		transform: translateY(-2px);
+	}
+
+	& .graph-adjust-commit-count {
+		display: flex;
+		width: calc(100vw - var(--graph-column-scrollbar-thickness));
+		align-items: center;
+		justify-content: center;
+	}
+
+	& .changes-zone.changes-bar .changes-sub-bar.deleted {
+		margin-left: 2px;
+	}
+}
+
+// nuke
+.mr-loose {
+	margin-right: 0.5rem;
+}
+
+// nuke, using web component
+.progress-container {
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	z-index: 5;
+	height: 2px;
+	width: 100%;
+	overflow: hidden;
+
+	& .progress-bar {
+		background-color: var(--vscode-progressBar-background);
+		display: none;
+		position: absolute;
+		left: 0;
+		width: 2%;
+		height: 2px;
+	}
+
+	&.active .progress-bar {
+		display: inherit;
+	}
+
+	&.discrete .progress-bar {
+		left: 0;
+		transition: width 0.1s linear;
+	}
+
+	&.discrete.done .progress-bar {
+		width: 100%;
+	}
+
+	&.infinite .progress-bar {
+		animation-name: progress;
+		animation-duration: 4s;
+		animation-iteration-count: infinite;
+		animation-timing-function: steps(100);
+		transform: translateZ(0);
+	}
+}
+
+// nuke, using web component
+@keyframes progress {
+	0% {
+		transform: translateX(0) scaleX(1);
+	}
+
+	50% {
+		transform: translateX(2500%) scaleX(3);
+	}
+
+	to {
+		transform: translateX(4900%) scaleX(1);
+	}
+}
+
+// nuke
+.sr-only {
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	height: 1px;
+	overflow: hidden;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
+}
+
+// graph container
+#opts-popover {
+	font-size: var(--vscode-font-size);
+	font-family: var(--vscode-font-family);
+	background-color: var(--vscode-menu-background);
+	border: 1px solid var(--vscode-menu-border);
+	padding: 0;
+	z-index: 1001;
+
+	ul > li {
+		padding: 0 0.6rem;
+		height: 2.2rem;
+		line-height: 2.2rem;
+		color: var(--vscode-menu-foreground);
+		background-color: var(--vscode-menu-background);
+
+		&:hover {
+			color: var(--vscode-menu-selectionForeground);
+			background-color: var(--vscode-menu-selectionBackground);
+		}
+	}
+}
+
+// graph container
+.gk-graph .tooltip,
+.gk-graph.tooltip {
+	font-size: var(--vscode-font-size) !important;
+	font-family: var(--vscode-font-family) !important;
+	font-weight: normal !important;
+	line-height: 19px !important;
+
+	&.in {
+		opacity: 1;
+	}
+
+	&.tooltip-arrow:after {
+		background-color: var(--color-hover-background) !important;
+		border-right-color: var(--color-hover-border) !important;
+		border-bottom-color: var(--color-hover-border) !important;
+	}
+
+	&-inner {
+		font-size: var(--vscode-font-size) !important;
+		padding: 4px 10px 5px 10px !important;
+		color: var(--color-hover-foreground) !important;
+		background-color: var(--color-hover-background) !important;
+		border: 1px solid var(--color-hover-border) !important;
+		border-radius: 0 !important;
+		box-shadow: 0 2px 8px var(--vscode-widget-shadow) !important;
+		text-align: start !important;
+		white-space: break-spaces !important;
+	}
+}
+
+// graph wrapper - X
+.minimap-marker-swatch {
+	display: inline-block;
+	width: 1rem;
+	height: 1rem;
+	border-radius: 2px;
+	transform: scale(1.6);
+	margin-left: 0.3rem;
+	margin-right: 1rem;
+
+	&[data-marker='localBranches'] {
+		background-color: var(--color-graph-minimap-marker-local-branches);
+	}
+
+	&[data-marker='pullRequests'] {
+		background-color: var(--color-graph-minimap-marker-pull-requests);
+	}
+
+	&[data-marker='remoteBranches'] {
+		background-color: var(--color-graph-minimap-marker-remote-branches);
+	}
+
+	&[data-marker='stashes'] {
+		background-color: var(--color-graph-minimap-marker-stashes);
+	}
+
+	&[data-marker='tags'] {
+		background-color: var(--color-graph-minimap-marker-tags);
+	}
+}
+
+hr {
+	border: none;
+	border-top: 1px solid var(--color-foreground--25);
+}
+
+.md-code {
+	background: var(--vscode-textCodeBlock-background);
+	border-radius: 3px;
+	padding: 0px 4px 2px 4px;
+	font-family: var(--vscode-editor-font-family);
+}
+
+gl-search-box::part(search) {
+	--gl-search-input-background: var(--color-graph-actionbar-background);
+	--gl-search-input-border: var(--sl-input-border-color);
+}
+
+sl-option::part(base) {
+	padding: 0.2rem 0.4rem;
+}
+
+sl-option[aria-selected='true']::part(base),
+sl-option:not([aria-selected='true']):hover::part(base),
+sl-option:not([aria-selected='true']):focus::part(base) {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+sl-option::part(checked-icon) {
+	display: none;
+}
+
+sl-select::part(listbox) {
+	padding-block: 0.2rem 0;
+	width: max-content;
+}
+
+sl-select::part(combobox) {
+	--sl-input-background-color: var(--color-graph-actionbar-background);
+	--sl-input-color: var(--color-foreground);
+	--sl-input-color-hover: var(--color-foreground);
+	padding: 0 0.75rem;
+	color: var(--color-foreground);
+	border-radius: var(--sl-border-radius-small);
+}
+
+sl-select::part(display-input) {
+	field-sizing: content;
+}
+
+sl-select::part(expand-icon) {
+	margin-inline-start: var(--sl-spacing-x-small);
+}
+
+sl-select[open]::part(combobox) {
+	background-color: var(--color-graph-actionbar-background);
+}
+sl-select:hover::part(combobox),
+sl-select:focus::part(combobox) {
+	background-color: var(--color-graph-actionbar-selectedBackground);
+}

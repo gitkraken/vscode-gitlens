@@ -5,6 +5,9 @@ import type { State } from '../../../../plus/webviews/graph/protocol';
 import { GlElement } from '../../shared/components/element';
 import { stateContext } from './stateProvider';
 
+import '../../shared/components/feature-badge';
+import '../../shared/components/feature-gate';
+
 @customElement('gl-graph-gate')
 export class GlGraphHeader extends GlElement {
 	static override styles = [];

@@ -1,8 +1,107 @@
+import type { GraphContainerProps } from '@gitkraken/gitkraken-components';
 import GraphContainer from '@gitkraken/gitkraken-components';
 import r2wc from '@r2wc/react-to-web-component';
-import type { ComponentProps } from 'react';
+import { customElement } from 'lit/decorators.js';
 
-type GraphContainerProps = ComponentProps<typeof GraphContainer>;
+// const GlGraphContainer = r2wc<GraphContainerProps>(GraphContainer);
+// customElements.define('gl-graph-container', GlGraphContainer);
 
-const GlGraphContainer = r2wc<GraphContainerProps>(GraphContainer);
-customElements.define('gl-graph-container', GlGraphContainer);
+@customElement('gl-graph-container')
+export class GlGraphContainer extends r2wc<GraphContainerProps>(GraphContainer, {
+	shadow: 'open',
+	props: {
+		// OwnProps
+		formatCommitDateTime: 'function',
+		formatCommitMessage: 'function',
+		getExternalIcon: 'function',
+		platform: 'string', // TODO: Added this parameter by decision taken but I don't like this way
+		shaLength: 'number',
+		nonce: 'string',
+		// StateProps
+		avatarUrlByEmail: 'json',
+		cssVariables: 'json',
+		customFooterRow: 'json',
+		contexts: 'json',
+		createRefFormData: 'json',
+		dimMergeCommits: 'boolean',
+		enableShowHideRefsOptions: 'boolean',
+		downstreamsByUpstream: 'json',
+		formatRefShorthand: 'function',
+		highlightRowsOnRefHover: 'boolean',
+		isContainerWindowFocused: 'boolean',
+		isRefShorthandValid: 'function',
+		showGhostRefsOnRowHover: 'boolean',
+		showRemoteNamesOnRefs: 'boolean',
+		enabledRefMetadataTypes: 'json', // array
+		enabledScrollMarkerTypes: 'json', // array
+		scrollRowPadding: 'number',
+		enableMultiSelection: 'boolean',
+		graphCommitDescDisplayMode: 'string',
+		graphRows: 'json', // array
+		hasMoreCommits: 'boolean',
+		highlightedShas: 'json',
+		excludeByType: 'json',
+		excludeRefsById: 'json',
+		includeOnlyRefsById: 'json',
+		isCommitting: 'boolean',
+		isSelectedBySha: 'json',
+		isInUnsupportedRebase: 'boolean',
+		isLoadingRows: 'boolean',
+		// maybeCreateRefFormSha: ?Sha; TODO: Decide how we want to handle adding refs to the library in v2
+		pendingCommitMessageSummary: 'string',
+		shiftSelectMode: 'string',
+		suppressNonRefRowTooltips: 'boolean',
+		refMetadataById: 'json',
+		refIconsPosition: 'string',
+		repoPath: 'string',
+		columnsSettings: 'json',
+		themeOpacityFactor: 'number',
+		translate: 'function',
+		useAuthorInitialsForAvatars: 'boolean',
+		rowsStats: 'json',
+		rowsStatsLoading: 'boolean',
+		wipMessageEditable: 'boolean',
+		workDirStats: 'json',
+		// DispatchProps
+		onDoubleClickGraphRef: 'function',
+		onGraphRowHovered: 'function',
+		onGraphRowUnhovered: 'function',
+		onLoadSelectedGraphRow: 'function',
+		onRefContextMenu: 'function',
+		onRefBeginDrag: 'function',
+		onRefCanDrag: 'function',
+		onRefCanDrop: 'function',
+		onRefCreate: 'function',
+		onRefCreateCancel: 'function',
+		onRefCreateContextMenu: 'function',
+		onRefDragEnter: 'function',
+		onRefDragLeave: 'function',
+		onRefDrop: 'function',
+		onRefEndDrag: 'function',
+		onToggleRefsVisibilityClick: 'function',
+		onRowContextMenu: 'function',
+		onGraphRefNodeHovered: 'function',
+		onGraphRefNodeUnhovered: 'function',
+		onBlurWipNodeInput: 'function',
+		onGraphColumnsReOrdered: 'function',
+		onFilterColumnClick: 'function',
+		onColumnResized: 'function',
+		onFocusWipNodeInput: 'function',
+		onMessageChange: 'function',
+		onPopupGraphHeaderContextMenu: 'function',
+		onClickGraphRef: 'function',
+		onClickGraphRow: 'function',
+		onDoubleClickGraphRow: 'function',
+		onSettingsClick: 'function',
+		onSelectGraphRows: 'function',
+		onScrollForZone: 'function',
+		onScrollToRowCausedUpdateForFirstColumn: 'function',
+		onShowMoreCommits: 'function',
+		onGraphResized: 'function',
+		onGraphVisibleRowsChanged: 'function',
+		onGraphMouseEnter: 'function',
+		onGraphMouseLeave: 'function',
+		onEmailsMissingAvatarUrls: 'function',
+		onRefsMissingMetadata: 'function',
+	},
+}) {}

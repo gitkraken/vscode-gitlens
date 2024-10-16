@@ -32,19 +32,9 @@ export const titleBarStyles = css`
 	.titlebar__row {
 		flex: 0 0 100%;
 	}
-	.titlebar--wrap {
-		display: grid;
-		grid-auto-flow: column;
-		justify-content: start;
-		grid-template-columns: minmax(min-content, 1fr) min-content;
-	}
 
 	.titlebar__group {
 		flex: auto 1 1;
-	}
-
-	.titlebar__row--wrap .titlebar__group {
-		white-space: nowrap;
 	}
 
 	.titlebar gl-feature-badge {

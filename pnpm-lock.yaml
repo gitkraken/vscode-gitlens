@@ -63,8 +63,8 @@ importers:
         specifier: 1.27.0
         version: 1.27.0
       '@r2wc/react-to-web-component':
-        specifier: ^2.0.3
-        version: 2.0.3(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
+        specifier: ^1.0.0
+        version: 1.0.0(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
       '@shoelace-style/shoelace':
         specifier: 2.17.1
         version: 2.17.1(@types/react@17.0.82)
@@ -819,11 +819,11 @@ packages:
   '@r2wc/core@1.1.0':
     resolution: {integrity: sha512-pEgtPXhfgg8mv/MooU83cb5sXC2aQOXPLm9UX7E7Oz/OXmrnP5r8hD/nJL1empWxC4wo1YeBXvrFu8fXsMgGZQ==}
 
-  '@r2wc/react-to-web-component@2.0.3':
-    resolution: {integrity: sha512-nlDJ0LHiWLG/EFB5tBtA+9KLF2oMBeDSAXL08NUzAuj/ac+V0NkMl/RvCFdDFnyrPQqpzpD9uOvOY2E5IFpdCQ==}
+  '@r2wc/react-to-web-component@1.0.0':
+    resolution: {integrity: sha512-iiHwwJohi3PD5O/sKD3v1Hc+qLkqwno+cMlXXXJmcGu6GzlVBJLEHbLfzil+xapcCL18eL1tyu45JuFsXdmuMQ==}
     peerDependencies:
-      react: ^18.0.0
-      react-dom: ^18.0.0
+      react: ^16.0.0 || ^17.0.0
+      react-dom: ^16.0.0 || ^17.0.0
 
   '@shoelace-style/animations@1.2.0':
     resolution: {integrity: sha512-avvo1xxkLbv2dgtabdewBbqcJfV0e0zCwFqkPMnHFGbJbBHorRFfMAHh1NG9ymmXn0jW95ibUVH03E1NYXD6Gw==}
@@ -5672,7 +5672,7 @@ snapshots:
 
   '@r2wc/core@1.1.0': {}
 
-  '@r2wc/react-to-web-component@2.0.3(react-dom@16.8.4(react@16.8.4))(react@16.8.4)':
+  '@r2wc/react-to-web-component@1.0.0(react-dom@16.8.4(react@16.8.4))(react@16.8.4)':
     dependencies:
       '@r2wc/core': 1.1.0
       react: 16.8.4

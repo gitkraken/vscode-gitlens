@@ -1,5 +1,5 @@
 import { consume } from '@lit/context';
-import { html, nothing } from 'lit';
+import { css, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
@@ -8,13 +8,35 @@ import type { State } from '../../../../plus/webviews/graph/protocol';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import { createCommandLink } from '../../shared/commands';
 import { GlElement } from '../../shared/components/element';
-import { graphBaselineStyles } from './graph.css';
+import { linkStyles } from '../shared/components/vscode.css';
+import { actionButtonStyles, graphBaselineStyles } from './graph.css';
 import { stateContext } from './stateProvider';
 import { titleBarStyles } from './titlebar/titlebar.css';
 
+import '../../shared/components/code-icon';
+import '../../shared/components/button';
+import '../../shared/components/feature-badge';
+import '../../shared/components/integrations/connect';
+import '../../shared/components/overlays/popover';
+import '../../shared/components/overlays/tooltip';
+import '../../shared/components/rich/issue-pull-request';
+
 @customElement('gl-graph-header')
 export class GlGraphHeader extends GlElement {
-	static override styles = [graphBaselineStyles, titleBarStyles];
+	static override styles = [
+		linkStyles,
+		graphBaselineStyles,
+		titleBarStyles,
+		actionButtonStyles,
+		css`
+			.nowrap {
+				white-space: nowrap;
+			}
+			.noflex {
+				flex: none;
+			}
+		`,
+	];
 
 	@consume({ context: stateContext, subscribe: true })
 	@state()
@@ -28,8 +50,8 @@ export class GlGraphHeader extends GlElement {
 		return html`
 			<div class="titlebar">
 				<div class="titlebar__row">
-					<div className="titlebar__group">${this.renderRepoActions()}</div>
-					<div className="titlebar__group">
+					<div class="titlebar__group nowrap">${this.renderRepoActions()}</div>
+					<div class="titlebar__group noflex">
 						<gl-tooltip placement="bottom">
 							<a
 								href=${`command:gitlens.showLaunchpad?${encodeURIComponent(
@@ -39,7 +61,7 @@ export class GlGraphHeader extends GlElement {
 								)}`}
 								class="action-button"
 							>
-								<span class="codicon codicon-rocket"></span>
+								<code-icon icon="rocket"></code-icon>
 							</a>
 							<span slot="content">
 								<span style="white-space: break-spaces">
@@ -134,15 +156,15 @@ export class GlGraphHeader extends GlElement {
 						() => html`
 							<gl-popover placement="bottom">
 								<button slot="anchor" type="button" class="action-button">
-									<gl-issue-pull-request
+									<issue-pull-request
 										type="pr"
 										.identifier=${`#${this.state.branchState!.pr!.id}`}
 										.status=${this.state.branchState!.pr!.state}
 										compact
-									></gl-issue-pull-request>
+									></issue-pull-request>
 								</button>
 								<div slot="content">
-									<gl-issue-pull-request
+									<issue-pull-request
 										type="pr"
 										.name=${this.state.branchState!.pr!.title}
 										.url=${this.state.branchState!.pr!.url}
@@ -157,7 +179,7 @@ export class GlGraphHeader extends GlElement {
 												this.onOpenPullRequest(this.state.branchState.pr);
 											}
 										}}
-									></gl-issue-pull-request>
+									></issue-pull-request>
 								</div>
 							</gl-popover>
 						`,

@@ -17934,7 +17934,7 @@
 		"@opentelemetry/resources": "1.26.0",
 		"@opentelemetry/sdk-trace-base": "1.26.0",
 		"@opentelemetry/semantic-conventions": "1.27.0",
-		"@r2wc/react-to-web-component": "^2.0.3",
+		"@r2wc/react-to-web-component": "^1.0.0",
 		"@shoelace-style/shoelace": "2.17.1",
 		"@vscode/codicons": "0.0.36",
 		"ansi-regex": "6.1.0",

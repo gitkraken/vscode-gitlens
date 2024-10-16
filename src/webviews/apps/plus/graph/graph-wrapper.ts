@@ -1,24 +1,117 @@
+import type { OnFormatCommitDateTime } from '@gitkraken/gitkraken-components';
+import { CommitDateTimeSources } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { DateStyle } from '../../../../config';
 import type { SearchQuery } from '../../../../constants.search';
-import type { GraphSearchResults, GraphSearchResultsError, State } from '../../../../plus/webviews/graph/protocol';
+import type {
+	GraphComponentConfig,
+	GraphSearchResults,
+	GraphSearchResultsError,
+	State,
+} from '../../../../plus/webviews/graph/protocol';
 import { GlElement } from '../../shared/components/element';
 import type { GlSearchBox } from '../../shared/components/search/search-box';
-import { graphBaselineStyles, graphWrapperStyles } from './graph.css';
+import type { DateTimeFormat } from '../../shared/date';
+import { formatDate, fromNow } from '../../shared/date';
+import { actionButtonStyles, graphBaselineStyles, graphWrapperStyles, popoverStyles } from './graph.css';
 import type { GlGraphHover } from './hover/graphHover';
 import type { GlGraphMinimapContainer } from './minimap/minimap-container';
 import { stateContext } from './stateProvider';
 import { titleBarStyles } from './titlebar/titlebar.css';
 
+import '@shoelace-style/shoelace/dist/components/option/option.js';
+import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '../../shared/components/code-icon';
 import '../../shared/components/progress';
-// import './graph-container';
+import '../../shared/components/checkbox/checkbox';
+import '../../shared/components/menu';
+import '../../shared/components/overlays/popover';
+import '../../shared/components/overlays/tooltip';
+import '../../shared/components/radio/radio';
+import '../../shared/components/radio/radio-group';
+import '../../shared/components/search/search-box';
+import './gate';
+import './graph-header';
+import './hover/graphHover';
+import './minimap/minimap-container';
+import './sidebar/sidebar';
+import './graph-container3';
+
+// const createIconElements = (): Record<string, ReactElement> => {
+// 	const iconList = [
+// 		'head',
+// 		'remote',
+// 		'remote-github',
+// 		'remote-githubEnterprise',
+// 		'remote-gitlab',
+// 		'remote-gitlabSelfHosted',
+// 		'remote-bitbucket',
+// 		'remote-bitbucketServer',
+// 		'remote-azureDevops',
+// 		'tag',
+// 		'stash',
+// 		'check',
+// 		'loading',
+// 		'warning',
+// 		'added',
+// 		'modified',
+// 		'deleted',
+// 		'renamed',
+// 		'resolved',
+// 		'pull-request',
+// 		'show',
+// 		'hide',
+// 		'branch',
+// 		'graph',
+// 		'commit',
+// 		'author',
+// 		'datetime',
+// 		'message',
+// 		'changes',
+// 		'files',
+// 		'worktree',
+// 	];
+
+// 	const miniIconList = ['upstream-ahead', 'upstream-behind'];
+
+// 	const elementLibrary: Record<string, ReactElement> = {};
+// 	iconList.forEach(iconKey => {
+// 		elementLibrary[iconKey] = createElement('span', { className: `graph-icon icon--${iconKey}` });
+// 	});
+// 	miniIconList.forEach(iconKey => {
+// 		elementLibrary[iconKey] = createElement('span', { className: `graph-icon mini-icon icon--${iconKey}` });
+// 	});
+// 	//TODO: fix this once the styling is properly configured component-side
+// 	elementLibrary.settings = createElement('span', {
+// 		className: 'graph-icon icon--settings',
+// 		style: { fontSize: '1.1rem', right: '0px', top: '-1px' },
+// 	});
+// 	return elementLibrary;
+// };
+
+// const iconElementLibrary = createIconElements();
+
+// const getIconElementLibrary = (iconKey: string) => {
+// 	return iconElementLibrary[iconKey];
+// };
+
+const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
+	return (commitDateTime: number, source?: CommitDateTimeSources) =>
+		formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat, source);
+};
 
 @customElement('gl-graph-wrapper')
 export class GlGraphWrapper extends GlElement {
-	static override styles = [graphBaselineStyles, titleBarStyles, graphWrapperStyles];
+	static override styles = [
+		graphBaselineStyles,
+		titleBarStyles,
+		actionButtonStyles,
+		popoverStyles,
+		graphWrapperStyles,
+	];
 
 	@consume({ context: stateContext, subscribe: true })
 	@state()
@@ -108,7 +201,7 @@ export class GlGraphWrapper extends GlElement {
 					@selected=${this.handleOnMinimapDaySelected}
 				></gl-graph-minimap-container>
 				<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover>
-				<div>
+				<div class="graph-wrapper__main">
 					<!-- sidebar -->
 					<gl-graph-sidebar
 						?enabled=${this.state.config?.sidebar}
@@ -118,7 +211,26 @@ export class GlGraphWrapper extends GlElement {
 					></gl-graph-sidebar>
 					${when(
 						this.repo != null,
-						() => html` <gl-graph-container></gl-graph-container> `,
+						() =>
+							html`<gl-graph-container
+								.avatarUrlByEmail=${this.state.avatars}
+								.columnsSettings=${this.state.columns}
+								.contexts=${this.state.context}
+								.formatCommitMessage=${(e: string) => html`<gl-markdown markdown=${e}></gl-markdown>`}
+								.cssVariables=${this.state.theming?.cssVariables}
+								.dimMergeCommits=${this.state.config?.dimMergeCommits}
+								.downstreamsByUpstream=${this.state.downstreams ?? {}}
+								.enabledRefMetadataTypes=${this.state.config?.enabledRefMetadataTypes}
+								.enabledScrollMarkerTypes=${this.state.config?.scrollMarkerTypes}
+								.enableShowHideRefsOptions=${true}
+								.enableMultiSelection=${this.state.config?.enableMultiSelection}
+								.excludeRefsById=${this.state.excludeRefs}
+								.excludeByType=${this.state.excludeTypes}
+								.formatCommitDateTime=${getGraphDateFormatter(this.state.config)}
+								.graphRows=${this.state.rows ?? []}
+								.hasMoreCommits=${this.state.paging?.hasMore ?? false}
+								.highlightedShas=${this.searchResults?.ids}
+							></gl-graph-container>`,
 						() => html`<p>No repository is selected</p>`,
 					)}
 				</div>
@@ -132,8 +244,8 @@ export class GlGraphWrapper extends GlElement {
 		if (!this.state.allowed) return undefined;
 
 		return html`
-			<div className="titlebar__row">
-				<div className="titlebar__group">
+			<div class="titlebar__row">
+				<div class="titlebar__group">
 					<gl-tooltip placement="top" content="Branches Visibility">
 						<sl-select
 							value=${this.state.branchesVisibility}
@@ -166,11 +278,12 @@ export class GlGraphWrapper extends GlElement {
 					<gl-popover class="popover" placement="bottom-start" trigger="focus" ?arrow=${false} distance=${0}>
 						<gl-tooltip placement="top" slot="anchor">
 							<button type="button" class="action-button">
-								<span class=${`codicon codicon-filter${this.hasFilters ? '-filled' : ''}`}></span>
-								<span
-									class="codicon codicon-chevron-down action-button__more"
+								<code-icon icon=${`filter${this.hasFilters ? '-filled' : ''}`}></code-icon>
+								<code-icon
+									class="action-button__more"
+									icon="chevron-down"
 									aria-hidden="true"
-								></span>
+								></code-icon>
 							</button>
 							<span slot="content">Graph Filtering</span>
 						</gl-tooltip>
@@ -261,7 +374,7 @@ export class GlGraphWrapper extends GlElement {
 								aria-checked=${this.state.config?.minimap ?? false}
 								@click=${this.handleOnMinimapToggle}
 							>
-								<span class="codicon codicon-graph-line action-button__icon"></span>
+								<code-icon class="action-button__icon" icon="graph-line"></code-icon>
 							</button>
 							<span slot="content">Toggle Minimap</span>
 						</gl-tooltip>
@@ -274,10 +387,11 @@ export class GlGraphWrapper extends GlElement {
 						>
 							<gl-tooltip placement="top" distance=${7} slot="anchor">
 								<button type="button" class="action-button" aria-label="Minimap Options">
-									<span
-										class="codicon codicon-chevron-down action-button__more"
+									<code-icon
+										class="action-button__more"
+										icon="chevron-down"
 										aria-hidden="true"
-									></span>
+									></code-icon>
 								</button>
 								<span slot="content">Minimap Options</span>
 							</gl-tooltip>
@@ -363,6 +477,21 @@ export class GlGraphWrapper extends GlElement {
 	private handleOnMinimapToggle() {}
 	private handleOnMinimapDataTypeChange() {}
 	private handleOnMinimapAdditionalTypesChange() {}
+}
+
+function formatCommitDateTime(
+	date: number,
+	style: DateStyle = 'absolute',
+	format: DateTimeFormat | string = 'short+short',
+	source?: CommitDateTimeSources,
+): string {
+	switch (source) {
+		case CommitDateTimeSources.Tooltip:
+			return `${formatDate(date, format)} (${fromNow(date)})`;
+		case CommitDateTimeSources.RowEntry:
+		default:
+			return style === 'relative' ? fromNow(date) : formatDate(date, format);
+	}
 }
 
 function getClosestSearchResultIndex(

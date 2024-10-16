@@ -1,0 +1,171 @@
+import type { GraphRef, GraphRefOptData, GraphRow } from '@gitkraken/gitkraken-components';
+import GraphContainer from '@gitkraken/gitkraken-components';
+import { consume } from '@lit/context';
+import { LitElement } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
+import React from 'react';
+import { render, unmountComponentAtNode } from 'react-dom';
+import type { GraphBranchesVisibility } from '../../../../config';
+import type { SearchQuery } from '../../../../constants.search';
+import type {
+	DidEnsureRowParams,
+	DidGetRowHoverParams,
+	DidSearchParams,
+	GraphColumnsConfig,
+	GraphExcludedRef,
+	GraphExcludeTypes,
+	GraphMissingRefsMetadata,
+	GraphRefMetadataItem,
+	State,
+	UpdateGraphConfigurationParams,
+	UpdateStateCallback,
+} from '../../../../plus/webviews/graph/protocol';
+import type { Disposable } from '../../shared/events';
+import { stateContext } from './stateProvider';
+
+@customElement('gl-graph-container')
+export class GlGraphContainer extends LitElement {
+	private disposables: Disposable[] = [];
+
+	@consume({ context: stateContext, subscribe: true })
+	@state()
+	state!: State;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+		const reactRootEl = document.createElement('div');
+		this.appendChild(reactRootEl);
+
+		render(
+			<GraphWrapper
+				nonce={this.state.nonce}
+				state={this.state}
+				subscriber={(updateState: UpdateStateCallback) => this.registerUpdateStateCallback(updateState)}
+			/>,
+			reactRootEl,
+		);
+
+		this.disposables.push({
+			dispose: () => unmountComponentAtNode(reactRootEl),
+		});
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		this.disposables.forEach(d => d.dispose());
+	}
+}
+
+export interface GraphWrapperProps {
+	nonce?: string;
+	state: State;
+	subscriber: (callback: UpdateStateCallback) => () => void;
+	onChangeColumns?: (colsSettings: GraphColumnsConfig) => void;
+	onChangeExcludeTypes?: (key: keyof GraphExcludeTypes, value: boolean) => void;
+	onChangeGraphConfiguration?: (changes: UpdateGraphConfigurationParams['changes']) => void;
+	onChangeRefIncludes?: (branchesVisibility: GraphBranchesVisibility, refs?: GraphRefOptData[]) => void;
+	onChangeRefsVisibility?: (refs: GraphExcludedRef[], visible: boolean) => void;
+	onChangeSelection?: (rows: GraphRow[]) => void;
+	onChooseRepository?: () => void;
+	onDoubleClickRef?: (ref: GraphRef, metadata?: GraphRefMetadataItem) => void;
+	onDoubleClickRow?: (row: GraphRow, preserveFocus?: boolean) => void;
+	onEnsureRowPromise?: (id: string, select: boolean) => Promise<DidEnsureRowParams | undefined>;
+	onHoverRowPromise?: (row: GraphRow) => Promise<DidGetRowHoverParams>;
+	onJumpToRefPromise?: (alt: boolean) => Promise<{ name: string; sha: string } | undefined>;
+	onMissingAvatars?: (emails: Record<string, string>) => void;
+	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
+	onMoreRows?: (id?: string) => void;
+	onOpenPullRequest?: (pr: NonNullable<NonNullable<State['branchState']>['pr']>) => void;
+	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
+	onSearchPromise?: (
+		search: SearchQuery,
+		options?: { limit?: number; more?: boolean },
+	) => Promise<DidSearchParams | undefined>;
+	onSearchOpenInView?: (search: SearchQuery) => void;
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function GraphWrapper({
+	subscriber,
+	nonce,
+	state,
+	onChooseRepository,
+	onChangeColumns,
+	onChangeExcludeTypes,
+	onChangeGraphConfiguration,
+	onChangeRefIncludes,
+	onChangeRefsVisibility,
+	onChangeSelection,
+	onDoubleClickRef,
+	onDoubleClickRow,
+	onEnsureRowPromise,
+	onHoverRowPromise,
+	onJumpToRefPromise,
+	onMissingAvatars,
+	onMissingRefsMetadata,
+	onMoreRows,
+	onOpenPullRequest,
+	onSearch,
+	onSearchPromise,
+	onSearchOpenInView,
+}: GraphWrapperProps) {
+	return (
+		<GraphContainer
+			ref={graphRef}
+			avatarUrlByEmail={avatars}
+			columnsSettings={columns}
+			contexts={context}
+			// @ts-expect-error returnType of formatCommitMessage callback expects to be string, but it works fine with react element
+			formatCommitMessage={e => <GlMarkdown markdown={e}></GlMarkdown>}
+			cssVariables={styleProps?.cssVariables}
+			dimMergeCommits={graphConfig?.dimMergeCommits}
+			downstreamsByUpstream={downstreams}
+			enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
+			enabledScrollMarkerTypes={graphConfig?.scrollMarkerTypes}
+			enableShowHideRefsOptions
+			enableMultiSelection={graphConfig?.enableMultiSelection}
+			excludeRefsById={excludeRefsById}
+			excludeByType={excludeTypes}
+			formatCommitDateTime={getGraphDateFormatter(graphConfig)}
+			getExternalIcon={getIconElementLibrary}
+			graphRows={rows}
+			hasMoreCommits={pagingHasMore}
+			// Just cast the { [id: string]: number } object to { [id: string]: boolean } for performance
+			highlightedShas={searchResults?.ids as GraphContainerProps['highlightedShas']}
+			highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
+			includeOnlyRefsById={includeOnlyRefsById}
+			scrollRowPadding={graphConfig?.scrollRowPadding}
+			showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
+			showRemoteNamesOnRefs={graphConfig?.showRemoteNamesOnRefs}
+			isContainerWindowFocused={windowFocused}
+			isLoadingRows={isLoading}
+			isSelectedBySha={selectedRows}
+			nonce={nonce}
+			onColumnResized={handleOnColumnResized}
+			onDoubleClickGraphRow={handleOnDoubleClickRow}
+			onDoubleClickGraphRef={handleOnDoubleClickRef}
+			onGraphColumnsReOrdered={handleOnGraphColumnsReOrdered}
+			onGraphMouseLeave={handleOnGraphMouseLeave}
+			onGraphRowHovered={handleOnGraphRowHovered}
+			onGraphRowUnhovered={handleOnGraphRowUnhovered}
+			onRowContextMenu={handleRowContextMenu}
+			onSettingsClick={handleToggleColumnSettings}
+			onSelectGraphRows={handleSelectGraphRows}
+			onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
+			onEmailsMissingAvatarUrls={handleMissingAvatars}
+			onRefsMissingMetadata={handleMissingRefsMetadata}
+			onShowMoreCommits={handleMoreCommits}
+			onGraphVisibleRowsChanged={minimap.current ? handleOnGraphVisibleRowsChanged : undefined}
+			platform={clientPlatform}
+			refMetadataById={refsMetadata}
+			rowsStats={rowsStats}
+			rowsStatsLoading={rowsStatsLoading}
+			shaLength={graphConfig?.idLength}
+			shiftSelectMode="simple"
+			suppressNonRefRowTooltips
+			themeOpacityFactor={styleProps?.themeOpacityFactor}
+			useAuthorInitialsForAvatars={!graphConfig?.avatars}
+			workDirStats={workingTreeStats}
+		/>
+	);
+}
