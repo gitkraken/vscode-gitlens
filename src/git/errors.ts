@@ -506,12 +506,17 @@ export class TagError extends Error {
 
 	readonly original?: Error;
 	readonly reason: TagErrorReason | undefined;
-	readonly tag?: string;
+	action?: string;
+	tag?: string;
 
-	private static buildTagErrorMessage(reason?: TagErrorReason, tag?: string, remote?: string): string {
-		const baseMessage = `Unable to perform action${
-			tag ? ` with tag '${tag}'${remote ? ` on ${remote}` : ''}` : 'on tag'
-		}`;
+	private static buildTagErrorMessage(reason?: TagErrorReason, tag?: string, action?: string): string {
+		let baseMessage: string;
+		if (action != null) {
+			baseMessage = `Unable to ${action} tag ${tag ? `'${tag}'` : ''}`;
+		} else {
+			baseMessage = `Unable to perform action${tag ? ` with tag '${tag}'` : 'on tag'}`;
+		}
+
 		switch (reason) {
 			case TagErrorReason.TagAlreadyExists:
 				return `${baseMessage} because it already exists`;
@@ -528,9 +533,9 @@ export class TagError extends Error {
 		}
 	}
 
-	constructor(reason?: TagErrorReason, original?: Error, tag?: string, remote?: string);
+	constructor(reason?: TagErrorReason, original?: Error, tag?: string, action?: string);
 	constructor(message?: string, original?: Error);
-	constructor(messageOrReason: string | TagErrorReason | undefined, original?: Error, tag?: string, remote?: string) {
+	constructor(messageOrReason: string | TagErrorReason | undefined, original?: Error, tag?: string, action?: string) {
 		let reason: TagErrorReason | undefined;
 		if (typeof messageOrReason !== 'string') {
 			reason = messageOrReason as TagErrorReason;
@@ -540,17 +545,25 @@ export class TagError extends Error {
 		const message =
 			typeof messageOrReason === 'string'
 				? messageOrReason
-				: TagError.buildTagErrorMessage(messageOrReason as TagErrorReason, tag, remote);
+				: TagError.buildTagErrorMessage(messageOrReason as TagErrorReason, tag, action);
 		super(message);
 
 		this.original = original;
 		this.reason = reason;
 		this.tag = tag;
+		this.action = action;
 		Error.captureStackTrace?.(this, TagError);
 	}
 
 	WithTag(tag: string) {
-		this.message = TagError.buildTagErrorMessage(this.reason, tag);
+		this.tag = tag;
+		this.message = TagError.buildTagErrorMessage(this.reason, tag, this.action);
+		return this;
+	}
+
+	WithAction(action: string) {
+		this.action = action;
+		this.message = TagError.buildTagErrorMessage(this.reason, this.tag, action);
 		return this;
 	}
 }
