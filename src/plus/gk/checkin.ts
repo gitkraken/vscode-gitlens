@@ -1,7 +1,7 @@
 import { SubscriptionPlanId } from '../../constants.subscription';
 import type { Organization } from './account/organization';
 import type { Subscription } from './account/subscription';
-import { getSubscriptionPlan, getSubscriptionPlanPriority, isSubscriptionExpired } from './account/subscription';
+import { getSubscriptionPlan, getSubscriptionPlanPriority, getTimeRemaining } from './account/subscription';
 
 export type GKLicenses = Partial<Record<GKLicenseType, GKLicense>>;
 
@@ -192,10 +192,12 @@ export function getSubscriptionFromCheckIn(
 		);
 	}
 
+	const remainingTime = getTimeRemaining(actual.expiresOn);
 	if (
 		effective == null ||
 		(getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id) &&
-			!isSubscriptionExpired(actual))
+			remainingTime != null &&
+			remainingTime > 0)
 	) {
 		effective = { ...actual };
 	}
