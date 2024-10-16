@@ -900,7 +900,7 @@ or
 
 ### launchpad/title/action
 
-> Sent when the user takes an action on a launchpad item
+> Sent when the user takes an action on the Launchpad title bar
 
 ```typescript
 {

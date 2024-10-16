@@ -224,7 +224,7 @@ export type TelemetryEvents = {
 	/** Sent when the user selects (clicks on) a commit on the visual file history */
 	'timeline/commit/selected': TimelineContextEventData;
 
-	/** Sent when the user takes an action on a launchpad item */
+	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': LaunchpadEventData & {
 		action: 'feedback' | 'open-on-gkdev' | 'refresh' | 'settings' | 'connect';
 	};
