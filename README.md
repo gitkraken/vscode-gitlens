@@ -2,11 +2,10 @@
 
 > Supercharge Git and unlock **untapped knowledge** within your repo to better **understand**, **write**, and **review** code. Focus, collaborate, accelerate.
 
-[GitLens](https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links 'Learn more about GitLens') is a powerful [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com) built and maintained by GitKraken.
+[GitLens](https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links 'Learn more about GitLens') is a powerful [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for Visual Studio Code built and maintained by GitKraken.
 
-Enhance your workflows with powerful Git functionality like in-editor blame annotations, hovers, CodeLens, and more—all fully customizable within VS Code. When you’re ready, GitLens Pro takes it even further by unlocking advanced workflows. With Pro, you can accelerate PR reviews, access rich interactive Git actions, and enhance collaboration for you and your team.
+Enhance your workflows with powerful Git functionality like in-editor blame annotations, hovers, CodeLens, and more—all fully customizable within VS Code. Try GitLens Pro's advanced workflows that accelerate PR reviews, provide rich interactive Git actions, and enhance collaboration for you and your team.
 
-After installing GitLens, you can explore GitLens Pro for free and experience the additional features firsthand.
 ## Getting Started
 
 Install GitLens by clicking `Install` on the banner above, or from the Extensions side bar in VS Code by searching for GitLens.
@@ -17,11 +16,11 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 
 - Use `Switch to Pre-Release Version` on the extension banner to be the first to experience new features.
 
-> Have questions or concerns? Talk to our engineering team directly though our [GitHub Discussions](https://github.com/gitkraken/vscode-gitlens/discussions) page. Having a positive experience with GitLens? Feel free to [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens&ssr=false#review-details).
+> Have questions or concerns? Talk to our engineering team directly through our [GitHub Discussions](https://github.com/gitkraken/vscode-gitlens/discussions/categories/feedback) page. Having a positive experience with GitLens? Feel free to [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens&ssr=false#review-details).
 
 ## GitLens Editions: Free and Pro
 
-**GitLens Free** gives you powerful tools to understand how your code has evolved and by whom, all at no cost. With popular features like in-editor blame annotations, hovers, and CodeLens, you can see actionable authorship details at the top of each file. Track the history of any file over time using Revision Navigation to gain deeper insights into code changes.
+**GitLens Free** gives you powerful tools to manage Git and understand how your code has evolved and by whom. With popular features like in-editor blame annotations, hovers, and CodeLens, you can see actionable authorship details at the top of each file. Track the history of any file over time using Revision Navigation to gain deeper insights into code changes.
 
 **GitLens Pro** takes your workflow to the next level by unlocking advanced features and seamless integrations:
 
@@ -29,12 +28,7 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 - **Manage commits effortlessly** using the Commit Graph, where you can execute advanced actions like rebase, merge, and more. With powerful search and filtering, quickly locate commits, branches, or files.
 - **Enhance collaboration** by integrating with platforms like GitHub, GitLab, and Bitbucket, reducing context switching. View and manage PRs directly in VS Code through Launchpad.
 
-You can try GitLens Pro for free. When you're ready to upgrade, a GitKraken [paid plan](https://www.gitkraken.com/gitlens/pricing) is required for privately-hosted repos. All features remain free for public repos, but for private repos:
-
-- Features marked with `Pro` require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing).
-- Features labeled `Preview` require a GitKraken account, with access based on your [plan](https://www.gitkraken.com/gitlens/pricing) (e.g., Free, Pro, etc.).
-
-
+You can try GitLens Pro for free. When you're ready to upgrade, a GitKraken [paid plan](https://www.gitkraken.com/gitlens/pricing) is required for privately-hosted repos. Some Pro features are available for free on public repos. `Preview` features may require a GitKraken account and could become Pro features in the future. 
 
 
 [Features](#discover-powerful-features 'Jump to Discover Powerful Features')
