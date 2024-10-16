@@ -272,7 +272,7 @@ _{prefix}/command/{command}_
 
   - _launchpad_ - Runs the `GitLens: Show Launchpad` command.
 
-  - _walkthrough_ - Runs the `GitLens: Open Walkthrough` command.
+  - _walkthrough_ - Runs the `GitLens: Get Started` command.
 
 #### Example Usage
 
