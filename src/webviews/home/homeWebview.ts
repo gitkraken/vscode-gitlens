@@ -6,6 +6,7 @@ import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { registerCommand } from '../../system/vscode/command';
+import { configuration } from '../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
@@ -17,6 +18,7 @@ import {
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidChangeWalkthroughProgress,
 	DidFocusAccount,
 } from './protocol';
 import type { HomeWebviewShowingArgs } from './registration';
@@ -43,6 +45,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.integrations.onDidChangeConnectionState(this.onChangeConnectionState, this),
+			this.container.walkthrough.onProgressChanged(this.onWalkthroughChanged, this),
 		);
 	}
 
@@ -79,6 +82,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private onRepositoriesChanged() {
 		this.notifyDidChangeRepositories();
+	}
+
+	private onWalkthroughChanged() {
+		this.notifyDidChangeProgress();
 	}
 
 	registerCommands(): Disposable[] {
@@ -173,6 +180,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			orgSettings: this.getOrgSettings(),
 			walkthroughCollapsed: this.getWalkthroughCollapsed(),
 			hasAnyIntegrationConnected: this.isAnyIntegrationConnected(),
+			walkthroughProgress: this.container.walkthrough.progress,
+			showWalkthroughProgress: configuration.getAny('gitlens.test.newWalkthrough'),
 		};
 	}
 
@@ -217,6 +226,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private notifyDidChangeRepositories() {
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
+	}
+
+	private notifyDidChangeProgress() {
+		void this.host.notify(DidChangeWalkthroughProgress, { progress: this.container.walkthrough.progress });
 	}
 
 	private notifyDidChangeOnboardingIntegration() {
