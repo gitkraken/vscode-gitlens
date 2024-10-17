@@ -16,6 +16,8 @@ export interface State extends WebviewState {
 	avatar?: string;
 	organizationsCount?: number;
 	walkthroughProgress: number;
+	// feature flag. should be removed after the feature is completed
+	showWalkthroughProgress?: boolean;
 }
 
 // COMMANDS

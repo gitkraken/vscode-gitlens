@@ -53,8 +53,7 @@ export class GlOnboarding extends LitElement {
 	}
 
 	private renderProgress() {
-		// eslint-disable-next-line no-constant-condition
-		if (true) {
+		if (!this._state.showWalkthroughProgress) {
 			return null;
 		}
 		return html`
@@ -87,12 +86,16 @@ export class GlOnboarding extends LitElement {
 							aria-label="Open Welcome"
 							>Start Here (Welcome)</gl-button
 						>
-						<span class="button-group button-group--single">
+						<span
+							class=${classMap({
+								'button-group button-group--single': true,
+								'open-walkthrough-button': Boolean(this._state.showWalkthroughProgress),
+							})}
+						>
 							<gl-button appearance="secondary" full href="command:gitlens.getStarted?%22home%22"
 								>Walkthrough
 								${when(
-									// eslint-disable-next-line no-constant-binary-expression
-									false && this._state.walkthroughProgress < 1,
+									this._state.showWalkthroughProgress && this._state.walkthroughProgress < 1,
 									() => html`<span class="badge"></span>`,
 								)}</gl-button
 							>
