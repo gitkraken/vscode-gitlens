@@ -1,4 +1,4 @@
-import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, ThemeIcon, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
@@ -524,7 +524,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			quickpick.busy = true;
 			try {
 				await this.updateItemsDebouncer(async cancellationToken => {
-					await updateContextItems(this.container, context, { force: true, search: search });
+					await updateContextItems(
+						this.container,
+						context,
+						{ force: true, search: search },
+						cancellationToken,
+					);
 					if (cancellationToken.isCancellationRequested) {
 						return;
 					}
@@ -1396,8 +1401,9 @@ async function updateContextItems(
 	container: Container,
 	context: Context,
 	options?: { force?: boolean; search?: string },
+	cancellation?: CancellationToken,
 ) {
-	context.result = await container.launchpad.getCategorizedItems(options);
+	context.result = await container.launchpad.getCategorizedItems(options, cancellation);
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
 	}
