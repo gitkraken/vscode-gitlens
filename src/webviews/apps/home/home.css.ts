@@ -350,7 +350,7 @@ export const navListStyles = css`
 `;
 
 export const walkthroughProgressStyles = css`
-	progress.walkthrough-progress::-webkit-progress-bar {
+	.walkthrough-progress::-webkit-progress-bar {
 		background-color: unset;
 	}
 	progress.walkthrough-progress.finished::-webkit-progress-value {
@@ -381,7 +381,7 @@ export const walkthroughProgressStyles = css`
 		transform: translateY(-1px);
 		margin-left: 2px;
 	}
-	gl-button {
+	.open-walkthrough-button {
 		position: relative;
 	}
 `;
