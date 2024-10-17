@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes popover menu background colors on the Commit Graph
+
 ## [15.6.1] - 2024-10-14
 
 ### Fixed
