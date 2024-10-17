@@ -20,6 +20,9 @@ export enum WalkthroughContextKeys {
 export class WalkthroughStateProvider implements Disposable {
 	protected disposables: Disposable[] = [];
 	private readonly state = new Map<WalkthroughContextKeys, boolean>();
+	private isInitialized = false;
+	private _initPromise: Promise<void> | undefined;
+
 	/**
 	 * using reversed map (instead of direct map as walkthroughToTracking Record<WalkthroughContextKeys, TrackedUsageKeys[]>)
 	 * makes code less readable, but prevents duplicated usageTracker keys
@@ -28,6 +31,7 @@ export class WalkthroughStateProvider implements Disposable {
 		[`command:${Commands.PlusStartPreviewTrial}:executed`]: WalkthroughContextKeys.GettingStarted,
 		[`command:${Commands.PlusReactivateProTrial}:executed`]: WalkthroughContextKeys.GettingStarted,
 		[`command:${Commands.ShowWelcomePage}:executed`]: WalkthroughContextKeys.GettingStarted,
+		[`command:${Commands.OpenWalkthrough}:executed`]: WalkthroughContextKeys.GettingStarted,
 
 		'graphDetailsView:shown': WalkthroughContextKeys.VisualizeCodeHistory,
 		'graphView:shown': WalkthroughContextKeys.VisualizeCodeHistory,
@@ -66,11 +70,6 @@ export class WalkthroughStateProvider implements Disposable {
 			this.state.set(key, false);
 		}
 		entries(this.walkthroughByTracking).forEach(([usageKey, walkthroughKey]) => {
-			console.log('candidate to completeStep', {
-				usageKey: usageKey,
-				walkthroughKey: walkthroughKey,
-				isUsed: this.container.usage.isUsed(usageKey),
-			});
 			if (!this.state.get(walkthroughKey) && this.container.usage.isUsed(usageKey)) {
 				void this.completeStep(walkthroughKey);
 			}
@@ -91,14 +90,30 @@ export class WalkthroughStateProvider implements Disposable {
 	}
 
 	/**
+	 * Walkthrough view is not ready to listen to context changes immediately after opening VSCode with the walkthrough page opened
+	 * As we're not able to check if the walkthrough is ready, we need to add a delay.
+	 * The 1s delay will not be too annoying for user but it's enough to init
+	 */
+	private async waitForWalkthroughInitialized() {
+		if (this.isInitialized) {
+			return;
+		}
+		if (!this._initPromise) {
+			this._initPromise = wait(1000).then(() => {
+				this.isInitialized = true;
+			});
+		}
+		await this._initPromise;
+	}
+
+	/**
 	 * Set up the walkthrough step completed.
 	 * According to [VSCode docs](https://code.visualstudio.com/api/references/contribution-points?source=post_page#Completion-events)
 	 * we don't have an ability to reset the flag
 	 */
 	private async completeStep(key: WalkthroughContextKeys) {
-		console.log('completeStep', { key: key });
 		this.state.set(key, true);
-		await wait(1000); // wait uncontrolled walkthrough view to be loaded
+		await this.waitForWalkthroughInitialized();
 		void setContext(`gitlens:walkthroughState:${key}`, true);
 	}
 
