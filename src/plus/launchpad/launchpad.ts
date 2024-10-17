@@ -568,10 +568,13 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						item.alwaysShow = false;
 						updated = true;
 					}
+					if ('item' in item && item.item?.isSearched) {
+						updated = true;
+					}
 				}
 				if (updated) {
 					// Force quickpick to update by changing the items object:
-					quickpick.items = [...quickpick.items];
+					quickpick.items = [...quickpick.items.filter(i => !('item' in i && i.item?.isSearched))];
 				}
 
 				if (!value?.length || activeLaunchpadItems.length) {
