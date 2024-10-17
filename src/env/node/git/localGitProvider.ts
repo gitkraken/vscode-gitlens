@@ -5784,6 +5784,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
+	@log()
+	async reset(repoPath: string, options?: { hard?: boolean; soft?: boolean }, ref?: string): Promise<void> {
+		const flags = [];
+		if (options?.hard) {
+			flags.push('--hard');
+		} else if (options?.soft) {
+			flags.push('--soft');
+		}
+
+		await this.git.reset(repoPath, [], ...flags, ref);
+	}
+
 	@log({ args: { 2: false } })
 	async runGitCommandViaTerminal(
 		repoPath: string,
