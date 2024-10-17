@@ -574,38 +574,43 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					quickpick.items = [...quickpick.items];
 				}
 
-				if (value?.length && !activeLaunchpadItems.length) {
-					const prUrlIdentity = getPullRequestIdentityValuesFromSearch(value);
-					if (prUrlIdentity.prNumber != null) {
-						const launchpadItems = quickpick.items.filter(
-							(i): i is LaunchpadItemQuickPickItem => 'item' in i,
-						);
-						let item = launchpadItems.find(i =>
-							// perform strict match first
-							doesPullRequestSatisfyGitHubRepositoryURLIdentity(i.item, prUrlIdentity),
-						);
-						if (item == null) {
-							// Haven't found full match, so let's at least find something with the same pr number
-							item = launchpadItems.find(i => i.item.id === prUrlIdentity.prNumber);
-						}
-						if (item != null) {
-							if (!item.alwaysShow) {
-								item.alwaysShow = true;
-								// Force quickpick to update by changing the items object:
-								quickpick.items = [...quickpick.items];
-							}
-							// We have found an item that matches to the URL.
-							// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
-							this.updateItemsDebouncer.cancel();
-							return true;
-						}
-						// Nothing is found above, so let's perform search in the API:
-						await updateItems(quickpick, value);
-						quickpick.items = quickpick.items.filter((i): i is LaunchpadItemQuickPickItem => 'item' in i);
-						groupsHidden = true;
-					}
+				if (!value?.length || activeLaunchpadItems.length) {
+					// Nothing to search or use items that have been found locally
+					this.updateItemsDebouncer.cancel();
+					return true;
 				}
-				this.updateItemsDebouncer.cancel();
+
+				const prUrlIdentity = getPullRequestIdentityValuesFromSearch(value);
+				if (prUrlIdentity.prNumber == null) {
+					// Not a valid PR URL
+					this.updateItemsDebouncer.cancel();
+					return true;
+				}
+
+				const launchpadItems = quickpick.items.filter((i): i is LaunchpadItemQuickPickItem => 'item' in i);
+				let item = launchpadItems.find(i =>
+					// perform strict match first
+					doesPullRequestSatisfyGitHubRepositoryURLIdentity(i.item, prUrlIdentity),
+				);
+				if (item == null) {
+					// Haven't found full match, so let's at least find something with the same pr number
+					item = launchpadItems.find(i => i.item.id === prUrlIdentity.prNumber);
+				}
+				if (item != null) {
+					if (!item.alwaysShow) {
+						item.alwaysShow = true;
+						// Force quickpick to update by changing the items object:
+						quickpick.items = [...quickpick.items];
+					}
+					// We have found an item that matches to the URL.
+					// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
+					this.updateItemsDebouncer.cancel();
+					return true;
+				}
+				// Nothing is found above, so let's perform search in the API:
+				await updateItems(quickpick, value);
+				quickpick.items = quickpick.items.filter((i): i is LaunchpadItemQuickPickItem => 'item' in i);
+				groupsHidden = true;
 				return true;
 			},
 			onDidClickButton: async (quickpick, button) => {
