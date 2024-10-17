@@ -289,6 +289,7 @@ export class GlSearchInput extends GlElement {
 		.popover::part(body) {
 			padding: 0 0 0.5rem 0;
 			font-size: var(--vscode-font-size);
+			background-color: var(--vscode-menu-background);
 		}
 	`;
 

@@ -245,6 +245,7 @@ button:not([disabled]),
 .popover::part(body) {
 	padding: 0;
 	font-size: var(--vscode-font-size);
+	background-color: var(--vscode-menu-background);
 }
 
 .jump-to-ref {
