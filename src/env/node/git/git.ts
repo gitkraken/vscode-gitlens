@@ -12,6 +12,8 @@ import { GitErrorHandling } from '../../../git/commandOptions';
 import {
 	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
+	BranchError,
+	BranchErrorReason,
 	CherryPickError,
 	CherryPickErrorReason,
 	FetchError,
@@ -72,6 +74,10 @@ const textDecoder = new TextDecoder('utf8');
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export const GitErrors = {
+	noRemoteReference: /unable to delete '.+?': remote ref does not exist/i,
+	invalidBranchName: /fatal: '.+?' is not a valid branch name/i,
+	branchAlreadyExists: /fatal: A branch named '.+?' already exists/i,
+	branchNotFullyMerged: /error: The branch '.+?' is not fully merged/i,
 	badRevision: /bad revision '(.*?)'/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
 	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
@@ -159,6 +165,15 @@ function getStdinUniqueKey(): number {
 
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
+
+const branchErrorAndReason = [
+	[GitErrors.noRemoteReference, BranchErrorReason.NoRemoteReference],
+	[GitErrors.invalidBranchName, BranchErrorReason.InvalidBranchName],
+	[GitErrors.branchAlreadyExists, BranchErrorReason.BranchAlreadyExists],
+	[GitErrors.branchNotFullyMerged, BranchErrorReason.BranchNotFullyMerged],
+	[GitErrors.branchNotYetBorn, BranchErrorReason.BranchNotYetBorn],
+	[GitErrors.branchFastForwardRejected, BranchErrorReason.BranchFastForwardRejected],
+];
 
 export class Git {
 	/** Map of running git commands -- avoids running duplicate overlaping commands */
@@ -507,8 +522,18 @@ export class Git {
 		}
 	}
 
-	branch(repoPath: string, ...args: string[]) {
-		return this.git<string>({ cwd: repoPath }, 'branch', ...args);
+	async branch(repoPath: string, ...args: string[]): Promise<void> {
+		try {
+			await this.git<string>({ cwd: repoPath }, 'branch', ...args);
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			for (const [error, reason] of branchErrorAndReason) {
+				if (error.test(msg) || error.test(ex.stderr ?? '')) {
+					throw new BranchError(reason, ex);
+				}
+			}
+			throw new BranchError(BranchErrorReason.Other, ex);
+		}
 	}
 
 	branch__set_upstream(repoPath: string, branch: string, remote: string, remoteBranch: string) {
@@ -963,6 +988,10 @@ export class Git {
 			publish?: boolean;
 			remote?: string;
 			upstream?: string;
+			delete?: {
+				remote: string;
+				branch: string;
+			};
 		},
 	): Promise<void> {
 		const params = ['push'];
@@ -990,6 +1019,8 @@ export class Git {
 			}
 		} else if (options.remote) {
 			params.push(options.remote);
+		} else if (options.delete) {
+			params.push('-d', options.delete.remote, options.delete.branch);
 		}
 
 		try {
@@ -1578,7 +1609,11 @@ export class Git {
 	async rev_list(
 		repoPath: string,
 		ref: string,
-		options?: { all?: boolean; maxParents?: number },
+		options?: {
+			all?: boolean;
+			maxParents?: number;
+			maxResults?: number;
+		},
 	): Promise<string[] | undefined> {
 		const params = ['rev-list'];
 		if (options?.all) {
@@ -1587,6 +1622,10 @@ export class Git {
 
 		if (options?.maxParents != null) {
 			params.push(`--max-parents=${options.maxParents}`);
+		}
+
+		if (options?.maxResults != null) {
+			params.push(`-n ${options.maxResults}`);
 		}
 
 		const rawData = await this.git<string>(
@@ -1852,6 +1891,10 @@ export class Git {
 			fileName ? `${ref}:./${fileName}` : `${ref}^{commit}`,
 		);
 		return data.length === 0 ? undefined : data.trim();
+	}
+
+	async update_ref(repoPath: string, ...args: string[]): Promise<void> {
+		await this.git<string>({ cwd: repoPath }, 'update-ref', ...args);
 	}
 
 	async show<TOut extends string | Buffer>(
