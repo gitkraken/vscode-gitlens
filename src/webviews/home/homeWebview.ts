@@ -125,8 +125,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				}
 
 				const [branchesResult, worktreesResult] = await Promise.allSettled([
-					repo.getBranches({ filter: b => !b.remote }),
-					repo.getWorktrees(),
+					repo.git.getBranches({ filter: b => !b.remote }),
+					repo.git.getWorktrees(),
 				]);
 
 				const branches = getSettledValue(branchesResult)?.values ?? [];
