@@ -8,9 +8,11 @@ import {
 	isTagReference,
 } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { Logger } from '../../system/logger';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
@@ -293,12 +295,12 @@ export class TagGitCommand extends QuickCommand<State> {
 			}
 
 			endSteps(state);
-			state.repo.tag(
-				...state.flags,
-				...(state.message.length !== 0 ? [`"${state.message}"`] : []),
-				state.name,
-				state.reference.ref,
-			);
+			try {
+				await state.repo.git.createTag(state.name, state.reference.ref, state.message);
+			} catch (ex) {
+				Logger.error(ex, context.title);
+				void showGenericErrorMessage(ex);
+			}
 		}
 	}
 
@@ -356,7 +358,7 @@ export class TagGitCommand extends QuickCommand<State> {
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
-	private *deleteCommandSteps(state: DeleteStepState, context: Context): StepGenerator {
+	private async *deleteCommandSteps(state: DeleteStepState, context: Context): StepGenerator {
 		while (this.canStepsContinue(state)) {
 			if (state.references != null && !Array.isArray(state.references)) {
 				state.references = [state.references];
@@ -381,7 +383,14 @@ export class TagGitCommand extends QuickCommand<State> {
 			if (result === StepResultBreak) continue;
 
 			endSteps(state);
-			state.repo.tagDelete(state.references);
+			for (const { ref } of state.references) {
+				try {
+					await state.repo.git.deleteTag(ref);
+				} catch (ex) {
+					Logger.error(ex, context.title);
+					void showGenericErrorMessage(ex);
+				}
+			}
 		}
 	}
 
