@@ -122,8 +122,9 @@ export class WalkthroughStateProvider implements Disposable {
 	}
 
 	get progress() {
-		const doneValues = [...filter(this.state.values(), x => x)].length;
-		return doneValues / Object.keys(WalkthroughContextKeys).length;
+		const allValues = [...this.state.values()];
+		const doneValues = allValues.filter(x => x).length;
+		return doneValues / allValues.length;
 	}
 
 	dispose(): void {
