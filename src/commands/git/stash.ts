@@ -515,6 +515,8 @@ export class StashGitCommand extends QuickCommand<State> {
 			state.flags = [];
 		}
 
+		let confirmOverride;
+
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.message == null) {
 				if (state.message == null) {
@@ -529,7 +531,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				state.message = result;
 			}
 
-			if (this.confirm(state.confirm)) {
+			if (this.confirm(confirmOverride ?? state.confirm)) {
 				const result = yield* this.pushCommandConfirmStep(state, context);
 				if (result === StepResultBreak) continue;
 
@@ -554,6 +556,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				if (ex instanceof StashPushError) {
 					if (ex.reason === StashPushErrorReason.NothingToSave) {
 						if (!state.flags.includes('--include-untracked')) {
+							confirmOverride = true;
 							void window.showWarningMessage(
 								'No changes to stash. Choose the "Push & Include Untracked" option, if you have untracked files.',
 							);
