@@ -302,6 +302,7 @@ export class GlSearchInput extends GlElement {
 	@property({ type: String }) label = 'Search';
 	@property({ type: String }) placeholder = 'Search...';
 	@property({ type: String }) value = '';
+	@property({ type: Boolean }) filter = false;
 	@property({ type: Boolean }) matchAll = false;
 	@property({ type: Boolean }) matchCase = false;
 	@property({ type: Boolean }) matchRegex = true;
@@ -380,6 +381,11 @@ export class GlSearchInput extends GlElement {
 		this.debouncedOnSearchChanged();
 	}
 
+	handleFilter(_e: Event) {
+		this.filter = !this.filter;
+		this.debouncedOnSearchChanged();
+	}
+
 	handleKeyup(_e: KeyboardEvent) {
 		this.updateHelpText();
 	}
@@ -423,6 +429,7 @@ export class GlSearchInput extends GlElement {
 	private onSearchChanged() {
 		const search: SearchQuery = {
 			query: this.value,
+			filter: this.filter,
 			matchAll: this.matchAll,
 			matchCase: this.matchCase,
 			matchRegex: this.matchRegex,
@@ -508,6 +515,18 @@ export class GlSearchInput extends GlElement {
 					</menu-item>
 				</div>
 			</gl-popover>
+			<gl-tooltip hoist placement="top" content="Filter Commits">
+				<button
+					class="action-button"
+					type="button"
+					role="checkbox"
+					aria-label="Filter Commits"
+					aria-checked="${this.filter}"
+					@click="${this.handleFilter}"
+				>
+					<code-icon icon="list-filter"></code-icon>
+				</button>
+			</gl-tooltip>
 			<div class="field">
 				<input
 					id="search"

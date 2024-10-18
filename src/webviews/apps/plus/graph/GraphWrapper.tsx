@@ -1609,6 +1609,7 @@ export function GraphWrapper({
 							refMetadataById={refsMetadata}
 							rowsStats={rowsStats}
 							rowsStatsLoading={rowsStatsLoading}
+							searchMode={searchQuery?.filter ? 'filter' : 'normal'}
 							shaLength={graphConfig?.idLength}
 							shiftSelectMode="simple"
 							suppressNonRefRowTooltips
