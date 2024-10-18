@@ -150,6 +150,7 @@ const instanceCounter = getScopedCounter();
 const defaultCollapsedGroups: LaunchpadGroup[] = ['draft', 'other', 'snoozed'];
 
 export class LaunchpadCommand extends QuickCommand<State> {
+	// TODO: The debouncer needs to be cancelled when the step is changed when the quickpick is closed
 	private readonly updateItemsDebouncer = createAsyncDebouncer(500);
 	private readonly source: Source;
 	private readonly telemetryContext: LaunchpadTelemetryContext | undefined;
@@ -586,6 +587,11 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					return true;
 				}
 
+				// TODO: This needs to be generalized to work outside of GitHub,
+				// The current idea is that we should iterate the connected integrations and apply their parsing.
+				// Probably we even want to build a map like this: { integrationId: identity }
+				// Then when we iterate local items we can check them to corresponding identitie according to the item's repo type.
+				// Same with API: we iterate connected integrations and search in each of them with the corresponding identity.
 				const prUrlIdentity = getPullRequestIdentityValuesFromSearch(value);
 				if (prUrlIdentity.prNumber != null) {
 					const launchpadItems = quickpick.items.filter((i): i is LaunchpadItemQuickPickItem => 'item' in i);
