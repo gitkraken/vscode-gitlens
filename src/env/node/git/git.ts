@@ -477,7 +477,7 @@ export class Git {
 				params.push('--contents', '-');
 
 				// Get the file contents for the staged version using `:`
-				stdin = await this.show<string>(repoPath, fileName, ':');
+				stdin = await this.show__content<string>(repoPath, fileName, ':');
 			} else {
 				params.push(options.ref);
 			}
@@ -1854,51 +1854,7 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	async show<TOut extends string | Buffer>(
-		repoPath: string | undefined,
-		fileName: string,
-		ref: string,
-		options: {
-			encoding?: 'binary' | 'ascii' | 'utf8' | 'utf16le' | 'ucs2' | 'base64' | 'latin1' | 'hex' | 'buffer';
-		} = {},
-	): Promise<TOut | undefined> {
-		const [file, root] = splitPath(fileName, repoPath, true);
-
-		if (isUncommittedStaged(ref)) {
-			ref = ':';
-		}
-		if (isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
-
-		const opts: GitCommandOptions = {
-			configs: gitLogDefaultConfigs,
-			cwd: root,
-			encoding: options.encoding ?? 'utf8',
-			errors: GitErrorHandling.Throw,
-		};
-		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
-
-		try {
-			const data = await this.git<TOut>(opts, 'show', '--textconv', args, '--');
-			return data;
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			if (ref === ':' && GitErrors.badRevision.test(msg)) {
-				return this.show<TOut>(repoPath, fileName, 'HEAD:', options);
-			}
-
-			if (
-				GitErrors.badRevision.test(msg) ||
-				GitWarnings.notFound.test(msg) ||
-				GitWarnings.foundButNotInRevision.test(msg)
-			) {
-				return undefined;
-			}
-
-			return defaultExceptionHandler(ex, opts.cwd) as TOut;
-		}
-	}
-
-	show2(
+	show(
 		repoPath: string,
 		options?: { cancellation?: CancellationToken; configs?: readonly string[] },
 		...args: string[]
@@ -1915,36 +1871,48 @@ export class Git {
 		);
 	}
 
-	show__diff(
-		repoPath: string,
+	async show__content<TOut extends string | Buffer>(
+		repoPath: string | undefined,
 		fileName: string,
 		ref: string,
-		originalFileName?: string,
-		{ similarityThreshold }: { similarityThreshold?: number | null } = {},
-	) {
-		const params = [
-			'show',
-			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-			'--format=',
-			'--minimal',
-			'-U0',
-			ref,
-			'--',
-			fileName,
-		];
-		if (originalFileName != null && originalFileName.length !== 0) {
-			params.push(originalFileName);
+		options?: {
+			encoding?: 'binary' | 'ascii' | 'utf8' | 'utf16le' | 'ucs2' | 'base64' | 'latin1' | 'hex' | 'buffer';
+		},
+	): Promise<TOut | undefined> {
+		const [file, root] = splitPath(fileName, repoPath, true);
+
+		if (isUncommittedStaged(ref)) {
+			ref = ':';
 		}
+		if (isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
 
-		return this.git<string>({ cwd: repoPath }, ...params);
-	}
+		const opts: GitCommandOptions = {
+			configs: gitLogDefaultConfigs,
+			cwd: root,
+			encoding: options?.encoding ?? 'utf8',
+			errors: GitErrorHandling.Throw,
+		};
+		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
-	show__name_status(repoPath: string, fileName: string, ref: string) {
-		return this.git<string>({ cwd: repoPath }, 'show', '--name-status', '--format=', '-z', ref, '--', fileName);
-	}
+		try {
+			const data = await this.git<TOut>(opts, 'show', '--textconv', args, '--');
+			return data;
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			if (ref === ':' && GitErrors.badRevision.test(msg)) {
+				return this.show__content<TOut>(repoPath, fileName, 'HEAD:', options);
+			}
 
-	show_ref__tags(repoPath: string) {
-		return this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'show-ref', '--tags');
+			if (
+				GitErrors.badRevision.test(msg) ||
+				GitWarnings.notFound.test(msg) ||
+				GitWarnings.foundButNotInRevision.test(msg)
+			) {
+				return undefined;
+			}
+
+			return defaultExceptionHandler(ex, opts.cwd) as TOut;
+		}
 	}
 
 	stash__apply(repoPath: string, stashName: string, deleteAfter: boolean): Promise<string | undefined> {

@@ -3564,13 +3564,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const [relativePath, root] = splitPath(uri, repoPath);
 
-		const data = await this.git.show__name_status(root, relativePath, ref);
+		// Don't include the filename, as renames won't be returned
+		const data = await this.git.show(root, undefined, '--name-status', '--format=', '-z', ref, '--');
 		if (!data) return undefined;
 
 		const files = parseGitDiffNameStatusFiles(data, repoPath);
 		if (files == null || files.length === 0) return undefined;
 
-		return files[0];
+		const file = files.find(f => f.path === relativePath || f.originalPath === relativePath);
+		return file;
 	}
 
 	@log({ exit: true })
@@ -4956,7 +4958,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 
-		return this.git.show<Buffer>(root, relativePath, ref, { encoding: 'buffer' }) as Promise<
+		return this.git.show__content<Buffer>(root, relativePath, ref, { encoding: 'buffer' }) as Promise<
 			Uint8Array | undefined
 		>;
 	}
@@ -5635,7 +5637,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
 			if (shas?.size) {
-				const data = await this.git.show2(
+				const data = await this.git.show(
 					repoPath,
 					{ cancellation: options?.cancellation },
 					'-s',
