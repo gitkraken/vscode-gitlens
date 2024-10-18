@@ -1,7 +1,7 @@
 import { SubscriptionPlanId } from '../../constants.subscription';
 import type { Organization } from './account/organization';
 import type { Subscription } from './account/subscription';
-import { getSubscriptionPlan, getSubscriptionPlanPriority } from './account/subscription';
+import { getSubscriptionPlan, getSubscriptionPlanPriority, getTimeRemaining } from './account/subscription';
 
 export type GKLicenses = Partial<Record<GKLicenseType, GKLicense>>;
 
@@ -69,9 +69,6 @@ export function getSubscriptionFromCheckIn(
 
 	let effectiveLicenses = Object.entries(data.licenses.effectiveLicenses) as [GKLicenseType, GKLicense][];
 	let paidLicenses = Object.entries(data.licenses.paidLicenses) as [GKLicenseType, GKLicense][];
-	paidLicenses = paidLicenses.filter(
-		license => license[1].latestStatus !== 'expired' && license[1].latestStatus !== 'cancelled',
-	);
 	if (paidLicenses.length > 1) {
 		paidLicenses.sort(
 			(a, b) =>
@@ -81,6 +78,7 @@ export function getSubscriptionFromCheckIn(
 					licenseStatusPriority(a[1].latestStatus)),
 		);
 	}
+
 	if (effectiveLicenses.length > 1) {
 		effectiveLicenses.sort(
 			(a, b) =>
@@ -133,13 +131,21 @@ export function getSubscriptionFromCheckIn(
 		organizationId != null ? paidLicensesByOrganizationId.get(organizationId) ?? bestPaidLicense : bestPaidLicense;
 	if (chosenPaidLicense != null) {
 		const [licenseType, license] = chosenPaidLicense;
+		const latestStartDate = new Date(license.latestStartDate);
+		const latestEndDate = new Date(license.latestEndDate);
+		const today = new Date();
 		actual = getSubscriptionPlan(
 			convertLicenseTypeToPlanId(licenseType),
 			isBundleLicenseType(licenseType),
 			license.reactivationCount ?? 0,
 			license.organizationId,
-			new Date(license.latestStartDate),
-			new Date(license.latestEndDate),
+			latestStartDate,
+			latestEndDate,
+			undefined,
+			undefined,
+			(license.latestStatus === 'in_trial' || license.latestStatus === 'trial') &&
+				latestEndDate > today &&
+				today > latestStartDate,
 		);
 	}
 
@@ -157,6 +163,7 @@ export function getSubscriptionFromCheckIn(
 			undefined,
 			undefined,
 			data.nextOptInDate,
+			false,
 		);
 	}
 
@@ -167,6 +174,9 @@ export function getSubscriptionFromCheckIn(
 			: bestEffectiveLicense;
 	if (chosenEffectiveLicense != null) {
 		const [licenseType, license] = chosenEffectiveLicense;
+		const latestStartDate = new Date(license.latestStartDate);
+		const latestEndDate = new Date(license.latestEndDate);
+		const today = new Date();
 		effective = getSubscriptionPlan(
 			convertLicenseTypeToPlanId(licenseType),
 			isBundleLicenseType(licenseType),
@@ -176,10 +186,19 @@ export function getSubscriptionFromCheckIn(
 			new Date(license.latestEndDate),
 			license.latestStatus === 'cancelled',
 			license.nextOptInDate ?? data.nextOptInDate,
+			(license.latestStatus === 'in_trial' || license.latestStatus === 'trial') &&
+				latestEndDate > today &&
+				today > latestStartDate,
 		);
 	}
 
-	if (effective == null || getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id)) {
+	const remainingTime = getTimeRemaining(actual.expiresOn);
+	if (
+		effective == null ||
+		(getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id) &&
+			remainingTime != null &&
+			remainingTime > 0)
+	) {
 		effective = { ...actual };
 	}
 
