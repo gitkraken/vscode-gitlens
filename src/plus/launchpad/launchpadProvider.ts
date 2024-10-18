@@ -321,6 +321,10 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	private async getSearchedPullRequests(search: string) {
+		// TODO: This needs to be generalized to work outside of GitHub,
+		// The current idea is that we should iterate the connected integrations and apply their parsing.
+		// Probably we even want to build a map like this: { integrationId: identity }
+		// Then we iterate connected integrations and search in each of them with the corresponding identity.
 		const { ownerAndRepo, prNumber } = getPullRequestIdentityValuesFromSearch(search);
 		let result: TimedResult<SearchedPullRequest[] | undefined> | undefined;
 
