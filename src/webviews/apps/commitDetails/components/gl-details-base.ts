@@ -147,7 +147,7 @@ export class GlDetailsBase extends LitElement {
 			return this.createFileTreeModel(mode, files, isTree, compact);
 		}
 
-		const children = [];
+		const children: TreeModel[] = [];
 		const staged: Files = [];
 		const unstaged: Files = [];
 		for (const f of files) {
@@ -339,7 +339,7 @@ export class GlDetailsBase extends LitElement {
 			checked: false,
 			icon: { type: 'status', name: file.status }, // 'file',
 			label: fileName,
-			description: flat === true ? filePath : undefined,
+			description: `${flat === true ? filePath : ''}${file.status === 'R' ? ` ← ${file.originalPath}` : ''}`,
 			context: [file],
 			actions: this.getFileActions(file, options),
 			// decorations: [{ type: 'text', label: file.status }],

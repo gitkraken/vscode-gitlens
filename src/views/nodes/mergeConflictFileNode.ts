@@ -1,5 +1,5 @@
 import type { Command, Uri } from 'vscode';
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
@@ -8,7 +8,7 @@ import type { GitRebaseStatus } from '../../git/models/rebase';
 import { createCoreCommand } from '../../system/vscode/command';
 import { relativeDir } from '../../system/vscode/path';
 import type { ViewsWithCommits } from '../viewBase';
-import { ViewFileNode } from './abstract/viewFileNode';
+import { getFileTooltipMarkdown, ViewFileNode } from './abstract/viewFileNode';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues } from './abstract/viewNode';
 import type { FileNode } from './folderNode';
@@ -49,15 +49,7 @@ export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWi
 		item.description = this.description;
 		item.contextValue = `${ContextValues.File}+conflicted`;
 
-		const tooltip = StatusFileFormatter.fromTemplate(
-			`\${file}\${ \u2022 changesDetail}\${\\\\\ndirectory}\${\n\nstatus}\${ (originalPath)} in Index (staged)`,
-			this.file,
-		);
-		const markdown = new MarkdownString(tooltip, true);
-		markdown.isTrusted = true;
-		markdown.supportHtml = true;
-
-		item.tooltip = markdown;
+		item.tooltip = getFileTooltipMarkdown(this.file, 'in ```Index```');
 
 		// Use the file icon and decorations
 		item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);
