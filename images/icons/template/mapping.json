@@ -51,5 +51,7 @@
   "repo-fetch": 61744,
   "repo-pull": 61745,
   "repo-push": 61746,
-  "provider-jira": 61747
+  "provider-jira": 61747,
+  "play-button": 61748,
+  "rocket-filled": 61749
 }

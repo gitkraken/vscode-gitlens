@@ -1,19 +1,21 @@
 import { consume } from '@lit/context';
 import { html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { classMap } from 'lit/directives/class-map.js';
+import { when } from 'lit/directives/when.js';
 import type { State } from '../../../home/protocol';
 import { CollapseSectionCommand } from '../../../home/protocol';
 import { ipcContext } from '../../shared/context';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
-import { alertStyles, buttonStyles, homeBaseStyles } from '../home.css';
+import { alertStyles, buttonStyles, homeBaseStyles, walkthroughProgressStyles } from '../home.css';
 import '../../shared/components/button';
 import '../../shared/components/code-icon';
 import '../../shared/components/overlays/tooltip';
 
 @customElement('gl-onboarding')
 export class GlOnboarding extends LitElement {
-	static override styles = [alertStyles, homeBaseStyles, buttonStyles];
+	static override styles = [alertStyles, homeBaseStyles, buttonStyles, walkthroughProgressStyles];
 
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
@@ -50,6 +52,21 @@ export class GlOnboarding extends LitElement {
 		});
 	}
 
+	private renderProgress() {
+		if (!this._state.showWalkthroughProgress) {
+			return null;
+		}
+		return html`
+			<progress
+				class=${classMap({
+					'walkthrough-progress': true,
+					finished: this._state.walkthroughProgress === 1,
+				})}
+				value=${this._state.walkthroughProgress}
+			></progress>
+		`;
+	}
+
 	override render() {
 		return html`
 			<div
@@ -69,9 +86,18 @@ export class GlOnboarding extends LitElement {
 							aria-label="Open Welcome"
 							>Start Here (Welcome)</gl-button
 						>
-						<span class="button-group button-group--single">
+						<span
+							class=${classMap({
+								'button-group button-group--single': true,
+								'open-walkthrough-button': Boolean(this._state.showWalkthroughProgress),
+							})}
+						>
 							<gl-button appearance="secondary" full href="command:gitlens.getStarted?%22home%22"
-								>Walkthrough</gl-button
+								>Walkthrough
+								${when(
+									this._state.showWalkthroughProgress && this._state.walkthroughProgress < 1,
+									() => html`<span class="badge"></span>`,
+								)}</gl-button
 							>
 							<gl-button
 								appearance="secondary"
@@ -99,6 +125,7 @@ export class GlOnboarding extends LitElement {
 						<span slot="content">Expand</span>
 					</gl-tooltip>
 				</a>
+				${this.renderProgress()}
 			</div>
 		`;
 	}
