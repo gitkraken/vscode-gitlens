@@ -219,6 +219,18 @@ export class GLHomeAccountContent extends LitElement {
 					this.hasAccount,
 					() => html`
 						<span class="header__actions">
+							${when(
+								!this._state.hasAnyIntegrationConnected,
+								() => html`
+									<gl-button
+										appearance="toolbar"
+										href="command:gitlens.plus.cloudIntegrations.connect?%7B%22source%22%3A%22home%22%7D"
+										tooltip="Connect an Integration"
+										aria-label="Connect an Integration on GitKraken.dev"
+										><code-icon icon="plug"></code-icon
+									></gl-button>
+								`,
+							)}
 							<gl-button
 								appearance="toolbar"
 								href="command:gitlens.views.home.account.resync"

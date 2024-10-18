@@ -1,14 +1,17 @@
 import { consume } from '@lit/context';
-import { Task } from '@lit/task';
+import { SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
 import { pluralize } from '../../../../../system/string';
 import type { GetLaunchpadSummaryResponse } from '../../../../home/protocol';
 import { GetLaunchpadSummary } from '../../../../home/protocol';
+import { AsyncComputedState } from '../../../shared/components/signal-utils';
 import { ipcContext } from '../../../shared/context';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
+import { sectionHeadingStyles } from './branch-section';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
@@ -16,36 +19,80 @@ import '../../../shared/components/code-icon';
 type LaunchpadSummary = GetLaunchpadSummaryResponse;
 
 @customElement('gl-launchpad')
-export class GlLaunchpad extends LitElement {
+export class GlLaunchpad extends SignalWatcher(LitElement) {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
 	};
 
-	static override styles = css`
-		:host {
-			display: block;
-			font-family: var(--vscode-font-family);
-			color: var(--vscode-foreground);
-			margin-bottom: 1.6rem;
-		}
-		.header {
-			font-weight: bold;
-			margin-bottom: 1rem;
-		}
-		.summary {
-			margin-bottom: 1rem;
-		}
-	`;
+	static override styles = [
+		sectionHeadingStyles,
+		css`
+			:host {
+				display: block;
+				font-family: var(--vscode-font-family);
+				color: var(--vscode-foreground);
+				margin-bottom: 1.6rem;
+			}
+			.summary {
+				margin-bottom: 1rem;
+			}
+
+			.menu {
+				list-style: none;
+				padding-inline-start: 0;
+				margin-block-start: 0;
+			}
+
+			.launchpad-action {
+				display: flex;
+				align-items: center;
+				gap: 0.6rem;
+				color: inherit;
+				text-decoration: none;
+			}
+
+			.launchpad-action:hover span {
+				text-decoration: underline;
+			}
+
+			.launchpad-action__icon {
+				color: var(--gl-launchpad-action-color, inherit);
+			}
+
+			.launchpad-action:hover .launchpad-action__icon {
+				color: var(--gl-launchpad-action-hover-color, inherit);
+			}
+
+			.launchpad-action--mergable {
+				--gl-launchpad-action-color: var(--vscode-gitlens-launchpadIndicatorMergeableColor);
+				--gl-launchpad-action-hover-color: var(--vscode-gitlens-launchpadIndicatorMergeableHoverColor);
+			}
+
+			.launchpad-action--blocked {
+				--gl-launchpad-action-color: var(--vscode-gitlens-launchpadIndicatorBlockedColor);
+				--gl-launchpad-action-hover-color: var(--vscode-gitlens-launchpadIndicatorBlockedHoverColor);
+			}
+
+			.launchpad-action--attention {
+				--gl-launchpad-action-color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
+				--gl-launchpad-action-hover-color: var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);
+			}
+		`,
+	];
 
 	@consume({ context: ipcContext })
 	private _ipc!: HostIpc;
 	private _disposable: Disposable | undefined;
-	private _summaryTask = new Task(this, {
-		args: () => [this.fetchSummary()],
-		task: ([summary]) => summary,
-		autoRun: false,
+
+	private _summaryState = new AsyncComputedState<LaunchpadSummary>(async _abortSignal => {
+		const rsp = await this._ipc.sendRequest(GetLaunchpadSummary, {});
+		return rsp;
 	});
+
+	private get _summary() {
+		return this._summaryState.state.value;
+	}
 
 	override disconnectedCallback() {
 		super.disconnectedCallback();
@@ -53,26 +100,9 @@ export class GlLaunchpad extends LitElement {
 		this._disposable?.dispose();
 	}
 
-	private _summary: Promise<LaunchpadSummary | undefined> | undefined;
-	private async fetchSummary() {
-		if (this._summary == null) {
-			const ipc = this._ipc;
-			if (ipc != null) {
-				async function fetch() {
-					const rsp = await ipc.sendRequest(GetLaunchpadSummary, {});
-					return rsp;
-				}
-				this._summary = fetch();
-			} else {
-				this._summary = Promise.resolve(undefined);
-			}
-		}
-		return this._summary;
-	}
-
 	override render() {
 		return html`
-			<div class="header">GitLens Launchpad</div>
+			<div class="section-heading">GitLens Launchpad</div>
 			<div class="summary">${this.renderSummaryResult()}</div>
 			<button-container>
 				<gl-button full class="start-work">Start work</gl-button>
@@ -82,10 +112,10 @@ export class GlLaunchpad extends LitElement {
 
 	private renderSummaryResult() {
 		if (this._summary == null) {
-			void this._summaryTask.run();
+			this._summaryState.run();
 		}
 
-		return this._summaryTask.render({
+		return this._summaryState.render({
 			pending: () => html`<span>Loading...</span>`,
 			complete: summary => this.renderSummary(summary),
 			error: () => html`<span>Error</span>`,
@@ -93,31 +123,41 @@ export class GlLaunchpad extends LitElement {
 	}
 
 	private renderSummary(summary: LaunchpadSummary | undefined) {
-		if (summary == null) return [nothing];
+		if (summary == null) return nothing;
 		if (summary.total === 0) {
-			return [html`<span>You are all caught up!</span>`];
+			return html`<span>You are all caught up!</span>`;
 		}
 		if (!summary.hasGroupedItems) {
-			return [
-				html`<span>No pull requests need your attention</span
-					><span>(${summary.total} other pull requests)</span>`,
-			];
+			return html`<span>No pull requests need your attention</span
+				><span>(${summary.total} other pull requests)</span>`;
 		}
 
 		const result: TemplateResult[] = [];
 		for (const group of summary.groups) {
 			let total;
 			switch (group) {
-				case 'mergeable':
+				case 'mergeable': {
 					total = summary.mergeable?.total ?? 0;
 					if (total === 0) continue;
 
+					const commandUrl = `command:gitlens.showLaunchpad?${encodeURIComponent(
+						JSON.stringify({
+							source: 'home',
+							state: {
+								initialGroup: 'mergeable',
+							},
+						} satisfies Omit<LaunchpadCommandArgs, 'command'>),
+					)}`;
 					result.push(
-						html`<code-icon icon="rocket"></code-icon>
-							<span>${pluralize('pull request', total)} can be merged</span>`,
+						html`<li>
+							<a href=${commandUrl} class="launchpad-action launchpad-action--mergable">
+								<code-icon class="launchpad-action__icon" icon="rocket"></code-icon>
+								<span>${pluralize('pull request', total)} can be merged</span>
+							</a>
+						</li>`,
 					);
 					break;
-
+				}
 				case 'blocked': {
 					total = summary.blocked?.total ?? 0;
 					if (total === 0) continue;
@@ -142,51 +182,91 @@ export class GlLaunchpad extends LitElement {
 						});
 					}
 
+					const commandUrl = `command:gitlens.showLaunchpad?${encodeURIComponent(
+						JSON.stringify({
+							source: 'home',
+							state: { initialGroup: 'blocked' },
+						} satisfies Omit<LaunchpadCommandArgs, 'command'>),
+					)}`;
 					if (messages.length === 1) {
 						result.push(
-							html`<code-icon icon="error"></code-icon>
-								<span>${pluralize('pull request', total)} ${messages[0].message}</span>`,
+							html`<li>
+								<a href=${commandUrl} class="launchpad-action launchpad-action--blocked">
+									<code-icon class="launchpad-action__icon" icon="error"></code-icon>
+									<span>${pluralize('pull request', total)} ${messages[0].message}</span>
+								</a>
+							</li>`,
 						);
 					} else {
 						result.push(
-							html`<code-icon icon="error"></code-icon>
-								<span
-									>${pluralize('pull request', total)} ${total > 1 ? 'are' : 'is'} blocked
-									(${messages.map(m => `${m.count} ${m.message}`).join(', ')})</span
-								>`,
+							html`<li>
+								<a href=${commandUrl} class="launchpad-action launchpad-action--blocked">
+									<code-icon class="launchpad-action__icon" icon="error"></code-icon>
+									<span
+										>${pluralize('pull request', total)} ${total > 1 ? 'are' : 'is'} blocked
+										(${messages.map(m => `${m.count} ${m.message}`).join(', ')})</span
+									>
+								</a>
+							</li>`,
 						);
 					}
 
 					break;
 				}
-				case 'follow-up':
+				case 'follow-up': {
 					total = summary.followUp?.total ?? 0;
 					if (total === 0) continue;
 
+					const commandUrl = `command:gitlens.showLaunchpad?${encodeURIComponent(
+						JSON.stringify({
+							source: 'home',
+							state: {
+								initialGroup: 'follow-up',
+							},
+						} satisfies Omit<LaunchpadCommandArgs, 'command'>),
+					)}`;
 					result.push(
-						html`<code-icon icon="report"></code-icon>
-							<span
-								>${pluralize('pull request', total)} ${total > 1 ? 'require' : 'requires'}
-								follow-up</span
-							>`,
+						html`<li>
+							<a href=${commandUrl} class="launchpad-action launchpad-action--attention">
+								<code-icon class="launchpad-action__icon" icon="report"></code-icon>
+								<span
+									>${pluralize('pull request', total)} ${total > 1 ? 'require' : 'requires'}
+									follow-up</span
+								>
+							</a>
+						</li>`,
 					);
 					break;
-
-				case 'needs-review':
+				}
+				case 'needs-review': {
 					total = summary.needsReview?.total ?? 0;
 					if (total === 0) continue;
 
+					const commandUrl = `command:gitlens.showLaunchpad?${encodeURIComponent(
+						JSON.stringify({
+							source: 'home',
+							state: {
+								initialGroup: 'needs-review',
+							},
+						} satisfies Omit<LaunchpadCommandArgs, 'command'>),
+					)}`;
 					result.push(
-						html`<code-icon icon="comment-unresolved"></code-icon>
-							<span
-								>${pluralize('pull request', total)} ${total > 1 ? 'need' : 'needs'} your review</span
-							>`,
+						html`<li>
+							<a href=${commandUrl} class="launchpad-action launchpad-action--attention">
+								<code-icon class="launchpad-action__icon" icon="comment-unresolved"></code-icon>
+								<span
+									>${pluralize('pull request', total)} ${total > 1 ? 'need' : 'needs'} your
+									review</span
+								>
+							</a>
+						</li>`,
 					);
 					break;
+				}
 			}
 		}
 
-		return result;
+		return html`<menu class="menu">${result}</menu>`;
 	}
 }
 

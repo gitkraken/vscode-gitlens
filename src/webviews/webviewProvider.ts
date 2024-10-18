@@ -48,6 +48,11 @@ export interface WebviewProvider<State, SerializedState = State, ShowingArgs ext
 	onWindowFocusChanged?(focused: boolean): void;
 }
 
+export interface WebviewStateProvier<State, SerializedState, ShowingArgs extends unknown[] = unknown[]>
+	extends WebviewProvider<State, SerializedState, ShowingArgs> {
+	canReceiveMessage?(e: IpcMessage): boolean;
+}
+
 export interface WebviewHost<
 	Descriptor extends WebviewPanelDescriptor | WebviewViewDescriptor = WebviewPanelDescriptor | WebviewViewDescriptor,
 > {

@@ -14,6 +14,7 @@ export interface State extends WebviewState {
 		drafts: boolean;
 	};
 	walkthroughCollapsed: boolean;
+	integrationBannerCollapsed: boolean;
 	hasAnyIntegrationConnected: boolean;
 	avatar?: string;
 	organizationsCount?: number;
