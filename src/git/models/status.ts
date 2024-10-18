@@ -502,7 +502,7 @@ export class GitStatusFile implements GitFile {
 			const file = new GitFileChange(
 				this.repoPath,
 				this.path,
-				this.status,
+				this.workingTreeStatus ?? this.status,
 				this.originalPath,
 				previousSha,
 				undefined,
@@ -532,7 +532,7 @@ export class GitStatusFile implements GitFile {
 			const file = new GitFileChange(
 				this.repoPath,
 				this.path,
-				this.status,
+				this.indexStatus ?? this.status,
 				this.originalPath,
 				'HEAD',
 				undefined,

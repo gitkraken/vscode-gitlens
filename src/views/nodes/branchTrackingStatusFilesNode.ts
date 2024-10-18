@@ -83,18 +83,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 		const files = await this.getGroupedFiles();
 
 		let children: FileNode[] = [
-			...map(
-				files.values(),
-				files =>
-					new StatusFileNode(
-						this.view,
-						this,
-						files[files.length - 1],
-						this.repoPath,
-						files.map(s => s.commit),
-						this.direction,
-					),
-			),
+			...map(files.values(), files => new StatusFileNode(this.view, this, this.repoPath, files, this.direction)),
 		];
 
 		if (this.view.config.files.layout !== 'list') {

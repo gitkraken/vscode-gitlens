@@ -54,7 +54,7 @@ export class GlTreeGenerator extends GlElement {
 		return this._model;
 	}
 
-	private renderIcon(icon?: string | { type: 'status'; name: string }) {
+	private renderIcon(icon?: string | { type: 'status'; name: GlGitStatus['status'] }) {
 		if (icon == null) return nothing;
 
 		if (typeof icon === 'string') {
@@ -65,7 +65,7 @@ export class GlTreeGenerator extends GlElement {
 			return nothing;
 		}
 
-		return html`<gl-git-status slot="icon" .status=${icon.name as GlGitStatus['status']}></gl-git-status>`;
+		return html`<gl-git-status slot="icon" .status=${icon.name}></gl-git-status>`;
 	}
 
 	private renderActions(model: TreeModelFlat) {
