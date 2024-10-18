@@ -16,8 +16,9 @@ import '../plus/home/components/launchpad';
 import '../plus/home/components/overview';
 import './components/feature-nav';
 import './components/home-nav';
-import './components/repo-alerts';
+import './components/integration-banner';
 import './components/onboarding';
+import './components/repo-alerts';
 
 @customElement('gl-home-app')
 export class GlHomeApp extends GlApp<State> {
@@ -58,6 +59,8 @@ export class GlHomeApp extends GlApp<State> {
 				<gl-repo-alerts class="home__header"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
 					<gl-onboarding></gl-onboarding>
+					<gl-integration-banner></gl-integration-banner>
+					<gl-active-work></gl-active-work>
 					<gl-launchpad></gl-launchpad>
 					<gl-overview></gl-overview>
 					<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>
