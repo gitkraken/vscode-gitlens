@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#3680](https://github.com/gitkraken/vscode-gitlens/issues/3680) - GitLens Settings page (via _GitLens: Open Settings_) has double-encoded Html entities
 - Fixes popover menu background colors on the Commit Graph
 
 ## [15.6.1] - 2024-10-14
