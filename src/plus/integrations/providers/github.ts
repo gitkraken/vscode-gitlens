@@ -13,6 +13,7 @@ import type {
 } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
+import type { LaunchpadPullRequest } from '../../launchpad/launchpadProvider';
 import { ensurePaidPlan } from '../../utils';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
@@ -316,4 +317,53 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHoste
 
 		return super.connect(source);
 	}
+}
+
+export type GitHubPullRequestURLIdentity = {
+	ownerAndRepo?: string;
+	prNumber?: string;
+};
+
+export function getPullRequestIdentityValuesFromSearch(search: string): GitHubPullRequestURLIdentity {
+	let ownerAndRepo: string | undefined = undefined;
+	let prNumber: string | undefined = undefined;
+
+	let match = search.match(/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/); // with github.com domain
+	if (match != null) {
+		ownerAndRepo = match[1];
+		prNumber = match[2];
+	}
+
+	if (prNumber == null) {
+		match = search.match(/([^/]+\/[^/]+)\/pull\/(\d+)/); // without domain
+		if (match != null) {
+			ownerAndRepo = match[1];
+			prNumber = match[2];
+		}
+	}
+
+	if (prNumber == null) {
+		match = search.match(/(?:\/|^)pull\/(\d+)/); // without repo name
+		if (match != null) {
+			prNumber = match[1];
+		}
+	}
+
+	if (prNumber == null) {
+		match = search.match(/(?:#|\/)(\d+)/); // any number starting with # or /
+		if (match != null) {
+			prNumber = match[1];
+		}
+	}
+
+	return { ownerAndRepo: ownerAndRepo, prNumber: prNumber };
+}
+
+export function doesPullRequestSatisfyGitHubRepositoryURLIdentity(
+	pr: LaunchpadPullRequest,
+	{ ownerAndRepo, prNumber }: GitHubPullRequestURLIdentity,
+): boolean {
+	const satisfiesPrNumber = prNumber != null && pr.number === parseInt(prNumber, 10);
+	const satisfiesOwnerAndRepo = ownerAndRepo != null && pr.repoIdentity.name === ownerAndRepo;
+	return satisfiesPrNumber && satisfiesOwnerAndRepo;
 }
