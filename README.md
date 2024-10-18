@@ -45,7 +45,7 @@ Quickly glimpse into when, why, and by whom a line or code block was changed. Ze
 - [**Revision Navigation**](#revision-navigation) &mdash; Explore the history of a file to see how the code evolved over time.
 - [**Side Bar Views**](#side-bar-views) &mdash; Powerful views into Git that don't come in the box.
 - [**Commit Graph `Pro`**](#commit-graph-pro) &mdash; Visualize your repository and keep track of all work in progress.
-- [**Launchpad `Preview`**](#launchpad-preview) &mdash; Stay focused and keep your team unblocked.
+- [**Launchpad `Pro`**](#launchpad-pro) &mdash; Stay focused and keep your team unblocked.
 - [**Code Suggest `Preview`**](#code-suggest-preview) &mdash; Free your code reviews from unnecessary restrictions.
 - [**Cloud Patches `Preview`**](#cloud-patches-preview) &mdash; Easily and securely share code with your teammates.
 - [**Worktrees `Pro`**](#worktrees-pro) &mdash; Simultaneously work on different branches of a repository.
@@ -179,7 +179,7 @@ Use the rich commit search to find exactly what you're looking for. Its powerful
 
 💡Maximize the Graph via the `Toggle Maximized Commit Graph` command.
 
-## Launchpad `Preview`
+## Launchpad `Pro`
 
 Launchpad brings all of your GitHub pull requests into a unified, actionable list to better track work in progress, pending work, reviews, and more. Stay focused and take action on the most important items to keep your team unblocked. [Learn more](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links)
 
