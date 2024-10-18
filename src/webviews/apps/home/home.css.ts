@@ -353,14 +353,14 @@ export const walkthroughProgressStyles = css`
 	.walkthrough-progress::-webkit-progress-bar {
 		background-color: unset;
 	}
-	progress.walkthrough-progress.finished::-webkit-progress-value {
+	.walkthrough-progress.finished::-webkit-progress-value {
 		background: unset;
 	}
-	progress.walkthrough-progress::-webkit-progress-value {
+	.walkthrough-progress::-webkit-progress-value {
 		background: var(--vscode-progressBar-background, blue);
 		transition: 0.1s ease-in;
 	}
-	progress.walkthrough-progress {
+	.walkthrough-progress {
 		position: absolute;
 		top: 0;
 		pointer-events: none;
@@ -372,7 +372,7 @@ export const walkthroughProgressStyles = css`
 		flex: 1;
 		z-index: 2;
 	}
-	span.badge {
+	.badge {
 		display: inline-block;
 		width: 6px;
 		aspect-ratio: 1 / 1;
