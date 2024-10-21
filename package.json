@@ -17804,7 +17804,7 @@
 					{
 						"id": "welcome-in-trial",
 						"title": "Welcome to GitLens",
-						"description": "Thanks for starting your **GitLens Pro** trial.\n\nComplete this walkthrough to experience enhanced PR review tools, deeper code history visualizations, and streamlined collaboration to help boost your productivity.\n\n[Continue the Walkthrough](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize-code-history%22%7D)\n\nOnce your trial ends, you’ll return to **GitLens Community** — where you can still leverage features like in-editor blame annotations, hovers, CodeLens, and more. [Upgrade to GitLens Pro](command:gitlens.plus.upgrade) today to continue enjoying the full experience.\n\n[Upgrade to GitLens Pro](command:gitlens.plus.upgrade)",
+						"description": "Thanks for starting your **GitLens Pro** trial.\n\nComplete this walkthrough to experience enhanced PR review tools, deeper code history visualizations, and streamlined collaboration to help boost your productivity.\n\n[Continue the Walkthrough](command:gitlens.openWalkthrough)\n\nOnce your trial ends, you’ll return to **GitLens Community** — where you can still leverage features like in-editor blame annotations, hovers, CodeLens, and more. [Upgrade to GitLens Pro](command:gitlens.plus.upgrade) today to continue enjoying the full experience.\n\n[Upgrade to GitLens Pro](command:gitlens.plus.upgrade)",
 						"media": {
 							"markdown": "walkthroughs/welcome/welcome-in-trial.md"
 						},
@@ -17816,7 +17816,7 @@
 					{
 						"id": "welcome-paid",
 						"title": "Welcome to GitLens | How to be successful",
-						"description": "As a ***GitLens Pro** user, you have access to powerful tools that accelerate PR reviews, provide deeper code history visualizations, and streamline collaboration across your team.\n\n[Continue the Walkthrough](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize-code-history%22%7D)\n\nTo get the most out of your **GitLens Pro** experience, complete the walkthrough and visit our Help Center for in-depth guides.\n\n**[Learn more in the Help Center](https://help.gitkraken.com/gitlens/gitlens-home/)**",
+						"description": "As a ***GitLens Pro** user, you have access to powerful tools that accelerate PR reviews, provide deeper code history visualizations, and streamline collaboration across your team.\n\n[Continue the Walkthrough](command:gitlens.openWalkthrough)\n\nTo get the most out of your **GitLens Pro** experience, complete the walkthrough and visit our Help Center for in-depth guides.\n\n**[Learn more in the Help Center](https://help.gitkraken.com/gitlens/gitlens-home/)**",
 						"media": {
 							"markdown": "walkthroughs/welcome/welcome-paid.md"
 						},
