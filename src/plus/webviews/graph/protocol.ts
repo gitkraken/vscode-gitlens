@@ -64,6 +64,7 @@ export type GraphMissingRefsMetadata = Record</*id*/ string, /*missingType*/ Gra
 export type GraphPullRequestMetadata = PullRequestMetadata;
 
 export type GraphRefMetadataTypes = 'upstream' | 'pullRequest' | 'issue';
+export type GraphSearchMode = 'normal' | 'filter';
 
 export type GraphScrollMarkerTypes =
 	| 'selection'
@@ -115,6 +116,7 @@ export interface State extends WebviewState {
 	nonce?: string;
 	workingTreeStats?: GraphWorkingTreeStats;
 	searchResults?: DidSearchParams['results'];
+	defaultSearchMode?: GraphSearchMode;
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
@@ -298,6 +300,11 @@ export const UpdateGraphConfigurationCommand = new IpcCommand<UpdateGraphConfigu
 	scope,
 	'configuration/update',
 );
+
+export interface UpdateGraphSearchModeParams {
+	searchMode: GraphSearchMode;
+}
+export const UpdateGraphSearchModeCommand = new IpcCommand<UpdateGraphSearchModeParams>(scope, 'search/update/mode');
 
 export interface UpdateIncludedRefsParams {
 	branchesVisibility?: GraphBranchesVisibility;

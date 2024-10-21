@@ -71,6 +71,7 @@ export type GlobalStorage = {
 	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
+	'graph:searchMode': StoredGraphSearchMode;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
@@ -230,6 +231,8 @@ export interface StoredGraphFilters {
 }
 
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';
+
+export type StoredGraphSearchMode = 'normal' | 'filter';
 
 export interface StoredGraphExcludedRef {
 	id: string;

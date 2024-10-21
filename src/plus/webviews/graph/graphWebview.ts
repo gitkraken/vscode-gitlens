@@ -175,6 +175,7 @@ import type {
 	UpdateColumnsParams,
 	UpdateExcludeTypesParams,
 	UpdateGraphConfigurationParams,
+	UpdateGraphSearchModeParams,
 	UpdateIncludedRefsParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectionParams,
@@ -212,6 +213,7 @@ import {
 	UpdateColumnsCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
+	UpdateGraphSearchModeCommand,
 	UpdateIncludedRefsCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
@@ -758,6 +760,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case UpdateGraphConfigurationCommand.is(e):
 				this.updateGraphConfig(e.params);
 				break;
+			case UpdateGraphSearchModeCommand.is(e):
+				this.updateGraphSearchMode(e.params);
+				break;
 			case UpdateExcludeTypesCommand.is(e):
 				this.updateExcludedTypes(this._graph?.repoPath, e.params);
 				break;
@@ -835,6 +840,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 			}
 		}
+	}
+
+	updateGraphSearchMode(params: UpdateGraphSearchModeParams) {
+		void this.container.storage.store('graph:searchMode', params.searchMode);
 	}
 
 	private _showActiveSelectionDetailsDebounced:
@@ -2497,6 +2506,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			});
 		}
 
+		const defaultSearchMode = this.container.storage.get('graph:searchMode') ?? 'normal';
+
 		return {
 			...this.host.baseWebviewState,
 			windowFocused: this.isWindowFocused,
@@ -2543,6 +2554,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			includeOnlyRefs: refsVisibility.includeOnlyRefs,
 			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
+			defaultSearchMode: defaultSearchMode,
 		};
 	}
 
