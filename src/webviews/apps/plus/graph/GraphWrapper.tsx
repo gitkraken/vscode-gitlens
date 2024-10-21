@@ -41,6 +41,7 @@ import type {
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
 	GraphRepository,
+	GraphSearchMode,
 	GraphSearchResults,
 	GraphSearchResultsError,
 	InternalNotificationType,
@@ -83,7 +84,10 @@ import { GlFeatureBadge } from '../../shared/components/react/feature-badge';
 import { GlFeatureGate } from '../../shared/components/react/feature-gate';
 import { GlIssuePullRequest } from '../../shared/components/react/issue-pull-request';
 import { GlSearchBox } from '../../shared/components/search/react';
-import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
+import type {
+	SearchModeChangeEventDetail,
+	SearchNavigationEventDetail,
+} from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
 import { emitTelemetrySentEvent } from '../../shared/telemetry';
@@ -100,6 +104,7 @@ export interface GraphWrapperProps {
 	onChangeColumns?: (colsSettings: GraphColumnsConfig) => void;
 	onChangeExcludeTypes?: (key: keyof GraphExcludeTypes, value: boolean) => void;
 	onChangeGraphConfiguration?: (changes: UpdateGraphConfigurationParams['changes']) => void;
+	onChangeGraphSearchMode?: (searchMode: GraphSearchMode) => void;
 	onChangeRefIncludes?: (branchesVisibility: GraphBranchesVisibility, refs?: GraphRefOptData[]) => void;
 	onChangeRefsVisibility?: (refs: GraphExcludedRef[], visible: boolean) => void;
 	onChangeSelection?: (rows: GraphRow[]) => void;
@@ -226,6 +231,7 @@ export function GraphWrapper({
 	onChangeColumns,
 	onChangeExcludeTypes,
 	onChangeGraphConfiguration,
+	onChangeGraphSearchMode,
 	onChangeRefIncludes,
 	onChangeRefsVisibility,
 	onChangeSelection,
@@ -627,6 +633,11 @@ export function GraphWrapper({
 		if (searchQuery == null) return;
 
 		onSearchOpenInView?.(searchQuery);
+	};
+
+	const handleSearchModeChange = (e: CustomEvent<SearchModeChangeEventDetail>) => {
+		const { searchMode } = e.detail;
+		onChangeGraphSearchMode?.(searchMode);
 	};
 
 	const ensureSearchResultRow = async (id: string): Promise<string | undefined> => {
@@ -1379,6 +1390,7 @@ export function GraphWrapper({
 								valid={Boolean(searchQuery?.query && searchQuery.query.length > 2)}
 								more={searchResults?.paging?.hasMore ?? false}
 								searching={searching}
+								filter={state.defaultSearchMode === 'filter'}
 								value={searchQuery?.query ?? ''}
 								errorMessage={searchResultsError?.error ?? ''}
 								resultsHidden={searchResultsHidden}
@@ -1386,6 +1398,7 @@ export function GraphWrapper({
 								onChange={e => handleSearchInput(e)}
 								onNavigate={e => handleSearchNavigation(e)}
 								onOpenInView={() => handleSearchOpenInView()}
+								onSearchModeChange={e => handleSearchModeChange(e)}
 							/>
 							<span>
 								<span className="action-divider"></span>

@@ -15,6 +15,10 @@ export interface SearchNavigationEventDetail {
 	direction: 'first' | 'previous' | 'next' | 'last';
 }
 
+export interface SearchModeChangeEventDetail {
+	searchMode: 'normal' | 'filter';
+}
+
 declare global {
 	interface HTMLElementTagNameMap {
 		'gl-search-input': GlSearchInput;
@@ -23,6 +27,7 @@ declare global {
 	interface GlobalEventHandlersEventMap {
 		'gl-search-inputchange': CustomEvent<SearchQuery>;
 		'gl-search-navigate': CustomEvent<SearchNavigationEventDetail>;
+		'gl-search-modechange': CustomEvent<SearchModeChangeEventDetail>;
 	}
 }
 
@@ -383,6 +388,7 @@ export class GlSearchInput extends GlElement {
 
 	handleFilter(_e: Event) {
 		this.filter = !this.filter;
+		this.emit('gl-search-modechange', { searchMode: this.filter ? 'filter' : 'normal' });
 		this.debouncedOnSearchChanged();
 	}
 
