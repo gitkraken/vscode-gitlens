@@ -268,7 +268,8 @@ export class BufferedLogChannel implements LogChannel {
 		if (this.buffer.length) {
 			this._emptyCounter = 0;
 
-			const value = this.buffer.join('\n');
+			let value = this.buffer.join('\n');
+			value += '\n';
 			this.buffer.length = 0;
 
 			this.channel.append(value);
