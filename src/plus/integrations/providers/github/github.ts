@@ -2933,7 +2933,14 @@ export class GitHubApi implements Disposable {
 	async searchMyIssues(
 		provider: Provider,
 		token: string,
-		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
+		options?: {
+			search?: string;
+			user?: string;
+			repos?: string[];
+			baseUrl?: string;
+			avatarSize?: number;
+			includeBody?: boolean;
+		},
 		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined> {
 		const scope = getLogScope();
@@ -2950,6 +2957,14 @@ export class GitHubApi implements Disposable {
 			};
 		}
 
+		const issueFragement = `${gqIssueFragment}${
+			options?.includeBody
+				? `
+			body
+			`
+				: ''
+		}`;
+
 		const query = `query searchMyIssues(
 				$authored: String!
 				$assigned: String!
@@ -2959,21 +2974,21 @@ export class GitHubApi implements Disposable {
 				authored: search(first: 100, query: $authored, type: ISSUE) {
 					nodes {
 						... on Issue {
-							${gqIssueFragment}
+							${issueFragement}
 						}
 					}
 				}
 				assigned: search(first: 100, query: $assigned, type: ISSUE) {
 					nodes {
 						... on Issue {
-							${gqIssueFragment}
+							${issueFragement}
 						}
 					}
 				}
 				mentioned: search(first: 100, query: $mentioned, type: ISSUE) {
 					nodes {
 						... on Issue {
-							${gqIssueFragment}
+							${issueFragement}
 						}
 					}
 				}
