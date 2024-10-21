@@ -45,16 +45,16 @@ You can try GitLens Pro for free. When you're ready to upgrade, a GitKraken [pai
 
 There are a variety of features in GitLens - below are the three most popular workflows users are leveraging to improve their developer productivity:
 
-- [**Interactive Code History**](#interactive-code-history) &mdash; Get the context you need instantly with blame, hovers, file annotations, and more. That's just the start - the GitLens Commit Graph is an interactive visual that allows you to create branches, rebase, revert, and much more right from the graph; all with a rich search feature. 
+- [**Interactive Code History**](#interactive-code-history) &mdash; Understanding code can be challenging in complex repos with multiple branches and contributors. Get the context you need with blame, hovers, file annotations, and more. That's just the start - the GitLens Commit Graph allows you to create branches, rebase, revert, and much more right from the interactive visual; all with a rich search feature. 
 
-- [**Accelerate PR Reviews**](#accelerate-pr-reviews) &mdash; Reduce context switching and manage all your PRs in one place with Launchpad. Prioritize tasks and identify bottlenecks right in VS Code when you integrate your Github or host provider. Work on multiple branches at once without disrupting your main workspace with Worktrees.   
+- [**Accelerate PR Reviews**](#accelerate-pr-reviews) &mdash; Reduce context switching and manage all your PRs in one place. With Launchpad, prioritize tasks and identify bottlenecks right in VS Code when you integrate your Github or host provider. Work on multiple branches at once without disrupting your main workspace with Worktrees.   
 
 - [**Streamline Collaboration**](#streamline-collaboration) &mdash; GitLens is more than a solo dev tool - it's built to improve team collaboration. With Cloud Patches, share and discuss suggested changes directly with any other GitLens or GitKraken DevEx Suite User – whether related to files in a PR or beyond. 
 
 
 # Interactive Code History
 
-It's about more than just visuals in today's dev environment. Interact with relevant code context with in-editor blame, hovers, file annotations, and more. The GitLens Commit Graph more than a graph; it's action-oriented and allows you to rebase, branch, revert, and more. The only graph with rich search capabilities - search by a specific commit, message, author, changed file or files, or even a specific code change.
+It’s not always easy for developers to identify who made specific changes, along with the reasons and timing behind them. GitLens simplifies this process by providing the context you need with tools like the Commit Graph, GitLens Inspect, Inline Blame, Hovers, and more, allowing you to quickly gain insights and interact with your repository’s history through intuitive visuals and actions.
 
 ## Blame, CodeLens, and Hovers
 
