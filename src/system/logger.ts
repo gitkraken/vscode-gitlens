@@ -225,6 +225,8 @@ export const Logger = new (class Logger {
 	}
 })();
 
+const maxBufferedLines = 100;
+
 export class BufferedLogChannel implements LogChannel {
 	private readonly buffer: string[] = [];
 	private bufferTimer: ReturnType<typeof setTimeout> | undefined;
@@ -238,6 +240,7 @@ export class BufferedLogChannel implements LogChannel {
 		clearInterval(this.bufferTimer);
 		this.bufferTimer = undefined;
 
+		this.flush();
 		this.channel.dispose();
 	}
 
@@ -247,7 +250,12 @@ export class BufferedLogChannel implements LogChannel {
 
 	appendLine(value: string) {
 		this.buffer.push(value);
-		this.bufferTimer ??= setInterval(() => this.flush(), this.interval);
+
+		if (this.buffer.length >= maxBufferedLines) {
+			this.flush();
+		} else {
+			this.bufferTimer ??= setInterval(() => this.flush(), this.interval);
+		}
 	}
 
 	show(preserveFocus?: boolean): void {
