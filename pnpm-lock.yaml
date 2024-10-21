@@ -15,8 +15,8 @@ importers:
   .:
     dependencies:
       '@gitkraken/gitkraken-components':
-        specifier: 10.6.0
-        version: 10.6.0
+        specifier: 10.7.0
+        version: 10.7.0
       '@gitkraken/provider-apis':
         specifier: 0.24.2
         version: 0.24.2(encoding@0.1.13)
@@ -297,8 +297,8 @@ packages:
   '@axosoft/react-virtualized@9.22.3-gitkraken.3':
     resolution: {integrity: sha512-sCU8gM0Ut1I3lNBYLQCq7nmRObFsdGKkTIMZkVThZhFYtmQchl1RLnsXilicmNlwCNZdm3/uDCpOw6q7T1gtog==}
     peerDependencies:
-      react: ^15.3.0 || ^16.0.0-alpha
-      react-dom: ^15.3.0 || ^16.0.0-alpha
+      react: 16.8.4
+      react-dom: 16.8.4
 
   '@azure/abort-controller@2.1.2':
     resolution: {integrity: sha512-nBrLsEWm4J2u5LpAPjxADTlq3trDgVZZXHNKabeXZtpq3d3AbN/KGO82R87rdDz5/lYB024rtEf10/q0urNgsA==}
@@ -575,8 +575,8 @@ packages:
   '@gar/promisify@1.1.3':
     resolution: {integrity: sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==}
 
-  '@gitkraken/gitkraken-components@10.6.0':
-    resolution: {integrity: sha512-98wHDs0uL5PDvBmsjnrYyGQ98GTUbURy9nAV4QCOysMtKM2Zbt92KXK/4FUCJXC2P53TkcQ66pMgdPbzOK134g==}
+  '@gitkraken/gitkraken-components@10.7.0':
+    resolution: {integrity: sha512-0oekeCgTgZNAtUFNH8eSIdOfPOVG3IUIXoaKuOBY0dRT6TLc5Q/ARyujdtWLHpdD3FC/GZv46N9IdQL4AEIwNA==}
 
   '@gitkraken/provider-apis@0.24.2':
     resolution: {integrity: sha512-Il0QqYbw0mzjda+EhApny2re0cMY7LOYygmGh5ASQ33juT9rinMsZo1Wu3wh93jwSbAMEzS0royOHFfw37vz2w==}
@@ -5524,7 +5524,7 @@ snapshots:
 
   '@gar/promisify@1.1.3': {}
 
-  '@gitkraken/gitkraken-components@10.6.0':
+  '@gitkraken/gitkraken-components@10.7.0':
     dependencies:
       '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
       classnames: 2.5.1
