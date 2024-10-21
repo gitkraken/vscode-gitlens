@@ -52,6 +52,7 @@ export interface IssueShape extends IssueOrPullRequest {
 	assignees: IssueMember[];
 	repository?: IssueRepository;
 	labels?: IssueLabel[];
+	body?: string;
 }
 
 export interface SearchedIssue {
@@ -232,6 +233,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 				  })),
 		commentsCount: value.commentsCount,
 		thumbsUpCount: value.thumbsUpCount,
+		body: value.body,
 	};
 	return serialized;
 }
@@ -256,5 +258,6 @@ export class Issue implements IssueShape {
 		public readonly labels?: IssueLabel[],
 		public readonly commentsCount?: number,
 		public readonly thumbsUpCount?: number,
+		public readonly body?: string,
 	) {}
 }
