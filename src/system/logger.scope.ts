@@ -46,7 +46,7 @@ export function getNewLogScope(prefix: string, scope: LogScope | boolean | undef
 	return {
 		scopeId: scopeId,
 		prevScopeId: prevScopeId,
-		prefix: `${getLoggableScopeBlock(scopeId)} ${prefix}`,
+		prefix: `${getLoggableScopeBlock(scopeId, prevScopeId)} ${prefix}`,
 	};
 }
 
