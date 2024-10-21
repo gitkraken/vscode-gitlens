@@ -1,9 +1,11 @@
 /*global*/
 import './home.scss';
+import { provide } from '@lit/context';
 import { html } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import type { State } from '../../home/protocol';
 import { DidFocusAccount } from '../../home/protocol';
+import { OverviewState, overviewStateContext } from '../plus/home/components/overviewState';
 import type { GLHomeAccountContent } from '../plus/shared/components/home-account-content';
 import { GlApp } from '../shared/app';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
@@ -12,6 +14,7 @@ import type { HostIpc } from '../shared/ipc';
 import { homeBaseStyles, homeStyles } from './home.css';
 import { HomeStateProvider } from './stateProvider';
 import '../plus/shared/components/home-account-content';
+import '../plus/home/components/active-work';
 import '../plus/home/components/launchpad';
 import '../plus/home/components/overview';
 import './components/feature-nav';
@@ -25,12 +28,17 @@ export class GlHomeApp extends GlApp<State> {
 	static override styles = [homeBaseStyles, scrollableBase, homeStyles];
 	private disposable: Disposable | undefined;
 
+	@provide({ context: overviewStateContext })
+	private _overviewState!: OverviewState;
+
 	@query('#account-content')
 	private accountContentEl!: GLHomeAccountContent;
 
 	private badgeSource = { source: 'home', detail: 'badge' };
 
 	protected override createStateProvider(state: State, ipc: HostIpc) {
+		this._overviewState = new OverviewState(ipc);
+
 		return new HomeStateProvider(this, state, ipc);
 	}
 
@@ -58,7 +66,7 @@ export class GlHomeApp extends GlApp<State> {
 				<gl-home-nav class="home__nav"></gl-home-nav>
 				<gl-repo-alerts class="home__header"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
-					<gl-onboarding></gl-onboarding>
+					<gl-onboarding hidden></gl-onboarding>
 					<gl-integration-banner></gl-integration-banner>
 					<gl-active-work></gl-active-work>
 					<gl-launchpad></gl-launchpad>

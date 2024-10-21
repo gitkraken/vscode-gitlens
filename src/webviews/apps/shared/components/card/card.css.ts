@@ -5,7 +5,7 @@ export const cardStyles = css`
 		display: block;
 		flex-direction: column;
 		gap: 0.8rem;
-		padding: 0.8rem;
+		padding: 0.8rem 1.2rem;
 		border-radius: 0.4rem;
 		border-inline-start: 0.3rem solid transparent;
 		background-color: var(--gl-card-background, color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 10%));
