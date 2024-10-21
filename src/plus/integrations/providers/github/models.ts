@@ -134,6 +134,7 @@ export interface GitHubIssue extends Omit<GitHubIssueOrPullRequest, '__typename'
 		};
 		viewerPermission: GitHubViewerPermission;
 	};
+	body: string;
 }
 
 export type GitHubPullRequestReviewDecision = 'CHANGES_REQUESTED' | 'APPROVED' | 'REVIEW_REQUIRED';
@@ -436,6 +437,7 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
 			  })),
 		value.comments?.totalCount,
 		value.reactions?.totalCount,
+		value.body,
 	);
 }
 

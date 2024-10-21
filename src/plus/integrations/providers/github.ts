@@ -201,6 +201,7 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 			{
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
 				baseUrl: this.apiBaseUrl,
+				includeBody: true,
 			},
 			cancellation,
 		);
