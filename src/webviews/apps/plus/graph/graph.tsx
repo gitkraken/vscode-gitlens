@@ -13,6 +13,7 @@ import type {
 	GraphExcludeTypes,
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
+	GraphSearchMode,
 	InternalNotificationType,
 	State,
 	UpdateGraphConfigurationParams,
@@ -49,6 +50,7 @@ import {
 	UpdateColumnsCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
+	UpdateGraphSearchModeCommand,
 	UpdateIncludedRefsCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
@@ -104,6 +106,7 @@ export class GraphApp extends App<State> {
 					)}
 					onChangeExcludeTypes={this.onExcludeTypesChanged.bind(this)}
 					onChangeGraphConfiguration={this.onGraphConfigurationChanged.bind(this)}
+					onChangeGraphSearchMode={this.onGraphSearchModeChanged.bind(this)}
 					onChangeRefIncludes={this.onRefIncludesChanged.bind(this)}
 					onChangeRefsVisibility={(refs: GraphExcludedRef[], visible: boolean) =>
 						this.onRefsVisibilityChanged(refs, visible)
@@ -652,6 +655,10 @@ export class GraphApp extends App<State> {
 
 	private onGraphConfigurationChanged(changes: UpdateGraphConfigurationParams['changes']) {
 		this.sendCommand(UpdateGraphConfigurationCommand, { changes: changes });
+	}
+
+	private onGraphSearchModeChanged(searchMode: GraphSearchMode) {
+		this.sendCommand(UpdateGraphSearchModeCommand, { searchMode: searchMode });
 	}
 
 	private onSelectionChanged(rows: GraphRow[]) {

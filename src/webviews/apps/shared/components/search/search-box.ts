@@ -7,13 +7,13 @@ import type { SearchQuery } from '../../../../../constants.search';
 import { pluralize } from '../../../../../system/string';
 import { DOM } from '../../dom';
 import { GlElement } from '../element';
-import type { GlSearchInput, SearchNavigationEventDetail } from './search-input';
+import type { GlSearchInput, SearchModeChangeEventDetail, SearchNavigationEventDetail } from './search-input';
 import '../code-icon';
 import '../overlays/tooltip';
 import '../progress';
 import './search-input';
 
-export { SearchNavigationEventDetail };
+export { SearchModeChangeEventDetail, SearchNavigationEventDetail };
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -130,6 +130,9 @@ export class GlSearchBox extends GlElement {
 
 	@property({ type: Boolean })
 	matchRegex = true;
+
+	@property({ type: Boolean })
+	filter = false;
 
 	@property({ type: Number })
 	total = 0;
@@ -266,6 +269,7 @@ export class GlSearchBox extends GlElement {
 				id="search-input"
 				exportparts="search: search"
 				.errorMessage="${this.errorMessage}"
+				.filter=${this.filter}
 				.label="${this.label}"
 				.placeholder="${this.placeholder}"
 				.matchAll="${this.matchAll}"
