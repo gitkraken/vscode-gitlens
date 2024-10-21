@@ -223,7 +223,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 
 				const logResult = (r: any) => {
 					let duration: number | undefined;
-					let exitLogFn;
+					let exitLogFn: typeof logFn;
 					let timing;
 					if (start != null) {
 						duration = getDurationMilliseconds(start);
@@ -252,7 +252,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 						}
 					} else if (scope?.exitFailed) {
 						exit = scope.exitFailed;
-						exitLogFn = Logger.error;
+						exitLogFn = (message: string, ...params: any[]) => Logger.error(null, message, ...params);
 					} else {
 						exit = 'completed';
 					}
