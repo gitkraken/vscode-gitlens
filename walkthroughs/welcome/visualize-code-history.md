@@ -1,10 +1,7 @@
-## Blame, Hovers, and Commit Graph
+### Blame, Hovers, and Commit Graph
 
-<!-- <figure align="center"> -->
-  <img src="./mock-wt-image.png" alt="Image"/>
-<!-- </figure> -->
+<img src="./mock-wt-image.png" alt="Image"/>
 
-## The commit graph
+Go beyond just visualizations with actionable commands. Create branches, rebase, revert, and more by simply right clicking within your repo’s history with the GitLens Commit Graph.
 
-- Unlike VS Code’s read-only commit graph, the GitLens Commit Graph is fully interactive and includes features such as commit search, detailed history tracking, and the ability to explore file changes interactively.
-- Manage version control right from your Commit Graph to reduce context switching and gain deeper insights into you and your team’s repository evolution.
+The only graph with rich search capabilities, search by a specific commit, message, author, a changed file or files, or even a specific code change.

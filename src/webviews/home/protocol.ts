@@ -15,8 +15,11 @@ export interface State extends WebviewState {
 	hasAnyIntegrationConnected: boolean;
 	avatar?: string;
 	organizationsCount?: number;
-	walkthroughProgress: number;
-	// feature flag. should be removed after the feature is completed
+	walkthroughProgress: {
+		doneCount: number;
+		allCount: number;
+		progress: number;
+	};
 	showWalkthroughProgress?: boolean;
 }
 
@@ -27,6 +30,8 @@ export interface CollapseSectionParams {
 	collapsed: boolean;
 }
 export const CollapseSectionCommand = new IpcCommand<CollapseSectionParams>(scope, 'section/collapse');
+
+export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthrough/dismiss');
 
 // NOTIFICATIONS
 
@@ -40,6 +45,8 @@ export const DidChangeRepositories = new IpcNotification<DidChangeRepositoriesPa
 
 export interface DidChangeProgressParams {
 	progress: number;
+	doneCount: number;
+	allCount: number;
 }
 export const DidChangeWalkthroughProgress = new IpcNotification<DidChangeProgressParams>(
 	scope,

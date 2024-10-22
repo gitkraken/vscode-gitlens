@@ -36,7 +36,7 @@ export class HomeStateProvider implements Disposable {
 					this.provider.setValue(this.state, true);
 					break;
 				case DidChangeWalkthroughProgress.is(msg):
-					this.state.walkthroughProgress = msg.params.progress;
+					this.state.walkthroughProgress = msg.params;
 					this.state.timestamp = Date.now();
 
 					this.provider.setValue(this.state, true);

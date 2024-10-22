@@ -350,38 +350,38 @@ export const navListStyles = css`
 `;
 
 export const walkthroughProgressStyles = css`
-	.walkthrough-progress::-webkit-progress-bar {
-		background-color: unset;
+	.walkthrough-progress--wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding-block: 4px;
+		margin-bottom: 16px;
+		align-items: stretch;
 	}
-	.walkthrough-progress.finished::-webkit-progress-value {
-		background: unset;
+	.walkthrough-progress--title {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 	}
-	.walkthrough-progress::-webkit-progress-value {
+	.walkthrough-progress--title__button {
+		--button-padding: 1px 2px 0px 2px;
+	}
+	.walkthrough-progress--progress::-webkit-progress-bar {
+		border-radius: 2px;
+		background: var(--color-alert-neutralBackground);
+	}
+	.walkthrough-progress--progress::-webkit-progress-value {
 		background: var(--vscode-progressBar-background, blue);
 		transition: 0.1s ease-in;
+		border-radius: 2px;
 	}
-	.walkthrough-progress {
-		position: absolute;
-		top: 0;
+	.walkthrough-progress--progress {
 		pointer-events: none;
-		border-radius: 0;
+		border-radius: 2px;
 		width: 100%;
-		left: 0;
 		background: unset;
-		height: 3px;
-		flex: 1;
+		height: 4px;
+		flex-shrink: 0;
 		z-index: 2;
-	}
-	.badge {
-		display: inline-block;
-		width: 6px;
-		aspect-ratio: 1 / 1;
-		border-radius: 50%;
-		background-color: var(--vscode-progressBar-background, blue);
-		transform: translateY(-1px);
-		margin-left: 2px;
-	}
-	.open-walkthrough-button {
-		position: relative;
 	}
 `;

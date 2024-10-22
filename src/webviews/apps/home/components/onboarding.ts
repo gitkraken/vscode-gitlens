@@ -3,8 +3,10 @@ import { html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
+import { Commands } from '../../../../constants.commands';
+import { createCommandLink } from '../../../../system/commands';
 import type { State } from '../../../home/protocol';
-import { CollapseSectionCommand } from '../../../home/protocol';
+import { CollapseSectionCommand, DismissWalkthroughSection } from '../../../home/protocol';
 import { ipcContext } from '../../shared/context';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
@@ -52,23 +54,51 @@ export class GlOnboarding extends LitElement {
 		});
 	}
 
+	private dismissWalkthroughSection() {
+		this._state.showWalkthroughProgress = false;
+		this.requestUpdate();
+		this._ipc.sendCommand(DismissWalkthroughSection);
+	}
+
 	private renderProgress() {
 		if (!this._state.showWalkthroughProgress) {
 			return null;
 		}
 		return html`
-			<progress
-				class=${classMap({
-					'walkthrough-progress': true,
-					finished: this._state.walkthroughProgress === 1,
-				})}
-				value=${this._state.walkthroughProgress}
-			></progress>
+			<div class="walkthrough-progress--wrapper">
+				<div class="walkthrough-progress--title">
+					<span
+						>GitLens Walkthrough
+						(${this._state.walkthroughProgress.doneCount}/${this._state.walkthroughProgress.allCount})</span
+					>
+					<div>
+						<gl-button
+							href=${createCommandLink(Commands.OpenWalkthrough, {})}
+							class="walkthrough-progress--title__button"
+							appearance="toolbar"
+							><code-icon icon="play"></code-icon
+						></gl-button>
+						<gl-button
+							@click=${this.dismissWalkthroughSection.bind(this)}
+							class="walkthrough-progress--title__button"
+							appearance="toolbar"
+							><code-icon icon="x"></code-icon
+						></gl-button>
+					</div>
+				</div>
+				<progress
+					class=${classMap({
+						'walkthrough-progress--progress': true,
+					})}
+					value=${this._state.walkthroughProgress.progress}
+				></progress>
+			</div>
 		`;
 	}
 
 	override render() {
 		return html`
+			${this.renderProgress()}
 			<div
 				id="section-walkthrough"
 				data-section-expand="walkthrough"
@@ -86,16 +116,11 @@ export class GlOnboarding extends LitElement {
 							aria-label="Open Welcome"
 							>Start Here (Welcome)</gl-button
 						>
-						<span
-							class=${classMap({
-								'button-group button-group--single': true,
-								'open-walkthrough-button': Boolean(this._state.showWalkthroughProgress),
-							})}
-						>
+						<span class="button-group button-group--single">
 							<gl-button appearance="secondary" full href="command:gitlens.getStarted?%22home%22"
 								>Walkthrough
 								${when(
-									this._state.showWalkthroughProgress && this._state.walkthroughProgress < 1,
+									this._state.showWalkthroughProgress && this._state.walkthroughProgress.progress < 1,
 									() => html`<span class="badge"></span>`,
 								)}</gl-button
 							>
@@ -125,7 +150,6 @@ export class GlOnboarding extends LitElement {
 						<span slot="content">Expand</span>
 					</gl-tooltip>
 				</a>
-				${this.renderProgress()}
 			</div>
 		`;
 	}

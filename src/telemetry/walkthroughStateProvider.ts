@@ -3,7 +3,6 @@ import { Disposable, EventEmitter } from 'vscode';
 import { Commands } from '../constants.commands';
 import type { TrackedUsageKeys } from '../constants.telemetry';
 import type { Container } from '../container';
-import { filter } from '../system/iterable';
 import { entries } from '../system/object';
 import { wait } from '../system/promise';
 import { setContext } from '../system/vscode/context';
@@ -20,6 +19,7 @@ export enum WalkthroughContextKeys {
 export class WalkthroughStateProvider implements Disposable {
 	protected disposables: Disposable[] = [];
 	private readonly state = new Map<WalkthroughContextKeys, boolean>();
+	readonly walkthroughSize: number;
 	private isInitialized = false;
 	private _initPromise: Promise<void> | undefined;
 
@@ -32,10 +32,12 @@ export class WalkthroughStateProvider implements Disposable {
 		[`command:${Commands.PlusReactivateProTrial}:executed`]: WalkthroughContextKeys.GettingStarted,
 		[`command:${Commands.ShowWelcomePage}:executed`]: WalkthroughContextKeys.GettingStarted,
 		[`command:${Commands.OpenWalkthrough}:executed`]: WalkthroughContextKeys.GettingStarted,
+		[`command:${Commands.GetStarted}:executed`]: WalkthroughContextKeys.GettingStarted,
 
 		'graphDetailsView:shown': WalkthroughContextKeys.VisualizeCodeHistory,
 		'graphView:shown': WalkthroughContextKeys.VisualizeCodeHistory,
 		'graphWebview:shown': WalkthroughContextKeys.VisualizeCodeHistory,
+		'commitDetailsView:shown': WalkthroughContextKeys.VisualizeCodeHistory,
 		[`command:${Commands.ShowGraph}:executed`]: WalkthroughContextKeys.VisualizeCodeHistory,
 		[`command:${Commands.ShowGraphPage}:executed`]: WalkthroughContextKeys.VisualizeCodeHistory,
 		[`command:${Commands.ShowGraphView}:executed`]: WalkthroughContextKeys.VisualizeCodeHistory,
@@ -54,7 +56,6 @@ export class WalkthroughStateProvider implements Disposable {
 		[`command:${Commands.CreateCloudPatch}:executed`]: WalkthroughContextKeys.StreamlineCollaboration,
 		[`command:${Commands.CreatePatch}:executed`]: WalkthroughContextKeys.StreamlineCollaboration,
 
-		'integration:repoHost': WalkthroughContextKeys.Integrations,
 		[`command:${Commands.PlusConnectCloudIntegrations}:executed`]: WalkthroughContextKeys.Integrations,
 		[`command:${Commands.PlusManageCloudIntegrations}:executed`]: WalkthroughContextKeys.Integrations,
 	};
@@ -62,6 +63,8 @@ export class WalkthroughStateProvider implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this.disposables.push(this.container.usage.onDidChange(this.onUsageChanged, this));
+		this.walkthroughSize = Object.values(WalkthroughContextKeys).length;
+
 		this.initializeState();
 	}
 
@@ -121,10 +124,12 @@ export class WalkthroughStateProvider implements Disposable {
 		return this._onProgressChanged.event;
 	}
 
+	get doneCount() {
+		return [...this.state.values()].filter(x => x).length;
+	}
+
 	get progress() {
-		const allValues = [...this.state.values()];
-		const doneValues = allValues.filter(x => x).length;
-		return doneValues / allValues.length;
+		return this.doneCount / this.walkthroughSize;
 	}
 
 	dispose(): void {
