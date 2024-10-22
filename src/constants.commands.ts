@@ -223,6 +223,7 @@ export const enum Commands {
 	ShowTimelineView = 'gitlens.showTimelineView',
 	ShowWorktreesView = 'gitlens.showWorktreesView',
 	ShowWorkspacesView = 'gitlens.showWorkspacesView',
+	StartWork = 'gitlens.startWork',
 	StashApply = 'gitlens.stashApply',
 	StashSave = 'gitlens.stashSave',
 	StashSaveFiles = 'gitlens.stashSaveFiles',
