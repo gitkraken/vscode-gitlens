@@ -5789,6 +5789,12 @@
 				"icon": "$(rocket)"
 			},
 			{
+				"command": "gitlens.startWork",
+				"title": "Start Work",
+				"category": "GitLens",
+				"icon": "$(rocket)"
+			},
+			{
 				"command": "gitlens.showLaunchpadView",
 				"title": "Show Launchpad View",
 				"category": "GitLens",
@@ -9897,6 +9903,10 @@
 				},
 				{
 					"command": "gitlens.showLaunchpad",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.startWork",
 					"when": "gitlens:enabled"
 				},
 				{
