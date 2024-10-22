@@ -1,6 +1,7 @@
 import type { StoredRecentUsage } from '../constants.storage';
 import type { Container } from '../container';
 import { LaunchpadCommand } from '../plus/launchpad/launchpad';
+import { StartWorkCommand } from '../plus/startWork/startWork';
 import { configuration } from '../system/vscode/configuration';
 import { getContext } from '../system/vscode/context';
 import { BranchGitCommand } from './git/branch';
@@ -111,6 +112,10 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 		this.hiddenItems = [];
 		if (args?.command === 'launchpad') {
 			this.hiddenItems.push(new LaunchpadCommand(container, args));
+		}
+
+		if (args?.command === 'startWork') {
+			this.hiddenItems.push(new StartWorkCommand(container));
 		}
 	}
 
