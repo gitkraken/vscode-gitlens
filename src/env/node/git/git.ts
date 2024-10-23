@@ -171,13 +171,11 @@ function getStdinUniqueKey(): number {
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
 
-const branchErrorAndReason = [
+const branchErrorAndReason: [RegExp, BranchErrorReason][] = [
 	[GitErrors.noRemoteReference, BranchErrorReason.NoRemoteReference],
 	[GitErrors.invalidBranchName, BranchErrorReason.InvalidBranchName],
 	[GitErrors.branchAlreadyExists, BranchErrorReason.BranchAlreadyExists],
 	[GitErrors.branchNotFullyMerged, BranchErrorReason.BranchNotFullyMerged],
-	[GitErrors.branchNotYetBorn, BranchErrorReason.BranchNotYetBorn],
-	[GitErrors.branchFastForwardRejected, BranchErrorReason.BranchFastForwardRejected],
 ];
 
 const tagErrorAndReason: [RegExp, TagErrorReason][] = [

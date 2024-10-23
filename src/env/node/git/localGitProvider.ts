@@ -1277,12 +1277,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	createBranch(repoPath: string, name: string, ref: string): Promise<void> {
+	async createBranch(repoPath: string, name: string, ref: string): Promise<void> {
 		try {
-			return void this.git.branch(repoPath, name, ref);
+			await this.git.branch(repoPath, name, ref);
 		} catch (ex) {
 			if (ex instanceof BranchError) {
-				throw ex.WithBranch(branch.name);
+				throw ex.WithBranch(name);
 			}
 
 			throw ex;
@@ -1290,12 +1290,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
+	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
 		try {
-			return void this.git.branch(repoPath, '-m', oldName, newName);
+			await this.git.branch(repoPath, '-m', oldName, newName);
 		} catch (ex) {
 			if (ex instanceof BranchError) {
-				throw ex.WithBranch(branch.name);
+				throw ex.WithBranch(oldName);
 			}
 
 			throw ex;
@@ -1330,7 +1330,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			const remote = getRemoteNameFromBranchName(branch.upstream.name);
-			remoteCommit = await this.git.rev_list(repoPath, `refs/remotes/${remote}/${branch.ref}`, {
+			const remoteCommit = await this.git.rev_list(repoPath, `refs/remotes/${remote}/${branch.ref}`, {
 				maxResults: 1,
 			});
 
@@ -1340,8 +1340,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				await this.git.branch(repoPath, ...args, branch.ref);
 			} catch (ex) {
 				// If it fails, restore the remote branch
-				await this.git.update_ref(repoPath, `refs/remotes/${remote}/${branch.ref}`, commit);
-				await this.git.branch__set_upstream(repoPath, branch, remote, branch);
+				await this.git.update_ref(repoPath, `refs/remotes/${remote}/${branch.ref}`, remoteCommit?.[0] ?? '');
+				await this.git.branch__set_upstream(repoPath, branch.name, remote, branch.ref);
 				throw ex;
 			}
 

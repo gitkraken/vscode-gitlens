@@ -26,9 +26,8 @@ import { configuration } from '../../system/vscode/configuration';
 import type { GitProviderDescriptor, GitProviderRepository } from '../gitProvider';
 import type { GitProviderService } from '../gitProviderService';
 import type { GitBranch } from './branch';
-import type { GitBranchReference, GitReference, GitTagReference } from './reference';
-import { getNameWithoutRemote, isBranchReference } from './reference';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch';
+import type { GitBranchReference, GitReference } from './reference';
+import { isBranchReference } from './reference';
 import type { GitRemote } from './remote';
 import type { GitWorktree } from './worktree';
 

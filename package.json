@@ -4717,23 +4717,22 @@
 					"gitlens.advanced.messages": {
 						"type": "object",
 						"default": {
-							"suppressBlameInvalidIgnoreRevsFileBadRevisionWarning": false,
-							"suppressBlameInvalidIgnoreRevsFileWarning": false,
 							"suppressCommitHasNoPreviousCommitWarning": false,
 							"suppressCommitNotFoundWarning": false,
 							"suppressCreatePullRequestPrompt": false,
 							"suppressDebugLoggingWarning": false,
 							"suppressFileNotUnderSourceControlWarning": false,
-							"suppressGitBranchNotFullyMergedWarning": false,
 							"suppressGitDisabledWarning": false,
 							"suppressGitMissingWarning": false,
 							"suppressGitVersionWarning": false,
+							"suppressLineUncommittedWarning": false,
+							"suppressNoRepositoryWarning": false,
+							"suppressRebaseSwitchToTextWarning": false,
 							"suppressIntegrationDisconnectedTooManyFailedRequestsWarning": false,
 							"suppressIntegrationRequestFailed500Warning": false,
 							"suppressIntegrationRequestTimedOutWarning": false,
-							"suppressLineUncommittedWarning": false,
-							"suppressNoRepositoryWarning": false,
-							"suppressRebaseSwitchToTextWarning": false
+							"suppressBlameInvalidIgnoreRevsFileWarning": false,
+							"suppressBlameInvalidIgnoreRevsFileBadRevisionWarning": false
 						},
 						"properties": {
 							"suppressCommitHasNoPreviousCommitWarning": {
