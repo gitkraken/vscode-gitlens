@@ -1267,7 +1267,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async createTag(repoPath: string, name: string, ref: string, message?: string): Promise<void> {
 		try {
-			await this.git.tag(repoPath, name, ref, ...(message?.length !== 0 ? ['-m', message] : []));
+			await this.git.tag(repoPath, name, ref, ...(message != null && message.length > 0 ? ['-m', message] : []));
 		} catch (ex) {
 			if (ex instanceof TagError) {
 				throw ex.WithTag(name).WithAction('create');

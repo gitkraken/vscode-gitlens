@@ -165,7 +165,7 @@ function getStdinUniqueKey(): number {
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
 
-const tagErrorAndReason = [
+const tagErrorAndReason: [RegExp, TagErrorReason][] = [
 	[GitErrors.tagAlreadyExists, TagErrorReason.TagAlreadyExists],
 	[GitErrors.tagNotFound, TagErrorReason.TagNotFound],
 	[GitErrors.invalidTagName, TagErrorReason.InvalidTagName],
