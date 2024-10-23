@@ -43,78 +43,85 @@ export class GlBranchSection extends LitElement {
 	}
 }
 
+export const branchCardStyles = css`
+	.branch-item {
+	}
+
+	.pill {
+		display: inline-flex;
+		align-items: center;
+		/* gap: 0.4rem; */
+		padding: 0.2rem 0.4rem 0.2rem 0.8rem;
+		margin-left: 0.4rem;
+		border-radius: 0.4rem;
+		border: 1px solid color-mix(in lab, var(--vscode-sideBar-foreground) 100%, #000 10%);
+		/* background-color: var(--vscode-gitDecoration-untrackedResourceForeground); */
+	}
+
+	.branch-item__main {
+		display: flex;
+		/* flex-direction: column; */
+		/* align-items: center; */
+	}
+
+	.branch-item__icon {
+		margin-right: 0.4rem;
+		color: var(--vscode-gitDecoration-addedResourceForeground);
+	}
+
+	.branch-item__name {
+		font-weight: bold;
+		margin-right: 0.8rem;
+	}
+
+	.branch-item__pr-number {
+		color: var(--vscode-descriptionForeground);
+		margin-right: 0.8rem;
+	}
+	.branch-item__pr-title {
+		flex-grow: 1;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.branch-item__details {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		/* align-items: center; */
+		font-size: 0.9em;
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.branch-item__main + .branch-item__main,
+	.branch-item__main + .branch-item__details,
+	.branch-item__details + .branch-item__details {
+		margin-block-start: 0.8rem;
+	}
+
+	.branch-item__upstream,
+	.branch-item__pr-status,
+	.branch-item__commit-count {
+		display: flex;
+		align-items: center;
+		margin-right: 1.6rem;
+	}
+
+	.branch-item__upstream code-icon,
+	.branch-item__pr-status code-icon,
+	.branch-item__commit-count code-icon {
+		margin-right: 0.4rem;
+	}
+
+	.branch-item__more-actions {
+		margin-left: auto;
+	}
+`;
+
 @customElement('gl-branch-card')
 export class GlBranchCard extends LitElement {
-	static override styles = css`
-		.branch-item {
-		}
-
-		.pill {
-			display: inline-flex;
-			align-items: center;
-			/* gap: 0.4rem; */
-			padding: 0.2rem 0.4rem 0.2rem 0.8rem;
-			margin-left: 0.4rem;
-			border-radius: 0.4rem;
-			border: 1px solid color-mix(in lab, var(--vscode-sideBar-foreground) 100%, #000 10%);
-			/* background-color: var(--vscode-gitDecoration-untrackedResourceForeground); */
-		}
-
-		.branch-item__main {
-			display: flex;
-			/* flex-direction: column; */
-			/* align-items: center; */
-			margin-block-end: 0.8rem;
-		}
-
-		.branch-item__icon {
-			margin-right: 0.4rem;
-			color: var(--vscode-gitDecoration-addedResourceForeground);
-		}
-
-		.branch-item__name {
-			font-weight: bold;
-			margin-right: 0.8rem;
-		}
-
-		.branch-item__pr-number {
-			color: var(--vscode-descriptionForeground);
-			margin-right: 0.8rem;
-		}
-		.branch-item__pr-title {
-			flex-grow: 1;
-			white-space: nowrap;
-			overflow: hidden;
-			text-overflow: ellipsis;
-		}
-
-		.branch-item__details {
-			display: flex;
-			flex-direction: column;
-			gap: 0.4rem;
-			/* align-items: center; */
-			font-size: 0.9em;
-			color: var(--vscode-descriptionForeground);
-		}
-
-		.branch-item__upstream,
-		.branch-item__pr-status,
-		.branch-item__commit-count {
-			display: flex;
-			align-items: center;
-			margin-right: 1.6rem;
-		}
-
-		.branch-item__upstream code-icon,
-		.branch-item__pr-status code-icon,
-		.branch-item__commit-count code-icon {
-			margin-right: 0.4rem;
-		}
-
-		.branch-item__more-actions {
-			margin-left: auto;
-		}
-	`;
+	static override styles = branchCardStyles;
 
 	@property({ type: Object })
 	branch!: GetOverviewBranch;

@@ -1,5 +1,11 @@
-import { html, LitElement } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { consume } from '@lit/context';
+import { html, LitElement, nothing } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
+import type { State } from '../../../home/protocol';
+import { CollapseSectionCommand } from '../../../home/protocol';
+import { ipcContext } from '../../shared/context';
+import type { HostIpc } from '../../shared/ipc';
+import { stateContext } from '../context';
 import '../../shared/components/button';
 import '../../shared/components/button-container';
 import '../../shared/components/card/card';
@@ -8,7 +14,25 @@ export const integrationBannerTagName = 'gl-integration-banner';
 
 @customElement(integrationBannerTagName)
 export class GlIntegrationBanner extends LitElement {
+	static override shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
+
+	@consume<State>({ context: stateContext, subscribe: true })
+	@state()
+	private _state!: State;
+
+	@consume<HostIpc>({ context: ipcContext, subscribe: true })
+	@state()
+	private _ipc!: HostIpc;
+
+	@state()
+	closed = false;
+
 	override render() {
+		if (closed || this._state.hasAnyIntegrationConnected || this._state.integrationBannerCollapsed) return nothing;
+
 		return html`
 			<gl-card>
 				<p><strong>GitLens is better with integrations!</strong></p>
@@ -24,9 +48,20 @@ export class GlIntegrationBanner extends LitElement {
 						><code-icon icon="plug"></code-icon> Connect Integrations</gl-button
 					>
 				</button-container>
-				<gl-button slot="actions" appearance="toolbar"><code-icon icon="close"></code-icon></gl-button>
+				<gl-button slot="actions" appearance="toolbar" @click=${() => this.onClose()}
+					><code-icon icon="close"></code-icon
+				></gl-button>
 			</gl-card>
 		`;
+	}
+
+	private onClose() {
+		this.closed = true;
+
+		this._ipc.sendCommand(CollapseSectionCommand, {
+			section: 'integrationBanner',
+			collapsed: true,
+		});
 	}
 }
 

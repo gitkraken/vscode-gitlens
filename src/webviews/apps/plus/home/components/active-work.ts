@@ -2,9 +2,13 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
+import type { GetOverviewBranch } from '../../../../home/protocol';
+import { branchCardStyles, sectionHeadingStyles } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
-import './branch-section';
+import '../../../shared/components/code-icon';
+import '../../../shared/components/card/card';
 
 export const activeWorkTagName = 'gl-active-work';
 
@@ -17,6 +21,8 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				margin-bottom: 2.4rem;
 			}
 		`,
+		branchCardStyles,
+		sectionHeadingStyles,
 	];
 
 	@consume({ context: overviewStateContext })
@@ -43,11 +49,49 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		if (activeBranches == null) return html`<span>None</span>`;
 
 		return html`
-			<h2>${overview!.repository.name}</h2>
-			<gl-branch-section
-				label="ACTIVE (${activeBranches.length})"
-				.branches=${activeBranches}
-			></gl-branch-section>
+			<h3 class="section-heading">Active (${activeBranches.length})</h3>
+			${activeBranches.map(branch => this.renderRepoBranchCard(overview!.repository.name, branch))}
+		`;
+	}
+
+	private renderRepoBranchCard(repoName: string, branch: GetOverviewBranch) {
+		const { name, pr, opened: active, timestamp: date, state, workingTreeState } = branch;
+		return html`
+			<gl-card class="branch-item" active>
+				<p class="branch-item__main">
+					<span class="branch-item__icon">
+						<code-icon icon="repo"></code-icon>
+					</span>
+					<span class="branch-item__name">${repoName}</span>
+				</p>
+				<p class="branch-item__main">
+					<span class="branch-item__icon">
+						${when(
+							branch.worktree,
+							() => html`<code-icon icon="gl-repositories-view"></code-icon>`,
+							() => html`<code-icon icon="git-branch"></code-icon>`,
+						)}
+					</span>
+					<span class="branch-item__name">${name}</span>
+				</p>
+			</gl-card>
+			${when(pr, () => {
+				const statusIcon =
+					pr!.state === 'closed'
+						? 'git-pull-request-closed'
+						: pr!.state === 'merged'
+						  ? 'git-merge'
+						  : 'git-pull-request';
+				return html`<gl-card class="branch-item">
+					<p class="branch-item__main">
+						<span class="branch-item__icon">
+							<code-icon icon=${statusIcon}></code-icon>
+						</span>
+						<span class="branch-item__pr-title">${pr!.title}</span>
+						<span class="branch-item__pr-number">#${pr!.id}</span>
+					</p>
+				</gl-card>`;
+			})}
 		`;
 	}
 }
