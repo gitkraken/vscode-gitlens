@@ -12,6 +12,13 @@ export type AnthropicModels =
 
 export type GeminiModels = 'gemini-1.0-pro' | 'gemini-1.5-pro-latest' | 'gemini-1.5-flash-latest';
 
+export type HuggingChatModels =
+	| 'google/gemma-1.1-2b-it'
+	| 'meta-llama/Llama-3.2-3B-Instruct'
+	| 'microsoft/Phi-3-mini-4k-instruct'
+	| 'HuggingFaceH4/starchat2-15b-v0.1'
+	| 'mistralai/Mistral-Nemo-Instruct-2407';
+
 export type OpenAIModels =
 	| 'gpt-4o'
 	| 'gpt-4o-mini'
@@ -33,22 +40,25 @@ export type VSCodeAIModels = `${string}:${string}`;
 
 export type xAIModels = 'grok-beta';
 
-export type AIProviders = 'anthropic' | 'gemini' | 'openai' | 'vscode' | 'xai';
+export type AIProviders = 'anthropic' | 'gemini' | 'huggingchat' | 'openai' | 'vscode' | 'xai';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'
 	? OpenAIModels
 	: Provider extends 'anthropic'
 	  ? AnthropicModels
 	  : Provider extends 'gemini'
 	    ? GeminiModels
-	    : Provider extends 'vscode'
-	      ? VSCodeAIModels
-	      : Provider extends 'xai'
-	        ? xAIModels
-	        : AnthropicModels | GeminiModels | OpenAIModels | xAIModels;
+	    : Provider extends 'huggingchat'
+	      ? HuggingChatModels
+	      : Provider extends 'vscode'
+	        ? VSCodeAIModels
+	        : Provider extends 'xai'
+	          ? xAIModels
+	          : AnthropicModels | GeminiModels | OpenAIModels | xAIModels;
 
 export type SupportedAIModels =
 	| `anthropic:${AIModels<'anthropic'>}`
 	| `google:${AIModels<'gemini'>}`
+	| `huggingchat:${AIModels<'huggingchat'>}`
 	| `openai:${AIModels<'openai'>}`
 	| `xai:${AIModels<'xai'>}`
 	| 'vscode';

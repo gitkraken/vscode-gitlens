@@ -18,6 +18,7 @@ import { supportedInVSCodeVersion } from '../system/vscode/utils';
 import type { TelemetryService } from '../telemetry/telemetry';
 import { AnthropicProvider } from './anthropicProvider';
 import { GeminiProvider } from './geminiProvider';
+import { HuggingChatProvider } from './huggingchatProvider';
 import { OpenAIProvider } from './openaiProvider';
 import { isVSCodeAIModel, VSCodeAIProvider } from './vscodeProvider';
 import { xAIProvider } from './xaiProvider';
@@ -47,6 +48,7 @@ const _supportedProviderTypes = new Map<AIProviders, AIProviderConstructor>([
 	['openai', OpenAIProvider],
 	['anthropic', AnthropicProvider],
 	['gemini', GeminiProvider],
+	['huggingchat', HuggingChatProvider],
 	['xai', xAIProvider],
 ]);
 
