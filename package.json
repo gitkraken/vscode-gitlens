@@ -3714,7 +3714,8 @@
 							"google:gemini-1.5-pro-latest",
 							"google:gemini-1.5-flash-latest",
 							"google:gemini-1.0-pro",
-							"vscode"
+							"vscode",
+							"xai:grok-beta"
 						],
 						"enumDescriptions": [
 							"OpenAI GPT-4 Omni",

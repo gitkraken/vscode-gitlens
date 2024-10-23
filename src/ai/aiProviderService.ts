@@ -20,6 +20,7 @@ import { AnthropicProvider } from './anthropicProvider';
 import { GeminiProvider } from './geminiProvider';
 import { OpenAIProvider } from './openaiProvider';
 import { isVSCodeAIModel, VSCodeAIProvider } from './vscodeProvider';
+import { xAIProvider } from './xaiProvider';
 
 export interface AIModel<
 	Provider extends AIProviders = AIProviders,
@@ -46,6 +47,7 @@ const _supportedProviderTypes = new Map<AIProviders, AIProviderConstructor>([
 	['openai', OpenAIProvider],
 	['anthropic', AnthropicProvider],
 	['gemini', GeminiProvider],
+	['xai', xAIProvider],
 ]);
 
 export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {

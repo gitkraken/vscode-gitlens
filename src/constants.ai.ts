@@ -31,7 +31,9 @@ export type OpenAIModels =
 
 export type VSCodeAIModels = `${string}:${string}`;
 
-export type AIProviders = 'anthropic' | 'gemini' | 'openai' | 'vscode';
+export type xAIModels = 'grok-beta';
+
+export type AIProviders = 'anthropic' | 'gemini' | 'openai' | 'vscode' | 'xai';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'openai'
 	? OpenAIModels
 	: Provider extends 'anthropic'
@@ -40,10 +42,13 @@ export type AIModels<Provider extends AIProviders = AIProviders> = Provider exte
 	    ? GeminiModels
 	    : Provider extends 'vscode'
 	      ? VSCodeAIModels
-	      : AnthropicModels | GeminiModels | OpenAIModels;
+	      : Provider extends 'xai'
+	        ? xAIModels
+	        : AnthropicModels | GeminiModels | OpenAIModels | xAIModels;
 
 export type SupportedAIModels =
 	| `anthropic:${AIModels<'anthropic'>}`
 	| `google:${AIModels<'gemini'>}`
 	| `openai:${AIModels<'openai'>}`
+	| `xai:${AIModels<'xai'>}`
 	| 'vscode';
