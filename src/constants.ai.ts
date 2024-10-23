@@ -3,8 +3,11 @@ export type AnthropicModels =
 	| 'claude-2'
 	| 'claude-2.1'
 	| 'claude-3-opus-20240229'
+	| 'claude-3-opus-latest'
 	| 'claude-3-sonnet-20240229'
 	| 'claude-3-5-sonnet-20240620'
+	| 'claude-3-5-sonnet-20241022'
+	| 'claude-3-5-sonnet-latest'
 	| 'claude-3-haiku-20240307';
 
 export type GeminiModels = 'gemini-1.0-pro' | 'gemini-1.5-pro-latest' | 'gemini-1.5-flash-latest';
