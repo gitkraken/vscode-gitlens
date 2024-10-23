@@ -62,6 +62,18 @@ export const homeStyles = css`
 		flex: none;
 	}
 
+	summary {
+		font-size: 1.3rem;
+		font-weight: normal;
+		text-transform: uppercase;
+		color: var(--vscode-foreground);
+		cursor: pointer;
+	}
+
+	details[open] summary {
+		margin-block-end: 0.8rem;
+	}
+
 	gl-home-account-content {
 		margin-bottom: 0;
 	}
