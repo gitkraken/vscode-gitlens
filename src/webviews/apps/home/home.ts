@@ -71,7 +71,10 @@ export class GlHomeApp extends GlApp<State> {
 					<gl-active-work></gl-active-work>
 					<gl-launchpad></gl-launchpad>
 					<gl-overview></gl-overview>
-					<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>
+					<details>
+						<summary>GitLens Features</summary>
+						<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>
+					</details>
 				</main>
 
 				<footer class="home__footer">
