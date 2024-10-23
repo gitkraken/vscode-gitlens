@@ -38,8 +38,8 @@ type AnthropicModel = AIModel<typeof provider.id>;
 
 const models: AnthropicModel[] = [
 	{
-		id: 'claude-3-opus-20240229',
-		name: 'Claude 3 Opus',
+		id: 'claude-3-5-sonnet-latest',
+		name: 'Claude 3.5 Sonnet',
 		maxTokens: 200000,
 		provider: provider,
 	},
@@ -48,6 +48,20 @@ const models: AnthropicModel[] = [
 		name: 'Claude 3.5 Sonnet',
 		maxTokens: 200000,
 		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'claude-3-opus-latest',
+		name: 'Claude 3 Opus',
+		maxTokens: 200000,
+		provider: provider,
+	},
+	{
+		id: 'claude-3-opus-20240229',
+		name: 'Claude 3 Opus',
+		maxTokens: 200000,
+		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-3-sonnet-20240229',
