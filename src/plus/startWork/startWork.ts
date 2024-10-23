@@ -16,6 +16,7 @@ import {
 	QuickCommand,
 	StepResultBreak,
 } from '../../commands/quickCommand';
+import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
 import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId } from '../../constants.integrations';
@@ -24,6 +25,7 @@ import type { Container } from '../../container';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common';
+import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
@@ -138,7 +140,19 @@ export class StartWorkCommand extends QuickCommand<State> {
 			if (typeof state.action === 'string') {
 				switch (state.action) {
 					case 'start':
-						startWork(state.item.item);
+						yield* getSteps(
+							this.container,
+							{
+								command: 'branch',
+								state: {
+									subcommand: 'create',
+									repo: undefined,
+									name: `${state.item.item.issue.id}-${state.item.item.issue.title}`,
+									suggestNameOnly: true,
+								},
+							},
+							this.pickedVia,
+						);
 						break;
 				}
 			}
@@ -332,6 +346,13 @@ export class StartWorkCommand extends QuickCommand<State> {
 		return { ...element.item };
 	}
 
+	private startWork(state: PartialStepState<State>, item?: StartWorkItem) {
+		state.action = 'start';
+		if (item != null) {
+			state.item = item;
+		}
+	}
+
 	private async getConnectedIntegrations(): Promise<Map<IntegrationId, boolean>> {
 		const connected = new Map<IntegrationId, boolean>();
 		await Promise.allSettled(
@@ -352,8 +373,4 @@ async function updateContextItems(container: Container, context: Context) {
 				item: i,
 			})) ?? [],
 	};
-}
-
-function startWork(_issue: SearchedIssue) {
-	// TODO: Hack here
 }
