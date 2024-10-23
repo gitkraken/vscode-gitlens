@@ -131,8 +131,12 @@ export class StartWorkCommand extends QuickCommand<State> {
 				await updateContextItems(this.container, context);
 				const result = yield* this.pickIssueStep(state, context);
 				if (result === StepResultBreak) continue;
-				state.item = result;
-				state.action = 'start';
+				if (typeof result !== 'string') {
+					state.item = result;
+					state.action = 'start';
+				} else {
+					state.action = result;
+				}
 			}
 
 			const issue = state.item?.item?.issue;
@@ -315,7 +319,10 @@ export class StartWorkCommand extends QuickCommand<State> {
 		return StepResultBreak;
 	}
 
-	private *pickIssueStep(state: StepState<State>, context: Context): StepResultGenerator<StartWorkItem> {
+	private *pickIssueStep(
+		state: StepState<State>,
+		context: Context,
+	): StepResultGenerator<StartWorkItem | StartWorkAction> {
 		const buildIssueItem = (i: StartWorkItem) => {
 			return {
 				label:
@@ -341,11 +348,19 @@ export class StartWorkCommand extends QuickCommand<State> {
 			return items;
 		};
 
-		function getItemsAndPlaceholder() {
+		function getItemsAndPlaceholder(): {
+			placeholder: string;
+			items: QuickPickItemOfT<StartWorkItem | StartWorkAction>[];
+		} {
 			if (!context.result.items.length) {
 				return {
-					placeholder: 'All done! Take a vacation',
-					items: [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })],
+					placeholder: 'No issues found. Start work anyway.',
+					items: [
+						createQuickPickItemOfT(
+							state.inWorktree ? 'Create a branch on a worktree' : 'Create a branch',
+							'start',
+						),
+					],
 				};
 			}
 
@@ -357,7 +372,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 
 		const { items, placeholder } = getItemsAndPlaceholder();
 
-		const step = createPickStep({
+		const step = createPickStep<(typeof items)[0]>({
 			title: context.title,
 			placeholder: placeholder,
 			matchOnDescription: true,
@@ -370,7 +385,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		}
 		const element = selection[0];
-		return { ...element.item };
+		return typeof element.item === 'string' ? element.item : { ...element.item };
 	}
 
 	private startWork(state: PartialStepState<State>, item?: StartWorkItem) {
