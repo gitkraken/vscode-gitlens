@@ -1,5 +1,7 @@
+import type { QuickPick } from 'vscode';
 import { Uri } from 'vscode';
 import type {
+	AsyncStepResultGenerator,
 	PartialStepState,
 	StepGenerator,
 	StepResultGenerator,
@@ -10,16 +12,20 @@ import {
 	canPickStepContinue,
 	createPickStep,
 	endSteps,
+	freezeStep,
 	QuickCommand,
 	StepResultBreak,
 } from '../../commands/quickCommand';
 import { proBadge } from '../../constants';
+import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { createQuickPickItemOfT } from '../../quickpicks/items/common';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import { fromNow } from '../../system/date';
+import { some } from '../../system/iterable';
 
 export type StartWorkItem = {
 	item: SearchedIssue;
@@ -30,6 +36,7 @@ export type StartWorkResult = { items: StartWorkItem[] };
 interface Context {
 	result: StartWorkResult;
 	title: string;
+	connectedIntegrations: Map<IntegrationId, boolean>;
 }
 
 interface State {
@@ -52,6 +59,8 @@ function assertsStartWorkStepState(state: StepState<State>): asserts state is St
 	throw new Error('Missing item');
 }
 
+export const supportedStartWorkIntegrations = [HostingIntegrationId.GitHub];
+
 export class StartWorkCommand extends QuickCommand<State> {
 	constructor(container: Container) {
 		super(container, 'startWork', 'startWork', `Start Work\u00a0\u00a0${proBadge}`, {
@@ -71,10 +80,19 @@ export class StartWorkCommand extends QuickCommand<State> {
 		const context: Context = {
 			result: { items: [] },
 			title: this.title,
+			connectedIntegrations: await this.getConnectedIntegrations(),
 		};
 
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
+
+			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
+			if (!hasConnectedIntegrations) {
+				const result = yield* this.confirmCloudIntegrationsConnectStep(state, context);
+				if (result === StepResultBreak) {
+					return result;
+				}
+			}
 
 			await updateContextItems(this.container, context);
 
@@ -99,6 +117,65 @@ export class StartWorkCommand extends QuickCommand<State> {
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
+	}
+
+	private async *confirmCloudIntegrationsConnectStep(
+		state: StepState<State>,
+		context: Context,
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
+		// TODO: This step is almost an exact copy of the similar one from launchpad.ts. Do we want to do anything about it? Maybe to move it to an util function with ability to parameterize labels?
+		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
+		const step = this.createConfirmStep(
+			`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
+			[
+				createQuickPickItemOfT(
+					{
+						label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
+						detail: hasConnectedIntegration
+							? 'Connect additional integrations to view their issues in Start Work'
+							: 'Connect an integration to accelerate your work',
+						picked: true,
+					},
+					true,
+				),
+			],
+			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
+			{
+				placeholder: hasConnectedIntegration
+					? 'Connect additional integrations to Start Work'
+					: 'Connect an integration to get started with Start Work',
+				buttons: [],
+				ignoreFocusOut: true,
+			},
+		);
+
+		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
+		// Otherwise it disappears.
+		let freeze!: () => Disposable;
+		let quickpick!: QuickPick<any>;
+		step.onDidActivate = qp => {
+			quickpick = qp;
+			freeze = () => freezeStep(step, qp);
+		};
+
+		const selection: StepSelection<typeof step> = yield step;
+
+		if (canPickStepContinue(step, state, selection)) {
+			const previousPlaceholder = quickpick.placeholder;
+			quickpick.placeholder = 'Connecting integrations...';
+			quickpick.ignoreFocusOut = true;
+			const resume = freeze();
+			const connected = await this.container.integrations.connectCloudIntegrations(
+				{ integrationIds: supportedStartWorkIntegrations },
+				{
+					source: 'startWork',
+				},
+			);
+			quickpick.placeholder = previousPlaceholder;
+			return { connected: connected, resume: () => resume[Symbol.dispose]() };
+		}
+
+		return StepResultBreak;
 	}
 
 	private *pickIssueStep(state: StepState<State>, context: Context): StepResultGenerator<StartWorkItem> {
@@ -157,6 +234,18 @@ export class StartWorkCommand extends QuickCommand<State> {
 		}
 		const element = selection[0];
 		return { ...element.item };
+	}
+
+	private async getConnectedIntegrations(): Promise<Map<IntegrationId, boolean>> {
+		const connected = new Map<IntegrationId, boolean>();
+		await Promise.allSettled(
+			supportedStartWorkIntegrations.map(async integrationId => {
+				const integration = await this.container.integrations.get(integrationId);
+				connected.set(integrationId, integration.maybeConnected ?? (await integration.isConnected()));
+			}),
+		);
+
+		return connected;
 	}
 }
 

@@ -1331,7 +1331,7 @@ void
   'repository.visibility': 'private' | 'public' | 'local',
   'repoPrivacy': 'private' | 'public' | 'local',
   'filesChanged': number,
-  'source': 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'code-suggest' | 'account' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'trial-indicator' | 'scm-input' | 'subscription' | 'walkthrough' | 'worktrees'
+  'source': 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'code-suggest' | 'account' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'startWork' | 'trial-indicator' | 'scm-input' | 'subscription' | 'walkthrough' | 'worktrees'
 }
 ```
 
