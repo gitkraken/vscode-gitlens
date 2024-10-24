@@ -20,6 +20,8 @@ import {
 	PullErrorReason,
 	PushError,
 	PushErrorReason,
+	ResetError,
+	ResetErrorReason,
 	StashPushError,
 	StashPushErrorReason,
 	WorkspaceUntrustedError,
@@ -72,32 +74,36 @@ const textDecoder = new TextDecoder('utf8');
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export const GitErrors = {
+	alreadyCheckedOut: /already checked out/i,
+	alreadyExists: /already exists/i,
+	ambiguousArgument: /fatal:\s*ambiguous argument ['"].+['"]: unknown revision or path not in the working tree/i,
 	badRevision: /bad revision '(.*?)'/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
 	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
 	commitChangesFirst: /Please, commit your changes before you can/i,
 	conflict: /^CONFLICT \([^)]+\): \b/m,
+	entryNotUpToDate: /error:\s*Entry ['"].+['"] not uptodate\. Cannot merge\./i,
 	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
+	invalidLineCount: /file .+? has only \d+ lines/i,
 	invalidObjectName: /invalid object name: (.*)\s/i,
 	invalidObjectNameList: /could not open object name list: (.*)\s/i,
+	mainWorkingTree: /is a main working tree/i,
 	noFastForward: /\(non-fast-forward\)/i,
 	noMergeBase: /no merge base/i,
 	noRemoteRepositorySpecified: /No remote repository specified\./i,
+	noUpstream: /^fatal: The current branch .* has no upstream branch/i,
+	noUserNameConfigured: /Please tell me who you are\./i,
 	notAValidObjectName: /Not a valid object name/i,
 	notAWorkingTree: /'(.*?)' is not a working tree/i,
-	noUserNameConfigured: /Please tell me who you are\./i,
-	invalidLineCount: /file .+? has only \d+ lines/i,
-	uncommittedChanges: /contains modified or untracked files/i,
-	alreadyExists: /already exists/i,
-	alreadyCheckedOut: /already checked out/i,
-	mainWorkingTree: /is a main working tree/i,
-	noUpstream: /^fatal: The current branch .* has no upstream branch/i,
 	permissionDenied: /Permission.*denied/i,
 	pushRejected: /^error: failed to push some refs to\b/m,
 	rebaseMultipleBranches: /cannot rebase onto multiple branches/i,
+	refLocked: /fatal:\s*cannot lock ref ['"].+['"]: unable to create file/i,
 	remoteAhead: /rejected because the remote contains work/i,
 	remoteConnection: /Could not read from remote repository/i,
 	tagConflict: /! \[rejected\].*\(would clobber existing tag\)/m,
+	uncommittedChanges: /contains modified or untracked files/i,
+	unmergedChanges: /error:\s*you need to resolve your current index first/i,
 	unmergedFiles: /is not possible because you have unmerged files/i,
 	unstagedChanges: /You have unstaged changes/i,
 };
@@ -159,6 +165,14 @@ function getStdinUniqueKey(): number {
 
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
+
+const resetErrorAndReason: [RegExp, ResetErrorReason][] = [
+	[GitErrors.unmergedChanges, ResetErrorReason.UnmergedChanges],
+	[GitErrors.ambiguousArgument, ResetErrorReason.AmbiguousArgument],
+	[GitErrors.entryNotUpToDate, ResetErrorReason.EntryNotUpToDate],
+	[GitErrors.changesWouldBeOverwritten, ResetErrorReason.LocalChangesWouldBeOverwritten],
+	[GitErrors.refLocked, ResetErrorReason.RefLocked],
+];
 
 export class Git {
 	/** Map of running git commands -- avoids running duplicate overlaping commands */
@@ -1571,8 +1585,19 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, 'remote', 'get-url', remote);
 	}
 
-	reset(repoPath: string | undefined, pathspecs: string[]) {
-		return this.git<string>({ cwd: repoPath }, 'reset', '-q', '--', ...pathspecs);
+	async reset(repoPath: string, pathspecs: string[], ...args: string[]) {
+		try {
+			await this.git<string>({ cwd: repoPath }, 'reset', '-q', ...args, '--', ...pathspecs);
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			for (const [error, reason] of resetErrorAndReason) {
+				if (error.test(msg)) {
+					throw new ResetError(reason, ex);
+				}
+			}
+
+			throw new ResetError(ResetErrorReason.Other, ex);
+		}
 	}
 
 	async rev_list(
