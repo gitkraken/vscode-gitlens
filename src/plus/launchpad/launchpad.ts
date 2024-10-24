@@ -1,4 +1,4 @@
-import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, ThemeIcon, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
@@ -50,9 +50,14 @@ import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
+import { createAsyncDebouncer } from '../../system/vscode/asyncDebouncer';
 import { executeCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
+import {
+	doesPullRequestSatisfyGitHubRepositoryURLIdentity,
+	getPullRequestIdentityValuesFromSearch,
+} from '../integrations/providers/github';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
 import type {
 	LaunchpadAction,
@@ -145,6 +150,8 @@ const instanceCounter = getScopedCounter();
 const defaultCollapsedGroups: LaunchpadGroup[] = ['draft', 'other', 'snoozed'];
 
 export class LaunchpadCommand extends QuickCommand<State> {
+	// TODO: The debouncer needs to be cancelled when the step is changed when the quickpick is closed
+	private readonly updateItemsDebouncer = createAsyncDebouncer(500);
 	private readonly source: Source;
 	private readonly telemetryContext: LaunchpadTelemetryContext | undefined;
 
@@ -370,7 +377,90 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		{ picked, selectTopItem }: { picked?: string; selectTopItem?: boolean },
 	): StepResultGenerator<GroupedLaunchpadItem | ConnectMoreIntegrationsItem> {
 		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
-		const getItems = (result: LaunchpadCategorizedResult) => {
+
+		const buildGroupHeading = (
+			ui: LaunchpadGroup,
+			groupLength: number,
+		): [DirectiveQuickPickItem, DirectiveQuickPickItem] => {
+			return [
+				createQuickPickSeparator(groupLength ? groupLength.toString() : undefined),
+				createDirectiveQuickPickItem(Directive.Reload, false, {
+					label: `$(${
+						context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
+					})\u00a0\u00a0${launchpadGroupIconMap.get(ui)!}\u00a0\u00a0${launchpadGroupLabelMap
+						.get(ui)
+						?.toUpperCase()}`, //'\u00a0',
+					//detail: groupMap.get(group)?.[0].toUpperCase(),
+					onDidSelect: () => {
+						const collapsed = !context.collapsed.get(ui);
+						context.collapsed.set(ui, collapsed);
+						if (state.initialGroup == null) {
+							void this.container.storage.store(
+								'launchpad:groups:collapsed',
+								Array.from(context.collapsed.keys()).filter(g => context.collapsed.get(g)),
+							);
+						}
+
+						if (this.container.telemetry.enabled) {
+							updateTelemetryContext(context);
+							this.container.telemetry.sendEvent(
+								'launchpad/groupToggled',
+								{
+									...context.telemetryContext!,
+									group: ui,
+									collapsed: collapsed,
+								},
+								this.source,
+							);
+						}
+					},
+				}),
+			];
+		};
+
+		const buildLaunchpadQuickPickItem = (
+			i: LaunchpadItem,
+			ui: LaunchpadGroup,
+			topItem: LaunchpadItem | undefined,
+		): LaunchpadItemQuickPickItem => {
+			const buttons = [];
+
+			if (i.actionableCategory === 'mergeable') {
+				buttons.push(MergeQuickInputButton);
+			}
+
+			buttons.push(
+				i.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
+				i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
+			);
+
+			buttons.push(...getOpenOnGitProviderQuickInputButtons(i.provider.id));
+
+			if (!i.openRepository?.localBranch?.current) {
+				buttons.push(OpenWorktreeInNewWindowQuickInputButton);
+			}
+
+			return {
+				label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
+				// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
+				description: `\u00a0 ${i.repository.owner.login}/${i.repository.name}#${i.id} \u00a0 ${
+					i.codeSuggestionsCount > 0 ? ` $(gitlens-code-suggestion) ${i.codeSuggestionsCount}` : ''
+				} \u00a0 ${i.isNew ? '(New since last view)' : ''}`,
+				detail: `      ${i.viewer.pinned ? '$(pinned) ' : ''}${
+					i.isDraft && ui !== 'draft' ? '$(git-pull-request-draft) ' : ''
+				}${
+					i.actionableCategory === 'other' ? '' : `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
+				}${fromNow(i.updatedDate)} by @${i.author!.username}`,
+
+				buttons: buttons,
+				iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
+				item: i,
+				picked: i.graphQLId === picked || i.graphQLId === topItem?.graphQLId,
+				group: ui,
+			};
+		};
+
+		const getItems = (result: LaunchpadCategorizedResult, treatAllGroupAsExpanded?: boolean) => {
 			const items: (LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
 
 			if (result.items?.length) {
@@ -385,93 +475,18 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				for (const [ui, groupItems] of uiGroups) {
 					if (!groupItems.length) continue;
 
-					items.push(
-						createQuickPickSeparator(groupItems.length ? groupItems.length.toString() : undefined),
-						createDirectiveQuickPickItem(Directive.Reload, false, {
-							label: `$(${
-								context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
-							})\u00a0\u00a0${launchpadGroupIconMap.get(ui)!}\u00a0\u00a0${launchpadGroupLabelMap
-								.get(ui)
-								?.toUpperCase()}`, //'\u00a0',
-							//detail: groupMap.get(group)?.[0].toUpperCase(),
-							onDidSelect: () => {
-								const collapsed = !context.collapsed.get(ui);
-								context.collapsed.set(ui, collapsed);
-								if (state.initialGroup == null) {
-									void this.container.storage.store(
-										'launchpad:groups:collapsed',
-										Array.from(context.collapsed.keys()).filter(g => context.collapsed.get(g)),
-									);
-								}
+					items.push(...buildGroupHeading(ui, groupItems.length));
 
-								if (this.container.telemetry.enabled) {
-									updateTelemetryContext(context);
-									this.container.telemetry.sendEvent(
-										'launchpad/groupToggled',
-										{
-											...context.telemetryContext!,
-											group: ui,
-											collapsed: collapsed,
-										},
-										this.source,
-									);
-								}
-							},
-						}),
-					);
+					if (!treatAllGroupAsExpanded && context.collapsed.get(ui)) continue;
 
-					if (context.collapsed.get(ui)) continue;
-
-					items.push(
-						...groupItems.map(i => {
-							const buttons = [];
-
-							if (i.actionableCategory === 'mergeable') {
-								buttons.push(MergeQuickInputButton);
-							}
-
-							buttons.push(
-								i.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
-								i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
-							);
-
-							buttons.push(...getOpenOnGitProviderQuickInputButtons(i.provider.id));
-
-							if (!i.openRepository?.localBranch?.current) {
-								buttons.push(OpenWorktreeInNewWindowQuickInputButton);
-							}
-
-							return {
-								label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
-								// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
-								description: `\u00a0 ${i.repository.owner.login}/${i.repository.name}#${i.id} \u00a0 ${
-									i.codeSuggestionsCount > 0
-										? ` $(gitlens-code-suggestion) ${i.codeSuggestionsCount}`
-										: ''
-								} \u00a0 ${i.isNew ? '(New since last view)' : ''}`,
-								detail: `      ${i.viewer.pinned ? '$(pinned) ' : ''}${
-									i.isDraft && ui !== 'draft' ? '$(git-pull-request-draft) ' : ''
-								}${
-									i.actionableCategory === 'other'
-										? ''
-										: `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
-								}${fromNow(i.updatedDate)} by @${i.author!.username}`,
-
-								buttons: buttons,
-								iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
-								item: i,
-								picked: i.graphQLId === picked || i.graphQLId === topItem?.graphQLId,
-								group: ui,
-							};
-						}),
-					);
+					items.push(...groupItems.map(i => buildLaunchpadQuickPickItem(i, ui, topItem)));
 				}
 			}
 
 			return items;
 		};
 
-		function getItemsAndPlaceholder() {
+		function getItemsAndPlaceholder(treatAllGroupAsExpanded?: boolean) {
 			if (context.result.error != null) {
 				return {
 					placeholder: `Unable to load items (${
@@ -494,21 +509,30 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 			return {
 				placeholder: 'Choose an item to focus on',
-				items: getItems(context.result),
+				items: getItems(context.result, treatAllGroupAsExpanded),
 			};
 		}
 
 		const updateItems = async (
 			quickpick: QuickPick<LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
+			search?: string,
 		) => {
 			quickpick.busy = true;
-
 			try {
-				await updateContextItems(this.container, context, { force: true });
-
-				const { items, placeholder } = getItemsAndPlaceholder();
-				quickpick.placeholder = placeholder;
-				quickpick.items = items;
+				await this.updateItemsDebouncer(async cancellationToken => {
+					await updateContextItems(
+						this.container,
+						context,
+						{ force: true, search: search },
+						cancellationToken,
+					);
+					if (cancellationToken.isCancellationRequested) {
+						return;
+					}
+					const { items, placeholder } = getItemsAndPlaceholder(search != null);
+					quickpick.placeholder = placeholder;
+					quickpick.items = items;
+				});
 			} finally {
 				quickpick.busy = false;
 			}
@@ -531,14 +555,80 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
-			onDidChangeValue: quickpick => {
+			onDidChangeValue: async quickpick => {
 				const hideGroups = Boolean(quickpick.value?.length);
 
 				if (groupsHidden !== hideGroups) {
 					groupsHidden = hideGroups;
 					quickpick.items = hideGroups ? items.filter(i => !isDirectiveQuickPickItem(i)) : items;
 				}
+				const { value } = quickpick;
+				const activeLaunchpadItems = quickpick.activeItems.filter(
+					(i): i is LaunchpadItemQuickPickItem => 'item' in i && !i.alwaysShow,
+				);
 
+				let updated = false;
+				for (const item of quickpick.items) {
+					if (item.alwaysShow) {
+						item.alwaysShow = false;
+						updated = true;
+					}
+					if ('item' in item && item.item?.isSearched) {
+						updated = true;
+					}
+				}
+				if (updated) {
+					// Force quickpick to update by changing the items object:
+					quickpick.items = [...quickpick.items.filter(i => !('item' in i && i.item?.isSearched))];
+				}
+
+				if (!value?.length || activeLaunchpadItems.length) {
+					// Nothing to search or use items that have been found locally
+					this.updateItemsDebouncer.cancel();
+					return true;
+				}
+
+				// TODO: This needs to be generalized to work outside of GitHub,
+				// The current idea is that we should iterate the connected integrations and apply their parsing.
+				// Probably we even want to build a map like this: { integrationId: identity }
+				// Then when we iterate local items we can check them to corresponding identitie according to the item's repo type.
+				// Same with API: we iterate connected integrations and search in each of them with the corresponding identity.
+				const prUrlIdentity = getPullRequestIdentityValuesFromSearch(value);
+				if (prUrlIdentity.prNumber == null) {
+					// Not a valid PR URL
+					this.updateItemsDebouncer.cancel();
+					return true;
+				}
+
+				const launchpadItems = quickpick.items.filter((i): i is LaunchpadItemQuickPickItem => 'item' in i);
+				let item = launchpadItems.find(i =>
+					// perform strict match first
+					doesPullRequestSatisfyGitHubRepositoryURLIdentity(i.item, prUrlIdentity),
+				);
+				if (item == null) {
+					// Haven't found full match, so let's at least find something with the same pr number
+					item = launchpadItems.find(i => i.item.id === prUrlIdentity.prNumber);
+				}
+				if (item != null) {
+					if (!item.alwaysShow) {
+						item.alwaysShow = true;
+						// Force quickpick to update by changing the items object:
+						quickpick.items = [...quickpick.items];
+					}
+					// We have found an item that matches to the URL.
+					// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
+					this.updateItemsDebouncer.cancel();
+					return true;
+				}
+				// Nothing is found above, so let's perform search in the API:
+				await updateItems(quickpick, value);
+				quickpick.items.forEach(i => {
+					if ('item' in i && doesPullRequestSatisfyGitHubRepositoryURLIdentity(i.item, prUrlIdentity)) {
+						i.alwaysShow = true;
+					}
+				});
+				quickpick.items = quickpick.items.filter((i): i is LaunchpadItemQuickPickItem => 'item' in i);
+				groupsHidden = true;
 				return true;
 			},
 			onDidClickButton: async (quickpick, button) => {
@@ -1273,8 +1363,18 @@ function getIntegrationTitle(integrationId: string): string {
 	}
 }
 
-async function updateContextItems(container: Container, context: Context, options?: { force?: boolean }) {
-	context.result = await container.launchpad.getCategorizedItems(options);
+async function updateContextItems(
+	container: Container,
+	context: Context,
+	options?: { force?: boolean; search?: string },
+	cancellation?: CancellationToken,
+) {
+	const result = await container.launchpad.getCategorizedItems(options, cancellation);
+	if (options?.search != null) {
+		context.result = container.launchpad.mergeSearchedCategorizedItems(context.result, result);
+	} else {
+		context.result = result;
+	}
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
 	}
