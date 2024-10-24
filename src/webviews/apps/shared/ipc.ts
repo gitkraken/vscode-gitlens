@@ -76,8 +76,10 @@ export class HostIpc implements Disposable {
 		this._onReceiveMessage.fire(msg);
 	}
 
+	sendCommand<T extends IpcCommand>(commandType: T, params?: never): void;
+	sendCommand<T extends IpcCommand<unknown>>(commandType: T, params: IpcCallParamsType<T>): void;
 	@debug<HostIpc['sendCommand']>({ args: { 0: c => c.method, 1: false } })
-	sendCommand<T extends IpcCommand<unknown>>(commandType: T, params: IpcCallParamsType<T>): void {
+	sendCommand<T extends IpcCommand | IpcCommand<unknown>>(commandType: T, params?: IpcCallParamsType<T>): void {
 		const id = nextIpcId();
 		// this.log(`${this.appName}.sendCommand(${id}): name=${command.method}`);
 

@@ -643,8 +643,10 @@ export type TrackedUsage = {
 	lastUsedAt: number;
 };
 
+export type WalkthroughUsageKeys = 'home:walkthrough:dismissed';
+export type CommandExecutionTrackedFeatures = `command:${Commands}:executed`;
 export type TrackedUsageFeatures =
 	| `${WebviewTypes}Webview`
 	| `${TreeViewTypes | WebviewViewTypes}View`
 	| `${CustomEditorTypes}Editor`;
-export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown`;
+export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown` | CommandExecutionTrackedFeatures | WalkthroughUsageKeys;

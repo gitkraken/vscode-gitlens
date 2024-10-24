@@ -68,6 +68,7 @@ export type GlobalStorage = {
 	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
+	'home:walkthrough:dismissed': boolean;
 	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;

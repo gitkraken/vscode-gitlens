@@ -6,6 +6,7 @@ import {
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidChangeWalkthroughProgress,
 } from '../../home/protocol';
 import type { Disposable } from '../shared/events';
 import type { HostIpc } from '../shared/ipc';
@@ -30,6 +31,12 @@ export class HomeStateProvider implements Disposable {
 			switch (true) {
 				case DidChangeRepositories.is(msg):
 					this.state.repositories = msg.params;
+					this.state.timestamp = Date.now();
+
+					this.provider.setValue(this.state, true);
+					break;
+				case DidChangeWalkthroughProgress.is(msg):
+					this.state.walkthroughProgress = msg.params;
 					this.state.timestamp = Date.now();
 
 					this.provider.setValue(this.state, true);
