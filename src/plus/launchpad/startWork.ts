@@ -15,11 +15,13 @@ import {
 	StepResultBreak,
 } from '../../commands/quickCommand';
 import { ensureAccessStep } from '../../commands/quickCommand.steps';
-import { proBadge } from '../../constants';
+import { proBadge, Schemes } from '../../constants';
 import { HostingIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
-import type { SearchedIssue } from '../../git/models/issue';
+import type { Issue, IssueShape, SearchedIssue } from '../../git/models/issue';
+import type { Repository } from '../../git/models/repository';
+import type { RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
@@ -108,7 +110,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			if (typeof state.action === 'string') {
 				switch (state.action) {
 					case 'start':
-						startWork(state.item.item);
+						void startWork(this.container, state.item.item);
 						break;
 				}
 			}
@@ -176,7 +178,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			items: items,
 			onDidClickItemButton: (_quickpick, button, { item }) => {
 				if (button === StartWorkQuickInputButton) {
-					startWork(item.item);
+					void startWork(this.container, item.item);
 				}
 			},
 		});
@@ -229,7 +231,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 				onDidClickItemButton: (_quickpick, button, _item) => {
 					switch (button) {
 						case StartWorkQuickInputButton:
-							startWork(state.item.item);
+							void startWork(this.container, state.item.item);
 							break;
 					}
 				},
@@ -250,6 +252,78 @@ async function updateContextItems(container: Container, context: Context) {
 	};
 }
 
-function startWork(_issue: SearchedIssue) {
-	// TODO: Hack here
+async function startWork(container: Container, issue: SearchedIssue) {
+	const _repo = await getOrOpenIssueRepository(container, issue.issue);
+	//if (repo == null) return;
+
+	/*void showInspectView({
+		type: 'wip',
+		inReview: false,
+		repository: repo,
+		source: 'launchpad',
+	} satisfies ShowWipArgs);*/
 }
+
+export async function getOrOpenIssueRepository(
+	container: Container,
+	issue: IssueShape | Issue,
+	options?: { promptIfNeeded?: boolean; skipVirtual?: boolean },
+): Promise<Repository | undefined> {
+	const identity = getRepositoryIdentityForIssue(issue);
+	let repo = await container.repositoryIdentity.getRepository(identity, {
+		openIfNeeded: true,
+		keepOpen: false,
+		prompt: false,
+	});
+
+	if (repo == null && !options?.skipVirtual) {
+		const virtualUri = getVirtualUriForIssue(issue);
+		if (virtualUri != null) {
+			repo = await container.git.getOrOpenRepository(virtualUri, { closeOnOpen: true, detectNested: false });
+		}
+	}
+
+	if (repo == null && options?.promptIfNeeded) {
+		repo = await container.repositoryIdentity.getRepository(identity, {
+			openIfNeeded: true,
+			keepOpen: false,
+			prompt: true,
+		});
+	}
+
+	return repo;
+}
+
+export function getRepositoryIdentityForIssue(issue: IssueShape | Issue): IssueRepositoryIdentityDescriptor {
+	if (issue.repository == null) throw new Error('Missing repository');
+
+	return {
+		remote: {
+			url: issue.repository.url,
+			domain: issue.provider.domain,
+		},
+		name: `${issue.repository.owner}/${issue.repository.repo}`,
+		provider: {
+			id: issue.provider.id,
+			domain: issue.provider.domain,
+			repoDomain: issue.repository.owner,
+			repoName: issue.repository.repo,
+			repoOwnerDomain: issue.repository.owner,
+		},
+	};
+}
+
+export function getVirtualUriForIssue(issue: IssueShape | Issue): Uri | undefined {
+	if (issue.repository == null) throw new Error('Missing repository');
+	if (issue.provider.id !== 'github') return undefined;
+
+	const uri = Uri.parse(issue.repository.url ?? issue.url);
+	return uri.with({ scheme: Schemes.Virtual, authority: 'github', path: uri.path });
+}
+
+export type IssueRepositoryIdentityDescriptor = RequireSomeWithProps<
+	RequireSome<RepositoryIdentityDescriptor<string>, 'provider'>,
+	'provider',
+	'id' | 'domain' | 'repoDomain' | 'repoName'
+> &
+	RequireSomeWithProps<RequireSome<RepositoryIdentityDescriptor<string>, 'remote'>, 'remote', 'domain'>;

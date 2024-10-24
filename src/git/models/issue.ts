@@ -45,6 +45,7 @@ export interface IssueRepository {
 	owner: string;
 	repo: string;
 	accessLevel?: RepositoryAccessLevel;
+	url?: string;
 }
 
 export interface IssueShape extends IssueOrPullRequest {
@@ -217,6 +218,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 				: {
 						owner: value.repository.owner,
 						repo: value.repository.repo,
+						url: value.repository.url,
 				  },
 		assignees: value.assignees.map(assignee => ({
 			id: assignee.id,
