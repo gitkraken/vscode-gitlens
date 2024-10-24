@@ -311,6 +311,17 @@ export type TelemetryEvents = {
 		duration: number;
 	};
 
+	/** Sent when the user opens Start Work; use `instance` to correlate a StartWork "session" */
+	'startWork/open': StartWorkEventDataBase;
+	/** Sent when the launchpad is opened; use `instance` to correlate a StartWork "session" */
+	'startWork/opened': StartWorkEventData & {
+		connected: boolean;
+	};
+	/** Sent when the Start Work has "reloaded" (while open, e.g. user refreshed or back button) and is disconnected; use `instance` to correlate a Start Work "session" */
+	'startWork/steps/connect': StartWorkEventData & {
+		connected: boolean;
+	};
+
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: {
 		provider: string;
@@ -450,6 +461,14 @@ export type CommandEventData =
 			'context.submode'?: never;
 			webview?: string;
 	  };
+
+export type StartWorkTelemetryContext = StartWorkEventDataBase;
+
+type StartWorkEventDataBase = {
+	instance: number;
+};
+
+type StartWorkEventData = StartWorkEventDataBase;
 
 export type LaunchpadTelemetryContext = LaunchpadEventData;
 
