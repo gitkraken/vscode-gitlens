@@ -1,3 +1,4 @@
+import slug from 'slug';
 import type { QuickPick } from 'vscode';
 import { Uri } from 'vscode';
 import type {
@@ -147,7 +148,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 								state: {
 									subcommand: 'create',
 									repo: undefined,
-									name: `${state.item.item.issue.id}-${state.item.item.issue.title}`,
+									name: slug(`${state.item.item.issue.id}-${state.item.item.issue.title}`),
 									suggestNameOnly: true,
 								},
 							},
