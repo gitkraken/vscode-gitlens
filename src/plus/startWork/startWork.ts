@@ -19,11 +19,13 @@ import {
 import { proBadge } from '../../constants';
 import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId } from '../../constants.integrations';
+import type { Source, Sources, StartWorkTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { SearchedIssue } from '../../git/models/issue';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
+import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import { configuration } from '../../system/vscode/configuration';
@@ -37,6 +39,7 @@ export type StartWorkResult = { items: StartWorkItem[] };
 interface Context {
 	result: StartWorkResult;
 	title: string;
+	telemetryContext: StartWorkTelemetryContext | undefined;
 	connectedIntegrations: Map<IntegrationId, boolean>;
 }
 
@@ -51,6 +54,7 @@ export type StartWorkAction = 'start';
 
 export interface StartWorkCommandArgs {
 	readonly command: 'startWork';
+	source?: Sources;
 }
 
 function assertsStartWorkStepState(state: StepState<State>): asserts state is StartWorkStepState {
@@ -61,12 +65,22 @@ function assertsStartWorkStepState(state: StepState<State>): asserts state is St
 }
 
 export const supportedStartWorkIntegrations = [HostingIntegrationId.GitHub];
+const instanceCounter = getScopedCounter();
 
 export class StartWorkCommand extends QuickCommand<State> {
-	constructor(container: Container) {
+	private readonly source: Source;
+	private readonly telemetryContext: StartWorkTelemetryContext | undefined;
+	constructor(container: Container, args?: StartWorkCommandArgs) {
 		super(container, 'startWork', 'startWork', `Start Work\u00a0\u00a0${proBadge}`, {
 			description: 'Start work on an issue',
 		});
+
+		this.source = { source: args?.source ?? 'commandPalette' };
+
+		if (this.container.telemetry.enabled) {
+			this.telemetryContext = { instance: instanceCounter.next() };
+			this.container.telemetry.sendEvent('startWork/open', { ...this.telemetryContext }, this.source);
+		}
 
 		this.initialState = {
 			counter: 0,
@@ -81,14 +95,26 @@ export class StartWorkCommand extends QuickCommand<State> {
 		const context: Context = {
 			result: { items: [] },
 			title: this.title,
+			telemetryContext: this.telemetryContext,
 			connectedIntegrations: await this.getConnectedIntegrations(),
 		};
 
+		const opened = false;
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
 			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
 			if (!hasConnectedIntegrations) {
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(
+						opened ? 'startWork/steps/connect' : 'startWork/opened',
+						{
+							...context.telemetryContext!,
+							connected: false,
+						},
+						this.source,
+					);
+				}
 				const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
 				const result = isUsingCloudIntegrations
 					? yield* this.confirmCloudIntegrationsConnectStep(state, context)
