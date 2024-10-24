@@ -938,14 +938,6 @@ export class Container {
 		return uri;
 	}
 
-	getGkDevExchangeUri(token: string, successPath: string, failurePath?: string): Uri {
-		return Uri.joinPath(this.baseGkDevUri, `api/exchange/${token}`).with({
-			query: `success=${encodeURIComponent(successPath)}${
-				failurePath ? `&failure=${encodeURIComponent(failurePath)}` : ''
-			}`,
-		});
-	}
-
 	generateWebGkDevUrl(path?: string): string {
 		return this.getGkDevUri(path, '?source=gitlens').toString();
 	}
