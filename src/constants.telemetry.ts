@@ -620,6 +620,7 @@ export type Sources =
 	| 'quick-wizard'
 	| 'remoteProvider'
 	| 'settings'
+	| 'startWork'
 	| 'timeline'
 	| 'trial-indicator'
 	| 'scm-input'
