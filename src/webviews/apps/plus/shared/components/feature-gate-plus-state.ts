@@ -165,6 +165,19 @@ export class GlFeatureGatePlusState extends LitElement {
 						features.
 					</p>`;
 
+			case SubscriptionState.PaidExpired:
+				return html` <gl-button
+						appearance="${appearance}"
+						href="${generateCommandLink(Commands.PlusUpgrade, this.source)}"
+						>Upgrade to Pro</gl-button
+					>
+					${this.renderPromo(promo)}
+					<p>
+						Your Pro license has ended. Please upgrade for full access to
+						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and other ` : ''}Pro
+						features.
+					</p>`;
+
 			case SubscriptionState.ProTrialReactivationEligible:
 				return html`
 					<gl-button
