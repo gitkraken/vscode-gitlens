@@ -151,14 +151,22 @@ export class IntegrationService implements Disposable {
 
 		try {
 			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
-			await openUrl(
-				this.container
-					.getGkDevExchangeUri(exchangeToken, `settings/integrations?source=gitlens`)
-					.toString(true),
-			);
+			if (
+				!(await openUrl(
+					this.container
+						.getGkDevUri('settings/integrations', `source=gitlens&token=${exchangeToken}`)
+						.toString(true),
+				))
+			) {
+				return;
+			}
 		} catch (ex) {
 			Logger.error(ex, scope);
-			await env.openExternal(this.container.getGkDevUri('settings/integrations', 'source=gitlens'));
+			if (
+				!(await openUrl(this.container.getGkDevUri('settings/integrations', 'source=gitlens').toString(true)))
+			) {
+				return;
+			}
 		}
 		take(
 			window.onDidChangeWindowState,
@@ -238,31 +246,31 @@ export class IntegrationService implements Disposable {
 			}
 		}
 
-		const callbackUri = await env.asExternalUri(
-			Uri.parse(
-				`${env.uriScheme}://${this.container.context.extension.id}/${CloudIntegrationAuthenticationUriPathPrefix}`,
-			),
-		);
-		query += `&redirect_uri=${encodeURIComponent(callbackUri.toString(true))}`;
+		const baseQuery = query;
+		try {
+			if (account != null) {
+				const token = await this.container.accountAuthentication.getExchangeToken(
+					CloudIntegrationAuthenticationUriPathPrefix,
+				);
 
-		if (account != null) {
-			try {
-				const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
-				if (
-					!(await openUrl(
-						this.container.getGkDevExchangeUri(exchangeToken, `connect?${query}`).toString(true),
-					))
-				) {
-					return false;
-				}
-			} catch (ex) {
-				Logger.error(ex, scope);
-				if (!(await openUrl(this.container.getGkDevUri('connect', query).toString(true)))) {
-					return false;
-				}
+				query += `&token=${token}`;
+			} else {
+				const callbackUri = await env.asExternalUri(
+					Uri.parse(
+						`${env.uriScheme}://${this.container.context.extension.id}/${CloudIntegrationAuthenticationUriPathPrefix}`,
+					),
+				);
+				query += `&redirect_uri=${encodeURIComponent(callbackUri.toString(true))}`;
 			}
-		} else if (!(await openUrl(this.container.getGkDevUri('connect', query).toString(true)))) {
-			return false;
+
+			if (!(await openUrl(this.container.getGkDevUri('connect', query).toString(true)))) {
+				return false;
+			}
+		} catch (ex) {
+			Logger.error(ex, scope);
+			if (!(await openUrl(this.container.getGkDevUri('connect', baseQuery).toString(true)))) {
+				return false;
+			}
 		}
 
 		const deferredCallback = promisifyDeferred<Uri, string | undefined>(
