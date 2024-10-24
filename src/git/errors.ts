@@ -218,6 +218,61 @@ export class PushError extends Error {
 	}
 }
 
+export const enum BranchErrorReason {
+	BranchAlreadyExists,
+	BranchNotFullyMerged,
+	NoRemoteReference,
+	InvalidBranchName,
+	Other,
+}
+
+export class BranchError extends Error {
+	static is(ex: unknown, reason?: BranchErrorReason): ex is BranchError {
+		return ex instanceof BranchError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: BranchErrorReason | undefined;
+
+	constructor(reason?: BranchErrorReason, original?: Error, branch?: string);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | BranchErrorReason | undefined, original?: Error, branch?: string) {
+		let reason: BranchErrorReason | undefined;
+		if (typeof messageOrReason !== 'string') {
+			reason = messageOrReason as BranchErrorReason;
+		}
+
+		const message =
+			typeof messageOrReason === 'string' ? messageOrReason : BranchError.buildBranchErrorMessage(reason, branch);
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		Error.captureStackTrace?.(this, BranchError);
+	}
+
+	private static buildBranchErrorMessage(reason?: BranchErrorReason, branch?: string): string {
+		const baseMessage = `Unable to perform action ${branch ? `with branch '${branch}'` : 'on branch'}`;
+		switch (reason) {
+			case BranchErrorReason.BranchAlreadyExists:
+				return `${baseMessage} because it already exists`;
+			case BranchErrorReason.BranchNotFullyMerged:
+				return `${baseMessage} because it is not fully merged`;
+			case BranchErrorReason.NoRemoteReference:
+				return `${baseMessage} because the remote reference does not exist`;
+			case BranchErrorReason.InvalidBranchName:
+				return `${baseMessage} because the branch name is invalid`;
+			default:
+				return baseMessage;
+		}
+	}
+
+	WithBranch(branchName: string): this {
+		this.message = BranchError.buildBranchErrorMessage(this.reason, branchName);
+		return this;
+	}
+}
+
 export const enum PullErrorReason {
 	Conflict,
 	GitIdentity,
