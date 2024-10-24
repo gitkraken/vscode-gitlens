@@ -1369,6 +1369,9 @@
 					"gitlens.launchpad.experimental.queryLimit": {
 						"type": "number",
 						"default": 100,
+						"tags": [
+							"experimental"
+						],
 						"markdownDescription": "(Experimental) Specifies a limit on the number of pull requests to be queried in the _Launchpad_",
 						"scope": "window",
 						"order": 1100
@@ -1551,6 +1554,9 @@
 						"default": false,
 						"markdownDescription": "(Experimental) Specifies whether to enable an experimental _Launchpad_ view",
 						"scope": "window",
+						"tags": [
+							"experimental"
+						],
 						"order": 10
 					},
 					"gitlens.views.launchpad.files.layout": {
@@ -3656,6 +3662,9 @@
 			{
 				"id": "ai",
 				"title": "AI (ᴇxᴘᴇʀɪᴍᴇɴᴛᴀʟ)",
+				"tags": [
+					"experimental"
+				],
 				"order": 1000,
 				"properties": {
 					"gitlens.ai.experimental.generateCommitMessage.enabled": {
@@ -3663,6 +3672,9 @@
 						"default": true,
 						"markdownDescription": "Specifies whether to enable GitLens' experimental, AI-powered, on-demand commit message generation",
 						"scope": "window",
+						"tags": [
+							"experimental"
+						],
 						"order": 1
 					},
 					"gitlens.experimental.generateCommitMessagePrompt": {
@@ -3670,6 +3682,9 @@
 						"default": "Now, based on the provided code diff and any additional context, create a concise but meaningful commit message following the instructions above.",
 						"markdownDescription": "Specifies the prompt to use to tell the AI provider how to structure or format the generated commit message",
 						"scope": "window",
+						"tags": [
+							"experimental"
+						],
 						"order": 2
 					},
 					"gitlens.experimental.generateCloudPatchMessagePrompt": {
@@ -3677,6 +3692,9 @@
 						"default": "Now, based on the provided code diff and any additional context, create a concise but meaningful title and description following the instructions above.",
 						"markdownDescription": "Specifies the prompt to use to tell the AI provider how to structure or format the generated title and description",
 						"scope": "window",
+						"tags": [
+							"experimental"
+						],
 						"order": 3
 					},
 					"gitlens.experimental.generateCodeSuggestMessagePrompt": {
@@ -3684,12 +3702,18 @@
 						"default": "Now, based on the provided code diff and any additional context, create a concise but meaningful code review title and description following the instructions above.",
 						"markdownDescription": "Specifies the prompt to use to tell the AI provider how to structure or format the generated title and description",
 						"scope": "window",
+						"tags": [
+							"experimental"
+						],
 						"order": 3
 					},
 					"gitlens.ai.experimental.model": {
 						"type": [
 							"string",
 							"null"
+						],
+						"tags": [
+							"experimental"
 						],
 						"default": null,
 						"enum": [
@@ -3747,6 +3771,9 @@
 							"string",
 							"null"
 						],
+						"tags": [
+							"experimental"
+						],
 						"default": null,
 						"markdownDescription": "Specifies a custom URL to use for access to an OpenAI model via Azure. Azure URLs should be in the following format: https://{your-resource-name}.openai.azure.com/openai/deployments/{deployment-id}/chat/completions?api-version={api-version}",
 						"scope": "window",
@@ -3756,6 +3783,9 @@
 						"type": [
 							"string",
 							"null"
+						],
+						"tags": [
+							"experimental"
 						],
 						"default": null,
 						"pattern": "^(.*):(.*)$",
@@ -4545,6 +4575,9 @@
 						"enum": [
 							"editor",
 							"view"
+						],
+						"tags": [
+							"experimental"
 						],
 						"enumDescriptions": [
 							"Prefer showing Cloud Patches in the editor area",
