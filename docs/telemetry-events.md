@@ -1321,6 +1321,38 @@ void
 }
 ```
 
+### startWork/open
+
+> Sent when the user opens Start Work; use `instance` to correlate a StartWork "session"
+
+```typescript
+{
+  'instance': number
+}
+```
+
+### startWork/opened
+
+> Sent when the launchpad is opened; use `instance` to correlate a StartWork "session"
+
+```typescript
+{
+  'instance': number,
+  'connected': false | true
+}
+```
+
+### startWork/steps/connect
+
+> Sent when the Start Work has "reloaded" (while open, e.g. user refreshed or back button) and is disconnected; use `instance` to correlate a Start Work "session"
+
+```typescript
+{
+  'instance': number,
+  'connected': false | true
+}
+```
+
 ### openReviewMode
 
 > Sent when a PR review was started in the inspect overview
