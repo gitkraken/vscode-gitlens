@@ -26,6 +26,7 @@ import { createQuickPickItemOfT } from '../../quickpicks/items/common';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
+import { configuration } from '../../system/vscode/configuration';
 
 export type StartWorkItem = {
 	item: SearchedIssue;
@@ -88,7 +89,10 @@ export class StartWorkCommand extends QuickCommand<State> {
 
 			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
 			if (!hasConnectedIntegrations) {
-				const result = yield* this.confirmCloudIntegrationsConnectStep(state, context);
+				const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
+				const result = isUsingCloudIntegrations
+					? yield* this.confirmCloudIntegrationsConnectStep(state, context)
+					: yield* this.confirmLocalIntegrationConnectStep(state, context);
 				if (result === StepResultBreak) {
 					return result;
 				}
@@ -117,6 +121,72 @@ export class StartWorkCommand extends QuickCommand<State> {
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
+	}
+
+	private async *confirmLocalIntegrationConnectStep(
+		state: StepState<State>,
+		context: Context,
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
+		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [];
+
+		for (const integration of supportedStartWorkIntegrations) {
+			if (context.connectedIntegrations.get(integration)) {
+				continue;
+			}
+			switch (integration) {
+				case HostingIntegrationId.GitHub:
+					confirmations.push(
+						createQuickPickItemOfT(
+							{
+								label: 'Connect to GitHub...',
+								detail: 'Will connect to GitHub to provide access your pull requests and issues',
+							},
+							integration,
+						),
+					);
+					break;
+				default:
+					break;
+			}
+		}
+
+		const step = this.createConfirmStep(
+			`${this.title} \u00a0\u2022\u00a0 Connect an Integration`,
+			confirmations,
+			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
+			{
+				placeholder: 'Connect an integration to view their issues in Start Work',
+				buttons: [],
+				ignoreFocusOut: false,
+			},
+		);
+
+		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
+		// Otherwise it disappears.
+		let freeze!: () => Disposable;
+		step.onDidActivate = qp => {
+			freeze = () => freezeStep(step, qp);
+		};
+
+		const selection: StepSelection<typeof step> = yield step;
+		if (canPickStepContinue(step, state, selection)) {
+			const resume = freeze();
+			const chosenIntegrationId = selection[0].item;
+			const connected = await this.ensureIntegrationConnected(chosenIntegrationId);
+			return { connected: connected ? chosenIntegrationId : false, resume: () => resume[Symbol.dispose]() };
+		}
+
+		return StepResultBreak;
+	}
+
+	private async ensureIntegrationConnected(id: IntegrationId) {
+		const integration = await this.container.integrations.get(id);
+		let connected = integration.maybeConnected ?? (await integration.isConnected());
+		if (!connected) {
+			connected = await integration.connect('startWork');
+		}
+
+		return connected;
 	}
 
 	private async *confirmCloudIntegrationsConnectStep(
