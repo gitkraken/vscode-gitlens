@@ -190,6 +190,7 @@ repository {
 		login
 	}
 	viewerPermission
+	url
 }
 `;
 

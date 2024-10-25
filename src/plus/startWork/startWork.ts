@@ -24,6 +24,7 @@ import { HostingIntegrationId } from '../../constants.integrations';
 import type { Source, Sources, StartWorkTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { SearchedIssue } from '../../git/models/issue';
+import { getOrOpenIssueRepository } from '../../git/models/issue';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
@@ -138,6 +139,9 @@ export class StartWorkCommand extends QuickCommand<State> {
 			assertsStartWorkStepState(state);
 			state.action = 'start';
 
+			const issue = state.item.item.issue;
+			const repo = await getOrOpenIssueRepository(this.container, issue);
+
 			if (typeof state.action === 'string') {
 				switch (state.action) {
 					case 'start':
@@ -147,9 +151,10 @@ export class StartWorkCommand extends QuickCommand<State> {
 								command: 'branch',
 								state: {
 									subcommand: 'create',
-									repo: undefined,
-									name: slug(`${state.item.item.issue.id}-${state.item.item.issue.title}`),
+									repo: repo,
+									name: slug(`${issue.id}-${issue.title}`),
 									suggestNameOnly: true,
+									suggestRepoOnly: true,
 								},
 							},
 							this.pickedVia,
