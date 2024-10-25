@@ -63,6 +63,11 @@ interface CreateState {
 	flags: CreateFlags[];
 
 	suggestNameOnly?: boolean;
+	suggestRepoOnly?: boolean;
+}
+
+function isCreateState(state: Partial<State> | undefined): state is Partial<CreateState> {
+	return state?.subcommand === 'create';
 }
 
 type DeleteFlags = '--force' | '--remotes';
@@ -172,6 +177,10 @@ export class BranchGitCommand extends QuickCommand {
 						counter++;
 					}
 
+					if (args.state.suggestRepoOnly && args.state.repo != null) {
+						counter--;
+					}
+
 					break;
 				case 'delete':
 				case 'prune':
@@ -251,7 +260,12 @@ export class BranchGitCommand extends QuickCommand {
 				state.subcommand,
 			);
 
-			if (state.counter < 2 || state.repo == null || typeof state.repo === 'string') {
+			if (
+				state.counter < 2 ||
+				state.repo == null ||
+				typeof state.repo === 'string' ||
+				(isCreateState(state) && state.suggestRepoOnly)
+			) {
 				skippedStepTwo = false;
 				if (context.repos.length === 1) {
 					skippedStepTwo = true;
