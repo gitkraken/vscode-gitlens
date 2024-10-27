@@ -17937,6 +17937,7 @@
 		"test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
 		"watch": "webpack --watch --mode development",
 		"watch:extension": "webpack --watch --mode development --config-name extension",
+		"watch:quick": "webpack --watch --mode development --env skipLint",
 		"watch:webviews": "webpack --watch --mode development --config-name webviews",
 		"watch:tests": "node ./scripts/esbuild.tests.mjs --watch --mode development",
 		"web": "vscode-test-web --extensionDevelopmentPath=. --folder-uri=vscode-vfs://github/gitkraken/vscode-gitlens",
