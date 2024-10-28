@@ -280,35 +280,30 @@ export class SubscriptionService implements Disposable {
 		switch (subscription.state) {
 			case SubscriptionState.VerificationRequired:
 			case SubscriptionState.Community:
-			case SubscriptionState.ProPreview:
-			case SubscriptionState.ProPreviewExpired:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
-					step: 'pro-features',
+					step: 'get-started-community',
 				});
 				break;
 			case SubscriptionState.ProTrial:
+			case SubscriptionState.ProPreview:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
-					step: 'pro-trial',
-				});
-				break;
-			case SubscriptionState.ProTrialExpired:
-				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-					...source,
-					step: 'pro-upgrade',
+					step: 'welcome-in-trial',
 				});
 				break;
 			case SubscriptionState.ProTrialReactivationEligible:
+			case SubscriptionState.ProTrialExpired:
+			case SubscriptionState.ProPreviewExpired:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
-					step: 'pro-reactivate',
+					step: 'welcome-in-trial-expired',
 				});
 				break;
 			case SubscriptionState.Paid:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
-					step: 'pro-paid',
+					step: 'welcome-paid',
 				});
 				break;
 		}

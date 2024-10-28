@@ -238,7 +238,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 				this.getQualifiedCommand('info'),
 				() =>
 					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-						step: 'launchpad',
+						step: 'accelerate-pr-reviews',
 						source: 'launchpad-view',
 						detail: 'info',
 					}),

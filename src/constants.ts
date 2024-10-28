@@ -173,15 +173,11 @@ export const urls = Object.freeze({
 });
 
 export type WalkthroughSteps =
-	| 'get-started'
-	| 'core-features'
-	| 'pro-features'
-	| 'pro-trial'
-	| 'pro-upgrade'
-	| 'pro-reactivate'
-	| 'pro-paid'
-	| 'visualize'
-	| 'launchpad'
-	| 'code-collab'
-	| 'integrations'
-	| 'more';
+	| 'welcome-in-trial'
+	| 'welcome-paid'
+	| 'welcome-in-trial-expired'
+	| 'get-started-community'
+	| 'visualize-code-history'
+	| 'accelerate-pr-reviews'
+	| 'streamline-collaboration'
+	| 'improve-workflows-with-integrations';
