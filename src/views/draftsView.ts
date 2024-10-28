@@ -122,7 +122,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 				this.getQualifiedCommand('info'),
 				() =>
 					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-						step: 'code-collab',
+						step: 'streamline-collaboration',
 						source: 'cloud-patches',
 						detail: 'info',
 					}),

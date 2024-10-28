@@ -17811,7 +17811,7 @@
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:gettingStarted == true"
 						],
-						"when": "config.gitlens.test.newWalkthrough && (gitlens:plus:state == 1 || gitlens:plus:state == 3)"
+						"when": "(gitlens:plus:state == 1 || gitlens:plus:state == 3)"
 					},
 					{
 						"id": "welcome-paid",
@@ -17823,7 +17823,7 @@
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:gettingStarted == true"
 						],
-						"when": "config.gitlens.test.newWalkthrough && gitlens:plus:state == 6"
+						"when": "gitlens:plus:state == 6"
 					},
 					{
 						"id": "welcome-in-trial-expired",
@@ -17835,7 +17835,7 @@
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:gettingStarted == true"
 						],
-						"when": "config.gitlens.test.newWalkthrough && (gitlens:plus:state == 4 || gitlens:plus:state == 5 || gitlens:plus:state == 2)"
+						"when": "(gitlens:plus:state == 4 || gitlens:plus:state == 5 || gitlens:plus:state == 2)"
 					},
 					{
 						"id": "get-started-community",
@@ -17847,7 +17847,7 @@
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:gettingStarted == true"
 						],
-						"when": "config.gitlens.test.newWalkthrough && gitlens:plus:state <= 0"
+						"when": "gitlens:plus:state <= 0"
 					},
 					{
 						"id": "visualize-code-history",
@@ -17858,8 +17858,7 @@
 						},
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:visualizeCodeHistory == true"
-						],
-						"when": "config.gitlens.test.newWalkthrough"
+						]
 					},
 					{
 						"id": "accelerate-pr-reviews",
@@ -17870,8 +17869,7 @@
 						},
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:prReviews == true"
-						],
-						"when": "config.gitlens.test.newWalkthrough"
+						]
 					},
 					{
 						"id": "streamline-collaboration",
@@ -17882,8 +17880,7 @@
 						},
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:streamlineCollaboration == true"
-						],
-						"when": "config.gitlens.test.newWalkthrough"
+						]
 					},
 					{
 						"id": "improve-workflows-with-integrations",
@@ -17894,120 +17891,7 @@
 						},
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:integrations == true"
-						],
-						"when": "config.gitlens.test.newWalkthrough"
-					},
-					{
-						"id": "get-started",
-						"title": "Welcome & Overview",
-						"description": "Quickly [get started](command:gitlens.showWelcomePage \"Opens GitLens Welcome\") and discover the many powerful GitLens features, or sit back and watch our [tutorial video](https://www.youtube.com/watch?v=UQPb73Zz9qk \"Watch the Getting Started Tutorial video\").\n\n**Side Bar & Panel Overview**\n\n$(gitlens-gitlens-inspect)  **GitLens Inspect** — an x-ray into your code's history. Offers contextual insights & details focused on what you're currently working on.\n\n[Open GitLens Inspect](command:workbench.view.extension.gitlensInspect)\n\n$(gitlens-gitlens)  **GitLens** — quick access to many GitLens features. And the home of our team and collaboration services.\n\n[Open GitLens](command:workbench.view.extension.gitlens)\n\n$(source-control) **Source Control** — packed with additional features for working with, exploring, and managing your repositories.\n\n[Open Source Control](command:workbench.view.scm)\n\n$(layout-panel)  **(Bottom) Panel** — access to the powerful Commit Graph and its dedicated details view.\n\n[Open Commit Graph](command:gitlens.showGraphView)\n💡 While our views are arranged for focus and productivity, you can easily drag them around to suit your needs. Use the [Reset Views Layout](command:workbench.action.quickOpen?%22>GitLens%3A%20Reset%20Views%20Layout%22) command to quickly get back to the default layout.\n💡 **Want more control?** Use the interactive [GitLens Settings](command:gitlens.showSettingsPage \"Opens GitLens Settings\") editor to customize GitLens to meet your needs.",
-						"media": {
-							"markdown": "walkthroughs/welcome/get-started.md"
-						},
-						"when": "!config.gitlens.test.newWalkthrough"
-					},
-					{
-						"id": "core-features",
-						"title": "Discover Core Features",
-						"description": "**Inline blame** and status bar blame provide historical context about line changes.\n💡 Hover over annotations to reveal rich details & actions.\n**Git CodeLens** adds contextual and actionable authorship information at the top of each file and at the beginning of each block of code.\n💡 Use the [Toggle Line Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Line%20Blame%22) and [Toggle Git CodeLens](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Git%20CodeLens%22) commands.\n**File annotations**, visual indicators that augment your editor, provide insights into authorship, recent changes, or a heatmap. Annotations can be toggled on-demand for individual files or holistically.\n💡 Use the [Toggle File Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Blame%22), [Toggle File Changes](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Changes%22), and [Toggle File Heatmap](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Heatmap%22) commands on an active file.\n\n**Navigate revision history** with just a click of a button at the top of any file and compare changes over time.",
-						"media": {
-							"altText": "Illustrations of Inline Blame, Codelens, File Annotations and Revision Navigation",
-							"svg": "walkthroughs/welcome/core-features.svg"
-						},
-						"when": "!config.gitlens.test.newWalkthrough"
-					},
-					{
-						"id": "pro-features",
-						"title": "Power-up with Pro",
-						"description": "Unlock the full power of GitLens with [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) and get access to the full [GitKraken DevEx platform](https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links).\n\n[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22walkthrough%22%7D)\n\nAlready have an account? [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22walkthrough%22%7D)\n\n**Pro Features**\n$(gitlens-graph)  [Commit Graph](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize your repository and keep track of all work in progress\n$(rocket)  [Launchpad](command:gitlens.openWalkthrough?%7B%22step%22%3A%22launchpad%22,%22source%22%3A%22walkthrough%22%7D) — stay focused and keep your team unblocked\n$(gitlens-code-suggestion)  [Code Suggest](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — free your code reviews from unnecessary restrictions\n$(gitlens-cloud-patch)  [Cloud Patches](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — easily and securely share code with your teammates\n$(gitlens-worktrees-view)  **Worktrees** — work on multiple branches simultaneously\n$(gitlens-workspaces-view)  **Workspaces** — group and manage multiple repositories together\n$(graph-scatter)  [Visual File History](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize the evolution of a file and quickly identify when the most impactful changes were made and by whom",
-						"media": {
-							"markdown": "walkthroughs/welcome/pro-features.md"
-						},
-						"when": "!config.gitlens.test.newWalkthrough && gitlens:plus:state >= 0 && gitlens:plus:state <= 2"
-					},
-					{
-						"id": "pro-trial",
-						"title": "Get Started with Pro",
-						"description": "During your trial, you have access to all [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) and to the full [GitKraken DevEx platform](https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links). Be sure to take full advantage of these powerful features.\n\n[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22walkthrough%22%7D)\n\n💡Special: 1st seat of Pro is now 50%+ off.\n**Pro Features**\n$(gitlens-graph)  [Commit Graph](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize your repository and keep track of all work in progress\n$(rocket)  [Launchpad](command:gitlens.openWalkthrough?%7B%22step%22%3A%22launchpad%22,%22source%22%3A%22walkthrough%22%7D) — stay focused and keep your team unblocked\n$(gitlens-code-suggestion)  [Code Suggest](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — free your code reviews from unnecessary restrictions\n$(gitlens-cloud-patch)  [Cloud Patches](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — easily and securely share code with your teammates\n$(gitlens-worktrees-view)  **Worktrees** — work on multiple branches simultaneously\n$(gitlens-workspaces-view)  **Workspaces** — group and manage multiple repositories together\n$(graph-scatter)  [Visual File History](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize the evolution of a file and quickly identify when the most impactful changes were made and by whom",
-						"media": {
-							"markdown": "walkthroughs/welcome/pro-trial.md"
-						},
-						"when": "!config.gitlens.test.newWalkthrough && gitlens:plus:state == 3"
-					},
-					{
-						"id": "pro-upgrade",
-						"title": "Upgrade to Pro",
-						"description": "Your Pro trial has ended. Please upgrade for full access to all [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) and to the full [GitKraken DevEx platform](https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links).\n\n[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22walkthrough%22%7D)\n\n💡Special: 1st seat of Pro is now 50%+ off.\n**Pro Features**\n$(gitlens-graph)  [Commit Graph](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize your repository and keep track of all work in progress\n$(rocket)  [Launchpad](command:gitlens.openWalkthrough?%7B%22step%22%3A%22launchpad%22,%22source%22%3A%22walkthrough%22%7D) — stay focused and keep your team unblocked\n$(gitlens-code-suggestion)  [Code Suggest](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — free your code reviews from unnecessary restrictions\n$(gitlens-cloud-patch)  [Cloud Patches](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — easily and securely share code with your teammates\n$(gitlens-worktrees-view)  **Worktrees** — work on multiple branches simultaneously\n$(gitlens-workspaces-view)  **Workspaces** — group and manage multiple repositories together\n$(graph-scatter)  [Visual File History](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize the evolution of a file and quickly identify when the most impactful changes were made and by whom",
-						"media": {
-							"markdown": "walkthroughs/welcome/pro-upgrade.md"
-						},
-						"when": "!config.gitlens.test.newWalkthrough && gitlens:plus:state == 4"
-					},
-					{
-						"id": "pro-reactivate",
-						"title": "Reactivate Pro Power-up",
-						"description": "Reactivate your Pro trial and experience all the new [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) and the full [GitKraken DevEx platform](https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links) — free for another 7 days!.\n\n[Reactivate Pro Trial](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22walkthrough%22%7D)\n\n**Pro Features**\n$(gitlens-graph)  [Commit Graph](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize your repository and keep track of all work in progress\n$(rocket)  [Launchpad](command:gitlens.openWalkthrough?%7B%22step%22%3A%22launchpad%22,%22source%22%3A%22walkthrough%22%7D) — stay focused and keep your team unblocked\n$(gitlens-code-suggestion)  [Code Suggest](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — free your code reviews from unnecessary restrictions\n$(gitlens-cloud-patch)  [Cloud Patches](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — easily and securely share code with your teammates\n$(gitlens-worktrees-view)  **Worktrees** — work on multiple branches simultaneously\n$(gitlens-workspaces-view)  **Workspaces** — group and manage multiple repositories together\n$(graph-scatter)  [Visual File History](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize the evolution of a file and quickly identify when the most impactful changes were made and by whom",
-						"media": {
-							"markdown": "walkthroughs/welcome/pro-reactivate.md"
-						},
-						"when": "!config.gitlens.test.newWalkthrough && gitlens:plus:state == 5"
-					},
-					{
-						"id": "pro-paid",
-						"title": "Powered-up with Pro",
-						"description": "You have the full power of GitLens with [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) and the [GitKraken DevEx platform](https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links).\n\n**Pro Features**\n$(gitlens-graph)  [Commit Graph](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize your repository and keep track of all work in progress\n$(rocket)  [Launchpad](command:gitlens.openWalkthrough?%7B%22step%22%3A%22launchpad%22,%22source%22%3A%22walkthrough%22%7D) — stay focused and keep your team unblocked\n$(gitlens-code-suggestion)  [Code Suggest](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — free your code reviews from unnecessary restrictions\n$(gitlens-cloud-patch)  [Cloud Patches](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — easily and securely share code with your teammates\n$(gitlens-worktrees-view)  **Worktrees** — work on multiple branches simultaneously\n$(gitlens-workspaces-view)  **Workspaces** — group and manage multiple repositories together\n$(graph-scatter)  [Visual File History](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize the evolution of a file and quickly identify when the most impactful changes were made and by whom",
-						"media": {
-							"markdown": "walkthroughs/welcome/pro-paid.md"
-						},
-						"when": "!config.gitlens.test.newWalkthrough && gitlens:plus:state == 6"
-					},
-					{
-						"id": "visualize",
-						"title": "Visualize with Commit Graph & Visual File History",
-						"description": "**Commit Graph**\nEasily visualize your repository and keep track of all work in progress.\nUse the rich commit search to find exactly what you're looking for. Its powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change. [Learn more](https://gitkraken.com/solutions/commit-graph?utm_source=gitlens-extension&utm_medium=in-app-links)\n\n[Open Commit Graph](command:gitlens.showGraph)\n\n💡Quickly toggle the Graph via the [Toggle Commit Graph](command:gitlens.toggleGraph) command or maximize it using the [Toggle Maximized Commit Graph](command:gitlens.toggleMaximizedGraph) command.\n**Visual File History**\nVisualize the evolution of a file and quickly identify when the most impactful changes were made and by whom\n\n[Open Visual File History](command:gitlens.showTimelineView)",
-						"media": {
-							"altText": "Illustrations of the Commit Graph & Visual File History",
-							"svg": "walkthroughs/welcome/visualize.svg"
-						},
-						"when": "!config.gitlens.test.newWalkthrough"
-					},
-					{
-						"id": "launchpad",
-						"title": "Unblock your team with Launchpad",
-						"description": "**Launchpad** ᴘʀᴏ brings all of your GitHub pull requests into a unified, actionable list to better track work in progress, pending work, reviews, and more. Stay focused and take action on the most important items to keep your team unblocked. [Learn more](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links)\n\n[Open Launchpad](command:gitlens.showLaunchpad?%7B%22source%22%3A%22walkthrough%22%7D)",
-						"media": {
-							"altText": "Illustrations of Launchpad",
-							"svg": "walkthroughs/welcome/launchpad-quick.svg"
-						},
-						"when": "!config.gitlens.test.newWalkthrough"
-					},
-					{
-						"id": "code-collab",
-						"title": "Collaborate with Code Suggest & Cloud Patches",
-						"description": "**Code Suggest** ᴘʀᴇᴠɪᴇᴡ\n\nLiberate your code reviews from GitHub's restrictive, comment-only feedback style. Like suggesting changes on a Google-doc, suggest code changes from where you're already coding — your IDE and on anything in your project, not just on the lines of code changed in the PR. [Learn more](https://gitkraken.com/solutions/code-suggest?utm_source=gitlens-extension&utm_medium=in-app-links)\n\n**Cloud Patches** ᴘʀᴇᴠɪᴇᴡ\n\nEasily and securely share code changes with your teammates or other developers by creating a Cloud Patch from your WIP, commit or stash and sharing the generated link. Use Cloud Patches to collaborate early for feedback on direction, approach, and more, to minimize rework and streamline your workflow. [Learn more](https://gitkraken.com/solutions/cloud-patches?utm_source=gitlens-extension&utm_medium=in-app-links)\n\n[Open Cloud Patches](command:gitlens.showDraftsView)",
-						"media": {
-							"altText": "Illustrations of Code Suggest & Cloud Patches",
-							"image": "walkthroughs/welcome/code-collab.png"
-						},
-						"when": "!config.gitlens.test.newWalkthrough"
-					},
-					{
-						"id": "integrations",
-						"title": "Integrate with Git Hosting & Issue Services",
-						"description": "GitLens automatically detects patterns in commit messages to generate autolinks to pull requests and issues for Git hosting services including GitHub, GitLab, Gitea, Gerrit, Google Source, Bitbucket, Azure DevOps, and custom servers.\n\n[Configure autolinks](command:gitlens.showSettingsPage!autolinks) for custom pattern-matching with other services.\n\n**Rich Integrations with GitHub, GitLab, and Jira**\nConnect [GitHub](command:gitlens.connectRemoteProvider), [GitLab](command:gitlens.connectRemoteProvider), and [Jira](command:gitlens.plus.cloudIntegrations.connect?%7B%22integrationIds%22%3A%5B%22jira%22%5D%2C%22source%22%3A%22walkthrough%22%2C%22detail%22%3A%7B%22action%22%3A%22connect%22%2C%22integration%22%3A%22jira%22%7D%7D) integrations to enhance autolinks with more data available via APIs, associate branches and commits with PRs, and review pull requests within VS Code.",
-						"media": {
-							"markdown": "walkthroughs/welcome/integrations.md"
-						},
-						"when": "!config.gitlens.test.newWalkthrough"
-					},
-					{
-						"id": "more",
-						"title": "And More!",
-						"description": "**Rebase got you down?**\nEasily visualize and configure interactive rebase operations with the intuitive and user-friendly Interactive Rebase Editor\n\n**Trouble remembering Git commands?**\nNow you don't have to with the Git Command Palette — a guided, step-by-step experience to many common Git commands.\n\n[Open Git Command Palette](command:gitlens.gitCommands)\n\n**Terminal your jam?**\nQuickly jump to more details on commits, branches, tags, and more with autolinks in the Integrated Terminal.\n\n**Not sure what you are looking for?**\nOpen the Command Palette and explore the many available commands.\n\n[Open GitLens Commands](command:workbench.action.quickOpen?%22>GitLens%3A%22)",
-						"media": {
-							"markdown": "walkthroughs/welcome/more-features.md"
-						},
-						"when": "!config.gitlens.test.newWalkthrough"
+						]
 					}
 				]
 			}
