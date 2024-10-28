@@ -205,8 +205,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				doneCount: this.container.walkthrough.doneCount,
 				progress: this.container.walkthrough.progress,
 			},
-			showWalkthroughProgress:
-				!this.getWalkthroughDismissed() && configuration.getAny('gitlens.test.newWalkthrough'),
+			showWalkthroughProgress: !this.getWalkthroughDismissed(),
 		};
 	}
 

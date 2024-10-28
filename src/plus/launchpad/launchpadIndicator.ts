@@ -541,7 +541,7 @@ export class LaunchpadIndicator implements Disposable {
 				switch (action) {
 					case 'info': {
 						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-							step: 'launchpad',
+							step: 'accelerate-pr-reviews',
 							source: 'launchpad-indicator',
 							detail: 'info',
 						});
