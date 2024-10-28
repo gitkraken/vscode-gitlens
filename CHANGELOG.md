@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds new ability to search for a GitHub PR in the _Launchpad;_ closes [#3543](https://github.com/gitkraken/vscode-gitlens/issues/3543)
+
 ## [15.6.2] - 2024-10-17
 
 ### Fixed

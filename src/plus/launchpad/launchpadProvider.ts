@@ -320,7 +320,7 @@ export class LaunchpadProvider implements Disposable {
 		return { prs: prs, suggestionCounts: suggestionCounts };
 	}
 
-	private async getSearchedPullRequests(search: string) {
+	private async getSearchedPullRequests(search: string, cancellation?: CancellationToken) {
 		// TODO: This needs to be generalized to work outside of GitHub,
 		// The current idea is that we should iterate the connected integrations and apply their parsing.
 		// Probably we even want to build a map like this: { integrationId: identity }
@@ -328,25 +328,34 @@ export class LaunchpadProvider implements Disposable {
 		const { ownerAndRepo, prNumber } = getPullRequestIdentityValuesFromSearch(search);
 		let result: TimedResult<SearchedPullRequest[] | undefined> | undefined;
 
-		if (prNumber != null) {
-			if (ownerAndRepo != null) {
-				// TODO: This needs to be generalized to work outside of GitHub
-				const integration = await this.container.integrations.get(HostingIntegrationId.GitHub);
-				const [owner, repo] = ownerAndRepo.split('/', 2);
-				const descriptor: GitHubRepositoryDescriptor = {
-					key: ownerAndRepo,
-					owner: owner,
-					name: repo,
-				};
-				const pr = await withDurationAndSlowEventOnTimeout(
-					integration?.getPullRequest(descriptor, prNumber),
-					'getPullRequest',
-					this.container,
-				);
-				if (pr?.value != null) {
-					result = { value: [{ pullRequest: pr.value, reasons: [] }], duration: pr.duration };
-					return { prs: result, suggestionCounts: undefined };
-				}
+		if (prNumber != null && ownerAndRepo != null) {
+			// TODO: This needs to be generalized to work outside of GitHub
+			const integration = await this.container.integrations.get(HostingIntegrationId.GitHub);
+			const [owner, repo] = ownerAndRepo.split('/', 2);
+			const descriptor: GitHubRepositoryDescriptor = {
+				key: ownerAndRepo,
+				owner: owner,
+				name: repo,
+			};
+			const pr = await withDurationAndSlowEventOnTimeout(
+				integration?.getPullRequest(descriptor, prNumber),
+				'getPullRequest',
+				this.container,
+			);
+			if (pr?.value != null) {
+				result = { value: [{ pullRequest: pr.value, reasons: [] }], duration: pr.duration };
+				return { prs: result, suggestionCounts: undefined };
+			}
+		} else {
+			const integration = await this.container.integrations.get(HostingIntegrationId.GitHub);
+			const prs = await withDurationAndSlowEventOnTimeout(
+				integration?.searchPullRequests(search, undefined, cancellation),
+				'searchPullRequests',
+				this.container,
+			);
+			if (prs != null) {
+				result = { value: prs.value?.map(pr => ({ pullRequest: pr, reasons: [] })), duration: prs.duration };
+				return { prs: result, suggestionCounts: undefined };
 			}
 		}
 		return { prs: undefined, suggestionCounts: undefined };
@@ -679,7 +688,7 @@ export class LaunchpadProvider implements Disposable {
 				this.container.git.isDiscoveringRepositories,
 				this.getEnrichedItems({ force: options?.force, cancellation: cancellation }),
 				options?.search
-					? this.getSearchedPullRequests(options.search)
+					? this.getSearchedPullRequests(options.search, cancellation)
 					: this.getPullRequestsWithSuggestionCounts({ force: options?.force, cancellation: cancellation }),
 			]);
 
@@ -1106,6 +1115,7 @@ function withDurationAndSlowEventOnTimeout<T>(
 	promise: Promise<T>,
 	name:
 		| 'getPullRequest'
+		| 'searchPullRequests'
 		| 'getMyPullRequests'
 		| 'getCodeSuggestionCounts'
 		| 'getCodeSuggestions'
