@@ -296,6 +296,7 @@ export type TelemetryEvents = {
 		timeout: number;
 		operation:
 			| 'getPullRequest'
+			| 'searchPullRequests'
 			| 'getMyPullRequests'
 			| 'getCodeSuggestions'
 			| 'getEnrichedItems'

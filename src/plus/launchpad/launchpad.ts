@@ -518,6 +518,22 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			};
 		}
 
+		const combineQuickpickItemsWithSearchResults = <T extends { item: { id: string } } | object>(
+			arr: readonly T[],
+			items: T[],
+		) => {
+			const ids: Set<string> = new Set(
+				arr.map(i => 'item' in i && i.item?.id).filter(id => typeof id === 'string'),
+			);
+			const result = [...arr];
+			for (const item of items) {
+				if ('item' in item && item.item?.id && !ids.has(item.item.id)) {
+					result.push(item);
+				}
+			}
+			return result;
+		};
+
 		const updateItems = async (
 			quickpick: QuickPick<LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
 		) => {
@@ -536,7 +552,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					}
 					const { items, placeholder } = getItemsAndPlaceholder(Boolean(search));
 					quickpick.placeholder = placeholder;
-					quickpick.items = items;
+					quickpick.items = search ? combineQuickpickItemsWithSearchResults(quickpick.items, items) : items;
 				});
 			} finally {
 				quickpick.busy = false;
@@ -577,11 +593,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				quickpick.items =
 					updated && quickpick.items === consideredItems ? [...consideredItems] : consideredItems;
 
-				const activeLaunchpadItems = quickpick.activeItems.filter(
-					(i): i is LaunchpadItemQuickPickItem => 'item' in i,
-				);
-
-				if (!value?.length || activeLaunchpadItems.length) {
+				if (!value?.length) {
 					// Nothing to search
 					this.updateItemsDebouncer.cancel();
 					return true;
@@ -593,7 +605,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				// Then when we iterate local items we can check them to corresponding identitie according to the item's repo type.
 				// Same with API: we iterate connected integrations and search in each of them with the corresponding identity.
 				const prUrlIdentity = getPullRequestIdentityValuesFromSearch(value);
+
 				if (prUrlIdentity.prNumber != null) {
+					// We can identify the PR number, so let's try to find it locally:
 					const launchpadItems = quickpick.items.filter((i): i is LaunchpadItemQuickPickItem => 'item' in i);
 					let item = launchpadItems.find(i =>
 						// perform strict match first
@@ -608,16 +622,15 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							item.alwaysShow = true;
 							// Force quickpick to update by changing the items object:
 							quickpick.items = [...quickpick.items];
-							// We have found an item that matches to the URL.
-							// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
-							this.updateItemsDebouncer.cancel();
-							return true;
 						}
-						// Nothing is found above, so let's perform search in the API:
-						await updateItems(quickpick);
+						// We have found an item that matches to the URL.
+						// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
+						this.updateItemsDebouncer.cancel();
+						return true;
 					}
 				}
-				this.updateItemsDebouncer.cancel();
+
+				await updateItems(quickpick);
 				return true;
 			},
 			onDidClickButton: async (quickpick, button) => {
