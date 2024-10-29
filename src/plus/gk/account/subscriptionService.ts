@@ -242,6 +242,9 @@ export class SubscriptionService implements Disposable {
 			registerCommand(Commands.PlusManage, (src?: Source) => this.manage(src)),
 			registerCommand(Commands.PlusShowPlans, (src?: Source) => this.showPlans(src)),
 			registerCommand(Commands.PlusStartPreviewTrial, (src?: Source) => this.startPreviewTrial(src)),
+			registerCommand(Commands.PlusStartFeaturePreviewTrial, (src?: Source) =>
+				this.startFeaturePreviewTrial(src),
+			),
 			registerCommand(Commands.PlusReactivateProTrial, (src?: Source) => this.reactivateProTrial(src)),
 			registerCommand(Commands.PlusResendVerification, (src?: Source) => this.resendVerification(src)),
 			registerCommand(Commands.PlusUpgrade, (src?: Source) => this.upgrade(src)),
@@ -702,6 +705,10 @@ export class SubscriptionService implements Disposable {
 			);
 		}, 1);
 	}
+
+	@gate(() => '')
+	@log()
+	async startFeaturePreviewTrial(_: Source | undefined): Promise<void> {}
 
 	@log()
 	async upgrade(source: Source | undefined): Promise<void> {

@@ -44,7 +44,7 @@ import type { GitWorktree, WorktreeQuickPickItem } from '../git/models/worktree'
 import { createWorktreeQuickPickItem, getWorktreesByBranch, sortWorktrees } from '../git/models/worktree';
 import { remoteUrlRegex } from '../git/parsers/remoteParser';
 import { getApplicablePromo } from '../plus/gk/account/promos';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/account/subscription';
+import { isSubscriptionPaidPlan } from '../plus/gk/account/subscription';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
@@ -2645,7 +2645,7 @@ export async function* ensureAccessStep<
 				createQuickPickSeparator(),
 				createDirectiveQuickPickItem(Directive.Cancel),
 			);
-		} else if (
+		} /*else if (
 			access.subscription.current.account == null &&
 			!isSubscriptionPreviewTrialExpired(access.subscription.current)
 		) {
@@ -2654,7 +2654,7 @@ export async function* ensureAccessStep<
 				createQuickPickSeparator(),
 				createDirectiveQuickPickItem(Directive.Cancel),
 			);
-		} else {
+		}*/ else {
 			directives.push(
 				createDirectiveQuickPickItem(Directive.StartProTrial, true),
 				createDirectiveQuickPickItem(Directive.SignIn),

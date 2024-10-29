@@ -2,7 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { urls } from '../../../../../constants';
 import { Commands } from '../../../../../constants.commands';
-import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription';
+import { proPreviewLengthInDays, proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
@@ -70,6 +70,9 @@ export class GlFeatureGatePlusState extends LitElement {
 	@query('gl-button')
 	private readonly button!: GlButton;
 
+	@property({ type: Boolean })
+	allowFeaturePreviewTrial?: boolean;
+
 	@property({ type: String })
 	appearance?: 'alert' | 'welcome';
 
@@ -97,6 +100,8 @@ export class GlFeatureGatePlusState extends LitElement {
 		this.hidden = false;
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
 		const promo = this.state ? getApplicablePromo(this.state, 'gate') : undefined;
+		const consumedDays = 0;
+		//this.container.storage.get(`plus:featurePreviewTrial:${this.source?.source}:consumedDays`) ?? 0;
 
 		const feature = this.source?.source || '';
 
@@ -122,15 +127,16 @@ export class GlFeatureGatePlusState extends LitElement {
 
 			case SubscriptionState.Community:
 			case SubscriptionState.ProPreviewExpired:
-				if (feature === 'graph' && this.state === SubscriptionState.Community) {
+				if (this.allowFeaturePreviewTrial && this.state === SubscriptionState.Community) {
 					return html`
 						<gl-button
 							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusStartPreviewTrial, this.source)}"
+							href="${generateCommandLink(Commands.PlusStartFeaturePreviewTrial, this.source)}"
 							>Continue</gl-button
 						>
 						<p>
-							Continuing gives you 3 days to preview
+							Continuing gives you ${proPreviewLengthInDays - consumedDays}
+							day${proPreviewLengthInDays - consumedDays !== 1 ? 's' : ''} to preview
 							${this.featureWithArticleIfNeeded
 								? `${this.featureWithArticleIfNeeded}  and other `
 								: ''}local

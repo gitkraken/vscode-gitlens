@@ -1530,6 +1530,7 @@ export function GraphWrapper({
 			</header>
 			<GlFeatureGate
 				className="graph-app__gate"
+				allowFeaturePreviewTrial={true}
 				appearance="alert"
 				featureWithArticleIfNeeded="the Commit Graph"
 				source={{ source: 'graph', detail: 'gate' }}

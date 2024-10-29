@@ -90,6 +90,9 @@ export class GlFeatureGate extends LitElement {
 		}
 	`;
 
+	@property({ type: Boolean })
+	allowFeaturePreviewTrial?: boolean;
+
 	@property({ reflect: true })
 	appearance?: 'alert' | 'welcome';
 
@@ -126,6 +129,7 @@ export class GlFeatureGate extends LitElement {
 					.featureWithArticleIfNeeded=${this.featureWithArticleIfNeeded}
 					.source=${this.source}
 					.state=${this.state}
+					.allowFeaturePreviewTrial=${this.allowFeaturePreviewTrial}
 				></gl-feature-gate-plus-state>
 			</section>
 		`;

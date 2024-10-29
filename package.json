@@ -5727,11 +5727,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.plus.startPreviewTrial",
-				"title": "Preview Pro",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.plus.reactivateProTrial",
 				"title": "Reactivate Pro Trial",
 				"category": "GitLens"
@@ -10274,10 +10269,6 @@
 				},
 				{
 					"command": "gitlens.plus.signUp",
-					"when": "!gitlens:plus"
-				},
-				{
-					"command": "gitlens.plus.startPreviewTrial",
 					"when": "!gitlens:plus"
 				},
 				{
