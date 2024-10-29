@@ -3040,7 +3040,9 @@ export class GitHubApi implements Disposable {
 		const scope = getLogScope();
 
 		interface SearchResult {
-			nodes: GitHubPullRequest[];
+			search: {
+				nodes: GitHubPullRequest[];
+			};
 		}
 
 		try {
@@ -3048,7 +3050,7 @@ export class GitHubApi implements Disposable {
 	$searchQuery: String!
 	$avatarSize: Int
 ) {
-	search(first: 100, query: $searchQuery, type: ISSUE) {
+	search(first: 10, query: $searchQuery, type: ISSUE) {
 		nodes {
 			...on PullRequest {
 				${gqlPullRequestFragment}
@@ -3082,7 +3084,7 @@ export class GitHubApi implements Disposable {
 			);
 			if (rsp == null) return [];
 
-			const results = rsp.nodes.map(pr => fromGitHubPullRequest(pr, provider));
+			const results = rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider));
 			return results;
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
