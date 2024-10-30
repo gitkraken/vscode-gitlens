@@ -808,6 +808,7 @@ export class ViewCommands {
 				pr.refs.head.branch,
 				repoIdentity.remote.url,
 				DeepLinkActionType.SwitchToPullRequestWorktree,
+				pr,
 			);
 
 			const prRepo = await getOrOpenPullRequestRepository(this.container, pr, {
