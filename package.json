@@ -17552,7 +17552,7 @@
 			{
 				"view": "gitlens.views.worktrees",
 				"contents": "[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22worktrees%22%7D)",
-				"when": "gitlens:plus:required && gitlens:plus:state == 4"
+				"when": "gitlens:plus:required && (gitlens:plus:state == 4 || gitlens:plus:state == 7)"
 			},
 			{
 				"view": "gitlens.views.worktrees",
@@ -17562,12 +17562,12 @@
 			{
 				"view": "gitlens.views.worktrees",
 				"contents": "Launchpad sale: Save 75% or more on GitLens Pro",
-				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == launchpad-extended"
+				"when": "gitlens:plus:required && (gitlens:plus:state == 4 || gitlens:plus:state == 7) && gitlens:promo == launchpad-extended"
 			},
 			{
 				"view": "gitlens.views.worktrees",
 				"contents": "Limited-time sale: Save up to 80% on GitLen Pro",
-				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == devexdays"
+				"when": "gitlens:plus:required && (gitlens:plus:state == 4 ||  gitlens:plus:state == 7) && gitlens:promo == devexdays"
 			},
 			{
 				"view": "gitlens.views.worktrees",
@@ -17848,6 +17848,15 @@
 							"markdown": "walkthroughs/welcome/pro-paid.md"
 						},
 						"when": "gitlens:plus:state == 6"
+					},
+					{
+						"id": "pro-expired-reactivate",
+						"title": "Reactivate Pro Power-up",
+						"description": "Reactivate your Pro account and experience all the new [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) and the full [GitKraken DevEx platform](https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links).\n\n[Reactivate Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22walkthrough%22%7D)\n\n**Pro Features**\n$(gitlens-graph)  [Commit Graph](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize your repository and keep track of all work in progress\n$(rocket)  [Launchpad](command:gitlens.openWalkthrough?%7B%22step%22%3A%22launchpad%22,%22source%22%3A%22walkthrough%22%7D) — stay focused and keep your team unblocked\n$(gitlens-code-suggestion)  [Code Suggest](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — free your code reviews from unnecessary restrictions\n$(gitlens-cloud-patch)  [Cloud Patches](command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22walkthrough%22%7D) — easily and securely share code with your teammates\n$(gitlens-worktrees-view)  **Worktrees** — work on multiple branches simultaneously\n$(gitlens-workspaces-view)  **Workspaces** — group and manage multiple repositories together\n$(graph-scatter)  [Visual File History](command:gitlens.openWalkthrough?%7B%22step%22%3A%22visualize%22,%22source%22%3A%22walkthrough%22%7D) — visualize the evolution of a file and quickly identify when the most impactful changes were made and by whom",
+						"media": {
+							"markdown": "walkthroughs/welcome/pro-reactivate.md"
+						},
+						"when": "gitlens:plus:state == 7"
 					},
 					{
 						"id": "visualize",

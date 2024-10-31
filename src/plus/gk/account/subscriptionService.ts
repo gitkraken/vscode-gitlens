@@ -311,6 +311,12 @@ export class SubscriptionService implements Disposable {
 					step: 'pro-paid',
 				});
 				break;
+			case SubscriptionState.PaidExpired:
+				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					...source,
+					step: 'pro-expired-reactivate',
+				});
+				break;
 		}
 	}
 
@@ -716,7 +722,6 @@ export class SubscriptionService implements Disposable {
 		const days = proPreviewLengthInDays;
 		const subscription = getPreviewSubscription(days, this._subscription);
 		this.changeSubscription(subscription);
-
 		setTimeout(async () => {
 			const confirm: MessageItem = { title: 'Continue' };
 			const learn: MessageItem = { title: 'See Pro Features' };
@@ -1224,6 +1229,7 @@ export class SubscriptionService implements Disposable {
 						undefined,
 						new Date(subscription.previewTrial.startedOn),
 						new Date(subscription.previewTrial.expiresOn),
+						true,
 					),
 				},
 			};

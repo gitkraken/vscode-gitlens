@@ -40,6 +40,7 @@ export interface SubscriptionPlan {
 	readonly startedOn: string;
 	readonly expiresOn?: string | undefined;
 	readonly organizationId: string | undefined;
+	readonly isTrial: boolean;
 }
 
 export interface SubscriptionAccount {
@@ -93,6 +94,8 @@ export function getSubscriptionStateString(state: SubscriptionState | undefined)
 			return 'trial-reactivation-eligible';
 		case SubscriptionState.Paid:
 			return 'paid';
+		case SubscriptionState.PaidExpired:
+			return 'paid-expired';
 		default:
 			return 'unknown';
 	}
@@ -123,6 +126,10 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 			case SubscriptionPlanId.Pro:
 			case SubscriptionPlanId.Teams:
 			case SubscriptionPlanId.Enterprise:
+				if (effective.expiresOn != null && new Date(effective.expiresOn) < new Date()) {
+					return SubscriptionState.PaidExpired;
+				}
+
 				return SubscriptionState.Paid;
 		}
 	}
@@ -146,6 +153,10 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 
 		case SubscriptionPlanId.Teams:
 		case SubscriptionPlanId.Enterprise:
+			if (effective.expiresOn != null && new Date(effective.expiresOn) < new Date()) {
+				return SubscriptionState.PaidExpired;
+			}
+
 			return SubscriptionState.Paid;
 	}
 }
@@ -159,6 +170,7 @@ export function getSubscriptionPlan(
 	expiresOn?: Date,
 	cancelled: boolean = false,
 	nextTrialOptInDate?: string,
+	isTrial: boolean = false,
 ): SubscriptionPlan {
 	return {
 		id: id,
@@ -170,6 +182,7 @@ export function getSubscriptionPlan(
 		nextTrialOptInDate: nextTrialOptInDate,
 		startedOn: (startedOn ?? new Date()).toISOString(),
 		expiresOn: expiresOn != null ? expiresOn.toISOString() : undefined,
+		isTrial: isTrial,
 	};
 }
 
@@ -230,7 +243,7 @@ export function isSubscriptionExpired(subscription: Optional<Subscription, 'stat
 }
 
 export function isSubscriptionTrial(subscription: Optional<Subscription, 'state'>): boolean {
-	return subscription.plan.actual.id !== subscription.plan.effective.id;
+	return subscription.plan.effective.isTrial;
 }
 
 export function isSubscriptionInProTrial(subscription: Optional<Subscription, 'state'>): boolean {

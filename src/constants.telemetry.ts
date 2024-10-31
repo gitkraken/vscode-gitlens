@@ -395,6 +395,7 @@ export type TelemetryEvents = {
 			| 'pro-trial'
 			| 'pro-upgrade'
 			| 'pro-reactivate'
+			| 'pro-expired-reactivate'
 			| 'pro-paid'
 			| 'visualize'
 			| 'launchpad'
