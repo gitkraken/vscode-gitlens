@@ -911,7 +911,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					iconPath: new ThemeIcon('rocket'),
 					onDidSelect: () =>
 						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-							step: 'launchpad',
+							step: 'accelerate-pr-reviews',
 							source: 'launchpad',
 							detail: 'info',
 						}),

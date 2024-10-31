@@ -17803,7 +17803,7 @@
 				"steps": [
 					{
 						"id": "welcome-in-trial",
-						"title": "Welcome to GitLens",
+						"title": "Welcome to GitLens Pro",
 						"description": "Thanks for starting your **GitLens Pro** trial.\n\nComplete this walkthrough to experience enhanced PR review tools, deeper code history visualizations, and streamlined collaboration to help boost your productivity.\n\n[Continue the Walkthrough](command:gitlens.openWalkthrough)\n\nOnce your trial ends, you’ll return to **GitLens Community** — where you can still leverage features like in-editor blame annotations, hovers, CodeLens, and more. [Upgrade to GitLens Pro](command:gitlens.plus.upgrade) today to continue enjoying the full experience.\n\n[Upgrade to GitLens Pro](command:gitlens.plus.upgrade)",
 						"media": {
 							"markdown": "walkthroughs/welcome/welcome-in-trial.md"
@@ -17847,12 +17847,12 @@
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:gettingStarted == true"
 						],
-						"when": "gitlens:plus:state <= 0"
+						"when": "|| gitlens:plus:state <= 0"
 					},
 					{
 						"id": "visualize-code-history",
 						"title": "Interactive Code History",
-						"description": "$(gitlens-gitlens)  **Blame Annotations and Hovers**\n\nSee who changed what and why, without leaving your editor, through in-editor blame annotations, hover, and CodeLens.\n\n$(gitlens-graph) **Visual Commit Graph & Search**\n\nEasily follow complex Git histories, branches and search with the interactive Commit Graph for a clear view of repo changes.\n\n[View your Commit Graph](command:gitlens.showGraph)\n\n$(gitlens-gitlens-inspect)  **GitLens Inspect**\n\nEfficiently jump through the revision history of files, folders, and selected lines for the contextual info you need. Open [GitLens Inspect](command:workbench.view.extension.gitlensInspect)\n\n$(gitlens-play-button) [Watch a video on Visualize Code History](https://example.com)",
+						"description": "$(gitlens-gitlens)  **Blame Annotations and Hovers**\n\nSee who changed what and why, without leaving your editor, through in-editor blame annotations, hover, and CodeLens.\n\n$(gitlens-graph) **Visual Commit Graph & Search**\n\nEasily follow complex Git histories, branches and search with the interactive Commit Graph for a clear view of repo changes.\n\n[View your Commit Graph](command:gitlens.showGraph)\n\n$(gitlens-gitlens-inspect)  **GitLens Inspect**\n\nEfficiently jump through the revision history of files, folders, and selected lines for the contextual info you need. Open [GitLens Inspect](command:workbench.view.extension.gitlensInspect)\n\n$(gitlens-play-button) [Watch a video on Visualize Code History](https://help.gitkraken.com/gitlens/gitlens-home/#interactive-code-history)",
 						"media": {
 							"markdown": "walkthroughs/welcome/visualize-code-history.md"
 						},
@@ -17863,7 +17863,7 @@
 					{
 						"id": "accelerate-pr-reviews",
 						"title": "Accelerate PR Reviews",
-						"description": "$(gitlens-rocket-filled) **Launchpad - PR Hub**\n\nManage GitHub PRs by status, helping you quickly prioritize tasks in your workflow and identify bottlenecks —all within VS Code.\n\n[View My PRs in Launchpad](command:gitlens.showLaunchpadView)\n\n💡 **Integrate your Github or host provider** to use Launchpad and accelerate PR reviews\n\n$(folder-opened) **Worktrees - Multi-branch efficiency**\n\nWork on multiple branches simultaneously—hotfixes, new features, or experiments—without disrupting your main workspace.\n\n\n[Add a worktree](command:gitlens.gitCommands.worktree.create)\n$(gitlens-play-button) [Watch a video on Accelerate PR Reviews](http://example.com)",
+						"description": "$(gitlens-rocket-filled) **Launchpad - PR Hub**\n\nManage GitHub PRs by status, helping you quickly prioritize tasks in your workflow and identify bottlenecks —all within VS Code.\n\n[View My PRs in Launchpad](command:gitlens.showLaunchpadView)\n\n💡 **Integrate your Github or host provider** to use Launchpad and accelerate PR reviews\n\n$(folder-opened) **Worktrees - Multi-branch efficiency**\n\nWork on multiple branches simultaneously—hotfixes, new features, or experiments—without disrupting your main workspace.\n\n\n[Add a worktree](command:gitlens.gitCommands.worktree.create)\n$(gitlens-play-button) [Watch a video on Accelerate PR Reviews](https://help.gitkraken.com/gitlens/gitlens-home/#accelerate-pr-reviews)",
 						"media": {
 							"markdown": "walkthroughs/welcome/accelerate-pr-reviews.md"
 						},
@@ -17874,7 +17874,7 @@
 					{
 						"id": "streamline-collaboration",
 						"title": "Streamline Collaboration",
-						"description": "$(gitlens-cloud-patch) **Cloud Patches - Work on feedback before PRs**\n\nMake your work accessible anytime, anywhere without having to commit to the repo or disrupt CI. Keep up your team’s momentum with Cloud Patches.\n\n[Open Cloud Patches](command:gitlens.views.drafts.focus)\n\n$(gitlens-code-suggestion) **Code Suggest**\n\nTake action on GitHub & GitLab PRs right from GitLens. Review code suggestions, and send suggestions to GitKraken users on your team.\n\n$(gitlens-play-button) [Watch a video on GitLens Collaboration](https://example.com)",
+						"description": "$(gitlens-cloud-patch) **Cloud Patches - Work on feedback before PRs**\n\nMake your work accessible anytime, anywhere without having to commit to the repo or disrupt CI. Keep up your team’s momentum with Cloud Patches.\n\n[Open Cloud Patches](command:gitlens.views.drafts.focus)\n\n$(gitlens-code-suggestion) **Code Suggest**\n\nTake action on GitHub & GitLab PRs right from GitLens. Review code suggestions, and send suggestions to GitKraken users on your team.\n\n$(gitlens-play-button) [Watch a video on GitLens Collaboration](https://help.gitkraken.com/gitlens/gitlens-home/#streamline-collaboration)",
 						"media": {
 							"markdown": "walkthroughs/welcome/streamline-collaboration.md"
 						},
@@ -17885,7 +17885,7 @@
 					{
 						"id": "improve-workflows-with-integrations",
 						"title": "Improve Workflows With Integrations",
-						"description": "**Integrations**\n\nReduce context switching and increase productivity by connecting to GitHub, GitLab, Azure DevOps, and Bitbucket to sync repos and track issues effortlessly in Launchpad - your PR hub.\n\n[Connect Integrations](command:gitlens.plus.cloudIntegrations.connect)\n\n**Autolinks**\n\nAll integrations provide automatic linking, which enables you to link to external services like Jira, and Trello.\n\n**Customize Autolinks**\n\nConfigure autolinks for custom pattern-matching with other services to easily link external references, such as Jira issues or Zendesk tickets, directly in your commit messages.\n\n**[Configure autolinks](command:gitlens.showSettingsPage!autolinks)**\n\n$(gitlens-play-button) [Watch a video on Integrations](https://example.com)",
+						"description": "**Integrations**\n\nReduce context switching and increase productivity by connecting to GitHub, GitLab, Azure DevOps, and Bitbucket to sync repos and track issues effortlessly in Launchpad - your PR hub.\n\n[Connect Integrations](command:gitlens.plus.cloudIntegrations.connect)\n\n**Autolinks**\n\nAll integrations provide automatic linking, which enables you to link to external services like Jira, and Trello.\n\n**Customize Autolinks**\n\nConfigure autolinks for custom pattern-matching with other services to easily link external references, such as Jira issues or Zendesk tickets, directly in your commit messages.\n\n**[Configure autolinks](command:gitlens.showSettingsPage!autolinks)**\n\n$(gitlens-play-button) [Watch a video on Integrations](https://help.gitkraken.com/gitlens/gitlens-start-here/#integrations)",
 						"media": {
 							"markdown": "walkthroughs/welcome/improve-workflows-with-integrations.md"
 						},
