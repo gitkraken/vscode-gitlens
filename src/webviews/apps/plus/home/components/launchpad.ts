@@ -32,7 +32,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				display: block;
 				font-family: var(--vscode-font-family);
 				color: var(--vscode-foreground);
-				margin-bottom: 1.6rem;
+				margin-bottom: 2.4rem;
 			}
 			.summary {
 				margin-bottom: 1rem;
@@ -42,6 +42,9 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				list-style: none;
 				padding-inline-start: 0;
 				margin-block-start: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 0.4rem;
 			}
 
 			.launchpad-action {
@@ -77,6 +80,12 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 			.launchpad-action--attention {
 				--gl-launchpad-action-color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
 				--gl-launchpad-action-hover-color: var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);
+			}
+
+			.loader {
+				display: flex;
+				flex-direction: column;
+				gap: 0.4rem;
 			}
 		`,
 	];
@@ -116,10 +125,19 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		}
 
 		return this._summaryState.render({
-			pending: () => html`<span>Loading...</span>`,
+			pending: () => this.renderPending(),
 			complete: summary => this.renderSummary(summary),
 			error: () => html`<span>Error</span>`,
 		});
+	}
+
+	private renderPending() {
+		return html`
+			<div class="loader">
+				<skeleton-loader lines="1"></skeleton-loader>
+				<skeleton-loader lines="1"></skeleton-loader>
+			</div>
+		`;
 	}
 
 	private renderSummary(summary: LaunchpadSummary | undefined) {

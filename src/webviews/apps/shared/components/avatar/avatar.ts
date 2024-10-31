@@ -14,25 +14,44 @@ export class GlAvatar extends LitElement {
 
 			.avatar {
 				display: inline-flex;
-				width: 1.6rem;
+				width: var(--gl-avatar-size, 1.6rem);
 				aspect-ratio: 1;
 				vertical-align: middle;
 				border-radius: 100%;
 			}
 
 			.thumb {
+				border-radius: 50%;
+			}
+
+			.thumb--text {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 0.8rem;
+				line-height: 1;
+				text-transform: uppercase;
+				cursor: default;
+			}
+
+			.thumb--media {
+				display: block;
 				width: 100%;
 				height: auto;
-				border-radius: 100%;
+				object-fit: cover;
+				object-position: 50% 50%;
 			}
 		`,
 	];
 
 	@property()
-	url = 'https://www.gravatar.com/avatar/?s=32&d=robohash';
+	src?: string;
 
 	@property()
 	name?: string;
+
+	@property()
+	href?: string;
 
 	override render() {
 		if (this.name) {
@@ -43,6 +62,18 @@ export class GlAvatar extends LitElement {
 	}
 
 	private renderAvatar() {
-		return html`<span class="avatar"><img class="thumb" src="${this.url}" alt="${this.name}" /></span>`;
+		if (this.href) {
+			return html`<a href=${this.href} class="avatar">${this.renderContent()}</a>`;
+		}
+
+		return html`<span class="avatar">${this.renderContent()}</span>`;
+	}
+
+	private renderContent() {
+		if (!this.src) {
+			return html`<slot class="thumb thumb--text"></slot>`;
+		}
+
+		return html`<img class="thumb thumb--media" src="${this.src}" alt="${this.name}" />`;
 	}
 }

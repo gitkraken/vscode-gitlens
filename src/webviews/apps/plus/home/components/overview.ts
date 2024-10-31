@@ -6,6 +6,7 @@ import type { GetOverviewResponse } from '../../../../home/protocol';
 import { sectionHeadingStyles } from './branch-section';
 import type { OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
+import '../../../shared/components/skeleton-loader';
 
 type Overview = GetOverviewResponse;
 
@@ -16,6 +17,10 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	static override styles = [
 		sectionHeadingStyles,
 		css`
+			:host {
+				display: block;
+				margin-bottom: 2.4rem;
+			}
 			.repository {
 				color: var(--vscode-foreground);
 			}
@@ -35,10 +40,17 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	override render() {
 		return this._overviewState.render({
-			pending: () => html`<span>Loading...</span>`,
+			pending: () => this.renderPending(),
 			complete: summary => this.renderComplete(summary),
 			error: () => html`<span>Error</span>`,
 		});
+	}
+
+	private renderPending() {
+		return html`
+			<h3 class="section-heading">Recent</h3>
+			<skeleton-loader lines="3"></skeleton-loader>
+		`;
 	}
 
 	private renderComplete(overview: Overview) {
@@ -48,11 +60,12 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		return html`
 			<div class="repository">
 				<gl-branch-section
-					label="RECENTLY MODIFIED (${repository.branches.recent.length})"
+					label="Recent (${repository.branches.recent.length})"
 					.branches=${repository.branches.recent}
 				></gl-branch-section>
 				<gl-branch-section
-					label="STALE (${repository.branches.stale.length})"
+					hidden
+					label="Stale (${repository.branches.stale.length})"
 					.branches=${repository.branches.stale}
 				></gl-branch-section>
 			</div>
