@@ -48,7 +48,6 @@ export class AsyncComputedState<T, R = unknown> {
 			}
 		}
 	}
-
 	run() {
 		this.state.run();
 	}

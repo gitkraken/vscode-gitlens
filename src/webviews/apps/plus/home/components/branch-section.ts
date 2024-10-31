@@ -5,8 +5,12 @@ import type { GitTrackingState } from '../../../../../git/models/branch';
 import type { GetOverviewBranch } from '../../../../home/protocol';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/avatar/avatar';
+import '../../../shared/components/avatar/avatar-list';
 import '../../../shared/components/card/card';
+import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/formatted-date';
+import '../../../shared/components/pills/tracking';
+import '../../../shared/components/rich/pr-icon';
 
 type OverviewBranch = GetOverviewBranch;
 
@@ -37,6 +41,7 @@ export class GlBranchSection extends LitElement {
 		return html`
 			<div class="section">
 				<h3 class="section-heading">${this.label}</h3>
+				<slot></slot>
 				${this.branches.map(branch => html`<gl-branch-card .branch=${branch}></gl-branch-card>`)}
 			</div>
 		`;
@@ -44,45 +49,42 @@ export class GlBranchSection extends LitElement {
 }
 
 export const branchCardStyles = css`
-	.branch-item {
-	}
-
 	.pill {
 		display: inline-flex;
 		align-items: center;
 		/* gap: 0.4rem; */
-		padding: 0.2rem 0.4rem 0.2rem 0.8rem;
+		padding-block: 0.1rem;
+		padding-inline: 0.6rem 0.4rem;
 		margin-left: 0.4rem;
 		border-radius: 0.4rem;
-		border: 1px solid color-mix(in lab, var(--vscode-sideBar-foreground) 100%, #000 10%);
+		border: 1px solid color-mix(in lab, var(--vscode-sideBar-foreground, var(--vscode-foreground)) 100%, #000 10%);
 		/* background-color: var(--vscode-gitDecoration-untrackedResourceForeground); */
 	}
+
+	/* .branch-item {} */
 
 	.branch-item__main {
 		display: flex;
 		/* flex-direction: column; */
 		/* align-items: center; */
+		gap: 0.4rem;
 	}
 
 	.branch-item__icon {
 		margin-right: 0.4rem;
-		color: var(--vscode-gitDecoration-addedResourceForeground);
+		color: var(--color-foreground--50);
 	}
 
 	.branch-item__name {
-		font-weight: bold;
-		margin-right: 0.8rem;
-	}
-
-	.branch-item__pr-number {
-		color: var(--vscode-descriptionForeground);
-		margin-right: 0.8rem;
-	}
-	.branch-item__pr-title {
 		flex-grow: 1;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		font-weight: bold;
+	}
+
+	.branch-item__identifier {
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.branch-item__details {
@@ -92,6 +94,9 @@ export const branchCardStyles = css`
 		/* align-items: center; */
 		font-size: 0.9em;
 		color: var(--vscode-descriptionForeground);
+	}
+	.branch-item__details > * {
+		margin-block: 0;
 	}
 
 	.branch-item__main + .branch-item__main,
@@ -117,6 +122,25 @@ export const branchCardStyles = css`
 	.branch-item__more-actions {
 		margin-left: auto;
 	}
+
+	.branch-item__grouping {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2rem;
+		max-width: 100%;
+	}
+
+	.test1 {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.test1 .branch-item__grouping {
+		flex-grow: 1;
+		overflow: hidden;
+		margin-inline-start: auto;
+	}
 `;
 
 @customElement('gl-branch-card')
@@ -136,40 +160,37 @@ export class GlBranchCard extends LitElement {
 					${when(
 						pr,
 						() =>
-							html`<span class="branch-item__pr-title">${pr!.title}</span>
-								<span class="branch-item__pr-number">#${pr!.id}</span>`,
+							html`<span class="branch-item__name">${pr!.title}</span>
+								<span class="branch-item__identifier">#${pr!.id}</span>`,
 						() => html`<span class="branch-item__name">${name}</span>`,
 					)}
 				</p>
-				<p class="branch-item__details">
-					${this.renderAvatars(this.branch)}
-					${when(
-						pr,
-						() =>
-							html`<span
-								><span class="branch-item__icon">${this.renderIcon(this.branch, true)}</span
-								><span class="branch-item__name">${name}</span></span
-							>`,
-					)}
-					${this.renderStatus(workingTreeState, state)}
+				<div class="branch-item__details">
+					<p class="test1">
+						${this.renderAvatars(this.branch)} ${this.renderStatus(workingTreeState, state)}
+						${when(
+							pr,
+							() => html`
+								<span class="branch-item__grouping"
+									><span class="branch-item__icon">${this.renderIcon(this.branch, true)}</span
+									><span class="branch-item__name">${name}</span></span
+								>
+							`,
+						)}
+					</p>
 					${when(
 						date,
 						() =>
 							html`<formatted-date .date=${new Date(date!)} class="branch-item__date"></formatted-date>`,
 					)}
-				</p>
+				</div>
 			</gl-card>
 		`;
 	}
 
 	private renderIcon(branch: OverviewBranch, noPr?: boolean) {
 		if (branch.pr && !noPr) {
-			if (branch.pr.state === 'closed') {
-				return html`<code-icon icon="git-pull-request-closed"></code-icon>`;
-			} else if (branch.pr.state === 'merged') {
-				return html`<code-icon icon="git-merge"></code-icon>`;
-			}
-			return html`<code-icon icon="git-pull-request"></code-icon>`;
+			return html`<pr-icon state=${branch.pr.state}></pr-icon>`;
 		}
 		if (branch.worktree) {
 			return html`<code-icon icon="gl-repositories-view"></code-icon>`;
@@ -178,25 +199,23 @@ export class GlBranchCard extends LitElement {
 	}
 
 	private renderAvatars(branch: GetOverviewBranch) {
-		return html`
-			${when(
-				branch.contributors != null,
-				() =>
-					html`<div>
-						${branch.contributors!.map(
-							contributor =>
-								html`<gl-avatar url="${contributor.avatarUrl}" name=${contributor.name}></gl-avatar>`,
-						)}
-					</div>`,
-			)}
-			${when(
-				branch.owner,
-				() =>
-					html`<div>
-						<gl-avatar url="${branch.owner!.avatarUrl}" name=${branch.owner!.name}></gl-avatar>
-					</div>`,
-			)}
-		`;
+		const contributors = [];
+
+		if (branch.owner) {
+			contributors.push(branch.owner);
+		}
+
+		if (branch.contributors) {
+			contributors.push(...branch.contributors);
+		}
+
+		if (contributors.length === 0) {
+			return nothing;
+		}
+
+		return html`<gl-avatar-list
+			.avatars=${contributors.map(a => ({ name: a.name, src: a.avatarUrl }))}
+		></gl-avatar-list>`;
 	}
 
 	private renderStatus(
@@ -205,28 +224,46 @@ export class GlBranchCard extends LitElement {
 	) {
 		const rendered = [];
 		if (workingTreeState?.added || workingTreeState?.changed || workingTreeState?.deleted) {
-			if (workingTreeState.added) {
-				rendered.push(html`<span>${workingTreeState.added}<code-icon icon="add"></code-icon></span>`);
-			}
-			if (workingTreeState.changed) {
-				rendered.push(html`<span>${workingTreeState.changed}<code-icon icon="edit"></code-icon></span>`);
-			}
-			if (workingTreeState.deleted) {
-				rendered.push(html`<span>${workingTreeState.deleted}<code-icon icon="trash"></code-icon></span>`);
-			}
+			// if (workingTreeState.added) {
+			// 	rendered.push(html`<span>${workingTreeState.added}<code-icon icon="add"></code-icon></span>`);
+			// }
+			// if (workingTreeState.changed) {
+			// 	rendered.push(html`<span>${workingTreeState.changed}<code-icon icon="edit"></code-icon></span>`);
+			// }
+			// if (workingTreeState.deleted) {
+			// 	rendered.push(html`<span>${workingTreeState.deleted}<code-icon icon="trash"></code-icon></span>`);
+			// }
+
+			rendered.push(
+				html`<commit-stats
+					added=${workingTreeState.added}
+					modified=${workingTreeState.changed}
+					removed=${workingTreeState.deleted}
+					symbol="icons"
+				></commit-stats>`,
+			);
 		}
 
 		if (state?.ahead || state?.behind) {
-			if (state.ahead) {
-				rendered.push(html`<span class="pill">${state.ahead}<code-icon icon="arrow-up"></code-icon></span>`);
-			}
-			if (state.behind) {
-				rendered.push(html`<span class="pill">${state.behind}<code-icon icon="arrow-down"></code-icon></span>`);
-			}
+			// if (state.ahead) {
+			// 	rendered.push(html`<span class="pill">${state.ahead}<code-icon icon="arrow-up"></code-icon></span>`);
+			// }
+			// if (state.behind) {
+			// 	rendered.push(html`<span class="pill">${state.behind}<code-icon icon="arrow-down"></code-icon></span>`);
+			// }
+			rendered.push(
+				html`<gl-tracking-pill
+					colorized
+					outlined
+					ahead=${state.ahead}
+					behind=${state.behind}
+				></gl-tracking-pill>`,
+			);
 		}
 
 		if (rendered.length) {
-			return html`<span class="branch-item__status">${rendered}</span>`;
+			// return html`<span class="branch-item__status">${rendered}</span>`;
+			return rendered;
 		}
 
 		return nothing;

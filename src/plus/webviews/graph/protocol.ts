@@ -248,6 +248,8 @@ export type DoubleClickedParams =
 	  };
 export const DoubleClickedCommandType = new IpcCommand<DoubleClickedParams>(scope, 'dblclick');
 
+export const ContinuePreview = new IpcCommand<undefined>(scope, 'dblclick');
+
 export interface GetMissingAvatarsParams {
 	emails: GraphAvatars;
 }
