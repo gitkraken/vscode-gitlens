@@ -2,7 +2,7 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
 import { pluralize } from '../../../../../system/string';
 import type { GetLaunchpadSummaryResponse } from '../../../../home/protocol';
@@ -15,6 +15,7 @@ import { sectionHeadingStyles } from './branch-section';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
+import '../../../shared/components/skeleton-loader';
 
 type LaunchpadSummary = GetLaunchpadSummaryResponse;
 
@@ -114,7 +115,9 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 			<div class="section-heading">GitLens Launchpad</div>
 			<div class="summary">${this.renderSummaryResult()}</div>
 			<button-container>
-				<gl-button full class="start-work">Start work</gl-button>
+				<gl-button full class="start-work"
+					><code-icon icon="git-branch" slot="prefix"></code-icon> Start work</gl-button
+				>
 			</button-container>
 		`;
 	}
@@ -285,49 +288,5 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		}
 
 		return html`<menu class="menu">${result}</menu>`;
-	}
-}
-
-@customElement('pull-request-item')
-export class PullRequestItem extends LitElement {
-	static override styles = css`
-		:host {
-			display: block;
-			border-left: 0.3rem solid var(--vscode-gitDecoration-addedResourceForeground);
-			padding: 1rem;
-			margin-bottom: 1rem;
-		}
-		.title {
-			font-weight: bold;
-		}
-		.branch {
-			font-size: 0.9em;
-			color: var(--vscode-descriptionForeground);
-		}
-		.stats {
-			display: flex;
-			gap: 1rem;
-			font-size: 0.9em;
-		}
-	`;
-
-	@property() number = '';
-	@property() prtitle = '';
-	@property() branch = '';
-	@property() status = '';
-	@property() additions = '';
-	@property() deletions = '';
-	@property() comments = '';
-
-	override render() {
-		return html`
-			<div class="title">${this.number} ${this.prtitle}</div>
-			<div class="branch">${this.branch}</div>
-			<div class="stats">
-				<span>+${this.additions}</span>
-				<span>-${this.deletions}</span>
-				<span>💬${this.comments}</span>
-			</div>
-		`;
 	}
 }
