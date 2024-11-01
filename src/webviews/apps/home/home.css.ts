@@ -362,7 +362,7 @@ export const navListStyles = css`
 `;
 
 export const walkthroughProgressStyles = css`
-	.walkthrough-progress--wrapper {
+	.walkthrough-progress {
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
@@ -370,24 +370,24 @@ export const walkthroughProgressStyles = css`
 		margin-bottom: 16px;
 		align-items: stretch;
 	}
-	.walkthrough-progress--title {
+	.walkthrough-progress__title {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 	}
-	.walkthrough-progress--title__button {
+	.walkthrough-progress__button {
 		--button-padding: 1px 2px 0px 2px;
 	}
-	.walkthrough-progress--progress::-webkit-progress-bar {
+	.walkthrough-progress__bar::-webkit-progress-bar {
 		border-radius: 2px;
 		background: var(--color-alert-neutralBackground);
 	}
-	.walkthrough-progress--progress::-webkit-progress-value {
+	.walkthrough-progress__bar::-webkit-progress-value {
 		background: var(--vscode-progressBar-background, blue);
 		transition: 0.1s ease-in;
 		border-radius: 2px;
 	}
-	.walkthrough-progress--progress {
+	.walkthrough-progress__bar {
 		pointer-events: none;
 		border-radius: 2px;
 		width: 100%;
