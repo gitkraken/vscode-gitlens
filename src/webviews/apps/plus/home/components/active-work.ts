@@ -8,9 +8,12 @@ import type { GetOverviewBranch } from '../../../../home/protocol';
 import { branchCardStyles, sectionHeadingStyles } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
+import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/skeleton-loader';
 import '../../../shared/components/card/card';
+import '../../../shared/components/commit/commit-stats';
+import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/pr-icon';
 
 export const activeWorkTagName = 'gl-active-work';
@@ -65,7 +68,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	}
 
 	private renderRepoBranchCard(repoName: string, branch: GetOverviewBranch) {
-		const { name, pr, state, workingTreeState } = branch;
+		const { name, pr, state, workingTreeState, upstream } = branch;
 		return html`
 			<gl-card class="branch-item" active>
 				<p class="branch-item__main">
@@ -74,14 +77,14 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 					</span>
 					<span class="branch-item__name">${repoName}</span>
 				</p>
-				${when(state, () => this.renderStatus(undefined, state))}
+				${when(state, () => this.renderBranchStateActions(state, upstream))}
 				<p class="branch-item__main">
 					<span class="branch-item__icon">
 						<code-icon icon=${branch.worktree ? 'gl-repositories-view' : 'git-branch'}></code-icon>
 					</span>
 					<span class="branch-item__name">${name}</span>
 				</p>
-				${when(workingTreeState, () => this.renderStatus(workingTreeState, undefined))}
+				${when(workingTreeState, () => this.renderStatus(workingTreeState, state))}
 			</gl-card>
 			${when(pr, () => {
 				return html`<gl-card class="branch-item">
@@ -97,37 +100,100 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		`;
 	}
 
+	private renderBranchStateActions(state?: GitTrackingState, upstream?: { name: string; missing: boolean }) {
+		if (upstream?.missing !== false) {
+			return html`<div>
+				<button-container>
+					<gl-button full appearance="secondary"
+						><code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch</gl-button
+					></button-container
+				>
+			</div>`;
+		}
+		if (state?.ahead || state?.behind) {
+			const isAhead = state.ahead > 0;
+			const isBehind = state.behind > 0;
+			if (isAhead && isBehind) {
+				const pullTooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
+				const forcePushTooltip = upstream?.name ? `Force Push to ${upstream.name}` : 'Force Push';
+				return html`<div>
+					<button-container>
+						<gl-button full appearance="secondary" tooltip=${pullTooltip}
+							><code-icon icon="gl-repo-pull" slot="prefix"></code-icon> Pull
+							<gl-tracking-pill
+								.ahead=${state.ahead}
+								.behind=${state.behind}
+								slot="suffix"
+							></gl-tracking-pill
+						></gl-button>
+						<gl-button appearance="secondary" density="compact" tooltip=${forcePushTooltip}
+							><code-icon icon="repo-force-push"></code-icon
+						></gl-button>
+					</button-container>
+				</div>`;
+			}
+			if (isBehind) {
+				const tooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
+				return html`<div>
+					<button-container>
+						<gl-button full appearance="secondary" tooltip=${tooltip}
+							><code-icon icon="gl-repo-pull" slot="prefix"></code-icon> Pull
+							<gl-tracking-pill
+								.ahead=${state.ahead}
+								.behind=${state.behind}
+								slot="suffix"
+							></gl-tracking-pill></gl-button
+					></button-container>
+				</div>`;
+			}
+			if (isAhead) {
+				const tooltip = upstream?.name ? `Push to ${upstream.name}` : 'Push';
+				return html`<div>
+					<button-container>
+						<gl-button full appearance="secondary" tooltip=${tooltip}
+							><code-icon icon="repo-push" slot="prefix"></code-icon> Push
+							<gl-tracking-pill
+								.ahead=${state.ahead}
+								.behind=${state.behind}
+								slot="suffix"
+							></gl-tracking-pill>
+						</gl-button>
+					</button-container>
+				</div>`;
+			}
+		}
+		return nothing;
+	}
+
 	private renderStatus(
 		workingTreeState: { added: number; changed: number; deleted: number } | undefined,
-		state: GitTrackingState | undefined,
+		_state: GitTrackingState | undefined,
 	) {
 		const rendered = [];
 		if (workingTreeState?.added || workingTreeState?.changed || workingTreeState?.deleted) {
-			if (workingTreeState.added) {
-				rendered.push(html`<span>${workingTreeState.added}<code-icon icon="add"></code-icon></span>`);
-			}
-			if (workingTreeState.changed) {
-				rendered.push(html`<span>${workingTreeState.changed}<code-icon icon="edit"></code-icon></span>`);
-			}
-			if (workingTreeState.deleted) {
-				rendered.push(html`<span>${workingTreeState.deleted}<code-icon icon="trash"></code-icon></span>`);
-			}
+			rendered.push(
+				html`<commit-stats
+					added=${workingTreeState.added}
+					modified=${workingTreeState.changed}
+					removed=${workingTreeState.deleted}
+					symbol="icons"
+				></commit-stats>`,
+			);
 		}
 
-		if (state?.ahead || state?.behind) {
-			const stateFrags = [];
-			if (state.ahead) {
-				stateFrags.push(html`<span class="pill">${state.ahead}<code-icon icon="arrow-up"></code-icon></span>`);
-			}
-			if (state.behind) {
-				stateFrags.push(
-					html`<span class="pill">${state.behind}<code-icon icon="arrow-down"></code-icon></span>`,
-				);
-			}
-		}
+		// if (state?.ahead || state?.behind) {
+		// 	rendered.push(
+		// 		html`<gl-tracking-pill
+		// 			colorized
+		// 			outlined
+		// 			ahead=${state.ahead}
+		// 			behind=${state.behind}
+		// 		></gl-tracking-pill>`,
+		// 	);
+		// }
 
 		if (rendered.length) {
-			return html`<p class="branch-item__details"><span class="branch-item__status">${rendered}</span></p>`;
+			return html`<p class="branch-item__details">${rendered}</p>`;
 		}
 
 		return nothing;

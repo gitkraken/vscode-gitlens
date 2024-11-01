@@ -9,7 +9,7 @@ export class PrIcon extends LitElement {
 	static override styles = [prIconStyles];
 
 	@property()
-	state?: 'merged' | 'opened' | 'closed';
+	state?: 'merged' | 'opened' | 'closed' | string;
 
 	get icon() {
 		let prIcon = 'git-pull-request';
