@@ -241,8 +241,9 @@ export class DeepLinkService implements Disposable {
 
 	@debug()
 	private async processPendingDeepLink(pendingDeepLink: StoredDeepLinkContext | undefined) {
-		if (pendingDeepLink?.url == null) return;
+		if (pendingDeepLink == null) return;
 		void this.container.storage.delete('deepLinks:pending');
+		if (pendingDeepLink?.url == null) return;
 		const link = parseDeepLinkUri(Uri.parse(pendingDeepLink.url));
 		if (link == null) return;
 
