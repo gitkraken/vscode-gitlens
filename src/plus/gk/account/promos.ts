@@ -50,7 +50,7 @@ const promos: Promo[] = [
 			SubscriptionState.ProTrialReactivationEligible,
 		],
 		startsOn: new Date('2024-10-13T06:59:00.000Z').getTime(),
-		expiresOn: new Date('2024-11-05T06:59:00.000Z').getTime(),
+		expiresOn: new Date('2024-11-08T06:59:00.000Z').getTime(),
 		command: { tooltip: 'Limited-Time sale: Save up to 80% off GitLens Pro' },
 		locations: ['account', 'badge', 'gate'],
 		quickpick: {
