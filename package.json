@@ -17798,8 +17798,8 @@
 		"walkthroughs": [
 			{
 				"id": "welcome",
-				"title": "Welcome to GitLens Pro",
-				"description": "Get Started with GitLens Pro",
+				"title": "Get Started With GitLens",
+				"description": "Supercharge Git and unlock untapped knowledge within your repo to better understand, write, and review code.",
 				"steps": [
 					{
 						"id": "welcome-in-trial",
@@ -17826,16 +17826,28 @@
 						"when": "gitlens:plus:state == 6"
 					},
 					{
+						"id": "welcome-in-trial-expired-eligible",
+						"title": "Get the most out of GitLens ",
+						"description": "Thanks for installing GitLens, the #1 most downloaded Git extension in VS Code.\n\nYou’re currently using **GitLens Community**, our free extension that helps you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more.\n\n**Unlock more powerful tools - Try GitLens Pro again free for 14 days.**\n\n[Get Started with GitLens Pro](command:gitlens.plus.upgrade)\n\nWith GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It’s the perfect upgrade to streamline your VS Code workflow.",
+						"media": {
+							"markdown": "walkthroughs/welcome/welcome-in-trial-expired-eligible.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:gettingStarted == true"
+						],
+						"when": "gitlens:plus:state == 5"
+					},
+					{
 						"id": "welcome-in-trial-expired",
 						"title": "Get the most out of GitLens ",
-						"description": "Thanks for installing GitLens, the #1 most downloaded Git extension in VS Code.\n\nYou’re currently using **GitLens Community**, our free extension that helps you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more.\n\n**Unlock more powerful tools - Start a free trial of GitLens Pro.**\n\n[Get Started with GitLens Pro](command:gitlens.plus.upgrade)\n\nWith GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It’s the perfect upgrade to streamline your VS Code workflow.",
+						"description": "Thanks for installing GitLens and trying out GitLens Pro.\n\nYou’re now on the GitLens Community edition, our free extension that helps you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more.\n\nLearn more about the [difference between GitLens Community vs. Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).\n\n**Unlock more powerful tools with GitLens Pro**\n\n[Upgrade to GitLens Pro](command:gitlens.plus.upgrade)\n\nWith GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It’s the perfect upgrade to streamline your VS Code workflow.",
 						"media": {
 							"markdown": "walkthroughs/welcome/welcome-in-trial-expired.md"
 						},
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:gettingStarted == true"
 						],
-						"when": "(gitlens:plus:state == 4 || gitlens:plus:state == 5 || gitlens:plus:state == 2)"
+						"when": "gitlens:plus:state == 4 || gitlens:plus:state == 2"
 					},
 					{
 						"id": "get-started-community",
@@ -17847,7 +17859,7 @@
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:gettingStarted == true"
 						],
-						"when": "|| gitlens:plus:state <= 0"
+						"when": "gitlens:plus:state <= 0"
 					},
 					{
 						"id": "visualize-code-history",
