@@ -1,6 +1,6 @@
 ### GitLens: Explore Your Options
 
-<a href="https://help.gitkraken.com/gitlens/communityvspro" title="Watch the Getting Started tutorial video">
+<a href="https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro" title="Watch the Getting Started tutorial video">
   <img src="thumbnails/welcome.png" alt="GitLens tutorial video" />
 </a>
 
