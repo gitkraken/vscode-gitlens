@@ -17875,7 +17875,7 @@
 					{
 						"id": "accelerate-pr-reviews",
 						"title": "Accelerate PR Reviews",
-						"description": "$(gitlens-rocket-filled) **Launchpad - PR Hub**\n\nManage GitHub PRs by status, helping you quickly prioritize tasks in your workflow and identify bottlenecks —all within VS Code.\n\n[View My PRs in Launchpad](command:gitlens.showLaunchpadView)\n\n💡 **Integrate your Github or host provider** to use Launchpad and accelerate PR reviews\n\n$(folder-opened) **Worktrees - Multi-branch efficiency**\n\nWork on multiple branches simultaneously—hotfixes, new features, or experiments—without disrupting your main workspace.\n\n\n[Add a worktree](command:gitlens.gitCommands.worktree.create)\n$(gitlens-play-button) [Watch a video on Accelerate PR Reviews](https://help.gitkraken.com/gitlens/gitlens-home/#accelerate-pr-reviews)",
+						"description": "$(gitlens-rocket-filled) **Launchpad - PR Hub**\n\nManage GitHub PRs by status, helping you quickly prioritize tasks in your workflow and identify bottlenecks —all within VS Code.\n\n[View My PRs in Launchpad](command:gitlens.showLaunchpad)\n\n💡 **Integrate your Github or host provider** to use Launchpad and accelerate PR reviews\n\n$(folder-opened) **Worktrees - Multi-branch efficiency**\n\nWork on multiple branches simultaneously—hotfixes, new features, or experiments—without disrupting your main workspace.\n\n\n[Add a worktree](command:gitlens.gitCommands.worktree.create)\n$(gitlens-play-button) [Watch a video on Accelerate PR Reviews](https://help.gitkraken.com/gitlens/gitlens-home/#accelerate-pr-reviews)",
 						"media": {
 							"markdown": "walkthroughs/welcome/accelerate-pr-reviews.md"
 						},
