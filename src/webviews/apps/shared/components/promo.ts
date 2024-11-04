@@ -91,7 +91,7 @@ export class GlPromo extends LitElement {
 
 			case 'devexdays':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Limited-time sale: <b>Save up to 80%</b> on GitLen Pro</span
+					>Limited-time sale: <b>Save up to 80%</b> on GitLens Pro</span
 				>`;
 		}
 	}
