@@ -84,7 +84,9 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 
 		const item = new TreeItem(
 			lpi.title.length > 60 ? `${lpi.title.substring(0, 60)}...` : lpi.title,
-			TreeItemCollapsibleState.Collapsed,
+			this.item.openRepository?.localBranch?.current
+				? TreeItemCollapsibleState.Expanded
+				: TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = ContextValues.LaunchpadItem;
 		item.description = `\u00a0 ${lpi.repository.owner.login}/${lpi.repository.name}#${lpi.id} \u00a0 ${
@@ -160,7 +162,9 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 							launchpadGroupLabelMap.get(ui)!,
 							ui,
 							groupItems.map(i => new LaunchpadItemNode(this.view, this, ui, i)),
-							expanded.get(ui) ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
+							ui === 'current-branch' || expanded.get(ui)
+								? TreeItemCollapsibleState.Expanded
+								: TreeItemCollapsibleState.Collapsed,
 							undefined,
 							undefined,
 							new ThemeIcon(icon.substring(2, icon.length - 1)),
