@@ -19,7 +19,8 @@ import { configuration } from '../system/vscode/configuration';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import type { ClipboardType, ViewNode } from './nodes/abstract/viewNode';
 import { ContextValues, getViewNodeId } from './nodes/abstract/viewNode';
-import { GroupingNode } from './nodes/groupingNode';
+import type { GroupingNode } from './nodes/groupingNode';
+import { LaunchpadViewGroupingNode } from './nodes/launchpadViewGroupingNode';
 import { getPullRequestChildren, getPullRequestTooltip } from './nodes/pullRequestNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
@@ -141,17 +142,25 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 				}
 
 				const uiGroups = groupAndSortLaunchpadItems(result.items);
+				const expanded = new Map(
+					(
+						(this.view.container.storage.get('launchpadView:groups:expanded') satisfies
+							| LaunchpadGroup[]
+							| undefined) ?? []
+					).map(g => [g, true]),
+				);
 				for (const [ui, groupItems] of uiGroups) {
 					if (!groupItems.length) continue;
 
 					const icon = launchpadGroupIconMap.get(ui)!;
 
 					children.push(
-						new GroupingNode(
+						new LaunchpadViewGroupingNode(
 							this.view,
 							launchpadGroupLabelMap.get(ui)!,
+							ui,
 							groupItems.map(i => new LaunchpadItemNode(this.view, this, ui, i)),
-							TreeItemCollapsibleState.Collapsed,
+							expanded.get(ui) ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 							undefined,
 							undefined,
 							new ThemeIcon(icon.substring(2, icon.length - 1)),
