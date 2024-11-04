@@ -1224,6 +1224,20 @@
 				}
 			},
 			{
+				"id": "home",
+				"title": "Home",
+				"order": 55,
+				"properties": {
+					"gitlens.home.preview.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to enable the new home preview",
+						"scope": "window",
+						"order": 10
+					}
+				}
+			},
+			{
 				"id": "launchpad",
 				"title": "Launchpad (ᴘʀᴏ)",
 				"order": 60,

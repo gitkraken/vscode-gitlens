@@ -24,6 +24,7 @@ export interface State extends WebviewState {
 		progress: number;
 	};
 	showWalkthroughProgress?: boolean;
+	previewEnabled?: boolean;
 }
 
 // REQUESTS
@@ -119,6 +120,8 @@ export const CollapseSectionCommand = new IpcCommand<CollapseSectionParams>(scop
 export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthrough/dismiss');
 
 // NOTIFICATIONS
+
+export const DidChangePreviewEnabled = new IpcNotification<boolean>(scope, 'previewEnabled/didChange');
 
 export interface DidChangeRepositoriesParams {
 	count: number;

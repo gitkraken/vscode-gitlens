@@ -1,3 +1,4 @@
+import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { ContextKeys } from '../../constants.context';
@@ -14,6 +15,7 @@ import { getLaunchpadSummary } from '../../plus/launchpad/utils';
 import { map } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
 import { registerCommand } from '../../system/vscode/command';
+import { configuration } from '../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
@@ -30,6 +32,7 @@ import {
 	CollapseSectionCommand,
 	DidChangeIntegrationsConnections,
 	DidChangeOrgSettings,
+	DidChangePreviewEnabled,
 	DidChangeRepositories,
 	DidChangeSubscription,
 	DidChangeWalkthroughProgress,
@@ -63,6 +66,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.integrations.onDidChangeConnectionState(this.onChangeConnectionState, this),
 			this.container.walkthrough.onProgressChanged(this.onWalkthroughChanged, this),
+			configuration.onDidChange(this.onDidChangeConfig, this),
 		);
 	}
 
@@ -103,6 +107,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private onWalkthroughChanged() {
 		this.notifyDidChangeProgress();
+	}
+
+	private onDidChangeConfig(e?: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'home.preview.enabled')) {
+			this.notifyDidChangeConfig();
+		}
 	}
 
 	registerCommands(): Disposable[] {
@@ -233,7 +243,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				progress: this.container.walkthrough.progress,
 			},
 			showWalkthroughProgress: !this.getWalkthroughDismissed(),
+			previewEnabled: this.getPreviewEnabled(),
 		};
+	}
+
+	private getPreviewEnabled() {
+		return configuration.get('home.preview.enabled') ?? false;
 	}
 
 	private getRepositoriesState(): DidChangeRepositoriesParams {
@@ -285,6 +300,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			doneCount: this.container.walkthrough.doneCount,
 			progress: this.container.walkthrough.progress,
 		});
+	}
+
+	private notifyDidChangeConfig() {
+		void this.host.notify(DidChangePreviewEnabled, this.getPreviewEnabled());
 	}
 
 	private notifyDidChangeOnboardingIntegration() {

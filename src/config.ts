@@ -89,6 +89,11 @@ export interface Config {
 		readonly command: string | null;
 		readonly dismissOnEscape: boolean;
 	};
+	readonly home: {
+		readonly preview: {
+			readonly enabled: boolean;
+		};
+	};
 	readonly launchpad: {
 		readonly allowMultiple: boolean;
 		readonly includedOrganizations: string[];

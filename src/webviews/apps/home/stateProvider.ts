@@ -4,6 +4,7 @@ import type { State } from '../../home/protocol';
 import {
 	DidChangeIntegrationsConnections,
 	DidChangeOrgSettings,
+	DidChangePreviewEnabled,
 	DidChangeRepositories,
 	DidChangeSubscription,
 	DidChangeWalkthroughProgress,
@@ -61,6 +62,14 @@ export class HomeStateProvider implements Disposable {
 					this.state.timestamp = Date.now();
 
 					this.provider.setValue(this.state, true);
+					break;
+
+				case DidChangePreviewEnabled.is(msg):
+					this.state.previewEnabled = msg.params;
+					this.state.timestamp = Date.now();
+
+					this.provider.setValue(this.state, true);
+					host.requestUpdate?.();
 					break;
 			}
 		});
