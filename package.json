@@ -49,6 +49,7 @@
 	],
 	"activationEvents": [
 		"onFileSystem:gitlens",
+		"onUri",
 		"onWebviewPanel:gitlens.graph",
 		"onWebviewPanel:gitlens.patchDetails",
 		"onWebviewPanel:gitlens.settings",
