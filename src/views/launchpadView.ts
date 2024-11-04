@@ -22,7 +22,7 @@ import { ContextValues, getViewNodeId } from './nodes/abstract/viewNode';
 import type { GroupingNode } from './nodes/groupingNode';
 import { LaunchpadViewGroupingNode } from './nodes/launchpadViewGroupingNode';
 import { getPullRequestChildren, getPullRequestTooltip } from './nodes/pullRequestNode';
-import { ViewBase } from './viewBase';
+import { disposeChildren, ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
 export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item', LaunchpadView> {
@@ -121,8 +121,23 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 	LaunchpadView,
 	GroupingNode | LaunchpadItemNode
 > {
+	private disposable: Disposable;
+
 	constructor(view: LaunchpadView) {
 		super('launchpad', unknownGitUri, view);
+		this.disposable = Disposable.from(this.view.container.launchpad.onDidChange(this.refresh, this));
+	}
+
+	override dispose() {
+		this.disposable?.dispose();
+		super.dispose();
+	}
+
+	override refresh() {
+		if (this.children == null) return;
+
+		disposeChildren(this.children);
+		this.children = undefined;
 	}
 
 	async getChildren(): Promise<(GroupingNode | LaunchpadItemNode)[]> {
