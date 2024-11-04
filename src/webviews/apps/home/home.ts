@@ -3,6 +3,7 @@ import './home.scss';
 import { provide } from '@lit/context';
 import { html } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import type { State } from '../../home/protocol';
 import { DidFocusAccount } from '../../home/protocol';
 import { OverviewState, overviewStateContext } from '../plus/home/components/overviewState';
@@ -68,13 +69,15 @@ export class GlHomeApp extends GlApp<State> {
 				<main class="home__main scrollable" id="main">
 					<gl-onboarding></gl-onboarding>
 					<gl-integration-banner></gl-integration-banner>
-					<gl-active-work></gl-active-work>
-					<gl-launchpad></gl-launchpad>
-					<gl-overview></gl-overview>
-					<details>
-						<summary>GitLens Features</summary>
-						<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>
-					</details>
+					${when(
+						this.state.previewEnabled,
+						() => html`
+							<gl-active-work></gl-active-work>
+							<gl-launchpad></gl-launchpad>
+							<gl-overview></gl-overview>
+						`,
+						() => html` <gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav> `,
+					)}
 				</main>
 
 				<footer class="home__footer">
