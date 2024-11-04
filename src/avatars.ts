@@ -1,6 +1,7 @@
 import { EventEmitter, Uri } from 'vscode';
 import { fetch } from '@env/fetch.js';
 import type { CommitAuthor } from '@gitlens/git/models/author.js';
+import { CustomRemoteProvider } from '@gitlens/git/remotes/custom.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import { md5 } from '@gitlens/utils/crypto.js';
@@ -136,7 +137,7 @@ function getAvatarUriCore(
 	if (
 		!options?.cached &&
 		repoPathOrCommit != null &&
-		getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(
+		getContext('gitlens:repos:withRemotes')?.includes(
 			typeof repoPathOrCommit === 'string' ? repoPathOrCommit : repoPathOrCommit.repoPath,
 		)
 	) {
@@ -245,6 +246,23 @@ async function getAvatarUriFromRemoteProvider(
 				)?.getAccountForCommit(remote.provider.repoDesc, repoPathOrCommit.ref, {
 					avatarSize: size,
 				});
+			}
+
+			if (!account) {
+				const remoteWithProvider = await Container.instance.git
+					.getRepositoryService(repoPathOrCommit.repoPath)
+					.remotes.getBestRemoteWithProvider();
+
+				if (remoteWithProvider?.provider instanceof CustomRemoteProvider) {
+					const avatarUrl = remoteWithProvider.provider.getUrlForAvatar(email, size);
+					if (avatarUrl != null) {
+						avatar.uri = Uri.parse(avatarUrl);
+						avatar.timestamp = Date.now();
+						avatar.retries = 0;
+						avatarCache.set(`${md5(email.trim().toLowerCase())}:${size}`, { ...avatar });
+						return avatar.uri;
+					}
+				}
 			}
 		}
 
