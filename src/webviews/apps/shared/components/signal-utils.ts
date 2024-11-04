@@ -1,3 +1,4 @@
+import { signal } from '@lit-labs/signals';
 import { AsyncComputed } from 'signal-utils/async-computed';
 
 export const renderAsyncComputed = <T, R = unknown>(
@@ -27,10 +28,17 @@ export const renderAsyncComputed = <T, R = unknown>(
 };
 
 export class AsyncComputedState<T, R = unknown> {
+	private _invalidate = signal(0);
 	private _initial?: T;
 	private _state?: AsyncComputed<T>;
 	get state() {
-		this._state ??= new AsyncComputed(this._fetch, this._initial ? { initialValue: this._initial } : undefined);
+		this._state ??= new AsyncComputed(
+			(abortSignal: AbortSignal) => {
+				this._invalidate.get();
+				return this._fetch(abortSignal);
+			},
+			this._initial ? { initialValue: this._initial } : undefined,
+		);
 		return this._state;
 	}
 
@@ -48,8 +56,15 @@ export class AsyncComputedState<T, R = unknown> {
 			}
 		}
 	}
-	run() {
+	run(force = false) {
+		if (force) {
+			this.invalidate();
+		}
 		this.state.run();
+	}
+
+	invalidate() {
+		this._invalidate.set(Date.now());
 	}
 
 	render(config: {

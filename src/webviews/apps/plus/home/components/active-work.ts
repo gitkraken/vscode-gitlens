@@ -37,9 +37,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	override connectedCallback() {
 		super.connectedCallback();
 
-		if (this._overviewState.state.value == null) {
-			this._overviewState.run();
-		}
+		this._overviewState.run();
 	}
 
 	override render() {

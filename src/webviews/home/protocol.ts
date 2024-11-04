@@ -123,6 +123,8 @@ export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthroug
 
 export const DidChangePreviewEnabled = new IpcNotification<boolean>(scope, 'previewEnabled/didChange');
 
+export const DidChangeRepositoryWip = new IpcNotification<undefined>(scope, 'repository/wip/didChange');
+
 export interface DidChangeRepositoriesParams {
 	count: number;
 	openCount: number;
