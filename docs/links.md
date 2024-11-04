@@ -270,9 +270,17 @@ _{prefix}/command/{command}_
 
 - _{command}_ is the name of the command to run. Currently supported values include:
 
+  - _cloud-patches_ - Runs the `GitLens: Show Cloud Patches View` command.
+
+  - _graph_ - Runs the `GitLens: Show Graph` command.
+
+  - _inspect_ - Runs the `GitLens: Inspect Commit Details` command.
+
   - _launchpad_ - Runs the `GitLens: Show Launchpad` command.
 
   - _walkthrough_ - Runs the `GitLens: Get Started` command.
+
+  - _worktrees_ - Runs the `GitLens: Show Worktrees View` command.
 
 #### Example Usage
 

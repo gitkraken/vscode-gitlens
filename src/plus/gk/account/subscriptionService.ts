@@ -280,35 +280,30 @@ export class SubscriptionService implements Disposable {
 		switch (subscription.state) {
 			case SubscriptionState.VerificationRequired:
 			case SubscriptionState.Community:
-			case SubscriptionState.ProPreview:
-			case SubscriptionState.ProPreviewExpired:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
-					step: 'pro-features',
+					step: 'get-started-community',
 				});
 				break;
 			case SubscriptionState.ProTrial:
+			case SubscriptionState.ProPreview:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
-					step: 'pro-trial',
-				});
-				break;
-			case SubscriptionState.ProTrialExpired:
-				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-					...source,
-					step: 'pro-upgrade',
+					step: 'welcome-in-trial',
 				});
 				break;
 			case SubscriptionState.ProTrialReactivationEligible:
+			case SubscriptionState.ProTrialExpired:
+			case SubscriptionState.ProPreviewExpired:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
-					step: 'pro-reactivate',
+					step: 'welcome-in-trial-expired',
 				});
 				break;
 			case SubscriptionState.Paid:
 				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
 					...source,
-					step: 'pro-paid',
+					step: 'welcome-paid',
 				});
 				break;
 		}
@@ -502,10 +497,10 @@ export class SubscriptionService implements Disposable {
 
 		try {
 			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
-			void env.openExternal(this.container.getGkDevExchangeUri(exchangeToken, 'account'));
+			await openUrl(this.container.getGkDevUri('account', `token=${exchangeToken}`).toString(true));
 		} catch (ex) {
 			Logger.error(ex, scope);
-			void env.openExternal(this.container.getGkDevUri('account'));
+			await openUrl(this.container.getGkDevUri('account').toString(true));
 		}
 	}
 
@@ -762,15 +757,6 @@ export class SubscriptionService implements Disposable {
 
 		const hasAccount = this._subscription.account != null;
 
-		const successUri = await env.asExternalUri(
-			Uri.parse(
-				`${env.uriScheme}://${this.container.context.extension.id}/${
-					hasAccount ? SubscriptionUpdatedUriPathPrefix : LoginUriPathPrefix
-				}`,
-			),
-		);
-		query.set('success_uri', successUri.toString(true));
-
 		const promoCode = getApplicablePromo(this._subscription.state)?.code;
 		if (promoCode != null) {
 			query.set('promoCode', promoCode);
@@ -791,11 +777,15 @@ export class SubscriptionService implements Disposable {
 				const token = await this.container.accountAuthentication.getExchangeToken(
 					SubscriptionUpdatedUriPathPrefix,
 				);
-				const purchasePath = `purchase/checkout?${query.toString()}`;
-				if (!(await openUrl(this.container.getGkDevExchangeUri(token, purchasePath).toString(true)))) return;
-			} else if (
-				!(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)))
-			) {
+				query.set('token', token);
+			} else {
+				const successUri = await env.asExternalUri(
+					Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${LoginUriPathPrefix}`),
+				);
+				query.set('success_uri', successUri.toString(true));
+			}
+
+			if (!(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)))) {
 				return;
 			}
 		} catch (ex) {

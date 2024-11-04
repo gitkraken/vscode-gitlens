@@ -20,8 +20,12 @@ export enum DeepLinkType {
 }
 
 export enum DeepLinkCommandType {
+	CloudPatches = 'cloud-patches',
+	Graph = 'graph',
+	Inspect = 'inspect',
 	Launchpad = 'launchpad',
 	Walkthrough = 'walkthrough',
+	Worktrees = 'worktrees',
 }
 
 export function isDeepLinkCommandType(type: string): type is DeepLinkCommandType {
@@ -29,8 +33,12 @@ export function isDeepLinkCommandType(type: string): type is DeepLinkCommandType
 }
 
 export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, Commands>([
+	[DeepLinkCommandType.CloudPatches, Commands.ShowDraftsView],
+	[DeepLinkCommandType.Graph, Commands.ShowGraph],
+	[DeepLinkCommandType.Inspect, Commands.ShowCommitDetailsView],
 	[DeepLinkCommandType.Launchpad, Commands.ShowLaunchpad],
 	[DeepLinkCommandType.Walkthrough, Commands.GetStarted],
+	[DeepLinkCommandType.Worktrees, Commands.ShowWorktreesView],
 ]);
 
 export enum DeepLinkActionType {

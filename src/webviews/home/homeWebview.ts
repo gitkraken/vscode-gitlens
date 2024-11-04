@@ -6,6 +6,7 @@ import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { registerCommand } from '../../system/vscode/command';
+import { configuration } from '../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
@@ -17,7 +18,9 @@ import {
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidChangeWalkthroughProgress,
 	DidFocusAccount,
+	DismissWalkthroughSection,
 } from './protocol';
 import type { HomeWebviewShowingArgs } from './registration';
 
@@ -43,6 +46,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.integrations.onDidChangeConnectionState(this.onChangeConnectionState, this),
+			this.container.walkthrough.onProgressChanged(this.onWalkthroughChanged, this),
 		);
 	}
 
@@ -81,6 +85,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this.notifyDidChangeRepositories();
 	}
 
+	private onWalkthroughChanged() {
+		this.notifyDidChangeProgress();
+	}
+
 	registerCommands(): Disposable[] {
 		return [
 			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
@@ -97,6 +105,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			case CollapseSectionCommand.is(e):
 				this.onCollapseSection(e.params);
 				break;
+			case DismissWalkthroughSection.is(e):
+				this.dismissWalkthrough();
+				break;
 		}
 	}
 
@@ -106,6 +117,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	onReloaded() {
 		this.notifyDidChangeRepositories();
+		this.notifyDidChangeProgress();
 	}
 
 	onReady() {
@@ -117,6 +129,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onCollapseSection(params: CollapseSectionParams) {
+		void this.container.storage.delete('home:walkthrough:dismissed');
+
 		const collapsed = this.container.storage.get('home:sections:collapsed');
 		if (collapsed == null) {
 			if (params.collapsed === true) {
@@ -138,6 +152,19 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			collapsed.splice(idx, 1);
 			void this.container.storage.store('home:sections:collapsed', collapsed);
 		}
+	}
+
+	private dismissWalkthrough() {
+		const dismissed = this.container.storage.get('home:walkthrough:dismissed');
+		if (!dismissed) {
+			void this.container.storage.store('home:walkthrough:dismissed', true);
+			void this.container.usage.track('home:walkthrough:dismissed');
+		}
+	}
+
+	private getWalkthroughDismissed() {
+		console.log({ test: this.container.storage.get('home:walkthrough:dismissed') });
+		return Boolean(this.container.storage.get('home:walkthrough:dismissed'));
 	}
 
 	private getWalkthroughCollapsed() {
@@ -173,6 +200,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			orgSettings: this.getOrgSettings(),
 			walkthroughCollapsed: this.getWalkthroughCollapsed(),
 			hasAnyIntegrationConnected: this.isAnyIntegrationConnected(),
+			walkthroughProgress: {
+				allCount: this.container.walkthrough.walkthroughSize,
+				doneCount: this.container.walkthrough.doneCount,
+				progress: this.container.walkthrough.progress,
+			},
+			showWalkthroughProgress: !this.getWalkthroughDismissed(),
 		};
 	}
 
@@ -217,6 +250,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private notifyDidChangeRepositories() {
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
+	}
+
+	private notifyDidChangeProgress() {
+		void this.host.notify(DidChangeWalkthroughProgress, {
+			allCount: this.container.walkthrough.walkthroughSize,
+			doneCount: this.container.walkthrough.doneCount,
+			progress: this.container.walkthrough.progress,
+		});
 	}
 
 	private notifyDidChangeOnboardingIntegration() {

@@ -1,4 +1,5 @@
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config';
+import type { WalkthroughSteps } from './constants';
 import type { AIModels, AIProviders } from './constants.ai';
 import type { Commands } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
@@ -388,19 +389,7 @@ export type TelemetryEvents = {
 
 	/** Sent when the walkthrough is opened */
 	walkthrough: {
-		step?:
-			| 'get-started'
-			| 'core-features'
-			| 'pro-features'
-			| 'pro-trial'
-			| 'pro-upgrade'
-			| 'pro-reactivate'
-			| 'pro-paid'
-			| 'visualize'
-			| 'launchpad'
-			| 'code-collab'
-			| 'integrations'
-			| 'more';
+		step?: WalkthroughSteps;
 	};
 } & Record<`${WebviewTypes | WebviewViewTypes}/showAborted`, WebviewShownEventData> &
 	Record<
@@ -643,8 +632,10 @@ export type TrackedUsage = {
 	lastUsedAt: number;
 };
 
+export type WalkthroughUsageKeys = 'home:walkthrough:dismissed';
+export type CommandExecutionTrackedFeatures = `command:${Commands}:executed`;
 export type TrackedUsageFeatures =
 	| `${WebviewTypes}Webview`
 	| `${TreeViewTypes | WebviewViewTypes}View`
 	| `${CustomEditorTypes}Editor`;
-export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown`;
+export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown` | CommandExecutionTrackedFeatures | WalkthroughUsageKeys;
