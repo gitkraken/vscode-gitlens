@@ -4094,7 +4094,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes &#x1F91E; [#202](https://github.com/gitkraken/vscode-gitlens/issues/202) - Staged change's vscode diff side-by-side view shows the wrong history
-- Fixes &#x1F91E; [#216](https://github.com/gitkraken/vscode-gitlens/issues/216) - PowerShell session not started if GitLen is enabled
+- Fixes &#x1F91E; [#216](https://github.com/gitkraken/vscode-gitlens/issues/216) - PowerShell session not started if GitLens is enabled
 - Fixes [#217](https://github.com/gitkraken/vscode-gitlens/issues/217) - empty editor has git lens in status bar with old information
 - Fixes [#218](https://github.com/gitkraken/vscode-gitlens/issues/218) - Cannot read property 'replace' of undefined
 - Fixes issue with feedback when searching for commits without any matches
@@ -4264,7 +4264,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Swaps out Moment.js for date-fns to improve blame annotation performance and to reduce the GitLen bundle size (saves ~400kb)
+- Swaps out Moment.js for date-fns to improve blame annotation performance and to reduce the GitLens bundle size (saves ~400kb)
 
 ### Fixed
 
@@ -4869,7 +4869,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Completely overhauls the [GitLens documentation](https://github.com/gitkraken/vscode-gitlens) and messaging &mdash; make sure to check it out to see all the powerful features GitLen provides!
+- Completely overhauls the [GitLens documentation](https://github.com/gitkraken/vscode-gitlens) and messaging &mdash; make sure to check it out to see all the powerful features GitLens provides!
 - Adds `gitlens.blame.annotation.activeLineDarkColor` & `gitlens.blame.annotation.activeLineLightColor` settings to control the colors of the active line blame annotation
 
 ### Changed
@@ -4921,7 +4921,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `alt+f` shortcut for the _Search commits_ command (`gitlens.showCommitSearch`)
 - Adds _Show Commit Search_ command to the branch history quick pick menu
 - Adds _Show Stashed Changes_ command to the repository status quick pick menu
-- Adds a _Don't Show Again_ option to the GitLen update notification
+- Adds a _Don't Show Again_ option to the GitLens update notification
 
 ### Changed
 
