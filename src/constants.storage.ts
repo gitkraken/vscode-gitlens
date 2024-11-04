@@ -72,6 +72,7 @@ export type GlobalStorage = {
 	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
+	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
 	'graph:searchMode': StoredGraphSearchMode;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
