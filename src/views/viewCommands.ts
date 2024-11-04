@@ -786,6 +786,23 @@ export class ViewCommands {
 		if (!node.is('branch') && !node.is('pullrequest') && !node.is('launchpad-item')) return;
 
 		if (node.is('branch')) {
+			const pr = await node.branch.getAssociatedPullRequest();
+			if (pr != null) {
+				const remoteUrl =
+					(await node.branch.getRemote())?.url ?? getRepositoryIdentityForPullRequest(pr).remote.url;
+				if (remoteUrl != null) {
+					const deepLink = getPullRequestBranchDeepLink(
+						this.container,
+						node.branch.getNameWithoutRemote(),
+						remoteUrl,
+						DeepLinkActionType.SwitchToPullRequestWorktree,
+						pr,
+					);
+
+					return this.container.deepLinks.processDeepLinkUri(deepLink, false, node.repo);
+				}
+			}
+
 			return executeGitCommand({
 				command: 'switch',
 				state: {

@@ -391,7 +391,6 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.OpenGraph]: DeepLinkServiceState.OpenGraph,
 		[DeepLinkServiceAction.OpenFile]: DeepLinkServiceState.OpenFile,
 		[DeepLinkServiceAction.OpenSwitch]: DeepLinkServiceState.SwitchToRef,
-		[DeepLinkServiceAction.OpenAllPrChanges]: DeepLinkServiceState.OpenAllPrChanges,
 		[DeepLinkServiceAction.OpenComparison]: DeepLinkServiceState.OpenComparison,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,

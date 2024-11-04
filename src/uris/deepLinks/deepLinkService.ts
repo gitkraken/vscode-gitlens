@@ -1321,9 +1321,25 @@ export class DeepLinkService implements Disposable {
 							state: this._context.state,
 						};
 
+						// Form a new link URL with PR info stripped out in case we are opening an existing PR worktree,
+						// in which case we do not want to advance to the  "Open All PR Changes" step in the flow.
+						// We should only advance to that step if a worktree is newly created in the flow.
+						const oldUrl = Uri.parse(this._context.url ?? '').toString(true);
+						const urlParams = new URL(oldUrl).searchParams;
+						urlParams.delete('prId');
+						urlParams.delete('prTitle');
+						urlParams.delete('prBaseRef');
+						urlParams.delete('prHeadRef');
+						const newUrlParams = urlParams.toString();
+						const nonPrUrl =
+							newUrlParams.length > 0 ? `${oldUrl.split('?')[0]}?${newUrlParams}` : oldUrl.split('?')[0];
+
 						// Storing link info in case the switch causes a new window to open
-						const onWorkspaceChanging = async () =>
-							this.container.storage.store('deepLinks:pending', pendingDeepLink);
+						const onWorkspaceChanging = async (isNewWorktree?: boolean) =>
+							this.container.storage.store(
+								'deepLinks:pending',
+								isNewWorktree ? pendingDeepLink : { ...pendingDeepLink, url: nonPrUrl },
+							);
 
 						await executeGitCommand({
 							command: 'switch',
@@ -1385,7 +1401,19 @@ export class DeepLinkService implements Disposable {
 						repository: repo,
 						source: 'launchpad',
 					} satisfies ShowWipArgs);
-					action = DeepLinkServiceAction.OpenAllPrChanges;
+					const { params } = this._context;
+					if (
+						this._context.action === DeepLinkActionType.SwitchToPullRequestWorktree &&
+						params != null &&
+						(params.get('prId') != null || params.get('prTitle') != null) &&
+						params.get('prBaseRef') != null &&
+						params.get('prHeadRef') != null
+					) {
+						action = DeepLinkServiceAction.OpenAllPrChanges;
+						break;
+					}
+
+					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}
 				case DeepLinkServiceState.OpenAllPrChanges: {
@@ -1393,7 +1421,7 @@ export class DeepLinkService implements Disposable {
 					const prHeadRef = this._context.params?.get('prHeadRef');
 					const prBaseRef = this._context.params?.get('prBaseRef');
 					const prTitle = this._context.params?.get('prTitle');
-					if (!repoPath || !prId || !prHeadRef || !prBaseRef) {
+					if (!repoPath || (!prId && !prTitle) || !prHeadRef || !prBaseRef) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						if (!repoPath) {
 							message = 'No repository path was provided.';
