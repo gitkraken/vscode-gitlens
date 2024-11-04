@@ -7,6 +7,8 @@ import type { Container } from '../../container';
 import type { BranchContributorOverview } from '../../git/gitProvider';
 import { sortBranches } from '../../git/models/branch';
 import type { PullRequest } from '../../git/models/pullRequest';
+import type { Repository } from '../../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/models/worktree';
 import type { Subscription } from '../../plus/gk/account/subscription';
@@ -34,6 +36,7 @@ import {
 	DidChangeOrgSettings,
 	DidChangePreviewEnabled,
 	DidChangeRepositories,
+	DidChangeRepositoryWip,
 	DidChangeSubscription,
 	DidChangeWalkthroughProgress,
 	DidFocusAccount,
@@ -48,6 +51,8 @@ const emptyDisposable = Object.freeze({
 		/* noop */
 	},
 });
+
+type RepositorySubscription = { repo: Repository; subscription: Disposable };
 
 export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
@@ -138,7 +143,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				void this.host.respond(GetLaunchpadSummary, e, await getLaunchpadSummary(this.container));
 				break;
 			case GetOverview.is(e):
-				void this.host.respond(GetOverview, e, await getBranchOverview(this.container));
+				void this.host.respond(GetOverview, e, await this.getBranchOverview());
 				break;
 		}
 	}
@@ -260,6 +265,63 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		};
 	}
 
+	private async getBranchOverview(): Promise<GetOverviewResponse | undefined> {
+		const repo = this.getSelectedRepository();
+		if (repo == null) return undefined;
+
+		return getBranchOverview(repo, this.container);
+	}
+
+	private _repositorySubscription: RepositorySubscription | undefined;
+	private selectRepository(repoPath?: string) {
+		let repo: Repository | undefined;
+		if (repoPath != null) {
+			repo = this.container.git.getRepository(repoPath)!;
+		} else {
+			repo = this.container.git.highlander;
+			if (repo == null) {
+				repo = this.container.git.getBestRepositoryOrFirst();
+			}
+		}
+
+		if (this._repositorySubscription != null) {
+			this._repositorySubscription.subscription.dispose();
+			this._repositorySubscription = undefined;
+		}
+		if (repo != null) {
+			this._repositorySubscription = {
+				repo: repo,
+				subscription: this.subscribeToRepository(repo),
+			};
+		}
+
+		return repo;
+	}
+
+	private subscribeToRepository(repo: Repository): Disposable {
+		return Disposable.from(
+			repo.watchFileSystem(1000),
+			repo.onDidChangeFileSystem(() => this.onWipChanged(repo)),
+			repo.onDidChange(e => {
+				if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+					this.onWipChanged(repo);
+				}
+			}),
+		);
+	}
+
+	private onWipChanged(_repo: Repository) {
+		void this.host.notify(DidChangeRepositoryWip, undefined);
+	}
+
+	private getSelectedRepository() {
+		if (this._repositorySubscription == null) {
+			this.selectRepository();
+		}
+
+		return this._repositorySubscription?.repo;
+	}
+
 	private _hostedIntegrationConnected: boolean | undefined;
 	private isAnyIntegrationConnected(force = false) {
 		if (this._hostedIntegrationConnected == null || force === true) {
@@ -346,14 +408,10 @@ interface BranchOverviewOptions {
 }
 
 async function getBranchOverview(
+	repo: Repository,
 	container: Container,
 	options?: BranchOverviewOptions,
 ): Promise<GetOverviewResponse | undefined> {
-	const repo = container.git.highlander;
-	if (repo == null) {
-		return undefined;
-	}
-
 	const [branchesResult, worktreesResult] = await Promise.allSettled([
 		repo.git.getBranches({ filter: b => !b.remote }),
 		repo.git.getWorktrees(),
