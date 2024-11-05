@@ -2,11 +2,6 @@ import { expect, MaxTimeout, test } from './baseTest';
 
 test.describe('Test GitLens Command Palette commands', () => {
 	test('should open commit graph with the command', async ({ page }) => {
-		// Close any open tabs to ensure a clean state
-		const welcomePageTab = page.locator('div[role="tab"][aria-label="Welcome to GitLens"]');
-		await welcomePageTab.waitFor({ state: 'visible', timeout: MaxTimeout });
-		void welcomePageTab.locator('div.tab-actions .action-item a.codicon-close').click();
-
 		// Open the command palette by clicking on the View menu and selecting Command Palette
 		const commandPalette = page.locator('div[id="workbench.parts.titlebar"] .command-center-quick-pick');
 		await commandPalette.click();
