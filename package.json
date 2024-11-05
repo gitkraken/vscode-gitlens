@@ -54,7 +54,6 @@
 		"onWebviewPanel:gitlens.patchDetails",
 		"onWebviewPanel:gitlens.settings",
 		"onWebviewPanel:gitlens.timeline",
-		"onWebviewPanel:gitlens.welcome",
 		"onStartupFinished"
 	],
 	"capabilities": {
@@ -4898,13 +4897,6 @@
 				"title": "General",
 				"order": 0,
 				"properties": {
-					"gitlens.showWelcomeOnInstall": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the Welcome experience on first install",
-						"scope": "window",
-						"order": 10
-					},
 					"gitlens.showWhatsNewAfterUpgrades": {
 						"type": "boolean",
 						"default": true,
@@ -6073,11 +6065,6 @@
 			{
 				"command": "gitlens.showTimelineView",
 				"title": "Show Visual File History View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showWelcomePage",
-				"title": "Welcome",
 				"category": "GitLens"
 			},
 			{
@@ -13202,11 +13189,6 @@
 					"command": "gitlens.getStarted",
 					"when": "extension =~ /^eamodio.gitlens?$/ && extensionStatus == installed",
 					"group": "9_gitlens@1"
-				},
-				{
-					"command": "gitlens.showWelcomePage",
-					"when": "extension =~ /^eamodio.gitlens?$/ && extensionStatus == installed",
-					"group": "9_gitlens@2"
 				},
 				{
 					"command": "gitlens.showSettingsPage",

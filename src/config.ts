@@ -203,7 +203,6 @@ export interface Config {
 		readonly showDetailsView: 'open' | 'selection' | false;
 	};
 	readonly remotes: RemotesConfig[] | null;
-	readonly showWelcomeOnInstall: boolean;
 	readonly showWhatsNewAfterUpgrades: boolean;
 	readonly sortBranchesBy: BranchSorting;
 	readonly sortContributorsBy: ContributorSorting;
