@@ -175,6 +175,7 @@ export const enum Commands {
 	ShowGraphPage = 'gitlens.showGraphPage',
 	ShowGraphView = 'gitlens.showGraphView',
 	ShowHomeView = 'gitlens.showHomeView',
+	PickUser = 'gitlens.users.pick',
 	ShowAccountView = 'gitlens.showAccountView',
 	ShowInCommitGraph = 'gitlens.showInCommitGraph',
 	ShowInCommitGraphView = 'gitlens.showInCommitGraphView',

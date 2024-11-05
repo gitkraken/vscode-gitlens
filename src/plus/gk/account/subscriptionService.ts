@@ -1180,16 +1180,16 @@ export class SubscriptionService implements Disposable {
 		subscription: Optional<Subscription, 'state'> | undefined,
 		options?: { silent?: boolean; store?: boolean },
 	): void {
-		if (subscription == null) {
-			subscription = {
-				plan: {
-					actual: getSubscriptionPlan(SubscriptionPlanId.Community, false, 0, undefined),
-					effective: getSubscriptionPlan(SubscriptionPlanId.Community, false, 0, undefined),
-				},
-				account: undefined,
-				state: SubscriptionState.Community,
-			};
-		}
+		// if (subscription == null) {
+		subscription = {
+			plan: {
+				actual: getSubscriptionPlan(SubscriptionPlanId.Pro, false, 0, undefined),
+				effective: getSubscriptionPlan(SubscriptionPlanId.Pro, false, 0, undefined),
+			},
+			account: undefined,
+			state: SubscriptionState.Paid,
+		};
+		// }
 
 		// If the effective plan has expired, then replace it with the actual plan
 		if (isSubscriptionExpired(subscription)) {

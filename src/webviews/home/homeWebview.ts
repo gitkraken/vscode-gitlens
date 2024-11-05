@@ -1,5 +1,5 @@
-import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable, workspace } from 'vscode';
+import type { ConfigurationChangeEvent, QuickInputButton, QuickPickItem, Uri } from 'vscode';
+import { Disposable, QuickInputButtons, ThemeIcon, window, workspace } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { ContextKeys } from '../../constants.context';
 import type { WebviewTelemetryContext } from '../../constants.telemetry';
@@ -7,6 +7,7 @@ import type { Container } from '../../container';
 import type { BranchContributorOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
 import { sortBranches } from '../../git/models/branch';
+import type { GitContributor } from '../../git/models/contributor';
 import type { PullRequest } from '../../git/models/pullRequest';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
@@ -36,6 +37,7 @@ import {
 	CollapseSectionCommand,
 	DidChangeIntegrationsConnections,
 	DidChangeOrgSettings,
+	DidChangeOwnerFilter,
 	DidChangePreviewEnabled,
 	DidChangeRepositories,
 	DidChangeRepositoryWip,
@@ -45,8 +47,18 @@ import {
 	DismissWalkthroughSection,
 	GetLaunchpadSummary,
 	GetOverview,
+	GetOverviewFilterState,
 } from './protocol';
 import type { HomeWebviewShowingArgs } from './registration';
+
+const ClearAllQuickInputButton: QuickInputButton = {
+	tooltip: 'Clear All',
+	iconPath: new ThemeIcon('clear-all'),
+};
+const AccountQuickInputButton: QuickInputButton = {
+	tooltip: 'By me',
+	iconPath: new ThemeIcon('accounts-view-bar-icon'),
+};
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {
@@ -55,10 +67,15 @@ const emptyDisposable = Object.freeze({
 });
 
 type RepositorySubscription = { repo: Repository; subscription: Disposable };
+const branchOverviewDefaults = Object.freeze({
+	recent: { threshold: 1000 * 60 * 60 * 24 * 54 },
+	stale: { threshold: 1000 * 60 * 60 * 24 * 365 },
+});
 
 export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
 	private _pendingFocusAccount = false;
+	private _ownerFocusValue: GitContributor[] | undefined = undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -85,6 +102,94 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return {
 			...this.host.getTelemetryContext(),
 		};
+	}
+
+	private _ownerFilterValue: Map<GitContributor, boolean> | undefined;
+	private async pickOwner() {
+		const repo = this.container.git.highlander;
+		if (repo == null) {
+			return undefined;
+		}
+		const quickpick = window.createQuickPick<ContributorQuickPickItem>();
+		quickpick.show();
+		quickpick.busy = true;
+		quickpick.placeholder = 'Owner filter';
+
+		quickpick.canSelectMany = true;
+		const [repoContributorsResult /*currentUserResult*/] = await Promise.allSettled([
+			this.container.git.getContributors(repo.path),
+			// this.container.git.getCurrentUser(repo.path),
+		]);
+		const repoContributors = getSettledValue(repoContributorsResult) ?? [];
+		// const currentUser = getSettledValue(currentUserResult);
+		// if (!this._ownerFilterValue) {
+		// 	this._ownerFilterValue = new Map<GitContributor, boolean>();
+		// 	const currentUser = repoContributors.find(x => x.current);
+		// 	if (currentUser) {
+		// 		this._ownerFilterValue.set(currentUser, true);
+		// 	}
+		// }
+		quickpick.busy = false;
+		quickpick.matchOnDetail = true;
+
+		const itemsMap = new Map<GitContributor, Uri | undefined>();
+		let newItems: Map<GitContributor, boolean> | undefined = this._ownerFilterValue;
+
+		const updateItems = (contributor: GitContributor, avatarUri: Uri) => {
+			itemsMap.set(contributor, avatarUri);
+			quickpick.items = [...itemsMap.entries()].map(
+				([contributor, avatarUri]) => new ContributorQuickPickItem(contributor, avatarUri),
+			);
+			quickpick.selectedItems = quickpick.items.filter(x => Boolean(newItems?.get(x.contributor)));
+		};
+
+		repoContributors.forEach(x => {
+			itemsMap.set(x, undefined);
+			const avatarUri = x.getAvatarUri();
+			Promise.resolve(avatarUri)
+				.then(uri => {
+					setTimeout(() => {
+						updateItems(x, uri);
+					}, Math.random() * 1000);
+				})
+				.catch(() => {});
+		});
+		quickpick.items = [...itemsMap.keys()].map(x => new ContributorQuickPickItem(x));
+		quickpick.selectedItems = (quickpick.items as ContributorQuickPickItem[]).filter(x =>
+			Boolean(this._ownerFilterValue?.get(x.contributor)),
+		);
+
+		const current = repoContributors.find(x => x.current);
+		quickpick.onDidChangeSelection(items => {
+			newItems = new Map(items.map(x => [x.contributor, true]));
+		});
+		const buttons = [ClearAllQuickInputButton];
+		if (current) {
+			buttons.unshift(AccountQuickInputButton);
+		}
+		quickpick.buttons = buttons;
+		quickpick.onDidAccept(e => {
+			console.log('ownerFilterValue accept', e);
+			this._ownerFilterValue = newItems;
+			this.notifyDidChangedOwnerFilter();
+			quickpick.dispose();
+		});
+
+		quickpick.onDidTriggerButton(button => {
+			if (button.tooltip === AccountQuickInputButton.tooltip) {
+				if (!current) {
+					return;
+				}
+				newItems = new Map();
+				newItems.set(current, true);
+			}
+			if (button.tooltip === ClearAllQuickInputButton.tooltip) {
+				newItems = new Map();
+			}
+			quickpick.selectedItems = (quickpick.items as ContributorQuickPickItem[]).filter(x =>
+				Boolean(newItems?.get(x.contributor)),
+			);
+		});
 	}
 
 	onShowing(
@@ -130,6 +235,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				() => this.container.subscription.validate({ force: true }),
 				this,
 			),
+			registerCommand(`${this.host.id}.pickOwner`, () => this.pickOwner(), this),
 		];
 	}
 
@@ -146,6 +252,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				break;
 			case GetOverview.is(e):
 				void this.host.respond(GetOverview, e, await this.getBranchOverview());
+				break;
+			case GetOverviewFilterState.is(e):
+				void this.host.respond(GetOverviewFilterState, e, {
+					recent: {
+						ownerFilter: this._ownerFilterValue ? [...this._ownerFilterValue.keys()] : undefined,
+					},
+				});
 				break;
 		}
 	}
@@ -202,7 +315,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private getWalkthroughDismissed() {
-		console.log({ test: this.container.storage.get('home:walkthrough:dismissed') });
+		return false;
 		return Boolean(this.container.storage.get('home:walkthrough:dismissed'));
 	}
 
@@ -249,6 +362,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				doneCount: this.container.walkthrough.doneCount,
 				progress: this.container.walkthrough.progress,
 			},
+			ownerFilter: this._ownerFilterValue ? [...this._ownerFilterValue.keys()] : undefined,
 			showWalkthroughProgress: !this.getWalkthroughDismissed(),
 			previewEnabled: this.getPreviewEnabled(),
 		};
@@ -276,7 +390,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			branchesAndWorktrees?.branches,
 			branchesAndWorktrees?.worktrees,
 			this.container,
-			// TODO: add filters
+			{
+				recent: {
+					threshold: branchOverviewDefaults.recent.threshold,
+					ownerFilter: this._ownerFilterValue,
+				},
+			},
 		);
 		if (overviewBranches == null) return undefined;
 
@@ -420,6 +539,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
+	private notifyDidChangedOwnerFilter() {
+		void this.host.notify(DidChangeOwnerFilter, {
+			filter: this._ownerFilterValue ? [...this._ownerFilterValue.keys()] : undefined,
+		});
+	}
+
 	private notifyDidChangeOrgSettings() {
 		void this.host.notify(DidChangeOrgSettings, {
 			orgSettings: this.getOrgSettings(),
@@ -427,19 +552,34 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 }
 
-const branchOverviewDefaults = Object.freeze({
-	recent: { threshold: 1000 * 60 * 60 * 24 * 14 },
-	stale: { threshold: 1000 * 60 * 60 * 24 * 365 },
-});
-
 interface BranchOverviewOptions {
 	recent?: {
 		threshold: number;
+		ownerFilter: Map<GitContributor, boolean> | undefined;
 	};
 	stale?: {
 		show?: boolean;
 		threshold?: number;
 	};
+}
+
+class ContributorQuickPickItem implements QuickPickItem {
+	private readonly _contributor: GitContributor;
+
+	constructor(
+		public readonly contributor: GitContributor,
+		public readonly iconPath?: Uri | undefined,
+	) {
+		this._contributor = contributor;
+	}
+
+	get label() {
+		return this._contributor.label ?? this._contributor.name;
+	}
+
+	get detail() {
+		return this._contributor.email ?? this._contributor.label;
+	}
 }
 
 async function getOverviewBranches(
@@ -451,6 +591,7 @@ async function getOverviewBranches(
 	if (branches.length === 0) return undefined;
 
 	const worktreesByBranch = groupWorktreesByBranch(worktrees);
+	console.log('ownerFilterValue', options?.recent?.ownerFilter);
 
 	sortBranches(branches, {
 		current: true,
@@ -608,6 +749,7 @@ async function getOverviewBranches(
 			?.filter(r => r.status === 'fulfilled')
 			.map(r => [r.value[0], r.value[1]]),
 	);
+	const owners = options?.recent?.ownerFilter ? [...options.recent.ownerFilter.keys()] : undefined;
 
 	for (const branch of [...overviewBranches.active, ...overviewBranches.recent, ...overviewBranches.stale]) {
 		const pr = prs.get(branch.id);
@@ -620,7 +762,16 @@ async function getOverviewBranches(
 
 		const contributor = contributors.get(branch.id);
 		if (contributor != null) {
-			const owner = contributor.owner ?? contributor.contributors?.shift();
+			const owner = contributor.owner ?? contributor.contributors?.[0];
+			if (
+				owners?.length &&
+				!owners?.some(x => {
+					return x.email === owner?.email && x.id === owner?.id && x.label === owner?.label;
+				})
+			) {
+				branch.toRemove = true;
+				continue;
+			}
 			if (owner != null) {
 				branch.owner = {
 					name: owner.name ?? '',
@@ -645,9 +796,12 @@ async function getOverviewBranches(
 						})),
 				  )
 				: undefined;
-			branch.contributors = contributors;
+			branch.contributors = contributors?.filter(x => x.email !== owner?.email && x.name !== owner?.name);
 		}
 	}
 
-	return overviewBranches;
+	return {
+		...overviewBranches,
+		recent: overviewBranches.recent.filter(x => !x.toRemove),
+	};
 }

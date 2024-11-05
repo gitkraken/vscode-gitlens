@@ -4,6 +4,7 @@ import type { State } from '../../home/protocol';
 import {
 	DidChangeIntegrationsConnections,
 	DidChangeOrgSettings,
+	DidChangeOwnerFilter,
 	DidChangePreviewEnabled,
 	DidChangeRepositories,
 	DidChangeSubscription,
@@ -40,6 +41,12 @@ export class HomeStateProvider implements Disposable {
 					this.state.walkthroughProgress = msg.params;
 					this.state.timestamp = Date.now();
 
+					this.provider.setValue(this.state, true);
+					break;
+				case DidChangeOwnerFilter.is(msg):
+					this.state.ownerFilter = msg.params.filter;
+					this.state.timestamp = Date.now();
+					console.log('home/ownerFilter/didChange', msg.params.filter);
 					this.provider.setValue(this.state, true);
 					break;
 				case DidChangeSubscription.is(msg):

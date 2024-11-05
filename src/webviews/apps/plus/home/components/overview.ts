@@ -1,8 +1,10 @@
 import { consume } from '@lit/context';
-import { SignalWatcher } from '@lit-labs/signals';
+import { SignalWatcher, watch } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement } from 'lit/decorators.js';
-import type { GetOverviewResponse } from '../../../../home/protocol';
+import { customElement, property } from 'lit/decorators.js';
+import type { GitContributor } from 'src/git/models/contributor';
+import type { GetOverviewResponse, State } from '../../../../home/protocol';
+import { stateContext } from '../../../home/context';
 import { sectionHeadingStyles } from './branch-section';
 import type { OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
@@ -37,6 +39,8 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
+		const filter = watch(this._overviewState.filter);
+		console.log('render ownerFilter', filter);
 		return this._overviewState.render({
 			pending: () => this.renderPending(),
 			complete: summary => this.renderComplete(summary),
@@ -53,16 +57,17 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	private renderComplete(overview: Overview) {
 		if (overview == null) return nothing;
-
 		const { repository } = overview;
+
 		return html`
 			<div class="repository">
+				<span>invalidate: ${watch(this._overviewState.state)}</span>
 				<gl-branch-section
 					label="Recent (${repository.branches.recent.length})"
+					.filter=${watch(this._overviewState.filter)}
 					.branches=${repository.branches.recent}
 				></gl-branch-section>
 				<gl-branch-section
-					hidden
 					label="Stale (${repository.branches.stale.length})"
 					.branches=${repository.branches.stale}
 				></gl-branch-section>

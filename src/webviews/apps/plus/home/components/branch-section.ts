@@ -2,6 +2,8 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { GitTrackingState } from '../../../../../git/models/branch';
+import type { GitContributor } from '../../../../../git/models/contributor';
+import { pluralize } from '../../../../../system/string';
 import type { GetOverviewBranch } from '../../../../home/protocol';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/avatar/avatar';
@@ -21,6 +23,18 @@ export const sectionHeadingStyles = css`
 		margin-block: 0 0.8rem;
 		text-transform: uppercase;
 	}
+	.section-filters {
+		margin-bottom: 4px;
+	}
+	.owner-filter {
+		color: var(--vscode-disabledForeground);
+		text-decoration: none !important;
+		font-weight: 500;
+	}
+	.owner-filter:hover {
+		color: var(--vscode-foreground);
+		text-decoration: underline !important;
+	}
 `;
 
 @customElement('gl-branch-section')
@@ -36,11 +50,28 @@ export class GlBranchSection extends LitElement {
 
 	@property({ type: String }) label!: string;
 	@property({ type: Array }) branches!: GetOverviewBranch[];
+	@property({ type: Array }) filter: GitContributor[] | undefined;
+
+	private renderOwnerFilterLabel() {
+		if (!this.filter?.length) {
+			return 'By all users';
+		}
+		const additionalLabel = this.filter.length > 1 ? ` and ${pluralize('other', this.filter.length - 1)}` : '';
+		if (this.filter.some(x => x.current)) {
+			return `By me${additionalLabel}`;
+		}
+		return `By ${this.filter[0].name}${additionalLabel}`;
+	}
 
 	override render() {
 		return html`
 			<div class="section">
 				<h3 class="section-heading">${this.label}</h3>
+				<div class="section-filters">
+					<a href="command:gitlens.views.home.pickOwner" class="owner-filter"
+						>${this.renderOwnerFilterLabel()}<code-icon icon="chevron-down"></code-icon
+					></a>
+				</div>
 				<slot></slot>
 				${this.branches.map(branch => html`<gl-branch-card .branch=${branch}></gl-branch-card>`)}
 			</div>

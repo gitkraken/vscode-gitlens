@@ -5,7 +5,7 @@ import { html } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../home/protocol';
-import { DidFocusAccount } from '../../home/protocol';
+import { DidChangeOwnerFilter, DidFocusAccount } from '../../home/protocol';
 import { OverviewState, overviewStateContext } from '../plus/home/components/overviewState';
 import type { GLHomeAccountContent } from '../plus/shared/components/home-account-content';
 import { GlApp } from '../shared/app';
@@ -39,7 +39,6 @@ export class GlHomeApp extends GlApp<State> {
 
 	protected override createStateProvider(state: State, ipc: HostIpc) {
 		this._overviewState = new OverviewState(ipc);
-
 		return new HomeStateProvider(this, state, ipc);
 	}
 
@@ -50,6 +49,11 @@ export class GlHomeApp extends GlApp<State> {
 			switch (true) {
 				case DidFocusAccount.is(msg):
 					this.accountContentEl.show();
+					break;
+				case DidChangeOwnerFilter.is(msg):
+					this._overviewState.filter.set(msg.params.filter);
+					this._overviewState.run(true);
+					// this._overviewState.run();
 					break;
 			}
 		});
@@ -74,7 +78,7 @@ export class GlHomeApp extends GlApp<State> {
 						() => html`
 							<gl-active-work></gl-active-work>
 							<gl-launchpad></gl-launchpad>
-							<gl-overview></gl-overview>
+							<gl-overview .ownerFilter=${this.state.ownerFilter}></gl-overview>
 						`,
 						() => html` <gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav> `,
 					)}

@@ -1,6 +1,8 @@
 import type { GitBranchStatus, GitTrackingState } from '../../git/models/branch';
+import type { GitContributor } from '../../git/models/contributor';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
+import type { Overview } from '../apps/plus/home/components/overviewState';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 
@@ -18,6 +20,7 @@ export interface State extends WebviewState {
 	hasAnyIntegrationConnected: boolean;
 	avatar?: string;
 	organizationsCount?: number;
+	ownerFilter: GitContributor[] | undefined;
 	walkthroughProgress: {
 		doneCount: number;
 		allCount: number;
@@ -109,6 +112,13 @@ export type GetOverviewResponse =
 	| undefined;
 export const GetOverview = new IpcRequest<GetOverviewRequest, GetOverviewResponse>(scope, 'overview');
 
+export type GetOverviewFilterStateResponse = {
+	recent: {
+		ownerFilter?: GitContributor[];
+	};
+};
+export const GetOverviewFilterState = new IpcRequest<void, GetOverviewFilterStateResponse>(scope, 'overviewFilter');
+
 // COMMANDS
 
 export interface CollapseSectionParams {
@@ -162,5 +172,13 @@ export interface DidChangeOrgSettingsParams {
 	orgSettings: State['orgSettings'];
 }
 export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');
+
+export interface DidChangeOwnerFilterParams {
+	filter: GitContributor[] | undefined;
+}
+export const DidChangeOwnerFilter = new IpcNotification<DidChangeOwnerFilterParams>(
+	scope,
+	'home/ownerFilter/didChange',
+);
 
 export const DidFocusAccount = new IpcNotification<undefined>(scope, 'account/didFocus');
