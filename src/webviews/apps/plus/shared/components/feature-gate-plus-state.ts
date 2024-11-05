@@ -140,15 +140,23 @@ export class GlFeatureGatePlusState extends LitElement {
 				if (this.allowFeaturePreviewTrial && this.state === SubscriptionState.Community) {
 					const daysLeft = proPreviewLengthInDays - consumedDaysCount;
 					return html`
-						<gl-button appearance="${appearance}" href="${this.featurePreviewTrialCommandLink}"
-							>Continue</gl-button
-						>
+						<p class="actions">
+							<gl-button class="inline" href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+								>Start ${proTrialLengthInDays}-day Pro Trial</gl-button
+							>
+							&nbsp; or &nbsp;
+							<gl-button
+								class="inline"
+								appearance="${appearance}"
+								href="${this.featurePreviewTrialCommandLink}"
+								>Continue</gl-button
+							>
+						</p>
+
 						<p>
 							Continuing gives you ${pluralize('day', daysLeft)} to preview
-							${this.featureWithArticleIfNeeded
-								? `${this.featureWithArticleIfNeeded} and other `
-								: ''}local
-							Pro features.<br />
+							${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''} private
+							repositories.<br />
 							${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features
 							<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
 								>start your free ${proTrialLengthInDays}-day Pro trial</a
