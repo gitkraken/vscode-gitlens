@@ -5,11 +5,13 @@ import type { ContextKeys } from '../../constants.context';
 import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { BranchContributorOverview } from '../../git/gitProvider';
+import type { GitBranch } from '../../git/models/branch';
 import { sortBranches } from '../../git/models/branch';
 import type { PullRequest } from '../../git/models/pullRequest';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
+import type { GitWorktree } from '../../git/models/worktree';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/models/worktree';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
@@ -269,7 +271,23 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const repo = this.getSelectedRepository();
 		if (repo == null) return undefined;
 
-		return getBranchOverview(repo, this.container);
+		const branchesAndWorktrees = await this.getBranchesAndWorktrees(repo);
+		const overviewBranches = await getOverviewBranches(
+			branchesAndWorktrees?.branches,
+			branchesAndWorktrees?.worktrees,
+			this.container,
+			// TODO: add filters
+		);
+		if (overviewBranches == null) return undefined;
+
+		const result: GetOverviewResponse = {
+			repository: {
+				name: repo.name,
+				branches: overviewBranches,
+			},
+		};
+
+		return result;
 	}
 
 	private _repositorySubscription: RepositorySubscription | undefined;
@@ -320,6 +338,22 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 
 		return this._repositorySubscription?.repo;
+	}
+
+	private _repositoryBranches: Map<string, { branches: GitBranch[]; worktrees: GitWorktree[] }> = new Map();
+	private async getBranchesAndWorktrees(repo: Repository, force = false) {
+		if (force || !this._repositoryBranches.has(repo.path)) {
+			const [branchesResult, worktreesResult] = await Promise.allSettled([
+				repo.git.getBranches({ filter: b => !b.remote }),
+				repo.git.getWorktrees(),
+			]);
+
+			const branches = getSettledValue(branchesResult)?.values ?? [];
+			const worktrees = getSettledValue(worktreesResult) ?? [];
+			this._repositoryBranches.set(repo.path, { branches: branches, worktrees: worktrees });
+		}
+
+		return this._repositoryBranches.get(repo.path)!;
 	}
 
 	private _hostedIntegrationConnected: boolean | undefined;
@@ -403,22 +437,19 @@ interface BranchOverviewOptions {
 		threshold: number;
 	};
 	stale?: {
-		threshold: number;
+		show?: boolean;
+		threshold?: number;
 	};
 }
 
-async function getBranchOverview(
-	repo: Repository,
+async function getOverviewBranches(
+	branches: GitBranch[],
+	worktrees: GitWorktree[],
 	container: Container,
 	options?: BranchOverviewOptions,
-): Promise<GetOverviewResponse | undefined> {
-	const [branchesResult, worktreesResult] = await Promise.allSettled([
-		repo.git.getBranches({ filter: b => !b.remote }),
-		repo.git.getWorktrees(),
-	]);
+): Promise<GetOverviewBranches | undefined> {
+	if (branches.length === 0) return undefined;
 
-	const branches = getSettledValue(branchesResult)?.values ?? [];
-	const worktrees = getSettledValue(worktreesResult) ?? [];
 	const worktreesByBranch = groupWorktreesByBranch(worktrees);
 
 	sortBranches(branches, {
@@ -439,7 +470,6 @@ async function getBranchOverview(
 
 	const now = Date.now();
 	const recentThreshold = now - (options?.recent?.threshold ?? branchOverviewDefaults.recent.threshold);
-	const staleThreshold = now - (options?.stale?.threshold ?? branchOverviewDefaults.stale.threshold);
 
 	for (const branch of branches) {
 		const wt = worktreesByBranch.get(branch.id);
@@ -489,45 +519,53 @@ async function getBranchOverview(
 		}
 	}
 
-	sortBranches(branches, {
-		missingUpstream: true,
-		orderBy: 'date:asc',
-	});
-	for (const branch of branches) {
-		if (overviewBranches.stale.length > 9) break;
+	if (options?.stale?.show === true) {
+		const staleThreshold = now - (options?.stale?.threshold ?? branchOverviewDefaults.stale.threshold);
+		sortBranches(branches, {
+			missingUpstream: true,
+			orderBy: 'date:asc',
+		});
+		for (const branch of branches) {
+			if (overviewBranches.stale.length > 9) break;
 
-		if (
-			overviewBranches.active.some(b => b.id === branch.id) ||
-			overviewBranches.recent.some(b => b.id === branch.id)
-		) {
-			continue;
-		}
-
-		const timestamp = branch.date?.getTime();
-		if (branch.upstream?.missing || (timestamp != null && timestamp < staleThreshold)) {
-			const wt = worktreesByBranch.get(branch.id);
-			const worktree: GetOverviewBranch['worktree'] = wt ? { name: wt.name, uri: wt.uri.toString() } : undefined;
-
-			if (!branch.upstream?.missing) {
-				prPromises.set(branch.id, branch.getAssociatedPullRequest());
+			if (
+				overviewBranches.active.some(b => b.id === branch.id) ||
+				overviewBranches.recent.some(b => b.id === branch.id)
+			) {
+				continue;
 			}
-			if (wt != null) {
-				statusPromises.set(branch.id, wt.getStatus());
+
+			const timestamp = branch.date?.getTime();
+			if (branch.upstream?.missing || (timestamp != null && timestamp < staleThreshold)) {
+				const wt = worktreesByBranch.get(branch.id);
+				const worktree: GetOverviewBranch['worktree'] = wt
+					? { name: wt.name, uri: wt.uri.toString() }
+					: undefined;
+
+				if (!branch.upstream?.missing) {
+					prPromises.set(branch.id, branch.getAssociatedPullRequest());
+				}
+				if (wt != null) {
+					statusPromises.set(branch.id, wt.getStatus());
+				}
+				contributorPromises.set(
+					branch.id,
+					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
+				);
+
+				overviewBranches.stale.push({
+					id: branch.id,
+					name: branch.name,
+					opened: false,
+					timestamp: timestamp,
+					state: branch.state,
+					status: branch.status,
+					upstream: branch.upstream,
+					worktree: worktree,
+				});
+
+				continue;
 			}
-			contributorPromises.set(branch.id, container.git.getBranchContributorOverview(branch.repoPath, branch.ref));
-
-			overviewBranches.stale.push({
-				id: branch.id,
-				name: branch.name,
-				opened: false,
-				timestamp: timestamp,
-				state: branch.state,
-				status: branch.status,
-				upstream: branch.upstream,
-				worktree: worktree,
-			});
-
-			continue;
 		}
 	}
 
@@ -611,12 +649,5 @@ async function getBranchOverview(
 		}
 	}
 
-	const result: GetOverviewResponse = {
-		repository: {
-			name: repo.name,
-			branches: overviewBranches,
-		},
-	};
-
-	return result;
+	return overviewBranches;
 }
