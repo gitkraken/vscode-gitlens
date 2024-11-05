@@ -611,7 +611,6 @@ export type Sources =
 	| 'scm-input'
 	| 'subscription'
 	| 'walkthrough'
-	| 'welcome'
 	| 'worktrees';
 
 export type Source = {
