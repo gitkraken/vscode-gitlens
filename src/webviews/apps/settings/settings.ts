@@ -17,7 +17,7 @@ import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { DOM } from '../shared/dom';
 // import { Snow } from '../shared/snow';
 import '../shared/components/feature-badge';
-import '../welcome/components/gitlens-logo';
+import '../shared/components/gitlens-logo';
 
 const topOffset = 83;
 const offset = (new Date().getTimezoneOffset() / 60) * 100;

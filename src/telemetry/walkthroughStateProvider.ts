@@ -30,7 +30,6 @@ export class WalkthroughStateProvider implements Disposable {
 	private readonly walkthroughByTracking: Partial<Record<TrackedUsageKeys, WalkthroughContextKeys>> = {
 		[`command:${Commands.PlusStartPreviewTrial}:executed`]: WalkthroughContextKeys.GettingStarted,
 		[`command:${Commands.PlusReactivateProTrial}:executed`]: WalkthroughContextKeys.GettingStarted,
-		[`command:${Commands.ShowWelcomePage}:executed`]: WalkthroughContextKeys.GettingStarted,
 		[`command:${Commands.OpenWalkthrough}:executed`]: WalkthroughContextKeys.GettingStarted,
 		[`command:${Commands.GetStarted}:executed`]: WalkthroughContextKeys.GettingStarted,
 
