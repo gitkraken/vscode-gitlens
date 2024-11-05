@@ -727,14 +727,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			);
 		}
 
-		void window.showInformationMessage(
-			`You can now preview local Pro features for 1 day${
-				consumedDays.length + 1 < proPreviewLengthInDays
-					? `, up to ${proPreviewLengthInDays - (consumedDays.length + 1)} more days`
-					: ''
-			}, or [start your free ${proTrialLengthInDays}-day Pro trial](command:gitlens.plus.signUp "Start Pro Trial") for full access to Pro features.`,
-		);
-
 		void this.notifyDidSetFeaturePreviewTrial();
 	}
 
