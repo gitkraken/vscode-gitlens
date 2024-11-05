@@ -90,9 +90,6 @@ export class GlFeatureGate extends LitElement {
 		}
 	`;
 
-	@property({ type: Boolean })
-	allowFeaturePreviewTrial?: boolean;
-
 	@property({ type: Object })
 	featureInPreviewTrial?: {
 		[key in Sources]?: { consumedDays: { startedOn: string; expiresOn: string }[]; isActive: boolean };
@@ -137,7 +134,6 @@ export class GlFeatureGate extends LitElement {
 					.featureWithArticleIfNeeded=${this.featureWithArticleIfNeeded}
 					.source=${this.source}
 					.state=${this.state}
-					.allowFeaturePreviewTrial=${this.allowFeaturePreviewTrial}
 					.featureInPreviewTrial=${this.featureInPreviewTrial}
 					featurePreviewTrialCommandLink=${this.featurePreviewTrialCommandLink}
 				></gl-feature-gate-plus-state>

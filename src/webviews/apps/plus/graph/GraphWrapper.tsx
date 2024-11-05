@@ -1537,7 +1537,6 @@ export function GraphWrapper({
 			</header>
 			<GlFeatureGate
 				className="graph-app__gate"
-				allowFeaturePreviewTrial={true}
 				featureInPreviewTrial={graphPreviewTrial ? { graph: graphPreviewTrial } : undefined}
 				featurePreviewTrialCommandLink={createWebviewCommandLink(
 					'gitlens.graph.startFeaturePreviewTrial',

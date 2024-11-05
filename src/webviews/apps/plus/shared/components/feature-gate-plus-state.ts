@@ -70,9 +70,6 @@ export class GlFeatureGatePlusState extends LitElement {
 	@query('gl-button')
 	private readonly button!: GlButton;
 
-	@property({ type: Boolean })
-	allowFeaturePreviewTrial?: boolean;
-
 	@property({ type: Object })
 	featureInPreviewTrial?: {
 		[key in Sources]?: { consumedDays: { startedOn: string; expiresOn: string }[]; isActive: boolean };
@@ -109,8 +106,9 @@ export class GlFeatureGatePlusState extends LitElement {
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
 		const promo = this.state ? getApplicablePromo(this.state, 'gate') : undefined;
 		let consumedDaysCount = 0;
-		if (this.source?.source) {
-			consumedDaysCount = this.featureInPreviewTrial?.[this.source.source]?.consumedDays?.length ?? 0;
+		const feature = this.source?.source;
+		if (feature) {
+			consumedDaysCount = this.featureInPreviewTrial?.[feature]?.consumedDays?.length ?? 0;
 		}
 
 		const feature = this.source?.source || '';
@@ -137,8 +135,12 @@ export class GlFeatureGatePlusState extends LitElement {
 
 			case SubscriptionState.Community:
 			case SubscriptionState.ProPreviewExpired:
-				if (this.allowFeaturePreviewTrial && this.state === SubscriptionState.Community) {
-					const daysLeft = proPreviewLengthInDays - consumedDaysCount;
+				if (
+					this.state === SubscriptionState.Community &&
+					feature &&
+					this.featureInPreviewTrial?.[feature] &&
+					proPreviewLengthInDays - consumedDaysCount > 0
+				) {
 					return html`
 						<p class="actions">
 							<gl-button class="inline" href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
@@ -154,9 +156,9 @@ export class GlFeatureGatePlusState extends LitElement {
 						</p>
 
 						<p>
-							Continuing gives you ${pluralize('day', daysLeft)} to preview
-							${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''} private
-							repositories.<br />
+							Continuing gives you ${pluralize('day', proPreviewLengthInDays - consumedDaysCount)} to
+							preview ${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''}
+							private repositories.<br />
 							${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features
 							<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
 								>start your free ${proTrialLengthInDays}-day Pro trial</a
