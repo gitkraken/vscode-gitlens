@@ -704,7 +704,6 @@ export abstract class QuickWizardCommandBase extends Command {
 										return;
 									}
 
-									/*
 									case Directive.StartPreview:
 										await Container.instance.subscription.startPreviewTrial({
 											source: 'quick-wizard',
@@ -715,7 +714,7 @@ export abstract class QuickWizardCommandBase extends Command {
 										});
 										resolve(await rootStep.command?.retry());
 										return;
-									*/
+
 									case Directive.RequiresVerification: {
 										const result = await Container.instance.subscription.resendVerification({
 											source: 'quick-wizard',

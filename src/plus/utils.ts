@@ -5,13 +5,13 @@ import { proTrialLengthInDays } from '../constants.subscription';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { openUrl } from '../system/vscode/utils';
-import { isSubscriptionPaidPlan } from './gk/account/subscription';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from './gk/account/subscription';
 
 export async function ensurePaidPlan(
 	container: Container,
 	title: string,
 	source: Source,
-	_?: { allowPreview?: boolean },
+	options?: { allowPreview?: boolean },
 ): Promise<boolean> {
 	while (true) {
 		const subscription = await container.subscription.getSubscription();
@@ -37,7 +37,7 @@ export async function ensurePaidPlan(
 		const plan = subscription.plan.effective.id;
 		if (isSubscriptionPaidPlan(plan)) break;
 
-		/*if (options?.allowPreview && subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
+		if (options?.allowPreview && subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
 			const startTrial = { title: 'Continue' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
@@ -51,8 +51,7 @@ export async function ensurePaidPlan(
 
 			void container.subscription.startPreviewTrial(source);
 			break;
-		} else */
-		if (subscription.account == null) {
+		} else if (subscription.account == null) {
 			const signUp = { title: 'Start Pro Trial' };
 			const signIn = { title: 'Sign In' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };

@@ -150,7 +150,6 @@ export const enum Commands {
 	PlusShowPlans = 'gitlens.plus.showPlans',
 	PlusSignUp = 'gitlens.plus.signUp',
 	PlusStartPreviewTrial = 'gitlens.plus.startPreviewTrial',
-	PlusStartFeaturePreviewTrial = 'gitlens.plus.startFeaturePreviewTrial',
 	PlusUpgrade = 'gitlens.plus.upgrade',
 	PlusValidate = 'gitlens.plus.validate',
 	PlusSimulateSubscription = 'gitlens.plus.simulateSubscription',
