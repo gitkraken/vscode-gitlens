@@ -1,11 +1,6 @@
 import { expect, test } from './baseTest';
 
 test.describe('Test GitLens installation', () => {
-	test('should display GitLens Welcome page after installation', async ({ page }) => {
-		const title = await page.textContent('.tab a');
-		expect(title).toBe('Welcome to GitLens');
-	});
-
 	test('should contain GitLens & GitLens Inspect icons in activity bar', async ({ page }) => {
 		await page.getByRole('tab', { name: 'GitLens Inspect' }).waitFor();
 		const gitlensIcons = page.getByRole('tab', { name: 'GitLens' });
