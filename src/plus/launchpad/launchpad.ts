@@ -513,7 +513,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			}
 
 			return {
-				placeholder: 'Choose an item to focus on',
+				placeholder: 'Choose an item, type a term to search, or paste in a PR URL',
 				items: getItems(context.result, isSearching),
 			};
 		}
