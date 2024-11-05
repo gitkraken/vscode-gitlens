@@ -38,6 +38,7 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidSearchNotification,
+	DidSetFeaturePreviewTrialNotification,
 	DoubleClickedCommandType,
 	EnsureRowRequest,
 	GetMissingAvatarsCommand,
@@ -165,7 +166,11 @@ export class GraphApp extends App<State> {
 				this.state.avatars = msg.params.avatars;
 				this.setState(this.state, DidChangeAvatarsNotification);
 				break;
-
+			case DidSetFeaturePreviewTrialNotification.is(msg):
+				this.state.graphPreviewTrial = { consumedDays: msg.params.consumedDays, isActive: msg.params.isActive };
+				this.state.allowed = msg.params.isActive || this.state.allowed;
+				this.setState(this.state, DidSetFeaturePreviewTrialNotification);
+				break;
 			case DidChangeBranchStateNotification.is(msg):
 				this.state.branchState = msg.params.branchState;
 				this.setState(this.state, DidChangeBranchStateNotification);

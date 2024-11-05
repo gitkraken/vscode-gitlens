@@ -64,6 +64,7 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidSearchNotification,
+	DidSetFeaturePreviewTrialNotification,
 } from '../../../../plus/webviews/graph/protocol';
 import { createCommandLink } from '../../../../system/commands';
 import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
@@ -282,6 +283,8 @@ export function GraphWrapper({
 	const [windowFocused, setWindowFocused] = useState(state.windowFocused);
 	const [allowed, setAllowed] = useState(state.allowed ?? false);
 	const [subscription, setSubscription] = useState<Subscription | undefined>(state.subscription);
+	const [graphPreviewTrial, setGraphPreviewTrial] = useState(state.graphPreviewTrial);
+
 	// search state
 	const searchEl = useRef<GlSearchBox>(null);
 	const [searchQuery, setSearchQuery] = useState<SearchQuery | undefined>(undefined);
@@ -317,6 +320,10 @@ export function GraphWrapper({
 				if (!themingChanged) {
 					setStyleProps(state.theming);
 				}
+				break;
+			case DidSetFeaturePreviewTrialNotification:
+				setGraphPreviewTrial(state.graphPreviewTrial);
+				setAllowed(state.graphPreviewTrial?.isActive || allowed);
 				break;
 			case DidChangeAvatarsNotification:
 				setAvatars(state.avatars);
@@ -1531,6 +1538,12 @@ export function GraphWrapper({
 			<GlFeatureGate
 				className="graph-app__gate"
 				allowFeaturePreviewTrial={true}
+				featureInPreviewTrial={graphPreviewTrial ? { graph: graphPreviewTrial } : undefined}
+				featurePreviewTrialCommandLink={createWebviewCommandLink(
+					'gitlens.graph.startFeaturePreviewTrial',
+					state.webviewId,
+					state.webviewInstanceId,
+				)}
 				appearance="alert"
 				featureWithArticleIfNeeded="the Commit Graph"
 				source={{ source: 'graph', detail: 'gate' }}

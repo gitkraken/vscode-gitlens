@@ -1,7 +1,7 @@
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config';
 import type { AIProviders } from './constants.ai';
 import type { IntegrationId } from './constants.integrations';
-import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
+import type { Sources, TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
 import type { GroupableTreeViewTypes } from './constants.views';
 import type { Environment } from './container';
 import type { Subscription } from './plus/gk/account/subscription';
@@ -77,7 +77,10 @@ export type GlobalStorage = {
 	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
 	'graph:searchMode': StoredGraphSearchMode;
 	'views:scm:grouped:welcome:dismissed': boolean;
-} & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
+} & { [key in `confirm:ai:tos:${AIProviders}`]: boolean }
+} & { [key in `plus:featurePreviewTrial:${Sources}:consumedDays`]: { startedOn: string; expiresOn: string }[] } & {
+	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
+} & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
 	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;

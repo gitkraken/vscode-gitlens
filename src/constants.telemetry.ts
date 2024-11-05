@@ -413,7 +413,8 @@ export type TelemetryEvents = {
 					| 'resend-verification'
 					| 'pricing'
 					| 'start-preview-trial'
-					| 'upgrade';
+					| 'upgrade'
+					| `start-${Sources}-preview-trial`;
 		  }
 		| {
 				action: 'visibility';

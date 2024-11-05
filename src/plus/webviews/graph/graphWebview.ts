@@ -20,6 +20,7 @@ import type {
 import { GlyphChars } from '../../../constants';
 import { Commands } from '../../../constants.commands';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
+import { proPreviewLengthInDays, proTrialLengthInDays } from '../../../constants.subscription';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
@@ -97,6 +98,7 @@ import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/sear
 import { splitGitCommitMessage } from '../../../git/utils/commit-utils';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
+import { createFromDateDelta } from '../../../system/date';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
@@ -136,6 +138,7 @@ import type {
 	DidGetCountParams,
 	DidGetRowHoverParams,
 	DidSearchParams,
+	DidSetFeaturePreviewTrialParams,
 	DoubleClickedParams,
 	GetMissingAvatarsParams,
 	GetMissingRefsMetadataParams,
@@ -206,6 +209,7 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidSearchNotification,
+	DidSetFeaturePreviewTrialNotification,
 	DoubleClickedCommandType,
 	EnsureRowRequest,
 	GetCountsRequest,
@@ -294,6 +298,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeSubscriptionNotification, this.notifyDidChangeSubscription],
 		[DidChangeWorkingTreeNotification, this.notifyDidChangeWorkingTree],
 		[DidFetchNotification, this.notifyDidFetch],
+		[DidSetFeaturePreviewTrialNotification, this.notifyDidSetFeaturePreviewTrial],
 	]);
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
 	private _search: GitSearch | undefined;
@@ -681,9 +686,56 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.copyWorkingChangesToWorktree,
 			),
 			this.host.registerWebviewCommand('gitlens.graph.generateCommitMessage', this.generateCommitMessage),
+			this.host.registerWebviewCommand('gitlens.graph.startFeaturePreviewTrial', this.startFeaturePreviewTrial),
 		);
 
 		return commands;
+	}
+
+	async startFeaturePreviewTrial() {
+		const timestamp = new Date();
+		const consumedDays: { startedOn: string; expiresOn: string }[] = this.container.storage.get(
+			`plus:featurePreviewTrial:graph:consumedDays`,
+			[],
+		);
+
+		// If it's still in the 24h trial, end here
+		if (consumedDays.length > 0 && new Date(consumedDays[consumedDays.length - 1].expiresOn) > timestamp) {
+			return;
+		}
+
+		if (consumedDays.length >= proPreviewLengthInDays) {
+			void window.showInformationMessage(
+				`You have already used your ${proPreviewLengthInDays} days of previewing local Pro features.`,
+			);
+			return;
+		}
+
+		await this.container.storage.store(`plus:featurePreviewTrial:graph:consumedDays`, [
+			...(consumedDays ?? []),
+			{
+				startedOn: timestamp.toISOString(),
+				expiresOn: createFromDateDelta(timestamp, { days: 1 }).toISOString(),
+			},
+		]);
+
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent(
+				'subscription/action',
+				{ action: `start-graph-preview-trial` },
+				{ source: 'graph' },
+			);
+		}
+
+		void window.showInformationMessage(
+			`You can now preview local Pro features for 1 day${
+				consumedDays.length + 1 < proPreviewLengthInDays
+					? `, up to ${proPreviewLengthInDays - (consumedDays.length + 1)} more days`
+					: ''
+			}, or [start your free ${proTrialLengthInDays}-day Pro trial](command:gitlens.plus.signUp "Start Pro Trial") for full access to Pro features.`,
+		);
+
+		void this.notifyDidSetFeaturePreviewTrial();
 	}
 
 	onWindowFocusChanged(focused: boolean): void {
@@ -1875,6 +1927,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
+	private async notifyDidSetFeaturePreviewTrial() {
+		if (!this.host.ready || !this.host.visible) {
+			this.host.addPendingIpcNotification(DidSetFeaturePreviewTrialNotification, this._ipcNotificationMap, this);
+			return false;
+		}
+
+		return this.host.notify(DidSetFeaturePreviewTrialNotification, this.getStoredGraphPreviewTrial());
+	}
+
+	@debug()
 	private async notifyDidChangeWorkingTree() {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeWorkingTreeNotification, this._ipcNotificationMap, this);
@@ -2516,6 +2578,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const defaultSearchMode = this.container.storage.get('graph:searchMode') ?? 'normal';
 
+		const graphPreviewTrial = this.getStoredGraphPreviewTrial();
+
 		return {
 			...this.host.baseWebviewState,
 			windowFocused: this.isWindowFocused,
@@ -2563,6 +2627,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 			defaultSearchMode: defaultSearchMode,
+			graphPreviewTrial: graphPreviewTrial,
 		};
 	}
 
@@ -2835,6 +2900,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return refs;
+	}
+
+	private getStoredGraphPreviewTrial(): DidSetFeaturePreviewTrialParams {
+		const storedValue = this.container.storage.get(`plus:featurePreviewTrial:graph:consumedDays`, []);
+		return {
+			feature: 'graph',
+			consumedDays: storedValue,
+			isActive:
+				storedValue.length > 0 &&
+				storedValue.length <= proPreviewLengthInDays &&
+				new Date(storedValue[storedValue.length - 1].expiresOn) > new Date(),
+		};
 	}
 
 	private updateIncludeOnlyRefs(

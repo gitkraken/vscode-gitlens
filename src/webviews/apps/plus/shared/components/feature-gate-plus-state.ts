@@ -3,7 +3,7 @@ import { customElement, property, query } from 'lit/decorators.js';
 import { urls } from '../../../../../constants';
 import { Commands } from '../../../../../constants.commands';
 import { proPreviewLengthInDays, proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription';
-import type { Source } from '../../../../../constants.telemetry';
+import type { Source, Sources } from '../../../../../constants.telemetry';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import { pluralize } from '../../../../../system/string';
@@ -73,6 +73,14 @@ export class GlFeatureGatePlusState extends LitElement {
 	@property({ type: Boolean })
 	allowFeaturePreviewTrial?: boolean;
 
+	@property({ type: Object })
+	featureInPreviewTrial?: {
+		[key in Sources]?: { consumedDays: { startedOn: string; expiresOn: string }[]; isActive: boolean };
+	};
+
+	@property({ type: String })
+	featurePreviewTrialCommandLink?: string;
+
 	@property({ type: String })
 	appearance?: 'alert' | 'welcome';
 
@@ -100,8 +108,10 @@ export class GlFeatureGatePlusState extends LitElement {
 		this.hidden = false;
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
 		const promo = this.state ? getApplicablePromo(this.state, 'gate') : undefined;
-		const consumedDays = 0;
-		//this.container.storage.get(`plus:featurePreviewTrial:${this.source?.source}:consumedDays`) ?? 0;
+		let consumedDaysCount = 0;
+		if (this.source?.source) {
+			consumedDaysCount = this.featureInPreviewTrial?.[this.source.source]?.consumedDays?.length ?? 0;
+		}
 
 		const feature = this.source?.source || '';
 
@@ -128,17 +138,15 @@ export class GlFeatureGatePlusState extends LitElement {
 			case SubscriptionState.Community:
 			case SubscriptionState.ProPreviewExpired:
 				if (this.allowFeaturePreviewTrial && this.state === SubscriptionState.Community) {
+					const daysLeft = proPreviewLengthInDays - consumedDaysCount;
 					return html`
-						<gl-button
-							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusStartFeaturePreviewTrial, this.source)}"
+						<gl-button appearance="${appearance}" href="${this.featurePreviewTrialCommandLink}"
 							>Continue</gl-button
 						>
 						<p>
-							Continuing gives you ${proPreviewLengthInDays - consumedDays}
-							day${proPreviewLengthInDays - consumedDays !== 1 ? 's' : ''} to preview
+							Continuing gives you ${pluralize('day', daysLeft)} to preview
 							${this.featureWithArticleIfNeeded
-								? `${this.featureWithArticleIfNeeded}  and other `
+								? `${this.featureWithArticleIfNeeded} and other `
 								: ''}local
 							Pro features.<br />
 							${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features

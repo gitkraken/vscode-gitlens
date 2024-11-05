@@ -25,6 +25,7 @@ import type {
 import type { Config, DateStyle, GraphBranchesVisibility } from '../../../config';
 import type { SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import type { SearchQuery } from '../../../constants.search';
+import type { Source, Sources } from '../../../constants.telemetry';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
@@ -129,6 +130,7 @@ export interface State extends WebviewState {
 		bottom: number;
 	};
 	theming?: { cssVariables: CssVariables; themeOpacityFactor: number };
+	graphPreviewTrial?: { consumedDays: { startedOn: string; expiresOn: string }[]; isActive: boolean };
 }
 
 export interface BranchState extends GitTrackingState {
@@ -380,6 +382,16 @@ export interface DidSearchParams {
 export const SearchRequest = new IpcRequest<SearchParams, DidSearchParams>(scope, 'search');
 
 // NOTIFICATIONS
+export interface DidSetFeaturePreviewTrialParams {
+	feature: Sources;
+	consumedDays: { startedOn: string; expiresOn: string }[];
+	isActive: boolean;
+}
+
+export const DidSetFeaturePreviewTrialNotification = new IpcNotification<DidSetFeaturePreviewTrialParams>(
+	scope,
+	'featurePreviewTrial/didSet',
+);
 
 export interface DidChangeRepoConnectionParams {
 	repositories?: GraphRepository[];

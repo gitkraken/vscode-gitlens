@@ -1,7 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { SubscriptionState } from '../../../../constants.subscription';
-import type { Source } from '../../../../constants.telemetry';
+import type { Source, Sources } from '../../../../constants.telemetry';
 import { isSubscriptionStatePaidOrTrial } from '../../../../plus/gk/account/subscription';
 import '../../plus/shared/components/feature-gate-plus-state';
 
@@ -93,6 +93,14 @@ export class GlFeatureGate extends LitElement {
 	@property({ type: Boolean })
 	allowFeaturePreviewTrial?: boolean;
 
+	@property({ type: Object })
+	featureInPreviewTrial?: {
+		[key in Sources]?: { consumedDays: { startedOn: string; expiresOn: string }[]; isActive: boolean };
+	};
+
+	@property({ type: String })
+	featurePreviewTrialCommandLink?: string;
+
 	@property({ reflect: true })
 	appearance?: 'alert' | 'welcome';
 
@@ -130,6 +138,8 @@ export class GlFeatureGate extends LitElement {
 					.source=${this.source}
 					.state=${this.state}
 					.allowFeaturePreviewTrial=${this.allowFeaturePreviewTrial}
+					.featureInPreviewTrial=${this.featureInPreviewTrial}
+					featurePreviewTrialCommandLink=${this.featurePreviewTrialCommandLink}
 				></gl-feature-gate-plus-state>
 			</section>
 		`;
