@@ -102,7 +102,7 @@ interface CreateState {
 		title?: string;
 	};
 
-	onWorkspaceChanging?: (() => Promise<void>) | (() => void);
+	onWorkspaceChanging?: ((isNewWorktree?: boolean) => Promise<void>) | ((isNewWorktree?: boolean) => void);
 	skipWorktreeConfirmations?: boolean;
 }
 
@@ -139,7 +139,8 @@ interface OpenState {
 		};
 	};
 
-	onWorkspaceChanging?: (() => Promise<void>) | (() => void);
+	onWorkspaceChanging?: ((isNewWorktree?: boolean) => Promise<void>) | ((isNewWorktree?: boolean) => void);
+	isNewWorktree?: boolean;
 	skipWorktreeConfirmations?: boolean;
 }
 
@@ -628,6 +629,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						confirm: action === 'prompt',
 						openOnly: true,
 						overrides: { disallowBack: true },
+						isNewWorktree: true,
 						skipWorktreeConfirmations: state.skipWorktreeConfirmations,
 						onWorkspaceChanging: state.onWorkspaceChanging,
 					} satisfies OpenStepState,
@@ -1081,7 +1083,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 				const location = convertOpenFlagsToLocation(state.flags);
 				if (location === 'currentWindow' || location === 'newWindow') {
-					await state.onWorkspaceChanging?.();
+					await state.onWorkspaceChanging?.(state.isNewWorktree);
 				}
 
 				openWorkspace(state.worktree.uri, { location: convertOpenFlagsToLocation(state.flags), name: name });

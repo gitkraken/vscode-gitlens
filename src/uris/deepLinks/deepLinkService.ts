@@ -4,7 +4,7 @@ import { Commands } from '../../constants.commands';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
-import { openFileAtRevision } from '../../git/actions/commit';
+import { openComparisonChanges, openFileAtRevision } from '../../git/actions/commit';
 import type { GitBranch } from '../../git/models/branch';
 import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
@@ -19,6 +19,7 @@ import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
 import { ensureAccount, ensurePaidPlan } from '../../plus/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
+import { debug } from '../../system/decorators/log';
 import { once } from '../../system/event';
 import { Logger } from '../../system/logger';
 import { normalizePath } from '../../system/path';
@@ -68,10 +69,7 @@ export class DeepLinkService implements Disposable {
 		this._disposables.push(container.uri.onDidReceiveUri(async (uri: Uri) => this.processDeepLinkUri(uri)));
 
 		const pendingDeepLink = this.container.storage.get('deepLinks:pending');
-		if (pendingDeepLink != null) {
-			void this.container.storage.delete('deepLinks:pending');
-			void this.processPendingDeepLink(pendingDeepLink);
-		}
+		void this.processPendingDeepLink(pendingDeepLink);
 	}
 
 	dispose() {
@@ -241,9 +239,11 @@ export class DeepLinkService implements Disposable {
 		}
 	}
 
-	private async processPendingDeepLink(pendingDeepLink: StoredDeepLinkContext) {
-		if (pendingDeepLink.url == null) return;
-
+	@debug()
+	private async processPendingDeepLink(pendingDeepLink: StoredDeepLinkContext | undefined) {
+		if (pendingDeepLink == null) return;
+		void this.container.storage.delete('deepLinks:pending');
+		if (pendingDeepLink?.url == null) return;
 		const link = parseDeepLinkUri(Uri.parse(pendingDeepLink.url));
 		if (link == null) return;
 
@@ -509,6 +509,7 @@ export class DeepLinkService implements Disposable {
 	// TODO @axosoft-ramint: Move all the logic for matching a repo, prompting to add repo, matching remote, etc. for a target (branch, PR, etc.)
 	// to a separate service where it can be used outside of the context of deep linking. Then the deep link service should leverage it,
 	// and we should stop using deep links to process things like Launchpad switch actions, Open in Worktree command, etc.
+	@debug()
 	private async processDeepLink(
 		initialAction: DeepLinkServiceAction = DeepLinkServiceAction.DeepLinkEventFired,
 		useProgress: boolean = true,
@@ -1078,7 +1079,6 @@ export class DeepLinkService implements Disposable {
 				}
 				case DeepLinkServiceState.GoToTarget: {
 					// Need to re-fetch the remotes in case we opened in a new window
-
 					if (targetType === DeepLinkType.Repository) {
 						if (
 							this._context.action === DeepLinkActionType.Switch ||
@@ -1321,9 +1321,25 @@ export class DeepLinkService implements Disposable {
 							state: this._context.state,
 						};
 
+						// Form a new link URL with PR info stripped out in case we are opening an existing PR worktree,
+						// in which case we do not want to advance to the  "Open All PR Changes" step in the flow.
+						// We should only advance to that step if a worktree is newly created in the flow.
+						const oldUrl = Uri.parse(this._context.url ?? '').toString(true);
+						const urlParams = new URL(oldUrl).searchParams;
+						urlParams.delete('prId');
+						urlParams.delete('prTitle');
+						urlParams.delete('prBaseRef');
+						urlParams.delete('prHeadRef');
+						const newUrlParams = urlParams.toString();
+						const nonPrUrl =
+							newUrlParams.length > 0 ? `${oldUrl.split('?')[0]}?${newUrlParams}` : oldUrl.split('?')[0];
+
 						// Storing link info in case the switch causes a new window to open
-						const onWorkspaceChanging = async () =>
-							this.container.storage.store('deepLinks:pending', pendingDeepLink);
+						const onWorkspaceChanging = async (isNewWorktree?: boolean) =>
+							this.container.storage.store(
+								'deepLinks:pending',
+								isNewWorktree ? pendingDeepLink : { ...pendingDeepLink, url: nonPrUrl },
+							);
 
 						await executeGitCommand({
 							command: 'switch',
@@ -1373,7 +1389,6 @@ export class DeepLinkService implements Disposable {
 				case DeepLinkServiceState.OpenInspect: {
 					// If we arrive at this step, clear any stored data used for the "new window" option
 					await this.container.storage.delete('deepLinks:pending');
-
 					if (!repo) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Missing repository.';
@@ -1386,6 +1401,46 @@ export class DeepLinkService implements Disposable {
 						repository: repo,
 						source: 'launchpad',
 					} satisfies ShowWipArgs);
+					const { params } = this._context;
+					if (
+						this._context.action === DeepLinkActionType.SwitchToPullRequestWorktree &&
+						params != null &&
+						(params.get('prId') != null || params.get('prTitle') != null) &&
+						params.get('prBaseRef') != null &&
+						params.get('prHeadRef') != null
+					) {
+						action = DeepLinkServiceAction.OpenAllPrChanges;
+						break;
+					}
+
+					action = DeepLinkServiceAction.DeepLinkResolved;
+					break;
+				}
+				case DeepLinkServiceState.OpenAllPrChanges: {
+					const prId = this._context.params?.get('prId');
+					const prHeadRef = this._context.params?.get('prHeadRef');
+					const prBaseRef = this._context.params?.get('prBaseRef');
+					const prTitle = this._context.params?.get('prTitle');
+					if (!repoPath || (!prId && !prTitle) || !prHeadRef || !prBaseRef) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						if (!repoPath) {
+							message = 'No repository path was provided.';
+						} else if (!prId) {
+							message = 'No pull request id provided.';
+						} else {
+							message = 'No pull request refs was provided.';
+						}
+						break;
+					}
+					await openComparisonChanges(
+						this.container,
+						{
+							repoPath: repoPath,
+							lhs: prBaseRef,
+							rhs: prHeadRef,
+						},
+						{ title: `Changes in Pull Request ${prTitle ? `"${prTitle}"` : `#${prId}`}` },
+					);
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}
