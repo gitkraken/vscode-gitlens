@@ -100,6 +100,7 @@ export interface DeepLink {
 	secondaryTargetId?: string;
 	secondaryRemoteUrl?: string;
 	action?: string;
+	prId?: string;
 	params?: URLSearchParams;
 }
 
@@ -178,6 +179,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				secondaryRemoteUrl: secondaryRemoteUrl,
 				action: action,
 				params: urlParams,
+				prId: urlParams.get('prId') ?? undefined,
 			};
 		}
 		case DeepLinkType.Draft: {
@@ -239,6 +241,7 @@ export const enum DeepLinkServiceState {
 	OpenInspect,
 	SwitchToRef,
 	RunCommand,
+	OpenAllPrChanges,
 }
 
 export const enum DeepLinkServiceAction {
@@ -271,6 +274,7 @@ export const enum DeepLinkServiceAction {
 	OpenFile,
 	OpenInspect,
 	OpenSwitch,
+	OpenAllPrChanges,
 }
 
 export type DeepLinkRepoOpenType = 'clone' | 'folder' | 'workspace' | 'current';
@@ -417,6 +421,12 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpenInspect]: {
+		[DeepLinkServiceAction.OpenAllPrChanges]: DeepLinkServiceState.OpenAllPrChanges,
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.OpenAllPrChanges]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,

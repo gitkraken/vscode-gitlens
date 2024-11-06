@@ -62,7 +62,11 @@ import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
 import { getGkProviderThemeIconString } from '../../../git/models/graph';
 import type { PullRequest } from '../../../git/models/pullRequest';
-import { getComparisonRefsForPullRequest, serializePullRequest } from '../../../git/models/pullRequest';
+import {
+	getComparisonRefsForPullRequest,
+	getRepositoryIdentityForPullRequest,
+	serializePullRequest,
+} from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -115,6 +119,7 @@ import { getContext, onDidChangeContext } from '../../../system/vscode/context';
 import type { OpenWorkspaceLocation } from '../../../system/vscode/utils';
 import { isDarkTheme, isLightTheme, openWorkspace } from '../../../system/vscode/utils';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
+import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
 import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../../webviews/protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewProvider';
@@ -123,6 +128,7 @@ import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../integrations/integrationService';
 import { remoteProviderIdToIntegrationId } from '../../integrations/integrationService';
+import { getPullRequestBranchDeepLink } from '../../launchpad/launchpadProvider';
 import type {
 	BranchState,
 	DidChangeRefsVisibilityParams,
@@ -3643,6 +3649,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async openInWorktree(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
+			const repo = this.container.git.getRepository(ref.repoPath);
+			const branch = await repo?.git.getBranch(ref.name);
+			const pr = await branch?.getAssociatedPullRequest();
+			if (branch != null && repo != null && pr != null) {
+				const remoteUrl = (await branch.getRemote())?.url ?? getRepositoryIdentityForPullRequest(pr).remote.url;
+				if (remoteUrl != null) {
+					const deepLink = getPullRequestBranchDeepLink(
+						this.container,
+						branch.getNameWithoutRemote(),
+						remoteUrl,
+						DeepLinkActionType.SwitchToPullRequestWorktree,
+						pr,
+					);
+
+					return this.container.deepLinks.processDeepLinkUri(deepLink, false, repo);
+				}
+			}
+
 			await executeGitCommand({
 				command: 'switch',
 				state: {

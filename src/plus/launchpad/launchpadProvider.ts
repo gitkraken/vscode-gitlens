@@ -540,7 +540,13 @@ export class LaunchpadProvider implements Disposable {
 				? item.openRepository.localBranch.name
 				: item.headRef.name;
 
-		return getPullRequestBranchDeepLink(this.container, branchName, item.repoIdentity.remote.url, action);
+		return getPullRequestBranchDeepLink(
+			this.container,
+			branchName,
+			item.repoIdentity.remote.url,
+			action,
+			item.underlyingPullRequest,
+		);
 	}
 
 	private async getMatchingOpenRepository(
@@ -1023,17 +1029,31 @@ export function getPullRequestBranchDeepLink(
 	headRefBranchName: string,
 	remoteUrl: string,
 	action?: DeepLinkActionType,
+	pr?: PullRequest,
 ) {
 	const schemeOverride = configuration.get('deepLinks.schemeOverride');
 	const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
+
+	const searchParams = new URLSearchParams({
+		url: ensureRemoteUrl(remoteUrl),
+	});
+	if (action) {
+		searchParams.set('action', action);
+	}
+	if (pr) {
+		searchParams.set('prId', pr.id);
+		searchParams.set('prTitle', pr.title);
+	}
+	if (pr?.refs) {
+		searchParams.set('prBaseRef', pr.refs.base.sha);
+		searchParams.set('prHeadRef', pr.refs.head.sha);
+	}
 	// TODO: Get the proper pull URL from the provider, rather than tacking .git at the end of the
 	// url from the head ref.
 	return Uri.parse(
 		`${scheme}://${container.context.extension.id}/${'link' satisfies UriTypes}/${DeepLinkType.Repository}/-/${
 			DeepLinkType.Branch
-		}/${encodeURIComponent(headRefBranchName)}?url=${encodeURIComponent(ensureRemoteUrl(remoteUrl))}${
-			action != null ? `&action=${action}` : ''
-		}`,
+		}/${encodeURIComponent(headRefBranchName)}?${searchParams.toString()}`,
 	);
 }
 
