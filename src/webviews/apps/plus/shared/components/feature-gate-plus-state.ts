@@ -142,28 +142,18 @@ export class GlFeatureGatePlusState extends LitElement {
 					proPreviewLengthInDays - consumedDaysCount > 0
 				) {
 					return html`
-						<p class="actions">
-							<gl-button class="inline" href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
-								>Start ${proTrialLengthInDays}-day Pro Trial</gl-button
-							>
-							&nbsp; or &nbsp;
-							<gl-button
-								class="inline"
-								appearance="${appearance}"
-								href="${this.featurePreviewTrialCommandLink}"
-								>Continue</gl-button
-							>
-						</p>
-
+						<gl-button appearance="${appearance}" href="${this.featurePreviewTrialCommandLink}"
+							>Continue</gl-button
+						>
 						<p>
 							Continuing gives you ${pluralize('day', proPreviewLengthInDays - consumedDaysCount)} to
 							preview ${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''}
-							private repositories.<br />
-							${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features
+							privately-hosted repositories.<br />
+							${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
 							<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
 								>start your free ${proTrialLengthInDays}-day Pro trial</a
 							>
-							or
+							- no credit card required. Or
 							<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a
 							>.
 						</p>
