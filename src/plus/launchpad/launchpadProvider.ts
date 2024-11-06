@@ -190,6 +190,7 @@ export type LaunchpadItem = LaunchpadPullRequest & {
 	codeSuggestionsCount: number;
 	codeSuggestions?: TimedResult<Draft[]>;
 	isNew: boolean;
+	isSearched: boolean;
 	actionableCategory: LaunchpadActionCategory;
 	suggestedActions: LaunchpadAction[];
 	openRepository?: OpenRepository;
@@ -665,8 +666,9 @@ export class LaunchpadProvider implements Disposable {
 		cancellation?: CancellationToken,
 	): Promise<LaunchpadCategorizedResult> {
 		const scope = getLogScope();
+		const isSearching = ((o?: { search?: string }): o is { search: string } => Boolean(o?.search))(options);
 
-		const fireRefresh = !options?.search && (options?.force || this._prs == null);
+		const fireRefresh = !isSearching && (options?.force || this._prs == null);
 
 		const ignoredRepositories = new Set(
 			(configuration.get('launchpad.ignoredRepositories') ?? []).map(r => r.toLowerCase()),
@@ -687,7 +689,7 @@ export class LaunchpadProvider implements Disposable {
 			const [_, enrichedItemsResult, prsWithCountsResult] = await Promise.allSettled([
 				this.container.git.isDiscoveringRepositories,
 				this.getEnrichedItems({ force: options?.force, cancellation: cancellation }),
-				options?.search
+				isSearching
 					? this.getSearchedPullRequests(options.search, cancellation)
 					: this.getPullRequestsWithSuggestionCounts({ force: options?.force, cancellation: cancellation }),
 			]);
@@ -821,6 +823,7 @@ export class LaunchpadProvider implements Disposable {
 						currentViewer: myAccounts.get(item.provider.id)!,
 						codeSuggestionsCount: codeSuggestionsCount,
 						isNew: this.isItemNewInGroup(item, actionableCategory),
+						isSearched: isSearching,
 						actionableCategory: actionableCategory,
 						suggestedActions: suggestedActions,
 						openRepository: openRepository,

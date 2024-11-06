@@ -430,10 +430,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				buttons.push(MergeQuickInputButton);
 			}
 
-			buttons.push(
-				i.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
-				i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
-			);
+			if (!i.isSearched) {
+				buttons.push(
+					i.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
+					i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
+				);
+			}
 
 			buttons.push(...getOpenOnGitProviderQuickInputButtons(i.provider.id));
 
@@ -752,8 +754,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
 						buttons: [
 							...gitProviderWebButtons,
-							state.item.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
-							state.item.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
+							...(state.item.isSearched
+								? []
+								: [
+										state.item.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
+										state.item.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
+								  ]),
 						],
 					},
 					'soft-open',
