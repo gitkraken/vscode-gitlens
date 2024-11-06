@@ -1658,16 +1658,9 @@
 			},
 			{
 				"id": "launchpad-view",
-				"title": "Launchpad View (ᴇxᴘᴇʀɪᴍᴇɴᴛᴀʟ)",
+				"title": "Launchpad View (ᴘʀᴏ)",
 				"order": 101,
 				"properties": {
-					"gitlens.views.launchpad.enabled": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "(Experimental) Specifies whether to enable an experimental _Launchpad_ view",
-						"scope": "window",
-						"order": 10
-					},
 					"gitlens.views.launchpad.files.layout": {
 						"type": "string",
 						"default": "auto",
@@ -19077,13 +19070,57 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked.",
-				"when": "config.gitlens.views.launchpad.enabled"
+				"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked."
 			},
 			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Connect an Integration...](command:gitlens.showLaunchpad?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nAllows Launchpad to organize your pull requests into actionable groups and keep your team unblocked.",
-				"when": "config.gitlens.views.launchpad.enabled && gitlens:launchpad:connect"
+				"when": "gitlens:launchpad:connect"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "[Resend Verification Email](command:gitlens.plus.resendVerification?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nYou must verify your email before you can continue or [recheck Status](command:gitlens.plus.validate?%7B%22source%22%3A%22launchpad-view%22%7D).",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:state == -1"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 0"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nStart your free 7-day Pro trial to try Launchpad and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 2"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22launchpad-view%22%7D)",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "Limited-time sale: Save 33% or more on your 1st seat of Pro.",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "Limited-time sale: Save up to 80% on GitLens Pro",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == devexdays"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "Your Pro trial has ended. Please upgrade for full access to Launchpad and other Pro features.",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 7 days!",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "Pro feature — requires a paid plan for use on privately-hosted repos.",
+				"when": "!gitlens:launchpad:connect"
 			},
 			{
 				"view": "gitlens.views.workspaces",
@@ -19226,7 +19263,6 @@
 				{
 					"id": "gitlens.views.launchpad",
 					"name": "Launchpad",
-					"when": "config.gitlens.views.launchpad.enabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(rocket)",
 					"initialSize": 2,
