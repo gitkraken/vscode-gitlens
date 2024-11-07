@@ -137,7 +137,7 @@ PR reviews often require switching between GitHub, email, and your IDE. Launchpa
 
 ## Launchpad `Pro`
 
-Launchpad brings all of your GitHub pull requests into a unified, actionable list to better track work in progress, pending work, reviews, and more. Stay focused and take action on the most important items to keep your team unblocked. [Learn more](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links)
+Launchpad consolidates all your GitHub pull requests into a unified, actionable list. Focus on the most important reviews and take action to keep your team moving forward.. [Learn more](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links)
 
 <figure align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/launchpad.png" alt="Launchpad" />
