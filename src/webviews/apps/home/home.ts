@@ -70,7 +70,7 @@ export class GlHomeApp extends GlApp<State> {
 					<gl-onboarding></gl-onboarding>
 					<gl-integration-banner></gl-integration-banner>
 					${when(
-						this.state.previewEnabled,
+						this.state?.previewEnabled === true,
 						() => html`
 							<gl-active-work></gl-active-work>
 							<gl-launchpad></gl-launchpad>
