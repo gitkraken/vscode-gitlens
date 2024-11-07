@@ -50,6 +50,7 @@ interface Context {
 interface State {
 	item?: StartWorkItem;
 	action?: StartWorkAction;
+	inWorktree?: boolean;
 }
 
 export type StartWorkAction = 'start';
@@ -123,6 +124,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 				const result = yield* this.selectCommandStep(state);
 				if (result === StepResultBreak) continue;
 				state.action = result.action;
+				state.inWorktree = result.inWorktree;
 			}
 
 			if (state.counter < 2 && !state.action) {
@@ -149,7 +151,9 @@ export class StartWorkCommand extends QuickCommand<State> {
 									name: issue ? slug(`${issue.id}-${issue.title}`) : undefined,
 									suggestNameOnly: true,
 									suggestRepoOnly: true,
+									flags: state.inWorktree ? ['--worktree'] : ['--switch'],
 								},
+								confirm: false,
 							},
 							this.pickedVia,
 						);
@@ -168,14 +172,18 @@ export class StartWorkCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
-	private *selectCommandStep(state: StepState<State>): StepResultGenerator<{ action?: StartWorkAction }> {
+	private *selectCommandStep(
+		state: StepState<State>,
+	): StepResultGenerator<{ action?: StartWorkAction; inWorktree?: boolean }> {
 		const step = createPickStep({
 			placeholder: 'Start work by creating a new branch',
 			items: [
 				createQuickPickItemOfT('Create a Branch', {
 					action: 'start',
 				}),
+				createQuickPickItemOfT('Create a Branch in a Worktree', { action: 'start', inWorktree: true }),
 				createQuickPickItemOfT('Create a Branch from an Issue', {}),
+				createQuickPickItemOfT('Create a Branch from an Issue in a Worktree', { inWorktree: true }),
 			],
 		});
 		const selection: StepSelection<typeof step> = yield step;
