@@ -1,5 +1,5 @@
 import { consume } from '@lit/context';
-import { html, LitElement, nothing } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import type { State } from '../../../home/protocol';
 import { CollapseSectionCommand } from '../../../home/protocol';
@@ -19,6 +19,14 @@ export class GlIntegrationBanner extends LitElement {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
 	};
+
+	static override styles = [
+		css`
+			gl-card::part(base) {
+				margin-block-end: 1.2rem;
+			}
+		`,
+	];
 
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()

@@ -22,6 +22,8 @@ import './components/feature-nav';
 import './components/home-nav';
 import './components/integration-banner';
 import './components/onboarding';
+import './components/preview-banner';
+import './components/promo-banner';
 import './components/repo-alerts';
 
 @customElement('gl-home-app')
@@ -66,13 +68,23 @@ export class GlHomeApp extends GlApp<State> {
 	override render() {
 		return html`
 			<div class="home scrollable">
-				<gl-home-nav class="home__nav"></gl-home-nav>
+				<aside class="home__aux">
+					<gl-promo-banner></gl-promo-banner>
+					${when(
+						!this.state.previewEnabled,
+						() => html`
+							<gl-preview-banner></gl-preview-banner>
+							<gl-home-nav></gl-home-nav>
+						`,
+					)}
+				</aside>
 				<gl-repo-alerts class="home__header"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
 					<gl-onboarding></gl-onboarding>
 					${when(
 						this.state?.previewEnabled === true,
 						() => html`
+							<gl-preview-banner></gl-preview-banner>
 							<gl-integration-banner></gl-integration-banner>
 							<gl-active-work></gl-active-work>
 							<gl-launchpad></gl-launchpad>

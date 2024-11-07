@@ -55,6 +55,7 @@ import {
 	GetOverview,
 	GetOverviewFilterState,
 	SetOverviewFilter,
+	TogglePreviewEnabledCommand,
 } from './protocol';
 import type { HomeWebviewShowingArgs } from './registration';
 
@@ -235,6 +236,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				await this.onChooseRepository();
 				void this.host.respond(ChangeOverviewRepository, e, undefined);
 				break;
+			case TogglePreviewEnabledCommand.is(e):
+				configuration.updateEffective('home.preview.enabled', !this.getPreviewEnabled());
+				break;
 		}
 	}
 
@@ -256,8 +260,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onCollapseSection(params: CollapseSectionParams) {
-		void this.container.storage.delete('home:walkthrough:dismissed');
-
 		const collapsed = this.container.storage.get('home:sections:collapsed');
 		if (collapsed == null) {
 			if (params.collapsed === true) {
@@ -293,8 +295,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return Boolean(this.container.storage.get('home:walkthrough:dismissed'));
 	}
 
-	private getWalkthroughCollapsed() {
-		return this.container.storage.get('home:sections:collapsed')?.includes('walkthrough') ?? false;
+	private getPreviewCollapsed() {
+		return this.container.storage.get('home:sections:collapsed')?.includes('newHomePreview') ?? false;
 	}
 
 	private getIntegrationBannerCollapsed() {
@@ -328,7 +330,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			avatar: subResult.avatar,
 			organizationsCount: subResult.organizationsCount,
 			orgSettings: this.getOrgSettings(),
-			walkthroughCollapsed: this.getWalkthroughCollapsed(),
+			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 			hasAnyIntegrationConnected: this.isAnyIntegrationConnected(),
 			walkthroughProgress: {
