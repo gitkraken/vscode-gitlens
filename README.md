@@ -155,7 +155,7 @@ Worktrees enable efficient multitasking by allowing you to work on multiple bran
 
 # Streamline Collaboration
 
-GitLens is more than a solo dev tool - it's built to improve developver collaboration. It's not always easy to share code without adding commits and branches that end up bloating your repo. With the use of Cloud Patches and Code Suggest, GitLens offers the ability to easily share code or suggest code changes to any file in the repository without needing to commit or push it to remote. 
+GitLens isn’t just for solo developers—it’s designed to enhance team collaboration. Sharing code can be tricky without adding noise to your repository with extra commits or branches. GitLens simplifies this with Cloud Patches and Code Suggest, letting you share or propose changes to any file in the repository without committing or pushing to a remote.
 
 
 ## Cloud Patches `Preview`
