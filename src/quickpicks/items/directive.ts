@@ -65,7 +65,7 @@ export function createDirectiveQuickPickItem(
 				break;
 			case Directive.StartProTrial:
 				label = 'Start Pro Trial';
-				detail = `Start your free ${proTrialLengthInDays}-day Pro trial for full access to Pro features`;
+				detail = `Start your free ${proTrialLengthInDays}-day GitLens Pro trial - no credit card required.`;
 				break;
 			case Directive.RequiresVerification:
 				label = 'Resend Email';
@@ -74,7 +74,7 @@ export function createDirectiveQuickPickItem(
 			case Directive.RequiresPaidSubscription:
 				label = 'Upgrade to Pro';
 				if (detail != null) {
-					description ??= ' \u2014\u00a0\u00a0 a paid plan is required to use this Pro feature';
+					description ??= ' - access Launchpad and all Pro features with GitLens Pro';
 				} else {
 					detail = 'Upgrading to a paid plan is required to use this Pro feature';
 				}

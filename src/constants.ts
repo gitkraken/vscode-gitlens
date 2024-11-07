@@ -169,6 +169,7 @@ export const urls = Object.freeze({
 	desktop: `https://gitkraken.com/git-client?${utm}`,
 
 	releaseNotes: `https://help.gitkraken.com/gitlens/gitlens-release-notes-current/?${utm}`,
+	gitlensProVsCommunity: `https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/?${utm}`,
 });
 
 export type WalkthroughSteps =

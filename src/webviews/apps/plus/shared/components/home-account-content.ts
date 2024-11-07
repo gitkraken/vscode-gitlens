@@ -361,11 +361,14 @@ export class GLHomeAccountContent extends LitElement {
 			case SubscriptionState.ProTrialExpired:
 				return html`
 					<div class="account">
-						<p>Your Pro trial has ended. You can now only use Pro features on publicly-hosted repos.</p>
+						<p>
+							Thank you for trying <a href="${urls.gitlensProVsCommunity}">GitLens Pro</a>. <br /><br />
+							Continue leveraging Pro features and workflows on privately-hosted repos by upgrading today.
+						</p>
 						<button-container>
 							<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
 						</button-container>
-						${this.renderPromo(promo)} ${this.renderIncludesDevEx()}
+						${this.renderPromo(promo)}
 					</div>
 				`;
 
@@ -395,15 +398,16 @@ export class GLHomeAccountContent extends LitElement {
 				return html`
 					<div class="account">
 						<p>
-							Sign up for access to Pro features and the
-							<a href="${urls.platform}">GitKraken DevEx platform</a>, or
-							<a href="command:gitlens.plus.login">sign in</a>.
+							Unlock advanced workflows and professional developer features with
+							<a href="${urls.gitlensProVsCommunity}">GitLens Pro</a>.
 						</p>
 						<button-container>
-							<gl-button full href="command:gitlens.plus.signUp">Sign Up</gl-button>
+							<gl-button full href="command:gitlens.plus.signUp">Try GitLens Pro</gl-button>
 						</button-container>
-						<p>Signing up starts your free ${proTrialLengthInDays}-day Pro trial.</p>
-						${this.renderIncludesDevEx()}
+						<p>
+							Get ${proTrialLengthInDays} days of GitLens Pro for free - no credit card required. Or
+							<a href="command:gitlens.plus.login">sign in</a>.
+						</p>
 					</div>
 				`;
 		}
