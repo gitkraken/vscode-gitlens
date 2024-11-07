@@ -138,7 +138,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 		const context: Context = {
 			container: this.container,
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.searchAndCompareView,
+			associatedView: this.container.views.searchAndCompare,
 			commit: undefined,
 			hasVirtualFolders: getContext('gitlens:hasVirtualFolders', false),
 			resultsKey: undefined,
@@ -213,7 +213,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			}
 
 			if (state.showResultsInSideBar) {
-				void this.container.searchAndCompareView.search(
+				void this.container.views.searchAndCompare.search(
 					state.repo.path,
 					search,
 					{
@@ -242,7 +242,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					showInSideBarCommand: new ActionQuickPickItem(
 						'$(link-external)  Show Results in Side Bar',
 						() =>
-							void this.container.searchAndCompareView.search(
+							void this.container.views.searchAndCompare.search(
 								repoPath,
 								search,
 								{
@@ -259,7 +259,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					showInSideBarButton: {
 						button: ShowResultsInSideBarQuickInputButton,
 						onDidClick: () =>
-							void this.container.searchAndCompareView.search(
+							void this.container.views.searchAndCompare.search(
 								repoPath,
 								search,
 								{

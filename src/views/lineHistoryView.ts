@@ -33,8 +33,6 @@ export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerN
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),

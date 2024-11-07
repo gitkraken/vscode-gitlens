@@ -149,7 +149,7 @@ export class TagGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.tagsView,
+			associatedView: this.container.views.tags,
 			showTags: false,
 			title: this.title,
 		};

@@ -92,7 +92,6 @@ export class PullRequestView extends ViewBase<'pullRequest', PullRequestViewNode
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),

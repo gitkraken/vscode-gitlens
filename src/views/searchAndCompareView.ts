@@ -286,8 +286,6 @@ export class SearchAndCompareView extends ViewBase<
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(this.getQualifiedCommand('clear'), () => void this.clear(), this),
 			registerViewCommand(

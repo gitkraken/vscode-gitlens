@@ -508,7 +508,7 @@ export class PatchDetailsWebviewProvider
 		void setContext('gitlens:views:patchDetails:mode', undefined);
 
 		if (this._context.mode === 'create') {
-			void this.container.draftsView.show();
+			void this.container.views.drafts.show();
 		} else if (this._context.draft?.draftType === 'cloud') {
 			if (this._context.draft.type === 'suggested_pr_change') {
 				const repositoryOrIdentity = this._context.draft.changesets?.[0].patches[0].repository;
@@ -518,7 +518,7 @@ export class PatchDetailsWebviewProvider
 					source: 'patchDetails',
 				});
 			} else {
-				void this.container.draftsView.revealDraft(this._context.draft);
+				void this.container.views.drafts.revealDraft(this._context.draft);
 			}
 		}
 	}
@@ -720,7 +720,9 @@ export class PatchDetailsWebviewProvider
 			}
 
 			void showNotification();
-			void this.container.draftsView.refresh(true).then(() => void this.container.draftsView.revealDraft(draft));
+			void this.container.views.drafts
+				.refresh(true)
+				.then(() => void this.container.views.drafts.revealDraft(draft));
 
 			this.closeView();
 		} catch (ex) {

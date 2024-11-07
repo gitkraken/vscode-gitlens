@@ -259,8 +259,6 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('info'),

@@ -223,7 +223,7 @@ export class BranchGitCommand extends QuickCommand {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			associatedView: this.container.branchesView,
+			associatedView: this.container.views.branches,
 			repos: this.container.git.openRepositories,
 			showTags: false,
 			title: this.title,

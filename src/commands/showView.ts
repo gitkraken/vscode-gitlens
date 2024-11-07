@@ -40,46 +40,46 @@ export class ShowViewCommand extends Command {
 		const command = context.command as Commands;
 		switch (command) {
 			case Commands.ShowAccountView:
-				return this.container.homeView.show(
+				return this.container.views.home.show(
 					undefined,
 					...([{ focusAccount: true }, ...args] as HomeWebviewShowingArgs),
 				);
 			case Commands.ShowBranchesView:
-				return this.container.branchesView.show();
+				return this.container.views.branches.show();
 			case Commands.ShowCommitDetailsView:
-				return this.container.commitDetailsView.show();
+				return this.container.views.commitDetails.show();
 			case Commands.ShowCommitsView:
-				return this.container.commitsView.show();
+				return this.container.views.commits.show();
 			case Commands.ShowContributorsView:
-				return this.container.contributorsView.show();
+				return this.container.views.contributors.show();
 			case Commands.ShowDraftsView:
-				return this.container.draftsView.show();
+				return this.container.views.drafts.show();
 			case Commands.ShowFileHistoryView:
-				return this.container.fileHistoryView.show();
+				return this.container.views.fileHistory.show();
 			case Commands.ShowGraphView:
-				return this.container.graphView.show(undefined, ...(args as GraphWebviewShowingArgs));
+				return this.container.views.graph.show(undefined, ...(args as GraphWebviewShowingArgs));
 			case Commands.ShowHomeView:
-				return this.container.homeView.show(undefined, ...(args as HomeWebviewShowingArgs));
+				return this.container.views.home.show(undefined, ...(args as HomeWebviewShowingArgs));
 			case Commands.ShowLaunchpadView:
-				return this.container.launchpadView.show();
+				return this.container.views.launchpad.show();
 			case Commands.ShowLineHistoryView:
-				return this.container.lineHistoryView.show();
+				return this.container.views.lineHistory.show();
 			case Commands.ShowRemotesView:
-				return this.container.remotesView.show();
+				return this.container.views.remotes.show();
 			case Commands.ShowRepositoriesView:
-				return this.container.repositoriesView.show();
+				return this.container.views.repositories.show();
 			case Commands.ShowSearchAndCompareView:
-				return this.container.searchAndCompareView.show();
+				return this.container.views.searchAndCompare.show();
 			case Commands.ShowStashesView:
-				return this.container.stashesView.show();
+				return this.container.views.stashes.show();
 			case Commands.ShowTagsView:
-				return this.container.tagsView.show();
+				return this.container.views.tags.show();
 			case Commands.ShowTimelineView:
-				return this.container.timelineView.show();
+				return this.container.views.timeline.show();
 			case Commands.ShowWorktreesView:
-				return this.container.worktreesView.show();
+				return this.container.views.worktrees.show();
 			case Commands.ShowWorkspacesView:
-				return this.container.workspacesView.show();
+				return this.container.views.workspaces.show();
 		}
 
 		return Promise.resolve(undefined);

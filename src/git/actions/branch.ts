@@ -46,10 +46,10 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const view = branch.remote ? Container.instance.remotesView : Container.instance.branchesView;
+	const view = branch.remote ? Container.instance.views.remotes : Container.instance.views.branches;
 	const node = view.canReveal
 		? await view.revealBranch(branch, options)
-		: await Container.instance.repositoriesView.revealBranch(branch, options);
+		: await Container.instance.views.repositories.revealBranch(branch, options);
 
 	if (node == null) {
 		void view.show({ preserveFocus: !options?.focus });

@@ -72,9 +72,9 @@ export class CompareWithCommand extends ActiveEditorCommand {
 			if (!repoPath) return;
 
 			if (args.ref1 != null && args.ref2 != null) {
-				await this.container.searchAndCompareView.compare(repoPath, args.ref1, args.ref2);
+				await this.container.views.searchAndCompare.compare(repoPath, args.ref1, args.ref2);
 			} else {
-				this.container.searchAndCompareView.selectForCompare(repoPath, args.ref1, { prompt: true });
+				this.container.views.searchAndCompare.selectForCompare(repoPath, args.ref1, { prompt: true });
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CompareWithCommmand');

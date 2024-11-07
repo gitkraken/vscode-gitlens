@@ -18,10 +18,10 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const view = Container.instance.contributorsView;
+	const view = Container.instance.views.contributors;
 	const node = view.canReveal
 		? await view.revealContributor(contributor, options)
-		: await Container.instance.repositoriesView.revealContributor(contributor, options);
+		: await Container.instance.views.repositories.revealContributor(contributor, options);
 	if (node == null) {
 		void view.show({ preserveFocus: !options?.focus });
 	}

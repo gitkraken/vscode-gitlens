@@ -691,7 +691,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	onFocusChanged(focused: boolean): void {
 		this._showActiveSelectionDetailsDebounced?.cancel();
 
-		if (!focused || this.activeSelection == null || !this.container.commitDetailsView.visible) {
+		if (!focused || this.activeSelection == null || !this.container.views.commitDetails.visible) {
 			return;
 		}
 
@@ -1037,8 +1037,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				);
 
 				const details = this.host.isHost('editor')
-					? this.container.commitDetailsView
-					: this.container.graphDetailsView;
+					? this.container.views.commitDetails
+					: this.container.views.graphDetails;
 				if (!details.ready) {
 					void details.show({ preserveFocus: e.preserveFocus }, {
 						commit: commit,
@@ -1415,7 +1415,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const pr = await branch.getAssociatedPullRequest();
 		if (pr == null) return undefined;
 
-		return this.container.pullRequestView.showPullRequest(pr, branch);
+		return this.container.views.pullRequest.showPullRequest(pr, branch);
 	}
 
 	@debug()
@@ -1539,7 +1539,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private onSearchOpenInView(e: SearchOpenInViewParams) {
 		if (this.repository == null) return;
 
-		void this.container.searchAndCompareView.search(this.repository.path, e.search, {
+		void this.container.views.searchAndCompare.search(this.repository.path, e.search, {
 			label: { label: `for ${e.search.query}` },
 			reveal: {
 				select: true,
@@ -3479,7 +3479,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const pr = item.webviewItemValue;
 			if (pr.refs?.base != null && pr.refs.head != null) {
 				const refs = getComparisonRefsForPullRequest(pr.repoPath, pr.refs);
-				return this.container.searchAndCompareView.compare(refs.repoPath, refs.head, refs.base);
+				return this.container.views.searchAndCompare.compare(refs.repoPath, refs.head, refs.base);
 			}
 		}
 
@@ -3510,7 +3510,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
-		return this.container.searchAndCompareView.compare(ref.repoPath, '', {
+		return this.container.views.searchAndCompare.compare(ref.repoPath, '', {
 			ref: commonAncestor,
 			label: `${branch.ref} (${shortenRevision(commonAncestor)})`,
 		});
@@ -3522,7 +3522,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		const [ref1, ref2] = await getOrderedComparisonRefs(this.container, ref.repoPath, 'HEAD', ref.ref);
-		return this.container.searchAndCompareView.compare(ref.repoPath, ref1, ref2);
+		return this.container.views.searchAndCompare.compare(ref.repoPath, ref1, ref2);
 	}
 
 	@log()
@@ -3530,7 +3530,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return this.container.searchAndCompareView.compare(ref.repoPath, ref.ref, 'HEAD');
+		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.ref, 'HEAD');
 	}
 
 	@log()
@@ -3544,7 +3544,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
-		return this.container.searchAndCompareView.compare(ref.repoPath, ref.ref, {
+		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.ref, {
 			ref: commonAncestor,
 			label: `${branch.ref} (${shortenRevision(commonAncestor)})`,
 		});
@@ -3577,7 +3577,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			if (ref.upstream != null) {
-				return this.container.searchAndCompareView.compare(ref.repoPath, ref.ref, ref.upstream.name);
+				return this.container.views.searchAndCompare.compare(ref.repoPath, ref.ref, ref.upstream.name);
 			}
 		}
 
@@ -3589,7 +3589,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return this.container.searchAndCompareView.compare(ref.repoPath, '', ref.ref);
+		return this.container.views.searchAndCompare.compare(ref.repoPath, '', ref.ref);
 	}
 
 	private copyWorkingChangesToWorktree(item?: GraphItemContext) {

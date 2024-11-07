@@ -778,14 +778,18 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const views = [Container.instance.commitsView, Container.instance.branchesView, Container.instance.remotesView];
+	const views = [
+		Container.instance.views.commits,
+		Container.instance.views.branches,
+		Container.instance.views.remotes,
+	];
 
 	// TODO@eamodio stop duplicate notifications
 
 	for (const view of views) {
 		const node = view.canReveal
 			? await view.revealCommit(commit, options)
-			: await Container.instance.repositoriesView.revealCommit(commit, options);
+			: await Container.instance.views.repositories.revealCommit(commit, options);
 		if (node != null) return node;
 	}
 
@@ -819,7 +823,7 @@ export function showDetailsView(
 	options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
 ): Promise<void> {
 	const { preserveFocus, ...opts } = { ...options, commit: commit };
-	return Container.instance.commitDetailsView.show({ preserveFocus: preserveFocus }, opts);
+	return Container.instance.views.commitDetails.show({ preserveFocus: preserveFocus }, opts);
 }
 
 export function showGraphDetailsView(
@@ -827,7 +831,7 @@ export function showGraphDetailsView(
 	options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
 ): Promise<void> {
 	const { preserveFocus, ...opts } = { ...options, commit: commit };
-	return Container.instance.graphDetailsView.show({ preserveFocus: preserveFocus }, opts);
+	return Container.instance.views.graphDetails.show({ preserveFocus: preserveFocus }, opts);
 }
 
 export async function showInCommitGraph(

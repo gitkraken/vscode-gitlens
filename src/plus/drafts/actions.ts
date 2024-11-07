@@ -25,5 +25,5 @@ export async function showPatchesView(createOrOpen: ShowCreateOrOpen, options?: 
 	if (createOrOpen.mode === 'create') {
 		options = { ...options, preserveFocus: false, preserveVisibility: false };
 	}
-	return Container.instance.patchDetailsView.show(options, createOrOpen);
+	return Container.instance.views.patchDetails.show(options, createOrOpen);
 }
