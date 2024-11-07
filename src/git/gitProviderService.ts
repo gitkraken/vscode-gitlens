@@ -1378,6 +1378,22 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	createTag(repoPath: string | Uri, name: string, ref: string, message?: string): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.createTag == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.createTag(path, name, ref, message);
+	}
+
+	@log()
+	deleteTag(repoPath: string | Uri, name: string): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.deleteTag == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.deleteTag(path, name);
+	}
+
+	@log()
 	checkout(
 		repoPath: string | Uri,
 		ref: string,

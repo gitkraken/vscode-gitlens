@@ -34,6 +34,7 @@ import {
 	StashApplyError,
 	StashApplyErrorReason,
 	StashPushError,
+	TagError,
 	WorktreeCreateError,
 	WorktreeCreateErrorReason,
 	WorktreeDeleteError,
@@ -161,7 +162,7 @@ import {
 import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../git/parsers/reflogParser';
 import { parseGitRemotes } from '../../../git/parsers/remoteParser';
 import { parseGitStatus } from '../../../git/parsers/statusParser';
-import { parseGitTags } from '../../../git/parsers/tagParser';
+import { parseGitTags, parseGitTagsDefaultFormat } from '../../../git/parsers/tagParser';
 import { parseGitLsFiles, parseGitTree } from '../../../git/parsers/treeParser';
 import { parseGitWorktrees } from '../../../git/parsers/worktreeParser';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
@@ -1261,6 +1262,32 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
 		await this.git.branch(repoPath, '-m', oldName, newName);
+	}
+
+	@log()
+	async createTag(repoPath: string, name: string, ref: string, message?: string): Promise<void> {
+		try {
+			await this.git.tag(repoPath, name, ref, ...(message != null && message.length > 0 ? ['-m', message] : []));
+		} catch (ex) {
+			if (ex instanceof TagError) {
+				throw ex.WithTag(name).WithAction('create');
+			}
+
+			throw ex;
+		}
+	}
+
+	@log()
+	async deleteTag(repoPath: string, name: string): Promise<void> {
+		try {
+			await this.git.tag(repoPath, '-d', name);
+		} catch (ex) {
+			if (ex instanceof TagError) {
+				throw ex.WithTag(name).WithAction('delete');
+			}
+
+			throw ex;
+		}
 	}
 
 	@log()
@@ -5117,7 +5144,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (resultsPromise == null) {
 			async function load(this: LocalGitProvider): Promise<PagedResult<GitTag>> {
 				try {
-					const data = await this.git.tag(repoPath!);
+					const data = await this.git.tag(repoPath!, '-l', `--format=${parseGitTagsDefaultFormat}`);
 					return { values: parseGitTags(data, repoPath!) };
 				} catch (_ex) {
 					this._tagsCache.delete(repoPath!);

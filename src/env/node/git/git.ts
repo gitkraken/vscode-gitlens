@@ -22,6 +22,8 @@ import {
 	PushErrorReason,
 	StashPushError,
 	StashPushErrorReason,
+	TagError,
+	TagErrorReason,
 	WorkspaceUntrustedError,
 } from '../../../git/errors';
 import type { GitDir } from '../../../git/gitProvider';
@@ -32,7 +34,6 @@ import type { GitUser } from '../../../git/models/user';
 import { parseGitBranchesDefaultFormat } from '../../../git/parsers/branchParser';
 import { parseGitLogAllFormat, parseGitLogDefaultFormat } from '../../../git/parsers/logParser';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
-import { parseGitTagsDefaultFormat } from '../../../git/parsers/tagParser';
 import { splitAt } from '../../../system/array';
 import { log } from '../../../system/decorators/log';
 import { join } from '../../../system/iterable';
@@ -100,6 +101,10 @@ export const GitErrors = {
 	tagConflict: /! \[rejected\].*\(would clobber existing tag\)/m,
 	unmergedFiles: /is not possible because you have unmerged files/i,
 	unstagedChanges: /You have unstaged changes/i,
+	tagAlreadyExists: /tag .* already exists/i,
+	tagNotFound: /tag .* not found/i,
+	invalidTagName: /invalid tag name/i,
+	remoteRejected: /rejected because the remote contains work/i,
 };
 
 const GitWarnings = {
@@ -159,6 +164,14 @@ function getStdinUniqueKey(): number {
 
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
+
+const tagErrorAndReason: [RegExp, TagErrorReason][] = [
+	[GitErrors.tagAlreadyExists, TagErrorReason.TagAlreadyExists],
+	[GitErrors.tagNotFound, TagErrorReason.TagNotFound],
+	[GitErrors.invalidTagName, TagErrorReason.InvalidTagName],
+	[GitErrors.permissionDenied, TagErrorReason.PermissionDenied],
+	[GitErrors.remoteRejected, TagErrorReason.RemoteRejected],
+];
 
 export class Git {
 	/** Map of running git commands -- avoids running duplicate overlaping commands */
@@ -2078,8 +2091,19 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, 'symbolic-ref', '--short', ref);
 	}
 
-	tag(repoPath: string) {
-		return this.git<string>({ cwd: repoPath }, 'tag', '-l', `--format=${parseGitTagsDefaultFormat}`);
+	async tag(repoPath: string, ...args: string[]) {
+		try {
+			const output = await this.git<string>({ cwd: repoPath }, 'tag', ...args);
+			return output;
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			for (const [error, reason] of tagErrorAndReason) {
+				if (error.test(msg) || error.test(ex.stderr ?? '')) {
+					throw new TagError(reason, ex);
+				}
+			}
+			throw new TagError(TagErrorReason.Other, ex);
+		}
 	}
 
 	worktree__add(
