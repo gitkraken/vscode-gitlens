@@ -133,7 +133,7 @@ With just a click of a button, you can navigate backwards and forwards through t
 
 # Accelerate PR Reviews
 
-PR Reviews can take time and require context switching between GitHub, email, and your IDE. Launchpad consolidates PRs into an actionable hub where you can manage them all in one place. Seamlessly prioritize tasks and identify bottlenecks - all within VS Code when you integrate your Github or host provider. Work on multiple branches simultaneously with Worktrees — hotfixes, new features, or experiments without disrupting your main workspace.
+PR reviews often require switching between GitHub, email, and your IDE. Launchpad is your centralized PR hub in VS Code where you can spot bottlenecks, prioritize reviews and unblock your team. With Worktrees, you can work on multiple branches—hotfixes, features, or experiments—without disrupting your workspace.
 
 ## Launchpad `Pro`
 
