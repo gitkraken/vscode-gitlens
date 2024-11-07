@@ -60,7 +60,7 @@ export function push(
 	});
 }
 
-export async function reveal(
+export function reveal(
 	stash: GitStashReference,
 	options?: {
 		select?: boolean;
@@ -68,14 +68,7 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const view = Container.instance.views.stashes;
-	const node = view.canReveal
-		? await view.revealStash(stash, options)
-		: await Container.instance.views.repositories.revealStash(stash, options);
-	if (node == null) {
-		void view.show({ preserveFocus: !options?.focus });
-	}
-	return node;
+	return Container.instance.views.revealStash(stash, options);
 }
 
 export function showDetailsView(

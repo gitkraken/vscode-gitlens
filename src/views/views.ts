@@ -1,5 +1,14 @@
 import { Disposable } from 'vscode';
 import type { Container } from '../container';
+import type { GitContributor } from '../git/models/contributor';
+import type {
+	GitBranchReference,
+	GitRevisionReference,
+	GitStashReference,
+	GitTagReference,
+} from '../git/models/reference';
+import type { GitRemote } from '../git/models/remote';
+import type { GitWorktree } from '../git/models/worktree';
 import type { GraphWebviewShowingArgs } from '../plus/webviews/graph/registration';
 import { registerGraphWebviewView } from '../plus/webviews/graph/registration';
 import type { PatchDetailsWebviewShowingArgs } from '../plus/webviews/patchDetails/registration';
@@ -27,6 +36,7 @@ import { RepositoriesView } from './repositoriesView';
 import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
 import { TagsView } from './tagsView';
+import type { ViewsWithRepositoryFolders } from './viewBase';
 import { ViewCommands } from './viewCommands';
 import { WorkspacesView } from './workspacesView';
 import { WorktreesView } from './worktreesView';
@@ -184,5 +194,133 @@ export class Views implements Disposable {
 	private _workspacesView!: WorkspacesView;
 	get workspaces(): WorkspacesView {
 		return this._workspacesView;
+	}
+
+	async revealBranch(
+		branch: GitBranchReference,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		const branches = branch.remote ? this.remotes : this.branches;
+		const view = branches.canReveal ? branches : this.repositories;
+
+		const node = await view.revealBranch(branch, options);
+		await view.show({ preserveFocus: !options?.focus });
+		return node;
+	}
+
+	async revealCommit(
+		commit: GitRevisionReference,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		const { commits } = this;
+		const view = commits.canReveal ? commits : this.repositories;
+
+		const node = await view.revealCommit(commit, options);
+		await view.show({ preserveFocus: !options?.focus });
+		return node;
+	}
+
+	async revealContributor(
+		contributor: GitContributor,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		const { contributors } = this;
+		const view = contributors.canReveal ? contributors : this.repositories;
+
+		const node = await view.revealContributor(contributor, options);
+		await view.show({ preserveFocus: !options?.focus });
+		return node;
+	}
+
+	async revealRemote(
+		remote: GitRemote | undefined,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		const { remotes } = this;
+		const view = remotes.canReveal ? remotes : this.repositories;
+
+		const node = remote != null ? await view.revealRemote(remote, options) : undefined;
+		await view.show({ preserveFocus: !options?.focus });
+		return node;
+	}
+
+	async revealRepository(
+		repoPath: string,
+		useView?: ViewsWithRepositoryFolders,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		const view = useView == null || useView.canReveal === false ? this.repositories : useView;
+
+		const node = await view.revealRepository(repoPath, options);
+		await view.show({ preserveFocus: !options?.focus });
+		return node;
+	}
+
+	async revealStash(
+		stash: GitStashReference,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		const { stashes } = this;
+		const view = stashes.canReveal ? stashes : this.repositories;
+
+		const node = await view.revealStash(stash, options);
+		await view.show({ preserveFocus: !options?.focus });
+		return node;
+	}
+
+	async revealTag(
+		tag: GitTagReference,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		const { tags } = this;
+		const view = tags.canReveal ? tags : this.repositories;
+
+		const node = await view.revealTag(tag, options);
+		await view.show({ preserveFocus: !options?.focus });
+		return node;
+	}
+
+	async revealWorktree(
+		worktree: GitWorktree,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		const { worktrees } = this;
+		const view = worktrees.canReveal ? worktrees : this.repositories;
+
+		const node = await view.revealWorktree(worktree, options);
+		await view.show({ preserveFocus: !options?.focus });
+		return node;
 	}
 }
