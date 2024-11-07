@@ -489,3 +489,81 @@ export class WorktreeDeleteError extends Error {
 		Error.captureStackTrace?.(this, WorktreeDeleteError);
 	}
 }
+
+export const enum TagErrorReason {
+	TagAlreadyExists,
+	TagNotFound,
+	InvalidTagName,
+	PermissionDenied,
+	RemoteRejected,
+	Other,
+}
+
+export class TagError extends Error {
+	static is(ex: unknown, reason?: TagErrorReason): ex is TagError {
+		return ex instanceof TagError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: TagErrorReason | undefined;
+	action?: string;
+	tag?: string;
+
+	private static buildTagErrorMessage(reason?: TagErrorReason, tag?: string, action?: string): string {
+		let baseMessage: string;
+		if (action != null) {
+			baseMessage = `Unable to ${action} tag ${tag ? `'${tag}'` : ''}`;
+		} else {
+			baseMessage = `Unable to perform action${tag ? ` with tag '${tag}'` : 'on tag'}`;
+		}
+
+		switch (reason) {
+			case TagErrorReason.TagAlreadyExists:
+				return `${baseMessage} because it already exists`;
+			case TagErrorReason.TagNotFound:
+				return `${baseMessage} because it does not exist`;
+			case TagErrorReason.InvalidTagName:
+				return `${baseMessage} because the tag name is invalid`;
+			case TagErrorReason.PermissionDenied:
+				return `${baseMessage} because you don't have permission to push to this remote repository.`;
+			case TagErrorReason.RemoteRejected:
+				return `${baseMessage} because the remote repository rejected the push.`;
+			default:
+				return baseMessage;
+		}
+	}
+
+	constructor(reason?: TagErrorReason, original?: Error, tag?: string, action?: string);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | TagErrorReason | undefined, original?: Error, tag?: string, action?: string) {
+		let reason: TagErrorReason | undefined;
+		if (typeof messageOrReason !== 'string') {
+			reason = messageOrReason as TagErrorReason;
+		} else {
+			super(messageOrReason);
+		}
+		const message =
+			typeof messageOrReason === 'string'
+				? messageOrReason
+				: TagError.buildTagErrorMessage(messageOrReason as TagErrorReason, tag, action);
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this.tag = tag;
+		this.action = action;
+		Error.captureStackTrace?.(this, TagError);
+	}
+
+	WithTag(tag: string) {
+		this.tag = tag;
+		this.message = TagError.buildTagErrorMessage(this.reason, tag, this.action);
+		return this;
+	}
+
+	WithAction(action: string) {
+		this.action = action;
+		this.message = TagError.buildTagErrorMessage(this.reason, this.tag, action);
+		return this;
+	}
+}
