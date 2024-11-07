@@ -73,10 +73,10 @@ export class GlHomeApp extends GlApp<State> {
 				<gl-repo-alerts class="home__header"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
 					<gl-onboarding></gl-onboarding>
-					<gl-integration-banner></gl-integration-banner>
 					${when(
 						this.state?.previewEnabled === true,
 						() => html`
+							<gl-integration-banner></gl-integration-banner>
 							<gl-active-work></gl-active-work>
 							<gl-launchpad></gl-launchpad>
 							<gl-overview></gl-overview>
