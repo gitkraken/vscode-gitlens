@@ -49,7 +49,7 @@ There are a variety of features in GitLens - below are the three most popular wo
 
 - [**Accelerate PR Reviews**](#accelerate-pr-reviews) &mdash; Reduce context switching and manage all your PRs in one place. Prioritize tasks and identify bottlenecks right in VS Code with Launchpad when you integrate Github or other host providers. Work on multiple branches at once without disrupting your main workspace with Worktrees.   
 
-- [**Streamline Collaboration**](#streamline-collaboration) &mdash; GitLens is more than a solo dev tool - it's built to improve team collaboration. With Cloud Patches and Code Suggest, share and discuss suggested changes right from VS Code directly with any other GitLens or GitKraken DevEx Suite User – whether related to a PR or multiple files. 
+- [**Streamline Collaboration**](#streamline-collaboration) &mdash; GitLens isn’t just for solo developers—it’s designed to enhance team collaboration. With Cloud Patches and Code Suggest, you can share and discuss suggested changes with any GitLens or GitKraken user, on multiple files and even PRs.
 
 
 # Interactive Code History
