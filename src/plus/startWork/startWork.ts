@@ -52,20 +52,11 @@ interface State {
 	action?: StartWorkAction;
 }
 
-type StartWorkStepState<T extends State = State> = RequireSome<StepState<T>, 'item'>;
-
 export type StartWorkAction = 'start';
 
 export interface StartWorkCommandArgs {
 	readonly command: 'startWork';
 	source?: Sources;
-}
-
-function assertsStartWorkStepState(state: StepState<State>): asserts state is StartWorkStepState {
-	if (state.item != null) return;
-
-	debugger;
-	throw new Error('Missing item');
 }
 
 export const supportedStartWorkIntegrations = [HostingIntegrationId.GitHub];
@@ -128,45 +119,67 @@ export class StartWorkCommand extends QuickCommand<State> {
 				}
 			}
 
-			await updateContextItems(this.container, context);
+			if (state.counter < 1) {
+				const result = yield* this.selectCommandStep(state);
+				if (result === StepResultBreak) continue;
+				state.action = result.action;
+			}
 
-			if (state.counter < 1 || state.item == null) {
+			if (state.counter < 2 && !state.action) {
+				await updateContextItems(this.container, context);
 				const result = yield* this.pickIssueStep(state, context);
 				if (result === StepResultBreak) continue;
 				state.item = result;
+				state.action = 'start';
 			}
 
-			assertsStartWorkStepState(state);
-			state.action = 'start';
-
-			const issue = state.item.item.issue;
-			const repo = await getOrOpenIssueRepository(this.container, issue);
+			const issue = state.item?.item?.issue;
+			const repo = issue && (await getOrOpenIssueRepository(this.container, issue));
 
 			if (typeof state.action === 'string') {
 				switch (state.action) {
-					case 'start':
-						yield* getSteps(
+					case 'start': {
+						const result = yield* getSteps(
 							this.container,
 							{
 								command: 'branch',
 								state: {
 									subcommand: 'create',
 									repo: repo,
-									name: slug(`${issue.id}-${issue.title}`),
+									name: issue ? slug(`${issue.id}-${issue.title}`) : undefined,
 									suggestNameOnly: true,
 									suggestRepoOnly: true,
 								},
 							},
 							this.pickedVia,
 						);
+						if (result === StepResultBreak) {
+							endSteps(state);
+						} else {
+							state.counter--;
+							state.action = undefined;
+						}
 						break;
+					}
 				}
 			}
-
-			endSteps(state);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
+	}
+
+	private *selectCommandStep(state: StepState<State>): StepResultGenerator<{ action?: StartWorkAction }> {
+		const step = createPickStep({
+			placeholder: 'Start work by creating a new branch',
+			items: [
+				createQuickPickItemOfT('Create a Branch', {
+					action: 'start',
+				}),
+				createQuickPickItemOfT('Create a Branch from an Issue', {}),
+			],
+		});
+		const selection: StepSelection<typeof step> = yield step;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
 	private async *confirmLocalIntegrationConnectStep(
