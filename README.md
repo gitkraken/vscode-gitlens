@@ -160,7 +160,7 @@ GitLens isn’t just for solo developers—it’s designed to enhance team colla
 
 ## Cloud Patches `Preview`
 
-Easily and securely share code changes with your teammates or other developers by creating a Cloud Patch from your WIP, commit or stash and sharing the generated link. Use Cloud Patches to collaborate early for feedback on direction, approach, and more, to minimize rework and streamline your workflow. [Learn more](https://gitkraken.com/solutions/cloud-patches?utm_source=gitlens-extension&utm_medium=in-app-links)
+Easily and securely share code changes by creating a Cloud Patch from your work-in-progress, commit, or stash, and sharing a link with teammates or other developers. Cloud Patches enable early collaboration for feedback on direction and approach, reducing rework and streamlining your workflow. [Learn more](https://gitkraken.com/solutions/cloud-patches?utm_source=gitlens-extension&utm_medium=in-app-links)
 
 ## Code Suggest `Preview`
 
