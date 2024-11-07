@@ -54,7 +54,7 @@ GitLens offers a wide range of features—here are the three most popular workfl
 
 # Interactive Code History
 
-It’s not always easy to identify who made specific changes, along with the reasons and timing behind them. GitLens simplifies this process by providing the context you need with tools like the Commit Graph, GitLens Inspect, Inline Blame, Hovers, and more. This allows you to quickly gain insights and interact with your repo’s history through intuitive visuals and actions.
+Understanding who made changes, when, and why can be challenging. GitLens simplifies this with tools like the Commit Graph, Inspect, Inline Blame, and Hovers, giving you clear context and insights. Quickly explore your repository's history with intuitive visuals and actionable tools.
 
 ## Blame, CodeLens, and Hovers
 
