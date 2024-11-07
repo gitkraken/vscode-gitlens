@@ -165,7 +165,7 @@ Easily and securely share code changes with your teammates or other developers b
 
 ## Code Suggest `Preview`
 
-Liberate your code reviews from GitHub's restrictive, comment-only feedback style. Like suggesting changes on a Google-doc, suggest code changes from where you're already coding — your IDE and on anything in your project, not just on the lines of code changed in the PR. [Learn more](https://gitkraken.com/solutions/code-suggest?utm_source=gitlens-extension&utm_medium=in-app-links)
+Break free from GitHub's limited, comment-only review feedback. With GitLens, you can suggest code changes directly from your IDE, just like editing a Google Doc. Provide feedback on any part of your project during a review—not just the lines changed in a PR. [Learn more](https://gitkraken.com/solutions/code-suggest?utm_source=gitlens-extension&utm_medium=in-app-links)
 
 <figure align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/code-suggest.png" alt="Code Suggest" />
