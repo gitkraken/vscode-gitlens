@@ -5,11 +5,13 @@
 .vscode-high-contrast,
 .vscode-dark {
 	--popover-bg: var(--color-background--lighten-15);
+	--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 6%);
 }
 
 .vscode-high-contrast-light,
 .vscode-light {
 	--popover-bg: var(--color-background--darken-15);
+	--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 4%);
 }
 
 * {
