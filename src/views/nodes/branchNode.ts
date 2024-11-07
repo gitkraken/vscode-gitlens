@@ -1,30 +1,38 @@
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { Uri } from 'vscode';
+import { Disposable, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { IconPath } from '../../@types/vscode.iconpath';
 import type { ViewShowBranchComparison } from '../../config';
 import { GlyphChars } from '../../constants';
 import type { Colors } from '../../constants.colors';
+import type { Container } from '../../container';
 import type { GitUri } from '../../git/gitUri';
+import { unknownGitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import { getTargetBranchName } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
 import { getHighlanderProviders } from '../../git/models/remote';
-import type { Repository } from '../../git/models/repository';
+import { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getBranchIconPath } from '../../git/utils/branch-utils';
 import { getWorktreeBranchIconPath } from '../../git/utils/worktree-utils';
+import { fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
+import { weakEvent } from '../../system/event';
+import { disposableInterval } from '../../system/function';
 import { map } from '../../system/iterable';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
 import { getContext } from '../../system/vscode/context';
-import type { ViewsWithBranches } from '../viewBase';
+import type { View, ViewsWithBranches } from '../viewBase';
 import { disposeChildren } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { PageableViewNode, ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { ViewRefNode } from './abstract/viewRefNode';
@@ -115,17 +123,6 @@ export class BranchNode
 
 	get current(): boolean {
 		return this.branch.current;
-	}
-
-	get label(): string {
-		if (this.options.showAsCommits) return 'Commits';
-
-		const branchName = this.branch.getNameWithoutRemote();
-		return `${
-			this.view.config.branches?.layout !== 'tree' || this.compacted || this.avoidCompacting
-				? branchName
-				: this.branch.getBasename()
-		}${this.branch.rebasing ? ' (Rebasing)' : ''}`;
 	}
 
 	get ref(): GitBranchReference {
@@ -378,7 +375,11 @@ export class BranchNode
 			}
 
 			if (children.length !== 0) {
-				children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
+				if (this.view.type === 'commits') {
+					children.push(new CommitsCurrentBranchNode(this.view, this, this.branch));
+				} else {
+					children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
+				}
 			}
 
 			const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
@@ -419,212 +420,30 @@ export class BranchNode
 	async getTreeItem(): Promise<TreeItem> {
 		this.splatted = false;
 
-		const worktree = this.worktree;
-		const status = this.branch.status;
+		const parts = await getBranchNodeParts(this.view.container, this.branch, this.current, {
+			pendingPullRequest: this.getState('pendingPullRequest'),
+			showAsCommits: this.options.showAsCommits,
+			showStatusDecorationOnly: this.options.showStatusDecorationOnly,
+			useBaseNameOnly: !(this.view.config.branches?.layout !== 'tree' || this.compacted || this.avoidCompacting),
+			worktree: this.worktree,
+			worktreesByBranch: this.context.worktreesByBranch,
+		});
 
-		const suffixes = [];
-		if (this.current) {
-			if (this.branch.rebasing) {
-				suffixes.push('rebasing');
-			}
-			suffixes.push('current branch');
-		}
-		if (worktree) {
-			if (worktree.opened && !this.current) {
-				suffixes.push('in an opened worktree');
-			} else {
-				suffixes.push('in a worktree');
-			}
-		}
-
-		let tooltip: string | MarkdownString = `$(git-branch) \`${this.branch.getNameWithoutRemote()}\`${
-			suffixes.length ? ` \u00a0(_${suffixes.join(', ')}_)` : ''
-		}`;
-
-		let contextValue: string = ContextValues.Branch;
-		let checkedout = false;
-		if (this.current) {
-			contextValue += '+current';
-			checkedout = true;
-		}
-		if (this.branch.remote) {
-			contextValue += '+remote';
-		}
-		if (this.branch.starred) {
-			contextValue += '+starred';
-		}
-		if (this.branch.upstream != null && !this.branch.upstream.missing) {
-			contextValue += '+tracking';
-		}
-		if (this.options.showAsCommits) {
-			contextValue += '+commits';
-		}
-		if (worktree != null) {
-			contextValue += '+worktree';
-			checkedout = true;
-
-			if (worktree.opened) {
-				contextValue += '+opened';
-			}
-		} else if (this.context.worktreesByBranch?.get(this.branch.id)?.isDefault) {
-			checkedout = true;
-		}
-		if (checkedout) {
-			contextValue += '+checkedout';
-		}
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
 		if (this.repo.closed) {
-			contextValue += '+closed';
-		}
-
-		let iconColor: ThemeColor | undefined;
-		let description;
-		if (!this.branch.remote) {
-			if (this.branch.upstream != null) {
-				let arrows = GlyphChars.Dash;
-
-				const remote = await this.branch.getRemote();
-				if (!this.branch.upstream.missing) {
-					if (remote != null) {
-						let left;
-						let right;
-						for (const { type } of remote.urls) {
-							if (type === 'fetch') {
-								left = true;
-
-								if (right) break;
-							} else if (type === 'push') {
-								right = true;
-
-								if (left) break;
-							}
-						}
-
-						if (left && right) {
-							arrows = GlyphChars.ArrowsRightLeft;
-						} else if (right) {
-							arrows = GlyphChars.ArrowRight;
-						} else if (left) {
-							arrows = GlyphChars.ArrowLeft;
-						}
-					}
-				} else {
-					arrows = GlyphChars.Warning;
-				}
-
-				description = this.options.showAsCommits
-					? `${this.branch.getTrackingStatus({
-							suffix: pad(GlyphChars.Dot, 1, 1),
-					  })}${this.branch.getNameWithoutRemote()}${this.branch.rebasing ? ' (Rebasing)' : ''}${pad(
-							arrows,
-							2,
-							2,
-					  )}${this.branch.upstream.name}`
-					: `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${
-							GlyphChars.Space
-					  } ${this.branch.upstream.name}`;
-
-				tooltip += `\n\nBranch is ${this.branch.getTrackingStatus({
-					empty: `${
-						this.branch.upstream.missing ? 'missing upstream' : 'up to date with'
-					} \\\n $(git-branch) \`${this.branch.upstream.name}\`${
-						remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-					}`,
-					expand: true,
-					icons: true,
-					separator: ', ',
-					suffix: `\\\n$(git-branch) \`${this.branch.upstream.name}\`${
-						remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-					}`,
-				})}`;
-
-				switch (status) {
-					case 'ahead':
-						contextValue += '+ahead';
-						iconColor = new ThemeColor('gitlens.decorations.branchAheadForegroundColor' satisfies Colors);
-						break;
-					case 'behind':
-						contextValue += '+behind';
-						iconColor = new ThemeColor('gitlens.decorations.branchBehindForegroundColor' satisfies Colors);
-						break;
-					case 'diverged':
-						contextValue += '+ahead+behind';
-						iconColor = new ThemeColor(
-							'gitlens.decorations.branchDivergedForegroundColor' satisfies Colors,
-						);
-						break;
-					case 'upToDate':
-						iconColor = new ThemeColor(
-							'gitlens.decorations.branchUpToDateForegroundColor' satisfies Colors,
-						);
-						break;
-				}
-			} else {
-				const providers = getHighlanderProviders(
-					await this.view.container.git.getRemotesWithProviders(this.branch.repoPath),
-				);
-				const providerName = providers?.length ? providers[0].name : undefined;
-
-				tooltip += `\n\nLocal branch, hasn't been published to ${providerName ?? 'a remote'}`;
-			}
-		}
-
-		if (this.branch.date != null) {
-			description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}` : ''}${
-				this.branch.formattedDate
-			}`;
-
-			tooltip += `\n\nLast commit ${this.branch.formatDateFromNow()} (${this.branch.formatDate(
-				this.view.container.BranchDateFormatting.dateFormat,
-			)})`;
-		}
-
-		tooltip = new MarkdownString(tooltip, true);
-		tooltip.supportHtml = true;
-		tooltip.isTrusted = true;
-
-		if (this.branch.starred) {
-			tooltip.appendMarkdown('\\\n$(star-full) Favorited');
-		}
-
-		const pendingPullRequest = this.getState('pendingPullRequest');
-		if (pendingPullRequest != null) {
-			tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
+			parts.contextValue += '+closed';
 		}
 
 		const item = new TreeItem(
-			this.label,
+			parts.label,
 			this.options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
-		item.contextValue = contextValue;
-		item.description = description;
-		item.iconPath =
-			pendingPullRequest != null
-				? new ThemeIcon('loading~spin')
-				: this.options.showAsCommits
-				  ? new ThemeIcon('git-commit', iconColor)
-				  : worktree != null
-				    ? getWorktreeBranchIconPath(this.view.container, this.branch)
-				    : getBranchIconPath(this.view.container, this.branch);
-		item.tooltip = tooltip;
-
-		let localUnpublished = false;
-		if (status === 'local') {
-			// If there are any remotes then say this is unpublished, otherwise local
-			const remotes = await this.view.container.git.getRemotes(this.repoPath);
-			if (remotes.length) {
-				localUnpublished = true;
-			}
-		}
-
-		item.resourceUri = createViewDecorationUri('branch', {
-			status: localUnpublished ? 'unpublished' : status,
-			current: this.current,
-			worktree: worktree != null ? { opened: worktree.opened } : undefined,
-			starred: this.branch.starred,
-			showStatusOnly: this.options.showStatusDecorationOnly,
-		});
+		item.contextValue = parts.contextValue;
+		item.description = parts.description;
+		item.iconPath = parts.iconPath;
+		item.resourceUri = parts.resourceUri;
+		item.tooltip = parts.tooltip;
 
 		return item;
 	}
@@ -719,5 +538,290 @@ export class BranchNode
 
 		this.children = undefined;
 		void this.triggerChange(false);
+	}
+}
+
+export async function getBranchNodeParts(
+	container: Container,
+	branch: GitBranch,
+	current: boolean,
+	options?: {
+		pendingPullRequest?: Promise<PullRequest | undefined> | undefined;
+		showAsCommits?: boolean;
+		showStatusDecorationOnly?: boolean;
+		useBaseNameOnly: boolean;
+		worktree?: GitWorktree;
+		worktreesByBranch?: Map<string, GitWorktree>;
+	},
+): Promise<{
+	label: string;
+	description: string | undefined;
+	tooltip: MarkdownString;
+	contextValue: string;
+	iconPath: IconPath;
+	resourceUri: Uri | undefined;
+}> {
+	const status = branch.status;
+
+	const suffixes = [];
+	if (current) {
+		if (branch.rebasing) {
+			suffixes.push('rebasing');
+		}
+		suffixes.push('current branch');
+	}
+	if (options?.worktree) {
+		if (options.worktree.opened && !current) {
+			suffixes.push('in an opened worktree');
+		} else {
+			suffixes.push('in a worktree');
+		}
+	}
+
+	let tooltip: string | MarkdownString = `$(git-branch) \`${branch.getNameWithoutRemote()}\`${
+		suffixes.length ? ` \u00a0(_${suffixes.join(', ')}_)` : ''
+	}`;
+
+	let contextValue: string = ContextValues.Branch;
+	let checkedout = false;
+	if (current) {
+		contextValue += '+current';
+		checkedout = true;
+	}
+	if (branch.remote) {
+		contextValue += '+remote';
+	}
+	if (branch.starred) {
+		contextValue += '+starred';
+	}
+	if (branch.upstream != null && !branch.upstream.missing) {
+		contextValue += '+tracking';
+	}
+	if (options?.showAsCommits) {
+		contextValue += '+commits';
+	}
+	if (options?.worktree != null) {
+		contextValue += '+worktree';
+		checkedout = true;
+
+		if (options.worktree.opened) {
+			contextValue += '+opened';
+		}
+	} else if (options?.worktreesByBranch?.get(branch.id)?.isDefault) {
+		checkedout = true;
+	}
+	if (checkedout) {
+		contextValue += '+checkedout';
+	}
+
+	let iconColor: ThemeColor | undefined;
+	let description;
+	if (!branch.remote) {
+		if (branch.upstream != null) {
+			let arrows = GlyphChars.Dash;
+
+			const remote = await branch.getRemote();
+			if (!branch.upstream.missing) {
+				if (remote != null) {
+					let left;
+					let right;
+					for (const { type } of remote.urls) {
+						if (type === 'fetch') {
+							left = true;
+
+							if (right) break;
+						} else if (type === 'push') {
+							right = true;
+
+							if (left) break;
+						}
+					}
+
+					if (left && right) {
+						arrows = GlyphChars.ArrowsRightLeft;
+					} else if (right) {
+						arrows = GlyphChars.ArrowRight;
+					} else if (left) {
+						arrows = GlyphChars.ArrowLeft;
+					}
+				}
+			} else {
+				arrows = GlyphChars.Warning;
+			}
+
+			description = options?.showAsCommits
+				? `${branch.getTrackingStatus({
+						suffix: pad(GlyphChars.Dot, 1, 1),
+				  })}${branch.getNameWithoutRemote()}${branch.rebasing ? ' (Rebasing)' : ''}${pad(arrows, 2, 2)}${
+						branch.upstream.name
+				  }`
+				: `${branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${GlyphChars.Space} ${
+						branch.upstream.name
+				  }`;
+
+			tooltip += `\n\nBranch is ${branch.getTrackingStatus({
+				empty: `${branch.upstream.missing ? 'missing upstream' : 'up to date with'} \\\n $(git-branch) \`${
+					branch.upstream.name
+				}\`${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`,
+				expand: true,
+				icons: true,
+				separator: ', ',
+				suffix: `\\\n$(git-branch) \`${branch.upstream.name}\`${
+					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+				}`,
+			})}`;
+
+			switch (status) {
+				case 'ahead':
+					contextValue += '+ahead';
+					iconColor = new ThemeColor('gitlens.decorations.branchAheadForegroundColor' satisfies Colors);
+					break;
+				case 'behind':
+					contextValue += '+behind';
+					iconColor = new ThemeColor('gitlens.decorations.branchBehindForegroundColor' satisfies Colors);
+					break;
+				case 'diverged':
+					contextValue += '+ahead+behind';
+					iconColor = new ThemeColor('gitlens.decorations.branchDivergedForegroundColor' satisfies Colors);
+					break;
+				case 'upToDate':
+					iconColor = new ThemeColor('gitlens.decorations.branchUpToDateForegroundColor' satisfies Colors);
+					break;
+			}
+		} else {
+			const providers = getHighlanderProviders(await container.git.getRemotesWithProviders(branch.repoPath));
+			const providerName = providers?.length ? providers[0].name : undefined;
+
+			tooltip += `\n\nLocal branch, hasn't been published to ${providerName ?? 'a remote'}`;
+		}
+	}
+
+	if (branch.date != null) {
+		description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}` : ''}${branch.formattedDate}`;
+
+		tooltip += `\n\nLast commit ${branch.formatDateFromNow()} (${branch.formatDate(
+			container.BranchDateFormatting.dateFormat,
+		)})`;
+	}
+
+	tooltip = new MarkdownString(tooltip, true);
+	tooltip.supportHtml = true;
+	tooltip.isTrusted = true;
+
+	if (branch.starred) {
+		tooltip.appendMarkdown('\\\n$(star-full) Favorited');
+	}
+
+	if (options?.pendingPullRequest != null) {
+		tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
+	}
+
+	let label;
+	if (options?.showAsCommits) {
+		label = 'Commits';
+	} else {
+		const branchName = branch.getNameWithoutRemote();
+		label = `${!options?.useBaseNameOnly ? branchName : branch.getBasename()}${
+			branch.rebasing ? ' (Rebasing)' : ''
+		}`;
+	}
+
+	let localUnpublished = false;
+	if (status === 'local') {
+		// If there are any remotes then say this is unpublished, otherwise local
+		const remotes = await container.git.getRemotes(branch.repoPath);
+		if (remotes.length) {
+			localUnpublished = true;
+		}
+	}
+
+	return {
+		label: label,
+		description: description,
+		tooltip: tooltip,
+		contextValue: contextValue,
+		iconPath:
+			options?.pendingPullRequest != null
+				? new ThemeIcon('loading~spin')
+				: options?.showAsCommits
+				  ? new ThemeIcon('git-commit', iconColor)
+				  : options?.worktree != null
+				    ? getWorktreeBranchIconPath(container, branch)
+				    : getBranchIconPath(container, branch),
+		resourceUri: createViewDecorationUri('branch', {
+			status: localUnpublished ? 'unpublished' : status,
+			current: current,
+			worktree: options?.worktree != null ? { opened: options.worktree.opened } : undefined,
+			starred: branch.starred,
+			showStatusOnly: options?.showStatusDecorationOnly,
+		}),
+	};
+}
+
+const emptyDisposable = Object.freeze({
+	dispose: () => {
+		/* noop */
+	},
+});
+
+export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-current-branch'> {
+	private repo: Repository | undefined;
+
+	constructor(
+		view: View,
+		parent: ViewNode,
+		readonly branch: GitBranch,
+	) {
+		super('commits-current-branch', unknownGitUri, view, parent);
+
+		this.repo = view.container.git.getRepository(branch.repoPath);
+	}
+
+	getChildren(): ViewNode[] | Promise<ViewNode[]> {
+		return [];
+	}
+
+	async getTreeItem(): Promise<TreeItem> {
+		const lastFetched = (await this.getLastFetched()) ?? 0;
+		const context = `${this.branch.name}${
+			lastFetched ? ` \u00a0\u2022\u00a0 fetched ${fromNow(new Date(lastFetched))}` : ''
+		}`;
+
+		const item = new TreeItem('', TreeItemCollapsibleState.None);
+		item.contextValue = ContextValues.CommitsCurrentBranch;
+		item.description = `\u2014\u00a0\u00a0 on ${context}`;
+		item.tooltip = context;
+		return item;
+	}
+
+	protected override etag(): number {
+		return this.repo?.etag ?? 0;
+	}
+
+	private async getLastFetched(): Promise<number | undefined> {
+		return this.branch.upstream?.missing || this.branch.detached ? undefined : this.repo?.getLastFetched();
+	}
+
+	protected async subscribe() {
+		const lastFetched = (await this.getLastFetched()) ?? 0;
+
+		const interval = Repository.getLastFetchedUpdateInterval(lastFetched);
+		if (lastFetched !== 0 && interval > 0) {
+			return Disposable.from(
+				this.repo != null
+					? weakEvent(this.repo.onDidChange, () => this.view.triggerNodeChange(this), this)
+					: emptyDisposable,
+				disposableInterval(() => {
+					// Check if the interval should change, and if so, reset it
+					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
+						void this.resetSubscription();
+					}
+
+					this.view.triggerNodeChange(this);
+				}, interval),
+			);
+		}
+
+		return undefined;
 	}
 }

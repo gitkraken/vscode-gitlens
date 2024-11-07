@@ -1,4 +1,5 @@
 import type { SupportedAIModels, VSCodeAIModels } from './constants.ai';
+import type { GroupableTreeViewTypes } from './constants.views';
 import type { DateTimeFormat } from './system/date';
 import type { LogLevel } from './system/logger.constants';
 
@@ -620,6 +621,10 @@ export interface ViewsCommonConfig {
 			readonly description: string;
 			readonly tooltip: string;
 		};
+	};
+	readonly grouped: {
+		readonly enabled: boolean;
+		readonly views: GroupableTreeViewTypes[];
 	};
 	readonly openChangesInMultiDiffEditor: boolean;
 	readonly pageItemLimit: number;

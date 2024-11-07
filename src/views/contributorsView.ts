@@ -100,7 +100,9 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			// const contributors = await child.repo.getContributors({ all: all, ref: ref });
 			if (children.length === 0) {
 				this.view.message = 'No contributors could be found.';
-				this.view.title = 'Contributors';
+				if (!this.view.grouped) {
+					this.view.description = undefined;
+				}
 
 				void child.ensureSubscription();
 
@@ -108,12 +110,19 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Contributors (${children.length})`;
+
+			if (this.view.grouped) {
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${children.length})`;
+			} else {
+				this.view.description = `(${children.length})`;
+			}
 
 			return children;
 		}
 
-		this.view.title = 'Contributors';
+		if (!this.view.grouped) {
+			this.view.description = undefined;
+		}
 
 		return this.children;
 	}
@@ -131,8 +140,8 @@ interface ContributorsViewState {
 export class ContributorsView extends ViewBase<'contributors', ContributorsViewNode, ContributorsViewConfig> {
 	protected readonly configKey = 'contributors';
 
-	constructor(container: Container) {
-		super(container, 'contributors', 'Contributors', 'contributorsView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'contributors', 'Contributors', 'contributorsView', grouped);
 
 		void setContext('gitlens:views:contributors:hideMergeCommits', true);
 	}
