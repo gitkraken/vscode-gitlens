@@ -315,33 +315,30 @@ export class SubscriptionService implements Disposable {
 		} = this._subscription;
 
 		if (account?.verified === false) {
-			const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? proTrialLengthInDays;
-
 			const verify: MessageItem = { title: 'Resend Email' };
-			const learn: MessageItem = { title: 'See Pro Features' };
+			const learn: MessageItem | undefined = isSubscriptionPaid(this._subscription)
+				? { title: 'See Pro Features' }
+				: undefined;
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
+
 			const result = await window.showInformationMessage(
 				isSubscriptionPaid(this._subscription)
 					? `You are now on the ${actual.name} plan. \n\nYou must first verify your email. Once verified, you will have full access to Pro features.`
-					: `Welcome to your ${
-							effective.name
-					  } Trial.\n\nYou must first verify your email. Once verified, you will have full access to Pro features for ${
-							days < 1 ? '<1 more day' : pluralize('day', days, { infix: ' more ' })
-					  }.`,
+					: `Welcome to GitLens.`,
 				{
 					modal: true,
-					detail: `Your ${
-						isSubscriptionPaid(this._subscription) ? 'plan' : 'trial'
-					} also includes access to the GitKraken DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
+					detail: isSubscriptionPaid(this._subscription)
+						? `Your ${
+								isSubscriptionPaid(this._subscription) ? 'plan' : 'trial'
+						  } also includes access to the GitKraken DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`
+						: `Verify the email we just sent you to start your Pro trial.`,
 				},
-				verify,
-				learn,
-				confirm,
+				...([verify, learn, confirm].filter(Boolean) as MessageItem[]),
 			);
 
 			if (result === verify) {
 				void this.resendVerification(source);
-			} else if (result === learn) {
+			} else if (learn && result === learn) {
 				void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-started-verify-email' } }, source);
 			}
 		} else if (isSubscriptionPaid(this._subscription)) {

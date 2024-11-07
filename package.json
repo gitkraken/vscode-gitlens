@@ -19322,7 +19322,7 @@
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "Cloud Patches ᴘʀᴇᴠɪᴇᴡ — easily and securely share code with your teammates or other developers, accessible from anywhere, streamlining your workflow with better collaboration."
+				"contents": "Cloud Patches ᴘʀᴇᴠɪᴇᴡ — easily and securely share code with your teammates and other developers without adding noise to your repository."
 			},
 			{
 				"view": "gitlens.views.drafts",
@@ -19333,10 +19333,6 @@
 				"view": "gitlens.views.drafts",
 				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22cloud-patches%22%7D)\n\nStart your free 7-day Pro trial to try Cloud Patches and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22cloud-patches%22%7D).",
 				"when": "!gitlens:plus"
-			},
-			{
-				"view": "gitlens.views.drafts",
-				"contents": "Preview feature ☁️ — requires an account and may require a paid plan in the future."
 			},
 			{
 				"view": "gitlens.views.launchpad",
@@ -19467,7 +19463,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view-pro) ᴾᴿᴼ — minimize context switching by allowing you to work on multiple branches simultaneously."
+				"contents": "[Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view-pro) ᴾᴿᴼ — minimize context switching by working on multiple branches simultaneously."
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
@@ -19516,7 +19512,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22worktrees%22%7D)",
+				"contents": "Use on privately-hosted repos requires [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro?%7B%22source%22%3A%22worktrees%22%7D).\n\n[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22worktrees%22%7D)",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			},
 			{

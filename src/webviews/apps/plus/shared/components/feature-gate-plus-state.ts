@@ -1,5 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { urls } from '../../../../../constants';
 import { Commands } from '../../../../../constants.commands';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
@@ -139,31 +140,30 @@ export class GlFeatureGatePlusState extends LitElement {
 
 			case SubscriptionState.ProPreviewExpired:
 				return html`
+					<p>
+						Use on privately-hosted repos requires <a href="${urls.gitlensProVsCommunity}">GitLens Pro</a>.
+					</p>
 					<gl-button
 						appearance="${appearance}"
 						href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
-						>Start Pro Trial</gl-button
+						>&nbsp;Try GitLens Pro&nbsp;</gl-button
 					>
 					<p>
-						Start your free ${proTrialLengthInDays}-day Pro trial to try
-						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and other ` : ''}Pro
-						features, or
+						Start your free ${proTrialLengthInDays}-day GitLens Pro trial - no credit card required. Or
 						<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.
 					</p>
 				`;
 
 			case SubscriptionState.ProTrialExpired:
-				return html` <gl-button
+				return html`<p>
+						Use on privately-hosted repos requires <a href="${urls.gitlensProVsCommunity}">GitLens Pro</a>.
+					</p>
+					<gl-button
 						appearance="${appearance}"
 						href="${generateCommandLink(Commands.PlusUpgrade, this.source)}"
 						>Upgrade to Pro</gl-button
 					>
-					${this.renderPromo(promo)}
-					<p>
-						Your Pro trial has ended. Please upgrade for full access to
-						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and other ` : ''}Pro
-						features.
-					</p>`;
+					${this.renderPromo(promo)}`;
 
 			case SubscriptionState.ProTrialReactivationEligible:
 				return html`
