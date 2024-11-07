@@ -770,7 +770,7 @@ export async function restoreFile(file: string | GitFile, revision: GitRevisionR
 	await Container.instance.git.checkout(revision.repoPath, ref, { path: path });
 }
 
-export async function reveal(
+export function reveal(
 	commit: GitRevisionReference,
 	options?: {
 		select?: boolean;
@@ -778,23 +778,7 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const views = [
-		Container.instance.views.commits,
-		Container.instance.views.branches,
-		Container.instance.views.remotes,
-	];
-
-	// TODO@eamodio stop duplicate notifications
-
-	for (const view of views) {
-		const node = view.canReveal
-			? await view.revealCommit(commit, options)
-			: await Container.instance.views.repositories.revealCommit(commit, options);
-		if (node != null) return node;
-	}
-
-	void views[0].show({ preserveFocus: !options?.focus });
-	return undefined;
+	return Container.instance.views.revealCommit(commit, options);
 }
 
 export async function showDetailsQuickPick(commit: GitCommit, uri?: Uri): Promise<void>;

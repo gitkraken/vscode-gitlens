@@ -65,7 +65,7 @@ export function switchTo(repos?: string | string[] | Repository | Repository[], 
 	});
 }
 
-export async function reveal(
+export function reveal(
 	repoPath: string,
 	view?: ViewsWithRepositoryFolders,
 	options?: {
@@ -74,11 +74,5 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const node = view?.canReveal
-		? await view.revealRepository(repoPath, options)
-		: await Container.instance.views.repositories.revealRepository(repoPath, options);
-	if (node == null) {
-		void (view ?? Container.instance.views.repositories).show({ preserveFocus: !options?.focus });
-	}
-	return node;
+	return Container.instance.views.revealRepository(repoPath, view, options);
 }

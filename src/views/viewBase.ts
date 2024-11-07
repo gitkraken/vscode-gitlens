@@ -720,7 +720,16 @@ export abstract class ViewBase<
 		const scope = getLogScope();
 
 		try {
-			void (await executeCoreCommand(`${this.id}.focus`, options));
+			const command = `${this.id}.focus` as const;
+			// If we haven't been initialized, the focus command will show the view, but won't focus it, so wait until it's initialized and then focus again
+			if (!this.initialized) {
+				void executeCoreCommand(command, options);
+				await new Promise<void>(resolve => {
+					void once(this._onDidInitialize.event)(() => resolve(), this);
+				});
+			}
+
+			void (await executeCoreCommand(command, options));
 		} catch (ex) {
 			Logger.error(ex, scope);
 		}
