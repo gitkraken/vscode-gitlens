@@ -373,7 +373,7 @@ export class BranchGitCommand extends QuickCommand {
 				state.reference = result;
 			}
 
-			if (state.counter < 4 || state.name == null) {
+			if (state.counter < 4 || state.name == null || state.suggestNameOnly) {
 				const result = yield* inputBranchNameStep(state, context, {
 					titleContext: ` from ${getReferenceLabel(state.reference, {
 						capitalize: true,
