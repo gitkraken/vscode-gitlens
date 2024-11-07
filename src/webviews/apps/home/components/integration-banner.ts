@@ -1,8 +1,9 @@
 import { consume } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import type { State } from '../../../home/protocol';
 import { CollapseSectionCommand } from '../../../home/protocol';
+import type { GlButton } from '../../shared/components/button';
 import { ipcContext } from '../../shared/context';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
@@ -28,10 +29,15 @@ export class GlIntegrationBanner extends LitElement {
 	private _ipc!: HostIpc;
 
 	@state()
-	closed = false;
+	private closed = false;
+
+	@query('gl-button')
+	private _button!: GlButton;
 
 	override render() {
-		if (closed || this._state.hasAnyIntegrationConnected || this._state.integrationBannerCollapsed) return nothing;
+		if (this.closed || this._state.hasAnyIntegrationConnected || this._state.integrationBannerCollapsed) {
+			return nothing;
+		}
 
 		return html`
 			<gl-card>
@@ -62,6 +68,10 @@ export class GlIntegrationBanner extends LitElement {
 			section: 'integrationBanner',
 			collapsed: true,
 		});
+	}
+
+	override focus() {
+		this._button.focus();
 	}
 }
 
