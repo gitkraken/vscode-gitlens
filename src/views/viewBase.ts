@@ -79,7 +79,7 @@ export type View =
 	| WorktreesView;
 
 // prettier-ignore
-type TreeViewByType = {
+export type TreeViewByType = {
 	[T in TreeViewTypes]: T extends 'branches'
 		? BranchesView
 		: T extends 'commits'
@@ -210,7 +210,11 @@ export abstract class ViewBase<
 		public readonly type: Type,
 		public readonly name: string,
 		private readonly trackingFeature: TrackedUsageFeatures,
+		public readonly grouped?: boolean,
 	) {
+		if (this.grouped) {
+			this.description = this.name.toLocaleLowerCase();
+		}
 		this.disposables.push(once(container.onReady)(this.onReady, this));
 
 		if (this.container.debugging || configuration.get('debug')) {
@@ -270,7 +274,10 @@ export abstract class ViewBase<
 	}
 
 	private onReady() {
-		this.initialize({ canSelectMany: this.canSelectMany, showCollapseAll: this.showCollapseAll });
+		this.initialize({
+			canSelectMany: this.canSelectMany,
+			showCollapseAll: this.grouped ? false : this.showCollapseAll,
+		});
 		queueMicrotask(() => this.onConfigurationChanged());
 	}
 
@@ -361,7 +368,7 @@ export abstract class ViewBase<
 	}
 
 	protected initialize(options: { canSelectMany?: boolean; showCollapseAll?: boolean } = {}) {
-		this.tree = window.createTreeView<ViewNode>(this.id, {
+		this.tree = window.createTreeView<ViewNode>(this.grouped ? 'gitlens.views.grouped' : this.id, {
 			...options,
 			treeDataProvider: this,
 		});
@@ -720,7 +727,7 @@ export abstract class ViewBase<
 		const scope = getLogScope();
 
 		try {
-			const command = `${this.id}.focus` as const;
+			const command = `${this.grouped ? 'gitlens.views.grouped' : this.id}.focus` as const;
 			// If we haven't been initialized, the focus command will show the view, but won't focus it, so wait until it's initialized and then focus again
 			if (!this.initialized) {
 				void executeCoreCommand(command, options);

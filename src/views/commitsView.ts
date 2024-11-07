@@ -141,38 +141,56 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 			);
 		}
 
-		const commitGraphNode =
+		const children = [];
+
+		if (
 			configuration.get('plusFeatures.enabled') &&
+			!this.view.grouped &&
 			this.view.container.usage.get('graphView:shown') == null &&
 			this.view.container.usage.get('graphWebview:shown') == null
-				? new CommandMessageNode(
-						this.view,
-						this,
-						createCommand(Commands.ShowGraph, 'Show Commit Graph'),
-						'Visualize commits on the Commit Graph',
-						undefined,
-						'Visualize commits on the Commit Graph',
-						new ThemeIcon('gitlens-graph'),
-				  )
-				: undefined;
+		) {
+			children.push(
+				new CommandMessageNode(
+					this.view,
+					this,
+					createCommand(Commands.ShowGraph, 'Show Commit Graph'),
+					'Visualize commits on the Commit Graph',
+					undefined,
+					'Visualize commits on the Commit Graph',
+					new ThemeIcon('gitlens-graph'),
+				),
+			);
+		}
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
 			const branch = await child.repo.git.getBranch();
 			if (branch != null) {
-				const lastFetched = (await child.repo.getLastFetched()) ?? 0;
+				const descParts = [];
+
+				if (branch.rebasing) {
+					descParts.push(`${branch.name} (Rebasing)`);
+				} else {
+					descParts.push(branch.name);
+				}
 
 				const status = branch.getTrackingStatus();
-				this.view.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
-					branch.rebasing ? ' (Rebasing)' : ''
-				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}`;
+				if (status) {
+					descParts.push(status);
+				}
+
+				this.view.description = `${this.view.grouped ? 'commits: ' : ''}${descParts.join(
+					` ${GlyphChars.Dot} `,
+				)}`;
 			}
 
-			return commitGraphNode == null ? child.getChildren() : [commitGraphNode, ...(await child.getChildren())];
+			children.push(...(await child.getChildren()));
+		} else {
+			children.push(...this.children);
 		}
 
-		return commitGraphNode == null ? this.children : [commitGraphNode, ...this.children];
+		return children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -189,8 +207,8 @@ interface CommitsViewState {
 export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsViewConfig> {
 	protected readonly configKey = 'commits';
 
-	constructor(container: Container) {
-		super(container, 'commits', 'Commits', 'commitsView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'commits', 'Commits', 'commitsView', grouped);
 		this.disposables.push(container.usage.onDidChange(this.onUsageChanged, this));
 	}
 

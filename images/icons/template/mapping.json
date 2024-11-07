@@ -53,5 +53,13 @@
   "repo-push": 61746,
   "provider-jira": 61747,
   "play-button": 61748,
-  "rocket-filled": 61749
+  "rocket-filled": 61749,
+  "branches-view-filled": 61750,
+  "commits-view-filled": 61751,
+  "contributors-view-filled": 61752,
+  "remotes-view-filled": 61753,
+  "repositories-view-filled": 61754,
+  "stashes-view-filled": 61755,
+  "tags-view-filled": 61756,
+  "worktrees-view-filled": 61757
 }

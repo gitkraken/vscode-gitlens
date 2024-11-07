@@ -63,7 +63,9 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 			const stash = await child.repo.git.getStash();
 			if (stash == null || stash.commits.size === 0) {
 				this.view.message = 'No stashes could be found.';
-				this.view.title = 'Stashes';
+				if (!this.view.grouped) {
+					this.view.description = undefined;
+				}
 
 				void child.ensureSubscription();
 
@@ -71,12 +73,18 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Stashes (${stash.commits.size})`;
+			if (this.view.grouped) {
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${stash.commits.size})`;
+			} else {
+				this.view.description = `(${stash.commits.size})`;
+			}
 
 			return child.getChildren();
 		}
 
-		this.view.title = 'Stashes';
+		if (!this.view.grouped) {
+			this.view.description = undefined;
+		}
 
 		return this.children;
 	}
@@ -90,8 +98,8 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesViewConfig> {
 	protected readonly configKey = 'stashes';
 
-	constructor(container: Container) {
-		super(container, 'stashes', 'Stashes', 'stashesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'stashes', 'Stashes', 'stashesView', grouped);
 	}
 
 	override get canReveal(): boolean {
