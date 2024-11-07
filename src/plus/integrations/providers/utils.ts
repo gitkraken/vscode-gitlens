@@ -25,7 +25,7 @@ export function getEntityIdentifierInput(entity: IssueOrPullRequest | LaunchpadI
 	}
 
 	let provider = fromStringToEntityIdentifierProviderType(entity.provider.id);
-	let domain = undefined;
+	let domain = null;
 	if (provider === EntityIdentifierProviderType.Github && !isGitHubDotCom(entity.provider.domain)) {
 		provider = EntityIdentifierProviderType.GithubEnterprise;
 		domain = entity.provider.domain;
@@ -36,6 +36,11 @@ export function getEntityIdentifierInput(entity: IssueOrPullRequest | LaunchpadI
 	}
 
 	return {
+		accountOrOrgId: null,
+		organizationName: null,
+		projectId: null,
+		repoId: null,
+		resourceId: null,
 		provider: provider,
 		entityType: entityType,
 		version: EntityVersion.One,

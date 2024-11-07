@@ -18,8 +18,8 @@ importers:
         specifier: 10.7.0
         version: 10.7.0
       '@gitkraken/provider-apis':
-        specifier: 0.24.2
-        version: 0.24.2(encoding@0.1.13)
+        specifier: 0.25.2
+        version: 0.25.2(encoding@0.1.13)
       '@gitkraken/shared-web-components':
         specifier: 0.1.1-rc.15
         version: 0.1.1-rc.15
@@ -583,8 +583,8 @@ packages:
   '@gitkraken/gitkraken-components@10.7.0':
     resolution: {integrity: sha512-0oekeCgTgZNAtUFNH8eSIdOfPOVG3IUIXoaKuOBY0dRT6TLc5Q/ARyujdtWLHpdD3FC/GZv46N9IdQL4AEIwNA==}
 
-  '@gitkraken/provider-apis@0.24.2':
-    resolution: {integrity: sha512-Il0QqYbw0mzjda+EhApny2re0cMY7LOYygmGh5ASQ33juT9rinMsZo1Wu3wh93jwSbAMEzS0royOHFfw37vz2w==}
+  '@gitkraken/provider-apis@0.25.2':
+    resolution: {integrity: sha512-nyTjmmwoKViQR2A6IvwRfsAdZ4TqgmdOhcothtyJY8fsuUptts5CI7EYghVZdTac1i5oKkgC+Ss5DfhVKi02DA==}
     engines: {node: '>= 14'}
 
   '@gitkraken/shared-web-components@0.1.1-rc.15':
@@ -5575,7 +5575,7 @@ snapshots:
       react-dragula: 1.1.17
       react-onclickoutside: 6.13.0(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
 
-  '@gitkraken/provider-apis@0.24.2(encoding@0.1.13)':
+  '@gitkraken/provider-apis@0.25.2(encoding@0.1.13)':
     dependencies:
       js-base64: 3.7.5
       node-fetch: 2.7.0(encoding@0.1.13)
