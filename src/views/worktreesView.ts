@@ -74,7 +74,9 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			const children = await child.getChildren();
 			if (children.length <= 1) {
 				this.view.message = undefined;
-				this.view.title = 'Worktrees';
+				if (!this.view.grouped) {
+					this.view.description = proBadge;
+				}
 
 				void child.ensureSubscription();
 
@@ -82,12 +84,21 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Worktrees (${children.length})`;
+
+			if (this.view.grouped) {
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${
+					children.length
+				}) \u00a0\u2022\u00a0 ${proBadge}`;
+			} else {
+				this.view.description = `(${children.length}) \u00a0\u2022\u00a0 ${proBadge}`;
+			}
 
 			return children;
 		}
 
-		this.view.title = 'Worktrees';
+		if (!this.view.grouped) {
+			this.view.description = proBadge;
+		}
 
 		return this.children;
 	}
@@ -101,10 +112,14 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, WorktreesViewConfig> {
 	protected readonly configKey = 'worktrees';
 
-	constructor(container: Container) {
-		super(container, 'worktrees', 'Worktrees', 'worktreesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'worktrees', 'Worktrees', 'worktreesView', grouped);
 
-		this.description = proBadge;
+		if (this.grouped) {
+			this.description = `${this.name.toLocaleLowerCase()} \u00a0\u2022\u00a0 ${proBadge}`;
+		} else {
+			this.description = proBadge;
+		}
 	}
 
 	override get canReveal(): boolean {

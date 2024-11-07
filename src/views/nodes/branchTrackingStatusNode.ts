@@ -212,10 +212,10 @@ export class BranchTrackingStatusNode
 			case 'ahead': {
 				const remote = await this.branch.getRemote();
 
-				label = `Outgoing changes to ${
+				label = 'Outgoing';
+				description = `${pluralize('commit', this.status.state.ahead)} to push to ${
 					remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)
 				}`;
-				description = pluralize('commit', this.status.state.ahead);
 				tooltip = `${pluralize('commit', this.status.state.ahead)} to push to \`${
 					this.status.upstream!.name
 				}\`${remote?.provider?.name ? ` on ${remote?.provider.name}` : ''}\\\n${getBranchStatus.call(
@@ -237,10 +237,10 @@ export class BranchTrackingStatusNode
 			case 'behind': {
 				const remote = await this.branch.getRemote();
 
-				label = `Incoming changes from ${
+				label = 'Incoming';
+				description = `${pluralize('commit', this.status.state.behind)} to pull from ${
 					remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)
 				}`;
-				description = pluralize('commit', this.status.state.behind);
 				tooltip = `${pluralize('commit', this.status.state.behind)} to pull from \`${
 					this.status.upstream!.name
 				}\`${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}\\\n${getBranchStatus.call(
@@ -265,7 +265,7 @@ export class BranchTrackingStatusNode
 				label = `Up to date with ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
-				description = lastFetched ? `Last fetched ${fromNow(new Date(lastFetched))}` : '';
+				description = lastFetched ? fromNow(lastFetched) : '';
 				tooltip = getBranchStatus.call(this, remote);
 
 				collapsibleState = TreeItemCollapsibleState.None;
@@ -318,7 +318,7 @@ export class BranchTrackingStatusNode
 		item.contextValue = contextValue;
 		item.description = description;
 		if (lastFetched) {
-			tooltip += `\n\nLast fetched ${fromNow(new Date(lastFetched))}`;
+			tooltip += `\n\nLast fetched ${fromNow(lastFetched)}`;
 		}
 		item.iconPath = icon;
 

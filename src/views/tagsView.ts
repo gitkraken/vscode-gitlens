@@ -64,7 +64,9 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 			const tags = await child.repo.git.getTags();
 			if (tags.values.length === 0) {
 				this.view.message = 'No tags could be found.';
-				this.view.title = 'Tags';
+				if (!this.view.grouped) {
+					this.view.description = undefined;
+				}
 
 				void child.ensureSubscription();
 
@@ -72,12 +74,18 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Tags (${tags.values.length})`;
+			if (this.view.grouped) {
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${tags.values.length})`;
+			} else {
+				this.view.description = `(${tags.values.length})`;
+			}
 
 			return child.getChildren();
 		}
 
-		this.view.title = 'Tags';
+		if (!this.view.grouped) {
+			this.view.description = undefined;
+		}
 
 		return this.children;
 	}
@@ -91,8 +99,8 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	protected readonly configKey = 'tags';
 
-	constructor(container: Container) {
-		super(container, 'tags', 'Tags', 'tagsView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'tags', 'Tags', 'tagsView', grouped);
 	}
 
 	override get canReveal(): boolean {

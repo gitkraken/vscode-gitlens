@@ -16,7 +16,7 @@ let pending = [];
 const [{ default: packageJSON }, { default: icons }] = await packageJSONPromises;
 
 if (JSON.stringify(packageJSON.contributes.icons) !== JSON.stringify(icons.icons)) {
-	packageJSON.contributes.icons = icons;
+	packageJSON.contributes.icons = icons.icons;
 	const json = `${JSON.stringify(packageJSON, undefined, '\t')}\n`;
 	pending.push(fs.promises.writeFile('./package.json', json));
 }

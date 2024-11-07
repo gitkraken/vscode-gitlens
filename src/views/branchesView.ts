@@ -85,7 +85,9 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 			const branches = await child.repo.git.getBranches({ filter: b => !b.remote });
 			if (branches.values.length === 0) {
 				this.view.message = 'No branches could be found.';
-				this.view.title = 'Branches';
+				if (!this.view.grouped) {
+					this.view.description = undefined;
+				}
 
 				void child.ensureSubscription();
 
@@ -93,12 +95,19 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Branches (${branches.values.length})`;
+
+			if (this.view.grouped) {
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${branches.values.length})`;
+			} else {
+				this.view.description = `(${branches.values.length})`;
+			}
 
 			return child.getChildren();
 		}
 
-		this.view.title = 'Branches';
+		if (!this.view.grouped) {
+			this.view.description = undefined;
+		}
 
 		return this.children;
 	}
@@ -112,8 +121,8 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 export class BranchesView extends ViewBase<'branches', BranchesViewNode, BranchesViewConfig> {
 	protected readonly configKey = 'branches';
 
-	constructor(container: Container) {
-		super(container, 'branches', 'Branches', 'branchesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'branches', 'Branches', 'branchesView', grouped);
 	}
 
 	override get canReveal(): boolean {

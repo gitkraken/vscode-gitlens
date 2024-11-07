@@ -77,20 +77,27 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 			const remotes = await child.repo.git.getRemotes();
 			if (remotes.length === 0) {
 				this.view.message = 'No remotes could be found.';
-				this.view.title = 'Remotes';
+				if (!this.view.grouped) {
+					this.view.description = undefined;
+				}
 
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.message = undefined;
-			this.view.title = `Remotes (${remotes.length})`;
+			if (this.view.grouped) {
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${remotes.values.length})`;
+			} else {
+				this.view.description = `(${remotes.values.length})`;
+			}
 
 			return child.getChildren();
 		}
 
-		this.view.title = 'Remotes';
+		if (!this.view.grouped) {
+			this.view.description = undefined;
+		}
 
 		return this.children;
 	}
@@ -104,8 +111,8 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesViewConfig> {
 	protected readonly configKey = 'remotes';
 
-	constructor(container: Container) {
-		super(container, 'remotes', 'Remotes', 'remotesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'remotes', 'Remotes', 'remotesView', grouped);
 	}
 
 	override get canReveal(): boolean {

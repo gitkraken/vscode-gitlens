@@ -69,6 +69,7 @@ export const enum ContextValues {
 	CodeSuggestions = 'gitlens:drafts:code-suggestions',
 	Commit = 'gitlens:commit',
 	Commits = 'gitlens:commits',
+	CommitsCurrentBranch = 'gitlens:commits:current-branch',
 	Compare = 'gitlens:compare',
 	CompareBranch = 'gitlens:compare:branch',
 	ComparePicker = 'gitlens:compare:picker',
