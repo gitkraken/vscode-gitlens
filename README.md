@@ -43,7 +43,7 @@ You can [try GitLens Pro for free](https://gitkraken.dev/register?product=gitlen
 
 # Discover Powerful Workflows
 
-There are a variety of features in GitLens - below are the three most popular workflows users are leveraging to improve their developer productivity:
+GitLens offers a wide range of features—here are the three most popular workflows that users rely on to boost their productivity:
 
 - [**Interactive Code History**](#interactive-code-history) &mdash; Understanding code can be challenging in repos with multiple branches and contributors. Get the context you need with blame, hovers, file annotations, and more. That's just the start - the GitLens Commit Graph allows you to create branches, rebase, revert, and much more right from the interactive visual; all with a rich search feature. 
 
