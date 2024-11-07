@@ -20,6 +20,9 @@ export const sectionHeadingStyles = css`
 		font-weight: normal;
 		margin-block: 0 0.8rem;
 		text-transform: uppercase;
+		display: flex;
+		justify-content: space-between;
+		gap: 8px;
 	}
 `;
 
@@ -40,8 +43,7 @@ export class GlBranchSection extends LitElement {
 	override render() {
 		return html`
 			<div class="section">
-				<h3 class="section-heading">${this.label}</h3>
-				<slot></slot>
+				<h3 class="section-heading"><span>${this.label}</span><slot></slot></h3>
 				${this.branches.map(branch => html`<gl-branch-card .branch=${branch}></gl-branch-card>`)}
 			</div>
 		`;

@@ -2,11 +2,15 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import type { GetOverviewResponse } from '../../../../home/protocol';
+import type { GetOverviewResponse, OverviewRecentThreshold } from '../../../../home/protocol';
+import { SetOverviewFilter } from '../../../../home/protocol';
+import { ipcContext } from '../../../shared/context';
+import type { HostIpc } from '../../../shared/ipc';
 import { sectionHeadingStyles } from './branch-section';
 import type { OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/skeleton-loader';
+import './branch-threshold-filter';
 
 type Overview = GetOverviewResponse;
 
@@ -51,16 +55,32 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		`;
 	}
 
+	@consume({ context: ipcContext })
+	private readonly _ipc!: HostIpc;
+
 	private renderComplete(overview: Overview) {
 		if (overview == null) return nothing;
-
 		const { repository } = overview;
 		return html`
 			<div class="repository">
 				<gl-branch-section
 					label="Recent (${repository.branches.recent.length})"
 					.branches=${repository.branches.recent}
-				></gl-branch-section>
+				>
+					<gl-branch-threshold-filter
+						@gl-change=${(e: CustomEvent<{ threshold: OverviewRecentThreshold }>) => {
+							if (!this._overviewState.filter.stale || !this._overviewState.filter.recent) {
+								return;
+							}
+							this._ipc.sendCommand(SetOverviewFilter, {
+								stale: this._overviewState.filter.stale,
+								recent: { ...this._overviewState.filter.recent, threshold: e.detail.threshold },
+							});
+						}}
+						.options=${['OneDay', 'OneWeek', 'OneMonth'] satisfies OverviewRecentThreshold[]}
+						.value=${this._overviewState.filter.recent?.threshold}
+					></gl-branch-threshold-filter>
+				</gl-branch-section>
 				<gl-branch-section
 					hidden
 					label="Stale (${repository.branches.stale.length})"

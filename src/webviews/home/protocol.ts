@@ -27,6 +27,16 @@ export interface State extends WebviewState {
 	previewEnabled?: boolean;
 }
 
+export type OverviewRecentThreshold = 'OneDay' | 'OneWeek' | 'OneMonth';
+export type OverviewStaleThreshold = 'OneYear';
+
+export interface OverviewFilters {
+	recent: {
+		threshold: OverviewRecentThreshold;
+	};
+	stale: { threshold: OverviewStaleThreshold; show: boolean };
+}
+
 // REQUESTS
 
 export interface GetLaunchpadSummaryRequest {
@@ -109,6 +119,14 @@ export type GetOverviewResponse =
 	| undefined;
 export const GetOverview = new IpcRequest<GetOverviewRequest, GetOverviewResponse>(scope, 'overview');
 
+export type RepoOwner = { label: string; avatarSrc?: string; email?: string; current: boolean };
+
+export type GetRepoOwnersResponse = undefined | RepoOwner[];
+export const GetRepoOwners = new IpcRequest<void, GetRepoOwnersResponse>(scope, 'repoOwnsers');
+
+export type GetOverviewFilterStateResponse = OverviewFilters;
+export const GetOverviewFilterState = new IpcRequest<void, GetOverviewFilterStateResponse>(scope, 'overviewFilter');
+
 // COMMANDS
 
 export interface CollapseSectionParams {
@@ -118,6 +136,8 @@ export interface CollapseSectionParams {
 export const CollapseSectionCommand = new IpcCommand<CollapseSectionParams>(scope, 'section/collapse');
 
 export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthrough/dismiss');
+
+export const SetOverviewFilter = new IpcCommand<OverviewFilters>(scope, 'overview/filter/set');
 
 // NOTIFICATIONS
 
@@ -162,5 +182,13 @@ export interface DidChangeOrgSettingsParams {
 	orgSettings: State['orgSettings'];
 }
 export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');
+
+export interface DidChangeOwnerFilterParams {
+	filter: OverviewFilters;
+}
+export const DidChangeOverviewFilter = new IpcNotification<DidChangeOwnerFilterParams>(
+	scope,
+	'home/ownerFilter/didChange',
+);
 
 export const DidFocusAccount = new IpcNotification<undefined>(scope, 'account/didFocus');
