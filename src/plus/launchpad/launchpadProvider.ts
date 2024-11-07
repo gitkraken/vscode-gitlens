@@ -19,9 +19,9 @@ import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequ
 import {
 	getComparisonRefsForPullRequest,
 	getOrOpenPullRequestRepository,
-	getPullRequestIdentityValuesFromSearch,
 	getRepositoryIdentityForPullRequest,
 } from '../../git/models/pullRequest';
+import { getPullRequestIdentityValuesFromSearch } from '../../git/models/pullRequest.utils';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';

@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { suite, test } from 'mocha';
-import { getPullRequestIdentityValuesFromSearch } from '../pullRequest';
+import { getPullRequestIdentityValuesFromSearch } from '../pullRequest.utils';
 
 suite('Test GitHub PR URL parsing to identity: getPullRequestIdentityValuesFromSearch()', () => {
 	function t(message: string, query: string, prNumber: string | undefined, ownerAndRepo?: string) {

@@ -42,10 +42,8 @@ import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.i
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
-import {
-	doesPullRequestSatisfyRepositoryURLIdentity,
-	getPullRequestIdentityValuesFromSearch,
-} from '../../git/models/pullRequest';
+import { doesPullRequestSatisfyRepositoryURLIdentity } from '../../git/models/pullRequest';
+import { getPullRequestIdentityValuesFromSearch } from '../../git/models/pullRequest.utils';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';

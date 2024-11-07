@@ -7,6 +7,7 @@ import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import type { LeftRightCommitCountResult } from '../gitProvider';
 import type { IssueOrPullRequest, IssueRepository, IssueOrPullRequestState as PullRequestState } from './issue';
+import type { PullRequestURLIdentity } from './pullRequest.utils';
 import { createRevisionRange, shortenRevision } from './reference';
 import type { ProviderReference } from './remoteProvider';
 import type { Repository } from './repository';
@@ -415,45 +416,6 @@ export async function getOpenedPullRequestRepo(
 
 	const repo = await getOrOpenPullRequestRepository(container, pr, { promptIfNeeded: true });
 	return repo;
-}
-
-export type PullRequestURLIdentity = {
-	ownerAndRepo?: string;
-	prNumber?: string;
-};
-
-export function getPullRequestIdentityValuesFromSearch(search: string): PullRequestURLIdentity {
-	let ownerAndRepo: string | undefined = undefined;
-	let prNumber: string | undefined = undefined;
-
-	let match = search.match(/([^/]+\/[^/]+)\/pull\/(\d+)/); // with org and rep name
-	if (match != null) {
-		ownerAndRepo = match[1];
-		prNumber = match[2];
-	}
-
-	if (prNumber == null) {
-		match = search.match(/(?:\/|^)pull\/(\d+)/); // without repo name
-		if (match != null) {
-			prNumber = match[1];
-		}
-	}
-
-	if (prNumber == null) {
-		match = search.match(/(?:\/)(\d+)/); // any number starting with "/"
-		if (match != null) {
-			prNumber = match[1];
-		}
-	}
-
-	if (prNumber == null) {
-		match = search.match(/^#?(\d+)$/); // just a number or with a leading "#"
-		if (match != null) {
-			prNumber = match[1];
-		}
-	}
-
-	return { ownerAndRepo: ownerAndRepo, prNumber: prNumber };
 }
 
 export function doesPullRequestSatisfyRepositoryURLIdentity(
