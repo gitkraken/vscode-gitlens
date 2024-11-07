@@ -7,6 +7,7 @@ import { executeCommand, registerCommand } from '../system/vscode/command';
 import { BranchesView } from './branchesView';
 import { CommitsView } from './commitsView';
 import { ContributorsView } from './contributorsView';
+import { LaunchpadView } from './launchpadView';
 import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
 import { SearchAndCompareView } from './searchAndCompareView';
@@ -33,6 +34,7 @@ export class ScmGroupedView implements Disposable {
 			registerCommand('gitlens.views.scm.grouped.branches', () => this.setView('branches', true)),
 			registerCommand('gitlens.views.scm.grouped.commits', () => this.setView('commits', true)),
 			registerCommand('gitlens.views.scm.grouped.contributors', () => this.setView('contributors', true)),
+			registerCommand('gitlens.views.scm.grouped.launchpad', () => this.setView('launchpad', true)),
 			registerCommand('gitlens.views.scm.grouped.remotes', () => this.setView('remotes', true)),
 			registerCommand('gitlens.views.scm.grouped.repositories', () => this.setView('repositories', true)),
 			registerCommand('gitlens.views.scm.grouped.searchAndCompare', () => this.setView('searchAndCompare', true)),
@@ -77,6 +79,8 @@ export class ScmGroupedView implements Disposable {
 				return new CommitsView(this.container, true);
 			case 'contributors':
 				return new ContributorsView(this.container, true);
+			case 'launchpad':
+				return new LaunchpadView(this.container, true);
 			case 'remotes':
 				return new RemotesView(this.container, true);
 			case 'repositories':

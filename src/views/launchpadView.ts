@@ -2,6 +2,7 @@ import type { ConfigurationChangeEvent, TreeViewVisibilityChangeEvent } from 'vs
 import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { LaunchpadViewConfig, ViewFilesLayout } from '../config';
+import { proBadge } from '../constants';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
@@ -152,13 +153,16 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 	}
 
 	async getChildren(): Promise<(GroupingNode | LaunchpadItemNode)[]> {
+		this.view.description = this.view.grouped
+			? `${this.view.name.toLocaleLowerCase()}\u00a0\u2022\u00a0 ${proBadge}`
+			: proBadge;
+		this.view.message = undefined;
+
 		if (this.children == null) {
 			const access = await this.view.container.git.access(PlusFeatures.Launchpad);
 			if (!access.allowed) return [];
 
 			const children: (GroupingNode | LaunchpadItemNode)[] = [];
-
-			this.view.message = undefined;
 
 			const hasIntegrations = await this.view.container.launchpad.hasConnectedIntegration();
 			if (!hasIntegrations) {
@@ -220,13 +224,18 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 	protected readonly configKey = 'launchpad';
 	private _disposable: Disposable | undefined;
 
-	constructor(container: Container) {
-		super(container, 'launchpad', 'Launchpad', 'launchpadView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'launchpad', 'Launchpad', 'launchpadView', grouped);
 	}
 
 	override dispose() {
 		this._disposable?.dispose();
 		super.dispose();
+	}
+
+	override getViewDescription(count?: number): string {
+		const description = super.getViewDescription(count);
+		return description ? `${description} \u00a0\u2022\u00a0 ${proBadge}` : proBadge;
 	}
 
 	protected getRoot() {

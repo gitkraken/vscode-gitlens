@@ -1427,7 +1427,8 @@
 							"worktrees",
 							"contributors",
 							"repositories",
-							"searchAndCompare"
+							"searchAndCompare",
+							"launchpad"
 						],
 						"enumDescriptions": [
 							"Commits view",
@@ -1438,7 +1439,8 @@
 							"Worktrees view",
 							"Contributors view",
 							"Repositories view",
-							"Search & Compare view"
+							"Search & Compare view",
+							"Launchpad view"
 						],
 						"markdownDescription": "Specifies the default view to show when the _GitLens_ view is opened",
 						"scope": "window",
@@ -1454,8 +1456,9 @@
 							"tags": true,
 							"worktrees": true,
 							"contributors": true,
-							"repositories": true,
-							"searchAndCompare": true
+							"repositories": false,
+							"searchAndCompare": true,
+							"launchpad": false
 						},
 						"properties": {
 							"commits": {
@@ -1495,13 +1498,18 @@
 							},
 							"repositories": {
 								"type": "boolean",
-								"default": true,
+								"default": false,
 								"description": "Group the Repositories view"
 							},
 							"searchAndCompare": {
 								"type": "boolean",
 								"default": true,
 								"description": "Group the Search & Compare view"
+							},
+							"launchpad": {
+								"type": "boolean",
+								"default": false,
+								"description": "Group the Launchpad view"
 							}
 						},
 						"additionalProperties": false,
@@ -8260,6 +8268,24 @@
 				"title": "Set as Default View"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.launchpad",
+				"title": "Launchpad",
+				"icon": "$(gitlens-launchpad-view)"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.launchpad.detach",
+				"title": "Detach Launchpad View",
+				"icon": "$(gitlens-launchpad-view)"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.launchpad.regroup",
+				"title": "Regroup Launchpad View"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.launchpad.setAsDefault",
+				"title": "Set as Default View"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.remotes",
 				"title": "Remotes",
 				"icon": "$(gitlens-remotes-view)"
@@ -8383,6 +8409,12 @@
 				"title": "Learn about Launchpad...",
 				"category": "GitLens",
 				"icon": "$(info)"
+			},
+			{
+				"command": "gitlens.views.launchpad.regroup",
+				"title": "Regroup with GitLens View",
+				"category": "GitLens",
+				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.launchpad.refresh",
@@ -10155,6 +10187,20 @@
 				"default": {
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f13e"
+				}
+			},
+			"gitlens-launchpad-view": {
+				"description": "launchpad-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f13f"
+				}
+			},
+			"gitlens-launchpad-view-filled": {
+				"description": "launchpad-view-filled icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f140"
 				}
 			}
 		},
@@ -11933,6 +11979,22 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.launchpad",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.launchpad.detach",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.launchpad.regroup",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.launchpad.setAsDefault",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.remotes",
 					"when": "false"
 				},
@@ -12038,6 +12100,10 @@
 				},
 				{
 					"command": "gitlens.views.launchpad.info",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.launchpad.regroup",
 					"when": "false"
 				},
 				{
@@ -14039,6 +14105,22 @@
 					"group": "2_gitlens@9"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.launchpad",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.launchpad && gitlens:views:scm:grouped:view != launchpad",
+					"group": "navigation@10",
+					"alt": "gitlens.views.scm.grouped.launchpad.detach"
+				},
+				{
+					"submenu": "gitlens/views/grouped/launchpad",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.launchpad && gitlens:views:scm:grouped:view == launchpad",
+					"group": "navigation@10"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.launchpad.regroup",
+					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.launchpad",
+					"group": "2_gitlens@10"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.refresh",
 					"when": "view == gitlens.views.scm.grouped",
 					"group": "navigation@98"
@@ -14051,6 +14133,11 @@
 				{
 					"command": "gitlens.views.launchpad.refresh",
 					"when": "view == gitlens.views.launchpad",
+					"group": "navigation@98"
+				},
+				{
+					"command": "gitlens.views.launchpad.regroup",
+					"when": "view == gitlens.views.launchpad && config.gitlens.views.scm.grouped.enabled",
 					"group": "navigation@99"
 				},
 				{
@@ -17767,6 +17854,23 @@
 					"group": "2_gitlens_actions@1"
 				}
 			],
+			"gitlens/views/grouped/launchpad": [
+				{
+					"command": "gitlens.views.scm.grouped.launchpad.detach",
+					"when": "gitlens:views:scm:grouped:view == launchpad",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.launchpad.setAsDefault",
+					"when": "gitlens:views:scm:grouped:view == launchpad && config.gitlens.views.scm.grouped.default != launchpad",
+					"group": "2_gitlens@2"
+				},
+				{
+					"submenu": "gitlens/views/grouped/more",
+					"when": "gitlens:views:scm:grouped:view == launchpad",
+					"group": "2_gitlens@3"
+				}
+			],
 			"gitlens/views/grouped/remotes": [
 				{
 					"command": "gitlens.views.scm.grouped.remotes.detach",
@@ -18116,6 +18220,36 @@
 					"group": "9_gitlens@1"
 				},
 				{
+					"command": "gitlens.views.launchpad.setFilesLayoutToAuto",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad && config.gitlens.views.launchpad.files.layout == tree",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.launchpad.setFilesLayoutToList",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad && config.gitlens.views.launchpad.files.layout == auto",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.launchpad.setFilesLayoutToTree",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad && config.gitlens.views.launchpad.files.layout == list",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.launchpad.setShowAvatarsOn",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad && !config.gitlens.views.launchpad.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.launchpad.setShowAvatarsOff",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad && config.gitlens.views.launchpad.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.launchpad.info",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad",
+					"group": "8_info@1"
+				},
+				{
 					"command": "gitlens.views.remotes.setLayoutToList",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes && config.gitlens.views.remotes.branches.layout == tree",
 					"group": "3_gitlens@0"
@@ -18435,6 +18569,11 @@
 				"id": "gitlens/views/grouped/contributors",
 				"label": "Contributors",
 				"icon": "$(gitlens-contributors-view-filled)"
+			},
+			{
+				"id": "gitlens/views/grouped/launchpad",
+				"label": "Launchpad",
+				"icon": "$(gitlens-launchpad-view-filled)"
 			},
 			{
 				"id": "gitlens/views/grouped/remotes",
@@ -18927,47 +19066,52 @@
 			{
 				"command": "gitlens.views.scm.grouped.commits",
 				"key": "1",
-				"when": "focusedView == gitlens.views.scm.grouped"
+				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.commits"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.branches",
 				"key": "2",
-				"when": "focusedView == gitlens.views.scm.grouped"
+				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.branches"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.remotes",
 				"key": "3",
-				"when": "focusedView == gitlens.views.scm.grouped"
+				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.remotes"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.stashes",
 				"key": "4",
-				"when": "focusedView == gitlens.views.scm.grouped"
+				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.stashes"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.tags",
 				"key": "5",
-				"when": "focusedView == gitlens.views.scm.grouped"
+				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.tags"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.worktrees",
 				"key": "6",
-				"when": "focusedView == gitlens.views.scm.grouped"
+				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.worktrees"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.contributors",
 				"key": "7",
-				"when": "focusedView == gitlens.views.scm.grouped"
+				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.contributors"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.repositories",
 				"key": "8",
-				"when": "focusedView == gitlens.views.scm.grouped"
+				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.repositories"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.searchAndCompare",
 				"key": "9",
-				"when": "focusedView == gitlens.views.scm.grouped"
+				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.searchAndCompare"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.launchpad",
+				"key": "0",
+				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.launchpad"
 			}
 		],
 		"customEditors": [
@@ -19073,9 +19217,19 @@
 				"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked."
 			},
 			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked.",
+				"when": "gitlens:views:scm:grouped:view == launchpad"
+			},
+			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Connect an Integration...](command:gitlens.showLaunchpad?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nAllows Launchpad to organize your pull requests into actionable groups and keep your team unblocked.",
 				"when": "gitlens:launchpad:connect"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "[Connect an Integration...](command:gitlens.showLaunchpad?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nAllows Launchpad to organize your pull requests into actionable groups and keep your team unblocked.",
+				"when": "gitlens:launchpad:connect && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
 				"view": "gitlens.views.launchpad",
@@ -19083,9 +19237,19 @@
 				"when": "!gitlens:launchpad:connect && gitlens:plus:state == -1"
 			},
 			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "[Resend Verification Email](command:gitlens.plus.resendVerification?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nYou must verify your email before you can continue or [recheck Status](command:gitlens.plus.validate?%7B%22source%22%3A%22launchpad-view%22%7D).",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:state == -1 && gitlens:views:scm:grouped:view == launchpad"
+			},
+			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 0"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 0 && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
 				"view": "gitlens.views.launchpad",
@@ -19093,9 +19257,19 @@
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nStart your free 7-day Pro trial to try Launchpad and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 2 && gitlens:views:scm:grouped:view == launchpad"
+			},
+			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22launchpad-view%22%7D)",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22launchpad-view%22%7D)",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
 				"view": "gitlens.views.launchpad",
@@ -19103,9 +19277,19 @@
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
 			},
 			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Limited-time sale: Save 33% or more on your 1st seat of Pro.",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo) && gitlens:views:scm:grouped:view == launchpad"
+			},
+			{
 				"view": "gitlens.views.launchpad",
 				"contents": "Limited-time sale: Save up to 80% on GitLens Pro",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == devexdays"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Limited-time sale: Save up to 80% on GitLens Pro",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == devexdays && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
 				"view": "gitlens.views.launchpad",
@@ -19113,14 +19297,29 @@
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
 			},
 			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Your Pro trial has ended. Please upgrade for full access to Launchpad and other Pro features.",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:views:scm:grouped:view == launchpad"
+			},
+			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 7 days!",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5"
 			},
 			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 7 days!",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5 && gitlens:views:scm:grouped:view == launchpad"
+			},
+			{
 				"view": "gitlens.views.launchpad",
 				"contents": "Pro feature — requires a paid plan for use on privately-hosted repos.",
 				"when": "!gitlens:launchpad:connect"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Pro feature — requires a paid plan for use on privately-hosted repos.",
+				"when": "!gitlens:launchpad:connect && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
 				"view": "gitlens.views.workspaces",
@@ -19263,8 +19462,9 @@
 				{
 					"id": "gitlens.views.launchpad",
 					"name": "Launchpad",
+					"when": "!(config.gitlens.views.scm.grouped.enabled && gitlens:views:scm:grouped:view == launchpad) && !gitlens:views:scm:grouped:refresh",
 					"contextualTitle": "GitLens",
-					"icon": "$(rocket)",
+					"icon": "$(gitlens-launchpad-view)",
 					"initialSize": 2,
 					"visibility": "visible"
 				},
@@ -19275,7 +19475,7 @@
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-cloud-patch)",
 					"initialSize": 2,
-					"visibility": "visible"
+					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.workspaces",
@@ -19284,7 +19484,7 @@
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-workspaces-view)",
 					"initialSize": 2,
-					"visibility": "visible"
+					"visibility": "collapsed"
 				}
 			],
 			"gitlensInspect": [
@@ -19446,7 +19646,7 @@
 				{
 					"id": "gitlens.views.scm.grouped",
 					"name": "GitLens",
-					"when": "!gitlens:disabled && config.gitlens.views.scm.grouped.enabled && (config.gitlens.views.scm.grouped.views.branches || config.gitlens.views.scm.grouped.views.commits || config.gitlens.views.scm.grouped.views.contributors || config.gitlens.views.scm.grouped.views.remotes || config.gitlens.views.scm.grouped.views.repositories || config.gitlens.views.scm.grouped.views.searchAndCompare || config.gitlens.views.scm.grouped.views.stashes || config.gitlens.views.scm.grouped.views.tags || config.gitlens.views.scm.grouped.views.worktrees) && !gitlens:views:scm:grouped:refresh",
+					"when": "!gitlens:disabled && config.gitlens.views.scm.grouped.enabled && (config.gitlens.views.scm.grouped.views.branches || config.gitlens.views.scm.grouped.views.commits || config.gitlens.views.scm.grouped.views.contributors || config.gitlens.views.scm.grouped.views.launchpad || config.gitlens.views.scm.grouped.views.remotes || config.gitlens.views.scm.grouped.views.repositories || config.gitlens.views.scm.grouped.views.searchAndCompare || config.gitlens.views.scm.grouped.views.stashes || config.gitlens.views.scm.grouped.views.tags || config.gitlens.views.scm.grouped.views.worktrees) && !gitlens:views:scm:grouped:refresh",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
 					"visibility": "visible"
