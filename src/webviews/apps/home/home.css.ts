@@ -55,9 +55,7 @@ export const homeStyles = css`
 	.home__main > *:last-child {
 		margin-bottom: 0;
 	}
-	.home__nav {
-		flex: none;
-	}
+	.home__aux,
 	.home__footer {
 		flex: none;
 	}
@@ -132,18 +130,6 @@ export const inlineNavStyles = css`
 		.inline-nav__link--text + .inline-nav__link--text {
 			margin-left: 0.2rem;
 		}
-	}
-
-	.promo-banner {
-		text-align: center;
-		margin-bottom: 1rem;
-	}
-	.promo-banner--eyebrow {
-		color: var(--color-foreground--50);
-		margin-bottom: 0.2rem;
-	}
-	.promo-banner:not([has-promo]) {
-		display: none;
 	}
 `;
 

@@ -1,14 +1,12 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { getApplicablePromo } from '../../../../plus/gk/account/promos';
 import type { State } from '../../../home/protocol';
 import { linkBase } from '../../shared/components/styles/lit/base.css';
 import { stateContext } from '../context';
 import { homeBaseStyles, inlineNavStyles } from '../home.css';
 import '../../shared/components/code-icon';
 import '../../shared/components/overlays/tooltip';
-import '../../shared/components/promo';
 
 @customElement('gl-home-nav')
 export class GlHomeNav extends LitElement {
@@ -29,12 +27,6 @@ export class GlHomeNav extends LitElement {
 
 	override render() {
 		return html`
-			<gl-promo
-				.promo=${getApplicablePromo(this._state.subscription.state, 'home')}
-				class="promo-banner promo-banner--eyebrow"
-				id="promo"
-				type="link"
-			></gl-promo>
 			<nav class="inline-nav" id="links" aria-label="Help and Resources">
 				<div class="inline-nav__group">
 					<gl-tooltip hoist>

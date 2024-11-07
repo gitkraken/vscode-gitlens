@@ -21,12 +21,12 @@ export class GlCard extends LitElement {
 
 	override render() {
 		if (this.href != null) {
-			return html`<a class="card${this.active ? ' is-active' : ''}" href=${this.href}
+			return html`<a part="base" class="card${this.active ? ' is-active' : ''}" href=${this.href}
 				>${this.renderContent()}</a
 			>`;
 		}
 
-		return html`<div class="card${this.active ? ' is-active' : ''}">${this.renderContent()}</div>`;
+		return html`<div part="base" class="card${this.active ? ' is-active' : ''}">${this.renderContent()}</div>`;
 	}
 
 	private renderContent() {

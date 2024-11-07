@@ -13,7 +13,7 @@ export interface State extends WebviewState {
 	orgSettings: {
 		drafts: boolean;
 	};
-	walkthroughCollapsed: boolean;
+	previewCollapsed: boolean;
 	integrationBannerCollapsed: boolean;
 	hasAnyIntegrationConnected: boolean;
 	avatar?: string;
@@ -125,6 +125,8 @@ export const GetOverviewFilterState = new IpcRequest<void, GetOverviewFilterStat
 export const ChangeOverviewRepository = new IpcRequest<undefined, undefined>(scope, 'overview/repository/change');
 
 // COMMANDS
+
+export const TogglePreviewEnabledCommand = new IpcCommand<void>(scope, 'previewEnabled/toggle');
 
 export interface CollapseSectionParams {
 	section: string;
