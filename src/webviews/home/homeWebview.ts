@@ -45,6 +45,7 @@ import {
 	DismissWalkthroughSection,
 	GetLaunchpadSummary,
 	GetOverview,
+	TogglePreviewEnabledCommand,
 } from './protocol';
 import type { HomeWebviewShowingArgs } from './registration';
 
@@ -146,6 +147,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				break;
 			case GetOverview.is(e):
 				void this.host.respond(GetOverview, e, await this.getBranchOverview());
+				break;
+			case TogglePreviewEnabledCommand.is(e):
+				configuration.updateEffective('home.preview.enabled', !this.getPreviewEnabled());
 				break;
 		}
 	}

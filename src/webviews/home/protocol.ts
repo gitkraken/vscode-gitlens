@@ -111,6 +111,8 @@ export const GetOverview = new IpcRequest<GetOverviewRequest, GetOverviewRespons
 
 // COMMANDS
 
+export const TogglePreviewEnabledCommand = new IpcCommand<void>(scope, 'previewEnabled/toggle');
+
 export interface CollapseSectionParams {
 	section: string;
 	collapsed: boolean;
