@@ -97,6 +97,7 @@ export class Views implements Disposable {
 		this._branchesView?.dispose();
 		this._commitsView?.dispose();
 		this._contributorsView?.dispose();
+		this._launchpadView?.dispose();
 		this._remotesView?.dispose();
 		this._repositoriesView?.dispose();
 		this._searchAndCompareView?.dispose();
@@ -150,6 +151,16 @@ export class Views implements Disposable {
 			),
 			registerCommand('gitlens.views.scm.grouped.contributors.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('contributors'),
+			),
+			registerCommand('gitlens.views.launchpad.regroup', () => this.toggleScmViewGrouping('launchpad', true)),
+			registerCommand('gitlens.views.scm.grouped.launchpad.detach', () =>
+				this.toggleScmViewGrouping('launchpad', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.launchpad.regroup', () =>
+				this.toggleScmViewGrouping('launchpad', true),
+			),
+			registerCommand('gitlens.views.scm.grouped.launchpad.setAsDefault', () =>
+				this.setAsScmGroupedDefaultView('launchpad'),
 			),
 			registerCommand('gitlens.views.remotes.regroup', () => this.toggleScmViewGrouping('remotes', true)),
 			registerCommand('gitlens.views.scm.grouped.remotes.detach', () =>
@@ -218,7 +229,6 @@ export class Views implements Disposable {
 		return [
 			(this._draftsView = new DraftsView(this.container)),
 			(this._fileHistoryView = new FileHistoryView(this.container)),
-			(this._launchpadView = new LaunchpadView(this.container)),
 			(this._lineHistoryView = new LineHistoryView(this.container)),
 			(this._pullRequestView = new PullRequestView(this.container)),
 			(this._workspacesView = new WorkspacesView(this.container)),
@@ -301,6 +311,13 @@ export class Views implements Disposable {
 		} else {
 			this._contributorsView?.dispose();
 			this._contributorsView = undefined;
+		}
+
+		if (!groupingEnabled || !this._scmGroupedViews.has('launchpad')) {
+			this._launchpadView ??= new LaunchpadView(this.container);
+		} else {
+			this._launchpadView?.dispose();
+			this._launchpadView = undefined;
 		}
 
 		if (!groupingEnabled || !this._scmGroupedViews.has('remotes')) {
@@ -398,9 +415,9 @@ export class Views implements Disposable {
 		return this._homeView;
 	}
 
-	private _launchpadView!: LaunchpadView;
+	private _launchpadView!: LaunchpadView | undefined;
 	get launchpad(): LaunchpadView {
-		return this._launchpadView;
+		return this._launchpadView ?? this._scmGroupedView.setView('launchpad');
 	}
 
 	private _lineHistoryView!: LineHistoryView;
@@ -595,8 +612,9 @@ const defaultScmGroupedViews: Record<GroupableTreeViewTypes, boolean> = Object.f
 	tags: true,
 	worktrees: true,
 	contributors: true,
-	repositories: true,
+	repositories: false,
 	searchAndCompare: true,
+	launchpad: false,
 });
 
 function getScmGroupedViewsFromConfig() {
@@ -622,5 +640,6 @@ async function updateScmGroupedViewsInConfig(groupedViews: Set<GroupableTreeView
 		contributors: groupedViews.has('contributors'),
 		repositories: groupedViews.has('repositories'),
 		searchAndCompare: groupedViews.has('searchAndCompare'),
+		launchpad: groupedViews.has('launchpad'),
 	});
 }
