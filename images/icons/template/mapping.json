@@ -62,5 +62,7 @@
   "search-view-filled": 61755,
   "stashes-view-filled": 61756,
   "tags-view-filled": 61757,
-  "worktrees-view-filled": 61758
+  "worktrees-view-filled": 61758,
+  "launchpad-view": 61759,
+  "launchpad-view-filled": 61760
 }

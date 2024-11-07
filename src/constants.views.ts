@@ -26,6 +26,7 @@ export type GroupableTreeViewTypes = Extract<
 	| 'branches'
 	| 'commits'
 	| 'contributors'
+	| 'launchpad'
 	| 'remotes'
 	| 'repositories'
 	| 'searchAndCompare'
