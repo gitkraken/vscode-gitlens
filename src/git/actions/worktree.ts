@@ -80,12 +80,12 @@ export async function reveal(
 	worktree: GitWorktree | undefined,
 	options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 ) {
-	const view = Container.instance.worktreesView;
+	const view = Container.instance.views.worktrees;
 	const node =
 		worktree != null
 			? view.canReveal
 				? await view.revealWorktree(worktree, options)
-				: await Container.instance.repositoriesView.revealWorktree(worktree, options)
+				: await Container.instance.views.repositories.revealWorktree(worktree, options)
 			: undefined;
 	if (node == null) {
 		void view.show({ preserveFocus: !options?.focus });

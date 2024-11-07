@@ -263,7 +263,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.worktreesView,
+			associatedView: this.container.views.worktrees,
 			showTags: false,
 			title: this.title,
 		};
@@ -592,7 +592,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			if (state.reveal !== false) {
 				setTimeout(() => {
-					if (this.container.worktreesView.visible) {
+					if (this.container.views.worktrees.visible) {
 						void reveal(worktree, { select: true, focus: false });
 					}
 				}, 100);

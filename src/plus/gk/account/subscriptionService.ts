@@ -233,8 +233,6 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerCommand(Commands.PlusLogin, (src?: Source) => this.loginOrSignUp(false, src)),
 			registerCommand(Commands.PlusSignUp, (src?: Source) => this.loginOrSignUp(true, src)),
@@ -659,7 +657,7 @@ export class SubscriptionService implements Disposable {
 	async showAccountView(silent: boolean = false): Promise<void> {
 		if (silent && !configuration.get('plusFeatures.enabled', undefined, true)) return;
 
-		if (!this.container.homeView.visible) {
+		if (!this.container.views.home.visible) {
 			await executeCommand(Commands.ShowAccountView);
 		}
 	}

@@ -235,8 +235,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 				this.container.telemetry.sendEvent('timeline/commit/selected', this.getTelemetryContext());
 
-				if (!this.container.commitDetailsView.ready) {
-					void this.container.commitDetailsView.show({ preserveFocus: true }, {
+				if (!this.container.views.commitDetails.ready) {
+					void this.container.views.commitDetails.show({ preserveFocus: true }, {
 						commit: commit,
 						interaction: 'active',
 						preserveVisibility: false,

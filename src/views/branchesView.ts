@@ -129,8 +129,6 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),

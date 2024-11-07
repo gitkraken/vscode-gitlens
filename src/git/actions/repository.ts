@@ -76,9 +76,9 @@ export async function reveal(
 ) {
 	const node = view?.canReveal
 		? await view.revealRepository(repoPath, options)
-		: await Container.instance.repositoriesView.revealRepository(repoPath, options);
+		: await Container.instance.views.repositories.revealRepository(repoPath, options);
 	if (node == null) {
-		void (view ?? Container.instance.repositoriesView).show({ preserveFocus: !options?.focus });
+		void (view ?? Container.instance.views.repositories).show({ preserveFocus: !options?.focus });
 	}
 	return node;
 }

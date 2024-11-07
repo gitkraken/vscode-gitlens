@@ -92,7 +92,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
 			activeRepo: undefined,
-			associatedView: this.container.contributorsView,
+			associatedView: this.container.views.contributors,
 			title: this.title,
 		};
 

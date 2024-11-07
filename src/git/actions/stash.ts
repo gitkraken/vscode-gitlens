@@ -68,10 +68,10 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const view = Container.instance.stashesView;
+	const view = Container.instance.views.stashes;
 	const node = view.canReveal
 		? await view.revealStash(stash, options)
-		: await Container.instance.repositoriesView.revealStash(stash, options);
+		: await Container.instance.views.repositories.revealStash(stash, options);
 	if (node == null) {
 		void view.show({ preserveFocus: !options?.focus });
 	}
@@ -83,5 +83,5 @@ export function showDetailsView(
 	options?: { pin?: boolean; preserveFocus?: boolean },
 ): Promise<void> {
 	const { preserveFocus, ...opts } = { ...options, commit: stash };
-	return Container.instance.commitDetailsView.show({ preserveFocus: preserveFocus }, opts);
+	return Container.instance.views.commitDetails.show({ preserveFocus: preserveFocus }, opts);
 }

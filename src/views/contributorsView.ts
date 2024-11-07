@@ -155,8 +155,6 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),

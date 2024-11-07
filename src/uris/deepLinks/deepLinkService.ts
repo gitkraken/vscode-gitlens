@@ -1159,7 +1159,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					await this.container.searchAndCompareView.compare(
+					await this.container.views.searchAndCompare.compare(
 						repo.path,
 						secondaryTargetId === '' || isSha(secondaryTargetId)
 							? secondaryTargetId
@@ -1198,7 +1198,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					await this.container.workspacesView.revealWorkspaceNode(mainId, {
+					await this.container.views.workspaces.revealWorkspaceNode(mainId, {
 						select: true,
 						focus: true,
 						expand: true,

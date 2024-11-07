@@ -43,8 +43,6 @@ export class FileHistoryView extends ViewBase<
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),

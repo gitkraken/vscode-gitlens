@@ -34,10 +34,10 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const view = Container.instance.tagsView;
+	const view = Container.instance.views.tags;
 	const node = view.canReveal
 		? await view.revealTag(tag, options)
-		: await Container.instance.repositoriesView.revealTag(tag, options);
+		: await Container.instance.views.repositories.revealTag(tag, options);
 	if (node == null) {
 		void view.show({ preserveFocus: !options?.focus });
 	}

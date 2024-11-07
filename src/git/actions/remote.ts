@@ -56,12 +56,12 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const view = Container.instance.remotesView;
+	const view = Container.instance.views.remotes;
 	const node =
 		remote != null
 			? view.canReveal
 				? await view.revealRemote(remote, options)
-				: await Container.instance.repositoriesView.revealRemote(remote, options)
+				: await Container.instance.views.repositories.revealRemote(remote, options)
 			: undefined;
 	if (node == null) {
 		void view.show({ preserveFocus: !options?.focus });

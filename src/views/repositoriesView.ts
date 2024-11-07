@@ -56,8 +56,6 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
