@@ -355,6 +355,11 @@ $entry-padding: 7px;
 	flex: auto 0 0;
 	margin: 0 10px;
 
+	select option {
+		color: var(--vscode-foreground);
+		background-color: var(--vscode-dropdown-background);
+	}
+
 	.entry--edit > &,
 	.entry--reword > & {
 		& > select {
