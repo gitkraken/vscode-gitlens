@@ -19,7 +19,6 @@ export type IntegrationAuthenticationKeys =
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
 	PreReleaseVersion = 'gitlens:synced:preVersion',
-	HomeViewWelcomeVisible = 'gitlens:views:welcome:visible',
 }
 
 export type DeprecatedGlobalStorage = {
@@ -36,6 +35,8 @@ export type DeprecatedGlobalStorage = {
 	/** @deprecated */
 	'home:banners:dismissed': string[];
 	/** @deprecated */
+	pendingWelcomeOnFocus: boolean;
+	/** @deprecated */
 	'plus:discountNotificationShown': boolean;
 	/** @deprecated */
 	'plus:migratedAuthentication': boolean;
@@ -45,6 +46,8 @@ export type DeprecatedGlobalStorage = {
 	'views:layout': 'gitlens' | 'scm';
 	/** @deprecated */
 	'views:commitDetails:dismissed': 'sidebar'[];
+	/** @deprecated */
+	'views:welcome:visible': boolean;
 } & {
 	/** @deprecated */
 	[key in `disallow:connection:${string}`]: any;
@@ -54,7 +57,6 @@ export type GlobalStorage = {
 	avatars: [string, StoredAvatar][];
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
 	'deepLinks:pending': StoredDeepLinkContext;
-	pendingWelcomeOnFocus: boolean;
 	pendingWhatsNewOnFocus: boolean;
 	// Don't change this key name ('premium`) as its the stored subscription
 	'premium:subscription': Stored<Subscription & { lastValidatedAt: number | undefined }>;
@@ -65,7 +67,6 @@ export type GlobalStorage = {
 	version: string;
 	// Keep the pre-release version separate from the released version
 	preVersion: string;
-	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
 	'home:walkthrough:dismissed': boolean;
