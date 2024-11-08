@@ -28,8 +28,8 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
-		if (e == null || configuration.changed(e, 'ai.experimental.generateCommitMessage.enabled')) {
-			if (configuration.get('ai.experimental.generateCommitMessage.enabled')) {
+		if (e == null || configuration.changed(e, 'ai.generateCommitMessage.enabled')) {
+			if (configuration.get('ai.generateCommitMessage.enabled')) {
 				this._subscription = this.scmGit.registerCommitMessageProvider(this);
 			} else {
 				this._subscription?.dispose();

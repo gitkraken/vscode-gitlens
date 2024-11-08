@@ -5,17 +5,25 @@ import type { LogLevel } from './system/logger.constants';
 
 export interface Config {
 	readonly ai: {
-		readonly experimental: {
-			readonly generateCommitMessage: {
-				readonly enabled: boolean;
-			};
-			readonly model: SupportedAIModels | null;
-			readonly openai: {
-				readonly url: string | null;
-			};
-			readonly vscode: {
-				readonly model: VSCodeAIModels | null;
-			};
+		readonly explainChanges: {
+			readonly customInstructions: string;
+		};
+		readonly generateCommitMessage: {
+			readonly customInstructions: string;
+			readonly enabled: boolean;
+		};
+		readonly generateCloudPatchMessage: {
+			readonly customInstructions: string;
+		};
+		readonly generateCodeSuggestMessage: {
+			readonly customInstructions: string;
+		};
+		readonly model: SupportedAIModels | null;
+		readonly openai: {
+			readonly url: string | null;
+		};
+		readonly vscode: {
+			readonly model: VSCodeAIModels | null;
 		};
 	};
 	readonly autolinks: AutolinkConfig[] | null;
@@ -80,11 +88,6 @@ export interface Config {
 	readonly defaultGravatarsStyle: GravatarDefaultStyle;
 	readonly defaultTimeFormat: DateTimeFormat | (string & object) | null;
 	readonly detectNestedRepositories: boolean;
-	readonly experimental: {
-		readonly generateCommitMessagePrompt: string;
-		readonly generateCloudPatchMessagePrompt: string;
-		readonly generateCodeSuggestionMessagePrompt: string;
-	};
 	readonly fileAnnotations: {
 		readonly preserveWhileEditing: boolean;
 		readonly command: string | null;

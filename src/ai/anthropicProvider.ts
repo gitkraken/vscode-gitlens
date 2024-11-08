@@ -1,7 +1,5 @@
 import { fetch } from '@env/fetch';
 import type { CancellationToken } from 'vscode';
-import { window } from 'vscode';
-import type { AnthropicModels } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
@@ -10,8 +8,10 @@ import { interpolate } from '../system/string';
 import { configuration } from '../system/vscode/configuration';
 import type { Storage } from '../system/vscode/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
-import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
+import { getApiKey as getApiKeyCore, getMaxCharacters, showDiffTruncationWarning } from './aiProviderService';
 import {
+	explainChangesSystemPrompt,
+	explainChangesUserPrompt,
 	generateCloudPatchMessageSystemPrompt,
 	generateCloudPatchMessageUserPrompt,
 	generateCodeSuggestMessageSystemPrompt,
@@ -21,18 +21,6 @@ import {
 } from './prompts';
 
 const provider = { id: 'anthropic', name: 'Anthropic' } as const;
-type LegacyModels = Extract<AnthropicModels, 'claude-instant-1' | 'claude-2'>;
-type SupportedModels = Exclude<AnthropicModels, LegacyModels>;
-type LegacyModel = AIModel<typeof provider.id, LegacyModels>;
-type SupportedModel = AIModel<typeof provider.id, SupportedModels>;
-
-function isLegacyModel(model: AnthropicModel): model is LegacyModel {
-	return model.id === 'claude-instant-1' || model.id === 'claude-2';
-}
-
-function isSupportedModel(model: AnthropicModel): model is SupportedModel {
-	return !isLegacyModel(model);
-}
 
 type AnthropicModel = AIModel<typeof provider.id>;
 
@@ -46,6 +34,19 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-5-sonnet-20240620',
 		name: 'Claude 3.5 Sonnet',
+		maxTokens: 200000,
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'claude-3-5-haiku-latest',
+		name: 'Claude 3.5 Haiku',
+		maxTokens: 200000,
+		provider: provider,
+	},
+	{
+		id: 'claude-3-5-haiku-20241022',
+		name: 'Claude 3.5 Haiku',
 		maxTokens: 200000,
 		provider: provider,
 		hidden: true,
@@ -77,13 +78,6 @@ const models: AnthropicModel[] = [
 		default: true,
 	},
 	{ id: 'claude-2.1', name: 'Claude 2.1', maxTokens: 200000, provider: provider },
-	{ id: 'claude-2', name: 'Claude 2.0', maxTokens: 100000, provider: provider },
-	{
-		id: 'claude-instant-1',
-		name: 'Claude Instant',
-		maxTokens: 100000,
-		provider: provider,
-	},
 ];
 
 export class AnthropicProvider implements AIProvider<typeof provider.id> {
@@ -114,69 +108,40 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 		if (apiKey == null) return undefined;
 
 		try {
-			let result: string;
-			let maxCodeCharacters: number;
+			const [result, maxCodeCharacters] = await this.makeRequest(
+				model,
+				apiKey,
+				promptConfig.systemPrompt,
+				(max, retries) => {
+					const messages: Message[] = [
+						{
+							role: 'user',
+							content: [
+								{
+									type: 'text',
+									text: interpolate(promptConfig.userPrompt, {
+										diff: diff.substring(0, max),
+										context: options?.context ?? '',
+										instructions: promptConfig.customInstructions ?? '',
+									}),
+								},
+							],
+						},
+					];
 
-			if (!isSupportedModel(model)) {
-				[result, maxCodeCharacters] = await this.makeLegacyRequest(
-					model as LegacyModel,
-					apiKey,
-					(max, retries) => {
-						const prompt = `\n\nHuman: ${promptConfig.systemPrompt}\n\n${interpolate(
-							promptConfig.userPrompt,
-							{
-								diff: diff.substring(0, max),
-								context: options?.context ?? '',
-								instructions: promptConfig.customInstructions ?? '',
-							},
-						)}\n\nAssistant:`;
+					reporting['retry.count'] = retries;
+					reporting['input.length'] =
+						(reporting['input.length'] ?? 0) +
+						sum(messages, m => sum(m.content, c => (c.type === 'text' ? c.text.length : 0)));
 
-						reporting['retry.count'] = retries;
-						reporting['input.length'] = (reporting['input.length'] ?? 0) + prompt.length;
-
-						return prompt;
-					},
-					4096,
-					options?.cancellation,
-				);
-			} else {
-				[result, maxCodeCharacters] = await this.makeRequest(
-					model,
-					apiKey,
-					promptConfig.systemPrompt,
-					(max, retries) => {
-						const messages: Message[] = [
-							{
-								role: 'user',
-								content: [
-									{
-										type: 'text',
-										text: interpolate(promptConfig.userPrompt, {
-											diff: diff.substring(0, max),
-											context: options?.context ?? '',
-											instructions: promptConfig.customInstructions ?? '',
-										}),
-									},
-								],
-							},
-						];
-
-						reporting['retry.count'] = retries;
-						reporting['input.length'] =
-							(reporting['input.length'] ?? 0) +
-							sum(messages, m => sum(m.content, c => (c.type === 'text' ? c.text.length : 0)));
-
-						return messages;
-					},
-					4096,
-					options?.cancellation,
-				);
-			}
+					return messages;
+				},
+				4096,
+				options?.cancellation,
+			);
 
 			if (diff.length > maxCodeCharacters) {
-				void window.showWarningMessage(
-					`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the Anthropic's limits.`,
-				);
+				showDiffTruncationWarning(maxCodeCharacters, model);
 			}
 
 			return result;
@@ -205,13 +170,13 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 						type: 'code-suggestion',
 						systemPrompt: generateCodeSuggestMessageSystemPrompt,
 						userPrompt: generateCodeSuggestMessageUserPrompt,
-						customInstructions: configuration.get('experimental.generateCodeSuggestionMessagePrompt'),
+						customInstructions: configuration.get('ai.generateCodeSuggestMessage.customInstructions'),
 				  }
 				: {
 						type: 'cloud-patch',
 						systemPrompt: generateCloudPatchMessageSystemPrompt,
 						userPrompt: generateCloudPatchMessageUserPrompt,
-						customInstructions: configuration.get('experimental.generateCloudPatchMessagePrompt'),
+						customInstructions: configuration.get('ai.generateCloudPatchMessage.customInstructions'),
 				  },
 			options,
 		);
@@ -231,7 +196,7 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 				type: 'commit',
 				systemPrompt: generateCommitMessageSystemPrompt,
 				userPrompt: generateCommitMessageUserPrompt,
-				customInstructions: configuration.get('experimental.generateCommitMessagePrompt'),
+				customInstructions: configuration.get('ai.generateCommitMessage.customInstructions') ?? '',
 			},
 			options,
 		);
@@ -247,94 +212,42 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
-		const systemPrompt = `You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
-- Concisely synthesizes meaningful information from the provided code diff
-- Incorporates any additional context provided by the user to understand the rationale behind the code changes
-- Places the emphasis on the 'why' of the change, clarifying its benefits or addressing the problem that necessitated the change, beyond just detailing the 'what' has changed
-
-Do not make any assumptions or invent details that are not supported by the code diff or the user-provided context.`;
-
 		try {
-			let result: string;
-			let maxCodeCharacters: number;
+			const [result, maxCodeCharacters] = await this.makeRequest(
+				model,
+				apiKey,
+				explainChangesSystemPrompt,
+				(max, retries) => {
+					const code = diff.substring(0, max);
+					const messages: Message[] = [
+						{
+							role: 'user',
+							content: [
+								{
+									type: 'text',
+									text: interpolate(explainChangesUserPrompt, {
+										diff: code,
+										message: message,
+										instructions: configuration.get('ai.explainChanges.customInstructions') ?? '',
+									}),
+								},
+							],
+						},
+					];
 
-			if (!isSupportedModel(model)) {
-				[result, maxCodeCharacters] = await this.makeLegacyRequest(
-					model as LegacyModel,
-					apiKey,
-					(max, retries) => {
-						const code = diff.substring(0, max);
-						const prompt = `\n\nHuman: ${systemPrompt}
+					reporting['retry.count'] = retries;
+					reporting['input.length'] =
+						(reporting['input.length'] ?? 0) +
+						sum(messages, m => sum(m.content, c => (c.type === 'text' ? c.text.length : 0)));
 
-Human: Here is additional context provided by the author of the changes, which should provide some explanation to why these changes where made. Please strongly consider this information when generating your explanation:
-
-${message}
-
-Human: Now, kindly explain the following code diff in a way that would be clear to someone reviewing or trying to understand these changes:
-
-${code}
-
-Human: Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase. And please don't explain how you arrived at the explanation, just provide the explanation.
-Assistant:`;
-						reporting['retry.count'] = retries;
-						reporting['input.length'] = (reporting['input.length'] ?? 0) + prompt.length;
-
-						return prompt;
-					},
-					4096,
-					options?.cancellation,
-				);
-			} else {
-				[result, maxCodeCharacters] = await this.makeRequest(
-					model,
-					apiKey,
-					systemPrompt,
-					(max, retries) => {
-						const code = diff.substring(0, max);
-						const messages: Message[] = [
-							{
-								role: 'user',
-								content: [
-									{
-										type: 'text',
-										text: 'Here is additional context provided by the author of the changes, which should provide some explanation to why these changes where made. Please strongly consider this information when generating your explanation:',
-									},
-									{
-										type: 'text',
-										text: message,
-									},
-									{
-										type: 'text',
-										text: 'Now, kindly explain the following code diff in a way that would be clear to someone reviewing or trying to understand these changes:',
-									},
-									{
-										type: 'text',
-										text: code,
-									},
-									{
-										type: 'text',
-										text: `Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase. And please don't explain how you arrived at the explanation, just provide the explanation`,
-									},
-								],
-							},
-						];
-
-						reporting['retry.count'] = retries;
-						reporting['input.length'] =
-							(reporting['input.length'] ?? 0) +
-							sum(messages, m => sum(m.content, c => (c.type === 'text' ? c.text.length : 0)));
-
-						return messages;
-					},
-					4096,
-					options?.cancellation,
-				);
-			}
+					return messages;
+				},
+				4096,
+				options?.cancellation,
+			);
 
 			if (diff.length > maxCodeCharacters) {
-				void window.showWarningMessage(
-					`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the Anthropic's limits.`,
-				);
+				showDiffTruncationWarning(maxCodeCharacters, model);
 			}
 
 			return result;
@@ -343,22 +256,9 @@ Assistant:`;
 		}
 	}
 
-	private fetch(
-		model: SupportedModel,
+	private async fetch(
 		apiKey: string,
 		request: AnthropicMessageRequest,
-		cancellation: CancellationToken | undefined,
-	): ReturnType<typeof fetch>;
-	private fetch(
-		model: LegacyModel,
-		apiKey: string,
-		request: AnthropicCompletionRequest,
-		cancellation: CancellationToken | undefined,
-	): ReturnType<typeof fetch>;
-	private async fetch(
-		model: AnthropicModel,
-		apiKey: string,
-		request: AnthropicMessageRequest | AnthropicCompletionRequest,
 		cancellation: CancellationToken | undefined,
 	): ReturnType<typeof fetch> {
 		let aborter: AbortController | undefined;
@@ -368,7 +268,7 @@ Assistant:`;
 		}
 
 		try {
-			return await fetch(getUrl(model), {
+			return await fetch('https://api.anthropic.com/v1/messages', {
 				headers: {
 					Accept: 'application/json',
 					Authorization: `Bearer ${apiKey}`,
@@ -386,7 +286,7 @@ Assistant:`;
 	}
 
 	private async makeRequest(
-		model: SupportedModel,
+		model: AnthropicModel,
 		apiKey: string,
 		system: string,
 		messages: (maxCodeCharacters: number, retries: number) => Message[],
@@ -405,7 +305,7 @@ Assistant:`;
 				max_tokens: maxTokens,
 			};
 
-			const rsp = await this.fetch(model, apiKey, request, cancellation);
+			const rsp = await this.fetch(apiKey, request, cancellation);
 			if (!rsp.ok) {
 				let json;
 				try {
@@ -434,50 +334,6 @@ Assistant:`;
 			return [result, maxCodeCharacters];
 		}
 	}
-
-	private async makeLegacyRequest(
-		model: LegacyModel,
-		apiKey: string,
-		prompt: (maxCodeCharacters: number, retries: number) => string,
-		maxTokens: number,
-		cancellation: CancellationToken | undefined,
-	): Promise<[result: string, maxCodeCharacters: number]> {
-		let retries = 0;
-		let maxCodeCharacters = getMaxCharacters(model, 2600);
-
-		while (true) {
-			const request: AnthropicCompletionRequest = {
-				model: model.id,
-				prompt: prompt(maxCodeCharacters, retries),
-				stream: false,
-				max_tokens_to_sample: maxTokens,
-			};
-			const rsp = await this.fetch(model, apiKey, request, cancellation);
-			if (!rsp.ok) {
-				let json;
-				try {
-					json = (await rsp.json()) as AnthropicError | undefined;
-				} catch {}
-
-				debugger;
-
-				if (
-					retries++ < 2 &&
-					json?.error?.type === 'invalid_request_error' &&
-					json?.error?.message?.includes('prompt is too long')
-				) {
-					maxCodeCharacters -= 500 * retries;
-					continue;
-				}
-
-				throw new Error(`(${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText})`);
-			}
-
-			const data: AnthropicCompletionResponse = await rsp.json();
-			const result = data.completion.trim();
-			return [result, maxCodeCharacters];
-		}
-	}
 }
 
 async function getApiKey(storage: Storage): Promise<string | undefined> {
@@ -487,10 +343,6 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 		validator: v => /(?:sk-)?[a-zA-Z0-9-_]{32,}/.test(v),
 		url: 'https://console.anthropic.com/account/keys',
 	});
-}
-
-function getUrl(model: AnthropicModel): string {
-	return isLegacyModel(model) ? 'https://api.anthropic.com/v1/complete' : 'https://api.anthropic.com/v1/messages';
 }
 
 interface AnthropicError {
@@ -506,29 +358,6 @@ interface AnthropicError {
 			| 'overloaded_error';
 		message: string;
 	};
-}
-
-interface AnthropicCompletionRequest {
-	model: Extract<AnthropicModels, 'claude-instant-1' | 'claude-2'>;
-	prompt: string;
-	stream: boolean;
-
-	max_tokens_to_sample: number;
-	stop_sequences?: string[];
-
-	temperature?: number;
-	top_k?: number;
-	top_p?: number;
-	tags?: Record<string, string>;
-}
-
-interface AnthropicCompletionResponse {
-	completion: string;
-	stop: string | null;
-	stop_reason: 'stop_sequence' | 'max_tokens';
-	truncated: boolean;
-	exception: string | null;
-	log_id: string;
 }
 
 interface Message {
@@ -547,7 +376,7 @@ interface Message {
 }
 
 interface AnthropicMessageRequest {
-	model: SupportedModels;
+	model: AnthropicModel['id'];
 	messages: Message[];
 	system?: string;
 

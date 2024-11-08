@@ -182,6 +182,10 @@ export function* getLines(data: string | string[], char: string = '\n'): Iterabl
 	}
 }
 
+export function getPossessiveForm(name: string) {
+	return name.endsWith('s') ? `${name}'` : `${name}'s`;
+}
+
 const defaultTruncationOptions: StringWidthTruncationOptions = {
 	ellipsisWidth: 0,
 	limit: 2 ** 30 - 1, // Max number that can be stored in V8's smis (small integers)

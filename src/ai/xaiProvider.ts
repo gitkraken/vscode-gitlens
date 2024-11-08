@@ -1,7 +1,5 @@
 import { fetch } from '@env/fetch';
 import type { CancellationToken } from 'vscode';
-import { window } from 'vscode';
-import type { xAIModels } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
@@ -10,8 +8,10 @@ import { interpolate } from '../system/string';
 import { configuration } from '../system/vscode/configuration';
 import type { Storage } from '../system/vscode/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
-import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
+import { getApiKey as getApiKeyCore, getMaxCharacters, showDiffTruncationWarning } from './aiProviderService';
 import {
+	explainChangesSystemPrompt,
+	explainChangesUserPrompt,
 	generateCloudPatchMessageSystemPrompt,
 	generateCloudPatchMessageUserPrompt,
 	generateCodeSuggestMessageSystemPrompt,
@@ -117,9 +117,7 @@ export class xAIProvider implements AIProvider<typeof provider.id> {
 			}
 
 			if (diff.length > maxCodeCharacters) {
-				void window.showWarningMessage(
-					`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the xAI's limits.`,
-				);
+				showDiffTruncationWarning(maxCodeCharacters, model);
 			}
 
 			const data: xAIChatCompletionResponse = await rsp.json();
@@ -152,13 +150,13 @@ export class xAIProvider implements AIProvider<typeof provider.id> {
 						type: 'code-suggestion',
 						systemPrompt: generateCodeSuggestMessageSystemPrompt,
 						userPrompt: generateCodeSuggestMessageUserPrompt,
-						customInstructions: configuration.get('experimental.generateCodeSuggestionMessagePrompt'),
+						customInstructions: configuration.get('ai.generateCodeSuggestMessage.customInstructions'),
 				  }
 				: {
 						type: 'cloud-patch',
 						systemPrompt: generateCloudPatchMessageSystemPrompt,
 						userPrompt: generateCloudPatchMessageUserPrompt,
-						customInstructions: configuration.get('experimental.generateCloudPatchMessagePrompt'),
+						customInstructions: configuration.get('ai.generateCloudPatchMessage.customInstructions'),
 				  },
 			options,
 		);
@@ -178,7 +176,7 @@ export class xAIProvider implements AIProvider<typeof provider.id> {
 				type: 'commit',
 				systemPrompt: generateCommitMessageSystemPrompt,
 				userPrompt: generateCommitMessageUserPrompt,
-				customInstructions: configuration.get('experimental.generateCommitMessagePrompt'),
+				customInstructions: configuration.get('ai.generateCommitMessage.customInstructions'),
 			},
 			options,
 		);
@@ -204,25 +202,15 @@ export class xAIProvider implements AIProvider<typeof provider.id> {
 				messages: [
 					{
 						role: 'system',
-						content: `You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
-- Concisely synthesizes meaningful information from the provided code diff
-- Incorporates any additional context provided by the user to understand the rationale behind the code changes
-- Places the emphasis on the 'why' of the change, clarifying its benefits or addressing the problem that necessitated the change, beyond just detailing the 'what' has changed
-
-Do not make any assumptions or invent details that are not supported by the code diff or the user-provided context.`,
+						content: explainChangesSystemPrompt,
 					},
 					{
 						role: 'user',
-						content: `Here is additional context provided by the author of the changes, which should provide some explanation to why these changes where made. Please strongly consider this information when generating your explanation:\n\n${message}`,
-					},
-					{
-						role: 'user',
-						content: `Now, kindly explain the following code diff in a way that would be clear to someone reviewing or trying to understand these changes:\n\n${code}`,
-					},
-					{
-						role: 'user',
-						content:
-							'Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase.',
+						content: interpolate(explainChangesUserPrompt, {
+							diff: code,
+							message: message,
+							instructions: configuration.get('ai.explainChanges.customInstructions') ?? '',
+						}),
 					},
 				],
 			};
@@ -261,14 +249,12 @@ Do not make any assumptions or invent details that are not supported by the code
 			}
 
 			if (diff.length > maxCodeCharacters) {
-				void window.showWarningMessage(
-					`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the xAI's limits.`,
-				);
+				showDiffTruncationWarning(maxCodeCharacters, model);
 			}
 
 			const data: xAIChatCompletionResponse = await rsp.json();
-			const summary = data.choices[0].message.content.trim();
-			return summary;
+			const result = data.choices[0].message.content.trim();
+			return result;
 		}
 	}
 
@@ -306,14 +292,14 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 	return getApiKeyCore(storage, {
 		id: provider.id,
 		name: provider.name,
-		validator: v => /(?:sk-)?[a-zA-Z0-9]{32,}/.test(v),
+		validator: v => /(?:xai-)?[a-zA-Z0-9]{32,}/.test(v),
 		url: 'https://console.x.ai/',
 	});
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 interface xAIChatCompletionRequest {
-	model: xAIModels;
+	model: xAIModel['id'];
 	messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
 	temperature?: number;
 	top_p?: number;

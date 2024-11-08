@@ -203,10 +203,5 @@ ul {
 		overflow-x: hidden;
 		resize: vertical;
 		max-height: 20rem;
-		white-space: break-spaces;
-
-		.has-error & {
-			white-space: normal;
-		}
 	}
 }

@@ -20,38 +20,61 @@ import {
 	generateCommitMessageUserPrompt,
 } from './prompts';
 
-const provider = { id: 'gemini', name: 'Google' } as const;
+const provider = { id: 'github', name: 'GitHub Models' } as const;
 
-type GeminiModel = AIModel<typeof provider.id>;
-const models: GeminiModel[] = [
+type GitHubModelsModel = AIModel<typeof provider.id>;
+const models: GitHubModelsModel[] = [
 	{
-		id: 'gemini-1.5-pro-latest',
-		name: 'Gemini 1.5 Pro',
-		maxTokens: 2097152,
-		provider: provider,
-		default: true,
-	},
-	{
-		id: 'gemini-1.5-flash-latest',
-		name: 'Gemini 1.5 Flash',
-		maxTokens: 1048576,
+		id: 'o1-preview',
+		name: 'o1 preview',
+		maxTokens: 128000,
 		provider: provider,
 	},
 	{
-		id: 'gemini-1.5-flash-8b',
-		name: 'Gemini 1.5 Flash 8B',
-		maxTokens: 1048576,
+		id: 'o1-mini',
+		name: 'o1 mini',
+		maxTokens: 128000,
 		provider: provider,
 	},
 	{
-		id: 'gemini-1.0-pro',
-		name: 'Gemini 1.0 Pro',
-		maxTokens: 30720,
+		id: 'gpt-4o',
+		name: 'GPT-4o',
+		maxTokens: 128000,
+		provider: provider,
+	},
+	{
+		id: 'gpt-4o-mini',
+		name: 'GPT-4o mini',
+		maxTokens: 128000,
+		provider: provider,
+	},
+	{
+		id: 'Phi-3.5-MoE-instruct',
+		name: 'Phi 3.5 MoE',
+		maxTokens: 134144,
+		provider: provider,
+	},
+	{
+		id: 'Phi-3.5-mini-instruct',
+		name: 'Phi 3.5 mini',
+		maxTokens: 134144,
+		provider: provider,
+	},
+	{
+		id: 'AI21-Jamba-1.5-Large',
+		name: 'Jamba 1.5 Large',
+		maxTokens: 268288,
+		provider: provider,
+	},
+	{
+		id: 'AI21-Jamba-1.5-Mini',
+		name: 'Jamba 1.5 Mini',
+		maxTokens: 268288,
 		provider: provider,
 	},
 ];
 
-export class GeminiProvider implements AIProvider<typeof provider.id> {
+export class GitHubModelsProvider implements AIProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 
@@ -64,7 +87,7 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 	}
 
 	async generateMessage(
-		model: GeminiModel,
+		model: GitHubModelsModel,
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
@@ -73,49 +96,48 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 			userPrompt: string;
 			customInstructions?: string;
 		},
-		options?: {
-			cancellation?: CancellationToken | undefined;
-			context?: string | undefined;
-		},
+		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
-		const retries = 0;
-		const maxCodeCharacters = getMaxCharacters(model, 2600);
+		let retries = 0;
+		let maxCodeCharacters = getMaxCharacters(model, 2600);
 		while (true) {
-			const request: GenerateContentRequest = {
-				systemInstruction: {
-					parts: [
-						{
-							text: promptConfig.systemPrompt,
-						},
-					],
-				},
-				contents: [
+			const request: GitHubModelsChatCompletionRequest = {
+				model: model.id,
+				messages: [
+					{
+						role: 'system',
+						content: promptConfig.systemPrompt,
+					},
 					{
 						role: 'user',
-						parts: [
-							{
-								text: interpolate(promptConfig.userPrompt, {
-									diff: diff.substring(0, maxCodeCharacters),
-									context: options?.context ?? '',
-									instructions: promptConfig.customInstructions ?? '',
-								}),
-							},
-						],
+						content: interpolate(promptConfig.userPrompt, {
+							diff: diff.substring(0, maxCodeCharacters),
+							context: options?.context ?? '',
+							instructions: promptConfig.customInstructions ?? '',
+						}),
 					},
 				],
 			};
 
 			reporting['retry.count'] = retries;
-			reporting['input.length'] =
-				(reporting['input.length'] ?? 0) +
-				sum(request.systemInstruction?.parts, p => p.text.length) +
-				sum(request.contents, c => sum(c.parts, p => p.text.length));
+			reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(request.messages, m => m.content.length);
 
-			const rsp = await this.fetch(model.id, apiKey, request, options?.cancellation);
+			const rsp = await this.fetch(apiKey, request, options?.cancellation);
 			if (!rsp.ok) {
+				if (rsp.status === 404) {
+					throw new Error(
+						`Unable to generate ${promptConfig.type} message: Your API key doesn't seem to have access to the selected '${model.id}' model`,
+					);
+				}
+				if (rsp.status === 429) {
+					throw new Error(
+						`Unable to generate ${promptConfig.type} message: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
+					);
+				}
+
 				let json;
 				try {
 					json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
@@ -123,10 +145,10 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 
 				debugger;
 
-				// if (retries++ < 2 && json?.error?.code === 'context_length_exceeded') {
-				// 	maxCodeCharacters -= 500 * retries;
-				// 	continue;
-				// }
+				if (retries++ < 2 && json?.error?.code === 'context_length_exceeded') {
+					maxCodeCharacters -= 500 * retries;
+					continue;
+				}
 
 				throw new Error(
 					`Unable to generate ${promptConfig.type} message: (${this.name}:${rsp.status}) ${
@@ -139,19 +161,19 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 				showDiffTruncationWarning(maxCodeCharacters, model);
 			}
 
-			const data: GenerateContentResponse = await rsp.json();
-			const message = data.candidates[0].content.parts[0].text.trim();
+			const data: GitHubModelsChatCompletionResponse = await rsp.json();
+			const message = data.choices[0].message.content.trim();
 			return message;
 		}
 	}
 
 	async generateDraftMessage(
-		model: GeminiModel,
+		model: GitHubModelsModel,
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		options?: {
-			cancellation?: CancellationToken | undefined;
-			context?: string | undefined;
+			cancellation?: CancellationToken;
+			context?: string;
 			codeSuggestion?: boolean | undefined;
 		},
 	): Promise<string | undefined> {
@@ -182,7 +204,7 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 	}
 
 	async generateCommitMessage(
-		model: GeminiModel,
+		model: GitHubModelsModel,
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string },
@@ -202,7 +224,7 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 	}
 
 	async explainChanges(
-		model: GeminiModel,
+		model: GitHubModelsModel,
 		message: string,
 		diff: string,
 		reporting: TelemetryEvents['ai/explain'],
@@ -211,37 +233,41 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
 
-		const retries = 0;
-		const maxCodeCharacters = getMaxCharacters(model, 3000);
+		let retries = 0;
+		let maxCodeCharacters = getMaxCharacters(model, 3000);
 		while (true) {
 			const code = diff.substring(0, maxCodeCharacters);
 
-			const request: GenerateContentRequest = {
-				systemInstruction: { parts: [{ text: explainChangesSystemPrompt }] },
-				contents: [
+			const request: GitHubModelsChatCompletionRequest = {
+				model: model.id,
+				messages: [
+					{
+						role: 'system',
+						content: explainChangesSystemPrompt,
+					},
 					{
 						role: 'user',
-						parts: [
-							{
-								text: interpolate(explainChangesUserPrompt, {
-									diff: code,
-									message: message,
-									instructions: configuration.get('ai.explainChanges.customInstructions') ?? '',
-								}),
-							},
-						],
+						content: interpolate(explainChangesUserPrompt, { diff: code, message: message }),
 					},
 				],
 			};
 
 			reporting['retry.count'] = retries;
-			reporting['input.length'] =
-				(reporting['input.length'] ?? 0) +
-				sum(request.systemInstruction?.parts, p => p.text.length) +
-				sum(request.contents, c => sum(c.parts, p => p.text.length));
+			reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(request.messages, m => m.content.length);
 
-			const rsp = await this.fetch(model.id, apiKey, request, options?.cancellation);
+			const rsp = await this.fetch(apiKey, request, options?.cancellation);
 			if (!rsp.ok) {
+				if (rsp.status === 404) {
+					throw new Error(
+						`Unable to explain changes: Your API key doesn't seem to have access to the selected '${model.id}' model`,
+					);
+				}
+				if (rsp.status === 429) {
+					throw new Error(
+						`Unable to explain changes: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
+					);
+				}
+
 				let json;
 				try {
 					json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
@@ -249,10 +275,10 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 
 				debugger;
 
-				// if (retries++ < 2 && json?.error?.code === 'context_length_exceeded') {
-				// 	maxCodeCharacters -= 500 * retries;
-				// 	continue;
-				// }
+				if (retries++ < 2 && json?.error?.code === 'context_length_exceeded') {
+					maxCodeCharacters -= 500 * retries;
+					continue;
+				}
 
 				throw new Error(
 					`Unable to explain changes: (${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText}`,
@@ -263,16 +289,15 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 				showDiffTruncationWarning(maxCodeCharacters, model);
 			}
 
-			const data: GenerateContentResponse = await rsp.json();
-			const result = data.candidates[0].content.parts[0].text.trim();
+			const data: GitHubModelsChatCompletionResponse = await rsp.json();
+			const result = data.choices[0].message.content.trim();
 			return result;
 		}
 	}
 
 	private async fetch(
-		model: GeminiModel['id'],
 		apiKey: string,
-		request: GenerateContentRequest,
+		request: GitHubModelsChatCompletionRequest,
 		cancellation: CancellationToken | undefined,
 	) {
 		let aborter: AbortController | undefined;
@@ -282,11 +307,11 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		}
 
 		try {
-			return await fetch(getUrl(model), {
+			return await fetch('https://models.inference.ai.azure.com/chat/completions', {
 				headers: {
 					Accept: 'application/json',
 					'Content-Type': 'application/json',
-					'x-goog-api-key': apiKey,
+					'api-key': apiKey,
 				},
 				method: 'POST',
 				body: JSON.stringify(request),
@@ -304,53 +329,42 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 	return getApiKeyCore(storage, {
 		id: provider.id,
 		name: provider.name,
-		validator: () => true,
-		url: 'https://aistudio.google.com/app/apikey',
+		validator: v => /(?:ghp-)?[a-zA-Z0-9]{32,}/.test(v),
+		url: 'https://github.com/settings/tokens',
 	});
 }
 
-function getUrl(model: GeminiModel['id']): string {
-	return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-}
-
-interface Content {
-	parts: Part[];
-	role?: 'model' | 'user';
-}
-
-type Part = TextPart;
-interface TextPart {
-	text: string;
-}
-
-interface GenerationConfig {
-	stopSequences?: string[];
-	candidateCount?: number;
-	maxOutputTokens?: number;
+interface GitHubModelsChatCompletionRequest {
+	model: GitHubModelsModel['id'];
+	messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
 	temperature?: number;
-	topP?: number;
-	topK?: number;
+	top_p?: number;
+	n?: number;
+	stream?: boolean;
+	stop?: string | string[];
+	max_tokens?: number;
+	presence_penalty?: number;
+	frequency_penalty?: number;
+	logit_bias?: Record<string, number>;
+	user?: string;
 }
 
-interface GenerateContentRequest {
-	contents: Content[];
-	systemInstruction?: Content;
-	generationConfig?: GenerationConfig;
-}
-
-interface Candidate {
-	content: Content;
-	finishReason?: 'FINISH_REASON_UNSPECIFIED' | 'STOP' | 'MAX_TOKENS' | 'SAFETY' | 'RECITATION' | 'OTHER';
-	safetyRatings: any[];
-	citationMetadata: any;
-	tokenCount: number;
-	index: number;
-}
-
-interface GenerateContentResponse {
-	candidates: Candidate[];
-	promptFeedback: {
-		blockReason: 'BLOCK_REASON_UNSPECIFIED' | 'SAFETY' | 'OTHER';
-		safetyRatings: any[];
+interface GitHubModelsChatCompletionResponse {
+	id: string;
+	object: 'chat.completion';
+	created: number;
+	model: string;
+	choices: {
+		index: number;
+		message: {
+			role: 'system' | 'user' | 'assistant';
+			content: string;
+		};
+		finish_reason: string;
+	}[];
+	usage: {
+		prompt_tokens: number;
+		completion_tokens: number;
+		total_tokens: number;
 	};
 }

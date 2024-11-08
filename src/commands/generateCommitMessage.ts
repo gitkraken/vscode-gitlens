@@ -16,7 +16,7 @@ export interface GenerateCommitMessageCommandArgs {
 @command()
 export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.GenerateCommitMessage);
+		super([Commands.GenerateCommitMessage, Commands.GenerateCommitMessageScm]);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: GenerateCommitMessageCommandArgs) {

@@ -11,7 +11,7 @@ import './gl-patch-create';
 interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
-	summary?: string;
+	result?: { summary: string; body: string };
 }
 
 interface GenerateState {

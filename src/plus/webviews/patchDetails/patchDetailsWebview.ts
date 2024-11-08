@@ -823,16 +823,16 @@ export class PatchDetailsWebviewProvider
 			const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			if (commit == null) throw new Error('Unable to find commit');
 
-			const summary = await (
+			const result = await (
 				await this.container.ai
 			)?.explainCommit(
 				commit,
 				{ source: 'patchDetails', type: `draft-${this._context.draft.type}` },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
-			if (summary == null) throw new Error('Error retrieving content');
+			if (result == null) throw new Error('Error retrieving content');
 
-			params = { summary: summary };
+			params = { result: result };
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };

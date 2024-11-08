@@ -1121,16 +1121,16 @@ export class CommitDetailsWebviewProvider
 	private async explainRequest<T extends typeof ExplainRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		let params: DidExplainParams;
 		try {
-			const summary = await (
+			const result = await (
 				await this.container.ai
 			)?.explainCommit(
 				this._context.commit!,
 				{ source: 'inspect', type: isStash(this._context.commit) ? 'stash' : 'commit' },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
-			if (summary == null) throw new Error('Error retrieving content');
+			if (result == null) throw new Error('Error retrieving content');
 
-			params = { summary: summary };
+			params = { result: result };
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
