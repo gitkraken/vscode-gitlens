@@ -29,17 +29,30 @@ export const renderAsyncComputed = <T, R = unknown>(
 
 export class AsyncComputedState<T, R = unknown> {
 	private _invalidate = signal(0);
-	private _initial?: T;
-	private _state?: AsyncComputed<T>;
+	private _computed?: AsyncComputed<T>;
+	private _state = signal<T | undefined>(undefined);
 	get state() {
-		this._state ??= new AsyncComputed(
-			(abortSignal: AbortSignal) => {
-				this._invalidate.get();
-				return this._fetch(abortSignal);
-			},
-			this._initial ? { initialValue: this._initial } : undefined,
-		);
-		return this._state;
+		this.computed.run();
+		return this._state.get();
+	}
+
+	get computed() {
+		if (this._computed == null) {
+			const initial = this._state.get();
+			this._computed = new AsyncComputed(
+				async (abortSignal: AbortSignal) => {
+					this._invalidate.get();
+
+					const state = await this._fetch(abortSignal);
+					this._state.set(state);
+
+					return state;
+				},
+				initial ? { initialValue: initial } : undefined,
+			);
+		}
+
+		return this._computed;
 	}
 
 	constructor(
@@ -50,7 +63,8 @@ export class AsyncComputedState<T, R = unknown> {
 		},
 	) {
 		if (options != null) {
-			this._initial = options.initial;
+			this._state.set(options.initial);
+
 			if (options.autoRun === true) {
 				this.run();
 			}
@@ -60,7 +74,7 @@ export class AsyncComputedState<T, R = unknown> {
 		if (force) {
 			this.invalidate();
 		}
-		this.state.run();
+		this.computed.run();
 	}
 
 	invalidate() {
@@ -73,6 +87,6 @@ export class AsyncComputedState<T, R = unknown> {
 		complete?: (value: T | undefined) => R;
 		error?: (error: unknown) => R;
 	}) {
-		return renderAsyncComputed(this.state, config);
+		return renderAsyncComputed(this.computed, config);
 	}
 }

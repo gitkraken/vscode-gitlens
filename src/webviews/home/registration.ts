@@ -14,7 +14,7 @@ export function registerHomeWebviewView(controller: WebviewsController) {
 			type: 'home',
 			plusFeature: false,
 			webviewHostOptions: {
-				retainContextWhenHidden: false,
+				retainContextWhenHidden: true,
 			},
 		},
 		async (container, host) => {

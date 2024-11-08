@@ -49,10 +49,13 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	}
 
 	private renderPending() {
-		return html`
-			<h3 class="section-heading">Active</h3>
-			<skeleton-loader lines="3"></skeleton-loader>
-		`;
+		if (this._overviewState.state == null) {
+			return html`
+				<h3 class="section-heading">Active</h3>
+				<skeleton-loader lines="3"></skeleton-loader>
+			`;
+		}
+		return this.renderComplete(this._overviewState.state);
 	}
 
 	private renderComplete(overview: Overview) {

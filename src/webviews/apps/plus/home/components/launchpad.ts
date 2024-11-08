@@ -100,8 +100,10 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		return rsp;
 	});
 
-	private get _summary() {
-		return this._summaryState.state.value;
+	override connectedCallback() {
+		super.connectedCallback();
+
+		this._summaryState.run();
 	}
 
 	override disconnectedCallback() {
@@ -123,10 +125,6 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	}
 
 	private renderSummaryResult() {
-		if (this._summary == null) {
-			this._summaryState.run();
-		}
-
 		return this._summaryState.render({
 			pending: () => this.renderPending(),
 			complete: summary => this.renderSummary(summary),
@@ -135,12 +133,15 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	}
 
 	private renderPending() {
-		return html`
-			<div class="loader">
-				<skeleton-loader lines="1"></skeleton-loader>
-				<skeleton-loader lines="1"></skeleton-loader>
-			</div>
-		`;
+		if (this._summaryState.state == null) {
+			return html`
+				<div class="loader">
+					<skeleton-loader lines="1"></skeleton-loader>
+					<skeleton-loader lines="1"></skeleton-loader>
+				</div>
+			`;
+		}
+		return this.renderSummary(this._summaryState.state);
 	}
 
 	private renderSummary(summary: LaunchpadSummary | undefined) {

@@ -1,7 +1,12 @@
 import { createContext } from '@lit/context';
 import { signalObject } from 'signal-utils/object';
 import type { GetOverviewResponse, OverviewFilters } from '../../../../home/protocol';
-import { DidChangeRepositoryWip, GetOverview, GetOverviewFilterState } from '../../../../home/protocol';
+import {
+	DidChangeOverviewFilter,
+	DidChangeRepositoryWip,
+	GetOverview,
+	GetOverviewFilterState,
+} from '../../../../home/protocol';
 import { AsyncComputedState } from '../../../shared/components/signal-utils';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
@@ -27,6 +32,11 @@ export class OverviewState extends AsyncComputedState<Overview> {
 		this._disposable = this._ipc.onReceiveMessage(msg => {
 			switch (true) {
 				case DidChangeRepositoryWip.is(msg):
+					this.run(true);
+					break;
+				case DidChangeOverviewFilter.is(msg):
+					this.filter.recent = msg.params.filter.recent;
+					this.filter.stale = msg.params.filter.stale;
 					this.run(true);
 					break;
 			}
