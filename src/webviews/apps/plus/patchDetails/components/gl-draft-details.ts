@@ -38,6 +38,7 @@ import '../../../shared/components/button-container';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/commit/commit-identity';
+import '../../../shared/components/markdown/markdown';
 import '../../../shared/components/tree/tree-generator';
 import '../../../shared/components/webview-pane';
 
@@ -47,7 +48,7 @@ const BesideViewColumn = -2; /*ViewColumn.Beside*/
 interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
-	summary?: string;
+	result?: { summary: string; body: string };
 }
 
 export interface ApplyPatchDetail {
@@ -193,6 +194,9 @@ export class GlDraftDetails extends GlTreeBase {
 	private renderExplainAi() {
 		if (this.state?.orgSettings.ai === false) return undefined;
 
+		const markdown =
+			this.explain?.result != null ? `${this.explain.result.summary}\n\n${this.explain.result.body}` : undefined;
+
 		// TODO: add loading and response states
 		return html`
 			<webview-pane collapsable data-region="explain-pane">
@@ -218,27 +222,20 @@ export class GlDraftDetails extends GlTreeBase {
 							>
 						</span>
 					</p>
-					${when(
-						this.explain,
-						() => html`
-							<div
-								class="ai-content${this.explain?.error ? ' has-error' : ''}"
-								data-region="ai-explanation"
-							>
-								${when(
-									this.explain?.error,
-									() =>
-										html`<p class="ai-content__summary scrollable">
-											${this.explain!.error!.message ?? 'Error retrieving content'}
-										</p>`,
-								)}
-								${when(
-									this.explain?.summary,
-									() => html`<p class="ai-content__summary scrollable">${this.explain!.summary}</p>`,
-								)}
-							</div>
-						`,
-					)}
+					${markdown
+						? html`<div class="ai-content" data-region="commit-explanation">
+								<gl-markdown
+									class="ai-content__summary scrollable"
+									markdown="${markdown}"
+								></gl-markdown>
+						  </div>`
+						: this.explain?.error
+						  ? html`<div class="ai-content has-error" data-region="commit-explanation">
+									<p class="ai-content__summary scrollable">
+										${this.explain.error.message ?? 'Error retrieving content'}
+									</p>
+						    </div>`
+						  : undefined}
 				</div>
 			</webview-pane>
 		`;

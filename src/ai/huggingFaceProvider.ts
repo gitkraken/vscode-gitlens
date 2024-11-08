@@ -1,7 +1,6 @@
 import { fetch } from '@env/fetch';
 import type { CancellationToken } from 'vscode';
 import { window } from 'vscode';
-import type { HuggingChatModels } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
@@ -12,6 +11,8 @@ import type { Storage } from '../system/vscode/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
 import {
+	explainChangesSystemPrompt,
+	explainChangesUserPrompt,
 	generateCloudPatchMessageSystemPrompt,
 	generateCloudPatchMessageUserPrompt,
 	generateCodeSuggestMessageSystemPrompt,
@@ -20,43 +21,37 @@ import {
 	generateCommitMessageUserPrompt,
 } from './prompts';
 
-const provider = { id: 'huggingchat', name: 'Hugging Chat' } as const;
+const provider = { id: 'huggingface', name: 'Hugging Face' } as const;
 
-type HuggingChatModel = AIModel<typeof provider.id>;
-const models: HuggingChatModel[] = [
+type HuggingFaceModel = AIModel<typeof provider.id>;
+const models: HuggingFaceModel[] = [
 	{
-		id: 'google/gemma-1.1-2b-it',
-		name: 'Google Gemma 1.1 2B',
-		maxTokens: 4096,
+		id: 'meta-llama/Llama-3.2-11B-Vision-Instruct',
+		name: 'Meta Llama 3.2 11B Vision',
+		maxTokens: 131072,
 		provider: provider,
 	},
 	{
-		id: 'HuggingFaceH4/starchat2-15b-v0.1',
-		name: 'HuggingFace Starchat 2.1',
-		maxTokens: 4096,
+		id: 'Qwen/Qwen2.5-72B-Instruct',
+		name: 'Qwen 2.5 72B',
+		maxTokens: 131072,
 		provider: provider,
 	},
 	{
-		id: 'meta-llama/Llama-3.2-3B-Instruct',
-		name: 'Meta Llama 3.1 8B',
-		maxTokens: 4096,
-		provider: provider,
-	},
-	{
-		id: 'microsoft/Phi-3-mini-4k-instruct',
-		name: 'Microsoft Phi 3 Mini',
-		maxTokens: 4096,
+		id: 'NousResearch/Hermes-3-Llama-3.1-8B',
+		name: 'Nous Research Hermes 3',
+		maxTokens: 131072,
 		provider: provider,
 	},
 	{
 		id: 'mistralai/Mistral-Nemo-Instruct-2407',
-		name: 'Mistral Nemo Instruct',
-		maxTokens: 4096,
+		name: 'Mistral Nemo',
+		maxTokens: 131072,
 		provider: provider,
 	},
 ];
 
-export class HuggingChatProvider implements AIProvider<typeof provider.id> {
+export class HuggingFaceProvider implements AIProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 
@@ -69,7 +64,7 @@ export class HuggingChatProvider implements AIProvider<typeof provider.id> {
 	}
 
 	async generateMessage(
-		model: HuggingChatModel,
+		model: HuggingFaceModel,
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
@@ -86,7 +81,7 @@ export class HuggingChatProvider implements AIProvider<typeof provider.id> {
 		let retries = 0;
 		let maxCodeCharacters = getMaxCharacters(model, 2600);
 		while (true) {
-			const request: HuggingChatChatCompletionRequest = {
+			const request: HuggingFaceChatCompletionRequest = {
 				model: model.id,
 				messages: [
 					{
@@ -145,14 +140,14 @@ export class HuggingChatProvider implements AIProvider<typeof provider.id> {
 				);
 			}
 
-			const data: HuggingChatChatCompletionResponse = await rsp.json();
+			const data: HuggingFaceChatCompletionResponse = await rsp.json();
 			const message = data.choices[0].message.content.trim();
 			return message;
 		}
 	}
 
 	async generateDraftMessage(
-		model: HuggingChatModel,
+		model: HuggingFaceModel,
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		options?: {
@@ -175,20 +170,20 @@ export class HuggingChatProvider implements AIProvider<typeof provider.id> {
 						type: 'code-suggestion',
 						systemPrompt: generateCodeSuggestMessageSystemPrompt,
 						userPrompt: generateCodeSuggestMessageUserPrompt,
-						customInstructions: configuration.get('experimental.generateCodeSuggestionMessagePrompt'),
+						customInstructions: configuration.get('ai.generateCodeSuggestMessage.customInstructions'),
 				  }
 				: {
 						type: 'cloud-patch',
 						systemPrompt: generateCloudPatchMessageSystemPrompt,
 						userPrompt: generateCloudPatchMessageUserPrompt,
-						customInstructions: configuration.get('experimental.generateCloudPatchMessagePrompt'),
+						customInstructions: configuration.get('ai.generateCloudPatchMessage.customInstructions'),
 				  },
 			options,
 		);
 	}
 
 	async generateCommitMessage(
-		model: HuggingChatModel,
+		model: HuggingFaceModel,
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string },
@@ -201,14 +196,14 @@ export class HuggingChatProvider implements AIProvider<typeof provider.id> {
 				type: 'commit',
 				systemPrompt: generateCommitMessageSystemPrompt,
 				userPrompt: generateCommitMessageUserPrompt,
-				customInstructions: configuration.get('experimental.generateCommitMessagePrompt'),
+				customInstructions: configuration.get('ai.generateCommitMessage.customInstructions'),
 			},
 			options,
 		);
 	}
 
 	async explainChanges(
-		model: HuggingChatModel,
+		model: HuggingFaceModel,
 		message: string,
 		diff: string,
 		reporting: TelemetryEvents['ai/explain'],
@@ -222,23 +217,20 @@ export class HuggingChatProvider implements AIProvider<typeof provider.id> {
 		while (true) {
 			const code = diff.substring(0, maxCodeCharacters);
 
-			const request: HuggingChatChatCompletionRequest = {
+			const request: HuggingFaceChatCompletionRequest = {
 				model: model.id,
 				messages: [
 					{
+						role: 'system',
+						content: explainChangesSystemPrompt,
+					},
+					{
 						role: 'user',
-						content: `You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
-- Concisely synthesizes meaningful information from the provided code diff
-- Incorporates any additional context provided by the user to understand the rationale behind the code changes
-- Places the emphasis on the 'why' of the change, clarifying its benefits or addressing the problem that necessitated the change, beyond just detailing the 'what' has changed
-
-Do not make any assumptions or invent details that are not supported by the code diff or the user-provided context.
-
-Here is additional context provided by the author of the changes, which should provide some explanation to why these changes where made. Please strongly consider this information when generating your explanation:\n\n${message}
-
-Now, kindly explain the following code diff in a way that would be clear to someone reviewing or trying to understand these changes:\n\n${code}
-
-Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase.`,
+						content: interpolate(explainChangesUserPrompt, {
+							diff: code,
+							context: message,
+							instructions: configuration.get('ai.explainChanges.customInstructions') ?? '',
+						}),
 					},
 				],
 			};
@@ -282,15 +274,15 @@ Remember to frame your explanation in a way that is suitable for a reviewer to q
 				);
 			}
 
-			const data: HuggingChatChatCompletionResponse = await rsp.json();
-			const summary = data.choices[0].message.content.trim();
-			return summary;
+			const data: HuggingFaceChatCompletionResponse = await rsp.json();
+			const result = data.choices[0].message.content.trim();
+			return result;
 		}
 	}
 
 	private async fetch(
 		apiKey: string,
-		request: HuggingChatChatCompletionRequest,
+		request: HuggingFaceChatCompletionRequest,
 		cancellation: CancellationToken | undefined,
 	) {
 		let aborter: AbortController | undefined;
@@ -322,13 +314,13 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 	return getApiKeyCore(storage, {
 		id: provider.id,
 		name: provider.name,
-		validator: v => /(?:sk-)?[a-zA-Z0-9]{32,}/.test(v),
+		validator: v => /(?:hf_)?[a-zA-Z0-9]{32,}/.test(v),
 		url: 'https://huggingface.co/settings/tokens',
 	});
 }
 
-interface HuggingChatChatCompletionRequest {
-	model: HuggingChatModels;
+interface HuggingFaceChatCompletionRequest {
+	model: HuggingFaceModel['id'];
 	messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
 	temperature?: number;
 	top_p?: number;
@@ -342,7 +334,7 @@ interface HuggingChatChatCompletionRequest {
 	user?: string;
 }
 
-interface HuggingChatChatCompletionResponse {
+interface HuggingFaceChatCompletionResponse {
 	id: string;
 	object: 'chat.completion';
 	created: number;
