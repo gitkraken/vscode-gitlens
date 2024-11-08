@@ -98,6 +98,8 @@ export class GlFeatureGatePlusState extends LitElement {
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
 		const promo = this.state ? getApplicablePromo(this.state, 'gate') : undefined;
 
+		const feature = this.source?.source || '';
+
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:
 				return html`
@@ -120,6 +122,12 @@ export class GlFeatureGatePlusState extends LitElement {
 
 			case SubscriptionState.Community:
 				return html`
+					${feature !== 'graph'
+						? html`<p>
+								Use on privately-hosted repos requires
+								<a href="${urls.gitlensProVsCommunity}">GitLens Pro</a>.
+						  </p>`
+						: nothing}
 					<gl-button
 						appearance="${appearance}"
 						href="${generateCommandLink(Commands.PlusStartPreviewTrial, this.source)}"
