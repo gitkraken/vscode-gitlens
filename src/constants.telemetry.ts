@@ -8,6 +8,7 @@ import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes }
 import type { GitContributionTiers } from './git/models/contributor';
 import type { Period } from './plus/webviews/timeline/protocol';
 import type { Flatten } from './system/object';
+import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 
 export type TelemetryGlobalContext = {
 	'cloudIntegrations.connected.count': number;
@@ -396,6 +397,9 @@ export type TelemetryEvents = {
 	/** Sent when the walkthrough is opened */
 	walkthrough: {
 		step?: WalkthroughSteps;
+	};
+	'walkthrough/completion': {
+		'context.key': WalkthroughContextKeys;
 	};
 } & Record<`${WebviewTypes | WebviewViewTypes}/showAborted`, WebviewShownEventData> &
 	Record<
