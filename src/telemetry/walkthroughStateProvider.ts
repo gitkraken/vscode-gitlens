@@ -1,8 +1,10 @@
 import type { Event } from 'vscode';
 import { Disposable, EventEmitter } from 'vscode';
 import { Commands } from '../constants.commands';
+import { SubscriptionState } from '../constants.subscription';
 import type { TrackedUsageKeys } from '../constants.telemetry';
 import type { Container } from '../container';
+import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
 import { wait } from '../system/promise';
 import { setContext } from '../system/vscode/context';
 import type { UsageChangeEvent } from './usageTracker';
@@ -15,7 +17,23 @@ export enum WalkthroughContextKeys {
 	Integrations = 'integrations',
 }
 
-type WalkthroughUsage = { states: TrackedUsageKeys[]; usage: TrackedUsageKeys[] };
+type WalkthroughUsage = {
+	subscriptionStates?: SubscriptionState[] | Readonly<SubscriptionState[]>;
+	subscriptionCommands?: TrackedUsageKeys[] | Readonly<TrackedUsageKeys[]>;
+	usage: TrackedUsageKeys[];
+};
+
+const triedProStates: Readonly<SubscriptionState[]> = [
+	SubscriptionState.ProTrial,
+	SubscriptionState.ProTrialExpired,
+	SubscriptionState.ProTrialReactivationEligible,
+	SubscriptionState.Paid,
+];
+
+const tryProCommands: Readonly<TrackedUsageKeys[]> = [
+	`command:${Commands.PlusStartPreviewTrial}:executed`,
+	`command:${Commands.PlusReactivateProTrial}:executed`,
+];
 
 const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, WalkthroughUsage>> = new Map<
 	WalkthroughContextKeys,
@@ -24,22 +42,16 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 	[
 		WalkthroughContextKeys.GettingStarted,
 		{
-			states: [
-				`command:${Commands.PlusStartPreviewTrial}:executed`,
-				`command:${Commands.PlusReactivateProTrial}:executed`,
-				`command:${Commands.OpenWalkthrough}:executed`,
-				`command:${Commands.GetStarted}:executed`,
-			],
+			subscriptionStates: triedProStates,
+			subscriptionCommands: tryProCommands,
 			usage: [],
 		},
 	],
 	[
 		WalkthroughContextKeys.VisualizeCodeHistory,
 		{
-			states: [
-				`command:${Commands.PlusStartPreviewTrial}:executed`,
-				`command:${Commands.PlusReactivateProTrial}:executed`,
-			],
+			subscriptionStates: triedProStates,
+			subscriptionCommands: tryProCommands,
 			usage: [
 				'graphDetailsView:shown',
 				'graphView:shown',
@@ -56,10 +68,8 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 	[
 		WalkthroughContextKeys.PrReviews,
 		{
-			states: [
-				`command:${Commands.PlusStartPreviewTrial}:executed`,
-				`command:${Commands.PlusReactivateProTrial}:executed`,
-			],
+			subscriptionStates: triedProStates,
+			subscriptionCommands: tryProCommands,
 			usage: [
 				'launchpadView:shown',
 				'worktreesView:shown',
@@ -75,17 +85,14 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 	[
 		WalkthroughContextKeys.StreamlineCollaboration,
 		{
-			states: [
-				`command:${Commands.PlusStartPreviewTrial}:executed`,
-				`command:${Commands.PlusReactivateProTrial}:executed`,
-			],
+			subscriptionStates: triedProStates,
+			subscriptionCommands: tryProCommands,
 			usage: [`command:${Commands.CreateCloudPatch}:executed`, `command:${Commands.CreatePatch}:executed`],
 		},
 	],
 	[
 		WalkthroughContextKeys.Integrations,
 		{
-			states: [],
 			usage: [
 				`command:${Commands.PlusConnectCloudIntegrations}:executed`,
 				`command:${Commands.PlusManageCloudIntegrations}:executed`,
@@ -95,9 +102,10 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 ]);
 
 export class WalkthroughStateProvider implements Disposable {
+	readonly walkthroughSize = walkthroughRequiredMapping.size;
 	protected disposables: Disposable[] = [];
 	private readonly completed = new Set<WalkthroughContextKeys>();
-	readonly walkthroughSize: number;
+	private subscriptionState: SubscriptionState | undefined;
 
 	private readonly _onProgressChanged = new EventEmitter<void>();
 	get onProgressChanged(): Event<void> {
@@ -105,13 +113,17 @@ export class WalkthroughStateProvider implements Disposable {
 	}
 
 	constructor(private readonly container: Container) {
-		this.disposables.push(this.container.usage.onDidChange(this.onUsageChanged, this));
-		this.walkthroughSize = walkthroughRequiredMapping.size;
+		this.disposables.push(
+			this.container.usage.onDidChange(this.onUsageChanged, this),
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+		);
 
-		this.initializeState();
+		void this.initializeState();
 	}
 
-	private initializeState() {
+	private async initializeState() {
+		this.subscriptionState = (await this.container.subscription.getSubscription(true)).state;
+
 		for (const key of walkthroughRequiredMapping.keys()) {
 			if (this.validateStep(key)) {
 				void this.completeStep(key);
@@ -127,6 +139,29 @@ export class WalkthroughStateProvider implements Disposable {
 		}
 
 		const stepsToValidate = this.getStepsFromUsage(usageTrackingKey);
+		let shouldFire = false;
+		for (const step of stepsToValidate) {
+			// no need to check if the step is already completed
+			if (this.completed.has(step)) {
+				continue;
+			}
+
+			if (this.validateStep(step)) {
+				void this.completeStep(step);
+				this.container.telemetry.sendEvent('walkthrough/completion', {
+					'context.key': step,
+				});
+				shouldFire = true;
+			}
+		}
+		if (shouldFire) {
+			this._onProgressChanged.fire(undefined);
+		}
+	}
+
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		this.subscriptionState = e.current.state;
+		const stepsToValidate = this.getStepsFromSubscriptionState(e.current.state);
 		let shouldFire = false;
 		for (const step of stepsToValidate) {
 			// no need to check if the step is already completed
@@ -191,8 +226,19 @@ export class WalkthroughStateProvider implements Disposable {
 
 	private getStepsFromUsage(usageKey: TrackedUsageKeys): WalkthroughContextKeys[] {
 		const keys: WalkthroughContextKeys[] = [];
-		for (const [key, { states, usage: events }] of walkthroughRequiredMapping) {
-			if (states.includes(usageKey) || events.includes(usageKey)) {
+		for (const [key, { subscriptionCommands, usage }] of walkthroughRequiredMapping) {
+			if (subscriptionCommands?.includes(usageKey) || usage.includes(usageKey)) {
+				keys.push(key);
+			}
+		}
+
+		return keys;
+	}
+
+	private getStepsFromSubscriptionState(_state: SubscriptionState): WalkthroughContextKeys[] {
+		const keys: WalkthroughContextKeys[] = [];
+		for (const [key, { subscriptionStates }] of walkthroughRequiredMapping) {
+			if (subscriptionStates != null) {
 				keys.push(key);
 			}
 		}
@@ -201,11 +247,24 @@ export class WalkthroughStateProvider implements Disposable {
 	}
 
 	private validateStep(key: WalkthroughContextKeys): boolean {
-		const { states, usage: events } = walkthroughRequiredMapping.get(key)!;
-		if (states.length && !states.some(state => this.container.usage.isUsed(state))) {
+		const { subscriptionStates, subscriptionCommands, usage } = walkthroughRequiredMapping.get(key)!;
+
+		let subscriptionState: boolean | undefined;
+		if (subscriptionStates != null && subscriptionStates.length > 0) {
+			subscriptionState = this.subscriptionState != null && subscriptionStates.includes(this.subscriptionState);
+		}
+		let subscriptionCommandState: boolean | undefined;
+		if (subscriptionCommands != null && subscriptionCommands.length > 0) {
+			subscriptionCommandState = subscriptionCommands.some(event => this.container.usage.isUsed(event));
+		}
+		if (
+			(subscriptionState === undefined && subscriptionCommandState === false) ||
+			(subscriptionState === false && subscriptionCommandState !== true)
+		) {
 			return false;
 		}
-		if (events.length && !events.some(event => this.container.usage.isUsed(event))) {
+
+		if (usage.length > 0 && !usage.some(event => this.container.usage.isUsed(event))) {
 			return false;
 		}
 		return true;

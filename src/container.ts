@@ -179,7 +179,6 @@ export class Container {
 			(this._storage = storage),
 			(this._telemetry = new TelemetryService(this)),
 			(this._usage = new UsageTracker(this, storage)),
-			(this._walkthrough = new WalkthroughStateProvider(this)),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 		];
 
@@ -190,6 +189,7 @@ export class Container {
 		);
 		this._disposables.push((this._uri = new UriService(this)));
 		this._disposables.push((this._subscription = new SubscriptionService(this, this._connection, previousVersion)));
+		this._disposables.push((this._walkthrough = new WalkthroughStateProvider(this)));
 		this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
 
 		this._disposables.push((this._git = new GitProviderService(this)));
