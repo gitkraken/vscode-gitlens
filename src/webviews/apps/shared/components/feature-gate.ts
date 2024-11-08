@@ -113,6 +113,9 @@ export class GlFeatureGate extends LitElement {
 	@property({ type: Boolean })
 	visible?: boolean;
 
+	@property({ type: String })
+	webroot?: string;
+
 	override render() {
 		if (!this.visible || (this.state != null && isSubscriptionStatePaidOrTrial(this.state))) {
 			this.hidden = true;
@@ -125,17 +128,26 @@ export class GlFeatureGate extends LitElement {
 				: 'welcome';
 
 		this.hidden = false;
+
+		const featureInTrial = this.source?.source;
+		const featureInTrialInfo = featureInTrial ? this.featureInPreviewTrial?.[featureInTrial] : undefined;
+		const shouldHideFeature =
+			featureInTrial === 'graph' &&
+			featureInTrialInfo &&
+			featureInTrialInfo.consumedDays.length > 0 &&
+			featureInTrialInfo.consumedDays.length < 3;
 		return html`
 			<section>
 				<slot></slot>
-				<slot name="feature"></slot>
+				<slot name="feature" ?hidden=${shouldHideFeature}></slot>
 				<gl-feature-gate-plus-state
 					appearance=${appearance}
 					.featureWithArticleIfNeeded=${this.featureWithArticleIfNeeded}
 					.source=${this.source}
 					.state=${this.state}
 					.featureInPreviewTrial=${this.featureInPreviewTrial}
-					featurePreviewTrialCommandLink=${this.featurePreviewTrialCommandLink}
+					.featurePreviewTrialCommandLink=${this.featurePreviewTrialCommandLink}
+					.webroot=${this.webroot}
 				></gl-feature-gate-plus-state>
 			</section>
 		`;

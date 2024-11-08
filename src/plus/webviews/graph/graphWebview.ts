@@ -20,7 +20,7 @@ import type {
 import { GlyphChars } from '../../../constants';
 import { Commands } from '../../../constants.commands';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
-import { proPreviewLengthInDays, proTrialLengthInDays } from '../../../constants.subscription';
+import { proPreviewLengthInDays } from '../../../constants.subscription';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
@@ -2574,6 +2574,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		return {
 			...this.host.baseWebviewState,
+			webroot: this.host.getWebRoot(),
 			windowFocused: this.isWindowFocused,
 			repositories: await formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,

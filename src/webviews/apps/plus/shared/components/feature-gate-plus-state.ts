@@ -1,3 +1,4 @@
+import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { urls } from '../../../../../constants';
@@ -90,6 +91,9 @@ export class GlFeatureGatePlusState extends LitElement {
 	@property({ attribute: false, type: Number })
 	state?: SubscriptionState;
 
+	@property({ type: String })
+	webroot?: string;
+
 	protected override firstUpdated() {
 		if (this.appearance === 'alert') {
 			queueMicrotask(() => this.button.focus());
@@ -110,8 +114,6 @@ export class GlFeatureGatePlusState extends LitElement {
 		if (feature) {
 			consumedDaysCount = this.featureInPreviewTrial?.[feature]?.consumedDays?.length ?? 0;
 		}
-
-		const feature = this.source?.source || '';
 
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:
@@ -142,21 +144,7 @@ export class GlFeatureGatePlusState extends LitElement {
 					proPreviewLengthInDays - consumedDaysCount > 0
 				) {
 					return html`
-						<gl-button appearance="${appearance}" href="${this.featurePreviewTrialCommandLink}"
-							>Continue</gl-button
-						>
-						<p>
-							Continuing gives you ${pluralize('day', proPreviewLengthInDays - consumedDaysCount)} to
-							preview ${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''}
-							privately-hosted repositories.<br />
-							${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
-							<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
-								>start your free ${proTrialLengthInDays}-day Pro trial</a
-							>
-							- no credit card required. Or
-							<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a
-							>.
-						</p>
+						${this.getFeaturePreviewModalFor(feature, proPreviewLengthInDays - consumedDaysCount)}
 					`;
 				}
 
@@ -205,6 +193,80 @@ export class GlFeatureGatePlusState extends LitElement {
 
 	private renderPromo(promo: Promo | undefined) {
 		return html`<gl-promo .promo=${promo}></gl-promo>`;
+	}
+
+	private getFeaturePreviewModalFor(feature: Sources, daysLeft: number) {
+		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
+		let partial: TemplateResult<1> | undefined;
+		switch (feature) {
+			case 'graph':
+				switch (daysLeft) {
+					case 2:
+						partial = html`<p>Try Commit Search</p>
+							<p>
+								Search for commits in your repo by author, commit message, SHA, file, change, or type.
+								Turn on the commit filter to show only commits that match your query.
+							</p>
+							<p>
+								<img
+									src="${this.webroot ?? ''}/media/graph-commit-search.webp"
+									style="width:100%"
+									alt="Graph Commit Search"
+								/>
+							</p> `;
+						break;
+					case 1:
+						partial = html`
+							<p>Try the Graph Minimap</p>
+							<p>
+								Visualize the amount of changes to a repository over time, and inspect specific points
+								in the history to locate branches, stashes, tags and pull requests.
+							</p>
+							<p>
+								<img
+									src="${this.webroot ?? ''}/media/graph-minimap.webp"
+									style="width:100%"
+									alt="Graph Minimap"
+								/>
+							</p>
+						`;
+						break;
+				}
+				return html`
+					${partial}
+					<gl-button appearance="${appearance}" href="${this.featurePreviewTrialCommandLink}"
+						>Continue</gl-button
+					>
+					<p>
+						Continuing gives you ${pluralize('day', daysLeft)} to preview
+						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''}
+						privately-hosted repositories.<br />
+						${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
+						<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+							>start your free ${proTrialLengthInDays}-day Pro trial</a
+						>
+						- no credit card required. Or
+						<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.
+					</p>
+				`;
+			default:
+				return html`
+					<gl-button appearance="${appearance}" href="${this.featurePreviewTrialCommandLink}"
+						>Continue</gl-button
+					>
+					<p>
+						Continuing gives you ${pluralize('day', daysLeft)} to preview
+						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''}
+						privately-hosted repositories.<br />
+						${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
+						<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+							>start your free ${proTrialLengthInDays}-day Pro trial</a
+						>
+						- no credit card required. Or
+						<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.
+					</p>
+				`;
+		}
 	}
 }
 

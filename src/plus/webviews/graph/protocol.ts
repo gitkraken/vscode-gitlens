@@ -25,7 +25,7 @@ import type {
 import type { Config, DateStyle, GraphBranchesVisibility } from '../../../config';
 import type { SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import type { SearchQuery } from '../../../constants.search';
-import type { Source, Sources } from '../../../constants.telemetry';
+import type { Sources } from '../../../constants.telemetry';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
@@ -93,6 +93,7 @@ export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'p
 
 export interface State extends WebviewState {
 	windowFocused?: boolean;
+	webroot?: string;
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;

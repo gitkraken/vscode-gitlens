@@ -1547,6 +1547,7 @@ export function GraphWrapper({
 				featureWithArticleIfNeeded="the Commit Graph"
 				source={{ source: 'graph', detail: 'gate' }}
 				state={subscription?.state}
+				webroot={state.webroot}
 				visible={!allowed}
 			>
 				<p slot="feature">

@@ -77,8 +77,9 @@ export type GlobalStorage = {
 	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
 	'graph:searchMode': StoredGraphSearchMode;
 	'views:scm:grouped:welcome:dismissed': boolean;
-} & { [key in `confirm:ai:tos:${AIProviders}`]: boolean }
-} & { [key in `plus:featurePreviewTrial:${Sources}:consumedDays`]: { startedOn: string; expiresOn: string }[] } & {
+} & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
+	[key in `plus:featurePreviewTrial:${Sources}:consumedDays`]: { startedOn: string; expiresOn: string }[];
+} & {
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
 } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
