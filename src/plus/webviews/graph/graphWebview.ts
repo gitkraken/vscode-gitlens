@@ -6,6 +6,7 @@ import { parseCommandContext } from '../../../commands/base';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard';
+import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage';
 import type { InspectCommandArgs } from '../../../commands/inspect';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote';
@@ -531,7 +532,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			),
 			this.host.registerWebviewCommand('gitlens.graph.openCommitOnRemote', this.openCommitOnRemote),
 			this.host.registerWebviewCommand('gitlens.graph.openCommitOnRemote.multi', this.openCommitOnRemote),
-			this.host.registerWebviewCommand('gitlens.graph.openSCM', this.openSCM),
+			this.host.registerWebviewCommand('gitlens.graph.commitViaSCM', this.commitViaSCM),
 			this.host.registerWebviewCommand('gitlens.graph.rebaseOntoCommit', this.rebase),
 			this.host.registerWebviewCommand('gitlens.graph.resetCommit', this.resetCommit),
 			this.host.registerWebviewCommand('gitlens.graph.resetToCommit', this.resetToCommit),
@@ -679,6 +680,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				'gitlens.graph.copyWorkingChangesToWorktree',
 				this.copyWorkingChangesToWorktree,
 			),
+			this.host.registerWebviewCommand('gitlens.graph.generateCommitMessage', this.generateCommitMessage),
 		);
 
 		return commands;
@@ -3162,11 +3164,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private openSCM(item?: GraphItemContext) {
+	private async commitViaSCM(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'revision');
-		if (ref == null) return Promise.resolve();
 
-		return executeCoreCommand('workbench.view.scm');
+		await executeCoreCommand('workbench.view.scm');
+		if (ref != null) {
+			const scmRepo = await this.container.git.getScmRepository(ref.repoPath);
+			if (scmRepo == null) return;
+
+			// Update the input box to trigger the focus event
+			// eslint-disable-next-line no-self-assign
+			scmRepo.inputBox.value = scmRepo.inputBox.value;
+		}
 	}
 
 	@log()
@@ -3592,11 +3601,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.container.views.searchAndCompare.compare(ref.repoPath, '', ref.ref);
 	}
 
+	@log()
 	private copyWorkingChangesToWorktree(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
 		return WorktreeActions.copyChangesToWorktree('working-tree', ref.repoPath);
+	}
+
+	@log()
+	generateCommitMessage(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
+
+		return executeCommand<GenerateCommitMessageCommandArgs>(Commands.GenerateCommitMessage, {
+			repoPath: ref.repoPath,
+		});
 	}
 
 	@log()

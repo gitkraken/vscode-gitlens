@@ -269,8 +269,8 @@ export const UpdatePatchUserSelectionCommand = new IpcCommand<UpdatePatchUserSel
 
 export type DidExplainParams =
 	| {
-			summary: string | undefined;
-			error?: undefined;
+			result: { summary: string; body: string };
+			error?: never;
 	  }
 	| { error: { message: string } };
 export const ExplainRequest = new IpcRequest<void, DidExplainParams>(scope, 'explain');

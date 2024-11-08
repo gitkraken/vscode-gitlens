@@ -71,6 +71,7 @@ export const enum Commands {
 	ExternalDiffAll = 'gitlens.externalDiffAll',
 	FetchRepositories = 'gitlens.fetchRepositories',
 	GenerateCommitMessage = 'gitlens.generateCommitMessage',
+	GenerateCommitMessageScm = 'gitlens.scm.generateCommitMessage',
 	GetStarted = 'gitlens.getStarted',
 	GKSwitchOrganization = 'gitlens.gk.switchOrganization',
 	InviteToLiveShare = 'gitlens.inviteToLiveShare',
