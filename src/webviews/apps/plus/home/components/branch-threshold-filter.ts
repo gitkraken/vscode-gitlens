@@ -9,6 +9,7 @@ import '../../../shared/components/menu/index';
 import '../../../shared/components/menu/menu-item';
 import '../../../shared/components/menu/menu-list';
 import '../../../shared/components/overlays/popover';
+import '../../../shared/styles/select.scss';
 
 @customElement('gl-branch-threshold-filter')
 export class GlBranchThresholdFilter extends GlElement {
