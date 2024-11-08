@@ -21,11 +21,12 @@ import { OpenOnGitHubQuickInputButton } from '../../commands/quickCommand.button
 import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
 import type { IntegrationId } from '../../constants.integrations';
-import { HostingIntegrationId } from '../../constants.integrations';
+import { HostingIntegrationId, IssueIntegrationId } from '../../constants.integrations';
 import type { Source, Sources, StartWorkTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import type { SearchedIssue } from '../../git/models/issue';
+import type { Issue, IssueShape, SearchedIssue } from '../../git/models/issue';
 import { getOrOpenIssueRepository } from '../../git/models/issue';
+import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
@@ -46,7 +47,7 @@ interface Context {
 	result: StartWorkResult;
 	title: string;
 	telemetryContext: StartWorkTelemetryContext | undefined;
-	connectedIntegrations: Map<IntegrationId, boolean>;
+	connectedIntegrations: Map<SupportedStartWorkIntegrationIds, boolean>;
 }
 
 interface State {
@@ -62,7 +63,8 @@ export interface StartWorkCommandArgs {
 	source?: Sources;
 }
 
-export const supportedStartWorkIntegrations = [HostingIntegrationId.GitHub];
+export const supportedStartWorkIntegrations = [HostingIntegrationId.GitHub, IssueIntegrationId.Jira];
+export type SupportedStartWorkIntegrationIds = (typeof supportedStartWorkIntegrations)[number];
 const instanceCounter = getScopedCounter();
 
 export class StartWorkCommand extends QuickCommand<State> {
@@ -142,7 +144,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			}
 
 			const issue = state.item?.item?.issue;
-			const repo = issue && (await getOrOpenIssueRepository(this.container, issue));
+			const repo = issue && (await this.getIssueRepositoryIfExists(issue));
 
 			if (typeof state.action === 'string') {
 				switch (state.action) {
@@ -154,7 +156,9 @@ export class StartWorkCommand extends QuickCommand<State> {
 								state: {
 									subcommand: 'create',
 									repo: repo,
-									name: issue ? slug(`${issue.id}-${issue.title}`) : undefined,
+									name: issue
+										? `${slug(issue.id, { lower: false })}-${slug(issue.title)}`
+										: undefined,
 									suggestNameOnly: true,
 									suggestRepoOnly: true,
 									flags: state.inWorktree ? ['--worktree'] : ['--switch'],
@@ -194,6 +198,14 @@ export class StartWorkCommand extends QuickCommand<State> {
 		});
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
+	}
+
+	private async getIssueRepositoryIfExists(issue: IssueShape | Issue): Promise<Repository | undefined> {
+		try {
+			return await getOrOpenIssueRepository(this.container, issue);
+		} catch {
+			return undefined;
+		}
 	}
 
 	private async *confirmLocalIntegrationConnectStep(
@@ -411,12 +423,14 @@ export class StartWorkCommand extends QuickCommand<State> {
 		void openUrl(item.item.issue.url);
 	}
 
-	private async getConnectedIntegrations(): Promise<Map<IntegrationId, boolean>> {
-		const connected = new Map<IntegrationId, boolean>();
+	private async getConnectedIntegrations(): Promise<Map<SupportedStartWorkIntegrationIds, boolean>> {
+		const connected = new Map<SupportedStartWorkIntegrationIds, boolean>();
 		await Promise.allSettled(
 			supportedStartWorkIntegrations.map(async integrationId => {
 				const integration = await this.container.integrations.get(integrationId);
-				connected.set(integrationId, integration.maybeConnected ?? (await integration.isConnected()));
+				const isConnected = integration.maybeConnected ?? (await integration.isConnected());
+				const hasAccess = isConnected && (await integration.access());
+				connected.set(integrationId, hasAccess);
 			}),
 		);
 
@@ -425,9 +439,13 @@ export class StartWorkCommand extends QuickCommand<State> {
 }
 
 async function updateContextItems(container: Container, context: Context) {
+	const connectedIntegrationsMap = context.connectedIntegrations;
+	const connectedIntegrations = [...connectedIntegrationsMap.keys()].filter(integrationId =>
+		Boolean(connectedIntegrationsMap.get(integrationId)),
+	);
 	context.result = {
 		items:
-			(await container.integrations.getMyIssues([HostingIntegrationId.GitHub]))?.map(i => ({
+			(await container.integrations.getMyIssues(connectedIntegrations))?.map(i => ({
 				item: i,
 			})) ?? [],
 	};
