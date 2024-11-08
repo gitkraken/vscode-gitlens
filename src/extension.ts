@@ -149,13 +149,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	let exitMessage;
 	if (Logger.enabled('debug')) {
-		exitMessage = `syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}, welcome=${storage.get(
-			'views:welcome:visible',
-		)}`;
-	}
-
-	if (previousVersion == null) {
-		void storage.store('views:welcome:visible', true);
+		exitMessage = `syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}`;
 	}
 
 	Configuration.configure(context);
@@ -281,7 +275,7 @@ export function deactivate() {
 // }
 
 function setKeysForSync(context: ExtensionContext, ...keys: (SyncedStorageKeys | string)[]) {
-	context.globalState?.setKeysForSync([...keys, SyncedStorageKeys.Version, SyncedStorageKeys.HomeViewWelcomeVisible]);
+	context.globalState?.setKeysForSync([...keys, SyncedStorageKeys.Version, SyncedStorageKeys.PreReleaseVersion]);
 }
 
 function registerBuiltInActionRunners(container: Container): void {
