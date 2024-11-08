@@ -1,7 +1,8 @@
 import { Disposable } from 'vscode';
+import type { Commands } from '../constants.commands';
 import type { GroupableTreeViewTypes } from '../constants.views';
 import type { Container } from '../container';
-import { registerCommand } from '../system/vscode/command';
+import { executeCommand, registerCommand } from '../system/vscode/command';
 import { setContext } from '../system/vscode/context';
 import { BranchesView } from './branchesView';
 import { CommitsView } from './commitsView';
@@ -33,7 +34,11 @@ export class GroupedView implements Disposable {
 		private readonly included: GroupableTreeViewTypes[],
 	) {
 		this._disposable = Disposable.from(
-			registerCommand('gitlens.views.grouped.refresh', () => this._view?.refresh()),
+			registerCommand('gitlens.views.grouped.refresh', () => {
+				if (this._view == null) return;
+
+				executeCommand(`gitlens.views.${this._view.type}.refresh` as Commands);
+			}),
 			registerCommand('gitlens.views.grouped.branches', () => this.setView('branches')),
 			registerCommand('gitlens.views.grouped.commits', () => this.setView('commits')),
 			registerCommand('gitlens.views.grouped.contributors', () => this.setView('contributors')),
