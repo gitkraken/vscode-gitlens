@@ -59,7 +59,8 @@
   "contributors-view-filled": 61752,
   "remotes-view-filled": 61753,
   "repositories-view-filled": 61754,
-  "stashes-view-filled": 61755,
-  "tags-view-filled": 61756,
-  "worktrees-view-filled": 61757
+  "search-view-filled": 61755,
+  "stashes-view-filled": 61756,
+  "tags-view-filled": 61757,
+  "worktrees-view-filled": 61758
 }

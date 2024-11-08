@@ -17,7 +17,7 @@ import type { PatchDetailsWebviewShowingArgs } from '../plus/webviews/patchDetai
 import { registerPatchDetailsWebviewView } from '../plus/webviews/patchDetails/registration';
 import type { TimelineWebviewShowingArgs } from '../plus/webviews/timeline/registration';
 import { registerTimelineWebviewView } from '../plus/webviews/timeline/registration';
-import { registerCommand } from '../system/vscode/command';
+import { executeCoreCommand, registerCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
 import type { CommitDetailsWebviewShowingArgs } from '../webviews/commitDetails/registration';
@@ -109,6 +109,15 @@ export class Views implements Disposable {
 			registerCommand('gitlens.views.grouped.repositories.setAsDefault', () =>
 				this.setAsDefaultView('repositories'),
 			),
+			registerCommand('gitlens.views.searchAndCompare.close', () =>
+				this.toggleViewGrouping('searchAndCompare', true),
+			),
+			registerCommand('gitlens.views.grouped.searchAndCompare.moveToNewView', () =>
+				this.toggleViewGrouping('searchAndCompare', false),
+			),
+			registerCommand('gitlens.views.grouped.searchAndCompare.setAsDefault', () =>
+				this.setAsDefaultView('searchAndCompare'),
+			),
 			registerCommand('gitlens.views.stashes.close', () => this.toggleViewGrouping('stashes', true)),
 			registerCommand('gitlens.views.grouped.stashes.moveToNewView', () =>
 				this.toggleViewGrouping('stashes', false),
@@ -132,7 +141,6 @@ export class Views implements Disposable {
 			(this._launchpadView = new LaunchpadView(this.container)),
 			(this._lineHistoryView = new LineHistoryView(this.container)),
 			(this._pullRequestView = new PullRequestView(this.container)),
-			(this._searchAndCompareView = new SearchAndCompareView(this.container)),
 			(this._workspacesView = new WorkspacesView(this.container)),
 		];
 	}
@@ -191,6 +199,12 @@ export class Views implements Disposable {
 				this._repositoriesView = undefined;
 			}
 
+			if (!included.includes('searchAndCompare')) {
+				views.push((this._searchAndCompareView = new SearchAndCompareView(this.container)));
+			} else {
+				this._searchAndCompareView = undefined;
+			}
+
 			if (!included.includes('stashes')) {
 				views.push((this._stashesView = new StashesView(this.container)));
 			} else {
@@ -221,6 +235,7 @@ export class Views implements Disposable {
 			(this._contributorsView = new ContributorsView(this.container)),
 			(this._remotesView = new RemotesView(this.container)),
 			(this._repositoriesView = new RepositoriesView(this.container)),
+			(this._searchAndCompareView = new SearchAndCompareView(this.container)),
 			(this._stashesView = new StashesView(this.container)),
 			(this._tagsView = new TagsView(this.container)),
 			(this._worktreesView = new WorktreesView(this.container)),
@@ -241,19 +256,27 @@ export class Views implements Disposable {
 	private async toggleViewGrouping(type: GroupableTreeViewTypes, grouped: boolean) {
 		let included = configuration.get('views.grouped.views', undefined, []);
 
+		let changed = false;
 		if (grouped) {
 			if (!included.includes(type)) {
+				changed = true;
 				setLastView(type);
 				included = included.concat(type);
 			}
 		} else if (included.includes(type)) {
+			changed = true;
 			if (type === getLastView()) {
 				setLastView(undefined);
 			}
 			included = included.filter(t => t !== type);
 		}
 
+		if (!changed) return;
+
 		await configuration.updateEffective('views.grouped.views', included);
+
+		// Show the view after the configuration change has been applied
+		setTimeout(() => executeCoreCommand(`gitlens.views.${type}.focus`), 1);
 	}
 
 	private _branchesView: BranchesView | undefined;
@@ -331,9 +354,9 @@ export class Views implements Disposable {
 		return this._repositoriesView ?? this._groupedView.setView('repositories');
 	}
 
-	private _searchAndCompareView!: SearchAndCompareView;
+	private _searchAndCompareView: SearchAndCompareView | undefined;
 	get searchAndCompare(): SearchAndCompareView {
-		return this._searchAndCompareView;
+		return this._searchAndCompareView ?? this._groupedView.setView('searchAndCompare');
 	}
 
 	private _stashesView: StashesView | undefined;

@@ -8184,8 +8184,7 @@
 			},
 			{
 				"command": "gitlens.views.grouped.branches.moveToNewView",
-				"title": "Move to Separate View",
-				"icon": "$(gitlens-branches-view)"
+				"title": "Move to Separate View"
 			},
 			{
 				"command": "gitlens.views.grouped.branches.setAsDefault",
@@ -8198,8 +8197,7 @@
 			},
 			{
 				"command": "gitlens.views.grouped.commits.moveToNewView",
-				"title": "Move to Separate View",
-				"icon": "$(gitlens-commits-view)"
+				"title": "Move to Separate View"
 			},
 			{
 				"command": "gitlens.views.grouped.commits.setAsDefault",
@@ -8212,8 +8210,7 @@
 			},
 			{
 				"command": "gitlens.views.grouped.contributors.moveToNewView",
-				"title": "Move to Separate View",
-				"icon": "$(gitlens-contributors-view)"
+				"title": "Move to Separate View"
 			},
 			{
 				"command": "gitlens.views.grouped.contributors.setAsDefault",
@@ -8226,8 +8223,7 @@
 			},
 			{
 				"command": "gitlens.views.grouped.remotes.moveToNewView",
-				"title": "Move to Separate View",
-				"icon": "$(gitlens-remotes-view)"
+				"title": "Move to Separate View"
 			},
 			{
 				"command": "gitlens.views.grouped.remotes.setAsDefault",
@@ -8240,11 +8236,23 @@
 			},
 			{
 				"command": "gitlens.views.grouped.repositories.moveToNewView",
-				"title": "Move to Separate View",
-				"icon": "$(gitlens-repositories-view)"
+				"title": "Move to Separate View"
 			},
 			{
 				"command": "gitlens.views.grouped.repositories.setAsDefault",
+				"title": "Set as Default View"
+			},
+			{
+				"command": "gitlens.views.grouped.searchAndCompare",
+				"title": "Search & Compare",
+				"icon": "$(gitlens-search-view)"
+			},
+			{
+				"command": "gitlens.views.grouped.searchAndCompare.moveToNewView",
+				"title": "Move to Separate View"
+			},
+			{
+				"command": "gitlens.views.grouped.searchAndCompare.setAsDefault",
 				"title": "Set as Default View"
 			},
 			{
@@ -8254,8 +8262,7 @@
 			},
 			{
 				"command": "gitlens.views.grouped.stashes.moveToNewView",
-				"title": "Move to Separate View",
-				"icon": "$(gitlens-stashes-view)"
+				"title": "Move to Separate View"
 			},
 			{
 				"command": "gitlens.views.grouped.stashes.setAsDefault",
@@ -8268,8 +8275,7 @@
 			},
 			{
 				"command": "gitlens.views.grouped.tags.moveToNewView",
-				"title": "Move to Separate View",
-				"icon": "$(gitlens-tags-view)"
+				"title": "Move to Separate View"
 			},
 			{
 				"command": "gitlens.views.grouped.tags.setAsDefault",
@@ -8282,8 +8288,7 @@
 			},
 			{
 				"command": "gitlens.views.grouped.worktrees.moveToNewView",
-				"title": "Move to Separate View",
-				"icon": "$(gitlens-worktrees-view)"
+				"title": "Move to Separate View"
 			},
 			{
 				"command": "gitlens.views.grouped.worktrees.setAsDefault",
@@ -8671,6 +8676,12 @@
 				"command": "gitlens.views.searchAndCompare.copy",
 				"title": "Copy",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.searchAndCompare.close",
+				"title": "Close",
+				"category": "GitLens",
+				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.searchAndCompare.refresh",
@@ -10045,25 +10056,32 @@
 					"fontCharacter": "\\f13a"
 				}
 			},
+			"gitlens-search-view-filled": {
+				"description": "search-view-filled icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f13b"
+				}
+			},
 			"gitlens-stashes-view-filled": {
 				"description": "stashes-view-filled icon",
 				"default": {
 					"fontPath": "dist/glicons.woff2",
-					"fontCharacter": "\\f13b"
+					"fontCharacter": "\\f13c"
 				}
 			},
 			"gitlens-tags-view-filled": {
 				"description": "tags-view-filled icon",
 				"default": {
 					"fontPath": "dist/glicons.woff2",
-					"fontCharacter": "\\f13c"
+					"fontCharacter": "\\f13d"
 				}
 			},
 			"gitlens-worktrees-view-filled": {
 				"description": "worktrees-view-filled icon",
 				"default": {
 					"fontPath": "dist/glicons.woff2",
-					"fontCharacter": "\\f13d"
+					"fontCharacter": "\\f13e"
 				}
 			}
 		},
@@ -11854,6 +11872,18 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.grouped.searchAndCompare",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.grouped.searchAndCompare.moveToNewView",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.grouped.searchAndCompare.setAsDefault",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.grouped.stashes",
 					"when": "false"
 				},
@@ -12171,6 +12201,10 @@
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.copy",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.close",
 					"when": "false"
 				},
 				{
@@ -13837,6 +13871,17 @@
 					"group": "navigation@8"
 				},
 				{
+					"command": "gitlens.views.grouped.searchAndCompare",
+					"when": "view == gitlens.views.grouped && gitlens:views:grouped:views =~ /\\bsearchAndCompare\\b/ && gitlens:views:grouped:view != searchAndCompare",
+					"group": "navigation@9",
+					"alt": "gitlens.views.grouped.searchAndCompare.moveToNewView"
+				},
+				{
+					"submenu": "gitlens/views/grouped/searchAndCompare",
+					"when": "view == gitlens.views.grouped && gitlens:views:grouped:views =~ /\\bsearchAndCompare\\b/ && gitlens:views:grouped:view == searchAndCompare",
+					"group": "navigation@9"
+				},
+				{
 					"command": "gitlens.views.grouped.refresh",
 					"when": "view == gitlens.views.grouped",
 					"group": "navigation@98"
@@ -14089,6 +14134,11 @@
 				{
 					"command": "gitlens.views.searchAndCompare.refresh",
 					"when": "view == gitlens.views.searchAndCompare",
+					"group": "navigation@98"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.close",
+					"when": "view == gitlens.views.searchAndCompare && config.gitlens.views.grouped.enabled",
 					"group": "navigation@99"
 				},
 				{
@@ -17445,12 +17495,12 @@
 			"gitlens/view/searchAndCompare/new": [
 				{
 					"command": "gitlens.views.searchAndCompare.searchCommits",
-					"when": "view == gitlens.views.searchAndCompare",
+					"when": "view == gitlens.views.searchAndCompare || (view === gitlens.views.grouped && gitlens:views:grouped:view == searchAndCompare)",
 					"group": "navigation@10"
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.selectForCompare",
-					"when": "view == gitlens.views.searchAndCompare",
+					"when": "view == gitlens.views.searchAndCompare || (view === gitlens.views.grouped && gitlens:views:grouped:view == searchAndCompare)",
 					"group": "navigation@11"
 				}
 			],
@@ -17607,6 +17657,38 @@
 					"command": "gitlens.fetchRepositories",
 					"when": "gitlens:repos:withRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:views:grouped:view == repositories",
 					"group": "2_gitlens_actions@3"
+				}
+			],
+			"gitlens/views/grouped/searchAndCompare": [
+				{
+					"command": "gitlens.views.grouped.searchAndCompare.moveToNewView",
+					"when": "gitlens:views:grouped:view == searchAndCompare",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.grouped.searchAndCompare.setAsDefault",
+					"when": "gitlens:views:grouped:view == searchAndCompare && gitlens:views:grouped:default != searchAndCompare",
+					"group": "2_gitlens@2"
+				},
+				{
+					"submenu": "gitlens/views/grouped/more",
+					"when": "gitlens:views:grouped:view == searchAndCompare",
+					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.searchCommits",
+					"when": "view == gitlens.views.searchAndCompare || (view === gitlens.views.grouped && gitlens:views:grouped:view == searchAndCompare)",
+					"group": "2_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.selectForCompare",
+					"when": "view == gitlens.views.searchAndCompare || (view === gitlens.views.grouped && gitlens:views:grouped:view == searchAndCompare)",
+					"group": "2_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.clear",
+					"when": "gitlens:views:grouped:view == searchAndCompare",
+					"group": "2_gitlens_actions_@1"
 				}
 			],
 			"gitlens/views/grouped/stashes": [
@@ -17967,6 +18049,36 @@
 					"group": "9_gitlens@1"
 				},
 				{
+					"command": "gitlens.views.searchAndCompare.setFilesLayoutToAuto",
+					"when": "view == gitlens.views.grouped && gitlens:views:grouped:view == searchAndCompare && config.gitlens.views.searchAndCompare.files.layout == tree",
+					"group": "3_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesLayoutToList",
+					"when": "view == gitlens.views.grouped && gitlens:views:grouped:view == searchAndCompare && config.gitlens.views.searchAndCompare.files.layout == auto",
+					"group": "3_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesLayoutToTree",
+					"when": "view == gitlens.views.grouped && gitlens:views:grouped:view == searchAndCompare && config.gitlens.views.searchAndCompare.files.layout == list",
+					"group": "3_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setShowAvatarsOn",
+					"when": "view == gitlens.views.grouped && gitlens:views:grouped:view == searchAndCompare && !config.gitlens.views.searchAndCompare.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setShowAvatarsOff",
+					"when": "view == gitlens.views.grouped && gitlens:views:grouped:view == searchAndCompare && config.gitlens.views.searchAndCompare.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.showSettingsPage!search-compare-view",
+					"when": "view == gitlens.views.grouped && gitlens:views:grouped:view == searchAndCompare",
+					"group": "9_gitlens@1"
+				},
+				{
 					"command": "gitlens.views.stashes.setFilesLayoutToAuto",
 					"when": "view == gitlens.views.grouped && gitlens:views:grouped:view == stashes && config.gitlens.views.stashes.files.layout == tree",
 					"group": "3_gitlens@0"
@@ -18171,6 +18283,11 @@
 				"id": "gitlens/views/grouped/repositories",
 				"label": "Repositories",
 				"icon": "$(gitlens-repositories-view-filled)"
+			},
+			{
+				"id": "gitlens/views/grouped/searchAndCompare",
+				"label": "Search & Compare",
+				"icon": "$(gitlens-search-view-filled)"
 			},
 			{
 				"id": "gitlens/views/grouped/stashes",
@@ -18702,14 +18819,29 @@
 				"when": "!gitlens:hasVirtualFolders"
 			},
 			{
+				"view": "gitlens.views.grouped",
+				"contents": "Search for commits by [message](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22message%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [author](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22author%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [SHA](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22commit%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [file](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22file%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), or [changes](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22change%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D)\n\n[Search Commits...](command:gitlens.views.searchAndCompare.searchCommits)",
+				"when": "!gitlens:hasVirtualFolders && gitlens:views:grouped:view == searchAndCompare"
+			},
+			{
 				"view": "gitlens.views.searchAndCompare",
 				"contents": "Search for commits by [message](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22message%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [author](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22author%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), or [SHA](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22commit%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D)\n\n[Search Commits...](command:gitlens.views.searchAndCompare.searchCommits)",
 				"when": "gitlens:hasVirtualFolders"
 			},
 			{
+				"view": "gitlens.views.grouped",
+				"contents": "Search for commits by [message](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22message%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [author](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22author%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), or [SHA](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22commit%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D)\n\n[Search Commits...](command:gitlens.views.searchAndCompare.searchCommits)",
+				"when": "gitlens:hasVirtualFolders && gitlens:views:grouped:view == searchAndCompare"
+			},
+			{
 				"view": "gitlens.views.searchAndCompare",
 				"contents": "Compare a <branch, tag, or ref> with another <branch, tag, or ref>\n\n[Compare References...](command:gitlens.views.searchAndCompare.selectForCompare)",
 				"when": "!gitlens:hasVirtualFolders"
+			},
+			{
+				"view": "gitlens.views.grouped",
+				"contents": "Compare a <branch, tag, or ref> with another <branch, tag, or ref>\n\n[Compare References...](command:gitlens.views.searchAndCompare.selectForCompare)",
+				"when": "!gitlens:hasVirtualFolders && gitlens:views:grouped:view == searchAndCompare"
 			},
 			{
 				"view": "gitlens.views.drafts",
@@ -18956,7 +19088,7 @@
 				{
 					"id": "gitlens.views.searchAndCompare",
 					"name": "Search & Compare",
-					"when": "!gitlens:disabled",
+					"when": "!gitlens:disabled && (!config.gitlens.views.grouped.enabled || (config.gitlens.views.grouped.enabled && gitlens:views:grouped:views && !(gitlens:views:grouped:views =~ /\\bsearchAndCompare\\b/)))",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-search-view)",
 					"initialSize": 2,
