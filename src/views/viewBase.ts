@@ -270,6 +270,7 @@ export abstract class ViewBase<
 	dispose() {
 		this._nodeState?.dispose();
 		this._nodeState = undefined;
+		this.root?.dispose();
 		Disposable.from(...this.disposables).dispose();
 	}
 
@@ -402,6 +403,7 @@ export abstract class ViewBase<
 
 	protected ensureRoot(force: boolean = false) {
 		if (this.root == null || force) {
+			this.root?.dispose();
 			this.root = this.getRoot();
 		}
 
