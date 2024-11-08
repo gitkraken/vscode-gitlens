@@ -175,6 +175,7 @@ export const urls = Object.freeze({
 export type WalkthroughSteps =
 	| 'welcome-in-trial'
 	| 'welcome-paid'
+	| 'welcome-in-trial-expired-eligible'
 	| 'welcome-in-trial-expired'
 	| 'get-started-community'
 	| 'visualize-code-history'
