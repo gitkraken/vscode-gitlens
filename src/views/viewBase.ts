@@ -721,6 +721,7 @@ export abstract class ViewBase<
 			await this.tree.reveal(node, options);
 		} catch (ex) {
 			Logger.error(ex);
+			debugger;
 		}
 	}
 

@@ -9,6 +9,7 @@ import { CommitsView } from './commitsView';
 import { ContributorsView } from './contributorsView';
 import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
+import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
 import { TagsView } from './tagsView';
 import type { TreeViewByType } from './viewBase';
@@ -44,6 +45,7 @@ export class GroupedView implements Disposable {
 			registerCommand('gitlens.views.grouped.contributors', () => this.setView('contributors')),
 			registerCommand('gitlens.views.grouped.remotes', () => this.setView('remotes')),
 			registerCommand('gitlens.views.grouped.repositories', () => this.setView('repositories')),
+			registerCommand('gitlens.views.grouped.searchAndCompare', () => this.setView('searchAndCompare')),
 			registerCommand('gitlens.views.grouped.stashes', () => this.setView('stashes')),
 			registerCommand('gitlens.views.grouped.tags', () => this.setView('tags')),
 			registerCommand('gitlens.views.grouped.worktrees', () => this.setView('worktrees')),
@@ -84,6 +86,8 @@ export class GroupedView implements Disposable {
 				return new RemotesView(this.container, true);
 			case 'repositories':
 				return new RepositoriesView(this.container, true);
+			case 'searchAndCompare':
+				return new SearchAndCompareView(this.container, true);
 			case 'stashes':
 				return new StashesView(this.container, true);
 			case 'tags':

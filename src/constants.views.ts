@@ -23,7 +23,15 @@ export type TreeViewTypeFromId<T extends TreeViewIds> = T extends `gitlens.views
 
 export type GroupableTreeViewTypes = Extract<
 	TreeViewTypes,
-	'branches' | 'commits' | 'contributors' | 'remotes' | 'repositories' | 'stashes' | 'tags' | 'worktrees'
+	| 'branches'
+	| 'commits'
+	| 'contributors'
+	| 'remotes'
+	| 'repositories'
+	| 'searchAndCompare'
+	| 'stashes'
+	| 'tags'
+	| 'worktrees'
 >;
 export type GroupableTreeViewIds<T extends GroupableTreeViewTypes = GroupableTreeViewTypes> = TreeViewIds<T>;
 

@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?40cdac44cb57a0847ec3aaa09364fecc") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?526ab4b01522255557001d936894ca47") format("woff2");
 	}
 </style>
 */
@@ -239,12 +239,15 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 .glicon-repositories-view-filled:before {
 	content: '\f13a';
 }
-.glicon-stashes-view-filled:before {
+.glicon-search-view-filled:before {
 	content: '\f13b';
 }
-.glicon-tags-view-filled:before {
+.glicon-stashes-view-filled:before {
 	content: '\f13c';
 }
-.glicon-worktrees-view-filled:before {
+.glicon-tags-view-filled:before {
 	content: '\f13d';
+}
+.glicon-worktrees-view-filled:before {
+	content: '\f13e';
 }
