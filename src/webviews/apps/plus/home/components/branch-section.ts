@@ -21,6 +21,11 @@ export const sectionHeadingStyles = css`
 		margin-block: 0 0.8rem;
 		text-transform: uppercase;
 	}
+	.section-heading.with-actions {
+		display: flex;
+		justify-content: space-between;
+		gap: 8px;
+	}
 `;
 
 @customElement('gl-branch-section')
@@ -40,7 +45,9 @@ export class GlBranchSection extends LitElement {
 	override render() {
 		return html`
 			<div class="section">
-				<h3 class="section-heading">${this.label}</h3>
+				<h3 class="section-heading with-actions">
+					<span>${this.label}</span><slot name="heading-actions"></slot>
+				</h3>
 				<slot></slot>
 				${this.branches.map(branch => html`<gl-branch-card .branch=${branch}></gl-branch-card>`)}
 			</div>

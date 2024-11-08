@@ -5,7 +5,7 @@ import { html } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../home/protocol';
-import { DidFocusAccount } from '../../home/protocol';
+import { DidChangeOverviewFilter, DidFocusAccount } from '../../home/protocol';
 import { OverviewState, overviewStateContext } from '../plus/home/components/overviewState';
 import type { GLHomeAccountContent } from '../plus/shared/components/home-account-content';
 import { GlApp } from '../shared/app';
@@ -50,6 +50,11 @@ export class GlHomeApp extends GlApp<State> {
 			switch (true) {
 				case DidFocusAccount.is(msg):
 					this.accountContentEl.show();
+					break;
+				case DidChangeOverviewFilter.is(msg):
+					this._overviewState.filter.recent = msg.params.filter.recent;
+					this._overviewState.filter.stale = msg.params.filter.stale;
+					this._overviewState.run(true);
 					break;
 			}
 		});

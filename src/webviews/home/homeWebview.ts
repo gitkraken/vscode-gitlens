@@ -30,12 +30,16 @@ import type {
 	GetOverviewBranch,
 	GetOverviewBranches,
 	GetOverviewResponse,
+	OverviewFilters,
+	OverviewRecentThreshold,
+	OverviewStaleThreshold,
 	State,
 } from './protocol';
 import {
 	CollapseSectionCommand,
 	DidChangeIntegrationsConnections,
 	DidChangeOrgSettings,
+	DidChangeOverviewFilter,
 	DidChangePreviewEnabled,
 	DidChangeRepositories,
 	DidChangeRepositoryWip,
@@ -45,6 +49,8 @@ import {
 	DismissWalkthroughSection,
 	GetLaunchpadSummary,
 	GetOverview,
+	GetOverviewFilterState,
+	SetOverviewFilter,
 } from './protocol';
 import type { HomeWebviewShowingArgs } from './registration';
 
@@ -86,6 +92,16 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			...this.host.getTelemetryContext(),
 		};
 	}
+
+	private _overviewBranchFilter: OverviewFilters = {
+		recent: {
+			threshold: 'OneWeek',
+		},
+		stale: {
+			threshold: 'OneYear',
+			show: false,
+		},
+	};
 
 	onShowing(
 		loading: boolean,
@@ -133,6 +149,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		];
 	}
 
+	private setOverviewFilter(value: OverviewFilters) {
+		this._overviewBranchFilter = value;
+		void this.host.notify(DidChangeOverviewFilter, { filter: this._overviewBranchFilter });
+	}
+
 	async onMessageReceived(e: IpcMessage) {
 		switch (true) {
 			case CollapseSectionCommand.is(e):
@@ -141,11 +162,17 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			case DismissWalkthroughSection.is(e):
 				this.dismissWalkthrough();
 				break;
+			case SetOverviewFilter.is(e):
+				this.setOverviewFilter(e.params);
+				break;
 			case GetLaunchpadSummary.is(e):
 				void this.host.respond(GetLaunchpadSummary, e, await getLaunchpadSummary(this.container));
 				break;
 			case GetOverview.is(e):
 				void this.host.respond(GetOverview, e, await this.getBranchOverview());
+				break;
+			case GetOverviewFilterState.is(e):
+				void this.host.respond(GetOverviewFilterState, e, this._overviewBranchFilter);
 				break;
 		}
 	}
@@ -202,7 +229,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private getWalkthroughDismissed() {
-		console.log({ test: this.container.storage.get('home:walkthrough:dismissed') });
 		return Boolean(this.container.storage.get('home:walkthrough:dismissed'));
 	}
 
@@ -276,7 +302,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			branchesAndWorktrees?.branches,
 			branchesAndWorktrees?.worktrees,
 			this.container,
-			// TODO: add filters
+			this._overviewBranchFilter,
 		);
 		if (overviewBranches == null) return undefined;
 
@@ -427,26 +453,18 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 }
 
-const branchOverviewDefaults = Object.freeze({
-	recent: { threshold: 1000 * 60 * 60 * 24 * 14 },
-	stale: { threshold: 1000 * 60 * 60 * 24 * 365 },
-});
-
-interface BranchOverviewOptions {
-	recent?: {
-		threshold: number;
-	};
-	stale?: {
-		show?: boolean;
-		threshold?: number;
-	};
-}
+const thresholdValues: Record<OverviewStaleThreshold | OverviewRecentThreshold, number> = {
+	OneDay: 1000 * 60 * 60 * 24 * 1,
+	OneWeek: 1000 * 60 * 60 * 24 * 7,
+	OneMonth: 1000 * 60 * 60 * 24 * 30,
+	OneYear: 1000 * 60 * 60 * 24 * 365,
+};
 
 async function getOverviewBranches(
 	branches: GitBranch[],
 	worktrees: GitWorktree[],
 	container: Container,
-	options?: BranchOverviewOptions,
+	options: OverviewFilters,
 ): Promise<GetOverviewBranches | undefined> {
 	if (branches.length === 0) return undefined;
 
@@ -469,7 +487,7 @@ async function getOverviewBranches(
 	const contributorPromises = new Map<string, Promise<BranchContributorOverview | undefined>>();
 
 	const now = Date.now();
-	const recentThreshold = now - (options?.recent?.threshold ?? branchOverviewDefaults.recent.threshold);
+	const recentThreshold = now - thresholdValues[options.recent.threshold];
 
 	for (const branch of branches) {
 		const wt = worktreesByBranch.get(branch.id);
@@ -520,7 +538,7 @@ async function getOverviewBranches(
 	}
 
 	if (options?.stale?.show === true) {
-		const staleThreshold = now - (options?.stale?.threshold ?? branchOverviewDefaults.stale.threshold);
+		const staleThreshold = now - thresholdValues[options.stale.threshold];
 		sortBranches(branches, {
 			missingUpstream: true,
 			orderBy: 'date:asc',

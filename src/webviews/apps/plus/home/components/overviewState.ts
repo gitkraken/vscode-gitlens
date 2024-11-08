@@ -1,6 +1,7 @@
 import { createContext } from '@lit/context';
-import type { GetOverviewResponse } from '../../../../home/protocol';
-import { DidChangeRepositoryWip, GetOverview } from '../../../../home/protocol';
+import { signalObject } from 'signal-utils/object';
+import type { GetOverviewResponse, OverviewFilters } from '../../../../home/protocol';
+import { DidChangeRepositoryWip, GetOverview, GetOverviewFilterState } from '../../../../home/protocol';
 import { AsyncComputedState } from '../../../shared/components/signal-utils';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
@@ -8,10 +9,10 @@ import type { HostIpc } from '../../../shared/ipc';
 export type Overview = GetOverviewResponse;
 
 export class OverviewState extends AsyncComputedState<Overview> {
-	private _disposable: Disposable | undefined;
+	private readonly _disposable: Disposable | undefined;
 
 	constructor(
-		private _ipc: HostIpc,
+		private readonly _ipc: HostIpc,
 		options?: {
 			runImmediately?: boolean;
 			initial?: Overview;
@@ -30,11 +31,17 @@ export class OverviewState extends AsyncComputedState<Overview> {
 					break;
 			}
 		});
+		void this._ipc.sendRequest(GetOverviewFilterState, undefined).then(rsp => {
+			this.filter.recent = rsp.recent;
+			this.filter.stale = rsp.stale;
+		});
 	}
 
 	dispose() {
 		this._disposable?.dispose();
 	}
+
+	filter = signalObject<Partial<OverviewFilters>>({});
 }
 
 export const overviewStateContext = createContext<Overview>('overviewState');

@@ -16,6 +16,12 @@ export function* chunk<T>(source: T[], size: number): Iterable<T[]> {
 	}
 }
 
+export const IterUtils = {
+	notNull: function <T>(x: T | null | undefined): x is T {
+		return Boolean(x);
+	},
+};
+
 export function* chunkByStringLength(source: string[], maxLength: number): Iterable<string[]> {
 	let chunk: string[] = [];
 
