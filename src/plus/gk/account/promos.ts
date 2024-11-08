@@ -21,24 +21,6 @@ export interface Promo {
 // Must be ordered by applicable order
 const promos: Promo[] = [
 	{
-		key: 'launchpad-extended',
-		code: 'GLLAUNCHPAD24',
-		states: [
-			SubscriptionState.Community,
-			SubscriptionState.ProPreview,
-			SubscriptionState.ProPreviewExpired,
-			SubscriptionState.ProTrial,
-			SubscriptionState.ProTrialExpired,
-			SubscriptionState.ProTrialReactivationEligible,
-		],
-		startsOn: new Date('2024-09-27T06:59:00.000Z').getTime(),
-		expiresOn: new Date('2024-10-14T06:59:00.000Z').getTime(),
-		command: { tooltip: 'Launchpad sale: Save 75% or more on GitLens Pro' },
-		quickpick: {
-			detail: '$(rocket) Launchpad sale: Save 75% or more on GitLens Pro',
-		},
-	},
-	{
 		key: 'devexdays',
 		code: 'DEVEXDAYS24',
 		states: [

@@ -84,11 +84,6 @@ export class GlPromo extends LitElement {
 					>Limited-Time sale: <b>Save 33% or more</b> on your 1st seat of Pro</span
 				>`;
 
-			case 'launchpad-extended':
-				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Launchpad sale: <b>Save 75% or more</b> on GitLens Pro</span
-				>`;
-
 			case 'devexdays':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
 					>Limited-time sale: <b>Save up to 80%</b> on GitLens Pro</span
