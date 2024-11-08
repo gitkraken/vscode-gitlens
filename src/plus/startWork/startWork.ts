@@ -17,6 +17,7 @@ import {
 	QuickCommand,
 	StepResultBreak,
 } from '../../commands/quickCommand';
+import { OpenOnGitHubQuickInputButton } from '../../commands/quickCommand.buttons';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
 import type { IntegrationId } from '../../constants.integrations';
@@ -33,6 +34,7 @@ import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import { configuration } from '../../system/vscode/configuration';
+import { openUrl } from '../../system/vscode/utils';
 
 export type StartWorkItem = {
 	item: SearchedIssue;
@@ -324,6 +326,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 		context: Context,
 	): StepResultGenerator<StartWorkItem | StartWorkAction> {
 		const buildIssueItem = (i: StartWorkItem) => {
+			const buttons = i.item.issue.url ? [OpenOnGitHubQuickInputButton] : [];
 			return {
 				label:
 					i.item.issue.title.length > 60 ? `${i.item.issue.title.substring(0, 60)}...` : i.item.issue.title,
@@ -335,6 +338,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 				iconPath: i.item.issue.author?.avatarUrl != null ? Uri.parse(i.item.issue.author.avatarUrl) : undefined,
 				item: i,
 				picked: i.item.issue.id === state.item?.item?.issue.id,
+				buttons: buttons,
 			};
 		};
 
@@ -378,6 +382,13 @@ export class StartWorkCommand extends QuickCommand<State> {
 			matchOnDescription: true,
 			matchOnDetail: true,
 			items: items,
+			onDidClickItemButton: (_quickpick, button, { item }) => {
+				if (button === OpenOnGitHubQuickInputButton && typeof item !== 'string') {
+					this.open(item);
+					return true;
+				}
+				return false;
+			},
 		});
 
 		const selection: StepSelection<typeof step> = yield step;
@@ -393,6 +404,11 @@ export class StartWorkCommand extends QuickCommand<State> {
 		if (item != null) {
 			state.item = item;
 		}
+	}
+
+	private open(item: StartWorkItem): void {
+		if (item.item.issue.url == null) return;
+		void openUrl(item.item.issue.url);
 	}
 
 	private async getConnectedIntegrations(): Promise<Map<IntegrationId, boolean>> {
