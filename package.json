@@ -18793,11 +18793,6 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Launchpad sale: Save 75% or more on GitLens Pro",
-				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == launchpad-extended"
-			},
-			{
-				"view": "gitlens.views.worktrees",
 				"contents": "Limited-time sale: Save up to 80% on GitLens Pro",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == devexdays"
 			},
