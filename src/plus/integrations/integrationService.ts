@@ -554,7 +554,7 @@ export class IntegrationService implements Disposable {
 		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
 	})
 	async getMyIssues(
-		integrationIds?: HostingIntegrationId[],
+		integrationIds?: (SupportedHostingIntegrationIds | SupportedIssueIntegrationIds)[],
 		cancellation?: CancellationToken,
 	): Promise<SearchedIssue[] | undefined> {
 		const integrations: Map<Integration, ResourceDescriptor[] | undefined> = new Map();
