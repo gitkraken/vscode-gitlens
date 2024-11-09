@@ -87,9 +87,9 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 			}
 
 			if (this.view.grouped) {
-				this.view.description = `${this.view.name.toLocaleLowerCase()} (${remotes.values.length})`;
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${remotes.length})`;
 			} else {
-				this.view.description = `(${remotes.values.length})`;
+				this.view.description = `(${remotes.length})`;
 			}
 
 			return child.getChildren();
