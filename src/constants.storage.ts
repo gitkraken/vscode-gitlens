@@ -2,6 +2,7 @@ import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config
 import type { AIProviders } from './constants.ai';
 import type { IntegrationId } from './constants.integrations';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
+import type { GroupableTreeViewTypes } from './constants.views';
 import type { Environment } from './container';
 import type { Subscription } from './plus/gk/account/subscription';
 import type { Integration } from './plus/integrations/integration';
@@ -102,10 +103,11 @@ export type WorkspaceStorage = {
 	'remote:default': string;
 	'starred:branches': StoredStarred;
 	'starred:repositories': StoredStarred;
-	'views:repositories:autoRefresh': boolean;
-	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:commitDetails:autolinksExpanded': boolean;
 	'views:commitDetails:pullRequestExpanded': boolean;
+	'views:repositories:autoRefresh': boolean;
+	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
+	'views:scm:grouped:selected': GroupableTreeViewTypes;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `connected:${Integration['key']}`]: boolean;
 };

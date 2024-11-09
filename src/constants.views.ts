@@ -7,7 +7,7 @@ export type TreeViewTypes =
 	| 'contributors'
 	| 'drafts'
 	| 'fileHistory'
-	| 'grouped'
+	| 'scm.grouped'
 	| 'launchpad'
 	| 'lineHistory'
 	| 'pullRequest'

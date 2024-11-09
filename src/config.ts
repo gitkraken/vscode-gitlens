@@ -621,9 +621,11 @@ export interface ViewsCommonConfig {
 			readonly tooltip: string;
 		};
 	};
-	readonly grouped: {
-		readonly enabled: boolean;
-		readonly views: GroupableTreeViewTypes[];
+	readonly scm: {
+		grouped: {
+			readonly enabled: boolean;
+			readonly views: GroupableTreeViewTypes[];
+		};
 	};
 	readonly openChangesInMultiDiffEditor: boolean;
 	readonly pageItemLimit: number;
