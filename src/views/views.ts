@@ -33,12 +33,12 @@ import { CommitsView } from './commitsView';
 import { ContributorsView } from './contributorsView';
 import { DraftsView } from './draftsView';
 import { FileHistoryView } from './fileHistoryView';
-import { getLastView, GroupedView, setLastView } from './groupedView';
 import { LaunchpadView } from './launchpadView';
 import { LineHistoryView } from './lineHistoryView';
 import { PullRequestView } from './pullRequestView';
 import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
+import { ScmGroupedView } from './scmGroupedView';
 import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
 import { TagsView } from './tagsView';
@@ -49,8 +49,24 @@ import { WorktreesView } from './worktreesView';
 
 export class Views implements Disposable {
 	private readonly _disposable: Disposable;
-	private _groupedViewsDisposable: Disposable;
-	private _groupedView!: GroupedView;
+	private _scmGroupedView!: ScmGroupedView;
+	private _scmGroupedViewsDisposable: Disposable;
+
+	private _lastSelectedScmGroupedView: GroupableTreeViewTypes | undefined;
+	get lastSelectedScmGroupedView() {
+		const included = configuration.get('views.scm.grouped.views', undefined, []);
+		if (!included.length) return undefined;
+
+		if (!this._lastSelectedScmGroupedView || !included.includes(this._lastSelectedScmGroupedView)) {
+			return included[0];
+		}
+
+		return this._lastSelectedScmGroupedView;
+	}
+	set lastSelectedScmGroupedView(type: GroupableTreeViewTypes | undefined) {
+		this._lastSelectedScmGroupedView = type;
+		void this.container.storage.storeWorkspace('views:scm:grouped:selected', type);
+	}
 
 	constructor(
 		private readonly container: Container,
@@ -63,74 +79,90 @@ export class Views implements Disposable {
 			...this.registerWebviewViews(webviews),
 			...this.registerCommands(),
 		);
-		this._groupedViewsDisposable = Disposable.from(...this.registerGroupedViews());
+
+		this._lastSelectedScmGroupedView = this.container.storage.getWorkspace('views:scm:grouped:selected');
+		this._scmGroupedViewsDisposable = Disposable.from(...this.registerScmGroupedViews());
 	}
 
 	dispose() {
 		this._disposable.dispose();
-		this._groupedViewsDisposable.dispose();
+		this._scmGroupedViewsDisposable.dispose();
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'views.grouped')) {
-			this._groupedViewsDisposable.dispose();
-			this._groupedViewsDisposable = Disposable.from(...this.registerGroupedViews());
+		if (configuration.changed(e, 'views.scm.grouped')) {
+			this._scmGroupedViewsDisposable.dispose();
+			this._scmGroupedViewsDisposable = Disposable.from(...this.registerScmGroupedViews());
 		}
 	}
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand('gitlens.views.branches.close', () => this.toggleViewGrouping('branches', true)),
-			registerCommand('gitlens.views.grouped.branches.moveToNewView', () =>
-				this.toggleViewGrouping('branches', false),
+			registerCommand('gitlens.views.branches.close', () => this.toggleScmViewGrouping('branches', true)),
+			registerCommand('gitlens.views.scm.grouped.branches.moveToNewView', () =>
+				this.toggleScmViewGrouping('branches', false),
 			),
-			registerCommand('gitlens.views.grouped.branches.setAsDefault', () => this.setAsDefaultView('branches')),
-			registerCommand('gitlens.views.commits.close', () => this.toggleViewGrouping('commits', true)),
-			registerCommand('gitlens.views.grouped.commits.moveToNewView', () =>
-				this.toggleViewGrouping('commits', false),
+			registerCommand('gitlens.views.scm.grouped.branches.setAsDefault', () =>
+				this.setAsScmGroupedDefaultView('branches'),
 			),
-			registerCommand('gitlens.views.grouped.commits.setAsDefault', () => this.setAsDefaultView('commits')),
-			registerCommand('gitlens.views.contributors.close', () => this.toggleViewGrouping('contributors', true)),
-			registerCommand('gitlens.views.grouped.contributors.moveToNewView', () =>
-				this.toggleViewGrouping('contributors', false),
+			registerCommand('gitlens.views.commits.close', () => this.toggleScmViewGrouping('commits', true)),
+			registerCommand('gitlens.views.scm.grouped.commits.moveToNewView', () =>
+				this.toggleScmViewGrouping('commits', false),
 			),
-			registerCommand('gitlens.views.grouped.contributors.setAsDefault', () =>
-				this.setAsDefaultView('contributors'),
+			registerCommand('gitlens.views.scm.grouped.commits.setAsDefault', () =>
+				this.setAsScmGroupedDefaultView('commits'),
 			),
-			registerCommand('gitlens.views.remotes.close', () => this.toggleViewGrouping('remotes', true)),
-			registerCommand('gitlens.views.grouped.remotes.moveToNewView', () =>
-				this.toggleViewGrouping('remotes', false),
+			registerCommand('gitlens.views.contributors.close', () => this.toggleScmViewGrouping('contributors', true)),
+			registerCommand('gitlens.views.scm.grouped.contributors.moveToNewView', () =>
+				this.toggleScmViewGrouping('contributors', false),
 			),
-			registerCommand('gitlens.views.grouped.remotes.setAsDefault', () => this.setAsDefaultView('remotes')),
-			registerCommand('gitlens.views.repositories.close', () => this.toggleViewGrouping('repositories', true)),
-			registerCommand('gitlens.views.grouped.repositories.moveToNewView', () =>
-				this.toggleViewGrouping('repositories', false),
+			registerCommand('gitlens.views.scm.grouped.contributors.setAsDefault', () =>
+				this.setAsScmGroupedDefaultView('contributors'),
 			),
-			registerCommand('gitlens.views.grouped.repositories.setAsDefault', () =>
-				this.setAsDefaultView('repositories'),
+			registerCommand('gitlens.views.remotes.close', () => this.toggleScmViewGrouping('remotes', true)),
+			registerCommand('gitlens.views.scm.grouped.remotes.moveToNewView', () =>
+				this.toggleScmViewGrouping('remotes', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.remotes.setAsDefault', () =>
+				this.setAsScmGroupedDefaultView('remotes'),
+			),
+			registerCommand('gitlens.views.repositories.close', () => this.toggleScmViewGrouping('repositories', true)),
+			registerCommand('gitlens.views.scm.grouped.repositories.moveToNewView', () =>
+				this.toggleScmViewGrouping('repositories', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.repositories.setAsDefault', () =>
+				this.setAsScmGroupedDefaultView('repositories'),
 			),
 			registerCommand('gitlens.views.searchAndCompare.close', () =>
-				this.toggleViewGrouping('searchAndCompare', true),
+				this.toggleScmViewGrouping('searchAndCompare', true),
 			),
-			registerCommand('gitlens.views.grouped.searchAndCompare.moveToNewView', () =>
-				this.toggleViewGrouping('searchAndCompare', false),
+			registerCommand('gitlens.views.scm.grouped.searchAndCompare.moveToNewView', () =>
+				this.toggleScmViewGrouping('searchAndCompare', false),
 			),
-			registerCommand('gitlens.views.grouped.searchAndCompare.setAsDefault', () =>
-				this.setAsDefaultView('searchAndCompare'),
+			registerCommand('gitlens.views.scm.grouped.searchAndCompare.setAsDefault', () =>
+				this.setAsScmGroupedDefaultView('searchAndCompare'),
 			),
-			registerCommand('gitlens.views.stashes.close', () => this.toggleViewGrouping('stashes', true)),
-			registerCommand('gitlens.views.grouped.stashes.moveToNewView', () =>
-				this.toggleViewGrouping('stashes', false),
+			registerCommand('gitlens.views.stashes.close', () => this.toggleScmViewGrouping('stashes', true)),
+			registerCommand('gitlens.views.scm.grouped.stashes.moveToNewView', () =>
+				this.toggleScmViewGrouping('stashes', false),
 			),
-			registerCommand('gitlens.views.grouped.stashes.setAsDefault', () => this.setAsDefaultView('stashes')),
-			registerCommand('gitlens.views.tags.close', () => this.toggleViewGrouping('tags', true)),
-			registerCommand('gitlens.views.grouped.tags.moveToNewView', () => this.toggleViewGrouping('tags', false)),
-			registerCommand('gitlens.views.grouped.tags.setAsDefault', () => this.setAsDefaultView('tags')),
-			registerCommand('gitlens.views.worktrees.close', () => this.toggleViewGrouping('worktrees', true)),
-			registerCommand('gitlens.views.grouped.worktrees.moveToNewView', () =>
-				this.toggleViewGrouping('worktrees', false),
+			registerCommand('gitlens.views.scm.grouped.stashes.setAsDefault', () =>
+				this.setAsScmGroupedDefaultView('stashes'),
 			),
-			registerCommand('gitlens.views.grouped.worktrees.setAsDefault', () => this.setAsDefaultView('worktrees')),
+			registerCommand('gitlens.views.tags.close', () => this.toggleScmViewGrouping('tags', true)),
+			registerCommand('gitlens.views.scm.grouped.tags.moveToNewView', () =>
+				this.toggleScmViewGrouping('tags', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.tags.setAsDefault', () =>
+				this.setAsScmGroupedDefaultView('tags'),
+			),
+			registerCommand('gitlens.views.worktrees.close', () => this.toggleScmViewGrouping('worktrees', true)),
+			registerCommand('gitlens.views.scm.grouped.worktrees.moveToNewView', () =>
+				this.toggleScmViewGrouping('worktrees', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.worktrees.setAsDefault', () =>
+				this.setAsScmGroupedDefaultView('worktrees'),
+			),
 		];
 	}
 
@@ -156,124 +188,113 @@ export class Views implements Disposable {
 		];
 	}
 
-	private registerGroupedViews(): Disposable[] {
-		if (configuration.get('views.grouped.enabled')) {
-			const included = configuration.get('views.grouped.views', undefined, []);
-			void setContext('gitlens:views:grouped:views', included.length ? included.join(',') : ' ');
-			void setContext('gitlens:views:grouped:default', included[0]);
+	private registerScmGroupedViews(): Disposable[] {
+		const groupingEnabled = configuration.get('views.scm.grouped.enabled');
 
-			const views: Disposable[] = [];
-			if (included.length) {
-				views.push((this._groupedView = new GroupedView(this.container, included)));
-			} else {
-				this._groupedView = undefined!;
-			}
+		const included = configuration.get('views.scm.grouped.views', undefined, []);
 
-			if (!included.includes('branches')) {
-				views.push((this._branchesView = new BranchesView(this.container)));
-			} else {
-				this._branchesView = undefined;
-			}
+		void setContext(
+			'gitlens:views:scm:grouped:views',
+			groupingEnabled ? (included.length ? included.join(',') : ' ') : undefined,
+		);
+		void setContext('gitlens:views:scm:grouped:default', groupingEnabled ? included[0] : undefined);
 
-			if (!included.includes('commits')) {
-				views.push((this._commitsView = new CommitsView(this.container)));
-			} else {
-				this._commitsView = undefined;
-			}
-
-			if (!included.includes('contributors')) {
-				views.push((this._contributorsView = new ContributorsView(this.container)));
-			} else {
-				this._contributorsView = undefined;
-			}
-
-			if (!included.includes('remotes')) {
-				views.push((this._remotesView = new RemotesView(this.container)));
-			} else {
-				this._remotesView = undefined;
-			}
-
-			if (!included.includes('repositories')) {
-				views.push((this._repositoriesView = new RepositoriesView(this.container)));
-			} else {
-				this._repositoriesView = undefined;
-			}
-
-			if (!included.includes('searchAndCompare')) {
-				views.push((this._searchAndCompareView = new SearchAndCompareView(this.container)));
-			} else {
-				this._searchAndCompareView = undefined;
-			}
-
-			if (!included.includes('stashes')) {
-				views.push((this._stashesView = new StashesView(this.container)));
-			} else {
-				this._stashesView = undefined;
-			}
-
-			if (!included.includes('tags')) {
-				views.push((this._tagsView = new TagsView(this.container)));
-			} else {
-				this._tagsView = undefined;
-			}
-
-			if (!included.includes('worktrees')) {
-				views.push((this._worktreesView = new WorktreesView(this.container)));
-			} else {
-				this._worktreesView = undefined;
-			}
-
-			return views;
+		const views: Disposable[] = [];
+		if (groupingEnabled && included.length) {
+			views.push((this._scmGroupedView = new ScmGroupedView(this.container, this, included)));
+		} else {
+			this._scmGroupedView = undefined!;
 		}
 
-		void setContext('gitlens:views:grouped:views', undefined);
-		void setContext('gitlens:views:grouped:default', undefined);
+		if (!groupingEnabled || !included.includes('branches')) {
+			views.push((this._branchesView = new BranchesView(this.container)));
+		} else {
+			this._branchesView = undefined;
+		}
 
-		return [
-			(this._branchesView = new BranchesView(this.container)),
-			(this._commitsView = new CommitsView(this.container)),
-			(this._contributorsView = new ContributorsView(this.container)),
-			(this._remotesView = new RemotesView(this.container)),
-			(this._repositoriesView = new RepositoriesView(this.container)),
-			(this._searchAndCompareView = new SearchAndCompareView(this.container)),
-			(this._stashesView = new StashesView(this.container)),
-			(this._tagsView = new TagsView(this.container)),
-			(this._worktreesView = new WorktreesView(this.container)),
-		];
+		if (!groupingEnabled || !included.includes('commits')) {
+			views.push((this._commitsView = new CommitsView(this.container)));
+		} else {
+			this._commitsView = undefined;
+		}
+
+		if (!groupingEnabled || !included.includes('contributors')) {
+			views.push((this._contributorsView = new ContributorsView(this.container)));
+		} else {
+			this._contributorsView = undefined;
+		}
+
+		if (!groupingEnabled || !included.includes('remotes')) {
+			views.push((this._remotesView = new RemotesView(this.container)));
+		} else {
+			this._remotesView = undefined;
+		}
+
+		if (!groupingEnabled || !included.includes('repositories')) {
+			views.push((this._repositoriesView = new RepositoriesView(this.container)));
+		} else {
+			this._repositoriesView = undefined;
+		}
+
+		if (!groupingEnabled || !included.includes('searchAndCompare')) {
+			views.push((this._searchAndCompareView = new SearchAndCompareView(this.container)));
+		} else {
+			this._searchAndCompareView = undefined;
+		}
+
+		if (!groupingEnabled || !included.includes('stashes')) {
+			views.push((this._stashesView = new StashesView(this.container)));
+		} else {
+			this._stashesView = undefined;
+		}
+
+		if (!groupingEnabled || !included.includes('tags')) {
+			views.push((this._tagsView = new TagsView(this.container)));
+		} else {
+			this._tagsView = undefined;
+		}
+
+		if (!groupingEnabled || !included.includes('worktrees')) {
+			views.push((this._worktreesView = new WorktreesView(this.container)));
+		} else {
+			this._worktreesView = undefined;
+		}
+
+		return views;
 	}
 
-	private async setAsDefaultView(type: GroupableTreeViewTypes) {
-		let included = configuration.get('views.grouped.views', undefined, []);
+	private async setAsScmGroupedDefaultView(type: GroupableTreeViewTypes) {
+		let included = configuration.get('views.scm.grouped.views', undefined, []);
 		if (!included.includes(type)) return;
 
 		// Move the type to be the first in the list (default)
 		included = [type, ...included.filter(t => t !== type)];
 
-		setLastView(type);
-		await configuration.updateEffective('views.grouped.views', included);
+		this.lastSelectedScmGroupedView = type;
+		await configuration.updateEffective('views.scm.grouped.views', included);
 	}
 
-	private async toggleViewGrouping(type: GroupableTreeViewTypes, grouped: boolean) {
-		let included = configuration.get('views.grouped.views', undefined, []);
+	private async toggleScmViewGrouping(type: GroupableTreeViewTypes, grouped: boolean) {
+		let included = configuration.get('views.scm.grouped.views', undefined, []);
 
 		let changed = false;
 		if (grouped) {
 			if (!included.includes(type)) {
 				changed = true;
-				setLastView(type);
+				this.lastSelectedScmGroupedView = type;
 				included = included.concat(type);
 			}
 		} else if (included.includes(type)) {
 			changed = true;
-			if (type === getLastView()) {
-				setLastView(undefined);
+			if (type === this.lastSelectedScmGroupedView) {
+				this.lastSelectedScmGroupedView = undefined;
 			}
 			included = included.filter(t => t !== type);
 		}
 
 		if (!changed) return;
 
-		await configuration.updateEffective('views.grouped.views', included);
+		await configuration.updateEffective('views.scm.grouped.views', included);
 
 		// Show the view after the configuration change has been applied
 		setTimeout(() => executeCoreCommand(`gitlens.views.${type}.focus`), 1);
@@ -281,12 +302,12 @@ export class Views implements Disposable {
 
 	private _branchesView: BranchesView | undefined;
 	get branches(): BranchesView {
-		return this._branchesView ?? this._groupedView.setView('branches');
+		return this._branchesView ?? this._scmGroupedView.setView('branches');
 	}
 
 	private _commitsView: CommitsView | undefined;
 	get commits(): CommitsView {
-		return this._commitsView ?? this._groupedView.setView('commits');
+		return this._commitsView ?? this._scmGroupedView.setView('commits');
 	}
 
 	private _commitDetailsView!: WebviewViewProxy<CommitDetailsWebviewShowingArgs>;
@@ -296,7 +317,7 @@ export class Views implements Disposable {
 
 	private _contributorsView: ContributorsView | undefined;
 	get contributors(): ContributorsView {
-		return this._contributorsView ?? this._groupedView.setView('contributors');
+		return this._contributorsView ?? this._scmGroupedView.setView('contributors');
 	}
 
 	private _draftsView!: DraftsView;
@@ -346,27 +367,27 @@ export class Views implements Disposable {
 
 	private _remotesView: RemotesView | undefined;
 	get remotes(): RemotesView {
-		return this._remotesView ?? this._groupedView.setView('remotes');
+		return this._remotesView ?? this._scmGroupedView.setView('remotes');
 	}
 
 	private _repositoriesView!: RepositoriesView | undefined;
 	get repositories(): RepositoriesView {
-		return this._repositoriesView ?? this._groupedView.setView('repositories');
+		return this._repositoriesView ?? this._scmGroupedView.setView('repositories');
 	}
 
 	private _searchAndCompareView: SearchAndCompareView | undefined;
 	get searchAndCompare(): SearchAndCompareView {
-		return this._searchAndCompareView ?? this._groupedView.setView('searchAndCompare');
+		return this._searchAndCompareView ?? this._scmGroupedView.setView('searchAndCompare');
 	}
 
 	private _stashesView: StashesView | undefined;
 	get stashes(): StashesView {
-		return this._stashesView ?? this._groupedView.setView('stashes');
+		return this._stashesView ?? this._scmGroupedView.setView('stashes');
 	}
 
 	private _tagsView: TagsView | undefined;
 	get tags(): TagsView {
-		return this._tagsView ?? this._groupedView.setView('tags');
+		return this._tagsView ?? this._scmGroupedView.setView('tags');
 	}
 
 	private _timelineView!: WebviewViewProxy<TimelineWebviewShowingArgs>;
@@ -376,7 +397,7 @@ export class Views implements Disposable {
 
 	private _worktreesView: WorktreesView | undefined;
 	get worktrees(): WorktreesView {
-		return this._worktreesView ?? this._groupedView.setView('worktrees');
+		return this._worktreesView ?? this._scmGroupedView.setView('worktrees');
 	}
 
 	private _workspacesView!: WorkspacesView;

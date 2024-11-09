@@ -44,9 +44,9 @@ export type ContextKeys = {
 	'gitlens:views:patchDetails:mode': 'create' | 'view';
 	'gitlens:views:pullRequest:visible': boolean;
 	'gitlens:views:repositories:autoRefresh': boolean;
-	'gitlens:views:grouped:default': GroupableTreeViewTypes;
-	'gitlens:views:grouped:view': GroupableTreeViewTypes;
-	'gitlens:views:grouped:views': string;
+	'gitlens:views:scm:grouped:default': GroupableTreeViewTypes;
+	'gitlens:views:scm:grouped:view': GroupableTreeViewTypes;
+	'gitlens:views:scm:grouped:views': string;
 	'gitlens:vsls': boolean | 'host' | 'guest';
 	'gitlens:window:annotated': AnnotationStatus;
 } & Record<`gitlens:action:${string}`, number> &
