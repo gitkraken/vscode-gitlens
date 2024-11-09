@@ -17,13 +17,3 @@ export interface GitBlameLine {
 	readonly commit: GitCommit;
 	readonly line: GitCommitLine;
 }
-
-export interface GitBlameLines extends GitBlame {
-	readonly allLines: GitCommitLine[];
-}
-
-export interface GitBlameCommitLines {
-	readonly author: GitBlameAuthor;
-	readonly commit: GitCommit;
-	readonly lines: GitCommitLine[];
-}

@@ -22,7 +22,7 @@ import { trackableSchemes } from '../constants';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
-import type { GitBlame, GitBlameLines } from '../git/models/blame';
+import type { GitBlame } from '../git/models/blame';
 import type { GitCommit } from '../git/models/commit';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { is, once } from '../system/function';
@@ -40,7 +40,7 @@ class GitRecentChangeCodeLens extends CodeLens {
 		public readonly symbol: DocumentSymbol | SymbolInformation,
 		public readonly uri: GitUri | undefined,
 		public readonly dateFormat: string | null,
-		private readonly blame: (() => GitBlameLines | undefined) | undefined,
+		private readonly blame: (() => GitBlame | undefined) | undefined,
 		public readonly blameRange: Range,
 		public readonly isFullRange: boolean,
 		range: Range,
@@ -50,7 +50,7 @@ class GitRecentChangeCodeLens extends CodeLens {
 		super(range, command);
 	}
 
-	getBlame(): GitBlameLines | undefined {
+	getBlame(): GitBlame | undefined {
 		return this.blame?.();
 	}
 }
@@ -60,7 +60,7 @@ class GitAuthorsCodeLens extends CodeLens {
 		public readonly languageId: string,
 		public readonly symbol: DocumentSymbol | SymbolInformation,
 		public readonly uri: GitUri | undefined,
-		private readonly blame: () => GitBlameLines | undefined,
+		private readonly blame: () => GitBlame | undefined,
 		public readonly blameRange: Range,
 		public readonly isFullRange: boolean,
 		range: Range,
@@ -69,7 +69,7 @@ class GitAuthorsCodeLens extends CodeLens {
 		super(range);
 	}
 
-	getBlame(): GitBlameLines | undefined {
+	getBlame(): GitBlame | undefined {
 		return this.blame();
 	}
 }
@@ -193,7 +193,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			if (lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0) == null) {
 				const blameRange = documentRangeFn();
 
-				let blameForRangeFn: (() => GitBlameLines | undefined) | undefined = undefined;
+				let blameForRangeFn: (() => GitBlame | undefined) | undefined = undefined;
 				if (dirty || cfg.recentChange.enabled) {
 					if (!dirty) {
 						blameForRangeFn = once(() => this.container.git.getBlameRange(blame!, gitUri, blameRange));
@@ -366,7 +366,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			// Anchor the CodeLens to the start of the line -- so that the range won't change with edits (otherwise the CodeLens will be removed and re-added)
 			let startChar = 0;
 
-			let blameForRangeFn: (() => GitBlameLines | undefined) | undefined;
+			let blameForRangeFn: (() => GitBlame | undefined) | undefined;
 			if (dirty || cfg.recentChange.enabled) {
 				if (!dirty) {
 					blameForRangeFn = once(() => this.container.git.getBlameRange(blame!, gitUri!, blameRange));
@@ -677,7 +677,7 @@ function applyRevealCommitInViewCommand<T extends GitRecentChangeCodeLens | GitA
 function applyShowCommitsInViewCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 	title: string,
 	lens: T,
-	blame: GitBlameLines,
+	blame: GitBlame,
 	commit?: GitCommit,
 ): T {
 	let refs;
