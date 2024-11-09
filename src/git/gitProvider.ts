@@ -5,7 +5,7 @@ import type { GitConfigKeys } from '../constants';
 import type { SearchQuery } from '../constants.search';
 import type { Features } from '../features';
 import type { GitUri } from './gitUri';
-import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
+import type { GitBlame, GitBlameLine } from './models/blame';
 import type { BranchSortOptions, GitBranch } from './models/branch';
 import type { GitCommit } from './models/commit';
 import type { GitContributor, GitContributorStats } from './models/contributor';
@@ -535,9 +535,9 @@ export interface GitProvider extends GitProviderRepository, Disposable {
 		contents: string,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined>;
-	getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined>;
-	getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined>;
-	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined;
+	getBlameForRange(uri: GitUri, range: Range): Promise<GitBlame | undefined>;
+	getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlame | undefined>;
+	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlame | undefined;
 	/**
 	 * Returns a file diff between two commits
 	 * @param uri Uri of the file to diff
