@@ -139,6 +139,7 @@ export const Logger = new (class Logger {
 		if (this.output == null || this.level < OrderedLevel.Error) return;
 		this.output.appendLine(
 			`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}${
+				// eslint-disable-next-line @typescript-eslint/no-base-to-string
 				ex != null ? `\n${String(ex)}` : ''
 			}`,
 		);
