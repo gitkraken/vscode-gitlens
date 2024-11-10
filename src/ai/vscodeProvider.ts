@@ -273,7 +273,7 @@ function getModelFromChatModel(model: LanguageModelChat): VSCodeAIModel {
 			vendor: model.vendor,
 			family: model.family,
 		},
-		maxTokens: model.maxInputTokens,
+		maxTokens: { input: model.maxInputTokens, output: 4096 },
 		provider: { id: provider.id, name: capitalize(model.vendor) },
 	};
 }
