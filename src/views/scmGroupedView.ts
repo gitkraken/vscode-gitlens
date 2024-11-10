@@ -62,6 +62,7 @@ export class ScmGroupedView implements Disposable {
 		this._view?.dispose();
 
 		this._view = this.getView(type);
+		void this._view.show({ preserveFocus: false });
 		return this._view as TreeViewByType[T];
 	}
 
