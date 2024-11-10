@@ -36,7 +36,7 @@ export interface AIModel<
 > {
 	readonly id: Model;
 	readonly name: string;
-	readonly maxTokens: number;
+	readonly maxTokens: { input: number; output: number };
 	readonly provider: {
 		id: Provider;
 		name: string;
@@ -580,11 +580,11 @@ async function confirmAIProviderToS<Provider extends AIProviders>(
 
 export function getMaxCharacters(model: AIModel, outputLength: number): number {
 	const tokensPerCharacter = 3.1;
-	const max = model.maxTokens * tokensPerCharacter - outputLength / tokensPerCharacter;
+	const max = model.maxTokens.input * tokensPerCharacter - outputLength / tokensPerCharacter;
 	return Math.floor(max - max * 0.1);
 }
 
-export async function getApiKey(
+export async function getOrPromptApiKey(
 	storage: Storage,
 	provider: { id: AIProviders; name: string; validator: (value: string) => boolean; url: string },
 ): Promise<string | undefined> {

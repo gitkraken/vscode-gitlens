@@ -1,24 +1,8 @@
-import { fetch } from '@env/fetch';
 import type { CancellationToken } from 'vscode';
-import type { TelemetryEvents } from '../constants.telemetry';
-import type { Container } from '../container';
-import { CancellationError } from '../errors';
-import { sum } from '../system/iterable';
-import { interpolate } from '../system/string';
-import { configuration } from '../system/vscode/configuration';
-import type { Storage } from '../system/vscode/storage';
-import type { AIModel, AIProvider } from './aiProviderService';
-import { getApiKey as getApiKeyCore, getMaxCharacters, showDiffTruncationWarning } from './aiProviderService';
-import {
-	explainChangesSystemPrompt,
-	explainChangesUserPrompt,
-	generateCloudPatchMessageSystemPrompt,
-	generateCloudPatchMessageUserPrompt,
-	generateCodeSuggestMessageSystemPrompt,
-	generateCodeSuggestMessageUserPrompt,
-	generateCommitMessageSystemPrompt,
-	generateCommitMessageUserPrompt,
-} from './prompts';
+import type { AIModel } from './aiProviderService';
+import { getMaxCharacters } from './aiProviderService';
+import type { ChatMessage, SystemMessage } from './openAICompatibleProvider';
+import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 const provider = { id: 'anthropic', name: 'Anthropic' } as const;
 
@@ -28,285 +12,126 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-5-sonnet-latest',
 		name: 'Claude 3.5 Sonnet',
-		maxTokens: 200000,
+		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
 	},
 	{
 		id: 'claude-3-5-sonnet-20240620',
 		name: 'Claude 3.5 Sonnet',
-		maxTokens: 200000,
+		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
 		hidden: true,
 	},
 	{
 		id: 'claude-3-5-haiku-latest',
 		name: 'Claude 3.5 Haiku',
-		maxTokens: 200000,
+		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
 	},
 	{
 		id: 'claude-3-5-haiku-20241022',
 		name: 'Claude 3.5 Haiku',
-		maxTokens: 200000,
+		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
 		hidden: true,
 	},
 	{
 		id: 'claude-3-opus-latest',
 		name: 'Claude 3 Opus',
-		maxTokens: 200000,
+		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 	},
 	{
 		id: 'claude-3-opus-20240229',
 		name: 'Claude 3 Opus',
-		maxTokens: 200000,
+		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 		hidden: true,
 	},
 	{
 		id: 'claude-3-sonnet-20240229',
 		name: 'Claude 3 Sonnet',
-		maxTokens: 200000,
+		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 	},
 	{
 		id: 'claude-3-haiku-20240307',
 		name: 'Claude 3 Haiku',
-		maxTokens: 200000,
+		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 		default: true,
 	},
-	{ id: 'claude-2.1', name: 'Claude 2.1', maxTokens: 200000, provider: provider },
+	{
+		id: 'claude-2.1',
+		name: 'Claude 2.1',
+		maxTokens: { input: 204800, output: 4096 },
+		provider: provider,
+	},
 ];
 
-export class AnthropicProvider implements AIProvider<typeof provider.id> {
+export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
-
-	constructor(private readonly container: Container) {}
-
-	dispose() {}
+	protected readonly config = {
+		keyUrl: 'https://console.anthropic.com/account/keys',
+		keyValidator: /(?:sk-)?[a-zA-Z0-9-_]{32,}/,
+	};
 
 	getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
 		return Promise.resolve(models);
 	}
 
-	async generateMessage(
-		model: AnthropicModel,
-		diff: string,
-		reporting: TelemetryEvents['ai/generate'],
-		promptConfig: {
-			type: 'commit' | 'cloud-patch' | 'code-suggestion';
-			systemPrompt: string;
-			userPrompt: string;
-			customInstructions?: string;
-		},
-		options?: { cancellation?: CancellationToken; context?: string },
-	): Promise<string | undefined> {
-		const apiKey = await getApiKey(this.container.storage);
-		if (apiKey == null) return undefined;
-
-		try {
-			const [result, maxCodeCharacters] = await this.makeRequest(
-				model,
-				apiKey,
-				promptConfig.systemPrompt,
-				(max, retries) => {
-					const messages: Message[] = [
-						{
-							role: 'user',
-							content: [
-								{
-									type: 'text',
-									text: interpolate(promptConfig.userPrompt, {
-										diff: diff.substring(0, max),
-										context: options?.context ?? '',
-										instructions: promptConfig.customInstructions ?? '',
-									}),
-								},
-							],
-						},
-					];
-
-					reporting['retry.count'] = retries;
-					reporting['input.length'] =
-						(reporting['input.length'] ?? 0) +
-						sum(messages, m => sum(m.content, c => (c.type === 'text' ? c.text.length : 0)));
-
-					return messages;
-				},
-				4096,
-				options?.cancellation,
-			);
-
-			if (diff.length > maxCodeCharacters) {
-				showDiffTruncationWarning(maxCodeCharacters, model);
-			}
-
-			return result;
-		} catch (ex) {
-			throw new Error(`Unable to generate ${promptConfig.type} message: ${ex.message}`);
-		}
+	protected getUrl(_model: AIModel<typeof provider.id>): string {
+		return 'https://api.anthropic.com/v1/messages';
 	}
 
-	async generateDraftMessage(
-		model: AnthropicModel,
-		diff: string,
-		reporting: TelemetryEvents['ai/generate'],
-		options?: { cancellation?: CancellationToken; context?: string; codeSuggestion?: boolean },
-	): Promise<string | undefined> {
-		let codeSuggestion;
-		if (options != null) {
-			({ codeSuggestion, ...options } = options ?? {});
-		}
-
-		return this.generateMessage(
-			model,
-			diff,
-			reporting,
-			codeSuggestion
-				? {
-						type: 'code-suggestion',
-						systemPrompt: generateCodeSuggestMessageSystemPrompt,
-						userPrompt: generateCodeSuggestMessageUserPrompt,
-						customInstructions: configuration.get('ai.generateCodeSuggestMessage.customInstructions'),
-				  }
-				: {
-						type: 'cloud-patch',
-						systemPrompt: generateCloudPatchMessageSystemPrompt,
-						userPrompt: generateCloudPatchMessageUserPrompt,
-						customInstructions: configuration.get('ai.generateCloudPatchMessage.customInstructions'),
-				  },
-			options,
-		);
-	}
-
-	async generateCommitMessage(
-		model: AnthropicModel,
-		diff: string,
-		reporting: TelemetryEvents['ai/generate'],
-		options?: { cancellation?: CancellationToken; context?: string },
-	): Promise<string | undefined> {
-		return this.generateMessage(
-			model,
-			diff,
-			reporting,
-			{
-				type: 'commit',
-				systemPrompt: generateCommitMessageSystemPrompt,
-				userPrompt: generateCommitMessageUserPrompt,
-				customInstructions: configuration.get('ai.generateCommitMessage.customInstructions') ?? '',
-			},
-			options,
-		);
-	}
-
-	async explainChanges(
-		model: AnthropicModel,
-		message: string,
-		diff: string,
-		reporting: TelemetryEvents['ai/explain'],
-		options?: { cancellation?: CancellationToken },
-	): Promise<string | undefined> {
-		const apiKey = await getApiKey(this.container.storage);
-		if (apiKey == null) return undefined;
-
-		try {
-			const [result, maxCodeCharacters] = await this.makeRequest(
-				model,
-				apiKey,
-				explainChangesSystemPrompt,
-				(max, retries) => {
-					const code = diff.substring(0, max);
-					const messages: Message[] = [
-						{
-							role: 'user',
-							content: [
-								{
-									type: 'text',
-									text: interpolate(explainChangesUserPrompt, {
-										diff: code,
-										message: message,
-										instructions: configuration.get('ai.explainChanges.customInstructions') ?? '',
-									}),
-								},
-							],
-						},
-					];
-
-					reporting['retry.count'] = retries;
-					reporting['input.length'] =
-						(reporting['input.length'] ?? 0) +
-						sum(messages, m => sum(m.content, c => (c.type === 'text' ? c.text.length : 0)));
-
-					return messages;
-				},
-				4096,
-				options?.cancellation,
-			);
-
-			if (diff.length > maxCodeCharacters) {
-				showDiffTruncationWarning(maxCodeCharacters, model);
-			}
-
-			return result;
-		} catch (ex) {
-			throw new Error(`Unable to explain changes: ${ex.message}`);
-		}
-	}
-
-	private async fetch(
+	protected override getHeaders(
+		_model: AIModel<typeof provider.id>,
+		_url: string,
 		apiKey: string,
-		request: AnthropicMessageRequest,
-		cancellation: CancellationToken | undefined,
-	): ReturnType<typeof fetch> {
-		let aborter: AbortController | undefined;
-		if (cancellation != null) {
-			aborter = new AbortController();
-			cancellation.onCancellationRequested(() => aborter?.abort());
-		}
-
-		try {
-			return await fetch('https://api.anthropic.com/v1/messages', {
-				headers: {
-					Accept: 'application/json',
-					Authorization: `Bearer ${apiKey}`,
-					'Content-Type': 'application/json',
-					'X-API-Key': apiKey,
-					'anthropic-version': '2023-06-01',
-				},
-				method: 'POST',
-				body: JSON.stringify(request),
-			});
-		} catch (ex) {
-			if (ex.name === 'AbortError') throw new CancellationError(ex);
-			throw ex;
-		}
+	): Record<string, string> {
+		return {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${apiKey}`,
+			'x-api-key': apiKey,
+			'anthropic-version': '2023-06-01',
+		};
 	}
 
-	private async makeRequest(
-		model: AnthropicModel,
+	override async fetch(
+		model: AIModel<typeof provider.id>,
 		apiKey: string,
-		system: string,
-		messages: (maxCodeCharacters: number, retries: number) => Message[],
-		maxTokens: number,
+		messages: (maxCodeCharacters: number, retries: number) => [SystemMessage, ...ChatMessage[]],
+		outputTokens: number,
 		cancellation: CancellationToken | undefined,
 	): Promise<[result: string, maxCodeCharacters: number]> {
 		let retries = 0;
 		let maxCodeCharacters = getMaxCharacters(model, 2600);
 
 		while (true) {
+			// Split the system message from the rest of the messages
+			const [system, ...msgs] = messages(maxCodeCharacters, retries);
+
 			const request: AnthropicMessageRequest = {
 				model: model.id,
-				messages: messages(maxCodeCharacters, retries),
-				system: system,
+				messages: msgs,
+				system: system.content,
 				stream: false,
-				max_tokens: maxTokens,
+				max_tokens: Math.min(outputTokens, model.maxTokens.output),
 			};
 
-			const rsp = await this.fetch(apiKey, request, cancellation);
+			const rsp = await this.fetchCore(model, apiKey, request, cancellation);
 			if (!rsp.ok) {
+				if (rsp.status === 404) {
+					throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
+				}
+				if (rsp.status === 429) {
+					throw new Error(
+						`(${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
+					);
+				}
+
 				let json;
 				try {
 					json = (await rsp.json()) as AnthropicError | undefined;
@@ -336,15 +161,6 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 	}
 }
 
-async function getApiKey(storage: Storage): Promise<string | undefined> {
-	return getApiKeyCore(storage, {
-		id: provider.id,
-		name: provider.name,
-		validator: v => /(?:sk-)?[a-zA-Z0-9-_]{32,}/.test(v),
-		url: 'https://console.anthropic.com/account/keys',
-	});
-}
-
 interface AnthropicError {
 	type: 'error';
 	error: {
@@ -360,24 +176,9 @@ interface AnthropicError {
 	};
 }
 
-interface Message {
-	role: 'user' | 'assistant';
-	content: (
-		| { type: 'text'; text: string }
-		| {
-				type: 'image';
-				source: {
-					type: 'base64';
-					media_type: `image/${'jpeg' | 'png' | 'gif' | 'webp'}`;
-					data: string;
-				};
-		  }
-	)[];
-}
-
 interface AnthropicMessageRequest {
 	model: AnthropicModel['id'];
-	messages: Message[];
+	messages: ChatMessage[];
 	system?: string;
 
 	max_tokens: number;

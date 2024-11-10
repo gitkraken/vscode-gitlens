@@ -1,24 +1,6 @@
-import { fetch } from '@env/fetch';
 import type { CancellationToken } from 'vscode';
-import type { TelemetryEvents } from '../constants.telemetry';
-import type { Container } from '../container';
-import { CancellationError } from '../errors';
-import { sum } from '../system/iterable';
-import { interpolate } from '../system/string';
-import { configuration } from '../system/vscode/configuration';
-import type { Storage } from '../system/vscode/storage';
-import type { AIModel, AIProvider } from './aiProviderService';
-import { getApiKey as getApiKeyCore, getMaxCharacters, showDiffTruncationWarning } from './aiProviderService';
-import {
-	explainChangesSystemPrompt,
-	explainChangesUserPrompt,
-	generateCloudPatchMessageSystemPrompt,
-	generateCloudPatchMessageUserPrompt,
-	generateCodeSuggestMessageSystemPrompt,
-	generateCodeSuggestMessageUserPrompt,
-	generateCommitMessageSystemPrompt,
-	generateCommitMessageUserPrompt,
-} from './prompts';
+import type { AIModel } from './aiProviderService';
+import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 const provider = { id: 'gemini', name: 'Google' } as const;
 
@@ -27,330 +9,49 @@ const models: GeminiModel[] = [
 	{
 		id: 'gemini-1.5-pro-latest',
 		name: 'Gemini 1.5 Pro',
-		maxTokens: 2097152,
+		maxTokens: { input: 2097152, output: 8192 },
 		provider: provider,
 		default: true,
 	},
 	{
 		id: 'gemini-1.5-flash-latest',
 		name: 'Gemini 1.5 Flash',
-		maxTokens: 1048576,
+		maxTokens: { input: 1048576, output: 8192 },
 		provider: provider,
 	},
 	{
 		id: 'gemini-1.5-flash-8b',
 		name: 'Gemini 1.5 Flash 8B',
-		maxTokens: 1048576,
-		provider: provider,
-	},
-	{
-		id: 'gemini-1.0-pro',
-		name: 'Gemini 1.0 Pro',
-		maxTokens: 30720,
+		maxTokens: { input: 1048576, output: 8192 },
 		provider: provider,
 	},
 ];
 
-export class GeminiProvider implements AIProvider<typeof provider.id> {
+export class GeminiProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
-
-	constructor(private readonly container: Container) {}
-
-	dispose() {}
+	protected readonly config = {
+		keyUrl: 'https://aistudio.google.com/app/apikey',
+	};
 
 	getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
 		return Promise.resolve(models);
 	}
 
-	async generateMessage(
-		model: GeminiModel,
-		diff: string,
-		reporting: TelemetryEvents['ai/generate'],
-		promptConfig: {
-			type: 'commit' | 'cloud-patch' | 'code-suggestion';
-			systemPrompt: string;
-			userPrompt: string;
-			customInstructions?: string;
-		},
-		options?: {
-			cancellation?: CancellationToken | undefined;
-			context?: string | undefined;
-		},
-	): Promise<string | undefined> {
-		const apiKey = await getApiKey(this.container.storage);
-		if (apiKey == null) return undefined;
-
-		const retries = 0;
-		const maxCodeCharacters = getMaxCharacters(model, 2600);
-		while (true) {
-			const request: GenerateContentRequest = {
-				systemInstruction: {
-					parts: [
-						{
-							text: promptConfig.systemPrompt,
-						},
-					],
-				},
-				contents: [
-					{
-						role: 'user',
-						parts: [
-							{
-								text: interpolate(promptConfig.userPrompt, {
-									diff: diff.substring(0, maxCodeCharacters),
-									context: options?.context ?? '',
-									instructions: promptConfig.customInstructions ?? '',
-								}),
-							},
-						],
-					},
-				],
-			};
-
-			reporting['retry.count'] = retries;
-			reporting['input.length'] =
-				(reporting['input.length'] ?? 0) +
-				sum(request.systemInstruction?.parts, p => p.text.length) +
-				sum(request.contents, c => sum(c.parts, p => p.text.length));
-
-			const rsp = await this.fetch(model.id, apiKey, request, options?.cancellation);
-			if (!rsp.ok) {
-				let json;
-				try {
-					json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
-				} catch {}
-
-				debugger;
-
-				// if (retries++ < 2 && json?.error?.code === 'context_length_exceeded') {
-				// 	maxCodeCharacters -= 500 * retries;
-				// 	continue;
-				// }
-
-				throw new Error(
-					`Unable to generate ${promptConfig.type} message: (${this.name}:${rsp.status}) ${
-						json?.error?.message || rsp.statusText
-					}`,
-				);
-			}
-
-			if (diff.length > maxCodeCharacters) {
-				showDiffTruncationWarning(maxCodeCharacters, model);
-			}
-
-			const data: GenerateContentResponse = await rsp.json();
-			const message = data.candidates[0].content.parts[0].text.trim();
-			return message;
-		}
+	protected getUrl(_model: AIModel<typeof provider.id>): string {
+		return `https://generativelanguage.googleapis.com/v1beta/chat/completions`;
 	}
 
-	async generateDraftMessage(
-		model: GeminiModel,
-		diff: string,
-		reporting: TelemetryEvents['ai/generate'],
-		options?: {
-			cancellation?: CancellationToken | undefined;
-			context?: string | undefined;
-			codeSuggestion?: boolean | undefined;
-		},
-	): Promise<string | undefined> {
-		let codeSuggestion;
-		if (options != null) {
-			({ codeSuggestion, ...options } = options ?? {});
-		}
-
-		return this.generateMessage(
-			model,
-			diff,
-			reporting,
-			codeSuggestion
-				? {
-						type: 'code-suggestion',
-						systemPrompt: generateCodeSuggestMessageSystemPrompt,
-						userPrompt: generateCodeSuggestMessageUserPrompt,
-						customInstructions: configuration.get('ai.generateCodeSuggestMessage.customInstructions'),
-				  }
-				: {
-						type: 'cloud-patch',
-						systemPrompt: generateCloudPatchMessageSystemPrompt,
-						userPrompt: generateCloudPatchMessageUserPrompt,
-						customInstructions: configuration.get('ai.generateCloudPatchMessage.customInstructions'),
-				  },
-			options,
-		);
-	}
-
-	async generateCommitMessage(
-		model: GeminiModel,
-		diff: string,
-		reporting: TelemetryEvents['ai/generate'],
-		options?: { cancellation?: CancellationToken; context?: string },
-	): Promise<string | undefined> {
-		return this.generateMessage(
-			model,
-			diff,
-			reporting,
-			{
-				type: 'commit',
-				systemPrompt: generateCommitMessageSystemPrompt,
-				userPrompt: generateCommitMessageUserPrompt,
-				customInstructions: configuration.get('ai.generateCommitMessage.customInstructions'),
-			},
-			options,
-		);
-	}
-
-	async explainChanges(
-		model: GeminiModel,
-		message: string,
-		diff: string,
-		reporting: TelemetryEvents['ai/explain'],
-		options?: { cancellation?: CancellationToken },
-	): Promise<string | undefined> {
-		const apiKey = await getApiKey(this.container.storage);
-		if (apiKey == null) return undefined;
-
-		const retries = 0;
-		const maxCodeCharacters = getMaxCharacters(model, 3000);
-		while (true) {
-			const code = diff.substring(0, maxCodeCharacters);
-
-			const request: GenerateContentRequest = {
-				systemInstruction: { parts: [{ text: explainChangesSystemPrompt }] },
-				contents: [
-					{
-						role: 'user',
-						parts: [
-							{
-								text: interpolate(explainChangesUserPrompt, {
-									diff: code,
-									message: message,
-									instructions: configuration.get('ai.explainChanges.customInstructions') ?? '',
-								}),
-							},
-						],
-					},
-				],
-			};
-
-			reporting['retry.count'] = retries;
-			reporting['input.length'] =
-				(reporting['input.length'] ?? 0) +
-				sum(request.systemInstruction?.parts, p => p.text.length) +
-				sum(request.contents, c => sum(c.parts, p => p.text.length));
-
-			const rsp = await this.fetch(model.id, apiKey, request, options?.cancellation);
-			if (!rsp.ok) {
-				let json;
-				try {
-					json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
-				} catch {}
-
-				debugger;
-
-				// if (retries++ < 2 && json?.error?.code === 'context_length_exceeded') {
-				// 	maxCodeCharacters -= 500 * retries;
-				// 	continue;
-				// }
-
-				throw new Error(
-					`Unable to explain changes: (${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText}`,
-				);
-			}
-
-			if (diff.length > maxCodeCharacters) {
-				showDiffTruncationWarning(maxCodeCharacters, model);
-			}
-
-			const data: GenerateContentResponse = await rsp.json();
-			const result = data.candidates[0].content.parts[0].text.trim();
-			return result;
-		}
-	}
-
-	private async fetch(
-		model: GeminiModel['id'],
+	protected override fetchCore(
+		model: AIModel<typeof provider.id>,
 		apiKey: string,
-		request: GenerateContentRequest,
+		request: object,
 		cancellation: CancellationToken | undefined,
 	) {
-		let aborter: AbortController | undefined;
-		if (cancellation != null) {
-			aborter = new AbortController();
-			cancellation.onCancellationRequested(() => aborter?.abort());
+		if ('max_tokens' in request) {
+			const { max_tokens: _, ...rest } = request;
+			request = rest;
 		}
-
-		try {
-			return await fetch(getUrl(model), {
-				headers: {
-					Accept: 'application/json',
-					'Content-Type': 'application/json',
-					'x-goog-api-key': apiKey,
-				},
-				method: 'POST',
-				body: JSON.stringify(request),
-				signal: aborter?.signal,
-			});
-		} catch (ex) {
-			if (ex.name === 'AbortError') throw new CancellationError(ex);
-
-			throw ex;
-		}
+		return super.fetchCore(model, apiKey, request, cancellation);
 	}
-}
-
-async function getApiKey(storage: Storage): Promise<string | undefined> {
-	return getApiKeyCore(storage, {
-		id: provider.id,
-		name: provider.name,
-		validator: () => true,
-		url: 'https://aistudio.google.com/app/apikey',
-	});
-}
-
-function getUrl(model: GeminiModel['id']): string {
-	return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-}
-
-interface Content {
-	parts: Part[];
-	role?: 'model' | 'user';
-}
-
-type Part = TextPart;
-interface TextPart {
-	text: string;
-}
-
-interface GenerationConfig {
-	stopSequences?: string[];
-	candidateCount?: number;
-	maxOutputTokens?: number;
-	temperature?: number;
-	topP?: number;
-	topK?: number;
-}
-
-interface GenerateContentRequest {
-	contents: Content[];
-	systemInstruction?: Content;
-	generationConfig?: GenerationConfig;
-}
-
-interface Candidate {
-	content: Content;
-	finishReason?: 'FINISH_REASON_UNSPECIFIED' | 'STOP' | 'MAX_TOKENS' | 'SAFETY' | 'RECITATION' | 'OTHER';
-	safetyRatings: any[];
-	citationMetadata: any;
-	tokenCount: number;
-	index: number;
-}
-
-interface GenerateContentResponse {
-	candidates: Candidate[];
-	promptFeedback: {
-		blockReason: 'BLOCK_REASON_UNSPECIFIED' | 'SAFETY' | 'OTHER';
-		safetyRatings: any[];
-	};
 }
