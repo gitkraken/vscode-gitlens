@@ -289,6 +289,7 @@ export type CoreCommands =
 	| 'workbench.action.nextEditor'
 	| 'workbench.action.openWalkthrough'
 	| 'workbench.action.toggleMaximizedPanel'
+	| 'workbench.extensions.action.switchToRelease'
 	| 'workbench.extensions.installExtension'
 	| 'workbench.extensions.uninstallExtension'
 	| 'workbench.files.action.focusFilesExplorer'
