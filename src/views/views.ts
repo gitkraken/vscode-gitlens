@@ -98,67 +98,94 @@ export class Views implements Disposable {
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand('gitlens.views.branches.close', () => this.toggleScmViewGrouping('branches', true)),
-			registerCommand('gitlens.views.scm.grouped.branches.moveToNewView', () =>
+			registerCommand('gitlens.views.branches.regroup', () => this.toggleScmViewGrouping('branches', true)),
+			registerCommand('gitlens.views.scm.grouped.branches.detach', () =>
 				this.toggleScmViewGrouping('branches', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.branches.regroup', () =>
+				this.toggleScmViewGrouping('branches', true),
 			),
 			registerCommand('gitlens.views.scm.grouped.branches.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('branches'),
 			),
-			registerCommand('gitlens.views.commits.close', () => this.toggleScmViewGrouping('commits', true)),
-			registerCommand('gitlens.views.scm.grouped.commits.moveToNewView', () =>
+			registerCommand('gitlens.views.commits.regroup', () => this.toggleScmViewGrouping('commits', true)),
+			registerCommand('gitlens.views.scm.grouped.commits.detach', () =>
 				this.toggleScmViewGrouping('commits', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.commits.regroup', () =>
+				this.toggleScmViewGrouping('commits', true),
 			),
 			registerCommand('gitlens.views.scm.grouped.commits.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('commits'),
 			),
-			registerCommand('gitlens.views.contributors.close', () => this.toggleScmViewGrouping('contributors', true)),
-			registerCommand('gitlens.views.scm.grouped.contributors.moveToNewView', () =>
+			registerCommand('gitlens.views.contributors.regroup', () =>
+				this.toggleScmViewGrouping('contributors', true),
+			),
+			registerCommand('gitlens.views.scm.grouped.contributors.detach', () =>
 				this.toggleScmViewGrouping('contributors', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.contributors.regroup', () =>
+				this.toggleScmViewGrouping('contributors', true),
 			),
 			registerCommand('gitlens.views.scm.grouped.contributors.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('contributors'),
 			),
-			registerCommand('gitlens.views.remotes.close', () => this.toggleScmViewGrouping('remotes', true)),
-			registerCommand('gitlens.views.scm.grouped.remotes.moveToNewView', () =>
+			registerCommand('gitlens.views.remotes.regroup', () => this.toggleScmViewGrouping('remotes', true)),
+			registerCommand('gitlens.views.scm.grouped.remotes.detach', () =>
 				this.toggleScmViewGrouping('remotes', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.remotes.regroup', () =>
+				this.toggleScmViewGrouping('remotes', true),
 			),
 			registerCommand('gitlens.views.scm.grouped.remotes.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('remotes'),
 			),
-			registerCommand('gitlens.views.repositories.close', () => this.toggleScmViewGrouping('repositories', true)),
-			registerCommand('gitlens.views.scm.grouped.repositories.moveToNewView', () =>
+			registerCommand('gitlens.views.repositories.regroup', () =>
+				this.toggleScmViewGrouping('repositories', true),
+			),
+			registerCommand('gitlens.views.scm.grouped.repositories.detach', () =>
 				this.toggleScmViewGrouping('repositories', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.repositories.regroup', () =>
+				this.toggleScmViewGrouping('repositories', true),
 			),
 			registerCommand('gitlens.views.scm.grouped.repositories.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('repositories'),
 			),
-			registerCommand('gitlens.views.searchAndCompare.close', () =>
+			registerCommand('gitlens.views.searchAndCompare.regroup', () =>
 				this.toggleScmViewGrouping('searchAndCompare', true),
 			),
-			registerCommand('gitlens.views.scm.grouped.searchAndCompare.moveToNewView', () =>
+			registerCommand('gitlens.views.scm.grouped.searchAndCompare.detach', () =>
 				this.toggleScmViewGrouping('searchAndCompare', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.searchAndCompare.regroup', () =>
+				this.toggleScmViewGrouping('searchAndCompare', true),
 			),
 			registerCommand('gitlens.views.scm.grouped.searchAndCompare.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('searchAndCompare'),
 			),
-			registerCommand('gitlens.views.stashes.close', () => this.toggleScmViewGrouping('stashes', true)),
-			registerCommand('gitlens.views.scm.grouped.stashes.moveToNewView', () =>
+			registerCommand('gitlens.views.stashes.regroup', () => this.toggleScmViewGrouping('stashes', true)),
+			registerCommand('gitlens.views.scm.grouped.stashes.detach', () =>
 				this.toggleScmViewGrouping('stashes', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.stashes.regroup', () =>
+				this.toggleScmViewGrouping('stashes', true),
 			),
 			registerCommand('gitlens.views.scm.grouped.stashes.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('stashes'),
 			),
-			registerCommand('gitlens.views.tags.close', () => this.toggleScmViewGrouping('tags', true)),
-			registerCommand('gitlens.views.scm.grouped.tags.moveToNewView', () =>
-				this.toggleScmViewGrouping('tags', false),
-			),
+			registerCommand('gitlens.views.tags.regroup', () => this.toggleScmViewGrouping('tags', true)),
+			registerCommand('gitlens.views.scm.grouped.tags.detach', () => this.toggleScmViewGrouping('tags', false)),
+			registerCommand('gitlens.views.scm.grouped.tags.regroup', () => this.toggleScmViewGrouping('tags', true)),
 			registerCommand('gitlens.views.scm.grouped.tags.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('tags'),
 			),
-			registerCommand('gitlens.views.worktrees.close', () => this.toggleScmViewGrouping('worktrees', true)),
-			registerCommand('gitlens.views.scm.grouped.worktrees.moveToNewView', () =>
+			registerCommand('gitlens.views.worktrees.regroup', () => this.toggleScmViewGrouping('worktrees', true)),
+			registerCommand('gitlens.views.scm.grouped.worktrees.detach', () =>
 				this.toggleScmViewGrouping('worktrees', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.worktrees.regroup', () =>
+				this.toggleScmViewGrouping('worktrees', true),
 			),
 			registerCommand('gitlens.views.scm.grouped.worktrees.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('worktrees'),
