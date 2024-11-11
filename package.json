@@ -19454,7 +19454,7 @@
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "Use on privately-hosted repos requires [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).\n[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22workspaces%22%7D)\n\nStart your free 7-day Pro trial to try GitKraken (GK) Workspaces and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22workspaces%22%7D).",
+				"contents": "Use on privately-hosted repos requires [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).\n[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22workspaces%22%7D)\n\nGet 14 days of GitLens Pro for free - no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22workspaces%22%7D).",
 				"when": "!gitlens:plus"
 			},
 			{
@@ -19502,12 +19502,12 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Use on privately-hosted repos requires [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).\n[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nStart your free 7-day Pro trial to try Worktrees and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
+				"contents": "Use on privately-hosted repos requires [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).\n[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nGet 14 days of GitLens Pro for free - no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nStart your free 7-day Pro trial to try Worktrees and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
+				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nGet 14 days of GitLens Pro for free - no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2 && gitlens:views:scm:grouped:view == worktrees"
 			},
 			{
