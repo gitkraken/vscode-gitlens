@@ -373,7 +373,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		const result: GetOverviewResponse = {
 			repository: {
-				name: repo.name,
+				name: repo.commonRepositoryName ?? repo.name,
 				branches: overviewBranches,
 			},
 		};
