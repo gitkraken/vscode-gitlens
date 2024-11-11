@@ -3,7 +3,7 @@ import { Disposable, workspace } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import { GlyphChars } from '../../constants';
 import type { ContextKeys } from '../../constants.context';
-import type { WebviewTelemetryContext } from '../../constants.telemetry';
+import type { HomeTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { BranchContributorOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
@@ -94,9 +94,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this._disposable.dispose();
 	}
 
-	getTelemetryContext(): WebviewTelemetryContext {
+	getTelemetryContext(): HomeTelemetryContext {
 		return {
 			...this.host.getTelemetryContext(),
+			'context.preview': this.getPreviewEnabled() ? 'v16' : undefined,
 		};
 	}
 
@@ -236,9 +237,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				await this.onChooseRepository();
 				void this.host.respond(ChangeOverviewRepository, e, undefined);
 				break;
-			case TogglePreviewEnabledCommand.is(e):
-				configuration.updateEffective('home.preview.enabled', !this.getPreviewEnabled());
+			case TogglePreviewEnabledCommand.is(e): {
+				const isEnabled = !this.getPreviewEnabled();
+				this.container.telemetry.sendEvent('home/preview/toggled', { enabled: isEnabled, version: 'v16' });
+				configuration.updateEffective('home.preview.enabled', isEnabled);
 				break;
+			}
 		}
 	}
 

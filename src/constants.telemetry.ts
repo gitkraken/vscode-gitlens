@@ -215,6 +215,12 @@ export type TelemetryEvents = {
 		'mode.new': 'wip' | 'commit';
 	} & InspectContextEventData;
 
+	/** Sent when the Home view is shown */
+	'home/preview/toggled': {
+		enabled: boolean;
+		version: string;
+	};
+
 	/** Sent when the Commit Graph is shown */
 	'timeline/shown': WebviewShownEventData & TimelineShownEventData;
 	/** Sent when the user changes the period (timeframe) on the visual file history */
@@ -494,6 +500,10 @@ type GraphShownEventData = GraphContextEventData &
 
 export type GraphTelemetryContext = GraphContextEventData;
 export type GraphShownTelemetryContext = GraphShownEventData;
+
+export type HomeTelemetryContext = {
+	'context.preview': string | undefined;
+} & WebviewTelemetryContext;
 
 type InspectContextEventData = (
 	| ({
