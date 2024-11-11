@@ -53,6 +53,9 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 
 export class ContributorsViewNode extends RepositoriesSubscribeableNode<ContributorsView, ContributorsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.description = this.getViewDescription();
+		this.view.message = undefined;
+
 		if (this.children == null) {
 			let repositories = this.view.container.git.openRepositories;
 			if (
@@ -70,8 +73,6 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 
 				return [];
 			}
-
-			this.view.message = undefined;
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
@@ -100,28 +101,14 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			// const contributors = await child.repo.getContributors({ all: all, ref: ref });
 			if (children.length === 0) {
 				this.view.message = 'No contributors could be found.';
-				if (!this.view.grouped) {
-					this.view.description = undefined;
-				}
-
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.message = undefined;
-
-			if (this.view.grouped) {
-				this.view.description = `${this.view.name.toLocaleLowerCase()} (${children.length})`;
-			} else {
-				this.view.description = `(${children.length})`;
-			}
+			this.view.description = this.getViewDescription(children.length);
 
 			return children;
-		}
-
-		if (!this.view.grouped) {
-			this.view.description = undefined;
 		}
 
 		return this.children;

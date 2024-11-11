@@ -121,6 +121,9 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, CommitsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
+			this.view.description = this.getViewDescription();
+			this.view.message = undefined;
+
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
 				this.view.message = this.view.container.git.isDiscoveringRepositories
@@ -129,8 +132,6 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 
 				return [];
 			}
-
-			this.view.message = undefined;
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
@@ -180,9 +181,9 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 					descParts.push(status);
 				}
 
-				this.view.description = `${this.view.grouped ? 'commits: ' : ''}${descParts.join(
-					` ${GlyphChars.Dot} `,
-				)}`;
+				this.view.description = `${
+					this.view.grouped ? `${this.view.name.toLocaleLowerCase()}: ` : ''
+				}${descParts.join(` ${GlyphChars.Dot} `)}`;
 			}
 
 			children.push(...(await child.getChildren()));
