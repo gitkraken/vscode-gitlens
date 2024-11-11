@@ -286,7 +286,7 @@ export class GlFeatureNav extends GlElement {
 						data-requires="repo"
 						><code-icon class="nav-list__icon" icon="gl-workspaces-view"></code-icon
 						><gl-tooltip hoist class="nav-list__label" content="Show GitKraken Workspaces view">
-							<span>GK Workspaces</span></gl-tooltip
+							<span>Cloud Workspaces</span></gl-tooltip
 						>
 					</a>
 					<gl-feature-badge placement="left" class="nav-list__access" cloud preview></gl-feature-badge>

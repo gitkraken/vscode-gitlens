@@ -226,7 +226,7 @@ _{prefix}/workspace/{workspaceId}_
 
 #### Example Usage
 
-Right click a cloud workspace in the _GK Workspaces_ view and choose "Share -> Copy Link to Workspace". Use this link to open the view to the chosen workspace in GitLens.
+Right click a cloud workspace in the _Cloud Workspaces_ view and choose "Share -> Copy Link to Workspace". Use this link to open the view to the chosen workspace in GitLens.
 
 ## GitKraken Account Links
 

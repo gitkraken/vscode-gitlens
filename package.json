@@ -19194,7 +19194,7 @@
 				},
 				{
 					"id": "gitlens.views.workspaces",
-					"name": "GK Workspaces",
+					"name": "Cloud Workspaces",
 					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-workspaces-view)",
