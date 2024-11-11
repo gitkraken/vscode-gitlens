@@ -215,7 +215,7 @@ export type TelemetryEvents = {
 		'mode.new': 'wip' | 'commit';
 	} & InspectContextEventData;
 
-	/** Sent when the Home view is shown */
+	/** Sent when the new Home view preview is toggled on/off */
 	'home/preview/toggled': {
 		enabled: boolean;
 		version: string;
