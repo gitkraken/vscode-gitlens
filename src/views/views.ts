@@ -65,6 +65,7 @@ export class Views implements Disposable {
 	}
 	set lastSelectedScmGroupedView(type: GroupableTreeViewTypes | undefined) {
 		this._lastSelectedScmGroupedView = type;
+		void setContext('gitlens:views:scm:grouped:view', type);
 		void this.container.storage.storeWorkspace('views:scm:grouped:selected', type);
 	}
 
