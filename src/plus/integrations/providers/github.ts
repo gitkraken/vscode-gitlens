@@ -265,6 +265,11 @@ export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationI
 		return 'https://api.github.com';
 	}
 
+	override access(): Promise<boolean> {
+		// Always allow GitHub cloud integration access
+		return Promise.resolve(true);
+	}
+
 	// This is a special case for GitHub because we use VSCode's GitHub session, and it can be disconnected
 	// outside of the extension.
 	override async refresh() {

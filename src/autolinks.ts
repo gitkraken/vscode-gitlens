@@ -188,6 +188,7 @@ export class Autolinks implements Disposable {
 		await Promise.allSettled(
 			supportedAutolinkIntegrations.map(async integrationId => {
 				const integration = await this.container.integrations.get(integrationId);
+				// Don't check for integration access, as we want to allow autolinks to always be generated
 				const autoLinks = await integration.autolinks();
 				if (autoLinks.length) {
 					refsets.push([integration, autoLinks]);
@@ -198,6 +199,7 @@ export class Autolinks implements Disposable {
 		// Remote-specific autolinks and remote integration autolinks
 		if (remote?.provider != null) {
 			const autoLinks = [];
+			// Don't check for integration access, as we want to allow autolinks to always be generated
 			const integrationAutolinks = await (await remote.getIntegration())?.autolinks();
 			if (integrationAutolinks?.length) {
 				autoLinks.push(...integrationAutolinks);
@@ -293,7 +295,7 @@ export class Autolinks implements Disposable {
 		let integration = await remote?.getIntegration();
 		if (integration != null) {
 			const connected = integration.maybeConnected ?? (await integration.isConnected());
-			if (!connected) {
+			if (!connected || !(await integration.access())) {
 				integration = undefined;
 			}
 		}
@@ -305,7 +307,7 @@ export class Autolinks implements Disposable {
 				: undefined;
 			if (linkIntegration != null) {
 				const connected = linkIntegration.maybeConnected ?? (await linkIntegration.isConnected());
-				if (!connected) {
+				if (!connected || !(await linkIntegration.access())) {
 					linkIntegration = undefined;
 				}
 			}
