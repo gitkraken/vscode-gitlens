@@ -67,7 +67,7 @@ export class GlPromo extends LitElement {
 		if (this.type === 'link') {
 			return html`<a
 				class="link"
-				href="${this.promo.command ?? 'command:gitlens.plus.upgrade'}"
+				href="${this.promo.command?.command ?? 'command:gitlens.plus.upgrade'}"
 				title="${ifDefined(this.promo.command?.tooltip)}"
 				>${promoHtml}</a
 			>`;
@@ -81,12 +81,12 @@ export class GlPromo extends LitElement {
 		switch (promo.key) {
 			case 'pro50':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Limited-Time sale: <b>Save 33% or more</b> on your 1st seat of Pro</span
+					><b>Save 33% or more</b> on your 1st seat of Pro</span
 				>`;
 
-			case 'devexdays':
+			case 'gitlens16':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Limited-time sale: <b>Save up to 80%</b> on GitLens Pro</span
+					><b>Save more than 55%</b> during our GitLens 16 sale!</span
 				>`;
 		}
 	}
