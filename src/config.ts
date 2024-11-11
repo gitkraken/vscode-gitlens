@@ -627,7 +627,8 @@ export interface ViewsCommonConfig {
 	readonly scm: {
 		grouped: {
 			readonly enabled: boolean;
-			readonly views: GroupableTreeViewTypes[];
+			readonly default: GroupableTreeViewTypes;
+			readonly views: Record<GroupableTreeViewTypes, boolean>;
 		};
 	};
 	readonly openChangesInMultiDiffEditor: boolean;

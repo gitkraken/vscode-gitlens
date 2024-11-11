@@ -17,6 +17,7 @@ import type { PatchDetailsWebviewShowingArgs } from '../plus/webviews/patchDetai
 import { registerPatchDetailsWebviewView } from '../plus/webviews/patchDetails/registration';
 import type { TimelineWebviewShowingArgs } from '../plus/webviews/timeline/registration';
 import { registerTimelineWebviewView } from '../plus/webviews/timeline/registration';
+import { first } from '../system/iterable';
 import { executeCoreCommand, registerCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
@@ -49,16 +50,13 @@ import { WorktreesView } from './worktreesView';
 
 export class Views implements Disposable {
 	private readonly _disposable: Disposable;
-	private _scmGroupedView!: ScmGroupedView;
-	private _scmGroupedViewsDisposable: Disposable;
 
 	private _lastSelectedScmGroupedView: GroupableTreeViewTypes | undefined;
 	get lastSelectedScmGroupedView() {
-		const included = configuration.get('views.scm.grouped.views', undefined, []);
-		if (!included.length) return undefined;
+		if (!this._scmGroupedViews.size) return undefined;
 
-		if (!this._lastSelectedScmGroupedView || !included.includes(this._lastSelectedScmGroupedView)) {
-			return included[0];
+		if (!this._lastSelectedScmGroupedView || !this._scmGroupedViews.has(this._lastSelectedScmGroupedView)) {
+			return first(this._scmGroupedViews);
 		}
 
 		return this._lastSelectedScmGroupedView;
@@ -67,6 +65,12 @@ export class Views implements Disposable {
 		this._lastSelectedScmGroupedView = type;
 		void setContext('gitlens:views:scm:grouped:view', type);
 		void this.container.storage.storeWorkspace('views:scm:grouped:selected', type);
+	}
+
+	private _scmGroupedView!: ScmGroupedView;
+	private _scmGroupedViews!: Set<GroupableTreeViewTypes>;
+	get scmGroupedViews() {
+		return this._scmGroupedViews;
 	}
 
 	constructor(
@@ -81,19 +85,35 @@ export class Views implements Disposable {
 			...this.registerCommands(),
 		);
 
-		this._lastSelectedScmGroupedView = this.container.storage.getWorkspace('views:scm:grouped:selected');
-		this._scmGroupedViewsDisposable = Disposable.from(...this.registerScmGroupedViews());
+		this._lastSelectedScmGroupedView = this.container.storage.getWorkspace(
+			'views:scm:grouped:selected',
+			configuration.get('views.scm.grouped.default'),
+		);
+		this.updateScmGroupedViewsRegistration();
 	}
 
 	dispose() {
+		this._scmGroupedView?.dispose();
+		this._branchesView?.dispose();
+		this._commitsView?.dispose();
+		this._contributorsView?.dispose();
+		this._remotesView?.dispose();
+		this._repositoriesView?.dispose();
+		this._searchAndCompareView?.dispose();
+		this._stashesView?.dispose();
+		this._tagsView?.dispose();
+		this._worktreesView?.dispose();
+
 		this._disposable.dispose();
-		this._scmGroupedViewsDisposable.dispose();
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'views.scm.grouped')) {
-			this._scmGroupedViewsDisposable.dispose();
-			this._scmGroupedViewsDisposable = Disposable.from(...this.registerScmGroupedViews());
+		if (configuration.changed(e, 'views.scm.grouped.default')) {
+			this.lastSelectedScmGroupedView ??= configuration.get('views.scm.grouped.default');
+		}
+
+		if (configuration.changed(e, ['views.scm.grouped.enabled', 'views.scm.grouped.views'])) {
+			this.updateScmGroupedViewsRegistration();
 		}
 	}
 
@@ -216,116 +236,121 @@ export class Views implements Disposable {
 		];
 	}
 
-	private registerScmGroupedViews(): Disposable[] {
-		const groupingEnabled = configuration.get('views.scm.grouped.enabled');
-
-		const included = configuration.get('views.scm.grouped.views', undefined, []);
-
-		void setContext(
-			'gitlens:views:scm:grouped:views',
-			groupingEnabled ? (included.length ? included.join(',') : ' ') : undefined,
-		);
-		void setContext('gitlens:views:scm:grouped:default', groupingEnabled ? included[0] : undefined);
-
-		const views: Disposable[] = [];
-		if (groupingEnabled && included.length) {
-			views.push((this._scmGroupedView = new ScmGroupedView(this.container, this, included)));
-		} else {
-			this._scmGroupedView = undefined!;
-		}
-
-		if (!groupingEnabled || !included.includes('branches')) {
-			views.push((this._branchesView = new BranchesView(this.container)));
-		} else {
-			this._branchesView = undefined;
-		}
-
-		if (!groupingEnabled || !included.includes('commits')) {
-			views.push((this._commitsView = new CommitsView(this.container)));
-		} else {
-			this._commitsView = undefined;
-		}
-
-		if (!groupingEnabled || !included.includes('contributors')) {
-			views.push((this._contributorsView = new ContributorsView(this.container)));
-		} else {
-			this._contributorsView = undefined;
-		}
-
-		if (!groupingEnabled || !included.includes('remotes')) {
-			views.push((this._remotesView = new RemotesView(this.container)));
-		} else {
-			this._remotesView = undefined;
-		}
-
-		if (!groupingEnabled || !included.includes('repositories')) {
-			views.push((this._repositoriesView = new RepositoriesView(this.container)));
-		} else {
-			this._repositoriesView = undefined;
-		}
-
-		if (!groupingEnabled || !included.includes('searchAndCompare')) {
-			views.push((this._searchAndCompareView = new SearchAndCompareView(this.container)));
-		} else {
-			this._searchAndCompareView = undefined;
-		}
-
-		if (!groupingEnabled || !included.includes('stashes')) {
-			views.push((this._stashesView = new StashesView(this.container)));
-		} else {
-			this._stashesView = undefined;
-		}
-
-		if (!groupingEnabled || !included.includes('tags')) {
-			views.push((this._tagsView = new TagsView(this.container)));
-		} else {
-			this._tagsView = undefined;
-		}
-
-		if (!groupingEnabled || !included.includes('worktrees')) {
-			views.push((this._worktreesView = new WorktreesView(this.container)));
-		} else {
-			this._worktreesView = undefined;
-		}
-
-		return views;
-	}
-
 	private async setAsScmGroupedDefaultView(type: GroupableTreeViewTypes) {
-		let included = configuration.get('views.scm.grouped.views', undefined, []);
-		if (!included.includes(type)) return;
-
-		// Move the type to be the first in the list (default)
-		included = [type, ...included.filter(t => t !== type)];
-
 		this.lastSelectedScmGroupedView = type;
-		await configuration.updateEffective('views.scm.grouped.views', included);
+		await configuration.updateEffective('views.scm.grouped.default', type);
 	}
 
 	private async toggleScmViewGrouping(type: GroupableTreeViewTypes, grouped: boolean) {
-		let included = configuration.get('views.scm.grouped.views', undefined, []);
-
-		let changed = false;
 		if (grouped) {
-			if (!included.includes(type)) {
-				changed = true;
+			if (!this._scmGroupedViews.has(type)) {
 				this.lastSelectedScmGroupedView = type;
-				included = included.concat(type);
+				this._scmGroupedViews.add(type);
 			}
-		} else if (included.includes(type)) {
-			changed = true;
+		} else if (this._scmGroupedViews.has(type)) {
 			if (type === this.lastSelectedScmGroupedView) {
 				this.lastSelectedScmGroupedView = undefined;
 			}
-			included = included.filter(t => t !== type);
+			this._scmGroupedViews.delete(type);
 		}
 
-		if (!changed) return;
-
-		await configuration.updateEffective('views.scm.grouped.views', included);
+		await updateScmGroupedViewsInConfig(this._scmGroupedViews);
 
 		// Show the view after the configuration change has been applied
 		setTimeout(() => executeCoreCommand(`gitlens.views.${type}.focus`), 1);
+	}
+
+	private updateScmGroupedViewsRegistration() {
+		const groupingEnabled = configuration.get('views.scm.grouped.enabled');
+
+		const groupedViews = getScmGroupedViewsFromConfig();
+
+		// If we are going from 0 to > 0, we need to force the views to refresh (since there is some VS Code bug)
+		const forceRefresh = groupingEnabled && this._scmGroupedViews?.size === 0 && groupedViews.size;
+
+		this._scmGroupedViews = groupedViews;
+
+		if (forceRefresh) {
+			void setContext('gitlens:views:scm:grouped:refresh', true).then(() =>
+				setContext('gitlens:views:scm:grouped:refresh', undefined).then(() =>
+					this.updateScmGroupedViewsRegistration(),
+				),
+			);
+			return;
+		}
+
+		this._scmGroupedView?.dispose();
+		this._scmGroupedView = undefined!;
+
+		if (!groupingEnabled || !this._scmGroupedViews.has('branches')) {
+			this._branchesView ??= new BranchesView(this.container);
+		} else {
+			this._branchesView?.dispose();
+			this._branchesView = undefined;
+		}
+
+		if (!groupingEnabled || !this._scmGroupedViews.has('commits')) {
+			this._commitsView ??= new CommitsView(this.container);
+		} else {
+			this._commitsView?.dispose();
+			this._commitsView = undefined;
+		}
+
+		if (!groupingEnabled || !this._scmGroupedViews.has('contributors')) {
+			this._contributorsView ??= new ContributorsView(this.container);
+		} else {
+			this._contributorsView?.dispose();
+			this._contributorsView = undefined;
+		}
+
+		if (!groupingEnabled || !this._scmGroupedViews.has('remotes')) {
+			this._remotesView ??= new RemotesView(this.container);
+		} else {
+			this._remotesView?.dispose();
+			this._remotesView = undefined;
+		}
+
+		if (!groupingEnabled || !this._scmGroupedViews.has('repositories')) {
+			this._repositoriesView ??= new RepositoriesView(this.container);
+		} else {
+			this._repositoriesView?.dispose();
+			this._repositoriesView = undefined;
+		}
+
+		if (!groupingEnabled || !this._scmGroupedViews.has('searchAndCompare')) {
+			this._searchAndCompareView ??= new SearchAndCompareView(this.container);
+		} else {
+			this._searchAndCompareView?.dispose();
+			this._searchAndCompareView = undefined;
+		}
+
+		if (!groupingEnabled || !this._scmGroupedViews.has('stashes')) {
+			this._stashesView ??= new StashesView(this.container);
+		} else {
+			this._stashesView?.dispose();
+			this._stashesView = undefined;
+		}
+
+		if (!groupingEnabled || !this._scmGroupedViews.has('tags')) {
+			this._tagsView ??= new TagsView(this.container);
+		} else {
+			this._tagsView?.dispose();
+			this._tagsView = undefined;
+		}
+
+		if (!groupingEnabled || !this._scmGroupedViews.has('worktrees')) {
+			this._worktreesView ??= new WorktreesView(this.container);
+		} else {
+			this._worktreesView?.dispose();
+			this._worktreesView = undefined;
+		}
+
+		if (groupingEnabled && this._scmGroupedViews.size) {
+			this._scmGroupedView ??= new ScmGroupedView(this.container, this);
+		} else {
+			this._scmGroupedView?.dispose();
+			this._scmGroupedView = undefined!;
+		}
 	}
 
 	private _branchesView: BranchesView | undefined;
@@ -560,4 +585,42 @@ export class Views implements Disposable {
 		await view.show({ preserveFocus: !options?.focus });
 		return node;
 	}
+}
+
+const defaultScmGroupedViews: Record<GroupableTreeViewTypes, boolean> = Object.freeze({
+	commits: true,
+	branches: true,
+	remotes: true,
+	stashes: true,
+	tags: true,
+	worktrees: true,
+	contributors: true,
+	repositories: true,
+	searchAndCompare: true,
+});
+
+function getScmGroupedViewsFromConfig() {
+	const groupedViews = {
+		...defaultScmGroupedViews,
+		...configuration.get('views.scm.grouped.views', undefined, defaultScmGroupedViews),
+	};
+	return new Set<GroupableTreeViewTypes>(
+		Object.keys(groupedViews).filter(
+			key => groupedViews[key as GroupableTreeViewTypes],
+		) as GroupableTreeViewTypes[],
+	);
+}
+
+async function updateScmGroupedViewsInConfig(groupedViews: Set<GroupableTreeViewTypes>) {
+	await configuration.updateEffective('views.scm.grouped.views', {
+		commits: groupedViews.has('commits'),
+		branches: groupedViews.has('branches'),
+		remotes: groupedViews.has('remotes'),
+		stashes: groupedViews.has('stashes'),
+		tags: groupedViews.has('tags'),
+		worktrees: groupedViews.has('worktrees'),
+		contributors: groupedViews.has('contributors'),
+		repositories: groupedViews.has('repositories'),
+		searchAndCompare: groupedViews.has('searchAndCompare'),
+	});
 }
