@@ -28,8 +28,8 @@ export const sectionHeadingStyles = css`
 	}
 `;
 
-@customElement('gl-branch-section')
-export class GlBranchSection extends LitElement {
+@customElement('gl-section')
+export class GlSection extends LitElement {
 	static override styles = [
 		sectionHeadingStyles,
 		css`
@@ -39,18 +39,30 @@ export class GlBranchSection extends LitElement {
 		`,
 	];
 
+	override render() {
+		return html`
+			<div class="section">
+				<h3 class="section-heading section-heading--actions">
+					<slot name="heading"></slot><slot name="heading-actions"></slot>
+				</h3>
+				<slot></slot>
+			</div>
+		`;
+	}
+}
+
+@customElement('gl-branch-section')
+export class GlBranchSection extends LitElement {
 	@property({ type: String }) label!: string;
 	@property({ type: Array }) branches!: GetOverviewBranch[];
 
 	override render() {
 		return html`
-			<div class="section">
-				<h3 class="section-heading section-heading--actions">
-					<span>${this.label}</span><slot name="heading-actions"></slot>
-				</h3>
-				<slot></slot>
+			<gl-section>
+				<span slot="heading">${this.label}</span>
+				<span slot="heading-actions"><slot name="heading-actions"></slot></span>
 				${this.branches.map(branch => html`<gl-branch-card .branch=${branch}></gl-branch-card>`)}
-			</div>
+			</gl-section>
 		`;
 	}
 }

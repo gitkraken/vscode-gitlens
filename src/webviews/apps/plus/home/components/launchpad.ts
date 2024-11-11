@@ -3,7 +3,10 @@ import { SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
+import type { BranchGitCommandArgs } from '../../../../../commands/git/branch';
+import { Commands } from '../../../../../constants.commands';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
+import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { GetLaunchpadSummaryResponse } from '../../../../home/protocol';
 import { GetLaunchpadSummary } from '../../../../home/protocol';
@@ -11,11 +14,11 @@ import { AsyncComputedState } from '../../../shared/components/signal-utils';
 import { ipcContext } from '../../../shared/context';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
-import { sectionHeadingStyles } from './branch-section';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/skeleton-loader';
+import './branch-section';
 
 type LaunchpadSummary = GetLaunchpadSummaryResponse;
 
@@ -27,7 +30,6 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	};
 
 	static override styles = [
-		sectionHeadingStyles,
 		css`
 			:host {
 				display: block;
@@ -100,6 +102,16 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		return rsp;
 	});
 
+	get startWorkCommand() {
+		return createCommandLink<BranchGitCommandArgs>(Commands.GitCommandsBranch, {
+			state: {
+				subcommand: 'create',
+			},
+			command: 'branch',
+			confirm: true,
+		});
+	}
+
 	override connectedCallback() {
 		super.connectedCallback();
 
@@ -114,13 +126,15 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 
 	override render() {
 		return html`
-			<div class="section-heading">GitLens Launchpad</div>
-			<div class="summary">${this.renderSummaryResult()}</div>
-			<button-container>
-				<gl-button full class="start-work"
-					><code-icon icon="git-branch" slot="prefix"></code-icon> Start work</gl-button
-				>
-			</button-container>
+			<gl-section>
+				<span slot="heading">GitLens Launchpad</span>
+				<div class="summary">${this.renderSummaryResult()}</div>
+				<button-container>
+					<gl-button full class="start-work" href=${this.startWorkCommand}
+						><code-icon icon="git-branch" slot="prefix"></code-icon> Start work</gl-button
+					>
+				</button-container>
+			</gl-section>
 		`;
 	}
 
@@ -147,11 +161,11 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	private renderSummary(summary: LaunchpadSummary | undefined) {
 		if (summary == null) return nothing;
 		if (summary.total === 0) {
-			return html`<span>You are all caught up!</span>`;
+			return html`<p>You are all caught up!</p>`;
 		}
 		if (!summary.hasGroupedItems) {
-			return html`<span>No pull requests need your attention</span
-				><span>(${summary.total} other pull requests)</span>`;
+			return html`<p>No pull requests need your attention</p>
+				<p>(${summary.total} other pull requests)</p>`;
 		}
 
 		const result: TemplateResult[] = [];
