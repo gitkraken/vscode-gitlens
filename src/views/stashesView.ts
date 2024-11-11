@@ -34,7 +34,7 @@ export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, Sta
 
 export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, StashesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		this.view.description = this.getViewDescription();
+		this.view.description = this.view.getViewDescription();
 		this.view.message = undefined;
 
 		if (this.children == null) {
@@ -69,7 +69,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 				return [];
 			}
 
-			this.view.description = this.getViewDescription(stash.commits.size);
+			this.view.description = this.view.getViewDescription(stash.commits.size);
 
 			return child.getChildren();
 		}

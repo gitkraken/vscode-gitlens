@@ -212,9 +212,7 @@ export abstract class ViewBase<
 		private readonly trackingFeature: TrackedUsageFeatures,
 		public readonly grouped?: boolean,
 	) {
-		if (this.grouped) {
-			this.description = this.name.toLocaleLowerCase();
-		}
+		this.description = this.getViewDescription();
 		this.disposables.push(once(container.onReady)(this.onReady, this));
 
 		if (this.container.debugging || configuration.get('debug')) {
@@ -438,6 +436,13 @@ export abstract class ViewBase<
 
 	getTreeItem(node: ViewNode): TreeItem | Promise<TreeItem> {
 		return node.getTreeItem();
+	}
+
+	getViewDescription(count?: number) {
+		return (
+			`${this.grouped ? `${this.name.toLocaleLowerCase()} ` : ''}${count != null ? `(${count})` : ''}` ||
+			undefined
+		);
 	}
 
 	resolveTreeItem(item: TreeItem, node: ViewNode, token: CancellationToken): TreeItem | Promise<TreeItem> {

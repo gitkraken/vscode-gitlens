@@ -244,20 +244,20 @@ export class Views implements Disposable {
 	private async toggleScmViewGrouping(type: GroupableTreeViewTypes, grouped: boolean) {
 		if (grouped) {
 			if (!this._scmGroupedViews.has(type)) {
-				this.lastSelectedScmGroupedView = type;
 				this._scmGroupedViews.add(type);
+				this.lastSelectedScmGroupedView = type;
 			}
 		} else if (this._scmGroupedViews.has(type)) {
-			if (type === this.lastSelectedScmGroupedView) {
-				this.lastSelectedScmGroupedView = undefined;
-			}
 			this._scmGroupedViews.delete(type);
+			if (type === this.lastSelectedScmGroupedView) {
+				this.lastSelectedScmGroupedView = first(this._scmGroupedViews);
+			}
 		}
 
 		await updateScmGroupedViewsInConfig(this._scmGroupedViews);
 
 		// Show the view after the configuration change has been applied
-		setTimeout(() => executeCoreCommand(`gitlens.views.${type}.focus`), 1);
+		setTimeout(() => executeCoreCommand(`gitlens.views.${grouped ? 'scm.grouped' : type}.focus`), 1);
 	}
 
 	private updateScmGroupedViewsRegistration() {
