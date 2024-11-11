@@ -30,15 +30,15 @@ export class ScmGroupedView implements Disposable {
 
 				executeCommand(`gitlens.views.${this._view.type}.refresh` as Commands);
 			}),
-			registerCommand('gitlens.views.scm.grouped.branches', () => this.setView('branches')),
-			registerCommand('gitlens.views.scm.grouped.commits', () => this.setView('commits')),
-			registerCommand('gitlens.views.scm.grouped.contributors', () => this.setView('contributors')),
-			registerCommand('gitlens.views.scm.grouped.remotes', () => this.setView('remotes')),
-			registerCommand('gitlens.views.scm.grouped.repositories', () => this.setView('repositories')),
-			registerCommand('gitlens.views.scm.grouped.searchAndCompare', () => this.setView('searchAndCompare')),
-			registerCommand('gitlens.views.scm.grouped.stashes', () => this.setView('stashes')),
-			registerCommand('gitlens.views.scm.grouped.tags', () => this.setView('tags')),
-			registerCommand('gitlens.views.scm.grouped.worktrees', () => this.setView('worktrees')),
+			registerCommand('gitlens.views.scm.grouped.branches', () => this.setView('branches', true)),
+			registerCommand('gitlens.views.scm.grouped.commits', () => this.setView('commits', true)),
+			registerCommand('gitlens.views.scm.grouped.contributors', () => this.setView('contributors', true)),
+			registerCommand('gitlens.views.scm.grouped.remotes', () => this.setView('remotes', true)),
+			registerCommand('gitlens.views.scm.grouped.repositories', () => this.setView('repositories', true)),
+			registerCommand('gitlens.views.scm.grouped.searchAndCompare', () => this.setView('searchAndCompare', true)),
+			registerCommand('gitlens.views.scm.grouped.stashes', () => this.setView('stashes', true)),
+			registerCommand('gitlens.views.scm.grouped.tags', () => this.setView('tags', true)),
+			registerCommand('gitlens.views.scm.grouped.worktrees', () => this.setView('worktrees', true)),
 		);
 
 		this._view = this.setView(this.views.lastSelectedScmGroupedView!);
@@ -49,7 +49,7 @@ export class ScmGroupedView implements Disposable {
 		this._view?.dispose();
 	}
 
-	setView<T extends GroupableTreeViewTypes>(type: T): TreeViewByType[T] {
+	setView<T extends GroupableTreeViewTypes>(type: T, focus?: boolean): TreeViewByType[T] {
 		if (!this.views.scmGroupedViews.has(type)) {
 			type = first(this.views.scmGroupedViews) as T;
 		}
@@ -61,7 +61,9 @@ export class ScmGroupedView implements Disposable {
 
 		this._view?.dispose();
 		this._view = this.getView(type);
-		void this._view.show({ preserveFocus: false });
+		if (focus) {
+			void this._view.show({ preserveFocus: false });
+		}
 		this.views.lastSelectedScmGroupedView = type;
 
 		return this._view as TreeViewByType[T];

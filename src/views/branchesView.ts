@@ -48,7 +48,7 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 
 export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView, BranchesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		this.view.description = this.getViewDescription();
+		this.view.description = this.view.getViewDescription();
 		this.view.message = undefined;
 
 		if (this.children == null) {
@@ -91,7 +91,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				return [];
 			}
 
-			this.view.description = this.getViewDescription(branches.values.length);
+			this.view.description = this.view.getViewDescription(branches.values.length);
 
 			return child.getChildren();
 		}
