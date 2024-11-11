@@ -246,6 +246,11 @@ export class Repository implements Disposable {
 		return this._onDidChangeFileSystem.event;
 	}
 
+	private _commonRepositoryName: string | undefined;
+	get commonRepositoryName(): string | undefined {
+		return this._commonRepositoryName;
+	}
+
 	get formattedName(): string {
 		return this.name;
 	}
@@ -256,11 +261,6 @@ export class Repository implements Disposable {
 	private _name: string;
 	get name(): string {
 		return this._name;
-	}
-
-	private _nameWithoutWorktree: string;
-	get nameWithoutWorktree(): string {
-		return this._nameWithoutWorktree;
 	}
 
 	private _idHash: string | undefined;
@@ -306,8 +306,6 @@ export class Repository implements Disposable {
 			// };
 		}
 
-		this._nameWithoutWorktree = this._name;
-
 		// Update the name if it is a worktree
 		void this.git.getGitDir().then(gd => {
 			if (gd?.commonUri == null) return;
@@ -317,7 +315,8 @@ export class Repository implements Disposable {
 				path = path.substring(0, path.length - 5);
 			}
 
-			const prefix = `${basename(path)}: `;
+			this._commonRepositoryName = basename(path);
+			const prefix = `${this._commonRepositoryName}: `;
 			if (!this._name.startsWith(prefix)) {
 				this._name = `${prefix}${this._name}`;
 			}
