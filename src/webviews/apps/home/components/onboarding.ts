@@ -1,15 +1,15 @@
 import { consume } from '@lit/context';
 import { html, LitElement } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import { Commands } from '../../../../constants.commands';
 import { createCommandLink } from '../../../../system/commands';
 import type { State } from '../../../home/protocol';
 import { DismissWalkthroughSection } from '../../../home/protocol';
+import type { GlButton } from '../../shared/components/button';
 import { ipcContext } from '../../shared/context';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
 import { homeBaseStyles, walkthroughProgressStyles } from '../home.css';
-import '../../shared/components/button';
 import '../../shared/components/code-icon';
 import '../../shared/components/overlays/tooltip';
 
@@ -25,11 +25,8 @@ export class GlOnboarding extends LitElement {
 	@state()
 	private _ipc!: HostIpc;
 
-	private dismissWalkthroughSection() {
-		this._state.showWalkthroughProgress = false;
-		this.requestUpdate();
-		this._ipc.sendCommand(DismissWalkthroughSection);
-	}
+	@query('#open-walkthrough')
+	private _openWalkthroughButton!: GlButton;
 
 	override render() {
 		if (!this._state.showWalkthroughProgress) {
@@ -37,7 +34,7 @@ export class GlOnboarding extends LitElement {
 		}
 
 		return html`
-			<section class="walkthrough-progress">
+			<section class="walkthrough-progress" @click=${(e: MouseEvent) => this.onFallthroughClick(e)}>
 				<header class="walkthrough-progress__title">
 					<span
 						>GitLens Walkthrough
@@ -45,13 +42,14 @@ export class GlOnboarding extends LitElement {
 					>
 					<nav>
 						<gl-button
+							id="open-walkthrough"
 							href=${createCommandLink(Commands.OpenWalkthrough, {})}
 							class="walkthrough-progress__button"
 							appearance="toolbar"
 							><code-icon icon="play"></code-icon
 						></gl-button>
 						<gl-button
-							@click=${this.dismissWalkthroughSection.bind(this)}
+							@click=${this.onDismissWalkthrough.bind(this)}
 							class="walkthrough-progress__button"
 							appearance="toolbar"
 							><code-icon icon="x"></code-icon
@@ -64,5 +62,18 @@ export class GlOnboarding extends LitElement {
 				></progress>
 			</section>
 		`;
+	}
+
+	private onDismissWalkthrough() {
+		this._state.showWalkthroughProgress = false;
+		this.requestUpdate();
+		this._ipc.sendCommand(DismissWalkthroughSection);
+	}
+
+	private onFallthroughClick(e: MouseEvent) {
+		if ((e.target as HTMLElement)?.closest('gl-button')) {
+			return;
+		}
+		this._openWalkthroughButton.click();
 	}
 }

@@ -369,6 +369,7 @@ export const walkthroughProgressStyles = css`
 		padding-block: 4px;
 		margin-bottom: 16px;
 		align-items: stretch;
+		cursor: pointer;
 	}
 	.walkthrough-progress__title {
 		display: flex;
