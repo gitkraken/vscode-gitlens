@@ -258,6 +258,11 @@ export class Repository implements Disposable {
 		return this._name;
 	}
 
+	private _nameWithoutWorktree: string;
+	get nameWithoutWorktree(): string {
+		return this._nameWithoutWorktree;
+	}
+
 	private _idHash: string | undefined;
 	get idHash() {
 		if (this._idHash === undefined) {
@@ -300,6 +305,8 @@ export class Repository implements Disposable {
 			// 	index: container.git.repositoryCount,
 			// };
 		}
+
+		this._nameWithoutWorktree = this._name;
 
 		// Update the name if it is a worktree
 		void this.git.getGitDir().then(gd => {
