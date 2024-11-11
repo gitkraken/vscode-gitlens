@@ -322,6 +322,11 @@ export class GitLabIntegration extends GitLabIntegrationBase<HostingIntegrationI
 	protected get apiBaseUrl(): string {
 		return 'https://gitlab.com/api';
 	}
+
+	override access(): Promise<boolean> {
+		// Always allow GitHub cloud integration access
+		return Promise.resolve(true);
+	}
 }
 
 export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<SelfHostedIntegrationId.GitLabSelfHosted> {

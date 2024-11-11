@@ -25,6 +25,7 @@ import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 import { configuration } from '../../system/vscode/configuration';
+import { isSubscriptionStatePaidOrTrial } from '../gk/account/subscription';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationService,
@@ -105,6 +106,11 @@ export abstract class IntegrationBase<
 
 	get icon(): string {
 		return this.id;
+	}
+
+	async access(): Promise<boolean> {
+		const subscription = await this.container.subscription.getSubscription();
+		return isSubscriptionStatePaidOrTrial(subscription.state);
 	}
 
 	autolinks():
