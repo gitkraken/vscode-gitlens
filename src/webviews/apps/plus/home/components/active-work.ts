@@ -24,21 +24,22 @@ export const activeWorkTagName = 'gl-active-work';
 @customElement(activeWorkTagName)
 export class GlActiveWork extends SignalWatcher(LitElement) {
 	static override styles = [
+		branchCardStyles,
+		sectionHeadingStyles,
 		css`
 			:host {
 				display: block;
 				margin-bottom: 2.4rem;
 			}
-		`,
-		branchCardStyles,
-		sectionHeadingStyles,
-		css`
 			.is-end {
 				margin-block-end: 0;
 			}
 			.section-heading-action {
 				--button-padding: 0.1rem 0.2rem 0;
 				margin-block: -1rem;
+			}
+			.heading-icon {
+				color: var(--color-foreground--50);
 			}
 		`,
 	];
@@ -73,7 +74,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	private renderPending() {
 		if (this._overviewState.state == null) {
 			return html`
-				<h3 class="section-heading">Active</h3>
+				<h3 class="section-heading"><skeleton-loader lines="1"></skeleton-loader></h3>
 				<skeleton-loader lines="3"></skeleton-loader>
 			`;
 		}
@@ -86,7 +87,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 		return html`
 			<h3 class="section-heading section-heading--actions">
-				<span>Active (${activeBranches.length})</span>
+				<span><code-icon icon="repo" class="heading-icon"></code-icon> ${overview!.repository.name}</span>
 				${when(
 					this._homeState.repositories.openCount > 1,
 					() =>
@@ -100,40 +101,32 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						></span>`,
 				)}
 			</h3>
-			${activeBranches.map(branch => this.renderRepoBranchCard(overview!.repository.name, branch))}
+			${activeBranches.map(branch => this.renderRepoBranchCard(branch))}
 		`;
 	}
 
-	private renderRepoBranchCard(repoName: string, branch: GetOverviewBranch) {
+	private renderRepoBranchCard(branch: GetOverviewBranch) {
 		const { name, pr, state, workingTreeState, upstream } = branch;
 		return html`
 			<gl-card class="branch-item" active>
-				<p class="branch-item__main">
-					<span class="branch-item__icon">
-						<code-icon icon="repo"></code-icon>
-					</span>
-					<span class="branch-item__name">${repoName}</span>
-				</p>
-				${when(state, () => this.renderBranchStateActions(state, upstream))}
 				<p class="branch-item__main">
 					<span class="branch-item__icon">
 						<code-icon icon=${branch.worktree ? 'gl-worktrees-view' : 'git-branch'}></code-icon>
 					</span>
 					<span class="branch-item__name">${name}</span>
 				</p>
-				${when(workingTreeState, () => this.renderStatus(workingTreeState, state))}
-			</gl-card>
+				${when(state, () => this.renderBranchStateActions(state, upstream))}
 			${when(pr, () => {
-				return html`<gl-card class="branch-item">
-					<p class="branch-item__main">
+					return html` <p class="branch-item__main is-end">
 						<span class="branch-item__icon">
 							<pr-icon state=${pr!.state}></pr-icon>
 						</span>
 						<span class="branch-item__name">${pr!.title}</span>
 						<span class="branch-item__identifier">#${pr!.id}</span>
-					</p>
-				</gl-card>`;
-			})}
+					</p>`;
+				})}
+				${when(workingTreeState, () => this.renderStatus(workingTreeState, state))}
+			</gl-card>
 		`;
 	}
 

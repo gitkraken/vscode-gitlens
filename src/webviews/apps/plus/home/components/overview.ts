@@ -62,7 +62,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	private renderPending() {
 		if (this._overviewState.state == null) {
 			return html`
-				<h3 class="section-heading">Recent</h3>
+				<h3 class="section-heading"><skeleton-loader lines="1"></skeleton-loader></h3>
 				<skeleton-loader lines="3"></skeleton-loader>
 			`;
 		}
