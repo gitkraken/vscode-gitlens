@@ -48,7 +48,7 @@ export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, Rem
 
 export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, RemotesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		this.view.description = this.getViewDescription();
+		this.view.description = this.view.getViewDescription();
 		this.view.message = undefined;
 
 		if (this.children == null) {
@@ -83,7 +83,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 				return [];
 			}
 
-			this.view.description = this.getViewDescription(remotes.length);
+			this.view.description = this.view.getViewDescription(remotes.length);
 
 			return child.getChildren();
 		}

@@ -35,7 +35,7 @@ export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode>
 
 export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		this.view.description = this.getViewDescription();
+		this.view.description = this.view.getViewDescription();
 		this.view.message = undefined;
 
 		if (this.children == null) {
@@ -70,7 +70,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 				return [];
 			}
 
-			this.view.description = this.getViewDescription(tags.values.length);
+			this.view.description = this.view.getViewDescription(tags.values.length);
 
 			return child.getChildren();
 		}

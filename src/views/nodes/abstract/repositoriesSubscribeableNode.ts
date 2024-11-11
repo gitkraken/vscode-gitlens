@@ -31,12 +31,6 @@ export abstract class RepositoriesSubscribeableNode<
 		return szudzikPairing(this.view.container.git.etag, this.view.container.subscription.etag);
 	}
 
-	protected getViewDescription(count?: number) {
-		return `${this.view.grouped ? `${this.view.name.toLocaleLowerCase()} ` : ''}${
-			count != null ? `(${count})` : ''
-		}`;
-	}
-
 	@debug()
 	protected subscribe(): Disposable | Promise<Disposable> {
 		return Disposable.from(

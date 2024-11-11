@@ -53,7 +53,7 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 
 export class ContributorsViewNode extends RepositoriesSubscribeableNode<ContributorsView, ContributorsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		this.view.description = this.getViewDescription();
+		this.view.description = this.view.getViewDescription();
 		this.view.message = undefined;
 
 		if (this.children == null) {
@@ -106,7 +106,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 				return [];
 			}
 
-			this.view.description = this.getViewDescription(children.length);
+			this.view.description = this.view.getViewDescription(children.length);
 
 			return children;
 		}

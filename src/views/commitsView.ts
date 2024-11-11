@@ -121,7 +121,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, CommitsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			this.view.description = this.getViewDescription();
+			this.view.description = this.view.getViewDescription();
 			this.view.message = undefined;
 
 			const repositories = this.view.container.git.openRepositories;

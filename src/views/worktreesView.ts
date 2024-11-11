@@ -41,13 +41,8 @@ export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView,
 }
 
 export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesView, WorktreesRepositoryNode> {
-	protected override getViewDescription(count?: number): string {
-		const description = super.getViewDescription(count);
-		return description ? `${description} \u00a0\u2022\u00a0 ${proBadge}` : proBadge;
-	}
-
 	async getChildren(): Promise<ViewNode[]> {
-		this.view.description = this.getViewDescription();
+		this.view.description = this.view.getViewDescription();
 		this.view.message = undefined;
 
 		if (this.children == null) {
@@ -84,7 +79,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 				return [];
 			}
 
-			this.view.description = this.getViewDescription(grandChildren.length);
+			this.view.description = this.view.getViewDescription(grandChildren.length);
 
 			return grandChildren;
 		}
@@ -103,12 +98,11 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 
 	constructor(container: Container, grouped?: boolean) {
 		super(container, 'worktrees', 'Worktrees', 'worktreesView', grouped);
+	}
 
-		if (this.grouped) {
-			this.description = `${this.name.toLocaleLowerCase()} \u00a0\u2022\u00a0 ${proBadge}`;
-		} else {
-			this.description = proBadge;
-		}
+	override getViewDescription(count?: number): string {
+		const description = super.getViewDescription(count);
+		return description ? `${description} \u00a0\u2022\u00a0 ${proBadge}` : proBadge;
 	}
 
 	override get canReveal(): boolean {
