@@ -708,7 +708,8 @@ async function getOverviewBranches(
 
 		const contributor = contributors.get(branch.id);
 		if (contributor != null) {
-			const owner = contributor.owner ?? contributor.contributors?.shift();
+			const rawContributors = contributor.contributors != null ? [...contributor.contributors] : undefined;
+			const owner = contributor.owner ?? rawContributors?.shift();
 			if (owner != null) {
 				branch.owner = {
 					name: owner.name ?? '',
@@ -720,9 +721,9 @@ async function getOverviewBranches(
 					avatarUrl: (await owner.getAvatarUri())?.toString(),
 				};
 			}
-			const contributors = contributor?.contributors
+			const contributors = rawContributors
 				? await Promise.all(
-						contributor.contributors.map(async c => ({
+						rawContributors.map(async c => ({
 							name: c.name ?? '',
 							email: c.email ?? '',
 							current: c.current,
