@@ -2,14 +2,15 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import type { BranchGitCommandArgs } from '../../../../../commands/git/branch';
 import { Commands } from '../../../../../constants.commands';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
-import type { GetLaunchpadSummaryResponse } from '../../../../home/protocol';
+import type { GetLaunchpadSummaryResponse, State } from '../../../../home/protocol';
 import { GetLaunchpadSummary } from '../../../../home/protocol';
+import { stateContext } from '../../../home/context';
 import { AsyncComputedState } from '../../../shared/components/signal-utils';
 import { ipcContext } from '../../../shared/context';
 import type { Disposable } from '../../../shared/events';
@@ -93,6 +94,10 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		`,
 	];
 
+	@consume<State>({ context: stateContext, subscribe: true })
+	@state()
+	private _homeState!: State;
+
 	@consume({ context: ipcContext })
 	private _ipc!: HostIpc;
 	private _disposable: Disposable | undefined;
@@ -130,8 +135,12 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				<span slot="heading">GitLens Launchpad</span>
 				<div class="summary">${this.renderSummaryResult()}</div>
 				<button-container>
-					<gl-button full class="start-work" href=${this.startWorkCommand}
-						><code-icon icon="git-branch" slot="prefix"></code-icon> Start work</gl-button
+					<gl-button
+						full
+						class="start-work"
+						href=${this.startWorkCommand}
+						?disabled=${this._homeState.repositories.openCount === 0}
+						><code-icon icon="custom-start-work" slot="prefix"></code-icon> Start Work</gl-button
 					>
 				</button-container>
 			</gl-section>
@@ -142,7 +151,10 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		return this._summaryState.render({
 			pending: () => this.renderPending(),
 			complete: summary => this.renderSummary(summary),
-			error: () => html`<span>Error</span>`,
+			error: () =>
+				html`<ul class="menu">
+					<li>Error loading summary</li>
+				</ul>`,
 		});
 	}
 
@@ -161,11 +173,15 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	private renderSummary(summary: LaunchpadSummary | undefined) {
 		if (summary == null) return nothing;
 		if (summary.total === 0) {
-			return html`<p>You are all caught up!</p>`;
+			return html`<ul class="menu">
+				<li>You are all caught up!</li>
+			</ul>`;
 		}
 		if (!summary.hasGroupedItems) {
-			return html`<p>No pull requests need your attention</p>
-				<p>(${summary.total} other pull requests)</p>`;
+			return html`<ul class="menu">
+				<li>No pull requests need your attention</li>
+				<li>(${summary.total} other pull requests)</li>
+			</ul>`;
 		}
 
 		const result: TemplateResult[] = [];

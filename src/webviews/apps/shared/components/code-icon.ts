@@ -609,6 +609,21 @@ export class CodeIcon extends LitElement {
 				.join(''),
 		)}
 
+		:host([icon='custom-start-work']) {
+			position: relative;
+		}
+		:host([icon='custom-start-work'])::before {
+			content: '\\ea68';
+		}
+		:host([icon='custom-start-work'])::after {
+			content: '\\ea60';
+			position: absolute;
+			right: -0.2em;
+			bottom: -0.2em;
+			font-size: 0.6em;
+			line-height: normal;
+		}
+
 		:host([icon='gl-pinned-filled']):before {
 			/* TODO: see relative positioning needed in every use-case */
 			position: relative;
