@@ -15,6 +15,7 @@ export type ContextKeys = {
 	'gitlens:gk:organization:drafts:enabled': boolean;
 	'gitlens:hasVirtualFolders': boolean;
 	'gitlens:launchpad:connect': boolean;
+	'gitlens:newInstall': boolean;
 	'gitlens:plus': SubscriptionPlanId;
 	'gitlens:plus:disallowedRepos': string[];
 	'gitlens:plus:enabled': boolean;
@@ -46,6 +47,7 @@ export type ContextKeys = {
 	'gitlens:views:repositories:autoRefresh': boolean;
 	'gitlens:views:scm:grouped:refresh': boolean;
 	'gitlens:views:scm:grouped:view': GroupableTreeViewTypes;
+	'gitlens:views:scm:grouped:welcome:dismissed': boolean;
 	'gitlens:vsls': boolean | 'host' | 'guest';
 	'gitlens:window:annotated': AnnotationStatus;
 } & Record<`gitlens:action:${string}`, number> &

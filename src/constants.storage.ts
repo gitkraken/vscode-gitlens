@@ -76,6 +76,7 @@ export type GlobalStorage = {
 	'launchpad:indicator:hasInteracted': string;
 	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
 	'graph:searchMode': StoredGraphSearchMode;
+	'views:scm:grouped:welcome:dismissed': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {

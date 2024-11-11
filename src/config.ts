@@ -626,7 +626,6 @@ export interface ViewsCommonConfig {
 	};
 	readonly scm: {
 		grouped: {
-			readonly enabled: boolean;
 			readonly default: GroupableTreeViewTypes;
 			readonly views: Record<GroupableTreeViewTypes, boolean>;
 		};

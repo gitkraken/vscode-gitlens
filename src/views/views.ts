@@ -73,6 +73,8 @@ export class Views implements Disposable {
 		return this._scmGroupedViews;
 	}
 
+	private _welcomeDismissed = false;
+
 	constructor(
 		private readonly container: Container,
 		webviews: WebviewsController,
@@ -84,6 +86,8 @@ export class Views implements Disposable {
 			...this.registerWebviewViews(webviews),
 			...this.registerCommands(),
 		);
+
+		this._welcomeDismissed = container.storage.get('views:scm:grouped:welcome:dismissed', false);
 
 		this._lastSelectedScmGroupedView = this.container.storage.getWorkspace(
 			'views:scm:grouped:selected',
@@ -113,7 +117,7 @@ export class Views implements Disposable {
 			this.lastSelectedScmGroupedView ??= configuration.get('views.scm.grouped.default');
 		}
 
-		if (configuration.changed(e, ['views.scm.grouped.enabled', 'views.scm.grouped.views'])) {
+		if (configuration.changed(e, 'views.scm.grouped.views')) {
 			this.updateScmGroupedViewsRegistration();
 		}
 	}
@@ -222,6 +226,17 @@ export class Views implements Disposable {
 			registerCommand('gitlens.views.scm.grouped.worktrees.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('worktrees'),
 			),
+
+			registerCommand('gitlens.views.scm.grouped.welcome.dismiss', () => {
+				this._welcomeDismissed = true;
+				void this.container.storage.store('views:scm:grouped:welcome:dismissed', true);
+				this.updateScmGroupedViewsRegistration();
+			}),
+			registerCommand('gitlens.views.scm.grouped.welcome.restore', async () => {
+				this._welcomeDismissed = true;
+				void this.container.storage.store('views:scm:grouped:welcome:dismissed', true);
+				await updateScmGroupedViewsInConfig(new Set());
+			}),
 		];
 	}
 
@@ -271,12 +286,13 @@ export class Views implements Disposable {
 	}
 
 	private updateScmGroupedViewsRegistration() {
-		const groupingEnabled = configuration.get('views.scm.grouped.enabled');
+		void setContext('gitlens:views:scm:grouped:welcome:dismissed', this._welcomeDismissed);
+		if (!this._welcomeDismissed) return;
 
 		const groupedViews = getScmGroupedViewsFromConfig();
 
 		// If we are going from 0 to > 0, we need to force the views to refresh (since there is some VS Code bug)
-		const forceRefresh = groupingEnabled && this._scmGroupedViews?.size === 0 && groupedViews.size;
+		const forceRefresh = this._scmGroupedViews?.size === 0 && groupedViews.size;
 
 		this._scmGroupedViews = groupedViews;
 
@@ -292,77 +308,77 @@ export class Views implements Disposable {
 		this._scmGroupedView?.dispose();
 		this._scmGroupedView = undefined!;
 
-		if (!groupingEnabled || !this._scmGroupedViews.has('branches')) {
+		if (!this._scmGroupedViews.has('branches')) {
 			this._branchesView ??= new BranchesView(this.container);
 		} else {
 			this._branchesView?.dispose();
 			this._branchesView = undefined;
 		}
 
-		if (!groupingEnabled || !this._scmGroupedViews.has('commits')) {
+		if (!this._scmGroupedViews.has('commits')) {
 			this._commitsView ??= new CommitsView(this.container);
 		} else {
 			this._commitsView?.dispose();
 			this._commitsView = undefined;
 		}
 
-		if (!groupingEnabled || !this._scmGroupedViews.has('contributors')) {
+		if (!this._scmGroupedViews.has('contributors')) {
 			this._contributorsView ??= new ContributorsView(this.container);
 		} else {
 			this._contributorsView?.dispose();
 			this._contributorsView = undefined;
 		}
 
-		if (!groupingEnabled || !this._scmGroupedViews.has('launchpad')) {
+		if (!this._scmGroupedViews.has('launchpad')) {
 			this._launchpadView ??= new LaunchpadView(this.container);
 		} else {
 			this._launchpadView?.dispose();
 			this._launchpadView = undefined;
 		}
 
-		if (!groupingEnabled || !this._scmGroupedViews.has('remotes')) {
+		if (!this._scmGroupedViews.has('remotes')) {
 			this._remotesView ??= new RemotesView(this.container);
 		} else {
 			this._remotesView?.dispose();
 			this._remotesView = undefined;
 		}
 
-		if (!groupingEnabled || !this._scmGroupedViews.has('repositories')) {
+		if (!this._scmGroupedViews.has('repositories')) {
 			this._repositoriesView ??= new RepositoriesView(this.container);
 		} else {
 			this._repositoriesView?.dispose();
 			this._repositoriesView = undefined;
 		}
 
-		if (!groupingEnabled || !this._scmGroupedViews.has('searchAndCompare')) {
+		if (!this._scmGroupedViews.has('searchAndCompare')) {
 			this._searchAndCompareView ??= new SearchAndCompareView(this.container);
 		} else {
 			this._searchAndCompareView?.dispose();
 			this._searchAndCompareView = undefined;
 		}
 
-		if (!groupingEnabled || !this._scmGroupedViews.has('stashes')) {
+		if (!this._scmGroupedViews.has('stashes')) {
 			this._stashesView ??= new StashesView(this.container);
 		} else {
 			this._stashesView?.dispose();
 			this._stashesView = undefined;
 		}
 
-		if (!groupingEnabled || !this._scmGroupedViews.has('tags')) {
+		if (!this._scmGroupedViews.has('tags')) {
 			this._tagsView ??= new TagsView(this.container);
 		} else {
 			this._tagsView?.dispose();
 			this._tagsView = undefined;
 		}
 
-		if (!groupingEnabled || !this._scmGroupedViews.has('worktrees')) {
+		if (!this._scmGroupedViews.has('worktrees')) {
 			this._worktreesView ??= new WorktreesView(this.container);
 		} else {
 			this._worktreesView?.dispose();
 			this._worktreesView = undefined;
 		}
 
-		if (groupingEnabled && this._scmGroupedViews.size) {
+		if (this._scmGroupedViews.size) {
 			this._scmGroupedView ??= new ScmGroupedView(this.container, this);
 		} else {
 			this._scmGroupedView?.dispose();
