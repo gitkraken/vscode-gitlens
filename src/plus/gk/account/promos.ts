@@ -21,8 +21,8 @@ export interface Promo {
 // Must be ordered by applicable order
 const promos: Promo[] = [
 	{
-		key: 'devexdays',
-		code: 'DEVEXDAYS24',
+		key: 'gitlens16',
+		code: 'GITLENS16',
 		states: [
 			SubscriptionState.Community,
 			SubscriptionState.ProPreview,
@@ -31,12 +31,12 @@ const promos: Promo[] = [
 			SubscriptionState.ProTrialExpired,
 			SubscriptionState.ProTrialReactivationEligible,
 		],
-		startsOn: new Date('2024-10-13T06:59:00.000Z').getTime(),
-		expiresOn: new Date('2024-11-08T06:59:00.000Z').getTime(),
-		command: { tooltip: 'Limited-Time sale: Save up to 80% off GitLens Pro' },
+		startsOn: new Date('2024-11-11T06:59:00.000Z').getTime(),
+		expiresOn: new Date('2024-11-22T06:59:00.000Z').getTime(),
+		command: { tooltip: 'Save more than 55% during our GitLens 16 sale!' },
 		locations: ['account', 'badge', 'gate'],
 		quickpick: {
-			detail: '$(star-full) Limited-Time sale: Save up to 80% off GitLens Pro',
+			detail: '$(star-full) Save more than 55% during our GitLens 16 sale!',
 		},
 	},
 	{
@@ -49,9 +49,10 @@ const promos: Promo[] = [
 			SubscriptionState.ProTrialExpired,
 			SubscriptionState.ProTrialReactivationEligible,
 		],
-		command: { tooltip: 'Limited-Time sale: Save 33% or more on your 1st seat of Pro. See your special price' },
+		command: { tooltip: 'Save 33% or more on your 1st seat of Pro.' },
+		locations: ['account', 'badge', 'gate'],
 		quickpick: {
-			detail: '$(star-full) Limited-Time sale: Save 33% or more on your 1st seat of Pro',
+			detail: '$(star-full) Save 33% or more on your 1st seat of Pro',
 		},
 	},
 ];
