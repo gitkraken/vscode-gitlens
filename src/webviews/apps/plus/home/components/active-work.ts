@@ -1,13 +1,11 @@
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import { repeat } from 'lit/directives/repeat.js';
+import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { GitTrackingState } from '../../../../../git/models/branch';
-import type { GetOverviewBranch, RepositoryChoice, State } from '../../../../home/protocol';
+import type { GetOverviewBranch, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import { GlElement } from '../../../shared/components/element';
 import { branchCardStyles, sectionHeadingStyles } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
@@ -34,6 +32,15 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		`,
 		branchCardStyles,
 		sectionHeadingStyles,
+		css`
+			.is-end {
+				margin-block-end: 0;
+			}
+			.section-heading-action {
+				--button-padding: 0.1rem 0.2rem 0;
+				margin-block: -1rem;
+			}
+		`,
 	];
 
 	@consume<State>({ context: stateContext, subscribe: true })
@@ -80,7 +87,18 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		return html`
 			<h3 class="section-heading section-heading--actions">
 				<span>Active (${activeBranches.length})</span>
-				${when(overview!.choices, () => html`<gl-change-repo .options=${overview!.choices}></gl-change-repo>`)}
+				${when(
+					this._homeState.repositories.openCount > 1,
+					() =>
+						html`<span
+							><gl-button
+								class="section-heading-action"
+								appearance="toolbar"
+								tooltip="Change Repository"
+								@click=${(e: MouseEvent) => this.onChange(e)}
+								><code-icon icon="chevron-down"></code-icon></gl-button
+						></span>`,
+				)}
 			</h3>
 			${activeBranches.map(branch => this.renderRepoBranchCard(overview!.repository.name, branch))}
 		`;
@@ -99,7 +117,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				${when(state, () => this.renderBranchStateActions(state, upstream))}
 				<p class="branch-item__main">
 					<span class="branch-item__icon">
-						<code-icon icon=${branch.worktree ? 'gl-repositories-view' : 'git-branch'}></code-icon>
+						<code-icon icon=${branch.worktree ? 'gl-worktrees-view' : 'git-branch'}></code-icon>
 					</span>
 					<span class="branch-item__name">${name}</span>
 				</p>
@@ -217,77 +235,14 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 		return nothing;
 	}
-}
 
-@customElement('gl-change-repo')
-export class GlChangeRepo extends GlElement {
-	static override styles = [
-		css`
-			.popover::part(body) {
-				padding: 0;
-				font-size: var(--vscode-font-size);
-				background-color: var(--vscode-menu-background);
-			}
-			.trigger {
-				--button-padding: 0.1rem 0.2rem 0;
-				margin-block: -1rem;
-			}
-
-			.option {
-				max-width: 20rem;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-			}
-
-			.option code-icon {
-				color: var(--color-foreground--50);
-			}
-		`,
-	];
-
-	@consume({ context: overviewStateContext })
-	private _overviewState!: OverviewState;
-
-	@property({ type: Array }) options?: RepositoryChoice[];
-
-	protected getLabel(option: RepositoryChoice) {
-		return option.name;
-	}
-
-	protected onChange(option: RepositoryChoice) {
-		void this.querySelector('gl-popover')?.hide();
-		void this._overviewState.changeRepository(option.path);
-	}
-
-	override render() {
-		if (!this.options) {
-			return;
-		}
-		return html`
-			<gl-popover class="popover" placement="bottom-end" trigger="focus" .distance=${4} .arrow=${false}>
-				<gl-button class="trigger" appearance="toolbar" slot="anchor"
-					><code-icon icon="chevron-down"></code-icon
-				></gl-button>
-				<div slot="content">
-					${repeat(this.options, item => {
-						if (item.selected) {
-							return nothing;
-						}
-						const label = this.getLabel(item);
-						return html`<menu-item class="option" @click=${() => this.onChange(item)}
-							><code-icon icon="repo"></code-icon> ${label}</menu-item
-						>`;
-					})}
-				</div>
-			</gl-popover>
-		`;
+	private onChange(_e: MouseEvent) {
+		void this._overviewState.changeRepository();
 	}
 }
 
 declare global {
 	interface HTMLElementTagNameMap {
 		[activeWorkTagName]: GlActiveWork;
-		'gl-change-repo': GlChangeRepo;
 	}
 }

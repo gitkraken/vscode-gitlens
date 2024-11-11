@@ -200,7 +200,7 @@ export class GlBranchCard extends LitElement {
 			return html`<pr-icon state=${branch.pr.state}></pr-icon>`;
 		}
 		if (branch.worktree) {
-			return html`<code-icon icon="gl-repositories-view"></code-icon>`;
+			return html`<code-icon icon="gl-worktrees-view"></code-icon>`;
 		}
 		return html`<code-icon icon="git-branch"></code-icon>`;
 	}

@@ -1,6 +1,7 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
+import { GlyphChars } from '../../constants';
 import type { ContextKeys } from '../../constants.context';
 import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
@@ -16,6 +17,7 @@ import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/mo
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils';
+import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import { map } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
 import { registerCommand } from '../../system/vscode/command';
@@ -33,7 +35,6 @@ import type {
 	OverviewFilters,
 	OverviewRecentThreshold,
 	OverviewStaleThreshold,
-	RepositoryChoice,
 	State,
 } from './protocol';
 import {
@@ -155,9 +156,26 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		return true;
 	}
-	private onOverviewRepositoryChanged(e: string) {
-		this._repositoryChoices = undefined;
-		this.selectRepository(e);
+
+	private async onChooseRepository() {
+		const currentRepo = this.getSelectedRepository();
+		// Ensure that the current repository is always last
+		const repositories = this.container.git.openRepositories.sort(
+			(a, b) =>
+				(a === currentRepo ? 1 : -1) - (b === currentRepo ? 1 : -1) ||
+				(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+				a.index - b.index,
+		);
+
+		const pick = await showRepositoryPicker(
+			`Switch Repository ${GlyphChars.Dot} ${currentRepo?.name}`,
+			'Choose a repository to switch to',
+			repositories,
+		);
+
+		if (pick == null || pick === currentRepo) return;
+
+		this.selectRepository(pick.path);
 	}
 
 	private async onRepositoriesChanged() {
@@ -214,7 +232,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				void this.host.respond(GetOverviewFilterState, e, this._overviewBranchFilter);
 				break;
 			case ChangeOverviewRepository.is(e):
-				this.onOverviewRepositoryChanged(e.params);
+				await this.onChooseRepository();
 				void this.host.respond(ChangeOverviewRepository, e, undefined);
 				break;
 		}
@@ -354,7 +372,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (overviewBranches == null) return undefined;
 
 		const result: GetOverviewResponse = {
-			choices: this.getRepositoryChoices(),
 			repository: {
 				name: repo.name,
 				branches: overviewBranches,
@@ -362,23 +379,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		};
 
 		return result;
-	}
-
-	private _repositoryChoices: RepositoryChoice[] | undefined;
-	private getRepositoryChoices() {
-		if (this._repositoryChoices == null) {
-			const selectedRepo = this.getSelectedRepository()?.path;
-			this._repositoryChoices = this.container.git.openRepositories.map(r => ({
-				name: r.name,
-				path: r.path,
-				selected: r.path === selectedRepo,
-			}));
-		}
-		if (this._repositoryChoices.length < 2) {
-			return undefined;
-		}
-
-		return this._repositoryChoices;
 	}
 
 	private _repositorySubscription: RepositorySubscription | undefined;
@@ -483,7 +483,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private notifyDidChangeRepositories() {
-		this._repositoryChoices = undefined;
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
 	}
 

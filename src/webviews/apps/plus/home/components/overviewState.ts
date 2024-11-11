@@ -56,8 +56,8 @@ export class OverviewState extends AsyncComputedState<Overview> {
 
 	filter = signalObject<Partial<OverviewFilters>>({});
 
-	async changeRepository(repo: string) {
-		await this._ipc.sendRequest(ChangeOverviewRepository, repo);
+	async changeRepository() {
+		await this._ipc.sendRequest(ChangeOverviewRepository, undefined);
 		this.run(true);
 	}
 }
