@@ -19207,7 +19207,7 @@
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22cloud-patches%22%7D)\n\nStart your free 7-day Pro trial to try Cloud Patches and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22cloud-patches%22%7D).",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22cloud-patches%22%7D)\n\nStart your free 14-day Pro trial to try Cloud Patches and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22cloud-patches%22%7D).",
 				"when": "!gitlens:plus"
 			},
 			{
@@ -19245,22 +19245,22 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 0 && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nStart your free 7-day Pro trial to try Launchpad and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nStart your free 14-day Pro trial to try Launchpad and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nStart your free 7-day Pro trial to try Launchpad and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nStart your free 14-day Pro trial to try Launchpad and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 2 && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
@@ -19305,12 +19305,12 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days!",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days!",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5 && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
@@ -19334,7 +19334,7 @@
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22workspaces%22%7D)\n\nStart your free 7-day Pro trial to try GitKraken (GK) Workspaces and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22workspaces%22%7D).",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22workspaces%22%7D)\n\nStart your free 14-day Pro trial to try GitKraken (GK) Workspaces and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22workspaces%22%7D).",
 				"when": "!gitlens:plus"
 			},
 			{
@@ -19372,22 +19372,22 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nContinuing gives you 3 days to preview Worktrees and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D) for full access to Pro features.",
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nContinuing gives you 3 days to preview Worktrees and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D) for full access to Pro features.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nContinuing gives you 3 days to preview Worktrees and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D) for full access to Pro features.",
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nContinuing gives you 3 days to preview Worktrees and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D) for full access to Pro features.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 0 && gitlens:views:scm:grouped:view == worktrees"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nStart your free 7-day Pro trial to try Worktrees and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nStart your free 14-day Pro trial to try Worktrees and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nStart your free 7-day Pro trial to try Worktrees and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
+				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nStart your free 14-day Pro trial to try Worktrees and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2 && gitlens:views:scm:grouped:view == worktrees"
 			},
 			{
@@ -19437,7 +19437,7 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 14 days!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 5 && gitlens:views:scm:grouped:view == worktrees"
 			},
 			{
