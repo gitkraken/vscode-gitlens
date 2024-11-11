@@ -143,8 +143,8 @@ export async function showGitBranchNotFullyMergedPrompt(branchName: string): Pro
 	const result = await showMessage(
 		'warn',
 		`Unable to delete branch '${branchName}'. It is not fully merged.`,
-		'suppressGitBranchNotFullyMergedWarning',
-		{ title: "Don't Show Again" },
+		undefined,
+		null,
 		confirm,
 	);
 	return result === confirm;

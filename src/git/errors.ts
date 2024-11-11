@@ -148,6 +148,7 @@ export const enum PushErrorReason {
 	PushRejected,
 	PushRejectedWithLease,
 	PushRejectedWithLeaseIfIncludes,
+	PushRejectedRefNotExists,
 	PermissionDenied,
 	RemoteConnection,
 	NoUpstream,
@@ -196,6 +197,11 @@ export class PushError extends Error {
 					message = `Unable to force push${branch ? ` branch '${branch}'` : ''}${
 						remote ? ` to ${remote}` : ''
 					} because some refs failed to push or the push was rejected. The tip of the remote-tracking branch has been updated since the last checkout. Try pulling first.`;
+					break;
+				case PushErrorReason.PushRejectedRefNotExists:
+					message = `Unable to delete branch${branch ? ` '${branch}'` : ''}${
+						remote ? ` on ${remote}` : ''
+					}, the remote reference does not exist`;
 					break;
 				case PushErrorReason.PermissionDenied:
 					message = `${baseMessage} because you don't have permission to push to this remote repository.`;

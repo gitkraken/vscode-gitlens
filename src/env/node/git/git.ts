@@ -1052,9 +1052,13 @@ export class Git {
 						/! \[rejected\].*\(remote ref updated since checkout\)/m.test(ex.stderr || '')
 					) {
 						reason = PushErrorReason.PushRejectedWithLeaseIfIncludes;
+					} else if (/error: unable to delete '(.*?)': remote ref does not exist/m.test(ex.stderr || '')) {
+						reason = PushErrorReason.PushRejectedRefNotExists;
 					} else {
 						reason = PushErrorReason.PushRejected;
 					}
+				} else if (/error: unable to delete '(.*?)': remote ref does not exist/m.test(ex.stderr || '')) {
+					reason = PushErrorReason.PushRejectedRefNotExists;
 				} else {
 					reason = PushErrorReason.PushRejected;
 				}
@@ -1066,7 +1070,12 @@ export class Git {
 				reason = PushErrorReason.NoUpstream;
 			}
 
-			throw new PushError(reason, ex, options?.branch, options?.remote);
+			throw new PushError(
+				reason,
+				ex,
+				options?.branch || options?.delete?.branch,
+				options?.remote || options?.delete?.remote,
+			);
 		}
 	}
 
