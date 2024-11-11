@@ -323,7 +323,7 @@ export class WorkspacesService implements Disposable {
 			const change = { title: 'Change Auto-Add Behavior...' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const addChoice = await window.showInformationMessage(
-				'New repositories found in the linked GitKraken workspace. Would you like to add them to the current VS Code workspace?',
+				'New repositories found in the linked Cloud workspace. Would you like to add them to the current VS Code workspace?',
 				add,
 				change,
 				cancel,

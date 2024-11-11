@@ -3134,7 +3134,7 @@
 			},
 			{
 				"id": "workspaces-view",
-				"title": "GitKraken Workspaces View (ᴘʀᴇᴠɪᴇᴡ)",
+				"title": "Cloud Workspaces View (ᴘʀᴇᴠɪᴇᴡ)",
 				"order": 260,
 				"properties": {
 					"gitlens.views.workspaces.showBranchComparison": {
@@ -3153,105 +3153,105 @@
 							"Compares the working tree with a user-selected reference"
 						],
 						"default": "working",
-						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag, etc) in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag, etc) in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 10
 					},
 					"gitlens.views.workspaces.showUpstreamStatus": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show the upstream status of the current branch for each repository in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show the upstream status of the current branch for each repository in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 11
 					},
 					"gitlens.views.workspaces.includeWorkingTree": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "Specifies whether to include working tree file status for each repository in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to include working tree file status for each repository in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 12
 					},
 					"gitlens.views.workspaces.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _GitKraken Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Cloud Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 20
 					},
 					"gitlens.views.workspaces.pullRequests.showForBranches": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _GitKraken Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _Cloud Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 21
 					},
 					"gitlens.views.workspaces.pullRequests.showForCommits": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _GitKraken Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Cloud Workspaces_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 22
 					},
 					"gitlens.views.workspaces.showCommits": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show the commits on the current branch for each repository in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show the commits on the current branch for each repository in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 30
 					},
 					"gitlens.views.workspaces.showBranches": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show the branches for each repository in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show the branches for each repository in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 31
 					},
 					"gitlens.views.workspaces.showRemotes": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show the remotes for each repository in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show the remotes for each repository in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 32
 					},
 					"gitlens.views.workspaces.showStashes": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show the stashes for each repository in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show the stashes for each repository in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 33
 					},
 					"gitlens.views.workspaces.showTags": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show the tags for each repository in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show the tags for each repository in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 34
 					},
 					"gitlens.views.workspaces.showContributors": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show the contributors for each repository in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show the contributors for each repository in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 35
 					},
 					"gitlens.views.workspaces.showWorktrees": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show the worktrees for each repository in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show the worktrees for each repository in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 36
 					},
 					"gitlens.views.workspaces.showIncomingActivity": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "Specifies whether to show the experimental incoming activity for each repository in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show the experimental incoming activity for each repository in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 37
 					},
 					"gitlens.views.workspaces.avatars": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 60
 					},
@@ -3266,7 +3266,7 @@
 							"Displays branches as a list",
 							"Displays branches as a tree when branch names contain slashes `/`"
 						],
-						"markdownDescription": "Specifies how the _GitKraken Workspaces_ view will display branches",
+						"markdownDescription": "Specifies how the _Cloud Workspaces_ view will display branches",
 						"scope": "window",
 						"order": 70
 					},
@@ -3283,21 +3283,21 @@
 							"Displays files as a list",
 							"Displays files as a tree"
 						],
-						"markdownDescription": "Specifies how the _GitKraken Workspaces_ view will display files",
+						"markdownDescription": "Specifies how the _Cloud Workspaces_ view will display files",
 						"scope": "window",
 						"order": 80
 					},
 					"gitlens.views.workspaces.files.threshold": {
 						"type": "number",
 						"default": 5,
-						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _GitKraken Workspaces_ view. Only applies when `#gitlens.views.workspaces.files.layout#` is set to `auto`",
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Cloud Workspaces_ view. Only applies when `#gitlens.views.workspaces.files.layout#` is set to `auto`",
 						"scope": "window",
 						"order": 81
 					},
 					"gitlens.views.workspaces.files.compact": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _GitKraken Workspaces_ view. Only applies when `#gitlens.views.workspaces.files.layout#` is set to `tree` or `auto`",
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Cloud Workspaces_ view. Only applies when `#gitlens.views.workspaces.files.layout#` is set to `tree` or `auto`",
 						"scope": "window",
 						"order": 82
 					},
@@ -3312,14 +3312,14 @@
 							"Shows the file's status as the icon",
 							"Shows the file's type (theme icon) as the icon"
 						],
-						"markdownDescription": "Specifies how the _GitKraken Workspaces_ view will display file icons",
+						"markdownDescription": "Specifies how the _Cloud Workspaces_ view will display file icons",
 						"scope": "window",
 						"order": 83
 					},
 					"gitlens.views.workspaces.compact": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "Specifies whether to show the _GitKraken Workspaces_ view in a compact display density",
+						"markdownDescription": "Specifies whether to show the _Cloud Workspaces_ view in a compact display density",
 						"scope": "window",
 						"order": 90
 					},
@@ -3337,7 +3337,7 @@
 							"Compares the branch with a user-selected reference"
 						],
 						"default": "branch",
-						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag, etc) under each branch in the _GitKraken Workspaces_ view",
+						"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag, etc) under each branch in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 100
 					}
@@ -6123,7 +6123,7 @@
 			},
 			{
 				"command": "gitlens.showWorkspacesView",
-				"title": "Show GitKraken Workspaces View",
+				"title": "Show Cloud Workspaces View",
 				"category": "GitLens"
 			},
 			{
@@ -8979,7 +8979,7 @@
 			},
 			{
 				"command": "gitlens.views.workspaces.info",
-				"title": "Learn about GitKraken Workspaces...",
+				"title": "Learn about Cloud Workspaces...",
 				"category": "GitLens",
 				"icon": "$(info)"
 			},

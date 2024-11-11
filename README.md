@@ -18,7 +18,6 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 
 > Have questions or concerns? Talk to our engineering team directly through our [GitHub Discussions](https://github.com/gitkraken/vscode-gitlens/discussions/categories/feedback) page. Having a positive experience with GitLens? Feel free to [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens&ssr=false#review-details).
 
-
 ## GitLens Editions: Free and Pro
 
 **GitLens Free** gives you powerful tools to manage Git and understand how your code has evolved and by whom. With popular features like in-editor blame annotations, hovers, and CodeLens, you can see actionable authorship details at the top of each file. Track the history of any file over time using Revision Navigation to gain deeper insights into code changes.
@@ -45,12 +44,11 @@ You can [try GitLens Pro for free](https://gitkraken.dev/register?product=gitlen
 
 GitLens offers a wide range of features—here are the three most popular workflows that users rely on to boost their productivity:
 
-- [**Interactive Code History**](#interactive-code-history) &mdash; Understanding code in repositories with multiple branches and contributors can be difficult. GitLens provides the context you need with tools like blame, hovers, and file annotations. But it doesn’t stop there—the interactive Commit Graph lets you create branches, rebase, revert, and more, all with powerful search capabilities. 
+- [**Interactive Code History**](#interactive-code-history) &mdash; Understanding code in repositories with multiple branches and contributors can be difficult. GitLens provides the context you need with tools like blame, hovers, and file annotations. But it doesn’t stop there—the interactive Commit Graph lets you create branches, rebase, revert, and more, all with powerful search capabilities.
 
-- [**Accelerate PR Reviews**](#accelerate-pr-reviews) &mdash; Reduce context switching and manage all your PRs in one place. Prioritize tasks and identify bottlenecks right in VS Code with Launchpad when you integrate Github or other host providers. Work on multiple branches at once without disrupting your main workspace with Worktrees.   
+- [**Accelerate PR Reviews**](#accelerate-pr-reviews) &mdash; Reduce context switching and manage all your PRs in one place. Prioritize tasks and identify bottlenecks right in VS Code with Launchpad when you integrate Github or other host providers. Work on multiple branches at once without disrupting your main workspace with Worktrees.
 
 - [**Streamline Collaboration**](#streamline-collaboration) &mdash; GitLens isn’t just for solo developers—it’s designed to enhance team collaboration. With Cloud Patches and Code Suggest, you can share and discuss suggested changes with any GitLens or GitKraken user, on multiple files and even PRs.
-
 
 # Interactive Code History
 
@@ -147,16 +145,13 @@ Launchpad consolidates all your GitHub pull requests into a unified, actionable 
 
 Worktrees enable efficient multitasking by allowing you to work on multiple branches without stashing changes or leaving your current branch. They preserve your workflow while letting you shift focus when needed. For example, you can easily review a pull request on a worktree in a separate VS Code window with GitLens.
 
-
 <figure align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees.png" alt="Worktrees view" />
 </figure>
 
-
 # Streamline Collaboration
 
 GitLens isn’t just for solo developers—it’s designed to enhance team collaboration. Sharing code can be tricky without adding noise to your repository with extra commits or branches. GitLens simplifies this with Cloud Patches and Code Suggest, letting you share or propose changes to any file in the repository without committing or pushing to a remote.
-
 
 ## Cloud Patches `Preview`
 
@@ -195,12 +190,11 @@ An x-ray or developer tools Inspect into your code, focused on providing context
 
 ### GitLens
 
-Quick access to many GitLens features. Also the home of GitKraken teams and collaboration services (e.g. GitKraken Workspaces), help, and support.
+Quick access to many GitLens features. Also the home of GitKraken teams and collaboration services (e.g. Cloud Patches, Cloud Workspaces), help, and support.
 
 - **Home** &mdash; Quick access to many features.
 - [**Cloud Patches `Preview`**](#cloud-patches-preview) &mdash; Easily and securely share code with your teammates
-- [**GitKraken Workspaces `Preview`**](#gitkraken-workspaces-preview) &mdash; Easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.
-- **GitKraken Account** &mdash; Power-up with GitKraken Cloud Services.
+- [**Cloud Workspaces `Preview`**](#gitkraken-workspaces-preview) &mdash; Easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.
 
 ### Source Control
 
@@ -219,9 +213,9 @@ Shows additional views that are focused on exploring and managing your repositor
 
 Convenient and easy access to the Commit Graph with a dedicated details view.
 
-## GitKraken Workspaces `Preview`
+## Cloud Workspaces `Preview`
 
-GitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow. Create workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration. [Learn more](https://gitkraken.com/solutions/workspaces?utm_source=gitlens-extension&utm_medium=in-app-links)
+Cloud Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow. Create workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration. [Learn more](https://gitkraken.com/solutions/workspaces?utm_source=gitlens-extension&utm_medium=in-app-links)
 
 ## Visual File History `Pro`
 
@@ -260,7 +254,6 @@ Use a series of new commands to:
 - Explore a file of a commit
 - View and explore your stashes
 - Visualize the current repository status
-
 
 # Integrations
 
