@@ -21,7 +21,7 @@ export const sectionHeadingStyles = css`
 		margin-block: 0 0.8rem;
 		text-transform: uppercase;
 	}
-	.section-heading.with-actions {
+	.section-heading--actions {
 		display: flex;
 		justify-content: space-between;
 		gap: 8px;
@@ -45,7 +45,7 @@ export class GlBranchSection extends LitElement {
 	override render() {
 		return html`
 			<div class="section">
-				<h3 class="section-heading with-actions">
+				<h3 class="section-heading section-heading--actions">
 					<span>${this.label}</span><slot name="heading-actions"></slot>
 				</h3>
 				<slot></slot>

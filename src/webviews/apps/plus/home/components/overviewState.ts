@@ -2,8 +2,10 @@ import { createContext } from '@lit/context';
 import { signalObject } from 'signal-utils/object';
 import type { GetOverviewResponse, OverviewFilters } from '../../../../home/protocol';
 import {
+	ChangeOverviewRepository,
 	DidChangeOverviewFilter,
 	DidChangeRepositoryWip,
+	DidCompleteDiscoveringRepositories,
 	GetOverview,
 	GetOverviewFilterState,
 } from '../../../../home/protocol';
@@ -31,6 +33,7 @@ export class OverviewState extends AsyncComputedState<Overview> {
 
 		this._disposable = this._ipc.onReceiveMessage(msg => {
 			switch (true) {
+				case DidCompleteDiscoveringRepositories.is(msg):
 				case DidChangeRepositoryWip.is(msg):
 					this.run(true);
 					break;
@@ -52,6 +55,11 @@ export class OverviewState extends AsyncComputedState<Overview> {
 	}
 
 	filter = signalObject<Partial<OverviewFilters>>({});
+
+	async changeRepository(repo: string) {
+		await this._ipc.sendRequest(ChangeOverviewRepository, repo);
+		this.run(true);
+	}
 }
 
 export const overviewStateContext = createContext<Overview>('overviewState');

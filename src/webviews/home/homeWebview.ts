@@ -33,9 +33,11 @@ import type {
 	OverviewFilters,
 	OverviewRecentThreshold,
 	OverviewStaleThreshold,
+	RepositoryChoice,
 	State,
 } from './protocol';
 import {
+	ChangeOverviewRepository,
 	CollapseSectionCommand,
 	DidChangeIntegrationsConnections,
 	DidChangeOrgSettings,
@@ -45,6 +47,7 @@ import {
 	DidChangeRepositoryWip,
 	DidChangeSubscription,
 	DidChangeWalkthroughProgress,
+	DidCompleteDiscoveringRepositories,
 	DidFocusAccount,
 	DismissWalkthroughSection,
 	GetLaunchpadSummary,
@@ -64,6 +67,8 @@ type RepositorySubscription = { repo: Repository; subscription: Disposable };
 
 export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
+	private _discovering: Promise<number | undefined> | undefined;
+	private _etag?: number;
 	private _pendingFocusAccount = false;
 
 	constructor(
@@ -108,6 +113,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		_options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<HomeWebviewShowingArgs, State>
 	): [boolean, Record<`context.${string}`, string | number | boolean> | undefined] {
+		this._etag = this.container.git.etag;
+		void this.ensureRepoDiscovery();
+
 		const [arg] = args as HomeWebviewShowingArgs;
 		if (arg?.focusAccount === true) {
 			if (!loading && this.host.ready && this.host.visible) {
@@ -120,11 +128,42 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return [true, undefined];
 	}
 
+	private async ensureRepoDiscovery() {
+		if (!this.container.git.isDiscoveringRepositories) {
+			return;
+		}
+
+		this._discovering = this.container.git.isDiscoveringRepositories;
+		this._etag = await this._discovering;
+		this._discovering = undefined;
+		this.notifyDidCompleteDiscoveringRepositories();
+	}
+
 	private onChangeConnectionState() {
 		this.notifyDidChangeOnboardingIntegration();
 	}
 
-	private onRepositoriesChanged() {
+	private async shouldNotifyRespositoryChange(): Promise<boolean> {
+		if (this._etag === this.container.git.etag) {
+			return false;
+		}
+
+		if (this._discovering != null) {
+			this._etag = await this._discovering;
+			if (this._etag === this.container.git.etag) return false;
+		}
+
+		return true;
+	}
+	private onOverviewRepositoryChanged(e: string) {
+		this._repositoryChoices = undefined;
+		this.selectRepository(e);
+	}
+
+	private async onRepositoriesChanged() {
+		if (!(await this.shouldNotifyRespositoryChange())) {
+			return;
+		}
 		this.notifyDidChangeRepositories();
 	}
 
@@ -173,6 +212,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				break;
 			case GetOverviewFilterState.is(e):
 				void this.host.respond(GetOverviewFilterState, e, this._overviewBranchFilter);
+				break;
+			case ChangeOverviewRepository.is(e):
+				this.onOverviewRepositoryChanged(e.params);
+				void this.host.respond(ChangeOverviewRepository, e, undefined);
 				break;
 		}
 	}
@@ -294,6 +337,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async getBranchOverview(): Promise<GetOverviewResponse | undefined> {
+		if (this._discovering != null) {
+			await this._discovering;
+		}
+
 		const repo = this.getSelectedRepository();
 		if (repo == null) return undefined;
 
@@ -307,6 +354,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (overviewBranches == null) return undefined;
 
 		const result: GetOverviewResponse = {
+			choices: this.getRepositoryChoices(),
 			repository: {
 				name: repo.name,
 				branches: overviewBranches,
@@ -314,6 +362,23 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		};
 
 		return result;
+	}
+
+	private _repositoryChoices: RepositoryChoice[] | undefined;
+	private getRepositoryChoices() {
+		if (this._repositoryChoices == null) {
+			const selectedRepo = this.getSelectedRepository()?.path;
+			this._repositoryChoices = this.container.git.openRepositories.map(r => ({
+				name: r.name,
+				path: r.path,
+				selected: r.path === selectedRepo,
+			}));
+		}
+		if (this._repositoryChoices.length < 2) {
+			return undefined;
+		}
+
+		return this._repositoryChoices;
 	}
 
 	private _repositorySubscription: RepositorySubscription | undefined;
@@ -412,7 +477,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		};
 	}
 
+	private notifyDidCompleteDiscoveringRepositories() {
+		void this.host.notify(DidCompleteDiscoveringRepositories, undefined);
+		this.notifyDidChangeRepositories();
+	}
+
 	private notifyDidChangeRepositories() {
+		this._repositoryChoices = undefined;
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
 	}
 

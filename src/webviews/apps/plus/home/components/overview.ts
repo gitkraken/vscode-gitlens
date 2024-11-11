@@ -1,9 +1,10 @@
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement } from 'lit/decorators.js';
-import type { GetOverviewResponse, OverviewRecentThreshold } from '../../../../home/protocol';
+import { customElement, state } from 'lit/decorators.js';
+import type { GetOverviewResponse, OverviewRecentThreshold, State } from '../../../../home/protocol';
 import { SetOverviewFilter } from '../../../../home/protocol';
+import { stateContext } from '../../../home/context';
 import { ipcContext } from '../../../shared/context';
 import type { HostIpc } from '../../../shared/ipc';
 import { sectionHeadingStyles } from './branch-section';
@@ -31,16 +32,26 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		`,
 	];
 
+	@consume<State>({ context: stateContext, subscribe: true })
+	@state()
+	private _homeState!: State;
+
 	@consume({ context: overviewStateContext })
 	private _overviewState!: OverviewState;
 
 	override connectedCallback() {
 		super.connectedCallback();
 
-		this._overviewState.run();
+		if (this._homeState.repositories.openCount > 0) {
+			this._overviewState.run();
+		}
 	}
 
 	override render() {
+		if (this._homeState.repositories.openCount === 0) {
+			return nothing;
+		}
+
 		return this._overviewState.render({
 			pending: () => this.renderPending(),
 			complete: summary => this.renderComplete(summary),

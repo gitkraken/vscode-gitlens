@@ -109,8 +109,15 @@ export interface GetOverviewBranches {
 	stale: GetOverviewBranch[];
 }
 
+export interface RepositoryChoice {
+	name: string;
+	path: string;
+	selected: boolean;
+}
+
 export type GetOverviewResponse =
 	| {
+			choices: RepositoryChoice[] | undefined;
 			repository: {
 				name: string;
 				branches: GetOverviewBranches;
@@ -121,6 +128,8 @@ export const GetOverview = new IpcRequest<GetOverviewRequest, GetOverviewRespons
 
 export type GetOverviewFilterStateResponse = OverviewFilters;
 export const GetOverviewFilterState = new IpcRequest<void, GetOverviewFilterStateResponse>(scope, 'overviewFilter');
+
+export const ChangeOverviewRepository = new IpcRequest<string, undefined>(scope, 'overview/repository/change');
 
 // COMMANDS
 
@@ -135,6 +144,11 @@ export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthroug
 export const SetOverviewFilter = new IpcCommand<OverviewFilters>(scope, 'overview/filter/set');
 
 // NOTIFICATIONS
+
+export const DidCompleteDiscoveringRepositories = new IpcNotification<undefined>(
+	scope,
+	'repositories/didCompleteDiscovering',
+);
 
 export const DidChangePreviewEnabled = new IpcNotification<boolean>(scope, 'previewEnabled/didChange');
 
