@@ -2,6 +2,7 @@ import { Disposable } from 'vscode';
 import type { Commands } from '../constants.commands';
 import type { GroupableTreeViewTypes } from '../constants.views';
 import type { Container } from '../container';
+import { first } from '../system/iterable';
 import { executeCommand, registerCommand } from '../system/vscode/command';
 import { BranchesView } from './branchesView';
 import { CommitsView } from './commitsView';
@@ -22,7 +23,6 @@ export class ScmGroupedView implements Disposable {
 	constructor(
 		private readonly container: Container,
 		private views: Views,
-		private readonly included: GroupableTreeViewTypes[],
 	) {
 		this._disposable = Disposable.from(
 			registerCommand('gitlens.views.scm.grouped.refresh', () => {
@@ -50,17 +50,20 @@ export class ScmGroupedView implements Disposable {
 	}
 
 	setView<T extends GroupableTreeViewTypes>(type: T): TreeViewByType[T] {
-		if (!this.included.includes(type)) {
-			type = this.included[0] as T;
+		if (!this.views.scmGroupedViews.has(type)) {
+			type = first(this.views.scmGroupedViews) as T;
 		}
-		this.views.lastSelectedScmGroupedView = type;
 
-		if (this._view?.type === type) return this._view as TreeViewByType[T];
+		if (this._view?.type === type) {
+			this.views.lastSelectedScmGroupedView = type;
+			return this._view as TreeViewByType[T];
+		}
 
 		this._view?.dispose();
-
 		this._view = this.getView(type);
 		void this._view.show({ preserveFocus: false });
+		this.views.lastSelectedScmGroupedView = type;
+
 		return this._view as TreeViewByType[T];
 	}
 
