@@ -3,7 +3,6 @@ import type { Commands } from '../constants.commands';
 import type { GroupableTreeViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { executeCommand, registerCommand } from '../system/vscode/command';
-import { setContext } from '../system/vscode/context';
 import { BranchesView } from './branchesView';
 import { CommitsView } from './commitsView';
 import { ContributorsView } from './contributorsView';
@@ -58,7 +57,6 @@ export class ScmGroupedView implements Disposable {
 
 		if (this._view?.type === type) return this._view as TreeViewByType[T];
 
-		void setContext('gitlens:views:scm:grouped:view', type);
 		this._view?.dispose();
 
 		this._view = this.getView(type);
