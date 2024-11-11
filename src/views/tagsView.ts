@@ -35,6 +35,9 @@ export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode>
 
 export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.description = this.getViewDescription();
+		this.view.message = undefined;
+
 		if (this.children == null) {
 			let repositories = this.view.container.git.openRepositories;
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
@@ -50,8 +53,6 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 				return [];
 			}
 
-			this.view.message = undefined;
-
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
 				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
@@ -64,27 +65,14 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 			const tags = await child.repo.git.getTags();
 			if (tags.values.length === 0) {
 				this.view.message = 'No tags could be found.';
-				if (!this.view.grouped) {
-					this.view.description = undefined;
-				}
-
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.message = undefined;
-			if (this.view.grouped) {
-				this.view.description = `${this.view.name.toLocaleLowerCase()} (${tags.values.length})`;
-			} else {
-				this.view.description = `(${tags.values.length})`;
-			}
+			this.view.description = this.getViewDescription(tags.values.length);
 
 			return child.getChildren();
-		}
-
-		if (!this.view.grouped) {
-			this.view.description = undefined;
 		}
 
 		return this.children;

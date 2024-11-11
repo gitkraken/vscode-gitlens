@@ -34,6 +34,9 @@ export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, Sta
 
 export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, StashesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.description = this.getViewDescription();
+		this.view.message = undefined;
+
 		if (this.children == null) {
 			let repositories = this.view.container.git.openRepositories;
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
@@ -49,8 +52,6 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 				return [];
 			}
 
-			this.view.message = undefined;
-
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
 				r => new StashesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
@@ -61,29 +62,16 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 			const [child] = this.children;
 
 			const stash = await child.repo.git.getStash();
-			if (stash == null || stash.commits.size === 0) {
+			if (!stash?.commits.size) {
 				this.view.message = 'No stashes could be found.';
-				if (!this.view.grouped) {
-					this.view.description = undefined;
-				}
-
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.message = undefined;
-			if (this.view.grouped) {
-				this.view.description = `${this.view.name.toLocaleLowerCase()} (${stash.commits.size})`;
-			} else {
-				this.view.description = `(${stash.commits.size})`;
-			}
+			this.view.description = this.getViewDescription(stash.commits.size);
 
 			return child.getChildren();
-		}
-
-		if (!this.view.grouped) {
-			this.view.description = undefined;
 		}
 
 		return this.children;

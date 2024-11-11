@@ -41,11 +41,19 @@ export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView,
 }
 
 export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesView, WorktreesRepositoryNode> {
+	protected override getViewDescription(count?: number): string {
+		const description = super.getViewDescription(count);
+		return description ? `${description} \u00a0\u2022\u00a0 ${proBadge}` : proBadge;
+	}
+
 	async getChildren(): Promise<ViewNode[]> {
-		const access = await this.view.container.git.access(PlusFeatures.Worktrees);
-		if (access.allowed === false) return [];
+		this.view.description = this.getViewDescription();
+		this.view.message = undefined;
 
 		if (this.children == null) {
+			const access = await this.view.container.git.access(PlusFeatures.Worktrees);
+			if (access.allowed === false) return [];
+
 			let repositories = this.view.container.git.openRepositories;
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
 				const grouped = await groupRepositories(repositories);
@@ -60,8 +68,6 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 				return [];
 			}
 
-			this.view.message = undefined;
-
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
 				r => new WorktreesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
@@ -71,33 +77,16 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const children = await child.getChildren();
-			if (children.length <= 1) {
-				this.view.message = undefined;
-				if (!this.view.grouped) {
-					this.view.description = proBadge;
-				}
-
+			const grandChildren = await child.getChildren();
+			if (grandChildren.length <= 1) {
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.message = undefined;
+			this.view.description = this.getViewDescription(grandChildren.length);
 
-			if (this.view.grouped) {
-				this.view.description = `${this.view.name.toLocaleLowerCase()} (${
-					children.length
-				}) \u00a0\u2022\u00a0 ${proBadge}`;
-			} else {
-				this.view.description = `(${children.length}) \u00a0\u2022\u00a0 ${proBadge}`;
-			}
-
-			return children;
-		}
-
-		if (!this.view.grouped) {
-			this.view.description = proBadge;
+			return grandChildren;
 		}
 
 		return this.children;
