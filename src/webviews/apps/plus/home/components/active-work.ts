@@ -1,10 +1,13 @@
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { GitTrackingState } from '../../../../../git/models/branch';
-import type { GetOverviewBranch } from '../../../../home/protocol';
+import type { GetOverviewBranch, RepositoryChoice, State } from '../../../../home/protocol';
+import { stateContext } from '../../../home/context';
+import { GlElement } from '../../../shared/components/element';
 import { branchCardStyles, sectionHeadingStyles } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
@@ -13,6 +16,8 @@ import '../../../shared/components/code-icon';
 import '../../../shared/components/skeleton-loader';
 import '../../../shared/components/card/card';
 import '../../../shared/components/commit/commit-stats';
+import '../../../shared/components/menu/menu-item';
+import '../../../shared/components/overlays/popover';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/pr-icon';
 
@@ -31,16 +36,26 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		sectionHeadingStyles,
 	];
 
+	@consume<State>({ context: stateContext, subscribe: true })
+	@state()
+	private _homeState!: State;
+
 	@consume({ context: overviewStateContext })
 	private _overviewState!: OverviewState;
 
 	override connectedCallback() {
 		super.connectedCallback();
 
-		this._overviewState.run();
+		if (this._homeState.repositories.openCount > 0) {
+			this._overviewState.run();
+		}
 	}
 
 	override render() {
+		if (this._homeState.repositories.openCount === 0) {
+			return nothing;
+		}
+
 		return this._overviewState.render({
 			pending: () => this.renderPending(),
 			complete: overview => this.renderComplete(overview),
@@ -63,7 +78,10 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		if (activeBranches == null) return html`<span>None</span>`;
 
 		return html`
-			<h3 class="section-heading">Active (${activeBranches.length})</h3>
+			<h3 class="section-heading section-heading--actions">
+				<span>Active (${activeBranches.length})</span>
+				${when(overview!.choices, () => html`<gl-change-repo .options=${overview!.choices}></gl-change-repo>`)}
+			</h3>
 			${activeBranches.map(branch => this.renderRepoBranchCard(overview!.repository.name, branch))}
 		`;
 	}
@@ -201,8 +219,75 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	}
 }
 
+@customElement('gl-change-repo')
+export class GlChangeRepo extends GlElement {
+	static override styles = [
+		css`
+			.popover::part(body) {
+				padding: 0;
+				font-size: var(--vscode-font-size);
+				background-color: var(--vscode-menu-background);
+			}
+			.trigger {
+				--button-padding: 0.1rem 0.2rem 0;
+				margin-block: -1rem;
+			}
+
+			.option {
+				max-width: 20rem;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.option code-icon {
+				color: var(--color-foreground--50);
+			}
+		`,
+	];
+
+	@consume({ context: overviewStateContext })
+	private _overviewState!: OverviewState;
+
+	@property({ type: Array }) options?: RepositoryChoice[];
+
+	protected getLabel(option: RepositoryChoice) {
+		return option.name;
+	}
+
+	protected onChange(option: RepositoryChoice) {
+		void this.querySelector('gl-popover')?.hide();
+		void this._overviewState.changeRepository(option.path);
+	}
+
+	override render() {
+		if (!this.options) {
+			return;
+		}
+		return html`
+			<gl-popover class="popover" placement="bottom-end" trigger="focus" .distance=${4} .arrow=${false}>
+				<gl-button class="trigger" appearance="toolbar" slot="anchor"
+					><code-icon icon="chevron-down"></code-icon
+				></gl-button>
+				<div slot="content">
+					${repeat(this.options, item => {
+						if (item.selected) {
+							return nothing;
+						}
+						const label = this.getLabel(item);
+						return html`<menu-item class="option" @click=${() => this.onChange(item)}
+							><code-icon icon="repo"></code-icon> ${label}</menu-item
+						>`;
+					})}
+				</div>
+			</gl-popover>
+		`;
+	}
+}
+
 declare global {
 	interface HTMLElementTagNameMap {
 		[activeWorkTagName]: GlActiveWork;
+		'gl-change-repo': GlChangeRepo;
 	}
 }

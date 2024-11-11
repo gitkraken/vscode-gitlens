@@ -2,70 +2,76 @@ import { css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import type { OverviewRecentThreshold, OverviewStaleThreshold } from '../../../../home/protocol';
+import { GlElement } from '../../../shared/components/element';
 import '../../../shared/components/checkbox/checkbox';
 import '../../../shared/components/code-icon';
-import { GlElement } from '../../../shared/components/element';
-import '../../../shared/components/menu/index';
-import '../../../shared/components/menu/menu-item';
-import '../../../shared/components/menu/menu-list';
-import '../../../shared/components/overlays/popover';
 
-@customElement('gl-branch-threshold-filter')
-export class GlBranchThresholdFilter extends GlElement {
-	static override readonly styles = [
-		css`
-			.date-select {
-				background: none;
-				outline: none;
-				border: none;
-				cursor: pointer;
-				color: var(--vscode-disabledForeground);
-				text-decoration: none !important;
-				font-weight: 500;
-			}
-			.date-select option {
-				color: var(--vscode-foreground);
-				background-color: var(--vscode-dropdown-background);
-			}
-			.date-select:focus {
-				outline: 1px solid var(--vscode-disabledForeground);
-			}
-			.date-select:hover {
-				color: var(--vscode-foreground);
-				text-decoration: underline !important;
-			}
-		`,
-	];
-
-	@property({ type: String }) value: OverviewRecentThreshold | OverviewStaleThreshold | undefined;
-	@property({ type: Array }) options!: { value: OverviewRecentThreshold | OverviewStaleThreshold; label: string }[];
-	private selectDateFilter(threshold: OverviewRecentThreshold | OverviewStaleThreshold) {
-		const event = new CustomEvent('gl-change', {
-			detail: { threshold: threshold },
-		});
-		this.dispatchEvent(event);
+export const selectStyles = css`
+	.select {
+		background: none;
+		outline: none;
+		border: none;
+		cursor: pointer;
+		color: var(--color-foreground--50);
+		text-decoration: none !important;
+		font-weight: 500;
 	}
+	.select option {
+		color: var(--vscode-foreground);
+		background-color: var(--vscode-dropdown-background);
+	}
+	.select:focus {
+		outline: 1px solid var(--color-focus-border);
+	}
+	.select:hover {
+		color: var(--vscode-foreground);
+		text-decoration: underline !important;
+	}
+`;
+
+export abstract class GlObjectSelect<T, L = T[keyof T], V = T[keyof T]> extends GlElement {
+	static override readonly styles = [selectStyles];
+
+	@property({ type: String }) value?: V;
+	@property({ type: Array }) options?: T[];
+
+	protected abstract getValue(option: T): V;
+	protected abstract getLabel(option: T): L;
+	protected abstract onChange?(e: InputEvent): unknown;
 
 	override render() {
 		if (!this.options) {
 			return;
 		}
 		return html`
-			<select
-				class="date-select"
-				@change=${(e: Event) =>
-					this.selectDateFilter(
-						(e.target as HTMLSelectElement).value as OverviewRecentThreshold | OverviewStaleThreshold,
-					)}
-			>
-				${repeat(
-					this.options,
-					item =>
-						html`<option value="${item.value}" ?selected=${this.value === item.value}>
-							${item.label}
-						</option>`,
-				)}
+			<select class="select" @change=${(e: InputEvent) => this.onChange?.(e)}>
+				${repeat(this.options, item => {
+					const value = this.getValue(item);
+					const label = this.getLabel(item);
+					return html`<option .value="${value}" ?selected=${this.value === value}>${label}</option>`;
+				})}
 			</select>
 		`;
+	}
+}
+
+@customElement('gl-branch-threshold-filter')
+export class GlBranchThresholdFilter extends GlObjectSelect<{
+	value: OverviewRecentThreshold | OverviewStaleThreshold;
+	label: string;
+}> {
+	protected getValue(option: { value: OverviewRecentThreshold | OverviewStaleThreshold }) {
+		return option.value;
+	}
+	protected getLabel(option: { label: string }) {
+		return option.label;
+	}
+	protected onChange(e: InputEvent) {
+		const event = new CustomEvent('gl-change', {
+			detail: {
+				threshold: (e.target as HTMLSelectElement).value as OverviewRecentThreshold | OverviewStaleThreshold,
+			},
+		});
+		this.dispatchEvent(event);
 	}
 }
