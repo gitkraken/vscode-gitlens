@@ -27,7 +27,7 @@ import './components/repo-alerts';
 @customElement('gl-home-app')
 export class GlHomeApp extends GlApp<State> {
 	static override styles = [homeBaseStyles, scrollableBase, homeStyles];
-	private disposable: Disposable | undefined;
+	private disposable: Disposable[] = [];
 
 	@provide({ context: overviewStateContext })
 	private _overviewState!: OverviewState;
@@ -38,7 +38,7 @@ export class GlHomeApp extends GlApp<State> {
 	private badgeSource = { source: 'home', detail: 'badge' };
 
 	protected override createStateProvider(state: State, ipc: HostIpc) {
-		this._overviewState = new OverviewState(ipc);
+		this.disposable.push((this._overviewState = new OverviewState(ipc)));
 
 		return new HomeStateProvider(this, state, ipc);
 	}
@@ -46,19 +46,21 @@ export class GlHomeApp extends GlApp<State> {
 	override connectedCallback(): void {
 		super.connectedCallback();
 
-		this.disposable = this._ipc.onReceiveMessage(msg => {
-			switch (true) {
-				case DidFocusAccount.is(msg):
-					this.accountContentEl.show();
-					break;
-			}
-		});
+		this.disposable.push(
+			this._ipc.onReceiveMessage(msg => {
+				switch (true) {
+					case DidFocusAccount.is(msg):
+						this.accountContentEl.show();
+						break;
+				}
+			}),
+		);
 	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback();
 
-		this.disposable?.dispose();
+		this.disposable.forEach(d => d.dispose());
 	}
 
 	override render() {
