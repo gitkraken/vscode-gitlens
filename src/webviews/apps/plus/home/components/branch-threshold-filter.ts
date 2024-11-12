@@ -11,19 +11,22 @@ export const selectStyles = css`
 		background: none;
 		outline: none;
 		border: none;
-		cursor: pointer;
-		color: var(--color-foreground--50);
 		text-decoration: none !important;
 		font-weight: 500;
+		color: var(--color-foreground--25);
 	}
 	.select option {
 		color: var(--vscode-foreground);
 		background-color: var(--vscode-dropdown-background);
 	}
-	.select:focus {
+	.select:not(:disabled) {
+		cursor: pointer;
+		color: var(--color-foreground--50);
+	}
+	.select:not(:disabled):focus {
 		outline: 1px solid var(--color-focus-border);
 	}
-	.select:hover {
+	.select:not(:disabled):hover {
 		color: var(--vscode-foreground);
 		text-decoration: underline !important;
 	}
@@ -32,6 +35,7 @@ export const selectStyles = css`
 export abstract class GlObjectSelect<T, L = T[keyof T], V = T[keyof T]> extends GlElement {
 	static override readonly styles = [selectStyles];
 
+	@property({ type: Boolean }) disabled: boolean = false;
 	@property({ type: String }) value?: V;
 	@property({ type: Array }) options?: T[];
 
@@ -44,7 +48,7 @@ export abstract class GlObjectSelect<T, L = T[keyof T], V = T[keyof T]> extends 
 			return;
 		}
 		return html`
-			<select class="select" @change=${(e: InputEvent) => this.onChange?.(e)}>
+			<select .disabled=${this.disabled} class="select" @change=${(e: InputEvent) => this.onChange?.(e)}>
 				${repeat(this.options, item => {
 					const value = this.getValue(item);
 					const label = this.getLabel(item);

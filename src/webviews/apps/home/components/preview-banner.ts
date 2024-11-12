@@ -66,6 +66,10 @@ export class GlPreviewBanner extends LitElement {
 	private _button!: HTMLButtonElement;
 
 	override render() {
+		if (this.closed || this._state.previewCollapsed === true) {
+			return nothing;
+		}
+
 		if (this._state.previewEnabled === true) {
 			return html`
 				<gl-card>
@@ -89,10 +93,6 @@ export class GlPreviewBanner extends LitElement {
 					></gl-button>
 				</gl-card>
 			`;
-		}
-
-		if (this.closed || this._state.previewCollapsed === true) {
-			return nothing;
 		}
 
 		return html`

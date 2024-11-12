@@ -59,11 +59,14 @@ export class GlBranchSection extends LitElement {
 	@property({ type: String }) label!: string;
 	@property() repo!: string;
 	@property({ type: Array }) branches!: GetOverviewBranch[];
+	@property({ type: Boolean }) isFetching = false;
 
 	override render() {
 		return html`
 			<gl-section>
-				<span slot="heading">${this.label}</span>
+				<span slot="heading"
+					>${this.label}${when(!this.isFetching, () => html` (${this.branches.length})`)}</span
+				>
 				<span slot="heading-actions"><slot name="heading-actions"></slot></span>
 				${this.branches.map(
 					branch => html`<gl-branch-card .repo=${this.repo} .branch=${branch}></gl-branch-card>`,
