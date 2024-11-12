@@ -33,7 +33,7 @@ import type {
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
 import type { TreeViewCommandSuffixesByViewType } from '../constants.commands';
 import type { TrackedUsageFeatures } from '../constants.telemetry';
-import type { TreeViewIds, TreeViewTypes } from '../constants.views';
+import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
@@ -110,6 +110,23 @@ export type TreeViewByType = {
 		? WorkspacesView
 		: T extends 'worktrees'
 		? WorktreesView
+		: View;
+};
+
+// prettier-ignore
+export type WebviewViewByType = {
+	[T in WebviewViewTypes]: T extends 'commitDetails'
+		? CommitsView
+		: T extends 'graph'
+		? CommitsView
+		: T extends 'graphDetails'
+		? CommitsView
+		: T extends 'home'
+		? CommitsView
+		: T extends 'patchDetails'
+		? CommitsView
+		: T extends 'timeline'
+		? CommitsView
 		: View;
 };
 
