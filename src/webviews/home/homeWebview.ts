@@ -5,6 +5,7 @@ import { GlyphChars } from '../../constants';
 import type { ContextKeys } from '../../constants.context';
 import type { HomeTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
+import { executeGitCommand } from '../../git/actions';
 import type { BranchContributorOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
 import { sortBranches } from '../../git/models/branch';
@@ -146,7 +147,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this.notifyDidChangeOnboardingIntegration();
 	}
 
-	private async shouldNotifyRespositoryChange(): Promise<boolean> {
+	private async shouldNotifyRepositoryChange(): Promise<boolean> {
 		if (this._etag === this.container.git.etag) {
 			return false;
 		}
@@ -181,7 +182,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async onRepositoriesChanged() {
-		if (!(await this.shouldNotifyRespositoryChange())) {
+		if (!(await this.shouldNotifyRepositoryChange())) {
 			return;
 		}
 		this.notifyDidChangeRepositories();
@@ -197,8 +198,39 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
+	private async push(force = false) {
+		const repo = this.getSelectedRepository();
+		if (repo) {
+			return executeGitCommand({
+				command: 'push',
+				state: { repos: [repo], flags: force ? ['--force'] : undefined },
+			});
+		}
+		return Promise.resolve();
+	}
+
+	private async pull() {
+		const repo = this.getSelectedRepository();
+		if (repo) {
+			return executeGitCommand({
+				command: 'pull',
+				state: { repos: [repo] },
+			});
+		}
+		return Promise.resolve();
+	}
+
 	registerCommands(): Disposable[] {
 		return [
+			registerCommand(`${this.host.id}.pull`, this.pull, this),
+			registerCommand(
+				`${this.host.id}.push`,
+				args => {
+					void this.push(args.force);
+				},
+				this,
+			),
+			registerCommand(`${this.host.id}.publishBranch`, this.push, this),
 			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
 			registerCommand(
 				`${this.host.id}.account.resync`,
@@ -426,6 +458,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onWipChanged(_repo: Repository) {
+		this._invalidateRepositoryBranches = true;
 		void this.host.notify(DidChangeRepositoryWip, undefined);
 	}
 
@@ -437,16 +470,21 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this._repositorySubscription?.repo;
 	}
 
-	private _repositoryBranches: Map<string, { branches: GitBranch[]; worktrees: GitWorktree[] }> = new Map();
-	private async getBranchesAndWorktrees(repo: Repository, force = false) {
+	private _invalidateRepositoryBranches = true;
+	private readonly _repositoryBranches: Map<string, { branches: GitBranch[]; worktrees: GitWorktree[] }> = new Map();
+	private async getBranchesAndWorktrees(repo: Repository, force = this._invalidateRepositoryBranches) {
 		if (force || !this._repositoryBranches.has(repo.path)) {
-			const [branchesResult, worktreesResult] = await Promise.allSettled([
-				repo.git.getBranches({ filter: b => !b.remote }),
-				repo.git.getWorktrees(),
+			const worktrees = (await repo.git.getWorktrees()) ?? [];
+			const worktreesByBranch = groupWorktreesByBranch(worktrees);
+			const [branchesResult] = await Promise.allSettled([
+				repo.git.getBranches({
+					filter: b => !b.remote,
+					sort: { current: true, openedWorktreesByBranch: getOpenedWorktreesByBranch(worktreesByBranch) },
+				}),
 			]);
 
 			const branches = getSettledValue(branchesResult)?.values ?? [];
-			const worktrees = getSettledValue(worktreesResult) ?? [];
+			this._invalidateRepositoryBranches = false;
 			this._repositoryBranches.set(repo.path, { branches: branches, worktrees: worktrees });
 		}
 
@@ -542,15 +580,10 @@ async function getOverviewBranches(
 	container: Container,
 	options: OverviewFilters,
 ): Promise<GetOverviewBranches | undefined> {
+	console.log('try to getOverviewBranches');
 	if (branches.length === 0) return undefined;
 
 	const worktreesByBranch = groupWorktreesByBranch(worktrees);
-
-	sortBranches(branches, {
-		current: true,
-		orderBy: 'date:desc',
-		openedWorktreesByBranch: getOpenedWorktreesByBranch(worktreesByBranch),
-	});
 
 	const overviewBranches: GetOverviewBranches = {
 		active: [],
@@ -571,7 +604,7 @@ async function getOverviewBranches(
 
 		const timestamp = branch.date?.getTime();
 		if (branch.current || wt?.opened) {
-			prPromises.set(branch.id, branch.getAssociatedPullRequest());
+			prPromises.set(branch.id, branch.getAssociatedPullRequest({ avatarSize: 16 }));
 			if (wt != null) {
 				statusPromises.set(branch.id, wt.getStatus());
 			}
@@ -678,15 +711,15 @@ async function getOverviewBranches(
 	const prs = new Map(
 		getSettledValue(prResults)
 			?.filter(r => r.status === 'fulfilled')
-			.map(r => [
-				r.value[0],
-				r.value[1]
-					? {
-							id: r.value[1].id,
-							title: r.value[1].title,
-							state: r.value[1].state,
-							url: r.value[1].url,
-					  }
+			.map(({ value: [prId, pr] }) => [
+				prId,
+				pr
+					? ({
+							id: pr.id,
+							title: pr.title,
+							state: pr.state,
+							url: pr.url,
+					  } satisfies GetOverviewBranch['pr'])
 					: undefined,
 			]),
 	);
