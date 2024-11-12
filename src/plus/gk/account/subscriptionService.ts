@@ -708,19 +708,14 @@ export class SubscriptionService implements Disposable {
 		this.changeSubscription(subscription);
 
 		setTimeout(async () => {
-			const confirm: MessageItem = { title: 'Continue' };
-			const learn: MessageItem = { title: 'See Pro Features' };
-			const result = await window.showInformationMessage(
-				`You can now preview local Pro features for ${
+			await window.showInformationMessage(
+				`You can now preview the Commit Graph on privately-hosted repos for ${
 					days < 1 ? '1 day' : pluralize('day', days)
-				}, or [start your free ${proTrialLengthInDays}-day Pro trial](command:gitlens.plus.signUp "Start Pro Trial") for full access to Pro features.`,
-				confirm,
-				learn,
+				}, or [start your free ${proTrialLengthInDays}-day Pro trial](command:gitlens.plus.signUp "Start Pro Trial") for full access to all [GitLens Pro](${
+					urls.gitlensProVsCommunity
+				}) features.`,
+				{ title: 'Continue' },
 			);
-
-			if (result === learn) {
-				void this.learnAboutPro({ source: 'notification', detail: { action: 'preview-started' } }, source);
-			}
 		}, 1);
 	}
 
