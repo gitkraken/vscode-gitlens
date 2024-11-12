@@ -7,7 +7,7 @@ import type { GitTrackingState } from '../../../../../git/models/branch';
 import { createWebviewCommandLink } from '../../../../../system/webview';
 import type { GetOverviewBranch, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import { branchCardStyles, sectionHeadingStyles } from './branch-section';
+import { branchCardStyles, createCommandLink, sectionHeadingStyles } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/button';
@@ -83,12 +83,13 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	}
 
 	private renderComplete(overview: Overview) {
-		const activeBranches = overview?.repository?.branches?.active;
+		const repo = overview?.repository;
+		const activeBranches = repo?.branches?.active;
 		if (!activeBranches) return html`<span>None</span>`;
 
 		return html`
 			<h3 class="section-heading section-heading--actions">
-				<span><code-icon icon="repo" class="heading-icon"></code-icon> ${overview.repository.name}</span>
+				<span><code-icon icon="repo" class="heading-icon"></code-icon> ${overview!.repository.name}</span>
 				${when(
 					this._homeState.repositories.openCount > 1,
 					() =>
@@ -102,11 +103,11 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						></span>`,
 				)}
 			</h3>
-			${activeBranches.map(branch => this.renderRepoBranchCard(branch))}
+			${activeBranches.map(branch => this.renderRepoBranchCard(branch, repo.path))}
 		`;
 	}
 
-	private renderRepoBranchCard(branch: GetOverviewBranch) {
+	private renderRepoBranchCard(branch: GetOverviewBranch, repo: string) {
 		const { name, pr, state, workingTreeState, upstream } = branch;
 		return html`
 			<gl-card class="branch-item" active>
@@ -127,8 +128,55 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 					</p>`;
 				})}
 				${when(workingTreeState, () => this.renderStatus(workingTreeState, state))}
+				${this.renderActions(branch, repo)}
 			</gl-card>
 		`;
+	}
+
+	private renderActions(branch: GetOverviewBranch, repo: string) {
+		const branchRefs = {
+			repoPath: repo,
+			branchId: branch.id,
+		};
+		const actions = [];
+		if (branch.pr) {
+			actions.push(
+				html`<action-item
+					label="Open Pull Request Changes"
+					icon="request-changes"
+					href=${createCommandLink('gitlens.home.openPullRequestComparison', branchRefs)}
+				></action-item>`,
+			);
+			actions.push(
+				html`<action-item
+					label="Open Pull Request on Remote"
+					icon="globe"
+					href=${createCommandLink('gitlens.home.openPullRequestOnRemote', branchRefs)}
+				></action-item>`,
+			);
+		} else {
+			actions.push(
+				html`<action-item
+					label="Create Pull Request..."
+					icon="git-pull-request-create"
+					href=${createCommandLink('gitlens.home.createPullRequest', branchRefs)}
+				></action-item>`,
+			);
+		}
+
+		// branch actions
+		actions.push(
+			html`<action-item
+				label="Fetch"
+				icon="gl-repo-fetch"
+				href=${createCommandLink('gitlens.home.fetch', branchRefs)}
+			></action-item>`,
+		);
+
+		if (!actions.length) {
+			return nothing;
+		}
+		return html`<action-nav class="branch-item__actions">${actions}</action-nav>`;
 	}
 
 	private renderBranchStateActions(state?: GitTrackingState, upstream?: { name: string; missing: boolean }) {

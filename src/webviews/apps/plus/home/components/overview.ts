@@ -89,6 +89,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			<div class="repository">
 				<gl-branch-section
 					label="Recent (${repository.branches.recent.length})"
+					.repo=${repository.path}
 					.branches=${repository.branches.recent}
 				>
 					<gl-branch-threshold-filter
@@ -108,6 +109,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				<gl-branch-section
 					hidden
 					label="Stale (${repository.branches.stale.length})"
+					.repo=${repository.path}
 					.branches=${repository.branches.stale}
 				></gl-branch-section>
 			</div>

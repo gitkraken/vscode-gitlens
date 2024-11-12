@@ -1,15 +1,21 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
+import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
+import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import { GlyphChars } from '../../constants';
+import { Commands } from '../../constants.commands';
 import type { ContextKeys } from '../../constants.context';
 import type { HomeTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
+import * as RepoActions from '../../git/actions/repository';
 import type { BranchContributorOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
 import { sortBranches } from '../../git/models/branch';
 import type { PullRequest } from '../../git/models/pullRequest';
+import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
+import { getReferenceFromBranch } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
@@ -21,9 +27,10 @@ import { getLaunchpadSummary } from '../../plus/launchpad/utils';
 import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import { map } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
-import { registerCommand } from '../../system/vscode/command';
+import { executeActionCommand, executeCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
+import { openWorkspace } from '../../system/vscode/utils';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
@@ -67,6 +74,12 @@ const emptyDisposable = Object.freeze({
 });
 
 type RepositorySubscription = { repo: Repository; subscription: Disposable };
+type RepositoryBranchData = {
+	repo: Repository;
+	branches: GitBranch[];
+	worktreesByBranch: Map<string, GitWorktree>;
+};
+type BranchRef = { repoPath: string; branchId: string };
 
 export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
@@ -237,6 +250,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				() => this.container.subscription.validate({ force: true }),
 				this,
 			),
+			registerCommand('gitlens.home.openPullRequestComparison', this.pullRequestCompare, this),
+			registerCommand('gitlens.home.openPullRequestOnRemote', this.pullRequestViewOnRemote, this),
+			registerCommand('gitlens.home.createPullRequest', this.pullRequestCreate, this),
+			registerCommand('gitlens.home.openWorktree', this.worktreeOpen, this),
+			registerCommand('gitlens.home.switchToBranch', this.switchToBranch, this),
+			registerCommand('gitlens.home.fetch', this.fetch, this),
 		];
 	}
 
@@ -400,10 +419,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const repo = this.getSelectedRepository();
 		if (repo == null) return undefined;
 
-		const branchesAndWorktrees = await this.getBranchesAndWorktrees(repo);
+		const branchesAndWorktrees = await this.getBranchesData(repo);
 		const overviewBranches = await getOverviewBranches(
-			branchesAndWorktrees?.branches,
-			branchesAndWorktrees?.worktrees,
+			branchesAndWorktrees,
 			this.container,
 			this._overviewBranchFilter,
 		);
@@ -412,6 +430,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const result: GetOverviewResponse = {
 			repository: {
 				name: repo.commonRepositoryName ?? repo.name,
+				path: repo.path,
 				branches: overviewBranches,
 			},
 		};
@@ -471,8 +490,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private _invalidateRepositoryBranches = true;
-	private readonly _repositoryBranches: Map<string, { branches: GitBranch[]; worktrees: GitWorktree[] }> = new Map();
-	private async getBranchesAndWorktrees(repo: Repository, force = this._invalidateRepositoryBranches) {
+	private readonly _repositoryBranches: Map<string, RepositoryBranchData> = new Map();
+	private async getBranchesData(repo: Repository, force = this._invalidateRepositoryBranches) {
 		if (force || !this._repositoryBranches.has(repo.path)) {
 			const worktrees = (await repo.git.getWorktrees()) ?? [];
 			const worktreesByBranch = groupWorktreesByBranch(worktrees);
@@ -484,8 +503,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			]);
 
 			const branches = getSettledValue(branchesResult)?.values ?? [];
+
 			this._invalidateRepositoryBranches = false;
-			this._repositoryBranches.set(repo.path, { branches: branches, worktrees: worktrees });
+			this._repositoryBranches.set(repo.path, {
+				repo: repo,
+				branches: branches,
+				worktreesByBranch: worktreesByBranch,
+			});
 		}
 
 		return this._repositoryBranches.get(repo.path)!;
@@ -565,6 +589,104 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			orgSettings: this.getOrgSettings(),
 		});
 	}
+
+	private async pullRequestCompare(refs: BranchRef) {
+		const pr = await this.findPullRequest(refs);
+		if (pr?.refs?.base == null || pr.refs.head == null) return;
+
+		const comparisonRefs = getComparisonRefsForPullRequest(refs.repoPath, pr.refs);
+		return this.container.views.searchAndCompare.compare(
+			comparisonRefs.repoPath,
+			comparisonRefs.head,
+			comparisonRefs.base,
+		);
+	}
+
+	private async pullRequestViewOnRemote(refs: BranchRef, clipboard?: boolean) {
+		const pr = await this.findPullRequest(refs);
+		if (pr == null) return;
+
+		void executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
+			pr: { url: pr.url },
+			clipboard: clipboard,
+		});
+	}
+
+	private async pullRequestCreate(refs: BranchRef) {
+		const repo = this._repositoryBranches.get(refs.repoPath);
+		const branch = repo?.branches.find(b => b.id === refs.branchId);
+		if (branch == null) return;
+		const remote = await branch.getRemote();
+		if (remote == null) return;
+
+		executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
+			repoPath: refs.repoPath,
+			remote:
+				remote != null
+					? {
+							name: remote.name,
+							provider:
+								remote.provider != null
+									? {
+											id: remote.provider.id,
+											name: remote.provider.name,
+											domain: remote.provider.domain,
+									  }
+									: undefined,
+							url: remote.url,
+					  }
+					: undefined,
+			branch: {
+				name: branch.name,
+				upstream: branch.upstream?.name,
+				isRemote: branch.remote,
+			},
+		});
+	}
+
+	private worktreeOpen(refs: BranchRef) {
+		const worktree = this.findWorktree(refs);
+		if (worktree == null) return;
+
+		openWorkspace(worktree.uri);
+	}
+
+	private switchToBranch(refs: BranchRef) {
+		const repo = this._repositoryBranches.get(refs.repoPath);
+		const branch = repo?.branches.find(b => b.id === refs.branchId);
+		if (branch == null) return;
+
+		void RepoActions.switchTo(repo!.repo, getReferenceFromBranch(branch));
+	}
+
+	private fetch(refs: BranchRef) {
+		const repo = this._repositoryBranches.get(refs.repoPath);
+		const branch = repo?.branches.find(b => b.id === refs.branchId);
+		if (branch == null) return;
+
+		void RepoActions.fetch(repo!.repo, getReferenceFromBranch(branch));
+	}
+
+	private findBranch(refs: BranchRef): GitBranch | undefined {
+		const branches = this._repositoryBranches.get(refs.repoPath)?.branches;
+		return branches?.find(b => b.id === refs.branchId);
+	}
+
+	private findWorktree(refs: BranchRef): GitWorktree | undefined {
+		const repo = this._repositoryBranches.get(refs.repoPath);
+		if (repo == null) return undefined;
+
+		const branch = repo.branches.find(b => b.id === refs.branchId);
+		if (branch == null) return undefined;
+
+		return repo.worktreesByBranch.get(branch.id);
+	}
+
+	private async findPullRequest(refs: BranchRef): Promise<PullRequest | undefined> {
+		const branches = this.findBranch(refs);
+		if (branches == null) return undefined;
+		return branches.getAssociatedPullRequest();
+	}
 }
 
 const thresholdValues: Record<OverviewStaleThreshold | OverviewRecentThreshold, number> = {
@@ -575,15 +697,12 @@ const thresholdValues: Record<OverviewStaleThreshold | OverviewRecentThreshold, 
 };
 
 async function getOverviewBranches(
-	branches: GitBranch[],
-	worktrees: GitWorktree[],
+	branchesData: RepositoryBranchData,
 	container: Container,
 	options: OverviewFilters,
 ): Promise<GetOverviewBranches | undefined> {
-	console.log('try to getOverviewBranches');
+	const { branches, worktreesByBranch } = branchesData;
 	if (branches.length === 0) return undefined;
-
-	const worktreesByBranch = groupWorktreesByBranch(worktrees);
 
 	const overviewBranches: GetOverviewBranches = {
 		active: [],

@@ -113,6 +113,7 @@ export type GetOverviewResponse =
 	| {
 			repository: {
 				name: string;
+				path: string;
 				branches: GetOverviewBranches;
 			};
 	  }
