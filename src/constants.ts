@@ -168,8 +168,7 @@ export const urls = Object.freeze({
 	browserExtension: `https://gitkraken.com/browser-extension?${utm}`,
 	desktop: `https://gitkraken.com/git-client?${utm}`,
 
-	releaseNotes: 'https://help.gitkraken.com/gitlens/gitlens-release-notes-current/',
-	releaseAnnouncement: `https://www.gitkraken.com/blog/gitkraken-launches-devex-platform-acquires-codesee?${utm}`,
+	releaseNotes: `https://help.gitkraken.com/gitlens/gitlens-release-notes-current/?${utm}`,
 });
 
 export type WalkthroughSteps =

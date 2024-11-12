@@ -109,6 +109,8 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		},
 	});
 
+	void showWhatsNewMessage('17');
+
 	// Ensure that this pre-release version hasn't expired
 	if (prerelease) {
 		const v = fromString(gitlensVersion);
