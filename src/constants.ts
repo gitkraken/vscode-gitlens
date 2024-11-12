@@ -169,6 +169,9 @@ export const urls = Object.freeze({
 	desktop: `https://gitkraken.com/git-client?${utm}`,
 
 	releaseNotes: `https://help.gitkraken.com/gitlens/gitlens-release-notes-current/?${utm}`,
+	helpCenter: `https://help.gitkraken.com/gitlens/gitlens-home/?${utm}`,
+	githubIssues: `https://github.com/gitkraken/vscode-gitlens/issues/?${utm}`,
+	githubDiscussions: `https://github.com/gitkraken/vscode-gitlens/discussions/?${utm}`,
 });
 
 export type WalkthroughSteps =

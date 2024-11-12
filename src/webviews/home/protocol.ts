@@ -24,7 +24,8 @@ export interface State extends WebviewState {
 		progress: number;
 	};
 	showWalkthroughProgress?: boolean;
-	previewEnabled?: boolean;
+	previewEnabled: boolean;
+	newInstall: boolean;
 }
 
 export type OverviewRecentThreshold = 'OneDay' | 'OneWeek' | 'OneMonth';
