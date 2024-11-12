@@ -6,6 +6,7 @@ import { Commands } from './constants.commands';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
+import { createMarkdownCommandLink } from './system/commands';
 import { Logger } from './system/logger';
 import { executeCommand, executeCoreCommand } from './system/vscode/command';
 import { configuration } from './system/vscode/configuration';
@@ -231,22 +232,24 @@ export function showIntegrationRequestTimedOutWarningMessage(providerName: strin
 
 export async function showWhatsNewMessage(version: string) {
 	const confirm = { title: 'OK', isCloseAffordance: true };
-	const announcement = { title: 'Read Announcement', isCloseAffordance: true };
+	const releaseNotes = { title: 'View Release Notes' };
 	const result = await showMessage(
 		'info',
 		`Upgraded to GitLens ${version}${
-			version === '15'
-				? `, with a host of new [Pro features](${urls.proFeatures}) including [Launchpad](${urls.codeSuggest}), [Code Suggest](${urls.codeSuggest}), and more`
-				: ''
-		} — [see what's new](${urls.releaseNotes} "See what's new in GitLens ${version}").`,
+			version === '16'
+				? ` with an all new [Home view](${createMarkdownCommandLink(Commands.ShowHomeView, {
+						source: 'whatsnew',
+				  })} "Show Home view") reimagined as a hub for your current, future, and recent work, consolidated Source Control views, and much more.`
+				: " — see what's new."
+		}`,
 		undefined,
 		null,
+		releaseNotes,
 		confirm,
-		announcement,
 	);
 
-	if (result === announcement) {
-		void openUrl(urls.releaseAnnouncement);
+	if (result === releaseNotes) {
+		void openUrl(urls.releaseNotes);
 	}
 }
 
