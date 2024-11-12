@@ -121,6 +121,7 @@ export class GlFeatureGatePlusState extends LitElement {
 				`;
 
 			case SubscriptionState.Community:
+			case SubscriptionState.ProPreviewExpired:
 				return html`
 					${feature !== 'graph'
 						? html`<p>
@@ -130,34 +131,11 @@ export class GlFeatureGatePlusState extends LitElement {
 						: nothing}
 					<gl-button
 						appearance="${appearance}"
-						href="${generateCommandLink(Commands.PlusStartPreviewTrial, this.source)}"
-						>Continue</gl-button
-					>
-					<p>
-						Continuing gives you 3 days to preview
-						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded}  and other ` : ''}local
-						Pro features.<br />
-						${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features
-						<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
-							>start your free ${proTrialLengthInDays}-day Pro trial</a
-						>
-						or
-						<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.
-					</p>
-				`;
-
-			case SubscriptionState.ProPreviewExpired:
-				return html`
-					<p>
-						Use on privately-hosted repos requires <a href="${urls.gitlensProVsCommunity}">GitLens Pro</a>.
-					</p>
-					<gl-button
-						appearance="${appearance}"
 						href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
 						>&nbsp;Try GitLens Pro&nbsp;</gl-button
 					>
 					<p>
-						Start your free ${proTrialLengthInDays}-day GitLens Pro trial - no credit card required. Or
+						Get ${proTrialLengthInDays} days of GitLens Pro for free - no credit card required. Or
 						<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.
 					</p>
 				`;
