@@ -19444,12 +19444,12 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "GitLens views—Commits, Branches, Stashes, etc—are grouped together for easier view management.\nUse the tabs above to navigate, or detach the views you want to keep separated. Once detached, you can regroup them anytime using the 'x' in the view's header.\n\n[Continue](command:gitlens.views.scm.grouped.welcome.dismiss)",
+				"contents": "GitLens groups many related views—Commits, Branches, Stashes, etc—here for easier view management.\nUse the tabs above to navigate, or detach the views you want to keep separated. You can regroup them anytime using the 'x' in the view header.\n\n[Continue](command:gitlens.views.scm.grouped.welcome.dismiss)",
 				"when": "!gitlens:views:scm:grouped:welcome:dismissed && gitlens:newInstall"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "In GitLens 16, we've grouped many views—Commits, Branches, Stashes, etc—together here for easier view management.\nUse the tabs above to navigate, or detach the views you want to keep separated. Once detached, you can regroup them anytime using the 'x' in the view's header.\n\n[Continue](command:gitlens.views.scm.grouped.welcome.dismiss)\n\nPrefer them separate? [Restore views to previous locations](command:gitlens.views.scm.grouped.welcome.restore)",
+				"contents": "In GitLens 16, we've grouped many related views—Commits, Branches, Stashes, etc—here for easier view management.\nUse the tabs above to navigate, or detach the views you want to keep separated. You can regroup them anytime using the 'x' in the view header.\n\n[Continue](command:gitlens.views.scm.grouped.welcome.dismiss)\n\nPrefer them separate? [Restore views to previous locations](command:gitlens.views.scm.grouped.welcome.restore)",
 				"when": "!gitlens:views:scm:grouped:welcome:dismissed && !gitlens:newInstall"
 			}
 		],

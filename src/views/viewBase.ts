@@ -167,6 +167,11 @@ export abstract class ViewBase<
 		return types.includes(this.type as unknown as T[number]);
 	}
 
+	private _disposed: boolean = false;
+	get disposed(): boolean {
+		return this._disposed;
+	}
+
 	get id(): TreeViewIds<Type> {
 		return `gitlens.views.${this.type}`;
 	}
@@ -266,6 +271,7 @@ export abstract class ViewBase<
 	}
 
 	dispose() {
+		this._disposed = true;
 		this._nodeState?.dispose();
 		this._nodeState = undefined;
 		this.root?.dispose();
