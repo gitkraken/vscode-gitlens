@@ -1,6 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { Commands } from '../../../../../constants.commands';
 import type { GitTrackingState } from '../../../../../git/models/branch';
 import type { GetOverviewBranch } from '../../../../home/protocol';
 import '../../../shared/components/code-icon';
@@ -11,6 +12,8 @@ import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/formatted-date';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/pr-icon';
+import '../../../shared/components/actions/action-item';
+import '../../../shared/components/actions/action-nav';
 
 type OverviewBranch = GetOverviewBranch;
 
@@ -54,6 +57,7 @@ export class GlSection extends LitElement {
 @customElement('gl-branch-section')
 export class GlBranchSection extends LitElement {
 	@property({ type: String }) label!: string;
+	@property() repo!: string;
 	@property({ type: Array }) branches!: GetOverviewBranch[];
 
 	override render() {
@@ -61,7 +65,9 @@ export class GlBranchSection extends LitElement {
 			<gl-section>
 				<span slot="heading">${this.label}</span>
 				<span slot="heading-actions"><slot name="heading-actions"></slot></span>
-				${this.branches.map(branch => html`<gl-branch-card .branch=${branch}></gl-branch-card>`)}
+				${this.branches.map(
+					branch => html`<gl-branch-card .repo=${this.repo} .branch=${branch}></gl-branch-card>`,
+				)}
 			</gl-section>
 		`;
 	}
@@ -80,13 +86,16 @@ export const branchCardStyles = css`
 		/* background-color: var(--vscode-gitDecoration-untrackedResourceForeground); */
 	}
 
-	/* .branch-item {} */
+	.branch-item {
+		position: relative;
+	}
 
 	.branch-item__main {
 		display: flex;
 		/* flex-direction: column; */
 		/* align-items: center; */
 		gap: 0.4rem;
+		margin-block-end: 0;
 	}
 
 	.branch-item__icon {
@@ -118,6 +127,7 @@ export const branchCardStyles = css`
 		/* align-items: center; */
 		font-size: 0.9em;
 		color: var(--vscode-descriptionForeground);
+		margin-block-end: 0;
 	}
 	.branch-item__details > * {
 		margin-block: 0;
@@ -165,14 +175,36 @@ export const branchCardStyles = css`
 		overflow: hidden;
 		margin-inline-start: auto;
 	}
+
+	.branch-item__actions {
+		position: absolute;
+		right: 0.4rem;
+		bottom: 0.4rem;
+		padding: 0.2rem 0.4rem;
+		background-color: var(--gl-card-background);
+	}
+
+	.branch-item:not(:focus-within):not(:hover) .branch-item__actions {
+		display: none;
+	}
 `;
 
 @customElement('gl-branch-card')
 export class GlBranchCard extends LitElement {
 	static override styles = branchCardStyles;
 
+	@property()
+	repo!: string;
+
 	@property({ type: Object })
 	branch!: GetOverviewBranch;
+
+	get branchRefs() {
+		return {
+			repoPath: this.repo,
+			branchId: this.branch.id,
+		};
+	}
 
 	override render() {
 		const { name, pr, opened: active, timestamp: date, state, workingTreeState } = this.branch;
@@ -207,6 +239,7 @@ export class GlBranchCard extends LitElement {
 							html`<formatted-date .date=${new Date(date!)} class="branch-item__date"></formatted-date>`,
 					)}
 				</div>
+				${this.renderActions()}
 			</gl-card>
 		`;
 	}
@@ -291,4 +324,73 @@ export class GlBranchCard extends LitElement {
 
 		return nothing;
 	}
+
+	private renderActions() {
+		const actions = [];
+		if (this.branch.pr) {
+			actions.push(
+				html`<action-item
+					label="Open Pull Request Changes"
+					icon="request-changes"
+					href=${this.createCommandLink('gitlens.home.openPullRequestComparison')}
+				></action-item>`,
+			);
+			actions.push(
+				html`<action-item
+					label="Open Pull Request on Remote"
+					icon="globe"
+					href=${this.createCommandLink('gitlens.home.openPullRequestOnRemote')}
+				></action-item>`,
+			);
+		} else {
+			actions.push(
+				html`<action-item
+					label="Create Pull Request..."
+					icon="git-pull-request-create"
+					href=${this.createCommandLink('gitlens.home.createPullRequest')}
+				></action-item>`,
+			);
+		}
+		if (this.branch.worktree) {
+			actions.push(
+				html`<action-item
+					label="Open Worktree"
+					icon="browser"
+					href=${this.createCommandLink('gitlens.home.openWorktree')}
+				></action-item>`,
+			);
+		} else {
+			actions.push(
+				html`<action-item
+					label="Switch to Branch..."
+					icon="gl-switch"
+					href=${this.createCommandLink('gitlens.home.switchToBranch')}
+				></action-item>`,
+			);
+		}
+
+		// branch actions
+		actions.push(
+			html`<action-item
+				label="Fetch"
+				icon="gl-repo-fetch"
+				href=${this.createCommandLink('gitlens.home.fetch')}
+			></action-item>`,
+		);
+
+		if (!actions.length) {
+			return nothing;
+		}
+		return html`<action-nav class="branch-item__actions">${actions}</action-nav>`;
+	}
+
+	private createCommandLink(command: string) {
+		return createCommandLink(command, this.branchRefs);
+	}
+}
+
+export function createCommandLink<T>(command: Commands | string, args: T) {
+	if (args == null) return `command:${command}`;
+
+	return `command:${command}?${encodeURIComponent(typeof args === 'string' ? args : JSON.stringify(args))}`;
 }
