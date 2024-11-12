@@ -81,58 +81,6 @@ export const homeStyles = css`
 	}
 `;
 
-export const inlineNavStyles = css`
-	.inline-nav {
-		display: flex;
-		flex-direction: row;
-		justify-content: space-between;
-	}
-	.inline-nav__group {
-		display: flex;
-		flex-direction: row;
-	}
-	.inline-nav__link {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		width: 2.2rem;
-		height: 2.2rem;
-		color: inherit;
-		border-radius: 0.3rem;
-	}
-	.inline-nav__link .code-icon {
-		line-height: 1.6rem;
-	}
-	.inline-nav__link:hover {
-		color: inherit;
-		text-decoration: none;
-	}
-	:host-context(.vscode-dark) .inline-nav__link:hover {
-		background-color: var(--color-background--lighten-10);
-	}
-	:host-context(.vscode-light) .inline-nav__link:hover {
-		background-color: var(--color-background--darken-10);
-	}
-	@media (max-width: 370px) {
-		.inline-nav__link--text > :last-child {
-			display: none;
-		}
-	}
-	@media (min-width: 371px) {
-		.inline-nav__link--text {
-			flex: none;
-			padding-left: 0.3rem;
-			padding-right: 0.3rem;
-			gap: 0.2rem;
-			min-width: 2.2rem;
-			width: fit-content;
-		}
-		.inline-nav__link--text + .inline-nav__link--text {
-			margin-left: 0.2rem;
-		}
-	}
-`;
-
 export const buttonStyles = css`
 	.button-container {
 		margin: 1rem auto 0;
