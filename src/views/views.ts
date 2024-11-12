@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, MessageItem } from 'vscode';
 import { Disposable, window } from 'vscode';
 import type { Commands } from '../constants.commands';
-import type { GroupableTreeViewTypes } from '../constants.views';
+import type { GroupableTreeViewTypes, TreeViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import type { GitContributor } from '../git/models/contributor';
 import type {
@@ -54,7 +54,7 @@ export class Views implements Disposable {
 
 	private _lastSelectedScmGroupedView: GroupableTreeViewTypes | undefined;
 	get lastSelectedScmGroupedView() {
-		if (!this._scmGroupedViews.size) return undefined;
+		if (!this._scmGroupedViews?.size) return undefined;
 
 		if (!this._lastSelectedScmGroupedView || !this._scmGroupedViews.has(this._lastSelectedScmGroupedView)) {
 			return first(this._scmGroupedViews);
@@ -69,7 +69,7 @@ export class Views implements Disposable {
 	}
 
 	private _scmGroupedView: ScmGroupedView | undefined;
-	private _scmGroupedViews!: Set<GroupableTreeViewTypes>;
+	private _scmGroupedViews: Set<GroupableTreeViewTypes> | undefined;
 	get scmGroupedViews() {
 		return this._scmGroupedViews;
 	}
@@ -228,6 +228,29 @@ export class Views implements Disposable {
 				this.setAsScmGroupedDefaultView('worktrees'),
 			),
 
+			registerCommand('gitlens.views.scm.grouped.branches', () => this.setScmGroupedView('branches', true)),
+			registerCommand('gitlens.views.scm.grouped.commits', () => this.setScmGroupedView('commits', true)),
+			registerCommand('gitlens.views.scm.grouped.contributors', () =>
+				this.setScmGroupedView('contributors', true),
+			),
+			registerCommand('gitlens.views.scm.grouped.launchpad', () => this.setScmGroupedView('launchpad', true)),
+			registerCommand('gitlens.views.scm.grouped.remotes', () => this.setScmGroupedView('remotes', true)),
+			registerCommand('gitlens.views.scm.grouped.repositories', () =>
+				this.setScmGroupedView('repositories', true),
+			),
+			registerCommand('gitlens.views.scm.grouped.searchAndCompare', () =>
+				this.setScmGroupedView('searchAndCompare', true),
+			),
+			registerCommand('gitlens.views.scm.grouped.stashes', () => this.setScmGroupedView('stashes', true)),
+			registerCommand('gitlens.views.scm.grouped.tags', () => this.setScmGroupedView('tags', true)),
+			registerCommand('gitlens.views.scm.grouped.worktrees', () => this.setScmGroupedView('worktrees', true)),
+
+			registerCommand('gitlens.views.scm.grouped.refresh', () => {
+				if (this._scmGroupedView?.view == null) return;
+
+				executeCommand(`gitlens.views.${this._scmGroupedView.view.type}.refresh` as Commands);
+			}),
+
 			registerCommand('gitlens.views.scm.grouped.welcome.dismiss', () => {
 				this._welcomeDismissed = true;
 				void this.container.storage.store('views:scm:grouped:welcome:dismissed', true);
@@ -251,7 +274,7 @@ export class Views implements Disposable {
 		];
 	}
 
-	registerWebviewViews(webviews: WebviewsController) {
+	private registerWebviewViews(webviews: WebviewsController) {
 		return [
 			(this._commitDetailsView = registerCommitDetailsWebviewView(webviews)),
 			(this._graphView = registerGraphWebviewView(webviews)),
@@ -262,28 +285,52 @@ export class Views implements Disposable {
 		];
 	}
 
+	private getScmGroupedView<T extends GroupableTreeViewTypes>(type: T): TreeViewByType[T] {
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
+		const self = this;
+
+		// Use a proxy to guard against the view not existing or having been disposed
+
+		let view: TreeViewByType[T] | undefined;
+		const proxy = new Proxy<TreeViewByType[T]>(Object.create(null) as TreeViewByType[T], {
+			get: function (_target, prop) {
+				if (view == null || view.disposed) {
+					if (self._scmGroupedView == null) {
+						// Don't bother creating the view if we are just checking visibility
+						if (prop === 'visible') return false;
+
+						self.updateScmGroupedViewsRegistration(true);
+					}
+					view = self._scmGroupedView!.setView(type);
+				}
+
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				return (view as any)[prop];
+			},
+		});
+		return proxy;
+	}
+
 	private async setAsScmGroupedDefaultView(type: GroupableTreeViewTypes) {
 		this.lastSelectedScmGroupedView = type;
 		await configuration.updateEffective('views.scm.grouped.default', type);
 	}
 
-	private async toggleScmViewGrouping(type: GroupableTreeViewTypes, grouped: boolean) {
-		if (grouped) {
-			if (!this._scmGroupedViews.has(type)) {
-				this._scmGroupedViews.add(type);
-				this.lastSelectedScmGroupedView = type;
-			}
-		} else if (this._scmGroupedViews.has(type)) {
-			this._scmGroupedViews.delete(type);
-			if (type === this.lastSelectedScmGroupedView) {
-				this.lastSelectedScmGroupedView = first(this._scmGroupedViews);
-			}
+	private setScmGroupedView<T extends GroupableTreeViewTypes>(type: T, focus?: boolean) {
+		if (this._scmGroupedView != null) {
+			return this._scmGroupedView.setView(type, focus);
 		}
 
-		await updateScmGroupedViewsInConfig(this._scmGroupedViews);
+		if (!this.scmGroupedViews?.has(type)) {
+			type = this.scmGroupedViews?.size ? (first(this.scmGroupedViews) as T) : undefined!;
+		}
+		this.lastSelectedScmGroupedView = type;
 
-		// Show the view after the configuration change has been applied
-		setTimeout(() => executeCoreCommand(`gitlens.views.${grouped ? 'scm.grouped' : type}.focus`), 1);
+		if (focus) {
+			void executeCoreCommand(`gitlens.views.scm.grouped.focus`);
+		}
+
+		return undefined;
 	}
 
 	private async showWelcomeNotification() {
@@ -310,14 +357,29 @@ export class Views implements Disposable {
 		}
 	}
 
+	private async toggleScmViewGrouping(type: GroupableTreeViewTypes, grouped: boolean) {
+		if (this._scmGroupedViews == null) return;
+
+		if (grouped) {
+			if (!this._scmGroupedViews.has(type)) {
+				this._scmGroupedViews.add(type);
+				this.lastSelectedScmGroupedView = type;
+			}
+		} else if (this._scmGroupedViews.has(type)) {
+			this._scmGroupedViews.delete(type);
+			if (type === this.lastSelectedScmGroupedView) {
+				this.lastSelectedScmGroupedView = first(this._scmGroupedViews);
+			}
+		}
+
+		await updateScmGroupedViewsInConfig(this._scmGroupedViews);
+
+		// Show the view after the configuration change has been applied
+		setTimeout(() => executeCoreCommand(`gitlens.views.${grouped ? 'scm.grouped' : type}.focus`), 1);
+	}
+
 	private updateScmGroupedViewsRegistration(bypassWelcomeView?: boolean) {
 		void setContext('gitlens:views:scm:grouped:welcome:dismissed', this._welcomeDismissed);
-		if (!this._welcomeDismissed) {
-			if (!bypassWelcomeView) return;
-
-			// If we are bypassing the welcome view, show it as a notification -- since we can't block the view from loading
-			void this.showWelcomeNotification();
-		}
 
 		const groupedViews = getScmGroupedViewsFromConfig();
 
@@ -408,11 +470,15 @@ export class Views implements Disposable {
 			this._worktreesView = undefined;
 		}
 
+		if (!this._welcomeDismissed) {
+			if (!bypassWelcomeView) return;
+
+			// If we are bypassing the welcome view, show it as a notification -- since we can't block the view from loading
+			void this.showWelcomeNotification();
+		}
+
 		if (this._scmGroupedViews.size) {
 			this._scmGroupedView ??= new ScmGroupedView(this.container, this);
-			// } else {
-			// 	this._scmGroupedView?.dispose();
-			// 	this._scmGroupedView = undefined;
 		}
 	}
 
@@ -462,14 +528,14 @@ export class Views implements Disposable {
 	}
 
 	private _launchpadView!: LaunchpadView | undefined;
-	get launchpad(): LaunchpadView {
-		return this._launchpadView ?? this.getScmGroupedView('launchpad');
-	}
+	// get launchpad(): LaunchpadView {
+	// 	return this._launchpadView ?? this.getScmGroupedView('launchpad');
+	// }
 
 	private _lineHistoryView!: LineHistoryView;
-	get lineHistory(): LineHistoryView {
-		return this._lineHistoryView;
-	}
+	// get lineHistory(): LineHistoryView {
+	// 	return this._lineHistoryView;
+	// }
 
 	private _patchDetailsView!: WebviewViewProxy<PatchDetailsWebviewShowingArgs>;
 	get patchDetails() {
@@ -519,32 +585,6 @@ export class Views implements Disposable {
 	private _workspacesView!: WorkspacesView;
 	get workspaces(): WorkspacesView {
 		return this._workspacesView;
-	}
-
-	private getScmGroupedView<T extends GroupableTreeViewTypes>(type: T): TreeViewByType[T] {
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const self = this;
-
-		// Use a proxy to guard against the view not existing or having been disposed
-
-		let view: TreeViewByType[T] | undefined;
-		const proxy = new Proxy<TreeViewByType[T]>(Object.create(null) as TreeViewByType[T], {
-			get: function (_target, prop) {
-				if (view == null || view.disposed) {
-					if (self._scmGroupedView == null) {
-						// Don't bother creating the view if we are just checking visibility
-						if (prop === 'visible') return false;
-
-						self.updateScmGroupedViewsRegistration(true);
-					}
-					view = self._scmGroupedView!.setView(type);
-				}
-
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-				return (view as any)[prop];
-			},
-		});
-		return proxy;
 	}
 
 	async revealBranch(
@@ -673,6 +713,56 @@ export class Views implements Disposable {
 		const node = await view.revealWorktree(worktree, options);
 		await view.show({ preserveFocus: !options?.focus });
 		return node;
+	}
+
+	async showView(view: TreeViewTypes): Promise<void> {
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
+		const self = this;
+
+		function show(
+			type: GroupableTreeViewTypes,
+			view: TreeViewByType[GroupableTreeViewTypes] | undefined,
+		): Promise<void> {
+			if (view != null) return view.show();
+
+			self.setScmGroupedView(type, true);
+			return Promise.resolve();
+		}
+
+		switch (view) {
+			case 'branches':
+				return show('branches', this._branchesView);
+			case 'commits':
+				return show('commits', this._commitsView);
+			case 'contributors':
+				return show('contributors', this._contributorsView);
+			case 'drafts':
+				return this.drafts.show();
+			case 'fileHistory':
+				return this.fileHistory.show();
+			case 'launchpad':
+				return show('launchpad', this._launchpadView);
+			case 'lineHistory':
+				return this._lineHistoryView.show();
+			case 'pullRequest':
+				return this.pullRequest.show();
+			case 'remotes':
+				return show('remotes', this._remotesView);
+			case 'repositories':
+				return show('repositories', this._repositoriesView);
+			case 'searchAndCompare':
+				return show('searchAndCompare', this._searchAndCompareView);
+			case 'stashes':
+				return show('stashes', this._stashesView);
+			case 'tags':
+				return show('tags', this._tagsView);
+			case 'worktrees':
+				return show('worktrees', this._worktreesView);
+			case 'workspaces':
+				return this.workspaces.show();
+			case 'scm.grouped':
+				return void executeCoreCommand(`gitlens.views.scm.grouped.focus`);
+		}
 	}
 }
 
