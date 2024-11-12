@@ -104,6 +104,11 @@ export const branchCardStyles = css`
 
 	.branch-item__identifier {
 		color: var(--vscode-descriptionForeground);
+		text-decoration: none;
+	}
+
+	.branch-item__identifier:hover {
+		text-decoration: underline;
 	}
 
 	.branch-item__details {
@@ -171,16 +176,15 @@ export class GlBranchCard extends LitElement {
 
 	override render() {
 		const { name, pr, opened: active, timestamp: date, state, workingTreeState } = this.branch;
-
 		return html`
 			<gl-card class="branch-item" .active=${active}>
 				<p class="branch-item__main">
 					<span class="branch-item__icon">${this.renderIcon(this.branch)}</span>
 					${when(
 						pr,
-						() =>
-							html`<span class="branch-item__name">${pr!.title}</span>
-								<span class="branch-item__identifier">#${pr!.id}</span>`,
+						pr =>
+							html`<span class="branch-item__name">${pr.title} </span
+								><a href=${pr.url} class="branch-item__identifier">#${pr.id}</a>`,
 						() => html`<span class="branch-item__name">${name}</span>`,
 					)}
 				</p>

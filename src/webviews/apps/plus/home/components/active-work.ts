@@ -4,6 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { GitTrackingState } from '../../../../../git/models/branch';
+import { createWebviewCommandLink } from '../../../../../system/webview';
 import type { GetOverviewBranch, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { branchCardStyles, sectionHeadingStyles } from './branch-section';
@@ -83,11 +84,11 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 	private renderComplete(overview: Overview) {
 		const activeBranches = overview?.repository?.branches?.active;
-		if (activeBranches == null) return html`<span>None</span>`;
+		if (!activeBranches) return html`<span>None</span>`;
 
 		return html`
 			<h3 class="section-heading section-heading--actions">
-				<span><code-icon icon="repo" class="heading-icon"></code-icon> ${overview!.repository.name}</span>
+				<span><code-icon icon="repo" class="heading-icon"></code-icon> ${overview.repository.name}</span>
 				${when(
 					this._homeState.repositories.openCount > 1,
 					() =>
@@ -116,13 +117,13 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 					<span class="branch-item__name">${name}</span>
 				</p>
 				${when(state, () => this.renderBranchStateActions(state, upstream))}
-			${when(pr, () => {
+				${when(pr, pr => {
 					return html` <p class="branch-item__main is-end">
 						<span class="branch-item__icon">
-							<pr-icon state=${pr!.state}></pr-icon>
+							<pr-icon state=${pr.state}></pr-icon>
 						</span>
-						<span class="branch-item__name">${pr!.title}</span>
-						<span class="branch-item__identifier">#${pr!.id}</span>
+						<span class="branch-item__name">${pr.title}</span>
+						<a href=${pr.url} class="branch-item__identifier">#${pr.id}</a>
 					</p>`;
 				})}
 				${when(workingTreeState, () => this.renderStatus(workingTreeState, state))}
@@ -134,7 +135,10 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		if (upstream?.missing !== false) {
 			return html`<div>
 				<button-container>
-					<gl-button full appearance="secondary"
+					<gl-button
+						href=${createWebviewCommandLink('gitlens.views.home.publishBranch', 'gitlens.views.home', '')}
+						full
+						appearance="secondary"
 						><code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch</gl-button
 					></button-container
 				>
@@ -148,7 +152,11 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				const forcePushTooltip = upstream?.name ? `Force Push to ${upstream.name}` : 'Force Push';
 				return html`<div>
 					<button-container>
-						<gl-button full appearance="secondary" tooltip=${pullTooltip}
+						<gl-button
+							href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
+							full
+							appearance="secondary"
+							tooltip=${pullTooltip}
 							><code-icon icon="gl-repo-pull" slot="prefix"></code-icon> Pull
 							<gl-tracking-pill
 								.ahead=${state.ahead}
@@ -156,7 +164,13 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 								slot="suffix"
 							></gl-tracking-pill
 						></gl-button>
-						<gl-button appearance="secondary" density="compact" tooltip=${forcePushTooltip}
+						<gl-button
+							href=${createWebviewCommandLink('gitlens.views.home.push', 'gitlens.views.home', '', {
+								force: true,
+							})}
+							appearance="secondary"
+							density="compact"
+							tooltip=${forcePushTooltip}
 							><code-icon icon="repo-force-push"></code-icon
 						></gl-button>
 					</button-container>
@@ -166,7 +180,11 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				const tooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
 				return html`<div>
 					<button-container>
-						<gl-button full appearance="secondary" tooltip=${tooltip}
+						<gl-button
+							href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
+							full
+							appearance="secondary"
+							tooltip=${tooltip}
 							><code-icon icon="gl-repo-pull" slot="prefix"></code-icon> Pull
 							<gl-tracking-pill
 								.ahead=${state.ahead}
@@ -180,7 +198,11 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				const tooltip = upstream?.name ? `Push to ${upstream.name}` : 'Push';
 				return html`<div>
 					<button-container>
-						<gl-button full appearance="secondary" tooltip=${tooltip}
+						<gl-button
+							href=${createWebviewCommandLink('gitlens.views.home.push', 'gitlens.views.home', '')}
+							full
+							appearance="secondary"
+							tooltip=${tooltip}
 							><code-icon icon="repo-push" slot="prefix"></code-icon> Push
 							<gl-tracking-pill
 								.ahead=${state.ahead}
