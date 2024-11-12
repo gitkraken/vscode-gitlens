@@ -19688,7 +19688,7 @@
 					{
 						"id": "welcome-in-trial",
 						"title": "Welcome to GitLens Pro",
-						"description": "Thanks for starting your **GitLens Pro** trial.\n\nComplete this walkthrough to experience enhanced PR review tools, deeper code history visualizations, and streamlined collaboration to help boost your productivity.\n\n[Continue the Walkthrough](command:gitlens.openWalkthrough)\n\nOnce your trial ends, you’ll return to **GitLens Community** — where you can still leverage features like in-editor blame annotations, hovers, CodeLens, and more. [Upgrade to GitLens Pro](command:gitlens.plus.upgrade) today to continue enjoying the full experience.\n\n[Upgrade to GitLens Pro](command:gitlens.plus.upgrade)",
+						"description": "Thanks for starting your **GitLens Pro** trial.\n\nComplete this walkthrough to experience enhanced PR review tools, deeper code history visualizations, and streamlined collaboration to help boost your productivity.\n\n[Continue the Walkthrough](command:gitlens.openWalkthrough)\n\nOnce your trial ends, you'll return to **GitLens Community** — where you can still leverage features like in-editor blame annotations, hovers, CodeLens, and more. [Upgrade to GitLens Pro](command:gitlens.plus.upgrade) today to continue enjoying the full experience.\n\n[Upgrade to GitLens Pro](command:gitlens.plus.upgrade)",
 						"media": {
 							"markdown": "walkthroughs/welcome/welcome-in-trial.md"
 						},
@@ -19712,7 +19712,7 @@
 					{
 						"id": "welcome-in-trial-expired-eligible",
 						"title": "Get the most out of GitLens ",
-						"description": "Thanks for installing GitLens, the #1 most downloaded Git extension in VS Code.\n\nYou’re currently using **GitLens Community**, our free extension that helps you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more.\n\n**Unlock more powerful tools - Try GitLens Pro again free for 14 days.**\n\n[Get Started with GitLens Pro](command:gitlens.plus.upgrade)\n\nWith GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It’s the perfect upgrade to streamline your VS Code workflow.",
+						"description": "Thanks for installing GitLens, the #1 most downloaded Git extension in VS Code.\n\nYou're currently using **GitLens Community**, our free extension that helps you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more.\n\n**Unlock more powerful tools - Try GitLens Pro again free for 14 days.**\n\n[Get Started with GitLens Pro](command:gitlens.plus.upgrade)\n\nWith GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.",
 						"media": {
 							"markdown": "walkthroughs/welcome/welcome-in-trial-expired-eligible.md"
 						},
@@ -19723,8 +19723,8 @@
 					},
 					{
 						"id": "welcome-in-trial-expired",
-						"title": "Get the most out of GitLens ",
-						"description": "Thanks for installing GitLens and trying out GitLens Pro.\n\nYou’re now on the GitLens Community edition, our free extension that helps you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more.\n\nLearn more about the [difference between GitLens Community vs. Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).\n\n**Unlock more powerful tools with GitLens Pro**\n\n[Upgrade to GitLens Pro](command:gitlens.plus.upgrade)\n\nWith GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It’s the perfect upgrade to streamline your VS Code workflow.",
+						"title": "Get the most out of GitLens",
+						"description": "Thanks for installing GitLens and trying out GitLens Pro.\n\nYou're now on the GitLens Community edition, our free extension that helps you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more.\n\nLearn more about the [difference between GitLens Community vs. Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).\n\n**Unlock more powerful tools with GitLens Pro**\n\n[Upgrade to GitLens Pro](command:gitlens.plus.upgrade)\n\nWith GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.",
 						"media": {
 							"markdown": "walkthroughs/welcome/welcome-in-trial-expired.md"
 						},
@@ -19736,7 +19736,7 @@
 					{
 						"id": "get-started-community",
 						"title": "Welcome to GitLens | Community vs. Pro",
-						"description": "Thank you for installing GitLens - The #1 most installed Git extension in VS Code.\n\nYou’re using **GitLens Community:** Track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more for free.\n\n**Leverage powerful workflows with GitLens Pro**\n\nThe **GitLens Pro edition** was built for professional developers. [Try Pro](command:gitlens.plus.signUp) by signing up and to test out features that accelerate PR reviews, provide actionable code visuals, and streamline team collaboration to boost your productivity.\n\n[Get Started with GitLens Pro](command:gitlens.plus.signUp)\n\n",
+						"description": "Thank you for installing GitLens — The #1 most installed Git extension in VS Code.\n\nYou're using **GitLens Community:** Track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more for free.\n\n**Leverage powerful workflows with GitLens Pro**\n\nThe **GitLens Pro edition** was built for professional developers. [Try Pro](command:gitlens.plus.signUp) by signing up and to test out features that accelerate PR reviews, provide actionable code visuals, and streamline team collaboration to boost your productivity.\n\n[Get Started with GitLens Pro](command:gitlens.plus.signUp)",
 						"media": {
 							"markdown": "walkthroughs/welcome/get-started-community.md"
 						},
@@ -19748,7 +19748,7 @@
 					{
 						"id": "visualize-code-history",
 						"title": "Interactive Code History",
-						"description": "$(gitlens-gitlens)  **Blame Annotations and Hovers**\n\nSee who changed what and why, without leaving your editor, through in-editor blame annotations, hover, and CodeLens.\n\n$(gitlens-graph) **Visual Commit Graph & Search**\n\nEasily follow complex Git histories, branches and search with the interactive Commit Graph for a clear view of repo changes.\n\n[View your Commit Graph](command:gitlens.showGraph)\n\n$(gitlens-gitlens-inspect)  **GitLens Inspect**\n\nEfficiently jump through the revision history of files, folders, and selected lines for the contextual info you need. Open [GitLens Inspect](command:workbench.view.extension.gitlensInspect)\n\n$(gitlens-play-button) [Watch a video on Visualize Code History](https://help.gitkraken.com/gitlens/gitlens-home/#interactive-code-history)",
+						"description": "$(gitlens-gitlens)  **Blame Annotations and Hovers**\n\nSee who changed what and why, without leaving your editor, through in-editor blame annotations, hover, and CodeLens.\n\n$(gitlens-graph)  **Visual Commit Graph & Search**\n\nEasily follow complex Git histories, branches and search with the interactive Commit Graph for a clear view of repo changes.\n\n[View your Commit Graph](command:gitlens.showGraph)\n\n$(gitlens-gitlens-inspect)  **GitLens Inspect**\n\nEfficiently jump through the revision history of files, folders, and selected lines for the contextual info you need. Open [GitLens Inspect](command:workbench.view.extension.gitlensInspect)\n\n$(gitlens-play-button)  [Watch a video on Visualize Code History](https://help.gitkraken.com/gitlens/gitlens-home/#interactive-code-history)",
 						"media": {
 							"markdown": "walkthroughs/welcome/visualize-code-history.md"
 						},
@@ -19759,7 +19759,7 @@
 					{
 						"id": "accelerate-pr-reviews",
 						"title": "Accelerate PR Reviews",
-						"description": "$(gitlens-rocket-filled) **Launchpad - PR Hub**\n\nManage GitHub PRs by status, helping you quickly prioritize tasks in your workflow and identify bottlenecks —all within VS Code.\n\n[View My PRs in Launchpad](command:gitlens.showLaunchpad)\n\n💡 **Integrate your Github or host provider** to use Launchpad and accelerate PR reviews\n\n$(folder-opened) **Worktrees - Multi-branch efficiency**\n\nWork on multiple branches simultaneously—hotfixes, new features, or experiments—without disrupting your main workspace.\n\n\n[Add a worktree](command:gitlens.gitCommands.worktree.create)\n$(gitlens-play-button) [Watch a video on Accelerate PR Reviews](https://help.gitkraken.com/gitlens/gitlens-home/#accelerate-pr-reviews)",
+						"description": "$(gitlens-launchpad-view)  **Launchpad — PR Hub**\n\nManage GitHub PRs by status, helping you quickly prioritize tasks in your workflow and identify bottlenecks —all within VS Code.\n\n[View My PRs in Launchpad](command:gitlens.showLaunchpad)\n\n💡 **Integrate your GitHub or host provider** to use Launchpad and accelerate PR reviews\n\n$(folder-opened)  **Worktrees — Multi-branch efficiency**\n\nWork on multiple branches simultaneously—hotfixes, new features, or experiments—without disrupting your main workspace.\n\n\n[Add a worktree](command:gitlens.gitCommands.worktree.create)\n$(gitlens-play-button)  [Watch a video on Accelerate PR Reviews](https://help.gitkraken.com/gitlens/gitlens-home/#accelerate-pr-reviews)",
 						"media": {
 							"markdown": "walkthroughs/welcome/accelerate-pr-reviews.md"
 						},
@@ -19770,7 +19770,7 @@
 					{
 						"id": "streamline-collaboration",
 						"title": "Streamline Collaboration",
-						"description": "$(gitlens-cloud-patch) **Cloud Patches - Work on feedback before PRs**\n\nMake your work accessible anytime, anywhere without having to commit to the repo or disrupt CI. Keep up your team’s momentum with Cloud Patches.\n\n[Open Cloud Patches](command:gitlens.views.drafts.focus)\n\n$(gitlens-code-suggestion) **Code Suggest**\n\nTake action on GitHub & GitLab PRs right from GitLens. Review code suggestions, and send suggestions to GitKraken users on your team.\n\n$(gitlens-play-button) [Watch a video on GitLens Collaboration](https://help.gitkraken.com/gitlens/gitlens-home/#streamline-collaboration)",
+						"description": "$(gitlens-cloud-patch)  **Cloud Patches — Work on feedback before PRs**\n\nMake your work accessible anytime, anywhere without having to commit to the repo or disrupt CI. Keep up your team's momentum with Cloud Patches.\n\n[Open Cloud Patches](command:gitlens.views.drafts.focus)\n\n$(gitlens-code-suggestion)  **Code Suggest**\n\nTake action on GitHub & GitLab PRs right from GitLens. Review code suggestions, and send suggestions to GitKraken users on your team.\n\n$(gitlens-play-button)  [Watch a video on GitLens Collaboration](https://help.gitkraken.com/gitlens/gitlens-home/#streamline-collaboration)",
 						"media": {
 							"markdown": "walkthroughs/welcome/streamline-collaboration.md"
 						},
@@ -19781,7 +19781,7 @@
 					{
 						"id": "improve-workflows-with-integrations",
 						"title": "Improve Workflows With Integrations",
-						"description": "**Integrations**\n\nReduce context switching and increase productivity by connecting to GitHub, GitLab, Azure DevOps, and Bitbucket to sync repos and track issues effortlessly in Launchpad - your PR hub.\n\n[Connect Integrations](command:gitlens.plus.cloudIntegrations.connect)\n\n**Autolinks**\n\nAll integrations provide automatic linking, which enables you to link to external services like Jira, and Trello.\n\n**Customize Autolinks**\n\nConfigure autolinks for custom pattern-matching with other services to easily link external references, such as Jira issues or Zendesk tickets, directly in your commit messages.\n\n**[Configure autolinks](command:gitlens.showSettingsPage!autolinks)**\n\n$(gitlens-play-button) [Watch a video on Integrations](https://help.gitkraken.com/gitlens/gitlens-start-here/#integrations)",
+						"description": "$(extensions)  **Integrations**\n\nReduce context switching and increase productivity by connecting to GitHub, GitLab, Azure DevOps, and Bitbucket to sync repos and track issues effortlessly in Launchpad - your PR hub.\n\n[Connect Integrations](command:gitlens.plus.cloudIntegrations.connect)\n\n$(link)  **Autolinks**\n\nAll integrations provide automatic linking, which enables you to link to external services like Jira, and Trello.\n\n**Customize Autolinks**\n\nConfigure autolinks for custom pattern-matching with other services to easily link external references, such as Jira issues or Zendesk tickets, directly in your commit messages.\n\n**[Configure autolinks](command:gitlens.showSettingsPage!autolinks)**\n\n$(gitlens-play-button)  [Watch a video on Integrations](https://help.gitkraken.com/gitlens/gitlens-start-here/#integrations)",
 						"media": {
 							"markdown": "walkthroughs/welcome/improve-workflows-with-integrations.md"
 						},
