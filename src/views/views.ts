@@ -1,5 +1,6 @@
-import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable } from 'vscode';
+import type { ConfigurationChangeEvent, MessageItem } from 'vscode';
+import { Disposable, window } from 'vscode';
+import type { Commands } from '../constants.commands';
 import type { GroupableTreeViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import type { GitContributor } from '../git/models/contributor';
@@ -18,9 +19,9 @@ import { registerPatchDetailsWebviewView } from '../plus/webviews/patchDetails/r
 import type { TimelineWebviewShowingArgs } from '../plus/webviews/timeline/registration';
 import { registerTimelineWebviewView } from '../plus/webviews/timeline/registration';
 import { first } from '../system/iterable';
-import { executeCoreCommand, registerCommand } from '../system/vscode/command';
+import { executeCommand, executeCoreCommand, registerCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
+import { getContext, setContext } from '../system/vscode/context';
 import type { CommitDetailsWebviewShowingArgs } from '../webviews/commitDetails/registration';
 import {
 	registerCommitDetailsWebviewView,
@@ -43,7 +44,7 @@ import { ScmGroupedView } from './scmGroupedView';
 import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
 import { TagsView } from './tagsView';
-import type { ViewsWithRepositoryFolders } from './viewBase';
+import type { TreeViewByType, ViewsWithRepositoryFolders } from './viewBase';
 import { ViewCommands } from './viewCommands';
 import { WorkspacesView } from './workspacesView';
 import { WorktreesView } from './worktreesView';
@@ -67,7 +68,7 @@ export class Views implements Disposable {
 		void this.container.storage.storeWorkspace('views:scm:grouped:selected', type);
 	}
 
-	private _scmGroupedView!: ScmGroupedView;
+	private _scmGroupedView: ScmGroupedView | undefined;
 	private _scmGroupedViews!: Set<GroupableTreeViewTypes>;
 	get scmGroupedViews() {
 		return this._scmGroupedViews;
@@ -285,9 +286,38 @@ export class Views implements Disposable {
 		setTimeout(() => executeCoreCommand(`gitlens.views.${grouped ? 'scm.grouped' : type}.focus`), 1);
 	}
 
-	private updateScmGroupedViewsRegistration() {
+	private async showWelcomeNotification() {
+		this._welcomeDismissed = true;
+
+		const newInstall = getContext('gitlens:newInstall', false);
+
+		const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+		const Restore: MessageItem = { title: 'Restore Previous Locations' };
+
+		const buttons = newInstall ? [confirm] : [confirm, Restore];
+
+		const result = await window.showInformationMessage(
+			newInstall
+				? 'GitLens groups many related views—Commits, Branches, Stashes, etc—together for easier view management. Use the tabs in the view header to navigate, detach, or regroup views.'
+				: "In GitLens 16, we've grouped many related views—Commits, Branches, Stashes, etc—together for easier view management. Use the tabs in the view header to navigate, detach, or regroup views.",
+			...buttons,
+		);
+
+		if (result === Restore) {
+			executeCommand('gitlens.views.scm.grouped.welcome.restore' as Commands);
+		} else {
+			executeCommand('gitlens.views.scm.grouped.welcome.dismiss' as Commands);
+		}
+	}
+
+	private updateScmGroupedViewsRegistration(bypassWelcomeView?: boolean) {
 		void setContext('gitlens:views:scm:grouped:welcome:dismissed', this._welcomeDismissed);
-		if (!this._welcomeDismissed) return;
+		if (!this._welcomeDismissed) {
+			if (!bypassWelcomeView) return;
+
+			// If we are bypassing the welcome view, show it as a notification -- since we can't block the view from loading
+			void this.showWelcomeNotification();
+		}
 
 		const groupedViews = getScmGroupedViewsFromConfig();
 
@@ -306,7 +336,7 @@ export class Views implements Disposable {
 		}
 
 		this._scmGroupedView?.dispose();
-		this._scmGroupedView = undefined!;
+		this._scmGroupedView = undefined;
 
 		if (!this._scmGroupedViews.has('branches')) {
 			this._branchesView ??= new BranchesView(this.container);
@@ -380,20 +410,20 @@ export class Views implements Disposable {
 
 		if (this._scmGroupedViews.size) {
 			this._scmGroupedView ??= new ScmGroupedView(this.container, this);
-		} else {
-			this._scmGroupedView?.dispose();
-			this._scmGroupedView = undefined!;
+			// } else {
+			// 	this._scmGroupedView?.dispose();
+			// 	this._scmGroupedView = undefined;
 		}
 	}
 
 	private _branchesView: BranchesView | undefined;
 	get branches(): BranchesView {
-		return this._branchesView ?? this._scmGroupedView.setView('branches');
+		return this._branchesView ?? this.getScmGroupedView('branches');
 	}
 
 	private _commitsView: CommitsView | undefined;
 	get commits(): CommitsView {
-		return this._commitsView ?? this._scmGroupedView.setView('commits');
+		return this._commitsView ?? this.getScmGroupedView('commits');
 	}
 
 	private _commitDetailsView!: WebviewViewProxy<CommitDetailsWebviewShowingArgs>;
@@ -403,7 +433,7 @@ export class Views implements Disposable {
 
 	private _contributorsView: ContributorsView | undefined;
 	get contributors(): ContributorsView {
-		return this._contributorsView ?? this._scmGroupedView.setView('contributors');
+		return this._contributorsView ?? this.getScmGroupedView('contributors');
 	}
 
 	private _draftsView!: DraftsView;
@@ -433,7 +463,7 @@ export class Views implements Disposable {
 
 	private _launchpadView!: LaunchpadView | undefined;
 	get launchpad(): LaunchpadView {
-		return this._launchpadView ?? this._scmGroupedView.setView('launchpad');
+		return this._launchpadView ?? this.getScmGroupedView('launchpad');
 	}
 
 	private _lineHistoryView!: LineHistoryView;
@@ -453,27 +483,27 @@ export class Views implements Disposable {
 
 	private _remotesView: RemotesView | undefined;
 	get remotes(): RemotesView {
-		return this._remotesView ?? this._scmGroupedView.setView('remotes');
+		return this._remotesView ?? this.getScmGroupedView('remotes');
 	}
 
 	private _repositoriesView!: RepositoriesView | undefined;
 	get repositories(): RepositoriesView {
-		return this._repositoriesView ?? this._scmGroupedView.setView('repositories');
+		return this._repositoriesView ?? this.getScmGroupedView('repositories');
 	}
 
 	private _searchAndCompareView: SearchAndCompareView | undefined;
 	get searchAndCompare(): SearchAndCompareView {
-		return this._searchAndCompareView ?? this._scmGroupedView.setView('searchAndCompare');
+		return this._searchAndCompareView ?? this.getScmGroupedView('searchAndCompare');
 	}
 
 	private _stashesView: StashesView | undefined;
 	get stashes(): StashesView {
-		return this._stashesView ?? this._scmGroupedView.setView('stashes');
+		return this._stashesView ?? this.getScmGroupedView('stashes');
 	}
 
 	private _tagsView: TagsView | undefined;
 	get tags(): TagsView {
-		return this._tagsView ?? this._scmGroupedView.setView('tags');
+		return this._tagsView ?? this.getScmGroupedView('tags');
 	}
 
 	private _timelineView!: WebviewViewProxy<TimelineWebviewShowingArgs>;
@@ -483,12 +513,38 @@ export class Views implements Disposable {
 
 	private _worktreesView: WorktreesView | undefined;
 	get worktrees(): WorktreesView {
-		return this._worktreesView ?? this._scmGroupedView.setView('worktrees');
+		return this._worktreesView ?? this.getScmGroupedView('worktrees');
 	}
 
 	private _workspacesView!: WorkspacesView;
 	get workspaces(): WorkspacesView {
 		return this._workspacesView;
+	}
+
+	private getScmGroupedView<T extends GroupableTreeViewTypes>(type: T): TreeViewByType[T] {
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
+		const self = this;
+
+		// Use a proxy to guard against the view not existing or having been disposed
+
+		let view: TreeViewByType[T] | undefined;
+		const proxy = new Proxy<TreeViewByType[T]>(Object.create(null) as TreeViewByType[T], {
+			get: function (_target, prop) {
+				if (view == null || view.disposed) {
+					if (self._scmGroupedView == null) {
+						// Don't bother creating the view if we are just checking visibility
+						if (prop === 'visible') return false;
+
+						self.updateScmGroupedViewsRegistration(true);
+					}
+					view = self._scmGroupedView!.setView(type);
+				}
+
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				return (view as any)[prop];
+			},
+		});
+		return proxy;
 	}
 
 	async revealBranch(
