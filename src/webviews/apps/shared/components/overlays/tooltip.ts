@@ -82,6 +82,9 @@ export class GlTooltip extends LitElement {
 		});
 
 		const target: any = this.shadowRoot?.querySelector('sl-tooltip')?.shadowRoot;
+		// TODO: sometimes sl-tooltip might not be upgraded yet, need to look at watching for the upgrade
+		if (!target) return;
+
 		this.observer.observe(target, {
 			attributes: true,
 			attributeFilter: ['data-current-placement'],
