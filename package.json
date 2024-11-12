@@ -8422,6 +8422,42 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.views.home.disablePreview",
+				"title": "Revert to Old Home View",
+				"category": "GitLens",
+				"icon": "$(arrow-left)"
+			},
+			{
+				"command": "gitlens.views.home.previewFeedback",
+				"title": "New Home View Feedback",
+				"category": "GitLens",
+				"icon": "$(feedback)"
+			},
+			{
+				"command": "gitlens.views.home.whatsNew",
+				"title": "What's New (Release Notes)",
+				"category": "GitLens",
+				"icon": "$(megaphone)"
+			},
+			{
+				"command": "gitlens.views.home.help",
+				"title": "Help Center",
+				"category": "GitLens",
+				"icon": "$(question)"
+			},
+			{
+				"command": "gitlens.views.home.issues",
+				"title": "GitHub Issues",
+				"category": "GitLens",
+				"icon": "$(feedback)"
+			},
+			{
+				"command": "gitlens.views.home.discussions",
+				"title": "GitHub Discussions",
+				"category": "GitLens",
+				"icon": "$(comment-discussion)"
+			},
+			{
 				"command": "gitlens.views.launchpad.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -12121,6 +12157,30 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.home.disablePreview",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.home.previewFeedback",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.home.whatsNew",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.home.help",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.home.issues",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.home.discussions",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.launchpad.copy",
 					"when": "false"
 				},
@@ -14152,9 +14212,39 @@
 					"group": "navigation@98"
 				},
 				{
+					"command": "gitlens.views.home.previewFeedback",
+					"when": "view == gitlens.views.home",
+					"group": "navigation@97"
+				},
+				{
+					"command": "gitlens.views.home.disablePreview",
+					"when": "view == gitlens.views.home && config.gitlens.home.preview.enabled == true",
+					"group": "navigation@98"
+				},
+				{
 					"command": "gitlens.views.home.refresh",
 					"when": "view == gitlens.views.home",
 					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.home.whatsNew",
+					"when": "view == gitlens.views.home",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.views.home.help",
+					"when": "view == gitlens.views.home",
+					"group": "1_gitlens@97"
+				},
+				{
+					"command": "gitlens.views.home.issues",
+					"when": "view == gitlens.views.home",
+					"group": "2_gitlens@98"
+				},
+				{
+					"command": "gitlens.views.home.discussions",
+					"when": "view == gitlens.views.home",
+					"group": "2_gitlens@99"
 				},
 				{
 					"command": "gitlens.views.launchpad.refresh",

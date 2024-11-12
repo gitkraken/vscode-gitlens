@@ -3,7 +3,7 @@ import { Disposable, workspace } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
-import { GlyphChars } from '../../constants';
+import { GlyphChars, urls } from '../../constants';
 import { Commands } from '../../constants.commands';
 import type { ContextKeys } from '../../constants.context';
 import type { HomeTelemetryContext } from '../../constants.telemetry';
@@ -30,7 +30,7 @@ import { getSettledValue } from '../../system/promise';
 import { executeActionCommand, executeCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
-import { openWorkspace } from '../../system/vscode/utils';
+import { openUrl, openWorkspace } from '../../system/vscode/utils';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
@@ -245,6 +245,16 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			),
 			registerCommand(`${this.host.id}.publishBranch`, this.push, this),
 			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
+			registerCommand(`${this.host.id}.disablePreview`, () => this.onTogglePreviewEnabled(false), this),
+			registerCommand(
+				`${this.host.id}.previewFeedback`,
+				() => openUrl('https://github.com/gitkraken/vscode-gitlens/discussions/3721'),
+				this,
+			),
+			registerCommand(`${this.host.id}.whatsNew`, () => openUrl(urls.releaseNotes), this),
+			registerCommand(`${this.host.id}.help`, () => openUrl(urls.helpCenter), this),
+			registerCommand(`${this.host.id}.issues`, () => openUrl(urls.githubIssues), this),
+			registerCommand(`${this.host.id}.discussions`, () => openUrl(urls.githubDiscussions), this),
 			registerCommand(
 				`${this.host.id}.account.resync`,
 				() => this.container.subscription.validate({ force: true }),
@@ -288,12 +298,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				await this.onChooseRepository();
 				void this.host.respond(ChangeOverviewRepository, e, undefined);
 				break;
-			case TogglePreviewEnabledCommand.is(e): {
-				const isEnabled = !this.getPreviewEnabled();
-				this.container.telemetry.sendEvent('home/preview/toggled', { enabled: isEnabled, version: 'v16' });
-				configuration.updateEffective('home.preview.enabled', isEnabled);
+			case TogglePreviewEnabledCommand.is(e):
+				this.onTogglePreviewEnabled();
 				break;
-			}
 		}
 	}
 
@@ -311,6 +318,21 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this._pendingFocusAccount = false;
 
 			void this.host.notify(DidFocusAccount, undefined);
+		}
+	}
+
+	private onTogglePreviewEnabled(isEnabled?: boolean) {
+		if (isEnabled === undefined) {
+			isEnabled = !this.getPreviewEnabled();
+		}
+		this.container.telemetry.sendEvent('home/preview/toggled', { enabled: isEnabled, version: 'v16' });
+		configuration.updateEffective('home.preview.enabled', isEnabled);
+
+		if (!isEnabled) {
+			this.onCollapseSection({
+				section: 'newHomePreview',
+				collapsed: true,
+			});
 		}
 	}
 
@@ -395,6 +417,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			},
 			showWalkthroughProgress: !this.getWalkthroughDismissed(),
 			previewEnabled: this.getPreviewEnabled(),
+			newInstall: getContext('gitlens:newInstall', false),
 		};
 	}
 

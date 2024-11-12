@@ -1,6 +1,7 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import type { State } from '../../../home/protocol';
 import { CollapseSectionCommand, TogglePreviewEnabledCommand } from '../../../home/protocol';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css';
@@ -23,8 +24,7 @@ export class GlPreviewBanner extends LitElement {
 	static override styles = [
 		linkBase,
 		css`
-			.text-button,
-			.feedback {
+			.text-button {
 				padding: 0.4rem 0.8rem;
 			}
 
@@ -48,6 +48,10 @@ export class GlPreviewBanner extends LitElement {
 			gl-card::part(base) {
 				margin-block-end: 1.2rem;
 			}
+
+			.feedback {
+				white-space: nowrap;
+			}
 		`,
 	];
 
@@ -64,6 +68,10 @@ export class GlPreviewBanner extends LitElement {
 
 	@query('button')
 	private _button!: HTMLButtonElement;
+
+	get isNewInstall() {
+		return this._state.newInstall;
+	}
 
 	override render() {
 		if (this._state.previewEnabled !== true) {
@@ -87,19 +95,26 @@ export class GlPreviewBanner extends LitElement {
 
 		return html`
 			<gl-card>
-				<p><strong>Welcome to the new Home View!</strong></p>
+				<p><strong>Welcome to the ${this.isNewInstall ? 'GitLens ' : 'new '}Home View!</strong></p>
 				<p>
-					We've reimagined GitLens' Home to be a more helpful daily workflow tool. We're continuing to refine
-					this experience and welcome your
-					<a href="https://github.com/gitkraken/vscode-gitlens/discussions/3721"
+					${this.isNewInstall
+						? html`This is a hub for your current, future, and recent work. `
+						: html`We've reimagined GitLens' Home to be a more helpful daily workflow tool. `}We're
+					continuing to refine this experience and welcome your
+					<a class="feedback" href="https://github.com/gitkraken/vscode-gitlens/discussions/3721"
 						><code-icon icon="feedback"></code-icon> feedback</a
 					>.
 				</p>
-				<button-container>
-					<gl-button appearance="secondary" @click=${() => this.togglePreview(true)} full
-						><code-icon icon="arrow-left"></code-icon> Revert to Old Home View</gl-button
-					>
-				</button-container>
+				${when(
+					!this.isNewInstall,
+					() => html`
+						<button-container>
+							<gl-button appearance="secondary" @click=${() => this.togglePreview(true)} full
+								><code-icon icon="arrow-left"></code-icon> Revert to Old Home View</gl-button
+							>
+						</button-container>
+					`,
+				)}
 				<gl-button slot="actions" appearance="toolbar" tooltip="Dismiss Welcome" @click=${() => this.onClose()}
 					><code-icon icon="close"></code-icon
 				></gl-button>
@@ -111,7 +126,7 @@ export class GlPreviewBanner extends LitElement {
 		this._ipc.sendCommand(TogglePreviewEnabledCommand);
 
 		if (dismiss) {
-			this.onClose();
+			this.closed = true;
 		}
 	}
 
