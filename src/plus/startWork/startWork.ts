@@ -103,27 +103,6 @@ export class StartWorkCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
-			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
-			if (!hasConnectedIntegrations) {
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent(
-						opened ? 'startWork/steps/connect' : 'startWork/opened',
-						{
-							...context.telemetryContext!,
-							connected: false,
-						},
-						this.source,
-					);
-				}
-				const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
-				const result = isUsingCloudIntegrations
-					? yield* this.confirmCloudIntegrationsConnectStep(state, context)
-					: yield* this.confirmLocalIntegrationConnectStep(state, context);
-				if (result === StepResultBreak) {
-					return result;
-				}
-			}
-
 			if (state.counter < 1) {
 				const result = yield* this.selectCommandStep(state);
 				if (result === StepResultBreak) continue;
@@ -132,6 +111,27 @@ export class StartWorkCommand extends QuickCommand<State> {
 			}
 
 			if (state.counter < 2 && !state.action) {
+				const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
+				if (!hasConnectedIntegrations) {
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent(
+							opened ? 'startWork/steps/connect' : 'startWork/opened',
+							{
+								...context.telemetryContext!,
+								connected: false,
+							},
+							this.source,
+						);
+					}
+					const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
+					const result = isUsingCloudIntegrations
+						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
+						: yield* this.confirmLocalIntegrationConnectStep(state, context);
+					if (result === StepResultBreak) {
+						return result;
+					}
+				}
+
 				await updateContextItems(this.container, context);
 				const result = yield* this.pickIssueStep(state, context);
 				if (result === StepResultBreak) continue;
