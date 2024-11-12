@@ -3,9 +3,9 @@ import { SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import type { BranchGitCommandArgs } from '../../../../../commands/git/branch';
 import { Commands } from '../../../../../constants.commands';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
+import type { StartWorkCommandArgs } from '../../../../../plus/startWork/startWork';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { GetLaunchpadSummaryResponse, State } from '../../../../home/protocol';
@@ -108,13 +108,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	});
 
 	get startWorkCommand() {
-		return createCommandLink<BranchGitCommandArgs>(Commands.GitCommandsBranch, {
-			state: {
-				subcommand: 'create',
-			},
-			command: 'branch',
-			confirm: true,
-		});
+		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, { command: 'startWork' });
 	}
 
 	override connectedCallback() {
