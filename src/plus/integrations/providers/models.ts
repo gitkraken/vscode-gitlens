@@ -90,6 +90,15 @@ export function isSelfHostedIntegrationId(id: IntegrationId): id is SelfHostedIn
 	return selfHostedIntegrationIds.includes(id as SelfHostedIntegrationId);
 }
 
+export function isHostingIntegrationId(id: IntegrationId): id is HostingIntegrationId {
+	return [
+		HostingIntegrationId.GitHub,
+		HostingIntegrationId.GitLab,
+		HostingIntegrationId.Bitbucket,
+		HostingIntegrationId.AzureDevOps,
+	].includes(id as HostingIntegrationId);
+}
+
 export enum PullRequestFilter {
 	Author = 'author',
 	Assignee = 'assignee',

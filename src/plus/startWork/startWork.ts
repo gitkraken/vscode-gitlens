@@ -445,8 +445,10 @@ async function updateContextItems(container: Container, context: Context) {
 	);
 	context.result = {
 		items:
-			(await container.integrations.getMyIssues(connectedIntegrations))?.map(i => ({
-				item: i,
-			})) ?? [],
+			(await container.integrations.getMyIssues(connectedIntegrations, { openRepositoriesOnly: true }))?.map(
+				i => ({
+					item: i,
+				}),
+			) ?? [],
 	};
 }
