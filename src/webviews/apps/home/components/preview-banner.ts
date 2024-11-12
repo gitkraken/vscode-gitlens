@@ -66,46 +66,42 @@ export class GlPreviewBanner extends LitElement {
 	private _button!: HTMLButtonElement;
 
 	override render() {
+		if (this._state.previewEnabled !== true) {
+			return html`
+				<gl-tooltip placement="bottom">
+					<button class="text-button text-button--end" @click=${() => this.togglePreview()}>
+						New Home View <code-icon icon="arrow-right"></code-icon>
+					</button>
+					<p slot="content">
+						<strong>Switch to the new Home View!</strong><br />
+						We're reinventing GitLens' Home to be a more helpful daily workflow tool. We'll continue to
+						refine this view and welcome your feedback.
+					</p>
+				</gl-tooltip>
+			`;
+		}
+
 		if (this.closed || this._state.previewCollapsed === true) {
 			return nothing;
 		}
 
-		if (this._state.previewEnabled === true) {
-			return html`
-				<gl-card>
-					<p><strong>Welcome to the new Home View!</strong></p>
-					<p>
-						We're reinventing GitLens' Home to be a more helpful daily workflow tool. We'll continue to
-						refine this view and welcome your
-						<a href="https://github.com/gitkraken/vscode-gitlens/discussions/3721">feedback</a>.
-					</p>
-					<button-container>
-						<gl-button appearance="secondary" @click=${() => this.togglePreview()} full
-							><code-icon icon="arrow-left"></code-icon> Revert to Old Home View</gl-button
-						>
-					</button-container>
-					<gl-button
-						slot="actions"
-						appearance="toolbar"
-						tooltip="Dismiss Welcome"
-						@click=${() => this.onClose()}
-						><code-icon icon="close"></code-icon
-					></gl-button>
-				</gl-card>
-			`;
-		}
-
 		return html`
-			<gl-tooltip placement="bottom">
-				<button class="text-button text-button--end" @click=${() => this.togglePreview()}>
-					New Home View <code-icon icon="arrow-right"></code-icon>
-				</button>
-				<p slot="content">
-					<strong>Switch to the new Home View!</strong><br />
+			<gl-card>
+				<p><strong>Welcome to the new Home View!</strong></p>
+				<p>
 					We're reinventing GitLens' Home to be a more helpful daily workflow tool. We'll continue to refine
-					this view and welcome your feedback.
+					this view and welcome your
+					<a href="https://github.com/gitkraken/vscode-gitlens/discussions/3721">feedback</a>.
 				</p>
-			</gl-tooltip>
+				<button-container>
+					<gl-button appearance="secondary" @click=${() => this.togglePreview()} full
+						><code-icon icon="arrow-left"></code-icon> Revert to Old Home View</gl-button
+					>
+				</button-container>
+				<gl-button slot="actions" appearance="toolbar" tooltip="Dismiss Welcome" @click=${() => this.onClose()}
+					><code-icon icon="close"></code-icon
+				></gl-button>
+			</gl-card>
 		`;
 	}
 
