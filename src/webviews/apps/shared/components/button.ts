@@ -150,6 +150,7 @@ export class GlButton extends LitElement {
 
 			gl-tooltip {
 				height: 100%;
+				width: 100%;
 				display: inline-flex;
 				align-items: center;
 				justify-content: center;
