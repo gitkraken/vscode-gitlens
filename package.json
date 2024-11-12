@@ -19502,7 +19502,7 @@
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-launchpad-view)",
 					"initialSize": 2,
-					"visibility": "visible"
+					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.drafts",
