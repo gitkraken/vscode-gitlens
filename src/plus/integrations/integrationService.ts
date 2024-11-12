@@ -42,7 +42,7 @@ import type {
 	SupportedIssueIntegrationIds,
 	SupportedSelfHostedIntegrationIds,
 } from './integration';
-import { isSelfHostedIntegrationId } from './providers/models';
+import { isHostingIntegrationId, isSelfHostedIntegrationId } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
 
 export interface ConnectionStateChangeEvent {
@@ -555,18 +555,59 @@ export class IntegrationService implements Disposable {
 	})
 	async getMyIssues(
 		integrationIds?: (SupportedHostingIntegrationIds | SupportedIssueIntegrationIds)[],
-		cancellation?: CancellationToken,
+		options?: { openRepositoriesOnly?: boolean; cancellation?: CancellationToken },
 	): Promise<SearchedIssue[] | undefined> {
 		const integrations: Map<Integration, ResourceDescriptor[] | undefined> = new Map();
-		for (const integrationId of integrationIds?.length ? integrationIds : Object.values(HostingIntegrationId)) {
+		const hostingIntegrationIds = integrationIds?.filter(
+			id => id in HostingIntegrationId,
+		) as SupportedHostingIntegrationIds[];
+		const openRemotesByIntegrationId = new Map<IntegrationId, ResourceDescriptor[]>();
+		for (const repository of this.container.git.openRepositories) {
+			const remotes = await repository.git.getRemotes();
+			if (remotes.length === 0) continue;
+			for (const remote of remotes) {
+				const remoteIntegration = await remote.getIntegration();
+				if (remoteIntegration == null) continue;
+				for (const integrationId of hostingIntegrationIds?.length
+					? hostingIntegrationIds
+					: Object.values(HostingIntegrationId)) {
+					if (
+						remoteIntegration.id === integrationId &&
+						remote.provider?.owner != null &&
+						remote.provider?.repoName != null
+					) {
+						const descriptor = {
+							key: `${remote.provider.owner}/${remote.provider.repoName}`,
+							owner: remote.provider.owner,
+							name: remote.provider.repoName,
+						};
+						if (openRemotesByIntegrationId.has(integrationId)) {
+							openRemotesByIntegrationId.get(integrationId)?.push(descriptor);
+						} else {
+							openRemotesByIntegrationId.set(integrationId, [descriptor]);
+						}
+					}
+				}
+			}
+		}
+		for (const integrationId of integrationIds?.length
+			? integrationIds
+			: [...Object.values(HostingIntegrationId), ...Object.values(IssueIntegrationId)]) {
 			const integration = await this.get(integrationId);
 			if (integration == null) continue;
 
-			integrations.set(integration, undefined);
+			integrations.set(
+				integration,
+				options?.openRepositoriesOnly &&
+					isHostingIntegrationId(integrationId) &&
+					openRemotesByIntegrationId.has(integrationId)
+					? openRemotesByIntegrationId.get(integrationId)
+					: undefined,
+			);
 		}
 		if (integrations.size === 0) return undefined;
 
-		return this.getMyIssuesCore(integrations, cancellation);
+		return this.getMyIssuesCore(integrations, options?.cancellation);
 	}
 
 	private async getMyIssuesCore(
