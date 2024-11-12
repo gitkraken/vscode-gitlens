@@ -96,7 +96,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 					() =>
 						html`<span
 							><gl-button
-								aria-busy="${isFetching}"
+								aria-busy="${ifDefined(isFetching)}"
 								?disabled=${isFetching}
 								class="section-heading-action"
 								appearance="toolbar"
