@@ -1,3 +1,4 @@
+import { md5 } from '@env/crypto';
 import slug from 'slug';
 import type { QuickPick } from 'vscode';
 import { Uri } from 'vscode';
@@ -52,11 +53,12 @@ interface Context {
 
 interface State {
 	item?: StartWorkItem;
-	action?: StartWorkAction;
+	type?: StartWorkType;
 	inWorktree?: boolean;
 }
 
-export type StartWorkAction = 'start';
+export type StartWorkType = 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree';
+type StartWorkTypeItem = { type: StartWorkType; inWorktree?: boolean };
 
 export interface StartWorkCommandArgs {
 	readonly command: 'startWork';
@@ -99,19 +101,42 @@ export class StartWorkCommand extends QuickCommand<State> {
 			connectedIntegrations: await this.getConnectedIntegrations(),
 		};
 
-		const opened = false;
+		let opened = false;
 		while (this.canStepsContinue(state)) {
+			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
 			context.title = this.title;
 
 			if (state.counter < 1) {
-				const result = yield* this.selectCommandStep(state);
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(
+						opened ? 'startWork/steps/type' : 'startWork/opened',
+						{
+							...context.telemetryContext!,
+							connected: hasConnectedIntegrations,
+						},
+						this.source,
+					);
+				}
+
+				opened = true;
+				const result = yield* this.selectTypeStep(state);
 				if (result === StepResultBreak) continue;
-				state.action = result.action;
+				state.type = result.type;
 				state.inWorktree = result.inWorktree;
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(
+						'startWork/type/chosen',
+						{
+							...context.telemetryContext!,
+							connected: hasConnectedIntegrations,
+							type: state.type,
+						},
+						this.source,
+					);
+				}
 			}
 
-			if (state.counter < 2 && !state.action) {
-				const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
+			if ((state.counter < 2 && state.type === 'issue') || state.type === 'issue-worktree') {
 				if (!hasConnectedIntegrations) {
 					if (this.container.telemetry.enabled) {
 						this.container.telemetry.sendEvent(
@@ -119,10 +144,14 @@ export class StartWorkCommand extends QuickCommand<State> {
 							{
 								...context.telemetryContext!,
 								connected: false,
+								type: state.type,
 							},
 							this.source,
 						);
 					}
+
+					opened = true;
+
 					const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
 					const result = isUsingCloudIntegrations
 						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
@@ -133,67 +162,99 @@ export class StartWorkCommand extends QuickCommand<State> {
 				}
 
 				await updateContextItems(this.container, context);
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(
+						opened ? 'startWork/steps/issue' : 'startWork/opened',
+						{
+							...context.telemetryContext!,
+							connected: true,
+							type: state.type,
+						},
+						this.source,
+					);
+				}
+
+				opened = true;
+
 				const result = yield* this.pickIssueStep(state, context);
 				if (result === StepResultBreak) continue;
-				if (typeof result !== 'string') {
+				if (!isStartWorkTypeItem(result)) {
 					state.item = result;
-					state.action = 'start';
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent(
+							'startWork/issue/chosen',
+							{
+								...context.telemetryContext!,
+								connected: true,
+								type: state.type,
+								'item.id': getStartWorkItemIdHash(result),
+								'item.type': result.item.issue.type,
+								'item.provider': result.item.issue.provider.id,
+								'item.assignees.count': result.item.issue.assignees?.length ?? undefined,
+								'item.createdDate': result.item.issue.createdDate.getTime(),
+								'item.updatedDate': result.item.issue.updatedDate.getTime(),
+
+								'item.comments.count': result.item.issue.commentsCount ?? undefined,
+								'item.upvotes.count': result.item.issue.thumbsUpCount ?? undefined,
+
+								'item.issue.state': result.item.issue.state,
+							},
+							this.source,
+						);
+					}
 				} else {
-					state.action = result;
+					state.type = result.type;
+					state.inWorktree = result.inWorktree;
 				}
 			}
 
 			const issue = state.item?.item?.issue;
 			const repo = issue && (await this.getIssueRepositoryIfExists(issue));
 
-			if (typeof state.action === 'string') {
-				switch (state.action) {
-					case 'start': {
-						const result = yield* getSteps(
-							this.container,
-							{
-								command: 'branch',
-								state: {
-									subcommand: 'create',
-									repo: repo,
-									name: issue
-										? `${slug(issue.id, { lower: false })}-${slug(issue.title)}`
-										: undefined,
-									suggestNameOnly: true,
-									suggestRepoOnly: true,
-									flags: state.inWorktree ? ['--worktree'] : ['--switch'],
-								},
-								confirm: false,
-							},
-							this.pickedVia,
-						);
-						if (result === StepResultBreak) {
-							endSteps(state);
-						} else {
-							state.counter--;
-							state.action = undefined;
-						}
-						break;
-					}
-				}
+			const result = yield* getSteps(
+				this.container,
+				{
+					command: 'branch',
+					state: {
+						subcommand: 'create',
+						repo: repo,
+						name: issue ? `${slug(issue.id, { lower: false })}-${slug(issue.title)}` : undefined,
+						suggestNameOnly: true,
+						suggestRepoOnly: true,
+						flags: state.inWorktree ? ['--worktree'] : ['--switch'],
+					},
+					confirm: false,
+				},
+				this.pickedVia,
+			);
+			if (result === StepResultBreak) {
+				endSteps(state);
+			} else {
+				state.counter--;
 			}
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
-	private *selectCommandStep(
+	private *selectTypeStep(
 		state: StepState<State>,
-	): StepResultGenerator<{ action?: StartWorkAction; inWorktree?: boolean }> {
+	): StepResultGenerator<{ type: StartWorkType; inWorktree?: boolean }> {
 		const step = createPickStep({
 			placeholder: 'Start work by creating a new branch',
 			items: [
-				createQuickPickItemOfT('Create a Branch', {
-					action: 'start',
+				createQuickPickItemOfT<StartWorkTypeItem>('Create a Branch', {
+					type: 'branch',
 				}),
-				createQuickPickItemOfT('Create a Branch in a Worktree', { action: 'start', inWorktree: true }),
-				createQuickPickItemOfT('Create a Branch from an Issue', {}),
-				createQuickPickItemOfT('Create a Branch from an Issue in a Worktree', { inWorktree: true }),
+				createQuickPickItemOfT<StartWorkTypeItem>('Create a Branch in a Worktree', {
+					type: 'branch-worktree',
+					inWorktree: true,
+				}),
+				createQuickPickItemOfT<StartWorkTypeItem>('Create a Branch from an Issue', { type: 'issue' }),
+				createQuickPickItemOfT<StartWorkTypeItem>('Create a Branch from an Issue in a Worktree', {
+					type: 'issue-worktree',
+					inWorktree: true,
+				}),
 			],
 		});
 		const selection: StepSelection<typeof step> = yield step;
@@ -336,7 +397,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 	private *pickIssueStep(
 		state: StepState<State>,
 		context: Context,
-	): StepResultGenerator<StartWorkItem | StartWorkAction> {
+	): StepResultGenerator<StartWorkItem | StartWorkTypeItem> {
 		const buildIssueItem = (i: StartWorkItem) => {
 			const buttons = i.item.issue.url ? [OpenOnGitHubQuickInputButton] : [];
 			return {
@@ -366,15 +427,15 @@ export class StartWorkCommand extends QuickCommand<State> {
 
 		function getItemsAndPlaceholder(): {
 			placeholder: string;
-			items: QuickPickItemOfT<StartWorkItem | StartWorkAction>[];
+			items: QuickPickItemOfT<StartWorkItem | StartWorkTypeItem>[];
 		} {
 			if (!context.result.items.length) {
 				return {
 					placeholder: 'No issues found. Start work anyway.',
 					items: [
-						createQuickPickItemOfT(
+						createQuickPickItemOfT<StartWorkTypeItem>(
 							state.inWorktree ? 'Create a branch on a worktree' : 'Create a branch',
-							'start',
+							{ type: state.inWorktree ? 'branch-worktree' : 'branch', inWorktree: state.inWorktree },
 						),
 					],
 				};
@@ -395,7 +456,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			matchOnDetail: true,
 			items: items,
 			onDidClickItemButton: (_quickpick, button, { item }) => {
-				if (button === OpenOnGitHubQuickInputButton && typeof item !== 'string') {
+				if (button === OpenOnGitHubQuickInputButton && !isStartWorkTypeItem(item)) {
 					this.open(item);
 					return true;
 				}
@@ -409,13 +470,6 @@ export class StartWorkCommand extends QuickCommand<State> {
 		}
 		const element = selection[0];
 		return typeof element.item === 'string' ? element.item : { ...element.item };
-	}
-
-	private startWork(state: PartialStepState<State>, item?: StartWorkItem) {
-		state.action = 'start';
-		if (item != null) {
-			state.item = item;
-		}
 	}
 
 	private open(item: StartWorkItem): void {
@@ -451,4 +505,22 @@ async function updateContextItems(container: Container, context: Context) {
 				}),
 			) ?? [],
 	};
+	if (container.telemetry.enabled) {
+		updateTelemetryContext(context);
+	}
+}
+
+function updateTelemetryContext(context: Context) {
+	context.telemetryContext = {
+		...context.telemetryContext!,
+		'items.count': context.result.items.length,
+	};
+}
+
+function isStartWorkTypeItem(item: unknown): item is StartWorkTypeItem {
+	return item != null && typeof item === 'object' && 'type' in item;
+}
+
+export function getStartWorkItemIdHash(item: StartWorkItem) {
+	return md5(item.item.issue.id);
 }
