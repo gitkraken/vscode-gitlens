@@ -74,8 +74,8 @@ export class GlPreviewBanner extends LitElement {
 					</button>
 					<p slot="content">
 						<strong>Switch to the new Home View!</strong><br />
-						We're reimagining GitLens' Home to be a more helpful daily workflow tool. We'll continue to
-						refine this view and welcome your feedback.
+						We've reimagined GitLens' Home to be a more helpful daily workflow tool. We're continuing to
+						refine this experience and welcome your feedback.
 					</p>
 				</gl-tooltip>
 			`;
@@ -89,9 +89,11 @@ export class GlPreviewBanner extends LitElement {
 			<gl-card>
 				<p><strong>Welcome to the new Home View!</strong></p>
 				<p>
-					We're reimagining GitLens' Home to be a more helpful daily workflow tool. We'll continue to refine
-					this view and welcome your
-					<a href="https://github.com/gitkraken/vscode-gitlens/discussions/3721">feedback</a>.
+					We've reimagined GitLens' Home to be a more helpful daily workflow tool. We're continuing to refine
+					this experience and welcome your
+					<a href="https://github.com/gitkraken/vscode-gitlens/discussions/3721"
+						><code-icon icon="feedback"></code-icon> feedback</a
+					>.
 				</p>
 				<button-container>
 					<gl-button appearance="secondary" @click=${() => this.togglePreview(true)} full
