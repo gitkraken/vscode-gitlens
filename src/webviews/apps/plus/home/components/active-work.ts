@@ -2,6 +2,7 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import type { GitTrackingState } from '../../../../../git/models/branch';
 import { createWebviewCommandLink } from '../../../../../system/webview';
@@ -79,10 +80,10 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				<skeleton-loader lines="3"></skeleton-loader>
 			`;
 		}
-		return this.renderComplete(this._overviewState.state);
+		return this.renderComplete(this._overviewState.state, true);
 	}
 
-	private renderComplete(overview: Overview) {
+	private renderComplete(overview: Overview, isFetching = false) {
 		const repo = overview?.repository;
 		const activeBranches = repo?.branches?.active;
 		if (!activeBranches) return html`<span>None</span>`;
@@ -95,6 +96,8 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 					() =>
 						html`<span
 							><gl-button
+								aria-busy="${isFetching}"
+								?disabled=${isFetching}
 								class="section-heading-action"
 								appearance="toolbar"
 								tooltip="Change Repository"
@@ -103,11 +106,11 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						></span>`,
 				)}
 			</h3>
-			${activeBranches.map(branch => this.renderRepoBranchCard(branch, repo.path))}
+			${activeBranches.map(branch => this.renderRepoBranchCard(branch, repo.path, isFetching))}
 		`;
 	}
 
-	private renderRepoBranchCard(branch: GetOverviewBranch, repo: string) {
+	private renderRepoBranchCard(branch: GetOverviewBranch, repo: string, isFetching: boolean) {
 		const { name, pr, state, workingTreeState, upstream } = branch;
 		return html`
 			<gl-card class="branch-item" active>
@@ -117,7 +120,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 					</span>
 					<span class="branch-item__name">${name}</span>
 				</p>
-				${when(state, () => this.renderBranchStateActions(state, upstream))}
+				${when(state, () => this.renderBranchStateActions(state, upstream, isFetching))}
 				${when(pr, pr => {
 					return html` <p class="branch-item__main is-end">
 						<span class="branch-item__icon">
@@ -179,14 +182,22 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		return html`<action-nav class="branch-item__actions">${actions}</action-nav>`;
 	}
 
-	private renderBranchStateActions(state?: GitTrackingState, upstream?: { name: string; missing: boolean }) {
+	private renderBranchStateActions(
+		state?: GitTrackingState,
+		upstream?: { name: string; missing: boolean },
+		isFetching?: boolean,
+	) {
 		if (upstream?.missing !== false) {
+			const publishTooltip = upstream?.name ? `Publish branch to ${upstream.name}` : 'Publish branch';
 			return html`<div>
 				<button-container>
 					<gl-button
+						aria-busy=${ifDefined(isFetching)}
+						?disabled=${isFetching}
 						href=${createWebviewCommandLink('gitlens.views.home.publishBranch', 'gitlens.views.home', '')}
 						full
 						appearance="secondary"
+						tooltip="${publishTooltip}"
 						><code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch</gl-button
 					></button-container
 				>
@@ -201,6 +212,8 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				return html`<div>
 					<button-container>
 						<gl-button
+							aria-busy=${ifDefined(isFetching)}
+							?disabled=${isFetching}
 							href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
 							full
 							appearance="secondary"
@@ -213,6 +226,8 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 							></gl-tracking-pill
 						></gl-button>
 						<gl-button
+							aria-busy=${ifDefined(isFetching)}
+							?disabled=${isFetching}
 							href=${createWebviewCommandLink('gitlens.views.home.push', 'gitlens.views.home', '', {
 								force: true,
 							})}
@@ -229,6 +244,8 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				return html`<div>
 					<button-container>
 						<gl-button
+							aria-busy=${ifDefined(isFetching)}
+							?disabled=${isFetching}
 							href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
 							full
 							appearance="secondary"
@@ -247,6 +264,8 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				return html`<div>
 					<button-container>
 						<gl-button
+							aria-busy=${ifDefined(isFetching)}
+							?disabled=${isFetching}
 							href=${createWebviewCommandLink('gitlens.views.home.push', 'gitlens.views.home', '')}
 							full
 							appearance="secondary"

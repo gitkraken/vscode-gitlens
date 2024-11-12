@@ -66,7 +66,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				<skeleton-loader lines="3"></skeleton-loader>
 			`;
 		}
-		return this.renderComplete(this._overviewState.state);
+		return this.renderComplete(this._overviewState.state, true);
 	}
 
 	@consume({ context: ipcContext })
@@ -82,13 +82,14 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		});
 	}
 
-	private renderComplete(overview: Overview) {
+	private renderComplete(overview: Overview, isFetching = false) {
 		if (overview == null) return nothing;
 		const { repository } = overview;
 		return html`
 			<div class="repository">
 				<gl-branch-section
-					label="Recent (${repository.branches.recent.length})"
+					label="Recent"
+					.isFetching=${isFetching}
 					.repo=${repository.path}
 					.branches=${repository.branches.recent}
 				>
@@ -103,6 +104,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 							value: OverviewRecentThreshold;
 							label: string;
 						}[]}
+						.disabled=${isFetching}
 						.value=${this._overviewState.filter.recent?.threshold}
 					></gl-branch-threshold-filter>
 				</gl-branch-section>

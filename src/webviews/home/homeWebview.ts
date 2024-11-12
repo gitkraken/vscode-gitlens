@@ -469,7 +469,17 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			repo.watchFileSystem(1000),
 			repo.onDidChangeFileSystem(() => this.onWipChanged(repo)),
 			repo.onDidChange(e => {
-				if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+				if (
+					e.changed(
+						RepositoryChange.Unknown,
+						RepositoryChange.Index,
+						RepositoryChange.Status,
+						RepositoryChange.Remotes,
+						RepositoryChange.Config,
+						RepositoryChange.Heads,
+						RepositoryChangeComparisonMode.Any,
+					)
+				) {
 					this.onWipChanged(repo);
 				}
 			}),
