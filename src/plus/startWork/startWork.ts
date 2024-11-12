@@ -343,9 +343,9 @@ export class StartWorkCommand extends QuickCommand<State> {
 				label:
 					i.item.issue.title.length > 60 ? `${i.item.issue.title.substring(0, 60)}...` : i.item.issue.title,
 				// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
-				description: `\u00a0 ${i.item.issue.repository?.owner ?? ''}/${i.item.issue.repository?.repo ?? ''}#${
-					i.item.issue.id
-				} \u00a0`,
+				description: `\u00a0 ${
+					i.item.issue.repository ? `${i.item.issue.repository.owner}/${i.item.issue.repository.repo}#` : ''
+				}${i.item.issue.id} \u00a0`,
 				detail: `      ${fromNow(i.item.issue.updatedDate)} by @${i.item.issue.author.name}`,
 				iconPath: i.item.issue.author?.avatarUrl != null ? Uri.parse(i.item.issue.author.avatarUrl) : undefined,
 				item: i,
