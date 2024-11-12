@@ -293,7 +293,7 @@ Yes. All features are free to use on all repos, **except** for `Pro` features, w
 
 While GitLens offers a remarkable set of free features, a subset of `Pro` features tailored for professional developers and teams, require a trial or paid plan for use on privately-hosted repos &mdash; use on local or publicly-hosted repos is free for everyone. Additionally `Preview` features may require a paid plan in the future and some, if cloud-backed, require a GitKraken account.
 
-Preview `Pro` features instantly for free for 3 days without an account, or start a free GitLens Pro trial to get an additional 7 days and gain access to `Pro` features to experience the full power of GitLens.
+Preview `Pro` features instantly for free for 3 days without an account, or start a free GitLens Pro trial to get an additional 14 days and gain access to `Pro` features to experience the full power of GitLens.
 
 ## Are `Pro` and `Preview` features free to use?
 
