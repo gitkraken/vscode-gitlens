@@ -1,5 +1,5 @@
 export const proPreviewLengthInDays = 3;
-export const proTrialLengthInDays = 7;
+export const proTrialLengthInDays = 14;
 
 export type PromoKeys = 'gitlens16' | 'pro50';
 

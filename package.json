@@ -19299,12 +19299,12 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days!",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days!",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5 && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
@@ -19406,12 +19406,12 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 14 days!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 5"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 14 days!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 5 && gitlens:views:scm:grouped:view == worktrees"
 			},
 			{
