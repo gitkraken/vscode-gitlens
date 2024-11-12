@@ -148,6 +148,20 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	}
 
 	private renderSummaryResult() {
+		if (this._homeState.hasAnyIntegrationConnected === false) {
+			return html`<ul class="menu">
+				<li>
+					<a
+						class="launchpad-action"
+						href="command:gitlens.plus.cloudIntegrations.connect?%7B%22source%22%3A%22home%22%7D"
+					>
+						<code-icon class="launchpad-action__icon" icon="plug"></code-icon>
+						<span>Connect to see PRs and Issue here</span>
+					</a>
+				</li>
+			</ul>`;
+		}
+
 		return this._summaryState.render({
 			pending: () => this.renderPending(),
 			complete: summary => this.renderSummary(summary),
