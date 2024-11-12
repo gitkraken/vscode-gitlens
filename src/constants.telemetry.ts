@@ -6,6 +6,7 @@ import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.in
 import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
 import type { GitContributionTiers } from './git/models/contributor';
+import type { StartWorkType } from './plus/startWork/startWork';
 import type { Period } from './plus/webviews/timeline/protocol';
 import type { Flatten } from './system/object';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
@@ -317,8 +318,24 @@ export type TelemetryEvents = {
 	'startWork/opened': StartWorkEventData & {
 		connected: boolean;
 	};
+	/** Sent when the user chooses an option to start work in the first step */
+	'startWork/type/chosen': StartWorkEventData & {
+		connected: boolean;
+		type: StartWorkType;
+	};
+	/** Sent when the user chooses an issue to start work in the second step */
+	'startWork/issue/chosen': StartWorkEventData & {
+		connected: boolean;
+		type: StartWorkType;
+	} & Partial<Record<`item.${string}`, string | number | boolean>>;
 	/** Sent when the Start Work has "reloaded" (while open, e.g. user refreshed or back button) and is disconnected; use `instance` to correlate a Start Work "session" */
+	'startWork/steps/type': StartWorkEventData & {
+		connected: boolean;
+	};
 	'startWork/steps/connect': StartWorkEventData & {
+		connected: boolean;
+	};
+	'startWork/steps/issue': StartWorkEventData & {
 		connected: boolean;
 	};
 
@@ -462,13 +479,13 @@ export type CommandEventData =
 			webview?: string;
 	  };
 
-export type StartWorkTelemetryContext = StartWorkEventDataBase;
+export type StartWorkTelemetryContext = StartWorkEventData;
 
 type StartWorkEventDataBase = {
 	instance: number;
-};
+} & Partial<{ type: StartWorkType }>;
 
-type StartWorkEventData = StartWorkEventDataBase;
+type StartWorkEventData = StartWorkEventDataBase & Partial<{ 'items.count': number }>;
 
 export type LaunchpadTelemetryContext = LaunchpadEventData;
 
