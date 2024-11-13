@@ -1229,7 +1229,7 @@
 				"properties": {
 					"gitlens.home.preview.enabled": {
 						"type": "boolean",
-						"default": false,
+						"default": true,
 						"markdownDescription": "Specifies whether to enable the new home preview",
 						"scope": "window",
 						"order": 10
