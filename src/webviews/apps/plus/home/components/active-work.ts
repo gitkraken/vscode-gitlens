@@ -89,20 +89,30 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				<span slot="heading"
 					><code-icon icon="repo" class="heading-icon"></code-icon> ${overview!.repository.name}</span
 				>
-				${when(
-					this._homeState.repositories.openCount > 1,
-					() =>
-						html`<span slot="heading-actions"
-							><gl-button
+				<span slot="heading-actions"
+					><gl-button
+						aria-busy="${ifDefined(isFetching)}"
+						?disabled=${isFetching}
+						class="section-heading-action"
+						appearance="toolbar"
+						tooltip="Open in Commit Graph"
+						@click=${(e: MouseEvent) => this.onChange(e)}
+						><code-icon icon="gl-graph"></code-icon
+					></gl-button>
+					${when(
+						this._homeState.repositories.openCount > 1,
+						() =>
+							html`<gl-button
 								aria-busy="${ifDefined(isFetching)}"
 								?disabled=${isFetching}
 								class="section-heading-action"
 								appearance="toolbar"
 								tooltip="Change Repository"
 								@click=${(e: MouseEvent) => this.onChange(e)}
-								><code-icon icon="chevron-down"></code-icon></gl-button
-						></span>`,
-				)}
+								><code-icon icon="chevron-down"></code-icon
+							></gl-button>`,
+					)}</span
+				>
 				${activeBranches.map(branch => this.renderRepoBranchCard(branch, repo.path, isFetching))}
 			</gl-section>
 		`;
@@ -161,7 +171,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 					href=${createCommandLink('gitlens.home.openPullRequestOnRemote', branchRefs)}
 				></action-item>`,
 			);
-		} else {
+		} else if (branch.upstream?.missing === false) {
 			actions.push(
 				html`<action-item
 					label="Create Pull Request..."

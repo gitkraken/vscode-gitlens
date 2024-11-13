@@ -17,27 +17,23 @@ import '../../../shared/components/actions/action-nav';
 
 type OverviewBranch = GetOverviewBranch;
 
-export const sectionHeadingStyles = css`
-	.section-heading {
-		font-size: 1.3rem;
-		font-weight: normal;
-		margin-block: 0 0.8rem;
-		text-transform: uppercase;
-	}
-	.section-heading--actions {
-		display: flex;
-		justify-content: space-between;
-		gap: 8px;
-	}
-`;
-
 @customElement('gl-section')
 export class GlSection extends LitElement {
 	static override styles = [
-		sectionHeadingStyles,
 		css`
 			.section {
 				margin-bottom: 1.2rem;
+			}
+			.section__heading {
+				display: flex;
+				justify-content: space-between;
+				gap: 8px;
+				margin-block: 0 0.8rem;
+				font-size: 1.3rem;
+			}
+			.section__headline {
+				font-weight: normal;
+				text-transform: uppercase;
 			}
 		`,
 	];
@@ -45,8 +41,8 @@ export class GlSection extends LitElement {
 	override render() {
 		return html`
 			<div class="section">
-				<h3 class="section-heading section-heading--actions">
-					<slot name="heading"></slot><slot name="heading-actions"></slot>
+				<h3 class="section__heading section__heading--actions">
+					<slot name="heading" class="section__headline"></slot><slot name="heading-actions"></slot>
 				</h3>
 				<slot></slot>
 			</div>
@@ -321,7 +317,7 @@ export class GlBranchCard extends LitElement {
 					href=${this.createCommandLink('gitlens.home.openPullRequestOnRemote')}
 				></action-item>`,
 			);
-		} else {
+		} else if (this.branch.upstream?.missing === false) {
 			actions.push(
 				html`<action-item
 					label="Create Pull Request..."
