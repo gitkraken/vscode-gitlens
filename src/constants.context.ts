@@ -47,7 +47,7 @@ export type ContextKeys = {
 	'gitlens:views:repositories:autoRefresh': boolean;
 	'gitlens:views:scm:grouped:refresh': boolean;
 	'gitlens:views:scm:grouped:view': GroupableTreeViewTypes;
-	'gitlens:views:scm:grouped:welcome:dismissed': boolean;
+	'gitlens:views:scm:grouped:welcome': boolean;
 	'gitlens:vsls': boolean | 'host' | 'guest';
 	'gitlens:window:annotated': AnnotationStatus;
 } & Record<`gitlens:action:${string}`, number> &
