@@ -18,9 +18,9 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 
 > Have questions or concerns? Talk to our engineering team directly through our [GitHub Discussions](https://github.com/gitkraken/vscode-gitlens/discussions/categories/feedback) page. Having a positive experience with GitLens? Feel free to [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens&ssr=false#review-details).
 
-## GitLens Editions: Free and Pro
+## GitLens Editions: Community and Pro
 
-**GitLens Free** gives you powerful tools to manage Git and understand how your code has evolved and by whom. With popular features like in-editor blame annotations, hovers, and CodeLens, you can see actionable authorship details at the top of each file. Track the history of any file over time using Revision Navigation to gain deeper insights into code changes.
+**GitLens Community** is free and gives you powerful tools to manage Git and understand how your code has evolved and by whom. With popular features like in-editor blame annotations, hovers, and CodeLens, you can see actionable authorship details at the top of each file. Track the history of any file over time using Revision Navigation to gain deeper insights into code changes.
 
 **GitLens Pro** takes your workflow to the next level by unlocking advanced features and seamless integrations:
 
@@ -28,7 +28,7 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 - **Manage commits effortlessly** using the Commit Graph, where you can execute advanced actions like rebase, merge, and more. With powerful search and filtering, quickly locate commits, branches, or files.
 - **Enhance collaboration** by integrating with platforms like GitHub, GitLab, and Bitbucket, reducing context switching. View and manage PRs directly in VS Code through Launchpad.
 
-You can [try GitLens Pro for free](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web) by signing up for a GitKraken account. Some Pro features are available for free on public repos. `Preview` features may require a GitKraken account and could become Pro features in the future.
+You can [try GitLens Pro for free](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web&utm_source=gitlens-extension&utm_medium=readme) by signing up for a GitKraken account. Some Pro features are available for free on public repos. `Preview` features may require a GitKraken account and could become Pro features in the future.
 
 [Workflows](#discover-powerful-workflows 'Jump to Discover Powerful Workflows')
 | [More Features](#more-features 'Jump to More Features')
@@ -281,27 +281,27 @@ Use the `Generate Commit Message` command from the Source Control view's context
 
 # Ready for GitLens Pro?
 
-When you're ready to unlock the full potential of GitLens and enjoy all the benefits on your privately-hosted repos, consider [upgrading to GitLens Pro](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web). With GitLens Pro, you'll gain access to [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) on privately-hosted repos.
+When you're ready to unlock the full potential of GitLens and enjoy all the benefits, consider [upgrading to GitLens Pro](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web). With GitLens Pro, you'll gain access to [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) on privately-hosted repos.
 
-To learn more about the pricing and the additional features offered with GitLens Pro, visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing?utm_source=gitlens-extension&utm_medium=in-app-links). Upgrade to GitLens Pro today and take your Git workflow to the next level!
+To learn more about the additional features offered with Pro, visit the [GitLens Community  vs GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=readme&utm_term=ready-for-gitlens-pro) page.
 
 # FAQ
 
 ## Is GitLens free to use?
 
-Yes. All features are free to use on all repos, **except** for `Pro` features, which require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing?utm_source=gitlens-extension&utm_medium=in-app-links).
+Yes. All features are free to use on local and publicly-hosted repos with the `GitLens Community` edition.
 
-While GitLens offers a remarkable set of free features, a subset of `Pro` features tailored for professional developers and teams, require a trial or paid plan for use on privately-hosted repos &mdash; use on local or publicly-hosted repos is free for everyone. Additionally `Preview` features may require a paid plan in the future and some, if cloud-backed, require a GitKraken account.
+For private repos, a subset of features require a `GitLens Pro` plan, which you can [try for free](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web&utm_source=gitlens-extension&utm_medium=readme&utm_content=bottom-link) for 14 days.
 
-Preview `Pro` features instantly for free for 3 days without an account, or start a free GitLens Pro trial to get an additional 7 days and gain access to `Pro` features to experience the full power of GitLens.
+Additionally `Preview` features may require a paid plan in the future and some, if cloud-backed, require a GitKraken account.
 
 ## Are `Pro` and `Preview` features free to use?
 
-`Pro` features are free for use on local and publicly-hosted repos, while a paid plan is required for use on privately-hosted repos. `Preview` features may require a paid plan in the future.
+Yes - with GitLens Community, `Pro` features are free for use on local and publicly-hosted repos. GitLens Pro is required for use on privately-hosted repos, which you can [trial for 14 days](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web&utm_source=gitlens-extension&utm_medium=readme&utm_content=bottom-link) - no credit card required. `Preview` features may require a paid plan in the future.
 
 ## Where can I find pricing?
 
-Visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing?utm_source=gitlens-extension&utm_medium=in-app-links) for detailed pricing information and feature matrix for plans.
+Visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing?utm_source=gitlens-extension&utm_medium=in-app-links) on GitKraken.com for detailed pricing info and a feature matrix for plans. Purchasing GitKraken Pro will give you access to GitLens Pro.
 
 # Support and Community
 
