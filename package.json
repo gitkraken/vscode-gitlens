@@ -19843,7 +19843,7 @@
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:gettingStarted == true"
 						],
-						"when": "gitlens:plus:state <= 0"
+						"when": "!gitlens:plus:state || gitlens:plus:state <= 0"
 					},
 					{
 						"id": "visualize-code-history",
