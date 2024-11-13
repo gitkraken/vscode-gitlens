@@ -1,15 +1,14 @@
 @use '../shared/styles/properties';
 @use '../shared/styles/theme';
 @use '../shared/styles/scrollbars';
+@import '../shared/utils.scss';
 
-.vscode-high-contrast,
-.vscode-dark {
+@include dark-theme {
 	--popover-bg: var(--color-background--lighten-15);
 	--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 6%);
 }
 
-.vscode-high-contrast-light,
-.vscode-light {
+@include light-theme {
 	--popover-bg: var(--color-background--darken-15);
 	--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 4%);
 }
