@@ -15,7 +15,10 @@ export type ContextKeys = {
 	'gitlens:gk:organization:drafts:enabled': boolean;
 	'gitlens:hasVirtualFolders': boolean;
 	'gitlens:launchpad:connect': boolean;
+	/** Indicates that this is a new install of GitLens (on this machine) */
 	'gitlens:newInstall': boolean;
+	/** Indicates that this is a new install of GitLens (anywhere for this user -- if synced settings is on) */
+	'gitlens:newUserInstall': boolean;
 	'gitlens:plus': SubscriptionPlanId;
 	'gitlens:plus:disallowedRepos': string[];
 	'gitlens:plus:enabled': boolean;

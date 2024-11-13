@@ -95,6 +95,13 @@ export class Views implements Disposable {
 			configuration.get('views.scm.grouped.default'),
 		);
 		this.updateScmGroupedViewsRegistration();
+		// If this is a new install, expand the GitLens view and show the home view by default
+		if (getContext('gitlens:newInstall', false)) {
+			setTimeout(() => {
+				executeCoreCommand(`gitlens.views.scm.grouped.focus`, { preserveFocus: true });
+				executeCoreCommand(`gitlens.views.home.focus`, { preserveFocus: true });
+			}, 250);
+		}
 	}
 
 	dispose() {
