@@ -429,7 +429,7 @@ export class Views implements Disposable {
 	}
 
 	private updateScmGroupedViewsRegistration(bypassWelcomeView?: boolean) {
-		void setContext('gitlens:views:scm:grouped:welcome:dismissed', this._welcomeDismissed);
+		void setContext('gitlens:views:scm:grouped:welcome', !this._welcomeDismissed);
 
 		const groupedViews = getScmGroupedViewsFromConfig();
 
