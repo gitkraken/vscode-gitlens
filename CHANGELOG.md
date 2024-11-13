@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds new ability to search for a GitHub PR in the _Launchpad;_ closes [#3543](https://github.com/gitkraken/vscode-gitlens/issues/3543)
+- Adds _Start Work_ command that opens a quick pick to initiate different flows for starting work (creating a branch).; closes [#3621](https://github.com/gitkraken/vscode-gitlens/issues/3621)
 
 ## [15.6.2] - 2024-10-17
 
