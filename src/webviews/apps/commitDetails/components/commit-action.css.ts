@@ -28,17 +28,21 @@ export const commitActionStyles = css`
 		text-decoration: none;
 	}
 
-	:host-context(.vscode-dark) .commit-action:hover {
+	:host-context(.vscode-dark) .commit-action:hover,
+	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) .commit-action:hover {
 		background-color: var(--color-background--lighten-15);
 	}
-	:host-context(.vscode-light) .commit-action:hover {
+	:host-context(.vscode-light) .commit-action:hover,
+	:host-context(.vscode-high-contrast-light) .commit-action:hover {
 		background-color: var(--color-background--darken-15);
 	}
 
-	:host-context(.vscode-dark) .commit-action.is-active {
+	:host-context(.vscode-dark) .commit-action.is-active,
+	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) .commit-action.is-active {
 		background-color: var(--color-background--lighten-10);
 	}
-	:host-context(.vscode-light) .commit-action.is-active {
+	:host-context(.vscode-light) .commit-action.is-active,
+	:host-context(.vscode-high-contrast-light) .commit-action.is-active {
 		background-color: var(--color-background--darken-10);
 	}
 

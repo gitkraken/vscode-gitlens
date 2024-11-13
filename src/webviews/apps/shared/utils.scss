@@ -1,3 +1,17 @@
+@mixin dark-theme($selectorPrefix: "", $selectorPostfix: "") {
+  #{$selectorPrefix}.vscode-dark#{$selectorPostfix},
+	#{$selectorPrefix}.vscode-high-contrast:not(.vscode-high-contrast-light)#{$selectorPostfix} {
+    @content;
+  }
+}
+
+@mixin light-theme($selectorPrefix: "", $selectorPostfix: "") {
+  #{$selectorPrefix}.vscode-light#{$selectorPostfix},
+	#{$selectorPrefix}.vscode-high-contrast-light#{$selectorPostfix} {
+    @content;
+  }
+}
+
 .bold {
 	font-weight: 600;
 }
@@ -91,13 +105,14 @@
 }
 
 .light {
-	.vscode-dark & {
+	@include dark-theme($selectorPostfix: " &") {
 		display: none;
 	}
 }
 
 .dark {
-	.vscode-light & {
+	@include light-theme($selectorPostfix: " &") {
 		display: none;
 	}
 }
+

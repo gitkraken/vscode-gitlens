@@ -37,6 +37,8 @@ export class GLHomeAccountContent extends LitElement {
 			:host {
 				display: block;
 				margin-bottom: 1.3rem;
+				--gl-accordion-content-background: var(--vscode-sideBar-background);
+				--gl-accordion-header-background: var(--vscode-sideBarSectionHeader-background);
 			}
 
 			:host > * {
@@ -45,6 +47,10 @@ export class GLHomeAccountContent extends LitElement {
 
 			button-container {
 				margin-bottom: 1.3rem;
+			}
+
+			gl-accordion {
+				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 			}
 
 			.header {

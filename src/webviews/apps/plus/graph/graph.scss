@@ -2,6 +2,7 @@
 @import '../../shared/base';
 @import '../../shared/codicons';
 @import '../../shared/glicons';
+@import '../../shared/utils';
 @import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
 
 @mixin focusStyles() {
@@ -18,14 +19,12 @@ menu-list {
 	}
 }
 
-.vscode-high-contrast,
-.vscode-dark {
+@include dark-theme {
 	--popover-bg: var(--color-background--lighten-15);
 	--titlebar-bg: var(--color-background--lighten-075);
 }
 
-.vscode-high-contrast-light,
-.vscode-light {
+@include light-theme {
 	--popover-bg: var(--color-background--darken-15);
 	--titlebar-bg: var(--color-background--darken-075);
 }
@@ -120,7 +119,7 @@ menu-list {
 	--graph-column-scrollbar-thickness: 14px;
 }
 
-:root:has(.vscode-dark, .vscode-high-contrast) {
+@include dark-theme($selectorPrefix: ":root:has(", $selectorPostfix: ")") {
 	--graph-theme-opacity-factor: '1';
 
 	--color-graph-actionbar-background: color-mix(in srgb, #fff 5%, var(--color-background));
@@ -128,7 +127,7 @@ menu-list {
 	--color-graph-background2: color-mix(in srgb, #fff 10%, var(--color-background));
 }
 
-:root:has(.vscode-light, .vscode-high-contrast-light) {
+@include light-theme($selectorPrefix: ":root:has(", $selectorPostfix: ")") {
 	--graph-theme-opacity-factor: '0.5';
 
 	--color-graph-actionbar-background: color-mix(in srgb, #000 5%, var(--color-background));

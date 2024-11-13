@@ -1,12 +1,11 @@
 @use '../shared/styles/details-base';
+@import '../shared/utils';
 
-.vscode-high-contrast,
-.vscode-dark {
+@include dark-theme {
 	--gl-color-background-counter: #fff;
 }
 
-.vscode-high-contrast-light,
-.vscode-light {
+@include light-theme {
 	--gl-color-background-counter: #000;
 }
 

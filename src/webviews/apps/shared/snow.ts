@@ -105,7 +105,11 @@ export class Snow {
 
 		this._ctx.clearRect(0, 0, this._width, this._height);
 
-		const color = document.body.classList.contains('vscode-light') ? '#424242' : '#fff';
+		const color =
+			document.body.classList.contains('vscode-light') ||
+			document.body.classList.contains('vscode-high-contrast-light')
+				? '#424242'
+				: '#fff';
 
 		for (const flake of this._snowflakes) {
 			flake.update();
