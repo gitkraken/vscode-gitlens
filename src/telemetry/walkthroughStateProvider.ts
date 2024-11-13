@@ -87,7 +87,15 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		{
 			subscriptionStates: triedProStates,
 			subscriptionCommands: tryProCommands,
-			usage: [`command:${Commands.CreateCloudPatch}:executed`, `command:${Commands.CreatePatch}:executed`],
+			usage: [
+				`patchDetailsView:shown`,
+				`patchDetailsWebview:shown`,
+				`draftsView:shown`,
+				`command:${Commands.ShowDraftsView}:executed`,
+				`command:${Commands.ShowPatchDetailsPage}:executed`,
+				`command:${Commands.CreateCloudPatch}:executed`,
+				`command:${Commands.CreatePatch}:executed`,
+			],
 		},
 	],
 	[
