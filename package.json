@@ -17985,6 +17985,11 @@
 					"submenu": "gitlens/views/grouped/more",
 					"when": "gitlens:views:scm:grouped:view == launchpad",
 					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.views.launchpad.info",
+					"when": "gitlens:views:scm:grouped:view == launchpad",
+					"group": "2_gitlens_actions@1"
 				}
 			],
 			"gitlens/views/grouped/remotes": [
@@ -18359,11 +18364,6 @@
 					"command": "gitlens.views.launchpad.setShowAvatarsOff",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad && config.gitlens.views.launchpad.avatars",
 					"group": "5_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.launchpad.info",
-					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad",
-					"group": "8_info@1"
 				},
 				{
 					"command": "gitlens.views.remotes.setLayoutToList",
