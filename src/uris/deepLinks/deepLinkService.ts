@@ -1562,8 +1562,8 @@ export class DeepLinkService implements Disposable {
 
 		if (compareRef != null && compareWithRef != null) {
 			targetType = DeepLinkType.Comparison;
-			targetId = compareRef.label ?? compareRef.ref;
-			compareWithTargetId = compareWithRef.label ?? compareWithRef.ref;
+			targetId = compareRef.ref ?? compareRef.label;
+			compareWithTargetId = compareWithRef.ref ?? compareWithRef.label;
 		}
 
 		let target;
