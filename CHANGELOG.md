@@ -10,6 +10,31 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds new ability to search for a GitHub PR in the _Launchpad;_ closes [#3543](https://github.com/gitkraken/vscode-gitlens/issues/3543)
 - Adds _Start Work_ command that opens a quick pick to initiate different flows for starting work (creating a branch).; closes [#3621](https://github.com/gitkraken/vscode-gitlens/issues/3621)
+- Adds a new _Filter Commits_ button to the Commit Graph toolbar. When toggled while searching the graph, it will be filtered to show only commits matching the search query
+- Adds support for deep links to GitLens features and views:
+  - Adds support for deep links to the GitLens Walkthrough; closes [#3677](https://github.com/gitkraken/vscode-gitlens/issues/3677)
+  - Adds support for deep links to Launchpad; closes [#3678](https://github.com/gitkraken/vscode-gitlens/issues/3678)
+  - Adds support for deep links to the Commit Graph, Worktrees View, Inspect View, and Cloud Patches View; closes [#3703](https://github.com/gitkraken/vscode-gitlens/issues/3703)
+
+### Changed
+
+- Improves Launchpad; closes [#3614](https://github.com/gitkraken/vscode-gitlens/issues/3614):
+  - Renames _Switch to Branch or Worktree_ option to _Switch to Branch_, since it already includes options to create a worktree in the action flow
+  - Adds _Pin_ and _Snooze_ buttons to the header item in the action step
+  - Draft pull requests for which the current user's review is needed are now also shown in the "Needs Your Review" group, with a draft icon
+- Improves Launchpad View; closes [#3615](https://github.com/gitkraken/vscode-gitlens/issues/3615):
+  - Moves Launchpad View out of experimental status
+  - Replaces _Compare Pull Request_ hover icon button with _Open in Worktree_
+  - Remembers the collapsed/expanded state of groups
+  - Expands the _Current Branch_ group, and Launchpad item corresponding to the current branch, by default
+  - Draft pull requests for which the current user's review is needed are now also shown in the "Needs Your Review" group, with a draft icon
+  - Launchpad view is now more responsive to changes in the Launchpad including pinning and snoozing items
+  - Pinned items should now appear above non-pinned items in their respective groups
+
+### Fixed
+
+- Fixes branch creation and switch quickpicks failing to close when a worktree is created during the flow
+- Fixes some cases where Launchad can fail to detect a connected integration
 
 ## [15.6.3] - 2024-11-05
 
