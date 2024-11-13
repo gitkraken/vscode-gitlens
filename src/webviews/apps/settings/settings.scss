@@ -1,8 +1,8 @@
 @use '../shared/styles/theme';
+@use '../shared/styles/utils';
 @import '../shared/base';
 @import '../shared/buttons';
 @import '../shared/icons';
-@import '../shared/utils';
 
 body {
 	font-family: var(--vscode-font-family);
@@ -10,7 +10,7 @@ body {
 	font-size: var(--vscode-font-size) !important;
 	line-height: 1.4;
 
-	@include light-theme($selectorPrefix: "&") {
+	@include utils.light-theme($selectorPrefix: '&') {
 		background-color: var(--color-background--darken-05);
 	}
 }
@@ -78,7 +78,7 @@ a.secondary {
 		color: var(--color-foreground--85);
 	}
 
-	@include light-theme($selectorPostfix: " &") {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		color: var(--color-foreground--75);
 	}
 }
@@ -121,11 +121,11 @@ a.secondary {
 	grid-area: content;
 	font-size: 1.4rem;
 
-	@include dark-theme($selectorPostfix: " &") {
+	@include utils.dark-theme($selectorPostfix: ' &') {
 		background-color: var(--color-background--lighten-05);
 	}
 
-	@include light-theme($selectorPostfix: " &") {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		background-color: var(--color-background);
 	}
 
@@ -198,7 +198,7 @@ a.secondary {
 	z-index: 1;
 	grid-column: span 1;
 
-	@include light-theme($selectorPostfix: " &") {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		background: var(--color-background--darken-05);
 	}
 }
@@ -336,17 +336,17 @@ section {
 	margin: 1em;
 	padding: 1em;
 
-	@include dark-theme($selectorPostfix: " &") {
+	@include utils.dark-theme($selectorPostfix: ' &') {
 		background: var(--color-background--lighten-075);
 	}
 
-	@include light-theme($selectorPostfix: " &") {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		background: var(--color-background--darken-05);
 	}
 }
 
 .section--collapsible {
-	@include light-theme($selectorPostfix: " &") {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		background: var(--color-background);
 	}
 
@@ -872,7 +872,7 @@ section {
 			height: 1em;
 			padding-bottom: 4px;
 
-			@include light-theme($selectorPostfix: " &") {
+			@include utils.light-theme($selectorPostfix: ' &') {
 				border-left-color: var(--color-link-foreground--lighten-20);
 			}
 		}
