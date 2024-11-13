@@ -8,7 +8,7 @@ import type { GitTrackingState } from '../../../../../git/models/branch';
 import { createWebviewCommandLink } from '../../../../../system/webview';
 import type { GetOverviewBranch, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import { branchCardStyles, createCommandLink, sectionHeadingStyles } from './branch-section';
+import { branchCardStyles, createCommandLink } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/button';
@@ -27,21 +27,15 @@ export const activeWorkTagName = 'gl-active-work';
 export class GlActiveWork extends SignalWatcher(LitElement) {
 	static override styles = [
 		branchCardStyles,
-		sectionHeadingStyles,
 		css`
 			:host {
 				display: block;
 				margin-bottom: 2.4rem;
-			}
-			.is-end {
-				margin-block-end: 0;
+				color: var(--vscode-foreground);
 			}
 			.section-heading-action {
 				--button-padding: 0.1rem 0.2rem 0;
 				margin-block: -1rem;
-			}
-			.heading-icon {
-				color: var(--color-foreground--50);
 			}
 		`,
 	];
@@ -76,8 +70,10 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	private renderPending() {
 		if (this._overviewState.state == null) {
 			return html`
-				<h3 class="section-heading"><skeleton-loader lines="1"></skeleton-loader></h3>
-				<skeleton-loader lines="3"></skeleton-loader>
+				<gl-section>
+					<skeleton-loader slot="heading" lines="1"></skeleton-loader>
+					<skeleton-loader lines="3"></skeleton-loader>
+				</gl-section>
 			`;
 		}
 		return this.renderComplete(this._overviewState.state, true);
@@ -89,12 +85,14 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		if (!activeBranches) return html`<span>None</span>`;
 
 		return html`
-			<h3 class="section-heading section-heading--actions">
-				<span><code-icon icon="repo" class="heading-icon"></code-icon> ${overview!.repository.name}</span>
+			<gl-section>
+				<span slot="heading"
+					><code-icon icon="repo" class="heading-icon"></code-icon> ${overview!.repository.name}</span
+				>
 				${when(
 					this._homeState.repositories.openCount > 1,
 					() =>
-						html`<span
+						html`<span slot="heading-actions"
 							><gl-button
 								aria-busy="${ifDefined(isFetching)}"
 								?disabled=${isFetching}
@@ -105,8 +103,8 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 								><code-icon icon="chevron-down"></code-icon></gl-button
 						></span>`,
 				)}
-			</h3>
-			${activeBranches.map(branch => this.renderRepoBranchCard(branch, repo.path, isFetching))}
+				${activeBranches.map(branch => this.renderRepoBranchCard(branch, repo.path, isFetching))}
+			</gl-section>
 		`;
 	}
 
@@ -114,23 +112,29 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		const { name, pr, state, workingTreeState, upstream } = branch;
 		return html`
 			<gl-card class="branch-item" active>
-				<p class="branch-item__main">
-					<span class="branch-item__icon">
-						<code-icon icon=${branch.worktree ? 'gl-worktrees-view' : 'git-branch'}></code-icon>
-					</span>
-					<span class="branch-item__name">${name}</span>
-				</p>
-				${when(state, () => this.renderBranchStateActions(state, upstream, isFetching))}
-				${when(pr, pr => {
-					return html` <p class="branch-item__main is-end">
-						<span class="branch-item__icon">
-							<pr-icon state=${pr.state}></pr-icon>
-						</span>
-						<span class="branch-item__name">${pr.title}</span>
-						<a href=${pr.url} class="branch-item__identifier">#${pr.id}</a>
-					</p>`;
-				})}
-				${when(workingTreeState, () => this.renderStatus(workingTreeState, state))}
+				<div class="branch-item__container">
+					<div class="branch-item__section">
+						<p class="branch-item__grouping">
+							<span class="branch-item__icon">
+								<code-icon icon=${branch.worktree ? 'gl-worktrees-view' : 'git-branch'}></code-icon>
+							</span>
+							<span class="branch-item__name">${name}</span>
+						</p>
+					</div>
+					${when(state, () => this.renderBranchStateActions(state, upstream, isFetching))}
+					${when(pr, pr => {
+						return html`<div class="branch-item__section">
+							<p class="branch-item__grouping">
+								<span class="branch-item__icon">
+									<pr-icon state=${pr.state}></pr-icon>
+								</span>
+								<span class="branch-item__name">${pr.title}</span>
+								<a href=${pr.url} class="branch-item__identifier">#${pr.id}</a>
+							</p>
+						</div>`;
+					})}
+					${when(workingTreeState, () => this.renderStatus(workingTreeState, state))}
+				</div>
 				${this.renderActions(branch, repo)}
 			</gl-card>
 		`;
@@ -312,7 +316,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		// }
 
 		if (rendered.length) {
-			return html`<p class="branch-item__details">${rendered}</p>`;
+			return html`<p class="branch-item__section branch-item__section--details">${rendered}</p>`;
 		}
 
 		return nothing;
