@@ -285,29 +285,79 @@ export class Views implements Disposable {
 		];
 	}
 
-	private getScmGroupedView<T extends GroupableTreeViewTypes>(type: T): TreeViewByType[T] {
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const self = this;
+	private readonly _scmGroupedViewProxyCache = new Map<
+		GroupableTreeViewTypes,
+		TreeViewByType[GroupableTreeViewTypes]
+	>();
 
-		// Use a proxy to guard against the view not existing or having been disposed
+	private getScmGroupedView<T extends GroupableTreeViewTypes>(type: T): TreeViewByType[T] {
+		let proxy = this._scmGroupedViewProxyCache.get(type) as TreeViewByType[T] | undefined;
+		if (proxy != null) return proxy;
+
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+		const methodCache = new Map<string | symbol, Function | undefined>();
+
+		// Use a proxy to lazily initialize the view (guard against the view not existing or having been disposed) and cache method bindings for performance
 
 		let view: TreeViewByType[T] | undefined;
-		const proxy = new Proxy<TreeViewByType[T]>(Object.create(null) as TreeViewByType[T], {
-			get: function (_target, prop) {
-				if (view == null || view.disposed) {
-					if (self._scmGroupedView == null) {
-						// Don't bother creating the view if we are just checking visibility
-						if (prop === 'visible') return false;
+		const ensureView = () => {
+			if (view == null || view.disposed) {
+				methodCache.clear();
 
-						self.updateScmGroupedViewsRegistration(true);
-					}
-					view = self._scmGroupedView!.setView(type);
+				if (this._scmGroupedView == null) {
+					this.updateScmGroupedViewsRegistration(true);
+				}
+				view = this._scmGroupedView!.setView(type);
+				if (view == null) {
+					debugger;
+					throw new Error(`Unable to initialize view: ${type}`);
+				}
+			}
+			return view;
+		};
+
+		proxy = new Proxy<TreeViewByType[T]>(Object.create(null) as TreeViewByType[T], {
+			get: function (_, prop) {
+				// Fast path for visibility check
+				if (prop === 'visible') {
+					return view != null && !view.disposed && view.visible;
 				}
 
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-				return (view as any)[prop];
+				const target = ensureView();
+				const value = Reflect.get(target, prop, target);
+
+				// Fast return for non-functions
+				if (typeof value !== 'function') return value;
+
+				// Check method cache
+				let method = methodCache.get(prop);
+				if (method == null) {
+					method = value.bind(target);
+					methodCache.set(prop, method);
+				}
+				return method;
+			},
+			set: function (_target, prop, value, receiver) {
+				return Reflect.set(ensureView(), prop, value, receiver);
+			},
+			has: function (_target, prop) {
+				return Reflect.has(ensureView(), prop);
+			},
+			getOwnPropertyDescriptor: function (_target, prop) {
+				return Reflect.getOwnPropertyDescriptor(ensureView(), prop);
+			},
+			defineProperty: function (_target, prop, descriptor) {
+				return Reflect.defineProperty(ensureView(), prop, descriptor);
+			},
+			deleteProperty: function (_target, prop) {
+				return Reflect.deleteProperty(ensureView(), prop);
+			},
+			ownKeys: function (_target) {
+				return Reflect.ownKeys(ensureView());
 			},
 		});
+
+		this._scmGroupedViewProxyCache.set(type, proxy);
 		return proxy;
 	}
 
