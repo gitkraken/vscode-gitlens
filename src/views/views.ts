@@ -431,21 +431,7 @@ export class Views implements Disposable {
 	private updateScmGroupedViewsRegistration(bypassWelcomeView?: boolean) {
 		void setContext('gitlens:views:scm:grouped:welcome', !this._welcomeDismissed);
 
-		const groupedViews = getScmGroupedViewsFromConfig();
-
-		// If we are going from 0 to > 0, we need to force the views to refresh (since there is some VS Code bug)
-		const forceRefresh = this._scmGroupedViews?.size === 0 && groupedViews.size;
-
-		this._scmGroupedViews = groupedViews;
-
-		if (forceRefresh) {
-			void setContext('gitlens:views:scm:grouped:refresh', true).then(() =>
-				setContext('gitlens:views:scm:grouped:refresh', undefined).then(() =>
-					this.updateScmGroupedViewsRegistration(),
-				),
-			);
-			return;
-		}
+		this._scmGroupedViews = getScmGroupedViewsFromConfig();
 
 		this._scmGroupedView?.dispose();
 		this._scmGroupedView = undefined;
@@ -830,15 +816,21 @@ const defaultScmGroupedViews: Record<GroupableTreeViewTypes, boolean> = Object.f
 });
 
 function getScmGroupedViewsFromConfig() {
-	const groupedViews = {
+	const groupedViewsCfg = {
 		...defaultScmGroupedViews,
 		...configuration.get('views.scm.grouped.views', undefined, defaultScmGroupedViews),
 	};
-	return new Set<GroupableTreeViewTypes>(
-		Object.keys(groupedViews).filter(
-			key => groupedViews[key as GroupableTreeViewTypes],
-		) as GroupableTreeViewTypes[],
-	);
+
+	const groupedViews = new Set<GroupableTreeViewTypes>();
+
+	for (const [key, value] of Object.entries(groupedViewsCfg) as [GroupableTreeViewTypes, boolean][]) {
+		if (value) {
+			groupedViews.add(key);
+		}
+		void setContext(`gitlens:views:scm:grouped:views:${key}`, value);
+	}
+
+	return groupedViews;
 }
 
 async function updateScmGroupedViewsInConfig(groupedViews: Set<GroupableTreeViewTypes>) {
