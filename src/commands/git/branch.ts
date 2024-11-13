@@ -412,7 +412,7 @@ export class BranchGitCommand extends QuickCommand {
 					},
 					this.pickedVia,
 				);
-				if (worktreeResult === StepResultBreak) continue;
+				if (worktreeResult !== StepResultBreak) continue;
 
 				endSteps(state);
 				return;
