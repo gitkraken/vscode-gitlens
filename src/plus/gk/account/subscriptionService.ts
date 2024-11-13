@@ -316,42 +316,26 @@ export class SubscriptionService implements Disposable {
 
 		if (account?.verified === false) {
 			const verify: MessageItem = { title: 'Resend Email' };
-			const learn: MessageItem | undefined = isSubscriptionPaid(this._subscription)
-				? { title: 'See Pro Features' }
-				: undefined;
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 
 			const result = await window.showInformationMessage(
-				isSubscriptionPaid(this._subscription)
-					? `You are now on the ${actual.name} plan. \n\nYou must first verify your email. Once verified, you will have full access to Pro features.`
-					: `Welcome to GitLens.`,
-				{
-					modal: true,
-					detail: isSubscriptionPaid(this._subscription)
-						? `Your ${
-								isSubscriptionPaid(this._subscription) ? 'plan' : 'trial'
-						  } also includes access to the GitKraken DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`
-						: `Verify the email we just sent you to start your Pro trial.`,
-				},
-				...([verify, learn, confirm].filter(Boolean) as MessageItem[]),
+				'Welcome to GitLens',
+				{ modal: true, detail: 'Verify the email we just sent you to start your Pro trial.' },
+				verify,
+				confirm,
 			);
 
 			if (result === verify) {
 				void this.resendVerification(source);
-			} else if (learn && result === learn) {
-				void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-started-verify-email' } }, source);
 			}
 		} else if (isSubscriptionPaid(this._subscription)) {
-			const learn: MessageItem = { title: 'See Pro Features' };
+			const learn: MessageItem = { title: 'Learn More' };
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 			const result = await window.showInformationMessage(
 				`You are now on the ${actual.name} plan and have full access to Pro features.`,
-				{
-					modal: true,
-					detail: 'Your plan also includes access to the GitKraken DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
-				},
-				learn,
+				{ modal: true },
 				confirm,
+				learn,
 			);
 
 			if (result === learn) {
@@ -360,7 +344,7 @@ export class SubscriptionService implements Disposable {
 		} else if (isSubscriptionTrial(this._subscription)) {
 			const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
 
-			const learn: MessageItem = { title: 'See Pro Features' };
+			const learn: MessageItem = { title: 'Learn More' };
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 			const result = await window.showInformationMessage(
 				`Welcome to your ${effective.name} Trial.\n\nYou now have full access to Pro features for ${
@@ -379,13 +363,13 @@ export class SubscriptionService implements Disposable {
 			}
 		} else {
 			const upgrade: MessageItem = { title: 'Upgrade to Pro' };
-			const learn: MessageItem = { title: 'See Pro Features' };
+			const learn: MessageItem = { title: 'Community vs. Pro' };
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 			const result = await window.showInformationMessage(
 				`You are now on the ${actual.name} plan.`,
 				{
 					modal: true,
-					detail: 'You only have access to Pro features on publicly-hosted repos. For full access to Pro features, please upgrade to a paid plan.\nA paid plan also includes access to the GitKraken DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
+					detail: 'You only have access to Pro features on publicly-hosted repos. For full access to Pro features, please upgrade to a paid plan.',
 				},
 				upgrade,
 				learn,
