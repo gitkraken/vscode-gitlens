@@ -19588,7 +19588,7 @@
 				{
 					"id": "gitlens.views.launchpad",
 					"name": "Launchpad",
-					"when": "!config.gitlens.views.scm.grouped.views.launchpad && !gitlens:views:scm:grouped:refresh",
+					"when": "!(config.gitlens.views.scm.grouped.views.launchpad || gitlens:views:scm:grouped:views:launchpad)",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-launchpad-view)",
 					"initialSize": 2,
@@ -19664,7 +19664,7 @@
 				{
 					"id": "gitlens.views.searchAndCompare",
 					"name": "Search & Compare",
-					"when": "!gitlens:disabled && !config.gitlens.views.scm.grouped.views.searchAndCompare && !gitlens:views:scm:grouped:refresh",
+					"when": "!gitlens:disabled && !(config.gitlens.views.scm.grouped.views.searchAndCompare || gitlens:views:scm:grouped:views:searchAndCompare)",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-search-view)",
 					"initialSize": 2,
@@ -19708,7 +19708,7 @@
 				{
 					"id": "gitlens.views.repositories",
 					"name": "Repositories",
-					"when": "!gitlens:disabled && !config.gitlens.views.scm.grouped.views.repositories && !gitlens:views:scm:grouped:refresh",
+					"when": "!gitlens:disabled && !(config.gitlens.views.scm.grouped.views.repositories || gitlens:views:scm:grouped:views:repositories)",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-repositories-view)",
 					"visibility": "hidden"
@@ -19716,7 +19716,7 @@
 				{
 					"id": "gitlens.views.commits",
 					"name": "Commits",
-					"when": "!gitlens:disabled && !config.gitlens.views.scm.grouped.views.commits && !gitlens:views:scm:grouped:refresh",
+					"when": "!gitlens:disabled && !(config.gitlens.views.scm.grouped.views.commits || gitlens:views:scm:grouped:views:commits)",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-commits-view)",
 					"visibility": "visible"
@@ -19724,7 +19724,7 @@
 				{
 					"id": "gitlens.views.branches",
 					"name": "Branches",
-					"when": "!gitlens:disabled && !config.gitlens.views.scm.grouped.views.branches && !gitlens:views:scm:grouped:refresh",
+					"when": "!gitlens:disabled && !(config.gitlens.views.scm.grouped.views.branches || gitlens:views:scm:grouped:views:branches)",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-branches-view)",
 					"visibility": "collapsed"
@@ -19732,7 +19732,7 @@
 				{
 					"id": "gitlens.views.remotes",
 					"name": "Remotes",
-					"when": "!gitlens:disabled && !config.gitlens.views.scm.grouped.views.remotes && !gitlens:views:scm:grouped:refresh",
+					"when": "!gitlens:disabled && !(config.gitlens.views.scm.grouped.views.remotes || gitlens:views:scm:grouped:views:remotes)",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-remotes-view)",
 					"visibility": "collapsed"
@@ -19740,7 +19740,7 @@
 				{
 					"id": "gitlens.views.stashes",
 					"name": "Stashes",
-					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && !config.gitlens.views.scm.grouped.views.stashes && !gitlens:views:scm:grouped:refresh",
+					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && !(config.gitlens.views.scm.grouped.views.stashes || gitlens:views:scm:grouped:views:stashes)",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-stashes-view)",
 					"visibility": "collapsed"
@@ -19748,7 +19748,7 @@
 				{
 					"id": "gitlens.views.tags",
 					"name": "Tags",
-					"when": "!gitlens:disabled && !config.gitlens.views.scm.grouped.views.tags && !gitlens:views:scm:grouped:refresh",
+					"when": "!gitlens:disabled && !(config.gitlens.views.scm.grouped.views.tags || gitlens:views:scm:grouped:views:tags)",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-tags-view)",
 					"visibility": "collapsed"
@@ -19756,7 +19756,7 @@
 				{
 					"id": "gitlens.views.worktrees",
 					"name": "Worktrees",
-					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && gitlens:plus:enabled && !config.gitlens.views.scm.grouped.views.worktrees && !gitlens:views:scm:grouped:refresh",
+					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && gitlens:plus:enabled && !(config.gitlens.views.scm.grouped.views.worktrees || gitlens:views:scm:grouped:views:worktrees)",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-worktrees-view)",
 					"visibility": "collapsed"
@@ -19764,7 +19764,7 @@
 				{
 					"id": "gitlens.views.contributors",
 					"name": "Contributors",
-					"when": "!gitlens:disabled && !config.gitlens.views.scm.grouped.views.contributors && !gitlens:views:scm:grouped:refresh",
+					"when": "!gitlens:disabled && !(config.gitlens.views.scm.grouped.views.contributors || gitlens:views:scm:grouped:views:contributors)",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-contributors-view)",
 					"visibility": "collapsed"
@@ -19772,7 +19772,7 @@
 				{
 					"id": "gitlens.views.scm.grouped",
 					"name": "GitLens",
-					"when": "!gitlens:disabled && (config.gitlens.views.scm.grouped.views.branches || config.gitlens.views.scm.grouped.views.commits || config.gitlens.views.scm.grouped.views.contributors || config.gitlens.views.scm.grouped.views.launchpad || config.gitlens.views.scm.grouped.views.remotes || config.gitlens.views.scm.grouped.views.repositories || config.gitlens.views.scm.grouped.views.searchAndCompare || config.gitlens.views.scm.grouped.views.stashes || config.gitlens.views.scm.grouped.views.tags || config.gitlens.views.scm.grouped.views.worktrees) && !gitlens:views:scm:grouped:refresh",
+					"when": "!gitlens:disabled && ((config.gitlens.views.scm.grouped.views.branches || gitlens:views:scm:grouped:views:branches) || (config.gitlens.views.scm.grouped.views.commits || gitlens:views:scm:grouped:views:commits) || (config.gitlens.views.scm.grouped.views.contributors || gitlens:views:scm:grouped:views:contributors) || (config.gitlens.views.scm.grouped.views.launchpad || gitlens:views:scm:grouped:views:launchpad) || (config.gitlens.views.scm.grouped.views.remotes || gitlens:views:scm:grouped:views:remotes) || (config.gitlens.views.scm.grouped.views.repositories || gitlens:views:scm:grouped:views:repositories) || (config.gitlens.views.scm.grouped.views.searchAndCompare || gitlens:views:scm:grouped:views:searchAndCompare) || (config.gitlens.views.scm.grouped.views.stashes || gitlens:views:scm:grouped:views:stashes) || (config.gitlens.views.scm.grouped.views.tags || gitlens:views:scm:grouped:views:tags) || (config.gitlens.views.scm.grouped.views.worktrees || gitlens:views:scm:grouped:views:worktrees))",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
 					"visibility": "visible"
