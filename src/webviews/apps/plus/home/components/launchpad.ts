@@ -34,9 +34,8 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: block;
-				font-family: var(--vscode-font-family);
-				color: var(--vscode-foreground);
 				margin-bottom: 2.4rem;
+				color: var(--vscode-foreground);
 			}
 			.summary {
 				margin-bottom: 1rem;

@@ -2,15 +2,16 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import type { GetOverviewResponse, OverviewRecentThreshold, State } from '../../../../home/protocol';
 import { SetOverviewFilter } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { ipcContext } from '../../../shared/context';
 import type { HostIpc } from '../../../shared/ipc';
-import { sectionHeadingStyles } from './branch-section';
 import type { OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/skeleton-loader';
+import './branch-section';
 import './branch-threshold-filter';
 
 type Overview = GetOverviewResponse;
@@ -20,13 +21,10 @@ export const overviewTagName = 'gl-overview';
 @customElement(overviewTagName)
 export class GlOverview extends SignalWatcher(LitElement) {
 	static override styles = [
-		sectionHeadingStyles,
 		css`
 			:host {
 				display: block;
 				margin-bottom: 2.4rem;
-			}
-			.repository {
 				color: var(--vscode-foreground);
 			}
 		`,
@@ -62,8 +60,10 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	private renderPending() {
 		if (this._overviewState.state == null) {
 			return html`
-				<h3 class="section-heading"><skeleton-loader lines="1"></skeleton-loader></h3>
-				<skeleton-loader lines="3"></skeleton-loader>
+				<gl-section>
+					<skeleton-loader slot="heading" lines="1"></skeleton-loader>
+					<skeleton-loader lines="3"></skeleton-loader>
+				</gl-section>
 			`;
 		}
 		return this.renderComplete(this._overviewState.state, true);
@@ -86,35 +86,42 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		if (overview == null) return nothing;
 		const { repository } = overview;
 		return html`
-			<div class="repository">
-				<gl-branch-section
-					label="Recent"
-					.isFetching=${isFetching}
-					.repo=${repository.path}
-					.branches=${repository.branches.recent}
-				>
-					<gl-branch-threshold-filter
-						slot="heading-actions"
-						@gl-change=${this.onChangeRecentThresholdFilter.bind(this)}
-						.options=${[
-							{ value: 'OneDay', label: '1 day' },
-							{ value: 'OneWeek', label: '1 week' },
-							{ value: 'OneMonth', label: '1 month' },
-						] satisfies {
-							value: OverviewRecentThreshold;
-							label: string;
-						}[]}
-						.disabled=${isFetching}
-						.value=${this._overviewState.filter.recent?.threshold}
-					></gl-branch-threshold-filter>
-				</gl-branch-section>
-				<gl-branch-section
-					hidden
-					label="Stale (${repository.branches.stale.length})"
-					.repo=${repository.path}
-					.branches=${repository.branches.stale}
-				></gl-branch-section>
-			</div>
+			${when(
+				repository.branches.recent.length > 0,
+				() => html`
+					<gl-branch-section
+						label="Recent"
+						.isFetching=${isFetching}
+						.repo=${repository.path}
+						.branches=${repository.branches.recent}
+					>
+						<gl-branch-threshold-filter
+							slot="heading-actions"
+							@gl-change=${this.onChangeRecentThresholdFilter.bind(this)}
+							.options=${[
+								{ value: 'OneDay', label: '1 day' },
+								{ value: 'OneWeek', label: '1 week' },
+								{ value: 'OneMonth', label: '1 month' },
+							] satisfies {
+								value: OverviewRecentThreshold;
+								label: string;
+							}[]}
+							.disabled=${isFetching}
+							.value=${this._overviewState.filter.recent?.threshold}
+						></gl-branch-threshold-filter>
+					</gl-branch-section>
+				`,
+			)}
+			${when(
+				repository.branches.stale.length > 0,
+				() => html`
+					<gl-branch-section
+						label="Stale (${repository.branches.stale.length})"
+						.repo=${repository.path}
+						.branches=${repository.branches.stale}
+					></gl-branch-section>
+				`,
+			)}
 		`;
 	}
 }

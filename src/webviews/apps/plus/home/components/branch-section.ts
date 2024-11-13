@@ -77,33 +77,35 @@ export class GlBranchSection extends LitElement {
 }
 
 export const branchCardStyles = css`
-	.pill {
-		display: inline-flex;
-		align-items: center;
-		/* gap: 0.4rem; */
-		padding-block: 0.1rem;
-		padding-inline: 0.6rem 0.4rem;
-		margin-left: 0.4rem;
-		border-radius: 0.4rem;
-		border: 1px solid color-mix(in lab, var(--vscode-sideBar-foreground, var(--vscode-foreground)) 100%, #000 10%);
-		/* background-color: var(--vscode-gitDecoration-untrackedResourceForeground); */
-	}
-
 	.branch-item {
 		position: relative;
 	}
 
-	.branch-item__main {
+	.branch-item__container {
 		display: flex;
-		/* flex-direction: column; */
-		/* align-items: center; */
+		flex-direction: column;
+		gap: 0.8rem;
+	}
+	.branch-item__container > * {
+		margin-block: 0;
+	}
+
+	.branch-item__section {
+		display: flex;
+		flex-direction: column;
 		gap: 0.4rem;
-		margin-block-end: 0;
+	}
+	.branch-item__section > * {
+		margin-block: 0;
+	}
+
+	.branch-item__section--details {
+		font-size: 0.9em;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.branch-item__icon {
-		margin-right: 0.4rem;
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.branch-item__name {
@@ -123,60 +125,27 @@ export const branchCardStyles = css`
 		text-decoration: underline;
 	}
 
-	.branch-item__details {
-		display: flex;
-		flex-direction: column;
-		gap: 0.4rem;
-		/* align-items: center; */
-		font-size: 0.9em;
-		color: var(--vscode-descriptionForeground);
-		margin-block-end: 0;
-	}
-	.branch-item__details > * {
-		margin-block: 0;
-	}
-
-	.branch-item__main + .branch-item__main,
-	.branch-item__main + .branch-item__details,
-	.branch-item__details + .branch-item__details {
-		margin-block-start: 0.8rem;
-	}
-
-	.branch-item__upstream,
-	.branch-item__pr-status,
-	.branch-item__commit-count {
-		display: flex;
-		align-items: center;
-		margin-right: 1.6rem;
-	}
-
-	.branch-item__upstream code-icon,
-	.branch-item__pr-status code-icon,
-	.branch-item__commit-count code-icon {
-		margin-right: 0.4rem;
-	}
-
-	.branch-item__more-actions {
-		margin-left: auto;
-	}
-
 	.branch-item__grouping {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.2rem;
+		gap: 0.6rem;
 		max-width: 100%;
+		margin-block: 0;
 	}
 
-	.test1 {
+	.branch-item__grouping--secondary {
+		gap: 0.3rem;
+		font-size: 0.9em;
+		color: var(--vscode-descriptionForeground);
+	}
+	.branch-item__grouping--secondary .branch-item__name {
+		font-weight: normal;
+	}
+
+	.branch-item__changes {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
-	}
-
-	.test1 .branch-item__grouping {
-		flex-grow: 1;
-		overflow: hidden;
-		margin-inline-start: auto;
+		gap: 1rem;
 	}
 
 	.branch-item__actions {
@@ -189,6 +158,10 @@ export const branchCardStyles = css`
 
 	.branch-item:not(:focus-within):not(:hover) .branch-item__actions {
 		display: none;
+	}
+
+	.pill {
+		--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
 	}
 `;
 
@@ -210,41 +183,62 @@ export class GlBranchCard extends LitElement {
 	}
 
 	override render() {
-		const { name, pr, opened: active, timestamp: date, state, workingTreeState } = this.branch;
+		const { name, pr, opened: active, timestamp: date } = this.branch;
 		return html`
 			<gl-card class="branch-item" .active=${active}>
-				<p class="branch-item__main">
-					<span class="branch-item__icon">${this.renderIcon(this.branch)}</span>
-					${when(
-						pr,
-						pr =>
-							html`<span class="branch-item__name">${pr.title} </span
-								><a href=${pr.url} class="branch-item__identifier">#${pr.id}</a>`,
-						() => html`<span class="branch-item__name">${name}</span>`,
-					)}
-				</p>
-				<div class="branch-item__details">
-					<p class="test1">
-						${this.renderAvatars(this.branch)} ${this.renderStatus(workingTreeState, state)}
+				<div class="branch-item__container">
+					<div class="branch-item__section">
+						<p class="branch-item__grouping">
+							<span class="branch-item__icon">${this.renderIcon(this.branch)}</span>
+							${when(
+								pr,
+								pr =>
+									html`<span class="branch-item__name">${pr.title} </span
+										><a href=${pr.url} class="branch-item__identifier">#${pr.id}</a>`,
+								() => html`<span class="branch-item__name">${name}</span>`,
+							)}
+						</p>
+						${this.renderPrBranch(this.branch)}
+					</div>
+					<div class="branch-item__section branch-item__section--details">
+						${this.renderChanges(this.branch)}
 						${when(
-							pr,
-							() => html`
-								<span class="branch-item__grouping"
-									><span class="branch-item__icon">${this.renderIcon(this.branch, true)}</span
-									><span class="branch-item__name">${name}</span></span
-								>
-							`,
+							date,
+							() =>
+								html`<p>
+									<formatted-date .date=${new Date(date!)} class="branch-item__date"></formatted-date>
+								</p>`,
 						)}
-					</p>
-					${when(
-						date,
-						() =>
-							html`<formatted-date .date=${new Date(date!)} class="branch-item__date"></formatted-date>`,
-					)}
+					</div>
 				</div>
 				${this.renderActions()}
 			</gl-card>
 		`;
+	}
+
+	private renderPrBranch(branch: OverviewBranch) {
+		if (!branch.pr) {
+			return nothing;
+		}
+		return html`
+			<p class="branch-item__grouping branch-item__grouping--secondary">
+				<span class="branch-item__icon">${this.renderIcon(branch, true)}</span
+				><span class="branch-item__name">${branch.name}</span>
+			</p>
+		`;
+	}
+
+	private renderChanges(branch: OverviewBranch) {
+		const { state, workingTreeState } = branch;
+
+		const wip = this.renderWip(workingTreeState);
+		const tracking = this.renderTracking(state);
+		const avatars = this.renderAvatars(branch);
+		if (wip || tracking || avatars) {
+			return html`<p class="branch-item__changes">${wip}${tracking}${avatars}</p>`;
+		}
+
+		return nothing;
 	}
 
 	private renderIcon(branch: OverviewBranch, noPr?: boolean) {
@@ -269,7 +263,7 @@ export class GlBranchCard extends LitElement {
 		}
 
 		if (contributors.length === 0) {
-			return nothing;
+			return undefined;
 		}
 
 		return html`<gl-avatar-list
@@ -277,32 +271,20 @@ export class GlBranchCard extends LitElement {
 		></gl-avatar-list>`;
 	}
 
-	private renderStatus(
-		workingTreeState: { added: number; changed: number; deleted: number } | undefined,
-		state: GitTrackingState | undefined,
-	) {
-		const rendered = [];
+	private renderWip(workingTreeState: { added: number; changed: number; deleted: number } | undefined) {
 		if (workingTreeState?.added || workingTreeState?.changed || workingTreeState?.deleted) {
-			// if (workingTreeState.added) {
-			// 	rendered.push(html`<span>${workingTreeState.added}<code-icon icon="add"></code-icon></span>`);
-			// }
-			// if (workingTreeState.changed) {
-			// 	rendered.push(html`<span>${workingTreeState.changed}<code-icon icon="edit"></code-icon></span>`);
-			// }
-			// if (workingTreeState.deleted) {
-			// 	rendered.push(html`<span>${workingTreeState.deleted}<code-icon icon="trash"></code-icon></span>`);
-			// }
-
-			rendered.push(
-				html`<commit-stats
-					added=${workingTreeState.added}
-					modified=${workingTreeState.changed}
-					removed=${workingTreeState.deleted}
-					symbol="icons"
-				></commit-stats>`,
-			);
+			return html`<commit-stats
+				added=${workingTreeState.added}
+				modified=${workingTreeState.changed}
+				removed=${workingTreeState.deleted}
+				symbol="icons"
+			></commit-stats>`;
 		}
 
+		return undefined;
+	}
+
+	private renderTracking(state: GitTrackingState | undefined) {
 		if (state?.ahead || state?.behind) {
 			// if (state.ahead) {
 			// 	rendered.push(html`<span class="pill">${state.ahead}<code-icon icon="arrow-up"></code-icon></span>`);
@@ -310,22 +292,16 @@ export class GlBranchCard extends LitElement {
 			// if (state.behind) {
 			// 	rendered.push(html`<span class="pill">${state.behind}<code-icon icon="arrow-down"></code-icon></span>`);
 			// }
-			rendered.push(
-				html`<gl-tracking-pill
-					colorized
-					outlined
-					ahead=${state.ahead}
-					behind=${state.behind}
-				></gl-tracking-pill>`,
-			);
+			return html`<gl-tracking-pill
+				class="pill"
+				colorized
+				outlined
+				ahead=${state.ahead}
+				behind=${state.behind}
+			></gl-tracking-pill>`;
 		}
 
-		if (rendered.length) {
-			// return html`<span class="branch-item__status">${rendered}</span>`;
-			return rendered;
-		}
-
-		return nothing;
+		return undefined;
 	}
 
 	private renderActions() {
