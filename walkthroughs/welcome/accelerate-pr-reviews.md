@@ -4,8 +4,8 @@
   <img src="./thumbnails/launchpad.jpg" alt="Image"/>
 </a>
 
-Easily manage PRs inside Launchpad without leaving VS Code, keeping your tasks streamlined and your focus intact.
+Streamline your workflow with Launchpad by managing pull requests directly in VS Code, keeping your tasks organized and your focus uninterrupted.
 
-Switch between branches effortlessly with Worktrees, which allows for parallel work on projects without having to context-switch.
+Work smarter with Worktrees and switch between branches seamlessly to work on multiple projects in parallel, all without disrupting your main workspace.
 
-Watch a [video](https://help.gitkraken.com/gitlens/gitlens-home/#accelerate-pr-reviews) on Accelerate PR Reviews
+Watch a [video](https://help.gitkraken.com/gitlens/gitlens-home/#accelerate-pr-reviews) about how to accelerate code review in GitLens.

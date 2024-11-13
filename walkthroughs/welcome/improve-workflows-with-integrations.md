@@ -4,8 +4,8 @@
   <img src="./thumbnails/autolinks.jpg" alt="Image"/>
 </a>
 
-Start managing your code and projects more efficiently with powerful integrations. Quickly gain insights with automatic linking of issues and pull requests across Git hosting platforms including GitHub, GitLab, and Bitbucket, and custom services.
+Connect GitLens to GitHub, GitLab, and Jira to link PRs and issues to branches and commits, track and manage PRs in Launchpad, and start work on issues seamlessly.
 
-View Jira issues directly from within GitLens with the Jira integration.
+With Autolinks, GitLens surfaces links to issues and PRs related to your commits automatically, from a variety of services and custom servers.
 
-Watch a [video](https://help.gitkraken.com/gitlens/gitlens-start-here/#integrations) on Integrations
+Watch a [video](https://help.gitkraken.com/gitlens/gitlens-start-here/#integrations) about improving GitLens with integrations.
