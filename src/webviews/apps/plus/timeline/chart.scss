@@ -1,4 +1,4 @@
-@import '../../shared/utils';
+@use '../../shared/styles/utils';
 
 .bb {
 	svg {
@@ -16,11 +16,11 @@
 	}
 
 	path.domain {
-		@include dark-theme($selectorPostfix: " &") {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			stroke: var(--color-background--lighten-15);
 		}
 
-		@include light-theme($selectorPostfix: " &") {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			stroke: var(--color-background--darken-15);
 		}
 	}
@@ -95,7 +95,7 @@
 		pointer-events: none;
 
 		line {
-			@include dark-theme($selectorPostfix: " &") {
+			@include utils.dark-theme($selectorPostfix: ' &') {
 				stroke: var(--color-background--lighten-05);
 
 				&.bb-ygrid {
@@ -103,7 +103,7 @@
 				}
 			}
 
-			@include light-theme($selectorPostfix: " &") {
+			@include utils.light-theme($selectorPostfix: ' &') {
 				stroke: var(--color-background--darken-05);
 
 				&.bb-ygrid {
@@ -128,10 +128,10 @@
 
 	.bb-xgrid-focus {
 		line {
-			@include dark-theme($selectorPostfix: " &") {
+			@include utils.dark-theme($selectorPostfix: ' &') {
 				stroke: var(--color-background--lighten-30);
 			}
-			@include light-theme($selectorPostfix: " &") {
+			@include utils.light-theme($selectorPostfix: ' &') {
 				stroke: var(--color-background--darken-30);
 			}
 		}
@@ -175,11 +175,11 @@
 	// .bb-selected-circle {
 	// 	stroke-width: 2px;
 
-	//  @include dark-theme($selectorPostfix: " &") {
+	//  @include utils.dark-theme($selectorPostfix: " &") {
 	// 		fill: rgba(255, 255, 255, 0.2);
 	// 	}
 
-	// 	@include light-theme($selectorPostfix: " &") {
+	// 	@include utils.light-theme($selectorPostfix: " &") {
 	// 		fill: rgba(0, 0, 0, 0.1);
 	// 	}
 	// }
@@ -235,12 +235,12 @@
 
 	/*-- Zoom region --*/
 	.bb-zoom-brush {
-		@include dark-theme($selectorPostfix: " &") {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			fill: white;
 			fill-opacity: 0.2;
 		}
 
-		@include light-theme($selectorPostfix: " &") {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			fill: black;
 			fill-opacity: 0.1;
 		}

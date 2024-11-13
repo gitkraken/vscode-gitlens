@@ -1,5 +1,5 @@
+@use '../../shared/styles/utils';
 @use '../../shared/styles/shoelace/vscode-theme';
-@import '../../shared/utils';
 
 :root {
 	--font-family: var(--vscode-font-family);
@@ -89,7 +89,7 @@
 	--gl-tracking-working: var(--vscode-activityBarBadge-background);
 }
 
-@include dark-theme($selectorPrefix: ":root:has(", $selectorPostfix: ")") {
+@include utils.dark-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	--color-alert-infoHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-infoBackground));
 	--color-alert-warningHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-warningBackground));
 	--color-alert-errorHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-errorBackground));
@@ -97,7 +97,7 @@
 	--color-alert-neutralHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-neutralBackground));
 }
 
-@include light-theme($selectorPrefix: ":root:has(", $selectorPostfix: ")") {
+@include utils.light-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	--color-alert-infoHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-infoBackground));
 	--color-alert-warningHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-warningBackground));
 	--color-alert-errorHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-errorBackground));

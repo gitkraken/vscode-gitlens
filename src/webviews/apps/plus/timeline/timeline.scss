@@ -1,19 +1,19 @@
 @use '../../shared/styles/properties';
 @use '../../shared/styles/theme';
-@import '../../shared/utils';
+@use '../../shared/styles/utils';
 
 * {
 	box-sizing: border-box;
 }
 
-@include dark-theme {
+@include utils.dark-theme {
 	--progress-bar-color: var(--color-background--lighten-15);
 	--card-background: var(--color-background--lighten-075);
 	--card-hover-background: var(--color-background--lighten-10);
 	--popover-bg: var(--color-background--lighten-15);
 }
 
-@include light-theme {
+@include utils.light-theme {
 	--progress-bar-color: var(--color-background--darken-15);
 	--card-background: var(--color-background--darken-075);
 	--card-hover-background: var(--color-background--darken-10);

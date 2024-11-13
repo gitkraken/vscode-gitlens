@@ -1,6 +1,6 @@
+@use '../../shared/styles/utils';
 @use './theme';
 @use './scrollbars';
-@import '../../shared/utils';
 
 :root {
 	--gitlens-gutter-width: 20px;
@@ -8,7 +8,7 @@
 	--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 }
 
-@include dark-theme() {
+@include utils.dark-theme() {
 	--color-background--level-05: var(--color-background--lighten-05);
 	--color-background--level-075: var(--color-background--lighten-075);
 	--color-background--level-10: var(--color-background--lighten-10);
@@ -16,7 +16,7 @@
 	--color-background--level-30: var(--color-background--lighten-30);
 }
 
-@include light-theme() {
+@include utils.light-theme() {
 	--color-background--level-05: var(--color-background--darken-05);
 	--color-background--level-075: var(--color-background--darken-075);
 	--color-background--level-10: var(--color-background--darken-10);
