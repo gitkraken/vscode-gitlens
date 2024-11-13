@@ -1,5 +1,5 @@
 @use './styles/scrollbars';
-@import './utils';
+@use './styles/utils';
 
 html {
 	height: 100%;
@@ -104,7 +104,7 @@ input[type='checkbox'] {
 		cursor: default;
 	}
 
-	@include light-theme($selectorPostfix: " &") {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		accent-color: var(--color-background--darken-50);
 	}
 }
@@ -120,22 +120,22 @@ textarea {
 	padding: 4px;
 	width: 100%;
 
-	@include dark-theme($selectorPostfix: " &") {
+	@include utils.dark-theme($selectorPostfix: ' &') {
 		border: 1px solid rgba(255, 255, 255, 0.3);
 	}
 
-	@include light-theme($selectorPostfix: " &") {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		border: 1px solid rgba(0, 0, 0, 0.3);
 	}
 
 	&:focus {
 		outline-color: var(--color-focus-border);
 
-		@include light-theme($selectorPostfix: " &") {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: rgba(255, 255, 255, 0.4);
 		}
 
-		@include dark-theme($selectorPostfix: " &") {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: rgba(0, 0, 0, 0.2);
 		}
 	}
@@ -178,21 +178,21 @@ select {
 	appearance: none;
 	-webkit-appearance: none;
 
-	@include light-theme($selectorPostfix: " &") {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		border: 1px solid rgba(0, 0, 0, 0.3);
 	}
 
-	@include dark-theme($selectorPostfix: " &") {
+	@include utils.dark-theme($selectorPostfix: ' &') {
 		border: 1px solid rgba(255, 255, 255, 0.3);
 	}
 
 	&:focus {
 		outline-color: var(--color-focus-border);
-		@include light-theme($selectorPostfix: " &") {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: rgba(255, 255, 255, 0.4);
 		}
 
-		@include dark-theme($selectorPostfix: " &") {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: rgba(0, 0, 0, 0.2);
 		}
 	}
@@ -203,22 +203,22 @@ select {
 	}
 
 	& option {
-		@include light-theme($selectorPostfix: " &") {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: var(--color-background--darken-05);
 		}
 
-		@include dark-theme($selectorPostfix: " &") {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: var(--color-background--lighten-05);
 		}
 
 		&:focus {
 			outline-color: var(--color-focus-border);
 
-			@include light-theme($selectorPostfix: " &") {
+			@include utils.light-theme($selectorPostfix: ' &') {
 				background-color: rgba(255, 255, 255, 0.4);
 			}
 
-			@include dark-theme($selectorPostfix: " &") {
+			@include utils.dark-theme($selectorPostfix: ' &') {
 				background-color: rgba(0, 0, 0, 0.2);
 			}
 		}

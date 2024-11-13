@@ -1,11 +1,11 @@
 @use '../shared/styles/details-base';
-@import '../shared/utils';
+@use '../shared/styles/utils';
 
-@include dark-theme {
+@include utils.dark-theme {
 	--gl-color-background-counter: #fff;
 }
 
-@include light-theme {
+@include utils.light-theme {
 	--gl-color-background-counter: #000;
 }
 
