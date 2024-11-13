@@ -325,15 +325,16 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (isEnabled === undefined) {
 			isEnabled = !this.getPreviewEnabled();
 		}
-		this.container.telemetry.sendEvent('home/preview/toggled', { enabled: isEnabled, version: 'v16' });
-		configuration.updateEffective('home.preview.enabled', isEnabled);
 
-		if (!isEnabled) {
+		if (!this.getPreviewCollapsed()) {
 			this.onCollapseSection({
 				section: 'newHomePreview',
 				collapsed: true,
 			});
 		}
+
+		this.container.telemetry.sendEvent('home/preview/toggled', { enabled: isEnabled, version: 'v16' });
+		configuration.updateEffective('home.preview.enabled', isEnabled);
 	}
 
 	private onCollapseSection(params: CollapseSectionParams) {
@@ -422,7 +423,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private getPreviewEnabled() {
-		return configuration.get('home.preview.enabled') ?? false;
+		return configuration.get('home.preview.enabled');
 	}
 
 	private getRepositoriesState(): DidChangeRepositoriesParams {
@@ -596,7 +597,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private notifyDidChangeConfig() {
-		void this.host.notify(DidChangePreviewEnabled, this.getPreviewEnabled());
+		void this.host.notify(DidChangePreviewEnabled, {
+			previewEnabled: this.getPreviewEnabled(),
+			previewCollapsed: this.getPreviewCollapsed(),
+		});
 	}
 
 	private notifyDidChangeOnboardingIntegration() {

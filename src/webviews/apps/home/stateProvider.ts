@@ -65,7 +65,8 @@ export class HomeStateProvider implements Disposable {
 					break;
 
 				case DidChangePreviewEnabled.is(msg):
-					this.state.previewEnabled = msg.params;
+					this.state.previewEnabled = msg.params.previewEnabled;
+					this.state.previewCollapsed = msg.params.previewCollapsed;
 					this.state.timestamp = Date.now();
 
 					this.provider.setValue(this.state, true);

@@ -147,7 +147,14 @@ export const DidCompleteDiscoveringRepositories = new IpcNotification<undefined>
 	'repositories/didCompleteDiscovering',
 );
 
-export const DidChangePreviewEnabled = new IpcNotification<boolean>(scope, 'previewEnabled/didChange');
+export interface DidChangePreviewEnabledParams {
+	previewEnabled: boolean;
+	previewCollapsed: boolean;
+}
+export const DidChangePreviewEnabled = new IpcNotification<DidChangePreviewEnabledParams>(
+	scope,
+	'previewEnabled/didChange',
+);
 
 export const DidChangeRepositoryWip = new IpcNotification<undefined>(scope, 'repository/wip/didChange');
 
