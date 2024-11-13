@@ -432,6 +432,8 @@ export type TelemetryEvents = {
 	walkthrough: {
 		step?: WalkthroughSteps;
 	};
+	/** Sent when the walkthrough is opened */
+	'walkthrough/action': { type: 'url' | 'command'; name: string } & ({ command: string } | { url: string });
 	'walkthrough/completion': {
 		'context.key': WalkthroughContextKeys;
 	};

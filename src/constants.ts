@@ -168,10 +168,16 @@ export const urls = Object.freeze({
 	browserExtension: `https://gitkraken.com/browser-extension?${utm}`,
 	desktop: `https://gitkraken.com/git-client?${utm}`,
 
-	releaseNotes: `https://help.gitkraken.com/gitlens/gitlens-release-notes-current/?${utm}`,
-	helpCenter: `https://help.gitkraken.com/gitlens/gitlens-home/?${utm}`,
 	githubIssues: `https://github.com/gitkraken/vscode-gitlens/issues/?${utm}`,
 	githubDiscussions: `https://github.com/gitkraken/vscode-gitlens/discussions/?${utm}`,
+	helpCenter: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}`,
+	releaseNotes: `https://help.gitkraken.com/gitlens/gitlens-release-notes-current/?${utm}`,
+
+	acceleratePrReviews: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#accelerate-pr-reviews`,
+	communityVsPro: `https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/?${utm}`,
+	interactiveCodeHistory: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#interactive-code-history`,
+	startIntegrations: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#improve-workflows-with-integrations`,
+	streamlineCollaboration: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#streamline-collaboration`,
 });
 
 export type WalkthroughSteps =
