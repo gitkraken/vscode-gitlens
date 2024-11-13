@@ -15376,7 +15376,7 @@
 				},
 				{
 					"command": "gitlens.copyPatchToClipboard",
-					"when": "!listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"when": "!listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:file(\\b(?=.*?\\b\\+committed\\b)|:results)/",
 					"group": "7_gitlens_cutcopypaste@3"
 				},
 				{
@@ -16249,7 +16249,7 @@
 				},
 				{
 					"command": "gitlens.copyPatchToClipboard",
-					"when": "!listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:compare:results(?!:)\\b/",
+					"when": "!listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:compare:(branch|results(?!:))\\b/",
 					"group": "7_gitlens_cutcopypaste@97"
 				},
 				{
