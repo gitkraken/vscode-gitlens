@@ -17,6 +17,14 @@ export const cardStyles = css`
 		border-inline-start-color: var(--gl-card-active-border, var(--vscode-gitDecoration-addedResourceForeground));
 	}
 
+	.card:focus-within,
+	.card:hover {
+		background-color: var(
+			--gl-card-hover-background,
+			color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 8%)
+		);
+	}
+
 	.card__actions {
 		position: absolute;
 		top: 0.4rem;
