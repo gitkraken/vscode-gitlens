@@ -166,22 +166,8 @@ export class StartWorkCommand extends QuickCommand<State> {
 					}
 				}
 
-				await updateContextItems(this.container, context);
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent(
-						opened ? 'startWork/steps/issue' : 'startWork/opened',
-						{
-							...context.telemetryContext!,
-							connected: true,
-							type: state.type,
-						},
-						this.source,
-					);
-				}
-
+				const result = yield* this.pickIssueStep(state, context, opened);
 				opened = true;
-
-				const result = yield* this.pickIssueStep(state, context);
 				if (result === StepResultBreak) continue;
 				if (!isStartWorkTypeItem(result)) {
 					state.item = result;
@@ -425,6 +411,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 	private *pickIssueStep(
 		state: StepState<State>,
 		context: Context,
+		opened: boolean,
 	): StepResultGenerator<StartWorkItem | StartWorkTypeItem> {
 		const buildIssueItem = (i: StartWorkItem) => {
 			const buttons = i.item.issue.url ? [OpenOnGitHubQuickInputButton] : [];
@@ -475,14 +462,37 @@ export class StartWorkCommand extends QuickCommand<State> {
 			};
 		}
 
-		const { items, placeholder } = getItemsAndPlaceholder();
+		const updateItems = async (quickpick: QuickPick<any>) => {
+			quickpick.busy = true;
+			try {
+				await updateContextItems(this.container, context);
+				const { items, placeholder } = getItemsAndPlaceholder();
+				quickpick.placeholder = placeholder;
+				quickpick.items = items;
 
-		const step = createPickStep<(typeof items)[0]>({
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(
+						opened ? 'startWork/steps/issue' : 'startWork/opened',
+						{
+							...context.telemetryContext!,
+							connected: true,
+							type: state.type,
+						},
+						this.source,
+					);
+				}
+			} finally {
+				quickpick.busy = false;
+			}
+		};
+
+		const step = createPickStep<QuickPickItemOfT<StartWorkItem | StartWorkTypeItem>>({
 			title: context.title,
-			placeholder: placeholder,
+			placeholder: 'Loading...',
 			matchOnDescription: true,
 			matchOnDetail: true,
-			items: items,
+			items: [],
+			onDidActivate: updateItems,
 			onDidClickItemButton: (_quickpick, button, { item }) => {
 				if (button === OpenOnGitHubQuickInputButton && !isStartWorkTypeItem(item)) {
 					this.open(item);
