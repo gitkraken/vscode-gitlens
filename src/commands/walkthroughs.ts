@@ -3,7 +3,7 @@ import { urls } from '../constants';
 import { Commands } from '../constants.commands';
 import type { Source, Sources } from '../constants.telemetry';
 import type { Container } from '../container';
-import { command, executeCommand, executeCoreCommand } from '../system/vscode/command';
+import { command, executeCommand } from '../system/vscode/command';
 import { openUrl, openWalkthrough as openWalkthroughCore } from '../system/vscode/utils';
 import { Command } from './base';
 
@@ -163,13 +163,13 @@ export class WalkthroughGitLensInspectCommand extends Command {
 	}
 
 	execute() {
-		const command = 'workbench.view.extension.gitlensInspect';
+		const command = Commands.ShowCommitDetailsView;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: command,
 			command: command,
 		});
-		executeCoreCommand(command);
+		executeCommand(command);
 	}
 }
 
