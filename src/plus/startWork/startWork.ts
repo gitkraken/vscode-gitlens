@@ -29,7 +29,7 @@ import type { Issue, IssueShape, SearchedIssue } from '../../git/models/issue';
 import { getOrOpenIssueRepository } from '../../git/models/issue';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickItemOfT } from '../../quickpicks/items/common';
+import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import { getScopedCounter } from '../../system/counter';
@@ -241,20 +241,43 @@ export class StartWorkCommand extends QuickCommand<State> {
 		state: StepState<State>,
 	): StepResultGenerator<{ type: StartWorkType; inWorktree?: boolean }> {
 		const step = createPickStep({
-			placeholder: 'Start work by creating a new branch',
+			placeholder: 'Choose how to start work',
 			items: [
-				createQuickPickItemOfT<StartWorkTypeItem>('Create a Branch', {
-					type: 'branch',
-				}),
-				createQuickPickItemOfT<StartWorkTypeItem>('Create a Branch in a Worktree', {
-					type: 'branch-worktree',
-					inWorktree: true,
-				}),
-				createQuickPickItemOfT<StartWorkTypeItem>('Create a Branch from an Issue', { type: 'issue' }),
-				createQuickPickItemOfT<StartWorkTypeItem>('Create a Branch from an Issue in a Worktree', {
-					type: 'issue-worktree',
-					inWorktree: true,
-				}),
+				createQuickPickSeparator('Issues'),
+				createQuickPickItemOfT<StartWorkTypeItem>(
+					{
+						label: 'Create Branch from Issue...',
+						detail: 'Will create a new branch after selecting an issue',
+					},
+					{ type: 'issue' },
+				),
+				createQuickPickItemOfT<StartWorkTypeItem>(
+					{
+						label: 'Create Branch & Worktree from Issue...',
+						detail: 'Will create a new branch & worktree after selecting an issue',
+					},
+					{
+						type: 'issue-worktree',
+						inWorktree: true,
+					},
+				),
+				createQuickPickSeparator('References'),
+				createQuickPickItemOfT<StartWorkTypeItem>(
+					{ label: 'Create Branch from...', detail: 'Will create a new branch after selecting a reference' },
+					{
+						type: 'branch',
+					},
+				),
+				createQuickPickItemOfT<StartWorkTypeItem>(
+					{
+						label: 'Create Branch & Worktree from...',
+						detail: 'Will create a new branch & worktree after selecting a reference',
+					},
+					{
+						type: 'branch-worktree',
+						inWorktree: true,
+					},
+				),
 			],
 		});
 		const selection: StepSelection<typeof step> = yield step;
