@@ -128,11 +128,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				<span slot="heading">GitLens Launchpad</span>
 				<div class="summary">${this.renderSummaryResult()}</div>
 				<button-container>
-					<gl-button
-						full
-						class="start-work"
-						href=${this.startWorkCommand}
-						?disabled=${this._homeState.repositories.openCount === 0}
+					<gl-button full class="start-work" href=${this.startWorkCommand}
 						><code-icon icon="custom-start-work" slot="prefix"></code-icon> Start Work</gl-button
 					>
 				</button-container>
