@@ -1,7 +1,8 @@
+import { window } from 'vscode';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { GraphWebviewShowingArgs } from '../plus/webviews/graph/registration';
-import { command } from '../system/vscode/command';
+import { command, executeCoreCommand } from '../system/vscode/command';
 import type { HomeWebviewShowingArgs } from '../webviews/home/registration';
 import type { CommandContext } from './base';
 import { Command } from './base';
@@ -36,6 +37,22 @@ export class ShowViewCommand extends Command {
 		return this.execute(context, ...args);
 	}
 
+	async notifyWhenNoRepository(featureName?: string) {
+		if (this.container.git.openRepositoryCount > 0) {
+			return;
+		}
+
+		const message = featureName
+			? `No repository detected. To view ${featureName}, open a folder containing a git repository or clone from a URL in Source Control.`
+			: 'No repository detected. To use GitLens, open a folder containing a git repository or clone from a URL in Source Control.';
+
+		const openRepo = { title: 'Open a Folder or Repo', isCloseAffordance: true };
+		const result = await window.showInformationMessage(message, openRepo);
+		if (result === openRepo) {
+			void executeCoreCommand('workbench.view.scm');
+		}
+	}
+
 	async execute(context: CommandContext, ...args: unknown[]) {
 		const command = context.command as Commands;
 		switch (command) {
@@ -47,6 +64,7 @@ export class ShowViewCommand extends Command {
 			case Commands.ShowBranchesView:
 				return this.container.views.showView('branches');
 			case Commands.ShowCommitDetailsView:
+				void this.notifyWhenNoRepository('Inspect');
 				return this.container.views.commitDetails.show();
 			case Commands.ShowCommitsView:
 				return this.container.views.showView('commits');
@@ -57,6 +75,7 @@ export class ShowViewCommand extends Command {
 			case Commands.ShowFileHistoryView:
 				return this.container.views.showView('fileHistory');
 			case Commands.ShowGraphView:
+				void this.notifyWhenNoRepository('the Commit Graph');
 				return this.container.views.graph.show(undefined, ...(args as GraphWebviewShowingArgs));
 			case Commands.ShowHomeView:
 				return this.container.views.home.show(undefined, ...(args as HomeWebviewShowingArgs));

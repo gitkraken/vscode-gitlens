@@ -89,7 +89,7 @@ export class GlRepoAlerts extends GlElement {
 								Explorer.
 							</p>
 							<p class="centered">
-								<gl-button class="is-basic" href="command:workbench.view.explorer"
+								<gl-button class="is-basic" href="command:workbench.view.scm"
 									>Open a Folder or Repository</gl-button
 								>
 							</p>
