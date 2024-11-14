@@ -29,6 +29,9 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		branchCardStyles,
 		headingLoaderStyles,
 		css`
+			[hidden] {
+				display: none;
+			}
 			:host {
 				display: block;
 				margin-bottom: 2.4rem;
@@ -100,12 +103,13 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				>
 				<span slot="heading-actions"
 					><gl-button
+						hidden
 						aria-busy="${ifDefined(isFetching)}"
 						?disabled=${isFetching}
 						class="section-heading-action"
 						appearance="toolbar"
 						tooltip="Open in Commit Graph"
-						@click=${(e: MouseEvent) => this.onChange(e)}
+						@click=${(_e: MouseEvent) => {}}
 						><code-icon icon="gl-graph"></code-icon
 					></gl-button>
 					${when(
@@ -322,17 +326,6 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				></commit-stats>`,
 			);
 		}
-
-		// if (state?.ahead || state?.behind) {
-		// 	rendered.push(
-		// 		html`<gl-tracking-pill
-		// 			colorized
-		// 			outlined
-		// 			ahead=${state.ahead}
-		// 			behind=${state.behind}
-		// 		></gl-tracking-pill>`,
-		// 	);
-		// }
 
 		if (rendered.length) {
 			return html`<p class="branch-item__section branch-item__section--details">${rendered}</p>`;
