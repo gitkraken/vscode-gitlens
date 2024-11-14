@@ -8216,6 +8216,16 @@
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.detachAll",
+				"title": "Detach All Views",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.regroupAll",
+				"title": "Regroup All Views",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.branches",
 				"title": "Branches",
 				"icon": "$(gitlens-branches-view)",
@@ -11993,6 +12003,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.detachAll",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.regroupAll",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.branches",
 					"when": "false"
 				},
@@ -14058,6 +14076,11 @@
 					"group": "navigation@1"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.commits.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.commits",
+					"group": "2_gitlens@1"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.commits.regroup",
 					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.commits",
 					"group": "2_gitlens@1"
@@ -14072,6 +14095,11 @@
 					"submenu": "gitlens/views/grouped/branches",
 					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.branches && gitlens:views:scm:grouped:view == branches && !gitlens:views:scm:grouped:welcome",
 					"group": "navigation@2"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.branches.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.branches",
+					"group": "2_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.branches.regroup",
@@ -14090,6 +14118,11 @@
 					"group": "navigation@3"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.remotes.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.remotes",
+					"group": "2_gitlens@3"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.remotes.regroup",
 					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.remotes",
 					"group": "2_gitlens@3"
@@ -14104,6 +14137,11 @@
 					"submenu": "gitlens/views/grouped/stashes",
 					"when": "!gitlens:hasVirtualFolders && view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.stashes && gitlens:views:scm:grouped:view == stashes && !gitlens:views:scm:grouped:welcome",
 					"group": "navigation@4"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.stashes.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.stashes",
+					"group": "2_gitlens@4"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.stashes.regroup",
@@ -14122,6 +14160,11 @@
 					"group": "navigation@5"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.tags.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.tags",
+					"group": "2_gitlens@5"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.tags.regroup",
 					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.tags",
 					"group": "2_gitlens@5"
@@ -14136,6 +14179,11 @@
 					"submenu": "gitlens/views/grouped/worktrees",
 					"when": "!gitlens:hasVirtualFolders && gitlens:plus:enabled && view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.worktrees && gitlens:views:scm:grouped:view == worktrees && !gitlens:views:scm:grouped:welcome",
 					"group": "navigation@6"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.worktrees.detach",
+					"when": "!gitlens:hasVirtualFolders && gitlens:plus:enabled && view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.worktrees",
+					"group": "2_gitlens@6"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.worktrees.regroup",
@@ -14154,6 +14202,11 @@
 					"group": "navigation@7"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.contributors.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.contributors",
+					"group": "2_gitlens@7"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.contributors.regroup",
 					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.contributors",
 					"group": "2_gitlens@7"
@@ -14168,6 +14221,11 @@
 					"submenu": "gitlens/views/grouped/repositories",
 					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.repositories && gitlens:views:scm:grouped:view == repositories && !gitlens:views:scm:grouped:welcome",
 					"group": "navigation@8"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.repositories.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.repositories",
+					"group": "2_gitlens@8"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.repositories.regroup",
@@ -14186,6 +14244,11 @@
 					"group": "navigation@9"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.searchAndCompare.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.searchAndCompare",
+					"group": "2_gitlens@9"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.searchAndCompare.regroup",
 					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.searchAndCompare",
 					"group": "2_gitlens@9"
@@ -14202,6 +14265,11 @@
 					"group": "navigation@10"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.launchpad.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.launchpad",
+					"group": "2_gitlens@10"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.launchpad.regroup",
 					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.launchpad",
 					"group": "2_gitlens@10"
@@ -14210,6 +14278,16 @@
 					"command": "gitlens.views.scm.grouped.refresh",
 					"when": "view == gitlens.views.scm.grouped",
 					"group": "navigation@98"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.detachAll",
+					"when": "view == gitlens.views.scm.grouped",
+					"group": "9_gitlens@98"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.regroupAll",
+					"when": "view == gitlens.views.scm.grouped",
+					"group": "9_gitlens@99"
 				},
 				{
 					"command": "gitlens.views.home.previewFeedback",

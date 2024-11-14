@@ -49,6 +49,19 @@ import { ViewCommands } from './viewCommands';
 import { WorkspacesView } from './workspacesView';
 import { WorktreesView } from './worktreesView';
 
+const defaultScmGroupedViews: Record<GroupableTreeViewTypes, boolean> = Object.freeze({
+	commits: true,
+	branches: true,
+	remotes: true,
+	stashes: true,
+	tags: true,
+	worktrees: true,
+	contributors: true,
+	repositories: false,
+	searchAndCompare: true,
+	launchpad: false,
+});
+
 export class Views implements Disposable {
 	private readonly _disposable: Disposable;
 
@@ -257,6 +270,10 @@ export class Views implements Disposable {
 
 				executeCommand(`gitlens.views.${this._scmGroupedView.view.type}.refresh` as Commands);
 			}),
+			registerCommand('gitlens.views.scm.grouped.detachAll', () => updateScmGroupedViewsInConfig(new Set())),
+			registerCommand('gitlens.views.scm.grouped.regroupAll', () =>
+				updateScmGroupedViewsInConfig(getGroupedViews(defaultScmGroupedViews)),
+			),
 
 			registerCommand('gitlens.views.scm.grouped.welcome.dismiss', () => {
 				this._welcomeDismissed = true;
@@ -809,28 +826,10 @@ export class Views implements Disposable {
 	}
 }
 
-const defaultScmGroupedViews: Record<GroupableTreeViewTypes, boolean> = Object.freeze({
-	commits: true,
-	branches: true,
-	remotes: true,
-	stashes: true,
-	tags: true,
-	worktrees: true,
-	contributors: true,
-	repositories: false,
-	searchAndCompare: true,
-	launchpad: false,
-});
-
-function getScmGroupedViewsFromConfig() {
-	const groupedViewsCfg = {
-		...defaultScmGroupedViews,
-		...configuration.get('views.scm.grouped.views', undefined, defaultScmGroupedViews),
-	};
-
+function getGroupedViews(cfg: Record<GroupableTreeViewTypes, boolean>) {
 	const groupedViews = new Set<GroupableTreeViewTypes>();
 
-	for (const [key, value] of Object.entries(groupedViewsCfg) as [GroupableTreeViewTypes, boolean][]) {
+	for (const [key, value] of Object.entries(cfg) as [GroupableTreeViewTypes, boolean][]) {
 		if (value) {
 			groupedViews.add(key);
 		}
@@ -838,6 +837,15 @@ function getScmGroupedViewsFromConfig() {
 	}
 
 	return groupedViews;
+}
+
+function getScmGroupedViewsFromConfig() {
+	const groupedViewsCfg = {
+		...defaultScmGroupedViews,
+		...configuration.get('views.scm.grouped.views', undefined, defaultScmGroupedViews),
+	};
+
+	return getGroupedViews(groupedViewsCfg);
 }
 
 async function updateScmGroupedViewsInConfig(groupedViews: Set<GroupableTreeViewTypes>) {
