@@ -7,6 +7,7 @@ import { first, flatMap, groupByMap, map, union } from '../../../../../system/it
 import { capitalize, pluralize } from '../../../../../system/string';
 import { GlElement, observe } from '../../../shared/components/element';
 import { formatDate, formatNumeric, fromNow } from '../../../shared/date';
+import '../../../shared/components/overlays/tooltip';
 
 export interface BranchMarker {
 	type: 'branch';
@@ -1073,12 +1074,14 @@ export class GlGraphMinimap extends GlElement {
 		return html`
 			<div id="spinner"><code-icon icon="loading" modifier="spin"></code-icon></div>
 			<div id="chart"></div>
-			<div
-				class="legend"
-				title="${this.dataType === 'lines' ? 'Showing lines changed per day' : 'Showing commits per day'}"
-			>
-				<code-icon icon="${this.dataType === 'lines' ? 'request-changes' : 'git-commit'}"></code-icon>
-			</div>
+			<gl-tooltip>
+				<div class="legend">
+					<code-icon icon="${this.dataType === 'lines' ? 'request-changes' : 'git-commit'}"></code-icon>
+				</div>
+				<div slot="content">
+					${this.dataType === 'lines' ? 'Showing lines changed per day' : 'Showing commits per day'}
+				</div>
+			</gl-tooltip>
 		`;
 	}
 }
