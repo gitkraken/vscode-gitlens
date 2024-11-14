@@ -103,7 +103,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 
 		let opened = false;
 		while (this.canStepsContinue(state)) {
-			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
+			const hasConnectedIntegrations = this.hasConnectedIntegrations(context);
 			context.title = this.title;
 
 			if (state.counter < 1) {
@@ -158,6 +158,11 @@ export class StartWorkCommand extends QuickCommand<State> {
 						: yield* this.confirmLocalIntegrationConnectStep(state, context);
 					if (result === StepResultBreak) {
 						return result;
+					}
+					context.connectedIntegrations = await this.getConnectedIntegrations();
+					if (!this.hasConnectedIntegrations(context)) {
+						state.counter--;
+						continue;
 					}
 				}
 
@@ -512,6 +517,10 @@ export class StartWorkCommand extends QuickCommand<State> {
 		);
 
 		return connected;
+	}
+
+	private hasConnectedIntegrations(context: Context) {
+		return [...context.connectedIntegrations.values()].some(c => c);
 	}
 }
 
