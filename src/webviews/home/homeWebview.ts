@@ -25,6 +25,8 @@ import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils';
 import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
+import type { Deferrable } from '../../system/function';
+import { debounce } from '../../system/function';
 import { map } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
 import { executeActionCommand, executeCommand, registerCommand } from '../../system/vscode/command';
@@ -73,7 +75,7 @@ const emptyDisposable = Object.freeze({
 	},
 });
 
-type RepositorySubscription = { repo: Repository; subscription: Disposable };
+type RepositorySubscription = { repo: Repository; subscription?: Disposable };
 type RepositoryBranchData = {
 	repo: Repository;
 	branches: GitBranch[];
@@ -94,7 +96,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this._disposable = Disposable.from(
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 			!workspace.isTrusted
-				? workspace.onDidGrantWorkspaceTrust(this.notifyDidChangeRepositories, this)
+				? workspace.onDidGrantWorkspaceTrust(() => this.notifyDidChangeRepositories(), this)
 				: emptyDisposable,
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
@@ -308,8 +310,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.getState();
 	}
 
-	onReloaded() {
+	onRefresh() {
+		this.resetBranchOverview();
 		this.notifyDidChangeRepositories();
+	}
+
+	onReloaded() {
+		this.onRefresh();
 		this.notifyDidChangeProgress();
 	}
 
@@ -319,6 +326,17 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 			void this.host.notify(DidFocusAccount, undefined);
 		}
+	}
+
+	onVisibilityChanged(visible: boolean) {
+		if (!visible) {
+			this.stopRepositorySubscription();
+
+			return;
+		}
+
+		this.resumeRepositorySubscription();
+		this.notifyDidChangeRepositories(true);
 	}
 
 	private onTogglePreviewEnabled(isEnabled?: boolean) {
@@ -444,12 +462,16 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const repo = this.getSelectedRepository();
 		if (repo == null) return undefined;
 
-		const branchesAndWorktrees = await this.getBranchesData(repo);
+		const forceRepo = this._invalidateOverview === 'repo';
+		const forceWip = this._invalidateOverview !== undefined;
+		const branchesAndWorktrees = await this.getBranchesData(repo, forceRepo);
 		const overviewBranches = await getOverviewBranches(
 			branchesAndWorktrees,
 			this.container,
 			this._overviewBranchFilter,
+			forceWip ? { forceActive: true } : undefined,
 		);
+		this._invalidateOverview = undefined;
 		if (overviewBranches == null) return undefined;
 
 		const result: GetOverviewResponse = {
@@ -476,7 +498,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 
 		if (this._repositorySubscription != null) {
-			this._repositorySubscription.subscription.dispose();
+			this._repositorySubscription.subscription?.dispose();
 			this._repositorySubscription = undefined;
 		}
 		if (repo != null) {
@@ -489,10 +511,41 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return repo;
 	}
 
+	private stopRepositorySubscription() {
+		if (this._repositorySubscription != null) {
+			this._repositorySubscription.subscription?.dispose();
+			this._repositorySubscription.subscription = undefined;
+		}
+	}
+
+	private resumeRepositorySubscription(force = false) {
+		if (this._repositorySubscription == null) {
+			return;
+		}
+
+		if (force || this._repositorySubscription.subscription == null) {
+			this._repositorySubscription.subscription?.dispose();
+			this._repositorySubscription.subscription = undefined;
+			this._repositorySubscription.subscription = this.subscribeToRepository(this._repositorySubscription.repo);
+		}
+	}
+
+	private resetBranchOverview() {
+		this._repositoryBranches.clear();
+
+		if (!this.host.visible) {
+			this.stopRepositorySubscription();
+			return;
+		}
+
+		this.resumeRepositorySubscription(true);
+	}
+
 	private subscribeToRepository(repo: Repository): Disposable {
 		return Disposable.from(
+			// TODO: advanced confiugration for the watchFileSystem timing
 			repo.watchFileSystem(1000),
-			repo.onDidChangeFileSystem(() => this.onWipChanged(repo)),
+			repo.onDidChangeFileSystem(() => this.onOverviewRepoChanged('wip')),
 			repo.onDidChange(e => {
 				if (
 					e.changed(
@@ -505,15 +558,23 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 						RepositoryChangeComparisonMode.Any,
 					)
 				) {
-					this.onWipChanged(repo);
+					this.onOverviewRepoChanged('repo');
 				}
 			}),
 		);
 	}
 
-	private onWipChanged(_repo: Repository) {
-		this._invalidateRepositoryBranches = true;
-		void this.host.notify(DidChangeRepositoryWip, undefined);
+	private onOverviewRepoChanged(scope: 'repo' | 'wip') {
+		if (this._invalidateOverview !== 'repo') {
+			this._invalidateOverview = scope;
+		}
+		if (!this.host.visible) return;
+
+		if (scope === 'wip') {
+			void this.host.notify(DidChangeRepositoryWip, undefined);
+		} else {
+			this.notifyDidChangeRepositories();
+		}
 	}
 
 	private getSelectedRepository() {
@@ -524,9 +585,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this._repositorySubscription?.repo;
 	}
 
-	private _invalidateRepositoryBranches = true;
+	private _invalidateOverview: 'repo' | 'wip' | undefined;
 	private readonly _repositoryBranches: Map<string, RepositoryBranchData> = new Map();
-	private async getBranchesData(repo: Repository, force = this._invalidateRepositoryBranches) {
+	private async getBranchesData(repo: Repository, force = false) {
 		if (force || !this._repositoryBranches.has(repo.path)) {
 			const worktrees = (await repo.git.getWorktrees()) ?? [];
 			const worktreesByBranch = groupWorktreesByBranch(worktrees);
@@ -539,7 +600,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 			const branches = getSettledValue(branchesResult)?.values ?? [];
 
-			this._invalidateRepositoryBranches = false;
 			this._repositoryBranches.set(repo.path, {
 				repo: repo,
 				branches: branches,
@@ -587,8 +647,21 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private notifyDidChangeRepositories() {
+	private notifyDidChangeRepositoriesCore() {
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
+	}
+	private _notifyDidChangeRepositoriesDebounced: Deferrable<() => void> | undefined = undefined;
+	private notifyDidChangeRepositories(immediate = false) {
+		if (immediate) {
+			this.notifyDidChangeRepositoriesCore();
+			return;
+		}
+
+		if (this._notifyDidChangeRepositoriesDebounced == null) {
+			this._notifyDidChangeRepositoriesDebounced = debounce(this.notifyDidChangeRepositoriesCore.bind(this), 500);
+		}
+
+		this._notifyDidChangeRepositoriesDebounced();
 	}
 
 	private notifyDidChangeProgress() {
@@ -745,7 +818,8 @@ const thresholdValues: Record<OverviewStaleThreshold | OverviewRecentThreshold, 
 async function getOverviewBranches(
 	branchesData: RepositoryBranchData,
 	container: Container,
-	options: OverviewFilters,
+	filters: OverviewFilters,
+	options?: { forceActive?: boolean },
 ): Promise<GetOverviewBranches | undefined> {
 	const { branches, worktreesByBranch } = branchesData;
 	if (branches.length === 0) return undefined;
@@ -756,12 +830,13 @@ async function getOverviewBranches(
 		stale: [],
 	};
 
+	let repoStatusPromise: Promise<GitStatus | undefined> | undefined;
 	const prPromises = new Map<string, Promise<PullRequest | undefined>>();
 	const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
 	const contributorPromises = new Map<string, Promise<BranchContributorOverview | undefined>>();
 
 	const now = Date.now();
-	const recentThreshold = now - thresholdValues[options.recent.threshold];
+	const recentThreshold = now - thresholdValues[filters.recent.threshold];
 
 	for (const branch of branches) {
 		const wt = worktreesByBranch.get(branch.id);
@@ -769,9 +844,15 @@ async function getOverviewBranches(
 
 		const timestamp = branch.date?.getTime();
 		if (branch.current || wt?.opened) {
+			const forceOptions = options?.forceActive ? { force: true } : undefined;
 			prPromises.set(branch.id, branch.getAssociatedPullRequest({ avatarSize: 16 }));
 			if (wt != null) {
-				statusPromises.set(branch.id, wt.getStatus());
+				statusPromises.set(branch.id, wt.getStatus(forceOptions));
+			} else {
+				if (repoStatusPromise === undefined) {
+					repoStatusPromise = container.git.getStatus(branch.repoPath);
+				}
+				statusPromises.set(branch.id, repoStatusPromise);
 			}
 			contributorPromises.set(branch.id, container.git.getBranchContributorOverview(branch.repoPath, branch.ref));
 
@@ -811,8 +892,8 @@ async function getOverviewBranches(
 		}
 	}
 
-	if (options?.stale?.show === true) {
-		const staleThreshold = now - thresholdValues[options.stale.threshold];
+	if (filters?.stale?.show === true) {
+		const staleThreshold = now - thresholdValues[filters.stale.threshold];
 		sortBranches(branches, {
 			missingUpstream: true,
 			orderBy: 'date:asc',
@@ -861,6 +942,18 @@ async function getOverviewBranches(
 		}
 	}
 
+	await enrichOverviewBranches(overviewBranches, prPromises, statusPromises, contributorPromises);
+
+	return overviewBranches;
+}
+
+// FIXME: support partial enrichment
+async function enrichOverviewBranches(
+	overviewBranches: GetOverviewBranches,
+	prPromises: Map<string, Promise<PullRequest | undefined>>,
+	statusPromises: Map<string, Promise<GitStatus | undefined>>,
+	contributorPromises: Map<string, Promise<BranchContributorOverview | undefined>>,
+) {
 	const [prResults, statusResults, contributorResults] = await Promise.allSettled([
 		Promise.allSettled(map(prPromises, ([id, pr]) => pr.then<[string, PullRequest | undefined]>(pr => [id, pr]))),
 		Promise.allSettled(
@@ -941,6 +1034,4 @@ async function getOverviewBranches(
 			branch.contributors = contributors;
 		}
 	}
-
-	return overviewBranches;
 }
