@@ -49,6 +49,14 @@ export class GLHomeAccountContent extends LitElement {
 				margin-bottom: 1.3rem;
 			}
 
+			button-container .button-suffix {
+				display: inline-flex;
+				align-items: center;
+				white-space: nowrap;
+				gap: 0.2em;
+				margin-left: 0.4rem;
+			}
+
 			gl-accordion {
 				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 			}
@@ -367,14 +375,14 @@ export class GLHomeAccountContent extends LitElement {
 			case SubscriptionState.ProTrialExpired:
 				return html`
 					<div class="account">
+						<p>Thank you for trying <a href="${urls.communityVsPro}">GitLens Pro</a>.</p>
 						<p>
-							Thank you for trying <a href="${urls.communityVsPro}">GitLens Pro</a>. <br /><br />
 							Continue leveraging Pro features and workflows on privately-hosted repos by upgrading today.
 						</p>
 						<button-container>
 							<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
 						</button-container>
-						${this.renderPromo(promo)}
+						${this.renderPromo(promo)} ${this.renderIncludesDevEx()}
 					</div>
 				`;
 
@@ -382,8 +390,8 @@ export class GLHomeAccountContent extends LitElement {
 				return html`
 					<div class="account">
 						<p>
-							Reactivate your Pro trial and experience all the new Pro features — free for another
-							${pluralize('day', proTrialLengthInDays)}!
+							Reactivate your GitLens Pro trial and experience all the new Pro features — free for another
+							${pluralize('day', proTrialLengthInDays)}.
 						</p>
 						<button-container>
 							<gl-button
@@ -393,10 +401,9 @@ export class GLHomeAccountContent extends LitElement {
 									'day',
 									proTrialLengthInDays,
 								)}"
-								>Reactivate Pro Trial</gl-button
+								>Reactivate GitLens Pro Trial</gl-button
 							>
 						</button-container>
-						${this.renderIncludesDevEx()}
 					</div>
 				`;
 
@@ -404,16 +411,15 @@ export class GLHomeAccountContent extends LitElement {
 				return html`
 					<div class="account">
 						<p>
-							Unlock advanced workflows and professional developer features with
+							Unlock advanced features and workflows on private repos, accelerate reviews, and streamline
+							collaboration with
 							<a href="${urls.communityVsPro}">GitLens Pro</a>.
 						</p>
 						<button-container>
 							<gl-button full href="command:gitlens.plus.signUp">Try GitLens Pro</gl-button>
+							<span class="button-suffix">or <a href="command:gitlens.plus.login">sign in</a></span>
 						</button-container>
-						<p>
-							Get ${proTrialLengthInDays} days of GitLens Pro for free — no credit card required. Or
-							<a href="command:gitlens.plus.login">sign in</a>.
-						</p>
+						<p>Get ${proTrialLengthInDays} days of GitLens Pro for free — no credit card required.</p>
 					</div>
 				`;
 		}

@@ -435,7 +435,9 @@ export type TelemetryEvents = {
 		step?: WalkthroughSteps;
 	};
 	/** Sent when the walkthrough is opened */
-	'walkthrough/action': { type: 'url' | 'command'; name: string } & ({ command: string } | { url: string });
+	'walkthrough/action':
+		| { type: 'command'; name: WalkthroughActionNames; command: string }
+		| { type: 'url'; name: WalkthroughActionNames; url: string };
 	'walkthrough/completion': {
 		'context.key': WalkthroughContextKeys;
 	};
@@ -444,6 +446,26 @@ export type TelemetryEvents = {
 		`${Exclude<WebviewTypes | WebviewViewTypes, 'commitDetails' | 'graph' | 'graphDetails' | 'timeline'>}/shown`,
 		WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>
 	>;
+
+type WalkthroughActionNames =
+	| 'open/help-center/start-integrations'
+	| 'open/help-center/accelerate-pr-reviews'
+	| 'open/help-center/streamline-collaboration'
+	| 'open/help-center/interactive-code-history'
+	| 'open/help-center/community-vs-pro'
+	| 'open/devex-platform'
+	| 'open/drafts'
+	| 'connect/integrations'
+	| 'open/autolinks'
+	| 'open/graph'
+	| 'open/launchpad'
+	| 'create/worktree'
+	| 'open/help-center'
+	| 'plus/sign-up'
+	| 'plus/upgrade'
+	| 'plus/reactivate'
+	| 'open/walkthrough'
+	| 'open/inspect';
 
 type AIEventDataBase = {
 	'model.id': AIModels;

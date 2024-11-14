@@ -4,6 +4,6 @@
   <img src="thumbnails/welcome.png" alt="Learn about GitLens Community vs Pro" />
 </a>
 
-Access features that accelerate PR reviews, provide actionable code visuals, and streamline collaboration to supercharge Git and VS Code. There are workflows in the walkthrough that utilize Pro features designed to further increase developer productivity for professional developers and teams.
+Accelerate PR reviews, gain actionable code insights with visualizations, and streamline collaboration to supercharge your Git and VS Code experience. Leverage powerful workflows with GitLens Pro that will increase productivity for you and your team.
 
-[Upgrade to GitLens Pro](command:gitlens.walkthrough.plus.upgrade) today. You’ll not only receive GitLens Pro, but a suite of powerful Git visualizations and dev productivity tools from anywhere you work: IDE, desktop, terminal, and more.
+[Upgrade to GitLens Pro](command:gitlens.walkthrough.plus.upgrade) today. Includes access to the [GitKraken DevEx platform](command:gitlens.walkthrough.openDevExPlatform), unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.
