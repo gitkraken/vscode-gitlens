@@ -1,6 +1,6 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { getApplicablePromo } from '../../../../plus/gk/account/promos';
 import type { State } from '../../../home/protocol';
 import { stateContext } from '../context';
@@ -31,14 +31,22 @@ export class GlPromoBanner extends LitElement {
 	@state()
 	private _state!: State;
 
+	@property({ type: Boolean, reflect: true, attribute: 'has-promo' })
+	get hasPromos() {
+		return this.promo == null ? undefined : true;
+	}
+
+	get promo() {
+		return getApplicablePromo(this._state.subscription.state, 'home');
+	}
+
 	override render() {
-		const promo = getApplicablePromo(this._state.subscription.state, 'home');
-		if (!promo) {
+		if (!this.promo) {
 			return nothing;
 		}
 
 		return html`
-			<gl-promo .promo=${promo} class="promo-banner promo-banner--eyebrow" id="promo" type="link"></gl-promo>
+			<gl-promo .promo=${this.promo} class="promo-banner promo-banner--eyebrow" id="promo" type="link"></gl-promo>
 		`;
 	}
 }

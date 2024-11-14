@@ -72,6 +72,12 @@ export class GlBranchSection extends LitElement {
 	}
 }
 
+export const headingLoaderStyles = css`
+	.heading-loader {
+		flex: 1;
+	}
+`;
+
 export const branchCardStyles = css`
 	.branch-item {
 		position: relative;

@@ -42,11 +42,16 @@ export const homeStyles = css`
 		gap: 0.4rem;
 		overflow: hidden;
 	}
-	.home__header {
+
+	.home__alerts {
 		flex: none;
 		padding: 0 2rem;
 		position: relative;
 	}
+	.home__alerts:not([has-alerts]) {
+		display: none;
+	}
+
 	.home__main {
 		flex: 1;
 		overflow: auto;
@@ -55,9 +60,14 @@ export const homeStyles = css`
 	.home__main > *:last-child {
 		margin-bottom: 0;
 	}
+
 	.home__aux,
 	.home__footer {
 		flex: none;
+	}
+
+	.home__aux:has(gl-promo-banner:not([has-promo]):only-child) {
+		display: none;
 	}
 
 	summary {

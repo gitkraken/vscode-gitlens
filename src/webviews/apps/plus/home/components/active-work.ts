@@ -8,7 +8,7 @@ import type { GitTrackingState } from '../../../../../git/models/branch';
 import { createWebviewCommandLink } from '../../../../../system/webview';
 import type { GetOverviewBranch, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import { branchCardStyles, createCommandLink } from './branch-section';
+import { branchCardStyles, createCommandLink, headingLoaderStyles } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/button';
@@ -27,6 +27,7 @@ export const activeWorkTagName = 'gl-active-work';
 export class GlActiveWork extends SignalWatcher(LitElement) {
 	static override styles = [
 		branchCardStyles,
+		headingLoaderStyles,
 		css`
 			:host {
 				display: block;
@@ -56,6 +57,10 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
+		if (this._homeState.discovering) {
+			return this.renderLoader();
+		}
+
 		if (this._homeState.repositories.openCount === 0) {
 			return nothing;
 		}
@@ -67,14 +72,18 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		});
 	}
 
+	private renderLoader() {
+		return html`
+			<gl-section>
+				<skeleton-loader slot="heading" class="heading-loader" lines="1"></skeleton-loader>
+				<skeleton-loader lines="3"></skeleton-loader>
+			</gl-section>
+		`;
+	}
+
 	private renderPending() {
 		if (this._overviewState.state == null) {
-			return html`
-				<gl-section>
-					<skeleton-loader slot="heading" lines="1"></skeleton-loader>
-					<skeleton-loader lines="3"></skeleton-loader>
-				</gl-section>
-			`;
+			return this.renderLoader();
 		}
 		return this.renderComplete(this._overviewState.state, true);
 	}

@@ -71,7 +71,7 @@ export class GlHomeApp extends GlApp<State> {
 					<gl-promo-banner></gl-promo-banner>
 					${when(!this.state.previewEnabled, () => html`<gl-preview-banner></gl-preview-banner>`)}
 				</aside>
-				<gl-repo-alerts class="home__header"></gl-repo-alerts>
+				<gl-repo-alerts class="home__alerts"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
 					<gl-onboarding></gl-onboarding>
 					${when(

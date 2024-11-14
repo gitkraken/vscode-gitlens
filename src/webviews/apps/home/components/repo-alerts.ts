@@ -40,7 +40,7 @@ export class GlRepoAlerts extends GlElement {
 
 	@property({ type: Boolean, reflect: true, attribute: 'has-alerts' })
 	get hasAlerts() {
-		return this.alertVisibility.header;
+		return this.alertVisibility.header !== true ? undefined : true;
 	}
 
 	@consume<State>({ context: stateContext, subscribe: true })
@@ -54,7 +54,7 @@ export class GlRepoAlerts extends GlElement {
 			noRepo: false,
 			unsafeRepo: false,
 		};
-		if (this._state == null) {
+		if (this._state == null || this._state.discovering) {
 			return sections;
 		}
 

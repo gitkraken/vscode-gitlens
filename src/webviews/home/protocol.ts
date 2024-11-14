@@ -7,6 +7,7 @@ import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 export const scope: IpcScope = 'home';
 
 export interface State extends WebviewState {
+	discovering: boolean;
 	repositories: DidChangeRepositoriesParams;
 	webroot?: string;
 	subscription: Subscription;
@@ -142,7 +143,12 @@ export const SetOverviewFilter = new IpcCommand<OverviewFilters>(scope, 'overvie
 
 // NOTIFICATIONS
 
-export const DidCompleteDiscoveringRepositories = new IpcNotification<undefined>(
+export interface DidCompleteDiscoveringRepositoriesParams {
+	discovering: boolean;
+	repositories: DidChangeRepositoriesParams;
+}
+
+export const DidCompleteDiscoveringRepositories = new IpcNotification<DidCompleteDiscoveringRepositoriesParams>(
 	scope,
 	'repositories/didCompleteDiscovering',
 );
