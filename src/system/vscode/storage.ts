@@ -82,7 +82,7 @@ export class Storage implements Disposable {
 			if (prefix == null || key === prefix || key.startsWith(`${prefix}:`)) {
 				if (exclude?.includes(key)) continue;
 
-				await this.context.globalState.update(key, undefined);
+				await this.context.globalState.update(qualifiedKey, undefined);
 				this._onDidChange.fire({ key: key, workspace: false });
 			}
 		}
@@ -147,7 +147,7 @@ export class Storage implements Disposable {
 			if (prefix == null || key === prefix || key.startsWith(`${prefix}:`)) {
 				if (exclude?.includes(key)) continue;
 
-				await this.context.workspaceState.update(key, undefined);
+				await this.context.workspaceState.update(qualifiedKey, undefined);
 				this._onDidChange.fire({ key: key, workspace: true });
 			}
 		}
