@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds support for deep links to the GitLens Walkthrough; closes [#3677](https://github.com/gitkraken/vscode-gitlens/issues/3677)
   - Adds support for deep links to Launchpad; closes [#3678](https://github.com/gitkraken/vscode-gitlens/issues/3678)
   - Adds support for deep links to the Commit Graph, Worktrees View, Inspect View, and Cloud Patches View; closes [#3703](https://github.com/gitkraken/vscode-gitlens/issues/3703)
+  - Adds new walkthrough (onboarding checklist); closes [#3656](https://github.com/gitkraken/vscode-gitlens/issues/3656)
 
 ### Changed
 
@@ -22,6 +23,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Renames _Switch to Branch or Worktree_ option to _Switch to Branch_, since it already includes options to create a worktree in the action flow
   - Adds _Pin_ and _Snooze_ buttons to the header item in the action step
   - Draft pull requests for which the current user's review is needed are now also shown in the "Needs Your Review" group, with a draft icon
+- Improves the open in worktree action flow; closes [#3549](https://github.com/gitkraken/vscode-gitlens/issues/3549):
+  - Open multi-diff editor when opening a new worktree from a PR
 - Improves Launchpad View; closes [#3615](https://github.com/gitkraken/vscode-gitlens/issues/3615):
   - Moves Launchpad View out of experimental status
   - Replaces _Compare Pull Request_ hover icon button with _Open in Worktree_
@@ -34,7 +37,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes branch creation and switch quickpicks failing to close when a worktree is created during the flow
-- Fixes some cases where Launchad can fail to detect a connected integration
+- Fixes some cases where Launchpad can fail to detect a connected integration
+- Fixes [#3549](https://github.com/gitkraken/vscode-gitlens/issues/3549) - Webviews can have issues with high contrast themes
+- Fixes [#3734](https://github.com/gitkraken/vscode-gitlens/issues/3734) - Open multi-diff editor when opening a new worktree from a PR
 
 ## [15.6.3] - 2024-11-05
 
