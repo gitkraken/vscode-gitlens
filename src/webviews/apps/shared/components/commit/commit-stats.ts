@@ -16,6 +16,11 @@ export class CommitStats extends LitElement {
 			flex-direction: row;
 			align-items: center;
 			gap: 1rem;
+			white-space: nowrap;
+		}
+
+		:host([symbol='icons']) {
+			gap: 0.8rem;
 		}
 
 		.stat {

@@ -402,6 +402,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		return {
 			...this.host.baseWebviewState,
+			discovering: this._discovering != null,
 			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
 			subscription: subResult.subscription,
@@ -580,8 +581,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private notifyDidCompleteDiscoveringRepositories() {
-		void this.host.notify(DidCompleteDiscoveringRepositories, undefined);
-		this.notifyDidChangeRepositories();
+		void this.host.notify(DidCompleteDiscoveringRepositories, {
+			discovering: this._discovering != null,
+			repositories: this.getRepositoriesState(),
+		});
 	}
 
 	private notifyDidChangeRepositories() {
@@ -606,6 +609,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private notifyDidChangeOnboardingIntegration() {
 		// force rechecking
 		const isConnected = this.isAnyIntegrationConnected(true);
+		if (isConnected) {
+			this.onCollapseSection({
+				section: 'integrationBanner',
+				collapsed: true,
+			});
+		}
 		void this.host.notify(DidChangeIntegrationsConnections, {
 			hasAnyIntegrationConnected: isConnected,
 		});
