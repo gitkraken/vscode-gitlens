@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds support for deep links to Launchpad; closes [#3678](https://github.com/gitkraken/vscode-gitlens/issues/3678)
   - Adds support for deep links to the Commit Graph, Worktrees View, Inspect View, and Cloud Patches View; closes [#3703](https://github.com/gitkraken/vscode-gitlens/issues/3703)
   - Adds new walkthrough (onboarding checklist); closes [#3656](https://github.com/gitkraken/vscode-gitlens/issues/3656)
+- Adds a Feature Preview of 3 days to the Commit Graph that allows using it on privately-hosted repositories
 
 ### Changed
 
@@ -33,6 +34,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Draft pull requests for which the current user's review is needed are now also shown in the "Needs Your Review" group, with a draft icon
   - Launchpad view is now more responsive to changes in the Launchpad including pinning and snoozing items
   - Pinned items should now appear above non-pinned items in their respective groups
+- Extends GitKraken Pro trials from 7 to 14 days
 
 ### Fixed
 
