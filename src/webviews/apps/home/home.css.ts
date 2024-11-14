@@ -310,11 +310,18 @@ export const walkthroughProgressStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		padding-block: 4px;
+		padding: 4px 8px 6px;
+		margin-inline: -8px;
 		margin-bottom: 16px;
 		align-items: stretch;
 		cursor: pointer;
+		border-radius: 4px;
 	}
+	.walkthrough-progress:focus-within,
+	.walkthrough-progress:hover {
+		background-color: var(--gl-walkthrough-hover-background);
+	}
+
 	.walkthrough-progress__title {
 		display: flex;
 		justify-content: space-between;
