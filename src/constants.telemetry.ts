@@ -5,6 +5,7 @@ import type { Commands } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { FeaturePreviews } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
 import type { StartWorkType } from './plus/startWork/startWork';
 import type { Period } from './plus/webviews/timeline/protocol';
@@ -418,7 +419,8 @@ export type TelemetryEvents = {
 		| {
 				action: 'visibility';
 				visible: boolean;
-		  };
+		  }
+		| FeaturePreviewActionEventData;
 	/** Sent when the subscription changes */
 	'subscription/changed': SubscriptionEventData;
 
@@ -698,3 +700,10 @@ export type TrackedUsageFeatures =
 	| `${TreeViewTypes | WebviewViewTypes}View`
 	| `${CustomEditorTypes}Editor`;
 export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown` | CommandExecutionTrackedFeatures | WalkthroughUsageKeys;
+
+export type FeaturePreviewActionsDayEventData = Record<`day.${number}.startedOn`, string>;
+export type FeaturePreviewActionEventData = {
+	action: `start-preview-trial:${FeaturePreviews}`;
+	startedOn: string;
+	day: number;
+} & FeaturePreviewActionsDayEventData;

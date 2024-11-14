@@ -1,7 +1,12 @@
 import type { Disposable } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
 import { Commands } from '../../../constants.commands';
-import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
+import {
+	proFeaturePreviewUsages,
+	proTrialLengthInDays,
+	SubscriptionPlanId,
+	SubscriptionState,
+} from '../../../constants.subscription';
 import type { Container } from '../../../container';
 import type { QuickPickItemOfT } from '../../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common';
@@ -14,7 +19,9 @@ import type { SubscriptionService } from './subscriptionService';
 
 type SubscriptionServiceFacade = {
 	getSubscription: () => SubscriptionService['_subscription'];
+	overrideFeaturePreviews: (featurePreviews: SimulatedFeaturePreviews) => void;
 	overrideSession: (session: SubscriptionService['_session']) => void;
+	restoreFeaturePreviews: () => void;
 	restoreSession: () => void;
 	onDidCheckIn: SubscriptionService['_onDidCheckIn'];
 	changeSubscription: SubscriptionService['changeSubscription'];
@@ -25,25 +32,40 @@ export function registerAccountDebug(container: Container, service: Subscription
 	new AccountDebug(container, service);
 }
 
+interface SimulatedFeaturePreviews {
+	day: number;
+	durationSeconds: number;
+}
+
 type SimulateQuickPickItem = QuickPickItemOfT<
-	| { state: null; reactivatedTrial?: never; expiredPaid?: never; planId?: never }
+	| { state: null; reactivatedTrial?: never; expiredPaid?: never; planId?: never; featurePreview?: never }
+	| {
+			state: SubscriptionState.Community;
+			reactivatedTrial?: never;
+			expiredPaid?: never;
+			planId?: never;
+			featurePreviews?: SimulatedFeaturePreviews;
+	  }
 	| {
 			state: Exclude<SubscriptionState, SubscriptionState.ProTrial | SubscriptionState.Paid>;
 			reactivatedTrial?: never;
 			expiredPaid?: never;
 			planId?: never;
+			featurePreviews?: never;
 	  }
 	| {
 			state: SubscriptionState.ProTrial;
 			reactivatedTrial?: boolean;
 			expiredPaid?: never;
 			planId?: never;
+			featurePreviews?: never;
 	  }
 	| {
 			state: SubscriptionState.Paid;
 			reactivatedTrial?: never;
 			expiredPaid?: boolean;
 			planId?: SubscriptionPlanId.Pro | SubscriptionPlanId.Teams | SubscriptionPlanId.Enterprise;
+			featurePreviews?: never;
 	  }
 >;
 
@@ -69,21 +91,42 @@ class AccountDebug {
 					label: 'Community',
 					description: 'Community, no account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Community },
-				},
-				createQuickPickSeparator('Preview'),
-				{
-					label: 'Pro Preview',
-					description: 'Pro, no account',
-					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.ProPreview },
+					item: { state: SubscriptionState.Community, featurePreviews: { day: 0, durationSeconds: 30 } },
 				},
 				{
-					label: 'Pro Preview (Expired)',
+					label: 'Community: Feature Previews (Start Day 2)',
 					description: 'Community, no account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.ProPreviewExpired },
+					item: { state: SubscriptionState.Community, featurePreviews: { day: 1, durationSeconds: 30 } },
 				},
+				{
+					label: 'Community: Feature Previews (Start Day 3)',
+					description: 'Community, no account',
+					iconPath: new ThemeIcon('blank'),
+					item: { state: SubscriptionState.Community, featurePreviews: { day: 2, durationSeconds: 30 } },
+				},
+				{
+					label: 'Community: Feature Previews (Expired)',
+					description: 'Community, no account',
+					iconPath: new ThemeIcon('blank'),
+					item: {
+						state: SubscriptionState.Community,
+						featurePreviews: { day: proFeaturePreviewUsages, durationSeconds: 30 },
+					},
+				},
+				// createQuickPickSeparator('Preview'),
+				// {
+				// 	label: 'Pro Preview',
+				// 	description: 'Pro, no account',
+				// 	iconPath: new ThemeIcon('blank'),
+				// 	item: { state: SubscriptionState.ProPreview },
+				// },
+				// {
+				// 	label: 'Pro Preview (Expired)',
+				// 	description: 'Community, no account',
+				// 	iconPath: new ThemeIcon('blank'),
+				// 	item: { state: SubscriptionState.ProPreviewExpired },
+				// },
 				createQuickPickSeparator('Account'),
 				{
 					label: 'Verification Required',
@@ -213,6 +256,7 @@ class AccountDebug {
 	private endSimulation() {
 		this.simulatingPick = undefined;
 
+		this.service.restoreFeaturePreviews();
 		this.service.restoreSession();
 		this.service.changeSubscription(this.service.getStoredSubscription(), { store: false });
 	}
@@ -226,13 +270,18 @@ class AccountDebug {
 			return true;
 		}
 
-		const { state, reactivatedTrial, expiredPaid, planId } = item;
+		const { state, reactivatedTrial, expiredPaid, planId, featurePreviews } = item;
 
 		switch (state) {
 			case SubscriptionState.Community:
 			case SubscriptionState.ProPreview:
 			case SubscriptionState.ProPreviewExpired:
 				this.service.overrideSession(null);
+				if (featurePreviews != null) {
+					this.service.overrideFeaturePreviews(featurePreviews);
+				} else {
+					this.service.restoreFeaturePreviews();
+				}
 
 				this.service.changeSubscription(
 					state === SubscriptionState.Community
@@ -240,9 +289,11 @@ class AccountDebug {
 						: getPreviewSubscription(state === SubscriptionState.ProPreviewExpired ? 0 : 3),
 					{ store: false },
 				);
+
 				return false;
 		}
 
+		this.service.restoreFeaturePreviews();
 		this.service.restoreSession();
 
 		const subscription = this.service.getStoredSubscription();

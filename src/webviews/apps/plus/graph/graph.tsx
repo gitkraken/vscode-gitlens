@@ -38,6 +38,7 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidSearchNotification,
+	DidStartFeaturePreviewNotification,
 	DoubleClickedCommandType,
 	EnsureRowRequest,
 	GetMissingAvatarsCommand,
@@ -165,7 +166,11 @@ export class GraphApp extends App<State> {
 				this.state.avatars = msg.params.avatars;
 				this.setState(this.state, DidChangeAvatarsNotification);
 				break;
-
+			case DidStartFeaturePreviewNotification.is(msg):
+				this.state.featurePreview = msg.params.featurePreview;
+				this.state.allowed = msg.params.allowed;
+				this.setState(this.state, DidStartFeaturePreviewNotification);
+				break;
 			case DidChangeBranchStateNotification.is(msg):
 				this.state.branchState = msg.params.branchState;
 				this.setState(this.state, DidChangeBranchStateNotification);

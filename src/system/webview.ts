@@ -1,7 +1,7 @@
 import type { WebviewIds, WebviewViewIds } from '../constants.views';
 
 export function createWebviewCommandLink<T>(
-	command: `${WebviewIds | WebviewViewIds}.${string}`,
+	command: `${WebviewIds | WebviewViewIds}.${string}` | `gitlens.plus.${string}`,
 	webviewId: WebviewIds | WebviewViewIds,
 	webviewInstanceId: string | undefined,
 	args?: T,

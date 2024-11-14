@@ -1,8 +1,15 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { urls } from '../../../../../constants';
 import { Commands } from '../../../../../constants.commands';
-import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription';
+import {
+	proFeaturePreviewUsages,
+	proTrialLengthInDays,
+	SubscriptionState,
+} from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
+import type { FeaturePreview } from '../../../../../features';
+import { isFeaturePreviewExpired } from '../../../../../features';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import { pluralize } from '../../../../../system/string';
@@ -35,7 +42,7 @@ export class GlFeatureGatePlusState extends LitElement {
 			}
 
 			@container (max-width: 600px) {
-				:host([appearance='welcome']) gl-button {
+				:host([appearance='welcome']) gl-button:not(.inline) {
 					display: block;
 					margin-left: auto;
 					margin-right: auto;
@@ -60,6 +67,14 @@ export class GlFeatureGatePlusState extends LitElement {
 				text-align: center;
 			}
 
+			.actions-row {
+				display: flex;
+				gap: 0.6em;
+				align-items: baseline;
+				justify-content: center;
+				white-space: nowrap;
+			}
+
 			.hint {
 				border-bottom: 1px dashed currentColor;
 			}
@@ -68,6 +83,12 @@ export class GlFeatureGatePlusState extends LitElement {
 
 	@query('gl-button')
 	private readonly button!: GlButton;
+
+	@property({ type: Object })
+	featurePreview?: FeaturePreview;
+
+	@property({ type: String })
+	featurePreviewCommandLink?: string;
 
 	@property({ type: String })
 	appearance?: 'alert' | 'welcome';
@@ -80,6 +101,9 @@ export class GlFeatureGatePlusState extends LitElement {
 
 	@property({ attribute: false, type: Number })
 	state?: SubscriptionState;
+
+	@property({ type: String })
+	webroot?: string;
 
 	protected override firstUpdated() {
 		if (this.appearance === 'alert') {
@@ -100,6 +124,7 @@ export class GlFeatureGatePlusState extends LitElement {
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:
 				return html`
+					<slot name="feature"></slot>
 					<p class="actions">
 						<gl-button
 							class="inline"
@@ -117,70 +142,183 @@ export class GlFeatureGatePlusState extends LitElement {
 					<p>You must verify your email before you can continue.</p>
 				`;
 
+			// case SubscriptionState.Community:
+			// 	return html`
+			// 		<gl-button
+			// 			appearance="${appearance}"
+			// 			href="${generateCommandLink(Commands.PlusStartPreviewTrial, this.source)}"
+			// 			>Continue</gl-button
+			// 		>
+			// 		<p>
+			// 			Continuing gives you 3 days to preview
+			// 			${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded}  and other ` : ''}local
+			// 			Pro features.<br />
+			// 			${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features
+			// 			<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+			// 				>start your free ${proTrialLengthInDays}-day Pro trial</a
+			// 			>
+			// 			or
+			// 			<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.
+			// 		</p>
+			// 	`;
 			case SubscriptionState.Community:
-				return html`
-					<gl-button
-						appearance="${appearance}"
-						href="${generateCommandLink(Commands.PlusStartPreviewTrial, this.source)}"
-						>Continue</gl-button
-					>
-					<p>
-						Continuing gives you 3 days to preview
-						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded}  and other ` : ''}local
-						Pro features.<br />
-						${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features
-						<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
-							>start your free ${proTrialLengthInDays}-day Pro trial</a
-						>
-						or
-						<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.
-					</p>
-				`;
-
 			case SubscriptionState.ProPreviewExpired:
-				return html`
-					<gl-button
-						appearance="${appearance}"
-						href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
-						>Start Pro Trial</gl-button
-					>
-					<p>
-						Start your free ${proTrialLengthInDays}-day Pro trial to try
-						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and other ` : ''}Pro
-						features, or
-						<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.
-					</p>
-				`;
+				if (this.featurePreview && !isFeaturePreviewExpired(this.featurePreview)) {
+					return html`${this.renderFeaturePreview(this.featurePreview)}`;
+				}
 
-			case SubscriptionState.ProTrialExpired:
-				return html` <gl-button
-						appearance="${appearance}"
-						href="${generateCommandLink(Commands.PlusUpgrade, this.source)}"
-						>Upgrade to Pro</gl-button
-					>
-					${this.renderPromo(promo)}
+				return html`<slot name="feature"></slot>
 					<p>
-						Your Pro trial has ended. Please upgrade for full access to
-						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and other ` : ''}Pro
-						features.
+						Use on privately-hosted repos requires
+						<a href="${urls.communityVsPro}">GitLens Pro</a>.
+					</p>
+					<p class="actions-row">
+						<gl-button
+							class="inline"
+							appearance="${appearance}"
+							href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+							>&nbsp;Try GitLens Pro&nbsp;</gl-button
+						><span
+							>or
+							<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In"
+								>sign in</a
+							></span
+						>
+					</p>
+					<p>
+						Get ${pluralize('day', proTrialLengthInDays)} of
+						<a href="${urls.communityVsPro}">GitLens Pro</a> for free — no credit card required.
 					</p>`;
 
+			case SubscriptionState.ProTrialExpired:
+				return html`<slot name="feature"></slot>
+					<p>Use on privately-hosted repos requires <a href="${urls.communityVsPro}">GitLens Pro</a>.</p>
+					<p class="actions-row">
+						<gl-button
+							class="inline"
+							appearance="${appearance}"
+							href="${generateCommandLink(Commands.PlusUpgrade, this.source)}"
+							>Upgrade to Pro</gl-button
+						><span
+							>or
+							<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In"
+								>sign in</a
+							></span
+						>
+					</p>
+					<p>${this.renderPromo(promo)}</p>`;
+
 			case SubscriptionState.ProTrialReactivationEligible:
-				return html`
-					<gl-button
-						appearance="${appearance}"
-						href="${generateCommandLink(Commands.PlusReactivateProTrial, this.source)}"
-						>Continue</gl-button
-					>
+				return html`<slot name="feature"></slot>
+					<p class="actions-row">
+						<gl-button
+							class="inline"
+							appearance="${appearance}"
+							href="${generateCommandLink(Commands.PlusReactivateProTrial, this.source)}"
+							>Continue</gl-button
+						><span
+							>or
+							<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In"
+								>sign in</a
+							></span
+						>
+					</p>
 					<p>
-						Reactivate your Pro trial and experience
+						Reactivate your GitLens Pro trial and experience
 						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and ` : ''}all the new
 						Pro features — free for another ${pluralize('day', proTrialLengthInDays)}!
-					</p>
-				`;
+					</p> `;
 		}
 
 		return undefined;
+	}
+
+	private renderFeaturePreview(featurePreview: FeaturePreview) {
+		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
+		const used = featurePreview.usages.length;
+
+		if (used === 0) {
+			return html`<slot name="feature"></slot>
+				<gl-button appearance="${appearance}" href="${this.featurePreviewCommandLink}">Continue</gl-button>
+				<p>
+					Continue to preview
+					${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''} privately-hosted
+					repos, or
+					<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.<br />
+					${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
+					<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+						>start your free ${proTrialLengthInDays}-day Pro trial</a
+					>
+					— no credit card required.
+				</p> `;
+		}
+
+		const left = proFeaturePreviewUsages - used;
+
+		return html`
+			${this.renderFeaturePreviewStep(featurePreview, used)}
+			<p class="actions-row">
+				<gl-button class="inline" appearance="${appearance}" href="${this.featurePreviewCommandLink}"
+					>Continue Preview</gl-button
+				><span
+					>or
+					<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a></span
+				>
+			</p>
+			<p>
+				After continuing, you will have ${pluralize('day', left, { infix: ' more ' })} to preview
+				${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''} privately-hosted
+				repos.<br />
+				${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
+				<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+					>start your free ${proTrialLengthInDays}-day Pro trial</a
+				>
+				— no credit card required.
+			</p>
+		`;
+	}
+
+	private renderFeaturePreviewStep(featurePreview: FeaturePreview, used: number) {
+		switch (featurePreview.feature) {
+			case 'graph':
+				switch (used) {
+					case 1:
+						return html`<p>Try Commit Search</p>
+							<p>
+								Search for commits in your repo by author, commit message, SHA, file, change, or type.
+								Turn on the commit filter to show only commits that match your query.
+							</p>
+							<p>
+								<img
+									src="${this.webroot ?? ''}/media/graph-commit-search.webp"
+									style="width:100%"
+									alt="Graph Commit Search"
+								/>
+							</p> `;
+
+					case 2:
+						return html`
+							<p>Try the Graph Minimap</p>
+							<p>
+								Visualize the amount of changes to a repository over time, and inspect specific points
+								in the history to locate branches, stashes, tags and pull requests.
+							</p>
+							<p>
+								<img
+									src="${this.webroot ?? ''}/media/graph-minimap.webp"
+									style="width:100%"
+									alt="Graph Minimap"
+								/>
+							</p>
+						`;
+
+					default:
+						return html`<slot name="feature"></slot>`;
+				}
+
+			default:
+				return html`<slot name="feature"></slot>`;
+		}
 	}
 
 	private renderPromo(promo: Promo | undefined) {

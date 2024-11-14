@@ -64,6 +64,7 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidSearchNotification,
+	DidStartFeaturePreviewNotification,
 } from '../../../../plus/webviews/graph/protocol';
 import { createCommandLink } from '../../../../system/commands';
 import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
@@ -282,6 +283,8 @@ export function GraphWrapper({
 	const [windowFocused, setWindowFocused] = useState(state.windowFocused);
 	const [allowed, setAllowed] = useState(state.allowed ?? false);
 	const [subscription, setSubscription] = useState<Subscription | undefined>(state.subscription);
+	const [featurePreview, setFeaturePreview] = useState(state.featurePreview);
+
 	// search state
 	const searchEl = useRef<GlSearchBox>(null);
 	const [searchQuery, setSearchQuery] = useState<SearchQuery | undefined>(undefined);
@@ -317,6 +320,10 @@ export function GraphWrapper({
 				if (!themingChanged) {
 					setStyleProps(state.theming);
 				}
+				break;
+			case DidStartFeaturePreviewNotification:
+				setFeaturePreview(state.featurePreview);
+				setAllowed(state.allowed ?? false);
 				break;
 			case DidChangeAvatarsNotification:
 				setAvatars(state.avatars);
@@ -420,6 +427,7 @@ export function GraphWrapper({
 				setRepo(repos.find(item => item.path === state.selectedRepository));
 				// setGraphDateFormatter(getGraphDateFormatter(config));
 				setSubscription(state.subscription);
+				setFeaturePreview(state.featurePreview);
 
 				const { results, resultsError } = getSearchResultModel(state);
 				setSearchResultsError(resultsError);
@@ -1530,10 +1538,22 @@ export function GraphWrapper({
 			</header>
 			<GlFeatureGate
 				className="graph-app__gate"
+				featurePreview={featurePreview}
+				featurePreviewCommandLink={
+					featurePreview
+						? createWebviewCommandLink(
+								Commands.PlusContinueFeaturePreview,
+								state.webviewId,
+								state.webviewInstanceId,
+								{ feature: featurePreview.feature },
+						  )
+						: undefined
+				}
 				appearance="alert"
 				featureWithArticleIfNeeded="the Commit Graph"
 				source={{ source: 'graph', detail: 'gate' }}
 				state={subscription?.state}
+				webroot={state.webroot}
 				visible={!allowed}
 			>
 				<p slot="feature">
