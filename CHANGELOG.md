@@ -16,7 +16,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a new `gitlens.views.scm.grouped.default` setting to specify the default view to show in the grouped GitLens view on new workspaces/folders (otherwise the last selected view is remembered)
   - Adds a new `gitlens.views.scm.grouped.views` setting to specify which views to show in the grouped GitLens view
 - Adds a completely reimagined Home view
-  - TODO@d13
+  - Active section:
+    - Shows your current repository, branch, and repository state
+    - Actions for syncing (push, pull, fetch), switching repos/branches, and viewing working directory changes
+  - Launchpad section:
+    - Shows pull requests that need your review, are blocked, or are ready to merge
+    - Start work action to begin a new branch or worktree, or generate one from an existing issue
+  - Recent section: return to previous work by showing recent branches, worktrees, and PRs with activity for your chosen timeframe
 - Adds _Start Work_ command that opens a quick pick to initiate different flows for starting new work &mdash; closes [#3621](https://github.com/gitkraken/vscode-gitlens/issues/3621)
   - Start from an issue from GitHub or Jira (other integrations coming soon) and create a branch and/or worktree
 - Adds new ability to search for a GitHub PR in the _Launchpad_ &mdash; closes [#3543](https://github.com/gitkraken/vscode-gitlens/issues/3543), [#3684](https://github.com/gitkraken/vscode-gitlens/issues/3684)
