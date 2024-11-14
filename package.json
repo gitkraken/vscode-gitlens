@@ -1397,7 +1397,7 @@
 					"gitlens.cloudPatches.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to enable the preview of _Cloud Patches_, which allow you to easily and securely share code with your teammates or other developers",
+						"markdownDescription": "Specifies whether to enable the preview of _Cloud Patches_, which allow you to privately and securely share code with specific teammates and other developers",
 						"scope": "window",
 						"order": 10,
 						"tags": [
@@ -5019,7 +5019,7 @@
 					"gitlens.plusFeatures.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to hide or show features that require a trial or paid plan and are not accessible given the opened repositories and current trial or plan",
+						"markdownDescription": "Specifies whether to hide or show features that require a trial or GitLens Pro and are not accessible given the opened repositories and current trial or plan",
 						"scope": "window",
 						"order": 60
 					},
@@ -10278,7 +10278,7 @@
 				},
 				{
 					"command": "gitlens.plus.startPreviewTrial",
-					"when": "!gitlens:plus"
+					"when": "false && !gitlens:plus"
 				},
 				{
 					"command": "gitlens.plus.reactivateProTrial",
@@ -19322,7 +19322,7 @@
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "Cloud Patches ᴘʀᴇᴠɪᴇᴡ — easily and securely share code with your teammates or other developers, accessible from anywhere, streamlining your workflow with better collaboration."
+				"contents": "Cloud Patches ᴘʀᴇᴠɪᴇᴡ — privately and securely share code with specific teammates and other developers, accessible from anywhere. Enhance collaboration without adding noise to your repositories."
 			},
 			{
 				"view": "gitlens.views.drafts",
@@ -19331,12 +19331,13 @@
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22cloud-patches%22%7D)\n\nStart your free 7-day Pro trial to try Cloud Patches and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22cloud-patches%22%7D).",
+				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22cloud-patches%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22cloud-patches%22%7D).",
 				"when": "!gitlens:plus"
 			},
 			{
 				"view": "gitlens.views.drafts",
-				"contents": "Preview feature ☁️ — requires an account and may require a paid plan in the future."
+				"contents": "An account is required and may require [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/) in the future.",
+				"when": "gitlens:plus:state != 6"
 			},
 			{
 				"view": "gitlens.views.launchpad",
@@ -19369,23 +19370,23 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 0"
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
+				"when": "false && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 0 && gitlens:views:scm:grouped:view == launchpad"
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
+				"when": "false && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 0 && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nStart your free 7-day Pro trial to try Launchpad and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 2"
+				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && (gitlens:plus:state == 0 || gitlens:plus:state == 2)"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nStart your free 7-day Pro trial to try Launchpad and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 2 && gitlens:views:scm:grouped:view == launchpad"
+				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && (gitlens:plus:state == 0 || gitlens:plus:state == 2) && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
 				"view": "gitlens.views.launchpad",
@@ -19429,23 +19430,13 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days!",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days!",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5 && gitlens:views:scm:grouped:view == launchpad"
-			},
-			{
-				"view": "gitlens.views.launchpad",
-				"contents": "Pro feature — requires a paid plan for use on privately-hosted repos.",
-				"when": "!gitlens:launchpad:connect"
-			},
-			{
-				"view": "gitlens.views.scm.grouped",
-				"contents": "Pro feature — requires a paid plan for use on privately-hosted repos.",
-				"when": "!gitlens:launchpad:connect && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
 				"view": "gitlens.views.workspaces",
@@ -19458,16 +19449,17 @@
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22workspaces%22%7D)\n\nStart your free 7-day Pro trial to try GitKraken (GK) Workspaces and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22workspaces%22%7D).",
+				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22workspaces%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22workspaces%22%7D).",
 				"when": "!gitlens:plus"
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "Preview feature ☁️ — requires an account and may require a paid plan in the future."
+				"contents": "An account is required and may require [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/) in the future.",
+				"when": "gitlens:plus:state != 6"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view-pro) ᴾᴿᴼ — minimize context switching by allowing you to work on multiple branches simultaneously."
+				"contents": "[Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view-pro) ᴾᴿᴼ — minimize context switching by working on multiple branches simultaneously."
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
@@ -19496,23 +19488,23 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nContinuing gives you 3 days to preview Worktrees and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D) for full access to Pro features.",
-				"when": "gitlens:plus:required && gitlens:plus:state == 0"
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nContinuing gives you 3 days to preview Worktrees and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D) for full access to Pro features.",
+				"when": "false && gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nContinuing gives you 3 days to preview Worktrees and other local Pro features for 3 days. [Start 7-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D) for full access to Pro features.",
-				"when": "gitlens:plus:required && gitlens:plus:state == 0 && gitlens:views:scm:grouped:view == worktrees"
+				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nContinuing gives you 3 days to preview Worktrees and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D) for full access to Pro features.",
+				"when": "false && gitlens:plus:required && gitlens:plus:state == 0 && gitlens:views:scm:grouped:view == worktrees"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nStart your free 7-day Pro trial to try Worktrees and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
-				"when": "gitlens:plus:required && gitlens:plus:state == 2"
+				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
+				"when": "gitlens:plus:required && (gitlens:plus:state == 0 || gitlens:plus:state == 2)"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Start Pro Trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nStart your free 7-day Pro trial to try Worktrees and other Pro features, or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
-				"when": "gitlens:plus:required && gitlens:plus:state == 2 && gitlens:views:scm:grouped:view == worktrees"
+				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
+				"when": "gitlens:plus:required && (gitlens:plus:state == 0 || gitlens:plus:state == 2) && gitlens:views:scm:grouped:view == worktrees"
 			},
 			{
 				"view": "gitlens.views.worktrees",
@@ -19556,22 +19548,23 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 14 days!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 5"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 7 days!",
+				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 14 days!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 5 && gitlens:views:scm:grouped:view == worktrees"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Pro feature — requires a paid plan for use on privately-hosted repos."
+				"contents": "Use on privately-hosted repos require [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).",
+				"when": "gitlens:plus:state != 6"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "Pro feature — requires a paid plan for use on privately-hosted repos.",
-				"when": "gitlens:views:scm:grouped:view == worktrees"
+				"contents": "Use on privately-hosted repos require [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).",
+				"when": "gitlens:plus:state != 6 && gitlens:views:scm:grouped:view == worktrees"
 			}
 		],
 		"views": {
@@ -19786,6 +19779,18 @@
 				"description": "Supercharge Git and unlock untapped knowledge within your repo to better understand, write, and review code.",
 				"steps": [
 					{
+						"id": "get-started-community",
+						"title": "Welcome to GitLens",
+						"description": "Thank you for installing GitLens—the most popular Git extension for VS Code!\n\n**Community vs. Pro**\n\nYou're using **GitLens Community** edition: Track code changes and see who made them with features like in-editor blame annotations, hovers, CodeLens, and more—completely free.\n\n**Leverage powerful workflows with GitLens Pro**\n\nThe **GitLens Pro** edition unlocks advanced features to accelerate PR reviews, gain actionable insights with rich code visuals, and streamline team collaboration to boost productivity.\n\n[Get Started with GitLens Pro](command:gitlens.walkthrough.plus.signUp)",
+						"media": {
+							"markdown": "walkthroughs/welcome/get-started-community.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:gettingStarted == true"
+						],
+						"when": "!gitlens:plus:state || gitlens:plus:state <= 2"
+					},
+					{
 						"id": "welcome-in-trial",
 						"title": "Welcome to GitLens Pro",
 						"description": "Thanks for starting your **GitLens Pro** trial.\n\nComplete this walkthrough to experience enhanced PR review tools, deeper code history visualizations, and streamlined collaboration to help boost your productivity.\n\n[Continue the Walkthrough](command:gitlens.walkthrough.openWalkthrough)\n\nOnce your trial ends, you'll return to **GitLens Community** — where you can still leverage features like in-editor blame annotations, hovers, CodeLens, and more. [Upgrade to GitLens Pro](command:gitlens.walkthrough.plus.upgrade) today to continue enjoying the full experience.\n\n[Upgrade to GitLens Pro](command:gitlens.walkthrough.plus.upgrade)",
@@ -19795,7 +19800,31 @@
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:gettingStarted == true"
 						],
-						"when": "(gitlens:plus:state == 1 || gitlens:plus:state == 3)"
+						"when": "gitlens:plus:state == 3"
+					},
+					{
+						"id": "welcome-in-trial-expired",
+						"title": "Get the most out of GitLens",
+						"description": "Thanks for installing GitLens and trying out GitLens Pro.\n\nYou're now on the GitLens Community edition, our free extension that helps you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more.\n\nLearn more about the [difference between GitLens Community vs. Pro](command:gitlens.walkthrough.openCommunityVsPro).\n\n**Unlock more powerful tools with GitLens Pro**\n\n[Upgrade to GitLens Pro](command:gitlens.walkthrough.plus.upgrade)\n\nWith GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.",
+						"media": {
+							"markdown": "walkthroughs/welcome/welcome-in-trial-expired.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:gettingStarted == true"
+						],
+						"when": "gitlens:plus:state == 4"
+					},
+					{
+						"id": "welcome-in-trial-expired-eligible",
+						"title": "Get the most out of GitLens ",
+						"description": "Thanks for installing GitLens, the #1 most downloaded Git extension in VS Code.\n\nYou're currently using **GitLens Community**, our free extension that helps you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more.\n\n**Unlock more powerful tools — Try GitLens Pro again free for 14 days.**\n\n[Get Started with GitLens Pro](command:gitlens.walkthrough.plus.upgrade)\n\nWith GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.",
+						"media": {
+							"markdown": "walkthroughs/welcome/welcome-in-trial-expired-eligible.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:gettingStarted == true"
+						],
+						"when": "gitlens:plus:state == 5"
 					},
 					{
 						"id": "welcome-paid",
@@ -19808,42 +19837,6 @@
 							"onContext:gitlens:walkthroughState:gettingStarted == true"
 						],
 						"when": "gitlens:plus:state == 6"
-					},
-					{
-						"id": "welcome-in-trial-expired-eligible",
-						"title": "Get the most out of GitLens ",
-						"description": "Thanks for installing GitLens, the #1 most downloaded Git extension in VS Code.\n\nYou're currently using **GitLens Community**, our free extension that helps you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more.\n\n**Unlock more powerful tools - Try GitLens Pro again free for 14 days.**\n\n[Get Started with GitLens Pro](command:gitlens.walkthrough.plus.upgrade)\n\nWith GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.",
-						"media": {
-							"markdown": "walkthroughs/welcome/welcome-in-trial-expired-eligible.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:gettingStarted == true"
-						],
-						"when": "gitlens:plus:state == 5"
-					},
-					{
-						"id": "welcome-in-trial-expired",
-						"title": "Get the most out of GitLens",
-						"description": "Thanks for installing GitLens and trying out GitLens Pro.\n\nYou're now on the GitLens Community edition, our free extension that helps you track code changes and who made them, with features like in-editor blame annotations, hovers, CodeLens, and more.\n\nLearn more about the [difference between GitLens Community vs. Pro](command:gitlens.walkthrough.openCommunityVsPro).\n\n**Unlock more powerful tools with GitLens Pro**\n\n[Upgrade to GitLens Pro](command:gitlens.walkthrough.plus.upgrade)\n\nWith GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.",
-						"media": {
-							"markdown": "walkthroughs/welcome/welcome-in-trial-expired.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:gettingStarted == true"
-						],
-						"when": "gitlens:plus:state == 4 || gitlens:plus:state == 2"
-					},
-					{
-						"id": "get-started-community",
-						"title": "Welcome to GitLens",
-						"description": "Thank you for installing GitLens—the most popular Git extension for VS Code!\n\n**Community vs. Pro**\n\nYou're using **GitLens Community** edition: Track code changes and see who made them with features like in-editor blame annotations, hovers, CodeLens, and more—completely free.\n\n**Leverage powerful workflows with GitLens Pro**\n\nThe **GitLens Pro** edition unlocks advanced features to accelerate PR reviews, gain actionable insights with rich code visuals, and streamline team collaboration to boost productivity.\n\n[Get Started with GitLens Pro](command:gitlens.walkthrough.plus.signUp)",
-						"media": {
-							"markdown": "walkthroughs/welcome/get-started-community.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:gettingStarted == true"
-						],
-						"when": "!gitlens:plus:state || gitlens:plus:state <= 0"
 					},
 					{
 						"id": "visualize-code-history",

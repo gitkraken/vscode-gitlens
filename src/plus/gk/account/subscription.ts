@@ -176,7 +176,7 @@ export function getSubscriptionPlan(
 export function getSubscriptionPlanName(id: SubscriptionPlanId) {
 	switch (id) {
 		case SubscriptionPlanId.CommunityWithAccount:
-			return 'GitLens Free';
+			return 'GitLens Community';
 		case SubscriptionPlanId.Pro:
 			return 'GitLens Pro';
 		case SubscriptionPlanId.Teams:

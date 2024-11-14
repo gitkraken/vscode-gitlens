@@ -19,7 +19,7 @@ export type ContextKeys = {
 	'gitlens:newInstall': boolean;
 	/** Indicates that this is a new install of GitLens (anywhere for this user -- if synced settings is on) */
 	'gitlens:newUserInstall': boolean;
-	'gitlens:plus': SubscriptionPlanId;
+	'gitlens:plus': Exclude<SubscriptionPlanId, SubscriptionPlanId.Community>;
 	'gitlens:plus:disallowedRepos': string[];
 	'gitlens:plus:enabled': boolean;
 	'gitlens:plus:required': boolean;

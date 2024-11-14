@@ -13,7 +13,9 @@ const resetTypes = [
 	'ai',
 	'avatars',
 	'integrations',
+	'previews',
 	'repositoryAccess',
+	'subscription',
 	'suppressedWarnings',
 	'usageTracking',
 	'workspace',
@@ -73,6 +75,22 @@ export class ResetCommand extends Command {
 			},
 		];
 
+		if (DEBUG) {
+			items.push(
+				createQuickPickSeparator('DEBUG'),
+				{
+					label: 'Reset Subscription...',
+					detail: 'Resets the stored subscription',
+					item: 'subscription',
+				},
+				{
+					label: 'Reset Feature Previews...',
+					detail: 'Resets the stored state for feature previews',
+					item: 'previews',
+				},
+			);
+		}
+
 		// create a quick pick with options to clear all the different resets that GitLens supports
 		const pick = await window.showQuickPick<ResetQuickPickItem>(items, {
 			title: 'Reset Stored Data',
@@ -102,9 +120,17 @@ export class ResetCommand extends Command {
 				confirmationMessage = 'Are you sure you want to reset all of the stored integrations?';
 				confirm.title = 'Reset Integrations';
 				break;
+			case 'previews':
+				confirmationMessage = 'Are you sure you want to reset the stored state for feature previews?';
+				confirm.title = 'Reset Feature Previews';
+				break;
 			case 'repositoryAccess':
 				confirmationMessage = 'Are you sure you want to reset the repository access cache?';
 				confirm.title = 'Reset Repository Access';
+				break;
+			case 'subscription':
+				confirmationMessage = 'Are you sure you want to reset the stored subscription?';
+				confirm.title = 'Reset Subscription';
 				break;
 			case 'suppressedWarnings':
 				confirmationMessage = 'Are you sure you want to reset all of the suppressed warnings?';
@@ -169,6 +195,18 @@ export class ResetCommand extends Command {
 
 			case 'workspace':
 				await this.container.storage.resetWorkspace();
+				break;
+			default:
+				if (DEBUG) {
+					switch (reset) {
+						case 'subscription':
+							await this.container.storage.delete('premium:subscription');
+							break;
+						case 'previews':
+							await this.container.storage.deleteWithPrefix('plus:preview');
+							break;
+					}
+				}
 				break;
 		}
 	}

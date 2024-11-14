@@ -647,7 +647,7 @@ export class DeepLinkService implements Disposable {
 						))
 					) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
-						message = 'Paid plan required to open link';
+						message = 'GitLens Pro is required to open link';
 						break;
 					}
 

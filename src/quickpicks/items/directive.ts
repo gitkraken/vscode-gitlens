@@ -1,5 +1,6 @@
 import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
 import { proPreviewLengthInDays, proTrialLengthInDays } from '../../constants.subscription';
+import { pluralize } from '../../system/string';
 
 export enum Directive {
 	Back,
@@ -64,8 +65,11 @@ export function createDirectiveQuickPickItem(
 				detail = `Continuing gives you ${proPreviewLengthInDays} days to preview this and other local Pro features`;
 				break;
 			case Directive.StartProTrial:
-				label = 'Start Pro Trial';
-				detail = `Start your free ${proTrialLengthInDays}-day Pro trial for full access to Pro features`;
+				label = 'Try GitLens Pro';
+				detail = `Get ${pluralize(
+					'day',
+					proTrialLengthInDays,
+				)} of GitLens Pro for free — no credit card required.`;
 				break;
 			case Directive.RequiresVerification:
 				label = 'Resend Email';
@@ -74,9 +78,9 @@ export function createDirectiveQuickPickItem(
 			case Directive.RequiresPaidSubscription:
 				label = 'Upgrade to Pro';
 				if (detail != null) {
-					description ??= ' \u2014\u00a0\u00a0 a paid plan is required to use this Pro feature';
+					description ??= ' \u2014\u00a0\u00a0 GitLens Pro is required to use this feature';
 				} else {
-					detail = 'Upgrading to a paid plan is required to use this Pro feature';
+					detail = 'Upgrading to GitLens Pro is required to use this feature';
 				}
 				break;
 		}

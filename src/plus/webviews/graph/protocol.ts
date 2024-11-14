@@ -25,6 +25,7 @@ import type {
 import type { Config, DateStyle, GraphBranchesVisibility } from '../../../config';
 import type { SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import type { SearchQuery } from '../../../constants.search';
+import type { FeaturePreview } from '../../../features';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
@@ -92,6 +93,7 @@ export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'p
 
 export interface State extends WebviewState {
 	windowFocused?: boolean;
+	webroot?: string;
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
@@ -120,6 +122,7 @@ export interface State extends WebviewState {
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
+	featurePreview?: FeaturePreview;
 
 	// Props below are computed in the webview (not passed)
 	activeDay?: number;
@@ -506,6 +509,15 @@ export interface DidFetchParams {
 	lastFetched: Date;
 }
 export const DidFetchNotification = new IpcNotification<DidFetchParams>(scope, 'didFetch');
+
+export interface DidStartFeaturePreviewParams {
+	featurePreview: FeaturePreview;
+	allowed: boolean;
+}
+export const DidStartFeaturePreviewNotification = new IpcNotification<DidStartFeaturePreviewParams>(
+	scope,
+	'featurePreview/didStart',
+);
 
 export interface ShowInCommitGraphCommandArgs {
 	ref: GitReference;

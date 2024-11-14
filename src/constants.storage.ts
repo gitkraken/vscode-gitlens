@@ -4,6 +4,7 @@ import type { IntegrationId } from './constants.integrations';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
 import type { GroupableTreeViewTypes } from './constants.views';
 import type { Environment } from './container';
+import type { FeaturePreviews } from './features';
 import type { Subscription } from './plus/gk/account/subscription';
 import type { Integration } from './plus/integrations/integration';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
@@ -77,7 +78,9 @@ export type GlobalStorage = {
 	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
 	'graph:searchMode': StoredGraphSearchMode;
 	'views:scm:grouped:welcome:dismissed': boolean;
-} & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
+} & { [key in `plus:preview:${FeaturePreviews}:usages`]: StoredFeaturePreviewUsagePeriod[] } & {
+	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
+} & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
 	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;
@@ -309,3 +312,8 @@ export type StoredLaunchpadGroup =
 	| 'draft'
 	| 'other'
 	| 'snoozed';
+
+export interface StoredFeaturePreviewUsagePeriod {
+	startedOn: string;
+	expiresOn: string;
+}

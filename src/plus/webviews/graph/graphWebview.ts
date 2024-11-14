@@ -24,7 +24,8 @@ import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents
 import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
 import type { CommitSelectedEvent } from '../../../eventBus';
-import { PlusFeatures } from '../../../features';
+import type { FeaturePreview } from '../../../features';
+import { isFeaturePreviewActive, PlusFeatures } from '../../../features';
 import { executeGitCommand } from '../../../git/actions';
 import * as BranchActions from '../../../git/actions/branch';
 import {
@@ -126,7 +127,7 @@ import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../../w
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewProvider';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
-import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
+import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../integrations/integrationService';
 import { remoteProviderIdToIntegrationId } from '../../integrations/integrationService';
 import { getPullRequestBranchDeepLink } from '../../launchpad/launchpadProvider';
@@ -206,6 +207,7 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidSearchNotification,
+	DidStartFeaturePreviewNotification,
 	DoubleClickedCommandType,
 	EnsureRowRequest,
 	GetCountsRequest,
@@ -294,6 +296,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeSubscriptionNotification, this.notifyDidChangeSubscription],
 		[DidChangeWorkingTreeNotification, this.notifyDidChangeWorkingTree],
 		[DidFetchNotification, this.notifyDidFetch],
+		[DidStartFeaturePreviewNotification, this.notifyDidStartFeaturePreview],
 	]);
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
 	private _search: GitSearch | undefined;
@@ -317,6 +320,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			this.container.git.onDidChangeRepositories(async () => {
 				if (this._etag !== this.container.git.etag) {
 					if (this._discovering != null) {
@@ -914,6 +918,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.updateState();
 			}
 		}
+	}
+
+	@debug({ args: false })
+	private onFeaturePreviewChanged(e: FeaturePreviewChangeEvent) {
+		if (e.feature !== 'graph') return;
+
+		void this.notifyDidStartFeaturePreview(e);
+	}
+
+	private getFeaturePreview(): FeaturePreview {
+		return this.container.subscription.getFeaturePreview('graph');
 	}
 
 	@debug<GraphWebviewProvider['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
@@ -1875,6 +1890,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
+	private async notifyDidStartFeaturePreview(featurePreview?: FeaturePreview) {
+		if (!this.host.ready || !this.host.visible) {
+			this.host.addPendingIpcNotification(DidStartFeaturePreviewNotification, this._ipcNotificationMap, this);
+			return false;
+		}
+
+		featurePreview ??= this.getFeaturePreview();
+		const [access] = await this.getGraphAccess();
+		return this.host.notify(DidStartFeaturePreviewNotification, {
+			featurePreview: featurePreview,
+			allowed: this.isGraphAccessAllowed(access, featurePreview),
+		});
+	}
+
+	@debug()
 	private async notifyDidChangeWorkingTree() {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeWorkingTreeNotification, this._ipcNotificationMap, this);
@@ -1908,7 +1938,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const [access] = await this.getGraphAccess();
 		return this.host.notify(DidChangeSubscriptionNotification, {
 			subscription: access.subscription.current,
-			allowed: access.allowed !== false,
+			allowed: this.isGraphAccessAllowed(access, this.getFeaturePreview()),
 		});
 	}
 
@@ -2349,6 +2379,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return [access, visibility] as const;
 	}
 
+	private isGraphAccessAllowed(
+		access: Awaited<ReturnType<GraphWebviewProvider['getGraphAccess']>>[0] | undefined,
+		featurePreview: FeaturePreview,
+	) {
+		return (access?.allowed ?? false) !== false || isFeaturePreviewActive(featurePreview);
+	}
+
 	private getGraphItemContext(context: unknown): unknown | undefined {
 		const item = typeof context === 'string' ? JSON.parse(context) : context;
 		// Add the `webview` prop to the context if its missing (e.g. when this context doesn't come through via the context menus)
@@ -2516,8 +2553,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const defaultSearchMode = this.container.storage.get('graph:searchMode') ?? 'normal';
 
+		const featurePreview = this.getFeaturePreview();
+
 		return {
 			...this.host.baseWebviewState,
+			webroot: this.host.getWebRoot(),
 			windowFocused: this.isWindowFocused,
 			repositories: await formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
@@ -2537,7 +2577,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			lastFetched: new Date(getSettledValue(lastFetchedResult)!),
 			selectedRows: this._selectedRows,
 			subscription: access?.subscription.current,
-			allowed: (access?.allowed ?? false) !== false,
+			allowed: this.isGraphAccessAllowed(access, featurePreview), //(access?.allowed ?? false) !== false,
 			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
 			refsMetadata: this.resetRefsMetadata() === null ? null : {},
 			loading: deferRows,
@@ -2563,6 +2603,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 			defaultSearchMode: defaultSearchMode,
+			featurePreview: featurePreview,
 		};
 	}
 
