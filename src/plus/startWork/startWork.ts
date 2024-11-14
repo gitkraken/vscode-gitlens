@@ -481,6 +481,9 @@ export class StartWorkCommand extends QuickCommand<State> {
 						this.source,
 					);
 				}
+			} catch {
+				quickpick.placeholder = 'Error retrieving issues';
+				quickpick.items = [];
 			} finally {
 				quickpick.busy = false;
 			}
