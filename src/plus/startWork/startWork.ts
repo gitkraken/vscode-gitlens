@@ -254,14 +254,14 @@ export class StartWorkCommand extends QuickCommand<State> {
 				),
 				createQuickPickSeparator('References'),
 				createQuickPickItemOfT<StartWorkTypeItem>(
-					{ label: 'Create Branch from...', detail: 'Will create a new branch after selecting a reference' },
+					{ label: 'Create Branch...', detail: 'Will create a new branch after selecting a reference' },
 					{
 						type: 'branch',
 					},
 				),
 				createQuickPickItemOfT<StartWorkTypeItem>(
 					{
-						label: 'Create Branch & Worktree from...',
+						label: 'Create Branch & Worktree...',
 						detail: 'Will create a new branch & worktree after selecting a reference',
 					},
 					{
