@@ -58,7 +58,7 @@ export class WalkthroughOpenWalkthroughCommand extends Command {
 		const command = Commands.OpenWalkthrough;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
-			name: command,
+			name: 'open/walkthrough',
 			command: command,
 		});
 		executeCommand(command);
@@ -76,7 +76,7 @@ export class WalkthroughPlusUpgradeCommand extends Command {
 		const command = Commands.PlusUpgrade;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
-			name: command,
+			name: 'plus/upgrade',
 			command: command,
 		});
 		executeCommand(command);
@@ -94,8 +94,8 @@ export class WalkthroughOpenHelpCenterCommand extends Command {
 		const url = urls.helpCenter;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
-			name: url,
-			command: url,
+			name: 'open/help-center',
+			url: url,
 		});
 		void openUrl(url);
 	}
@@ -112,7 +112,24 @@ export class WalkthroughPlusSignUpCommand extends Command {
 		const command = Commands.PlusSignUp;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
-			name: command,
+			name: 'plus/sign-up',
+			command: command,
+		});
+		executeCommand(command);
+	}
+}
+
+@command()
+export class WalkthroughPlusReactivateCommand extends Command {
+	constructor(private readonly container: Container) {
+		super(Commands.WalkthroughPlusReactivate);
+	}
+
+	execute() {
+		const command = Commands.PlusReactivateProTrial;
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'plus/reactivate',
 			command: command,
 		});
 		executeCommand(command);
@@ -130,8 +147,8 @@ export class WalkthroughOpenCommunityVsProCommand extends Command {
 		const url = urls.communityVsPro;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
-			name: url,
-			command: url,
+			name: 'open/help-center/community-vs-pro',
+			url: url,
 		});
 		void openUrl(url);
 	}
@@ -148,7 +165,7 @@ export class WalkthroughShowGraphCommand extends Command {
 		const command = Commands.ShowGraph;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
-			name: command,
+			name: 'open/graph',
 			command: command,
 		});
 		executeCommand(command);
@@ -166,7 +183,7 @@ export class WalkthroughGitLensInspectCommand extends Command {
 		const command = Commands.ShowCommitDetailsView;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
-			name: command,
+			name: 'open/inspect',
 			command: command,
 		});
 		executeCommand(command);
@@ -184,8 +201,8 @@ export class WalkthroughOpenInteractiveCodeHistoryCommand extends Command {
 		const url = urls.interactiveCodeHistory;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
-			name: url,
-			command: url,
+			name: 'open/help-center/interactive-code-history',
+			url: url,
 		});
 		void openUrl(url);
 	}
@@ -202,7 +219,7 @@ export class WalkthroughShowLaunchpadCommand extends Command {
 		const command = Commands.ShowLaunchpad;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
-			name: command,
+			name: 'open/launchpad',
 			command: command,
 		});
 		executeCommand(command);
@@ -220,10 +237,27 @@ export class WalkthroughWorktreeCreateCommand extends Command {
 		const command = Commands.GitCommandsWorktreeCreate;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
-			name: command,
+			name: 'create/worktree',
 			command: command,
 		});
 		executeCommand(command);
+	}
+}
+
+@command()
+export class WalkthroughOpenDevExPlatformCommand extends Command {
+	constructor(private readonly container: Container) {
+		super(Commands.WalkthoughOpenDevExPlatform);
+	}
+
+	execute() {
+		const url = urls.platform;
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'url',
+			name: 'open/devex-platform',
+			url: url,
+		});
+		void openUrl(url);
 	}
 }
 
@@ -238,8 +272,8 @@ export class WalkthroughOpenAccelereatePrReviewsCommand extends Command {
 		const url = urls.acceleratePrReviews;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
-			name: url,
-			command: url,
+			name: 'open/help-center/accelerate-pr-reviews',
+			url: url,
 		});
 		void openUrl(url);
 	}
@@ -256,7 +290,7 @@ export class WalkthroughShowDraftsViewCommand extends Command {
 		const command = Commands.ShowDraftsView;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
-			name: command,
+			name: 'open/drafts',
 			command: command,
 		});
 		executeCommand(command);
@@ -274,8 +308,8 @@ export class WalkthroughOpenStreamlineCollaboration extends Command {
 		const url = urls.streamlineCollaboration;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
-			name: url,
-			command: url,
+			name: 'open/help-center/streamline-collaboration',
+			url: url,
 		});
 		void openUrl(url);
 	}
@@ -292,7 +326,7 @@ export class WalkthroughConnectIntegrationsCommand extends Command {
 		const command = Commands.PlusConnectCloudIntegrations;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
-			name: command,
+			name: 'connect/integrations',
 			command: command,
 		});
 		executeCommand(command);
@@ -310,7 +344,7 @@ export class WalkthroughShowAutolinksCommand extends Command {
 		const command = Commands.ShowSettingsPageAndJumpToAutolinks;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
-			name: command,
+			name: 'open/autolinks',
 			command: command,
 		});
 		executeCommand(command);
@@ -328,8 +362,8 @@ export class WalkthroughOpenStartIntegrations extends Command {
 		const url = urls.startIntegrations;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
-			name: url,
-			command: url,
+			name: 'open/help-center/start-integrations',
+			url: url,
 		});
 		void openUrl(url);
 	}

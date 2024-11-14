@@ -262,11 +262,13 @@ export const enum Commands {
 	WalkthroughOpenWalkthrough = 'gitlens.walkthrough.openWalkthrough',
 	WalkthroughPlusSignUp = 'gitlens.walkthrough.plus.signUp',
 	WalkthroughPlusUpgrade = 'gitlens.walkthrough.plus.upgrade',
+	WalkthroughPlusReactivate = 'gitlens.walkthrough.plus.reactivate',
 	WalkthroughShowAutolinks = 'gitlens.walkthrough.showAutolinks',
 	WalkthroughShowDraftsView = 'gitlens.walkthrough.showDraftsView',
 	WalkthroughShowGraph = 'gitlens.walkthrough.showGraph',
 	WalkthroughShowLaunchpad = 'gitlens.walkthrough.showLaunchpad',
 	WalkthroughWorktreeCreate = 'gitlens.walkthrough.worktree.create',
+	WalkthoughOpenDevExPlatform = 'gitlens.walkthrough.openDevExPlatform',
 
 	Deprecated_DiffHeadWith = 'gitlens.diffHeadWith',
 	Deprecated_DiffWorkingWith = 'gitlens.diffWorkingWith',

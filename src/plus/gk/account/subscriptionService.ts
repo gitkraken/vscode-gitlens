@@ -492,7 +492,7 @@ export class SubscriptionService implements Disposable {
 			const learn: MessageItem = { title: 'Learn More' };
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 			const result = await window.showInformationMessage(
-				`You are now on the ${actual.name} plan and have full access to all GitLens Pro features.`,
+				`You are now on ${actual.name} and have full access to all GitLens Pro features.`,
 				{ modal: true },
 				confirm,
 				learn,
@@ -526,7 +526,7 @@ export class SubscriptionService implements Disposable {
 			const learn: MessageItem = { title: 'Community vs. Pro' };
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 			const result = await window.showInformationMessage(
-				`You are now on the ${actual.name} plan.`,
+				`You are now on ${actual.name}.`,
 				{
 					modal: true,
 					detail: 'You only have access to Pro features on publicly-hosted repos. For full access to all Pro features, please upgrade to GitLens Pro.',
@@ -700,10 +700,10 @@ export class SubscriptionService implements Disposable {
 			if (isSubscriptionTrial(this._subscription)) {
 				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
 
-				const confirm: MessageItem = { title: 'OK' };
+				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
 				const learn: MessageItem = { title: "See What's New" };
 				const result = await window.showInformationMessage(
-					`Your Pro trial has been reactivated! Experience all the new Pro features for another ${pluralize(
+					`Your GitLens Pro trial has been reactivated! Experience all the new Pro features for another ${pluralize(
 						'day',
 						remaining ?? 0,
 					)}.`,
