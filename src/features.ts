@@ -60,11 +60,13 @@ export function getFeaturePreviewLabel(feature: FeaturePreviews) {
 	}
 }
 
+const hoursInMs = 3600000;
+
 export function isFeaturePreviewActive(featurePreview?: FeaturePreview) {
 	const usages = featurePreview?.usages;
 	if (usages == null || usages.length === 0) return false;
 
-	const remainingHours = (new Date(usages[usages.length - 1].expiresOn).getTime() - new Date().getTime()) / 3600000;
+	const remainingHours = (new Date(usages[usages.length - 1].expiresOn).getTime() - new Date().getTime()) / hoursInMs;
 	return (
 		usages.length <= proFeaturePreviewUsages &&
 		remainingHours > 0 &&
@@ -74,7 +76,9 @@ export function isFeaturePreviewActive(featurePreview?: FeaturePreview) {
 
 export function isFeaturePreviewExpired(featurePreview: FeaturePreview) {
 	const usages = featurePreview.usages;
-	const remainingHours = (new Date(usages[usages.length - 1].expiresOn).getTime() - new Date().getTime()) / 3600000;
+	if (usages == null || usages.length === 0) return false;
+
+	const remainingHours = (new Date(usages[usages.length - 1].expiresOn).getTime() - new Date().getTime()) / hoursInMs;
 	return (
 		usages.length > proFeaturePreviewUsages ||
 		(usages.length === proFeaturePreviewUsages && remainingHours <= 0) ||
