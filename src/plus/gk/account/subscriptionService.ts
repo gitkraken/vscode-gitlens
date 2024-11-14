@@ -1524,7 +1524,6 @@ export class SubscriptionService implements Disposable {
 		const {
 			account,
 			plan: { effective },
-			state,
 		} = this._subscription;
 
 		if (effective.id === SubscriptionPlanId.Community) {
@@ -1534,7 +1533,9 @@ export class SubscriptionService implements Disposable {
 		}
 
 		const trial = isSubscriptionTrial(this._subscription);
-		if (!trial && account?.verified !== false) {
+		const trialEligible = this._subscription.state === SubscriptionState.ProTrialReactivationEligible;
+
+		if (!(trial || trialEligible) && account?.verified !== false) {
 			this._statusBarSubscription?.dispose();
 			this._statusBarSubscription = undefined;
 			return;
@@ -1543,42 +1544,42 @@ export class SubscriptionService implements Disposable {
 		if (this._statusBarSubscription == null) {
 			this._statusBarSubscription = window.createStatusBarItem(
 				'gitlens.plus.subscription',
-				StatusBarAlignment.Left,
-				1,
+				StatusBarAlignment.Right,
 			);
 		}
 
-		this._statusBarSubscription.name = 'GitLens Subscription';
+		this._statusBarSubscription.name = 'GitLens Pro';
+		this._statusBarSubscription.text = '$(gitlens-gitlens)';
 		this._statusBarSubscription.command = Commands.ShowAccountView;
+		this._statusBarSubscription.backgroundColor = undefined;
 
 		if (account?.verified === false) {
-			this._statusBarSubscription.text = `$(warning) ${effective.name} (Unverified)`;
+			this._statusBarSubscription.text = `$(gitlens-gitlens)\u00a0\u00a0$(warning)`;
 			this._statusBarSubscription.backgroundColor = new ThemeColor(
 				'statusBarItem.warningBackground' satisfies CoreColors,
 			);
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				trial
-					? `**Please verify your email**\n\nYou must verify your email before you can start your **${effective.name}** trial.\n\nClick for details`
-					: `**Please verify your email**\n\nYou must verify your email before you can use Pro features on privately-hosted repos.\n\nClick for details`,
+					? `**GitLens Pro — verify your email**\n\nYou must verify your email before you can start your **${effective.name}** trial.`
+					: `**GitLens Pro — verify your email**\n\nYou must verify your email before you can use Pro features on privately-hosted repos.`,
 				true,
 			);
 		} else {
-			const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
-			const isReactivatedTrial = state === SubscriptionState.ProTrial && effective.trialReactivationCount > 0;
+			let tooltip;
+			if (trialEligible) {
+				tooltip = `**GitLens Pro — reactivate your Pro trial**\n\nExperience full access to all the [new Pro features](${
+					urls.releaseNotes
+				}) — free for another ${pluralize('day', proTrialLengthInDays)}.`;
+			} else if (trial) {
+				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
+				tooltip = `**GitLens Pro — trial**\n\nYou now have full access to all GitLens Pro features for ${pluralize(
+					'day',
+					remaining,
+					{ infix: ' more ' },
+				)}.`;
+			}
 
-			this._statusBarSubscription.text = `${effective.name} (Trial)`;
-			this._statusBarSubscription.tooltip = new MarkdownString(
-				`${
-					isReactivatedTrial
-						? `[See what's new](${urls.releaseNotes}) with ${pluralize('day', remaining ?? 0, {
-								infix: ' more ',
-						  })} in your **${effective.name}** trial.`
-						: `You have ${pluralize('day', remaining ?? 0)} remaining in your **${effective.name}** trial.`
-				} Once your trial ends, you'll need [GitLens Pro](command:gitlens.openWalkthrough?%7B%22step%22%3A%22pro-trial%22,%22source%22%3A%22prompt%22%7D) for full access to Pro features.\n\nYour trial also includes access to the [GitKraken DevEx platform](${
-					urls.platform
-				}), unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.`,
-				true,
-			);
+			this._statusBarSubscription.tooltip = new MarkdownString(tooltip, true);
 		}
 
 		this._statusBarSubscription.show();
