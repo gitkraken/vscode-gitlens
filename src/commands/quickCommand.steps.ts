@@ -1540,10 +1540,15 @@ export async function* pickRepositoryStep<
 
 	const step = createPickStep<RepositoryQuickPickItem>({
 		title: context.title,
-		placeholder: placeholder,
+		placeholder: context.repos.length === 0 ? `${placeholder} — no opened repositories found` : placeholder,
 		items:
 			context.repos.length === 0
-				? [createDirectiveQuickPickItem(Directive.Cancel)]
+				? [
+						createDirectiveQuickPickItem(Directive.Cancel, true, {
+							label: 'Cancel',
+							detail: 'No opened repositories found',
+						}),
+				  ]
 				: Promise.all(
 						context.repos.map(r =>
 							createRepositoryQuickPickItem(r, r.id === active?.id, {
@@ -1605,10 +1610,16 @@ export async function* pickRepositoriesStep<
 	const step = createPickStep<RepositoryQuickPickItem>({
 		multiselect: true,
 		title: context.title,
-		placeholder: options.placeholder,
+		placeholder:
+			context.repos.length === 0 ? `${options.placeholder} — no opened repositories found` : options.placeholder,
 		items:
 			context.repos.length === 0
-				? [createDirectiveQuickPickItem(Directive.Cancel)]
+				? [
+						createDirectiveQuickPickItem(Directive.Cancel, true, {
+							label: 'Cancel',
+							detail: 'No opened repositories found',
+						}),
+				  ]
 				: Promise.all(
 						context.repos.map(repo =>
 							createRepositoryQuickPickItem(
