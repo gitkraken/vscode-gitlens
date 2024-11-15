@@ -66,7 +66,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Draft pull requests for which the current user's review is needed are now also shown in the "Needs Your Review" group, with a draft icon
   - Renames _Switch to Branch or Worktree_ option to _Switch to Branch_, since it already includes options to create a worktree in the action flow
 - Improves the open in worktree action flow &mdash; closes [#3549](https://github.com/gitkraken/vscode-gitlens/issues/3549):
-- Changes to open a multi-diff editor of the changes when opening a new worktree from a PR to make reviewing easier &mdash; [#3701](https://github.com/gitkraken/vscode-gitlens/issues/3701)
+- Changes to open a multi-diff editor of the changes when opening a new worktree from a PR to make reviewing easier &mdash; [#3734](https://github.com/gitkraken/vscode-gitlens/issues/3734)
 - Improves the _Explain_ panel in _Inspect_ and _Graph Details_ with markdown formatting
 - Changes how GitLens handles creating and deleting tags to avoid using the terminal &mdash; [#3670](https://github.com/gitkraken/vscode-gitlens/issues/3670)
 - Improves quick pick workflows when no repositories are open
@@ -77,7 +77,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#3549](https://github.com/gitkraken/vscode-gitlens/issues/3549) - Webviews can have issues with high contrast themes
-- Fixes [#3734](https://github.com/gitkraken/vscode-gitlens/issues/3734) - Open multi-diff editor when opening a new worktree from a PR
 - Fixes [#3133](https://github.com/gitkraken/vscode-gitlens/issues/3133) - Infinite error loop when pushing stash from GUI
 - Fixes branch creation and switch quickpicks failing to close when a worktree is created during the flow
 - Fixes some cases where Launchpad can fail to detect a connected integration
@@ -120,7 +119,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds monospace formatting in commit messages &mdash; closes [#2350](https://github.com/gitkraken/vscode-gitlens/issues/2350)
 - Adds a new `${authorFirst}` and `${authorLast}` commit formatting tokens that can be used in inline blame, commit hovers, etc &mdash; closes [#2980](https://github.com/gitkraken/vscode-gitlens/issues/2980)
 - Adds a new _Create New Branch_ button to the _Commit Graph_ toolbar &mdash; closes [#3553](https://github.com/gitkraken/vscode-gitlens/issues/3553)
-- Adds new ability to force push from the _Commit Graph_ toolbar&mdash; closes [#3493](https://github.com/gitkraken/vscode-gitlens/issues/3493)
+- Adds new ability to force push from the _Commit Graph_ toolbar &mdash; closes [#3493](https://github.com/gitkraken/vscode-gitlens/issues/3493)
 - Adds a new `gitlens.launchpad.includedOrganizations` setting to specify which organizations to include in _Launchpad_ &mdash; closes [#3550](https://github.com/gitkraken/vscode-gitlens/issues/3550)
 - Adds repository owner/name and code suggest to hovers on the experimental Launchpad view
 
