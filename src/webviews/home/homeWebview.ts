@@ -773,11 +773,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (pr?.refs?.base == null || pr.refs.head == null) return;
 
 		const comparisonRefs = getComparisonRefsForPullRequest(refs.repoPath, pr.refs);
-		return this.container.views.searchAndCompare.compare(
-			comparisonRefs.repoPath,
-			comparisonRefs.head,
-			comparisonRefs.base,
-		);
+		return this.container.views.searchAndCompare
+			.compare(comparisonRefs.repoPath, comparisonRefs.head, comparisonRefs.base)
+			.then(compareNode => {
+				executeCommand(Commands.ViewsOpenAllChangedFileDiffs, compareNode);
+			});
 	}
 
 	private async pullRequestViewOnRemote(refs: BranchRef, clipboard?: boolean) {
