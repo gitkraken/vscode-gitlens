@@ -6,17 +6,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes the _Search & Compare_ view to be separate (detached) from the new grouped _GitLens_ view
+
 ## [16.0.0] - 2024-11-14
 
 ### Added
 
-- Adds the ability to group GitLens views into a single GitLens view in the Source Control sidebar
+- Adds the ability to group GitLens views into a single _GitLens_ view in the Source Control sidebar
   - Includes Commits, Branches, Remotes, Stashes, Tags, Worktrees, Contributors, Repositories, Search & Compare, and Launchpad views
-  - Switch views by clicking on the specific view icons in the grouped GitLens view header
-  - Grouped views can be separated (detached) from the grouped GitLens view via context menu commands from the view header
+  - Switch views by clicking on the specific view icons in the grouped _GitLens_ view header
+  - Grouped views can be separated (detached) from the grouped _GitLens_ view via context menu commands from the view header
   - Detached views can be regrouped by clicking the close (`x`) icon in the view header
-  - Adds a new `gitlens.views.scm.grouped.default` setting to specify the default view to show in the grouped GitLens view on new workspaces/folders (otherwise the last selected view is remembered)
-  - Adds a new `gitlens.views.scm.grouped.views` setting to specify which views to show in the grouped GitLens view
+  - Adds a new `gitlens.views.scm.grouped.default` setting to specify the default view to show in the grouped _GitLens_ view on new workspaces/folders (otherwise the last selected view is remembered)
+  - Adds a new `gitlens.views.scm.grouped.views` setting to specify which views to show in the grouped _GitLens_ view
 - Adds a completely reimagined Home view
   - Active section:
     - Shows your current repository, branch, and repository state
