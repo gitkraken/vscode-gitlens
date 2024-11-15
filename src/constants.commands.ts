@@ -248,6 +248,7 @@ export const enum Commands {
 	ViewsCopy = 'gitlens.views.copy',
 	ViewsCopyAsMarkdown = 'gitlens.views.copyAsMarkdown',
 	ViewsCopyUrl = 'gitlens.views.copyUrl',
+	ViewsOpenAllChangedFileDiffs = 'gitlens.views.openChangedFileDiffs',
 	ViewsOpenDirectoryDiff = 'gitlens.views.openDirectoryDiff',
 	ViewsOpenDirectoryDiffWithWorking = 'gitlens.views.openDirectoryDiffWithWorking',
 	ViewsOpenUrl = 'gitlens.views.openUrl',
