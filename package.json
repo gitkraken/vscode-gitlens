@@ -18001,17 +18001,17 @@
 				{
 					"command": "gitlens.views.scm.grouped.branches.detach",
 					"when": "gitlens:views:scm:grouped:view == branches",
-					"group": "2_gitlens@1"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.branches.setAsDefault",
 					"when": "gitlens:views:scm:grouped:view == branches && config.gitlens.views.scm.grouped.default != branches",
-					"group": "2_gitlens@2"
+					"group": "9_gitlens@2"
 				},
 				{
 					"submenu": "gitlens/views/grouped/more",
 					"when": "gitlens:views:scm:grouped:view == branches",
-					"group": "2_gitlens@3"
+					"group": "9_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
@@ -18028,27 +18028,27 @@
 				{
 					"command": "gitlens.views.scm.grouped.commits.detach",
 					"when": "gitlens:views:scm:grouped:view == commits",
-					"group": "1_gitlens@1"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.commits.setAsDefault",
 					"when": "gitlens:views:scm:grouped:view == commits && config.gitlens.views.scm.grouped.default != commits",
-					"group": "1_gitlens@2"
+					"group": "9_gitlens@2"
 				},
 				{
 					"submenu": "gitlens/views/grouped/more",
 					"when": "gitlens:views:scm:grouped:view == commits",
-					"group": "1_gitlens@4"
+					"group": "9_gitlens@4"
 				},
 				{
 					"command": "gitlens.views.commits.setCommitsFilterOff",
 					"when": "gitlens:views:scm:grouped:view == commits && gitlens:views:commits:filtered",
-					"group": "1_gitlens_@0"
+					"group": "8_gitlens_@0"
 				},
 				{
 					"command": "gitlens.views.commits.setCommitsFilterAuthors",
 					"when": "gitlens:views:scm:grouped:view == commits",
-					"group": "1_gitlens_@1"
+					"group": "8_gitlens_@1"
 				},
 				{
 					"command": "gitlens.pushRepositories",
@@ -18080,17 +18080,17 @@
 				{
 					"command": "gitlens.views.scm.grouped.contributors.detach",
 					"when": "gitlens:views:scm:grouped:view == contributors",
-					"group": "2_gitlens@1"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.contributors.setAsDefault",
 					"when": "gitlens:views:scm:grouped:view == contributors && config.gitlens.views.scm.grouped.default != contributors",
-					"group": "2_gitlens@2"
+					"group": "9_gitlens@2"
 				},
 				{
 					"submenu": "gitlens/views/grouped/more",
 					"when": "gitlens:views:scm:grouped:view == contributors",
-					"group": "2_gitlens@3"
+					"group": "9_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.addAuthors",
@@ -18102,17 +18102,17 @@
 				{
 					"command": "gitlens.views.scm.grouped.launchpad.detach",
 					"when": "gitlens:views:scm:grouped:view == launchpad",
-					"group": "2_gitlens@1"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.launchpad.setAsDefault",
 					"when": "gitlens:views:scm:grouped:view == launchpad && config.gitlens.views.scm.grouped.default != launchpad",
-					"group": "2_gitlens@2"
+					"group": "9_gitlens@2"
 				},
 				{
 					"submenu": "gitlens/views/grouped/more",
 					"when": "gitlens:views:scm:grouped:view == launchpad",
-					"group": "2_gitlens@3"
+					"group": "9_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.launchpad.info",
@@ -18124,17 +18124,17 @@
 				{
 					"command": "gitlens.views.scm.grouped.remotes.detach",
 					"when": "gitlens:views:scm:grouped:view == remotes",
-					"group": "2_gitlens@1"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.remotes.setAsDefault",
 					"when": "gitlens:views:scm:grouped:view == remotes && config.gitlens.views.scm.grouped.default != remotes",
-					"group": "2_gitlens@2"
+					"group": "9_gitlens@2"
 				},
 				{
 					"submenu": "gitlens/views/grouped/more",
 					"when": "gitlens:views:scm:grouped:view == remotes",
-					"group": "2_gitlens@3"
+					"group": "9_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.addRemote",
@@ -18146,17 +18146,17 @@
 				{
 					"command": "gitlens.views.scm.grouped.repositories.detach",
 					"when": "gitlens:views:scm:grouped:view == repositories",
-					"group": "2_gitlens@1"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.repositories.setAsDefault",
 					"when": "gitlens:views:scm:grouped:view == repositories && config.gitlens.views.scm.grouped.default != repositories",
-					"group": "2_gitlens@2"
+					"group": "9_gitlens@2"
 				},
 				{
 					"submenu": "gitlens/views/grouped/more",
 					"when": "gitlens:views:scm:grouped:view == repositories",
-					"group": "2_gitlens@3"
+					"group": "9_gitlens@3"
 				},
 				{
 					"command": "gitlens.pushRepositories",
@@ -18178,17 +18178,17 @@
 				{
 					"command": "gitlens.views.scm.grouped.searchAndCompare.detach",
 					"when": "gitlens:views:scm:grouped:view == searchAndCompare",
-					"group": "2_gitlens@1"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.searchAndCompare.setAsDefault",
 					"when": "gitlens:views:scm:grouped:view == searchAndCompare && config.gitlens.views.scm.grouped.default != searchAndCompare",
-					"group": "2_gitlens@2"
+					"group": "9_gitlens@2"
 				},
 				{
 					"submenu": "gitlens/views/grouped/more",
 					"when": "gitlens:views:scm:grouped:view == searchAndCompare",
-					"group": "2_gitlens@3"
+					"group": "9_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.searchCommits",
@@ -18210,17 +18210,17 @@
 				{
 					"command": "gitlens.views.scm.grouped.stashes.detach",
 					"when": "gitlens:views:scm:grouped:view == stashes",
-					"group": "2_gitlens@1"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.stashes.setAsDefault",
 					"when": "gitlens:views:scm:grouped:view == stashes && config.gitlens.views.scm.grouped.default != stashes",
-					"group": "2_gitlens@2"
+					"group": "9_gitlens@2"
 				},
 				{
 					"submenu": "gitlens/views/grouped/more",
 					"when": "gitlens:views:scm:grouped:view == stashes",
-					"group": "2_gitlens@3"
+					"group": "9_gitlens@3"
 				},
 				{
 					"command": "gitlens.stashSave",
@@ -18237,17 +18237,17 @@
 				{
 					"command": "gitlens.views.scm.grouped.tags.detach",
 					"when": "gitlens:views:scm:grouped:view == tags",
-					"group": "2_gitlens@1"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.tags.setAsDefault",
 					"when": "gitlens:views:scm:grouped:view == tags && config.gitlens.views.scm.grouped.default != tags",
-					"group": "2_gitlens@2"
+					"group": "9_gitlens@2"
 				},
 				{
 					"submenu": "gitlens/views/grouped/more",
 					"when": "gitlens:views:scm:grouped:view == tags",
-					"group": "2_gitlens@3"
+					"group": "9_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.title.createTag",
@@ -18259,17 +18259,17 @@
 				{
 					"command": "gitlens.views.scm.grouped.worktrees.detach",
 					"when": "gitlens:views:scm:grouped:view == worktrees",
-					"group": "2_gitlens@1"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.worktrees.setAsDefault",
 					"when": "gitlens:views:scm:grouped:view == worktrees && config.gitlens.views.scm.grouped.default != workspaces",
-					"group": "2_gitlens@2"
+					"group": "9_gitlens@2"
 				},
 				{
 					"submenu": "gitlens/views/grouped/more",
 					"when": "gitlens:views:scm:grouped:view == worktrees",
-					"group": "2_gitlens@3"
+					"group": "9_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.title.createWorktree",
