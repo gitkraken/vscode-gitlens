@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes the _Search & Compare_ view to be separate (detached) from the new grouped _GitLens_ view
 
+### Fixed
+
+- Fixes Home's Recent section being hidden when there are no recent items
+
 ## [16.0.0] - 2024-11-14
 
 ### Added
