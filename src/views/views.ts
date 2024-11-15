@@ -58,7 +58,7 @@ const defaultScmGroupedViews: Record<GroupableTreeViewTypes, boolean> = Object.f
 	worktrees: true,
 	contributors: true,
 	repositories: false,
-	searchAndCompare: true,
+	searchAndCompare: false,
 	launchpad: false,
 });
 

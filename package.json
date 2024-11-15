@@ -1471,7 +1471,7 @@
 							"worktrees": true,
 							"contributors": true,
 							"repositories": false,
-							"searchAndCompare": true,
+							"searchAndCompare": false,
 							"launchpad": false
 						},
 						"properties": {
