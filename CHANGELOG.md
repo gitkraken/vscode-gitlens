@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [16.0.1] - 2024-11-15
+
 ### Changed
 
 - Changes the _Search & Compare_ view to be separate (detached) from the new grouped _GitLens_ view
@@ -5766,7 +5768,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.1...HEAD
+[16.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.0...gitkraken:v16.0.1
 [16.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v15.6.3...gitkraken:v16.0.0
 [15.6.3]: https://github.com/gitkraken/vscode-gitlens/compare/v15.6.2...gitkraken:v15.6.3
 [15.6.2]: https://github.com/gitkraken/vscode-gitlens/compare/v15.6.1...gitkraken:v15.6.2
