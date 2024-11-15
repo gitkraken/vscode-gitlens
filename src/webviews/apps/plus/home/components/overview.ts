@@ -116,12 +116,16 @@ export class GlOverview extends SignalWatcher(LitElement) {
 					.value=${this._overviewState.filter.recent?.threshold}
 				></gl-branch-threshold-filter>
 			</gl-branch-section>
-			<gl-branch-section
-				label="Stale"
-				?hidden=${this._overviewState.filter.stale?.show !== true}
-				.repo=${repository.path}
-				.branches=${repository.branches.stale}
-			></gl-branch-section>
+			${when(
+				this._overviewState.filter.stale?.show === true,
+				() => html`
+					<gl-branch-section
+						label="Stale"
+						.repo=${repository.path}
+						.branches=${repository.branches.stale}
+					></gl-branch-section>
+				`,
+			)}
 		`;
 	}
 }
