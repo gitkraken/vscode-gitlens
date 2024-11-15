@@ -95,42 +95,33 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		if (overview == null) return nothing;
 		const { repository } = overview;
 		return html`
-			${when(
-				repository.branches.recent.length > 0,
-				() => html`
-					<gl-branch-section
-						label="Recent"
-						.isFetching=${isFetching}
-						.repo=${repository.path}
-						.branches=${repository.branches.recent}
-					>
-						<gl-branch-threshold-filter
-							slot="heading-actions"
-							@gl-change=${this.onChangeRecentThresholdFilter.bind(this)}
-							.options=${[
-								{ value: 'OneDay', label: '1 day' },
-								{ value: 'OneWeek', label: '1 week' },
-								{ value: 'OneMonth', label: '1 month' },
-							] satisfies {
-								value: OverviewRecentThreshold;
-								label: string;
-							}[]}
-							.disabled=${isFetching}
-							.value=${this._overviewState.filter.recent?.threshold}
-						></gl-branch-threshold-filter>
-					</gl-branch-section>
-				`,
-			)}
-			${when(
-				repository.branches.stale.length > 0,
-				() => html`
-					<gl-branch-section
-						label="Stale (${repository.branches.stale.length})"
-						.repo=${repository.path}
-						.branches=${repository.branches.stale}
-					></gl-branch-section>
-				`,
-			)}
+			<gl-branch-section
+				label="Recent"
+				.isFetching=${isFetching}
+				.repo=${repository.path}
+				.branches=${repository.branches.recent}
+			>
+				<gl-branch-threshold-filter
+					slot="heading-actions"
+					@gl-change=${this.onChangeRecentThresholdFilter.bind(this)}
+					.options=${[
+						{ value: 'OneDay', label: '1 day' },
+						{ value: 'OneWeek', label: '1 week' },
+						{ value: 'OneMonth', label: '1 month' },
+					] satisfies {
+						value: OverviewRecentThreshold;
+						label: string;
+					}[]}
+					.disabled=${isFetching}
+					.value=${this._overviewState.filter.recent?.threshold}
+				></gl-branch-threshold-filter>
+			</gl-branch-section>
+			<gl-branch-section
+				label="Stale"
+				?hidden=${this._overviewState.filter.stale?.show !== true}
+				.repo=${repository.path}
+				.branches=${repository.branches.stale}
+			></gl-branch-section>
 		`;
 	}
 }
