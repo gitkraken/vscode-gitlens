@@ -96,7 +96,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		const { repository } = overview;
 		return html`
 			<gl-branch-section
-				label="Recent"
+				label="recent"
 				.isFetching=${isFetching}
 				.repo=${repository.path}
 				.branches=${repository.branches.recent}
@@ -120,7 +120,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				this._overviewState.filter.stale?.show === true,
 				() => html`
 					<gl-branch-section
-						label="Stale"
+						label="stale"
 						.repo=${repository.path}
 						.branches=${repository.branches.stale}
 					></gl-branch-section>
