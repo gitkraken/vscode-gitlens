@@ -58,12 +58,10 @@ export class GlBranchSection extends LitElement {
 	@property({ type: Boolean }) isFetching = false;
 
 	private renderSectionLabel() {
-		if (this.isFetching) {
+		if (this.isFetching || this.branches.length === 0) {
 			return this.label;
 		}
-		if (!this.branches.length) {
-			return `No ${this.label} branches`;
-		}
+
 		return `${this.label} (${this.branches.length})`;
 	}
 
@@ -74,6 +72,14 @@ export class GlBranchSection extends LitElement {
 				<span slot="heading-actions"><slot name="heading-actions"></slot></span>
 				${this.branches.map(
 					branch => html`<gl-branch-card .repo=${this.repo} .branch=${branch}></gl-branch-card>`,
+				)}
+				${when(
+					this.branches.length > 0,
+					() =>
+						this.branches.map(
+							branch => html`<gl-branch-card .repo=${this.repo} .branch=${branch}></gl-branch-card>`,
+						),
+					() => html`<p>No ${this.label} branches</p>`,
 				)}
 			</gl-section>
 		`;
