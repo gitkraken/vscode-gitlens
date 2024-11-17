@@ -55,7 +55,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r),
 			);
 		}
 

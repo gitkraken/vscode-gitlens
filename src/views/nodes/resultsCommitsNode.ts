@@ -51,7 +51,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		options?: Partial<Options>,
 		splatted?: boolean,
 	) {
-		super('results-commits', GitUri.fromRepoPath(repoPath), view, parent);
+		super('results-commits', GitUri.fromRepoPath(repoPath), view, parent, splatted);
 
 		if (_results.direction != null) {
 			this.updateContext({ branchStatusUpstreamType: _results.direction });
@@ -60,9 +60,6 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this._options = { autolinks: true, expand: true, ...options };
-		if (splatted != null) {
-			this.splatted = splatted;
-		}
 	}
 
 	override get id(): string {

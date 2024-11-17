@@ -190,8 +190,6 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		this.splatted = false;
-
 		let description = '';
 		let icon: IconPath | undefined;
 		let hasChanges = false;

@@ -76,7 +76,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r),
 			);
 		}
 

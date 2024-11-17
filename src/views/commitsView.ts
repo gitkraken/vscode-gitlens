@@ -136,7 +136,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
 				r =>
-					new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat, {
+					new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r, {
 						showBranchAndLastFetched: true,
 					}),
 			);

@@ -30,8 +30,6 @@ export class LineHistoryNode
 {
 	limit: number | undefined;
 
-	protected override splatted = true;
-
 	constructor(
 		uri: GitUri,
 		view: FileHistoryView | LineHistoryView,
@@ -40,7 +38,7 @@ export class LineHistoryNode
 		public readonly selection: Selection,
 		private readonly editorContents: string | undefined,
 	) {
-		super('line-history', uri, view, parent);
+		super('line-history', uri, view, parent, true);
 
 		if (branch != null) {
 			this.updateContext({ branch: branch });
@@ -163,8 +161,6 @@ export class LineHistoryNode
 	}
 
 	getTreeItem(): TreeItem {
-		this.splatted = false;
-
 		const label = this.label;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.LineHistory;

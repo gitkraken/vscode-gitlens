@@ -76,7 +76,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new ContributorsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new ContributorsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r),
 			);
 		}
 

@@ -21,8 +21,8 @@ export abstract class SubscribeableViewNode<
 
 	protected loaded: boolean = false;
 
-	constructor(type: Type, uri: GitUri, view: TView, parent?: ViewNode) {
-		super(type, uri, view, parent);
+	constructor(type: Type, uri: GitUri, view: TView, parent?: ViewNode, splatted?: boolean) {
+		super(type, uri, view, parent, splatted);
 
 		const disposables = [
 			weakEvent(this.view.onDidChangeVisibility, this.onVisibilityChanged, this),

@@ -253,7 +253,7 @@ export abstract class ViewNode<
 	}
 
 	protected _uniqueId!: string;
-	protected splatted = false;
+	splatted = false;
 	// NOTE: @eamodio uncomment to track node leaks
 	// readonly uuid = uuid();
 
@@ -262,8 +262,12 @@ export abstract class ViewNode<
 		// public readonly id: string | undefined,
 		uri: GitUri,
 		public readonly view: TView,
-		protected parent?: ViewNode,
+		protected parent?: ViewNode | undefined,
+		//** Indicates if this node is only shown as its children, not itself */
+		splatted?: boolean,
 	) {
+		this.splatted = splatted ?? false;
+
 		// NOTE: @eamodio uncomment to track node leaks
 		// queueMicrotask(() => this.view.registerNode(this));
 		this._uri = uri;
@@ -339,20 +343,24 @@ export abstract class ViewNode<
 
 	getSplattedChild?(): Promise<ViewNode | undefined>;
 
+	protected get storedId(): string | undefined {
+		return this.id;
+	}
+
 	deleteState<T extends StateKey<State> = StateKey<State>>(key?: T): void {
-		if (this.id == null) {
+		if (this.storedId == null) {
 			debugger;
 			throw new Error('Id is required to delete state');
 		}
-		this.view.nodeState.deleteState(this.id, key as string);
+		this.view.nodeState.deleteState(this.storedId, key as string);
 	}
 
 	getState<T extends StateKey<State> = StateKey<State>>(key: T): StateValue<State, T> | undefined {
-		if (this.id == null) {
+		if (this.storedId == null) {
 			debugger;
 			throw new Error('Id is required to get state');
 		}
-		return this.view.nodeState.getState(this.id, key as string);
+		return this.view.nodeState.getState(this.storedId, key as string);
 	}
 
 	storeState<T extends StateKey<State> = StateKey<State>>(
@@ -360,11 +368,11 @@ export abstract class ViewNode<
 		value: StateValue<State, T>,
 		sticky?: boolean,
 	): void {
-		if (this.id == null) {
+		if (this.storedId == null) {
 			debugger;
 			throw new Error('Id is required to store state');
 		}
-		this.view.nodeState.storeState(this.id, key as string, value, sticky);
+		this.view.nodeState.storeState(this.storedId, key as string, value, sticky);
 	}
 }
 

@@ -54,7 +54,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new StashesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new StashesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r),
 			);
 		}
 
