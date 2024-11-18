@@ -1,6 +1,6 @@
 import { md5 } from '@env/crypto';
 import slug from 'slug';
-import type { QuickPick } from 'vscode';
+import type { QuickInputButton, QuickPick } from 'vscode';
 import { Uri } from 'vscode';
 import type {
 	AsyncStepResultGenerator,
@@ -18,7 +18,7 @@ import {
 	QuickCommand,
 	StepResultBreak,
 } from '../../commands/quickCommand';
-import { OpenOnGitHubQuickInputButton } from '../../commands/quickCommand.buttons';
+import { OpenOnGitHubQuickInputButton, OpenOnJiraQuickInputButton } from '../../commands/quickCommand.buttons';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
 import type { IntegrationId } from '../../constants.integrations';
@@ -414,7 +414,8 @@ export class StartWorkCommand extends QuickCommand<State> {
 		opened: boolean,
 	): StepResultGenerator<StartWorkItem | StartWorkTypeItem> {
 		const buildIssueItem = (i: StartWorkItem) => {
-			const buttons = i.item.issue.url ? [OpenOnGitHubQuickInputButton] : [];
+			const onWebbButton = i.item.issue.url ? getOpenOnWebQuickInputButton(i.item.issue.provider.id) : undefined;
+			const buttons = onWebbButton ? [onWebbButton] : [];
 			return {
 				label:
 					i.item.issue.title.length > 60 ? `${i.item.issue.title.substring(0, 60)}...` : i.item.issue.title,
@@ -497,11 +498,18 @@ export class StartWorkCommand extends QuickCommand<State> {
 			items: [],
 			onDidActivate: updateItems,
 			onDidClickItemButton: (_quickpick, button, { item }) => {
-				if (button === OpenOnGitHubQuickInputButton && !isStartWorkTypeItem(item)) {
-					this.open(item);
-					return undefined;
+				if (isStartWorkTypeItem(item)) {
+					return false;
 				}
-				return false;
+
+				switch (button) {
+					case OpenOnGitHubQuickInputButton:
+					case OpenOnJiraQuickInputButton:
+						this.open(item);
+						return undefined;
+					default:
+						return false;
+				}
 			},
 			onDidChangeValue: () => true,
 		});
@@ -569,4 +577,15 @@ function isStartWorkTypeItem(item: unknown): item is StartWorkTypeItem {
 
 export function getStartWorkItemIdHash(item: StartWorkItem) {
 	return md5(item.item.issue.id);
+}
+
+function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton | undefined {
+	switch (integrationId) {
+		case HostingIntegrationId.GitHub:
+			return OpenOnGitHubQuickInputButton;
+		case IssueIntegrationId.Jira:
+			return OpenOnJiraQuickInputButton;
+		default:
+			return undefined;
+	}
 }
