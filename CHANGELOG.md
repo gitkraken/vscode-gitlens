@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes the _Search & Compare_ view to be separate (detached) from the new grouped _GitLens_ view
+- API search in the _Launchpad_ is activated only when nothing is found locally
 
 ### Fixed
 

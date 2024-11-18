@@ -744,6 +744,17 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 				this.savedSearch = undefined;
 			},
+
+			onDidChangeActive: quickpick => {
+				const hasActiveLaunchpadItems = quickpick.activeItems.find(i => 'item' in i);
+				if (hasActiveLaunchpadItems) {
+					context.updateItemsDebouncer.cancel();
+					return true;
+				}
+
+				return false;
+			},
+
 			onDidChangeValue: async quickpick => {
 				const { value } = quickpick;
 				this.savedSearch = value;
