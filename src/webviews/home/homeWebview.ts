@@ -437,7 +437,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			},
 			showWalkthroughProgress: !this.getWalkthroughDismissed(),
 			previewEnabled: this.getPreviewEnabled(),
-			newInstall: getContext('gitlens:newInstall', false),
+			newInstall: getContext('gitlens:install:new', false),
 		};
 	}
 

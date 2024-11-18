@@ -15,10 +15,10 @@ export type ContextKeys = {
 	'gitlens:gk:organization:drafts:enabled': boolean;
 	'gitlens:hasVirtualFolders': boolean;
 	'gitlens:launchpad:connect': boolean;
-	/** Indicates that this is a new install of GitLens (on this machine) */
-	'gitlens:newInstall': boolean;
-	/** Indicates that this is a new install of GitLens (anywhere for this user -- if synced settings is on) */
-	'gitlens:newUserInstall': boolean;
+	/** Indicates that this is the first run of a new install of GitLens */
+	'gitlens:install:new': boolean;
+	/** Indicates that this is the first run after an upgrade of GitLens */
+	'gitlens:install:upgradedFrom': string;
 	'gitlens:plus': Exclude<SubscriptionPlanId, SubscriptionPlanId.Community>;
 	'gitlens:plus:disallowedRepos': string[];
 	'gitlens:plus:enabled': boolean;

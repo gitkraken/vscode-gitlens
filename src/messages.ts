@@ -230,16 +230,16 @@ export function showIntegrationRequestTimedOutWarningMessage(providerName: strin
 	);
 }
 
-export async function showWhatsNewMessage(version: string) {
+export async function showWhatsNewMessage(majorVersion: string) {
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const releaseNotes = { title: 'View Release Notes' };
 	const result = await showMessage(
 		'info',
-		`Upgraded to GitLens ${version}${
-			version === '16'
+		`Upgraded to GitLens ${majorVersion}${
+			majorVersion === '16'
 				? ` with an all new [Home view](${createMarkdownCommandLink(Commands.ShowHomeView, {
 						source: 'whatsnew',
-				  })} "Show Home view") reimagined as a hub for your current, future, and recent work, consolidated Source Control views, and much more.`
+				  })} "Show Home view") reimagined as a hub for your current, future, and recent work, [consolidated Source Control views](command:gitlens.views.scm.grouped.focus "Show GitLens view"), and much more.`
 				: " — see what's new."
 		}`,
 		undefined,
