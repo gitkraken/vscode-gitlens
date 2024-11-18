@@ -18,7 +18,9 @@ import type { PatchDetailsWebviewShowingArgs } from '../plus/webviews/patchDetai
 import { registerPatchDetailsWebviewView } from '../plus/webviews/patchDetails/registration';
 import type { TimelineWebviewShowingArgs } from '../plus/webviews/timeline/registration';
 import { registerTimelineWebviewView } from '../plus/webviews/timeline/registration';
+import { once } from '../system/function';
 import { first } from '../system/iterable';
+import { compare } from '../system/version';
 import { executeCommand, executeCoreCommand, registerCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import { getContext, setContext } from '../system/vscode/context';
@@ -108,12 +110,27 @@ export class Views implements Disposable {
 			configuration.get('views.scm.grouped.default'),
 		);
 		this.updateScmGroupedViewsRegistration();
+
 		// If this is a new install, expand the GitLens view and show the home view by default
-		if (getContext('gitlens:newInstall', false)) {
-			setTimeout(() => {
-				executeCoreCommand(`gitlens.views.scm.grouped.focus`, { preserveFocus: true });
-				executeCoreCommand(`gitlens.views.home.focus`, { preserveFocus: true });
-			}, 250);
+		const newInstall = getContext('gitlens:install:new', false);
+		let showGitLensView = newInstall;
+		if (!showGitLensView) {
+			const upgradedFrom = getContext('gitlens:install:upgradedFrom');
+			if (upgradedFrom && compare(upgradedFrom, '16.0.2') === -1) {
+				showGitLensView = !container.storage.get('views:scm:grouped:welcome:dismissed', false);
+			}
+		}
+
+		if (showGitLensView) {
+			const disposable = once(container.onReady)(() => {
+				disposable?.dispose();
+				setTimeout(() => {
+					executeCoreCommand(`gitlens.views.scm.grouped.focus`, { preserveFocus: true });
+					if (newInstall) {
+						executeCoreCommand(`gitlens.views.home.focus`, { preserveFocus: true });
+					}
+				}, 0);
+			});
 		}
 	}
 
@@ -410,7 +427,7 @@ export class Views implements Disposable {
 	private async showWelcomeNotification() {
 		this._welcomeDismissed = true;
 
-		const newInstall = getContext('gitlens:newInstall', false);
+		const newInstall = getContext('gitlens:install:new', false);
 
 		const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
 		const Restore: MessageItem = { title: 'Restore Previous Locations' };
