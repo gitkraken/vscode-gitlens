@@ -31,7 +31,7 @@ const promos: Promo[] = [
 			SubscriptionState.ProTrialExpired,
 			SubscriptionState.ProTrialReactivationEligible,
 		],
-		startsOn: new Date('2024-12-11T06:59:00.000Z').getTime(),
+		startsOn: new Date('2024-11-11T06:59:00.000Z').getTime(),
 		expiresOn: new Date('2024-11-24T06:59:00.000Z').getTime(),
 		command: { tooltip: 'Save more than 55% during our GitLens 16 sale!' },
 		locations: ['account', 'badge', 'gate'],
@@ -50,7 +50,7 @@ const promos: Promo[] = [
 			SubscriptionState.ProTrialExpired,
 			SubscriptionState.ProTrialReactivationEligible,
 		],
-		startsOn: new Date('2024-11-02T06:59:00.000Z').getTime(),
+		startsOn: new Date('2024-11-25T06:59:00.000Z').getTime(),
 		expiresOn: new Date('2024-12-06T06:59:00.000Z').getTime(),
 		command: { tooltip: 'Cyber Sale: Save up to 85% on GitLens Pro — our best deal of the year!' },
 		quickpick: {
