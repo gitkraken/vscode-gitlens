@@ -499,7 +499,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			onDidClickItemButton: (_quickpick, button, { item }) => {
 				if (button === OpenOnGitHubQuickInputButton && !isStartWorkTypeItem(item)) {
 					this.open(item);
-					return true;
+					return undefined;
 				}
 				return false;
 			},
