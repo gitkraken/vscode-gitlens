@@ -503,6 +503,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 				}
 				return false;
 			},
+			onDidChangeValue: () => true,
 		});
 
 		const selection: StepSelection<typeof step> = yield step;
