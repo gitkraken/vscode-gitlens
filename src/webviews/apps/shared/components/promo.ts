@@ -2,6 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { Promo } from '../../../../plus/gk/account/promos';
+import { typeCheck } from '../../../../system/function';
 
 @customElement('gl-promo')
 export class GlPromo extends LitElement {
@@ -77,17 +78,27 @@ export class GlPromo extends LitElement {
 	}
 
 	private renderPromo(promo: Promo) {
-		// NOTE: Don't add a default case or return at the end, so that if we add a new promo the build will break without handling it
 		switch (promo.key) {
-			case 'pro50':
+			case 'cybersale24':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					><b>Save 33% or more</b> on your 1st seat of Pro</span
+					>Cyber Sale: <b>Save up to 85%</b> on GitLens Pro — our best deal of the year!</span
 				>`;
 
 			case 'gitlens16':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
 					><b>Save more than 55%</b> during our GitLens 16 sale!</span
 				>`;
+
+			case 'pro50':
+				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
+					><b>Save 33% or more</b> on your 1st seat of Pro</span
+				>`;
+
+			default: {
+				debugger;
+				typeCheck<never>(promo.key);
+				return nothing;
+			}
 		}
 	}
 }

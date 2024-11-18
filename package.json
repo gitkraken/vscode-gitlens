@@ -19050,6 +19050,16 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
+				"contents": "Cyber Sale: Save up to 85% on GitLens Pro — our best deal of the year!",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == cybersale24"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Cyber Sale: Save up to 85% on GitLens Pro — our best deal of the year!",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == cybersale24 && gitlens:views:scm:grouped:view == launchpad"
+			},
+			{
+				"view": "gitlens.views.launchpad",
 				"contents": "Your Pro trial has ended. Please upgrade for full access to Launchpad and other Pro features.",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
 			},
@@ -19165,6 +19175,16 @@
 				"view": "gitlens.views.scm.grouped",
 				"contents": "Save more than 55% during our GitLens 16 sale!",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gitlens16 && gitlens:views:scm:grouped:view == worktrees"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Cyber Sale: Save up to 85% on GitLens Pro — our best deal of the year!",
+				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == cybersale24"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Cyber Sale: Save up to 85% on GitLens Pro — our best deal of the year!",
+				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == cybersale24 && gitlens:views:scm:grouped:view == worktrees"
 			},
 			{
 				"view": "gitlens.views.worktrees",
