@@ -622,7 +622,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async getBranchesData(repo: Repository, force = false) {
 		if (force || !this._repositoryBranches.has(repo.path)) {
 			const worktrees = (await repo.git.getWorktrees()) ?? [];
-			const worktreesByBranch = groupWorktreesByBranch(worktrees);
+			const worktreesByBranch = groupWorktreesByBranch(worktrees, { includeDefault: true });
 			const [branchesResult] = await Promise.allSettled([
 				repo.git.getBranches({
 					filter: b => !b.remote,
