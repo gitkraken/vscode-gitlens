@@ -71,9 +71,6 @@ export class GlBranchSection extends LitElement {
 			<gl-section>
 				<span slot="heading">${this.renderSectionLabel()}</span>
 				<span slot="heading-actions"><slot name="heading-actions"></slot></span>
-				${this.branches.map(
-					branch => html`<gl-branch-card .repo=${this.repo} .branch=${branch}></gl-branch-card>`,
-				)}
 				${when(
 					this.branches.length > 0,
 					() =>
