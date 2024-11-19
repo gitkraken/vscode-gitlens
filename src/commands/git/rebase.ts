@@ -28,7 +28,7 @@ interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
-	destination: GitBranch;
+	branch: GitBranch;
 	pickCommit: boolean;
 	pickCommitForItem: boolean;
 	selectedBranchOrTag: GitReference | undefined;
@@ -40,7 +40,7 @@ type Flags = '--interactive';
 
 interface State {
 	repo: string | Repository;
-	reference: GitReference;
+	destination: GitReference;
 	flags: Flags[];
 }
 
@@ -63,7 +63,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			counter++;
 		}
 
-		if (args?.state?.reference != null) {
+		if (args?.state?.destination != null) {
 			counter++;
 		}
 
@@ -87,7 +87,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			configs = ['-c', `"sequence.editor=${editor}"`];
 		}
 
-		state.repo.rebase(configs, ...state.flags, state.reference.ref);
+		state.repo.rebase(configs, ...state.flags, state.destination.ref);
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -95,7 +95,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.views.commits,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
-			destination: undefined!,
+			branch: undefined!,
 			pickCommit: false,
 			pickCommitForItem: false,
 			selectedBranchOrTag: undefined,
@@ -130,20 +130,20 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			if (context.destination == null) {
+			if (context.branch == null) {
 				const branch = await state.repo.git.getBranch();
 				if (branch == null) break;
 
-				context.destination = branch;
+				context.branch = branch;
 			}
 
-			context.title = `${this.title} ${getReferenceLabel(context.destination, {
+			context.title = `${this.title} ${getReferenceLabel(context.branch, {
 				icon: false,
 				label: false,
 			})} onto`;
 			context.pickCommitForItem = false;
 
-			if (state.counter < 2 || state.reference == null) {
+			if (state.counter < 2 || state.destination == null) {
 				const pickCommitToggle = new PickCommitToggleQuickInputButton(context.pickCommit, context, () => {
 					context.pickCommit = !context.pickCommit;
 					pickCommitToggle.on = context.pickCommit;
@@ -152,7 +152,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				const result: StepResult<GitReference> = yield* pickBranchOrTagStep(state as RebaseStepState, context, {
 					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to rebase`,
 					picked: context.selectedBranchOrTag?.ref,
-					value: context.selectedBranchOrTag == null ? state.reference?.ref : undefined,
+					value: context.selectedBranchOrTag == null ? state.destination?.ref : undefined,
 					additionalButtons: [pickCommitToggle],
 				});
 				if (result === StepResultBreak) {
@@ -164,18 +164,18 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					continue;
 				}
 
-				state.reference = result;
+				state.destination = result;
 				context.selectedBranchOrTag = undefined;
 			}
 
-			if (!isRevisionReference(state.reference)) {
-				context.selectedBranchOrTag = state.reference;
+			if (!isRevisionReference(state.destination)) {
+				context.selectedBranchOrTag = state.destination;
 			}
 
 			if (
 				state.counter < 3 &&
 				context.selectedBranchOrTag != null &&
-				(context.pickCommit || context.pickCommitForItem || state.reference.ref === context.destination.ref)
+				(context.pickCommit || context.pickCommitForItem || state.destination.ref === context.branch.ref)
 			) {
 				const ref = context.selectedBranchOrTag.ref;
 
@@ -194,14 +194,14 @@ export class RebaseGitCommand extends QuickCommand<State> {
 							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, {
 									icon: false,
 							  })}`
-							: `Choose a commit to rebase ${getReferenceLabel(context.destination, {
+							: `Choose a commit to rebase ${getReferenceLabel(context.branch, {
 									icon: false,
 							  })} onto`,
-					picked: state.reference?.ref,
+					picked: state.destination?.ref,
 				});
 				if (result === StepResultBreak) continue;
 
-				state.reference = result;
+				state.destination = result;
 			}
 
 			const result = yield* this.confirmStep(state as RebaseStepState, context);
@@ -219,24 +219,25 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		const counts = await this.container.git.getLeftRightCommitCount(
 			state.repo.path,
-			createRevisionRange(context.destination.ref, state.reference.ref, '...'),
+			createRevisionRange(state.destination.ref, context.branch.ref, '...'),
 			{ excludeMerges: true },
 		);
 
-		const title = `${context.title} ${getReferenceLabel(state.reference, { icon: false, label: false })}`;
-		const count = counts != null ? counts.left : 0;
-		if (count === 0) {
+		const title = `${context.title} ${getReferenceLabel(state.destination, { icon: false, label: false })}`;
+		const ahead = counts != null ? counts.right : 0;
+		const behind = counts != null ? counts.left : 0;
+		if (behind === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
 				appendReposToTitle(title, state, context),
 				[],
 				createDirectiveQuickPickItem(Directive.Cancel, true, {
 					label: 'OK',
-					detail: `${getReferenceLabel(context.destination, {
+					detail: `${getReferenceLabel(context.branch, {
 						capitalize: true,
-					})} is already up to date with ${getReferenceLabel(state.reference, { label: false })}`,
+					})} is already up to date with ${getReferenceLabel(state.destination, { label: false })}`,
 				}),
 				{
-					placeholder: `Nothing to rebase; ${getReferenceLabel(context.destination, {
+					placeholder: `Nothing to rebase; ${getReferenceLabel(context.branch, {
 						label: false,
 						icon: false,
 					})} is already up to date`,
@@ -252,18 +253,18 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will update ${getReferenceLabel(context.destination, {
+					detail: `Will update ${getReferenceLabel(context.branch, {
 						label: false,
-					})} by applying ${pluralize('commit', count)} on top of ${getReferenceLabel(state.reference, {
+					})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
 						label: false,
 					})}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
 					label: `Interactive ${this.title}`,
 					description: '--interactive',
-					detail: `Will interactively update ${getReferenceLabel(context.destination, {
+					detail: `Will interactively update ${getReferenceLabel(context.branch, {
 						label: false,
-					})} by applying ${pluralize('commit', count)} on top of ${getReferenceLabel(state.reference, {
+					})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
 						label: false,
 					})}`,
 				}),
