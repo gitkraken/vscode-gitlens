@@ -4,6 +4,7 @@ import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
 import type { GitTrackingState } from '../../../../../git/models/branch';
 import type { GetOverviewBranch } from '../../../../home/protocol';
+import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/avatar/avatar';
 import '../../../shared/components/avatar/avatar-list';
@@ -173,7 +174,7 @@ export const branchCardStyles = css`
 	}
 
 	.branch-item:not(:focus-within):not(:hover) .branch-item__actions {
-		display: none;
+		${srOnlyStyles}
 	}
 
 	.pill {
