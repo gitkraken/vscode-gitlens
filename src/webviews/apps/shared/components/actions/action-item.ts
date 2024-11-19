@@ -1,10 +1,16 @@
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
+import { focusOutline } from '../styles/lit/a11y.css';
 import '../overlays/tooltip';
 import '../code-icon';
 
 @customElement('action-item')
 export class ActionItem extends LitElement {
+	static override shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
+
 	static override styles = css`
 		:host {
 			box-sizing: border-box;
@@ -21,9 +27,8 @@ export class ActionItem extends LitElement {
 			cursor: pointer;
 		}
 
-		:host(:focus) {
-			outline: 1px solid var(--vscode-focusBorder);
-			outline-offset: -1px;
+		:host(:focus-within) {
+			${focusOutline}
 		}
 
 		:host(:hover) {
@@ -42,6 +47,9 @@ export class ActionItem extends LitElement {
 		a {
 			color: inherit;
 		}
+		a:focus {
+			outline: none;
+		}
 	`;
 
 	@property()
@@ -55,6 +63,9 @@ export class ActionItem extends LitElement {
 
 	@property({ type: Boolean })
 	disabled = false;
+
+	@query('a')
+	private defaultFocusEl!: HTMLAnchorElement;
 
 	override render() {
 		return html`
@@ -70,5 +81,9 @@ export class ActionItem extends LitElement {
 				</a>
 			</gl-tooltip>
 		`;
+	}
+
+	override focus(options?: FocusOptions) {
+		this.defaultFocusEl.focus(options);
 	}
 }
