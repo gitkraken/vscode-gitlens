@@ -6,8 +6,10 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import type { GitTrackingState } from '../../../../../git/models/branch';
 import { createWebviewCommandLink } from '../../../../../system/webview';
-import type { GetOverviewBranch, State } from '../../../../home/protocol';
+import type { GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
+import { ipcContext } from '../../../shared/context';
+import type { HostIpc } from '../../../shared/ipc';
 import { branchCardStyles, createCommandLink, headingLoaderStyles } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
@@ -50,6 +52,9 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 	@consume({ context: overviewStateContext })
 	private _overviewState!: OverviewState;
+
+	@consume({ context: ipcContext })
+	private _ipc!: HostIpc;
 
 	override connectedCallback() {
 		super.connectedCallback();
@@ -103,13 +108,15 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				>
 				<span slot="heading-actions"
 					><gl-button
-						hidden
 						aria-busy="${ifDefined(isFetching)}"
 						?disabled=${isFetching}
 						class="section-heading-action"
 						appearance="toolbar"
 						tooltip="Open in Commit Graph"
-						@click=${(_e: MouseEvent) => {}}
+						href=${createCommandLink('gitlens.home.openInGraph', {
+							type: 'repo',
+							repoPath: this._overviewState.state!.repository.path,
+						} satisfies OpenInGraphParams)}
 						><code-icon icon="gl-graph"></code-icon
 					></gl-button>
 					${when(
