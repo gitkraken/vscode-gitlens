@@ -24,6 +24,7 @@ import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/mo
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils';
+import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
@@ -42,6 +43,7 @@ import type {
 	GetOverviewBranch,
 	GetOverviewBranches,
 	GetOverviewResponse,
+	OpenInGraphParams,
 	OverviewFilters,
 	OverviewRecentThreshold,
 	OverviewStaleThreshold,
@@ -64,6 +66,7 @@ import {
 	GetLaunchpadSummary,
 	GetOverview,
 	GetOverviewFilterState,
+	OpenInGraphCommand,
 	SetOverviewFilter,
 	TogglePreviewEnabledCommand,
 } from './protocol';
@@ -268,6 +271,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.openWorktree', this.worktreeOpen, this),
 			registerCommand('gitlens.home.switchToBranch', this.switchToBranch, this),
 			registerCommand('gitlens.home.fetch', this.fetch, this),
+			registerCommand('gitlens.home.openInGraph', this.openInGraph, this),
 		];
 	}
 
@@ -303,6 +307,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			case TogglePreviewEnabledCommand.is(e):
 				this.onTogglePreviewEnabled();
 				break;
+			case OpenInGraphCommand.is(e):
+				this.openInGraph(e.params);
+				break;
 		}
 	}
 
@@ -337,6 +344,31 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		this.resumeRepositorySubscription();
 		this.notifyDidChangeRepositories(true);
+	}
+
+	private openInGraph(params: OpenInGraphParams) {
+		if (params?.type === 'branch') {
+			const repo = this._repositoryBranches.get(params.repoPath);
+			if (repo == null) return;
+
+			const branch = repo.branches.find(b => b.id === params.branchId);
+			if (branch == null) return;
+
+			const ref = getReferenceFromBranch(branch);
+			if (ref == null) return;
+			void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, { ref: ref });
+			return;
+		}
+
+		let repo: Repository | undefined;
+		if (params == null) {
+			repo = this.getSelectedRepository();
+		} else {
+			const repoBranches = this._repositoryBranches.get(params.repoPath);
+			repo = repoBranches?.repo;
+		}
+		if (repo == null) return;
+		void executeCommand(Commands.ShowGraph, repo);
 	}
 
 	private onTogglePreviewEnabled(isEnabled?: boolean) {

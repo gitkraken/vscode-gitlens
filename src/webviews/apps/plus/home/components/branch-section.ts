@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
 import type { GitTrackingState } from '../../../../../git/models/branch';
-import type { GetOverviewBranch } from '../../../../home/protocol';
+import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/avatar/avatar';
@@ -368,6 +368,16 @@ export class GlBranchCard extends LitElement {
 				label="Fetch"
 				icon="gl-repo-fetch"
 				href=${this.createCommandLink('gitlens.home.fetch')}
+			></action-item>`,
+		);
+		actions.push(
+			html`<action-item
+				label="Open in Commit Graph"
+				icon="gl-graph"
+				href=${createCommandLink('gitlens.home.openInGraph', {
+					...this.branchRefs,
+					type: 'branch',
+				} satisfies OpenInGraphParams)}
 			></action-item>`,
 		);
 

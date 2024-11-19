@@ -141,6 +141,12 @@ export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthroug
 
 export const SetOverviewFilter = new IpcCommand<OverviewFilters>(scope, 'overview/filter/set');
 
+export type OpenInGraphParams =
+	| { type: 'repo'; repoPath: string }
+	| { type: 'branch'; repoPath: string; branchId: string }
+	| undefined;
+export const OpenInGraphCommand = new IpcCommand<OpenInGraphParams>(scope, 'openInGraph');
+
 // NOTIFICATIONS
 
 export interface DidCompleteDiscoveringRepositoriesParams {
