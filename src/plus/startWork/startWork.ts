@@ -56,6 +56,9 @@ interface State {
 	type?: StartWorkType;
 	inWorktree?: boolean;
 }
+interface StateWithType extends State {
+	type: StartWorkType;
+}
 
 export type StartWorkType = 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree';
 type StartWorkTypeItem = { type: StartWorkType; inWorktree?: boolean };
@@ -166,6 +169,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 					}
 				}
 
+				assertsTypeStepState(state);
 				const result = yield* this.pickIssueStep(state, context, opened);
 				opened = true;
 				if (result === StepResultBreak) continue;
@@ -399,7 +403,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 	}
 
 	private *pickIssueStep(
-		state: StepState<State>,
+		state: StepState<StateWithType>,
 		context: Context,
 		opened: boolean,
 	): StepResultGenerator<StartWorkItem | StartWorkTypeItem> {
@@ -523,7 +527,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 	private sendItemActionTelemetry(
 		action: 'soft-open',
 		item: StartWorkItem,
-		state: StepState<State>,
+		state: StepState<StateWithType>,
 		context: Context,
 	) {
 		this.container.telemetry.sendEvent('startWork/issue/action', {
@@ -616,4 +620,13 @@ function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton |
 		default:
 			return undefined;
 	}
+}
+
+function assertsTypeStepState(state: StepState<State>): asserts state is StepState<StateWithType> {
+	if (state.type != null) {
+		return;
+	}
+
+	debugger;
+	throw new Error('Missing `item` field in state of StartWork');
 }
