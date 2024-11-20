@@ -3,7 +3,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { GetOverviewResponse, OverviewRecentThreshold, State } from '../../../../home/protocol';
+import type { GetOverviewBranch, GetOverviewResponse, OverviewRecentThreshold, State } from '../../../../home/protocol';
 import { SetOverviewFilter } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { ipcContext } from '../../../shared/context';
@@ -91,6 +91,8 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		});
 	}
 
+	private prevAttr = JSON.parse(document.body.getAttribute('data-vscode-context') ?? '{}');
+
 	private renderComplete(overview: Overview, isFetching = false) {
 		if (overview == null) return nothing;
 		const { repository } = overview;
@@ -100,6 +102,16 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				.isFetching=${isFetching}
 				.repo=${repository.path}
 				.branches=${repository.branches.recent}
+				@branch-context-opened=${(e: CustomEvent<{ branch: GetOverviewBranch }>) => {
+					this.prevAttr = JSON.parse(document.body.getAttribute('data-vscode-context') ?? '{}');
+					document.body.setAttribute(
+						'data-vscode-context',
+						JSON.stringify({ ...this.prevAttr, webviewItem: 'gitlens:upstreamStatus' }),
+					);
+				}}
+				@branch-context-closed=${() => {
+					document.body.setAttribute('data-vscode-context', JSON.stringify(this.prevAttr));
+				}}
 			>
 				<gl-branch-threshold-filter
 					slot="heading-actions"
