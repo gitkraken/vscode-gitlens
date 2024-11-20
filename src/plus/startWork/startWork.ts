@@ -505,6 +505,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 				switch (button) {
 					case OpenOnGitHubQuickInputButton:
 					case OpenOnJiraQuickInputButton:
+						this.sendItemActionTelemetry('soft-open', item, state, context);
 						this.open(item);
 						return undefined;
 					default:
@@ -525,6 +526,35 @@ export class StartWorkCommand extends QuickCommand<State> {
 	private open(item: StartWorkItem): void {
 		if (item.item.issue.url == null) return;
 		void openUrl(item.item.issue.url);
+	}
+
+	private sendItemActionTelemetry(
+		action: 'soft-open',
+		item: StartWorkItem,
+		state: StepState<State>,
+		context: Context,
+	) {
+		this.container.telemetry.sendEvent(
+			'startWork/issue/action',
+			{
+				...context.telemetryContext!,
+				action: action,
+				connected: true,
+				type: state.type,
+				'item.id': getStartWorkItemIdHash(item),
+				'item.type': item.item.issue.type,
+				'item.provider': item.item.issue.provider.id,
+				'item.assignees.count': item.item.issue.assignees?.length ?? undefined,
+				'item.createdDate': item.item.issue.createdDate.getTime(),
+				'item.updatedDate': item.item.issue.updatedDate.getTime(),
+
+				'item.comments.count': item.item.issue.commentsCount ?? undefined,
+				'item.upvotes.count': item.item.issue.thumbsUpCount ?? undefined,
+
+				'item.issue.state': item.item.issue.state,
+			},
+			this.source,
+		);
 	}
 
 	private async getConnectedIntegrations(): Promise<Map<SupportedStartWorkIntegrationIds, boolean>> {
