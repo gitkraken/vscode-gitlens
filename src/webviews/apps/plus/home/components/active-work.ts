@@ -124,6 +124,15 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						} satisfies OpenInGraphParams)}
 						><code-icon icon="gl-graph"></code-icon
 					></gl-button>
+					<gl-button
+						aria-busy="${ifDefined(isFetching)}"
+						?disabled=${isFetching}
+						class="section-heading-action"
+						appearance="toolbar"
+						tooltip="Fetch"
+						href=${createCommandLink('gitlens.home.fetch', undefined)}
+						><code-icon icon="gl-repo-fetch"></code-icon
+					></gl-button>
 					${when(
 						this._homeState.repositories.openCount > 1,
 						() =>
@@ -228,15 +237,6 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				></action-item>`,
 			);
 		}
-
-		// branch actions
-		actions.push(
-			html`<action-item
-				label="Fetch"
-				icon="gl-repo-fetch"
-				href=${createCommandLink('gitlens.home.fetch', branchRefs)}
-			></action-item>`,
-		);
 
 		if (!actions.length) {
 			return nothing;
