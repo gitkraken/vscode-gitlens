@@ -1358,6 +1358,19 @@ void
 }
 ```
 
+### startWork/issue/action
+
+> Sent when the user takes an action on a StartWork issue
+
+```typescript
+{
+  'instance': number,
+  'type': 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree',
+  'items.count': number,
+  'action': 'soft-open'
+}
+```
+
 ### startWork/issue/chosen
 
 > Sent when the user chooses an issue to start work in the second step
