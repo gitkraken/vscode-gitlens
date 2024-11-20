@@ -415,6 +415,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 	): StepResultGenerator<StartWorkItem | StartWorkTypeItem> {
 		const buildIssueItem = (i: StartWorkItem) => {
 			const buttons = i.item.issue.url ? [OpenOnGitHubQuickInputButton] : [];
+			const hoverContent = i.item.issue.body ? `${repeatSpaces(200)}\n\n${i.item.issue.body}` : '';
 			return {
 				label:
 					i.item.issue.title.length > 60 ? `${i.item.issue.title.substring(0, 60)}...` : i.item.issue.title,
@@ -422,7 +423,8 @@ export class StartWorkCommand extends QuickCommand<State> {
 				description: `\u00a0 ${
 					i.item.issue.repository ? `${i.item.issue.repository.owner}/${i.item.issue.repository.repo}#` : ''
 				}${i.item.issue.id} \u00a0`,
-				detail: `      ${fromNow(i.item.issue.updatedDate)} by @${i.item.issue.author.name}`,
+				// The spacing here at the beginning is used to align the description with the title. Otherwise it starts under the avatar icon:
+				detail: `      ${fromNow(i.item.issue.updatedDate)} by @${i.item.issue.author.name}${hoverContent}`,
 				iconPath: i.item.issue.author?.avatarUrl != null ? Uri.parse(i.item.issue.author.avatarUrl) : undefined,
 				item: i,
 				picked: i.item.issue.id === state.item?.item?.issue.id,
@@ -565,6 +567,10 @@ function updateTelemetryContext(context: Context) {
 
 function isStartWorkTypeItem(item: unknown): item is StartWorkTypeItem {
 	return item != null && typeof item === 'object' && 'type' in item;
+}
+
+function repeatSpaces(count: number) {
+	return ' '.repeat(count);
 }
 
 export function getStartWorkItemIdHash(item: StartWorkItem) {
