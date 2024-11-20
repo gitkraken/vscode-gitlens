@@ -328,6 +328,7 @@ export type TelemetryEvents = {
 	'startWork/issue/action': StartWorkEventData & {
 		action: 'soft-open';
 		connected: boolean;
+		type: StartWorkType;
 	} & Partial<Record<`item.${string}`, string | number | boolean>>;
 	/** Sent when the user chooses an issue to start work in the second step */
 	'startWork/issue/chosen': StartWorkEventData & {
