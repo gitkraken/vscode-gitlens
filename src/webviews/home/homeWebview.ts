@@ -837,7 +837,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void RepoActions.switchTo(repo!.repo, getReferenceFromBranch(branch));
 	}
 
-	private fetch(refs: BranchRef) {
+	private fetch(refs?: BranchRef) {
+		if (refs == null) {
+			const repo = this.getSelectedRepository();
+			void RepoActions.fetch(repo);
+			return;
+		}
+
 		const repo = this._repositoryBranches.get(refs.repoPath);
 		const branch = repo?.branches.find(b => b.id === refs.branchId);
 		if (branch == null) return;
