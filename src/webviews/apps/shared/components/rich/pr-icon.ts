@@ -3,6 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { prIconStyles } from './pr.css';
 import '../code-icon';
+import '../overlays/tooltip';
 
 @customElement('pr-icon')
 export class PrIcon extends LitElement {
@@ -10,6 +11,9 @@ export class PrIcon extends LitElement {
 
 	@property()
 	state?: 'merged' | 'opened' | 'closed' | string;
+
+	@property({ attribute: 'pr-id' })
+	prId?: string;
 
 	get icon() {
 		let prIcon = 'git-pull-request';
@@ -32,11 +36,24 @@ export class PrIcon extends LitElement {
 		return `pr-icon pr-icon--${this.state}`;
 	}
 
+	get label() {
+		if (!this.state) return 'Pull request';
+
+		return `Pull request ${this.prId ? `#${this.prId}` : ''} is ${this.state}`;
+	}
+
 	override render() {
-		return html`<code-icon
-			class=${this.classes}
-			icon=${this.icon}
-			aria-label=${ifDefined(this.state)}
-		></code-icon>`;
+		if (!this.state) {
+			return html`<code-icon
+				class=${this.classes}
+				icon=${this.icon}
+				aria-label=${ifDefined(this.state)}
+			></code-icon>`;
+		}
+
+		return html`<gl-tooltip>
+			<code-icon class=${this.classes} icon=${this.icon} aria-label=${ifDefined(this.state)}></code-icon>
+			<span slot="content">${this.label}</span>
+		</gl-tooltip>`;
 	}
 }

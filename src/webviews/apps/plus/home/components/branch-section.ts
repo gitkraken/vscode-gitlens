@@ -257,7 +257,7 @@ export class GlBranchCard extends LitElement {
 
 	private renderIcon(branch: OverviewBranch, noPr?: boolean) {
 		if (branch.pr && !noPr) {
-			return html`<pr-icon state=${branch.pr.state}></pr-icon>`;
+			return html`<pr-icon state=${branch.pr.state} pr-id=${branch.pr.id}></pr-icon>`;
 		}
 		if (branch.worktree) {
 			return html`<code-icon icon="gl-worktrees-view"></code-icon>`;

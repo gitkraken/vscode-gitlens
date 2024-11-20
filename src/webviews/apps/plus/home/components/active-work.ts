@@ -193,7 +193,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						return html`<div class="branch-item__section">
 							<p class="branch-item__grouping">
 								<span class="branch-item__icon">
-									<pr-icon state=${pr.state}></pr-icon>
+									<pr-icon state=${pr.state} pr-id=${pr.id}></pr-icon>
 								</span>
 								<span class="branch-item__name">${pr.title}</span>
 								<a href=${pr.url} class="branch-item__identifier">#${pr.id}</a>
