@@ -6881,6 +6881,51 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.home.createPullRequest",
+				"title": "Create Pull Request...",
+				"icon": "$(git-pull-request-create)"
+			},
+			{
+				"command": "gitlens.home.fetch",
+				"title": "Fetch",
+				"icon": "$(gl-repo-fetch)"
+			},
+			{
+				"command": "gitlens.home.openInGraph",
+				"title": "Open in Commit Graph",
+				"icon": "$(gl-graph)"
+			},
+			{
+				"command": "gitlens.home.openPullRequestChanges",
+				"title": "Open Pull Request Changes",
+				"icon": "$(request-changes)"
+			},
+			{
+				"command": "gitlens.home.openPullRequestOnRemote",
+				"title": "Open Pull Request on Remote",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.home.openWorktree",
+				"title": "Open Worktree",
+				"icon": "$(browser)"
+			},
+			{
+				"command": "gitlens.home.openWorktreeInNewWindow",
+				"title": "Open Worktree in New Window",
+				"icon": "$(empty-window)"
+			},
+			{
+				"command": "gitlens.home.pull",
+				"title": "Pull",
+				"icon": "$(gl-repo-pull)"
+			},
+			{
+				"command": "gitlens.home.switchToBranch",
+				"title": "Switch to Branch...",
+				"icon": "$(gl-switch)"
+			},
+			{
 				"command": "gitlens.inviteToLiveShare",
 				"title": "Invite to Live Share",
 				"icon": "$(live-share)"
@@ -10791,6 +10836,42 @@
 				},
 				{
 					"command": "gitlens.graph.undoCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.createPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.fetch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.openInGraph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.openPullRequestChanges",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.openPullRequestOnRemote",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.openWorktree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.openWorktreeInNewWindow",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.pull",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.switchToBranch",
 					"when": "false"
 				},
 				{
@@ -18735,6 +18816,51 @@
 					"command": "gitlens.graph.resetColumnsCompact",
 					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
 					"group": "3_columns@2"
+				},
+				{
+					"command": "gitlens.home.openPullRequestChanges",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openPullRequestChanges\\b)/",
+					"group": "10_gitlens_action@1"
+				},
+				{
+					"command": "gitlens.home.openPullRequestOnRemote",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openPullRequestOnRemote\\b)/",
+					"group": "20_gitlens_action@1"
+				},
+				{
+					"command": "gitlens.home.createPullRequest",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.createPullRequest\\b)/",
+					"group": "30_gitlens_action@1"
+				},
+				{
+					"command": "gitlens.home.openWorktree",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openWorktree\\b)/",
+					"group": "40_gitlens_action@1"
+				},
+				{
+					"command": "gitlens.home.openWorktreeInNewWindow",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openWorktreeInNewWindow\\b)/",
+					"group": "40_gitlens_action@1"
+				},
+				{
+					"command": "gitlens.home.switchToBranch",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.switchToBranch\\b)/",
+					"group": "50_gitlens_action@1"
+				},
+				{
+					"command": "gitlens.home.fetch",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.fetch\\b)/",
+					"group": "60_gitlens_action@1"
+				},
+				{
+					"command": "gitlens.home.pull",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.pull\\b)/",
+					"group": "60_gitlens_action@1"
+				},
+				{
+					"command": "gitlens.home.openInGraph",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openInGraph\\b)/",
+					"group": "80_gitlens_action@1"
 				},
 				{
 					"command": "gitlens.graph.openPullRequestChanges",

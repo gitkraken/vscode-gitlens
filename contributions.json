@@ -2905,6 +2905,123 @@
 				]
 			}
 		},
+		"gitlens.home.createPullRequest": {
+			"label": "Create Pull Request...",
+			"icon": "$(git-pull-request-create)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.createPullRequest\\b)/",
+						"group": "30_gitlens_action",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.home.fetch": {
+			"label": "Fetch",
+			"icon": "$(gl-repo-fetch)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.fetch\\b)/",
+						"group": "60_gitlens_action",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.home.openInGraph": {
+			"label": "Open in Commit Graph",
+			"icon": "$(gl-graph)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openInGraph\\b)/",
+						"group": "80_gitlens_action",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.home.openPullRequestChanges": {
+			"label": "Open Pull Request Changes",
+			"icon": "$(request-changes)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openPullRequestChanges\\b)/",
+						"group": "10_gitlens_action",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.home.openPullRequestOnRemote": {
+			"label": "Open Pull Request on Remote",
+			"icon": "$(globe)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openPullRequestOnRemote\\b)/",
+						"group": "20_gitlens_action",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.home.openWorktree": {
+			"label": "Open Worktree",
+			"icon": "$(browser)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openWorktree\\b)/",
+						"group": "40_gitlens_action",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.home.openWorktreeInNewWindow": {
+			"label": "Open Worktree in New Window",
+			"icon": "$(empty-window)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openWorktreeInNewWindow\\b)/",
+						"group": "40_gitlens_action",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.home.pull": {
+			"label": "Pull",
+			"icon": "$(gl-repo-pull)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.pull\\b)/",
+						"group": "60_gitlens_action",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.home.switchToBranch": {
+			"label": "Switch to Branch...",
+			"icon": "$(gl-switch)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.switchToBranch\\b)/",
+						"group": "50_gitlens_action",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.inviteToLiveShare": {
 			"label": "Invite to Live Share",
 			"icon": "$(live-share)",

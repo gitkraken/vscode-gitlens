@@ -3,9 +3,22 @@ import { customElement, property, queryAll } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { debounce } from '../../../../../system/function';
-import type { GetOverviewBranch } from '../../../../home/protocol';
-import type { GlBranchCardBase } from './branch-card';
+import type { BranchRef, GetOverviewBranch } from '../../../../home/protocol';
+import '../../../shared/components/actions/action-item';
+import '../../../shared/components/actions/action-list';
+import type { ActionList } from '../../../shared/components/actions/action-list';
+import '../../../shared/components/actions/action-nav';
+import '../../../shared/components/avatar/avatar';
+import '../../../shared/components/avatar/avatar-list';
+import '../../../shared/components/card/card';
+import '../../../shared/components/code-icon';
+import '../../../shared/components/commit/commit-stats';
+import '../../../shared/components/formatted-date';
+import '../../../shared/components/pills/tracking';
 import '../../../shared/components/progress';
+import '../../../shared/components/rich/issue-icon';
+import '../../../shared/components/rich/pr-icon';
+import type { GlBranchCard, GlBranchCardBase } from './branch-card';
 
 @customElement('gl-section')
 export class GlSection extends LitElement {
@@ -70,6 +83,10 @@ export class GlSection extends LitElement {
 
 @customElement('gl-branch-section')
 export class GlBranchSection extends LitElement {
+	static get OpenContextMenuEvent(): CustomEvent<{ items: (typeof ActionList.ItemProps)[]; branchRefs: BranchRef }> {
+		throw new Error('type field OpenContextMenuEvent cannot be used as a value');
+	}
+
 	@property({ type: String }) label!: string;
 	@property() repo!: string;
 	@property({ type: Array }) branches!: GetOverviewBranch[];
@@ -124,7 +141,31 @@ export class GlBranchSection extends LitElement {
 					() =>
 						this.branches.map(
 							branch =>
-								html`<gl-branch-card expandable .repo=${this.repo} .branch=${branch}></gl-branch-card>`,
+								html`<gl-branch-card
+									expandable
+									@open-actions-menu=${(e: typeof GlBranchCard.OpenContextMenuEvent) => {
+										const evt = new CustomEvent('branch-context-opened', {
+											detail: {
+												branchRefs: e.detail.branchRefs,
+												items: e.detail.items,
+											},
+										}) satisfies typeof GlBranchSection.OpenContextMenuEvent;
+										this.dispatchEvent(evt);
+									}}
+									@close-actions-menu=${(e: CustomEvent) => {
+										const evt = new CustomEvent<{
+											branch: GetOverviewBranch;
+										}>('branch-context-closed', {
+											detail: {
+												branch: branch,
+											},
+										});
+										this.dispatchEvent(evt);
+										console.log('closeVContext', { e: e }, branch);
+									}}
+									.repo=${this.repo}
+									.branch=${branch}
+								></gl-branch-card>`,
 						),
 					() => html`<p>No ${this.label} branches</p>`,
 				)}
