@@ -9015,6 +9015,13 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.resetToTag",
+				"title": "Reset Current Branch to Tag...",
+				"category": "GitLens",
+				"icon": "$(gitlens-reset)",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.graph.resetToTip",
 				"title": "Reset Current Branch to Tip...",
 				"enablement": "!operationInProgress"
@@ -12430,6 +12437,10 @@
 				},
 				{
 					"command": "gitlens.graph.switchToTag",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.resetToTag",
 					"when": "false"
 				},
 				{
@@ -16293,6 +16304,11 @@
 					"group": "1_gitlens_actions@4"
 				},
 				{
+					"command": "gitlens.graph.resetToTag",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && !listMultiSelection && webviewItem =~ /gitlens:tag\\b/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
 					"command": "gitlens.graph.resetToTip",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b/",
 					"group": "1_gitlens_actions@4"
@@ -16415,12 +16431,12 @@
 				{
 					"command": "gitlens.graph.deleteTag",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem == gitlens:tag",
-					"group": "1_gitlens_actions@2"
+					"group": "1_gitlens_actions@3"
 				},
 				{
 					"command": "gitlens.graph.createBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:tag\\b/",
-					"group": "1_gitlens_actions@3"
+					"group": "1_gitlens_actions@4"
 				},
 				{
 					"command": "gitlens.graph.hideTag",

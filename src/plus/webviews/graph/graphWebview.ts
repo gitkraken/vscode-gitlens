@@ -554,6 +554,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.createTag', this.createTag),
 			this.host.registerWebviewCommand('gitlens.graph.deleteTag', this.deleteTag),
 			this.host.registerWebviewCommand('gitlens.graph.switchToTag', this.switchTo),
+			this.host.registerWebviewCommand('gitlens.graph.resetToTag', this.resetToTag),
 
 			this.host.registerWebviewCommand('gitlens.graph.createWorktree', this.createWorktree),
 
@@ -3337,6 +3338,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		return RepoActions.switchTo(ref.repoPath, ref);
+	}
+
+	@log()
+	private resetToTag(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'tag');
+		if (ref == null) return Promise.resolve();
+		return RepoActions.reset(ref.repoPath, ref);
 	}
 
 	@log()

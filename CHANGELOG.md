@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [16.0.1] - 2024-11-15
 
+### Added
+
+- Adds context menu command in _Commit Graph_ to reset Current Branch to a tag.
+
 ### Changed
 
 - Changes the _Search & Compare_ view to be separate (detached) from the new grouped _GitLens_ view

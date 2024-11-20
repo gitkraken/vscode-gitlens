@@ -2,7 +2,7 @@ import type { ResetGitCommandArgs } from '../../commands/git/reset';
 import { Container } from '../../container';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { executeGitCommand } from '../actions';
-import type { GitBranchReference, GitReference, GitRevisionReference } from '../models/reference';
+import type { GitBranchReference, GitReference, GitRevisionReference, GitTagReference } from '../models/reference';
 import type { Repository } from '../models/repository';
 
 export function cherryPick(repo?: string | Repository, refs?: GitRevisionReference | GitRevisionReference[]) {
@@ -40,7 +40,7 @@ export function rebase(repo?: string | Repository, ref?: GitReference, interacti
 
 export function reset(
 	repo?: string | Repository,
-	ref?: GitRevisionReference,
+	ref?: GitRevisionReference | GitTagReference,
 	flags?: NonNullable<ResetGitCommandArgs['state']>['flags'],
 ) {
 	return executeGitCommand({
