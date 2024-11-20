@@ -16,6 +16,7 @@ import { sortBranches } from '../../git/models/branch';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
 import { getReferenceFromBranch } from '../../git/models/reference';
+import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
@@ -506,15 +507,41 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this._invalidateOverview = undefined;
 		if (overviewBranches == null) return undefined;
 
+		const formattedRepo = await this.formatRepository(repo);
+
 		const result: GetOverviewResponse = {
 			repository: {
-				name: repo.commonRepositoryName ?? repo.name,
-				path: repo.path,
+				...formattedRepo,
 				branches: overviewBranches,
 			},
 		};
 
 		return result;
+	}
+
+	private async formatRepository(repo: Repository): Promise<{
+		name: string;
+		path: string;
+		provider?: {
+			name: string;
+			icon?: string;
+			url?: string;
+		};
+	}> {
+		const remotes = await repo.git.getBestRemotesWithProviders();
+		const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
+
+		return {
+			name: repo.commonRepositoryName ?? repo.name,
+			path: repo.path,
+			provider: remote?.provider
+				? {
+						name: remote.provider.name,
+						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
+						url: remote.provider.url({ type: RemoteResourceType.Repo }),
+				  }
+				: undefined,
+		};
 	}
 
 	private _repositorySubscription: RepositorySubscription | undefined;

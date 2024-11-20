@@ -116,6 +116,11 @@ export type GetOverviewResponse =
 			repository: {
 				name: string;
 				path: string;
+				provider?: {
+					name: string;
+					icon?: string;
+					url?: string;
+				};
 				branches: GetOverviewBranches;
 			};
 	  }
