@@ -20,6 +20,7 @@ import '../../../shared/components/card/card';
 import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/menu/menu-item';
 import '../../../shared/components/overlays/popover';
+import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/pr-icon';
 
@@ -42,6 +43,12 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			.section-heading-action {
 				--button-padding: 0.1rem 0.2rem 0;
 				margin-block: -1rem;
+			}
+			.section-heading-provider {
+				color: inherit;
+			}
+			.tooltip {
+				text-transform: none;
 			}
 		`,
 	];
@@ -103,9 +110,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 		return html`
 			<gl-section>
-				<span slot="heading"
-					><code-icon icon="repo" class="heading-icon"></code-icon> ${overview!.repository.name}</span
-				>
+				<span slot="heading">${this.renderRepositoryIcon(repo.provider)} ${repo.name}</span>
 				<span slot="heading-actions"
 					><gl-button
 						aria-busy="${ifDefined(isFetching)}"
@@ -136,6 +141,29 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				${activeBranches.map(branch => this.renderRepoBranchCard(branch, repo.path, isFetching))}
 			</gl-section>
 		`;
+	}
+
+	private renderRepositoryIcon(provider?: { name: string; icon?: string; url?: string }) {
+		if (!provider) {
+			return html`<code-icon icon="repo" class="heading-icon"></code-icon>`;
+		}
+
+		let icon = 'repo';
+		if (provider.icon != null) {
+			icon = provider.icon === 'cloud' ? 'cloud' : `gl-provider-${provider.icon}`;
+		}
+
+		return html`<gl-tooltip>
+			${when(
+				provider.url != null,
+				() =>
+					html`<a href=${provider.url} class="section-heading-provider"
+						><code-icon icon=${icon} class="heading-icon"></code-icon
+					></a>`,
+				() => html`<code-icon icon=${icon} class="heading-icon"></code-icon>`,
+			)}
+			<span slot="content" class="tooltip">Open repository on ${provider.name}</span>
+		</gl-tooltip>`;
 	}
 
 	private renderRepoBranchCard(branch: GetOverviewBranch, repo: string, isFetching: boolean) {
