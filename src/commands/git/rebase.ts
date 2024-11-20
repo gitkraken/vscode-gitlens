@@ -150,7 +150,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				});
 
 				const result: StepResult<GitReference> = yield* pickBranchOrTagStep(state as RebaseStepState, context, {
-					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to rebase`,
+					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to rebase onto`,
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.destination?.ref : undefined,
 					additionalButtons: [pickCommitToggle],
