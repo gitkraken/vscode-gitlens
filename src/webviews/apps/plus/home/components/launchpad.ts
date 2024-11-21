@@ -59,6 +59,9 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				color: inherit;
 				text-decoration: none;
 			}
+			.launchpad-action:hover {
+				text-decoration: none;
+			}
 
 			.launchpad-action:hover span {
 				text-decoration: underline;
