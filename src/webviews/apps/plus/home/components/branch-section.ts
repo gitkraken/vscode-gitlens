@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
 import type { GitTrackingState } from '../../../../../git/models/branch';
-import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
+import type { BranchRef, GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
 import type { ActionItemProps } from '../../../shared/components/actions/action-list';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
 import '../../../shared/components/code-icon';
@@ -79,27 +79,30 @@ export class GlBranchSection extends LitElement {
 						this.branches.map(
 							branch =>
 								html`<gl-branch-card
-									@open-actions-menu=${e => {
-										const evt = new CustomEvent<{ branch: GetOverviewBranch }>(
-											'branch-context-opened',
-											{
-												detail: {
-													branch: branch,
-												},
+									@open-actions-menu=${(
+										e: CustomEvent<{ branchRefs: BranchRef; items: ActionItemProps[] }>,
+									) => {
+										const evt = new CustomEvent<{
+											branchRefs: BranchRef;
+											items: ActionItemProps[];
+										}>('branch-context-opened', {
+											detail: {
+												branchRefs: e.detail.branchRefs,
+												items: e.detail.items,
 											},
-										);
+										});
 										this.dispatchEvent(evt);
-										console.log('openVContext', { e: e }, branch);
 									}}
-									@close-actions-menu=${e => {
-										const evt = new CustomEvent<{ branch: GetOverviewBranch }>(
-											'branch-context-closed',
-											{
-												detail: {
-													branch: branch,
-												},
+									@close-actions-menu=${(e: CustomEvent<{ items: ActionItemProps[] }>) => {
+										const evt = new CustomEvent<{
+											branch: GetOverviewBranch;
+											// items: ActionItemProps[];
+										}>('branch-context-closed', {
+											detail: {
+												branch: branch,
+												// items: e.detail.items,
 											},
-										);
+										});
 										this.dispatchEvent(evt);
 										console.log('closeVContext', { e: e }, branch);
 									}}
@@ -219,7 +222,7 @@ export class GlBranchCard extends LitElement {
 	@property({ type: Object })
 	branch!: GetOverviewBranch;
 
-	get branchRefs() {
+	get branchRefs(): BranchRef {
 		return {
 			repoPath: this.repo,
 			branchId: this.branch.id,
@@ -368,20 +371,6 @@ export class GlBranchCard extends LitElement {
 				label: 'Create Pull Request...',
 				icon: 'git-pull-request-create',
 				href: this.createCommandLink('gitlens.home.createPullRequest'),
-				modifiers: [
-					{
-						key: 'alt',
-						label: 'c',
-						icon: 'globe',
-						href: '',
-					},
-					{
-						key: 'ctrl',
-						label: 'c',
-						icon: 'request-changes',
-						href: '',
-					},
-				],
 			});
 		}
 		if (this.branch.worktree) {
@@ -404,6 +393,14 @@ export class GlBranchCard extends LitElement {
 				label: 'Fetch',
 				icon: 'gl-repo-fetch',
 				href: this.createCommandLink('gitlens.home.fetch'),
+				modifiers: [
+					{
+						key: 'alt',
+						label: 'Pull',
+						icon: 'gl-repo-pull',
+						href: this.createCommandLink('gitlens.home.pull'),
+					},
+				],
 			},
 			{
 				label: 'Open in Commit Graph',
@@ -419,39 +416,20 @@ export class GlBranchCard extends LitElement {
 			return nothing;
 		}
 		return html`<action-list
-			limit=${2}
+			limit=${3}
 			class="branch-item__actions"
-			@open-actions-menu=${(e: CustomEvent) => {
-				e.preventDefault();
-
-				const ev = new CustomEvent('open-actions-menu');
-				this.dispatchEvent(ev);
-				if (ev.defaultPrevented) return;
-
-				const element = e.target as HTMLElement;
-				const ev1 = new PointerEvent('contextmenu', {
-					bubbles: true,
-					cancelable: true,
-					composed: true,
-					view: window,
-					button: 2,
-					buttons: 2,
-					clientX: element.getBoundingClientRect().right,
-					clientY: element.getBoundingClientRect().bottom,
+			@open-actions-menu=${(e: CustomEvent<{ items: ActionItemProps[] }>) => {
+				const ev = new CustomEvent<{ items: ActionItemProps[]; branchRefs: BranchRef }>('open-actions-menu', {
+					detail: { items: e.detail.items, branchRefs: this.branchRefs },
 				});
-				element.dispatchEvent(ev1);
-
-				const _handleClick = () => {
-					const ev = new CustomEvent('close-actions-menu');
-					this.dispatchEvent(ev);
-					window.removeEventListener('keyup', handleClick);
-					window.removeEventListener('mousedown', handleClick);
-					window.removeEventListener('focus', handleClick);
-				};
-				const handleClick = _handleClick.bind(this);
-				window.addEventListener('keyup', handleClick);
-				window.addEventListener('mousedown', handleClick);
-				window.addEventListener('focus', handleClick);
+				this.dispatchEvent(ev);
+			}}
+			@close-actions-menu=${() => {
+				const ev = new CustomEvent<{ items: ActionItemProps[]; branchRefs: BranchRef }>(
+					'close-actions-menu',
+					{},
+				);
+				this.dispatchEvent(ev);
 			}}
 			.items=${actions}
 		></action-list>`;

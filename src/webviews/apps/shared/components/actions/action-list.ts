@@ -1,13 +1,10 @@
-// import { isMac } from '@env/platform';
-import { css, html, LitElement } from 'lit';
-import { customElement, property, queryAssignedElements, state } from 'lit/decorators.js';
+import { isMac } from '@env/platform';
+import { html, LitElement } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-
-const isMac = true;
+import { when } from 'lit/directives/when.js';
 import './action-item';
 import './action-nav';
-import { when } from 'lit/directives/when.js';
-// import { isMac } from '@env/platform';
 
 export interface ActionItemProps {
 	icon: string;
@@ -22,10 +19,6 @@ export class ActionList extends LitElement {
 
 	private _slotSubscriptionsDisposer?: () => void;
 
-	// override firstUpdated() {
-	// 	this.role = 'navigation';
-	// }
-
 	@property({ type: Array })
 	private items: Array<ActionItemProps> = [];
 
@@ -39,12 +32,12 @@ export class ActionList extends LitElement {
 		const handleKeydown = this.handleKeydown.bind(this);
 		const handleKeyup = this.handleKeyup.bind(this);
 		const handleOpenMore = this.handleOpenMore.bind(this);
-		document.addEventListener('keydown', handleKeydown, false);
-		document.addEventListener('keyup', handleKeyup, false);
+		window.addEventListener('keydown', handleKeydown, false);
+		window.addEventListener('keyup', handleKeyup, false);
 		this.addEventListener('open-actions-menu', handleOpenMore);
 		this._slotSubscriptionsDisposer = () => {
-			document.removeEventListener('keydown', handleKeydown, false);
-			document.removeEventListener('keyup', handleKeyup, false);
+			window.removeEventListener('keydown', handleKeydown, false);
+			window.removeEventListener('keyup', handleKeyup, false);
 			this.removeEventListener('open-actions-menu', handleOpenMore);
 		};
 		super.connectedCallback();
@@ -58,56 +51,75 @@ export class ActionList extends LitElement {
 	@state()
 	private open = false;
 
-	private renderMoreOptions() {
+	private handleMoreActions(from: number, e: MouseEvent) {
+		if (e.button !== 0) {
+			return;
+		}
+		e.preventDefault();
+
+		this.open = true;
+
+		const event = new CustomEvent<{ items: ActionItemProps[] }>('open-actions-menu', {
+			detail: {
+				items: this.items.slice(from),
+			},
+		});
+		this.dispatchEvent(event);
+
+		const contextMenuEvent = new PointerEvent('contextmenu', {
+			bubbles: true,
+			cancelable: true,
+			composed: true,
+			view: window,
+			button: 2,
+			buttons: 2,
+			clientX: this.getBoundingClientRect().right,
+			clientY: this.getBoundingClientRect().bottom,
+		});
+		this.dispatchEvent(contextMenuEvent);
+
+		const handleClick = () => {
+			const ev = new CustomEvent('close-actions-menu');
+			this.dispatchEvent(ev);
+			this.open = false;
+			window.removeEventListener('keyup', handleClick);
+			window.removeEventListener('mousedown', handleClick);
+			window.removeEventListener('mousemove', handleClick);
+			window.removeEventListener('blur', handleClick);
+		};
+		setTimeout(() => {
+			window.addEventListener('keyup', handleClick);
+			window.addEventListener('mousedown', handleClick);
+			window.addEventListener('mousemove', handleClick);
+			window.addEventListener('blur', handleClick);
+		});
+	}
+
+	private renderMoreOptions(from: number) {
+		console.log('render action', this.open);
 		return html`
-			<gl-popover ?open=${this.open} trigger="manual">
-				<action-item
-					slot="anchor"
-					icon="more"
-					label="more"
-					@click=${(e: MouseEvent) => {
-						if (e.button !== 0) {
-							return;
-						}
-						const event = new CustomEvent('open-actions-menu', { cancelable: true });
-						this.dispatchEvent(event);
-						if (event.defaultPrevented) {
-							return;
-						}
-						this.open = !this.open;
-						// const element = e.target as HTMLElement;
-						// e.preventDefault();
-						// const ev1 = new PointerEvent('contextmenu', {
-						// 	bubbles: true,
-						// 	cancelable: true,
-						// 	composed: true,
-						// 	view: window,
-						// 	button: 2,
-						// 	buttons: 2,
-						// 	clientX: element.getBoundingClientRect().right,
-						// 	clientY: element.getBoundingClientRect().bottom,
-						// });
-						// element.dispatchEvent(ev1);
-					}}
-				>
-				</action-item>
-				<menu-list slot="content">
-					${this.items
-						.slice(this.limit)
-						.map(action => html` <menu-item href=${ifDefined(action.href)}>${action.label}</menu-item> `)}
-				</menu-list>
-			</gl-popover>
+			<action-item
+				icon="more"
+				?selected=${this.open}
+				label="More actions..."
+				href="#"
+				@mousedown=${this.handleMoreActions.bind(this, from)}
+				@click=${this.handleMoreActions}
+			>
+			</action-item>
 		`;
 	}
 
 	override render() {
+		const hasMore = this.items.length > this.limit;
+		const splitValue = hasMore ? this.limit - 1 : this.items.length;
 		return html`
 			<action-nav>
-				${this.items.slice(0, this.limit).map(({ modifiers, ...originalProps }) => {
+				${this.items.slice(0, splitValue).map(({ modifiers, ...originalProps }) => {
 					const { icon, label, href } = modifiers?.find(x => this.modifier === x.key) ?? originalProps;
 					return html`<action-item icon=${icon} label=${label} href=${ifDefined(href)}></action-item>`;
 				})}
-				${when(this.items.length >= this.limit, this.renderMoreOptions.bind(this))}
+				${when(hasMore, this.renderMoreOptions.bind(this, splitValue))}
 			</action-nav>
 		`;
 	}

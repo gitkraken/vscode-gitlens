@@ -7394,6 +7394,46 @@
 				"icon": "$(empty-window)"
 			},
 			{
+				"command": "gitlens.home.openPullRequestOnRemote",
+				"title": "Open Pull Request on Remote",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.home.openPullRequestComparison",
+				"title": "Open Pull Request Changes",
+				"icon": "$(request-changes)"
+			},
+			{
+				"command": "gitlens.home.createPullRequest",
+				"title": "Create Pull Request...",
+				"icon": "$(git-pull-request-create)"
+			},
+			{
+				"command": "gitlens.home.openWorktree",
+				"title": "Open Worktree",
+				"icon": "$(browser)"
+			},
+			{
+				"command": "gitlens.home.fetch",
+				"title": "Fetch",
+				"icon": "$(gl-repo-fetch)"
+			},
+			{
+				"command": "gitlens.home.pull",
+				"title": "Pull",
+				"icon": "$(gl-repo-pull)"
+			},
+			{
+				"command": "gitlens.home.openInGraph",
+				"title": "Open in Commit Graph",
+				"icon": "$(gl-graph)"
+			},
+			{
+				"command": "gitlens.home.switchToBranch",
+				"title": "Switch to Branch...",
+				"icon": "$(gl-switch)"
+			},
+			{
 				"command": "gitlens.graph.openWorktree",
 				"title": "Open Worktree",
 				"icon": "$(window)"
@@ -11030,6 +11070,38 @@
 				},
 				{
 					"command": "gitlens.graph.openInWorktree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.openPullRequestOnRemote",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.openPullRequestComparison",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.createPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.openWorktree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.switchToBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.fetch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.pull",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.home.openInGraph",
 					"when": "false"
 				},
 				{
@@ -16157,6 +16229,46 @@
 				}
 			],
 			"webview/context": [
+				{
+					"command": "gitlens.home.openPullRequestComparison",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openPullRequestComparison\\b)/",
+					"group": "1_gitlens_action@1"
+				},
+				{
+					"command": "gitlens.home.openPullRequestOnRemote",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openPullRequestOnRemote\\b)/",
+					"group": "1_gitlens_action@2"
+				},
+				{
+					"command": "gitlens.home.createPullRequest",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.createPullRequest\\b)/",
+					"group": "1_gitlens_action@3"
+				},
+				{
+					"command": "gitlens.home.openWorktree",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openWorktree\\b)/",
+					"group": "1_gitlens_action@4"
+				},
+				{
+					"command": "gitlens.home.switchToBranch",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.switchToBranch\\b)/",
+					"group": "1_gitlens_action@5"
+				},
+				{
+					"command": "gitlens.home.fetch",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.fetch\\b)/",
+					"group": "1_gitlens_action@6"
+				},
+				{
+					"command": "gitlens.home.pull",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.pull\\b)/",
+					"group": "1_gitlens_action@6"
+				},
+				{
+					"command": "gitlens.home.openInGraph",
+					"when": "webviewItem =~ /gitlens:home\\b(?=.*?\\b\\+.*gitlens\\.home\\.openInGraph\\b)/",
+					"group": "1_gitlens_action@7"
+				},
 				{
 					"command": "gitlens.graph.openWorktree",
 					"when": "!gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)/",

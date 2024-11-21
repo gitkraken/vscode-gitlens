@@ -8,20 +8,21 @@ import type { GitTrackingState } from '../../../../../git/models/branch';
 import { createWebviewCommandLink } from '../../../../../system/webview';
 import type { GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import { ipcContext } from '../../../shared/context';
-import type { HostIpc } from '../../../shared/ipc';
-import { branchCardStyles, createCommandLink, headingLoaderStyles } from './branch-section';
-import type { Overview, OverviewState } from './overviewState';
-import { overviewStateContext } from './overviewState';
+import type { ActionItemProps } from '../../../shared/components/actions/action-list';
 import '../../../shared/components/button';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/skeleton-loader';
 import '../../../shared/components/card/card';
+import '../../../shared/components/code-icon';
 import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/menu/menu-item';
 import '../../../shared/components/overlays/popover';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/pr-icon';
+import '../../../shared/components/skeleton-loader';
+import { ipcContext } from '../../../shared/context';
+import type { HostIpc } from '../../../shared/ipc';
+import { branchCardStyles, createCommandLink, headingLoaderStyles } from './branch-section';
+import type { Overview, OverviewState } from './overviewState';
+import { overviewStateContext } from './overviewState';
 
 export const activeWorkTagName = 'gl-active-work';
 
@@ -170,50 +171,80 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		`;
 	}
 
+	private prevAttr = JSON.parse(document.body.getAttribute('data-vscode-context') ?? '{}');
+
 	private renderActions(branch: GetOverviewBranch, repo: string) {
 		const branchRefs = {
 			repoPath: repo,
 			branchId: branch.id,
 		};
-		const actions = [];
+		const actions: ActionItemProps[] = [];
 		if (branch.pr) {
 			actions.push(
-				html`<action-item
-					label="Open Pull Request Changes"
-					icon="request-changes"
-					href=${createCommandLink('gitlens.home.openPullRequestComparison', branchRefs)}
-				></action-item>`,
-			);
-			actions.push(
-				html`<action-item
-					label="Open Pull Request on Remote"
-					icon="globe"
-					href=${createCommandLink('gitlens.home.openPullRequestOnRemote', branchRefs)}
-				></action-item>`,
+				{
+					label: 'Open Pull Request Changes',
+					icon: 'request-changes',
+					href: createCommandLink('gitlens.home.openPullRequestComparison', branchRefs),
+				},
+				{
+					label: 'Open Pull Request on Remote',
+					icon: 'globe',
+					href: createCommandLink('gitlens.home.openPullRequestOnRemote', branchRefs),
+				},
 			);
 		} else if (branch.upstream?.missing === false) {
-			actions.push(
-				html`<action-item
-					label="Create Pull Request..."
-					icon="git-pull-request-create"
-					href=${createCommandLink('gitlens.home.createPullRequest', branchRefs)}
-				></action-item>`,
-			);
+			actions.push({
+				label: 'Create Pull Request...',
+				icon: 'git-pull-request-create',
+				href: createCommandLink('gitlens.home.createPullRequest', branchRefs),
+			});
 		}
 
 		// branch actions
-		actions.push(
-			html`<action-item
-				label="Fetch"
-				icon="gl-repo-fetch"
-				href=${createCommandLink('gitlens.home.fetch', branchRefs)}
-			></action-item>`,
-		);
+		actions.push({
+			label: 'Fetch',
+			icon: 'gl-repo-fetch',
+			href: createCommandLink('gitlens.home.fetch', branchRefs),
+			modifiers: [
+				{
+					key: 'alt',
+					icon: 'gl-repo-pull',
+					label: 'Pull',
+					href: createCommandLink('gitlens.home.pull', branchRefs),
+				},
+			],
+		});
 
 		if (!actions.length) {
 			return nothing;
 		}
-		return html`<action-nav class="branch-item__actions">${actions}</action-nav>`;
+		return html`<action-list
+			@open-actions-menu=${(e: CustomEvent<{ items: ActionItemProps[] }>) => {
+				this.prevAttr = JSON.parse(document.body.getAttribute('data-vscode-context') ?? '{}');
+				let context = 'gitlens:home';
+				e.detail.items.forEach(x => {
+					if (x.href) {
+						context += `+${x.href}`;
+					}
+				});
+				console.log({ context: context });
+				document.body.setAttribute(
+					'data-vscode-context',
+					JSON.stringify({
+						...this.prevAttr,
+						webviewItem: context,
+						...branchRefs,
+						type: 'branch',
+					}),
+				);
+			}}
+			@close-actions-menu=${() => {
+				document.body.setAttribute('data-vscode-context', JSON.stringify(this.prevAttr));
+			}}
+			limit=${3}
+			.items=${actions}
+			class="branch-item__actions"
+		></action-list>`;
 	}
 
 	private renderBranchStateActions(

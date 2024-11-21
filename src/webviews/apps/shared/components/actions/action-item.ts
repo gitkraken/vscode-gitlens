@@ -27,16 +27,16 @@ export class ActionItem extends LitElement {
 			cursor: pointer;
 		}
 
-		:host(:focus-within) {
-			${focusOutline}
-		}
-
 		:host(:hover) {
 			background-color: var(--vscode-toolbar-hoverBackground);
 		}
-
-		:host(:active) {
+		:host(:active),
+		:host([selected]) {
 			background-color: var(--vscode-toolbar-activeBackground);
+		}
+
+		:host(:focus-within) {
+			${focusOutline}
 		}
 
 		:host([disabled]) {
@@ -62,25 +62,31 @@ export class ActionItem extends LitElement {
 	icon = '';
 
 	@property({ type: Boolean })
+	selected = false;
+
+	@property({ type: Boolean })
 	disabled = false;
 
 	@query('a')
 	private defaultFocusEl!: HTMLAnchorElement;
 
+	private renderButtonContent() {
+		return html`<a
+			role="${!this.href ? 'button' : nothing}"
+			type="${!this.href ? 'button' : nothing}"
+			aria-label="${this.label ?? nothing}"
+			?disabled=${this.disabled}
+			href=${this.href ?? nothing}
+		>
+			<code-icon icon="${this.icon}"></code-icon>
+		</a>`;
+	}
+
 	override render() {
-		return html`
-			<gl-tooltip hoist content="${this.label ?? nothing}">
-				<a
-					role="${!this.href ? 'button' : nothing}"
-					type="${!this.href ? 'button' : nothing}"
-					aria-label="${this.label ?? nothing}"
-					?disabled=${this.disabled}
-					href=${this.href ?? nothing}
-				>
-					<code-icon icon="${this.icon}"></code-icon>
-				</a>
-			</gl-tooltip>
-		`;
+		if (this.selected) {
+			return this.renderButtonContent();
+		}
+		return html` <gl-tooltip hoist content="${this.label ?? nothing}">${this.renderButtonContent()}</gl-tooltip> `;
 	}
 
 	override focus(options?: FocusOptions) {

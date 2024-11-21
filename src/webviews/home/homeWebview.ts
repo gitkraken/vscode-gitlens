@@ -38,6 +38,7 @@ import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
 import type {
+	BranchRef,
 	CollapseSectionParams,
 	DidChangeRepositoriesParams,
 	GetOverviewBranch,
@@ -84,7 +85,6 @@ type RepositoryBranchData = {
 	branches: GitBranch[];
 	worktreesByBranch: Map<string, GitWorktree>;
 };
-type BranchRef = { repoPath: string; branchId: string };
 
 export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
@@ -227,17 +227,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return Promise.resolve();
 	}
 
-	private async pull() {
-		const repo = this.getSelectedRepository();
-		if (repo) {
-			return executeGitCommand({
-				command: 'pull',
-				state: { repos: [repo] },
-			});
-		}
-		return Promise.resolve();
-	}
-
 	registerCommands(): Disposable[] {
 		return [
 			registerCommand(`${this.host.id}.pull`, this.pull, this),
@@ -271,6 +260,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.openWorktree', this.worktreeOpen, this),
 			registerCommand('gitlens.home.switchToBranch', this.switchToBranch, this),
 			registerCommand('gitlens.home.fetch', this.fetch, this),
+			registerCommand('gitlens.home.pull', this.pull, this),
 			registerCommand('gitlens.home.openInGraph', this.openInGraph, this),
 		];
 	}
@@ -816,6 +806,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (branch == null) return;
 
 		void RepoActions.fetch(repo!.repo, getReferenceFromBranch(branch));
+	}
+
+	private pull(refs: BranchRef) {
+		const repo = this._repositoryBranches.get(refs.repoPath);
+		const branch = repo?.branches.find(b => b.id === refs.branchId);
+		if (branch == null) return;
+
+		void RepoActions.pull(repo!.repo, getReferenceFromBranch(branch));
 	}
 
 	private findBranch(refs: BranchRef): GitBranch | undefined {
