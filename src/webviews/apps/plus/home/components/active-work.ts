@@ -10,7 +10,7 @@ import type { GetOverviewBranch, OpenInGraphParams, State } from '../../../../ho
 import { stateContext } from '../../../home/context';
 import { ipcContext } from '../../../shared/context';
 import type { HostIpc } from '../../../shared/ipc';
-import { branchCardStyles, createCommandLink, headingLoaderStyles } from './branch-section';
+import { linkStyles } from '../../shared/components/vscode.css';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/button';
@@ -29,6 +29,7 @@ export const activeWorkTagName = 'gl-active-work';
 @customElement(activeWorkTagName)
 export class GlActiveWork extends SignalWatcher(LitElement) {
 	static override styles = [
+		linkStyles,
 		branchCardStyles,
 		headingLoaderStyles,
 		css`
