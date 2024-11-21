@@ -65,7 +65,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	private renderLoader() {
 		return html`
 			<gl-section>
-				<skeleton-loader slot="heading" class="heading-loader" lines="1"></skeleton-loader>
+				<skeleton-loader slot="heading" lines="1"></skeleton-loader>
 				<skeleton-loader lines="3"></skeleton-loader>
 			</gl-section>
 		`;

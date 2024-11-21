@@ -11,6 +11,7 @@ import { stateContext } from '../../../home/context';
 import { ipcContext } from '../../../shared/context';
 import type { HostIpc } from '../../../shared/ipc';
 import { linkStyles } from '../../shared/components/vscode.css';
+import { branchCardStyles, createCommandLink } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/button';
@@ -31,7 +32,6 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	static override styles = [
 		linkStyles,
 		branchCardStyles,
-		headingLoaderStyles,
 		css`
 			[hidden] {
 				display: none;
@@ -91,7 +91,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	private renderLoader() {
 		return html`
 			<gl-section>
-				<skeleton-loader slot="heading" class="heading-loader" lines="1"></skeleton-loader>
+				<skeleton-loader slot="heading" lines="1"></skeleton-loader>
 				<skeleton-loader lines="3"></skeleton-loader>
 			</gl-section>
 		`;
@@ -110,7 +110,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		if (!activeBranches) return html`<span>None</span>`;
 
 		return html`
-			<gl-section>
+			<gl-section ?loading=${isFetching}>
 				<span slot="heading">${this.renderRepositoryIcon(repo.provider)} ${repo.name}</span>
 				<span slot="heading-actions"
 					><gl-button
