@@ -1,5 +1,7 @@
 import { signal } from '@lit-labs/signals';
 import { AsyncComputed } from 'signal-utils/async-computed';
+import type { Deferrable } from '../../../../system/function';
+import { debounce } from '../../../../system/function';
 
 export const renderAsyncComputed = <T, R = unknown>(
 	v: AsyncComputed<T>,
@@ -28,11 +30,12 @@ export const renderAsyncComputed = <T, R = unknown>(
 };
 
 export class AsyncComputedState<T, R = unknown> {
+	private _debounce = 500;
 	private _invalidate = signal(0);
 	private _computed?: AsyncComputed<T>;
 	private _state = signal<T | undefined>(undefined);
 	get state() {
-		this.computed.run();
+		this._run();
 		return this._state.get();
 	}
 
@@ -60,21 +63,44 @@ export class AsyncComputedState<T, R = unknown> {
 		options?: {
 			autoRun?: boolean;
 			initial?: T;
+			debounce?: number;
 		},
 	) {
 		if (options != null) {
 			this._state.set(options.initial);
+
+			if (options.debounce != null) {
+				this._debounce = options.debounce;
+			}
 
 			if (options.autoRun === true) {
 				this.run();
 			}
 		}
 	}
+	private _runCore() {
+		this.computed.run();
+	}
+
+	private _runDebounced: Deferrable<() => void> | undefined;
+	protected _run(immediate = false) {
+		if (immediate) {
+			this._runCore();
+			return;
+		}
+
+		if (this._runDebounced == null) {
+			this._runDebounced = debounce(this._runCore.bind(this), this._debounce);
+		}
+
+		this._runDebounced();
+	}
 	run(force = false) {
 		if (force) {
 			this.invalidate();
 		}
-		this.computed.run();
+
+		this._run();
 	}
 
 	invalidate() {

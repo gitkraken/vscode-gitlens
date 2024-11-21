@@ -7,6 +7,7 @@ import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/prot
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { linkStyles } from '../../shared/components/vscode.css';
 import '../../../shared/components/code-icon';
+import '../../../shared/components/progress';
 import '../../../shared/components/avatar/avatar';
 import '../../../shared/components/avatar/avatar-list';
 import '../../../shared/components/card/card';
@@ -26,26 +27,50 @@ export class GlSection extends LitElement {
 			.section {
 				margin-bottom: 1.2rem;
 			}
-			.section__heading {
+			.section__header {
+				position: relative;
 				display: flex;
 				justify-content: space-between;
 				gap: 8px;
 				margin-block: 0 0.8rem;
+			}
+			.section__heading {
+				flex: 1;
 				font-size: 1.3rem;
 			}
 			.section__headline {
 				font-weight: normal;
 				text-transform: uppercase;
 			}
+
+			.section__actions {
+				margin-inline-start: auto;
+			}
+
+			.section__loader {
+				position: absolute;
+				left: 0;
+				bottom: 0;
+			}
 		`,
 	];
+
+	@property({ type: Boolean })
+	loading = false;
+
+	@property({ attribute: 'heading-level' })
+	headingLevel: ARIAMixin['ariaLevel'] = '3';
 
 	override render() {
 		return html`
 			<div class="section">
-				<h3 class="section__heading section__heading--actions">
-					<slot name="heading" class="section__headline"></slot><slot name="heading-actions"></slot>
-				</h3>
+				<header class="section__header">
+					<div class="section__heading" role="heading" aria-level=${this.headingLevel}>
+						<slot name="heading" class="section__headline"></slot>
+					</div>
+					<slot name="heading-actions" class="section__actions"></slot>
+					<progress-indicator class="section__loader" ?active="${this.loading}"></progress-indicator>
+				</header>
 				<slot></slot>
 			</div>
 		`;
@@ -69,7 +94,7 @@ export class GlBranchSection extends LitElement {
 
 	override render() {
 		return html`
-			<gl-section>
+			<gl-section ?loading=${this.isFetching}>
 				<span slot="heading">${this.renderSectionLabel()}</span>
 				<span slot="heading-actions"><slot name="heading-actions"></slot></span>
 				${when(
