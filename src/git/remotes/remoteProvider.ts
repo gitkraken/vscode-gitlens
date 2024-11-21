@@ -50,6 +50,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 			},
 		];
 	}
+
 	get avatarUri(): Uri | undefined {
 		return undefined;
 	}
