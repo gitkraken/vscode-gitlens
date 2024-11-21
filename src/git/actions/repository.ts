@@ -34,7 +34,7 @@ export function push(repos?: string | string[] | Repository | Repository[], forc
 export function rebase(repo?: string | Repository, ref?: GitReference, interactive: boolean = true) {
 	return executeGitCommand({
 		command: 'rebase',
-		state: { repo: repo, reference: ref, flags: interactive ? ['--interactive'] : [] },
+		state: { repo: repo, destination: ref, flags: interactive ? ['--interactive'] : [] },
 	});
 }
 

@@ -2148,7 +2148,7 @@ async function getShowCommitOrStashStepItems<
 				command: 'rebase',
 				state: {
 					repo: state.repo,
-					reference: state.reference,
+					destination: state.reference,
 				},
 			}),
 			new GitWizardQuickPickItem('Switch to Commit...', {
