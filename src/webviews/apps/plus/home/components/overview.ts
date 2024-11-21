@@ -8,7 +8,7 @@ import { SetOverviewFilter } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { ipcContext } from '../../../shared/context';
 import type { HostIpc } from '../../../shared/ipc';
-import { headingLoaderStyles } from './branch-section';
+import { linkStyles } from '../../shared/components/vscode.css';
 import type { OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/skeleton-loader';
@@ -21,7 +21,7 @@ export const overviewTagName = 'gl-overview';
 @customElement(overviewTagName)
 export class GlOverview extends SignalWatcher(LitElement) {
 	static override styles = [
-		headingLoaderStyles,
+		linkStyles,
 		css`
 			:host {
 				display: block;

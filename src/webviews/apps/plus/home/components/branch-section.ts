@@ -5,6 +5,7 @@ import type { Commands } from '../../../../../constants.commands';
 import type { GitTrackingState } from '../../../../../git/models/branch';
 import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
+import { linkStyles } from '../../shared/components/vscode.css';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/avatar/avatar';
 import '../../../shared/components/avatar/avatar-list';
@@ -181,7 +182,7 @@ export const branchCardStyles = css`
 
 @customElement('gl-branch-card')
 export class GlBranchCard extends LitElement {
-	static override styles = branchCardStyles;
+	static override styles = [linkStyles, branchCardStyles];
 
 	@property()
 	repo!: string;

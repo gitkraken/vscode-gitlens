@@ -15,6 +15,7 @@ import { AsyncComputedState } from '../../../shared/components/signal-utils';
 import { ipcContext } from '../../../shared/context';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
+import { linkStyles } from '../../shared/components/vscode.css';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
@@ -31,6 +32,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	};
 
 	static override styles = [
+		linkStyles,
 		css`
 			:host {
 				display: block;

@@ -10,7 +10,7 @@ export const linkStyles = css`
 	}
 	a:focus,
 	a:focus-visible {
-		outline-color: var(--focus-border);
+		outline-color: var(--color-focus-border);
 		outline-style: solid;
 		outline-width: 1px;
 		border-radius: 0.2rem;
