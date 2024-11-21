@@ -19602,7 +19602,7 @@
 		"update-dts:main": "pushd \"src/@types\" && pnpx  @vscode/dts main && popd",
 		"update-emoji": "node ./scripts/generateEmojiShortcodeMap.mjs",
 		"update-licenses": "node ./scripts/generateLicenses.mjs",
-		"//pretest": "pnpm run build:tests",
+		"pretest": "pnpm run build:tests",
 		"vscode:prepublish": "pnpm run bundle"
 	},
 	"dependencies": {

@@ -46,7 +46,7 @@ export interface AutolinkReference {
 export interface Autolink extends AutolinkReference {
 	provider?: ProviderReference;
 	id: string;
-	index: number;
+	index?: number;
 
 	tokenize?:
 		| ((
@@ -225,8 +225,13 @@ export class Autolinks implements Disposable {
 		if (a.index === 0) {
 			return -1;
 		}
+
 		// maybe it worths to use some weight function instead.
-		return b.prefix.length - a.prefix.length || b.id.length - a.id.length || -(b.index - a.index);
+		return (
+			b.prefix.length - a.prefix.length ||
+			b.id.length - a.id.length ||
+			(b.index != null && a.index != null ? -(b.index - a.index) : 0)
+		);
 	}
 
 	private async getRefsets(remote?: GitRemote, options?: { excludeCustom?: boolean }) {
@@ -260,10 +265,11 @@ export class Autolinks implements Disposable {
 		let num;
 		for (const [provider, refs] of refsets) {
 			for (const ref of refs) {
-				if (!isCacheable(ref)) {
-					continue;
-				}
-				if (ref.type === 'pullrequest' || (ref.referenceType && ref.referenceType !== 'branchName')) {
+				if (
+					!isCacheable(ref) ||
+					ref.type === 'pullrequest' ||
+					(ref.referenceType && ref.referenceType !== 'branchName')
+				) {
 					continue;
 				}
 
@@ -277,8 +283,9 @@ export class Autolinks implements Disposable {
 					let index = match.value.index;
 					const linkUrl = ref.url?.replace(numRegex, num);
 					// strange case (I would say synthetic), but if we parse the link twice, use the most relevant of them
-					if (autolinks.has(linkUrl)) {
-						index = Math.min(index, autolinks.get(linkUrl)!.index);
+					const existingIndex = autolinks.get(linkUrl)?.index;
+					if (existingIndex != null) {
+						index = Math.min(index, existingIndex);
 					}
 					autolinks.set(linkUrl, {
 						...ref,
@@ -327,7 +334,7 @@ export class Autolinks implements Disposable {
 		let num;
 		for (const [provider, refs] of refsets) {
 			for (const ref of refs) {
-				if (!isCacheable(ref)) {
+				if (!isCacheable(ref) || (ref.referenceType && ref.referenceType !== 'commitMessage')) {
 					if (isDynamic(ref)) {
 						ref.parse(message, autolinks);
 					}
