@@ -117,9 +117,6 @@ export const headingLoaderStyles = css`
 `;
 
 export const branchCardStyles = css`
-	:host {
-		--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 8%);
-	}
 	.branch-item {
 		position: relative;
 	}
@@ -196,13 +193,9 @@ export const branchCardStyles = css`
 		right: 0.4rem;
 		bottom: 0.4rem;
 		padding: 0.2rem 0.4rem;
-		background-color: var(--gl-card-background);
-	}
-
-	.branch-item:hover .branch-item__actions,
-	.branch-item:focus-within .branch-item__actions {
 		background-color: var(--gl-card-hover-background);
 	}
+
 	.branch-item:not(:focus-within):not(:hover) .branch-item__actions {
 		${srOnlyStyles}
 	}
@@ -358,7 +351,7 @@ export class GlBranchCard extends LitElement {
 				html`<action-item
 					label="Open Pull Request Changes"
 					icon="request-changes"
-					href=${this.createCommandLink('gitlens.home.openPullRequestComparison')}
+					href=${this.createCommandLink('gitlens.home.openPullRequestChanges')}
 				></action-item>`,
 			);
 			actions.push(

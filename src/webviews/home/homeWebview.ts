@@ -9,6 +9,7 @@ import type { ContextKeys } from '../../constants.context';
 import type { HomeTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
+import { openComparisonChanges } from '../../git/actions/commit';
 import * as RepoActions from '../../git/actions/repository';
 import type { BranchContributorOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
@@ -266,6 +267,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				() => this.container.subscription.validate({ force: true }),
 				this,
 			),
+			registerCommand('gitlens.home.openPullRequestChanges', this.pullRequestChanges, this),
 			registerCommand('gitlens.home.openPullRequestComparison', this.pullRequestCompare, this),
 			registerCommand('gitlens.home.openPullRequestOnRemote', this.pullRequestViewOnRemote, this),
 			registerCommand('gitlens.home.createPullRequest', this.pullRequestCreate, this),
@@ -773,11 +775,27 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (pr?.refs?.base == null || pr.refs.head == null) return;
 
 		const comparisonRefs = getComparisonRefsForPullRequest(refs.repoPath, pr.refs);
-		return this.container.views.searchAndCompare
-			.compare(comparisonRefs.repoPath, comparisonRefs.head, comparisonRefs.base)
-			.then(compareNode => {
-				executeCommand(Commands.ViewsOpenAllChangedFileDiffs, compareNode);
-			});
+		return this.container.views.searchAndCompare.compare(
+			comparisonRefs.repoPath,
+			comparisonRefs.head,
+			comparisonRefs.base,
+		);
+	}
+
+	private async pullRequestChanges(refs: BranchRef) {
+		const pr = await this.findPullRequest(refs);
+		if (pr?.refs?.base == null || pr.refs.head == null) return;
+
+		const comparisonRefs = getComparisonRefsForPullRequest(refs.repoPath, pr.refs);
+		return openComparisonChanges(
+			this.container,
+			{
+				repoPath: comparisonRefs.repoPath,
+				lhs: comparisonRefs.base.ref,
+				rhs: comparisonRefs.head.ref,
+			},
+			{ title: `Changes in Pull Request #${pr.id}` },
+		);
 	}
 
 	private async pullRequestViewOnRemote(refs: BranchRef, clipboard?: boolean) {

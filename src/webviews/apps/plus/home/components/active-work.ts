@@ -219,7 +219,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				html`<action-item
 					label="Open Pull Request Changes"
 					icon="request-changes"
-					href=${createCommandLink('gitlens.home.openPullRequestComparison', branchRefs)}
+					href=${createCommandLink('gitlens.home.openPullRequestChanges', branchRefs)}
 				></action-item>`,
 			);
 			actions.push(
