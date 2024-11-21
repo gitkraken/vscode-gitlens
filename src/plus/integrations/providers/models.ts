@@ -532,6 +532,7 @@ export function toSearchedIssue(
 			labels: issue.labels.map(label => ({ color: label.color ?? undefined, name: label.name })),
 			commentsCount: issue.commentCount ?? undefined,
 			thumbsUpCount: issue.upvoteCount ?? undefined,
+			body: issue.description ?? undefined,
 		},
 	};
 }

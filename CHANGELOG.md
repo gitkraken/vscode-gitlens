@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds the ability to get autolinks for branches via the branch name &mdash; closes [#3547](https://github.com/gitkraken/vscode-gitlens/issues/3547)
+- Adds GitLab issues to the issues list in the _Start Work_ command when GitLab is connected &mdash; closes [#3779](https://github.com/gitkraken/vscode-gitlens/issues/3779)
 
 ## [16.0.4] - 2024-11-25
 
