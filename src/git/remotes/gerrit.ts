@@ -33,13 +33,18 @@ export class GerritRemote extends RemoteProvider {
 		super(domain, path, protocol, name, custom);
 	}
 
+	protected override get issueLinkPattern(): string {
+		return `${this.baseReviewUrl}/q/<num>`;
+	}
+
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
+				...super.autolinks,
 				{
 					prefix: 'Change-Id: ',
-					url: `${this.baseReviewUrl}/q/<num>`,
+					url: this.issueLinkPattern,
 					alphanumeric: true,
 					ignoreCase: true,
 					title: `Open Change #<num> on ${this.name}`,

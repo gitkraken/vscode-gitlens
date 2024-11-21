@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds the ability to get autolinks for branches using branch name [#3547](https://github.com/gitkraken/vscode-gitlens/issues/3547)
+
 ## [16.0.2] - 2024-11-18
 
 ### Changed

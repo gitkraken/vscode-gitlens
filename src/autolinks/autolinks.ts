@@ -1,29 +1,30 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
-import { GlyphChars } from './constants';
-import type { IntegrationId } from './constants.integrations';
-import { IssueIntegrationId } from './constants.integrations';
-import type { Container } from './container';
-import type { IssueOrPullRequest } from './git/models/issue';
-import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from './git/models/issue';
-import type { GitRemote } from './git/models/remote';
-import type { ProviderReference } from './git/models/remoteProvider';
-import type { ResourceDescriptor } from './plus/integrations/integration';
-import { fromNow } from './system/date';
-import { debug } from './system/decorators/log';
-import { encodeUrl } from './system/encoding';
-import { join, map } from './system/iterable';
-import { Logger } from './system/logger';
-import { escapeMarkdown } from './system/markdown';
-import type { MaybePausedResult } from './system/promise';
-import { capitalize, encodeHtmlWeak, escapeRegex, getSuperscript } from './system/string';
-import { configuration } from './system/vscode/configuration';
+import { GlyphChars } from '../constants';
+import type { IntegrationId } from '../constants.integrations';
+import { IssueIntegrationId } from '../constants.integrations';
+import type { Container } from '../container';
+import type { IssueOrPullRequest } from '../git/models/issue';
+import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/models/issue';
+import type { GitRemote } from '../git/models/remote';
+import type { ProviderReference } from '../git/models/remoteProvider';
+import type { ResourceDescriptor } from '../plus/integrations/integration';
+import { fromNow } from '../system/date';
+import { debug } from '../system/decorators/log';
+import { encodeUrl } from '../system/encoding';
+import { join, map } from '../system/iterable';
+import { Logger } from '../system/logger';
+import { escapeMarkdown } from '../system/markdown';
+import type { MaybePausedResult } from '../system/promise';
+import { capitalize, encodeHtmlWeak, escapeRegex, getSuperscript } from '../system/string';
+import { configuration } from '../system/vscode/configuration';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 
 const numRegex = /<num>/g;
 
 export type AutolinkType = 'issue' | 'pullrequest';
+export type AutolinkReferenceType = 'commitMessage' | 'branchName';
 
 export interface AutolinkReference {
 	/** Short prefix to match to generate autolinks for the external resource */
@@ -37,6 +38,7 @@ export interface AutolinkReference {
 	readonly title: string | undefined;
 
 	readonly type?: AutolinkType;
+	readonly referenceType?: AutolinkReferenceType;
 	readonly description?: string;
 	readonly descriptor?: ResourceDescriptor;
 }
@@ -44,6 +46,7 @@ export interface AutolinkReference {
 export interface Autolink extends AutolinkReference {
 	provider?: ProviderReference;
 	id: string;
+	index?: number;
 
 	tokenize?:
 		| ((
@@ -78,6 +81,7 @@ export function serializeAutolink(value: Autolink): Autolink {
 			  }
 			: undefined,
 		id: value.id,
+		index: value.index,
 		prefix: value.prefix,
 		url: value.url,
 		alphanumeric: value.alphanumeric,
@@ -105,6 +109,7 @@ export interface CacheableAutolinkReference extends AutolinkReference {
 	messageHtmlRegex?: RegExp;
 	messageMarkdownRegex?: RegExp;
 	messageRegex?: RegExp;
+	branchNameRegex?: RegExp;
 }
 
 export interface DynamicAutolinkReference {
@@ -130,6 +135,11 @@ function isDynamic(ref: AutolinkReference | DynamicAutolinkReference): ref is Dy
 function isCacheable(ref: AutolinkReference | DynamicAutolinkReference): ref is CacheableAutolinkReference {
 	return 'prefix' in ref && ref.prefix != null && 'url' in ref && ref.url != null;
 }
+
+export type RefSet = [
+	ProviderReference | undefined,
+	(AutolinkReference | DynamicAutolinkReference)[] | CacheableAutolinkReference[],
+];
 
 export class Autolinks implements Disposable {
 	protected _disposable: Disposable | undefined;
@@ -162,6 +172,138 @@ export class Autolinks implements Disposable {
 		}
 	}
 
+	/**
+	 * put connected integration autolinks to mutable refsets
+	 */
+	private async collectIntegrationAutolinks(refsets: RefSet[]) {
+		return Promise.allSettled(
+			supportedAutolinkIntegrations.map(async integrationId => {
+				const integration = await this.container.integrations.get(integrationId);
+				// Don't check for integration access, as we want to allow autolinks to always be generated
+				const autoLinks = await integration.autolinks();
+				if (autoLinks.length) {
+					refsets.push([integration, autoLinks]);
+				}
+			}),
+		);
+	}
+
+	/** put remote-specific autolinks and remote integration autolinks to mutable refsets */
+	private async collectRemoteAutolinks(remote: GitRemote | undefined, refsets: RefSet[]) {
+		if (remote?.provider != null) {
+			const autoLinks = [];
+			// Don't check for integration access, as we want to allow autolinks to always be generated
+			const integrationAutolinks = await (await remote.getIntegration())?.autolinks();
+			if (integrationAutolinks?.length) {
+				autoLinks.push(...integrationAutolinks);
+			}
+			if (remote?.provider?.autolinks.length) {
+				autoLinks.push(...remote.provider.autolinks);
+			}
+
+			if (autoLinks.length) {
+				refsets.push([remote.provider, autoLinks]);
+			}
+		}
+	}
+
+	/** put custom-configured autolinks to mutable refsets */
+	private collectCustomAutolinks(remote: GitRemote | undefined, refsets: RefSet[]) {
+		if (this._references.length && remote?.provider == null) {
+			refsets.push([undefined, this._references]);
+		}
+	}
+
+	/**
+	 * it should always return non-0 result that means a probability of the autolink `b` is more relevant of the autolink `a`
+	 */
+	private static compareAutolinks(a: Autolink, b: Autolink) {
+		// consider that if the number is in the start, it's the most relevant link
+		if (b.index === 0) {
+			return 1;
+		}
+		if (a.index === 0) {
+			return -1;
+		}
+
+		// maybe it worths to use some weight function instead.
+		return (
+			b.prefix.length - a.prefix.length ||
+			b.id.length - a.id.length ||
+			(b.index != null && a.index != null ? -(b.index - a.index) : 0)
+		);
+	}
+
+	private async getRefsets(remote?: GitRemote, options?: { excludeCustom?: boolean }) {
+		const refsets: RefSet[] = [];
+		await this.collectIntegrationAutolinks(refsets);
+		await this.collectRemoteAutolinks(remote, refsets);
+		if (!options?.excludeCustom) {
+			this.collectCustomAutolinks(remote, refsets);
+		}
+		return refsets;
+	}
+
+	/**
+	 * returns sorted list of autolinks. the first is matched as the most relevant
+	 */
+	async getBranchAutolinks(
+		branchName: string,
+		remote?: GitRemote,
+		options?: { excludeCustom?: boolean },
+	): Promise<Map<string, Autolink>> {
+		const refsets = await this.getRefsets(remote, options);
+		if (refsets.length === 0) return emptyAutolinkMap;
+
+		return Autolinks._getBranchAutolinks(branchName, refsets);
+	}
+
+	static _getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[]>) {
+		const autolinks = new Map<string, Autolink>();
+
+		let match;
+		let num;
+		for (const [provider, refs] of refsets) {
+			for (const ref of refs) {
+				if (
+					!isCacheable(ref) ||
+					ref.type === 'pullrequest' ||
+					(ref.referenceType && ref.referenceType !== 'branchName')
+				) {
+					continue;
+				}
+
+				ensureCachedRegex(ref, 'plaintext');
+				const matches = branchName.matchAll(ref.branchNameRegex);
+				do {
+					match = matches.next();
+					if (!match.value?.groups) break;
+
+					num = match?.value?.groups.issueKeyNumber;
+					let index = match.value.index;
+					const linkUrl = ref.url?.replace(numRegex, num);
+					// strange case (I would say synthetic), but if we parse the link twice, use the most relevant of them
+					const existingIndex = autolinks.get(linkUrl)?.index;
+					if (existingIndex != null) {
+						index = Math.min(index, existingIndex);
+					}
+					autolinks.set(linkUrl, {
+						...ref,
+						provider: provider,
+						id: num,
+						index: index,
+						url: linkUrl,
+						title: ref.title?.replace(numRegex, num),
+						description: ref.description?.replace(numRegex, num),
+						descriptor: ref.descriptor,
+					});
+				} while (!match.done);
+			}
+		}
+
+		return new Map([...autolinks.entries()].sort((a, b) => this.compareAutolinks(a[1], b[1])));
+	}
+
 	async getAutolinks(message: string, remote?: GitRemote): Promise<Map<string, Autolink>>;
 	async getAutolinks(
 		message: string,
@@ -180,52 +322,19 @@ export class Autolinks implements Disposable {
 		remote?: GitRemote,
 		options?: { excludeCustom?: boolean },
 	): Promise<Map<string, Autolink>> {
-		const refsets: [
-			ProviderReference | undefined,
-			(AutolinkReference | DynamicAutolinkReference)[] | CacheableAutolinkReference[],
-		][] = [];
-		// Connected integration autolinks
-		await Promise.allSettled(
-			supportedAutolinkIntegrations.map(async integrationId => {
-				const integration = await this.container.integrations.get(integrationId);
-				// Don't check for integration access, as we want to allow autolinks to always be generated
-				const autoLinks = await integration.autolinks();
-				if (autoLinks.length) {
-					refsets.push([integration, autoLinks]);
-				}
-			}),
-		);
-
-		// Remote-specific autolinks and remote integration autolinks
-		if (remote?.provider != null) {
-			const autoLinks = [];
-			// Don't check for integration access, as we want to allow autolinks to always be generated
-			const integrationAutolinks = await (await remote.getIntegration())?.autolinks();
-			if (integrationAutolinks?.length) {
-				autoLinks.push(...integrationAutolinks);
-			}
-			if (remote?.provider?.autolinks.length) {
-				autoLinks.push(...remote.provider.autolinks);
-			}
-
-			if (autoLinks.length) {
-				refsets.push([remote.provider, autoLinks]);
-			}
-		}
-
-		// Custom-configured autolinks
-		if (this._references.length && (remote?.provider == null || !options?.excludeCustom)) {
-			refsets.push([undefined, this._references]);
-		}
+		const refsets = await this.getRefsets(remote, options);
 		if (refsets.length === 0) return emptyAutolinkMap;
 
-		const autolinks = new Map<string, Autolink>();
+		return Autolinks._getAutolinks(message, refsets);
+	}
 
+	static _getAutolinks(message: string, refsets: Readonly<RefSet[]>) {
+		const autolinks = new Map<string, Autolink>();
 		let match;
 		let num;
 		for (const [provider, refs] of refsets) {
 			for (const ref of refs) {
-				if (!isCacheable(ref)) {
+				if (!isCacheable(ref) || (ref.referenceType && ref.referenceType !== 'commitMessage')) {
 					if (isDynamic(ref)) {
 						ref.parse(message, autolinks);
 					}
@@ -236,13 +345,14 @@ export class Autolinks implements Disposable {
 
 				do {
 					match = ref.messageRegex.exec(message);
-					if (match == null) break;
+					if (!match) break;
 
 					[, , , num] = match;
 
 					autolinks.set(num, {
 						provider: provider,
 						id: num,
+						index: match.index,
 						prefix: ref.prefix,
 						url: ref.url?.replace(numRegex, num),
 						alphanumeric: ref.alphanumeric,
@@ -625,7 +735,7 @@ function ensureCachedRegex(
 function ensureCachedRegex(
 	ref: CacheableAutolinkReference,
 	outputFormat: 'plaintext',
-): asserts ref is RequireSome<CacheableAutolinkReference, 'messageRegex'>;
+): asserts ref is RequireSome<CacheableAutolinkReference, 'messageRegex' | 'branchNameRegex'>;
 function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html' | 'markdown' | 'plaintext') {
 	// Regexes matches the ref prefix followed by a token (e.g. #1234)
 	if (outputFormat === 'markdown' && ref.messageMarkdownRegex == null) {
@@ -645,6 +755,12 @@ function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html'
 		ref.messageRegex = new RegExp(
 			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(ref.prefix)}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
+		);
+		ref.branchNameRegex = new RegExp(
+			`(^|\\-|_|\\.|\\/)(?<prefix>${ref.prefix})(?<issueKeyNumber>${
+				ref.alphanumeric ? '\\w' : '\\d'
+			}+)(?=$|\\-|_|\\.|\\/)`,
+			'gi',
 		);
 	}
 
