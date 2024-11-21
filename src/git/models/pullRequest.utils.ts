@@ -15,14 +15,14 @@ export function getPullRequestIdentityValuesFromSearch(search: string): PullRequ
 	let ownerAndRepo: string | undefined = undefined;
 	let prNumber: string | undefined = undefined;
 
-	let match = search.match(/([^/]+\/[^/]+)\/pull\/(\d+)/); // with org and rep name
+	let match = search.match(/([^/]+\/[^/]+)\/(?:pull|-\/merge_requests)\/(\d+)/); // with org and rep name
 	if (match != null) {
 		ownerAndRepo = match[1];
 		prNumber = match[2];
 	}
 
 	if (prNumber == null) {
-		match = search.match(/(?:\/|^)pull\/(\d+)/); // without repo name
+		match = search.match(/(?:\/|^)(?:pull|-\/merge_requests)\/(\d+)/); // without repo name
 		if (match != null) {
 			prNumber = match[1];
 		}
