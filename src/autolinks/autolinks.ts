@@ -46,6 +46,7 @@ export interface AutolinkReference {
 export interface Autolink extends AutolinkReference {
 	provider?: ProviderReference;
 	id: string;
+	index: number;
 
 	tokenize?:
 		| ((
@@ -80,6 +81,7 @@ export function serializeAutolink(value: Autolink): Autolink {
 			  }
 			: undefined,
 		id: value.id,
+		index: value.index,
 		prefix: value.prefix,
 		url: value.url,
 		alphanumeric: value.alphanumeric,
@@ -126,7 +128,7 @@ export interface DynamicAutolinkReference {
 
 export const supportedAutolinkIntegrations = [IssueIntegrationId.Jira];
 
-export function isDynamic(ref: AutolinkReference | DynamicAutolinkReference): ref is DynamicAutolinkReference {
+function isDynamic(ref: AutolinkReference | DynamicAutolinkReference): ref is DynamicAutolinkReference {
 	return !('prefix' in ref) && !('url' in ref);
 }
 
@@ -138,14 +140,6 @@ export type RefSet = [
 	ProviderReference | undefined,
 	(AutolinkReference | DynamicAutolinkReference)[] | CacheableAutolinkReference[],
 ];
-
-type ComparingAutolinkSet = {
-	/** the place where the autolink is found from start-like symbol (/|_) */
-	index: number;
-	/** the place where the autolink is found from start */
-	startIndex: number;
-	autolink: Autolink;
-};
 
 export class Autolinks implements Disposable {
 	protected _disposable: Disposable | undefined;
@@ -223,7 +217,7 @@ export class Autolinks implements Disposable {
 	/**
 	 * it should always return non-0 result that means a probability of the autolink `b` is more relevant of the autolink `a`
 	 */
-	private static compareAutolinks(a: ComparingAutolinkSet, b: ComparingAutolinkSet) {
+	private static compareAutolinks(a: Autolink, b: Autolink) {
 		// consider that if the number is in the start, it's the most relevant link
 		if (b.index === 0) {
 			return 1;
@@ -232,11 +226,17 @@ export class Autolinks implements Disposable {
 			return -1;
 		}
 		// maybe it worths to use some weight function instead.
-		return (
-			b.autolink.prefix.length - a.autolink.prefix.length ||
-			-(b.startIndex - a.startIndex) ||
-			-(b.index - a.index)
-		);
+		return b.prefix.length - a.prefix.length || b.id.length - a.id.length || -(b.index - a.index);
+	}
+
+	private async getRefsets(remote?: GitRemote, options?: { excludeCustom?: boolean }) {
+		const refsets: RefSet[] = [];
+		await this.collectIntegrationAutolinks(refsets);
+		await this.collectRemoteAutolinks(remote, refsets);
+		if (!options?.excludeCustom) {
+			this.collectCustomAutolinks(remote, refsets);
+		}
+		return refsets;
 	}
 
 	/**
@@ -245,21 +245,16 @@ export class Autolinks implements Disposable {
 	async getBranchAutolinks(
 		branchName: string,
 		remote?: GitRemote,
-		options?: { excludeCustom: boolean },
-	): Promise<undefined | Autolink[]> {
-		const refsets: RefSet[] = [];
-		await this.collectIntegrationAutolinks(refsets);
-		await this.collectRemoteAutolinks(remote, refsets);
-		if (!options?.excludeCustom) {
-			this.collectCustomAutolinks(remote, refsets);
-		}
-		if (refsets.length === 0) return undefined;
+		options?: { excludeCustom?: boolean },
+	): Promise<Map<string, Autolink>> {
+		const refsets = await this.getRefsets(remote, options);
+		if (refsets.length === 0) return emptyAutolinkMap;
 
 		return Autolinks._getBranchAutolinks(branchName, refsets);
 	}
 
 	static _getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[]>) {
-		const autolinks = new Map<string, ComparingAutolinkSet>();
+		const autolinks = new Map<string, Autolink>();
 
 		let match;
 		let num;
@@ -286,28 +281,20 @@ export class Autolinks implements Disposable {
 						index = Math.min(index, autolinks.get(linkUrl)!.index);
 					}
 					autolinks.set(linkUrl, {
+						...ref,
+						provider: provider,
+						id: num,
 						index: index,
-						// TODO: calc the distance from the nearest start-like symbol
-						startIndex: 0,
-						autolink: {
-							...ref,
-							provider: provider,
-							id: num,
-
-							url: linkUrl,
-							title: ref.title?.replace(numRegex, num),
-							description: ref.description?.replace(numRegex, num),
-							descriptor: ref.descriptor,
-						},
+						url: linkUrl,
+						title: ref.title?.replace(numRegex, num),
+						description: ref.description?.replace(numRegex, num),
+						descriptor: ref.descriptor,
 					});
 				} while (!match.done);
 			}
 		}
 
-		return [...autolinks.values()]
-			.flat()
-			.sort(this.compareAutolinks)
-			.map(x => x.autolink);
+		return new Map([...autolinks.entries()].sort((a, b) => this.compareAutolinks(a[1], b[1])));
 	}
 
 	async getAutolinks(message: string, remote?: GitRemote): Promise<Map<string, Autolink>>;
@@ -326,14 +313,9 @@ export class Autolinks implements Disposable {
 	async getAutolinks(
 		message: string,
 		remote?: GitRemote,
-		options?: { excludeCustom?: boolean; isBranchName?: boolean },
+		options?: { excludeCustom?: boolean },
 	): Promise<Map<string, Autolink>> {
-		const refsets: RefSet[] = [];
-		await this.collectIntegrationAutolinks(refsets);
-		await this.collectRemoteAutolinks(remote, refsets);
-		if (!options?.excludeCustom) {
-			this.collectCustomAutolinks(remote, refsets);
-		}
+		const refsets = await this.getRefsets(remote, options);
 		if (refsets.length === 0) return emptyAutolinkMap;
 
 		return Autolinks._getAutolinks(message, refsets);
@@ -363,6 +345,7 @@ export class Autolinks implements Disposable {
 					autolinks.set(num, {
 						provider: provider,
 						id: num,
+						index: match.index,
 						prefix: ref.prefix,
 						url: ref.url?.replace(numRegex, num),
 						alphanumeric: ref.alphanumeric,

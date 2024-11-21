@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds the ability to get autolinks for branches using branch name [#3547](https://github.com/gitkraken/vscode-gitlens/issues/3547)
+
 ## [16.0.2] - 2024-11-18
 
 ### Changed
@@ -132,7 +136,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds new ability to force push from the _Commit Graph_ toolbar &mdash; closes [#3493](https://github.com/gitkraken/vscode-gitlens/issues/3493)
 - Adds a new `gitlens.launchpad.includedOrganizations` setting to specify which organizations to include in _Launchpad_ &mdash; closes [#3550](https://github.com/gitkraken/vscode-gitlens/issues/3550)
 - Adds repository owner/name and code suggest to hovers on the experimental Launchpad view
-- Adds getBranchAutolinks method to Autolinks class [#3547](https://github.com/gitkraken/vscode-gitlens/issues/3547)
 
 ### Changed
 
