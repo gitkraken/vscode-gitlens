@@ -946,6 +946,11 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				createQuickPickSeparator('Actions'),
 			];
 
+			const checkoutable =
+				state.item.type === 'pullrequest' &&
+				state.item.headRef != null &&
+				state.item.repoIdentity?.remote?.url != null;
+
 			for (const action of state.item.suggestedActions) {
 				switch (action) {
 					case 'merge': {
@@ -993,41 +998,50 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							),
 						);
 						break;
-					case 'switch':
-						confirmations.push(
-							createQuickPickItemOfT(
-								{
-									label: 'Switch to Branch',
-									detail: 'Will checkout the branch, create or open a worktree',
-								},
-								action,
-							),
-						);
+					case 'switch': {
+						if (checkoutable) {
+							confirmations.push(
+								createQuickPickItemOfT(
+									{
+										label: 'Switch to Branch',
+										detail: 'Will checkout the branch, create or open a worktree',
+									},
+									action,
+								),
+							);
+						}
 						break;
-					case 'open-worktree':
-						confirmations.push(
-							createQuickPickItemOfT(
-								{
-									label: 'Open in Worktree',
-									detail: 'Will create or open a worktree in a new window',
-								},
-								action,
-							),
-						);
+					}
+					case 'open-worktree': {
+						if (checkoutable) {
+							confirmations.push(
+								createQuickPickItemOfT(
+									{
+										label: 'Open in Worktree',
+										detail: 'Will create or open a worktree in a new window',
+									},
+									action,
+								),
+							);
+						}
 						break;
-					case 'switch-and-code-suggest':
-						confirmations.push(
-							createQuickPickItemOfT(
-								{
-									label: `Switch & Suggest ${
-										state.item.viewer.isAuthor ? 'Additional ' : ''
-									}Code Changes`,
-									detail: 'Will checkout and start suggesting code changes',
-								},
-								action,
-							),
-						);
+					}
+					case 'switch-and-code-suggest': {
+						if (checkoutable) {
+							confirmations.push(
+								createQuickPickItemOfT(
+									{
+										label: `Switch & Suggest ${
+											state.item.viewer.isAuthor ? 'Additional ' : ''
+										}Code Changes`,
+										detail: 'Will checkout and start suggesting code changes',
+									},
+									action,
+								),
+							);
+						}
 						break;
+					}
 					case 'code-suggest':
 						confirmations.push(
 							createQuickPickItemOfT(
@@ -1061,16 +1075,19 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							),
 						);
 						break;
-					case 'open-in-graph':
-						confirmations.push(
-							createQuickPickItemOfT(
-								{
-									label: 'Open in Commit Graph',
-								},
-								action,
-							),
-						);
+					case 'open-in-graph': {
+						if (checkoutable) {
+							confirmations.push(
+								createQuickPickItemOfT(
+									{
+										label: 'Open in Commit Graph',
+									},
+									action,
+								),
+							);
+						}
 						break;
+					}
 				}
 			}
 
