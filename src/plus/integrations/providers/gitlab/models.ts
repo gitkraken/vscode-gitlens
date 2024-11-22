@@ -80,7 +80,7 @@ export interface GitLabMergeRequestFull extends GitLabMergeRequest {
 	diffRefs: {
 		baseSha: string | null;
 		headSha: string;
-	};
+	} | null;
 	project: GitLabRepositoryStub;
 	sourceProject: GitLabRepositoryStub;
 }
@@ -237,7 +237,7 @@ function fromGitLabMergeRequestRefs(pr: GitLabMergeRequestFull): PullRequestRefs
 			exists: true,
 			url: pr.sourceProject.webUrl,
 			repo: pr.sourceProject.fullPath,
-			sha: pr.diffRefs.baseSha || '',
+			sha: pr.diffRefs?.baseSha || '',
 		},
 		head: {
 			owner: getRepoNamespace(pr.project.fullPath),
@@ -245,7 +245,7 @@ function fromGitLabMergeRequestRefs(pr: GitLabMergeRequestFull): PullRequestRefs
 			exists: true,
 			url: pr.project.webUrl,
 			repo: pr.project.fullPath,
-			sha: pr.diffRefs.headSha,
+			sha: pr.diffRefs?.headSha || '',
 		},
 		isCrossRepository: pr.sourceProject.id !== pr.project.id,
 	};
