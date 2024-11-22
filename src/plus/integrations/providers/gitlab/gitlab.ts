@@ -661,6 +661,50 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
+	@debug<GitLabApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async searchPullRequests(
+		provider: Provider,
+		token: string,
+		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
+		cancellation?: CancellationToken,
+	): Promise<PullRequest[]> {
+		const scope = getLogScope();
+		const search = options?.search;
+		if (!search) {
+			return [];
+		}
+		try {
+			const gitlabPRs = await this.request<GitLabMergeRequestREST[]>(
+				provider,
+				token,
+				options?.baseUrl,
+				`v4/search/?scope=merge_requests&search=${search}`,
+				{
+					method: 'GET',
+				},
+				cancellation,
+				scope,
+			);
+			if (gitlabPRs.length === 0) {
+				return [];
+			}
+
+			const prs: PullRequest[] = gitlabPRs.map(pr => {
+				const fullRef = pr.references.full;
+				const project = {
+					owner: fullRef.substring(0, fullRef.lastIndexOf('/')),
+					repo: fullRef.substring(fullRef.lastIndexOf('/') + 1, fullRef.lastIndexOf('!')),
+				};
+				return fromGitLabMergeRequestREST(pr, provider, project);
+			});
+			return prs;
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return [];
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
 	private async findUser(
 		provider: Provider,
 		token: string,
