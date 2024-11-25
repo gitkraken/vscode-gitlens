@@ -524,10 +524,11 @@ export class IntegrationService implements Disposable {
 		const get = getOrGetCached.bind(this);
 
 		switch (remote.provider.id) {
-			case 'azure-devops':
-				return get(HostingIntegrationId.AzureDevOps) as RT;
-			case 'bitbucket':
-				return get(HostingIntegrationId.Bitbucket) as RT;
+			// TODO: Uncomment when we support these integrations
+			// case 'azure-devops':
+			// 	return get(HostingIntegrationId.AzureDevOps) as RT;
+			// case 'bitbucket':
+			// 	return get(HostingIntegrationId.Bitbucket) as RT;
 			case 'github':
 				if (remote.provider.custom && remote.provider.domain != null) {
 					return get(SelfHostedIntegrationId.GitHubEnterprise, remote.provider.domain) as RT;
@@ -538,7 +539,6 @@ export class IntegrationService implements Disposable {
 					return get(SelfHostedIntegrationId.GitLabSelfHosted, remote.provider.domain) as RT;
 				}
 				return get(HostingIntegrationId.GitLab) as RT;
-			case 'bitbucket-server':
 			default:
 				return (getOrGetCached === this.get ? Promise.resolve(undefined) : undefined) as RT;
 		}
