@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds the ability to get autolinks for branches using branch name [#3547](https://github.com/gitkraken/vscode-gitlens/issues/3547)
+- Adds new ability to search for a GitLab MR in the _Launchpad_ &mdash; closes [#3788](https://github.com/gitkraken/vscode-gitlens/issues/3788)
 
 ## [16.0.2] - 2024-11-18
 

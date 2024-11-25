@@ -420,11 +420,12 @@ export async function getOpenedPullRequestRepo(
 
 export function doesPullRequestSatisfyRepositoryURLIdentity(
 	pr: EnrichablePullRequest | undefined,
-	{ ownerAndRepo, prNumber }: PullRequestURLIdentity,
+	prUrlIdentity: { [key in string]?: PullRequestURLIdentity },
 ): boolean {
 	if (pr == null) {
 		return false;
 	}
+	const { ownerAndRepo, prNumber } = prUrlIdentity[pr.provider.id] ?? {};
 	const satisfiesPrNumber = prNumber != null && pr.number === parseInt(prNumber, 10);
 	if (!satisfiesPrNumber) {
 		return false;

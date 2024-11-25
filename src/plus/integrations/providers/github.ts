@@ -11,6 +11,7 @@ import type {
 	PullRequestState,
 	SearchedPullRequest,
 } from '../../../git/models/pullRequest';
+import type { PullRequestURLIdentity } from '../../../git/models/pullRequest.utils';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
 import { ensurePaidPlan } from '../../utils';
@@ -20,6 +21,7 @@ import type {
 } from '../authentication/integrationAuthentication';
 import type { SupportedIntegrationIds } from '../integration';
 import { HostingIntegration } from '../integration';
+import { getGitHubPullRequestIdentityValuesFromSearch } from './github.utils';
 import { providersMetadata } from './models';
 import type { ProvidersApi } from './providersApi';
 
@@ -284,6 +286,10 @@ export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationI
 			}
 			super.refresh();
 		}
+	}
+
+	override getPullRequestIdentityValuesFromSearch(search: string): PullRequestURLIdentity | undefined {
+		return getGitHubPullRequestIdentityValuesFromSearch(search);
 	}
 }
 

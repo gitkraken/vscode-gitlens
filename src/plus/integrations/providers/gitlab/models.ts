@@ -1,5 +1,5 @@
 import type { PullRequestState } from '../../../../git/models/pullRequest';
-import { PullRequest } from '../../../../git/models/pullRequest';
+import { PullRequest, PullRequestMergeableState } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { Integration } from '../../integration';
 import type { ProviderPullRequest } from '../models';
@@ -91,7 +91,12 @@ export interface GitLabMergeRequestREST {
 	updated_at: string;
 	closed_at: string | null;
 	merged_at: string | null;
+	detailed_merge_status: 'conflict' | 'mergeable' | string; // https://docs.gitlab.com/ee/api/merge_requests.html#merge-status
 	web_url: string;
+	references: {
+		full: string;
+		short: string;
+	};
 }
 
 export function fromGitLabMergeRequestREST(
@@ -108,7 +113,7 @@ export function fromGitLabMergeRequestREST(
 			url: pr.author?.web_url ?? '',
 		},
 		String(pr.iid),
-		undefined,
+		String(pr.id),
 		pr.title,
 		pr.web_url,
 		repo,
@@ -117,6 +122,11 @@ export function fromGitLabMergeRequestREST(
 		new Date(pr.updated_at),
 		pr.closed_at == null ? undefined : new Date(pr.closed_at),
 		pr.merged_at == null ? undefined : new Date(pr.merged_at),
+		pr.detailed_merge_status === 'mergeable'
+			? PullRequestMergeableState.Mergeable
+			: pr.detailed_merge_status === 'conflict'
+			  ? PullRequestMergeableState.Conflicting
+			  : PullRequestMergeableState.Unknown,
 	);
 }
 
