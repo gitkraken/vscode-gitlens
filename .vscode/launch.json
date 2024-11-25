@@ -10,9 +10,13 @@
 			"args": ["--profile=Debugging (GitLens)", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"outFiles": ["${workspaceFolder}/dist/webviews/**/*.js"],
 				"pauseForSourceMap": true,
+				"showAsyncStacks": true,
+				"smartStep": true,
 				"sourceMapRenames": true,
 				"sourceMaps": true,
+				"trace": true,
 				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
@@ -22,6 +26,7 @@
 				"order": 1
 			},
 			"pauseForSourceMap": true,
+			"showAsyncStacks": true,
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
 			"sourceMapRenames": true,
@@ -36,9 +41,13 @@
 			"args": ["--profile-temp", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"outFiles": ["${workspaceFolder}/dist/webviews/**/*.js"],
 				"pauseForSourceMap": true,
+				"showAsyncStacks": true,
+				"smartStep": true,
 				"sourceMapRenames": true,
 				"sourceMaps": true,
+				"trace": true,
 				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
@@ -48,6 +57,7 @@
 				"group": "2_run",
 				"order": 2
 			},
+			"showAsyncStacks": true,
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
 			"sourceMapRenames": true,
@@ -81,9 +91,13 @@
 			"args": ["--profile=Debugging (GitLens)", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"outFiles": ["${workspaceFolder}/dist/webviews/**/*.js"],
 				"pauseForSourceMap": true,
+				"showAsyncStacks": true,
+				"smartStep": true,
 				"sourceMapRenames": true,
 				"sourceMaps": true,
+				"trace": true,
 				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
@@ -94,6 +108,7 @@
 				"group": "1_watch",
 				"order": 1
 			},
+			"showAsyncStacks": true,
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
 			"sourceMapRenames": true,
@@ -113,9 +128,14 @@
 			],
 			"debugWebWorkerHost": true,
 			"rendererDebugOptions": {
+				"outFiles": ["${workspaceFolder}/dist/webviews/**/*.js"],
 				"pauseForSourceMap": true,
+				"showAsyncStacks": true,
+				"smartStep": true,
 				"sourceMapRenames": true,
 				"sourceMaps": true,
+				"trace": true,
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
@@ -126,6 +146,7 @@
 				"order": 1
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"showAsyncStacks": true,
 			"smartStep": true,
 			"sourceMapRenames": true,
 			"sourceMaps": true,
@@ -140,8 +161,11 @@
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"pauseForSourceMap": true,
+				"showAsyncStacks": true,
+				"smartStep": true,
 				"sourceMapRenames": true,
 				"sourceMaps": true,
+				"trace": true,
 				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
@@ -152,6 +176,7 @@
 				"group": "1_watch",
 				"order": 2
 			},
+			"showAsyncStacks": true,
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
 			"sourceMapRenames": true,
