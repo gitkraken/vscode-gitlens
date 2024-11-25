@@ -42,15 +42,12 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 	private _autolinks: Map<string, (AutolinkReference | DynamicAutolinkReference)[]> | undefined;
 	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return [];
-		if (this._session == null || this._organizations == null || this._projects == null) return [];
-
-		this._autolinks ||= new Map<string, (AutolinkReference | DynamicAutolinkReference)[]>();
-
-		const cachedAutolinks = this._autolinks.get(this._session.accessToken);
-		if (cachedAutolinks != null) {
-			return cachedAutolinks;
+		if (!connected || this._session == null || this._organizations == null || this._projects == null) {
+			return [];
 		}
+
+		const cachedAutolinks = this._autolinks?.get(this._session.accessToken);
+		if (cachedAutolinks != null) return cachedAutolinks;
 
 		const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
 		const organizations = this._organizations.get(this._session.accessToken);
@@ -76,6 +73,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 			}
 		}
 
+		this._autolinks ??= new Map<string, (AutolinkReference | DynamicAutolinkReference)[]>();
 		this._autolinks.set(this._session.accessToken, autolinks);
 
 		return autolinks;
@@ -99,7 +97,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		{ accessToken }: AuthenticationSession,
 		force: boolean = false,
 	): Promise<JiraOrganizationDescriptor[] | undefined> {
-		this._organizations ||= new Map<string, JiraOrganizationDescriptor[] | undefined>();
+		this._organizations ??= new Map<string, JiraOrganizationDescriptor[] | undefined>();
 
 		const cachedResources = this._organizations.get(accessToken);
 
@@ -121,7 +119,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		resources: JiraOrganizationDescriptor[],
 		force: boolean = false,
 	): Promise<JiraProjectDescriptor[] | undefined> {
-		this._projects ||= new Map<string, JiraProjectDescriptor[] | undefined>();
+		this._projects ??= new Map<string, JiraProjectDescriptor[] | undefined>();
 
 		let resourcesWithoutProjects = [];
 		if (force) {
@@ -278,7 +276,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 			});
 		}
 
-		this._organizations ||= new Map<string, JiraOrganizationDescriptor[] | undefined>();
+		this._organizations ??= new Map<string, JiraOrganizationDescriptor[] | undefined>();
 		this._organizations.set(this._session.accessToken, organizations);
 
 		if (storedProjects == null && organizations?.length) {
@@ -290,7 +288,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 			});
 		}
 
-		this._projects ||= new Map<string, JiraProjectDescriptor[] | undefined>();
+		this._projects ??= new Map<string, JiraProjectDescriptor[] | undefined>();
 		for (const project of projects ?? []) {
 			const projectKey = `${this._session.accessToken}:${project.resourceId}`;
 			const projects = this._projects.get(projectKey);
