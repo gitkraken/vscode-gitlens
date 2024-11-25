@@ -493,7 +493,7 @@ export class IntegrationService implements Disposable {
 			const authenticationService = this.authenticationService;
 			async function load() {
 				return new (
-					await import(/* webpackChunkName: "integrations-api" */ './providers/providersApi')
+					await import(/* webpackChunkName: "integrations" */ './providers/providersApi')
 				).ProvidersApi(container, authenticationService);
 			}
 
